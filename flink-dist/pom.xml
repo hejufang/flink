@@ -102,7 +102,7 @@ under the License.
 			<artifactId>flink-metrics-jmx_${scala.binary.version}</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-        
+
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-mesos_${scala.binary.version}</artifactId>
@@ -215,6 +215,13 @@ under the License.
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-metrics-dropwizard</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-metrics-opentsdb</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
@@ -370,6 +377,24 @@ under the License.
 			<artifactId>flink-test-utils-junit</artifactId>
 		</dependency>
 		<!-- end test dependencies -->
+
+		<dependency>
+			<groupId>com.alibaba.jstorm</groupId>
+			<artifactId>jstorm-core</artifactId>
+			<version>2.2.1-flink-SNAPSHOT</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.bytedance.storm.serializer</groupId>
+			<artifactId>storm-serializer</artifactId>
+			<version>0.0.1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.scala-lang</groupId>
+			<artifactId>scala-library</artifactId>
+		</dependency>
+
 	</dependencies>
 
 	<profiles>
