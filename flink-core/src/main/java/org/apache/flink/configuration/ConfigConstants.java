@@ -2035,6 +2035,17 @@ public final class ConfigConstants {
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
+	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
+	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
+
+	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
+
+	public static final String FLINK_GC_LOG_OPTS_KEY = "flink.gc.log.opts";
+	public static final String FLINK_GC_LOG_OPTS_DEFAULT = "-XX:+PrintGCDetails -XX:+PrintGCDateStamps";
+	public static final String FLINK_GC_LOG_FILE_KEY = "flink.gc.log.file";
+	public static final String FLINK_DUMP_ON_OOM_KEY = "flink.dump.on.oom";
+	public static final boolean FLINK_DUMP_ON_OOM_DEFAULT = false;
+
 	/**
 	 * Not instantiable.
 	 */

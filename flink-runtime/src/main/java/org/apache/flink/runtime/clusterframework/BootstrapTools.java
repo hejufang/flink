@@ -438,6 +438,18 @@ public class BootstrapTools {
 		if (flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS).length() > 0) {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS);
 		}
+
+		// JVM GC log opts
+		javaOpts += " " + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_OPTS_KEY,
+			ConfigConstants.FLINK_GC_LOG_OPTS_DEFAULT);
+		javaOpts += " " + "-Xloggc:" + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_FILE_KEY,
+			logDirectory + "/gc.log");
+
+		// JVM dump on OOM config
+		if (flinkConfig.getBoolean(ConfigConstants.FLINK_DUMP_ON_OOM_KEY, ConfigConstants.FLINK_DUMP_ON_OOM_DEFAULT)) {
+			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
