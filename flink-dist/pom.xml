@@ -380,14 +380,20 @@ under the License.
 
 		<dependency>
 			<groupId>com.alibaba.jstorm</groupId>
-			<artifactId>jstorm-core</artifactId>
-			<version>2.2.1-flink-SNAPSHOT</version>
+			<artifactId>jstorm-core-flink</artifactId>
+			<version>2.2.1-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>kafka-clients</artifactId>
+					<groupId>org.apache.kafka</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>
-			<groupId>com.bytedance.storm.serializer</groupId>
+			<groupId>com.bytedance.storm</groupId>
 			<artifactId>storm-serializer</artifactId>
-			<version>0.0.1</version>
+			<version>1.0.0-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
