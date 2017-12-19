@@ -49,6 +49,9 @@ public class YarnConfigKeys {
 	public static final String ENV_KRB5_PATH = "_KRB5_PATH";
 	public static final String ENV_YARN_SITE_XML_PATH = "_YARN_SITE_XML_PATH";
 
+	public static final String ENV_FLINK_YARN_JOB = "_FLINK_YARN_JOB";
+	public static final String ENV_FLINK_YARN_QUEUE = "_FLINK_YARN_QUEUE";
+
 	// ------------------------------------------------------------------------
 
 	/** Private constructor to prevent instantiation. */

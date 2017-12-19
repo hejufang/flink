@@ -982,9 +982,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
 		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
 
-		final String customApplicationName = customName != null ? customName : applicationName;
-
-		appContext.setApplicationName(customApplicationName);
+		appContext.setApplicationName(name);
 		appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
 		appContext.setAMContainerSpec(amContainer);
 		appContext.setResource(capability);
