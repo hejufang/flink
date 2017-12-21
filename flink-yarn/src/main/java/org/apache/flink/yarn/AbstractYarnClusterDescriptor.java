@@ -964,8 +964,14 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		} else {
 			name = customName;
 		}
-		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, name);
-		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, this.yarnQueue);
+
+		if (name != null) {
+			//Replace spaces by hyphen as space is difficult to handle in the subsequent process.
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, name.replace(" ", "-"));
+		}
+		if (this.yarnQueue != null) {
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, this.yarnQueue.replace(" ", "-"));
+		}
 
 		if (remotePathKeytab != null) {
 			appMasterEnv.put(YarnConfigKeys.KEYTAB_PATH, remotePathKeytab.toString());
