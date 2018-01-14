@@ -89,7 +89,8 @@ public final class Utils {
 	 */
 	public static int calculateHeapSize(int memory, org.apache.flink.configuration.Configuration conf) {
 
-		float memoryCutoffRatio = conf.getFloat(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_RATIO);
+		float memoryCutoffRatio = conf.getFloat(ConfigConstants.CONTAINERIZED_JOBMANAGER_HEAP_CUTOFF_RATIO,
+			conf.getFloat(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_RATIO));
 		int minCutoff = conf.getInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN);
 
 		if (memoryCutoffRatio > 1 || memoryCutoffRatio < 0) {

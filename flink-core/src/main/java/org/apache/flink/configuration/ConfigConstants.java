@@ -397,6 +397,12 @@ public final class ConfigConstants {
 	public static final String CONTAINERIZED_HEAP_CUTOFF_RATIO = "containerized.heap-cutoff-ratio";
 
 	/**
+	 * Percentage of heap space to remove from jobmanager containers (YARN / Mesos), to compensate
+	 * for other JVM memory usage.
+	 */
+	public static final String CONTAINERIZED_JOBMANAGER_HEAP_CUTOFF_RATIO = "containerized.jobmanager.heap-cutoff-ratio";
+
+	/**
 	 * Minimum amount of heap memory to remove in containers, as a safety margin.
 	 * @deprecated Use {@link ResourceManagerOptions#CONTAINERIZED_HEAP_CUTOFF_MIN} instead.
 	 */
