@@ -657,6 +657,17 @@ public final class ConfigConstants {
 	@Deprecated
 	public static final String PATH_HADOOP_CONFIG = "fs.hdfs.hadoopconf";
 
+	/**
+	 * Store lib and configuration file
+	 */
+	public static final String PATH_JOB_WORK_FILE = "hdfs://haruna/flink/";
+
+	/**
+	 * Key of the config dir in hdfs
+	 */
+	public static final String JOB_WORK_DIR_KEY = "job.work.dir";
+
+
 	// ------------------------ File System Behavior ------------------------
 
 	/**

@@ -860,7 +860,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
-		final Path yarnFilesDir = getYarnFilesDir(appId);
+// flink 1.5
+//		final Path yarnFilesDir = getYarnFilesDir(appId);
+		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY, ConfigConstants.PATH_JOB_WORK_FILE);
+		Path yarnFilesDir = new Path(jobWorkDir, ".flink/" + appId + '/');
+
 		FsPermission permission = new FsPermission(FsAction.ALL, FsAction.NONE, FsAction.NONE);
 		fs.setPermission(yarnFilesDir, permission); // set permission for path.
 
