@@ -44,6 +44,8 @@ import java.util.regex.Matcher;
  */
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private final static Logger LOG = LoggerFactory.getLogger(OpentsdbReporter.class);
+	private final static Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile(
+			"taskmanager.([^\\.]+).Source_CustomSource.KafkaConsumer.([^\\.]+).([^-]+)-(\\d+)");
 	private UdpMetricsClient udpMetricsClient;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
@@ -67,14 +69,12 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String name = counterStringEntry.getValue();
 				double value = counterStringEntry.getKey().getCount();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				LOG.debug("name = {}, metric = {}, value = {}, tags = {}", name, tuple.x, value, tuple.y);
 				this.udpMetricsClient.emitCounterWithTag(tuple.x, value, tuple.y);
 			}
 
 			for (Map.Entry<Gauge<?>, String> gaugeStringEntry : gauges.entrySet()) {
 				String name = gaugeStringEntry.getValue();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				LOG.debug("name = {}, metric = {}, tags = {}", name, tuple.x, tuple.y);
 				Object value = gaugeStringEntry.getKey().getValue();
 				if (value instanceof Number) {
 					double d = ((Number)value).doubleValue();
@@ -96,7 +96,6 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String name = meterStringEntry.getValue();
 				Meter meter = meterStringEntry.getKey();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				LOG.debug("name = {}, metric = {}, tags = {}", name, tuple.x, tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "rate"), meter.getRate(), tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "count"), meter.getCount(), tuple.y);
 			}
@@ -106,7 +105,6 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				Histogram histogram = histogramStringEntry.getKey();
 				HistogramStatistics statistics = histogram.getStatistics();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				LOG.debug("name = {}, metric = {}, tags = {}", name, tuple.x, tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "count"), histogram.getCount(), tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "max"), statistics.getMax(), tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "min"), statistics.getMin(), tuple.y);
@@ -132,7 +130,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	*  Extracts metric name and tags from input
 	* */
 	public Tuple<String, String> getMetricNameAndTags(String input) {
-		String key = input.replaceAll("\\s*", "").replaceAll("->", "_").replaceAll(":", "_");
+		String key = input.replaceAll("\\s*", "")
+				.replaceAll("->", "_")
+				.replaceAll(":", "_")
+				.replace("..", ".");
 
 		/*
 		* for example
@@ -150,10 +151,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String hostName = m.group(1);
 				tags.add(new TagKv("hostname", hostName));
 				String metricName = m.group(2);
-				LOG.debug("key = {}, metricName = {}, tags = {}", key, metricName, TagKv.compositeTags(tags));
 				return new Tuple<>(metricName, TagKv.compositeTags(tags));
 			}
-			LOG.debug("jobmanager metric {} does not match {}", key, pattern);
 			return new Tuple<>(key, TagKv.compositeTags(tags));
 		}
 
@@ -185,18 +184,38 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					String taskId = taskMatcher.group(2);
 					tags.add(new TagKv("taskid", taskId));
 					String metricName = "taskmanager." + taskMatcher.group(1) + "." + taskMatcher.group(3);
-					LOG.debug("key = {}, metricName = {}, tags = {}", key, metricName, TagKv.compositeTags(tags));
+					Tuple<String, String> kafkaConsumerMetrics =
+							getKafkaConsumerMetrics(metricName, tags);
+					if (kafkaConsumerMetrics != null) {
+						return kafkaConsumerMetrics;
+					}
 					return new Tuple<>(metricName, TagKv.compositeTags(tags));
 				}
-				LOG.debug("key = {}, metricName = {}, tags = {}", key, taskManagerMetricName, TagKv.compositeTags(tags));
 				return new Tuple<>(taskManagerMetricName, TagKv.compositeTags(tags));
 			}
-			LOG.debug("taskmanager metric {} not match {}", key, pattern);
 			return new Tuple<>(key, TagKv.compositeTags(tags));
 		}
-
-		LOG.debug("the metric does not contain jm and tm, key = {}", key);
 		return new Tuple<>(key, TagKv.compositeTags(tags));
+	}
+
+	/**
+	 * If it's the metric of kakfa consuemr, then write the metirc in another form.
+	 */
+	public Tuple<String, String> getKafkaConsumerMetrics (String key, List < TagKv > tags){
+		Matcher matcher2 = KAFKA_CONSUMER_PATTERN.matcher(key);
+		if (matcher2.find()) {
+			String jobName = matcher2.group(1);
+			String quota = matcher2.group(2);
+			String topic = matcher2.group(3);
+			String partition = matcher2.group(4);
+			String taskManagerMetricName =
+					"taskmanager." + jobName + ".Source_CustomSource.KafkaConsumer." + quota;
+			tags.add(new TagKv("topic", topic));
+			tags.add(new TagKv("partition", partition));
+			taskManagerMetricName = taskManagerMetricName.replace("..", ".");
+			return new Tuple<>(taskManagerMetricName, TagKv.compositeTags(tags));
+		}
+		return null;
 	}
 
 	/*
