@@ -202,6 +202,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	 * If it's the metric of kakfa consuemr, then write the metirc in another form.
 	 */
 	public Tuple<String, String> getKafkaConsumerMetrics (String key, List < TagKv > tags){
+		key = key.replace("..", ".");
 		Matcher matcher2 = KAFKA_CONSUMER_PATTERN.matcher(key);
 		if (matcher2.find()) {
 			String jobName = matcher2.group(1);
@@ -209,7 +210,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			String topic = matcher2.group(3);
 			String partition = matcher2.group(4);
 			String taskManagerMetricName =
-					"taskmanager." + jobName + ".Source_CustomSource.KafkaConsumer." + quota;
+					"taskmanager." + jobName + ".KafkaConsumer." + quota;
 			tags.add(new TagKv("topic", topic));
 			tags.add(new TagKv("partition", partition));
 			taskManagerMetricName = taskManagerMetricName.replace("..", ".");
