@@ -44,8 +44,14 @@ import java.util.regex.Matcher;
  */
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private final static Logger LOG = LoggerFactory.getLogger(OpentsdbReporter.class);
-	private final static Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile(
-			"taskmanager.([^\\.]+).Source_CustomSource.KafkaConsumer.([^\\.]+).([^-]+)-(\\d+)");
+	private final static Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
+			"([^\\.]+)\\.Source_CustomSource\\.KafkaConsumer\\.([^\\.]+)\\.([^-]+)-(\\d+)");
+	private final static Pattern JOB_MANAGER_PATTERN = Pattern.compile(
+			"(\\S+)\\.(jobmanager\\.\\S+)");
+	private final static Pattern TASK_MANAGER_PATTERN_1 = Pattern.compile(
+			"(\\S+)\\.taskmanager\\.(\\w+)\\.(\\S+)");
+	private final static Pattern TASK_MANAGER_PATTERN_2 = Pattern.compile(
+			"taskmanager\\.(\\S+)\\.(\\d+)\\.(\\S+)");
 	private UdpMetricsClient udpMetricsClient;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
@@ -144,9 +150,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		List<TagKv> tags = new ArrayList<>();
 		tags.add(new TagKv("jobname", this.jobName));
 		if (key.contains("jobmanager")) {
-			String pattern = "(\\S+).(jobmanager.\\S+)";
-			Pattern r = Pattern.compile(pattern);
-			Matcher m = r.matcher(key);
+			Matcher m = JOB_MANAGER_PATTERN.matcher(key);
 			if (m.find()) {
 				String hostName = m.group(1);
 				tags.add(new TagKv("hostname", hostName));
@@ -164,9 +168,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		* */
 
 		if (key.contains("taskmanager")) {
-			String pattern = "(\\S+).taskmanager.(\\w+).(\\S+)";
-			Pattern r = Pattern.compile(pattern);
-			Matcher m = r.matcher(key);
+			Matcher m = TASK_MANAGER_PATTERN_1.matcher(key);
 			String taskManagerMetricName = "";
 			if (m.find()) {
 				String hostName = m.group(1);
@@ -177,9 +179,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			}
 
 			if (taskManagerMetricName != "") {
-				String taskMetricPattern = "taskmanager.(\\S+).(\\d+).(\\S+)";
-				Pattern taskPattern = Pattern.compile(taskMetricPattern);
-				Matcher taskMatcher = taskPattern.matcher(taskManagerMetricName);
+				Matcher taskMatcher = TASK_MANAGER_PATTERN_2.matcher(taskManagerMetricName);
 				if (taskMatcher.find()) {
 					String taskId = taskMatcher.group(2);
 					tags.add(new TagKv("taskid", taskId));
