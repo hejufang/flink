@@ -45,7 +45,7 @@ import java.util.regex.Matcher;
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private final static Logger LOG = LoggerFactory.getLogger(OpentsdbReporter.class);
 	private final static Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
-			"([^\\.]+)\\.Source_CustomSource\\.KafkaConsumer\\.([^\\.]+)\\.([^-]+)-(\\d+)");
+			"([^\\.]+)\\.([^\\.]+)\\.KafkaConsumer\\.([^\\.]+)\\.([^-]+)-(\\d+)");
 	private final static Pattern JOB_MANAGER_PATTERN = Pattern.compile(
 			"(\\S+)\\.(jobmanager\\.\\S+)");
 	private final static Pattern TASK_MANAGER_PATTERN_1 = Pattern.compile(
@@ -137,8 +137,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	* */
 	public Tuple<String, String> getMetricNameAndTags(String input) {
 		String key = input.replaceAll("\\s*", "")
-				.replaceAll("->", "_")
-				.replaceAll(":", "_")
+				.replace("->", "_")
+				.replace(":", "_")
+				.replace("{", "")
+				.replace("}", "")
 				.replace("..", ".");
 
 		/*
@@ -206,11 +208,12 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		Matcher matcher2 = KAFKA_CONSUMER_PATTERN.matcher(key);
 		if (matcher2.find()) {
 			String jobName = matcher2.group(1);
-			String quota = matcher2.group(2);
-			String topic = matcher2.group(3);
-			String partition = matcher2.group(4);
+			String sourceName = matcher2.group(2);
+			String quota = matcher2.group(3);
+			String topic = matcher2.group(4);
+			String partition = matcher2.group(5);
 			String taskManagerMetricName =
-					"taskmanager." + jobName + ".KafkaConsumer." + quota;
+					"taskmanager." + jobName + "." + sourceName + ".KafkaConsumer." + quota;
 			tags.add(new TagKv("topic", topic));
 			tags.add(new TagKv("partition", partition));
 			taskManagerMetricName = taskManagerMetricName.replace("..", ".");

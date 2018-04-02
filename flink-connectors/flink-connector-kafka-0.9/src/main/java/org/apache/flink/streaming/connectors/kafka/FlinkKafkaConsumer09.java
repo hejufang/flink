@@ -288,11 +288,8 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 				PropertiesUtil.getLong(properties, ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 5000) > 0;
 	}
 
-	@Override
-	protected Map<KafkaTopicPartition, Long> fetchOffsetsWithTimestamp(Collection<KafkaTopicPartition> partitions, long timestamp) {
-		// this should not be reached, since we do not expose the timestamp-based startup feature in version 0.9.
-		throw new UnsupportedOperationException(
-			"Fetching partition offsets using timestamps is only supported in Kafka versions 0.10 and above.");
+	public Properties getProperties() {
+		return properties;
 	}
 
 	// ------------------------------------------------------------------------

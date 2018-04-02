@@ -21,6 +21,10 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.client.program.ContextEnvironment;
 import org.apache.flink.client.program.DetachedEnvironment;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.monitor.Dashboard;
+import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
 import org.slf4j.Logger;
@@ -49,12 +53,29 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
 		transformations.clear();
 
+		String jobName = streamGraph.getJobName();
+		String newClusterName = System.getProperty("clusterName", "flink_independent_yarn");
+		String newJobName = System.getProperty("jobName");
+		//Replace inner name with yarn app name.
+		if (newJobName != null && !"".equals(newJobName)){
+			jobName = newJobName;
+		}
+		streamGraph.setJobName(jobName);
 		// execute the programs
 		if (ctx instanceof DetachedEnvironment) {
 			LOG.warn("Job was executed in detached mode, the results will be available on completion.");
 			((DetachedEnvironment) ctx).setDetachedPlan(streamGraph);
 			return DetachedEnvironment.DetachedJobExecutionResult.INSTANCE;
 		} else {
+			JobGraph jobGraph = ctx.getClient().getJobGraph(streamGraph, ctx.getJars(),
+					ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
+			Dashboard dashboard = new Dashboard(newClusterName, streamGraph, jobGraph);
+			boolean success = dashboard.registerDashboard();
+			if (success){
+				LOG.info("Succeed in Registering dashboard.");
+			} else {
+				LOG.warn("Failed to Registering dashboard!");
+			}
 			return ctx
 				.getClient()
 				.run(streamGraph, ctx.getJars(), ctx.getClasspaths(), ctx.getUserCodeClassLoader(), ctx.getSavepointRestoreSettings())
