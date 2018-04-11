@@ -25,8 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.KafkaUtil;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -83,10 +81,8 @@ public class Dashboard {
 		Set<Map.Entry<String, String>> sets = map.entrySet();
 		try {
 			for (Map.Entry<String, String> entry : sets) {
-				String regex = "\\$\\{" + entry.getKey() + "\\}";
-				Pattern pattern = Pattern.compile(regex);
-				Matcher matcher = pattern.matcher(content);
-				content = matcher.replaceAll(entry.getValue());
+				String regex = "${" + entry.getKey() + "}";
+				content = content.replace(regex, entry.getValue());
 			}
 		} catch (Exception e) {
 			LOG.error("Failed to render string", e);

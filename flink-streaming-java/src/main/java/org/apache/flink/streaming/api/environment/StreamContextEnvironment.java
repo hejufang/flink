@@ -61,24 +61,26 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			jobName = newJobName;
 		}
 		streamGraph.setJobName(jobName);
+
+		JobGraph jobGraph = ctx.getClient().getJobGraph(streamGraph, ctx.getJars(),
+				ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
+		Dashboard dashboard = new Dashboard(newClusterName, streamGraph, jobGraph);
+		boolean success = dashboard.registerDashboard();
+		if (success){
+			LOG.info("Succeed in Registering dashboard.");
+		} else {
+			LOG.warn("Failed to Registering dashboard!");
+		}
 		// execute the programs
 		if (ctx instanceof DetachedEnvironment) {
 			LOG.warn("Job was executed in detached mode, the results will be available on completion.");
 			((DetachedEnvironment) ctx).setDetachedPlan(streamGraph);
 			return DetachedEnvironment.DetachedJobExecutionResult.INSTANCE;
 		} else {
-			JobGraph jobGraph = ctx.getClient().getJobGraph(streamGraph, ctx.getJars(),
-					ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
-			Dashboard dashboard = new Dashboard(newClusterName, streamGraph, jobGraph);
-			boolean success = dashboard.registerDashboard();
-			if (success){
-				LOG.info("Succeed in Registering dashboard.");
-			} else {
-				LOG.warn("Failed to Registering dashboard!");
-			}
 			return ctx
 				.getClient()
-				.run(streamGraph, ctx.getJars(), ctx.getClasspaths(), ctx.getUserCodeClassLoader(), ctx.getSavepointRestoreSettings())
+				.run(streamGraph, ctx.getJars(), ctx.getClasspaths(), ctx.getUserCodeClassLoader(),
+						ctx.getSavepointRestoreSettings())
 				.getJobExecutionResult();
 		}
 	}
