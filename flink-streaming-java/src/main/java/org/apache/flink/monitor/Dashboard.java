@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
+	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
 	private String clusterName;
 	private String jobName;
 	private String dataSource;
@@ -179,6 +180,24 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
+	public String renderRecordNumRow(List<String> operators) {
+		String recordNumTargetTemplate = Template.RECORD_NUM_TARGET;
+		List<String> recordNumList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> recordNumTargetValues = new HashMap<>();
+			recordNumTargetValues.put("operator", o);
+			recordNumTargetValues.put("jobname", jobName);
+			recordNumList.add(renderString(recordNumTargetTemplate, recordNumTargetValues));
+		}
+		String targets = String.join(",", recordNumList);
+		Map<String, String> recordNumValues = new HashMap<>();
+		recordNumValues.put("targets", targets);
+		recordNumValues.put("datasource", dataSource);
+		String poolUsageTemplate = Template.RECORD_NUM;
+		String poolUsageRow = renderString(poolUsageTemplate, recordNumValues);
+		return poolUsageRow;
+	}
+
 	public String renderKafkaOffsetRow(List<String> sources) {
 		String kafkaOffsetTargetTemplate = Template.KAFKA_OFFSET_TARGET;
 		List<String> kafkaOffsetList = new ArrayList<>();
@@ -218,11 +237,21 @@ public class Dashboard {
 		return metricsList;
 	}
 
-	public List<String> getOperators() {
-		List<String> operators = new ArrayList<>();
+	public List<String> getTasks() {
+		List<String> tasks = new ArrayList<>();
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			String name = vertex.getName();
-			name = replaceSpecialCharacter(name);
+			name = formatOperater(name);
+			tasks.add(name);
+		}
+		return tasks;
+	}
+
+	public List<String> getOperaters() {
+		List<String> operators = new ArrayList<>();
+		for (StreamNode node : streamGraph.getStreamNodes()) {
+			String name = node.getOperatorName();
+			name = formatOperater(name);
 			operators.add(name);
 		}
 		return operators;
@@ -239,8 +268,17 @@ public class Dashboard {
 		return sourceList;
 	}
 
-	public String replaceSpecialCharacter(String str){
-		String result = str.replaceAll("\\s*", "")
+	public String formatOperater(String name){
+		if (name != null && name.length() > METRICS_OPERATOR_NAME_MAX_LENGTH) {
+			LOG.warn("The operator name {} exceeded the {} characters length limit and was truncated.",
+					name, METRICS_OPERATOR_NAME_MAX_LENGTH);
+			name = name.substring(0, METRICS_OPERATOR_NAME_MAX_LENGTH);
+		}
+		return replaceSpecialCharacter(name);
+	}
+
+	public String replaceSpecialCharacter(String name){
+		String result = name.replaceAll("\\s*", "")
 				.replace("->", "_")
 				.replace("{", "_")
 				.replace("}", "_")
@@ -256,8 +294,9 @@ public class Dashboard {
 		rows.add(renderTmSlotRow());
 		rows.add(renderMemoryRow());
 		rows.add(renderGcRow());
-		rows.add(renderQueueLengthRow(getOperators()));
-		rows.add(renderPoolUsageRow(getOperators()));
+		rows.add(renderQueueLengthRow(getTasks()));
+		rows.add(renderPoolUsageRow(getTasks()));
+		rows.add(renderRecordNumRow(getOperaters()));
 		rows.add(renderKafkaOffsetRow(getSources()));
 
 		String template = Template.TEMPLATE;
@@ -275,7 +314,8 @@ public class Dashboard {
 		String dashboardJson = renderDashboard();
 
 		Map<String, String> headers = new HashMap();
-		headers.put("Authorization", "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9");
+		headers.put("Authorization",
+				"Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9");
 		headers.put("Accept", "application/json");
 		headers.put("Content-Type", "application/json");
 
