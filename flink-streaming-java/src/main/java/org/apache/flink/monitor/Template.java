@@ -81,7 +81,8 @@ public class Template {
 			"	\"timezone\": \"\",\n" +
 			"	\"title\": \"flink.${cluster}.${jobname}\",\n" +
 			"	\"version\": 5\n" +
-			"}\n" +
+			"},\n" +
+			"	\"overwrite\": true\n" +
 			"}";
 
 	public static final String JOB_INFO = "{\n" +
