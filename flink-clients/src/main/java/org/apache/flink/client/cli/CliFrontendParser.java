@@ -134,6 +134,9 @@ public class CliFrontendParser {
 		"Python module with the program entry point. " +
 			"This option must be used in conjunction with `--pyFiles`.");
 
+	static final Option CLUSTER_NAME_OPTION = new Option("cn", "clusterName", true,
+			"Yarn cluster name");
+
 	static {
 		HELP_OPTION.setRequired(false);
 
@@ -234,7 +237,8 @@ public class CliFrontendParser {
 		Options options = buildGeneralOptions(new Options());
 		options = getProgramSpecificOptions(options);
 		options.addOption(SAVEPOINT_PATH_OPTION);
-		return options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
+		options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
+		return options.addOption(CLUSTER_NAME_OPTION);
 	}
 
 	static Options getInfoCommandOptions() {
