@@ -952,23 +952,9 @@ public class Template {
 			"							\"aggregator\": \"max\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.${jobname}.${operator}.numRecordsIn\",\n" +
-			"							\"refId\": \"J\"\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
 			"numRecordsInPerSecond.rate\",\n" +
 			"							\"refId\": \"K\"\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.${jobname}.${operator}.numRecordsOut\",\n" +
-			"							\"refId\": \"M\"\n" +
 			"						},\n" +
 			"						{\n" +
 			"							\"aggregator\": \"max\",\n" +
@@ -1069,14 +1055,6 @@ public class Template {
 			"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer." +
 			"current-offsets\",\n" +
 			"							\"refId\": \"P\"\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer." +
-			"committed-offsets\",\n" +
-			"							\"refId\": \"Q\"\n" +
 			"						},\n" +
 			"						{\n" +
 			"							\"aggregator\": \"max\",\n" +

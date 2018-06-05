@@ -289,15 +289,15 @@ public class Dashboard {
 
 	public String renderDashboard() {
 		List<String> rows = new ArrayList<>();
-		rows.add(renderJobInfoRow());
 		rows.add(renderLagSizeRow(getLagSizeMetrics()));
-		rows.add(renderTmSlotRow());
+		rows.add(renderKafkaOffsetRow(getSources()));
 		rows.add(renderMemoryRow());
-		rows.add(renderGcRow());
+		rows.add(renderRecordNumRow(getOperaters()));
 		rows.add(renderQueueLengthRow(getTasks()));
 		rows.add(renderPoolUsageRow(getTasks()));
-		rows.add(renderRecordNumRow(getOperaters()));
-		rows.add(renderKafkaOffsetRow(getSources()));
+		rows.add(renderGcRow());
+		rows.add(renderJobInfoRow());
+		rows.add(renderTmSlotRow());
 
 		String template = Template.TEMPLATE;
 		String rowsStr = String.join(",", rows);
