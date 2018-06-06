@@ -217,13 +217,6 @@ public class JobManagerOptions {
 			.defaultValue(true);
 
 	/**
-	 * Config for individual-forever failover strategy.
-	 * */
-	public static final ConfigOption<Integer> INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS =
-		key("jobmanager.execution.individual-forever.tm.launch.waiting.ms")
-		.defaultValue(30 * 1000);
-
-	/**
 	 * Config for local-failover strategy.
 	 * */
 	public static final ConfigOption<Long> LOCAL_RESTART_FAILURE_RATE_INTERVAL_MS =
@@ -232,6 +225,21 @@ public class JobManagerOptions {
 	public static final ConfigOption<Integer> LOCAL_RESTART_MAX_FAILURES_PER_INTERVAL =
 		key("jobmanager.execution.localfailover.max-failures-per-interval")
 			.defaultValue(5);
+
+	/**
+	 * Config for individual-forever failover strategy.
+	 * */
+	public static final ConfigOption<Integer> INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS =
+		key("jobmanager.execution.individual-forever.tm.launch.waiting.ms")
+		.defaultValue(30 * 1000);
+
+	/**
+	 * Whether to restart a task in previous location.
+	 * Now, this config is supported by RestartIndividualForeverStrategy.
+	 * */
+	public static final ConfigOption<Boolean> FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS =
+		key("jobmanager.execution.failover.previous-location-first-always")
+		.defaultValue(false);
 
 	// ---------------------------------------------------------------------------------------------
 

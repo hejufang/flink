@@ -191,6 +191,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private Map<IntermediateResultPartitionID, ResultPartitionDeploymentDescriptor> producedPartitions;
 
+	private volatile boolean previousLocationFirstAlways;
+
 	// --------------------------------------------------------------------------------------------
 
 	/**
@@ -235,6 +237,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		this.taskManagerLocationFuture = new CompletableFuture<>();
 
 		this.assignedResource = null;
+
+		this.previousLocationFirstAlways = false;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -497,7 +501,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			slotProviderStrategy,
 			locationPreferenceConstraint,
 			allPreviousExecutionGraphAllocationIds,
-			false);
+			previousLocationFirstAlways);
 	}
 
 	CompletableFuture<Execution> allocateResourcesForExecution(
@@ -520,7 +524,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 * @param locationPreferenceConstraint constraint for the location preferences
 	 * @param allPreviousExecutionGraphAllocationIds set with all previous allocation ids in the job graph.
 	 *                                                 Can be empty if the allocation ids are not required for scheduling.
-	 * @return Future which is completed with the allocated slot once it has been assigned
+	 * @param previousLocationFirstAlways whether schedule task to previous location (taskmanager) preferential
+	 * @return Future which is completed with this execution once the slot has been assigned
 	 * 			or with an exception if an error occurred.
 	 */
 	private CompletableFuture<LogicalSlot> allocateAndAssignSlotForExecution(
@@ -1630,5 +1635,9 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private void assertRunningInJobMasterMainThread() {
 		vertex.getExecutionGraph().assertRunningInJobMasterMainThread();
+	}
+
+	public void setPreviousLocationFirstAlways(boolean previousLocationFirstAlways) {
+		this.previousLocationFirstAlways = previousLocationFirstAlways;
 	}
 }

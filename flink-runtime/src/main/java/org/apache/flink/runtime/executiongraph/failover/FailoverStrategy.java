@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph.failover;
 
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
@@ -88,5 +89,20 @@ public abstract class FailoverStrategy {
 		 * @return The instantiated failover strategy.
 		 */
 		FailoverStrategy create(ExecutionGraph executionGraph);
+	}
+
+	/**
+	 * Factory with config.
+	 */
+	public abstract static class AbstractFactory implements Factory {
+		private Configuration config;
+
+		public AbstractFactory(Configuration config) {
+			this.config = config;
+		}
+
+		public Configuration getConfig() {
+			return config;
+		}
 	}
 }

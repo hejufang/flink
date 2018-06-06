@@ -53,6 +53,9 @@ public class FailoverStrategyLoader {
 	/** Config name for the {@link LocalRestartAllStrategy}. */
 	public static final String LOCAL_RESTART_STRATEGY_NAME = "local";
 
+	/** Config name for the {@link RestartIndividualForeverStrategy}. */
+	public static final String INDIVIDUAL_FOREVER_RESTART_STRATEGY_NAME = "individual-forever";
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -91,6 +94,9 @@ public class FailoverStrategyLoader {
 
 				case LOCAL_RESTART_STRATEGY_NAME:
 					return new LocalRestartAllStrategy.Factory(config);
+
+				case INDIVIDUAL_FOREVER_RESTART_STRATEGY_NAME:
+					return new RestartIndividualForeverStrategy.Factory(config);
 
 				default:
 					// we could interpret the parameter as a factory class name and instantiate that
