@@ -188,6 +188,13 @@ public class JobManagerOptions {
 			key("jobmanager.scheduler.partition.force-release-on-consumption")
 			.defaultValue(true);
 
+	/**
+	 * Config for individual-forever failover strategy
+	 * */
+	public static final ConfigOption<Integer> INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS =
+		key("jobmanager.execution.individual-forever.tm.launch.waiting.ms")
+		.defaultValue(30 * 1000);
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {
