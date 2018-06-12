@@ -29,6 +29,7 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartiti
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaDelegatePartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.KafkaPartitioner;
+import org.apache.flink.streaming.connectors.kafka.partitioner.RoundRobinPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -49,6 +50,16 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 	 * Flag controlling whether we are writing the Flink record's timestamp into Kafka.
 	 */
 	private boolean writeTimestampToKafka = false;
+
+	/**
+	 * Time interval for updating partitions for kafka topic
+	 * */
+	private static final long TIME_INTERVAL = 60 * 1000;
+
+	/**
+	 * Last timestamp for updating partitions for kafka topic
+	 * */
+	private long lastUpdateTimestamp = -1;
 
 	// ---------------------- Regular constructors------------------
 
@@ -72,7 +83,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 	 * 			User defined key-less serialization schema.
 	 */
 	public FlinkKafkaProducer010(String brokerList, String topicId, SerializationSchema<T> serializationSchema) {
-		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), getPropertiesFromBrokerList(brokerList), new FlinkFixedPartitioner<T>());
+		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), getPropertiesFromBrokerList(brokerList), new RoundRobinPartitioner<T>());
 	}
 
 	/**
@@ -95,7 +106,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 	 * 			Properties with the producer configuration.
 	 */
 	public FlinkKafkaProducer010(String topicId, SerializationSchema<T> serializationSchema, Properties producerConfig) {
-		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, new FlinkFixedPartitioner<T>());
+		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, new RoundRobinPartitioner<T>());
 	}
 
 	/**
@@ -144,7 +155,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 	 * 			User defined serialization schema supporting key/value messages
 	 */
 	public FlinkKafkaProducer010(String brokerList, String topicId, KeyedSerializationSchema<T> serializationSchema) {
-		this(topicId, serializationSchema, getPropertiesFromBrokerList(brokerList), new FlinkFixedPartitioner<T>());
+		this(topicId, serializationSchema, getPropertiesFromBrokerList(brokerList), new RoundRobinPartitioner<T>());
 	}
 
 	/**
@@ -167,7 +178,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 	 * 			Properties with the producer configuration.
 	 */
 	public FlinkKafkaProducer010(String topicId, KeyedSerializationSchema<T> serializationSchema, Properties producerConfig) {
-		this(topicId, serializationSchema, producerConfig, new FlinkFixedPartitioner<T>());
+		this(topicId, serializationSchema, producerConfig, new RoundRobinPartitioner<T>());
 	}
 
 	/**
@@ -230,7 +241,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 																					String topicId,
 																					KeyedSerializationSchema<T> serializationSchema,
 																					Properties producerConfig) {
-		return writeToKafkaWithTimestamps(inStream, topicId, serializationSchema, producerConfig, new FlinkFixedPartitioner<T>());
+		return writeToKafkaWithTimestamps(inStream, topicId, serializationSchema, producerConfig, new RoundRobinPartitioner<T>());
 	}
 
 	/**
@@ -252,7 +263,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 																					String topicId,
 																					SerializationSchema<T> serializationSchema,
 																					Properties producerConfig) {
-		return writeToKafkaWithTimestamps(inStream, topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, new FlinkFixedPartitioner<T>());
+		return writeToKafkaWithTimestamps(inStream, topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, new RoundRobinPartitioner<T>());
 	}
 
 	/**
@@ -365,7 +376,10 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 
 		ProducerRecord<byte[], byte[]> record;
 		int[] partitions = topicPartitionsMap.get(targetTopic);
-		if (null == partitions) {
+		//Add expiration time for kafka partitions
+		long currentTime = System.currentTimeMillis();
+		if(null == partitions || currentTime - lastUpdateTimestamp > TIME_INTERVAL) {
+			lastUpdateTimestamp = currentTime;
 			partitions = getPartitionsByTopic(targetTopic, producer);
 			topicPartitionsMap.put(targetTopic, partitions);
 		}
