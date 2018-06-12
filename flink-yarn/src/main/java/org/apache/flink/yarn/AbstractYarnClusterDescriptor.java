@@ -860,11 +860,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
-// flink 1.5
-//		final Path yarnFilesDir = getYarnFilesDir(appId);
-		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY, ConfigConstants.PATH_JOB_WORK_FILE);
-		Path yarnFilesDir = new Path(jobWorkDir, ".flink/" + appId + '/');
-
+		final Path yarnFilesDir = getYarnFilesDir(appId);
 		FsPermission permission = new FsPermission(FsAction.ALL, FsAction.NONE, FsAction.NONE);
 		fs.setPermission(yarnFilesDir, permission); // set permission for path.
 
@@ -1079,9 +1075,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	 * @param appId YARN application id
 	 */
 	private Path getYarnFilesDir(final ApplicationId appId) throws IOException {
-		final FileSystem fileSystem = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fileSystem.getHomeDirectory();
-		return new Path(homeDir, ".flink/" + appId + '/');
+//		final FileSystem fileSystem = FileSystem.get(yarnConfiguration);
+//		final Path homeDir = fileSystem.getHomeDirectory();
+//		return new Path(homeDir, ".flink/" + appId + '/');
+
+		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY, ConfigConstants.PATH_JOB_WORK_FILE);
+		Path yarnFilesDir = new Path(jobWorkDir, ".flink/" + appId + '/');
+		return yarnFilesDir;
 	}
 
 	/**
@@ -1114,7 +1114,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			appId.toString(),
 			localSrcPath,
 			targetHomeDir,
-			relativeTargetPath);
+			relativeTargetPath,
+			true);
 
 		localResources.put(key, resource.f1);
 
