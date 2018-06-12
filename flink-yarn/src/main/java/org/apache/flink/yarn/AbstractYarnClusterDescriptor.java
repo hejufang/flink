@@ -954,6 +954,19 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// https://github.com/apache/hadoop/blob/trunk/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/markdown/YarnApplicationSecurity.md#identity-on-an-insecure-cluster-hadoop_user_name
 		appMasterEnv.put(YarnConfigKeys.ENV_HADOOP_USER_NAME, UserGroupInformation.getCurrentUser().getUserName());
 
+		String name;
+		if (customName == null) {
+			int taskManagerCount = clusterSpecification.getNumberTaskManagers();
+			name = "Flink session with " + taskManagerCount + " TaskManagers";
+			if (detached) {
+				name += " (detached)";
+			}
+		} else {
+			name = customName;
+		}
+		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, name);
+		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, this.yarnQueue);
+
 		if (remotePathKeytab != null) {
 			appMasterEnv.put(YarnConfigKeys.KEYTAB_PATH, remotePathKeytab.toString());
 			String principal = configuration.getString(SecurityOptions.KERBEROS_LOGIN_PRINCIPAL);
