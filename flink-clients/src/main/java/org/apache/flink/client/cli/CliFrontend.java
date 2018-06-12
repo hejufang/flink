@@ -168,6 +168,7 @@ public class CliFrontend {
 	 */
 	protected void run(String[] args) throws Exception {
 		LOG.info("Running 'run' command.");
+		args = setJobName(args);
 
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 
@@ -206,6 +207,56 @@ public class CliFrontend {
 		} finally {
 			program.deleteExtractedLibraries();
 		}
+	}
+
+	/**
+	 * Sets job name for metrics and dashboard.
+	 *
+	 * @param args Original arguments.
+	 */
+	public String[] setJobName(String[] args) {
+		boolean metrics_job_name_exist = false;
+		int jobNameIndex = -2;
+		int clusterNameIndex = -2;
+		String jobName;
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].contains("metrics.reporter.opentsdb_reporter.jobname")) {
+				metrics_job_name_exist = true;
+			}else if (args[i].equals("-ynm")) {
+				jobNameIndex = i + 1;
+			}else if (args[i].equals("-cn")) {
+				clusterNameIndex = i + 1;
+			}
+		}
+		//1.Set an environment property for registering grafana dashboard.
+		if (clusterNameIndex > 0 && clusterNameIndex < args.length) {
+			String clusterName = args[clusterNameIndex];
+			System.setProperty("clusterName", clusterName);
+			LOG.info("Cluster name is : " + clusterName);
+		}
+
+		if (jobNameIndex > 0 && jobNameIndex < args.length) {
+			jobName = args[jobNameIndex];
+			int i = jobName.lastIndexOf('_');
+			if (i > 0) {
+				jobName = jobName.substring(0, i);
+			}
+			//2.Set an environment property for registering grafana dashboard.
+			System.setProperty("jobName", jobName);
+			LOG.info("Job name is set to: " + jobName);
+			if (!metrics_job_name_exist) {
+				//3.Add job name for metrics.
+				String[] new_args = new String[args.length + 2];
+				System.arraycopy(args, 0, new_args, 0, jobNameIndex + 1);
+				new_args[jobNameIndex+1] = "-yD";
+				new_args[jobNameIndex+2] = "metrics.reporter.opentsdb_reporter.jobname=" + jobName;
+				System.arraycopy(args, jobNameIndex + 1, new_args,
+					jobNameIndex + 3, args.length - (jobNameIndex + 1));
+				return new_args;
+			}
+		}
+
+		return args;
 	}
 
 	private <T> void runProgram(
