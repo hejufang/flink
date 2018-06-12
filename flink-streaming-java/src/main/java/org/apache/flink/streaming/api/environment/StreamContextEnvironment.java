@@ -19,10 +19,9 @@ package org.apache.flink.streaming.api.environment;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobExecutionResult;
+import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ContextEnvironment;
 import org.apache.flink.client.program.DetachedEnvironment;
-import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.monitor.Dashboard;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
@@ -62,8 +61,10 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		}
 		streamGraph.setJobName(jobName);
 
-		JobGraph jobGraph = ctx.getClient().getJobGraph(streamGraph, ctx.getJars(),
-				ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
+		JobGraph jobGraph = ClusterClient.getJobGraph(ctx.getClient().getFlinkConfiguration(),
+			streamGraph, ctx.getJars(),
+			ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
+
 		Dashboard dashboard = new Dashboard(newClusterName, streamGraph, jobGraph);
 		boolean success = dashboard.registerDashboard();
 		if (success){
