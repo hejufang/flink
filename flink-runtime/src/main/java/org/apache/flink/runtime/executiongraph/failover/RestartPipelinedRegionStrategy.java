@@ -74,6 +74,8 @@ public class RestartPipelinedRegionStrategy extends FailoverStrategy {
 
 	@Override
 	public void onTaskFailure(Execution taskExecution, Throwable cause) {
+		LOG.error("TaskFailed, need recover job", cause);
+
 		final ExecutionVertex ev = taskExecution.getVertex();
 		final FailoverRegion failoverRegion = vertexToRegion.get(ev);
 

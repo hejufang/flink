@@ -69,6 +69,7 @@ public class RestartIndividualStrategy extends FailoverStrategy {
 
 	@Override
 	public void onTaskFailure(Execution taskExecution, Throwable cause) {
+		LOG.error("TaskFailed, need recover job", cause);
 
 		executionGraph.getJobMasterMainThreadExecutor().assertRunningInMainThread();
 

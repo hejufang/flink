@@ -55,6 +55,8 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 
 	@Override
 	public void onTaskFailure(Execution taskExecution, Throwable cause) {
+		LOG.error("TaskFailed, need recover job", cause);
+
 		if (cause instanceof NoResourceAvailableException) {
 			LOG.info("Not enough resources to schedule {} - delay {} ms, wait new tm launched.",
 				taskExecution, tmLaunchWaitingTimeMs);
