@@ -141,7 +141,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	private String nodeLabel;
 
-	private String applicationType;
+	private String METRICS_PREFIX = "inf.flink.acceleration";
+
+	private String LD_LIBRARY_PATH = "/opt/tiger/ss_lib/so";
+
+	/** Optional Jar file to include in the system class loader of all application nodes
+	 * (for per-job submission). */
+	private final Set<File> userJarFiles = new HashSet<>();
 
 	private YarnConfigOptions.UserJarInclusion userJarInclusion;
 
@@ -950,6 +956,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		appMasterEnv.put(YarnConfigKeys.ENV_DETACHED, String.valueOf(detached));
 		appMasterEnv.put(YarnConfigKeys.ENV_ZOOKEEPER_NAMESPACE, getZookeeperNamespace());
 		appMasterEnv.put(YarnConfigKeys.FLINK_YARN_FILES, yarnFilesDir.toUri().toString());
+		appMasterEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH, LD_LIBRARY_PATH);
 
 		// https://github.com/apache/hadoop/blob/trunk/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/markdown/YarnApplicationSecurity.md#identity-on-an-insecure-cluster-hadoop_user_name
 		appMasterEnv.put(YarnConfigKeys.ENV_HADOOP_USER_NAME, UserGroupInformation.getCurrentUser().getUserName());

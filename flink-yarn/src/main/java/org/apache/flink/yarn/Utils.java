@@ -562,7 +562,10 @@ public final class Utils {
 		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, env.get(YarnConfigKeys.ENV_FLINK_YARN_QUEUE));
 		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, env.get(YarnConfigKeys.ENV_FLINK_YARN_JOB));
 
-		if (remoteKeytabPath != null && remoteKeytabPrincipal != null) {
+		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
+			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
+
+		if(remoteKeytabPath != null && remoteKeytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PATH, remoteKeytabPath);
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
 		}
