@@ -777,7 +777,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		// normalize classpath by sorting
-		Collections.sort(systemClassPaths);
+
+		// Remove sorting for class path. Ensure that user jar appear before lib jar.
+//		Collections.sort(systemClassPaths);
+
 		Collections.sort(userClassPaths);
 
 		// classpath assembler
