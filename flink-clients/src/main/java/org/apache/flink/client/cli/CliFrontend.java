@@ -233,6 +233,8 @@ public class CliFrontend {
 			String clusterName = args[clusterNameIndex];
 			System.setProperty("clusterName", clusterName);
 			LOG.info("Cluster name is : " + clusterName);
+		} else {
+			clusterName = System.getProperty("clusterName");
 		}
 
 		if (jobNameIndex > 0 && jobNameIndex < args.length) {
