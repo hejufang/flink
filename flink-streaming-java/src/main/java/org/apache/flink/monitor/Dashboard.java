@@ -241,7 +241,7 @@ public class Dashboard {
 		List<String> tasks = new ArrayList<>();
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			String name = vertex.getName();
-			name = formatOperater(name);
+			name = replaceSpecialCharacter(name);
 			tasks.add(name);
 		}
 		return tasks;
