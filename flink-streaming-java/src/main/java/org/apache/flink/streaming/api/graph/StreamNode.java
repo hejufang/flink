@@ -54,7 +54,7 @@ public class StreamNode implements Serializable {
 	private ResourceSpec minResources = ResourceSpec.DEFAULT;
 	private ResourceSpec preferredResources = ResourceSpec.DEFAULT;
 	private long bufferTimeout;
-	private final String operatorName;
+	private String operatorName;
 	private @Nullable String slotSharingGroup;
 	private @Nullable String coLocationGroup;
 	private KeySelector<?, ?> statePartitioner1;
@@ -215,6 +215,10 @@ public class StreamNode implements Serializable {
 
 	public String getOperatorName() {
 		return operatorName;
+	}
+
+	public void setOperatorName(String operatorName) {
+		this.operatorName = operatorName;
 	}
 
 	public List<OutputSelector<?>> getOutputSelectors() {

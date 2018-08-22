@@ -28,6 +28,7 @@ import org.apache.flink.monitor.Dashboard;
 import org.apache.flink.monitor.JobMeta;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.streaming.api.graph.StreamNode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,8 @@ import org.slf4j.LoggerFactory;
 public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 	private static final Logger LOG = LoggerFactory.getLogger(StreamContextEnvironment.class);
+
+	private static final int OPERATOR_NAME_MAX_LENGTH = 20;
 
 	private final ContextEnvironment ctx;
 
@@ -71,7 +74,16 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		}
 		streamGraph.setJobName(jobName);
 
-		JobGraph jobGraph = ClusterClient.getJobGraph(ctx.getClient().getFlinkConfiguration(),
+		for (StreamNode node : streamGraph.getStreamNodes()) {
+			String operatorName = node.getOperatorName();
+			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
+			if (operatorName.length() > OPERATOR_NAME_MAX_LENGTH) {
+				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
+			}
+			node.setOperatorName(operatorName);
+		}
+
+		JobGraph jobGraph = ClusterClient.getSimplifiedJobGraph(ctx.getClient().getFlinkConfiguration(),
 			streamGraph, ctx.getJars(),
 			ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
 		boolean saveJobMetaSuccessfully;

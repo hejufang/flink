@@ -146,6 +146,7 @@ public final class Utils {
 		Path localSrcPath,
 		Path homedir,
 		String relativeTargetPath,
+		org.apache.flink.configuration.Configuration flinkConfig,
 		boolean overrideHomeDir) throws IOException {
 
 		File localFile = new File(localSrcPath.toUri().getPath());
@@ -153,12 +154,12 @@ public final class Utils {
 			throw new IllegalArgumentException("File to copy must not be a directory: " +
 				localSrcPath);
 		}
-
 		if (overrideHomeDir) {
-			String configurationDirectory = CliFrontend.getConfigurationDirectoryFromEnv();
-			org.apache.flink.configuration.Configuration flinkConfiguration = GlobalConfiguration.
-				loadConfiguration(configurationDirectory);
-			String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,
+			if (flinkConfig == null) {
+				String configurationDirectory = CliFrontend.getConfigurationDirectoryFromEnv();
+				flinkConfig = GlobalConfiguration.loadConfiguration(configurationDirectory);
+			}
+			String jobWorkDir = flinkConfig.getString(ConfigConstants.JOB_WORK_DIR_KEY,
 				ConfigConstants.PATH_JOB_WORK_FILE);
 			homedir = new Path(jobWorkDir);
 		}
@@ -489,7 +490,8 @@ public final class Utils {
 					new Path(taskManagerConfigFile.toURI()),
 					homeDirPath,
 					"",
-					false).f1;
+					flinkConfig,
+					true).f1;
 
 				log.debug("Prepared local resource for modified yaml: {}", flinkConf);
 			} finally {

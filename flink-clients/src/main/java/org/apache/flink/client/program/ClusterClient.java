@@ -40,6 +40,7 @@ import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobStatus;
+import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalException;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -69,6 +70,8 @@ import scala.concurrent.duration.FiniteDuration;
  * @param <T> type of the cluster id
  */
 public abstract class ClusterClient<T> {
+
+	private static final int VERTEX_NAME_MAX_LENGTH = 150;
 
 	protected final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -335,7 +338,18 @@ public abstract class ClusterClient<T> {
 			List<URL> libraries, List<URL> classpaths, ClassLoader classLoader, SavepointRestoreSettings savepointSettings)
 			throws ProgramInvocationException {
 		JobGraph job = getJobGraph(flinkConfig, compiledPlan, libraries, classpaths, savepointSettings);
+		simplifyVerticeName(job);
 		return submitJob(job, classLoader);
+	}
+
+		public static void simplifyVerticeName(JobGraph job) {
+		Iterable<JobVertex> vertices = job.getVertices();
+		for (JobVertex vertex: vertices) {
+			String vertexName = vertex.getName();
+			if (vertexName.length() > VERTEX_NAME_MAX_LENGTH) {
+				vertex.setName(vertexName.substring(0, VERTEX_NAME_MAX_LENGTH));
+			}
+		}
 	}
 
 	/**
@@ -456,6 +470,14 @@ public abstract class ClusterClient<T> {
 
 		job.setClasspaths(classpaths);
 
+		return job;
+	}
+
+	public static JobGraph getSimplifiedJobGraph(Configuration flinkConfig, FlinkPlan optPlan,
+		List<URL> jarFiles, List<URL> classpaths,
+		SavepointRestoreSettings savepointSettings) {
+		JobGraph job = getJobGraph(flinkConfig, optPlan, jarFiles, classpaths, savepointSettings);
+		simplifyVerticeName(job);
 		return job;
 	}
 
