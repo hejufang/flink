@@ -1457,7 +1457,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.", getVertex().getTaskNameWithSubtaskIndex(),
 					getAttemptId(), currentState, targetState, hostname, resourceId);
 			} else {
-				LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.",
+				LOG.warn("{} ({}) switched from {} to {}, host {} resource id {}.",
 					getVertex().getTaskNameWithSubtaskIndex(), getAttemptId(), currentState, targetState,
 					hostname, resourceId, error);
 			}
