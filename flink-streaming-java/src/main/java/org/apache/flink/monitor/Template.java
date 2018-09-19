@@ -577,7 +577,7 @@ public class Template {
 			"							\"currentTagValue\": \"\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PSMarkSweep.Count\",\n" +
+			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count\",\n" +
 			"							\"refId\": \"A\",\n" +
 			"							\"shouldComputeRate\": true,\n" +
 			"							\"tags\": {\n" +
@@ -590,7 +590,7 @@ public class Template {
 			"							\"currentTagValue\": \"\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PSMarkSweep.Time\",\n" +
+			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time\",\n" +
 			"							\"refId\": \"B\",\n" +
 			"							\"shouldComputeRate\": true,\n" +
 			"							\"tags\": {\n" +
@@ -603,7 +603,7 @@ public class Template {
 			"							\"currentTagValue\": \"\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PSScavenge.Count\",\n" +
+			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count\",\n" +
 			"							\"refId\": \"C\",\n" +
 			"							\"shouldComputeRate\": true,\n" +
 			"							\"tags\": {\n" +
@@ -616,7 +616,7 @@ public class Template {
 			"							\"currentTagValue\": \"\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PSScavenge.Time\",\n" +
+			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time\",\n" +
 			"							\"refId\": \"D\",\n" +
 			"							\"shouldComputeRate\": true,\n" +
 			"							\"tags\": {\n" +
