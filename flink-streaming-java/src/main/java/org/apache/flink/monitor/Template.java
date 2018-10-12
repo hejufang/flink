@@ -1053,7 +1053,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer." +
-			"current-offsets\",\n" +
+			"current_offsets\",\n" +
 			"							\"refId\": \"P\"\n" +
 			"						},\n" +
 			"						{\n" +
@@ -1061,7 +1061,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer." +
-			"commit-rate\",\n" +
+			"commit_rate\",\n" +
 			"							\"refId\": \"R\"\n" +
 			"						}";
 }
