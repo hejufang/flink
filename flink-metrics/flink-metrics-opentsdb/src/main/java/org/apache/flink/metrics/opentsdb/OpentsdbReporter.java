@@ -27,31 +27,32 @@ import org.apache.flink.metrics.HistogramStatistics;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 
+import com.bytedance.metrics.UdpMetricsClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.bytedance.metrics.UdpMetricsClient;
-
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Map;
+import java.util.ConcurrentModificationException;
 import java.util.List;
-import java.util.regex.Pattern;
+import java.util.Map;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Created by zhangguanghui on 2017/7/25.
  */
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
-	private final static Logger LOG = LoggerFactory.getLogger(OpentsdbReporter.class);
-	private final static Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
-			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)-(\\d+)");
-	private final static Pattern JOB_MANAGER_PATTERN = Pattern.compile(
+	private static final Logger LOG = LoggerFactory.getLogger(OpentsdbReporter.class);
+	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
+			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
+	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
 			"(\\S+)\\.(jobmanager\\.\\S+)");
-	private final static Pattern TASK_MANAGER_PATTERN_1 = Pattern.compile(
+	private static final Pattern TASK_MANAGER_PATTERN_1 = Pattern.compile(
 			"(\\S+)\\.taskmanager\\.(\\w+)\\.(\\S+)");
-	private final static Pattern TASK_MANAGER_PATTERN_2 = Pattern.compile(
+	private static final Pattern TASK_MANAGER_PATTERN_2 = Pattern.compile(
 			"taskmanager\\.(\\S+)\\.(\\d+)\\.(\\S+)");
+	private static final int METRICS_NAME_MAX_LENGTH = 255;
 	private UdpMetricsClient udpMetricsClient;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
@@ -83,11 +84,11 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
 				Object value = gaugeStringEntry.getKey().getValue();
 				if (value instanceof Number) {
-					double d = ((Number)value).doubleValue();
+					double d = ((Number) value).doubleValue();
 					this.udpMetricsClient.emitStoreWithTag(tuple.x, d, tuple.y);
 				} else if (value instanceof String){
 					try {
-						double d = Double.parseDouble((String)value);
+						double d = Double.parseDouble((String) value);
 						this.udpMetricsClient.emitStoreWithTag(tuple.x, d, tuple.y);
 					} catch (NumberFormatException nf) {
 //						LOG.warn("can't change to Number {}", value);
@@ -123,6 +124,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 		} catch (IOException ie) {
 			LOG.error("Failed to send Metrics", ie);
+		} catch (ConcurrentModificationException ce) {
+			// ignore it
+			LOG.warn("encounter ConcurrentModificationException, ignore it");
 		}
 
 	}
@@ -136,12 +140,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	*  Extracts metric name and tags from input
 	* */
 	public Tuple<String, String> getMetricNameAndTags(String input) {
-		String key = input.replaceAll("\\s*", "")
-				.replace("->", "_")
-				.replace(":", "_")
-				.replace("{", "")
-				.replace("}", "")
-				.replace("..", ".");
+		String key = input.replaceAll("[^\\w.]", "_")
+				.replaceAll("\\.+", ".")
+				.replaceAll("_+", "_");
 
 		/*
 		* for example
@@ -178,6 +179,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				tags.add(new TagKv("hostname", hostName));
 				tags.add(new TagKv("tmid", tmId));
 				taskManagerMetricName = "taskmanager." + m.group(3);
+				taskManagerMetricName = simplifyMetricsName(taskManagerMetricName);
 			}
 
 			if (taskManagerMetricName != "") {
@@ -198,6 +200,36 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			return new Tuple<>(key, TagKv.compositeTags(tags));
 		}
 		return new Tuple<>(key, TagKv.compositeTags(tags));
+	}
+
+	/**
+	 * Cut the longest part of metrics name if possible.
+	 * */
+	public String simplifyMetricsName(String metricsName) {
+		if (metricsName == null || metricsName.length() < METRICS_NAME_MAX_LENGTH) {
+			return metricsName;
+		}
+		int totalLength = metricsName.length();
+		String[] parts = metricsName.split("\\.");
+		int indexOfLongest = -1;
+		int maxLength = -1;
+		for (int i = 0; i < parts.length; i++) {
+			if (parts[i].length() > maxLength) {
+				maxLength = parts[i].length();
+				indexOfLongest = i;
+			}
+		}
+		int avilableLength = METRICS_NAME_MAX_LENGTH - this.prefix.length();
+		if (metricsName.length() - maxLength > avilableLength) {
+			return metricsName.substring(0, avilableLength);
+		}
+		int exceededLength = totalLength - avilableLength;
+		if (indexOfLongest < 0) {
+			return metricsName;
+		}
+		String longestPart = parts[indexOfLongest];
+		parts[indexOfLongest] = longestPart.substring(0, longestPart.length() - exceededLength);
+		return String.join(".", parts);
 	}
 
 	/**
