@@ -17,65 +17,40 @@
 
 package org.apache.flink.monitor;
 
+import org.apache.flink.monitor.utils.HttpUtil;
+import org.apache.flink.monitor.utils.Utils;
+import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.streaming.api.graph.StreamGraph;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
-import org.apache.flink.monitor.utils.HttpUtil;
-import org.apache.flink.monitor.utils.KafkaUtil;
-import org.apache.flink.runtime.jobgraph.JobGraph;
-import org.apache.flink.runtime.jobgraph.JobVertex;
-import org.apache.flink.streaming.api.graph.StreamGraph;
-import org.apache.flink.streaming.api.graph.StreamNode;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Provides methods for registring grafana dashboard.
  */
 public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
-	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
 	private String clusterName;
 	private String jobName;
 	private String dataSource;
 	private JobGraph jobGraph;
 	private StreamGraph streamGraph;
 
-	public Dashboard(String clusterName, StreamGraph streamGraph, JobGraph jobGraph) {
+	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph, JobGraph jobGraph) {
 		this.clusterName = clusterName;
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
 		this.jobName = jobGraph.getName();
-		this.dataSource = loadClusterDatasource(clusterName);
-	}
-
-	public String loadClusterDatasource(String clusterName){
-		String dataSource = "bytetsd";
-		InputStream inputStream = Dashboard.class.getClassLoader().getResourceAsStream("cluster_datasource.properties");
-		Properties prop = new Properties();
-		try {
-			prop.load(inputStream);
-			for (Object key: prop.keySet()){
-				String cluster = (String) key;
-				if (cluster.equals(clusterName)){
-					dataSource = prop.getProperty(cluster);
-					return dataSource;
-				}
-			}
-		} catch (IOException e) {
-			LOG.error("Load cluster datasource configuration failed", e);
-		}
-		return dataSource;
+		this.dataSource = dataSource;
 	}
 
 	public String renderString(String content, Map<String, String> map) {
@@ -216,85 +191,14 @@ public class Dashboard {
 		return kafkaOffsetRow;
 	}
 
-	public List<String> getLagSizeMetrics() {
-		List<String> metricsList = new ArrayList<>();
-		String kafkaMetricsStr = System.getProperty("flink_kafka_metrics", "[]");
-		JSONParser parser = new JSONParser();
-		try {
-			JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
-			for (Object object : jsonArray) {
-				JSONObject jsonObject = (JSONObject) object;
-				String kafkaCluster = (String) jsonObject.get("cluster");
-				String kafkaTopicPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster);
-				String topic = (String) jsonObject.get("topic");
-				String group = (String) jsonObject.get("group");
-				String metric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, group);
-				metricsList.add(metric);
-			}
-		} catch (ParseException e) {
-			LOG.error("Failed to render lag size metrics", e);
-		}
-		return metricsList;
-	}
-
-	public List<String> getTasks() {
-		List<String> tasks = new ArrayList<>();
-		for (JobVertex vertex : jobGraph.getVertices()) {
-			String name = vertex.getName();
-			name = replaceSpecialCharacter(name);
-			tasks.add(name);
-		}
-		return tasks;
-	}
-
-	public List<String> getOperaters() {
-		List<String> operators = new ArrayList<>();
-		for (StreamNode node : streamGraph.getStreamNodes()) {
-			String name = node.getOperatorName();
-			name = formatOperater(name);
-			operators.add(name);
-		}
-		return operators;
-	}
-
-	public List<String> getSources() {
-		List<String> sourceList = new ArrayList<>();
-		for (int soureId : streamGraph.getSourceIDs()){
-			StreamNode sourceNode = streamGraph.getStreamNode(soureId);
-			String sourceName = sourceNode.getOperatorName();
-			sourceName = replaceSpecialCharacter(sourceName);
-			sourceList.add(sourceName);
-		}
-		return sourceList;
-	}
-
-	public String formatOperater(String name){
-		if (name != null && name.length() > METRICS_OPERATOR_NAME_MAX_LENGTH) {
-			LOG.warn("The operator name {} exceeded the {} characters length limit and was truncated.",
-					name, METRICS_OPERATOR_NAME_MAX_LENGTH);
-			name = name.substring(0, METRICS_OPERATOR_NAME_MAX_LENGTH);
-		}
-		return replaceSpecialCharacter(name);
-	}
-
-	public String replaceSpecialCharacter(String name){
-		String result = name.replaceAll("\\s*", "")
-				.replace("->", "_")
-				.replace("{", "_")
-				.replace("}", "_")
-				.replace(":", "_")
-				.replace("..", ".");
-		return result;
-	}
-
 	public String renderDashboard() {
 		List<String> rows = new ArrayList<>();
-		rows.add(renderLagSizeRow(getLagSizeMetrics()));
-		rows.add(renderKafkaOffsetRow(getSources()));
+		rows.add(renderLagSizeRow(Utils.getLagSizeMetrics()));
+		rows.add(renderKafkaOffsetRow(Utils.getSources(streamGraph)));
 		rows.add(renderMemoryRow());
-		rows.add(renderRecordNumRow(getOperaters()));
-		rows.add(renderQueueLengthRow(getTasks()));
-		rows.add(renderPoolUsageRow(getTasks()));
+		rows.add(renderRecordNumRow(Utils.getOperaters(streamGraph)));
+		rows.add(renderQueueLengthRow(Utils.getTasks(jobGraph)));
+		rows.add(renderPoolUsageRow(Utils.getTasks(jobGraph)));
 		rows.add(renderGcRow());
 		rows.add(renderJobInfoRow());
 		rows.add(renderTmSlotRow());
@@ -322,6 +226,10 @@ public class Dashboard {
 		CloseableHttpResponse response = HttpUtil.sendPost(url, dashboardJson, headers);
 		int statusCode = response.getStatusLine().getStatusCode();
 		boolean success = statusCode == 200;
+		if (!success) {
+			String resStr = EntityUtils.toString(response.getEntity(), "UTF-8");
+			LOG.warn("Failed to register dashboard, response: {}", resStr);
+		}
 		return success;
 	}
 }

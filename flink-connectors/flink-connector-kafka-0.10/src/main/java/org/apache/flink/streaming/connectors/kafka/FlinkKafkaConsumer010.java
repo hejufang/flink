@@ -144,9 +144,9 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 				JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
 				for(String topic: topics) {
 					JSONObject jsonObject = new JSONObject();
-					jsonObject.put("cluster",kafkaClusterName);
-					jsonObject.put("topic",topic);
-					jsonObject.put("group",groupId);
+					jsonObject.put("cluster", kafkaClusterName);
+					jsonObject.put("topic", topic);
+					jsonObject.put("consumer", groupId);
 					jsonArray.add(jsonObject);
 				}
 				System.setProperty("flink_kafka_metrics", jsonArray.toJSONString());

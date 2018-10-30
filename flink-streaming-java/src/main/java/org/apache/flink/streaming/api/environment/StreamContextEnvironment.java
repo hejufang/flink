@@ -22,7 +22,10 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ContextEnvironment;
 import org.apache.flink.client.program.DetachedEnvironment;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.monitor.Dashboard;
+import org.apache.flink.monitor.JobMeta;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
@@ -64,13 +67,34 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		JobGraph jobGraph = ClusterClient.getJobGraph(ctx.getClient().getFlinkConfiguration(),
 			streamGraph, ctx.getJars(),
 			ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
+		boolean saveJobMetaSuccessfully;
 
-		Dashboard dashboard = new Dashboard(newClusterName, streamGraph, jobGraph);
-		boolean success = dashboard.registerDashboard();
-		if (success){
-			LOG.info("Succeed in Registering dashboard.");
+		try {
+			Configuration flinkConfig = ctx.getClient().getFlinkConfiguration();
+			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph, flinkConfig);
+			saveJobMetaSuccessfully = jobMeta.saveToDB();
+		} catch (Throwable e) {
+			saveJobMetaSuccessfully = false;
+			LOG.warn("Failed to save job meta to database.", e);
+		}
+		if (saveJobMetaSuccessfully){
+			LOG.info("Succeed in save job meta to database.");
 		} else {
-			LOG.warn("Failed to Registering dashboard!");
+			LOG.warn("Failed to save job meta to database.");
+		}
+
+		boolean registerDashboardSuccessfully;
+		try {
+			Dashboard dashboard = new Dashboard(newClusterName, dataSource, streamGraph, jobGraph);
+			registerDashboardSuccessfully = dashboard.registerDashboard();
+		} catch (Throwable e){
+			registerDashboardSuccessfully = false;
+			LOG.warn("Failed to registering dashboard!", e);
+		}
+		if (registerDashboardSuccessfully){
+			LOG.info("Succeed in registering dashboard.");
+		} else {
+			LOG.warn("Failed to registering dashboard!");
 		}
 		// execute the programs
 		if (ctx instanceof DetachedEnvironment) {
