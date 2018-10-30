@@ -137,7 +137,7 @@ public abstract class AscendingTimestampExtractor<T> implements AssignerWithPeri
 
 		@Override
 		public void handleViolation(long elementTimestamp, long lastTimestamp) {
-			LOG.warn("Timestamp monotony violated: {} < {}", elementTimestamp, lastTimestamp);
+			LOG.info("Timestamp monotony violated: {} < {}", elementTimestamp, lastTimestamp);
 		}
 	}
 }
