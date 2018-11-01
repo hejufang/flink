@@ -136,6 +136,10 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	public FlinkKafkaConsumer010(List<String> topics, KafkaDeserializationSchema<T> deserializer, Properties props) {
 		super(topics, deserializer, props);
 		String kafkaClusterName = props.getProperty("cluster");
+		int threshold = 10000;
+		if (props.containsKey("threshold")) {
+			threshold = Integer.parseInt(props.getProperty("threshold"));
+		}
 		String groupId = props.getProperty("group.id");
 		if(kafkaClusterName != null && !"".equals(kafkaClusterName)){
 			String kafkaMetricsStr = System.getProperty("flink_kafka_metrics","[]");
@@ -147,6 +151,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 					jsonObject.put("cluster", kafkaClusterName);
 					jsonObject.put("topic", topic);
 					jsonObject.put("consumer", groupId);
+					jsonObject.put("threshold", threshold);
 					jsonArray.add(jsonObject);
 				}
 				System.setProperty("flink_kafka_metrics", jsonArray.toJSONString());

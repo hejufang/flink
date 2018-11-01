@@ -43,6 +43,7 @@ public class JobMeta {
 	private static final Logger LOG = LoggerFactory.getLogger(JobMeta.class);
 	private static final String DC = "dc";
 	private static final String CLUSTER = "cluster";
+	private static final String APPLICATION_NAME = "applicationName";
 	private static final String CONF_FILE = "/opt/tiger/ss_conf/ss/db_dayu.conf";
 	private static final String HOST_KEY = "ss_dayu_write_host";
 	private static final String PORT_KEY = "ss_dayu_write_port";
@@ -63,6 +64,7 @@ public class JobMeta {
 	public boolean saveToDB() {
 		String dc = flinkconfig.getString(DC, "");
 		String cluster = flinkconfig.getString(CLUSTER, "");
+		String applicationName = flinkconfig.getString(APPLICATION_NAME, "");
 		String jobName = streamGraph.getJobName();
 		String tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
 		String operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
@@ -71,11 +73,12 @@ public class JobMeta {
 				"because there is no available dc, cluster or jobName.");
 			return false;
 		}
+		String user = System.getenv("USER");
 		Map<String, String> mysqlConfig = getMysqlConfig();
 		String url = String.format("jdbc:mysql://%s:%s/%s",
 			mysqlConfig.get("host"), mysqlConfig.get("port"), mysqlConfig.get("database"));
 		String sql = "INSERT INTO flink_job_meta(dc, cluster, job_type, version, job_name, tasks, " +
-			"operators, topics, modify_time) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)";
+			"operators, topics, modify_time, application_name, owner) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		String modifyTime = df.format(new Date());
 		try (Connection con = DriverManager.getConnection(url, mysqlConfig.get("user"),
@@ -89,6 +92,8 @@ public class JobMeta {
 			preState.setString(7, operators);
 			preState.setString(8, Utils.getKafkaTopics().toJSONString());
 			preState.setString(9, modifyTime);
+			preState.setString(10, applicationName);
+			preState.setString(11, user);
 			int rowAffected = preState.executeUpdate();
 			return rowAffected == 1;
 		} catch (SQLException e) {
