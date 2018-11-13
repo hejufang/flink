@@ -113,6 +113,9 @@ import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.getDynamicProperties
 public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractYarnClusterDescriptor.class);
 
+	private static final String LD_LIBRARY_PATH = "/opt/tiger/ss_lib/so:" +
+		"/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib";
+
 	private final YarnConfiguration yarnConfiguration;
 
 	private final YarnClient yarnClient;
