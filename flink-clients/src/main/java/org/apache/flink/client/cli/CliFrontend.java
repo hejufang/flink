@@ -178,6 +178,12 @@ public class CliFrontend {
 
 		final RunOptions runOptions = new RunOptions(commandLine);
 
+		String owner = commandLine.getOptionValue(OWNER_OPTION.getOpt());
+		if (owner == null) {
+			owner = "";
+		}
+		LOG.info("owner = {}", owner);
+		System.setProperty("owner", owner);
 		// evaluate help flag
 		if (runOptions.isPrintHelp()) {
 			CliFrontendParser.printHelpForRun(customCommandLines);
