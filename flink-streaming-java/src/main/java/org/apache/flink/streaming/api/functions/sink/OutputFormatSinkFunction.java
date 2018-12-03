@@ -82,11 +82,14 @@ public class OutputFormatSinkFunction<IN> extends RichSinkFunction<IN> implement
 
 	@Override
 	public void invoke(IN record) throws Exception {
+		long startTime = System.currentTimeMillis();
 		try {
 			format.writeRecord(record);
 		} catch (Exception ex) {
 			cleanup();
 			throw ex;
+		} finally {
+			latencyHistogram.update(System.currentTimeMillis() - startTime);
 		}
 	}
 

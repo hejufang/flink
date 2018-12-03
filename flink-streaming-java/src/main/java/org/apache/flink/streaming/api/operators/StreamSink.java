@@ -52,8 +52,10 @@ public class StreamSink<IN> extends AbstractUdfStreamOperator<Object, SinkFuncti
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTime = System.currentTimeMillis();
 		sinkContext.element = element;
 		userFunction.invoke(element.getValue(), sinkContext);
+		latencyHistogram.update(System.currentTimeMillis() - startTime);
 	}
 
 	@Override

@@ -24,6 +24,8 @@ import org.apache.flink.api.common.functions.Function;
 import org.apache.flink.api.common.functions.util.FunctionUtils;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.DropwizardHistogramWrapper;
+import org.apache.flink.metrics.Histogram;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
@@ -33,6 +35,8 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.util.functions.StreamingFunctionUtils;
+
+import com.codahale.metrics.SlidingWindowReservoir;
 
 import static java.util.Objects.requireNonNull;
 
@@ -53,6 +57,9 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
 
 	private static final long serialVersionUID = 1L;
 
+	private static final String METRICS_NAME = "latency";
+
+	public Histogram latencyHistogram;
 
 	/** The user function. */
 	protected final F userFunction;
@@ -81,7 +88,10 @@ public abstract class AbstractUdfStreamOperator<OUT, F extends Function>
 	public void setup(StreamTask<?, ?> containingTask, StreamConfig config, Output<StreamRecord<OUT>> output) {
 		super.setup(containingTask, config, output);
 		FunctionUtils.setFunctionRuntimeContext(userFunction, getRuntimeContext());
-
+		com.codahale.metrics.Histogram dropwizardHistogram =
+			new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500));
+		latencyHistogram = this.getMetricGroup().histogram(METRICS_NAME,
+			new DropwizardHistogramWrapper(dropwizardHistogram));
 	}
 
 	@Override

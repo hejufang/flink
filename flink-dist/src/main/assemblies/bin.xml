@@ -76,6 +76,14 @@ under the License.
 			<fileMode>0644</fileMode>
 		</file>
 
+		<!-- copy flink metrics dropwizard uber jar -->
+		<file>
+			<source>../flink-metrics/flink-metrics-dropwizard/target/flink-metrics-dropwizard-${project.version}-jar-with-dependencies.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<destName>flink-metrics-dropwizard-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
 		<!-- copy the config file -->
 		<file>
 			<source>src/main/resources/flink-conf.yaml</source>

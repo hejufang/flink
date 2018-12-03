@@ -80,10 +80,12 @@ public class KeyedProcessOperator<K, IN, OUT>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTime = System.currentTimeMillis();
 		collector.setTimestamp(element);
 		context.element = element;
 		userFunction.processElement(element.getValue(), context, collector);
 		context.element = null;
+		latencyHistogram.update(System.currentTimeMillis() - startTime);
 	}
 
 	private void invokeUserFunction(

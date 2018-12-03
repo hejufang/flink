@@ -20,7 +20,6 @@ package org.apache.flink.dropwizard;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.dropwizard.metrics.DropwizardHistogramWrapper;
 import org.apache.flink.dropwizard.metrics.DropwizardMeterWrapper;
 import org.apache.flink.dropwizard.metrics.FlinkCounterWrapper;
 import org.apache.flink.dropwizard.metrics.FlinkGaugeWrapper;
@@ -28,6 +27,7 @@ import org.apache.flink.dropwizard.metrics.FlinkHistogramWrapper;
 import org.apache.flink.dropwizard.metrics.FlinkMeterWrapper;
 import org.apache.flink.metrics.CharacterFilter;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.DropwizardHistogramWrapper;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.Meter;

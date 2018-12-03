@@ -47,13 +47,6 @@ under the License.
 			<scope>provided</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>io.dropwizard.metrics</groupId>
-			<artifactId>metrics-core</artifactId>
-			<version>${metrics.version}</version>
-		</dependency>
-
-
 		<!-- test dependencies -->
 
 		<dependency>

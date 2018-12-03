@@ -52,6 +52,13 @@ under the License.
 			<artifactId>flink-shaded-asm-6</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>com.codahale.metrics</groupId>
+			<artifactId>metrics-core</artifactId>
+			<version>3.0.1</version>
+			<scope>provided</scope>
+		</dependency>
+
 		<!-- standard utilities -->
 		<dependency>
 			<groupId>org.apache.commons</groupId>

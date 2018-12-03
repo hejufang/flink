@@ -66,6 +66,18 @@ public class Utils {
 		return operators;
 	}
 
+	public static List<String> getOperatersExceptSources(StreamGraph streamGraph) {
+		List<String> result = new ArrayList<>();
+		List<String> operators = getOperaters(streamGraph);
+		List<String> sources = getSources(streamGraph);
+		for (String operator: operators) {
+			if (!sources.contains(operator)) {
+				result.add(operator);
+			}
+		}
+		return result;
+	}
+
 	public static List<String> getSources(StreamGraph streamGraph) {
 		List<String> sourceList = new ArrayList<>();
 		for (int soureId : streamGraph.getSourceIDs()) {

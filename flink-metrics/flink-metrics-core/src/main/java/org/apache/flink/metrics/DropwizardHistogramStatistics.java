@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.dropwizard.metrics;
-
-import org.apache.flink.metrics.HistogramStatistics;
+package org.apache.flink.metrics;
 
 import com.codahale.metrics.Snapshot;
 

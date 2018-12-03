@@ -173,6 +173,24 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
+	public String renderOperatorLatencyRow(List<String> operators) {
+		String operatorLatencyTarget = Template.OPERATOR_LATENCY_TARGET;
+		List<String> recordNumList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> operatorLatencyTargetValues = new HashMap<>();
+			operatorLatencyTargetValues.put("operator", o);
+			operatorLatencyTargetValues.put("jobname", jobName);
+			recordNumList.add(renderString(operatorLatencyTarget, operatorLatencyTargetValues));
+		}
+		String targets = String.join(",", recordNumList);
+		Map<String, String> operatorLatencyValues = new HashMap<>();
+		operatorLatencyValues.put("targets", targets);
+		operatorLatencyValues.put("datasource", dataSource);
+		String operatorLatencyTemplate = Template.OPERATOR_LATENCY;
+		String operatorLatencyRow = renderString(operatorLatencyTemplate, operatorLatencyValues);
+		return operatorLatencyRow;
+	}
+
 	public String renderKafkaOffsetRow(List<String> sources) {
 		String kafkaOffsetTargetTemplate = Template.KAFKA_OFFSET_TARGET;
 		List<String> kafkaOffsetList = new ArrayList<>();
@@ -191,14 +209,39 @@ public class Dashboard {
 		return kafkaOffsetRow;
 	}
 
+	public String renderKafkaLatencyRow(List<String> sources) {
+		String kafkaLatencyTargetTemplate = Template.KAFKA_LATENCY_TARGET;
+		List<String> kafkaLatencyList = new ArrayList<>();
+		for (String s : sources) {
+			Map<String, String> kafkaLatencyTargetValues = new HashMap<>();
+			kafkaLatencyTargetValues.put("kafka_source", s);
+			kafkaLatencyTargetValues.put("jobname", jobName);
+			kafkaLatencyList.add(renderString(kafkaLatencyTargetTemplate, kafkaLatencyTargetValues));
+		}
+		String targets = String.join(",", kafkaLatencyList);
+		Map<String, String> kafkaOffsetValues = new HashMap<>();
+		kafkaOffsetValues.put("targets", targets);
+		kafkaOffsetValues.put("datasource", dataSource);
+		String kafkaLatencyTemplate = Template.KAFKA_LATENCY;
+		String kafkaLatencyRow = renderString(kafkaLatencyTemplate, kafkaOffsetValues);
+		return kafkaLatencyRow;
+	}
+
 	public String renderDashboard() {
 		List<String> rows = new ArrayList<>();
+		List <String> operators = Utils.getOperaters(streamGraph);
+		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
+		List <String> sources = Utils.getSources(streamGraph);
+		List <String> tasks = Utils.getTasks(jobGraph);
+
 		rows.add(renderLagSizeRow(Utils.getLagSizeMetrics()));
-		rows.add(renderKafkaOffsetRow(Utils.getSources(streamGraph)));
+		rows.add(renderKafkaOffsetRow(sources));
+		rows.add(renderKafkaLatencyRow(sources));
 		rows.add(renderMemoryRow());
-		rows.add(renderRecordNumRow(Utils.getOperaters(streamGraph)));
-		rows.add(renderQueueLengthRow(Utils.getTasks(jobGraph)));
-		rows.add(renderPoolUsageRow(Utils.getTasks(jobGraph)));
+		rows.add(renderRecordNumRow(operators));
+		rows.add(renderOperatorLatencyRow(operatorsButSources));
+		rows.add(renderQueueLengthRow(tasks));
+		rows.add(renderPoolUsageRow(tasks));
 		rows.add(renderGcRow());
 		rows.add(renderJobInfoRow());
 		rows.add(renderTmSlotRow());

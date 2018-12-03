@@ -38,6 +38,8 @@ public class StreamMap<IN, OUT>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTime = System.currentTimeMillis();
 		output.collect(element.replace(userFunction.map(element.getValue())));
+		latencyHistogram.update(System.currentTimeMillis() - startTime);
 	}
 }
