@@ -2082,6 +2082,10 @@ public final class ConfigConstants {
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
 	public static final String FLINK_JOB_TYPE_DEFAULT = "Flink";
 
+	// ---------------------------- Serializer Buffer ------------------------------
+	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
+	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;
+
 	/**
 	 * Not instantiable.
 	 */
