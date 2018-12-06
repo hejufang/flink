@@ -55,7 +55,9 @@ public class ReduceApplyAllWindowFunction<W extends Window, T, R>
 			} else {
 				long startTime = System.currentTimeMillis();
 				curr = reduceFunction.reduce(curr, val);
-				latencyHistogram.update(System.currentTimeMillis() - startTime);
+				if (latencyHistogram != null) {
+					latencyHistogram.update(System.currentTimeMillis() - startTime);
+				}
 			}
 		}
 		wrappedFunction.apply(window, Collections.singletonList(curr), out);

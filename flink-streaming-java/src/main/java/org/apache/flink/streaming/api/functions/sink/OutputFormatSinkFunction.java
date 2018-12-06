@@ -89,7 +89,9 @@ public class OutputFormatSinkFunction<IN> extends RichSinkFunction<IN> implement
 			cleanup();
 			throw ex;
 		} finally {
-			latencyHistogram.update(System.currentTimeMillis() - startTime);
+			if (latencyHistogram != null) {
+				latencyHistogram.update(System.currentTimeMillis() - startTime);
+			}
 		}
 	}
 
