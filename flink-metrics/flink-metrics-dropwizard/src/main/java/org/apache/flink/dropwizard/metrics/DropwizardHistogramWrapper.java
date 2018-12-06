@@ -16,10 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.dropwizard.metrics;
+
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.HistogramStatistics;
 
 /**
- * This class is copied from flink-metrics-dropwizard, in order to avoid cyclic dependency.
  * Wrapper to use a Dropwizard {@link com.codahale.metrics.Histogram} as a Flink {@link Histogram}.
  */
 public class DropwizardHistogramWrapper implements Histogram {

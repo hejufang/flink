@@ -20,7 +20,6 @@ package org.apache.flink.dropwizard.metrics;
 
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.dropwizard.ScheduledDropwizardReporter;
-import org.apache.flink.metrics.DropwizardHistogramWrapper;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.MetricReporter;
 import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;

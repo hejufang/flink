@@ -16,20 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.dropwizard.metrics;
+
+import org.apache.flink.metrics.HistogramStatistics;
 
 import com.codahale.metrics.Snapshot;
 
 /**
- * This class is copied from flink-metrics-dropwizard, in order to avoid cyclic dependency.
  * Dropwizard histogram statistics implementation returned by {@link DropwizardHistogramWrapper}.
  * The statistics class wraps a {@link Snapshot} instance and forwards the method calls accordingly.
  */
 class DropwizardHistogramStatistics extends HistogramStatistics {
 
-	private final com.codahale.metrics.Snapshot snapshot;
+	private final Snapshot snapshot;
 
-	DropwizardHistogramStatistics(com.codahale.metrics.Snapshot snapshot) {
+	DropwizardHistogramStatistics(Snapshot snapshot) {
 		this.snapshot = snapshot;
 	}
 
