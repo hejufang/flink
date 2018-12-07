@@ -175,6 +175,14 @@
 			<destName>flink-python-${project.version}-java-binding.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
+
+		<!-- Orc API -->
+		<file>
+			<source>../flink-connectors/flink-orc/target/flink-orc_${scala.binary.version}-${project.version}.jar</source>
+			<outputDirectory>opt</outputDirectory>
+			<destName>flink-orc_${scala.binary.version}-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
 	</files>
 	<fileSets>
 		<fileSet>
