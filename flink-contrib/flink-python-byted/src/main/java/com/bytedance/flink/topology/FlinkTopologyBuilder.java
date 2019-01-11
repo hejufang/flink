@@ -338,7 +338,7 @@ public class FlinkTopologyBuilder {
 		}
 
 		Tuple t;
-		if (numberOfAttributes <= 25) {
+		if (numberOfAttributes <= Constants.FLINK_TUPLE_MAX_FIELD_SIZE) {
 			try {
 				t = Tuple.getTupleClass(numberOfAttributes).newInstance();
 			} catch (final InstantiationException e) {
@@ -347,7 +347,7 @@ public class FlinkTopologyBuilder {
 				throw new RuntimeException(e);
 			}
 		} else {
-			throw new IllegalArgumentException("Flink supports only a maximum number of 24 attributes");
+			throw new IllegalArgumentException("Flink supports only a maximum number of 25 attributes");
 		}
 
 		for (int i = 0; i < numberOfAttributes; ++i) {
