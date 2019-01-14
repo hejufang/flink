@@ -25,7 +25,7 @@ public class Constants {
 	public static final String TOPOLOGY_YAML = "topology.yaml";
 	public static final String OWNERS = "owners";
 	public static final String ENVIRONMENT = "environment";
-	public static final String PYTHONPATH_KEY = "PYTHONPATH_KEY";
+	public static final String PYTHONPATH_KEY = "PYTHONPATH";
 	public static final String PYTHONPATH_VAL = "/opt/tiger/pyFlink";
 	public static final String USE_NEW_MODE = "use_new_mode";
 	public static final String RUN_MODE = "topology_standalone_mode";
