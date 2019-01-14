@@ -281,8 +281,8 @@ public class FlinkTopologyBuilder {
 			if (!grouping.getGroupType().equals(GroupType.KEY_BY)) {
 				throw new RuntimeException("The grouping type before batch bolt must be keyby('fields'|'key_by')");
 			}
-			long batchIntervalMs = (int) boltInfo.getArgs().getOrDefault(Constants.FLUSH_INTERVAL_SECONDS,
-				Constants.FLUSH_INTERVAL_SECONDS_DEFAULT) * 1000;
+			long batchIntervalMs = (int) boltInfo.getArgs().getOrDefault(Constants.FLUSH_INTERVAL_SECONDS_KEY,
+				Constants.FLUSH_INTERVAL_SECONDS_VAL) * 1000;
 			Schema inputSchema = jobConfig.getBoltConfig().getBoltInfoMap().get(grouping.getInputStream()).getOutputSchema();
 			BatchBoltProcess<Tuple, Object> process = new BatchBoltProcess<>(new ShellBolt(boltInfo),
 				boltName, outputSchema, batchIntervalMs,

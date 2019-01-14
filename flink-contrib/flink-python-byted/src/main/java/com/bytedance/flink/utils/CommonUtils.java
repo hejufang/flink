@@ -17,9 +17,9 @@
 
 package com.bytedance.flink.utils;
 
-import com.bytedance.flink.configuration.Constants;
 import org.apache.flink.api.java.tuple.Tuple;
 
+import com.bytedance.flink.configuration.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

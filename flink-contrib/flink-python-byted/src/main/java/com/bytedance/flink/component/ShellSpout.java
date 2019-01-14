@@ -77,8 +77,8 @@ public class ShellSpout implements Spout {
 		runtimeConfig.put(Constants.TOPOLOGY_YAML, "...");
 		spoutReader = new Thread(new SpoutReaderRunnable());
 		subTaskId = runtimeConfig.getSubTaskId();
-		int maxPendding = (int) spoutInfo.getArgs().getOrDefault(Constants.MAX_SPOUT_PENDING,
-				Constants.MAX_SPOUT_PENDING_DEFAULT);
+		int maxPendding = (int) spoutInfo.getArgs().getOrDefault(Constants.MAX_SPOUT_PENDING_KEY,
+				Constants.MAX_SPOUT_PENDING_VAL);
 		pendingMsgs = new LinkedBlockingQueue<>(maxPendding);
 		this.spoutCollector = spoutCollector;
 		fillPartitionInfo(runtimeConfig, spoutInfo.getArgs());

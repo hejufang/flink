@@ -157,18 +157,18 @@ public class ConfigParser {
 			jobConfig.setLocalFailover(false);
 		}
 
-		jobConfig.setRunSeconds((Integer) allYamlConf.getOrDefault(Constants.RUN_TIME,
-			Constants.RUN_TIME_DEFAULT));
+		jobConfig.setRunSeconds((Integer) allYamlConf.getOrDefault(Constants.RUN_TIME_KEY,
+			Constants.RUN_TIME_VAL));
 		jobConfig.setEnvironment((Map<Object, Object>) allYamlConf.get(Constants.ENVIRONMENT));
-		int maxSpoutPending = (Integer) allYamlConf.getOrDefault(Constants.MAX_SPOUT_PENDING,
-			Constants.MAX_SPOUT_PENDING_DEFAULT);
+		int maxSpoutPending = (Integer) allYamlConf.getOrDefault(Constants.MAX_SPOUT_PENDING_KEY,
+			Constants.MAX_SPOUT_PENDING_VAL);
 		jobConfig.setMaxSpoutPending(maxSpoutPending);
-		jobConfig.getCommonArgs().put(Constants.MAX_SPOUT_PENDING, maxSpoutPending);
+		jobConfig.getCommonArgs().put(Constants.MAX_SPOUT_PENDING_KEY, maxSpoutPending);
 
-		int maxBoltPending = (Integer) allYamlConf.getOrDefault(Constants.MAX_BOLT_PENDING,
-			Constants.MAX_BOLT_PENDING_DEFAULT);
+		int maxBoltPending = (Integer) allYamlConf.getOrDefault(Constants.MAX_BOLT_PENDING_KEY,
+			Constants.MAX_BOLT_PENDING_VAL);
 		jobConfig.setMaxBoltPending(maxBoltPending);
-		jobConfig.getCommonArgs().put(Constants.MAX_BOLT_PENDING, maxBoltPending);
+		jobConfig.getCommonArgs().put(Constants.MAX_BOLT_PENDING_KEY, maxBoltPending);
 
 		boolean isIgnoreMismatchedMsg =
 			(boolean) allYamlConf.getOrDefault(Constants.IS_IGNORE_MISMATCHED_MSG, false);
@@ -232,13 +232,13 @@ public class ConfigParser {
 			spoutInfo.getArgs().put(Constants.SPOUT_NAME, spoutInfo.getName());
 
 			// parse interpreter
-			if (map.containsKey(Constants.INTERPRETER)) {
-				spoutInfo.setInterpreter((String) map.get(Constants.INTERPRETER));
+			if (map.containsKey(Constants.INTERPRETER_KEY)) {
+				spoutInfo.setInterpreter((String) map.get(Constants.INTERPRETER_KEY));
 			} else {
-				spoutInfo.setInterpreter((String) spoutArgs.getOrDefault(Constants.INTERPRETER,
-					Constants.INTERPRETER_DEFAULT));
+				spoutInfo.setInterpreter((String) spoutArgs.getOrDefault(Constants.INTERPRETER_KEY,
+					Constants.INTERPRETER_VAL));
 			}
-			spoutInfo.getArgs().put(Constants.INTERPRETER_DEFAULT, spoutInfo.getInterpreter());
+			spoutInfo.getArgs().put(Constants.INTERPRETER_VAL, spoutInfo.getInterpreter());
 
 			// parse script name
 			if (map.containsKey(Constants.SCRIPT)) {
@@ -261,13 +261,13 @@ public class ConfigParser {
 
 			// parse kafka spout ext
 			int kafkaSpoutExt = 1;
-			if (map.containsKey(Constants.KAFKA_SPOUT_EXT)) {
-				kafkaSpoutExt = (Integer) map.get(Constants.KAFKA_SPOUT_EXT);
+			if (map.containsKey(Constants.KAFKA_SPOUT_EXT_KEY)) {
+				kafkaSpoutExt = (Integer) map.get(Constants.KAFKA_SPOUT_EXT_KEY);
 			} else {
-				kafkaSpoutExt = (Integer) spoutArgs.getOrDefault(Constants.KAFKA_SPOUT_EXT,
-					Constants.KAFKA_SPOUT_EXT_DEFAULT);
+				kafkaSpoutExt = (Integer) spoutArgs.getOrDefault(Constants.KAFKA_SPOUT_EXT_KEY,
+					Constants.KAFKA_SPOUT_EXT_VAL);
 			}
-			spoutInfo.getArgs().put(Constants.KAFKA_SPOUT_EXT, kafkaSpoutExt);
+			spoutInfo.getArgs().put(Constants.KAFKA_SPOUT_EXT_KEY, kafkaSpoutExt);
 
 			boolean isThreadNumDeterminedByPartition = kafkaSpoutExt == 1;
 			if (map.containsKey(Constants.IS_THREAD_NUM_DETREMINED_BY_PARTITION)) {
@@ -395,13 +395,13 @@ public class ConfigParser {
 			boltInfo.getArgs().put(Constants.BOLT_NAME, boltInfo.getName());
 
 			// parse interpreter
-			if (map.containsKey(Constants.INTERPRETER)) {
-				boltInfo.setInterpreter((String) map.get(Constants.INTERPRETER));
+			if (map.containsKey(Constants.INTERPRETER_KEY)) {
+				boltInfo.setInterpreter((String) map.get(Constants.INTERPRETER_KEY));
 			} else {
-				boltInfo.setInterpreter((String) boltArgs.getOrDefault(Constants.INTERPRETER,
-					Constants.INTERPRETER_DEFAULT));
+				boltInfo.setInterpreter((String) boltArgs.getOrDefault(Constants.INTERPRETER_KEY,
+					Constants.INTERPRETER_VAL));
 			}
-			boltInfo.getArgs().put(Constants.INTERPRETER_DEFAULT, boltInfo.getInterpreter());
+			boltInfo.getArgs().put(Constants.INTERPRETER_VAL, boltInfo.getInterpreter());
 
 			// parse script name
 			if (map.containsKey(Constants.SCRIPT)) {

@@ -63,8 +63,8 @@ public class ShellProcess implements Serializable {
 
 	public Number launch(RuntimeConfig config) {
 		LOG.info("Launch ShellProcess with RuntimeConfig: {}", config);
-		killProcessGroup = (boolean) config.getOrDefault(Constants.IS_KILL_PROCESS_GROUP,
-			Constants.IS_KILL_PROCESS_GROUP_DEFAULT);
+		killProcessGroup = (boolean) config.getOrDefault(Constants.IS_KILL_PROCESS_GROUP_KEY,
+			Constants.IS_KILL_PROCESS_GROUP_VAL);
 		environment = config.getEnvironment();
 
 		if (killProcessGroup) {
@@ -82,13 +82,13 @@ public class ShellProcess implements Serializable {
 
 		// Add resource dir and pyFlink to PYTHONPATH.
 		List<String> pythonPathList = new ArrayList<>();
-		pythonPathList.add(Constants.PYTHONPATH_DEFAULT);
+		pythonPathList.add(Constants.PYTHONPATH_VAL);
 		pythonPathList.add(EnvironmentInitUtils.getResourceDir(config));
-		if (environment.containsKey(Constants.PYTHONPATH)) {
-			pythonPathList.add(environment.get(Constants.PYTHONPATH));
+		if (environment.containsKey(Constants.PYTHONPATH_KEY)) {
+			pythonPathList.add(environment.get(Constants.PYTHONPATH_KEY));
 		}
 		String pythonPath = String.join(":", pythonPathList);
-		environment.put(Constants.PYTHONPATH, pythonPath);
+		environment.put(Constants.PYTHONPATH_KEY, pythonPath);
 		builder.environment().putAll(environment);
 		LOG.debug("Launch process with environment: {}", builder.environment());
 
@@ -150,7 +150,10 @@ public class ShellProcess implements Serializable {
 
 	// Log any info sent on the error stream
 	public void logErrorStream() {
-		shellLog.info(getErrorsString());
+		String errorString = getErrorsString();
+		if (errorString != null && !errorString.isEmpty()) {
+			shellLog.info(errorString);
+		}
 	}
 
 	public void destroy() {

@@ -30,7 +30,7 @@ public class Validation {
 	public static void validateBoltInfo(BoltInfo boltInfo) {
 		String prefix = String.format("Bolt (%s):", boltInfo.getName());
 		validateString(boltInfo.getName(), prefix, Constants.BOLT_NAME);
-		validateString(boltInfo.getInterpreter(), prefix, Constants.INTERPRETER);
+		validateString(boltInfo.getInterpreter(), prefix, Constants.INTERPRETER_KEY);
 		validateString(boltInfo.getScript(), prefix, Constants.SCRIPT);
 		notNull(boltInfo.getGroupList(), prefix, Constants.GROUP_LIST);
 		positive(boltInfo.getParallelism(), prefix, Constants.PARALLELISM);
@@ -39,7 +39,7 @@ public class Validation {
 	public static void validateSpoutInfo(SpoutInfo spoutInfo) {
 		String prefix = String.format("Spout (%s):", spoutInfo.getName());
 		validateString(spoutInfo.getName(), prefix, Constants.SPOUT_NAME);
-		validateString(spoutInfo.getInterpreter(), prefix, Constants.INTERPRETER);
+		validateString(spoutInfo.getInterpreter(), prefix, Constants.INTERPRETER_KEY);
 		validateString(spoutInfo.getScript(), prefix, Constants.SCRIPT);
 		if (!spoutInfo.isKafkaMultiSource()) {
 			validatePositiveInteger(spoutInfo.getTotalPartition(), prefix, Constants.TOTAL_PARTITION);

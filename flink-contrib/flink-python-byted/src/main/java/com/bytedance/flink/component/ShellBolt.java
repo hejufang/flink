@@ -74,8 +74,8 @@ public class ShellBolt implements Bolt {
 		// Overwirte TOPOLOGY_YAML which interferes with your ability to see the configuration.
 		runtimeConfig.put(Constants.TOPOLOGY_YAML, "...");
 		this.boltCollector = boltCollector;
-		int maxPendding = (int) boltInfo.getArgs().getOrDefault(Constants.MAX_BOLT_PENDING,
-			Constants.MAX_BOLT_PENDING_DEFAULT);
+		int maxPendding = (int) boltInfo.getArgs().getOrDefault(Constants.MAX_BOLT_PENDING_KEY,
+			Constants.MAX_BOLT_PENDING_VAL);
 		pendingWrites = new LinkedBlockingQueue<>(maxPendding);
 		Map<String, Object> shellArgs = new HashMap<>();
 		String logFile = EnvironmentInitUtils.getLogFile();

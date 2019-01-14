@@ -206,13 +206,13 @@ public class FlinkSubmitter {
 		String tempDir;
 		if (jobConfig.getRunMode() == 0) {
 			// cluster mode
-			tempDir = Constants.TEMP_DIR_VALUE;
+			tempDir = Constants.TEMP_DIR_VAL;
 		} else {
 			// local mode
 			tempDir = flinkConfig.getString(CoreOptions.TMP_DIRS, "");
 		}
-		runtimeConfig.setCodeDir(Paths.get(tempDir, Constants.CODE_DIR_VALUE).toString());
-		runtimeConfig.setPidDir(Constants.PID_DIR_VALUE);
+		runtimeConfig.setCodeDir(Paths.get(tempDir, Constants.CODE_DIR_VAL).toString());
+		runtimeConfig.setPidDir(Constants.PID_DIR_VAL);
 		runtimeConfig.setEnvironment(jobConfig.getEnvironment());
 		runtimeConfig.put(Constants.TOPOLOGY_YAML, jobConfig.getTopologyYaml());
 		runtimeConfig.put(Constants.LOCAL_FAILOVER, jobConfig.isLocalFailover());
