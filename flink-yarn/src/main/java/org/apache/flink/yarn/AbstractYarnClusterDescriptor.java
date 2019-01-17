@@ -505,7 +505,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			throw yde;
 		}
 
-		LOG.info("Cluster specification: {}", validClusterSpecification);
+		LOG.info("Cluster specification: {}", clusterSpecification);
 
 		final ClusterEntrypoint.ExecutionMode executionMode = detached ?
 			ClusterEntrypoint.ExecutionMode.DETACHED
