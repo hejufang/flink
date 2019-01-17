@@ -21,6 +21,7 @@ import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.pojo.BoltConfig;
 import com.bytedance.flink.pojo.BoltInfo;
 import com.bytedance.flink.pojo.JobConfig;
+import com.bytedance.flink.pojo.Schema;
 import com.bytedance.flink.pojo.SpoutConfig;
 import com.bytedance.flink.pojo.SpoutInfo;
 import com.bytedance.flink.topology.GroupType;
@@ -258,6 +259,7 @@ public class ConfigParser {
 					(ArrayList<String>) spoutArgs.getOrDefault(Constants.OUTPUT_FIELDS, 1));
 			}
 			spoutInfo.getArgs().put(Constants.OUTPUT_FIELDS, spoutInfo.getOutputFields());
+			spoutInfo.setOutputSchema(new Schema(spoutInfo.getOutputFields()));
 
 			// parse kafka spout ext
 			int kafkaSpoutExt = 1;
