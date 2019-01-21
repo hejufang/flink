@@ -93,8 +93,9 @@ public class CoreDumpUtils {
 			if (match) {
 				if (line.contains("ONLY_NOTIFY")) {
 					coreMsg = String.format("Core dump occurred where pid = %s, but did not generated a core file, only notified.", pid);
+				} else {
+					coreMsg = String.format("Core dump occurred where pid = %s, and generated a core file.", pid);
 				}
-				coreMsg = String.format("Core dump occurred where pid = %s, and generated a core file.", pid);
 			}
 		} catch (Exception e) {
 			LOG.info("Exception while checking core log line.", e);
