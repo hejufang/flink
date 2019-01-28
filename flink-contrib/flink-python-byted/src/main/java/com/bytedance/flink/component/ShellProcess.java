@@ -83,7 +83,8 @@ public class ShellProcess implements Serializable {
 		// Add resource dir and pyFlink to PYTHONPATH.
 		List<String> pythonPathList = new ArrayList<>();
 		pythonPathList.add(Constants.PYTHONPATH_VAL);
-		pythonPathList.add(EnvironmentInitUtils.getResourceDir(config));
+		String resourceDir = EnvironmentInitUtils.getResourceDir(config);
+		pythonPathList.add(resourceDir);
 		if (environment.containsKey(Constants.PYTHONPATH_KEY)) {
 			pythonPathList.add(environment.get(Constants.PYTHONPATH_KEY));
 		}
@@ -92,7 +93,7 @@ public class ShellProcess implements Serializable {
 		builder.environment().putAll(environment);
 		LOG.debug("Launch process with environment: {}", builder.environment());
 
-		builder.directory(new File(config.getCodeDir()));
+		builder.directory(new File(resourceDir));
 		builder.redirectError(ProcessBuilder.Redirect.INHERIT);
 		taskName = config.getTaskName();
 		shellLog = LoggerFactory.getLogger(taskName);
