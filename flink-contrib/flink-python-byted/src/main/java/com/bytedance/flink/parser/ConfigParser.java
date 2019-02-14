@@ -419,8 +419,8 @@ public class ConfigParser {
 			if (map.containsKey(Constants.OUTPUT_FIELDS)) {
 				boltInfo.setOutputFields((ArrayList<String>) map.get(Constants.OUTPUT_FIELDS));
 			} else {
-				boltInfo.setOutputFields(
-					(ArrayList<String>) boltArgs.getOrDefault(Constants.OUTPUT_FIELDS, 1));
+				boltInfo.setOutputFields((ArrayList<String>) boltArgs.getOrDefault(
+					Constants.OUTPUT_FIELDS, new ArrayList<>()));
 			}
 			boltInfo.getArgs().put(Constants.OUTPUT_FIELDS, boltInfo.getOutputFields());
 
