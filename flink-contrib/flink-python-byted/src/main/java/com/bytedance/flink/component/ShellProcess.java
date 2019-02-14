@@ -65,6 +65,12 @@ public class ShellProcess implements Serializable {
 		LOG.info("Launch ShellProcess with RuntimeConfig: {}", config);
 		killProcessGroup = (boolean) config.getOrDefault(Constants.IS_KILL_PROCESS_GROUP_KEY,
 			Constants.IS_KILL_PROCESS_GROUP_VAL);
+		// In order to be compatible with old configuration.
+		int killProcessGroupOld = Integer.valueOf(
+			config.getOrDefault(Constants.IS_KILL_PROCESS_GROUP_OLD_KEY, -1).toString());
+		if (killProcessGroupOld > 0) {
+			killProcessGroup = true;
+		}
 		environment = config.getEnvironment();
 
 		if (killProcessGroup) {

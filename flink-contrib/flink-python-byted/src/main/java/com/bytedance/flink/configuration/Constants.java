@@ -122,7 +122,9 @@ public class Constants {
 	public static final String CLUSTER_NAME = "clusterName";
 	public static final String JOB_NAME = "jobName";
 	public static final String IS_KILL_PROCESS_GROUP_KEY = "kill_process_group";
-	public static final boolean IS_KILL_PROCESS_GROUP_VAL = true;
+	public static final boolean IS_KILL_PROCESS_GROUP_VAL = false;
+	public static final String IS_KILL_PROCESS_GROUP_OLD_KEY = "topology.shellprocess.kill.process.group";
+	public static final int IS_KILL_PROCESS_GROUP_OLD_VAL = -1;
 
 	public static final String INDEX = "index";
 	public static final String SUB_TASK_ID = "subTaskId";
