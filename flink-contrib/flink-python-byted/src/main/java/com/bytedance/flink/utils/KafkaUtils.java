@@ -19,6 +19,8 @@ package com.bytedance.flink.utils;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,8 @@ import java.util.Properties;
  * Kafka utils.
  */
 public class KafkaUtils {
+	private static final Logger LOG = LoggerFactory.getLogger(CoreDumpUtils.class);
+
 	private static Map<String, KafkaProducer> kafkaProducerMap = new HashMap<>();
 
 	private static Properties getKafkaClusterProperties(String cluster) {
@@ -40,20 +44,35 @@ public class KafkaUtils {
 	}
 
 	public static int getPartitionNum(String cluster, String topic) {
-		KafkaProducer producer = kafkaProducerMap.get(cluster);
-		if (cluster == null || topic == null) {
-			throw new RuntimeException("Cluster or topic can't be NULL.");
-		}
+		int maxRetryTimes = 3;
+		int partitions = -1;
+		for (int i = 0; i < maxRetryTimes; i++) {
+			try {
+				KafkaProducer producer = kafkaProducerMap.get(cluster);
+				if (cluster == null || topic == null) {
+					throw new RuntimeException("Cluster or topic can't be NULL.");
+				}
 
-		if (producer == null) {
-			Properties properties = getKafkaClusterProperties(cluster);
-			producer = new KafkaProducer(properties);
-			kafkaProducerMap.put(cluster, producer);
-		}
+				if (producer == null) {
+					Properties properties = getKafkaClusterProperties(cluster);
+					properties.setProperty("request.timeout.ms", "100000");
+					producer = new KafkaProducer(properties);
+					kafkaProducerMap.put(cluster, producer);
+				}
 
-		List partitionInfoList = producer.partitionsFor(topic);
-		producer.close();
-		return partitionInfoList.size();
+				List partitionInfoList = producer.partitionsFor(topic);
+				partitions = partitionInfoList.size();
+				break;
+			} catch (Throwable t) {
+				kafkaProducerMap.remove(cluster);
+				if (i < maxRetryTimes - 1) {
+					LOG.warn("Failed to get partition info, retry...");
+				} else {
+					LOG.error("Error occurred while get partition info.", t);
+				}
+			}
+		}
+		return partitions;
 	}
 
 	public static void main(String[] args) {
