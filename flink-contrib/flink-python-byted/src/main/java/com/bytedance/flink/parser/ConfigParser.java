@@ -198,7 +198,7 @@ public class ConfigParser {
 		spoutsCommonArgs = CommonUtils.mergeMaps(jobConfig.getCommonArgs(), spoutsCommonArgs);
 		spoutConfig.setCommonArgs(spoutsCommonArgs);
 		ArrayList<Object> spoutList =
-			(ArrayList<Object>) spoutConf.getOrDefault(Constants.SPOUT_LIST, new HashMap<>());
+			(ArrayList<Object>) spoutConf.getOrDefault(Constants.SPOUT_LIST, new ArrayList<>());
 		for (Object o : spoutList) {
 			SpoutInfo spoutInfo = new SpoutInfo();
 			Map<String, Object> map = (Map<String, Object>) o;
@@ -256,7 +256,7 @@ public class ConfigParser {
 				spoutInfo.setOutputFields((ArrayList<String>) map.get(Constants.OUTPUT_FIELDS));
 			} else {
 				spoutInfo.setOutputFields(
-					(ArrayList<String>) spoutArgs.getOrDefault(Constants.OUTPUT_FIELDS, 1));
+					(ArrayList<String>) spoutArgs.getOrDefault(Constants.OUTPUT_FIELDS, new ArrayList<>()));
 			}
 			spoutInfo.getArgs().put(Constants.OUTPUT_FIELDS, spoutInfo.getOutputFields());
 			spoutInfo.setOutputSchema(new Schema(spoutInfo.getOutputFields()));
@@ -371,7 +371,11 @@ public class ConfigParser {
 		boltsCommonArgs = CommonUtils.mergeMaps(jobConfig.getCommonArgs(), boltsCommonArgs);
 		boltConfig.setCommonArgs(boltsCommonArgs);
 		ArrayList<Object> boltList =
-			(ArrayList<Object>) boltConf.getOrDefault(Constants.BOLT_LIST, new HashMap<>());
+			(ArrayList<Object>) boltConf.getOrDefault(Constants.BOLT_LIST, new ArrayList<>());
+		if (boltList == null) {
+			boltConfig.setBoltInfoMap(boltInfoMap);
+			return boltConfig;
+		}
 		for (Object o : boltList) {
 			BoltInfo boltInfo = new BoltInfo();
 			Map<String, Object> map = (Map<String, Object>) o;

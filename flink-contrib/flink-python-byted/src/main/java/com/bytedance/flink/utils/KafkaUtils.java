@@ -52,6 +52,7 @@ public class KafkaUtils {
 		}
 
 		List partitionInfoList = producer.partitionsFor(topic);
+		producer.close();
 		return partitionInfoList.size();
 	}
 
