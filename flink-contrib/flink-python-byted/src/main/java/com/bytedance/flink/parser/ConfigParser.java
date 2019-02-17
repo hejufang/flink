@@ -145,6 +145,7 @@ public class ConfigParser {
 			(Map<String, Object>) allYamlConf.getOrDefault(Constants.COMMON_ARGS, new HashMap<>()));
 		String ownerStr = (String) allYamlConf.getOrDefault(Constants.OWNERS, "flink");
 		jobConfig.setOwners(CommonUtils.parseStringToList(ownerStr, ","));
+		jobConfig.getCommonArgs().put(Constants.OWNERS, ownerStr);
 
 		runMode = (Integer) allYamlConf.getOrDefault(Constants.RUN_MODE,
 			Constants.RUN_MODE_CLUSTER);
