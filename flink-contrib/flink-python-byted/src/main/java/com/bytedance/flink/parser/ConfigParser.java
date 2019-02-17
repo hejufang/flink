@@ -143,7 +143,7 @@ public class ConfigParser {
 		jobConfig.setTopologyYaml(CommonUtils.loadFileToString(confFile));
 		jobConfig.setCommonArgs(
 			(Map<String, Object>) allYamlConf.getOrDefault(Constants.COMMON_ARGS, new HashMap<>()));
-		String ownerStr = (String) allYamlConf.getOrDefault(Constants.OWNERS, "");
+		String ownerStr = (String) allYamlConf.getOrDefault(Constants.OWNERS, "flink");
 		jobConfig.setOwners(CommonUtils.parseStringToList(ownerStr, ","));
 
 		runMode = (Integer) allYamlConf.getOrDefault(Constants.RUN_MODE,
