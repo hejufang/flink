@@ -283,10 +283,11 @@ public class FlinkTopologyBuilder {
 			}
 			long batchIntervalMs = (int) boltInfo.getArgs().getOrDefault(Constants.FLUSH_INTERVAL_SECONDS_KEY,
 				Constants.FLUSH_INTERVAL_SECONDS_VAL) * 1000;
-			Schema inputSchema = jobConfig.getBoltConfig().getBoltInfoMap().get(grouping.getInputStream()).getOutputSchema();
+			String inputStreamName = grouping.getInputStream();
+			List<String> outputFields = getOutputFieldsFromTask(inputStreamName);
 			BatchBoltProcess<Tuple, Object> process = new BatchBoltProcess<>(new ShellBolt(boltInfo),
 				boltName, outputSchema, batchIntervalMs,
-				getOutputType(inputSchema.toList()));
+				getOutputType(outputFields));
 			assert dataStream != null;
 			int[] keyByIndexes = getGroupingFieldIndexes(grouping.getInputStream(), grouping.getGroupFields());
 
@@ -313,15 +314,8 @@ public class FlinkTopologyBuilder {
 		List<Grouping> groupList = boltInfo.getGroupList();
 		int maxFieldSize = -1;
 		for (Grouping grouping : groupList) {
-			int fieldSizeTemp;
 			String inputStreamName = grouping.getInputStream();
-			Map<String, SpoutInfo> spoutMap = jobConfig.getSpoutConfig().getSpoutInfoMap();
-			Map<String, BoltInfo> boltMap = jobConfig.getBoltConfig().getBoltInfoMap();
-			if (spoutMap.containsKey(inputStreamName)) {
-				fieldSizeTemp = spoutMap.get(inputStreamName).getOutputFields().size();
-			} else {
-				fieldSizeTemp = boltMap.get(inputStreamName).getOutputFields().size();
-			}
+			int fieldSizeTemp = getOutputFieldsFromTask(inputStreamName).size();
 			maxFieldSize = Math.max(maxFieldSize, fieldSizeTemp);
 		}
 		return maxFieldSize;
@@ -381,14 +375,7 @@ public class FlinkTopologyBuilder {
 		LOG.info("groupingFields = " + groupingFields);
 		final int[] fieldIndexes = new int[groupingFields.size()];
 		for (int i = 0; i < fieldIndexes.length; ++i) {
-			Schema outputSchema;
-			if (jobConfig.getSpoutConfig().getSpoutInfoMap().containsKey(inputStreamName)) {
-				SpoutInfo spoutInfo = jobConfig.getSpoutConfig().getSpoutInfoMap().get(inputStreamName);
-				outputSchema = spoutInfo.getOutputSchema();
-			} else {
-				BoltInfo boltInfo = jobConfig.getBoltConfig().getBoltInfoMap().get(inputStreamName);
-				outputSchema = boltInfo.getOutputSchema();
-			}
+			Schema outputSchema = getOutputSchemaFromTask(inputStreamName);
 			fieldIndexes[i] = outputSchema.fieldIndex(groupingFields.get(i));
 		}
 		return fieldIndexes;
@@ -404,13 +391,7 @@ public class FlinkTopologyBuilder {
 		for (Grouping grouping : groupList) {
 			int fieldSizeTemp;
 			String inputStreamName = grouping.getInputStream();
-			Map<String, SpoutInfo> spoutMap = jobConfig.getSpoutConfig().getSpoutInfoMap();
-			Map<String, BoltInfo> boltMap = jobConfig.getBoltConfig().getBoltInfoMap();
-			if (spoutMap.containsKey(inputStreamName)) {
-				fieldSizeTemp = spoutMap.get(inputStreamName).getOutputFields().size();
-			} else {
-				fieldSizeTemp = boltMap.get(inputStreamName).getOutputFields().size();
-			}
+			fieldSizeTemp = getOutputFieldsFromTask(inputStreamName).size();
 			if (fieldSize < 0) {
 				fieldSize = fieldSizeTemp;
 			} else if (fieldSize != fieldSizeTemp) {
@@ -436,6 +417,32 @@ public class FlinkTopologyBuilder {
 			strBld.append("]");
 		}
 		throw new RuntimeException(strBld.toString());
+	}
+
+	public List<String> getOutputFieldsFromTask (String taskName) {
+		Map<String, SpoutInfo> spoutMap = jobConfig.getSpoutConfig().getSpoutInfoMap();
+		Map<String, BoltInfo> boltMap = jobConfig.getBoltConfig().getBoltInfoMap();
+		if (spoutMap.containsKey(taskName)) {
+			return spoutMap.get(taskName).getOutputFields();
+		} else if (boltMap.containsKey(taskName)) {
+			return boltMap.get(taskName).getOutputFields();
+		} else {
+			throw new RuntimeException("Task " + taskName + " is not in this job, " +
+				"please check your yaml file.");
+		}
+	}
+
+	public Schema getOutputSchemaFromTask (String taskName) {
+		Map<String, SpoutInfo> spoutMap = jobConfig.getSpoutConfig().getSpoutInfoMap();
+		Map<String, BoltInfo> boltMap = jobConfig.getBoltConfig().getBoltInfoMap();
+		if (spoutMap.containsKey(taskName)) {
+			return spoutMap.get(taskName).getOutputSchema();
+		} else if (boltMap.containsKey(taskName)) {
+			return boltMap.get(taskName).getOutputSchema();
+		} else {
+			throw new RuntimeException("Task " + taskName + " is not in this job, " +
+				"please check your yaml file.");
+		}
 	}
 
 	public JobConfig getJobConfig() {
