@@ -47,6 +47,8 @@ public class CoreDumpUtils {
 		}
 		String date = DF.format(new Date());
 		String pattern = String.format("%s.*PID=%s\\D.*", date, pid);
+		LOG.info("Try to find core dump info of pid: {} in {}, where pattern is {}",
+			pid, file.getAbsolutePath(), pattern);
 		String coreMsg = null;
 		try (RandomAccessFile randomAccessFile = new RandomAccessFile(CORE_DUMP_LOG_FILE, "r")) {
 			long len = randomAccessFile.length();

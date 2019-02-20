@@ -147,7 +147,6 @@ public class ShellProcess implements Serializable {
 			abnormal = true;
 			throw new RuntimeException(e + getErrorsString() + "\n");
 		}
-
 	}
 
 	public void writeShellMsg(ShellMessage msg) throws IOException {
