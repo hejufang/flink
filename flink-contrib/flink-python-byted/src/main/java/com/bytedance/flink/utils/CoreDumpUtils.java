@@ -46,7 +46,7 @@ public class CoreDumpUtils {
 			return null;
 		}
 		String date = DF.format(new Date());
-		String pattern = String.format("%s.*PID=%s\\D.*", date, pid);
+		String pattern = String.format("%s.*PID=%s[\\r|\\n|\\D]+.*", date, pid);
 		LOG.info("Try to find core dump info of pid: {} in {}, where pattern is {}",
 			pid, file.getAbsolutePath(), pattern);
 		String coreMsg = null;
@@ -90,13 +90,21 @@ public class CoreDumpUtils {
 		if (line == null || pid == null) {
 			return coreMsg;
 		}
+		// To mark this is the end of this line for regular expression matching.
+		line += "\n";
 		try {
 			boolean match = line.matches(pattern);
 			if (match) {
 				if (line.contains("ONLY_NOTIFY")) {
-					coreMsg = String.format("Core dump occurred where pid = %s, but did not generated a core file, only notified.", pid);
+					coreMsg = String.format("Core dump occurred where pid = %s, " +
+						"but did not generated a core file, only notified.", pid);
+				} else if (line.contains("DUMP")) {
+					coreMsg = String.format("Core dump occurred where pid = %s, " +
+						"and generated a core file.", pid);
 				} else {
-					coreMsg = String.format("Core dump occurred where pid = %s, and generated a core file.", pid);
+					coreMsg = String.format("Core dump occurred where pid = %s," +
+						" but we do not known if there is a core file generated. " +
+						"Please check file %s for more information", pid, CORE_DUMP_LOG_FILE);
 				}
 			}
 		} catch (Exception e) {
