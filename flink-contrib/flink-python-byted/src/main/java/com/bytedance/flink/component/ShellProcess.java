@@ -94,6 +94,14 @@ public class ShellProcess implements Serializable {
 		if (environment.containsKey(Constants.PYTHONPATH_KEY)) {
 			pythonPathList.add(environment.get(Constants.PYTHONPATH_KEY));
 		}
+
+		// Replace ${resourceDir} with real resourceDir in environment values.
+		for (Map.Entry<String, String> entry: environment.entrySet()) {
+			String key = entry.getKey();
+			String value = entry.getValue();
+			value = value.replaceAll("(?i)\\$\\{resourceDir\\}", resourceDir);
+			environment.put(key, value);
+		}
 		String pythonPath = String.join(":", pythonPathList);
 		environment.put(Constants.PYTHONPATH_KEY, pythonPath);
 		builder.environment().putAll(environment);
