@@ -61,6 +61,10 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		String newJobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
 		String dataSource = ConfigConstants.DATA_SOURCE_DEFAULT;
 
+		LOG.info("newClusterName = {}", newClusterName);
+		LOG.info("dataSource = {}", dataSource);
+		LOG.info("newJobName = {}", newJobName);
+
 		//Replace inner name with yarn app name.
 		if (newJobName != null && !"".equals(newJobName)){
 			jobName = newJobName;
