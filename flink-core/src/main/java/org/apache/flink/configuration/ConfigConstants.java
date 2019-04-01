@@ -2072,6 +2072,9 @@ public final class ConfigConstants {
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 
+	public static final String KAFKA_SERVER_URL_KEY = "kafka_server_url";
+	public static final String KAFKA_SERVER_URL_DEFAUL = "http://kafka-config.byted.org";
+
 	public static final String FLINK_LOG_LAYOUT_KEY = "log.layout";
 	public static final String FLINK_LOG_LAYOUT_DEFAULT =
 		"%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n";

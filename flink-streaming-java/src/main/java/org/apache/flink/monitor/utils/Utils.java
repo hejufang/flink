@@ -98,13 +98,13 @@ public class Utils {
 		return Utils.replaceSpecialCharacter(name);
 	}
 
-	public static List<String> getLagSizeMetrics() {
+	public static List<String> getLagSizeMetrics(String kafkaServerUrl) {
 		List<String> metricsList = new ArrayList<>();
 		JSONArray jsonArray = getKafkaTopics();
 		for (Object object : jsonArray) {
 			JSONObject jsonObject = (JSONObject) object;
 			String kafkaCluster = (String) jsonObject.get("cluster");
-			String kafkaTopicPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster);
+			String kafkaTopicPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
 			String topic = (String) jsonObject.get("topic");
 			String consumer = (String) jsonObject.get("consumer");
 			String metric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, consumer);

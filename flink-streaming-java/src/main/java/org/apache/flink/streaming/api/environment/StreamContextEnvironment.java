@@ -65,7 +65,6 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		String dataSource = ConfigConstants.DATA_SOURCE_DEFAULT;
 
 		LOG.info("newClusterName = {}", newClusterName);
-		LOG.info("dataSource = {}", dataSource);
 		LOG.info("newJobName = {}", newJobName);
 
 		//Replace inner name with yarn app name.
@@ -82,16 +81,16 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			}
 			node.setOperatorName(operatorName);
 		}
-
 		JobGraph jobGraph = ClusterClient.getSimplifiedJobGraph(ctx.getClient().getFlinkConfiguration(),
 			streamGraph, ctx.getJars(),
 			ctx.getClasspaths(), ctx.getSavepointRestoreSettings());
 		boolean saveJobMetaSuccessfully;
+		Configuration flinkConfig = ctx.getClient().getFlinkConfiguration();
 
 		try {
-			Configuration flinkConfig = ctx.getClient().getFlinkConfiguration();
 			dataSource = flinkConfig.getString(ConfigConstants.DATA_SOURCE_KEY,
 				ConfigConstants.DATA_SOURCE_DEFAULT);
+			LOG.info("dataSource = {}", dataSource);
 			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph, flinkConfig);
 			saveJobMetaSuccessfully = jobMeta.saveToDB();
 		} catch (Throwable e) {
@@ -106,7 +105,8 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 		boolean registerDashboardSuccessfully;
 		try {
-			Dashboard dashboard = new Dashboard(newClusterName, dataSource, streamGraph, jobGraph);
+			Dashboard dashboard = new Dashboard(newClusterName, dataSource, streamGraph,
+				jobGraph, flinkConfig);
 			registerDashboardSuccessfully = dashboard.registerDashboard();
 		} catch (Throwable e){
 			registerDashboardSuccessfully = false;
