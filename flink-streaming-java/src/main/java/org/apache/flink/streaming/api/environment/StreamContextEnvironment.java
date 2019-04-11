@@ -103,14 +103,18 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			LOG.warn("Failed to save job meta to database.");
 		}
 
-		boolean registerDashboardSuccessfully;
-		try {
-			Dashboard dashboard = new Dashboard(newClusterName, dataSource, streamGraph,
-				jobGraph, flinkConfig);
-			registerDashboardSuccessfully = dashboard.registerDashboard();
-		} catch (Throwable e){
-			registerDashboardSuccessfully = false;
-			LOG.warn("Failed to registering dashboard!", e);
+		int maxRetryTimes = 5;
+		int retryTimes = 0;
+		boolean registerDashboardSuccessfully = false;
+		while (retryTimes++ < maxRetryTimes && !registerDashboardSuccessfully) {
+			try {
+				Dashboard dashboard = new Dashboard(newClusterName, dataSource, streamGraph,
+					jobGraph, flinkConfig);
+				registerDashboardSuccessfully = dashboard.registerDashboard();
+			} catch (Throwable e){
+				registerDashboardSuccessfully = false;
+				LOG.info("Failed to registering dashboard, retry", e);
+			}
 		}
 		if (registerDashboardSuccessfully){
 			LOG.info("Succeed in registering dashboard.");

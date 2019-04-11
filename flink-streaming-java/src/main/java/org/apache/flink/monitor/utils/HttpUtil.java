@@ -17,13 +17,14 @@
 
 package org.apache.flink.monitor.utils;
 
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
@@ -33,6 +34,12 @@ import java.util.Map;
  * Provides http methods.
  */
 public class HttpUtil {
+	private static RequestConfig requestConfig = RequestConfig.custom()
+		.setSocketTimeout(5000)
+		.setConnectTimeout(5000)
+		.setConnectionRequestTimeout(5000)
+		.build();
+
 	public static HttpResponsePojo sendPost(String url, String jsonStr, Map<String, String> headers)
 		throws IOException {
 		HttpPost httpPost = new HttpPost(url);
@@ -41,17 +48,19 @@ public class HttpUtil {
 		}
 		StringEntity entity = new StringEntity(jsonStr, "UTF-8");
 		httpPost.setEntity(entity);
+		httpPost.setConfig(RequestConfig.copy(requestConfig).build());
 		return sendRequest(httpPost);
 	}
 
 	public static HttpResponsePojo sendGet(String url) throws IOException {
 		HttpGet httpGet = new HttpGet(url);
+		httpGet.setConfig(RequestConfig.copy(requestConfig).build());
 		return sendRequest(httpGet);
 	}
 
 	public static HttpResponsePojo sendRequest(HttpUriRequest request) throws IOException {
-		HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
-		try (CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
+		try (CloseableHttpClient closeableHttpClient = HttpClients.custom()
+			.setDefaultRequestConfig(RequestConfig.copy(requestConfig).build()).build();
 			CloseableHttpResponse response = closeableHttpClient.execute(request)) {
 			int statusCode = response.getStatusLine().getStatusCode();
 			String resStr = EntityUtils.toString(response.getEntity(), "UTF-8");
