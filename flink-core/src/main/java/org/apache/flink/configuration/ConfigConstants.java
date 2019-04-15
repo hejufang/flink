@@ -2078,6 +2078,10 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_LEVEL_KEY = "log.level";
 	public static final String FLINK_LOG_LEVEL_DEFAULT = "INFO";
 
+	public static final String FLINK_SUBVERSION_KEY = "flink.subversion";
+	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
+	public static final String FLINK_JOB_TYPE_DEFAULT = "Flink";
+
 	/**
 	 * Not instantiable.
 	 */
