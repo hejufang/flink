@@ -1,0 +1,4 @@
+- spout_name : {{topic_name}}
+  args:
+    topic_name : {{topic_name}}
+    partition : 1  #modify to exact partition num

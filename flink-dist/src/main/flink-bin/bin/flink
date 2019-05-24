@@ -17,6 +17,11 @@
 # limitations under the License.
 ################################################################################
 
+# unset env for compatibility
+unset FLINK_CONF_DIR
+unset YARN_CONF_DIR
+unset HADOOP_CONF_DIR
+
 target="$0"
 # For the case, the executable has been directly symlinked, figure out
 # the correct bin path by following its symlink up to an upper bound.
@@ -44,9 +49,19 @@ if [ "$FLINK_IDENT_STRING" = "" ]; then
 fi
 
 CC_CLASSPATH=`constructFlinkClassPath`
+USER_JAR=`getUserJar $*`
+echo $USER_JAR
+flink_client_classpath_include_user_jar=`getClientIncludeUserJar $*`
+echo $flink_client_classpath_include_user_jar
 
 log=$FLINK_LOG_DIR/flink-$FLINK_IDENT_STRING-client-$HOSTNAME.log
 log_setting=(-Dlog.file="$log" -Dlog4j.configuration=file:"$FLINK_CONF_DIR"/log4j-cli.properties -Dlogback.configurationFile=file:"$FLINK_CONF_DIR"/logback.xml)
 
 # Add HADOOP_CLASSPATH to allow the usage of Hadoop file systems
-exec $JAVA_RUN $JVM_ARGS "${log_setting[@]}" -classpath "`manglePathList "$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" org.apache.flink.client.cli.CliFrontend "$@"
+if [[ $flink_client_classpath_include_user_jar == "FIRST" ]]; then
+    exec $JAVA_RUN $JVM_ARGS "${log_setting[@]}" -classpath "`manglePathList "$USER_JAR:$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" org.apache.flink.client.cli.CliFrontend "$@"
+elif [[ $flink_client_classpath_include_user_jar == "LAST" ]]; then
+    exec $JAVA_RUN $JVM_ARGS "${log_setting[@]}" -classpath "`manglePathList "$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS:$USER_JAR"`" org.apache.flink.client.cli.CliFrontend "$@"
+else
+    exec $JAVA_RUN $JVM_ARGS "${log_setting[@]}" -classpath "`manglePathList "$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" org.apache.flink.client.cli.CliFrontend "$@"
+fi

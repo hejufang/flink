@@ -1,0 +1,22 @@
+topology_name : {{topology_name}}
+
+#run topology in local mode
+topology_standalone_mode : 1
+topology_standalone_time : 50
+
+common_args :
+  metrics_namespace_prefix : "storm.{{topology_name}}"
+  log_file: "/var/log/tiger/{{topology_name}}.log"
+  log_category: ""
+
+spout:
+  common_args:
+    consumer_group : {{topology_name}}
+    output_fields : ["msg"]
+    script_name : /opt/tiger/ss_lib/pytopology/runner/kafka_spout.py
+    kafka_spout_ext : 1
+    whence : 1
+  spout_list :
+
+bolt:
+  bolt_list:

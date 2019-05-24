@@ -42,6 +42,30 @@ constructFlinkClassPath() {
     echo "$FLINK_CLASSPATH""$FLINK_DIST"
 }
 
+getUserJar() {
+    local found=0
+    for arg in $* ; do
+        if [[ $found = 1 ]]; then
+            echo $arg
+            break
+        fi
+
+        if [[ $arg == "-j" ]]; then
+            found=1
+        fi
+    done
+}
+
+getClientIncludeUserJar() {
+    for arg in $* ; do
+        if [[ $arg =~ "flink-client-classpath-include-user-jar=" ]]; then
+            length=`expr length "flink-client-classpath-include-user-jar="`
+            echo ${arg:$length}
+            break
+        fi
+    done
+}
+
 # These are used to mangle paths that are passed to java when using
 # cygwin. Cygwin paths are like linux paths, i.e. /path/to/somewhere
 # but the windows java version expects them in Windows Format, i.e. C:\bla\blub.
@@ -526,26 +550,12 @@ if [ -z "${JVM_ARGS}" ]; then
     JVM_ARGS=""
 fi
 
-# Check if deprecated HADOOP_HOME is set, and specify config path to HADOOP_CONF_DIR if it's empty.
-if [ -z "$HADOOP_CONF_DIR" ]; then
-    if [ -n "$HADOOP_HOME" ]; then
-        # HADOOP_HOME is set. Check if its a Hadoop 1.x or 2.x HADOOP_HOME path
-        if [ -d "$HADOOP_HOME/conf" ]; then
-            # its a Hadoop 1.x
-            HADOOP_CONF_DIR="$HADOOP_HOME/conf"
-        fi
-        if [ -d "$HADOOP_HOME/etc/hadoop" ]; then
-            # Its Hadoop 2.2+
-            HADOOP_CONF_DIR="$HADOOP_HOME/etc/hadoop"
-        fi
-    fi
-fi
-
 # try and set HADOOP_CONF_DIR to some common default if it's not set
+DEFAULT_HADOOP_CONF_DIR="/opt/tiger/yarn_deploy/hadoop/conf/"
 if [ -z "$HADOOP_CONF_DIR" ]; then
-    if [ -d "/etc/hadoop/conf" ]; then
-        echo "Setting HADOOP_CONF_DIR=/etc/hadoop/conf because no HADOOP_CONF_DIR was set."
-        HADOOP_CONF_DIR="/etc/hadoop/conf"
+    if [ -d "$DEFAULT_HADOOP_CONF_DIR" ]; then
+        echo "Setting HADOOP_CONF_DIR='$DEFAULT_HADOOP_CONF_DIR' because no HADOOP_CONF_DIR was set."
+        HADOOP_CONF_DIR="$DEFAULT_HADOOP_CONF_DIR"
     fi
 fi
 
