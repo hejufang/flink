@@ -463,12 +463,22 @@ public final class Utils {
 			hasKrb5 = true;
 		}
 
-		// register Flink Jar with remote HDFS
-		final LocalResource flinkJar;
-		{
-			Path remoteJarPath = new Path(remoteFlinkJarPath);
-			FileSystem fs = remoteJarPath.getFileSystem(yarnConfig);
-			flinkJar = registerLocalResource(fs, remoteJarPath);
+		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
+
+		boolean isInDockerMode =
+			flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+
+		if (!isInDockerMode) {
+			// register Flink Jar with remote HDFS
+			final LocalResource flinkJar;
+			{
+				Path remoteJarPath = new Path(remoteFlinkJarPath);
+				FileSystem fs = remoteJarPath.getFileSystem(yarnConfig);
+				flinkJar = registerLocalResource(fs, remoteJarPath);
+			}
+			taskManagerLocalResources.put("flink.jar", flinkJar);
+		} else {
+			LOG.info("Do not need to add flink.jar in docker mode.");
 		}
 
 		// register conf with local fs
@@ -504,8 +514,6 @@ public final class Utils {
 			}
 		}
 
-		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
-		taskManagerLocalResources.put("flink.jar", flinkJar);
 		taskManagerLocalResources.put("flink-conf.yaml", flinkConf);
 
 		//To support Yarn Secure Integration Test Scenario
@@ -571,6 +579,9 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
 		}
 
+		// Add environment params to TM appMasterEnv for docker mode.
+		setDockerEnv(flinkConfig, containerEnv);
+
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.
@@ -612,6 +623,36 @@ public final class Utils {
 		}
 
 		return ctx;
+	}
+
+	/**
+	 * If docker image id is configured in flinkConfiguration, add docker environment parameters
+	 * to environment map.
+	 *
+	 * @param flinkConfiguration flink configuration.
+	 * @param envMap environment map.
+	 * */
+	public static void setDockerEnv(org.apache.flink.configuration.Configuration flinkConfiguration,
+									Map<String, String> envMap) {
+		String dockerImage =
+			flinkConfiguration.getString(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE, "");
+		if (dockerImage != null && !dockerImage.trim().isEmpty()) {
+			LOG.info("Docker image: {} has been configured, set docker environment params.",
+				dockerImage);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE, dockerImage);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
+				YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT);
+			String dockerMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT;
+			String otherDockerMounts = flinkConfiguration.getString(
+				YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, "");
+			if (otherDockerMounts != null && !otherDockerMounts.isEmpty()) {
+				dockerMounts = otherDockerMounts + ";" + dockerMounts;
+			}
+			LOG.info("Docker mounts: {}", dockerMounts);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+		} else {
+			LOG.info("No docker image configured, run on physical machines.");
+		}
 	}
 
 	/**

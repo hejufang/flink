@@ -102,6 +102,10 @@ common:
   smart-resources.service-name: data.inf.sr_estimater.service.lf
   log4j.appender.databus.channel: yarn_container_level_log
 
+  # Configurations for docker mode
+  runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/lib
+  runtime.conf.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/conf
+
 flink:
   dc: cn
   clusterName: flink

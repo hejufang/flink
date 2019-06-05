@@ -54,6 +54,18 @@ public class YarnConfigKeys {
 
 	public static final String ENV_LD_LIBRARY_PATH = "LD_LIBRARY_PATH";
 
+	// ---------------------------- Config for docker ---------------------------
+	public static final String IS_IN_DOCKER_MODE_KEY = "isInDockerMode";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY = "YARN_CONTAINER_RUNTIME_TYPE";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT = "docker";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE =
+		"YARN_CONTAINER_RUNTIME_DOCKER_IMAGE";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY =
+		"YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT =
+		"/opt/tiger/ss_conf:/opt/tiger/ss_conf;/opt/tiger/ss_lib:/opt/tiger/ss_lib";
+
+
 	// ------------------------------------------------------------------------
 
 	/** Private constructor to prevent instantiation. */

@@ -46,6 +46,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.BindException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -465,17 +466,31 @@ public class BootstrapTools {
 		}
 		startCommandValues.put("jvmopts", javaOpts);
 
+		boolean isInDockerMode = flinkConfig.getBoolean("isInDockerMode", false);
+
+		String log4jConfFile = configDirectory + "/log4j.properties";
+		String logbackConfFile = configDirectory + "/logback.xml";
+		if (isInDockerMode) {
+			String runtimeConfDir =
+				flinkConfig.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
+					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);
+			log4jConfFile = Paths.get(runtimeConfDir, "log4j.properties").
+				toAbsolutePath().toString();
+			logbackConfFile = Paths.get(runtimeConfDir, "logback.xml").
+				toAbsolutePath().toString();
+			hasLogback = new File(logbackConfFile).exists();
+			hasLog4j = new File(logbackConfFile).exists();
+		}
+
 		String logging = "";
 		if (hasLogback || hasLog4j) {
 			logging = "-Dlog.file=" + logDirectory + "/taskmanager.log";
 			if (hasLogback) {
 				logging +=
-					" -Dlogback.configurationFile=file:" + configDirectory +
-						"/logback.xml";
+					" -Dlogback.configurationFile=file:" + logbackConfFile;
 			}
 			if (hasLog4j) {
-				logging += " -Dlog4j.configuration=file:" + configDirectory +
-					"/log4j.properties";
+				logging += " -Dlog4j.configuration=file:" + log4jConfFile;
 			}
 		}
 
