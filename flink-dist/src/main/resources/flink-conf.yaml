@@ -106,6 +106,13 @@ common:
   runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/lib
   runtime.conf.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/conf
 
+  docker.default_image: yarn_runtime_flink:latest
+  docker.authorization: "Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q="
+  docker.version_template_url: http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s
+  docker.server: image-manager.byted.org
+  docker.hub: hub.byted.org
+  docker.region: China-North-LF
+
 flink:
   dc: cn
   clusterName: flink
@@ -211,6 +218,10 @@ maliva:
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
 
 alisg:
   dc: sg
@@ -221,3 +232,30 @@ alisg:
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_sg
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+
+boe:
+  dc: vm
+  clusterName: boe
+  high-availability.zookeeper.quorum: 10.225.33.2:2181,10.225.28.3:2181,10.225.33.6:2181,10.225.125.22:2181,10.225.125.29:2181
+  hdfs.prefix: hdfs://westeros/flink_boe
+  dataSource: boe
+  kafka_server_url: http://kafka-config.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log
+  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
+  yaop_url: http://10.225.131.41:8092
+  yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+cof:
+  dc: vm
+  clusterName: cof
+  high-availability.zookeeper.quorum: 10.225.33.2:2181,10.225.28.3:2181,10.225.33.6:2181,10.225.125.22:2181,10.225.125.29:2181
+  hdfs.prefix: hdfs://westeros/flink_cof
+  dataSource: cof
+  kafka_server_url: http://kafka-config.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log
+  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
+  yaop_url: http://10.225.131.41:8092
+  yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211

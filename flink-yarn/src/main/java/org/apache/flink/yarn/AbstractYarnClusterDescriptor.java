@@ -723,7 +723,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
-		String dockerImage = flinkConfiguration.getString(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE, "");
+		String dockerImage =
+			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
 		boolean isOnDockerMode = false;
 		if (dockerImage != null && !dockerImage.isEmpty()) {
 			isOnDockerMode = true;
