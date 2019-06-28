@@ -642,6 +642,7 @@ public final class Utils {
 				LOG.info("Docker image: {} has been configured, set docker environment params.",
 					dockerImage);
 				dockerImage = getDockerImage(dockerImage, flinkConfiguration);
+				flinkConfiguration.setString(YarnConfigKeys.DOCKER_IMAGE_KEY, dockerImage);
 				LOG.info("The real docker image id is: {}", dockerImage);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
@@ -691,7 +692,9 @@ public final class Utils {
 		String dockerVersion = items[1].trim();
 
 		if (!YarnConfigKeys.DOCKER_VERSION_LATEST.equalsIgnoreCase(dockerVersion)) {
-			dockerImage = dockerHub + "/" + dockerImage;
+			if (!dockerImage.startsWith(dockerHub)) {
+				dockerImage = dockerHub + "/" + dockerImage;
+			}
 			return dockerImage;
 		}
 		LOG.info("Replace 'latest' version with real latest version id.");

@@ -1017,6 +1017,19 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		// Add environment params to AM appMasterEnv for docker mode.
 		Utils.setDockerEnv(flinkConfiguration, appMasterEnv);
+		String realDockerImage =
+			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
+		if (realDockerImage != null && !realDockerImage.trim().isEmpty()) {
+			LOG.info("Add {}={} to dynamicPropertiesEncoded.", YarnConfigKeys.DOCKER_IMAGE_KEY,
+				realDockerImage);
+			if (dynamicPropertiesEncoded != null && !dynamicPropertiesEncoded.trim().isEmpty()) {
+				dynamicPropertiesEncoded = String.format("%s@@%s=%s", dynamicPropertiesEncoded,
+					YarnConfigKeys.DOCKER_IMAGE_KEY, realDockerImage);
+			} else {
+				dynamicPropertiesEncoded =
+					String.format("%s=%s", YarnConfigKeys.DOCKER_IMAGE_KEY, realDockerImage);
+			}
+		}
 
 		String name;
 		if (customName == null) {
@@ -1052,6 +1065,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		if (dynamicPropertiesEncoded != null) {
+			LOG.info("ADD {}={} to AM environment.", YarnConfigKeys.ENV_DYNAMIC_PROPERTIES,
+				dynamicPropertiesEncoded);
 			appMasterEnv.put(YarnConfigKeys.ENV_DYNAMIC_PROPERTIES, dynamicPropertiesEncoded);
 		}
 

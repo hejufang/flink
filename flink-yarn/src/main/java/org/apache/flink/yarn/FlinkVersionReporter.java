@@ -52,6 +52,8 @@ public class FlinkVersionReporter implements Runnable {
 		udpMetricsClient = new UdpMetricsClient(FLINK_VERSION_METRICS_PREFIX);
 		String subVersion = this.flinkConfig.getString(ConfigConstants.FLINK_SUBVERSION_KEY, null);
 		String flinkJobType = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_TYPE_KEY, null);
+		String isInDockerMode = this.flinkConfig.getString(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, null);
+		String dockerImage = this.flinkConfig.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();
 		String commitId = rev.commitId;
@@ -83,6 +85,14 @@ public class FlinkVersionReporter implements Runnable {
 		}
 		if (owner != null && !owner.isEmpty()) {
 			tags = tags + "|owner=" + owner;
+		}
+		if (isInDockerMode != null && !isInDockerMode.isEmpty()) {
+			tags = tags + "|isInDockerMode=" + isInDockerMode;
+		} else {
+			tags = tags + "|isInDockerMode=" + false;
+		}
+		if (dockerImage != null && !dockerImage.isEmpty()) {
+			tags = tags + "|dockerImage=" + dockerImage;
 		}
 	}
 
