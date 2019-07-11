@@ -49,6 +49,7 @@ import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -59,12 +60,14 @@ import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -76,12 +79,15 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * The yarn implementation of the resource manager. Used when the system is started
  * via the resource framework YARN.
  */
-public class YarnResourceManager extends ResourceManager<YarnWorkerNode> implements AMRMClientAsync.CallbackHandler {
+public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
+	implements AMRMClientAsync.CallbackHandler, NMClientAsync.CallbackHandler {
 
 	private static final Priority RM_REQUEST_PRIORITY = Priority.newInstance(1);
 	/** The process environment variables. */
@@ -122,8 +128,20 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 	/** Client to communicate with the Node manager and launch TaskExecutor processes. */
 	private NMClient nodeManagerClient;
 
+	/** Enable NMClientAsync or not. */
+	private Boolean nmClientAsyncEnabled;
+
+	/** Client to async communicate with the Node manager and launch TaskExecutor processes. */
+	private NMClientAsync nodeManagerClientAsync;
+
 	/** The number of containers requested, but not yet granted. */
 	private int numPendingContainerRequests;
+
+	/**
+	 * executor for start yarn container.
+	 */
+	@VisibleForTesting
+	protected Executor executor;
 
 	private final Map<ResourceProfile, Integer> resourcePriorities = new HashMap<>();
 
@@ -178,6 +196,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		containerRequestHeartbeatIntervalMillis = flinkConfig.getInteger(YarnConfigOptions.CONTAINER_REQUEST_HEARTBEAT_INTERVAL_MILLISECONDS);
 		numPendingContainerRequests = 0;
 
+		this.executor = Executors.newScheduledThreadPool(
+			flinkConfig.getInteger(YarnConfigOptions.CONTAINER_LAUNCHER_NUMBER));
+
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.numberOfTaskSlots = flinkConfig.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 		this.defaultTaskManagerMemoryMB = ConfigurationUtils.getTaskManagerHeapMemory(flinkConfig).getMebiBytes();
@@ -186,6 +207,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 
 		this.slotsPerWorker = updateTaskManagerConfigAndCreateWorkerSlotProfiles(flinkConfig, defaultTaskManagerMemoryMB, numberOfTaskSlots);
 		setFailUnfulfillableRequest(true);
+
+		this.nmClientAsyncEnabled = flinkConfig.getBoolean(YarnConfigOptions.NMCLINETASYNC_ENABLED);
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -236,11 +259,22 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 
 	protected NMClient createAndStartNodeManagerClient(YarnConfiguration yarnConfiguration) {
 		// create the client to communicate with the node managers
+		log.info("Using NMClient");
 		NMClient nodeManagerClient = NMClient.createNMClient();
 		nodeManagerClient.init(yarnConfiguration);
 		nodeManagerClient.start();
 		nodeManagerClient.cleanupRunningContainersOnStop(true);
 		return nodeManagerClient;
+	}
+
+	protected NMClientAsync createAndStartNodeManagerAsyncClient(YarnConfiguration yarnConfiguration) {
+		log.info("Using NMClientAsync");
+		// create the async client to communicate with the node managers
+		NMClientAsync nodeManagerClientAsync = NMClientAsync.createNMClientAsync(this);
+		nodeManagerClientAsync.init(yarnConfiguration);
+		nodeManagerClientAsync.start();
+		nodeManagerClientAsync.getClient().cleanupRunningContainersOnStop(true);
+		return nodeManagerClientAsync;
 	}
 
 	@Override
@@ -254,7 +288,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 			throw new ResourceManagerException("Could not start resource manager client.", e);
 		}
 
-		nodeManagerClient = createAndStartNodeManagerClient(yarnConfig);
+		if (nmClientAsyncEnabled) {
+			nodeManagerClientAsync = createAndStartNodeManagerAsyncClient(yarnConfig);
+		} else {
+			nodeManagerClient = createAndStartNodeManagerClient(yarnConfig);
+		}
 	}
 
 	@Override
@@ -273,6 +311,15 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		if (nodeManagerClient != null) {
 			try {
 				nodeManagerClient.stop();
+			} catch (Throwable t) {
+				firstException = ExceptionUtils.firstOrSuppressed(t, firstException);
+			}
+		}
+
+		if (nodeManagerClientAsync != null) {
+			try {
+				log.info("Stop nodeManagerClientAsync.");
+				nodeManagerClientAsync.stop();
 			} catch (Throwable t) {
 				firstException = ExceptionUtils.firstOrSuppressed(t, firstException);
 			}
@@ -333,7 +380,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		final Container container = workerNode.getContainer();
 		log.info("Stopping container {}.", container.getId());
 		try {
-			nodeManagerClient.stopContainer(container.getId(), container.getNodeId());
+			if (nmClientAsyncEnabled) {
+				nodeManagerClientAsync.stopContainerAsync(container.getId(), container.getNodeId());
+			} else {
+				nodeManagerClient.stopContainer(container.getId(), container.getNodeId());
+			}
 		} catch (final Exception e) {
 			log.warn("Error while calling YARN Node Manager to stop container", e);
 		}
@@ -382,6 +433,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		runAsync(() -> {
 			final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
 			final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
+			log.info("Allocated {} containers.", containers.size());
 
 			for (Container container : containers) {
 				log.info(
@@ -397,23 +449,33 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 
 					workerNodeMap.put(resourceId, new YarnWorkerNode(container));
 
-					try {
-						// Context information used to start a TaskExecutor Java process
-						ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
-							container.getResource(),
-							containerIdStr,
-							container.getNodeId().getHost());
+					executor.execute(new Runnable() {
+						@Override
+						public void run() {
+							try {
+								// Context information used to start a TaskExecutor Java process
+								ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
+									container.getResource(),
+									containerIdStr,
+									container.getNodeId().getHost());
 
-						nodeManagerClient.startContainer(container, taskExecutorLaunchContext);
-					} catch (Throwable t) {
-						log.error("Could not start TaskManager in container {}.", container.getId(), t);
+								if (nmClientAsyncEnabled) {
+									nodeManagerClientAsync.startContainerAsync(container, taskExecutorLaunchContext);
+								} else {
+									nodeManagerClient.startContainer(container, taskExecutorLaunchContext);
+								}
+							} catch (Throwable t) {
+								log.error("Could not start TaskManager in container {}.", container.getId(), t);
 
-						// release the failed container
-						workerNodeMap.remove(resourceId);
-						resourceManagerClient.releaseAssignedContainer(container.getId());
-						// and ask for a new one
-						requestYarnContainerIfRequired();
-					}
+								// release the failed container
+								workerNodeMap.remove(resourceId);
+								resourceManagerClient.releaseAssignedContainer(container.getId());
+								log.error("Could not start TaskManager in container {}.", container.getId(), t);
+								// and ask for a new one
+								requestYarnContainerIfRequired();
+							}
+						}
+					});
 				} else {
 					// return the excessive containers
 					log.info("Returning excess container {}.", container.getId());
@@ -523,6 +585,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 	}
 
 	private void requestYarnContainer() {
+		log.info("Request a new container");
 		resourceManagerClient.addContainerRequest(getContainerRequest());
 
 		// make sure we transmit the request fast and receive fast news of granted allocations
@@ -579,5 +642,43 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode> impleme
 		taskExecutorLaunchContext.getEnvironment()
 				.put(ENV_FLINK_NODE_ID, host);
 		return taskExecutorLaunchContext;
+	}
+
+	@Override
+	public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> map) {
+		log.info("Started TaskManager in container {} {}.", containerId, map);
+	}
+
+	@Override
+	public void onContainerStatusReceived(ContainerId containerId, ContainerStatus containerStatus) {
+		log.info("Received container status {} {}.", containerId, containerStatus);
+	}
+
+	@Override
+	public void onContainerStopped(ContainerId containerId) {
+		log.info("Stopped container {}.", containerId);
+	}
+
+	@Override
+	public void onStartContainerError(ContainerId containerId, Throwable throwable) {
+		runAsync(() -> {
+			log.error("Could not start TaskManager in container {}.", containerId, throwable);
+			// release the failed container
+			final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(new ResourceID(containerId.toString()));
+			if (yarnWorkerNode != null) {
+				resourceManagerClient.releaseAssignedContainer(containerId);
+				requestYarnContainerIfRequired();
+			}
+		});
+	}
+
+	@Override
+	public void onGetContainerStatusError(ContainerId containerId, Throwable throwable) {
+		log.error("Get container status error {}", containerId, throwable);
+	}
+
+	@Override
+	public void onStopContainerError(ContainerId containerId, Throwable throwable) {
+		log.error("Stop container error {}", containerId, throwable);
 	}
 }
