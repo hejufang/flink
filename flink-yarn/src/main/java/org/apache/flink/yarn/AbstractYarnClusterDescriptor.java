@@ -1599,6 +1599,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		if (flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS).length() > 0) {
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
 		}
+
+		if (!javaOpts.contains("-Dlog.level")) {
+			javaOpts += " -Dlog.level=INFO";
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
