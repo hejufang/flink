@@ -137,6 +137,9 @@ public class CliFrontendParser {
 	static final Option CLUSTER_NAME_OPTION = new Option("cn", "clusterName", true,
 			"Yarn cluster name");
 
+	static final Option OWNER_OPTION = new Option("o", "owner", true,
+		"Owner of the job");
+
 	static {
 		HELP_OPTION.setRequired(false);
 

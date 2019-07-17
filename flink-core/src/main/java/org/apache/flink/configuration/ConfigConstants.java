@@ -2043,6 +2043,13 @@ public final class ConfigConstants {
 
 	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
 	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String DC_KEY = "dc";
+	public static final String CLUSTER_NAME_KEY = "clusterName";
+	public static final String CLUSTER_NAME_DEFAULT = "flink";
+	public static final String JOB_NAME_KEY = "jobName";
+	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
+	public static final String DATA_SOURCE_KEY = "dataSource";
+	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
 
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
 
@@ -2051,6 +2058,9 @@ public final class ConfigConstants {
 	public static final String FLINK_GC_LOG_FILE_KEY = "flink.gc.log.file";
 	public static final String FLINK_DUMP_ON_OOM_KEY = "flink.dump.on.oom";
 	public static final boolean FLINK_DUMP_ON_OOM_DEFAULT = false;
+
+	/** Configuration key of yarn cluster name. */
+	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 
 	/**
 	 * Not instantiable.

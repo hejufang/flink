@@ -25,19 +25,18 @@ under the License.
 	<parent>
 		<groupId>org.apache.flink</groupId>
 		<artifactId>flink-contrib</artifactId>
-		<version>1.5-byted-SNAPSHOT</version>
+		<version>1.9-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
 	<groupId>com.bytedance.flink</groupId>
 	<artifactId>flink-python-byted</artifactId>
-	<version>1.5-byted-SNAPSHOT</version>
+	<version>1.9-SNAPSHOT</version>
 
 	<properties>
 		<fastjson.version>1.2.49</fastjson.version>
 		<kafka.client.version>0.10.1.2-bd1.4-SNAPSHOT</kafka.client.version>
 		<msgpack.version>0.6.12</msgpack.version>
-		<snakeyaml.version>1.11</snakeyaml.version>
 		<process.tree.version>0.9.6</process.tree.version>
 	</properties>
 	<build>
@@ -116,18 +115,6 @@ under the License.
 					<groupId>com.fasterxml.jackson.core</groupId>
 				</exclusion>
 			</exclusions>
-		</dependency>
-
-		<dependency>
-			<groupId>org.yaml</groupId>
-			<artifactId>snakeyaml</artifactId>
-			<version>${snakeyaml.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.yaml</groupId>
-			<artifactId>snakeyaml</artifactId>
-			<version>${snakeyaml.version}</version>
 		</dependency>
 
 		<dependency>

@@ -594,6 +594,12 @@ under the License.
 									<projectName>Apache Flink</projectName>
 								</transformer>
 							</transformers>
+							<relocations>
+								<relocation>
+									<pattern>org.yaml</pattern>
+									<shadedPattern>org.apache.flink.shaded.dist.org.yaml</shadedPattern>
+								</relocation>
+							</relocations>
 						</configuration>
 					</execution>
 					<execution>

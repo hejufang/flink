@@ -56,8 +56,11 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		transformations.clear();
 
 		String jobName = streamGraph.getJobName();
-		String newClusterName = System.getProperty("clusterName", "flink_independent_yarn");
-		String newJobName = System.getProperty("jobName");
+		String newClusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+			ConfigConstants.CLUSTER_NAME_DEFAULT);
+		String newJobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		String dataSource = ConfigConstants.DATA_SOURCE_DEFAULT;
+
 		//Replace inner name with yarn app name.
 		if (newJobName != null && !"".equals(newJobName)){
 			jobName = newJobName;
@@ -71,6 +74,8 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 		try {
 			Configuration flinkConfig = ctx.getClient().getFlinkConfiguration();
+			dataSource = flinkConfig.getString(ConfigConstants.DATA_SOURCE_KEY,
+				ConfigConstants.DATA_SOURCE_DEFAULT);
 			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph, flinkConfig);
 			saveJobMetaSuccessfully = jobMeta.saveToDB();
 		} catch (Throwable e) {

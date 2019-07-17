@@ -23,6 +23,7 @@ import org.apache.flink.client.cli.CliArgsException;
 import org.apache.flink.client.cli.CliFrontend;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClient;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
@@ -264,7 +265,17 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			yarnApplicationIdFromYarnProperties = null;
 		}
 
-		this.yarnConfiguration = new YarnConfiguration();
+		String shortClusterName =
+			configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, "");
+		if (shortClusterName == null || shortClusterName.isEmpty()) {
+			this.yarnConfiguration = new YarnConfiguration();
+		} else {
+			org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+			conf.set(ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
+			this.yarnConfiguration = new YarnConfiguration(conf);
+			LOG.info("Set {} to {}", ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
+		}
+
 	}
 
 	private AbstractYarnClusterDescriptor createDescriptor(

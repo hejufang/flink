@@ -34,6 +34,7 @@ import org.apache.flink.client.program.ProgramMissingJobException;
 import org.apache.flink.client.program.ProgramParametrizationException;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationMapping;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -178,7 +179,7 @@ public class CliFrontend {
 
 		final RunOptions runOptions = new RunOptions(commandLine);
 
-		String owner = commandLine.getOptionValue(OWNER_OPTION.getOpt());
+		String owner = commandLine.getOptionValue(CliFrontendParser.OWNER_OPTION.getOpt());
 		if (owner == null) {
 			owner = "";
 		}
@@ -221,13 +222,14 @@ public class CliFrontend {
 	 * @param args Original arguments.
 	 */
 	public String[] setJobName(String[] args) {
-		boolean metrics_job_name_exist = false;
+		boolean metricsJobNameExist = false;
 		int jobNameIndex = -2;
 		int clusterNameIndex = -2;
+		List<String> newArgsList = new ArrayList<>();
 		String jobName;
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].contains("metrics.reporter.opentsdb_reporter.jobname")) {
-				metrics_job_name_exist = true;
+				metricsJobNameExist = true;
 			}else if (args[i].equals("-ynm")) {
 				jobNameIndex = i + 1;
 			}else if (args[i].equals("-cn")) {
@@ -235,13 +237,17 @@ public class CliFrontend {
 			}
 		}
 		//1.Set an environment property for registering grafana dashboard.
+		String clusterName = null;
 		if (clusterNameIndex > 0 && clusterNameIndex < args.length) {
-			String clusterName = args[clusterNameIndex];
-			System.setProperty("clusterName", clusterName);
-			LOG.info("Cluster name is : " + clusterName);
+			clusterName = args[clusterNameIndex];
 		} else {
-			clusterName = System.getProperty("clusterName");
+			clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY);
 		}
+
+		// replace old cluster name with a new one.
+		clusterName = ConfigurationMapping.replaceClusterName(clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+		LOG.info("Cluster name is : " + clusterName);
 
 		if (jobNameIndex > 0 && jobNameIndex < args.length) {
 			jobName = args[jobNameIndex];
@@ -250,21 +256,26 @@ public class CliFrontend {
 				jobName = jobName.substring(0, i);
 			}
 			//2.Set an environment property for registering grafana dashboard.
-			System.setProperty("jobName", jobName);
+			System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
 			LOG.info("Job name is set to: " + jobName);
-			if (!metrics_job_name_exist) {
+			if (!metricsJobNameExist) {
 				//3.Add job name for metrics.
-				String[] new_args = new String[args.length + 2];
-				System.arraycopy(args, 0, new_args, 0, jobNameIndex + 1);
-				new_args[jobNameIndex+1] = "-yD";
-				new_args[jobNameIndex+2] = "metrics.reporter.opentsdb_reporter.jobname=" + jobName;
-				System.arraycopy(args, jobNameIndex + 1, new_args,
-					jobNameIndex + 3, args.length - (jobNameIndex + 1));
-				return new_args;
+				newArgsList.add("-yD");
+				newArgsList.add("metrics.reporter.opentsdb_reporter.jobname=" + jobName);
 			}
 		}
 
-		return args;
+		if (clusterName != null) {
+			newArgsList.add("-yD");
+			newArgsList.add("clusterName=" + clusterName);
+			LOG.info("Cluster name is : {}", clusterName);
+		}
+
+		newArgsList.addAll(Arrays.asList(args));
+		LOG.info("args = {}", newArgsList);
+		String[] newArgsArray = new String[newArgsList.size()];
+		newArgsList.toArray(newArgsArray);
+		return newArgsArray;
 	}
 
 	private <T> void runProgram(
@@ -1121,6 +1132,13 @@ public class CliFrontend {
 	public static void main(final String[] args) {
 		EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
+		String clusterName = parseClusterName(args);
+		if (clusterName != null  && !clusterName.isEmpty()) {
+			// replace old cluster name with a new one.
+			clusterName = ConfigurationMapping.replaceClusterName(clusterName);
+			System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+		}
+
 		// 1. find the configuration directory
 		final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
@@ -1148,6 +1166,17 @@ public class CliFrontend {
 			strippedThrowable.printStackTrace();
 			System.exit(31);
 		}
+	}
+
+	public static String parseClusterName(String[] args) {
+		String dynamicPropertyFlag = "-cn";
+		for (int i = 0; i < args.length; i++) {
+			if (dynamicPropertyFlag.equals(args[i]) && (i + 1 < args.length)) {
+				String clusterName = args[i + 1];
+				return clusterName;
+			}
+		}
+		return null;
 	}
 
 	// --------------------------------------------------------------------------------------------
