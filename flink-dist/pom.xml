@@ -164,6 +164,20 @@ under the License.
 			<scope>compile</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>com.bytedance.data</groupId>
+			<artifactId>databus4j</artifactId>
+			<version>${databus.version}</version>
+			<scope>compile</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.kafka</groupId>
+			<artifactId>kafka-clients</artifactId>
+			<version>${kafka.client.version}</version>
+			<scope>compile</scope>
+		</dependency>
+
 		<!--
 			The following dependencies are packaged in 'examples/'
 			The scope of these dependencies needs to be 'provided' so that
