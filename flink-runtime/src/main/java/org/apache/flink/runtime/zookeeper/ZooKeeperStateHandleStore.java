@@ -107,6 +107,14 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 		lockNode = UUID.randomUUID().toString();
 	}
 
+	public void setNamespace(String namespace) {
+		this.client.usingNamespace(namespace);
+	}
+
+	public String getNamespace(){
+		return this.client.getNamespace();
+	}
+
 	/**
 	 * Creates a state handle, stores it in ZooKeeper and locks it. A locked node cannot be removed by
 	 * another {@link ZooKeeperStateHandleStore} instance as long as this instance remains connected

@@ -122,6 +122,28 @@ public class CheckpointingOptions {
 				"in a Flink supported filesystem. The storage path must be accessible from all participating processes/nodes" +
 				"(i.e. all TaskManagers and JobManagers).");
 
+	/**
+	 * Checkpoints across cluster.
+	 * Enable to use jobName to compose checkpoint path
+	 * and to replace high-availability.cluster-id in checkpoints, checkpoint-count zk path.
+	 * Make sure the jobName is unique.
+	 * */
+	public static final ConfigOption<Boolean> CHECKPOINTS_ACROSS_CLUSTER = ConfigOptions
+		.key("state.checkpoints.across-cluster")
+		.defaultValue(true)
+		.withDescription("Try to make checkpoints across cluster. " +
+			"Enable to use jobName to compose checkpoint path " +
+			"and to replace high-availability.cluster-id in checkpoints, checkpoint-count zk path" +
+			"Make sure the jobName is unique.");
+
+	/**
+	 * The namespace for checkpoints of one job.
+	 */
+	public static final ConfigOption<String> CHECKPOINTS_NAMESPACE = ConfigOptions
+		.key("state.checkpoints.namespace")
+		.defaultValue("default")
+		.withDescription("The namespace for checkpoints of one job.");
+
 	/** The minimum size of state data files. All state chunks smaller than that
 	 * are stored inline in the root checkpoint metadata file. */
 	public static final ConfigOption<Integer> FS_SMALL_FILE_THRESHOLD = ConfigOptions

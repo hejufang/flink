@@ -198,7 +198,8 @@ public final class GlobalConfiguration {
 				allYamlConf = commonConf;
 			}
 			String[] dynamicParam = {ConfigConstants.CLUSTER_NAME_KEY,
-				ConfigConstants.HDFS_PREFIX_KEY};
+				ConfigConstants.HDFS_PREFIX_KEY,
+				ConfigConstants.DC_KEY};
 			for (Map.Entry<String, Object> entry : allYamlConf.entrySet()) {
 				String key = entry.getKey();
 				String value = entry.getValue().toString();

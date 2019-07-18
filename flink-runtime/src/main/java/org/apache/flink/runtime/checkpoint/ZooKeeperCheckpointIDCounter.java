@@ -28,6 +28,7 @@ import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.flink.runtime.util.ZooKeeperUtils.ensureNamespace;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -72,10 +73,30 @@ public class ZooKeeperCheckpointIDCounter implements CheckpointIDCounter {
 	 * @param client      Curator ZooKeeper client
 	 * @param counterPath ZooKeeper path for the counter. It's sufficient to have a path per-job.
 	 */
-	public ZooKeeperCheckpointIDCounter(CuratorFramework client, String counterPath) {
-		this.client = checkNotNull(client, "Curator client");
+	public ZooKeeperCheckpointIDCounter(
+		CuratorFramework client,
+		String counterPath) throws Exception {
+		this(client, counterPath, client.getNamespace());
+	}
+
+	/**
+	 * Creates a {@link ZooKeeperCheckpointIDCounter} instance.
+	 *
+	 * @param client      Curator ZooKeeper client
+	 * @param counterPath ZooKeeper path for the counter. It's sufficient to have a path per-job.
+	 * @param zookeeperNamespace ZooKeeper namespace for the counter.
+	 */
+	public ZooKeeperCheckpointIDCounter(
+		CuratorFramework client,
+		String counterPath,
+		String zookeeperNamespace) throws Exception {
+		zookeeperNamespace = ensureNamespace(client, zookeeperNamespace);
+		this.client = checkNotNull(client.usingNamespace(zookeeperNamespace), "Curator client");
+		LOG.info("Using namespace '{}'.", this.client.getNamespace());
+
 		this.counterPath = checkNotNull(counterPath, "Counter path");
-		this.sharedCount = new SharedCount(client, counterPath, 1);
+		this.sharedCount = new SharedCount(this.client, counterPath, 1);
+		LOG.info("Initialized in '{}'.", counterPath);
 	}
 
 	@Override
