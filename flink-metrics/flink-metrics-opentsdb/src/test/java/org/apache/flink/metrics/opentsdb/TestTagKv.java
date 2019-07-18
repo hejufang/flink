@@ -15,34 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.flink.metrics.opentsdb;
 
-/**
- * Created by zhangguanghui on 2017/7/27.
- */
-
-import org.junit.Test;
 import org.junit.Assert;
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Created by zhangguanghui on 2017/7/27.
+ */
 public class TestTagKv {
 	@Test
-	public void TestCompositeTags1() {
+	public void testCompositeTags1() {
 		List<TagKv> tags = new ArrayList<>();
 		Assert.assertEquals("", TagKv.compositeTags(tags));
 	}
 
 	@Test
-	public void TestCompositeTags2() {
+	public void testCompositeTags2() {
 		List<TagKv> tags = new ArrayList<>();
 		tags.add(new TagKv("host", "n8-131-216"));
 		Assert.assertEquals("host=n8-131-216", TagKv.compositeTags(tags));
 	}
 
 	@Test
-	public void TestCompositeTags3() {
+	public void testCompositeTags3() {
 		List<TagKv> tags = new ArrayList<>();
 		tags.add(new TagKv("host", "n8-131-216"));
 		tags.add(new TagKv("jobname", "HelloWorld"));

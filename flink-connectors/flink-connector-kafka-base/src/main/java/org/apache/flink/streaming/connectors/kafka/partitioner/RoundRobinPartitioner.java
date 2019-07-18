@@ -17,6 +17,9 @@
 
 package org.apache.flink.streaming.connectors.kafka.partitioner;
 
+/**
+ * A round robin partitioner.
+ */
 public class RoundRobinPartitioner<T> extends FlinkKafkaPartitioner<T> {
 	private int current;
 

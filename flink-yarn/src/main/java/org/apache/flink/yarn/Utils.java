@@ -163,7 +163,6 @@ public final class Utils {
 			homedir = new Path(jobWorkDir);
 		}
 
-
 		// copy resource to HDFS
 		String suffix =
 			".flink/"
@@ -565,7 +564,7 @@ public final class Utils {
 		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
 			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
 
-		if(remoteKeytabPath != null && remoteKeytabPrincipal != null) {
+		if (remoteKeytabPath != null && remoteKeytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PATH, remoteKeytabPath);
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
 		}

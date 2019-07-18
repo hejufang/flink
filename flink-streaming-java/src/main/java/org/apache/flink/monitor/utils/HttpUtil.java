@@ -17,13 +17,14 @@
 
 package org.apache.flink.monitor.utils;
 
-import java.io.IOException;
-import java.util.Map;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+
+import java.io.IOException;
+import java.util.Map;
 
 /**
  * Provides http methods.

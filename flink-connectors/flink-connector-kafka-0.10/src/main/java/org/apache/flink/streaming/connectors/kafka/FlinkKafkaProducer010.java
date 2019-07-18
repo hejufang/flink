@@ -52,12 +52,12 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 	private boolean writeTimestampToKafka = false;
 
 	/**
-	 * Time interval for updating partitions for kafka topic
+	 * Time interval for updating partitions for kafka topic.
 	 * */
 	private static final long TIME_INTERVAL = 60 * 1000;
 
 	/**
-	 * Last timestamp for updating partitions for kafka topic
+	 * Last timestamp for updating partitions for kafka topic.
 	 * */
 	private long lastUpdateTimestamp = -1;
 
@@ -378,7 +378,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 		int[] partitions = topicPartitionsMap.get(targetTopic);
 		//Add expiration time for kafka partitions
 		long currentTime = System.currentTimeMillis();
-		if(null == partitions || currentTime - lastUpdateTimestamp > TIME_INTERVAL) {
+		if (null == partitions || currentTime - lastUpdateTimestamp > TIME_INTERVAL) {
 			lastUpdateTimestamp = currentTime;
 			partitions = getPartitionsByTopic(targetTopic, producer);
 			topicPartitionsMap.put(targetTopic, partitions);

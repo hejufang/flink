@@ -36,7 +36,7 @@ public class Tuple<X, Y> {
 		}
 
 		if (obj instanceof Tuple) {
-			Tuple<String, String> tuple = (Tuple)obj;
+			Tuple<String, String> tuple = (Tuple) obj;
 			return this.x.equals(tuple.x) && this.y.equals(tuple.y);
 		}
 

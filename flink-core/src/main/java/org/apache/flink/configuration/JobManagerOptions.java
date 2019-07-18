@@ -189,7 +189,7 @@ public class JobManagerOptions {
 			.defaultValue(true);
 
 	/**
-	 * Config for individual-forever failover strategy
+	 * Config for individual-forever failover strategy.
 	 * */
 	public static final ConfigOption<Integer> INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS =
 		key("jobmanager.execution.individual-forever.tm.launch.waiting.ms")

@@ -15,19 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.flink.metrics.opentsdb;
+
+import org.apache.flink.metrics.MetricConfig;
+
+import org.junit.Assert;
+import org.junit.Test;
 
 /**
  * Created by zhangguanghui on 2017/7/27.
  */
-import org.apache.flink.metrics.MetricConfig;
-
-import org.junit.Test;
-import org.junit.Assert;
-
 public class TestOpentsdbReporter {
 	@Test
-	public void TestOpen() {
+	public void testOpen() {
 		OpentsdbReporter reporter = new OpentsdbReporter();
 		MetricConfig config = new MetricConfig();
 		config.put("jobname", "HelloWorld");
@@ -38,13 +39,13 @@ public class TestOpentsdbReporter {
 	}
 
 	@Test
-	public void TestPrefix() {
+	public void testPrefix() {
 		OpentsdbReporter reporter = new OpentsdbReporter();
 		Assert.assertEquals("Hello.World", reporter.prefix("Hello", "World"));
 	}
 
 	@Test
-	public void TestGetMetricNameAndTags1() {
+	public void testGetMetricNameAndTags1() {
 		OpentsdbReporter reporter = new OpentsdbReporter();
 		reporter.open(new MetricConfig());
 		String key = "n8-159-232.byted.org.jobmanager.Status.JVM.Memory.Direct.TotalCapacity";
@@ -54,7 +55,7 @@ public class TestOpentsdbReporter {
 	}
 
 	@Test
-	public void TestGetMetricNameAndTags2() {
+	public void testGetMetricNameAndTags2() {
 		OpentsdbReporter reporter = new OpentsdbReporter();
 		reporter.open(new MetricConfig());
 		String key = "n8-159-070.taskmanager.554a025ffcd1bb5845bc58152d3e4355.Streaming WordCount.Keyed Aggregation.1.latency";

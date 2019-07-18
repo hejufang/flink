@@ -230,9 +230,9 @@ public class CliFrontend {
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].contains("metrics.reporter.opentsdb_reporter.jobname")) {
 				metricsJobNameExist = true;
-			}else if (args[i].equals("-ynm")) {
+			} else if (args[i].equals("-ynm")) {
 				jobNameIndex = i + 1;
-			}else if (args[i].equals("-cn")) {
+			} else if (args[i].equals("-cn")) {
 				clusterNameIndex = i + 1;
 			}
 		}

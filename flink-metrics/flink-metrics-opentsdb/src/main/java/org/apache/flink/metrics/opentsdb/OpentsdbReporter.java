@@ -19,11 +19,11 @@
 package org.apache.flink.metrics.opentsdb;
 
 import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.Gauge;
-import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.HistogramStatistics;
+import org.apache.flink.metrics.Meter;
+import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 

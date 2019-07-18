@@ -22,7 +22,6 @@ import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 
 import java.util.List;
-import java.util.concurrent.Executor;
 
 
 /*
@@ -39,17 +38,6 @@ public class RestartSingleStrategy extends RestartIndividualStrategy {
 	 */
 	public RestartSingleStrategy(ExecutionGraph executionGraph) {
 		super(executionGraph);
-	}
-
-	/**
-	 * Creates a new failover strategy that recovers from failures by restarting only the failed task
-	 * of the execution graph.
-	 *
-	 * @param executionGraph The execution graph to handle.
-	 * @param callbackExecutor The executor that executes restart callbacks
-	 */
-	public RestartSingleStrategy(ExecutionGraph executionGraph, Executor callbackExecutor) {
-		super(executionGraph, callbackExecutor);
 	}
 
 	@Override

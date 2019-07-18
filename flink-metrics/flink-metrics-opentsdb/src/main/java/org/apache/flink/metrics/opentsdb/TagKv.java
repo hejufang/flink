@@ -18,11 +18,11 @@
 
 package org.apache.flink.metrics.opentsdb;
 
+import java.util.List;
+
 /**
  * Created by zhangguanghui on 2017/7/27.
  */
-import java.util.List;
-
 public class TagKv {
 	String name;
 	String value;

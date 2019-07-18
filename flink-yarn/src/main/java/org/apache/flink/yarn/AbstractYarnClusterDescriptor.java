@@ -144,9 +144,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	private String nodeLabel;
 
-	private String METRICS_PREFIX = "inf.flink.acceleration";
-
-	private String LD_LIBRARY_PATH = "/opt/tiger/ss_lib/so";
+	private String applicationType;
 
 	/** Optional Jar file to include in the system class loader of all application nodes
 	 * (for per-job submission). */

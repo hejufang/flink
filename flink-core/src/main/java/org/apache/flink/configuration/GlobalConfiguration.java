@@ -107,7 +107,7 @@ public final class GlobalConfiguration {
 	 * @return The configuration loaded from the given configuration directory
 	 */
 	public static Configuration loadConfiguration(final String configDir,
-												  @Nullable final Configuration dynamicProperties) {
+		@Nullable final Configuration dynamicProperties) {
 
 		if (configDir == null) {
 			throw new IllegalArgumentException("Given configuration directory is null, cannot load configuration");

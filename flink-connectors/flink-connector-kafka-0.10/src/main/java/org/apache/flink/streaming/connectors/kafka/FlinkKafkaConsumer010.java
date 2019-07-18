@@ -34,7 +34,9 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
 import org.apache.flink.util.SerializedValue;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
+import org.apache.kafka.common.TopicPartition;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -69,7 +71,7 @@ import java.util.regex.Pattern;
  */
 @PublicEvolving
 public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
-
+	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaConsumer010.class);
 	private static final long serialVersionUID = 2324564345203409112L;
 
 	// ------------------------------------------------------------------------
@@ -141,12 +143,12 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 			threshold = Integer.parseInt(props.getProperty("threshold"));
 		}
 		String groupId = props.getProperty("group.id");
-		if(kafkaClusterName != null && !"".equals(kafkaClusterName)){
-			String kafkaMetricsStr = System.getProperty("flink_kafka_metrics","[]");
+		if (kafkaClusterName != null && !"".equals(kafkaClusterName)) {
+			String kafkaMetricsStr = System.getProperty("flink_kafka_metrics", "[]");
 			JSONParser parser = new JSONParser();
 			try {
 				JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
-				for(String topic: topics) {
+				for (String topic: topics) {
 					JSONObject jsonObject = new JSONObject();
 					jsonObject.put("cluster", kafkaClusterName);
 					jsonObject.put("topic", topic);
