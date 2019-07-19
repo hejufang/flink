@@ -73,6 +73,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -135,6 +136,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 	private final Option zookeeperNamespace;
 	private final Option nodeLabel;
 	private final Option help;
+	private final Option jobJar;
 
 	/**
 	 * @deprecated Streaming mode has been deprecated without replacement. Set the
@@ -207,6 +209,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		zookeeperNamespace = new Option(shortPrefix + "z", longPrefix + "zookeeperNamespace", true, "Namespace to create the Zookeeper sub-paths for high availability mode");
 		nodeLabel = new Option(shortPrefix + "nl", longPrefix + "nodeLabel", true, "Specify YARN node label for the YARN application");
 		help = new Option(shortPrefix + "h", longPrefix + "help", false, "Help for the Yarn session CLI.");
+		jobJar = new Option("j", "jobjar", true, "Path to Job Jar file");
 
 		allOptions = new Options();
 		allOptions.addOption(flinkJar);
@@ -228,6 +231,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		allOptions.addOption(zookeeperNamespace);
 		allOptions.addOption(nodeLabel);
 		allOptions.addOption(help);
+		allOptions.addOption(jobJar);
 
 		// try loading a potential yarn properties file
 		this.yarnPropertiesFileLocation = configuration.getString(YarnConfigOptions.PROPERTIES_FILE_LOCATION);
@@ -384,6 +388,20 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		if (cmd.hasOption(nodeLabel.getOpt())) {
 			String nodeLabelValue = cmd.getOptionValue(this.nodeLabel.getOpt());
 			yarnClusterDescriptor.setNodeLabel(nodeLabelValue);
+		}
+
+		try {
+			if (cmd.hasOption(jobJar.getOpt())) {
+				List<URL> libs = new ArrayList<>();
+				File jarFile = new File(cmd.getOptionValue(jobJar.getOpt()));
+				if (!jarFile.exists() || !jarFile.isFile()) {
+					LOG.warn("job jar file is unexist or not a file : {}", jarFile);
+				}
+				libs.add(jarFile.getAbsoluteFile().toURI().toURL());
+				yarnClusterDescriptor.setProvidedUserJarFiles(libs);
+			}
+		} catch (Exception e) {
+			LOG.error("set provided user jar error", e);
 		}
 
 		return yarnClusterDescriptor;

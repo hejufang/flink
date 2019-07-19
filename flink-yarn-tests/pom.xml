@@ -354,7 +354,7 @@ under the License.
 						<artifactItem>
 							<groupId>org.apache.flink</groupId>
 							<artifactId>flink-shaded-hadoop-2-uber</artifactId>
-							<version>${hadoop.shaded.version}-${flink.shaded.version}</version>
+							<version>${hadoop.version}-${flink.shaded.version}</version>
 							<type>jar</type>
 							<overWrite>true</overWrite>
 							<outputDirectory>${project.build.directory}/shaded-hadoop</outputDirectory>

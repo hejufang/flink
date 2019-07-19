@@ -20,4 +20,4 @@
 mvn clean install -U -DskipTests
 
 mkdir -p output
-cp -r flink-dist/target/flink-1.5-byted-SNAPSHOT-bin/flink-1.5-byted-SNAPSHOT/flink_deploy output
+cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output

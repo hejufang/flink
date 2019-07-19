@@ -164,20 +164,6 @@ under the License.
 			<scope>compile</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>com.bytedance.data</groupId>
-			<artifactId>databus4j</artifactId>
-			<version>${databus.version}</version>
-			<scope>compile</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka-clients</artifactId>
-			<version>${kafka.client.version}</version>
-			<scope>compile</scope>
-		</dependency>
-
 		<!--
 			The following dependencies are packaged in 'examples/'
 			The scope of these dependencies needs to be 'provided' so that
@@ -428,7 +414,7 @@ under the License.
 				<dependency>
 					<groupId>org.apache.flink</groupId>
 					<artifactId>flink-shaded-hadoop-2-uber</artifactId>
-					<version>${hadoop.shaded.version}-${flink.shaded.version}</version>
+					<version>${hadoop.version}-${flink.shaded.version}</version>
 					<scope>provided</scope>
 				</dependency>
 			</dependencies>
@@ -588,6 +574,10 @@ under the License.
 								<relocation>
 									<pattern>org.yaml</pattern>
 									<shadedPattern>org.apache.flink.shaded.dist.org.yaml</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.cli</pattern>
+									<shadedPattern>org.apache.flink.shaded.dist.org.apache.commons.cli</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>

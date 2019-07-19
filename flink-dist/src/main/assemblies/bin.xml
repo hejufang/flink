@@ -52,6 +52,7 @@ under the License.
 				<include>log4j:log4j</include>
 				<include>com.bytedance.data:databus4j</include>
 				<include>org.apache.kafka:kafka-clients</include>
+				<include>org.apache.flink:flink-shaded-hadoop2-uber</include>
 			</includes>
 		</dependencySet>
 	</dependencySets>
@@ -131,19 +132,7 @@ under the License.
 		</file>
 
 		<file>
-			<source>../flink-libraries/flink-python/target/flink-python_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-shaded-hadoop/flink-shaded-hadoop2-uber/target/flink-shaded-hadoop2-uber-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-libraries/flink-sql-client/target/flink-sql-client-${project.version}.jar</source>
+			<source>../flink-python/target/flink-python_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
@@ -163,25 +152,6 @@ under the License.
 		<file>
 			<source>../flink-connectors/flink-connector-kafka-base/target/flink-connector-kafka-base_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-libraries/flink-table/target/flink-table_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-libraries/flink-table/target/flink-table_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-contrib/flink-python-byted/target/flink-python-byted-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/basejar/</outputDirectory>
-			<destName>flink-python-byted.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 

@@ -84,6 +84,7 @@ import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.SimpleFileVisitor;
@@ -98,7 +99,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_PLUGINS_DIR;
@@ -198,6 +198,20 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			throw new IllegalArgumentException("The passed jar path ('" + localJarPath + "') does not end with the 'jar' extension");
 		}
 		this.flinkJarPath = localJarPath;
+	}
+
+	/**
+	 * Sets the user jar which is included in the system classloader of all nodes.
+	 */
+	public void setProvidedUserJarFiles(List<URL> userJarFiles) {
+		for (URL jarFile : userJarFiles) {
+			try {
+				this.userJarFiles.add(new File(jarFile.toURI()));
+			} catch (URISyntaxException e) {
+				throw new IllegalArgumentException("Couldn't add local user jar: " + jarFile
+					+ " Currently only file:/// URLs are supported.");
+			}
+		}
 	}
 
 	/**
@@ -740,12 +754,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					YarnConfigOptions.APPLICATION_ATTEMPTS.key(),
 					1));
 		}
-
-		final Set<File> userJarFiles = (jobGraph == null)
-			// not per-job submission
-			? Collections.emptySet()
-			// add user code jars from the provided JobGraph
-			: jobGraph.getUserJars().stream().map(f -> f.toUri()).map(File::new).collect(Collectors.toSet());
 
 		// local resource map for Yarn
 		final Map<String, LocalResource> localResources = new HashMap<>(2 + systemShipFiles.size() + userJarFiles.size());

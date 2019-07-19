@@ -20,14 +20,18 @@ package org.apache.flink.runtime.execution.librarycache;
 
 import org.apache.flink.util.ChildFirstClassLoader;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 
 /**
  * Gives the URLClassLoader a nicer name for debugging purposes.
  */
 public class FlinkUserCodeClassLoaders {
-
+	private static final Logger LOG = LoggerFactory.getLogger(FlinkUserCodeClassLoaders.class);
 	public static URLClassLoader parentFirst(URL[] urls, ClassLoader parent) {
 		return new ParentFirstClassLoader(urls, parent);
 	}
@@ -41,6 +45,8 @@ public class FlinkUserCodeClassLoaders {
 
 	public static URLClassLoader create(
 		ResolveOrder resolveOrder, URL[] urls, ClassLoader parent, String[] alwaysParentFirstPatterns) {
+		LOG.info("Create FlinkUserCodeClassLoaders resolveOrder = {}", resolveOrder);
+		LOG.info("Create FlinkUserCodeClassLoaders urls = {}", Arrays.asList(urls));
 
 		switch (resolveOrder) {
 			case CHILD_FIRST:
