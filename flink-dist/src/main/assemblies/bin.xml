@@ -42,19 +42,6 @@ under the License.
 				<include>log4j:log4j</include>
 			</includes>
 		</dependencySet>
-
-		<dependencySet>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib</outputDirectory>
-			<unpack>false</unpack>
-			<useProjectArtifact>false</useProjectArtifact>
-			<includes>
-				<include>org.slf4j:slf4j-log4j12</include>
-				<include>log4j:log4j</include>
-				<include>com.bytedance.data:databus4j</include>
-				<include>org.apache.kafka:kafka-clients</include>
-				<include>org.apache.flink:flink-shaded-hadoop2-uber</include>
-			</includes>
-		</dependencySet>
 	</dependencySets>
 
 	<files>
@@ -62,14 +49,6 @@ under the License.
 		<file>
 			<source>target/flink-dist_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<!-- copy flink metrics opentsdb uber jar -->
-		<file>
-			<source>../flink-metrics/flink-metrics-opentsdb/target/flink-metrics-opentsdb-${project.version}-jar-with-dependencies.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<destName>flink-metrics-opentsdb-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 
@@ -96,62 +75,68 @@ under the License.
 		<!--copy files to flink_deploy-->
 		<file>
 			<source>target/flink-dist_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-libraries/flink-gelly/target/flink-gelly_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-libraries/flink-gelly-scala/target/flink-gelly-scala_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-formats/flink-json/target/flink-json-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>../flink-table/flink-table-uber/target/flink-table-uber_${scala.binary.version}-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-metrics/flink-metrics-dropwizard/target/flink-metrics-dropwizard-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-metrics/flink-metrics-opentsdb/target/flink-metrics-opentsdb-${project.version}-jar-with-dependencies.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<destName>flink-metrics-opentsdb-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-python/target/flink-python_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-connectors/flink-connector-kafka-0.10/target/flink-connector-kafka-0.10_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-connectors/flink-connector-kafka-0.9/target/flink-connector-kafka-0.9_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
 			<source>../flink-connectors/flink-connector-kafka-base/target/flink-connector-kafka-base_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
 
@@ -169,6 +154,12 @@ under the License.
 
 	</files>
 	<fileSets>
+		<fileSet>
+			<directory>lib</directory>
+			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</fileSet>
+
 		<fileSet>
 			<directory>../licenses-binary</directory>
 			<outputDirectory>licenses</outputDirectory>

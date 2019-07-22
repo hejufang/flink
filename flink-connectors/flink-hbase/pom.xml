@@ -317,7 +317,7 @@ under the License.
 				<version>1.9-byted-SNAPSHOT</version>
 				<!-- Cloudera use different versions for hadoop core and commons-->
 				<!-- This profile could be removed if Cloudera fix this mismatch! -->
-				<hadoop.core.version>2.6.0-cdh5.4.4-bd24</hadoop.core.version>
+				<hadoop.core.version>2.6.0-cdh5.4.4-bd26</hadoop.core.version>
 			</properties>
 			<dependencyManagement>
 				<dependencies>
