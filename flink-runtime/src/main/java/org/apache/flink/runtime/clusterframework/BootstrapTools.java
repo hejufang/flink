@@ -439,9 +439,13 @@ public class BootstrapTools {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS);
 		}
 
-		if (!javaOpts.contains("-Dlog.level")) {
-			javaOpts += " -Dlog.level=INFO";
-		}
+		String logLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_LEVEL_KEY,
+			ConfigConstants.FLINK_LOG_LEVEL_DEFAULT);
+		javaOpts += " -Dlog.level=" + logLevel;
+
+		String logLayout = flinkConfig.getString(ConfigConstants.FLINK_LOG_LAYOUT_KEY,
+			ConfigConstants.FLINK_LOG_LAYOUT_DEFAULT);
+		javaOpts += " -Dlog.layout=\\\"" + logLayout + "\\\"";
 
 		// JVM GC log opts
 		javaOpts += " " + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_OPTS_KEY,
