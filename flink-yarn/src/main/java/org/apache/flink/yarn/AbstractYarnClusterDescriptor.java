@@ -1606,9 +1606,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
 		}
 
-		if (!javaOpts.contains("-Dlog.level")) {
-			javaOpts += " -Dlog.level=INFO";
-		}
+		String logLevel = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_LEVEL_KEY,
+			ConfigConstants.FLINK_LOG_LEVEL_DEFAULT);
+		javaOpts += " -Dlog.level=" + logLevel;
+
+		String logLayout = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_LAYOUT_KEY,
+			ConfigConstants.FLINK_LOG_LAYOUT_DEFAULT);
+		javaOpts += " -Dlog.layout=\\\"" + logLayout + "\\\"";
 
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
