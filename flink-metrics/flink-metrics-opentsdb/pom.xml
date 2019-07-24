@@ -29,7 +29,7 @@ under the License.
 	<modelVersion>4.0.0</modelVersion>
 
 	<properties>
-		<metrics4j.version>1.0.4</metrics4j.version>
+		<metrics4j.version>1.0.24</metrics4j.version>
 	</properties>
 
 	<artifactId>flink-metrics-opentsdb</artifactId>
