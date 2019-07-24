@@ -52,6 +52,11 @@ CC_CLASSPATH=`constructFlinkClassPath`
 USER_JAR=`getUserJar $*`
 echo $USER_JAR
 flink_client_classpath_include_user_jar=`getClientIncludeUserJar $*`
+
+if [ "$flink_client_classpath_include_user_jar" = "" ]; then
+        flink_client_classpath_include_user_jar="FIRST"
+fi
+
 echo $flink_client_classpath_include_user_jar
 
 log=$FLINK_LOG_DIR/flink-$FLINK_IDENT_STRING-client-$HOSTNAME.log
