@@ -16,6 +16,10 @@
 #  See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
+# checkout to flink-1.9
+git checkout -b flink-1.9 origin/flink-1.9
+git branch -D flink-1.5
+
 # prepare output dir
 rm -rf temp_output
 mkdir -p temp_output
@@ -24,6 +28,7 @@ mkdir -p output
 
 # compile flink-1.9
 mvn -T 1C clean install -U -DskipTests -Pinclude-hadoop
+mkdir -p temp_output/deploy
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/deploy/flink-1.9 temp_output/deploy
 mkdir -p temp_output/deploy/flink-1.9/lib
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/lib/* temp_output/deploy/flink-1.9/lib/
@@ -32,8 +37,7 @@ cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/li
 git clean -xdf  flink-end-to-end-tests/
 git clean -xdf flink-formats/flink-parquet/
 git clean -xdf flink-python/
-git fetch origin flink-1.5:flink-1.5
-git checkout flink-1.5
+git checkout -b flink-1.5 origin/flink-1.5
 mvn -T 1C clean install -U -DskipTests
 
 # copy to output dir
