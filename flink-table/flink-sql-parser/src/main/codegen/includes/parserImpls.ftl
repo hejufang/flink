@@ -24,10 +24,32 @@ void TableColumn(TableCreationContext context) :
     |
         context.primaryKeyList = PrimaryKey()
     |
+        context.watermark = Watermark()
+    |
         UniqueKey(context.uniqueKeysList)
     |
         ComputedColumn(context)
     )
+}
+
+SqlWatermark Watermark() :
+{
+    SqlIdentifier watermarkName = null;
+    SqlIdentifier columnName;
+    SqlNode namedFunctionCall;
+    SqlNumericLiteral maxWait = null;
+
+    SqlParserPos pos;
+}
+{
+    <WATERMARK> {pos = getPos();} [watermarkName = SimpleIdentifier()]
+    <FOR> columnName = CompoundIdentifier()
+    <AS>
+    namedFunctionCall = NamedFunctionCall()
+    [ <WAIT> maxWait = UnsignedNumericLiteral() ]
+    {
+        return new SqlWatermark(watermarkName, columnName, namedFunctionCall, maxWait, pos.plus(getPos()));
+    }
 }
 
 void ComputedColumn(TableCreationContext context) :
@@ -155,6 +177,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     List<SqlNodeList> uniqueKeysList = null;
     SqlNodeList columnList = SqlNodeList.EMPTY;
 	SqlCharStringLiteral comment = null;
+    SqlWatermark watermark = null;
 
     SqlNodeList propertyList = SqlNodeList.EMPTY;
     SqlNodeList partitionColumns = SqlNodeList.EMPTY;
@@ -175,6 +198,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
             columnList = new SqlNodeList(ctx.columnList, pos);
             primaryKeyList = ctx.primaryKeyList;
             uniqueKeysList = ctx.uniqueKeysList;
+            watermark = ctx.watermark;
         }
         <RPAREN>
     ]
@@ -198,7 +222,8 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
                 uniqueKeysList,
                 propertyList,
                 partitionColumns,
-                comment);
+                comment,
+                watermark);
     }
 }
 
