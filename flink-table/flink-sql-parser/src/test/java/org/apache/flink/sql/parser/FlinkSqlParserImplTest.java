@@ -174,6 +174,40 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 				")");
 	}
 
+	@Test
+	public void testCreateTableWithWatermark() {
+		check("CREATE TABLE tbl1 (\n" +
+				"  a bigint comment 'test column comment AAA.',\n" +
+				"  h varchar, \n" +
+				"  g as 2 * (a + 1), \n" +
+				"  ts as toTimestamp(b, 'yyyy-MM-dd HH:mm:ss'), \n" +
+				"  b varchar,\n" +
+				"  WATERMARK FOR a as withoffset(a, 5000) wait 3000, \n" +
+				"  PRIMARY KEY (a, b)\n" +
+				")\n" +
+				"comment 'test table comment ABC.'\n" +
+				"PARTITIONED BY (a, h)\n" +
+				"  with (\n" +
+				"    connector = 'kafka', \n" +
+				"    kafka.topic = 'log.test'\n" +
+				")\n",
+			"CREATE TABLE `TBL1` (\n" +
+				"  `A`  BIGINT  COMMENT 'test column comment AAA.',\n" +
+				"  `H`  VARCHAR,\n" +
+				"  `G` AS (2 * (`A` + 1)),\n" +
+				"  `TS` AS `TOTIMESTAMP`(`B`, 'yyyy-MM-dd HH:mm:ss'),\n" +
+				"  `B`  VARCHAR,\n" +
+				"  PRIMARY KEY (`A`, `B`),\n" +
+				"  WATERMARK FOR `A` AS `WITHOFFSET`(`A`, 5000) WAIT 3000\n" +
+				")\n" +
+				"COMMENT 'test table comment ABC.'\n" +
+				"PARTITIONED BY (`A`, `H`)\n" +
+				"WITH (\n" +
+				"  `CONNECTOR` = 'kafka',\n" +
+				"  `KAFKA`.`TOPIC` = 'log.test'\n" +
+				")");
+	}
+
 	@Ignore // need to implement
 	@Test
 	public void testCreateTableWithoutWatermarkFieldName() {

@@ -27,6 +27,7 @@
     "org.apache.flink.sql.parser.ddl.SqlCreateTable.TableCreationContext",
     "org.apache.flink.sql.parser.ddl.SqlCreateView",
     "org.apache.flink.sql.parser.ddl.SqlDropView",
+    "org.apache.flink.sql.parser.ddl.SqlWatermark",
     "org.apache.flink.sql.parser.ddl.SqlTableColumn",
     "org.apache.flink.sql.parser.dml.RichSqlInsert",
     "org.apache.flink.sql.parser.dml.RichSqlInsertKeyword",
@@ -53,7 +54,8 @@
     "FROM_SOURCE",
     "BOUNDED",
     "DELAY",
-    "OVERWRITE"
+    "OVERWRITE",
+    "WAIT"
   ]
 
   # List of keywords from "keywords" section that are not reserved.
