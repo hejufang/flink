@@ -392,6 +392,26 @@ SqlDrop SqlDropView(Span s, boolean replace) :
     }
 }
 
+SqlCreate SqlCreateFunction(Span s, boolean replace) :
+{
+    SqlIdentifier functionName = null;
+    String className = null;
+
+    SqlNode sample = null;
+}
+{
+    <FUNCTION>
+
+    functionName = CompoundIdentifier()
+
+    <AS> sample = StringLiteral()
+
+    {
+        className = ((NlsString) SqlLiteral.value(sample)).getValue();
+        return new SqlCreateFunction(s.pos(), functionName, className);
+    }
+}
+
 SqlIdentifier SqlArrayType() :
 {
     SqlParserPos pos;

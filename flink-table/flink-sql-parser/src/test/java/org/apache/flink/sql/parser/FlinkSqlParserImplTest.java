@@ -524,6 +524,12 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testCreateFunction() {
+		String sql = "create function fun1 as 'com.test.Fun1'";
+		check(sql, "CREATE FUNCTION `FUN1` AS 'com.test.Fun1'");
+	}
+
+	@Test
 	public void testInsertPartitionSpecs() {
 		conformance0 = FlinkSqlConformance.HIVE;
 		final String sql1 = "insert into emps(x,y) partition (x='ab', y='bc') select * from emps";
