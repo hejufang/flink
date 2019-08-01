@@ -192,6 +192,12 @@ hamer:
   high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
 
+hyena:
+  dc: cn
+  clusterName: hyena
+  high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+
 maliva:
   dc: va
   clusterName: maliva
