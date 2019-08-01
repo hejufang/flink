@@ -30,6 +30,8 @@
         <th nzShowSort nzSortKey="end-time">End Time</th>
         <th>Tasks</th>
         <th nzShowSort nzSortKey="state">Status</th>
+        <th nzShowSort nzSortKey="metric">Metric</th>
+        <th nzShowSort nzSortKey="dtop">Dtop</th>
       </tr>
     </thead>
     <tbody>
@@ -44,6 +46,8 @@
         <td>
           <flink-job-badge [state]="job.state"></flink-job-badge>
         </td>
+        <td><a (click)="navigateToUrl(job.metric, $event)">Metric</a></td>
+        <td><a (click)="navigateToUrl(job.dtop, $event)">Dtop</a></td>
       </tr>
     </tbody>
   </nz-table>

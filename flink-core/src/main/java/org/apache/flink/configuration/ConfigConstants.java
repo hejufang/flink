@@ -2060,12 +2060,13 @@ public final class ConfigConstants {
 		"http://%s:8042/node/containerlogs/%s";
 	public static final String CONTAINER_WEB_SHELL_TEMPLATE =
 		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
+	public static final String DTOP_DATA_SOURCE_KEY = "dtop.data_source";
+	public static final String DTOP_DATA_SOURCE_DEFAULT = "dtop_cn";
+	public static final String DTOP_DATABASE_KEY = "dtop.database";
+	public static final String DTOP_DATABASE_DEFAULT = "dtop";
 	public static final String DTOP_TEMPLATE =
-		"https://grafana.byted.org/dashboard/db/flink-resource-monitor?orgId=1&var-appName=%s&var-datasource=%s";
-	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
-	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
-	public static final String METRIC_TEMPLATE =
-		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
+		"%s/dashboard/db/flink-resource-monitor-new?orgId=1&refresh=1m&var-appName=%s&var-datasource=%s&var-database=%s";
+	public static final String METRIC_TEMPLATE = "%s/dashboard/db/flink-%s-%s?orgId=1";
 
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
 

@@ -41,10 +41,14 @@ import org.apache.flink.runtime.rest.messages.ResponseBody;
 import org.apache.flink.runtime.rest.messages.job.JobDetailsInfo;
 import org.apache.flink.runtime.rest.messages.job.metrics.IOMetricsInfo;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
+import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -60,6 +64,7 @@ import java.util.concurrent.Executor;
  * Handler returning the details for the specified job.
  */
 public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsInfo, JobMessageParameters> implements JsonArchivist {
+	private static final Logger LOGGER = LoggerFactory.getLogger(JobDetailsHandler.class);
 
 	private final MetricFetcher metricFetcher;
 	private final Configuration configuration;
@@ -134,6 +139,10 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			jobVerticesPerStateMap.put(executionState, jobVerticesPerState[executionState.ordinal()]);
 		}
 
+		String metric = WebMonitorUtils.createMetricUrl(configuration);
+		String dtop = WebMonitorUtils.createDtopUrl(configuration);
+		LOGGER.info("metric = {}, dtop = {}", metric, dtop);
+
 		return new JobDetailsInfo(
 			executionGraph.getJobID(),
 			executionGraph.getJobName(),
@@ -146,7 +155,9 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			timestamps,
 			jobVertexInfos,
 			jobVerticesPerStateMap,
-			executionGraph.getJsonPlan());
+			executionGraph.getJsonPlan(),
+			metric,
+			dtop);
 	}
 
 	private static JobDetailsInfo.JobVertexDetailsInfo createJobVertexDetailsInfo(

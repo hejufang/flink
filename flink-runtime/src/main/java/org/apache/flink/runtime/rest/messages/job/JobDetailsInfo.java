@@ -72,6 +72,10 @@ public class JobDetailsInfo implements ResponseBody {
 
 	public static final String FIELD_NAME_JSON_PLAN = "plan";
 
+	public static final String FIELD_NAME_METRIC = "metric";
+
+	public static final String FIELD_NAME_DTOP = "dtop";
+
 	@JsonProperty(FIELD_NAME_JOB_ID)
 	@JsonSerialize(using = JobIDSerializer.class)
 	private final JobID jobId;
@@ -110,6 +114,12 @@ public class JobDetailsInfo implements ResponseBody {
 	@JsonRawValue
 	private final String jsonPlan;
 
+	@JsonProperty(FIELD_NAME_METRIC)
+	private final String metric;
+
+	@JsonProperty(FIELD_NAME_DTOP)
+	private final String dtop;
+
 	@JsonCreator
 	public JobDetailsInfo(
 			@JsonDeserialize(using = JobIDDeserializer.class) @JsonProperty(FIELD_NAME_JOB_ID) JobID jobId,
@@ -123,7 +133,9 @@ public class JobDetailsInfo implements ResponseBody {
 			@JsonProperty(FIELD_NAME_TIMESTAMPS) Map<JobStatus, Long> timestamps,
 			@JsonProperty(FIELD_NAME_JOB_VERTEX_INFOS) Collection<JobVertexDetailsInfo> jobVertexInfos,
 			@JsonProperty(FIELD_NAME_JOB_VERTICES_PER_STATE) Map<ExecutionState, Integer> jobVerticesPerState,
-			@JsonProperty(FIELD_NAME_JSON_PLAN) @JsonDeserialize(using = RawJsonDeserializer.class) String jsonPlan) {
+			@JsonProperty(FIELD_NAME_JSON_PLAN) @JsonDeserialize(using = RawJsonDeserializer.class) String jsonPlan,
+			@JsonProperty(FIELD_NAME_METRIC) String metric,
+			@JsonProperty(FIELD_NAME_DTOP) String dtop) {
 		this.jobId = Preconditions.checkNotNull(jobId);
 		this.name = Preconditions.checkNotNull(name);
 		this.isStoppable = isStoppable;
@@ -136,6 +148,8 @@ public class JobDetailsInfo implements ResponseBody {
 		this.jobVertexInfos = Preconditions.checkNotNull(jobVertexInfos);
 		this.jobVerticesPerState = Preconditions.checkNotNull(jobVerticesPerState);
 		this.jsonPlan = Preconditions.checkNotNull(jsonPlan);
+		this.metric = (metric == null) ? "NoMetric" : metric;
+		this.dtop = (dtop == null) ? "NoDtop" : dtop;
 	}
 
 	@Override
@@ -158,12 +172,15 @@ public class JobDetailsInfo implements ResponseBody {
 			Objects.equals(timestamps, that.timestamps) &&
 			Objects.equals(jobVertexInfos, that.jobVertexInfos) &&
 			Objects.equals(jobVerticesPerState, that.jobVerticesPerState) &&
-			Objects.equals(jsonPlan, that.jsonPlan);
+			Objects.equals(jsonPlan, that.jsonPlan) &&
+			metric == that.metric &&
+			dtop == that.dtop;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(jobId, name, isStoppable, jobStatus, startTime, endTime, duration, now, timestamps, jobVertexInfos, jobVerticesPerState, jsonPlan);
+		return Objects.hash(jobId, name, isStoppable, jobStatus, startTime, endTime, duration, now,
+			timestamps, jobVertexInfos, jobVerticesPerState, jsonPlan, metric, dtop);
 	}
 
 	@JsonIgnore
@@ -224,6 +241,16 @@ public class JobDetailsInfo implements ResponseBody {
 	@JsonIgnore
 	public String getJsonPlan() {
 		return jsonPlan;
+	}
+
+	@JsonIgnore
+	public String getMetric() {
+		return metric;
+	}
+
+	@JsonIgnore
+	public String getDtop() {
+		return dtop;
 	}
 
 	// ---------------------------------------------------

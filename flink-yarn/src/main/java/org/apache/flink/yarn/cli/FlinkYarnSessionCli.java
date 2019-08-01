@@ -425,6 +425,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 			final String appName = commandLine.getOptionValue(name.getOpt());
 			configuration.setString(YarnConfigOptions.APPLICATION_NAME, appName);
 			System.setProperty(ConfigConstants.APPLICATION_NAME_KEY, appName);
+			configuration.setString(ConfigConstants.APPLICATION_NAME_KEY, appName);
 			LOG.info("applicationName = {}", appName);
 		}
 

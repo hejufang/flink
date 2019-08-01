@@ -68,6 +68,15 @@ export class JobListComponent implements OnInit, OnDestroy {
     this.router.navigate(['job', jid]).then();
   }
 
+  navigateToUrl(url: string, $event?: MouseEvent | null) {
+    console.log($event);
+    if ($event) {
+      $event.preventDefault();
+      $event.stopPropagation();
+    }
+    window.open(url, '_blank');
+  }
+
   constructor(
     private statusService: StatusService,
     private jobService: JobService,

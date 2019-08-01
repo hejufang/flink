@@ -275,7 +275,9 @@ public final class WebMonitorUtils {
 			status,
 			lastChanged,
 			countsPerStatus,
-			numTotalTasks);
+			numTotalTasks,
+			metric,
+			dtop);
 	}
 
 	/**
@@ -329,14 +331,18 @@ public final class WebMonitorUtils {
 		if (configuration == null) {
 			return null;
 		} else {
-			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+			String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
 				ConfigConstants.APPLICATION_NAME_DEFAULT);
-			String jobName = applicatioName.substring(0, applicatioName.lastIndexOf("_"))
-				.replace(".", "-");
+			String jobName = applicationName;
+			if (applicationName.lastIndexOf("_") != -1) {
+				jobName = applicationName.substring(0, applicationName.lastIndexOf("_"))
+					.replace(".", "-");
+			}
 			String clusterName = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY,
 				ConfigConstants.CLUSTER_NAME_DEFAULT);
-			String metric = String.format(ConfigConstants.METRIC_TEMPLATE, clusterName, jobName);
-			return metric;
+			return String.format(ConfigConstants.METRIC_TEMPLATE, grafanaDomainUrl, clusterName, jobName);
 		}
 	}
 
@@ -344,12 +350,15 @@ public final class WebMonitorUtils {
 		if (configuration == null) {
 			return null;
 		} else {
-			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+			String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
 				ConfigConstants.APPLICATION_NAME_DEFAULT);
-			String dataSource = configuration.getString(ConfigConstants.DATA_SOURCE_KEY,
-				ConfigConstants.DATA_SOURCE_DEFAULT);
-			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, applicatioName, dataSource);
-			return dtop;
+			String dataSource = configuration.getString(ConfigConstants.DTOP_DATA_SOURCE_KEY,
+				ConfigConstants.DTOP_DATA_SOURCE_DEFAULT);
+			String database = configuration.getString(ConfigConstants.DTOP_DATABASE_KEY,
+				ConfigConstants.DTOP_DATABASE_DEFAULT);
+			return String.format(ConfigConstants.DTOP_TEMPLATE, grafanaDomainUrl, applicationName, dataSource, database);
 		}
 	}
 

@@ -678,7 +678,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 	@Override
 	public JobDetails requestJobDetails() {
 		mainThreadExecutor.assertRunningInMainThread();
-		return WebMonitorUtils.createDetailsForJob(executionGraph);
+		return WebMonitorUtils.createDetailsForJob(executionGraph, jobMasterConfiguration);
 	}
 
 	@Override
