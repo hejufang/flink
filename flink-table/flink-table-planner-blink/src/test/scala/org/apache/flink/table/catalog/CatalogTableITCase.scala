@@ -84,6 +84,61 @@ class CatalogTableITCase(isStreaming: Boolean) {
   }
 
   @Test
+  def testView(): Unit = {
+    val sourceData = List(
+      toRow(1, "1000", 2),
+      toRow(2, "1", 3),
+      toRow(3, "2000", 4),
+      toRow(1, "2", 2),
+      toRow(2, "3000", 3)
+    )
+
+    val expectedResult = List(
+      toRow(11, "1000", 12),
+      toRow(12, "1", 13),
+      toRow(13, "2000", 14),
+      toRow(11, "2", 12),
+      toRow(12, "3000", 13)
+    )
+    TestCollectionTableFactory.initData(sourceData)
+    val sourceDDL =
+      """
+        |create table t1(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val sinkDDL =
+      """
+        |create table t2(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val viewDDL =
+      """
+        |create view v1 as select (a + 10) as x, b as y from t1
+      """.stripMargin
+    val query =
+      """
+        |insert into t2
+        |select v1.x, v1.y, (v1.x + 1) as z from v1
+      """.stripMargin
+    tableEnv.sqlUpdate(sourceDDL)
+    tableEnv.sqlUpdate(viewDDL)
+    tableEnv.sqlUpdate(sinkDDL)
+    tableEnv.sqlUpdate(query)
+    execJob("testJob")
+    assertEquals(expectedResult.sorted, TestCollectionTableFactory.RESULT.sorted)
+  }
+
+  @Test
   def testInsertInto(): Unit = {
     val sourceData = List(
       toRow(1, "1000", 2),
