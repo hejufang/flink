@@ -332,7 +332,8 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			JobDetailsHeaders.getInstance(),
 			executionGraphCache,
 			executor,
-			metricFetcher);
+			metricFetcher,
+			clusterConfiguration);
 
 		JobAccumulatorsHandler jobAccumulatorsHandler = new JobAccumulatorsHandler(
 			leaderRetriever,

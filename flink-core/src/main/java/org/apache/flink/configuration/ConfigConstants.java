@@ -2041,15 +2041,22 @@ public final class ConfigConstants {
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
-	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
-	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
-	public static final String DC_KEY = "dc";
+	public static final String APPLICATION_NAME_KEY = "applicationName";
+	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
 	public static final String CLUSTER_NAME_KEY = "clusterName";
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
-	public static final String JOB_NAME_KEY = "jobName";
-	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
+	public static final String DC_KEY = "dc";
 	public static final String DATA_SOURCE_KEY = "dataSource";
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String DTOP_TEMPLATE =
+		"https://grafana.byted.org/dashboard/db/flink-resource-monitor?orgId=1&var-appName=%s&var-datasource=%s";
+	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
+	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String JOB_NAME_KEY = "jobName";
+	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
+	public static final String METRIC_TEMPLATE =
+		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
+
 
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
 

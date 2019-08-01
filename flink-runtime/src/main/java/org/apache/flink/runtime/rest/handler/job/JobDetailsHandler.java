@@ -20,6 +20,7 @@ package org.apache.flink.runtime.rest.handler.job;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
@@ -39,10 +40,14 @@ import org.apache.flink.runtime.rest.messages.ResponseBody;
 import org.apache.flink.runtime.rest.messages.job.JobDetailsInfo;
 import org.apache.flink.runtime.rest.messages.job.metrics.IOMetricsInfo;
 import org.apache.flink.runtime.webmonitor.RestfulGateway;
+import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -58,8 +63,10 @@ import java.util.concurrent.Executor;
  * Handler returning the details for the specified job.
  */
 public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsInfo, JobMessageParameters> implements JsonArchivist {
+	private static final Logger LOGGER = LoggerFactory.getLogger(JobDetailsHandler.class);
 
 	private final MetricFetcher metricFetcher;
+	private final Configuration configuration;
 
 	public JobDetailsHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -68,7 +75,8 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			MessageHeaders<EmptyRequestBody, JobDetailsInfo, JobMessageParameters> messageHeaders,
 			ExecutionGraphCache executionGraphCache,
 			Executor executor,
-			MetricFetcher metricFetcher) {
+			MetricFetcher metricFetcher,
+			Configuration configuration) {
 		super(
 			leaderRetriever,
 			timeout,
@@ -78,24 +86,26 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			executor);
 
 		this.metricFetcher = Preconditions.checkNotNull(metricFetcher);
+		this.configuration = Preconditions.checkNotNull(configuration);
 	}
 
 	@Override
 	protected JobDetailsInfo handleRequest(
 			HandlerRequest<EmptyRequestBody, JobMessageParameters> request,
 			AccessExecutionGraph executionGraph) throws RestHandlerException {
-		return createJobDetailsInfo(executionGraph, metricFetcher);
+		return createJobDetailsInfo(executionGraph, metricFetcher, configuration);
 	}
 
 	@Override
 	public Collection<ArchivedJson> archiveJsonWithPath(AccessExecutionGraph graph) throws IOException {
-		ResponseBody json = createJobDetailsInfo(graph, null);
+		ResponseBody json = createJobDetailsInfo(graph, null, null);
 		String path = getMessageHeaders().getTargetRestEndpointURL()
 			.replace(':' + JobIDPathParameter.KEY, graph.getJobID().toString());
 		return Collections.singleton(new ArchivedJson(path, json));
 	}
 
-	private static JobDetailsInfo createJobDetailsInfo(AccessExecutionGraph executionGraph, @Nullable MetricFetcher metricFetcher) {
+	private static JobDetailsInfo createJobDetailsInfo(AccessExecutionGraph executionGraph,
+			@Nullable MetricFetcher metricFetcher, @Nullable Configuration configuration) {
 		final long now = System.currentTimeMillis();
 		final long startTime = executionGraph.getStatusTimestamp(JobStatus.CREATED);
 		final long endTime = executionGraph.getState().isGloballyTerminalState() ?
@@ -128,6 +138,10 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			jobVerticesPerStateMap.put(executionState, jobVerticesPerState[executionState.ordinal()]);
 		}
 
+		String metric = WebMonitorUtils.createMetricUrl(configuration);
+		String dtop = WebMonitorUtils.createDtopUrl(configuration);
+		LOGGER.info("metric = {}, dtop = {}", metric, dtop);
+
 		return new JobDetailsInfo(
 			executionGraph.getJobID(),
 			executionGraph.getJobName(),
@@ -140,7 +154,9 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			timestamps,
 			jobVertexInfos,
 			jobVerticesPerStateMap,
-			executionGraph.getJsonPlan());
+			executionGraph.getJsonPlan(),
+			metric,
+			dtop);
 	}
 
 	private static JobDetailsInfo.JobVertexDetailsInfo createJobVertexDetailsInfo(

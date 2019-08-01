@@ -56,6 +56,8 @@ public class JobDetails implements Serializable {
 	private static final String FIELD_NAME_STATUS = "state";
 	private static final String FIELD_NAME_LAST_MODIFICATION = "last-modification";
 	private static final String FIELD_NAME_TOTAL_NUMBER_TASKS = "total";
+	private static final String FILED_NAME_METRIC = "metric";
+	private static final String FILED_NAME_DTOP = "dtop";
 
 	private final JobID jobId;
 
@@ -75,6 +77,10 @@ public class JobDetails implements Serializable {
 	
 	private final int numTasks;
 
+	private final String metric;
+
+	private final String dtop;
+
 	public JobDetails(
 			JobID jobId,
 			String jobName,
@@ -85,7 +91,22 @@ public class JobDetails implements Serializable {
 			long lastUpdateTime,
 			int[] tasksPerState,
 			int numTasks) {
+		this(jobId, jobName, startTime, endTime, duration, status,
+			lastUpdateTime, tasksPerState, numTasks, null, null);
+	}
 
+	public JobDetails(
+		JobID jobId,
+		String jobName,
+		long startTime,
+		long endTime,
+		long duration,
+		JobStatus status,
+		long lastUpdateTime,
+		int[] tasksPerState,
+		int numTasks,
+		String metric,
+		String dtop) {
 		this.jobId = checkNotNull(jobId);
 		this.jobName = checkNotNull(jobName);
 		this.startTime = startTime;
@@ -93,12 +114,13 @@ public class JobDetails implements Serializable {
 		this.duration = duration;
 		this.status = checkNotNull(status);
 		this.lastUpdateTime = lastUpdateTime;
-		Preconditions.checkArgument(tasksPerState.length == ExecutionState.values().length, 
+		Preconditions.checkArgument(tasksPerState.length == ExecutionState.values().length,
 			"tasksPerState argument must be of size %s.", ExecutionState.values().length);
 		this.tasksPerState = checkNotNull(tasksPerState);
 		this.numTasks = numTasks;
+		this.metric = (metric == null) ? "NoMetric": metric;
+		this.dtop = (dtop == null) ? "NoDtop": dtop;
 	}
-	
 	// ------------------------------------------------------------------------
 
 	public JobID getJobId() {
@@ -137,6 +159,14 @@ public class JobDetails implements Serializable {
 		return tasksPerState;
 	}
 
+	public String getMetric() {
+		return metric;
+	}
+
+	public String getDtop() {
+		return dtop;
+	}
+
 	// ------------------------------------------------------------------------
 
 	@Override
@@ -154,7 +184,9 @@ public class JobDetails implements Serializable {
 					this.status == that.status &&
 					this.jobId.equals(that.jobId) &&
 					this.jobName.equals(that.jobName) &&
-					Arrays.equals(this.tasksPerState, that.tasksPerState);
+					Arrays.equals(this.tasksPerState, that.tasksPerState) &&
+					this.metric.equals(that.metric) &&
+					this.dtop.equals(that.dtop);
 		}
 		else {
 			return false;
@@ -171,6 +203,8 @@ public class JobDetails implements Serializable {
 		result = 31 * result + (int) (lastUpdateTime ^ (lastUpdateTime >>> 32));
 		result = 31 * result + Arrays.hashCode(tasksPerState);
 		result = 31 * result + numTasks;
+		result = 31 * result + metric.hashCode();
+		result = 31 * result + dtop.hashCode();
 		return result;
 	}
 
@@ -185,6 +219,8 @@ public class JobDetails implements Serializable {
 				", lastUpdateTime=" + lastUpdateTime +
 				", numVerticesPerExecutionState=" + Arrays.toString(tasksPerState) +
 				", numTasks=" + numTasks +
+				", metric=" + metric +
+				", dtop=" + dtop +
 				'}';
 	}
 
@@ -221,6 +257,8 @@ public class JobDetails implements Serializable {
 			}
 
 			jsonGenerator.writeEndObject();
+			jsonGenerator.writeStringField(FILED_NAME_METRIC, jobDetails.getMetric());
+			jsonGenerator.writeStringField(FILED_NAME_DTOP, jobDetails.getDtop());
 
 			jsonGenerator.writeEndObject();
 		}
@@ -255,6 +293,8 @@ public class JobDetails implements Serializable {
 			for (ExecutionState executionState : ExecutionState.values()) {
 				numVerticesPerExecutionState[executionState.ordinal()] = tasksNode.get(executionState.name().toLowerCase()).intValue();
 			}
+			String metric = rootNode.get(FILED_NAME_METRIC).textValue();
+			String dtop = rootNode.get(FILED_NAME_DTOP).textValue();
 
 			return new JobDetails(
 				jobId,
