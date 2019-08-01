@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.webmonitor;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.Path;
@@ -216,8 +217,12 @@ public final class WebMonitorUtils {
 	}
 
 	public static JobDetails createDetailsForJob(AccessExecutionGraph job) {
-		JobStatus status = job.getState();
+		return createDetailsForJob(job, null);
+	}
 
+	public static JobDetails createDetailsForJob(AccessExecutionGraph job,
+			Configuration configuration) {
+		JobStatus status = job.getState();
 		long started = job.getStatusTimestamp(JobStatus.CREATED);
 		long finished = status.isGloballyTerminalState() ? job.getStatusTimestamp(status) : -1L;
 		long duration = (finished >= 0L ? finished : System.currentTimeMillis()) - started;
@@ -239,6 +244,9 @@ public final class WebMonitorUtils {
 
 		lastChanged = Math.max(lastChanged, finished);
 
+		String metric = createMetricUrl(configuration);
+		String dtop = createDtopUrl(configuration);
+		LOG.info("metric = {}, dtop = {}", metric, dtop);
 		return new JobDetails(
 			job.getJobID(),
 			job.getJobName(),
@@ -248,8 +256,11 @@ public final class WebMonitorUtils {
 			status,
 			lastChanged,
 			countsPerStatus,
-			numTotalTasks);
+			numTotalTasks,
+			metric,
+			dtop);
 	}
+
 
 	/**
 	 * Checks and normalizes the given URI. This method first checks the validity of the
@@ -295,6 +306,34 @@ public final class WebMonitorUtils {
 		} catch (ClassNotFoundException e) {
 			// class not found means that there is no flink-runtime-web in the classpath
 			return false;
+		}
+	}
+
+	public static String createMetricUrl(Configuration configuration) {
+		if (configuration == null) {
+			return null;
+		} else {
+			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+				ConfigConstants.APPLICATION_NAME_DEFAULT);
+			String jobName = applicatioName.substring(0, applicatioName.lastIndexOf("_"))
+				.replace(".", "-");
+			String clusterName = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY,
+				ConfigConstants.CLUSTER_NAME_DEFAULT);
+			String metric = String.format(ConfigConstants.METRIC_TEMPLATE, clusterName, jobName);
+			return metric;
+		}
+	}
+
+	public static String createDtopUrl(Configuration configuration) {
+		if (configuration == null) {
+			return null;
+		} else {
+			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+				ConfigConstants.APPLICATION_NAME_DEFAULT);
+			String dataSource = configuration.getString(ConfigConstants.DATA_SOURCE_KEY,
+				ConfigConstants.DATA_SOURCE_DEFAULT);
+			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, applicatioName, dataSource);
+			return dtop;
 		}
 	}
 }

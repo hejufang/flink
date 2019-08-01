@@ -351,6 +351,13 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 		final Properties properties = cmd.getOptionProperties(dynamicproperties.getOpt());
 
+		if (cmd.hasOption(name.getOpt())) {
+			String applicationName = cmd.getOptionValue(name.getOpt());
+			yarnClusterDescriptor.setName(applicationName);
+			properties.put(ConfigConstants.APPLICATION_NAME_KEY, applicationName);
+			LOG.info("applicationName = {}", applicationName);
+		}
+
 		String[] dynamicProperties = properties.stringPropertyNames().stream()
 			.flatMap(
 				(String key) -> {
@@ -370,10 +377,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 		if (cmd.hasOption(YARN_DETACHED_OPTION.getOpt()) || cmd.hasOption(DETACHED_OPTION.getOpt())) {
 			yarnClusterDescriptor.setDetachedMode(true);
-		}
-
-		if (cmd.hasOption(name.getOpt())) {
-			yarnClusterDescriptor.setName(cmd.getOptionValue(name.getOpt()));
 		}
 
 		if (cmd.hasOption(applicationType.getOpt())) {
