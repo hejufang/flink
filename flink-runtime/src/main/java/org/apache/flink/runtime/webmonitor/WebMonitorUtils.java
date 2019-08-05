@@ -45,17 +45,13 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Utilities for the web runtime monitor. This class contains for example methods to build
@@ -67,12 +63,6 @@ public final class WebMonitorUtils {
 	private static final String WEB_FRONTEND_BOOTSTRAP_CLASS_FQN = "org.apache.flink.runtime.webmonitor.utils.WebFrontendBootstrap";
 
 	private static final Logger LOG = LoggerFactory.getLogger(WebMonitorUtils.class);
-
-	private static final Pattern nPattern = Pattern.compile("n0*(\\d+)-0*(\\d+)-0*(\\d+).*");
-
-	private static final Pattern ipPrefixPattern = Pattern.compile("ip-0*(\\d+)-0*(\\d+)-0*(\\d+)-0*(\\d+).*");
-
-	private static final Pattern ipPattern = Pattern.compile("((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(\\.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}");
 
 	/**
 	 * Singleton to hold the log and stdout file.
@@ -256,7 +246,7 @@ public final class WebMonitorUtils {
 
 		String metric = createMetricUrl(configuration);
 		String dtop = createDtopUrl(configuration);
-		LOG.debug("metric = {}, dtop = {}", metric, dtop);
+		LOG.info("metric = {}, dtop = {}", metric, dtop);
 		return new JobDetails(
 			job.getJobID(),
 			job.getJobName(),
@@ -345,96 +335,5 @@ public final class WebMonitorUtils {
 			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, applicatioName, dataSource);
 			return dtop;
 		}
-	}
-
-	/**
-	 * Matches three style hostnames, va:ip-10-100-40-222, sg_aliyun:n115-012-150.byted.org.
-	 * cn: n6-131-220
-	 * @return ip if succeed to change, otherwise host
-	 */
-	public static String convertHostToIp(String host) {
-		boolean isMatcher = false;
-		if (host.startsWith("n")) {
-			Matcher matcher = nPattern.matcher(host);
-			if (matcher.find()) {
-				String ipOne = matcher.group(1);
-				String ipTwo = matcher.group(2);
-				String ipThree = matcher.group(3);
-				isMatcher = true;
-				return "10." + ipOne + "." + ipTwo + "." + ipThree;
-			}
-		} else if (host.startsWith("ip")) {
-			Matcher matcher = ipPrefixPattern.matcher(host);
-			if (matcher.find()) {
-				String ipOne = matcher.group(1);
-				String ipTwo = matcher.group(2);
-				String ipThree = matcher.group(3);
-				String ipFour = matcher.group(4);
-				isMatcher = true;
-				return ipOne + "." + ipTwo + "." + ipThree + "." + ipFour;
-			}
-		} else {
-			Matcher matcher = ipPattern.matcher(host);
-			isMatcher = true;
-			return host;
-		}
-
-		if (!isMatcher) {
-			LOG.error("Failed to match regex, host = {}", host);
-		}
-
-		return host;
-	}
-
-	public static String getUser() {
-		String hadoopUser = System.getenv("HADOOP_USER_NAME");
-		if (hadoopUser == null) {
-			hadoopUser = "unknown";
-		}
-		return hadoopUser;
-	}
-
-	public static String getContainerWebShell(String resourceId, String host) {
-		String ip = convertHostToIp(host);
-		return String.format(ConfigConstants.CONTAINER_WEB_SHELL_TEMPLATE, ip, resourceId, getUser());
-	}
-
-	public static String getContainerLog(String resouceId, String host) {
-		String ip = convertHostToIp(host);
-		return String.format(ConfigConstants.CONTAINER_LOG_TEMPLATE, ip, resouceId);
-	}
-
-	/**
-	 * Get JM container from jvm system arguments log.file.
-	 * For example: -Dlog.file=/data00/yarn/userlogs/application_1555229779424_0072
-	 * /container_e06_1555229779424_0072_01_000001/jobmanager.log
-	 * @return containerId if succeed otherwise "NoJmContainerId".
-	 */
-	public static String getJMContainerId() {
-		String logFile = System.getProperty("log.file", null);
-		if (logFile != null) {
-			LOG.debug("logfile = {}", logFile);
-			for (String word : logFile.split("/")) {
-				if (word.startsWith("container")) {
-					return word;
-				}
-			}
-		}
-		return "NoJMContainerId";
-	}
-
-	/**
-	 * Get local ip.
-	 */
-	public static String getIp() {
-		String ip;
-		try {
-			InetAddress addr = InetAddress.getLocalHost();
-			ip = addr.getHostAddress();
-		} catch (UnknownHostException ue) {
-			LOG.error("Failed to get ip", ue);
-			ip = "NoIp";
-		}
-		return ip;
 	}
 }

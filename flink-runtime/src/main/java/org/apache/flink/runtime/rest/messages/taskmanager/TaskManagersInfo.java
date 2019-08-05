@@ -24,9 +24,6 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.Collection;
 import java.util.Objects;
 
@@ -36,7 +33,6 @@ import java.util.Objects;
 public class TaskManagersInfo implements ResponseBody {
 
 	public static final String FIELD_NAME_TASK_MANAGERS = "taskmanagers";
-	public static final Logger LOGGER = LoggerFactory.getLogger(TaskManagersInfo.class);
 
 	@JsonProperty(FIELD_NAME_TASK_MANAGERS)
 	private final Collection<TaskManagerInfo> taskManagerInfos;

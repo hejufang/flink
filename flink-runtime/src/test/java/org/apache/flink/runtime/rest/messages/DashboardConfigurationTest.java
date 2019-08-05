@@ -35,8 +35,6 @@ public class DashboardConfigurationTest extends RestResponseMarshallingTestBase<
 			"foobar",
 			42,
 			"version",
-			"revision",
-			"jmLog",
-			"jmWebShell");
+			"revision");
 	}
 }

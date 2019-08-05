@@ -18,7 +18,7 @@
 ################################################################################
 rm -rf output
 mkdir -p output
-mvn clean install -DskipTests -T 1C -Pinclude-hadoop
+mvn clean install -DskipTests -Pinclude-hadoop
 
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output
 mkdir output/deploy/flink-1.9/lib

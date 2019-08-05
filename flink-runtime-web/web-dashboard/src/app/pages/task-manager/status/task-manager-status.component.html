@@ -60,16 +60,6 @@
       <span>Flink Managed Memory:</span>
       <span>{{ taskManagerDetail.hardware.managedMemory | humanizeBytes }}</span>
     </div>
-    <nz-divider [nzType]="'vertical'"></nz-divider>
-    <div class="field">
-      <span>TmLog: </span>
-      <span><a (click)="navigateToUrl(taskManagerDetail.tmLog, $event)">TmLog</a></span>
-    </div>
-    <nz-divider [nzType]="'vertical'"></nz-divider>
-    <div class="field">
-      <span>WebShell: </span>
-      <span><a (click)="navigateToUrl(taskManagerDetail.webShell, $event)">WebShell</a></span>
-    </div>
   </div>
   <flink-navigation [listOfNavigation]="listOfNavigation"></flink-navigation>
 </div>

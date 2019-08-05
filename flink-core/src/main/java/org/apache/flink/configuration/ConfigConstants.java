@@ -2045,10 +2045,6 @@ public final class ConfigConstants {
 	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
 	public static final String CLUSTER_NAME_KEY = "clusterName";
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
-	public static final String CONTAINER_LOG_TEMPLATE =
-		"http://%s:8042/node/containerlogs/%s";
-	public static final String CONTAINER_WEB_SHELL_TEMPLATE =
-		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
 	public static final String DC_KEY = "dc";
 	public static final String DATA_SOURCE_KEY = "dataSource";
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
@@ -2060,6 +2056,7 @@ public final class ConfigConstants {
 	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
 	public static final String METRIC_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
+
 
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
 
