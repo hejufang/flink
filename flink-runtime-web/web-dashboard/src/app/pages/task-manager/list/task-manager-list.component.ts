@@ -65,16 +65,6 @@ export class TaskManagerListComponent implements OnInit, OnDestroy {
     this.router.navigate([taskManager.id, 'metrics'], { relativeTo: this.activatedRoute }).then();
   }
 
-  navigateToUrl(url: string, $event?: MouseEvent | null) {
-    console.log($event);
-    console.log(url);
-    if ($event) {
-      $event.preventDefault();
-      $event.stopPropagation();
-    }
-    window.open(url, '_blank');
-  }
-
   constructor(
     private cdr: ChangeDetectorRef,
     private statusService: StatusService,

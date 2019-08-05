@@ -22,6 +22,4 @@ export interface ConfigurationInterface {
   'timezone-offset': number;
   'flink-version': string;
   'flink-revision': string;
-  jmLog: string;
-  jmWebShell: string;
 }

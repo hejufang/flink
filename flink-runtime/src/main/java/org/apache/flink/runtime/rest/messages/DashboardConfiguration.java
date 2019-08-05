@@ -20,7 +20,6 @@ package org.apache.flink.runtime.rest.messages;
 
 import org.apache.flink.runtime.rest.handler.cluster.DashboardConfigHandler;
 import org.apache.flink.runtime.util.EnvironmentInformation;
-import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
@@ -42,8 +41,6 @@ public class DashboardConfiguration implements ResponseBody {
 	public static final String FIELD_NAME_TIMEZONE_NAME = "timezone-name";
 	public static final String FIELD_NAME_FLINK_VERSION = "flink-version";
 	public static final String FIELD_NAME_FLINK_REVISION = "flink-revision";
-	public static final String FIELD_NAME_JM_LOG = "jmLog";
-	public static final String FIELD_NAME_JM_WEB_SHELL = "jmWebShell";
 
 	@JsonProperty(FIELD_NAME_REFRESH_INTERVAL)
 	private final long refreshInterval;
@@ -60,28 +57,18 @@ public class DashboardConfiguration implements ResponseBody {
 	@JsonProperty(FIELD_NAME_FLINK_REVISION)
 	private final String flinkRevision;
 
-	@JsonProperty(FIELD_NAME_JM_LOG)
-	private final String jmLog;
-
-	@JsonProperty(FIELD_NAME_JM_WEB_SHELL)
-	private final String jmWebShell;
-
 	@JsonCreator
 	public DashboardConfiguration(
 			@JsonProperty(FIELD_NAME_REFRESH_INTERVAL) long refreshInterval,
 			@JsonProperty(FIELD_NAME_TIMEZONE_NAME) String timeZoneName,
 			@JsonProperty(FIELD_NAME_TIMEZONE_OFFSET) int timeZoneOffset,
 			@JsonProperty(FIELD_NAME_FLINK_VERSION) String flinkVersion,
-			@JsonProperty(FIELD_NAME_FLINK_REVISION) String flinkRevision,
-			@JsonProperty(FIELD_NAME_JM_LOG) String jmLog,
-			@JsonProperty(FIELD_NAME_JM_WEB_SHELL) String jmWebShell) {
+			@JsonProperty(FIELD_NAME_FLINK_REVISION) String flinkRevision) {
 		this.refreshInterval = refreshInterval;
 		this.timeZoneName = Preconditions.checkNotNull(timeZoneName);
 		this.timeZoneOffset = timeZoneOffset;
 		this.flinkVersion = Preconditions.checkNotNull(flinkVersion);
 		this.flinkRevision = Preconditions.checkNotNull(flinkRevision);
-		this.jmLog = (jmLog == null) ? "NoJmLog" : jmLog;
-		this.jmWebShell = (jmWebShell == null) ? "NoJmWebShell" : jmWebShell;
 	}
 
 	public long getRefreshInterval() {
@@ -104,14 +91,6 @@ public class DashboardConfiguration implements ResponseBody {
 		return flinkRevision;
 	}
 
-	public String getJmLog() {
-		return jmLog;
-	}
-
-	public String getJmWebShell() {
-		return jmWebShell;
-	}
-
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -125,15 +104,12 @@ public class DashboardConfiguration implements ResponseBody {
 			timeZoneOffset == that.timeZoneOffset &&
 			Objects.equals(timeZoneName, that.timeZoneName) &&
 			Objects.equals(flinkVersion, that.flinkVersion) &&
-			Objects.equals(flinkRevision, that.flinkRevision) &&
-			Objects.equals(jmLog, that.jmLog) &&
-			Objects.equals(jmWebShell, that.jmWebShell);
+			Objects.equals(flinkRevision, that.flinkRevision);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(refreshInterval, timeZoneName, timeZoneOffset, flinkVersion, flinkRevision,
-			jmLog, jmWebShell);
+		return Objects.hash(refreshInterval, timeZoneName, timeZoneOffset, flinkVersion, flinkRevision);
 	}
 
 	public static DashboardConfiguration from(long refreshInterval, ZonedDateTime zonedDateTime) {
@@ -149,19 +125,12 @@ public class DashboardConfiguration implements ResponseBody {
 			flinkRevision = "unknown revision";
 		}
 
-		final String jmContainerId = WebMonitorUtils.getJMContainerId();
-		final String jmIp = WebMonitorUtils.getIp();
-		final String jmLog = WebMonitorUtils.getContainerLog(jmContainerId, jmIp);
-		final String jmWebShell = WebMonitorUtils.getContainerWebShell(jmContainerId, jmIp);
-
 		return new DashboardConfiguration(
 			refreshInterval,
 			zonedDateTime.getZone().getDisplayName(TextStyle.FULL, Locale.getDefault()),
 			// convert zone date time into offset in order to not do the day light saving adaptions wrt the offset
 			zonedDateTime.toOffsetDateTime().getOffset().getTotalSeconds() * 1000,
 			flinkVersion,
-			flinkRevision,
-			jmLog,
-			jmWebShell);
+			flinkRevision);
 	}
 }
