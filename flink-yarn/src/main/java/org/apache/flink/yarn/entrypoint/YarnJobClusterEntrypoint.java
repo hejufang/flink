@@ -29,6 +29,7 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.JvmShutdownSafeguard;
 import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.yarn.FlinkVersionReporter;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import org.apache.hadoop.yarn.api.ApplicationConstants;
@@ -68,6 +69,19 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 			FileJobGraphRetriever.createFrom(configuration));
 	}
 
+	/**
+	 * Start a flink version reporter.
+	 * @param flinkConfig flink configuration.
+	 * */
+	private static void startVersionReporter(Configuration flinkConfig) {
+		try {
+			FlinkVersionReporter flinkVersionReporter = new FlinkVersionReporter(flinkConfig);
+			new Thread(flinkVersionReporter).start();
+		} catch (Throwable t) {
+			LOG.warn("Failed to start the flink version reporter.", t);
+		}
+	}
+
 	// ------------------------------------------------------------------------
 	//  The executable entry point for the Yarn Application Master Process
 	//  for a single Flink job.
@@ -98,6 +112,8 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 		YarnJobClusterEntrypoint yarnJobClusterEntrypoint = new YarnJobClusterEntrypoint(
 			configuration,
 			workingDirectory);
+		// start a Flink version reporter.
+		startVersionReporter(configuration);
 
 		ClusterEntrypoint.runClusterEntrypoint(yarnJobClusterEntrypoint);
 	}

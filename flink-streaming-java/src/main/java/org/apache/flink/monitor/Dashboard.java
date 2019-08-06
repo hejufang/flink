@@ -17,13 +17,13 @@
 
 package org.apache.flink.monitor;
 
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,13 +44,16 @@ public class Dashboard {
 	private String dataSource;
 	private JobGraph jobGraph;
 	private StreamGraph streamGraph;
+	private Configuration flinkConfig;
 
-	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph, JobGraph jobGraph) {
+	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph,
+		JobGraph jobGraph, Configuration flinkConfig) {
 		this.clusterName = clusterName;
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
 		this.jobName = jobGraph.getName();
 		this.dataSource = dataSource;
+		this.flinkConfig = flinkConfig;
 	}
 
 	public String renderString(String content, Map<String, String> map) {
@@ -233,8 +236,9 @@ public class Dashboard {
 		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> tasks = Utils.getTasks(jobGraph);
-
-		rows.add(renderLagSizeRow(Utils.getLagSizeMetrics()));
+		String kafkaServerUrl = flinkConfig.getString(ConfigConstants.KAFKA_SERVER_URL_KEY,
+			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
+		rows.add(renderLagSizeRow(Utils.getLagSizeMetrics(kafkaServerUrl)));
 		rows.add(renderKafkaOffsetRow(sources));
 		rows.add(renderKafkaLatencyRow(sources));
 		rows.add(renderMemoryRow());
@@ -266,11 +270,11 @@ public class Dashboard {
 		headers.put("Accept", "application/json");
 		headers.put("Content-Type", "application/json");
 
-		CloseableHttpResponse response = HttpUtil.sendPost(url, dashboardJson, headers);
-		int statusCode = response.getStatusLine().getStatusCode();
+		HttpUtil.HttpResponsePojo response = HttpUtil.sendPost(url, dashboardJson, headers);
+		int statusCode = response.getStatusCode();
 		boolean success = statusCode == 200;
 		if (!success) {
-			String resStr = EntityUtils.toString(response.getEntity(), "UTF-8");
+			String resStr = response.getContent();
 			LOG.warn("Failed to register dashboard, response: {}", resStr);
 		}
 		return success;

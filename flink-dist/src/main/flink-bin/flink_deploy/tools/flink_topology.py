@@ -674,7 +674,7 @@ class FlinkTopology(object):
             if flink_resource.jm_cores:
                 jm_cores = flink_resource.jm_cores
             else:
-                jm_cores = 1
+                jm_cores = 3
             self.flink_args += " -yjv " + str(jm_cores)
 
         # task manager memory

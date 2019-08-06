@@ -1134,6 +1134,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			localSrcPath,
 			targetHomeDir,
 			relativeTargetPath,
+			null,
 			true);
 
 		localResources.put(key, resource.f1);

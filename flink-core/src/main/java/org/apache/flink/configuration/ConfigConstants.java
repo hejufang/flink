@@ -2072,11 +2072,22 @@ public final class ConfigConstants {
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 
+	public static final String KAFKA_SERVER_URL_KEY = "kafka_server_url";
+	public static final String KAFKA_SERVER_URL_DEFAUL = "http://kafka-config.byted.org";
+
 	public static final String FLINK_LOG_LAYOUT_KEY = "log.layout";
 	public static final String FLINK_LOG_LAYOUT_DEFAULT =
 		"%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n";
 	public static final String FLINK_LOG_LEVEL_KEY = "log.level";
 	public static final String FLINK_LOG_LEVEL_DEFAULT = "INFO";
+
+	public static final String FLINK_SUBVERSION_KEY = "flink.subversion";
+	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
+	public static final String FLINK_JOB_TYPE_DEFAULT = "Flink";
+
+	// ---------------------------- Serializer Buffer ------------------------------
+	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
+	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;
 
 	/**
 	 * Not instantiable.
