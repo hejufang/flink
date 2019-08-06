@@ -58,6 +58,7 @@ import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
 import org.apache.flink.table.operations.TableSourceQueryOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
+import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.operations.utils.OperationTreeBuilder;
 import org.apache.flink.table.sinks.TableSink;
@@ -373,10 +374,16 @@ public class TableEnvironmentImpl implements TableEnvironment {
 					throw new TableException(e.getMessage());
 				}
 			}
+		} else if (operation instanceof CreateViewOperation) {
+			CreateViewOperation createViewOperation = (CreateViewOperation) operation;
+			registerCatalogTableInternal(
+				createViewOperation.getViewPath(),
+				createViewOperation.getCatalogView(),
+				createViewOperation.isIgnoreIfExists());
 		} else {
 			throw new TableException(
 				"Unsupported SQL query! sqlUpdate() only accepts a single SQL statements of " +
-					"type INSERT, CREATE TABLE, DROP TABLE");
+					"type INSERT, CREATE TABLE, DROP TABLE, CREATE VIEW");
 		}
 	}
 

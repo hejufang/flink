@@ -20,6 +20,7 @@ package org.apache.flink.table.sqlexec;
 
 import org.apache.flink.sql.parser.SqlProperty;
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
+import org.apache.flink.sql.parser.ddl.SqlCreateView;
 import org.apache.flink.sql.parser.ddl.SqlDropTable;
 import org.apache.flink.sql.parser.ddl.SqlTableColumn;
 import org.apache.flink.table.api.TableException;
@@ -29,9 +30,12 @@ import org.apache.flink.table.calcite.FlinkTypeFactory;
 import org.apache.flink.table.calcite.FlinkTypeSystem;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
+import org.apache.flink.table.catalog.CatalogView;
+import org.apache.flink.table.catalog.QueryOperationCatalogView;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.PlannerQueryOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
+import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.types.utils.TypeConversions;
 
@@ -82,7 +86,9 @@ public class SqlToOperationConverter {
 		SqlToOperationConverter converter = new SqlToOperationConverter(flinkPlanner);
 		if (validated instanceof SqlCreateTable) {
 			return converter.convertCreateTable((SqlCreateTable) validated);
-		} if (validated instanceof SqlDropTable) {
+		} else if (validated instanceof SqlCreateView) {
+			return converter.convertCreateView((SqlCreateView) validated);
+		} else if (validated instanceof SqlDropTable) {
 			return converter.convertDropTable((SqlDropTable) validated);
 		} else if (validated.getKind().belongsTo(SqlKind.QUERY)) {
 			return converter.convertSqlQuery(validated);
@@ -90,6 +96,16 @@ public class SqlToOperationConverter {
 			throw new TableException("Unsupported node type "
 				+ validated.getClass().getSimpleName());
 		}
+	}
+
+	/**
+	 * Convert the {@link SqlCreateView} node.
+	 */
+	private Operation convertCreateView(SqlCreateView sqlCreateView) {
+		flinkPlanner.validate(sqlCreateView.getQuery());
+		String comment = (sqlCreateView.getComment() == null) ? "" : sqlCreateView.getComment().toString();
+		CatalogView catalogView = new QueryOperationCatalogView(toQueryOperation(flinkPlanner, sqlCreateView.getQuery()), comment);
+		return new CreateViewOperation(sqlCreateView.fullViewName(), catalogView, sqlCreateView.isIfNotExists());
 	}
 
 	/**
