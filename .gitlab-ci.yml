@@ -7,6 +7,7 @@ build:
   stage: build
   script:
     # TODO(huweihua): remove skipTests when we can pass unitTest.
+    - echo "registry = 'https://registry.npm.taobao.org'" > ~/.npmrc
     - export https_proxy=bj-rd-proxy.byted.org:3128 http_proxy=http://bj-rd-proxy.byted.org:3128
     - mvn clean package -DskipTests -Pinclude-hadoop -T 1C
 #  only:
