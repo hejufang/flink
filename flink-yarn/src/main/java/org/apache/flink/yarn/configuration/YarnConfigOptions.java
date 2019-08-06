@@ -188,6 +188,22 @@ public class YarnConfigOptions {
 		.defaultValue("")
 		.withDescription("A comma-separated list of tags to apply to the Flink YARN application.");
 
+	/**
+	 * Enable NMClientAsync when start task managers.
+	 */
+	public static final ConfigOption<Boolean> NMCLINETASYNC_ENABLED =
+		key("nmclientasync.enabled")
+			.defaultValue(false)
+			.withDescription("Enable NMClientAsync when start task managers.");
+
+	/**
+	 * The number of threads to start yarn containers in yarn resource manager.
+	 */
+	public static final ConfigOption<Integer> CONTAINER_LAUNCHER_NUMBER =
+		key("yarn.container-launcher-number")
+			.defaultValue(10)
+			.withDescription("The number of threads to start yarn containers in yarn resource manager.");
+
 	// ------------------------------------------------------------------------
 
 	/** This class is not meant to be instantiated. */
