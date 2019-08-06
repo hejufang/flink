@@ -173,6 +173,12 @@ hyrax:
   high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
 
+horse:
+  dc: cn
+  clusterName: horse
+  high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+
 hibis:
   dc: cn
   clusterName: hibis
