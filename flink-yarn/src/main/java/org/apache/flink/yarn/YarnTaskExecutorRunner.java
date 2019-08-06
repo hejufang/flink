@@ -20,11 +20,13 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -155,6 +157,11 @@ public class YarnTaskExecutorRunner {
 			configuration.setString(SecurityOptions.KERBEROS_LOGIN_KEYTAB, keytabPath);
 			configuration.setString(SecurityOptions.KERBEROS_LOGIN_PRINCIPAL, remoteKeytabPrincipal);
 		}
+
+		// update PruneBufferThreshold if configured
+		int pruneBufferThreshold = configuration.getInteger(ConfigConstants.PRUNE_BUFFER_THRESHOLD,
+			ConfigConstants.PRUNE_BUFFER_THRESHOLD_DEFAULT);
+		DataOutputSerializer.updatePruneBufferThreshold(pruneBufferThreshold);
 
 		// use the hostname passed by job manager
 		final String taskExecutorHostname = variables.get(YarnResourceManager.ENV_FLINK_NODE_ID);

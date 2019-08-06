@@ -17,6 +17,7 @@
 
 package org.apache.flink.monitor;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -41,9 +42,6 @@ import java.util.Random;
  */
 public class JobMeta {
 	private static final Logger LOG = LoggerFactory.getLogger(JobMeta.class);
-	private static final String DC = "dc";
-	private static final String CLUSTER = "cluster";
-	private static final String APPLICATION_NAME = "applicationName";
 	private static final String CONF_FILE = "/opt/tiger/ss_conf/ss/db_dayu.conf";
 	private static final String HOST_KEY = "ss_dayu_write_host";
 	private static final String PORT_KEY = "ss_dayu_write_port";
@@ -62,15 +60,18 @@ public class JobMeta {
 	}
 
 	public boolean saveToDB() {
-		String dc = flinkconfig.getString(DC, "");
-		String cluster = flinkconfig.getString(CLUSTER, "");
-		String applicationName = flinkconfig.getString(APPLICATION_NAME, "");
+		String dc = flinkconfig.getString(ConfigConstants.DC_KEY, "");
+		String cluster = flinkconfig.getString(ConfigConstants.CLUSTER_NAME_KEY, "");
+		String applicationName = flinkconfig.getString(ConfigConstants.APPLICATION_NAME_KEY, "");
 		String jobName = streamGraph.getJobName();
 		String tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
 		String operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
 		if ("".equals(dc) || "".equals(cluster) || "".equals(jobName)) {
 			LOG.warn("Failed to save job meta to database, " +
 				"because there is no available dc, cluster or jobName.");
+			LOG.info("dc = {}", dc);
+			LOG.info("cluster = {}", cluster);
+			LOG.info("jobName = {}", jobName);
 			return false;
 		}
 		String user = System.getenv("USER");

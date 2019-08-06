@@ -1145,6 +1145,11 @@ public class CliFrontend {
 		// 2. load the global configuration
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configurationDirectory);
 
+		if (!configuration.containsKey(ConfigConstants.FLINK_JOB_TYPE_KEY)) {
+			configuration.setString(ConfigConstants.FLINK_JOB_TYPE_KEY,
+				ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
+		}
+
 		// 3. load the custom command lines
 		final List<CustomCommandLine<?>> customCommandLines = loadCustomCommandLines(
 			configuration,
