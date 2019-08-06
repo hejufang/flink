@@ -18,19 +18,32 @@
 
 package org.apache.flink.table.catalog
 
+import org.apache.flink.api.java.tuple.Tuple2
 import org.apache.flink.table.api.internal.TableEnvironmentImpl
 import org.apache.flink.table.api.{EnvironmentSettings, ExecutionConfigOptions, TableEnvironment, TableException}
 import org.apache.flink.table.factories.utils.TestCollectionTableFactory
 import org.apache.flink.types.Row
-
 import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.{Before, Ignore, Test}
-
 import java.util
 
+import org.apache.flink.table.functions.{ScalarFunction, TableFunction}
+
 import scala.collection.JavaConversions._
+
+class ScalarFunctionTest extends ScalarFunction {
+  def eval(a: Int): Int = a + 30
+}
+
+class TableFunctionTest extends TableFunction[String] {
+  def eval(data: Int): Unit = collect(data + "_test")
+}
+
+class TableFunctionColumnTest extends TableFunction[Tuple2[String, String]] {
+  def eval(data: Int): Unit = collect(Tuple2.of(data + "_test", data + "_test2"))
+}
 
 /** Test cases for catalog table. */
 @RunWith(classOf[Parameterized])
@@ -100,6 +113,7 @@ class CatalogTableITCase(isStreaming: Boolean) {
       toRow(11, "2", 12),
       toRow(12, "3000", 13)
     )
+
     TestCollectionTableFactory.initData(sourceData)
     val sourceDDL =
       """
@@ -132,6 +146,175 @@ class CatalogTableITCase(isStreaming: Boolean) {
       """.stripMargin
     tableEnv.sqlUpdate(sourceDDL)
     tableEnv.sqlUpdate(viewDDL)
+    tableEnv.sqlUpdate(sinkDDL)
+    tableEnv.sqlUpdate(query)
+    execJob("testJob")
+    assertEquals(expectedResult.sorted, TestCollectionTableFactory.RESULT.sorted)
+  }
+
+  @Test
+  def testCreateScalarFunction(): Unit = {
+    val sourceData = List(
+      toRow(1, "1000", 2),
+      toRow(2, "1", 3),
+      toRow(3, "2000", 4),
+      toRow(1, "2", 2),
+      toRow(2, "3000", 3)
+    )
+
+    val expectedResult = List(
+      toRow(31, "1000", 2),
+      toRow(32, "1", 3),
+      toRow(33, "2000", 4),
+      toRow(31, "2", 2),
+      toRow(32, "3000", 3)
+    )
+
+    TestCollectionTableFactory.initData(sourceData)
+    val functionDDL =
+      """
+        |create function fun1 as 'org.apache.flink.table.catalog.ScalarFunctionTest'
+      """.stripMargin
+    val sourceDDL =
+      """
+        |create table t1(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val sinkDDL =
+      """
+        |create table t2(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val query =
+      """
+        |insert into t2
+        |select fun1(t1.a), t1.b, (t1.a + 1) as c from t1
+      """.stripMargin
+    tableEnv.sqlUpdate(functionDDL)
+    tableEnv.sqlUpdate(sourceDDL)
+    tableEnv.sqlUpdate(sinkDDL)
+    tableEnv.sqlUpdate(query)
+    execJob("testJob")
+    assertEquals(expectedResult.sorted, TestCollectionTableFactory.RESULT.sorted)
+  }
+
+  @Test
+  def testCreateTableFunction(): Unit = {
+    val sourceData = List(
+      toRow(1, "1000", 2),
+      toRow(2, "1", 3),
+      toRow(3, "2000", 4),
+      toRow(1, "2", 2),
+      toRow(2, "3000", 3)
+    )
+
+    val expectedResult = List(
+      toRow(1, "1000", "1_test"),
+      toRow(2, "1", "2_test"),
+      toRow(3, "2000", "3_test"),
+      toRow(1, "2", "1_test"),
+      toRow(2, "3000", "2_test")
+    )
+
+    TestCollectionTableFactory.initData(sourceData)
+    val functionDDL =
+      """
+        |create function fun1 as 'org.apache.flink.table.catalog.TableFunctionTest'
+      """.stripMargin
+    val sourceDDL =
+      """
+        |create table t1(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val sinkDDL =
+      """
+        |create table t2(
+        |  a int,
+        |  b varchar,
+        |  c varchar
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val query =
+      """
+        |insert into t2
+        |select t1.a, t1.b, TT.x from t1, LATERAL TABLE(fun1(t1.a)) as TT(x)
+      """.stripMargin
+    tableEnv.sqlUpdate(functionDDL)
+    tableEnv.sqlUpdate(sourceDDL)
+    tableEnv.sqlUpdate(sinkDDL)
+    tableEnv.sqlUpdate(query)
+    execJob("testJob")
+    assertEquals(expectedResult.sorted, TestCollectionTableFactory.RESULT.sorted)
+  }
+
+  @Test
+  def testCreateTableFunctionColumn(): Unit = {
+    val sourceData = List(
+      toRow(1, "1000", 2),
+      toRow(2, "1", 3),
+      toRow(3, "2000", 4),
+      toRow(1, "2", 2),
+      toRow(2, "3000", 3)
+    )
+
+    val expectedResult = List(
+      toRow(1, "1000", "1_test", "1_test2"),
+      toRow(2, "1", "2_test", "2_test2"),
+      toRow(3, "2000", "3_test", "3_test2"),
+      toRow(1, "2", "1_test", "1_test2"),
+      toRow(2, "3000", "2_test", "2_test2")
+    )
+
+    TestCollectionTableFactory.initData(sourceData)
+    val functionDDL =
+      """
+        |create function fun1 as 'org.apache.flink.table.catalog.TableFunctionColumnTest'
+      """.stripMargin
+    val sourceDDL =
+      """
+        |create table t1(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val sinkDDL =
+      """
+        |create table t2(
+        |  a int,
+        |  b varchar,
+        |  c varchar,
+        |  d varchar
+        |) with (
+        |  connector = 'COLLECTION'
+        |)
+      """.stripMargin
+    val query =
+      """
+        |insert into t2
+        |select t1.a, t1.b, TT.x, TT.y from t1, LATERAL TABLE(fun1(t1.a)) as TT(x, y)
+      """.stripMargin
+    tableEnv.sqlUpdate(functionDDL)
+    tableEnv.sqlUpdate(sourceDDL)
     tableEnv.sqlUpdate(sinkDDL)
     tableEnv.sqlUpdate(query)
     execJob("testJob")

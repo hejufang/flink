@@ -25,7 +25,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.table.api.{QueryConfig, Table, TableConfig, TableEnvironment}
 import org.apache.flink.table.catalog.{Catalog, ExternalCatalog}
 import org.apache.flink.table.descriptors.{ConnectorDescriptor, TableDescriptor}
-import org.apache.flink.table.functions.ScalarFunction
+import org.apache.flink.table.functions.{AggregateFunction, ScalarFunction, TableAggregateFunction, TableFunction}
 import org.apache.flink.table.sinks.TableSink
 import org.apache.flink.table.sources.TableSource
 
@@ -38,6 +38,16 @@ class MockTableEnvironment extends TableEnvironment {
   override def getRegisteredExternalCatalog(name: String): ExternalCatalog = ???
 
   override def registerFunction(name: String, function: ScalarFunction): Unit = ???
+
+  override def registerFunction[T](name: String, function: TableFunction[T]): Unit = ???
+
+  override def registerFunction[T, ACC](
+    name: String,
+    function: AggregateFunction[T, ACC]): Unit = ???
+
+  override def registerFunction[T, ACC](
+    name: String,
+    function: TableAggregateFunction[T, ACC]): Unit = ???
 
   override def registerTable(name: String, table: Table): Unit = ???
 

@@ -50,13 +50,18 @@ import org.apache.flink.table.descriptors.StreamTableDescriptor;
 import org.apache.flink.table.descriptors.TableDescriptor;
 import org.apache.flink.table.expressions.TableReferenceExpression;
 import org.apache.flink.table.factories.ComponentFactoryService;
+import org.apache.flink.table.functions.AggregateFunction;
 import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TableAggregateFunction;
+import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.functions.UserFunctionsTypeHelper;
 import org.apache.flink.table.operations.CatalogQueryOperation;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.ModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
 import org.apache.flink.table.operations.TableSourceQueryOperation;
+import org.apache.flink.table.operations.ddl.CreateFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropTableOperation;
@@ -185,6 +190,34 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		functionCatalog.registerScalarFunction(
 			name,
 			function);
+	}
+
+	@Override
+	public <T> void registerFunction(String name, TableFunction<T> function) {
+		TypeInformation<T> typeInformation = UserFunctionsTypeHelper.getReturnTypeOfTableFunction(function);
+		functionCatalog.registerTableFunction(name,
+			function,
+			typeInformation);
+	}
+
+	@Override
+	public <T, ACC> void registerFunction(String name, AggregateFunction<T, ACC> function) {
+		TypeInformation<T> returnTypeInformation = UserFunctionsTypeHelper.getReturnTypeOfAggregateFunction(function);
+		TypeInformation<ACC> accTypeInformation = UserFunctionsTypeHelper.getAccumulatorTypeOfAggregateFunction(function);
+		functionCatalog.registerAggregateFunction(name,
+			function,
+			returnTypeInformation,
+			accTypeInformation);
+	}
+
+	@Override
+	public <T, ACC> void registerFunction(String name, TableAggregateFunction<T, ACC> function) {
+		TypeInformation<T> returnTypeInformation = UserFunctionsTypeHelper.getReturnTypeOfAggregateFunction(function);
+		TypeInformation<ACC> accTypeInformation = UserFunctionsTypeHelper.getAccumulatorTypeOfAggregateFunction(function);
+		functionCatalog.registerAggregateFunction(name,
+			function,
+			returnTypeInformation,
+			accTypeInformation);
 	}
 
 	@Override
@@ -380,6 +413,23 @@ public class TableEnvironmentImpl implements TableEnvironment {
 				createViewOperation.getViewPath(),
 				createViewOperation.getCatalogView(),
 				createViewOperation.isIgnoreIfExists());
+		} else if (operation instanceof CreateFunctionOperation) {
+			try {
+				CreateFunctionOperation functionOperation = (CreateFunctionOperation) operation;
+				Class functionClass = Class.forName(functionOperation.getClassName());
+				Object function = functionClass.newInstance();
+				if (function instanceof ScalarFunction) {
+					registerFunction(functionOperation.getFunctionName(), (ScalarFunction) function);
+				} else if (function instanceof TableFunction<?>) {
+					registerFunction(functionOperation.getFunctionName(), (TableFunction<?>) function);
+				} else if (function instanceof AggregateFunction<?, ?>) {
+					registerFunction(functionOperation.getFunctionName(), (AggregateFunction<?, ?>) function);
+				} else if (function instanceof TableAggregateFunction<?, ?>) {
+					registerFunction(functionOperation.getFunctionName(), (TableAggregateFunction<?, ?>) function);
+				}
+			} catch (Exception e) {
+				throw new TableException("Error in loading user defined function!", e);
+			}
 		} else {
 			throw new TableException(
 				"Unsupported SQL query! sqlUpdate() only accepts a single SQL statements of " +
