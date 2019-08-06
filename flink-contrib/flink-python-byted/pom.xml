@@ -34,7 +34,6 @@ under the License.
 	<version>1.9-byted-SNAPSHOT</version>
 
 	<properties>
-		<fastjson.version>1.2.49</fastjson.version>
 		<kafka.client.version>0.10.1.2-bd1.4-SNAPSHOT</kafka.client.version>
 		<msgpack.version>0.6.12</msgpack.version>
 		<process.tree.version>0.9.6</process.tree.version>

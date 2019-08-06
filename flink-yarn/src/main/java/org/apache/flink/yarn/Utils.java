@@ -29,6 +29,7 @@ import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.StringUtils;
 
+import com.alibaba.fastjson.JSONObject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -463,12 +464,22 @@ public final class Utils {
 			hasKrb5 = true;
 		}
 
-		// register Flink Jar with remote HDFS
-		final LocalResource flinkJar;
-		{
-			Path remoteJarPath = new Path(remoteFlinkJarPath);
-			FileSystem fs = remoteJarPath.getFileSystem(yarnConfig);
-			flinkJar = registerLocalResource(fs, remoteJarPath);
+		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
+
+		boolean isInDockerMode =
+			flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+
+		if (!isInDockerMode) {
+			// register Flink Jar with remote HDFS
+			final LocalResource flinkJar;
+			{
+				Path remoteJarPath = new Path(remoteFlinkJarPath);
+				FileSystem fs = remoteJarPath.getFileSystem(yarnConfig);
+				flinkJar = registerLocalResource(fs, remoteJarPath);
+			}
+			taskManagerLocalResources.put("flink.jar", flinkJar);
+		} else {
+			LOG.info("Do not need to add flink.jar in docker mode.");
 		}
 
 		// register conf with local fs
@@ -504,8 +515,6 @@ public final class Utils {
 			}
 		}
 
-		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
-		taskManagerLocalResources.put("flink.jar", flinkJar);
 		taskManagerLocalResources.put("flink-conf.yaml", flinkConf);
 
 		//To support Yarn Secure Integration Test Scenario
@@ -571,6 +580,9 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
 		}
 
+		// Add environment params to TM appMasterEnv for docker mode.
+		setDockerEnv(flinkConfig, containerEnv);
+
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.
@@ -612,6 +624,99 @@ public final class Utils {
 		}
 
 		return ctx;
+	}
+
+	/**
+	 * If docker image id is configured in flinkConfiguration, add docker environment parameters
+	 * to environment map.
+	 *
+	 * @param flinkConfiguration flink configuration.
+	 * @param envMap environment map.
+	 * */
+	public static void setDockerEnv(org.apache.flink.configuration.Configuration flinkConfiguration,
+									Map<String, String> envMap) {
+		try {
+			String dockerImage =
+				flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
+			if (dockerImage != null && !dockerImage.trim().isEmpty()) {
+				LOG.info("Docker image: {} has been configured, set docker environment params.",
+					dockerImage);
+				dockerImage = getDockerImage(dockerImage, flinkConfiguration);
+				flinkConfiguration.setString(YarnConfigKeys.DOCKER_IMAGE_KEY, dockerImage);
+				LOG.info("The real docker image id is: {}", dockerImage);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
+					YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT);
+				String dockerMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT;
+				String otherDockerMounts = flinkConfiguration.getString(
+					YarnConfigKeys.DOCKER_MOUNTS_KEY, null);
+				if (otherDockerMounts != null && !otherDockerMounts.isEmpty()) {
+					dockerMounts = otherDockerMounts + ";" + dockerMounts;
+				}
+				LOG.info("Docker mounts: {}", dockerMounts);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+			} else {
+				LOG.info("No docker image configured, run on physical machines.");
+			}
+		} catch (IOException e) {
+			LOG.error("ERROR occurred while get real docker image", e);
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * Add docker hub before image and replace 'latest' docker version with the real version.
+	 * @param flinkConfiguration flink configuration.
+	 *
+	 * @return the real docker version.
+	 * */
+	public static String getDockerImage(String dockerImage,
+		org.apache.flink.configuration.Configuration flinkConfiguration)  throws IOException {
+		if (dockerImage == null) {
+			return null;
+		}
+
+		if ("default".equalsIgnoreCase(dockerImage)) {
+			dockerImage = flinkConfiguration.getString(YarnConfigKeys.DOCKER_DEFAULT_IMAGE_KEY,
+				YarnConfigKeys.DOCKER_IMAGE_DEFAULT);
+		}
+
+		String dockerHub = flinkConfiguration.getString(YarnConfigKeys.DOCKER_HUB_KEY,
+			YarnConfigKeys.DOCKER_HUB_DEFAULT);
+
+		String [] items = dockerImage.trim().split(":");
+		if (items.length != 2) {
+			throw new RuntimeException("docker.image must be {psm}:{version}.");
+		}
+		String dockerPsm = items[0].trim();
+		String dockerVersion = items[1].trim();
+
+		if (!YarnConfigKeys.DOCKER_VERSION_LATEST.equalsIgnoreCase(dockerVersion)) {
+			if (!dockerImage.startsWith(dockerHub)) {
+				dockerImage = dockerHub + "/" + dockerImage;
+			}
+			return dockerImage;
+		}
+		LOG.info("Replace 'latest' version with real latest version id.");
+
+		String dockerServer = flinkConfiguration.getString(YarnConfigKeys.DOCKER_SERVER_KEY,
+			YarnConfigKeys.DOCKER_SERVER_DEFAULT);
+		String dockerRegion = flinkConfiguration.getString(YarnConfigKeys.DOCKER_REGION_KEY,
+			YarnConfigKeys.DOCKER_REGION_DEFAULT);
+		String dockerAuthorization = flinkConfiguration.getString(
+			YarnConfigKeys.DOCKER_AUTHORIZATION_KEY, YarnConfigKeys.DOCKER_AUTHORIZATION_DEFAULT);
+		String dockerUrlTemplate = flinkConfiguration.getString(
+			YarnConfigKeys.DOCKER_VERSION_URL_TEMPLATE_KEY,
+			YarnConfigKeys.DOCKER_VERSION_URL_TEMPLATE_DEFAULT);
+		String dockerUrl = String.format(dockerUrlTemplate, dockerServer, dockerPsm, dockerRegion);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(YarnConfigKeys.DOCKER_HTTP_HEADER_AUTHORIZATION_KEY, dockerAuthorization);
+		HttpUtil.HttpResponsePojo response = HttpUtil.sendGet(dockerUrl, headers);
+		String content = response.getContent();
+		JSONObject respJson = JSONObject.parseObject(content);
+		String image = (String) respJson.getOrDefault(dockerRegion, null);
+		LOG.info("Get image from {}, image is: {}", dockerUrl, image);
+		return image;
 	}
 
 	/**

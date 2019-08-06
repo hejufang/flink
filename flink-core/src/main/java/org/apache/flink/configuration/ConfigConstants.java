@@ -2081,6 +2081,15 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_LEVEL_KEY = "log.level";
 	public static final String FLINK_LOG_LEVEL_DEFAULT = "INFO";
 
+	public static final String FLINK_RUNTIME_LIB_DIR_KEY = "runtime.lib.dir";
+	public static final String FLINK_RUNTIME_LIB_DIR_DEFAULT =
+		"/opt/tiger/flink_deploy/deploy/flink-1.9/lib";
+	public static final String FLINK_RUNTIME_CONF_DIR_KEY = "runtime.conf.dir";
+	public static final String FLINK_RUNTIME_CONF_DIR_DEFAULT =
+		"/opt/tiger/flink_deploy/deploy/flink-1.9/conf";
+	public static final String FLINK_RUNTIME_CLASSPATH_KEY = "runtime.classpath";
+
+
 	public static final String FLINK_SUBVERSION_KEY = "flink.subversion";
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
 	public static final String FLINK_JOB_TYPE_DEFAULT = "Flink";

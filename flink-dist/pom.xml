@@ -572,6 +572,10 @@ under the License.
 							</transformers>
 							<relocations>
 								<relocation>
+									<pattern>com.alibaba</pattern>
+									<shadedPattern>org.apache.flink.shaded.dist.com.alibaba</shadedPattern>
+								</relocation>
+								<relocation>
 									<pattern>org.yaml</pattern>
 									<shadedPattern>org.apache.flink.shaded.dist.org.yaml</shadedPattern>
 								</relocation>
