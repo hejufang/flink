@@ -128,6 +128,8 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 				AddCredit request = (AddCredit) msg;
 
 				outboundQueue.addCredit(request.receiverId, request.credit);
+			} else if (msgClazz == NettyMessage.HeartBeat.class) {
+				ctx.writeAndFlush(new NettyMessage.HeartBeat());
 			} else {
 				LOG.warn("Received unexpected client request: {}", msg);
 			}

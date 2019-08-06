@@ -54,6 +54,14 @@ public class NettyConfig {
 
 	private final Configuration config; // optional configuration
 
+	public NettyConfig() {
+		this.serverAddress = null;
+		this.serverPort = 0;
+		this.memorySegmentSize = 0;
+		this.numberOfSlots = 0;
+		this.config = new Configuration();
+	}
+
 	public NettyConfig(
 			InetAddress serverAddress,
 			int serverPort,
@@ -138,6 +146,18 @@ public class NettyConfig {
 			default:
 				return TransportType.AUTO;
 		}
+	}
+
+	public int getClientHeartBeatSeconds() {
+		return config.getInteger(NettyShuffleEnvironmentOptions.CLIENT_HEARTBEAT_INTERVAL_SECONDS);
+	}
+
+	public int getMaxLostHeartbeats() {
+		return config.getInteger(NettyShuffleEnvironmentOptions.CLIENT_MAX_LOST_HEARTBEATS);
+	}
+
+	public boolean isClientReadTimeoutEnabled() {
+		return config.getBoolean(NettyShuffleEnvironmentOptions.CLIENT_READ_TIMEOUT_ENABLED);
 	}
 
 	@Nullable

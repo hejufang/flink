@@ -73,7 +73,8 @@ public class ServerTransportErrorHandlingTest {
 				}
 			});
 
-		NettyProtocol protocol = new NettyProtocol(partitionManager, mock(TaskEventDispatcher.class), true) {
+		NettyProtocol protocol = new NettyProtocol(partitionManager, mock(TaskEventDispatcher.class),
+			true, new NettyConfig()) {
 
 			@Override
 			public ChannelHandler[] getClientChannelHandlers() {

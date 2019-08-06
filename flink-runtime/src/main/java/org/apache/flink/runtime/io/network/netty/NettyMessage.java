@@ -256,6 +256,9 @@ public abstract class NettyMessage {
 					case AddCredit.ID:
 						decodedMsg = AddCredit.readFrom(msg);
 						break;
+					case HeartBeat.ID:
+						decodedMsg = HeartBeat.readFrom(msg);
+						break;
 					default:
 						throw new ProtocolException(
 							"Received unknown message from producer: " + msg);
@@ -721,6 +724,32 @@ public abstract class NettyMessage {
 		@Override
 		public String toString() {
 			return String.format("AddCredit(%s : %d)", receiverId, credit);
+		}
+	}
+
+	static class HeartBeat extends NettyMessage {
+		private static final byte ID = 7;
+
+		@Override
+		ByteBuf write(ByteBufAllocator allocator) throws IOException {
+			ByteBuf result = null;
+
+			try {
+				result = allocateBuffer(allocator, ID, 0);
+				return result;
+			}
+			catch (Throwable t) {
+				throw new IOException(t);
+			}
+		}
+
+		static HeartBeat readFrom(ByteBuf buffer) {
+			return new HeartBeat();
+		}
+
+		@Override
+		public String toString() {
+			return "HeartBeat";
 		}
 	}
 }
