@@ -2098,6 +2098,10 @@ public final class ConfigConstants {
 	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
 	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;
 
+	// ---------------------------- Kafka Configurations ---------------------------
+	/** Configuration key for subset of subscribed partition list. */
+	public static final String PARTITION_LIST_KEY = "partition.list";
+
 	/**
 	 * Not instantiable.
 	 */

@@ -575,6 +575,13 @@ public final class Utils {
 		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
 			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
 
+		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);
+		if (partitionList != null && !partitionList.isEmpty()) {
+			containerEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
+			LOG.info("Set {} in container environment = {}",
+				ConfigConstants.PARTITION_LIST_KEY, partitionList);
+		}
+
 		if (remoteKeytabPath != null && remoteKeytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PATH, remoteKeytabPath);
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
