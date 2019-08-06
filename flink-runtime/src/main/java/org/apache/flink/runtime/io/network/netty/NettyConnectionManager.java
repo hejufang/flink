@@ -40,6 +40,8 @@ public class NettyConnectionManager implements ConnectionManager {
 
 	private final NettyProtocol nettyProtocol;
 
+	private final NettyConfig nettyConfig;
+
 	public NettyConnectionManager(
 		ResultPartitionProvider partitionProvider,
 		TaskEventPublisher taskEventPublisher,
@@ -52,7 +54,10 @@ public class NettyConnectionManager implements ConnectionManager {
 
 		this.partitionRequestClientFactory = new PartitionRequestClientFactory(client);
 
-		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider), checkNotNull(taskEventPublisher), isCreditBased);
+		this.nettyConfig = nettyConfig;
+
+		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider),
+			checkNotNull(taskEventPublisher), isCreditBased, nettyConfig);
 	}
 
 	@Override
