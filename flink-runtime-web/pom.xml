@@ -229,6 +229,8 @@ under the License.
 						</goals>
 						<configuration>
 							<nodeVersion>v10.9.0</nodeVersion>
+							<nodeDownloadRoot>http://npm.taobao.org/mirrors/node/</nodeDownloadRoot>
+							<npmDownloadRoot>http://npm.taobao.org/mirrors/npm/</npmDownloadRoot>
 						</configuration>
 					</execution>
 					<execution>
