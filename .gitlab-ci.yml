@@ -7,7 +7,8 @@ build:
   stage: build
   script:
     # TODO(huweihua): remove skipTests when we can pass unitTest.
-    - mvn clean package -DskipTests --quiet -T 1C
+    - export https_proxy=http://bj-rd-proxy.byted.org:3128
+    - mvn clean package -DskipTests -Pinclude-hadoop
 #  only:
 #    - merge_requests
   tags:
