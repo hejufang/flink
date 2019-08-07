@@ -21,6 +21,7 @@ package org.apache.flink.table.planner
 import org.apache.flink.annotation.VisibleForTesting
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.configuration.Configuration
+import org.apache.flink.sql.parser.ddl.SqlCreateFunction
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException}
 import org.apache.flink.table.calcite.{FlinkPlannerImpl, FlinkRelBuilder, FlinkTypeFactory}
@@ -28,6 +29,7 @@ import org.apache.flink.table.catalog.{CatalogManager, CatalogManagerCalciteSche
 import org.apache.flink.table.delegation.{Executor, Planner}
 import org.apache.flink.table.executor.ExecutorBase
 import org.apache.flink.table.factories.{TableFactoryService, TableFactoryUtil, TableSinkFactory}
+import org.apache.flink.table.operations.ddl.CreateFunctionOperation
 import org.apache.flink.table.operations.OutputConversionModifyOperation.UpdateMode
 import org.apache.flink.table.operations.{CatalogSinkModifyOperation, ModifyOperation, Operation, OutputConversionModifyOperation, PlannerQueryOperation, UnregisteredSinkModifyOperation}
 import org.apache.flink.table.plan.nodes.calcite.LogicalSink
@@ -131,6 +133,12 @@ abstract class PlannerBase(
         val relational = planner.rel(validated)
         // can not use SqlToOperationConverter because of the project()
         List(new PlannerQueryOperation(relational.project()))
+      case functionDDL if functionDDL.getKind == SqlKind.CREATE_FUNCTION =>
+        val function = functionDDL.asInstanceOf[SqlCreateFunction]
+        List(new CreateFunctionOperation(
+          function.getFunctionName.getSimple,
+          function.getClassName,
+          false))
       case ddl if ddl.getKind.belongsTo(SqlKind.DDL) =>
         List(SqlToOperationConverter.convert(planner, ddl))
       case _ =>
