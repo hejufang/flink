@@ -69,6 +69,11 @@ final class StubStateBackend implements StateBackend {
 	}
 
 	@Override
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+		return backend.createCheckpointStorage(jobId, jobName);
+	}
+
+	@Override
 	public <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
 		Environment env,
 		JobID jobID,

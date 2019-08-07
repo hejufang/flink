@@ -270,6 +270,7 @@ public class CliFrontendParser {
 	static Options getSavepointCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
+		options.addOption(CLUSTER_NAME_OPTION);
 		return options.addOption(JAR_OPTION);
 	}
 

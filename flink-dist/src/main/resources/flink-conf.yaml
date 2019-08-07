@@ -30,7 +30,7 @@ common:
   taskmanager.tmp.dirs: /opt/tmp/flink
   web.port: 18081
   state.backend: rocksdb
-  state.checkpoints.dir: ${hdfs.prefix}/${clusterName}/1.9/flink/fs_checkpoint_dir
+  state.checkpoints.dir: ${hdfs.prefix}/${dc}/${clusterName}/1.9/flink/fs_checkpoint_dir
   state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
   env.log.dir: /opt/log/tiger/flink
   taskmanager.network.memory.fraction: 0.3
@@ -38,7 +38,7 @@ common:
 
   high-availability: zookeeper
   high-availability.storageDir: ${hdfs.prefix}/${clusterName}/1.9/ha/
-  high-availability.zookeeper.path.root: /flink
+  high-availability.zookeeper.path.root: /${dc}/${clusterName}/flink
 
   yarn.containers.vcores : 0
   yarn.application-attempts: 5

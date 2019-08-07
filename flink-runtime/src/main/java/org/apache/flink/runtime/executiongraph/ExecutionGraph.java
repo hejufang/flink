@@ -582,6 +582,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		// create the coordinator that triggers and commits checkpoints and holds the state
 		checkpointCoordinator = new CheckpointCoordinator(
 			jobInformation.getJobId(),
+			jobInformation.getJobName(),
 			chkConfig,
 			tasksToTrigger,
 			tasksToWaitFor,

@@ -98,4 +98,9 @@ public class TestSpyWrapperStateBackend extends AbstractStateBackend {
 	public CheckpointStorage createCheckpointStorage(JobID jobId) throws IOException {
 		return spy(delegate.createCheckpointStorage(jobId));
 	}
+
+	@Override
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+		return createCheckpointStorage(jobId);
+	}
 }
