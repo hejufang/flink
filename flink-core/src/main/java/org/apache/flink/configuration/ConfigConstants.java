@@ -2040,6 +2040,8 @@ public final class ConfigConstants {
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String CHECKPOINT_HDFS_PREFIX_KEY = "checkpoint.hdfs.prefix";
 
+	public static final String FILES = "files";
+
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 

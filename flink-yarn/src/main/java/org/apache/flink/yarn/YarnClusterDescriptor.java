@@ -707,6 +707,16 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			systemShipFiles.add(new File(logConfigFilePath));
 		}
 
+		// Add user files to work dir, and also to CLASSPATH.
+		String userFiles = configuration.getString(ConfigConstants.FILES, null);
+		LOG.info("userFiles = {}", userFiles);
+		if (userFiles != null) {
+			String [] userFileArray = userFiles.split(";");
+			for (String userFile: userFileArray) {
+				systemShipFiles.add(new File(userFile));
+			}
+		}
+
 		// Set-up ApplicationSubmissionContext for the application
 
 		final ApplicationId appId = appContext.getApplicationId();

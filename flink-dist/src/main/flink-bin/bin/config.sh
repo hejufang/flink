@@ -56,6 +56,22 @@ getUserJar() {
     done
 }
 
+getDynamicFiles() {
+    local found=0
+    for arg in $* ; do
+        if [[ $found = 1 && $arg =~ "files=" ]]; then
+            length=`expr length "files="`
+            echo ${arg:$length}
+            break
+        fi
+        found=0
+
+        if [[ $arg == "-yD" ]]; then
+            found=1
+        fi
+    done
+}
+
 getClientIncludeUserJar() {
     for arg in $* ; do
         if [[ $arg =~ "flink-client-classpath-include-user-jar=" ]]; then
