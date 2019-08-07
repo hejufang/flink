@@ -152,7 +152,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 				descriptorProperties,
 				Optional.of(deserializationSchema.getProducedType())),
 			topic,
-			getKafkaProperties(descriptorProperties),
+			getKafkaProperties(descriptorProperties, topic),
 			deserializationSchema,
 			startupOptions.startupMode,
 			startupOptions.specificOffsets);
@@ -272,7 +272,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		return formatFactory.createSerializationSchema(properties);
 	}
 
-	private Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
+	private Properties getKafkaProperties(DescriptorProperties descriptorProperties, String topic) {
 		final Properties kafkaProperties = new Properties();
 		final List<Map<String, String>> propsList = descriptorProperties.getFixedIndexedProperties(
 			CONNECTOR_PROPERTIES,
@@ -281,7 +281,14 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 			descriptorProperties.getString(kv.get(CONNECTOR_PROPERTIES_KEY)),
 			descriptorProperties.getString(kv.get(CONNECTOR_PROPERTIES_VALUE))
 		));
+		if (topic != null && !topic.isEmpty()) {
+			kafkaProperties.setProperty("topic", topic);
+		}
 		return kafkaProperties;
+	}
+
+	private Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
+		return getKafkaProperties(descriptorProperties, null);
 	}
 
 	private StartupOptions getStartupOptions(
