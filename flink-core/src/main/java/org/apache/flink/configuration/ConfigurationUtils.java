@@ -56,6 +56,10 @@ public class ConfigurationUtils {
 		}
 	}
 
+	public static int getJobManagerVcore(Configuration configuration) {
+		return configuration.getInteger(JobManagerOptions.JOB_MANAGER_VCORES);
+	}
+
 	/**
 	 * Get task manager's heap memory. This method will check the new key
 	 * {@link TaskManagerOptions#TASK_MANAGER_HEAP_MEMORY} and
