@@ -2052,6 +2052,7 @@ public final class ConfigConstants {
 	public static final String DC_KEY = "dc";
 	public static final String DATA_SOURCE_KEY = "dataSource";
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String FILES = "files";
 	public static final String DTOP_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-resource-monitor?orgId=1&var-appName=%s&var-datasource=%s";
 	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";

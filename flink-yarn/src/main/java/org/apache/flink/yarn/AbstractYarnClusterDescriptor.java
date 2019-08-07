@@ -724,6 +724,16 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
+		// Add user files to work dir, and also to CLASSPATH.
+		String userFiles = configuration.getString(ConfigConstants.FILES, null);
+		LOG.info("userFiles = {}", userFiles);
+		if (userFiles != null) {
+			String [] userFileArray = userFiles.split(";");
+			for (String userFile: userFileArray) {
+				systemShipFiles.add(new File(userFile));
+			}
+		}
+
 		String dockerImage =
 			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
 		boolean isOnDockerMode = false;
