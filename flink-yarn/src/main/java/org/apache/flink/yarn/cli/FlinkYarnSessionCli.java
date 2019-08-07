@@ -129,6 +129,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 	private final Option queue;
 	private final Option shipPath;
 	private final Option flinkJar;
+	private final Option jmVcores;
 	private final Option jmMemory;
 	private final Option tmMemory;
 	private final Option container;
@@ -193,6 +194,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		queue = new Option(shortPrefix + "qu", longPrefix + "queue", true, "Specify YARN queue.");
 		shipPath = new Option(shortPrefix + "t", longPrefix + "ship", true, "Ship files in the specified directory (t for transfer)");
 		flinkJar = new Option(shortPrefix + "j", longPrefix + "jar", true, "Path to Flink jar file");
+		jmVcores = new Option(shortPrefix + "jv", longPrefix + "jobManagerVcores", true, "Vcores for JobManager Container");
 		jmMemory = new Option(shortPrefix + "jm", longPrefix + "jobManagerMemory", true, "Memory for JobManager Container with optional unit (default: MB)");
 		tmMemory = new Option(shortPrefix + "tm", longPrefix + "taskManagerMemory", true, "Memory per TaskManager Container with optional unit (default: MB)");
 		container = new Option(shortPrefix + "n", longPrefix + "container", true, "Number of YARN container to allocate (=Number of Task Managers)");
@@ -213,6 +215,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 		allOptions = new Options();
 		allOptions.addOption(flinkJar);
+		allOptions.addOption(jmVcores);
 		allOptions.addOption(jmMemory);
 		allOptions.addOption(tmMemory);
 		allOptions.addOption(container);
@@ -424,6 +427,9 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			numberTaskManagers = 1;
 		}
 
+		// JobManager Vcores
+		final int jobManagerVcores = configuration.getInteger(JobManagerOptions.JOB_MANAGER_VCORES);
+
 		// JobManager Memory
 		final int jobManagerMemoryMB = ConfigurationUtils.getJobManagerHeapMemory(configuration).getMebiBytes();
 
@@ -433,6 +439,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		int slotsPerTaskManager = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 
 		return new ClusterSpecification.ClusterSpecificationBuilder()
+			.setMasterVcores(jobManagerVcores)
 			.setMasterMemoryMB(jobManagerMemoryMB)
 			.setTaskManagerMemoryMB(taskManagerMemoryMB)
 			.setNumberTaskManagers(numberTaskManagers)
@@ -536,6 +543,11 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			}
 
 			effectiveConfiguration.setString(HA_CLUSTER_ID, zooKeeperNamespace);
+		}
+
+		if (commandLine.hasOption(jmVcores.getOpt())) {
+			effectiveConfiguration.setInteger(JobManagerOptions.JOB_MANAGER_VCORES,
+				Integer.parseInt(commandLine.getOptionValue(jmVcores.getOpt())));
 		}
 
 		if (commandLine.hasOption(jmMemory.getOpt())) {

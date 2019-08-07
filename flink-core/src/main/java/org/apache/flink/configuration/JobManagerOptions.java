@@ -95,6 +95,14 @@ public class JobManagerOptions {
 		.withDescription("JVM heap size (in megabytes) for the JobManager.");
 
 	/**
+	 * Vcores for the JobManager.
+	 */
+	public static final ConfigOption<Integer> JOB_MANAGER_VCORES =
+		key("jobmanager.vcores")
+			.defaultValue(3)
+			.withDescription("Vcores for the JobManager.");
+
+	/**
 	 * The maximum number of prior execution attempts kept in history.
 	 */
 	public static final ConfigOption<Integer> MAX_ATTEMPTS_HISTORY_SIZE =

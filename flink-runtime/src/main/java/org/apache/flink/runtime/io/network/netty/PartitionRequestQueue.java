@@ -295,7 +295,8 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 	}
 
 	private void handleException(Channel channel, Throwable cause) throws IOException {
-		LOG.error("Encountered error while consuming partitions", cause);
+		LOG.error("Encountered error while consuming partitions, localhost = {}, " +
+				"remote host = {}", channel.localAddress(), channel.remoteAddress(), cause);
 
 		fatalError = true;
 		releaseAllResources();

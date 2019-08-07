@@ -632,6 +632,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		return new ClusterSpecification.ClusterSpecificationBuilder()
+			.setMasterVcores(clusterSpecification.getMasterVcores())
 			.setMasterMemoryMB(jobManagerMemoryMb)
 			.setTaskManagerMemoryMB(taskManagerMemoryMb)
 			.setNumberTaskManagers(clusterSpecification.getNumberTaskManagers())
@@ -1083,7 +1084,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Set up resource type requirements for ApplicationMaster
 		Resource capability = Records.newRecord(Resource.class);
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
-		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+		capability.setVirtualCores(clusterSpecification.getMasterVcores());
+		LOG.info("jm cores = {}", clusterSpecification.getMasterVcores());
 
 		appContext.setApplicationName(name);
 		appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
