@@ -6,7 +6,9 @@ import os
 import subprocess
 import sys
 
+from conf_utils import ConfUtils
 from datetime import datetime
+from yaml_util import YamlUtil
 
 
 class SmartResourcesUtils(object):
@@ -34,14 +36,17 @@ class SmartResourcesUtils(object):
             "flink": "data.inf.sr_estimater.service.lf",
             "dw": "data.inf.sr_estimater.service.lf",
             "hl": "data.inf.sr_estimater.service.lf",
-            "wj": "data.inf.sr_estimater.service.lf"
+            "wj": "data.inf.sr_estimater.service.lf",
+            "default": "data.inf.sr_estimater.service.lf"
         },
         "sg": {
-            "alisg": "data.inf.sr_estimater.service.alisg"
+            "alisg": "data.inf.sr_estimater.service.alisg",
+            "default": "data.inf.sr_estimater.service.alisg"
         },
         "va": {
             "awsva": "data.inf.sr_estimater.service.va",
-            "maliva": "data.inf.sr_estimater.service.maliva"
+            "maliva": "data.inf.sr_estimater.service.maliva",
+            "default": "data.inf.sr_estimater.service.maliva"
         }
     }
 
@@ -85,6 +90,9 @@ class SmartResourcesUtils(object):
             raise Exception("unsupport region")
 
         estimater_service_name = region_conf.get(cluster)
+        if not estimater_service_name:
+            estimater_service_name = region_conf.get("default")
+
         if not estimater_service_name:
             raise Exception("unsupport cluster")
 
@@ -217,6 +225,25 @@ class SmartResourcesUtils(object):
 
         from pyutil import pyredis
         return pyredis.make_redis_client(estimater_redis_name)
+
+    @staticmethod
+        def generate_config_with_yaml(region, cluster, app_name, yaml_file):
+            ""
+            enerate flink resources config based on recent resource utilization
+            param region: yarn region, cn, va, sg, etc...
+            param cluster: yarn cluster, flink, dw, etc...
+            param app_name: application name, without user name
+            param yaml_file: job yaml conf
+            return: If successful, return the new configuration or return None.
+            ""
+            link_conf = ConfUtils.get_flink_conf(cluster, "1.5")
+            aml_util = YamlUtil(yaml_file)
+            ob_info = yaml_util.get_job_info(flink_conf.get("kafka_server_url"))
+            ser_yaml_conf = YamlUtil.get_yaml_info(yaml_file)
+            r_args = user_yaml_conf.get('sr_args', {})
+            eturn SmartResourcesUtils.generate_config(
+                region, cluster, app_name, job_info, sr_args)
+
 
     @staticmethod
     def generate_config(region, cluster, app_name, job_info, sr_args):

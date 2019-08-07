@@ -32,6 +32,7 @@ import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.jobmaster.JobMaster;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.dump.MetricQueryService;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
@@ -222,4 +223,8 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	 * {@link BlobServer}.
 	 */
 	CompletableFuture<TransientBlobKey> requestTaskManagerFileUpload(ResourceID taskManagerId, FileType fileType, @RpcTimeout Time timeout);
+
+	default CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(@RpcTimeout Time timeout) {
+		throw new UnsupportedOperationException();
+	}
 }

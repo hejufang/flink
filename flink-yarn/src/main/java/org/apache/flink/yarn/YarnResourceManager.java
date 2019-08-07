@@ -19,7 +19,9 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -32,6 +34,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
@@ -41,31 +44,56 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
+import org.apache.flink.smartresources.ContainerResources;
+import org.apache.flink.smartresources.UpdateContainersResources;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.bytedance.commons.consul.Discovery;
+import com.bytedance.commons.consul.ServiceNode;
+import com.bytedance.sr.estimater.client.EstimaterClient;
+import com.bytedance.sr.estimater.client.ResourcesUsage;
+import org.apache.commons.httpclient.HttpStatus;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
+import org.apache.hadoop.yarn.api.records.ContainerUpdateType;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.UpdateContainerError;
+import org.apache.hadoop.yarn.api.records.UpdateContainerRequest;
+import org.apache.hadoop.yarn.api.records.UpdatedContainer;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -76,11 +104,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 /**
  * The yarn implementation of the resource manager. Used when the system is started
@@ -149,6 +179,28 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private final Resource resource;
 
+	// for smart resources
+	private Thread containerResourcesUpdater;
+	private Map<ContainerId, Long/* expired time ms */> pendingUpdating;
+	private ContainerResources targetResources;
+	private long resourcesUpdateTimeoutMS = 2 * 60 * 1000;
+	private EstimaterClient estimaterClient;
+	private String region;
+	private String cluster;
+	private String applicationID;
+	private String applicationName;
+	private int durtionMinutes;
+	private double cpuReserveRatio;
+	private double memReserveRatio;
+	private SmartResourcesStats smartResourcesStats;
+	private boolean disableMemAdjust = false;
+	private int srMemMaxMB;
+	private String srCpuEstimateMode;
+	private String srAdjustCheckApi;
+	private int srAdjustCheckBackoffMS;
+	private int srAdjustCheckTimeoutMS;
+	private long srNextCheckTimeMS;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			String resourceManagerEndpointId,
@@ -209,6 +261,86 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		setFailUnfulfillableRequest(true);
 
 		this.nmClientAsyncEnabled = flinkConfig.getBoolean(YarnConfigOptions.NMCLINETASYNC_ENABLED);
+
+		// smart resources
+		smartResourcesStats = new SmartResourcesStats();
+		boolean smartResourcesEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_ENABLE_KEY,
+			ConfigConstants.SMART_RESOURCES_ENABLE_DEFAULT);
+		if (!smartResourcesEnable) {
+			smartResourcesEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_ENABLE_OLD_KEY,
+				ConfigConstants.SMART_RESOURCES_ENABLE_DEFAULT);
+		}
+		Map<String, Object> smartResourcesConfig = new HashMap<>();
+		smartResourcesConfig.put(ConfigConstants.SMART_RESOURCES_ENABLE_KEY, smartResourcesEnable);
+		if (smartResourcesEnable) {
+			this.pendingUpdating = new HashMap<>();
+			String smartResourcesServiceName =
+				flinkConfig.getString(ConfigConstants.SMART_RESOURCES_SERVICE_NAME_KEY, null);
+			Preconditions.checkNotNull(smartResourcesServiceName, "SmartResources enabled and service name not set");
+			this.region = flinkConfig.getString("dc", null);
+			Preconditions.checkNotNull(this.region, "SmartResources enabled and get region failed");
+			this.cluster = flinkConfig.getString("clusterName", null);
+			Preconditions.checkNotNull(this.cluster, "SmartResources enabled and get cluster failed");
+			this.applicationID = System.getenv("_APP_ID");
+			Preconditions.checkNotNull(this.applicationID, "SmartResources enabled and get applicationID failed");
+			String applicationNameWithUser = flinkConfig.getString("applicationName", null);
+			Preconditions.checkNotNull(applicationNameWithUser, "SmartResources enabled and get applicationName failed");
+			int idx = applicationNameWithUser.lastIndexOf("_");
+			Preconditions.checkState(idx != -1, "SmartResources enabled and applicationName illegal, " + applicationNameWithUser);
+			this.applicationName = applicationNameWithUser.substring(0, idx);
+			this.estimaterClient = new EstimaterClient(smartResourcesServiceName);
+			this.durtionMinutes = flinkConfig.getInteger(ConfigConstants.SMART_RESOURCES_DURTION_MINUTES_KEY,
+				ConfigConstants.SMART_RESOURCES_DURTION_MINUTES_DEFAULT);
+			if (this.durtionMinutes < ConfigConstants.SMART_RESOURCES_DURTION_MINUTES_MIN) {
+				log.info("adjust smart-resources.durtion.minutes from {} to {}", this.durtionMinutes,
+					ConfigConstants.SMART_RESOURCES_DURTION_MINUTES_MIN);
+				this.durtionMinutes = ConfigConstants.SMART_RESOURCES_DURTION_MINUTES_MIN;
+			}
+			this.cpuReserveRatio = flinkConfig.getDouble(ConfigConstants.SMART_RESOURCES_CPU_RESERVE_RATIO,
+				ConfigConstants.SMART_RESOURCES_CPU_RESERVE_RATIO_DEFAULT);
+			this.memReserveRatio = flinkConfig.getDouble(ConfigConstants.SMART_RESOURCES_MEM_RESERVE_RATIO,
+				ConfigConstants.SMART_RESOURCES_MEM_RESERVE_RATIO_DEFAULT);
+			this.disableMemAdjust = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_DISABLE_MEM_ADJUST_KEY,
+				ConfigConstants.SMART_RESOURCES_DISABLE_MEM_ADJUST_DEFAULT);
+			this.srMemMaxMB = flinkConfig.getInteger(ConfigConstants.SMART_RESOURCES_MEM_MAX_MB_KEY,
+				ConfigConstants.SMART_RESOURCES_MEM_MAX_MB_DEFAULT);
+			this.srCpuEstimateMode = flinkConfig.getString(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_KEY,
+				ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_CEIL);
+			this.srAdjustCheckApi = flinkConfig.getString(ConfigConstants.SMART_RESOURCES_ADJUST_CHECK_API_KEY, "");
+			Preconditions.checkState(validateSrAdjustCheckApi(srAdjustCheckApi), "Invalid sr check api, " + srAdjustCheckApi);
+			this.srAdjustCheckBackoffMS = flinkConfig.getInteger(ConfigConstants.SMART_RESOURCES_ADJUST_CHECK_BACKOFF_MS_KEY,
+				ConfigConstants.SMART_RESOURCES_ADJUST_CHECK_BACKOFF_MS_DEFAULT);
+			this.srAdjustCheckTimeoutMS = flinkConfig.getInteger(ConfigConstants.SMART_RESOURCES_ADJUST_CHECK_TIMEOUT_MS_KEY,
+				ConfigConstants.SMART_RESOURCES_ADJUST_CHECK_TIMEOUT_MS_DEFAULT);
+			this.srNextCheckTimeMS = System.currentTimeMillis();
+			log.info("SmartResources initialized, region: {}, cluster: {}, applicationID: {}, "
+					+ "applicationName: {}, smartResourcesServiceName: {}, durtionMinutes: {}, "
+					+ "cpuReserveRatio: {}, memReserveRatio: {}, disableMemAdjust: {}, memMaxMB: {}, "
+					+ "cpuEstimateMode: {}, adjustCheckApi: {}, adjustCheckInterval: {}",
+				this.region, this.cluster, this.applicationID, this.applicationName,
+				smartResourcesServiceName, this.durtionMinutes, this.cpuReserveRatio,
+				this.memReserveRatio, this.disableMemAdjust, this.srMemMaxMB, this.srCpuEstimateMode,
+				this.srAdjustCheckApi, this.srAdjustCheckBackoffMS);
+
+			this.containerResourcesUpdater = new Thread(this::containerResourcesUpdaterProc);
+			this.containerResourcesUpdater.start();
+
+			smartResourcesConfig.put(ConfigConstants.SMART_RESOURCES_SERVICE_NAME_KEY, smartResourcesServiceName);
+			smartResourcesConfig.put("region", this.region);
+			smartResourcesConfig.put("cluster", this.cluster);
+			smartResourcesConfig.put("applicationID", this.applicationID);
+			smartResourcesConfig.put("applicationName", this.applicationName);
+			smartResourcesConfig.put("durtionMinutes", this.durtionMinutes);
+			smartResourcesConfig.put("cpuReserveRatio", this.cpuReserveRatio);
+			smartResourcesConfig.put("memReserveRatio", this.memReserveRatio);
+			smartResourcesConfig.put("disableMemAdjust", this.disableMemAdjust);
+			smartResourcesConfig.put("memMaxMB", this.srMemMaxMB);
+			smartResourcesConfig.put("cpuEstimateMode", this.srCpuEstimateMode);
+			smartResourcesConfig.put("adjustCheckApi", this.srAdjustCheckApi);
+			smartResourcesConfig.put("adjustCheckBackoffMS", this.srAdjustCheckBackoffMS);
+			smartResourcesConfig.put("adjustCheckTimeoutMS", this.srAdjustCheckTimeoutMS);
+		}
+		smartResourcesStats.setConfig(smartResourcesConfig);
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -300,6 +432,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		// shut down all components
 		Throwable firstException = null;
 
+		if (containerResourcesUpdater != null) {
+			containerResourcesUpdater.interrupt();
+		}
+
 		if (resourceManagerClient != null) {
 			try {
 				resourceManagerClient.stop();
@@ -332,6 +468,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		} else {
 			return terminationFuture;
 		}
+	}
+
+	@Override
+	public void onStart() throws Exception {
+		super.onStart();
+		initTargetContainerResources();
 	}
 
 	@Override
@@ -536,6 +678,23 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		onFatalError(error);
 	}
 
+	@Override
+	public void onContainersUpdated(List<UpdatedContainer> containers) {
+		runAsync(() -> {
+			log.info("Received ContainersUpdate {}", containers);
+			containersUpdated(containers);
+		});
+	}
+
+	@Override
+	public void onContainersUpdateError(List<UpdateContainerError> updateContainerErrors) {
+		runAsync(() -> {
+			log.error("Received ContainersUpdateError {}", updateContainerErrors);
+			containersUpdateError(updateContainerErrors);
+		});
+	}
+
+
 	// ------------------------------------------------------------------------
 	//  Utility methods
 	// ------------------------------------------------------------------------
@@ -680,5 +839,359 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@Override
 	public void onStopContainerError(ContainerId containerId, Throwable throwable) {
 		log.error("Stop container error {}", containerId, throwable);
+	}
+
+	// ------------------------------------------------------------------------
+	//	Smart Resources
+	// ------------------------------------------------------------------------
+
+	private void containersUpdated(List<UpdatedContainer> updatedContainers) {
+		for (UpdatedContainer updatedContainer : updatedContainers) {
+			if (!workerNodeMap.containsKey(getResourceID(updatedContainer.getContainer()))) {
+				log.info("Container {} resources was updated but container has complete",
+					updatedContainer.getContainer().getId());
+				continue;
+			}
+
+			try {
+				Container old = workerNodeMap.get(getResourceID(updatedContainer.getContainer())).getContainer();
+				log.info("[RM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
+					updatedContainer.getContainer().getId(),
+					old.getResource().getMemory(), old.getResource().getVirtualCores(),
+					updatedContainer.getContainer().getResource().getMemory(),
+					updatedContainer.getContainer().getResource().getVirtualCores());
+				nodeManagerClient.updateContainerResource(updatedContainer.getContainer());
+				workerNodeMap.put(getResourceID(updatedContainer.getContainer()),
+					new YarnWorkerNode(updatedContainer.getContainer()));
+				log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
+					old.getId(), old.getResource().getMemory(), old.getResource().getVirtualCores(),
+					updatedContainer.getContainer().getResource().getMemory(),
+					updatedContainer.getContainer().getResource().getVirtualCores());
+			} catch (YarnException | IOException e) {
+				log.error("update container resources error, "
+					+ updatedContainer.getContainer().getId(), e);
+			} catch (Throwable t) {
+				log.error("update container resources error, "
+					+ updatedContainer.getContainer().getId(), t);
+			} finally {
+				pendingUpdating.remove(updatedContainer.getContainer().getId());
+			}
+		}
+	}
+
+	private void containersUpdateError(List<UpdateContainerError> updateContainerErrors) {
+		for (UpdateContainerError updateContainerError : updateContainerErrors) {
+			log.error("Container {} resources update failed, reason: {}",
+				updateContainerError.getUpdateContainerRequest().getContainerId(),
+				updateContainerError.getReason());
+			pendingUpdating.remove(updateContainerError.getUpdateContainerRequest().getContainerId());
+
+			if (updateContainerError.getReason().equals("INCORRECT_CONTAINER_VERSION_ERROR")) {
+				ResourceID resourceID = new ResourceID(updateContainerError.getUpdateContainerRequest().getContainerId().toString());
+				Container currentContainer = workerNodeMap.get(resourceID).getContainer();
+				if (currentContainer != null) {
+					log.info("Container {} version updated, {} -> {}",
+						currentContainer.getId(),
+						currentContainer.getVersion(),
+						updateContainerError.getCurrentContainerVersion());
+					currentContainer.setVersion(updateContainerError.getCurrentContainerVersion());
+				} else {
+					log.info("Container {} has been released",
+						updateContainerError.getUpdateContainerRequest().getContainerId());
+				}
+			}
+		}
+	}
+
+	private void updateContainersResources(UpdateContainersResources updateContainersResources) {
+		log.debug("Receive update resources req: {}", updateContainersResources);
+		ContainerResources newResources = new ContainerResources(updateContainersResources.getMemoryMB(),
+			updateContainersResources.getVcores());
+		if (updateContainersResources.getDurtionMinutes() < this.durtionMinutes) {
+			if (targetResources.getMemoryMB() > newResources.getMemoryMB()) {
+				newResources.setMemoryMB(targetResources.getMemoryMB());
+			}
+			if (targetResources.getVcores() > newResources.getVcores()) {
+				newResources.setVcores(targetResources.getVcores());
+			}
+		}
+
+		if (disableMemAdjust) {
+			newResources.setMemoryMB(targetResources.getMemoryMB());
+		}
+
+		if (!newResources.equals(targetResources)) {
+			if (!StringUtils.isNullOrWhitespaceOnly(srAdjustCheckApi)) {
+				if (System.currentTimeMillis() < srNextCheckTimeMS) {
+					log.info("Resources update check was limited, need later then: {}", srNextCheckTimeMS);
+				} else if (!checkIfCouldUpdateResources(newResources)) {
+					srNextCheckTimeMS = System.currentTimeMillis() + srAdjustCheckBackoffMS;
+					log.warn("Resources update was rejected by sr check api, original: {}, target: {}",
+						targetResources, newResources);
+				} else {
+					log.info("Container resources updated from {} to {}", targetResources,
+						newResources);
+					targetResources = newResources;
+					smartResourcesStats.updateCurrentResources(
+						new SmartResourcesStats.Resources(targetResources.getMemoryMB(), targetResources.getVcores()));
+				}
+			} else {
+				log.info("Container resources updated from {} to {}", targetResources,
+					newResources);
+				targetResources = newResources;
+				smartResourcesStats.updateCurrentResources(
+					new SmartResourcesStats.Resources(targetResources.getMemoryMB(), targetResources.getVcores()));
+			}
+
+		}
+
+		for (Map.Entry<ResourceID, YarnWorkerNode> entry : workerNodeMap.entrySet()){
+			Container container = entry.getValue().getContainer();
+			ContainerId containerId = container.getId();
+
+			if (pendingUpdating.containsKey(containerId) &&
+				pendingUpdating.get(containerId) < System.currentTimeMillis()) {
+				continue;
+			}
+
+			Resource currentResource = container.getResource();
+			if (currentResource.getMemory() == targetResources.getMemoryMB()
+				&& currentResource.getVirtualCores() == targetResources.getVcores()) {
+				continue;
+			}
+
+			UpdateContainerRequest request = null;
+			if (targetResources.getMemoryMB() >= currentResource.getMemory() &&
+				targetResources.getVcores() >= currentResource.getVirtualCores()) {
+				// increase all
+				request = UpdateContainerRequest.newInstance(container.getVersion(),
+					containerId,
+					ContainerUpdateType.INCREASE_RESOURCE,
+					Resource.newInstance(targetResources.getMemoryMB(), targetResources.getVcores()));
+			} else if (targetResources.getMemoryMB() <= currentResource.getMemory() &&
+				targetResources.getVcores() <= currentResource.getVirtualCores()) {
+				// decrease all
+				request = UpdateContainerRequest.newInstance(container.getVersion(),
+					containerId,
+					ContainerUpdateType.DECREASE_RESOURCE,
+					Resource.newInstance(targetResources.getMemoryMB(), targetResources.getVcores()));
+			} else if (targetResources.getMemoryMB() != currentResource.getMemory()) {
+				// increase | decrease memory
+				request = UpdateContainerRequest.newInstance(container.getVersion(),
+					containerId,
+					targetResources.getMemoryMB() > currentResource.getMemory() ?
+						ContainerUpdateType.INCREASE_RESOURCE : ContainerUpdateType.DECREASE_RESOURCE,
+					Resource.newInstance(targetResources.getMemoryMB(), currentResource.getVirtualCores()));
+			} else if (targetResources.getVcores() != currentResource.getVirtualCores()) {
+				// increase | decrease vcores
+				request = UpdateContainerRequest.newInstance(container.getVersion(),
+					containerId,
+					targetResources.getVcores() > currentResource.getVirtualCores() ?
+						ContainerUpdateType.INCREASE_RESOURCE : ContainerUpdateType.DECREASE_RESOURCE,
+					Resource.newInstance(currentResource.getMemory(), targetResources.getVcores()));
+			}
+			try {
+				resourceManagerClient.requestContainerUpdate(container, request);
+				pendingUpdating.put(containerId, System.currentTimeMillis() + resourcesUpdateTimeoutMS);
+				log.info("request update {} resources from ({} MB, {} vcores) to ({} MB, {} vcores)",
+					containerId, currentResource.getMemory(), currentResource.getVirtualCores(),
+					targetResources.getMemoryMB(), targetResources.getVcores());
+			} catch (Throwable t) {
+				log.error("update container resources error", t);
+			}
+		}
+	}
+
+	private boolean checkIfCouldUpdateResources(ContainerResources newResources) {
+		try (CloseableHttpClient client = HttpClients.createDefault()) {
+			HttpGet checkGet = buildSrCheckGet(newResources);
+
+			try (CloseableHttpResponse response = client.execute(checkGet)) {
+				if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+					log.warn("Call sr check api failed, status code: {}",
+						response.getStatusLine().getStatusCode());
+					return false;
+				}
+				String responseJson = EntityUtils.toString(response.getEntity());
+				ObjectMapper objectMapper = new ObjectMapper();
+				JsonNode jsonNode = objectMapper.readTree(responseJson);
+				if (jsonNode.get("allow") == null) {
+					log.warn("Invalid sr check result, {}", responseJson);
+					return false;
+				}
+
+				if (jsonNode.get("allow").asBoolean()) {
+					return true;
+				} else {
+					log.warn("Resources update was rejected by sr check api, original: {}, target: {}, msg: {}",
+						targetResources, newResources, jsonNode.get("msg") != null ? jsonNode.get("msg").asText() : "");
+					return false;
+				}
+			}
+		} catch (Exception e) {
+			log.error("Resources update check error ", e);
+			return false;
+		}
+	}
+
+	private HttpGet buildSrCheckGet(ContainerResources newResources) throws Exception {
+		// srAdjustCheckApi example
+		// http://{service_name}/check or http://127.0.0.1:9613/check
+		// uriPieces -> ["http:", "", "{service_name}", "check"]
+		String[] uriPieces = srAdjustCheckApi.split("/", 4);
+
+		URIBuilder uriBuilder = new URIBuilder();
+
+		uriBuilder.setScheme("http");
+
+		// set host port
+		if (uriPieces[2].startsWith("{")) {
+			// api addrs was configed by service name
+			Discovery discovery = new Discovery();
+			String serviceName = uriPieces[2].replace("{", "").replace("}", "");
+			List<ServiceNode> nodes = discovery.translateOne(serviceName);
+			if (nodes.size() == 0) {
+				throw new Exception("Build SR check url error, no available nodes.");
+			}
+			ServiceNode node = nodes.get(new Random().nextInt(nodes.size()));
+			uriBuilder.setHost(node.getHost())
+				.setPort(node.getPort());
+		} else if (uriPieces[2].indexOf(":") != -1) {
+			// port is configured
+			String[] hostPieces = uriPieces[2].split(":");
+			uriBuilder.setHost(hostPieces[0])
+				.setPort(Integer.parseInt(hostPieces[1]));
+		} else {
+			// use default port 80
+			uriBuilder.setHost(uriPieces[2])
+				.setPort(80);
+		}
+
+		uriBuilder.setPath("/" + uriPieces[3]);
+
+		// set param
+		uriBuilder.addParameter("region", region)
+			.addParameter("cluster", cluster)
+			.addParameter("queue", System.getenv("_FLINK_YARN_QUEUE"))
+			.addParameter("jobname", applicationName)
+			.addParameter("original_tm_num", "" + workerNodeMap.size())
+			.addParameter("original_tm_memory", "" + targetResources.getMemoryMB())
+			.addParameter("original_tm_core", "" + targetResources.getVcores())
+			.addParameter("target_tm_num", "" + workerNodeMap.size())
+			.addParameter("target_tm_memory", "" + newResources.getMemoryMB())
+			.addParameter("target_tm_core", "" + newResources.getVcores());
+
+		URI checkUri = uriBuilder.build();
+		log.info("SR check uri: {}", checkUri);
+
+		HttpGet get = new HttpGet(checkUri);
+		RequestConfig requestConfig = RequestConfig.custom()
+			.setConnectTimeout(srAdjustCheckTimeoutMS)
+			.setConnectionRequestTimeout(1000)
+			.setSocketTimeout(srAdjustCheckTimeoutMS).build();
+		get.setConfig(requestConfig);
+		return get;
+	}
+
+	private boolean validateSrAdjustCheckApi(String srAdjustCheckApi) {
+		if (StringUtils.isNullOrWhitespaceOnly(srAdjustCheckApi)) {
+			return true;
+		}
+
+		String[] apiPieces = srAdjustCheckApi.split("/", 4);
+		if (apiPieces.length != 4) {
+			return false;
+		}
+
+		if (!srAdjustCheckApi.startsWith("http://")) {
+			return false;
+		}
+
+		return true;
+	}
+
+	@Override
+	public CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(Time timeout) {
+		Map<SmartResourcesStats.Resources, Integer> containerStats = new HashMap<>();
+		List<Container> containers = workerNodeMap.values()
+			.stream()
+			.map(YarnWorkerNode::getContainer)
+			.collect(Collectors.toList());
+		for (Container container : containers) {
+			SmartResourcesStats.Resources resources =
+				new SmartResourcesStats.Resources(
+					container.getResource().getMemory(), container.getResource().getVirtualCores());
+			containerStats.put(resources, containerStats.getOrDefault(resources, 0) + 1);
+		}
+		List<SmartResourcesStats.ResourcesCount> resourcesCounts = containerStats.entrySet().stream()
+			.map(entry -> new SmartResourcesStats.ResourcesCount(
+					entry.getKey().getMemoryMB(),
+					entry.getKey().getVcores(),
+					entry.getValue()))
+			.collect(Collectors.toList());
+		smartResourcesStats.setContainersStats(resourcesCounts);
+		return CompletableFuture.completedFuture(smartResourcesStats);
+	}
+
+	private void containerResourcesUpdaterProc() {
+		Thread.currentThread().setName("ContainerResourcesUpdaterProc");
+
+		ResourcesUsage containerMaxResources;
+		ResourcesUsage applicationTotalResources;
+		while (true) {
+			try {
+				Thread.sleep(60000);
+			} catch (InterruptedException e) {
+				return;
+			}
+
+			try {
+				containerMaxResources = estimaterClient.estimateContainerMaxResources(applicationID,
+					durtionMinutes);
+				applicationTotalResources = estimaterClient.estimateApplicationResources(region,
+					cluster, applicationName, durtionMinutes);
+
+				int newMemoryMB = new Double(Math.ceil(containerMaxResources.getMemTotalMB()
+					* (1 + memReserveRatio) / 1024)).intValue() * 1024;
+				newMemoryMB = newMemoryMB > srMemMaxMB ? srMemMaxMB : newMemoryMB;
+
+				int newVcores = 0;
+				if (srCpuEstimateMode.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_FLOOR)) {
+					newVcores = new Double(Math.floor(applicationTotalResources.getCpuTotalVcores()
+						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
+				} else if (srCpuEstimateMode.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_ROUND)) {
+					newVcores = new Long(Math.round(applicationTotalResources.getCpuTotalVcores()
+						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
+				} else if (srCpuEstimateMode.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_CEIL)) {
+					newVcores = new Double(Math.ceil(applicationTotalResources.getCpuTotalVcores()
+						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
+				}
+				newVcores = newVcores > 8 ? 8 : newVcores;
+				newVcores = newVcores == 0 ? 1 : newVcores;
+
+				updateContainersResources(new UpdateContainersResources(newMemoryMB, newVcores,
+					new Long(containerMaxResources.getDurtion()).intValue()));
+			} catch (InterruptedException e) {
+				log.info("estimate application resources interrupted");
+				return;
+			} catch (Throwable e) {
+				log.warn("estimate application resources error", e);
+			}
+		}
+	}
+
+	private void initTargetContainerResources() {
+		int containerMemorySizeMB = this.defaultTaskManagerMemoryMB;
+		final int vcores = this.defaultCpus;
+
+		containerMemorySizeMB = new Double(Math.ceil(containerMemorySizeMB / 1024.0)).intValue() * 1024;
+
+		targetResources = new ContainerResources(containerMemorySizeMB, vcores);
+		smartResourcesStats.setInitialResources(
+			new SmartResourcesStats.Resources(containerMemorySizeMB, vcores));
+	}
+
+	private ResourceID getResourceID(Container container) {
+		return new ResourceID(container.getId().toString());
 	}
 }

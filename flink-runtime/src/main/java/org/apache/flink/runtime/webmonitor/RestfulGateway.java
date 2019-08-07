@@ -31,6 +31,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
 import org.apache.flink.runtime.messages.webmonitor.MultipleJobsDetails;
+import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.dump.MetricQueryService;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
 import org.apache.flink.runtime.rpc.RpcGateway;
@@ -91,6 +92,16 @@ public interface RestfulGateway extends RpcGateway {
 	 * @return Future containing the status overview
 	 */
 	CompletableFuture<ClusterOverview> requestClusterOverview(@RpcTimeout Time timeout);
+
+	/**
+	 * Requests the smart resources stats from the JobManager.
+	 *
+	 * @param timeout for the asynchronous operation
+	 * @return Future containing smart resources stats
+	 */
+	default CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(Time timeout) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Requests the addresses of the {@link MetricQueryService} to query.

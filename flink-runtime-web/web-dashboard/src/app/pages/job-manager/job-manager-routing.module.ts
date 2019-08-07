@@ -22,6 +22,7 @@ import { JobManagerConfigurationComponent } from './configuration/job-manager-co
 import { JobManagerComponent } from './job-manager.component';
 import { JobManagerLogsComponent } from './logs/job-manager-logs.component';
 import { JobManagerStdoutComponent } from './stdout/job-manager-stdout.component';
+import {JobManagerSrComponent} from "./sr/job-manager-sr.component";
 
 const routes: Routes = [
   {
@@ -47,6 +48,13 @@ const routes: Routes = [
         component: JobManagerStdoutComponent,
         data: {
           path: 'stdout'
+        }
+      },
+      {
+        path: 'sr',
+        component: JobManagerSrComponent,
+        data: {
+          path: 'sr'
         }
       },
       {

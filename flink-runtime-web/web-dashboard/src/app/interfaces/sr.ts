@@ -16,19 +16,15 @@
  * limitations under the License.
  */
 
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+export interface Resources {
+  memoryMB: bigint;
+  vcores: bigint;
+}
 
-@Component({
-  selector: 'flink-job-manager',
-  templateUrl: './job-manager.component.html',
-  styleUrls: ['./job-manager.component.less'],
-  changeDetection: ChangeDetectionStrategy.OnPush
-})
-export class JobManagerComponent {
-  listOfNavigation = [
-    { path: 'config', title: 'Configuration' },
-    { path: 'logs', title: 'Logs' },
-    { path: 'stdout', title: 'Stdout' },
-    { path: 'sr', title: 'SmartResource'}
-  ];
+export interface SrResponse {
+  config: Map<string, string>;
+  initialResources: Resources;
+  currentResources: Resources;
+  containersStats: {memoryMB: bigint, vcores: bigint, count: bigint}[];
+  adjustHistory: {time: string, memoryMB: bigint, vcores: bigint}[];
 }

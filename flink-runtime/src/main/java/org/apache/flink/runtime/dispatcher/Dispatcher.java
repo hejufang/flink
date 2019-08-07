@@ -54,6 +54,7 @@ import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.messages.webmonitor.JobsOverview;
 import org.apache.flink.runtime.messages.webmonitor.MultipleJobsDetails;
+import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
@@ -471,6 +472,11 @@ public abstract class Dispatcher extends FencedRpcEndpoint<DispatcherId> impleme
 				final JobsOverview allJobsOverview = JobsOverview.create(runningJobsStatus).combine(completedJobsOverview);
 				return new ClusterOverview(resourceOverview, allJobsOverview);
 			});
+	}
+
+	@Override
+	public CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(Time timeout) {
+		return runResourceManagerCommand(resourceManagerGateway -> resourceManagerGateway.requestSmartResourcesStats(timeout));
 	}
 
 	@Override

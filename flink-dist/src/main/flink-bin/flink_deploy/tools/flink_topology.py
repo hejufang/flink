@@ -219,7 +219,8 @@ class FlinkTopology(object):
         return FlinkResource.create_by_dict(resource_args)
 
     def update_resources_if_sr_enabled(self):
-        if not self.sr_args.get("enable_smart_resources", False):
+        if not self.sr_args.get("enable_on_startup") and \
+            not self.sr_args.get("enable_smart_resources", False):
             return self.flink_resource
 
         resource_args = self.user_yaml_conf.get(self.FLINK_RESOURCE_KEY)
@@ -251,8 +252,6 @@ class FlinkTopology(object):
         except Exception as e:
             print green(
                 "sr update resource config error, use default\n" + e.message)
-            msg = traceback.format_exc()
-            print green(msg)
             return resource_args
 
         if new_resources_config:
