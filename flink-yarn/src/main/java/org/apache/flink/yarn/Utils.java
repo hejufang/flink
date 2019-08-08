@@ -734,7 +734,7 @@ public final class Utils {
 	 *                {@link String#format(String, Object...)}.
 	 * @param values The format arguments.
 	 */
-	static void require(boolean condition, String message, Object... values) {
+	public static void require(boolean condition, String message, Object... values) {
 		if (!condition) {
 			throw new RuntimeException(String.format(message, values));
 		}

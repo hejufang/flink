@@ -24,6 +24,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.client.deployment.ClusterDeploymentException;
 import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClient;
@@ -285,10 +286,9 @@ public class CliFrontend {
 			PackagedProgram program) throws ProgramInvocationException, FlinkException {
 		final ClusterDescriptor<T> clusterDescriptor = customCommandLine.createClusterDescriptor(commandLine);
 
+		ClusterClient<T> client = null;
 		try {
 			final T clusterId = customCommandLine.getClusterId(commandLine);
-
-			final ClusterClient<T> client;
 
 			// directly deploy the job if the cluster is started in job mode and detached
 			if (clusterId == null && runOptions.getDetachedMode()) {
@@ -361,6 +361,19 @@ public class CliFrontend {
 					}
 				}
 			}
+		} catch (ClusterDeploymentException e) {
+			LOG.error("Error occured while deploy Yarn session cluster", e);
+			if (client != null) {
+				LOG.info("client is not null, try to shut it down.");
+				try {
+					client.shutdown();
+				} catch (Exception e1) {
+					LOG.info("Could not properly shut down the client.", e1);
+				}
+			} else {
+				LOG.info("Client is null.");
+			}
+			System.exit(-1);
 		} finally {
 			try {
 				clusterDescriptor.close();
