@@ -80,7 +80,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryTestBase extends TestLo
 			new JsonRowSerializationSchema(schema.toRowType()),
 			XContentType.JSON,
 			new DummyFailureHandler(),
-			createTestSinkOptions());
+			createTestSinkOptions(),
+			new int[0]);
 
 		// construct table sink using descriptors and table sink factory
 
@@ -159,7 +160,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryTestBase extends TestLo
 		SerializationSchema<Row> serializationSchema,
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
-		Map<SinkOption, String> sinkOptions);
+		Map<SinkOption, String> sinkOptions,
+		int[] keyFieldIndices);
 
 	// --------------------------------------------------------------------------------------------
 	// Helper classes

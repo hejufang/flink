@@ -44,6 +44,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_DOCUMENT_TYPE = "connector.document-type";
 	public static final String CONNECTOR_KEY_DELIMITER = "connector.key-delimiter";
 	public static final String CONNECTOR_KEY_NULL_LITERAL = "connector.key-null-literal";
+	public static final String CONNECTOR_KEY_FIELD_INDICES = "connector.key-field-indices";
 	public static final String CONNECTOR_FAILURE_HANDLER = "connector.failure-handler";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_FAIL = "fail";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE = "ignore";
@@ -62,6 +63,11 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_BULK_FLUSH_BACKOFF_DELAY = "connector.bulk-flush.backoff.delay";
 	public static final String CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT = "connector.connection-max-retry-timeout";
 	public static final String CONNECTOR_CONNECTION_PATH_PREFIX = "connector.connection-path-prefix";
+	public static final String CONNECTOR_CONNECTION_CONSUL = "connector.connection-consul";
+	public static final String CONNECTOR_CONNECTION_HTTP_SCHEMA = "connector.connection-http-schema";
+	public static final String CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG = "connector.connection-enable-password-config";
+	public static final String CONNECTOR_CONNECTION_USERNAME = "connector.connection-username";
+	public static final String CONNECTOR_CONNECTION_PASSWORD = "connector.connection-password";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -84,10 +90,10 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 
 	private void validateHosts(DescriptorProperties properties) {
 		final Map<String, Consumer<String>> hostsValidators = new HashMap<>();
-		hostsValidators.put(CONNECTOR_HOSTS_HOSTNAME, (key) -> properties.validateString(key, false, 1));
-		hostsValidators.put(CONNECTOR_HOSTS_PORT, (key) -> properties.validateInt(key, false, 0, 65535));
-		hostsValidators.put(CONNECTOR_HOSTS_PROTOCOL, (key) -> properties.validateString(key, false, 1));
-		properties.validateFixedIndexedProperties(CONNECTOR_HOSTS, false, hostsValidators);
+		hostsValidators.put(CONNECTOR_HOSTS_HOSTNAME, (key) -> properties.validateString(key, true, 1));
+		hostsValidators.put(CONNECTOR_HOSTS_PORT, (key) -> properties.validateInt(key, true, 0, 65535));
+		hostsValidators.put(CONNECTOR_HOSTS_PROTOCOL, (key) -> properties.validateString(key, true, 1));
+		properties.validateFixedIndexedProperties(CONNECTOR_HOSTS, true, hostsValidators);
 	}
 
 	private void validateGeneralProperties(DescriptorProperties properties) {
@@ -95,6 +101,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_DOCUMENT_TYPE, false, 1);
 		properties.validateString(CONNECTOR_KEY_DELIMITER, true);
 		properties.validateString(CONNECTOR_KEY_NULL_LITERAL, true);
+		properties.validateString(CONNECTOR_KEY_FIELD_INDICES, true);
 	}
 
 	private void validateFailureHandler(DescriptorProperties properties) {
@@ -125,5 +132,10 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	private void validateConnectionProperties(DescriptorProperties properties) {
 		properties.validateInt(CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT, true, 1);
 		properties.validateString(CONNECTOR_CONNECTION_PATH_PREFIX, true);
+		properties.validateString(CONNECTOR_CONNECTION_CONSUL, true);
+		properties.validateString(CONNECTOR_CONNECTION_HTTP_SCHEMA, true);
+		properties.validateString(CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG, true);
+		properties.validateString(CONNECTOR_CONNECTION_USERNAME, true);
+		properties.validateString(CONNECTOR_CONNECTION_PASSWORD, true);
 	}
 }

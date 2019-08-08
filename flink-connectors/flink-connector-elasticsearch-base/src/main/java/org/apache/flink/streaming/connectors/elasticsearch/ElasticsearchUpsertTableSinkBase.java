@@ -96,7 +96,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	private final RequestFactory requestFactory;
 
 	/** Key field indices determined by the query. */
-	private int[] keyFieldIndices = new int[0];
+	private int[] keyFieldIndices;
 
 	public ElasticsearchUpsertTableSinkBase(
 			boolean isAppendOnly,
@@ -110,11 +110,12 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
-			RequestFactory requestFactory) {
+			RequestFactory requestFactory,
+			int[] keyFieldIndices) {
 
 		this.isAppendOnly = isAppendOnly;
 		this.schema = Preconditions.checkNotNull(schema);
-		this.hosts = Preconditions.checkNotNull(hosts);
+		this.hosts = hosts;
 		this.index = Preconditions.checkNotNull(index);
 		this.keyDelimiter = Preconditions.checkNotNull(keyDelimiter);
 		this.keyNullLiteral = Preconditions.checkNotNull(keyNullLiteral);
@@ -124,10 +125,16 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		this.failureHandler = Preconditions.checkNotNull(failureHandler);
 		this.sinkOptions = Preconditions.checkNotNull(sinkOptions);
 		this.requestFactory = Preconditions.checkNotNull(requestFactory);
+		this.keyFieldIndices = keyFieldIndices;
 	}
 
 	@Override
 	public void setKeyFields(String[] keyNames) {
+		//user had defined the key fields indices
+		if (this.keyFieldIndices.length > 0) {
+			return;
+		}
+
 		if (keyNames == null) {
 			this.keyFieldIndices = new int[0];
 			return;
@@ -228,7 +235,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			contentType,
 			failureHandler,
 			sinkOptions,
-			requestFactory);
+			requestFactory,
+			keyFieldIndices);
 	}
 
 	@Override
@@ -285,7 +293,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
-		RequestFactory requestFactory);
+		RequestFactory requestFactory,
+		int[] keyFieldIndices);
 
 	protected abstract SinkFunction<Tuple2<Boolean, Row>> createSinkFunction(
 		List<Host> hosts,
@@ -329,7 +338,21 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		BULK_FLUSH_BACKOFF_RETRIES,
 		BULK_FLUSH_BACKOFF_DELAY,
 		REST_MAX_RETRY_TIMEOUT,
-		REST_PATH_PREFIX
+		REST_PATH_PREFIX,
+
+		/**
+		 * support bytedance consul.
+		 */
+		CONSUL,
+		HTTP_SCHEMA,
+
+		/**
+		 * support password config.
+		 */
+		ENABLE_PASSWORD_CONFIG,
+		USERNAME,
+		PASSWORD
+
 	}
 
 	/**
