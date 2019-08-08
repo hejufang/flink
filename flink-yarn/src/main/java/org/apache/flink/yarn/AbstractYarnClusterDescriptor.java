@@ -1692,6 +1692,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			ConfigConstants.FLINK_LOG_LAYOUT_DEFAULT);
 		javaOpts += " -Dlog.layout=\\\"" + logLayout + "\\\"";
 
+		// set databus channel
+		String databusChannel = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+		javaOpts += " -Dlog.databus.channel=" + databusChannel;
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {

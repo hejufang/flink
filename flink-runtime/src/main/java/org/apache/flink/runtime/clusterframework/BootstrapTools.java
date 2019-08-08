@@ -494,6 +494,11 @@ public class BootstrapTools {
 			}
 		}
 
+		// databus channel configuration for log collection.
+		String databusChannel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+		logging += " -Dlog.databus.channel=" + databusChannel;
+
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());
 		startCommandValues.put("redirects",

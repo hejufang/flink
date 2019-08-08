@@ -2103,6 +2103,10 @@ public final class ConfigConstants {
 	/** Configuration key for subset of subscribed partition list. */
 	public static final String PARTITION_LIST_KEY = "partition.list";
 
+	// ---------------------------- Log4j Configurations --------------------------
+	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
+	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "yarn_container_level_log";
+
 	/**
 	 * Not instantiable.
 	 */
