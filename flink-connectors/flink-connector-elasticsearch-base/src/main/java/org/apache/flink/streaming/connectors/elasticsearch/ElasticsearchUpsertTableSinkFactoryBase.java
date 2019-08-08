@@ -259,7 +259,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		}
 	}
 
-	private Map<SinkOption, String> getSinkOptions(DescriptorProperties descriptorProperties) {
+	protected Map<SinkOption, String> getSinkOptions(DescriptorProperties descriptorProperties) {
 		final Map<SinkOption, String> options = new HashMap<>();
 
 		descriptorProperties.getOptionalBoolean(CONNECTOR_FLUSH_ON_CHECKPOINT)
