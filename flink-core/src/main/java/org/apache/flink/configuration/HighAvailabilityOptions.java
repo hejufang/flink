@@ -178,6 +178,20 @@ public class HighAvailabilityOptions {
 			.withDeprecatedKeys("recovery.zookeeper.client.connection-timeout")
 			.withDescription("Defines the connection timeout for ZooKeeper in ms.");
 
+	public static final ConfigOption<Integer> JOB_UNIQUE_ZOOKEEPER_SESSION_TIMEOUT =
+		key("job.unique.zookeeper.client.session-timeout")
+			.defaultValue(10000)
+			.withDeprecatedKeys("recovery.zookeeper.client.session-timeout")
+			.withDescription("Defines the session timeout for the ZooKeeper session while checking" +
+				"job uniqueness.");
+
+	public static final ConfigOption<Integer> JOB_UNIQUE_ZOOKEEPER_CONNECTION_TIMEOUT =
+		key("job.unique.zookeeper.client.connection-timeout")
+			.defaultValue(15000)
+			.withDeprecatedKeys("recovery.zookeeper.client.connection-timeout")
+			.withDescription("Defines the connection timeout for ZooKeeper while checking " +
+				"job uniqueness.");
+
 	public static final ConfigOption<Integer> ZOOKEEPER_RETRY_WAIT =
 			key("high-availability.zookeeper.client.retry-wait")
 			.defaultValue(5000)

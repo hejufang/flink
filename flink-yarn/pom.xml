@@ -59,6 +59,13 @@ under the License.
 			<version>${hadoop.version}-${flink.shaded.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>org.apache.curator</groupId>
+			<artifactId>curator-recipes</artifactId>
+			<version>${curator.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
 		<!-- test dependencies -->
 
 		<dependency>
