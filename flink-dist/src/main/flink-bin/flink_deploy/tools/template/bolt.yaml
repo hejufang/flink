@@ -1,15 +1,12 @@
 - thread_num :  2
   bolt_name : {{bolt_name}}
-  script_name : /opt/tiger/ss_lib/pytopology/runner/{{bolt_type}}.py
+  script_name : /opt/tiger/pyFlink/pytopology/runner/{{bolt_type}}.py
   #eg: output_fields : ["field1"]
   output_fields :
-  group_list: {%if bolt_name == "helloworld"%}
-    #group_type value range : shuffle, fields, all
-    #eg: group_type : "fields"
-    - group_type : 'shuffle'{% else %}
-    - group_type : 'shuffle'{% end %}
-      group_field : {%if bolt_name == "helloworld"%}
-      #eg: stream_from : ["spout_name1", "bolt_name1"]
-      stream_from : [{{spouts[0]}}] {% else %}
-      stream_from : {% end %}
+  group_list:
+    #group_type value range : rescale, shuffle, keyby, forword, rebalance
+    #eg: group_type : "rescale"
+    - group_type : 'rescale'
+      group_field :
+      stream_from : ["spout_name1"]
   args:

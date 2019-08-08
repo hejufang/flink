@@ -45,11 +45,13 @@ class TopologyBuilder(object):
 
         yaml_name = "topology_%s.yaml" % mode
         topology_name = self.topology_name
+        is_test = "0"
         if mode == "test":
             topology_name = self.topology_name + "_test"
+            is_test = "1"
 
         obj = self.loader.load("topology.yaml")
-        data = obj.generate(topology_name=topology_name)
+        data = obj.generate(topology_name=topology_name, is_test=is_test)
         yaml_file = self.get_working_path(yaml_name)
 
         with open(yaml_file, "w") as out:
