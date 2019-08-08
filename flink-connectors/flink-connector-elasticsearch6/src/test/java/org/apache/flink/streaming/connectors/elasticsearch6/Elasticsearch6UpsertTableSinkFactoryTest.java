@@ -73,7 +73,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			new JsonRowSerializationSchema(schema.toRowType()),
 			XContentType.JSON,
 			new DummyFailureHandler(),
-			createTestSinkOptions());
+			createTestSinkOptions(),
+			new int[0]);
 
 		final DataStreamMock dataStreamMock = new DataStreamMock(
 				new StreamExecutionEnvironmentMock(),
@@ -122,7 +123,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			SerializationSchema<Row> serializationSchema,
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
-			Map<SinkOption, String> sinkOptions) {
+			Map<SinkOption, String> sinkOptions,
+			int[] keyFieldIndices) {
 		return new Elasticsearch6UpsertTableSink(
 			isAppendOnly,
 			schema,
@@ -134,7 +136,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			serializationSchema,
 			contentType,
 			failureHandler,
-			sinkOptions);
+			sinkOptions,
+			keyFieldIndices);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -156,7 +159,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				SerializationSchema<Row> serializationSchema,
 				XContentType contentType,
 				ActionRequestFailureHandler failureHandler,
-				Map<SinkOption, String> sinkOptions) {
+				Map<SinkOption, String> sinkOptions,
+				int[] keyFieldIndices) {
 
 			super(
 				isAppendOnly,
@@ -169,7 +173,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				serializationSchema,
 				contentType,
 				failureHandler,
-				sinkOptions);
+				sinkOptions,
+				keyFieldIndices);
 		}
 
 		@Override

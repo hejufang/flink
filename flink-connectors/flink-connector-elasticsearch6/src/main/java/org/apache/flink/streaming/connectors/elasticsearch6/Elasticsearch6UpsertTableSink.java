@@ -30,7 +30,14 @@ import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTa
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
 
+import com.bytedance.commons.consul.Discovery;
+import com.bytedance.commons.consul.ServiceNode;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -38,7 +45,10 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import javax.annotation.Nullable;
+import javax.net.ssl.SSLContext;
 
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -52,9 +62,14 @@ import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchU
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_INTERVAL;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_SIZE;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.CONSUL;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.DISABLE_FLUSH_ON_CHECKPOINT;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.ENABLE_PASSWORD_CONFIG;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.HTTP_SCHEMA;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.PASSWORD;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.REST_MAX_RETRY_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.REST_PATH_PREFIX;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.USERNAME;
 
 /**
  * Version-specific upsert table sink for Elasticsearch 6.
@@ -67,17 +82,18 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		new Elasticsearch6RequestFactory();
 
 	public Elasticsearch6UpsertTableSink(
-			boolean isAppendOnly,
-			TableSchema schema,
-			List<Host> hosts,
-			String index,
-			String docType,
-			String keyDelimiter,
-			String keyNullLiteral,
-			SerializationSchema<Row> serializationSchema,
-			XContentType contentType,
-			ActionRequestFailureHandler failureHandler,
-			Map<SinkOption, String> sinkOptions) {
+		boolean isAppendOnly,
+		TableSchema schema,
+		List<Host> hosts,
+		String index,
+		String docType,
+		String keyDelimiter,
+		String keyNullLiteral,
+		SerializationSchema<Row> serializationSchema,
+		XContentType contentType,
+		ActionRequestFailureHandler failureHandler,
+		Map<SinkOption, String> sinkOptions,
+		int[] keyFieldIndices) {
 
 		super(
 			isAppendOnly,
@@ -91,23 +107,25 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			contentType,
 			failureHandler,
 			sinkOptions,
-			UPDATE_REQUEST_FACTORY);
+			UPDATE_REQUEST_FACTORY,
+			keyFieldIndices);
 	}
 
 	@Override
 	protected ElasticsearchUpsertTableSinkBase copy(
-			boolean isAppendOnly,
-			TableSchema schema,
-			List<Host> hosts,
-			String index,
-			String docType,
-			String keyDelimiter,
-			String keyNullLiteral,
-			SerializationSchema<Row> serializationSchema,
-			XContentType contentType,
-			ActionRequestFailureHandler failureHandler,
-			Map<SinkOption, String> sinkOptions,
-			RequestFactory requestFactory) {
+		boolean isAppendOnly,
+		TableSchema schema,
+		List<Host> hosts,
+		String index,
+		String docType,
+		String keyDelimiter,
+		String keyNullLiteral,
+		SerializationSchema<Row> serializationSchema,
+		XContentType contentType,
+		ActionRequestFailureHandler failureHandler,
+		Map<SinkOption, String> sinkOptions,
+		RequestFactory requestFactory,
+		int[] keyFieldIndices) {
 
 		return new Elasticsearch6UpsertTableSink(
 			isAppendOnly,
@@ -120,7 +138,8 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			serializationSchema,
 			contentType,
 			failureHandler,
-			sinkOptions);
+			sinkOptions,
+			keyFieldIndices);
 	}
 
 	@Override
@@ -130,9 +149,28 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			Map<SinkOption, String> sinkOptions,
 			ElasticsearchUpsertSinkFunction upsertSinkFunction) {
 
-		final List<HttpHost> httpHosts = hosts.stream()
-			.map((host) -> new HttpHost(host.hostname, host.port, host.protocol))
-			.collect(Collectors.toList());
+		List<HttpHost> httpHosts = new ArrayList<>();
+
+		String consul = sinkOptions.get(CONSUL);
+		String httpSchema = sinkOptions.getOrDefault(HTTP_SCHEMA, "http");
+
+		if (consul == null) {
+			httpHosts = hosts.stream()
+				.map((host) -> new HttpHost(host.hostname, host.port, host.protocol))
+				.collect(Collectors.toList());
+		}
+		else {
+			List<ServiceNode> serverNodeList = new Discovery().translateOne(consul);
+			if (serverNodeList == null || serverNodeList.size() < 1) {
+				throw new RuntimeException("No host for consul");
+			}
+			for (int i = 0; i < serverNodeList.size(); i++) {
+				ServiceNode serviceNode = serverNodeList.get(i);
+				String host = serviceNode.getHost();
+				int port = serviceNode.getPort();
+				httpHosts.add(new HttpHost(host, port, httpSchema));
+			}
+		}
 
 		final ElasticsearchSink.Builder<Tuple2<Boolean, Row>> builder = createBuilder(upsertSinkFunction, httpHosts);
 
@@ -159,12 +197,24 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		Optional.ofNullable(sinkOptions.get(BULK_FLUSH_BACKOFF_DELAY))
 			.ifPresent(v -> builder.setBulkFlushBackoffDelay(Long.valueOf(v)));
 
-		builder.setRestClientFactory(
-			new DefaultRestClientFactory(
-				Optional.ofNullable(sinkOptions.get(REST_MAX_RETRY_TIMEOUT))
-					.map(Integer::valueOf)
-					.orElse(null),
-				sinkOptions.get(REST_PATH_PREFIX)));
+		DefaultRestClientFactory restClientFactory = new DefaultRestClientFactory(
+			Optional.ofNullable(sinkOptions.get(REST_MAX_RETRY_TIMEOUT))
+				.map(Integer::valueOf)
+				.orElse(null),
+			sinkOptions.get(REST_PATH_PREFIX));
+
+		Optional.ofNullable(sinkOptions.get(ENABLE_PASSWORD_CONFIG))
+			.ifPresent(v -> {
+				if (Boolean.valueOf(v)) {
+					restClientFactory.configPasswordSettings(
+						Boolean.valueOf(sinkOptions.get(ENABLE_PASSWORD_CONFIG)),
+						sinkOptions.get(USERNAME),
+						sinkOptions.get(PASSWORD)
+					);
+				}
+			});
+
+		builder.setRestClientFactory(restClientFactory);
 
 		final ElasticsearchSink<Tuple2<Boolean, Row>> sink = builder.build();
 
@@ -198,9 +248,22 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		private Integer maxRetryTimeout;
 		private String pathPrefix;
 
+		/**
+		 * password settings.
+		 */
+		private boolean enablePasswordConfig;
+		private String userName;
+		private String password;
+
 		public DefaultRestClientFactory(@Nullable Integer maxRetryTimeout, @Nullable String pathPrefix) {
 			this.maxRetryTimeout = maxRetryTimeout;
 			this.pathPrefix = pathPrefix;
+		}
+
+		public void configPasswordSettings(boolean enablePasswordConfig, String userName, String password) {
+			this.enablePasswordConfig = enablePasswordConfig;
+			this.userName = userName;
+			this.password = password;
 		}
 
 		@Override
@@ -210,6 +273,22 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			}
 			if (pathPrefix != null) {
 				restClientBuilder.setPathPrefix(pathPrefix);
+			}
+
+			if (enablePasswordConfig) {
+				try {
+					SSLContext sslContext = SSLContext.getInstance("TLS");
+					final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+					credentialsProvider.setCredentials(AuthScope.ANY,
+						new UsernamePasswordCredentials(userName, password));
+					restClientBuilder.setHttpClientConfigCallback(httpClientBuilder ->
+						httpClientBuilder
+							.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER)
+							.setDefaultCredentialsProvider(credentialsProvider)
+							.setSSLContext(sslContext));
+				} catch (NoSuchAlgorithmException e) {
+					throw new RuntimeException(e);
+				}
 			}
 		}
 

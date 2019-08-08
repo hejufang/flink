@@ -36,8 +36,13 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_SIZE;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_CONSUL;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_HTTP_SCHEMA;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_PASSWORD;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_PATH_PREFIX;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_USERNAME;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_DOCUMENT_TYPE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_CLASS;
@@ -48,6 +53,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_PROTOCOL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_INDEX;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_DELIMITER;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_FIELD_INDICES;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_NULL_LITERAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_TYPE_VALUE_ELASTICSEARCH;
 
@@ -133,6 +139,15 @@ public class Elasticsearch extends ConnectorDescriptor {
 	 */
 	public Elasticsearch keyNullLiteral(String keyNullLiteral) {
 		internalProperties.putString(CONNECTOR_KEY_NULL_LITERAL, keyNullLiteral);
+		return this;
+	}
+
+	public Elasticsearch keyFieldIndices(int[] keyFieldIndices) {
+		if (keyFieldIndices == null) {
+			return this;
+		}
+		String indicesString = Arrays.stream(keyFieldIndices).mapToObj(String::valueOf).collect(Collectors.joining(","));
+		internalProperties.putString(CONNECTOR_KEY_FIELD_INDICES, indicesString);
 		return this;
 	}
 
@@ -298,6 +313,31 @@ public class Elasticsearch extends ConnectorDescriptor {
 	 */
 	public Elasticsearch connectionPathPrefix(String pathPrefix) {
 		internalProperties.putString(CONNECTOR_CONNECTION_PATH_PREFIX, pathPrefix);
+		return this;
+	}
+
+	public Elasticsearch connectionConsul(String consul) {
+		internalProperties.putString(CONNECTOR_CONNECTION_CONSUL, consul);
+		return this;
+	}
+
+	public Elasticsearch connectionHttpSchema(String httpSchema) {
+		internalProperties.putString(CONNECTOR_CONNECTION_HTTP_SCHEMA, httpSchema);
+		return this;
+	}
+
+	public Elasticsearch connectionEnablePasswordConfig(boolean enablePasswordConfig) {
+		internalProperties.putBoolean(CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG, enablePasswordConfig);
+		return this;
+	}
+
+	public Elasticsearch connectionUsername(String username) {
+		internalProperties.putString(CONNECTOR_CONNECTION_USERNAME, username);
+		return this;
+	}
+
+	public Elasticsearch connectionPassword(String password) {
+		internalProperties.putString(CONNECTOR_CONNECTION_PASSWORD, password);
 		return this;
 	}
 
