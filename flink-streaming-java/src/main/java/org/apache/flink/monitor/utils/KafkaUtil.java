@@ -35,6 +35,7 @@ public class KafkaUtil {
 	private static final String TOPIC_RELATED_METRIC_PREFIX = "topic_related_metric_prefix";
 	private static final Logger LOG = LoggerFactory.getLogger(KafkaUtil.class);
 	private static final int MAX_RETRY_TIMES = 3;
+	private static final String METRICS_SEPARATOR = ",";
 
 	/**
 	 * @return Kafka topic prefix. Return null if there is something wrong.
@@ -57,7 +58,12 @@ public class KafkaUtil {
 				JSONObject json = (JSONObject) parser.parse(resStr);
 				JSONObject kafkaMetricPrefix =
 					(JSONObject) json.getOrDefault(CLUSTER_METRICS_PREFIX_KEY, new JSONObject());
-				return (String) kafkaMetricPrefix.get(TOPIC_RELATED_METRIC_PREFIX);
+				String topicMetricPrefix =
+					(String) kafkaMetricPrefix.get(TOPIC_RELATED_METRIC_PREFIX);
+				if (topicMetricPrefix != null && topicMetricPrefix.contains(METRICS_SEPARATOR)) {
+					topicMetricPrefix = topicMetricPrefix.split(METRICS_SEPARATOR)[0];
+				}
+				return topicMetricPrefix;
 			} catch (IOException | ParseException e) {
 				LOG.warn("Failed to get kafka topic prefix. kafka cluster = {}, " +
 					"kafkaServerUrl = {}", cluster, kafkaServerUrl, e);
