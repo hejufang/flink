@@ -39,6 +39,7 @@ import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 
+import com.bytedance.btrace.ByteTrace;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.slf4j.Logger;
@@ -76,6 +77,8 @@ public class YarnTaskExecutorRunner {
 		EnvironmentInformation.logEnvironmentInfo(LOG, "YARN TaskExecutor runner", args);
 		SignalHandler.register(LOG);
 		JvmShutdownSafeguard.installAsShutdownHook(LOG);
+
+		ByteTrace.initialize(System.getenv(), null, null, null);
 
 		run(args);
 	}

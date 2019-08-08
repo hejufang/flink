@@ -35,6 +35,7 @@ import org.apache.flink.yarn.YarnConfigKeys;
 import org.apache.flink.yarn.ZkUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
+import com.bytedance.btrace.ByteTrace;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.zookeeper.CreateMode;
@@ -133,6 +134,8 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 		JvmShutdownSafeguard.installAsShutdownHook(LOG);
 
 		Map<String, String> env = System.getenv();
+
+		ByteTrace.initialize(env, null, null, null);
 
 		final String workingDirectory = env.get(ApplicationConstants.Environment.PWD.key());
 		Preconditions.checkArgument(

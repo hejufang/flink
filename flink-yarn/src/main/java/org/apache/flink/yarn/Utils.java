@@ -50,6 +50,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
+import org.apache.hadoop.yarn.util.BtraceUtil;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
@@ -590,6 +591,7 @@ public final class Utils {
 		// Add environment params to TM appMasterEnv for docker mode.
 		setDockerEnv(flinkConfig, containerEnv);
 
+		BtraceUtil.attachToEnv(containerEnv, null);
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.
