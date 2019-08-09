@@ -588,6 +588,14 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
 		}
 
+		containerEnv.put(YarnConfigKeys.ENV_SPT_NOENV,
+			env.get(YarnConfigKeys.ENV_SPT_NOENV));
+
+		String jobName = env.get(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME);
+		if (jobName != null) {
+			containerEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
+		}
+
 		// Add environment params to TM appMasterEnv for docker mode.
 		setDockerEnv(flinkConfig, containerEnv);
 

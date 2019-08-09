@@ -118,6 +118,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	private static final String LD_LIBRARY_PATH = "/opt/tiger/ss_lib/so:" +
 		"/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib";
 
+	private static final String SPT_NOENV = "ANY_VALUE_BUT_EMPTY";
+
 	private final YarnConfiguration yarnConfiguration;
 
 	private final YarnClient yarnClient;
@@ -1032,6 +1034,15 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			LOG.info("{} = {}", ConfigConstants.PARTITION_LIST_KEY, partitionList);
 		}
 
+		appMasterEnv.put(YarnConfigKeys.ENV_SPT_NOENV, SPT_NOENV);
+
+		boolean enableCoreDump = flinkConfiguration.getBoolean(ConfigConstants.ENABLE_CORE_DUMP_KEY,
+			ConfigConstants.DEFAULT_ENABLE_CORE_DUMP);
+		String jobName = getJobName();
+		if (enableCoreDump && jobName != null && !jobName.isEmpty()) {
+			appMasterEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
+		}
+
 		// Add environment params to AM appMasterEnv for docker mode.
 		Utils.setDockerEnv(flinkConfiguration, appMasterEnv);
 		String realDockerImage =
@@ -1167,6 +1178,18 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		ShutdownHookUtil.removeShutdownHook(deploymentFailureHook, getClass().getSimpleName(), LOG);
 		return report;
 	}
+
+	private String getJobName () {
+		try {
+			int index = customName.lastIndexOf("_");
+			String jobName = this.customName.substring(0, index);
+			return jobName;
+		} catch (Exception e) {
+			LOG.warn("Failed to get job name from jar.");
+		}
+		return null;
+	}
+
 
 	/**
 	 * Returns the Path where the YARN application files should be uploaded to.
