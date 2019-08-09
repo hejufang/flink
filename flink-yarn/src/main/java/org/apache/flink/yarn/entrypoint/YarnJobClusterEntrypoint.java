@@ -18,6 +18,7 @@
 
 package org.apache.flink.yarn.entrypoint;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
@@ -98,7 +99,7 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 		client.start();
 		String dc = config.getString("dc", null);
 		require(dc != null && !dc.isEmpty(), "Dc not set.");
-		String cluster = config.getString("cluster", null);
+		String cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
 		require(cluster != null && !cluster.isEmpty(), "Cluster not set.");
 		String appName = System.getenv().get(YarnConfigKeys.ENV_FLINK_YARN_JOB);
 		require(appName != null && !appName.isEmpty(), "AppName not set.");
@@ -159,6 +160,7 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 		try {
 			checkJobUnique(client, configuration);
 		} catch (Exception e) {
+			LOG.error("error while check job unique", e);
 			System.exit(-1);
 		}
 		yarnJobClusterEntrypoint.getTerminationFuture().whenComplete(((applicationStatus, throwable) -> {

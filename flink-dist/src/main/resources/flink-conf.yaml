@@ -42,6 +42,7 @@ common:
 
   yarn.containers.vcores : 0
   yarn.application-attempts: 5
+  yarn.application-attempt-failures-validity-interval: 3600000
 
   job.work.dir: ${hdfs.prefix}/${clusterName}/1.9/
 
