@@ -82,6 +82,8 @@ public class YarnConfigKeys {
 	public static final String DOCKER_VERSION_URL_TEMPLATE_DEFAULT =
 		"http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s";
 	public static final String DOCKER_HTTP_HEADER_AUTHORIZATION_KEY = "Authorization";
+	public static final String ENV_SPT_NOENV = "SPT_NOENV";
+	public static final String ENV_CORE_DUMP_PROC_NAME = "CORE_DUMP_PROC_NAME";
 
 	// ------------------------------------------------------------------------
 

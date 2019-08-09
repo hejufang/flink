@@ -1622,6 +1622,16 @@ public final class ConfigConstants {
 	@Deprecated
 	public static final boolean DEFAULT_MESOS_ARTIFACT_SERVER_SSL_ENABLED = true;
 
+	/**
+	 * Key of enabling core dump.
+	 */
+	public static final String ENABLE_CORE_DUMP_KEY = "enable.core.dump";
+
+	/**
+	 * Default value of enabling core dump.
+	 */
+	public static final boolean DEFAULT_ENABLE_CORE_DUMP = false;
+
 	// ------------------------ File System Behavior ------------------------
 
 	/**
