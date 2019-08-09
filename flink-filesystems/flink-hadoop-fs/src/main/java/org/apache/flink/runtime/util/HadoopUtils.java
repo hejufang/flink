@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.util;
 
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.hadoop.conf.Configuration;
@@ -108,6 +109,10 @@ public class HadoopUtils {
 			LOG.debug("Could not find Hadoop configuration via any of the supported methods " +
 				"(Flink configuration, environment variables).");
 		}
+
+		int retries = flinkConfiguration.getInteger(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES);
+		result.setInt(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
+		LOG.info("using hdfs param {}={}", HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
 
 		return result;
 	}
