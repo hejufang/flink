@@ -104,6 +104,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.channels.UnresolvedAddressException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -687,7 +688,8 @@ public class RestClusterClient<T> extends ClusterClient<T> implements NewCluster
 			ExceptionUtils.findThrowable(throwable, java.net.ConnectException.class).isPresent() ||
 				ExceptionUtils.findThrowable(throwable, java.net.SocketTimeoutException.class).isPresent() ||
 				ExceptionUtils.findThrowable(throwable, ConnectTimeoutException.class).isPresent() ||
-				ExceptionUtils.findThrowable(throwable, IOException.class).isPresent();
+				ExceptionUtils.findThrowable(throwable, IOException.class).isPresent() ||
+				ExceptionUtils.findThrowable(throwable, UnresolvedAddressException.class).isPresent();
 	}
 
 	private static Predicate<Throwable> isServiceUnavailable() {
