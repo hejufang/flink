@@ -95,44 +95,43 @@ class StreamTableEnvironmentImpl (
   }
 
   override def toAppendStream[T: TypeInformation](table: Table): DataStream[T] = {
-    toAppendStream(table, new StreamQueryConfig)
-  }
-
-  override def toAppendStream[T: TypeInformation](
-      table: Table,
-      queryConfig: StreamQueryConfig)
-    : DataStream[T] = {
     val returnType = createTypeInformation[T]
 
     val modifyOperation = new OutputConversionModifyOperation(
       table.getQueryOperation,
       TypeConversions.fromLegacyInfoToDataType(returnType),
       OutputConversionModifyOperation.UpdateMode.APPEND)
+    toDataStream[T](table, modifyOperation)
+  }
+
+  override def toAppendStream[T: TypeInformation](
+      table: Table,
+      queryConfig: StreamQueryConfig)
+    : DataStream[T] = {
     tableConfig.setIdleStateRetentionTime(
       Time.milliseconds(queryConfig.getMinIdleStateRetentionTime),
       Time.milliseconds(queryConfig.getMaxIdleStateRetentionTime))
-    toDataStream(table, modifyOperation)
+    toAppendStream(table)
   }
 
   override def toRetractStream[T: TypeInformation](table: Table): DataStream[(Boolean, T)] = {
-    toRetractStream(table, new StreamQueryConfig)
-  }
-
-  override def toRetractStream[T: TypeInformation](
-      table: Table,
-      queryConfig: StreamQueryConfig)
-    : DataStream[(Boolean, T)] = {
     val returnType = createTypeInformation[(Boolean, T)]
 
     val modifyOperation = new OutputConversionModifyOperation(
       table.getQueryOperation,
       TypeConversions.fromLegacyInfoToDataType(returnType),
       OutputConversionModifyOperation.UpdateMode.RETRACT)
+    toDataStream(table, modifyOperation)
+  }
 
+  override def toRetractStream[T: TypeInformation](
+      table: Table,
+      queryConfig: StreamQueryConfig)
+    : DataStream[(Boolean, T)] = {
     tableConfig.setIdleStateRetentionTime(
         Time.milliseconds(queryConfig.getMinIdleStateRetentionTime),
         Time.milliseconds(queryConfig.getMaxIdleStateRetentionTime))
-    toDataStream(table, modifyOperation)
+    toRetractStream(table)
   }
 
   override def registerFunction[T: TypeInformation](name: String, tf: TableFunction[T]): Unit = {
@@ -275,12 +274,11 @@ object StreamTableEnvironmentImpl {
       tableConfig: TableConfig)
     : StreamTableEnvironmentImpl = {
 
-    val functionCatalog = new FunctionCatalog(
-      settings.getBuiltInCatalogName,
-      settings.getBuiltInDatabaseName)
     val catalogManager = new CatalogManager(
       settings.getBuiltInCatalogName,
       new GenericInMemoryCatalog(settings.getBuiltInCatalogName, settings.getBuiltInDatabaseName))
+
+    val functionCatalog = new FunctionCatalog(catalogManager)
 
     val executorProperties = settings.toExecutorProperties
     val executor = lookupExecutor(executorProperties, executionEnvironment)
@@ -301,7 +299,7 @@ object StreamTableEnvironmentImpl {
       executionEnvironment,
       planner,
       executor,
-      !settings.isBatchMode
+      settings.isStreamingMode
     )
   }
 

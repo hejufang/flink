@@ -704,7 +704,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			CheckpointMetrics checkpointMetrics) throws Exception {
 
 		try {
-			performCheckpoint(checkpointMetaData, checkpointOptions, checkpointMetrics, false);
+			if (performCheckpoint(checkpointMetaData, checkpointOptions, checkpointMetrics, false)) {
+				if (syncSavepointLatch.isSet()) {
+					syncSavepointLatch.blockUntilCheckpointIsAcknowledged();
+				}
+			}
 		}
 		catch (CancelTaskException e) {
 			LOG.info("Operator {} was cancelled while performing checkpoint {}.",
@@ -741,7 +745,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 		final long checkpointId = checkpointMetaData.getCheckpointId();
 
-		final boolean result;
 		synchronized (lock) {
 			if (isRunning) {
 
@@ -772,7 +775,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				//           impact progress of the streaming topology
 				checkpointState(checkpointMetaData, checkpointOptions, checkpointMetrics);
 
-				result = true;
+				return true;
 			}
 			else {
 				// we cannot perform our checkpoint - let the downstream operators know that they
@@ -797,21 +800,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					throw exception;
 				}
 
-				result = false;
+				return false;
 			}
 		}
-
-		if (isRunning && syncSavepointLatch.isSet()) {
-
-			final boolean checkpointWasAcked =
-					syncSavepointLatch.blockUntilCheckpointIsAcknowledged();
-
-			if (checkpointWasAcked) {
-				finishTask();
-			}
-		}
-
-		return result;
 	}
 
 	public ExecutorService getAsyncOperationsThreadPool() {
@@ -820,6 +811,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	@Override
 	public void notifyCheckpointComplete(long checkpointId) throws Exception {
+		boolean success = false;
 		synchronized (lock) {
 			if (isRunning) {
 				LOG.debug("Notification of complete checkpoint for task {}", getName());
@@ -830,11 +822,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					}
 				}
 
-				syncSavepointLatch.acknowledgeCheckpointAndTrigger(checkpointId);
+				success = true;
 			}
 			else {
 				LOG.debug("Ignoring notification of complete checkpoint for not-running task {}", getName());
 			}
+		}
+		if (success) {
+			syncSavepointLatch.acknowledgeCheckpointAndTrigger(checkpointId, this::finishTask);
 		}
 	}
 

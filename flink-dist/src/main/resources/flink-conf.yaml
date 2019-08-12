@@ -76,6 +76,16 @@ common:
 # restart-strategy: fixed-delay
   restart-strategy.fixed-delay.attempts: 100
   restart-strategy.fixed-delay.delay: 20 s
+# The failover strategy, i.e., how the job computation recovers from task failures.
+# Only restart tasks that may have been affected by the task failure, which typically includes
+# downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
+
+  # TODO(zoudan):add region restart monitor
+  jobmanager.execution.failover-strategy: region
+
+#==============================================================================
+# Rest & web frontend
+#==============================================================================
 
   mode: legacy
 

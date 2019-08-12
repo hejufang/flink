@@ -228,7 +228,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			clusterInformation,
 			fatalErrorHandler,
 			jobManagerMetricGroup);
-		this.flinkConfig  = new Configuration(flinkConfig); // copy, because we alter the config
+		this.flinkConfig  = flinkConfig;
 		this.yarnConfig = new YarnConfiguration();
 		this.env = env;
 		this.workerNodeMap = new ConcurrentHashMap<>();
@@ -257,8 +257,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, numberOfTaskSlots);
 		this.resource = Resource.newInstance(defaultTaskManagerMemoryMB, defaultCpus);
 
-		this.slotsPerWorker = updateTaskManagerConfigAndCreateWorkerSlotProfiles(flinkConfig, defaultTaskManagerMemoryMB, numberOfTaskSlots);
-		setFailUnfulfillableRequest(true);
+		this.slotsPerWorker = createWorkerSlotProfiles(flinkConfig);
 
 		this.nmClientAsyncEnabled = flinkConfig.getBoolean(YarnConfigOptions.NMCLINETASYNC_ENABLED);
 
@@ -510,11 +509,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@VisibleForTesting
 	Resource getContainerResource() {
 		return resource;
-	}
-
-	@VisibleForTesting
-	Collection<ResourceProfile> getSlotsPerWorker() {
-		return slotsPerWorker;
 	}
 
 	@Override

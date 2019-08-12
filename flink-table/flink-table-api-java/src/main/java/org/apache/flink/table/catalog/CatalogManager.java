@@ -59,10 +59,13 @@ public class CatalogManager {
 	// TO BE REMOVED along with ExternalCatalog API
 	private Map<String, ExternalCatalog>  externalCatalogs;
 
-	// The name of the default catalog and schema
+	// The name of the current catalog and database
 	private String currentCatalogName;
 
 	private String currentDatabaseName;
+
+	// The name of the built-in catalog
+	private final String builtInCatalogName;
 
 	/**
 	 * Temporary solution to handle both {@link CatalogBaseTable} and
@@ -125,6 +128,9 @@ public class CatalogManager {
 		catalogs.put(defaultCatalogName, defaultCatalog);
 		this.currentCatalogName = defaultCatalogName;
 		this.currentDatabaseName = defaultCatalog.getDefaultDatabase();
+
+		// right now the default catalog is always the built-in one
+		this.builtInCatalogName = defaultCatalogName;
 	}
 
 	/**
@@ -215,9 +221,9 @@ public class CatalogManager {
 	}
 
 	/**
-	 * Gets the current default catalog that will be used when resolving table path.
+	 * Gets the current catalog that will be used when resolving table path.
 	 *
-	 * @return the current default catalog
+	 * @return the current catalog
 	 * @see CatalogManager#resolveTable(String...)
 	 */
 	public String getCurrentCatalog() {
@@ -225,9 +231,9 @@ public class CatalogManager {
 	}
 
 	/**
-	 * Sets the current default catalog name that will be used when resolving table path.
+	 * Sets the current catalog name that will be used when resolving table path.
 	 *
-	 * @param catalogName catalog name to set as current default catalog
+	 * @param catalogName catalog name to set as current catalog
 	 * @throws CatalogNotExistException thrown if the catalog doesn't exist
 	 * @see CatalogManager#resolveTable(String...)
 	 */
@@ -255,9 +261,9 @@ public class CatalogManager {
 	}
 
 	/**
-	 * Gets the current default database name that will be used when resolving table path.
+	 * Gets the current database name that will be used when resolving table path.
 	 *
-	 * @return the current default database
+	 * @return the current database
 	 * @see CatalogManager#resolveTable(String...)
 	 */
 	public String getCurrentDatabase() {
@@ -265,10 +271,10 @@ public class CatalogManager {
 	}
 
 	/**
-	 * Sets the current default database name that will be used when resolving a table path.
+	 * Sets the current database name that will be used when resolving a table path.
 	 * The database has to exist in the current catalog.
 	 *
-	 * @param databaseName database name to set as current default database name
+	 * @param databaseName database name to set as current database name
 	 * @throws CatalogException thrown if the database doesn't exist in the current catalog
 	 * @see CatalogManager#resolveTable(String...)
 	 * @see CatalogManager#setCurrentCatalog(String)
@@ -291,6 +297,27 @@ public class CatalogManager {
 				currentCatalogName,
 				currentDatabaseName);
 		}
+	}
+
+	/**
+	 * Gets the built-in catalog name. The built-in catalog is used for storing all non-serializable
+	 * transient meta-objects.
+	 *
+	 * @return the built-in catalog name
+	 */
+	public String getBuiltInCatalogName() {
+		return builtInCatalogName;
+	}
+
+	/**
+	 * Gets the built-in database name in the built-in catalog. The built-in database is used for storing
+	 * all non-serializable transient meta-objects.
+	 *
+	 * @return the built-in database name
+	 */
+	public String getBuiltInDatabaseName() {
+		// The default database of the built-in catalog is also the built-in database.
+		return catalogs.get(getBuiltInCatalogName()).getDefaultDatabase();
 	}
 
 	/**

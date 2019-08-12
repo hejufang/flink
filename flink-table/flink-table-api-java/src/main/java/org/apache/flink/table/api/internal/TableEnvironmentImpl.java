@@ -45,9 +45,9 @@ import org.apache.flink.table.delegation.Executor;
 import org.apache.flink.table.delegation.ExecutorFactory;
 import org.apache.flink.table.delegation.Planner;
 import org.apache.flink.table.delegation.PlannerFactory;
+import org.apache.flink.table.descriptors.ConnectTableDescriptor;
 import org.apache.flink.table.descriptors.ConnectorDescriptor;
 import org.apache.flink.table.descriptors.StreamTableDescriptor;
-import org.apache.flink.table.descriptors.TableDescriptor;
 import org.apache.flink.table.expressions.TableReferenceExpression;
 import org.apache.flink.table.factories.ComponentFactoryService;
 import org.apache.flink.table.functions.AggregateFunction;
@@ -86,11 +86,10 @@ import java.util.stream.Collectors;
  */
 @Internal
 public class TableEnvironmentImpl implements TableEnvironment {
-
+	// Flag that tells if the TableSource/TableSink used in this environment is stream table source/sink,
+	// and this should always be true. This avoids too many hard code.
+	private static final boolean IS_STREAM_TABLE = true;
 	private final CatalogManager catalogManager;
-
-	private final String builtinCatalogName;
-	private final String builtinDatabaseName;
 	private final OperationTreeBuilder operationTreeBuilder;
 	private final List<ModifyOperation> bufferedModifyOperations = new ArrayList<>();
 
@@ -105,15 +104,11 @@ public class TableEnvironmentImpl implements TableEnvironment {
 			Executor executor,
 			FunctionCatalog functionCatalog,
 			Planner planner,
-			boolean isStreaming) {
+			boolean isStreamingMode) {
 		this.catalogManager = catalogManager;
 		this.execEnv = executor;
 
 		this.tableConfig = tableConfig;
-		// The current catalog and database are definitely builtin,
-		// see #create(EnvironmentSettings)
-		this.builtinCatalogName = catalogManager.getCurrentCatalog();
-		this.builtinDatabaseName = catalogManager.getCurrentDatabase();
 
 		this.functionCatalog = functionCatalog;
 		this.planner = planner;
@@ -123,18 +118,17 @@ public class TableEnvironmentImpl implements TableEnvironment {
 				Optional<CatalogQueryOperation> catalogTableOperation = scanInternal(path);
 				return catalogTableOperation.map(tableOperation -> new TableReferenceExpression(path, tableOperation));
 			},
-			isStreaming
+			isStreamingMode
 		);
 	}
 
 	public static TableEnvironmentImpl create(EnvironmentSettings settings) {
 
-		FunctionCatalog functionCatalog = new FunctionCatalog(
-			settings.getBuiltInCatalogName(),
-			settings.getBuiltInDatabaseName());
 		CatalogManager catalogManager = new CatalogManager(
 			settings.getBuiltInCatalogName(),
 			new GenericInMemoryCatalog(settings.getBuiltInCatalogName(), settings.getBuiltInDatabaseName()));
+
+		FunctionCatalog functionCatalog = new FunctionCatalog(catalogManager);
 
 		Map<String, String> executorProperties = settings.toExecutorProperties();
 		Executor executor = ComponentFactoryService.find(ExecutorFactory.class, executorProperties)
@@ -151,7 +145,7 @@ public class TableEnvironmentImpl implements TableEnvironment {
 			executor,
 			functionCatalog,
 			planner,
-			!settings.isBatchMode()
+			settings.isStreamingMode()
 		);
 	}
 
@@ -162,7 +156,9 @@ public class TableEnvironmentImpl implements TableEnvironment {
 
 	@Override
 	public Table fromTableSource(TableSource<?> source) {
-		return createTable(new TableSourceQueryOperation<>(source, false));
+		// only accept StreamTableSource and LookupableTableSource here
+		// TODO should add a validation, while StreamTableSource is in flink-table-api-java-bridge module now
+		return createTable(new TableSourceQueryOperation<>(source, !IS_STREAM_TABLE));
 	}
 
 	@Override
@@ -233,6 +229,8 @@ public class TableEnvironmentImpl implements TableEnvironment {
 
 	@Override
 	public void registerTableSource(String name, TableSource<?> tableSource) {
+		// only accept StreamTableSource and LookupableTableSource here
+		// TODO should add a validation, while StreamTableSource is in flink-table-api-java-bridge module now
 		registerTableSourceInternal(name, tableSource);
 	}
 
@@ -270,7 +268,7 @@ public class TableEnvironmentImpl implements TableEnvironment {
 	}
 
 	@Override
-	public TableDescriptor connect(ConnectorDescriptor connectorDescriptor) {
+	public ConnectTableDescriptor connect(ConnectorDescriptor connectorDescriptor) {
 		return new StreamTableDescriptor(this, connectorDescriptor);
 	}
 
@@ -537,8 +535,8 @@ public class TableEnvironmentImpl implements TableEnvironment {
 	protected void registerTableInternal(String name, CatalogBaseTable table) {
 		try {
 			checkValidTableName(name);
-			ObjectPath path = new ObjectPath(builtinDatabaseName, name);
-			Optional<Catalog> catalog = catalogManager.getCatalog(builtinCatalogName);
+			ObjectPath path = new ObjectPath(catalogManager.getBuiltInDatabaseName(), name);
+			Optional<Catalog> catalog = catalogManager.getCatalog(catalogManager.getBuiltInCatalogName());
 			if (catalog.isPresent()) {
 				catalog.get().createTable(
 					path,
@@ -552,8 +550,8 @@ public class TableEnvironmentImpl implements TableEnvironment {
 
 	private void replaceTableInternal(String name, CatalogBaseTable table) {
 		try {
-			ObjectPath path = new ObjectPath(builtinDatabaseName, name);
-			Optional<Catalog> catalog = catalogManager.getCatalog(builtinCatalogName);
+			ObjectPath path = new ObjectPath(catalogManager.getBuiltInDatabaseName(), name);
+			Optional<Catalog> catalog = catalogManager.getCatalog(catalogManager.getBuiltInCatalogName());
 			if (catalog.isPresent()) {
 				catalog.get().alterTable(
 					path,
@@ -573,7 +571,8 @@ public class TableEnvironmentImpl implements TableEnvironment {
 
 	private void registerTableSourceInternal(String name, TableSource<?> tableSource) {
 		validateTableSource(tableSource);
-		Optional<CatalogBaseTable> table = getCatalogTable(builtinCatalogName, builtinDatabaseName, name);
+		Optional<CatalogBaseTable> table = getCatalogTable(catalogManager.getBuiltInCatalogName(),
+			catalogManager.getBuiltInDatabaseName(), name);
 
 		if (table.isPresent()) {
 			if (table.get() instanceof ConnectorCatalogTable<?, ?>) {
@@ -586,19 +585,20 @@ public class TableEnvironmentImpl implements TableEnvironment {
 					replaceTableInternal(
 						name,
 						ConnectorCatalogTable
-							.sourceAndSink(tableSource, sourceSinkTable.getTableSink().get(), false));
+							.sourceAndSink(tableSource, sourceSinkTable.getTableSink().get(), !IS_STREAM_TABLE));
 				}
 			} else {
 				throw new ValidationException(String.format(
 					"Table '%s' already exists. Please choose a different name.", name));
 			}
 		} else {
-			registerTableInternal(name, ConnectorCatalogTable.source(tableSource, false));
+			registerTableInternal(name, ConnectorCatalogTable.source(tableSource, !IS_STREAM_TABLE));
 		}
 	}
 
 	private void registerTableSinkInternal(String name, TableSink<?> tableSink) {
-		Optional<CatalogBaseTable> table = getCatalogTable(builtinCatalogName, builtinDatabaseName, name);
+		Optional<CatalogBaseTable> table = getCatalogTable(catalogManager.getBuiltInCatalogName(),
+			catalogManager.getBuiltInDatabaseName(), name);
 
 		if (table.isPresent()) {
 			if (table.get() instanceof ConnectorCatalogTable<?, ?>) {
@@ -611,14 +611,14 @@ public class TableEnvironmentImpl implements TableEnvironment {
 					replaceTableInternal(
 						name,
 						ConnectorCatalogTable
-							.sourceAndSink(sourceSinkTable.getTableSource().get(), tableSink, false));
+							.sourceAndSink(sourceSinkTable.getTableSource().get(), tableSink, !IS_STREAM_TABLE));
 				}
 			} else {
 				throw new ValidationException(String.format(
 					"Table '%s' already exists. Please choose a different name.", name));
 			}
 		} else {
-			registerTableInternal(name, ConnectorCatalogTable.sink(tableSink, false));
+			registerTableInternal(name, ConnectorCatalogTable.sink(tableSink, !IS_STREAM_TABLE));
 		}
 	}
 

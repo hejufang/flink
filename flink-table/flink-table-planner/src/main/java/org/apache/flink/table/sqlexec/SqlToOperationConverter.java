@@ -18,11 +18,12 @@
 
 package org.apache.flink.table.sqlexec;
 
-import org.apache.flink.sql.parser.SqlProperty;
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
 import org.apache.flink.sql.parser.ddl.SqlCreateView;
 import org.apache.flink.sql.parser.ddl.SqlDropTable;
 import org.apache.flink.sql.parser.ddl.SqlTableColumn;
+import org.apache.flink.sql.parser.ddl.SqlTableOption;
+import org.apache.flink.sql.parser.dml.RichSqlInsert;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.calcite.FlinkPlannerImpl;
@@ -32,6 +33,7 @@ import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.CatalogView;
 import org.apache.flink.table.catalog.QueryOperationCatalogView;
+import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.PlannerQueryOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
@@ -90,6 +92,8 @@ public class SqlToOperationConverter {
 			return converter.convertCreateView((SqlCreateView) validated);
 		} else if (validated instanceof SqlDropTable) {
 			return converter.convertDropTable((SqlDropTable) validated);
+		} else if (validated instanceof RichSqlInsert) {
+			return converter.convertSqlInsert((RichSqlInsert) validated);
 		} else if (validated.getKind().belongsTo(SqlKind.QUERY)) {
 			return converter.convertSqlQuery(validated);
 		} else {
@@ -125,8 +129,8 @@ public class SqlToOperationConverter {
 		Map<String, String> properties = new HashMap<>();
 		if (propertyList != null) {
 			propertyList.getList().forEach(p ->
-				properties.put(((SqlProperty) p).getKeyString().toLowerCase(),
-					((SqlProperty) p).getValueString()));
+				properties.put(((SqlTableOption) p).getKeyString().toLowerCase(),
+					((SqlTableOption) p).getValueString()));
 		}
 
 		TableSchema tableSchema = createTableSchema(sqlCreateTable,
@@ -163,6 +167,17 @@ public class SqlToOperationConverter {
 		return toQueryOperation(flinkPlanner, node);
 	}
 
+	/** Convert insert into statement. */
+	private Operation convertSqlInsert(RichSqlInsert insert) {
+		// get name of sink table
+		List<String> targetTablePath = ((SqlIdentifier) insert.getTargetTable()).names;
+		return new CatalogSinkModifyOperation(
+			targetTablePath,
+			(PlannerQueryOperation) SqlToOperationConverter.convert(flinkPlanner,
+				insert.getSource()),
+			insert.getStaticPartitionKVs());
+	}
+
 	//~ Tools ------------------------------------------------------------------
 
 	/**
@@ -174,8 +189,8 @@ public class SqlToOperationConverter {
 	 *     b varchar,
 	 *     c as to_timestamp(b))
 	 *   with (
-	 *     connector = 'csv',
-	 *     k1 = 'v1')
+	 *     'connector' = 'csv',
+	 *     'k1' = 'v1')
 	 * </pre></blockquote>
 	 *
 	 * <p>The returned table schema contains columns (a:int, b:varchar, c:timestamp).

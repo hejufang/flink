@@ -74,7 +74,7 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 	@Override
 	protected DispatcherResourceManagerComponentFactory<?> createDispatcherResourceManagerComponentFactory(Configuration configuration) {
 		return new JobDispatcherResourceManagerComponentFactory(
-			YarnResourceManagerFactory.INSTANCE,
+			YarnResourceManagerFactory.getInstance(),
 			FileJobGraphRetriever.createFrom(configuration));
 	}
 
