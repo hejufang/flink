@@ -254,6 +254,29 @@ public class DescriptorProperties {
 		}
 	}
 
+	/**
+	 * Adds an fixed indexed mapping of properties under a common key.
+	 *
+	 * <p>For example:
+	 *
+	 * <pre>
+	 *     schema.fields.0.type = INT, schema.fields.0.name = test,
+	 *     schema.fields.0.rowtime.timestamps.type = from-field
+	 * </pre>
+	 *
+	 * <p>The arity of the subKeyValues can differ.
+	 */
+	public void putFixedIndexedVariableProperties(String key, Map<Integer, Map<String, String>> subKeyValues) {
+		checkNotNull(key);
+		checkNotNull(subKeyValues);
+		for (Map.Entry<Integer, Map<String, String>> entry : subKeyValues.entrySet()) {
+			int idx = entry.getKey();
+			for (Map.Entry<String, String> value : entry.getValue().entrySet()) {
+				put(key + '.' + idx + '.' + value.getKey(), value.getValue());
+			}
+		}
+	}
+
 	// --------------------------------------------------------------------------------------------
 
 	/**

@@ -270,8 +270,8 @@ public class SchemaValidator implements DescriptorValidator {
 						.orElse(false);
 				boolean isRowtime = properties
 						.containsKey(SCHEMA + "." + i + "." + ROWTIME_TIMESTAMPS_TYPE);
-				// remove proctime/rowtime from mapping
-				if (isProctime || isRowtime) {
+				// remove proctime/rowtime from mapping if it is not in input type.
+				if ((isProctime || isRowtime) && !columnNames.contains(name)) {
 					mapping.remove(name);
 				}
 				// check for invalid fields

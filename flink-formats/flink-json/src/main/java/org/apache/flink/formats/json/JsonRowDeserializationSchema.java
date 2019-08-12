@@ -79,18 +79,24 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 
 	private boolean failOnMissingField;
 
+	private boolean defaultOnMissingField;
+
 	/** Object mapper for parsing the JSON. */
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	private DeserializationRuntimeConverter runtimeConverter;
 
+	private JsonRowDefaultValue defaultValueSchema = new JsonRowDefaultValue();
+
 	private JsonRowDeserializationSchema(
 			TypeInformation<Row> typeInfo,
-			boolean failOnMissingField) {
+			boolean failOnMissingField,
+			boolean defaultOnMissingField) {
 		checkNotNull(typeInfo, "Type information");
 		checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.failOnMissingField = failOnMissingField;
+		this.defaultOnMissingField = defaultOnMissingField;
 		this.runtimeConverter = createConverter(this.typeInfo);
 	}
 
@@ -99,7 +105,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 	 */
 	@Deprecated
 	public JsonRowDeserializationSchema(TypeInformation<Row> typeInfo) {
-		this(typeInfo, false);
+		this(typeInfo, false, false);
 	}
 
 	/**
@@ -107,7 +113,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 	 */
 	@Deprecated
 	public JsonRowDeserializationSchema(String jsonSchema) {
-		this(JsonRowSchemaConverter.convert(checkNotNull(jsonSchema)), false);
+		this(JsonRowSchemaConverter.convert(checkNotNull(jsonSchema)), false, false);
 	}
 
 	/**
@@ -147,6 +153,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 
 		private final RowTypeInfo typeInfo;
 		private boolean failOnMissingField = false;
+		private boolean defaultOnMissingField = false;
 
 		/**
 		 * Creates a JSON deserialization schema for the given type information.
@@ -180,8 +187,18 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			return this;
 		}
 
+		/**
+		 * Configures schema to fail if a JSON field is missing.
+		 *
+		 * <p>By default, a missing field is ignored and the field is set to null.
+		 */
+		public Builder defaultOnMissingField() {
+			this.defaultOnMissingField = true;
+			return this;
+		}
+
 		public JsonRowDeserializationSchema build() {
-			return new JsonRowDeserializationSchema(typeInfo, failOnMissingField);
+			return new JsonRowDeserializationSchema(typeInfo, failOnMissingField, defaultOnMissingField);
 		}
 	}
 
@@ -195,12 +212,13 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		}
 		final JsonRowDeserializationSchema that = (JsonRowDeserializationSchema) o;
 		return Objects.equals(typeInfo, that.typeInfo) &&
-			Objects.equals(failOnMissingField, that.failOnMissingField);
+			Objects.equals(failOnMissingField, that.failOnMissingField) &&
+			Objects.equals(defaultOnMissingField, that.defaultOnMissingField);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(typeInfo, failOnMissingField);
+		return Objects.hash(typeInfo, failOnMissingField, defaultOnMissingField);
 	}
 
 	/*
@@ -220,11 +238,19 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			.orElseGet(() ->
 				createContainerConverter(typeInfo)
 					.orElseGet(() -> createFallbackConverter(typeInfo.getTypeClass())));
-		return wrapIntoNullableConverter(baseConverter);
+		JsonRowDefaultValue.DefaultValueRuntimeConverter defaultValueRuntimeConverter = defaultValueSchema.createConverter(typeInfo);
+		return wrapIntoNullableConverter(baseConverter, defaultValueRuntimeConverter, defaultOnMissingField);
 	}
 
-	private DeserializationRuntimeConverter wrapIntoNullableConverter(DeserializationRuntimeConverter converter) {
+	private DeserializationRuntimeConverter wrapIntoNullableConverter(
+		DeserializationRuntimeConverter converter,
+		JsonRowDefaultValue.DefaultValueRuntimeConverter defaultValueRuntimeConverter,
+		boolean defaultOnMissingField) {
 		return (mapper, jsonNode) -> {
+			if (jsonNode == null && defaultOnMissingField) {
+				return defaultValueRuntimeConverter.convert();
+			}
+
 			if (jsonNode.isNull()) {
 				return null;
 			}
@@ -322,49 +348,62 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 	}
 
 	private DeserializationRuntimeConverter createDateConverter() {
-		return (mapper, jsonNode) -> Date.valueOf(ISO_LOCAL_DATE.parse(jsonNode.asText())
-			.query(TemporalQueries.localDate()));
+		return (mapper, jsonNode) -> {
+			if (jsonNode.canConvertToLong()) {
+				return new Date(jsonNode.asLong());
+			} else {
+				return Date.valueOf(ISO_LOCAL_DATE.parse(jsonNode.asText())
+					.query(TemporalQueries.localDate()));
+			}
+		};
 	}
 
 	private DeserializationRuntimeConverter createTimestampConverter() {
 		return (mapper, jsonNode) -> {
-			// according to RFC 3339 every date-time must have a timezone;
-			// until we have full timezone support, we only support UTC;
-			// users can parse their time as string as a workaround
-			TemporalAccessor parsedTimestamp = RFC3339_TIMESTAMP_FORMAT.parse(jsonNode.asText());
+			if (jsonNode.canConvertToLong()) {
+				return new Timestamp(jsonNode.asLong());
+			} else {
+				// according to RFC 3339 every date-time must have a timezone;
+				// until we have full timezone support, we only support UTC;
+				// users can parse their time as string as a workaround
+				TemporalAccessor parsedTimestamp = RFC3339_TIMESTAMP_FORMAT.parse(jsonNode.asText());
 
-			ZoneOffset zoneOffset = parsedTimestamp.query(TemporalQueries.offset());
+				ZoneOffset zoneOffset = parsedTimestamp.query(TemporalQueries.offset());
 
-			if (zoneOffset != null && zoneOffset.getTotalSeconds() != 0) {
-				throw new IllegalStateException(
-					"Invalid timestamp format. Only a timestamp in UTC timezone is supported yet. " +
-						"Format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+				if (zoneOffset != null && zoneOffset.getTotalSeconds() != 0) {
+					throw new IllegalStateException(
+						"Invalid timestamp format. Only a timestamp in UTC timezone is supported yet. " +
+							"Format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+				}
+
+				LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+				LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+
+				return Timestamp.valueOf(LocalDateTime.of(localDate, localTime));
 			}
-
-			LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
-			LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
-
-			return Timestamp.valueOf(LocalDateTime.of(localDate, localTime));
 		};
 	}
 
 	private DeserializationRuntimeConverter createTimeConverter() {
 		return (mapper, jsonNode) -> {
+			if (jsonNode.canConvertToLong()) {
+				return new Time(jsonNode.asLong());
+			} else {
+				// according to RFC 3339 every full-time must have a timezone;
+				// until we have full timezone support, we only support UTC;
+				// users can parse their time as string as a workaround
+				TemporalAccessor parsedTime = RFC3339_TIME_FORMAT.parse(jsonNode.asText());
 
-			// according to RFC 3339 every full-time must have a timezone;
-			// until we have full timezone support, we only support UTC;
-			// users can parse their time as string as a workaround
-			TemporalAccessor parsedTime = RFC3339_TIME_FORMAT.parse(jsonNode.asText());
+				ZoneOffset zoneOffset = parsedTime.query(TemporalQueries.offset());
+				LocalTime localTime = parsedTime.query(TemporalQueries.localTime());
 
-			ZoneOffset zoneOffset = parsedTime.query(TemporalQueries.offset());
-			LocalTime localTime = parsedTime.query(TemporalQueries.localTime());
+				if (zoneOffset != null && zoneOffset.getTotalSeconds() != 0 || localTime.getNano() != 0) {
+					throw new IllegalStateException(
+						"Invalid time format. Only a time in UTC timezone without milliseconds is supported yet.");
+				}
 
-			if (zoneOffset != null && zoneOffset.getTotalSeconds() != 0 || localTime.getNano() != 0) {
-				throw new IllegalStateException(
-					"Invalid time format. Only a time in UTC timezone without milliseconds is supported yet.");
+				return Time.valueOf(localTime);
 			}
-
-			return Time.valueOf(localTime);
 		};
 	}
 
@@ -392,7 +431,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		DeserializationRuntimeConverter fieldConverter,
 		String fieldName,
 		JsonNode field) {
-		if (field == null) {
+		if (field == null && !defaultOnMissingField) {
 			if (failOnMissingField) {
 				throw new IllegalStateException(
 					"Could not find field with name '" + fieldName + "'.");

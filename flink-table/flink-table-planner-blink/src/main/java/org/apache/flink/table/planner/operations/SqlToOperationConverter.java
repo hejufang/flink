@@ -24,6 +24,7 @@ import org.apache.flink.sql.parser.ddl.SqlCreateView;
 import org.apache.flink.sql.parser.ddl.SqlDropTable;
 import org.apache.flink.sql.parser.ddl.SqlTableColumn;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
+import org.apache.flink.sql.parser.ddl.SqlWatermark;
 import org.apache.flink.sql.parser.dml.RichSqlInsert;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
@@ -31,6 +32,7 @@ import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.CatalogView;
 import org.apache.flink.table.catalog.QueryOperationCatalogView;
+import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.ddl.CreateFunctionOperation;
@@ -142,9 +144,24 @@ public class SqlToOperationConverter {
 				.map(p -> ((SqlIdentifier) p).getSimple())
 				.collect(Collectors.toList());
 		}
+		//set watermark (rowtime)
+		Map<String, Rowtime> rowtimes = new HashMap<>();
+		SqlWatermark watermark = sqlCreateTable.getWatermark();
+		if (watermark != null) {
+			Rowtime rowtime = new Rowtime();
+			String rowtimeName = watermark.getColumnName().getSimple();
+			rowtime.timestampsFromField(rowtimeName);
+			try {
+				rowtime.watermarksPeriodicBounded(watermark.getWatermarkOffset());
+			} catch (Exception e) {
+				throw new SqlConversionException(e.getMessage());
+			}
+			rowtimes.put(rowtimeName, rowtime);
+		}
 		CatalogTable catalogTable = new CatalogTableImpl(tableSchema,
 			partitionKeys,
 			properties,
+			rowtimes,
 			tableComment);
 		return new CreateTableOperation(sqlCreateTable.fullTableName(), catalogTable,
 			sqlCreateTable.isIfNotExists());

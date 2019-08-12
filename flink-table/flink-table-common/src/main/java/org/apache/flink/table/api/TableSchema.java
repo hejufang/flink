@@ -206,6 +206,20 @@ public class TableSchema {
 	}
 
 	/**
+	 * Returns the specified index for the given field name.
+	 *
+	 * @param fieldName the name of the field
+	 */
+	public Optional<Integer> getFieldNameIndex(String fieldName) {
+		for (int i = 0; i < fieldNames.length; i++) {
+			if (fieldNames[i].equals(fieldName)) {
+				return Optional.of(i);
+			}
+		}
+		return Optional.empty();
+	}
+
+	/**
 	 * Converts a table schema into a (nested) data type describing a {@link DataTypes#ROW(Field...)}.
 	 */
 	public DataType toRowDataType() {
