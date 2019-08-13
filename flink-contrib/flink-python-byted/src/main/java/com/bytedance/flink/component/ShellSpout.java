@@ -86,10 +86,10 @@ public class ShellSpout implements Spout {
 		Map<String, Object> thisArgs = new HashMap<>();
 		thisArgs.putAll(spoutInfo.getArgs());
 		thisArgs.put(Constants.SUB_TASK_ID, subTaskId);
-		String logFile = EnvironmentInitUtils.getLogFile();
+		String logFile = EnvironmentInitUtils.getLogFile(runtimeConfig);
 		if (logFile != null) {
-			thisArgs.put(Constants.LOG_FILE, logFile);
-			runtimeConfig.put(Constants.LOG_FILE, logFile);
+			thisArgs.put(Constants.LOG_FILE_KEY, logFile);
+			runtimeConfig.put(Constants.LOG_FILE_KEY, logFile);
 		}
 		boolean dontWriteBytecode =
 			(boolean) spoutInfo.getArgs().getOrDefault(Constants.DONT_WRITE_BYTECODE, true);

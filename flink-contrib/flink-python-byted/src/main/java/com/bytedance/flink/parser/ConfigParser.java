@@ -33,8 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -136,7 +134,8 @@ public class ConfigParser {
 
 	public JobConfig parse() throws IOException {
 		JobConfig jobConfig = new JobConfig();
-		InputStream input = new FileInputStream(new File(confFile));
+		LOG.info("confFile = {}", confFile);
+		InputStream input = this.getClass().getResourceAsStream("/" + confFile);
 		Yaml yaml = new Yaml();
 		allYamlConf = (Map<String, Object>) yaml.load(input);
 		jobConfig.setJobName((String) allYamlConf.get(Constants.TOPOLOGY_NAME));
@@ -346,11 +345,22 @@ public class ConfigParser {
 				spoutInfo.getArgs().put(Constants.TOTAL_PARTITION, partitionNum);
 			}
 
-			if (spoutInfo.isThreadNumDeterminedByPartition() && !spoutInfo.isKafkaMultiSource()) {
-				int partitionNum = spoutInfo.getTotalPartition();
-				spoutInfo.setParallelism(partitionNum);
-				spoutArgs.put(Constants.PARALLELISM, partitionNum);
-				LOG.info("Adjust {} to {}", Constants.PARALLELISM, partitionNum);
+			int partitionNum = spoutInfo.getTotalPartition();
+			if (!spoutInfo.isKafkaMultiSource()) {
+				if (spoutInfo.isThreadNumDeterminedByPartition()) {
+					spoutInfo.setParallelism(partitionNum);
+					spoutArgs.put(Constants.PARALLELISM, partitionNum);
+					LOG.info("Adjust {} to {}", Constants.PARALLELISM, partitionNum);
+				} else if (partitionNum < spoutInfo.getParallelism()) {
+					// If the spout parallelism is larger than actual partition number, we adjust it
+					// to the actual partition number.
+					int oldParallelism = spoutInfo.getParallelism();
+					spoutInfo.setParallelism(partitionNum);
+					spoutArgs.put(Constants.PARALLELISM, partitionNum);
+					LOG.warn("The parallelism of {} is larger than actual partition number, " +
+							"adjust it from {} to {}", spoutInfo.getName(), oldParallelism,
+						partitionNum);
+				}
 			}
 
 			Validation.validateSpoutInfo(spoutInfo);

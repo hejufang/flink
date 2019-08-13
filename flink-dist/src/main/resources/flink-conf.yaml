@@ -98,10 +98,8 @@ common:
   taskmanager.network.credit-model: false
   yarn.per-job-cluster.include-user-jar: FIRST
 
-  base_jar: deploy/flink-1.9/basejar/jtopology_flink_yarn.jar
-  bin: deploy/flink-1.9/bin/start.sh
-  base_jar_new: deploy/flink-1.9/basejar/flink-python-byted.jar
-  bin_new: deploy/flink-1.9/bin/start_new.sh
+  base_jar: deploy/flink-1.9/basejar/flink-python-byted.jar
+  bin: deploy/flink-1.9/bin/flink
   vcores: 4
   ms_url: http://ms.byted.org
   ms_zone: CN

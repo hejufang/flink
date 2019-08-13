@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,6 +57,16 @@ public class EnvironmentInitUtils {
 		String jobName = runtimeConfig.getJobName();
 		String codeDir = runtimeConfig.getCodeDir();
 		List<String> resources = runtimeConfig.getResourceFiles();
+
+		if (runtimeConfig.getRunMode() == Constants.RUN_MODE_STANDLONE) {
+			String tmpDir = runtimeConfig.getTmpDir();
+			try {
+				preparePublicDir(tmpDir);
+				preparePublicDir(codeDir);
+			} catch (IOException e) {
+				LOG.warn("Failed to init work dir: {}", codeDir, e);
+			}
+		}
 
 		Path jobBaseDir = Paths.get(codeDir, jobName);
 		if (Files.notExists(jobBaseDir)) {
@@ -106,6 +117,18 @@ public class EnvironmentInitUtils {
 		}
 	}
 
+	public static void preparePublicDir(String dirName) throws IOException {
+		if (Files.exists(Paths.get(dirName))) {
+			LOG.info("Dir: {} exists, ignore", dirName);
+			return;
+		}
+		Files.createDirectories(Paths.get(dirName));
+		File dir = new File(dirName);
+		dir.setExecutable(true, false);
+		dir.setReadable(true, false);
+		dir.setWritable(true, false);
+	}
+
 	public static String getResourceDir(RuntimeConfig runtimeConfig) {
 		String jobName = runtimeConfig.getJobName();
 		String codeDir = runtimeConfig.getCodeDir();
@@ -152,12 +175,69 @@ public class EnvironmentInitUtils {
 	/**
 	 * Get user log file path.
 	 */
-	public static String getLogFile() {
+	public static String getLogFile(RuntimeConfig runtimeConfig) {
+		if (runtimeConfig.getRunMode() == Constants.RUN_MODE_STANDLONE) {
+			// Use user defined log file in user yaml in local mode.
+			String jobName = runtimeConfig.getJobName();
+			String jobLogDir = Paths.get(runtimeConfig.getLocalLogDir(), jobName).toString();
+			try {
+				preparePublicDir(jobLogDir);
+			} catch (IOException e) {
+				LOG.error("Failed to create local log dir: {}", jobLogDir);
+			}
+			return Paths.get(jobLogDir, jobName + ".userlog").toString();
+		}
 		String taskManagerLogFile = System.getProperty("log.file");
 		if (taskManagerLogFile != null) {
 			return taskManagerLogFile.substring(0, taskManagerLogFile.length() - 4)
 				+ ".userlog";
 		}
 		return null;
+	}
+
+	/**
+	 * Get pyFlink required environments.
+	 *
+	 * @param config runtime configuration.
+	 * @return return pyFlink required environments.
+	 */
+	public static Map<String, String> getPyFlinkRequiredEnvironment(RuntimeConfig config) {
+		Map<String, String> pyFlinkEnv = new HashMap<>();
+		List<String> pythonPathList = new ArrayList<>();
+		String resourceDir = EnvironmentInitUtils.getResourceDir(config);
+		pythonPathList.add(Constants.PYTHONPATH_VAL);
+		pythonPathList.add(resourceDir);
+		String pythonPath = String.join(":", pythonPathList);
+		pyFlinkEnv.put(Constants.PYTHONPATH_KEY, pythonPath);
+		return pyFlinkEnv;
+	}
+
+	/**
+	 * Merge user defined envs, pyFlink required envs and java envs.
+	 *
+	 * @param config runtime configuration.
+	 * @return return the real environments for the python process.
+	 */
+	public static Map<String, String> getEnvironment(RuntimeConfig config) {
+		Map<String, String> userDefinedEnv = config.getEnvironment();
+		Map<String, String> javaEnv = System.getenv();
+		Map<String, String> pyFlinkEnv = getPyFlinkRequiredEnvironment(config);
+		Map<String, String> realEnv = new HashMap<>(javaEnv);
+
+		mergeEnviroment(realEnv, userDefinedEnv);
+		mergeEnviroment(realEnv, pyFlinkEnv);
+		return realEnv;
+	}
+
+	public static Map<String, String> mergeEnviroment(Map<String, String> baseEnv,
+		Map<String, String> env) {
+		for (Map.Entry<String, String> entry : env.entrySet()) {
+			if (baseEnv.containsKey(entry.getKey())) {
+				baseEnv.put(entry.getKey(), baseEnv.get(entry.getKey()) + ":" + entry.getValue());
+			} else {
+				baseEnv.put(entry.getKey(), entry.getValue());
+			}
+		}
+		return baseEnv;
 	}
 }

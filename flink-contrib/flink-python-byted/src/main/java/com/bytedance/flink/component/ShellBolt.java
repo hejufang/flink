@@ -78,10 +78,10 @@ public class ShellBolt implements Bolt {
 			Constants.MAX_BOLT_PENDING_VAL);
 		pendingWrites = new LinkedBlockingQueue<>(maxPendding);
 		Map<String, Object> shellArgs = new HashMap<>();
-		String logFile = EnvironmentInitUtils.getLogFile();
+		String logFile = EnvironmentInitUtils.getLogFile(runtimeConfig);
 		if (logFile != null) {
-			shellArgs.put(Constants.LOG_FILE, logFile);
-			runtimeConfig.put(Constants.LOG_FILE, logFile);
+			shellArgs.put(Constants.LOG_FILE_KEY, logFile);
+			runtimeConfig.put(Constants.LOG_FILE_KEY, logFile);
 		}
 		shellArgs.putAll(boltInfo.getArgs());
 		runtimeConfig.put(Constants.SUB_TASK_ID, subTaskId);

@@ -36,7 +36,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,7 +49,6 @@ public class ShellProcess implements Serializable {
 	private Process subprocess;
 	private InputStream subprocessErrorStream;
 	private String[] command;
-	private Map<String, String> environment;
 	private MessageSerializable serializer;
 	private Number pid;
 	private String taskName;
@@ -71,8 +69,6 @@ public class ShellProcess implements Serializable {
 		if (killProcessGroupOld > 0) {
 			killProcessGroup = true;
 		}
-		environment = config.getEnvironment();
-
 		if (killProcessGroup) {
 			ArrayList<String> newCommand = new ArrayList<String>(command.length + 1);
 			newCommand.add(SET_SID_COMMAND);
@@ -83,31 +79,13 @@ public class ShellProcess implements Serializable {
 			command[0] = "/bin/bash";
 		}
 		LOG.info("Executing " + Arrays.toString(command));
-
 		ProcessBuilder builder = new ProcessBuilder(command);
 
-		// Add resource dir and pyFlink to PYTHONPATH.
-		List<String> pythonPathList = new ArrayList<>();
-		pythonPathList.add(Constants.PYTHONPATH_VAL);
-		String resourceDir = EnvironmentInitUtils.getResourceDir(config);
-		pythonPathList.add(resourceDir);
-		if (environment.containsKey(Constants.PYTHONPATH_KEY)) {
-			pythonPathList.add(environment.get(Constants.PYTHONPATH_KEY));
-		}
-		String pythonPath = String.join(":", pythonPathList);
-		environment.put(Constants.PYTHONPATH_KEY, pythonPath);
-
-		// Replace ${resourceDir} with real resourceDir in environment values.
-		for (Map.Entry<String, String> entry: environment.entrySet()) {
-			String key = entry.getKey();
-			String value = entry.getValue();
-			value = value.replaceAll("(?i)\\$\\{resourceDir\\}", resourceDir);
-			environment.put(key, value);
-		}
-
-		builder.environment().putAll(environment);
+		Map<String, String> realEnvironment = EnvironmentInitUtils.getEnvironment(config);
+		builder.environment().putAll(realEnvironment);
 		LOG.debug("Launch process with environment: {}", builder.environment());
 
+		String resourceDir = EnvironmentInitUtils.getResourceDir(config);
 		builder.directory(new File(resourceDir));
 		builder.redirectError(ProcessBuilder.Redirect.INHERIT);
 		taskName = config.getTaskName();

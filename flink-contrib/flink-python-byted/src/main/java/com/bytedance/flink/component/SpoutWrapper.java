@@ -17,13 +17,10 @@
 
 package com.bytedance.flink.component;
 
-import org.apache.flink.api.common.functions.StoppableFunction;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.runtime.pyjstorm.PYJStormProgressCache;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 
 import com.bytedance.flink.collector.SpoutCollector;
-import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.pojo.RuntimeConfig;
 import com.bytedance.flink.utils.EnvironmentInitUtils;
 import org.slf4j.Logger;
@@ -32,7 +29,7 @@ import org.slf4j.LoggerFactory;
 /**
  * A spout wrapper is a RichParallelSourceFunction and it wraps a ShellSpout.
  */
-public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> implements StoppableFunction {
+public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 	private static final Logger LOG = LoggerFactory.getLogger(SpoutWrapper.class);
 
 	private Spout spout;
@@ -46,8 +43,6 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> implement
 	 * Number of this parallel subtask, The numbering starts from 0 and goes up to parallelism-1.
 	 */
 	private Integer subTaskId;
-	private volatile boolean localFailover;
-	private volatile PySpoutProcess spoutProgress;
 
 	public SpoutWrapper(Spout spout, String name, Integer numberOfAttributes) {
 		this.spout = spout;
@@ -70,48 +65,10 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> implement
 		runtimeConfig.setTaskName(name);
 		EnvironmentInitUtils.prepareLocalDir(runtimeConfig, spout);
 		SpoutCollector<OUT> spoutCollector = new SpoutCollector<>(numberOfAttributes, sourceContext);
-		localFailover = (boolean) runtimeConfig.getOrDefault(Constants.LOCAL_FAILOVER, false);
-		String spoutProgressKey = runtimeConfig.getJobName() + "-" + this.name + "-"
-			+ runtimeConfig.getSubTaskId();
-
-		boolean attached = false;
-		if (localFailover) {
-			spoutProgress = (PySpoutProcess) PYJStormProgressCache.getInstance().get(spoutProgressKey);
-			if (spoutProgress != null) {
-				try {
-					ShellSpout shellSpout = (ShellSpout) spoutProgress.getSpout();
-					shellSpout.attach(spoutCollector);
-					this.spout = shellSpout;
-					attached = true;
-					spoutProgress.markInUse();
-					LOG.warn("attach successed spout, {}", spoutProgressKey);
-				} catch (Exception e) {
-					LOG.warn("attach failed spout, " + spoutProgressKey, e);
-				}
-			} else {
-				LOG.warn("attach init spout, {}" + spoutProgressKey);
-			}
-		}
-
-		if (!attached) {
-			spout.open(runtimeConfig, spoutCollector);
-			if (localFailover) {
-				spoutProgress = new PySpoutProcess(runtimeConfig, name, subTaskId, spout);
-				PYJStormProgressCache.getInstance().put(spoutProgressKey, spoutProgress);
-				LOG.info("cached spout progress, name:{}, taskId:{}", name, subTaskId);
-			}
-		}
+		spout.open(runtimeConfig, spoutCollector);
 
 		while (isRunning) {
 			spout.nextTuple();
-		}
-	}
-
-	@Override
-	public void stop() {
-		this.isRunning = false;
-		if (this.spoutProgress != null) {
-			this.spoutProgress.markUnUse();
 		}
 	}
 
@@ -123,13 +80,6 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> implement
 	@Override
 	public void close() throws Exception {
 		LOG.info("Try to close spout {}-{}", name, subTaskId);
-		if (this.localFailover) {
-			LOG.info("Suspend spout progress");
-			((ShellSpout) this.spout).suspend();
-			this.spoutProgress.markUnUse();
-		} else {
-			LOG.info("Close spout progress");
-			this.spout.close();
-		}
+		this.spout.close();
 	}
 }

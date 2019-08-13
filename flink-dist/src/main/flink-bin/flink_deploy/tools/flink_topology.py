@@ -5,7 +5,6 @@ import argparse
 import hdfs_util
 import json
 import kafka
-import logging
 import os
 import pwd
 import re
@@ -21,15 +20,12 @@ from alert import Alert
 from conf_utils import ConfUtils
 from flink_resource import FlinkResource
 from http_util import HttpUtil
+from jar_util import JarUtil
 from kafka_util import KafkaUtil
 from mysql_util import MysqlUtil
 from pyutil.program import metrics3 as metrics
 from register_dashboard import RegisterDashboard
 from sr_utils import SmartResourcesUtils
-from ss_lib.topology.util.utils import RESOURCES_NAME
-from ss_lib.topology.util.utils import _create_storm_jar
-from ss_lib.topology.util.utils import _open_jar
-from ss_lib.topology.util.utils import expand_path
 from util import red, green, out_and_info
 from yarn_util import YarnUtil
 from yaml_util import YamlUtil
@@ -43,6 +39,7 @@ TM_MEMORY_MB_MAX_CEILING = 100 * 1024
 TM_VCORES_MAX = 8
 TM_VCORES_MAX_CEILING = 47
 DEFAULT_TOPIC_THRESHOLD = 100 * 1000
+FLINK_1_9_VERVION='1.9'
 
 
 class NoEnoughResArgs(Exception):
@@ -64,7 +61,9 @@ class FlinkTopology(object):
     FLINK_JOB_TYPE_KEY = "flink.job_type"
     PYFLINK = "pyFlink"
     PYJSTORM = "pyJstorm"
-    VALID_VERSIONS = ["1.5"]
+    LOCAL_MODE = 1
+    CLUSTER_MODE = 0
+    VALID_VERSIONS = ["1.5", "1.9"]
     DEFAULT_VERSION = "1.5"
     RESOURCES_OPTIMIZE_WIKI = "https://wiki.bytedance.net/pages/viewpage.action?pageId=151754851"
     SKIP_UNIMPORTANCE_PROCESS = "skip_unimportance_process"
@@ -119,7 +118,7 @@ class FlinkTopology(object):
         if args.queue_name is None:
             print red("Please specify queue name")
             return
-
+        print 'version = ' + str(args.version)
         return cls(cluster_name=args.cluster_name, queue_name=args.queue_name,
                    yaml_file=yaml_file, config_dir=args.config_dir,
                    flink_args=args.flink_args, user=user,
@@ -138,6 +137,8 @@ class FlinkTopology(object):
             self.flink_args = ''
         self.kafka_topics = []
         self.config_dir = config_dir
+        if not self.config_dir:
+            self.config_dir = ConfUtils.get_flink_conf_dir(version)
         self.cluster_name = ConfUtils.replace_cluster_conf(cluster_name)
         self.flink_conf = ConfUtils.get_flink_conf(self.cluster_name, version)
         self.hadoop_conf_dir = self.flink_conf.get('HADOOP_CONF_DIR')
@@ -158,14 +159,12 @@ class FlinkTopology(object):
         print "skip_unimportance_process = %s" % self.skip_unimportance_process
         self.is_restructure_mode = self.user_yaml_conf.get(
             'is_restructure_mode', True)
-        if self.is_restructure_mode:
-            self.job_type = FlinkTopology.PYFLINK
-            self.base_jar = self.flink_conf.get('base_jar_new')
-            self.bin = self.flink_conf.get('bin_new')
-        else:
-            self.job_type = FlinkTopology.PYJSTORM
-            self.base_jar = self.flink_conf.get('base_jar')
-            self.bin = self.flink_conf.get('bin')
+        # 0: cluster mode , 1: local mode
+        self.run_mode = self.user_yaml_conf.get("topology_standalone_mode",
+                                                FlinkTopology.CLUSTER_MODE)
+        self.job_type = FlinkTopology.PYFLINK
+        self.base_jar = self.flink_conf.get('base_jar')
+        self.bin = self.flink_conf.get('bin')
         self.topology_name = self.user_yaml_conf.get('topology_name')
         self.flink_yarn_args = self.user_yaml_conf.get('flink_args', {})
 
@@ -400,21 +399,20 @@ class FlinkTopology(object):
     def build_jar(self):
         print green("build %s" % self.topology_name)
         print green("Begin to build topology......")
-        resource_dir = os.path.join(CUR_PATH, RESOURCES_NAME)
+        resource_dir = os.path.join(CUR_PATH, JarUtil.RESOURCES_NAME)
         if not os.path.exists(resource_dir):
             err_msg = "Directory resource does exists in current directory."
             print red(err_msg)
             raise Exception(err_msg)
         base_jar = self.base_jar
-        base_jar_expand = expand_path(base_jar)
-        zip_file = _open_jar(base_jar)
+        zip_file = JarUtil.open_jar(base_jar)
         try:
             # Everything will be copied in a tmp directory
             tmp_dir = tempfile.mkdtemp()
             try:
-                _create_storm_jar(
+                JarUtil.create_flink_jar(
+                    yaml_file=self.yaml_file,
                     resource_dir=resource_dir,
-                    base_jar=base_jar_expand,
                     output_jar=self.output_jar,
                     zip_file=zip_file,
                     tmp_dir=tmp_dir
@@ -426,12 +424,23 @@ class FlinkTopology(object):
         out_and_info("Build topology have finished.")
 
     def build_start_cmd(self):
-        if self.save_pid:
-            return self.bin + " " + "save_pid" + " " + self.output_jar + " " + \
-                   self.yaml_file + " " + self.cluster_name + " " + self.flink_args
+        main_class = "com.bytedance.flink.topology.PyFlinkRunner"
+        if self.version == FLINK_1_9_VERVION:
+            yaml_file_name = os.path.basename(self.yaml_file)
+            return self.bin + " " + "run" + " " + "-c" + " " + main_class \
+                   + " " + "-cn" + " " + self.cluster_name + " " \
+                   + " " + self.flink_args + " " \
+                   + "--clusterName" + " " + self.cluster_name + " " \
+                   + "--userYamlFileName" + " " + yaml_file_name + " " \
+                   + "--flinkConfigDir" + " " + self.config_dir + " "\
+                   + "--userJar" + " " + self.output_jar
         else:
-            return self.bin + " " + self.output_jar + " " + self.yaml_file + " " + \
-                   self.cluster_name + " " + self.flink_args
+            if self.save_pid:
+                return self.bin + " " + "save_pid" + " " + self.output_jar + " " + \
+                       self.yaml_file + " " + self.cluster_name + " " + self.flink_args
+            else:
+                return self.bin + " " + self.output_jar + " " + self.yaml_file + " " + \
+                       self.cluster_name + " " + self.flink_args
 
     def ensure_dir(self, path):
         path = path.strip()
@@ -453,7 +462,8 @@ class FlinkTopology(object):
 
     def start(self):
         start_time = time.time()
-        if not self.skip_unimportance_process:
+        if not self.skip_unimportance_process \
+                and self.run_mode == FlinkTopology.CLUSTER_MODE:
             if YarnUtil.is_exists(self.user,
                                   self.region,
                                   self.cluster_name,
@@ -485,13 +495,6 @@ class FlinkTopology(object):
 
         self.build_jar()
 
-        # TODO(zoudan): reture False if user config the log, so as to
-        # stop the start action
-
-        # res = self.build_jar()
-        # if res:
-        #     return False
-
         self.commit_offset()
         try:
             self.add_default_args()
@@ -506,6 +509,9 @@ class FlinkTopology(object):
         print green("Cmd: " + cmd)
         self.export_env_to_shell()
         ret = os.system(cmd)
+        if self.run_mode == FlinkTopology.LOCAL_MODE:
+            print 'Local mode job finished.'
+            exit(0)
         result = True
         if not self.skip_unimportance_process:
             if run_mode == 0:
@@ -875,7 +881,7 @@ def main():
     topology = FlinkTopology(cluster_name=args.cluster_name,
                              queue_name=queue_name,
                              yaml_file=yaml_file, config_dir=args.config_dir,
-                             flink_args=args.flink_args, base_jar=args.base_jar,
+                             flink_args=args.flink_args,
                              user=user, batch_runner=args.batch_runner,
                              version=args.version)
     if args.action == 'start':

@@ -29,6 +29,7 @@ public class Constants {
 	public static final String PYTHONPATH_VAL = "/opt/tiger/pyFlink";
 	public static final String USE_NEW_MODE = "use_new_mode";
 	public static final String RUN_MODE = "topology_standalone_mode";
+	public static final String TMP_DIRS = "io.tmp.dirs";
 	public static final int RUN_MODE_CLUSTER = 0;
 	public static final int RUN_MODE_STANDLONE = 1;
 	public static final String RUN_TIME_KEY = "topology_standalone_time";
@@ -136,6 +137,7 @@ public class Constants {
 	public static final String CODE_DIR_VAL = "flink-dist";
 	public static final String PID_DIR_KEY = "pidDir";
 	public static final String PID_DIR_VAL = "pid-dir";
+	public static final String LOCAL_LOG_DIR_KEY = "logDir";
 	public static final String CONF = "conf";
 	public static final String PID = "pid";
 	public static final String COMMAND = "command";
@@ -144,7 +146,8 @@ public class Constants {
 	public static final String IS_IGNORE_MISMATCHED_MSG = "is_ignore_mismatched_msg";
 	public static final String DONT_WRITE_BYTECODE = "dont_write_bytecode";
 	public static final String LOCAL_FAILOVER = "flink.localfailover";
-	public static final String LOG_FILE = "log_file";
+	public static final String LOG_FILE_KEY = "log_file";
+	public static final String LOG_FILE_VAL = "/var/log/tiger/wordcount.log";
 
 	public static final String NEXT = "next";
 	public static final String EMIT = "emit";

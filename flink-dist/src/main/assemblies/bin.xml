@@ -95,6 +95,13 @@ under the License.
 		</file>
 
 		<file>
+			<source>../flink-contrib/flink-python-byted/target/flink-python-byted-${project.version}.jar</source>
+			<outputDirectory>basejar/</outputDirectory>
+			<destName>flink-python-byted.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
 			<source>../flink-libraries/flink-gelly/target/flink-gelly_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>

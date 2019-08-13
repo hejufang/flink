@@ -31,7 +31,7 @@ class ConfUtils(object):
 
     @staticmethod
     def get_flink_conf(cluster, version):
-        dynamicParams = ['clusterName', 'hdfs.prefix']
+        dynamicParams = ['dc', 'clusterName', 'hdfs.prefix']
         current_dir = os.path.split(os.path.realpath(__file__))[0]
         origin_conf = ConfUtils.get_origin_conf(version)
         conf = origin_conf.get(COMMON)
@@ -46,15 +46,9 @@ class ConfUtils(object):
                                                conf.get(param))
                 conf[k] = replaced_value
         upper_directory = os.path.join(current_dir, "..")
-        if 'base_jar_new' in conf:
-            conf['base_jar_new'] = \
-                os.path.join(upper_directory, conf.get('base_jar_new'))
         if 'base_jar' in conf:
             conf['base_jar'] = \
                 os.path.join(upper_directory, conf.get('base_jar'))
-        if 'bin_new' in conf:
-            conf['bin_new'] = \
-                os.path.join(upper_directory, conf.get('bin_new'))
         if 'bin' in conf:
             conf['bin'] = \
                 os.path.join(upper_directory, conf.get('bin'))

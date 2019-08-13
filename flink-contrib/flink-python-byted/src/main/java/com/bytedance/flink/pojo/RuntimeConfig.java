@@ -99,6 +99,30 @@ public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implement
 		config.put(Constants.CODE_DIR_KEY, codeDir);
 	}
 
+	public String getLocalLogDir() {
+		return (String) config.getOrDefault(Constants.LOCAL_LOG_DIR_KEY, "");
+	}
+
+	public void setLocalLogDir(String localLogDirDir) {
+		config.put(Constants.LOCAL_LOG_DIR_KEY, localLogDirDir);
+	}
+
+	public String getTmpDir() {
+		return (String) config.getOrDefault(Constants.TMP_DIRS, "");
+	}
+
+	public void setTmpDir(String tmpDir) {
+		config.put(Constants.TMP_DIRS, tmpDir);
+	}
+
+	public int getRunMode() {
+		return (int) config.getOrDefault(Constants.RUN_MODE, Constants.RUN_MODE_CLUSTER);
+	}
+
+	public void setRunMode(int runMode) {
+		config.put(Constants.RUN_MODE, runMode);
+	}
+
 	public String getPidDir() {
 		return (String) config.getOrDefault(Constants.PID_DIR_KEY, "");
 	}

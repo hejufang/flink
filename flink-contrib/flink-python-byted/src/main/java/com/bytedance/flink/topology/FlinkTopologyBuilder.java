@@ -20,12 +20,18 @@ package com.bytedance.flink.topology;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.RestOptions;
+import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.minicluster.MiniCluster;
+import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.co.CoFlatMapFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.util.Collector;
 
 import com.bytedance.flink.component.BatchBoltProcess;
@@ -65,16 +71,48 @@ public class FlinkTopologyBuilder {
 	private Set<String> usedSpouts = new HashSet<>();
 
 	private JobConfig jobConfig;
+	private Configuration flinkConfig;
 	private String jobName;
 	private StreamExecutionEnvironment env;
 	private String[] flinkYarnArgs;
 
-	public FlinkTopologyBuilder(JobConfig jobConfig) {
+	public FlinkTopologyBuilder(JobConfig jobConfig, Configuration flinkConfig) {
 		this.jobConfig = jobConfig;
+		this.flinkConfig = flinkConfig;
 		this.jobName = jobConfig.getJobName();
 		this.env = StreamExecutionEnvironment.getExecutionEnvironment();
 		// Set default parallelism to 1.
 		env.setParallelism(1);
+	}
+
+	public void run(String jobName) {
+		try {
+			build();
+			if (getJobConfig().getRunMode() == Constants.RUN_MODE_STANDLONE) {
+				int runTimeSeconds = jobConfig.getRunSeconds();
+				LOG.info("Run job on local mode for {} seconds", runTimeSeconds);
+				StreamGraph streamGraph = env.getStreamGraph();
+				streamGraph.setJobName(getJobName());
+				JobGraph jobGraph = streamGraph.getJobGraph();
+				flinkConfig.setString(RestOptions.BIND_PORT, "10000-20000");
+				MiniCluster miniCluster = new MiniCluster(
+					new MiniClusterConfiguration.Builder()
+						.setConfiguration(flinkConfig)
+						.setNumTaskManagers(1)
+						.setNumSlotsPerTaskManager(jobGraph.getMaximumParallelism())
+						.build());
+				miniCluster.start();
+				miniCluster.submitJob(jobGraph);
+				LOG.info("The local cluster will shut down after {} seconds.", jobConfig.getRunSeconds());
+				Thread.sleep(runTimeSeconds * 1000);
+				LOG.info("Close mini cluster...");
+				miniCluster.close();
+			} else {
+				env.execute(jobName);
+			}
+		} catch (Exception e) {
+			LOG.info("Exception occurred while running the job.", e);
+		}
 	}
 
 	public void build() {
