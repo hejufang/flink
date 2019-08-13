@@ -27,7 +27,7 @@ rm -rf output
 mkdir -p output
 
 # compile flink-1.9
-mvn -T 1C clean install -U -DskipTests -Pinclude-hadoop
+mvn clean install -U -DskipTests -Pinclude-hadoop
 mkdir -p temp_output/deploy
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/deploy/flink-1.9 temp_output/deploy
 mkdir -p temp_output/deploy/flink-1.9/lib
@@ -38,7 +38,7 @@ git clean -xdf  flink-end-to-end-tests/
 git clean -xdf flink-formats/flink-parquet/
 git clean -xdf flink-python/
 git checkout -b flink-1.5 origin/flink-1.5
-mvn -T 1C clean install -U -DskipTests
+mvn clean install -U -DskipTests
 
 # copy to output dir
 cp -r flink-dist/target/flink-1.5-byted-SNAPSHOT-bin/flink-1.5-byted-SNAPSHOT/flink_deploy/* output
