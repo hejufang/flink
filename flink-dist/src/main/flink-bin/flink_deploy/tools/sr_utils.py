@@ -138,7 +138,7 @@ class SmartResourcesUtils(object):
                                                          total_memory_mb,
                                                          total_cores,
                                                          range(1, parallelism))
-        return result;
+        return result
 
     @staticmethod
     def calc_resources_args(parallelism, total_memory_mb, total_cores, tm_num_seeds):
@@ -227,23 +227,22 @@ class SmartResourcesUtils(object):
         return pyredis.make_redis_client(estimater_redis_name)
 
     @staticmethod
-        def generate_config_with_yaml(region, cluster, app_name, yaml_file):
-            ""
-            enerate flink resources config based on recent resource utilization
-            param region: yarn region, cn, va, sg, etc...
-            param cluster: yarn cluster, flink, dw, etc...
-            param app_name: application name, without user name
-            param yaml_file: job yaml conf
-            return: If successful, return the new configuration or return None.
-            ""
-            link_conf = ConfUtils.get_flink_conf(cluster, "1.5")
-            aml_util = YamlUtil(yaml_file)
-            ob_info = yaml_util.get_job_info(flink_conf.get("kafka_server_url"))
-            ser_yaml_conf = YamlUtil.get_yaml_info(yaml_file)
-            r_args = user_yaml_conf.get('sr_args', {})
-            eturn SmartResourcesUtils.generate_config(
-                region, cluster, app_name, job_info, sr_args)
-
+    def generate_config_with_yaml(region, cluster, app_name, yaml_file):
+        """
+        Generate flink resources config based on recent resource utilization
+        :param region: yarn region, cn, va, sg, etc...
+        :param cluster: yarn cluster, flink, dw, etc...
+        :param app_name: application name, without user name
+        :param yaml_file: job yaml conf
+        :return: If successful, return the new configuration or return None.
+        """
+        flink_conf = ConfUtils.get_flink_conf(cluster, "1.5")
+        yaml_util = YamlUtil(yaml_file)
+        job_info = yaml_util.get_job_info(flink_conf.get("kafka_server_url"))
+        user_yaml_conf = YamlUtil.get_yaml_info(yaml_file)
+        sr_args = user_yaml_conf.get('sr_args', {})
+        return SmartResourcesUtils.generate_config(
+            region, cluster, app_name, job_info, sr_args)
 
     @staticmethod
     def generate_config(region, cluster, app_name, job_info, sr_args):
