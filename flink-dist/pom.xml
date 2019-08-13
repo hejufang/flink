@@ -381,6 +381,13 @@ under the License.
 			<artifactId>flink-shaded-netty-tcnative-dynamic</artifactId>
 			<scope>provided</scope>
 		</dependency>
+
+		<dependency>
+			<groupId>com.bytedance.flink</groupId>
+			<artifactId>flink-python-byted</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
 		<!-- end optional Flink libraries -->
 
 		<!-- test dependencies -->
