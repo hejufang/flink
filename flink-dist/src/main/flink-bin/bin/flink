@@ -51,8 +51,11 @@ fi
 CC_CLASSPATH=`constructFlinkClassPath`
 DYNAMIC_FILES=`getDynamicFiles $*`
 if [ "$DYNAMIC_FILES" != "" ]; then
+        DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
         CC_CLASSPATH=$DYNAMIC_FILES:$CC_CLASSPATH
 fi
+echo $CC_CLASSPATH
+
 USER_JAR=`getUserJar $*`
 echo $USER_JAR
 flink_client_classpath_include_user_jar=`getClientIncludeUserJar $*`
