@@ -1162,9 +1162,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				}
 				newVcores = newVcores > 8 ? 8 : newVcores;
 				newVcores = newVcores == 0 ? 1 : newVcores;
+				final UpdateContainersResources updateContainersResources = new UpdateContainersResources(
+					newMemoryMB, newVcores, new Long(containerMaxResources.getDurtion()).intValue());
 
-				updateContainersResources(new UpdateContainersResources(newMemoryMB, newVcores,
-					new Long(containerMaxResources.getDurtion()).intValue()));
+				runAsync(() -> updateContainersResources(updateContainersResources));
+
 			} catch (InterruptedException e) {
 				log.info("estimate application resources interrupted");
 				return;
