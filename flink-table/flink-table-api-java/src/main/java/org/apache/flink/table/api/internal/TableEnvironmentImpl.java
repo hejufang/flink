@@ -431,7 +431,7 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		} else {
 			throw new TableException(
 				"Unsupported SQL query! sqlUpdate() only accepts a single SQL statements of " +
-					"type INSERT, CREATE TABLE, DROP TABLE, CREATE VIEW");
+					"type INSERT, CREATE TABLE, DROP TABLE, CREATE VIEW, CREATE FUNCTION");
 		}
 	}
 
