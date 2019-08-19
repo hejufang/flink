@@ -38,6 +38,9 @@ public class FailoverStrategyLoader {
 	/** Config name for the {@link RestartIndividualStrategy}. */
 	public static final String INDIVIDUAL_RESTART_STRATEGY_NAME = "individual";
 
+	/** Config name for the {@link BatchJobFailoverStrategy}. */
+	public static final String BATCH_JOB_FAILOVER_STRATEGY_NAME = "batchjobfailover";
+
 	/** Config name for the {@link AdaptedRestartPipelinedRegionStrategyNG}. */
 	public static final String PIPELINED_REGION_RESTART_STRATEGY_NAME = "region";
 
@@ -76,6 +79,9 @@ public class FailoverStrategyLoader {
 
 				case INDIVIDUAL_RESTART_STRATEGY_NAME:
 					return new RestartIndividualStrategy.Factory();
+
+				case BATCH_JOB_FAILOVER_STRATEGY_NAME:
+					return new BatchJobFailoverStrategy.Factory(config);
 
 				case SINGLE_RESTART_STRATEGY_NAME:
 					return new RestartSingleStrategy.Factory();

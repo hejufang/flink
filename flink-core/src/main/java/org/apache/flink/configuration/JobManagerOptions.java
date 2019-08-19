@@ -140,6 +140,14 @@ public class JobManagerOptions {
 				).build());
 
 	/**
+	 * The maximum number of failure execution attempts.
+	 */
+	public static final ConfigOption<Integer> MAX_ATTEMPTS_EXECUTION_FAILURE_COUNT =
+		key("jobmanager.execution.attempts-failure-size")
+			.defaultValue(6)
+			.withDescription("The maximum number of failure execution attempts.");
+
+	/**
 	 * The location where the JobManager stores the archives of completed jobs.
 	 */
 	public static final ConfigOption<String> ARCHIVE_DIR =
