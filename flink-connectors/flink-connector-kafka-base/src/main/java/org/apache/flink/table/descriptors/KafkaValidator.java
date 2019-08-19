@@ -40,6 +40,11 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_VERSION_VALUE_011 = "0.11";
 	public static final String CONNECTOR_VERSION_VALUE_UNIVERSAL = "universal";
 	public static final String CONNECTOR_TOPIC = "connector.topic";
+	public static final String CONNECTOR_CLUSTER = "connector.cluster";
+	public static final String CONNECTOR_TEAM = "connector.team";
+	public static final String CONNECTOR_PSM = "connector.psm";
+	public static final String CONNECTOR_OWNER = "connector.owner";
+	public static final String CONNECTOR_GROUP_ID = "connector.group.id";
 	public static final String CONNECTOR_STARTUP_MODE = "connector.startup-mode";
 	public static final String CONNECTOR_STARTUP_MODE_VALUE_EARLIEST = "earliest-offset";
 	public static final String CONNECTOR_STARTUP_MODE_VALUE_LATEST = "latest-offset";
@@ -48,6 +53,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SPECIFIC_OFFSETS = "connector.specific-offsets";
 	public static final String CONNECTOR_SPECIFIC_OFFSETS_PARTITION = "partition";
 	public static final String CONNECTOR_SPECIFIC_OFFSETS_OFFSET = "offset";
+	public static final String CONNECTOR_KAFKA_PROPERTIES = "connector.kafka.properties";
 	public static final String CONNECTOR_PROPERTIES = "connector.properties";
 	public static final String CONNECTOR_PROPERTIES_KEY = "key";
 	public static final String CONNECTOR_PROPERTIES_VALUE = "value";
@@ -63,6 +69,10 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		properties.validateValue(CONNECTOR_TYPE, CONNECTOR_TYPE_VALUE_KAFKA, false);
 
 		properties.validateString(CONNECTOR_TOPIC, false, 1, Integer.MAX_VALUE);
+		properties.validateString(CONNECTOR_CLUSTER, false, 1, Integer.MAX_VALUE);
+		properties.validateString(CONNECTOR_TEAM, false, 1, Integer.MAX_VALUE);
+		properties.validateString(CONNECTOR_PSM, false, 1, Integer.MAX_VALUE);
+		properties.validateString(CONNECTOR_OWNER, false, 1, Integer.MAX_VALUE);
 
 		validateStartupMode(properties);
 
