@@ -37,11 +37,14 @@ import java.util.Optional;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_CONSUL;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DBNAME;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DRIVER;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_PASSWORD;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_PSM;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_READ_FETCH_SIZE;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_READ_PARTITION_COLUMN;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_READ_PARTITION_LOWER_BOUND;
@@ -51,6 +54,7 @@ import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_TABLE;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_TYPE_VALUE_JDBC;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_URL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_USERNAME;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_USE_BYTEDANCE_MYSQL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_WRITE_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_WRITE_MAX_RETRIES;
@@ -69,7 +73,6 @@ public class JDBCTableSourceSinkFactory implements
 	public Map<String, String> requiredContext() {
 		Map<String, String> context = new HashMap<>();
 		context.put(CONNECTOR_TYPE, CONNECTOR_TYPE_VALUE_JDBC); // jdbc
-		context.put(CONNECTOR_PROPERTY_VERSION, "1"); // backwards compatibility
 		return context;
 	}
 
@@ -83,6 +86,11 @@ public class JDBCTableSourceSinkFactory implements
 		properties.add(CONNECTOR_TABLE);
 		properties.add(CONNECTOR_USERNAME);
 		properties.add(CONNECTOR_PASSWORD);
+		properties.add(CONNECTOR_USE_BYTEDANCE_MYSQL);
+		properties.add(CONNECTOR_PSM);
+		properties.add(CONNECTOR_CONSUL);
+		properties.add(CONNECTOR_DBNAME);
+		properties.add(CONNECTOR_PROPERTY_VERSION);
 
 		// scan options
 		properties.add(CONNECTOR_READ_PARTITION_COLUMN);
@@ -147,16 +155,25 @@ public class JDBCTableSourceSinkFactory implements
 	}
 
 	private JDBCOptions getJDBCOptions(DescriptorProperties descriptorProperties) {
-		final String url = descriptorProperties.getString(CONNECTOR_URL);
-		final JDBCOptions.Builder builder = JDBCOptions.builder()
-			.setDBUrl(url)
-			.setTableName(descriptorProperties.getString(CONNECTOR_TABLE))
-			.setDialect(JDBCDialects.get(url).get());
+		Optional<String> url = descriptorProperties.getOptionalString(CONNECTOR_URL);
+		JDBCOptions.Builder builder = JDBCOptions.builder()
+			.setTableName(descriptorProperties.getString(CONNECTOR_TABLE));
+		if (url.isPresent()) {
+			builder.setDBUrl(url.get())
+				.setDialect(JDBCDialects.get(url.get()).get());
+		} else {
+			builder.setDBUrl(null)
+				.setDialect(JDBCDialects.get("jdbc:mysql:").get());
+		}
 
 		descriptorProperties.getOptionalString(CONNECTOR_DRIVER).ifPresent(builder::setDriverName);
 		descriptorProperties.getOptionalString(CONNECTOR_USERNAME).ifPresent(builder::setUsername);
 		descriptorProperties.getOptionalString(CONNECTOR_PASSWORD).ifPresent(builder::setPassword);
-
+		descriptorProperties.getOptionalBoolean(CONNECTOR_USE_BYTEDANCE_MYSQL)
+			.ifPresent(builder::setUseBytedanceMysql);
+		descriptorProperties.getOptionalString(CONNECTOR_CONSUL).ifPresent(builder::setConsul);
+		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
+		descriptorProperties.getOptionalString(CONNECTOR_DBNAME).ifPresent(builder::setDbname);
 		return builder.build();
 	}
 

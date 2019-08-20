@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.List;
 
 import static org.apache.flink.api.java.io.jdbc.JDBCUtils.setRecordToStatement;
 
@@ -49,10 +50,12 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 
 	private PreparedStatement upload;
 	private int batchCount = 0;
+	private List<Row> backupRows;
 
 	public JDBCOutputFormat(String username, String password, String drivername,
-			String dbURL, String query, int batchInterval, int[] typesArray) {
-		super(username, password, drivername, dbURL);
+			String dbURL, String query, int batchInterval, int[] typesArray,
+			boolean useBytedanceMysql, String consul, String psm, String dbname) {
+		super(username, password, drivername, dbURL, useBytedanceMysql, consul, psm, dbname);
 		this.query = query;
 		this.batchInterval = batchInterval;
 		this.typesArray = typesArray;
@@ -68,6 +71,7 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 	@Override
 	public void open(int taskNumber, int numTasks) throws IOException {
 		try {
+			this.taskNumber = taskNumber;
 			establishConnection();
 			upload = connection.prepareStatement(query);
 		} catch (SQLException sqe) {
@@ -80,6 +84,7 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 	@Override
 	public void writeRecord(Row row) throws IOException {
 		try {
+			backupRows.add(row);
 			setRecordToStatement(upload, typesArray, row);
 			upload.addBatch();
 		} catch (SQLException e) {
@@ -96,10 +101,24 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 
 	void flush() {
 		try {
+			if (!connection.isValid(VALID_CONNECTION_TIMEOUT_SEC)) {
+				LOG.warn("Jdbc connection for subTask: {} is invalid, reconnecting ...", this.taskNumber);
+				updatePreparedStatement();
+				batchCount = 0;
+				for (Row row: backupRows) {
+					setRecordToStatement(upload, typesArray, row);
+					upload.addBatch();
+					batchCount++;
+				}
+			}
+
 			upload.executeBatch();
 			batchCount = 0;
+			backupRows.clear();
 		} catch (SQLException e) {
 			throw new RuntimeException("Execution of JDBC statement failed.", e);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException("Failed to updatePreparedStatement");
 		}
 	}
 
@@ -128,6 +147,14 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 		closeDbConnection();
 	}
 
+	/**
+	 * Reconnection db and get new prepared statement.
+	 * */
+	private void updatePreparedStatement() throws SQLException, ClassNotFoundException {
+		establishConnection();
+		upload = connection.prepareStatement(query);
+	}
+
 	public static JDBCOutputFormatBuilder buildJDBCOutputFormat() {
 		return new JDBCOutputFormatBuilder();
 	}
@@ -141,6 +168,10 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 		private String drivername;
 		private String dbURL;
 		private String query;
+		private boolean useBytedanceMysql;
+		private String consul;
+		private String psm;
+		private String dbname;
 		private int batchInterval = DEFAULT_FLUSH_MAX_SIZE;
 		private int[] typesArray;
 
@@ -181,6 +212,26 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 			return this;
 		}
 
+		public JDBCOutputFormatBuilder setUseBytedanceMysql(boolean useBytedanceMysql) {
+			this.useBytedanceMysql = useBytedanceMysql;
+			return this;
+		}
+
+		public JDBCOutputFormatBuilder setConsul(String consul) {
+			this.consul = consul;
+			return this;
+		}
+
+		public JDBCOutputFormatBuilder setPsm(String psm) {
+			this.psm = psm;
+			return this;
+		}
+
+		public JDBCOutputFormatBuilder setDbname(String dbname) {
+			this.dbname = dbname;
+			return this;
+		}
+
 		/**
 		 * Finalizes the configuration and checks validity.
 		 *
@@ -193,9 +244,6 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 			if (this.password == null) {
 				LOG.info("Password was not supplied.");
 			}
-			if (this.dbURL == null) {
-				throw new IllegalArgumentException("No database URL supplied.");
-			}
 			if (this.query == null) {
 				throw new IllegalArgumentException("No query supplied.");
 			}
@@ -204,8 +252,8 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 			}
 
 			return new JDBCOutputFormat(
-					username, password, drivername, dbURL,
-					query, batchInterval, typesArray);
+					username, password, drivername, dbURL, query, batchInterval, typesArray,
+				useBytedanceMysql, consul, psm, dbname);
 		}
 	}
 

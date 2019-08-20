@@ -7,7 +7,8 @@ build:
   stage: build
   script:
     # TODO(huweihua): remove skipTests when we can pass unitTest.
-    - mvn clean install -DskipTests -Pinclude-hadoop -T 1C
+    # - mvn clean install -DskipTests -Pinclude-hadoop -T 1C
+    - ./build_local.sh
 #  only:
 #    - merge_requests
   tags:

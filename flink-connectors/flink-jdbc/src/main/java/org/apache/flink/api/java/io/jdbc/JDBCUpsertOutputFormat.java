@@ -31,6 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -66,6 +68,7 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture scheduledFuture;
 	private transient volatile Exception flushException;
+	private List<Tuple2<Boolean, Row>> backupRows;
 
 	public JDBCUpsertOutputFormat(
 			JDBCOptions options,
@@ -75,7 +78,9 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 			int flushMaxSize,
 			long flushIntervalMills,
 			int maxRetryTimes) {
-		super(options.getUsername(), options.getPassword(), options.getDriverName(), options.getDbURL());
+		super(options.getUsername(), options.getPassword(), options.getDriverName(),
+			options.getDbURL(), options.getUseBytedanceMysql(), options.getConsul(),
+			options.getPsm(), options.getDbname());
 		this.tableName = options.getTableName();
 		this.dialect = options.getDialect();
 		this.fieldNames = fieldNames;
@@ -84,6 +89,7 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 		this.flushMaxSize = flushMaxSize;
 		this.flushIntervalMills = flushIntervalMills;
 		this.maxRetryTimes = maxRetryTimes;
+		this.backupRows = new ArrayList<>();
 	}
 
 	/**
@@ -96,16 +102,8 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 	@Override
 	public void open(int taskNumber, int numTasks) throws IOException {
 		try {
-			establishConnection();
-			if (keyFields == null || keyFields.length == 0) {
-				String insertSQL = dialect.getInsertIntoStatement(tableName, fieldNames);
-				jdbcWriter = new AppendOnlyWriter(insertSQL, fieldTypes);
-			} else {
-				jdbcWriter = UpsertWriter.create(
-					dialect, tableName, fieldNames, fieldTypes, keyFields,
-					getRuntimeContext().getExecutionConfig().isObjectReuseEnabled());
-			}
-			jdbcWriter.open(connection);
+			this.taskNumber = taskNumber;
+			updateJDBCWriter();
 		} catch (SQLException sqe) {
 			throw new IllegalArgumentException("open() failed.", sqe);
 		} catch (ClassNotFoundException cnfe) {
@@ -136,11 +134,32 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 		}
 	}
 
+	/**
+	 * Reconnection db and get new prepared statement.
+	 * */
+	private void updateJDBCWriter() throws SQLException, ClassNotFoundException {
+		establishConnection();
+		if (jdbcWriter != null) {
+			jdbcWriter.close();
+		}
+
+		if (keyFields == null || keyFields.length == 0) {
+			String insertSQL = dialect.getInsertIntoStatement(tableName, fieldNames);
+			jdbcWriter = new AppendOnlyWriter(insertSQL, fieldTypes);
+		} else {
+			jdbcWriter = UpsertWriter.create(
+				dialect, tableName, fieldNames, fieldTypes, keyFields,
+				getRuntimeContext().getExecutionConfig().isObjectReuseEnabled());
+		}
+		jdbcWriter.open(connection);
+	}
+
 	@Override
 	public synchronized void writeRecord(Tuple2<Boolean, Row> tuple2) throws IOException {
 		checkFlushException();
 
 		try {
+			backupRows.add(tuple2);
 			jdbcWriter.addRecord(tuple2);
 			batchCount++;
 			if (batchCount >= flushMaxSize) {
@@ -154,10 +173,21 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 	public synchronized void flush() throws Exception {
 		checkFlushException();
 
+		if (!connection.isValid(VALID_CONNECTION_TIMEOUT_SEC)) {
+			LOG.warn("Jdbc connection for subTask: {} is invalid, reconnecting ...", this.taskNumber);
+			updateJDBCWriter();
+			batchCount = 0;
+			for (Tuple2<Boolean, Row> tuple2: backupRows) {
+				jdbcWriter.addRecord(tuple2);
+				batchCount++;
+			}
+		}
+
 		for (int i = 1; i <= maxRetryTimes; i++) {
 			try {
 				jdbcWriter.executeBatch();
 				batchCount = 0;
+				backupRows.clear();
 				break;
 			} catch (SQLException e) {
 				LOG.error("JDBC executeBatch error, retry times = {}", i, e);
