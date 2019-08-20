@@ -220,6 +220,7 @@ public class CliFrontendParser {
 		options.addOption(PY_OPTION);
 		options.addOption(PYFILES_OPTION);
 		options.addOption(PYMODULE_OPTION);
+
 		return options;
 	}
 
@@ -241,7 +242,9 @@ public class CliFrontendParser {
 		options = getProgramSpecificOptions(options);
 		options.addOption(SAVEPOINT_PATH_OPTION);
 		options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
-		return options.addOption(CLUSTER_NAME_OPTION);
+		options.addOption(CLUSTER_NAME_OPTION);
+		options.addOption(OWNER_OPTION);
+		return options;
 	}
 
 	static Options getInfoCommandOptions() {

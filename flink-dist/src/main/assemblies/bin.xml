@@ -54,13 +54,6 @@ under the License.
 
 		<!-- Table/SQL Uber JAR -->
 		<file>
-			<source>../flink-table/flink-table-uber/target/flink-table-uber_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<destName>flink-table_${scala.binary.version}-${project.version}.jar</destName>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
 			<source>../flink-table/flink-table-uber-blink/target/flink-table-uber-blink_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<destName>flink-table-blink_${scala.binary.version}-${project.version}.jar</destName>
@@ -87,13 +80,6 @@ under the License.
 			<fileMode>0644</fileMode>
 		</file>
 
-		<!--copy files to flink_deploy-->
-		<file>
-			<source>target/flink-dist_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
 		<file>
 			<source>../flink-contrib/flink-python-byted/target/flink-python-byted-${project.version}.jar</source>
 			<outputDirectory>basejar/</outputDirectory>
@@ -102,31 +88,7 @@ under the License.
 		</file>
 
 		<file>
-			<source>../flink-libraries/flink-gelly/target/flink-gelly_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-libraries/flink-gelly-scala/target/flink-gelly-scala_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
 			<source>../flink-formats/flink-json/target/flink-json-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-table/flink-table-uber/target/flink-table-uber_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-table/flink-table-planner-blink/target/flink-table-planner-blink_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
@@ -151,24 +113,6 @@ under the License.
 		</file>
 
 		<file>
-			<source>../flink-connectors/flink-connector-kafka-0.10/target/flink-connector-kafka-0.10_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-connectors/flink-connector-kafka-0.9/target/flink-connector-kafka-0.9_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-connectors/flink-connector-kafka-base/target/flink-connector-kafka-base_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
 			<source>src/main/resources/flink-conf.yaml</source>
 			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/conf/</outputDirectory>
 			<fileMode>0644</fileMode>
@@ -179,7 +123,6 @@ under the License.
 			<outputDirectory>flink_deploy</outputDirectory>
 			<fileMode>0644</fileMode>
 		</file>
-
 	</files>
 	<fileSets>
 		<fileSet>

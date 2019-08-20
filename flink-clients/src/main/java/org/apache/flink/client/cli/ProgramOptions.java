@@ -136,8 +136,7 @@ public abstract class ProgramOptions extends CommandLineOptions {
 		} else if (!isPython && args.length > 0) {
 			jarFilePath = args[0];
 			args = Arrays.copyOfRange(args, 1, args.length);
-		}
-		else {
+		} else {
 			jarFilePath = null;
 		}
 
