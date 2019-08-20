@@ -32,6 +32,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
@@ -202,24 +203,26 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private long srNextCheckTimeMS;
 
 	public YarnResourceManager(
-			RpcService rpcService,
-			String resourceManagerEndpointId,
-			ResourceID resourceId,
-			Configuration flinkConfig,
-			Map<String, String> env,
-			HighAvailabilityServices highAvailabilityServices,
-			HeartbeatServices heartbeatServices,
-			SlotManager slotManager,
-			MetricRegistry metricRegistry,
-			JobLeaderIdService jobLeaderIdService,
-			ClusterInformation clusterInformation,
-			FatalErrorHandler fatalErrorHandler,
-			@Nullable String webInterfaceUrl,
-			JobManagerMetricGroup jobManagerMetricGroup) {
+		RpcService rpcService,
+		String resourceManagerEndpointId,
+		ResourceID resourceId,
+		Configuration flinkConfig,
+		Map<String, String> env,
+		HighAvailabilityServices highAvailabilityServices,
+		HeartbeatServices heartbeatServices,
+		SlotManager slotManager,
+		MetricRegistry metricRegistry,
+		JobLeaderIdService jobLeaderIdService,
+		ClusterInformation clusterInformation,
+		FatalErrorHandler fatalErrorHandler,
+		@Nullable String webInterfaceUrl,
+		JobManagerMetricGroup jobManagerMetricGroup,
+		FailureRater failureRater) {
 		super(
 			rpcService,
 			resourceManagerEndpointId,
 			resourceId,
+			flinkConfig,
 			highAvailabilityServices,
 			heartbeatServices,
 			slotManager,
@@ -227,7 +230,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			jobLeaderIdService,
 			clusterInformation,
 			fatalErrorHandler,
-			jobManagerMetricGroup);
+			jobManagerMetricGroup,
+			failureRater);
 		this.flinkConfig  = flinkConfig;
 		this.yarnConfig = new YarnConfiguration();
 		this.env = env;
@@ -554,8 +558,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
 
 					if (yarnWorkerNode != null) {
+						recordWorkerFailure();
 						// Container completed unexpectedly ~> start a new one
-						requestYarnContainerIfRequired();
+						startNewWorkerIfNeeded(ResourceProfile.UNKNOWN,
+							numPendingContainerRequests * slotsPerWorker.size());
 					}
 					// Eagerly close the connection with task manager.
 					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
@@ -606,9 +612,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								// release the failed container
 								workerNodeMap.remove(resourceId);
 								resourceManagerClient.releaseAssignedContainer(container.getId());
-								log.error("Could not start TaskManager in container {}.", container.getId(), t);
+								recordWorkerFailure();
 								// and ask for a new one
-								requestYarnContainerIfRequired();
+								startNewWorkerIfNeeded(ResourceProfile.UNKNOWN,
+									numPendingContainerRequests * numberOfTaskSlots);
 							}
 						}
 					});

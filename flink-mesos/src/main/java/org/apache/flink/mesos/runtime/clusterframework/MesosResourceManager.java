@@ -46,6 +46,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.metrics.MetricRegistry;
@@ -148,25 +149,26 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	private MesosConfiguration initializedMesosConfig;
 
 	public MesosResourceManager(
-			// base class
-			RpcService rpcService,
-			String resourceManagerEndpointId,
-			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
-			HeartbeatServices heartbeatServices,
-			SlotManager slotManager,
-			MetricRegistry metricRegistry,
-			JobLeaderIdService jobLeaderIdService,
-			ClusterInformation clusterInformation,
-			FatalErrorHandler fatalErrorHandler,
-			// Mesos specifics
-			Configuration flinkConfig,
-			MesosServices mesosServices,
-			MesosConfiguration mesosConfig,
-			MesosTaskManagerParameters taskManagerParameters,
-			ContainerSpecification taskManagerContainerSpec,
-			@Nullable String webUiUrl,
-			JobManagerMetricGroup jobManagerMetricGroup) {
+		// base class
+		RpcService rpcService,
+		String resourceManagerEndpointId,
+		ResourceID resourceId,
+		HighAvailabilityServices highAvailabilityServices,
+		HeartbeatServices heartbeatServices,
+		SlotManager slotManager,
+		MetricRegistry metricRegistry,
+		JobLeaderIdService jobLeaderIdService,
+		ClusterInformation clusterInformation,
+		FatalErrorHandler fatalErrorHandler,
+		// Mesos specifics
+		Configuration flinkConfig,
+		MesosServices mesosServices,
+		MesosConfiguration mesosConfig,
+		MesosTaskManagerParameters taskManagerParameters,
+		ContainerSpecification taskManagerContainerSpec,
+		@Nullable String webUiUrl,
+		JobManagerMetricGroup jobManagerMetricGroup,
+		FailureRater failureRater) {
 		super(
 			rpcService,
 			resourceManagerEndpointId,
@@ -178,7 +180,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			jobLeaderIdService,
 			clusterInformation,
 			fatalErrorHandler,
-			jobManagerMetricGroup);
+			jobManagerMetricGroup,
+			failureRater);
 
 		this.mesosServices = Preconditions.checkNotNull(mesosServices);
 		this.actorSystem = Preconditions.checkNotNull(mesosServices.getLocalActorSystem());
@@ -664,7 +667,9 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			assert(launched != null);
 			LOG.info("Worker {} failed with status: {}, reason: {}, message: {}.",
 				id, status.getState(), status.getReason(), status.getMessage());
-			startNewWorker(launched.profile());
+
+			recordWorkerFailure();
+			startNewWorkerIfNeeded(launched.profile(), workersInNew.size() * slotsPerWorker.size());
 		}
 
 		closeTaskManagerConnection(id, new Exception(status.getMessage()));

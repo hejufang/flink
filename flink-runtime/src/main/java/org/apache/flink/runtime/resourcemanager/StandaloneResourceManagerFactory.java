@@ -23,6 +23,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.metrics.MetricRegistry;
@@ -55,7 +57,7 @@ public enum StandaloneResourceManagerFactory implements ResourceManagerFactory<R
 			resourceManagerRuntimeServicesConfiguration,
 			highAvailabilityServices,
 			rpcService.getScheduledExecutor());
-
+		final FailureRater failureRater = FailureRaterUtil.createFailureRater(configuration);
 		final Time standaloneClusterStartupPeriodTime = ConfigurationUtils.getStandaloneClusterStartupPeriodTime(configuration);
 
 		return new StandaloneResourceManager(
@@ -70,6 +72,7 @@ public enum StandaloneResourceManagerFactory implements ResourceManagerFactory<R
 			clusterInformation,
 			fatalErrorHandler,
 			jobManagerMetricGroup,
-			standaloneClusterStartupPeriodTime);
+			standaloneClusterStartupPeriodTime,
+			failureRater);
 	}
 }

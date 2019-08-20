@@ -20,6 +20,7 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -28,6 +29,8 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
@@ -128,6 +131,7 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		flinkConfig = new Configuration();
 		flinkConfig.setInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN, 100);
+		flinkConfig.setString(ConfigConstants.JOB_WORK_DIR_KEY, "file:///tmp/");
 
 		File root = folder.getRoot();
 		File home = new File(root, "home");
@@ -159,22 +163,23 @@ public class YarnResourceManagerTest extends TestLogger {
 		NMClient mockNMClient;
 
 		TestingYarnResourceManager(
-				RpcService rpcService,
-				String resourceManagerEndpointId,
-				ResourceID resourceId,
-				Configuration flinkConfig,
-				Map<String, String> env,
-				HighAvailabilityServices highAvailabilityServices,
-				HeartbeatServices heartbeatServices,
-				SlotManager slotManager,
-				MetricRegistry metricRegistry,
-				JobLeaderIdService jobLeaderIdService,
-				ClusterInformation clusterInformation,
-				FatalErrorHandler fatalErrorHandler,
-				@Nullable String webInterfaceUrl,
-				AMRMClientAsync<AMRMClient.ContainerRequest> mockResourceManagerClient,
-				NMClient mockNMClient,
-				JobManagerMetricGroup jobManagerMetricGroup) {
+			RpcService rpcService,
+			String resourceManagerEndpointId,
+			ResourceID resourceId,
+			Configuration flinkConfig,
+			Map<String, String> env,
+			HighAvailabilityServices highAvailabilityServices,
+			HeartbeatServices heartbeatServices,
+			SlotManager slotManager,
+			MetricRegistry metricRegistry,
+			JobLeaderIdService jobLeaderIdService,
+			ClusterInformation clusterInformation,
+			FatalErrorHandler fatalErrorHandler,
+			@Nullable String webInterfaceUrl,
+			AMRMClientAsync<AMRMClient.ContainerRequest> mockResourceManagerClient,
+			NMClient mockNMClient,
+			JobManagerMetricGroup jobManagerMetricGroup,
+			FailureRater failureRater) {
 			super(
 				rpcService,
 				resourceManagerEndpointId,
@@ -189,7 +194,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				clusterInformation,
 				fatalErrorHandler,
 				webInterfaceUrl,
-				jobManagerMetricGroup);
+				jobManagerMetricGroup,
+				failureRater);
 			this.mockNMClient = mockNMClient;
 			this.mockResourceManagerClient = mockResourceManagerClient;
 		}
@@ -219,7 +225,6 @@ public class YarnResourceManagerTest extends TestLogger {
 		protected void runAsync(final Runnable runnable) {
 			runnable.run();
 		}
-
 	}
 
 	class Context {
@@ -248,6 +253,8 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		public JobManagerMetricGroup mockJMMetricGroup =
 				UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup();
+
+		public FailureRater failureRater = FailureRaterUtil.createFailureRater(new Configuration());
 
 		/**
 		 * Create mock RM dependencies.
@@ -279,7 +286,8 @@ public class YarnResourceManagerTest extends TestLogger {
 							null,
 							mockResourceManagerClient,
 							mockNMClient,
-							mockJMMetricGroup);
+							mockJMMetricGroup,
+							failureRater);
 		}
 
 		/**
@@ -364,6 +372,8 @@ public class YarnResourceManagerTest extends TestLogger {
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
+				// wait for container to start
+				Thread.sleep(1000);
 				verify(mockResourceManagerClient).addContainerRequest(any(AMRMClient.ContainerRequest.class));
 				verify(mockNMClient).startContainer(eq(testingContainer), any(ContainerLaunchContext.class));
 
@@ -462,6 +472,8 @@ public class YarnResourceManagerTest extends TestLogger {
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
+				// wait for container to start
+				Thread.sleep(1000);
 				verify(mockResourceManagerClient).addContainerRequest(any(AMRMClient.ContainerRequest.class));
 				verify(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
 				verify(mockNMClient).startContainer(eq(testingContainer), any(ContainerLaunchContext.class));

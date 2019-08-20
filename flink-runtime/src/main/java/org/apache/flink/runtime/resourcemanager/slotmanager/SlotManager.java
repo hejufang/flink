@@ -55,6 +55,12 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberPendingSlotRequests();
 
+	int getNumberAssignedPendingTaskManagerSlots();
+
+	// ---------------------------------------------------------------------------------------------
+	// Component lifecycle methods
+	// ---------------------------------------------------------------------------------------------
+
 	/**
 	 * Starts the slot manager with the given leader id and resource manager actions.
 	 *
@@ -77,6 +83,12 @@ public interface SlotManager extends AutoCloseable {
 	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
 	 */
 	boolean registerSlotRequest(SlotRequest slotRequest) throws ResourceManagerException;
+
+	/**
+	 * Cancel all pending slot requests.
+	 * @param cause the exception caused the cancellation
+	 */
+	void cancelAllPendingSlotRequests(Exception cause);
 
 	/**
 	 * Cancels and removes a pending slot request with the given allocation id. If there is no such

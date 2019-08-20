@@ -23,6 +23,7 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.metrics.MetricRegistry;
@@ -51,18 +52,19 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 	private final Time startupPeriodTime;
 
 	public StandaloneResourceManager(
-			RpcService rpcService,
-			String resourceManagerEndpointId,
-			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
-			HeartbeatServices heartbeatServices,
-			SlotManager slotManager,
-			MetricRegistry metricRegistry,
-			JobLeaderIdService jobLeaderIdService,
-			ClusterInformation clusterInformation,
-			FatalErrorHandler fatalErrorHandler,
-			JobManagerMetricGroup jobManagerMetricGroup,
-			Time startupPeriodTime) {
+		RpcService rpcService,
+		String resourceManagerEndpointId,
+		ResourceID resourceId,
+		HighAvailabilityServices highAvailabilityServices,
+		HeartbeatServices heartbeatServices,
+		SlotManager slotManager,
+		MetricRegistry metricRegistry,
+		JobLeaderIdService jobLeaderIdService,
+		ClusterInformation clusterInformation,
+		FatalErrorHandler fatalErrorHandler,
+		JobManagerMetricGroup jobManagerMetricGroup,
+		Time startupPeriodTime,
+		FailureRater failureRater) {
 		super(
 			rpcService,
 			resourceManagerEndpointId,
@@ -74,7 +76,8 @@ public class StandaloneResourceManager extends ResourceManager<ResourceID> {
 			jobLeaderIdService,
 			clusterInformation,
 			fatalErrorHandler,
-			jobManagerMetricGroup);
+			jobManagerMetricGroup,
+			failureRater);
 		this.startupPeriodTime = Preconditions.checkNotNull(startupPeriodTime);
 	}
 

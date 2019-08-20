@@ -38,6 +38,11 @@
             <td>Time in milliseconds of the start-up period of a standalone cluster. During this time, resource manager of the standalone cluster expects new task executors to be registered, and will not fail slot requests that can not be satisfied by any current registered slots. After this time, it will fail pending and new coming requests immediately that can not be satisfied by registered slots. If not set, 'slotmanager.request-timeout' will be used by default.</td>
         </tr>
         <tr>
+            <td><h5>resourcemanager.maximum-workers-failure-rate</h5></td>
+            <td style="word-wrap: break-word;">-1.0</td>
+            <td>Defines the maximum number of worker (YARN / Mesos) failures per minute before rejecting subsequent worker requests until the failure rate falls below the maximum. It is to quickly catch external dependency caused workers failure and terminate job accordingly. Be default, -1.0 is set to disable the feature.</td>
+        </tr>
+        <tr>
             <td><h5>resourcemanager.taskmanager-timeout</h5></td>
             <td style="word-wrap: break-word;">30000</td>
             <td>The timeout for an idle task manager to be released.</td>
