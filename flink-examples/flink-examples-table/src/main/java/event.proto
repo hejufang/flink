@@ -1,0 +1,99 @@
+syntax = "proto2";
+package pb_event;
+option java_package = "com.bytedance.protobuf.mario";
+option java_outer_classname = "EventProto";
+
+
+message User {
+    required string user_unique_id = 1;//用户的唯一身份标识,一般为"{user_type}_{user_id}"
+    optional uint32 user_type = 2;//Odin ID,如果用作推荐则是必选
+    optional uint64 user_id = 3;//Odin ID,如果用作推荐则是必选
+    optional bool user_is_auth = 4;//用户是否是授权用户
+    optional bool user_is_login = 5;//用户是否已登录
+    optional uint64 device_id = 6;//设备id
+    optional uint64 web_id = 7;
+    optional uint64 ip_addr_id = 8;
+    optional string ssid = 9;
+    optional string open_udid = 10;
+    optional string udid = 11;
+    optional string idfa = 12;
+    optional string idfv = 13;
+    optional string build_serial = 14;
+}
+
+message Header {
+    optional string headers = 1; //自定义header,单层json map,需要dump成字符串
+    required uint32 app_id = 2;
+    optional string app_name = 3;
+    optional uint64 app_install_id = 4;
+    optional string app_package = 5;//app包名
+    optional string app_channel = 6;//app分发渠道
+    optional string app_version = 7;//app版本
+    optional string os_name = 8;//客户端系统
+    optional string os_version = 9;//客户端系统版本号
+    optional string device_model = 10;//设备型号
+    optional string ab_client = 11;//ab实验客户端标识
+    optional string ab_version = 12;//ab实验分组信息
+    optional string traffic_type = 13;//流量类型
+    optional string utm_source = 14;
+    optional string utm_medium = 15;
+    optional string utm_campaign = 16;
+    optional string client_ip = 17;
+    optional string device_brand = 18;
+    optional uint32 os_api = 19;
+    optional string access = 20;//网络访问类型
+    optional string language = 21;
+    optional string region = 22;
+    optional string app_language = 23;
+    optional string app_region = 24;
+    optional uint64 creative_id = 25;
+    optional uint64 ad_id = 26;
+    optional uint64 campaign_id = 27;
+    optional string log_type = 28;//事件类型
+    optional string rnd = 29;//随机数
+    optional string platform = 30;//平台类型
+    optional string sdk_version = 31; //sdk版本号
+    optional string province = 32; //省
+    optional string city = 33; //市
+    optional int32 timezone = 34; //时区
+    optional int32 tz_offset = 35; //时区偏移
+    optional string tz_name = 36; //时区名
+    optional string sim_region = 37; //sim卡地区
+    optional string carrier = 38; //运营商
+    optional string resolution = 39; //分辨率
+    optional string browser = 50; //浏览器名
+    optional string browser_version = 51; //浏览器版本号
+    optional string referrer = 52; //前向地址
+    optional string referrer_host = 53; //前向域名
+    optional int32 screen_height = 54; //屏幕高度
+    optional int32 screen_width = 55; //屏幕宽度
+    optional float tz = 56; //float时区
+    optional string app_version_minor = 57; //4位版本号
+    optional string carrier_region = 58;
+    optional string product_name = 59;
+    optional uint32 product_id = 60;
+    optional string custom = 61;
+    optional uint32 update_version_code = 62;
+    optional string ab_sdk_version = 63; // ab_test字段
+    optional string user_agent = 64; // user_agent
+}
+
+message Event {
+    required string event = 3; //事件名
+    required uint32 time = 4; //事件发生时间戳
+    required string params = 5; //事件参数,单层json map,需要dump成字符串
+    optional string session_id = 6;//事件所属session
+    optional uint64 local_time_ms = 7; //事件发生事件戳(毫秒)
+    optional bool _staging_flag = 8;
+    optional uint32 seq_id = 9;
+    optional uint64 event_id = 10;
+}
+
+message MarioEvents {
+    required string caller = 1;
+    required uint32 server_time = 2;
+    required User user = 3;
+    required Header header = 4;
+    repeated Event events = 5;
+    optional string trace_id = 6;
+}

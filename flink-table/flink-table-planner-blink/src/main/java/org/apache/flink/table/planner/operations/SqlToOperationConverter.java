@@ -18,6 +18,9 @@
 
 package org.apache.flink.table.planner.operations;
 
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.formats.pb.PbConstant;
+import org.apache.flink.formats.pb.PbRowFormatFactory;
 import org.apache.flink.sql.parser.ddl.SqlCreateFunction;
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
 import org.apache.flink.sql.parser.ddl.SqlCreateView;
@@ -32,6 +35,7 @@ import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.CatalogView;
 import org.apache.flink.table.catalog.QueryOperationCatalogView;
+import org.apache.flink.table.descriptors.FormatDescriptorValidator;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
@@ -43,6 +47,8 @@ import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.planner.calcite.FlinkTypeSystem;
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter;
+import org.apache.flink.table.types.logical.TimestampKind;
+import org.apache.flink.table.types.logical.TimestampType;
 
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
@@ -157,6 +163,18 @@ public class SqlToOperationConverter {
 				throw new SqlConversionException(e.getMessage());
 			}
 			rowtimes.put(rowtimeName, rowtime);
+
+			// change the rowtime field type to timestamp
+			TableSchema.Builder schemaWithRowtime = TableSchema.builder();
+			for (String fieldName : tableSchema.getFieldNames()) {
+				if (fieldName.equalsIgnoreCase(rowtimeName)) {
+					schemaWithRowtime.field(fieldName, LogicalTypeDataTypeConverter.fromLogicalTypeToDataType(
+						new TimestampType(true, TimestampKind.ROWTIME, 3)));
+				} else {
+					schemaWithRowtime.field(fieldName, tableSchema.getFieldDataType(fieldName).get());
+				}
+			}
+			tableSchema = schemaWithRowtime.build();
 		}
 		CatalogTable catalogTable = new CatalogTableImpl(tableSchema,
 			partitionKeys,
@@ -229,27 +247,50 @@ public class SqlToOperationConverter {
 	 */
 	private TableSchema createTableSchema(SqlCreateTable sqlCreateTable,
 			FlinkTypeFactory factory) {
-		// setup table columns
-		SqlNodeList columnList = sqlCreateTable.getColumnList();
 		TableSchema physicalSchema = null;
 		TableSchema.Builder builder = new TableSchema.Builder();
-		// collect the physical table schema first.
-		final List<SqlNode> physicalColumns = columnList.getList().stream()
-			.filter(n -> n instanceof SqlTableColumn).collect(Collectors.toList());
-		for (SqlNode node : physicalColumns) {
-			SqlTableColumn column = (SqlTableColumn) node;
-			final RelDataType relType = column.getType().deriveType(factory,
-				column.getType().getNullable());
-			builder.field(column.getName().getSimple(),
-				LogicalTypeDataTypeConverter.fromLogicalTypeToDataType(
-					FlinkTypeFactory.toLogicalType(relType)));
+		Map<String, String> propertiesMap = propertiesToMap(sqlCreateTable.getPropertyList());
+
+		if (sqlCreateTable.getColumnList().size() == 0 &&
+			propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "").equalsIgnoreCase(PbConstant.FORMAT_TYPE_VALUE)) {
+			PbRowFormatFactory pbFactory = new PbRowFormatFactory();
+			RowTypeInfo rowTypeInfo = (RowTypeInfo) pbFactory.getRowTypeInformation(
+				propertiesToMap(sqlCreateTable.getPropertyList()));
+			for (int index = 0; index < rowTypeInfo.getArity(); index++) {
+				builder = builder.field(rowTypeInfo.getFieldNames()[index], rowTypeInfo.getTypeAt(index));
+			}
 			physicalSchema = builder.build();
+		} else {
+			// setup table columns
+			SqlNodeList columnList = sqlCreateTable.getColumnList();
+			// collect the physical table schema first.
+			final List<SqlNode> physicalColumns = columnList.getList().stream()
+				.filter(n -> n instanceof SqlTableColumn).collect(Collectors.toList());
+			for (SqlNode node : physicalColumns) {
+				SqlTableColumn column = (SqlTableColumn) node;
+				final RelDataType relType = column.getType().deriveType(factory,
+					column.getType().getNullable());
+				builder.field(column.getName().getSimple(),
+					LogicalTypeDataTypeConverter.fromLogicalTypeToDataType(
+						FlinkTypeFactory.toLogicalType(relType)));
+				physicalSchema = builder.build();
+			}
+			assert physicalSchema != null;
+			if (sqlCreateTable.containsComputedColumn()) {
+				throw new SqlConversionException("Computed columns for DDL is not supported yet!");
+			}
 		}
-		assert physicalSchema != null;
-		if (sqlCreateTable.containsComputedColumn()) {
-			throw new SqlConversionException("Computed columns for DDL is not supported yet!");
-		}
+
 		return physicalSchema;
+	}
+
+	private Map<String, String> propertiesToMap(SqlNodeList propertiesList) {
+		Map<String, String> properties = new HashMap<>();
+		for (SqlNode node : propertiesList) {
+			SqlTableOption property = (SqlTableOption) node;
+			properties.put(property.getKeyString(), property.getValueString());
+		}
+		return properties;
 	}
 
 	private PlannerQueryOperation toQueryOperation(FlinkPlannerImpl planner, SqlNode validated) {

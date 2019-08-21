@@ -292,6 +292,14 @@ under the License.
 					</execution>
 				</executions>
 			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<configuration>
+					<excludes>**/EventProto**</excludes>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 </project>

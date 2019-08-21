@@ -1,0 +1,86 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.formats.pb;
+
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.types.Row;
+
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
+
+import java.util.Optional;
+
+/**
+ * Generate Row type information according to pb descriptors.
+ */
+public class PbRowTypeInformation {
+	public static TypeInformation<Row> generateRow(Descriptors.Descriptor root) {
+		return generateRow(root, Optional.empty());
+	}
+
+	public static TypeInformation<Row> generateRow(Descriptors.Descriptor root, Optional<Integer> timestemp) {
+		int size = root.getFields().size();
+		TypeInformation[] types = new TypeInformation[size];
+		String[] rowFieldNames = new String[size];
+		int timestampIndex = timestemp.orElse(-1);
+
+		for (int i = 0; i < size; i++) {
+			Descriptors.FieldDescriptor field = root.getFields().get(i);
+			rowFieldNames[i] = field.getName();
+			types[i] = i == timestampIndex ? Types.SQL_TIMESTAMP : generateFieldTypeInformation(field);
+		}
+
+		return new RowTypeInfo(types, rowFieldNames);
+	}
+
+	public static TypeInformation<?> generateFieldTypeInformation(Descriptors.FieldDescriptor field) {
+		JavaType fieldType = field.getJavaType();
+		if (fieldType.equals(JavaType.STRING)) {
+			return Types.STRING;
+		} else if (fieldType.equals(JavaType.LONG)) {
+			return Types.LONG;
+		} else if (fieldType.equals(JavaType.BOOLEAN)) {
+			return Types.BOOLEAN;
+		} else if (fieldType.equals(JavaType.INT)) {
+			return Types.INT;
+		} else if (fieldType.equals(JavaType.DOUBLE)) {
+			return Types.DOUBLE;
+		} else if (fieldType.equals(JavaType.FLOAT)) {
+			return Types.FLOAT;
+		} else if (fieldType.equals(JavaType.ENUM)) {
+			return Types.STRING;
+		} else if (fieldType.equals(JavaType.BYTE_STRING)) {
+			return Types.PRIMITIVE_ARRAY(Types.BYTE);
+		} else if (fieldType.equals(JavaType.MESSAGE)) {
+			if (field.isMapField()) {
+				return Types.MAP(generateFieldTypeInformation(field.getMessageType().findFieldByName(PbConstant.KEY)),
+					generateFieldTypeInformation(field.getMessageType().findFieldByName(PbConstant.VALUE)));
+			} else if (field.isRepeated()) {
+				return ObjectArrayTypeInfo.getInfoFor(generateRow(field.getMessageType()));
+			} else {
+				return generateRow(field.getMessageType());
+			}
+		}
+
+		return Types.STRING;
+	}
+}
