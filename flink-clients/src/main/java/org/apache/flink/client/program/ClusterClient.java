@@ -44,6 +44,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalException;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.rest.handler.legacy.messages.ClusterOverviewWithVersion;
 import org.apache.flink.runtime.util.LeaderConnectionInfo;
 import org.apache.flink.runtime.util.LeaderRetrievalUtils;
 import org.apache.flink.util.FlinkException;
@@ -61,6 +62,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import scala.concurrent.duration.FiniteDuration;
 
@@ -357,6 +359,8 @@ public abstract class ClusterClient<T> {
 	 */
 	public abstract CompletableFuture<JobStatus> getJobStatus(JobID jobId);
 
+	public abstract CompletableFuture<ClusterOverviewWithVersion> getClusterOverview();
+
 	/**
 	 * Cancels a job identified by the job id.
 	 * @param jobId the job id
@@ -480,6 +484,47 @@ public abstract class ClusterClient<T> {
 		simplifyVerticeName(job);
 		return job;
 	}
+
+	/**
+	 * Blocks until the client has determined that the cluster is ready for Job submission.
+	 *
+	 * <p>This is delayed until right before job submission to report any other errors first
+	 * (e.g. invalid job definitions/errors in the user jar)
+	 */
+	public void waitForClusterToBeReady(int minRequiredSlotsNum) {
+		log.info("Waiting until min required num slots are ready");
+
+		for (ClusterOverviewWithVersion currentStatus, lastStatus = null; true; lastStatus = currentStatus) {
+			try {
+				currentStatus = getClusterOverview().get();
+			} catch (InterruptedException | ExecutionException e) {
+				throw new RuntimeException("Error while waiting for TaskManagers", e);
+			}
+			if (currentStatus != null && !currentStatus.equals(lastStatus)) {
+				if (currentStatus.isRmFatal()) {
+					log.error(currentStatus.getRmFatalMessage());
+					shutDownCluster();
+					throw new RuntimeException(currentStatus.getRmFatalMessage());
+				}
+				log.info("TaskManager status (Taskmanagers: " + currentStatus.getNumTaskManagersConnected()
+					+ ", MinRequiredSlots: "
+					+ currentStatus.getNumSlotsTotal() + "/" + minRequiredSlotsNum + ")");
+				if (currentStatus.getNumSlotsTotal() >= minRequiredSlotsNum) {
+					log.info("Min Required Slots are ready");
+					break;
+				}
+			} else if (lastStatus == null) {
+				log.info("No status updates from the YARN cluster received so far. Waiting ...");
+			}
+
+			try {
+				Thread.sleep(250);
+			} catch (InterruptedException e) {
+				throw new RuntimeException("Interrupted while waiting for TaskManagers", e);
+			}
+		}
+	}
+
 
 	// ------------------------------------------------------------------------
 	//  Abstract methods to be implemented by the cluster specific Client

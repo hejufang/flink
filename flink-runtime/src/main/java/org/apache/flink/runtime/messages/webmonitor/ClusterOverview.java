@@ -34,6 +34,8 @@ public class ClusterOverview extends JobsOverview {
 	public static final String FIELD_NAME_TASKMANAGERS = "taskmanagers";
 	public static final String FIELD_NAME_SLOTS_TOTAL = "slots-total";
 	public static final String FIELD_NAME_SLOTS_AVAILABLE = "slots-available";
+	public static final String FIELD_NAME_RM_IS_FATAL = "resourcemanager-is-fatal";
+	public static final String FIELD_NAME_RM_FATAL_MESSAGE = "resourcemanager-fatal-message";
 
 	@JsonProperty(FIELD_NAME_TASKMANAGERS)
 	private final int numTaskManagersConnected;
@@ -44,6 +46,12 @@ public class ClusterOverview extends JobsOverview {
 	@JsonProperty(FIELD_NAME_SLOTS_AVAILABLE)
 	private final int numSlotsAvailable;
 
+	@JsonProperty(FIELD_NAME_RM_IS_FATAL)
+	private final boolean rmFatal;
+
+	@JsonProperty(FIELD_NAME_RM_FATAL_MESSAGE)
+	private final String rmFatalMessage;
+
 	@JsonCreator
 	public ClusterOverview(
 			@JsonProperty(FIELD_NAME_TASKMANAGERS) int numTaskManagersConnected,
@@ -52,21 +60,45 @@ public class ClusterOverview extends JobsOverview {
 			@JsonProperty(FIELD_NAME_JOBS_RUNNING) int numJobsRunningOrPending,
 			@JsonProperty(FIELD_NAME_JOBS_FINISHED) int numJobsFinished,
 			@JsonProperty(FIELD_NAME_JOBS_CANCELLED) int numJobsCancelled,
-			@JsonProperty(FIELD_NAME_JOBS_FAILED) int numJobsFailed) {
+			@JsonProperty(FIELD_NAME_JOBS_FAILED) int numJobsFailed,
+			@JsonProperty(FIELD_NAME_RM_IS_FATAL) boolean rmFatal,
+			@JsonProperty(FIELD_NAME_RM_FATAL_MESSAGE) String rmFatalMessage) {
 
 		super(numJobsRunningOrPending, numJobsFinished, numJobsCancelled, numJobsFailed);
 		
 		this.numTaskManagersConnected = numTaskManagersConnected;
 		this.numSlotsTotal = numSlotsTotal;
 		this.numSlotsAvailable = numSlotsAvailable;
+		this.rmFatal = rmFatal;
+		this.rmFatalMessage = rmFatalMessage;
 	}
 
 	public ClusterOverview(int numTaskManagersConnected, int numSlotsTotal, int numSlotsAvailable,
-						   JobsOverview jobs1, JobsOverview jobs2) {
+						   int numJobsRunningOrPending, int numJobsFinished, int numJobsCancelled, int numJobsFailed) {
+		this(numTaskManagersConnected,
+			numSlotsTotal,
+			numSlotsAvailable,
+			numJobsRunningOrPending,
+			numJobsFinished,
+			numJobsCancelled,
+			numJobsFailed,
+			false,
+			null);
+	}
+
+	public ClusterOverview(int numTaskManagersConnected, int numSlotsTotal, int numSlotsAvailable,
+							JobsOverview jobs1, JobsOverview jobs2) {
+		this(numTaskManagersConnected, numSlotsTotal, numSlotsAvailable, jobs1, jobs2, false, null);
+	}
+
+	public ClusterOverview(int numTaskManagersConnected, int numSlotsTotal, int numSlotsAvailable,
+							JobsOverview jobs1, JobsOverview jobs2, boolean rmFatal, String rmFatalMessage) {
 		super(jobs1, jobs2);
 		this.numTaskManagersConnected = numTaskManagersConnected;
 		this.numSlotsTotal = numSlotsTotal;
 		this.numSlotsAvailable = numSlotsAvailable;
+		this.rmFatal = rmFatal;
+		this.rmFatalMessage = rmFatalMessage;
 	}
 
 	public ClusterOverview(ResourceOverview resourceOverview, JobsOverview jobsOverview) {
@@ -77,7 +109,9 @@ public class ClusterOverview extends JobsOverview {
 			jobsOverview.getNumJobsRunningOrPending(),
 			jobsOverview.getNumJobsFinished(),
 			jobsOverview.getNumJobsCancelled(),
-			jobsOverview.getNumJobsFailed());
+			jobsOverview.getNumJobsFailed(),
+			resourceOverview.isRmFatal(),
+			resourceOverview.getRmFatalMessage());
 	}
 
 	public int getNumTaskManagersConnected() {
@@ -91,7 +125,15 @@ public class ClusterOverview extends JobsOverview {
 	public int getNumSlotsAvailable() {
 		return numSlotsAvailable;
 	}
-	
+
+	public boolean isRmFatal() {
+		return rmFatal;
+	}
+
+	public String getRmFatalMessage() {
+		return rmFatalMessage;
+	}
+
 	// ------------------------------------------------------------------------
 	
 	@Override
@@ -107,7 +149,9 @@ public class ClusterOverview extends JobsOverview {
 					this.getNumJobsRunningOrPending() == that.getNumJobsRunningOrPending() &&
 					this.getNumJobsFinished() == that.getNumJobsFinished() &&
 					this.getNumJobsCancelled() == that.getNumJobsCancelled() &&
-					this.getNumJobsFailed() == that.getNumJobsFailed();
+					this.getNumJobsFailed() == that.getNumJobsFailed() &&
+					this.isRmFatal() == that.isRmFatal() &&
+					(this.getRmFatalMessage() == null ? that.getRmFatalMessage() == null : this.getRmFatalMessage().equals(that.getRmFatalMessage()));
 		}
 		else {
 			return false;
@@ -133,6 +177,8 @@ public class ClusterOverview extends JobsOverview {
 				", numJobsFinished=" + getNumJobsFinished() +
 				", numJobsCancelled=" + getNumJobsCancelled() +
 				", numJobsFailed=" + getNumJobsFailed() +
+				", resourceManagerFatal=" + isRmFatal() +
+				", resourceManagerFatalMessage=" + getRmFatalMessage() +
 				'}';
 	}
 }

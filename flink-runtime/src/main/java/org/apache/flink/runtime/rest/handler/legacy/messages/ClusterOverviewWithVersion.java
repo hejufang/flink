@@ -46,15 +46,17 @@ public class ClusterOverviewWithVersion extends ClusterOverview implements Respo
 
 	@JsonCreator
 	public ClusterOverviewWithVersion(
-			@JsonProperty(FIELD_NAME_TASKMANAGERS) int numTaskManagersConnected,
-			@JsonProperty(FIELD_NAME_SLOTS_TOTAL) int numSlotsTotal,
-			@JsonProperty(FIELD_NAME_SLOTS_AVAILABLE) int numSlotsAvailable,
-			@JsonProperty(FIELD_NAME_JOBS_RUNNING) int numJobsRunningOrPending,
-			@JsonProperty(FIELD_NAME_JOBS_FINISHED) int numJobsFinished,
-			@JsonProperty(FIELD_NAME_JOBS_CANCELLED) int numJobsCancelled,
-			@JsonProperty(FIELD_NAME_JOBS_FAILED) int numJobsFailed,
-			@JsonProperty(FIELD_NAME_VERSION) String version,
-			@JsonProperty(FIELD_NAME_COMMIT) String commitId) {
+		@JsonProperty(FIELD_NAME_TASKMANAGERS) int numTaskManagersConnected,
+		@JsonProperty(FIELD_NAME_SLOTS_TOTAL) int numSlotsTotal,
+		@JsonProperty(FIELD_NAME_SLOTS_AVAILABLE) int numSlotsAvailable,
+		@JsonProperty(FIELD_NAME_JOBS_RUNNING) int numJobsRunningOrPending,
+		@JsonProperty(FIELD_NAME_JOBS_FINISHED) int numJobsFinished,
+		@JsonProperty(FIELD_NAME_JOBS_CANCELLED) int numJobsCancelled,
+		@JsonProperty(FIELD_NAME_JOBS_FAILED) int numJobsFailed,
+		@JsonProperty(FIELD_NAME_RM_IS_FATAL) boolean rmFatal,
+		@JsonProperty(FIELD_NAME_RM_FATAL_MESSAGE) String rmFatalMessage,
+		@JsonProperty(FIELD_NAME_VERSION) String version,
+		@JsonProperty(FIELD_NAME_COMMIT) String commitId) {
 		super(
 			numTaskManagersConnected,
 			numSlotsTotal,
@@ -62,10 +64,36 @@ public class ClusterOverviewWithVersion extends ClusterOverview implements Respo
 			numJobsRunningOrPending,
 			numJobsFinished,
 			numJobsCancelled,
-			numJobsFailed);
+			numJobsFailed,
+			rmFatal,
+			rmFatalMessage);
 
 		this.version = Preconditions.checkNotNull(version);
 		this.commitId = Preconditions.checkNotNull(commitId);
+
+	}
+
+	public ClusterOverviewWithVersion(
+			int numTaskManagersConnected,
+			int numSlotsTotal,
+			int numSlotsAvailable,
+			int numJobsRunningOrPending,
+			int numJobsFinished,
+			int numJobsCancelled,
+			int numJobsFailed,
+			String version,
+			String commitId) {
+		this(numTaskManagersConnected,
+			numSlotsTotal,
+			numSlotsAvailable,
+			numJobsRunningOrPending,
+			numJobsFinished,
+			numJobsCancelled,
+			numJobsFailed,
+			false,
+			null,
+			version,
+			commitId);
 	}
 
 	public ClusterOverviewWithVersion(
@@ -76,7 +104,28 @@ public class ClusterOverviewWithVersion extends ClusterOverview implements Respo
 			JobsOverview jobs2,
 			String version,
 			String commitId) {
-		super(numTaskManagersConnected, numSlotsTotal, numSlotsAvailable, jobs1, jobs2);
+		this(numTaskManagersConnected,
+			numSlotsTotal,
+			numSlotsAvailable,
+			jobs1,
+			jobs2,
+			false,
+			null,
+			version,
+			commitId);
+	}
+
+	public ClusterOverviewWithVersion(
+		int numTaskManagersConnected,
+		int numSlotsTotal,
+		int numSlotsAvailable,
+		JobsOverview jobs1,
+		JobsOverview jobs2,
+		boolean rmFatal,
+		String rmFatalMessage,
+		String version,
+		String commitId) {
+		super(numTaskManagersConnected, numSlotsTotal, numSlotsAvailable, jobs1, jobs2, rmFatal, rmFatalMessage);
 
 		this.version = Preconditions.checkNotNull(version);
 		this.commitId = Preconditions.checkNotNull(commitId);
@@ -91,6 +140,8 @@ public class ClusterOverviewWithVersion extends ClusterOverview implements Respo
 			statusOverview.getNumJobsFinished(),
 			statusOverview.getNumJobsCancelled(),
 			statusOverview.getNumJobsFailed(),
+			statusOverview.isRmFatal(),
+			statusOverview.getRmFatalMessage(),
 			version,
 			commitId);
 	}

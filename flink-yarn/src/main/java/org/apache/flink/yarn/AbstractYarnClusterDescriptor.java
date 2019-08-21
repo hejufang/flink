@@ -851,13 +851,27 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		// set the right configuration values for the TaskManager
+		int slotsPreTaskManager = clusterSpecification.getSlotsPerTaskManager();
 		configuration.setInteger(
 			TaskManagerOptions.NUM_TASK_SLOTS,
-			clusterSpecification.getSlotsPerTaskManager());
+			slotsPreTaskManager);
 
 		configuration.setString(
 			TaskManagerOptions.TASK_MANAGER_HEAP_MEMORY,
 			clusterSpecification.getTaskManagerMemoryMB() + "m");
+
+		if (configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START)) {
+			int numTaskManagers;
+			if (jobGraph == null) {
+				numTaskManagers = clusterSpecification.getNumberTaskManagers();
+			} else {
+				numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPreTaskManager - 1) / slotsPreTaskManager;
+			}
+
+			configuration.setInteger(
+				TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS,
+				numTaskManagers);
+		}
 
 		Path remotePathJar = null;
 		if (!isOnDockerMode) {

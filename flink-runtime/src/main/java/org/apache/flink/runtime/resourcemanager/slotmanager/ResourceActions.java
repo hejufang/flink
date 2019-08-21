@@ -49,6 +49,15 @@ public interface ResourceActions {
 	Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) throws ResourceManagerException;
 
 	/**
+	 * Requests to initialize resources with the given resourceNumber.
+	 * @param resourceProfile for the to be allocated resource
+	 * @param resourceNumber the number of resources
+	 * @return Collection of {@link ResourceProfile} describing the allocated slots
+	 * @throws ResourceManagerException if the resource cannot be allocated
+	 */
+	Collection<ResourceProfile> initialResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException;
+
+	/**
 	 * Notifies that an allocation failure has occurred.
 	 *
 	 * @param jobId to which the allocation belonged

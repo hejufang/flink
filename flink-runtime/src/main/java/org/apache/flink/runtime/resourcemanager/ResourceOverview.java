@@ -35,10 +35,20 @@ public class ResourceOverview implements Serializable {
 
 	private final int numberFreeSlots;
 
-	public ResourceOverview(int numberTaskManagers, int numberRegisteredSlots, int numberFreeSlots) {
+	private final boolean rmFatal;
+
+	private final String rmFatalMessage;
+
+	public ResourceOverview(int numberTaskManagers, int numberRegisteredSlots, int numberFreeSlots, boolean rmFatal, String rmFatalMessage) {
 		this.numberTaskManagers = numberTaskManagers;
 		this.numberRegisteredSlots = numberRegisteredSlots;
 		this.numberFreeSlots = numberFreeSlots;
+		this.rmFatal = rmFatal;
+		this.rmFatalMessage = rmFatalMessage;
+	}
+
+	public ResourceOverview(int numberTaskManagers, int numberRegisteredSlots, int numberFreeSlots) {
+		this(numberTaskManagers, numberRegisteredSlots, numberFreeSlots, false, null);
 	}
 
 	public int getNumberTaskManagers() {
@@ -51,6 +61,14 @@ public class ResourceOverview implements Serializable {
 
 	public int getNumberFreeSlots() {
 		return numberFreeSlots;
+	}
+
+	public boolean isRmFatal() {
+		return rmFatal;
+	}
+
+	public String getRmFatalMessage() {
+		return rmFatalMessage;
 	}
 
 	public static ResourceOverview empty() {

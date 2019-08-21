@@ -164,6 +164,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 */
 	private CompletableFuture<Void> clearStateFuture = CompletableFuture.completedFuture(null);
 
+	private boolean waitingFatal;
+	private String fatalMessage;
+
 	public ResourceManager(
 		RpcService rpcService,
 		String resourceManagerEndpointId,
@@ -220,6 +223,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 		this.jobManagerMetricGroup = checkNotNull(jobManagerMetricGroup);
 		this.failureRater = checkNotNull(failureRater);
+		this.waitingFatal = false;
 
 		this.jobManagerRegistrations = new HashMap<>(4);
 		this.jmResourceIdRegistrations = new HashMap<>(4);
@@ -620,7 +624,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			new ResourceOverview(
 				taskExecutors.size(),
 				numberSlots,
-				numberFreeSlots));
+				numberFreeSlots,
+				waitingFatal,
+				fatalMessage));
 	}
 
 	@Override
@@ -920,13 +926,20 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
-
 	protected Collection<ResourceProfile> tryStartNewWorker(ResourceProfile resourceProfile) {
 		if (failureRater.exceedsFailureRate()) {
 			return Collections.emptyList();
 		}
 
 		return startNewWorker(resourceProfile);
+	}
+
+	protected Collection<ResourceProfile> tryStartNewWorkers(ResourceProfile resourceProfile, int numberOfWorker) {
+		if (failureRater.exceedsFailureRate()) {
+			return Collections.emptyList();
+		}
+
+		return startNewWorkers(resourceProfile, numberOfWorker);
 	}
 
 	/**
@@ -946,10 +959,21 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	/**
+	 * Request new container if pending containers cannot satisfies pending slot requests.
+	 */
+	protected void startNewWorkerIfNeeded(ResourceProfile resourceProfile, int pendingWorkers, int numberOfTaskSlots) {
+		// round up division
+		int numberRequiredTaskManagers = (getNumberRequiredTaskManagerSlots() + numberOfTaskSlots - 1) / numberOfTaskSlots;
+		int newWorkerNumber = numberRequiredTaskManagers - pendingWorkers;
+
+		if (newWorkerNumber > 0) {
+			tryStartNewWorkers(resourceProfile, newWorkerNumber);
+		}
+	}
+
+	/**
 	 * Record failure number of worker in ResourceManagers. If maximum failure rate is detected,
 	 * then cancel all pending requests.
-	 *
-	 * @return whether should acquire new container/worker after the failure
 	 */
 	@VisibleForTesting
 	protected void recordWorkerFailure() {
@@ -983,6 +1007,16 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		// The fatal error handler implementation should make sure that this call is non-blocking
 		fatalErrorHandler.onFatalError(t);
+	}
+
+	protected void onFatalError(String fatalMessage, int waitTime) {
+		this.fatalMessage = fatalMessage;
+		this.waitingFatal = true;
+		try {
+			Thread.sleep(waitTime);
+		} catch (InterruptedException ignored) {}
+
+		onFatalError(new Exception(fatalMessage));
 	}
 
 	// ------------------------------------------------------------------------
@@ -1156,6 +1190,25 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	@VisibleForTesting
 	public abstract Collection<ResourceProfile> startNewWorker(ResourceProfile resourceProfile);
 
+	public Collection<ResourceProfile> startNewWorkers(ResourceProfile resourceProfile, int resourceNumber) {
+		Collection<ResourceProfile> resourceProfiles = new ArrayList<>();
+		for (int i = 0; i < resourceNumber; i++) {
+			resourceProfiles.addAll(startNewWorker(resourceProfile));
+		}
+		return resourceProfiles;
+	}
+
+	/**
+	 * Allocates resources on start.
+	 * @param resourceProfile The resource description
+	 * @param workerNumber The number of workers wanted
+	 * @return Collection of {@link ResourceProfile} describing the launched slots
+	 */
+	public Collection<ResourceProfile> initialWorkers(ResourceProfile resourceProfile, int workerNumber) {
+		log.info("UnSupport Function initialWorkers, ignore.");
+		return Collections.emptyList();
+	}
+
 	/**
 	 * Callback when a worker was started.
 	 * @param resourceID The worker resource id
@@ -1195,6 +1248,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		public Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) {
 			validateRunsInMainThread();
 			return startNewWorker(resourceProfile);
+		}
+
+		@Override
+		public Collection<ResourceProfile> initialResources(ResourceProfile resourceProfile, int resourceNumber) {
+			validateRunsInMainThread();
+			return initialWorkers(resourceProfile, resourceNumber);
 		}
 
 		@Override
@@ -1317,11 +1376,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	// ------------------------------------------------------------------------
 
 	public static Collection<ResourceProfile> createWorkerSlotProfiles(Configuration config) {
+		return createWorkerSlotProfiles(config, 1);
+	}
+
+	public static Collection<ResourceProfile> createWorkerSlotProfiles(Configuration config, int taskManagerNumber) {
 		final int numSlots = config.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 		final long managedMemoryBytes = MemorySize.parse(config.getString(TaskManagerOptions.MANAGED_MEMORY_SIZE)).getBytes();
 
 		final ResourceProfile resourceProfile = TaskManagerServices.computeSlotResourceProfile(numSlots, managedMemoryBytes);
-		return Collections.nCopies(numSlots, resourceProfile);
+		return Collections.nCopies(numSlots * taskManagerNumber, resourceProfile);
 	}
 }
 

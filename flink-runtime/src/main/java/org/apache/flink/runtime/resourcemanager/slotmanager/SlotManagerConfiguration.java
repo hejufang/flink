@@ -23,6 +23,7 @@ import org.apache.flink.configuration.AkkaOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.util.ConfigurationException;
 import org.apache.flink.util.Preconditions;
 
@@ -43,16 +44,36 @@ public class SlotManagerConfiguration {
 	private final Time taskManagerTimeout;
 	private final boolean waitResultConsumedBeforeRelease;
 
+	private final int numInitialTaskManagers;
+	private final boolean initialTaskManager;
+
+	public SlotManagerConfiguration(
+		Time taskManagerRequestTimeout,
+		Time slotRequestTimeout,
+		Time taskManagerTimeout,
+		boolean waitResultConsumedBeforeRelease) {
+		this(taskManagerRequestTimeout,
+			slotRequestTimeout,
+			taskManagerTimeout,
+			waitResultConsumedBeforeRelease,
+			0,
+			false);
+	}
+
 	public SlotManagerConfiguration(
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
-			boolean waitResultConsumedBeforeRelease) {
+			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers,
+			boolean initialTaskManager) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
+		this.numInitialTaskManagers = numInitialTaskManagers;
+		this.initialTaskManager = initialTaskManager;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -69,6 +90,14 @@ public class SlotManagerConfiguration {
 
 	public boolean isWaitResultConsumedBeforeRelease() {
 		return waitResultConsumedBeforeRelease;
+	}
+
+	public int getNumInitialTaskManagers() {
+		return numInitialTaskManagers;
+	}
+
+	public boolean isInitialTaskManager() {
+		return initialTaskManager;
 	}
 
 	public static SlotManagerConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
@@ -89,7 +118,13 @@ public class SlotManagerConfiguration {
 		boolean waitResultConsumedBeforeRelease =
 			configuration.getBoolean(ResourceManagerOptions.TASK_MANAGER_RELEASE_WHEN_RESULT_CONSUMED);
 
-		return new SlotManagerConfiguration(rpcTimeout, slotRequestTimeout, taskManagerTimeout, waitResultConsumedBeforeRelease);
+		int numInitialTaskManagers = configuration.getInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS);
+
+		boolean initialTaskManager = configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START);
+
+		return new SlotManagerConfiguration(
+			rpcTimeout, slotRequestTimeout, taskManagerTimeout, waitResultConsumedBeforeRelease,
+			numInitialTaskManagers, initialTaskManager);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

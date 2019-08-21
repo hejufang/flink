@@ -26,6 +26,7 @@ import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.rest.handler.legacy.messages.ClusterOverviewWithVersion;
 import org.apache.flink.util.OptionalFailure;
 
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -62,6 +63,11 @@ public class FakeClusterClient extends ClusterClient<ApplicationId> {
 	}
 
 	public CompletableFuture<JobStatus> getJobStatus(JobID jobId) {
+		throw new UnsupportedOperationException("Not needed in test.");
+	}
+
+	@Override
+	public CompletableFuture<ClusterOverviewWithVersion> getClusterOverview() {
 		throw new UnsupportedOperationException("Not needed in test.");
 	}
 

@@ -150,6 +150,22 @@ public class TaskManagerOptions {
 				" exceeded without a successful registration, then the TaskManager terminates.");
 
 	/**
+	 * The config parameter defining the number of task managers.
+	 */
+	public static final ConfigOption<Integer> NUM_INITIAL_TASK_MANAGERS =
+		key("taskmanager.number-initial")
+			.defaultValue(0)
+			.withDescription("The number of task managers. 0 for not initial task managers on RM start.");
+
+	/**
+	 * Initialize task managers when slotManager start.
+	 */
+	public static final ConfigOption<Boolean> INITIAL_TASK_MANAGER_ON_START =
+		key("taskmanager.initial-on-start")
+			.defaultValue(false)
+			.withDescription("Initialize task managers when slotManager start.");
+
+	/**
 	 * The config parameter defining the number of task slots of a task manager.
 	 */
 	@Documentation.CommonOption(position = Documentation.CommonOption.POSITION_PARALLELISM_SLOTS)

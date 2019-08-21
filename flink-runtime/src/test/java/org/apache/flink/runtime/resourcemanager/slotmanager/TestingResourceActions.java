@@ -28,6 +28,7 @@ import org.apache.flink.util.function.FunctionWithException;
 
 import javax.annotation.Nonnull;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -63,6 +64,15 @@ public class TestingResourceActions implements ResourceActions {
 	@Override
 	public Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) throws ResourceManagerException {
 		return allocateResourceFunction.apply(resourceProfile);
+	}
+
+	@Override
+	public Collection<ResourceProfile> initialResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException {
+		Collection<ResourceProfile> resourceProfiles = new ArrayList<>();
+		for (int i = 0; i < resourceNumber; i++) {
+			resourceProfiles.addAll(allocateResource(resourceProfile));
+		}
+		return resourceProfiles;
 	}
 
 	@Override

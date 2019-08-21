@@ -26,6 +26,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
+import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.SerializedValue;
 
@@ -591,5 +592,20 @@ public class JobGraph implements Serializable {
 				jobConfiguration
 			);
 		}
+	}
+
+	public int calcMinRequiredSlotsNum() {
+		Map<SlotSharingGroup, Integer/* max parallelism */> parallelismMap = new HashMap<>();
+		for (JobVertex jobVertex : getVertices()) {
+			Integer oldParallelism = parallelismMap.get(jobVertex.getSlotSharingGroup());
+			if (oldParallelism == null || jobVertex.getParallelism() > oldParallelism) {
+				parallelismMap.put(jobVertex.getSlotSharingGroup(), jobVertex.getParallelism());
+			}
+		}
+		int minRequiredSlotsNum = 0;
+		for (int parallelism : parallelismMap.values()) {
+			minRequiredSlotsNum += parallelism;
+		}
+		return minRequiredSlotsNum;
 	}
 }

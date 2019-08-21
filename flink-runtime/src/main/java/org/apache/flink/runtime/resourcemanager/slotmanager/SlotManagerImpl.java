@@ -86,6 +86,12 @@ public class SlotManagerImpl implements SlotManager {
 	/** Index of all currently free slots. */
 	private final LinkedHashMap<SlotID, TaskManagerSlot> freeSlots;
 
+	/** Number of task managers. */
+	private final int numInitialTaskManagers;
+
+	/** Initial task managers on slot manager start. */
+	private final boolean initialTaskManager;
+
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
 
@@ -124,17 +130,36 @@ public class SlotManagerImpl implements SlotManager {
 	private boolean failUnfulfillableRequest = true;
 
 	public SlotManagerImpl(
+		ScheduledExecutor scheduledExecutor,
+		Time taskManagerRequestTimeout,
+		Time slotRequestTimeout,
+		Time taskManagerTimeout,
+		boolean waitResultConsumedBeforeRelease) {
+		this(scheduledExecutor,
+			taskManagerRequestTimeout,
+			slotRequestTimeout,
+			taskManagerTimeout,
+			waitResultConsumedBeforeRelease,
+			0,
+			false);
+	}
+
+	public SlotManagerImpl(
 			ScheduledExecutor scheduledExecutor,
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
-			boolean waitResultConsumedBeforeRelease) {
+			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers,
+			boolean initialTaskManager) {
 
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
+		this.numInitialTaskManagers = numInitialTaskManagers;
+		this.initialTaskManager = initialTaskManager;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -218,6 +243,11 @@ public class SlotManagerImpl implements SlotManager {
 		this.resourceManagerId = Preconditions.checkNotNull(newResourceManagerId);
 		mainThreadExecutor = Preconditions.checkNotNull(newMainThreadExecutor);
 		resourceActions = Preconditions.checkNotNull(newResourceActions);
+
+		if (initialTaskManager && numInitialTaskManagers > 0) {
+			// initial slot manager with enough task managers.
+			initialResources(ResourceProfile.UNKNOWN, numInitialTaskManagers);
+		}
 
 		started = true;
 
@@ -829,6 +859,19 @@ public class SlotManagerImpl implements SlotManager {
 			}
 
 			return Optional.of(pendingTaskManagerSlot);
+		}
+	}
+
+	private void initialResources(ResourceProfile resourceProfile, int resourceNumber) {
+		try {
+			final Collection<ResourceProfile> requestedSlots;
+			requestedSlots = resourceActions.initialResources(resourceProfile, resourceNumber);
+			for (ResourceProfile requestedSlot : requestedSlots) {
+				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
+				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
+			}
+		} catch (ResourceManagerException e) {
+			LOG.error("AllocateResource {} {} error, ", resourceProfile, resourceNumber, e);
 		}
 	}
 

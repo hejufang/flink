@@ -46,6 +46,8 @@ import org.apache.flink.runtime.rest.FileUpload;
 import org.apache.flink.runtime.rest.RestClient;
 import org.apache.flink.runtime.rest.handler.async.AsynchronousOperationInfo;
 import org.apache.flink.runtime.rest.handler.async.TriggerResponse;
+import org.apache.flink.runtime.rest.handler.legacy.messages.ClusterOverviewWithVersion;
+import org.apache.flink.runtime.rest.messages.ClusterOverviewHeaders;
 import org.apache.flink.runtime.rest.messages.EmptyMessageParameters;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.EmptyResponseBody;
@@ -286,6 +288,16 @@ public class RestClusterClient<T> extends ClusterClient<T> implements NewCluster
 	@Override
 	public CompletableFuture<JobStatus> getJobStatus(JobID jobId) {
 		return getJobDetails(jobId).thenApply(JobDetailsInfo::getJobStatus);
+	}
+
+	/**
+	 * Requests the cluster overview with version.
+	 *
+	 * @return Cluster overview with version
+	 */
+	public CompletableFuture<ClusterOverviewWithVersion> getClusterOverview() {
+		final ClusterOverviewHeaders clusterOverviewHeaders = ClusterOverviewHeaders.getInstance();
+		return sendRequest(clusterOverviewHeaders);
 	}
 
 	/**

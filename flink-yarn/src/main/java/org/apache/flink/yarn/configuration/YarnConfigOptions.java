@@ -205,6 +205,58 @@ public class YarnConfigOptions {
 			.withDescription("The number of threads to start yarn containers in yarn resource manager.");
 
 	// ------------------------------------------------------------------------
+	/**
+	 * Use GangScheduler when allocate containers from Yarn.
+	 */
+	public static final ConfigOption<Boolean> GANG_SCHEDULER =
+		key("yarn.gang-scheduler.enable")
+			.defaultValue(true)
+			.withDescription("Use GangScheduler when allocate containers from Yarn.");
+
+	/**
+	 * Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores.
+	 */
+	public static final ConfigOption<Float> GANG_NODE_SKIP_HIGH_LOAD =
+		key("yarn.gang-scheduler.node-skip-high-load")
+			.defaultValue(1.2f)
+			.withDescription("Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores.");
+
+	/**
+	 * The weight of container-decentralized-average in GANG Scheduler.
+	 * 0 means disable this constraints.
+	 */
+	public static final ConfigOption<Integer> GANG_CONTAINER_DECENTRALIZED_AVERAGE_WEIGHT =
+		key("yarn.gang-scheduler.container-decentralized-average-weight")
+			.defaultValue(0)
+			.withDescription("The weight of container-decentralized-average in GANG Scheduler." +
+				"0 means disable this constraints.");
+	/**
+	 * The weight of node-quota-usage-average in GANG Scheduler.
+	 * 0 means disable this constraints.
+	 */
+	public static final ConfigOption<Integer> GANG_NODE_QUOTA_USAGE_AVERAGE_WEIGHT =
+		key("yarn.gang-scheduler.node-quota-usage-average-weight")
+			.defaultValue(1)
+			.withDescription("The weight of node-quota-usage-average in GANG Scheduler." +
+				"0 means disable this constraints.");
+
+	/**
+	 * Wait time before exit when GangScheduler fatal.
+	 */
+	public static final ConfigOption<Integer> WAIT_TIME_BEFORE_GANG_FATAL_MS =
+		key("yarn.gang-scheduler.wait-time-before-fatal-ms")
+			.defaultValue(300000)
+			.withDescription("Wait time before exit when GangScheduler fatal.");
+
+	/**
+	 * Wait time before retry by GangScheduler.
+	 */
+	public static final ConfigOption<Integer> WAIT_TIME_BEFORE_GANG_RETRY_MS =
+		key("yarn.gang-scheduler.wait-time-before-retry-ms")
+			.defaultValue(1000)
+			.withDescription("Wait time before retry by GangScheduler.");
+
+	// ------------------------------------------------------------------------
 
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}

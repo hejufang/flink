@@ -29,6 +29,8 @@ import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.minicluster.MiniCluster;
+import org.apache.flink.runtime.rest.handler.legacy.messages.ClusterOverviewWithVersion;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.OptionalFailure;
 import org.apache.flink.util.SerializedValue;
@@ -150,6 +152,13 @@ public class MiniClusterClient extends ClusterClient<MiniClusterClient.MiniClust
 	@Override
 	public CompletableFuture<JobStatus> getJobStatus(JobID jobId) {
 		return miniCluster.getJobStatus(jobId);
+	}
+
+	public CompletableFuture<ClusterOverviewWithVersion> getClusterOverview() {
+		return miniCluster.requestClusterOverview().thenApply(
+			statusOverview -> ClusterOverviewWithVersion.fromStatusOverview(statusOverview,
+				EnvironmentInformation.getVersion(),
+				EnvironmentInformation.getRevisionInformation().commitId));
 	}
 
 	@Override

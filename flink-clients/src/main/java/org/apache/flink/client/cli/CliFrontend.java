@@ -40,6 +40,7 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.optimizer.DataStatistics;
@@ -302,6 +303,10 @@ public class CliFrontend {
 					runOptions.getDetachedMode());
 
 				logAndSysout("Job has been submitted with JobID " + jobGraph.getJobID());
+
+				if (client.getFlinkConfiguration().getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START)) {
+					client.waitForClusterToBeReady(jobGraph.calcMinRequiredSlotsNum());
+				}
 
 				try {
 					client.shutdown();
