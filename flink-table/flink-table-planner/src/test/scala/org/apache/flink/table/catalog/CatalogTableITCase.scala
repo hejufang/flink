@@ -277,6 +277,45 @@ class CatalogTableITCase(isStreaming: Boolean) {
     assertEquals(expected.sorted, TestCollectionTableFactory.RESULT.sorted)
   }
 
+  @Test
+  def testStreamingMultiUpdate(): Unit = {
+    if (!isStreaming) {
+      return
+    }
+
+    val sourceData = List(
+      toRow(1, "1000", 2),
+      toRow(2, "1", 3),
+      toRow(3, "2000", 4),
+      toRow(1, "2", 2),
+      toRow(2, "3000", 3)
+    )
+    TestCollectionTableFactory.initData(sourceData)
+    val sql =
+      """
+        |create table t1(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  'connector' = 'COLLECTION'
+        |);
+        |create table t2(
+        |  a int,
+        |  b varchar,
+        |  c int
+        |) with (
+        |  'connector' = 'COLLECTION'
+        |);
+        |insert into t2
+        |select t1.a, t1.b, (t1.a + 1) as c from t1;
+        |select t1.b, t1.a from t1;
+      """.stripMargin
+    val optional = tableEnv.sql(sql)
+    execJob("testJob")
+    assertEquals(sourceData.sorted, TestCollectionTableFactory.RESULT.sorted)
+  }
+
   @Test @Ignore // need to implement
   def testStreamSourceTableWithProctime(): Unit = {
     val sourceData = List(

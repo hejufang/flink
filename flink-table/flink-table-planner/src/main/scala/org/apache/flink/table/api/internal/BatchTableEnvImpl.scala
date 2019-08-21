@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.api.internal
 
+import java.util.Optional
+
 import org.apache.calcite.plan.RelOptUtil
 import org.apache.calcite.rel.RelNode
 import org.apache.flink.api.common.JobExecutionResult
@@ -333,4 +335,14 @@ abstract class BatchTableEnvImpl(
 
     TableSchema.builder().fields(originalNames, fieldTypes).build()
   }
+
+  /**
+    * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE or DELETE; or DDL statements;
+    * NOTE: Currently only SQL INSERT statements and CREATE TABLE statements are supported.
+    *
+    * @param stmt The multiple SQL statements to evaluate.
+    * @return @return An optional table with value if the last statement is a query statement,
+    *         otherwise returns Optional.EMPTY.
+    **/
+  override def sql(stmt: String): Optional[Table] = ???
 }

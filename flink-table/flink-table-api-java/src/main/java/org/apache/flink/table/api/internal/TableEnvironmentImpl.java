@@ -69,6 +69,7 @@ import org.apache.flink.table.operations.utils.OperationTreeBuilder;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.sources.TableSourceValidation;
+import org.apache.flink.table.utils.SqlSplitUtils;
 import org.apache.flink.util.StringUtils;
 
 import java.util.ArrayList;
@@ -337,7 +338,10 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		}
 
 		Operation operation = operations.get(0);
+		return sqlQueryInternal(operation);
+	}
 
+	private Table sqlQueryInternal(Operation operation) {
 		if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
 			return createTable((QueryOperation) operation);
 		} else {
@@ -375,7 +379,10 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		}
 
 		Operation operation = operations.get(0);
+		sqlUpdateInternal(operation);
+	}
 
+	private void sqlUpdateInternal(Operation operation) {
 		if (operation instanceof ModifyOperation) {
 			List<ModifyOperation> modifyOperations = Collections.singletonList((ModifyOperation) operation);
 			if (isEagerOperationTranslation()) {
@@ -433,6 +440,39 @@ public class TableEnvironmentImpl implements TableEnvironment {
 				"Unsupported SQL query! sqlUpdate() only accepts a single SQL statements of " +
 					"type INSERT, CREATE TABLE, DROP TABLE, CREATE VIEW, CREATE FUNCTION");
 		}
+	}
+
+	/**
+	 * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE or DELETE; or DDL statements;
+	 * NOTE: Currently only SQL INSERT statements and CREATE TABLE statements are supported.
+	 * If the last statement is a query operation,
+	 *
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @return @return An optional table with value if the last statement is a query statement,
+	 *         otherwise returns Optional.EMPTY.
+	 * */
+	public Optional<Table> sql(String stmt) {
+		List<String> statementList = SqlSplitUtils.getSqlList(stmt);
+		for (int i = 0; i < statementList.size(); i++) {
+			String statement = statementList.get(i);
+			List<Operation> operations = planner.parse(statement);
+
+			if (operations.size() != 1) {
+				throw new ValidationException("Unexpected sql: '" + statement + "', " +
+					"each splitted statement is supposed to be a single SQL statement");
+			}
+
+			Operation operation = operations.get(0);
+			if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
+				Table table = sqlQueryInternal(operation);
+				if (i == statementList.size() - 1) {
+					return Optional.of(table);
+				}
+			} else {
+				sqlUpdateInternal(operation);
+			}
+		}
+		return Optional.empty();
 	}
 
 	@Override
