@@ -23,9 +23,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
 
 import com.bytedance.kvclient.ClientPool;
-import com.bytedance.redis.RedisConfig;
-import com.bytedance.redis.RedisPool;
-import com.bytedance.springdb.SpringDbConfig;
 import com.bytedance.springdb.SpringDbPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,27 +34,28 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.connectors.redis.RedisUtils.BATCH_SIZE_DEFAULT;
+import static org.apache.flink.connectors.redis.RedisUtils.FLUSH_MAX_RETRIES_DEFAULT;
+import static org.apache.flink.connectors.redis.RedisUtils.STORAGE_ABASE;
+import static org.apache.flink.connectors.redis.RedisUtils.STORAGE_REDIS;
+
 /**
  * Redis output format.
  */
 public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
+	private static final Logger LOG = LoggerFactory.getLogger(RedisOutputFormat.class);
+
 	public static final String INCR_MODE = "incr";
 	public static final String INSERT_MODE = "insert";
-	public static final String STORAGE_REDIS = "redis";
-	public static final String STORAGE_ABASE = "abase";
-	private static final Logger LOG = LoggerFactory.getLogger(RedisOutputFormat.class);
-	private static final int GET_RESOURCE_MAX_RETRIES_DEFAULT = 5;
-	private static final int FLUSH_MAX_RETRIES_DEFAULT = 5;
-	private static final int BATCH_SIZE_DEFAULT = 10;
 
 	private transient ArrayDeque<Tuple2<Boolean, Row>> recordDeque;
-	private Integer batchSize;
-	private Integer ttlSeconds;
+	private SpringDbPool springDbPool;
+	private ClientPool clientPool;
 	private AtomicInteger recordCursor = new AtomicInteger(0);
 
 	// <------------------------- connection configurations --------------------------->
-	private SpringDbPool springDbPool;
-	private ClientPool clientPool;
+	private Integer batchSize;
+	private Integer ttlSeconds;
 	private Jedis jedis;
 	private String cluster;
 	private String table;
@@ -86,28 +84,20 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		recordDeque = new ArrayDeque<>();
 		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
 			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
-			springDbPool = getAbaseClientPool();
+			springDbPool = RedisUtils.getAbaseClientPool(cluster, psm, table, serverUpdatePeriod, timeout, forceConnectionsSetting,
+					maxTotalConnections, maxIdleConnections, minIdleConnections);
 			clientPool = springDbPool;
 		} else {
 			// Use redis by default
 			LOG.info("Storage is {}, init redis client pool.", STORAGE_REDIS);
-			clientPool = getRedisClientPool();
+			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
+					maxTotalConnections, maxIdleConnections, minIdleConnections);
 		}
-		jedis = clientPool.getResource();
-		int retryCount = 0;
-		if (getResourceMaxRetries == null) {
-			getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
-		}
+
+		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
+
 		if (flushMaxRetries == null) {
 			flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
-		}
-		while (jedis == null && retryCount < getResourceMaxRetries) {
-			jedis = clientPool.getResource();
-			retryCount++;
-		}
-		if (jedis == null) {
-			throw new RuntimeException("Failed to get resource from clientPool after " +
-				retryCount + " retries.");
 		}
 
 		if (mode == null) {
@@ -117,65 +107,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		if (batchSize == null) {
 			batchSize = BATCH_SIZE_DEFAULT;
 		}
-	}
-
-	public ClientPool getRedisClientPool () {
-		RedisConfig config;
-		config = new RedisConfig(cluster, psm);
-		if (serverUpdatePeriod != null) {
-			config.setServerUpdatePeriod(serverUpdatePeriod);
-		}
-		if (timeout != null) {
-			config.setTimeout(timeout);
-		}
-
-		if (forceConnectionsSetting == null || !forceConnectionsSetting) {
-			// Set connection num to 1 to avoid too many connections.
-			config.setMaxTotalConnections(1);
-			config.setMaxIdleConnections(1);
-			config.setMinIdleConnections(1);
-		} else {
-			if (maxTotalConnections != null) {
-				config.setMaxTotalConnections(maxTotalConnections);
-			}
-			if (maxIdleConnections != null) {
-				config.setMaxIdleConnections(maxIdleConnections);
-			}
-			if (minIdleConnections != null) {
-				config.setMinIdleConnections(minIdleConnections);
-			}
-		}
-
-		return new RedisPool(config);
-	}
-
-	public SpringDbPool getAbaseClientPool () {
-		SpringDbConfig config = new SpringDbConfig(cluster, psm, table);
-		if (serverUpdatePeriod != null) {
-			config.setServerUpdatePeriod(serverUpdatePeriod);
-		}
-		if (timeout != null) {
-			config.setTimeout(timeout);
-		}
-
-		if (forceConnectionsSetting == null || !forceConnectionsSetting) {
-			// Set connection num to 1 to avoid too many connections.
-			config.setMaxTotalConnections(1);
-			config.setMaxIdleConnections(1);
-			config.setMinIdleConnections(1);
-		} else {
-			if (maxTotalConnections != null) {
-				config.setMaxTotalConnections(maxTotalConnections);
-			}
-			if (maxIdleConnections != null) {
-				config.setMaxIdleConnections(maxIdleConnections);
-			}
-			if (minIdleConnections != null) {
-				config.setMinIdleConnections(minIdleConnections);
-			}
-		}
-
-		return new SpringDbPool(config);
 	}
 
 	@Override
@@ -322,102 +253,13 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	 * Builder for a {@link RedisOutputFormat}.
 	 */
 	public static class RedisOutputFormatBuilder {
-		private final RedisOutputFormat format;
+		private RedisOptions options;
 
-		protected RedisOutputFormatBuilder() {
-			this.format = new RedisOutputFormat();
-		}
-
-		public RedisOutputFormatBuilder setCluster(String cluster) {
-			format.cluster = cluster;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setTable(String table) {
-			format.table = table;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setPsm(String psm) {
-			format.psm = psm;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setStorage(String storage) {
-			format.storage = storage;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setServerUpdatePeriod(Long serverUpdatePeriod) {
-			format.serverUpdatePeriod = serverUpdatePeriod;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setTimeout(Integer timeout) {
-			format.timeout = timeout;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setMaxTotalConnections(Integer maxTotalConnections) {
-			format.maxTotalConnections = maxTotalConnections;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setMaxIdleConnections(Integer maxIdleConnections) {
-			format.maxIdleConnections = maxIdleConnections;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setMinIdleConnections(Integer minIdleConnections) {
-			format.minIdleConnections = minIdleConnections;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setBatchSize(Integer batchSize) {
-			format.batchSize = batchSize;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setTtlSeconds(Integer ttlSeconds) {
-			format.ttlSeconds = ttlSeconds;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setMode(String mode) {
-			format.mode = mode;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setLogFailuresOnly(boolean logFailuresOnly) {
-			format.logFailuresOnly = logFailuresOnly;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setGetResourceMaxRetries(Integer getResourceMaxRetries) {
-			if (getResourceMaxRetries == null) {
-				getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
-			}
-			if (getResourceMaxRetries < 1) {
-				LOG.info("getResourceMaxRetries must be greater than or equal to 1, reset to 1");
-				getResourceMaxRetries = 1;
-			}
-			format.getResourceMaxRetries = getResourceMaxRetries;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setFlushMaxRetries(Integer flushMaxRetries) {
-			if (flushMaxRetries == null || flushMaxRetries <= 0) {
-				flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
-			}
-			format.flushMaxRetries = flushMaxRetries;
-			return this;
-		}
-
-		public RedisOutputFormatBuilder setForceConnectionsSetting(Boolean forceConnectionsSetting) {
-			if (forceConnectionsSetting == null) {
-				forceConnectionsSetting = false;
-			}
-			format.forceConnectionsSetting = forceConnectionsSetting;
+		/**
+		 * required, redis options.
+		 */
+		public RedisOutputFormatBuilder setOptions(RedisOptions options) {
+			this.options = options;
 			return this;
 		}
 
@@ -427,6 +269,25 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		 * @return Configured RedisOutputFormat
 		 */
 		public RedisOutputFormat build() {
+			RedisOutputFormat format = new RedisOutputFormat();
+
+			format.cluster = options.getCluster();
+			format.psm = options.getPsm();
+			format.table = options.getTable();
+			format.storage = options.getStorage();
+			format.serverUpdatePeriod = options.getServerUpdatePeriod();
+			format.timeout = options.getTimeout();
+			format.forceConnectionsSetting = options.getForceConnectionsSetting();
+			format.maxTotalConnections = options.getMaxTotalConnections();
+			format.maxIdleConnections = options.getMaxIdleConnections();
+			format.minIdleConnections = options.getMinIdleConnections();
+			format.getResourceMaxRetries = options.getGetResourceMaxRetries();
+			format.flushMaxRetries = options.getFlushMaxRetries();
+			format.logFailuresOnly = options.isLogFailuresOnly();
+			format.mode = options.getMode();
+			format.batchSize = options.getBatchSize();
+			format.ttlSeconds = options.getTtlSeconds();
+
 			if (format.cluster == null) {
 				LOG.info("cluster was not supplied.");
 			}

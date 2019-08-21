@@ -40,6 +40,10 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_MIN_IDLE_CONNECTIONS = "connector.min-idle-connections";
 	public static final String CONNECTOR_FORCE_CONNECTION_SETTINGS = "connector.force-connection-settings";
 
+	public static final String CONNECTOR_LOOKUP_CACHE_MAX_ROWS = "connector.lookup.cache.max-rows";
+	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
+	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateValue(CONNECTOR_TYPE, REDIS, false);

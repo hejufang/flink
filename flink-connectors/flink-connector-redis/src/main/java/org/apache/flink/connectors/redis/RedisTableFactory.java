@@ -22,7 +22,9 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.RedisValidator;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
+import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.sinks.StreamTableSink;
+import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
@@ -37,6 +39,9 @@ import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FLUSH_
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FORCE_CONNECTION_SETTINGS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_GET_RESOURCE_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOG_FAILURES_ONLY;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_CACHE_TTL;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MAX_IDLE_CONNECTIONS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MAX_TOTAL_CONNECTIONS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MIN_IDLE_CONNECTIONS;
@@ -54,7 +59,8 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
 /**
  * Factory for creating configured instances of {@link RedisUpsertTableSink}.
  */
-public class RedisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+public class RedisTableFactory implements StreamTableSourceFactory<Row>,
+		StreamTableSinkFactory<Tuple2<Boolean, Row>> {
 
 	@Override
 	public Map<String, String> requiredContext() {
@@ -86,7 +92,26 @@ public class RedisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
 
+		//lookup option
+		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
+		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
+		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+
 		return properties;
+	}
+
+	/**
+	 * attention: only support redis lookup source currently.
+	 * @param properties normalized properties describing a stream table source.
+	 */
+	@Override
+	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		return RedisTableSource.builder()
+				.setOptions(getRedisOptions(descriptorProperties))
+				.setLookupOptions(getRedisLookupOptions(descriptorProperties))
+				.setSchema(descriptorProperties.getTableSchema(SCHEMA))
+				.build();
 	}
 
 	@Override
@@ -95,29 +120,7 @@ public class RedisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		RedisOutputFormat.RedisOutputFormatBuilder builder =
 			RedisOutputFormat.buildRedisOutputFormat();
 
-		descriptorProperties.getOptionalString(CONNECTOR_CLUSTER).ifPresent(builder::setCluster);
-		descriptorProperties.getOptionalString(CONNECTOR_MODE).ifPresent(builder::setMode);
-		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
-		descriptorProperties.getOptionalString(CONNECTOR_TYPE).ifPresent(builder::setStorage);
-		descriptorProperties.getOptionalString(CONNECTOR_TABLE).ifPresent(builder::setTable);
-		descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).ifPresent(builder::setBatchSize);
-		descriptorProperties.getOptionalInt(CONNECTOR_FLUSH_MAX_RETRIES)
-			.ifPresent(builder::setFlushMaxRetries);
-		descriptorProperties.getOptionalInt(CONNECTOR_GET_RESOURCE_MAX_RETRIES)
-			.ifPresent(builder::setGetResourceMaxRetries);
-		descriptorProperties.getOptionalInt(CONNECTOR_MAX_TOTAL_CONNECTIONS)
-			.ifPresent(builder::setMaxTotalConnections);
-		descriptorProperties.getOptionalInt(CONNECTOR_MAX_IDLE_CONNECTIONS)
-			.ifPresent(builder::setMaxIdleConnections);
-		descriptorProperties.getOptionalInt(CONNECTOR_MIN_IDLE_CONNECTIONS)
-			.ifPresent(builder::setMinIdleConnections);
-		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS).ifPresent(builder::setTimeout);
-		descriptorProperties.getOptionalInt(CONNECTOR_TTL_SECONDS).ifPresent(builder::setTtlSeconds);
-		descriptorProperties.getOptionalBoolean(CONNECTOR_FORCE_CONNECTION_SETTINGS)
-			.ifPresent(builder::setForceConnectionsSetting);
-		descriptorProperties.getOptionalBoolean(CONNECTOR_LOG_FAILURES_ONLY)
-			.ifPresent(builder::setLogFailuresOnly);
-
+		builder.setOptions(getRedisOptions(descriptorProperties));
 		TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
 		RedisOutputFormat outputFormat = builder.build();
 		return new RedisUpsertTableSink(tableSchema, outputFormat);
@@ -128,5 +131,46 @@ public class RedisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		descriptorProperties.putProperties(properties);
 		new RedisValidator().validate(descriptorProperties);
 		return descriptorProperties;
+	}
+
+	private RedisOptions getRedisOptions(DescriptorProperties descriptorProperties) {
+		RedisOptions.RedisOptionsBuilder builder =
+				RedisOptions.builder();
+
+		descriptorProperties.getOptionalString(CONNECTOR_CLUSTER).ifPresent(builder::setCluster);
+		descriptorProperties.getOptionalString(CONNECTOR_MODE).ifPresent(builder::setMode);
+		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
+		descriptorProperties.getOptionalString(CONNECTOR_TYPE).ifPresent(builder::setStorage);
+		descriptorProperties.getOptionalString(CONNECTOR_TABLE).ifPresent(builder::setTable);
+		descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).ifPresent(builder::setBatchSize);
+		descriptorProperties.getOptionalInt(CONNECTOR_FLUSH_MAX_RETRIES)
+				.ifPresent(builder::setFlushMaxRetries);
+		descriptorProperties.getOptionalInt(CONNECTOR_GET_RESOURCE_MAX_RETRIES)
+				.ifPresent(builder::setGetResourceMaxRetries);
+		descriptorProperties.getOptionalInt(CONNECTOR_MAX_TOTAL_CONNECTIONS)
+				.ifPresent(builder::setMaxTotalConnections);
+		descriptorProperties.getOptionalInt(CONNECTOR_MAX_IDLE_CONNECTIONS)
+				.ifPresent(builder::setMaxIdleConnections);
+		descriptorProperties.getOptionalInt(CONNECTOR_MIN_IDLE_CONNECTIONS)
+				.ifPresent(builder::setMinIdleConnections);
+		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS).ifPresent(builder::setTimeout);
+		descriptorProperties.getOptionalInt(CONNECTOR_TTL_SECONDS).ifPresent(builder::setTtlSeconds);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_FORCE_CONNECTION_SETTINGS)
+				.ifPresent(builder::setForceConnectionsSetting);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOG_FAILURES_ONLY)
+				.ifPresent(builder::setLogFailuresOnly);
+
+		return builder.build();
+	}
+
+	private RedisLookupOptions getRedisLookupOptions(DescriptorProperties descriptorProperties) {
+		final RedisLookupOptions.Builder builder = RedisLookupOptions.builder();
+
+		descriptorProperties.getOptionalLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS).ifPresent(builder::setCacheMaxSize);
+		descriptorProperties.getOptionalDuration(CONNECTOR_LOOKUP_CACHE_TTL).ifPresent(
+				s -> builder.setCacheExpireMs(s.toMillis()));
+		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
+
+		return builder.build();
 	}
 }
