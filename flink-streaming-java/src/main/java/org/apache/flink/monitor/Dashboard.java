@@ -18,7 +18,6 @@
 package org.apache.flink.monitor;
 
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -44,16 +43,14 @@ public class Dashboard {
 	private String dataSource;
 	private JobGraph jobGraph;
 	private StreamGraph streamGraph;
-	private Configuration flinkConfig;
 
 	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph,
-		JobGraph jobGraph, Configuration flinkConfig) {
+		JobGraph jobGraph) {
 		this.clusterName = clusterName;
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
 		this.jobName = jobGraph.getName();
 		this.dataSource = dataSource;
-		this.flinkConfig = flinkConfig;
 	}
 
 	public String renderString(String content, Map<String, String> map) {
@@ -236,7 +233,7 @@ public class Dashboard {
 		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> tasks = Utils.getTasks(jobGraph);
-		String kafkaServerUrl = flinkConfig.getString(ConfigConstants.KAFKA_SERVER_URL_KEY,
+		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
 		rows.add(renderLagSizeRow(Utils.getLagSizeMetrics(kafkaServerUrl)));
 		rows.add(renderKafkaOffsetRow(sources));

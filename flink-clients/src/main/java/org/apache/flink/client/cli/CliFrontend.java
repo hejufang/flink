@@ -180,12 +180,11 @@ public class CliFrontend {
 
 		final RunOptions runOptions = new RunOptions(commandLine);
 
-		String owner = commandLine.getOptionValue(CliFrontendParser.OWNER_OPTION.getOpt());
-		if (owner == null) {
-			owner = "";
-		}
+		String owner = commandLine.getOptionValue(CliFrontendParser.getOwnerOption().getOpt(),
+			ConfigConstants.FLINK_OWNER_DEFAULT);
 		LOG.info("owner = {}", owner);
-		System.setProperty("owner", owner);
+		System.setProperty(ConfigConstants.FLINK_OWNER_KEY, owner);
+
 		// evaluate help flag
 		if (runOptions.isPrintHelp()) {
 			CliFrontendParser.printHelpForRun(customCommandLines);
@@ -1139,29 +1138,47 @@ public class CliFrontend {
 		}
 	}
 
+	public static void putSystemProperties(Configuration configuration) {
+		// Use data source when register dashboard.
+		System.setProperty(ConfigConstants.DATA_SOURCE_KEY,
+			configuration.getString(ConfigConstants.DATA_SOURCE_KEY,
+				ConfigConstants.DATA_SOURCE_DEFAULT));
+
+		// Use dc when register dashboard
+		System.setProperty(ConfigConstants.DC_KEY,
+			configuration.getString(ConfigConstants.DC_KEY,
+				ConfigConstants.DC_DEFAULT));
+
+		// Use kafka server url when register dashboard
+		System.setProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
+			configuration.getString(ConfigConstants.KAFKA_SERVER_URL_KEY,
+				ConfigConstants.KAFKA_SERVER_URL_DEFAUL));
+	}
+
 	/**
 	 * Submits the job based on the arguments.
 	 */
 	public static void main(final String[] args) {
 		EnvironmentInformation.logEnvironmentInfo(LOG, "Command Line Client", args);
 
-		String clusterName = parseClusterName(args);
-		if (clusterName != null  && !clusterName.isEmpty()) {
-			// replace old cluster name with a new one.
-			clusterName = ConfigurationMapping.replaceClusterName(clusterName);
-			System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
-		}
-
 		// 1. find the configuration directory
 		final String configurationDirectory = getConfigurationDirectoryFromEnv();
+
+		String clusterName = parseArgs(args, "-cn", ConfigConstants.CLUSTER_NAME_DEFAULT);
+		clusterName = ConfigurationMapping.replaceClusterName(clusterName);
+		LOG.info("clusterName = {}", clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
 
 		// 2. load the global configuration
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configurationDirectory);
 
-		if (!configuration.containsKey(ConfigConstants.FLINK_JOB_TYPE_KEY)) {
-			configuration.setString(ConfigConstants.FLINK_JOB_TYPE_KEY,
-				ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
-		}
+		String jobType = parseDynamicProperty(args, ConfigConstants.FLINK_JOB_TYPE_KEY,
+			configuration.getString(ConfigConstants.FLINK_JOB_TYPE_KEY,
+				ConfigConstants.FLINK_JOB_TYPE_DEFAULT));
+		LOG.info("jobType = {}", jobType);
+		System.setProperty(ConfigConstants.FLINK_JOB_TYPE_KEY, jobType);
+
+		putSystemProperties(configuration);
 
 		// 3. load the custom command lines
 		final List<CustomCommandLine<?>> customCommandLines = loadCustomCommandLines(
@@ -1186,15 +1203,26 @@ public class CliFrontend {
 		}
 	}
 
-	public static String parseClusterName(String[] args) {
-		String dynamicPropertyFlag = "-cn";
+	public static String parseArgs(String[] args, String propertyFlag, String defaultValue) {
 		for (int i = 0; i < args.length; i++) {
-			if (dynamicPropertyFlag.equals(args[i]) && (i + 1 < args.length)) {
-				String clusterName = args[i + 1];
-				return clusterName;
+			if (propertyFlag.equals(args[i]) && (i + 1 < args.length)) {
+				String value = args[i + 1];
+				return value;
 			}
 		}
-		return null;
+		return defaultValue;
+	}
+
+	public static String parseDynamicProperty(String[] args, String propertyFlag,
+		String defaultValue) {
+		for (int i = 0; i < args.length; i++) {
+			if ("-yD".equals(args[i]) && (i + 2) < args.length &&
+				propertyFlag.equals(args[i + 1])) {
+				String value = args[i + 2];
+				return value;
+			}
+		}
+		return defaultValue;
 	}
 
 	// --------------------------------------------------------------------------------------------

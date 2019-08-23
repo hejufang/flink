@@ -358,6 +358,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			String applicationName = cmd.getOptionValue(name.getOpt());
 			yarnClusterDescriptor.setName(applicationName);
 			properties.put(ConfigConstants.APPLICATION_NAME_KEY, applicationName);
+			System.setProperty(ConfigConstants.APPLICATION_NAME_KEY, applicationName);
 			LOG.info("applicationName = {}", applicationName);
 		}
 

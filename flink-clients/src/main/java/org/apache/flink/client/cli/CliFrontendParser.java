@@ -314,6 +314,10 @@ public class CliFrontendParser {
 		return options;
 	}
 
+	public static Option getOwnerOption() {
+		return OWNER_OPTION;
+	}
+
 	/**
 	 * Prints the help for the client.
 	 */

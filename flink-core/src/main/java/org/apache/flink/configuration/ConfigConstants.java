@@ -2060,6 +2060,7 @@ public final class ConfigConstants {
 	public static final String CONTAINER_WEB_SHELL_TEMPLATE =
 		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
 	public static final String DC_KEY = "dc";
+	public static final String DC_DEFAULT = "cn";
 	public static final String DATA_SOURCE_KEY = "dataSource";
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String FILES = "files";
@@ -2103,7 +2104,9 @@ public final class ConfigConstants {
 
 	public static final String FLINK_SUBVERSION_KEY = "flink.subversion";
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
-	public static final String FLINK_JOB_TYPE_DEFAULT = "Flink";
+	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
+	public static final String FLINK_OWNER_KEY = "owner";
+	public static final String FLINK_OWNER_DEFAULT = "null";
 
 	// ---------------------------- Serializer Buffer ------------------------------
 	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";

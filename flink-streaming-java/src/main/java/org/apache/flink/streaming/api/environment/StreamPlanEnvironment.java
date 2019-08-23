@@ -26,12 +26,16 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * A special {@link StreamExecutionEnvironment} that is used in the web frontend when generating
  * a user-inspectable graph of a streaming job.
  */
 @PublicEvolving
 public class StreamPlanEnvironment extends StreamExecutionEnvironment {
+	private static final Logger LOG = LoggerFactory.getLogger(StreamPlanEnvironment.class);
 
 	private ExecutionEnvironment env;
 
@@ -55,6 +59,9 @@ public class StreamPlanEnvironment extends StreamExecutionEnvironment {
 
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+		replaceJobName(streamGraph);
+		saveMetaAndRegisterDashboard(streamGraph);
+		LOG.info("StreamPlanEnvironment execute {}", streamGraph.getJobName());
 		transformations.clear();
 
 		if (env instanceof OptimizerPlanEnvironment) {

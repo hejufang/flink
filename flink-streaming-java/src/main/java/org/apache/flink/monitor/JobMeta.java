@@ -18,7 +18,6 @@
 package org.apache.flink.monitor;
 
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
@@ -51,18 +50,19 @@ public class JobMeta {
 
 	private StreamGraph streamGraph;
 	private JobGraph jobGraph;
-	private Configuration flinkconfig;
 
-	public JobMeta(StreamGraph streamGraph, JobGraph jobGraph, Configuration flinkconfig) {
+	public JobMeta(StreamGraph streamGraph, JobGraph jobGraph) {
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
-		this.flinkconfig = flinkconfig;
 	}
 
 	public boolean saveToDB() {
-		String dc = flinkconfig.getString(ConfigConstants.DC_KEY, "");
-		String cluster = flinkconfig.getString(ConfigConstants.CLUSTER_NAME_KEY, "");
-		String applicationName = flinkconfig.getString(ConfigConstants.APPLICATION_NAME_KEY, "");
+		String dc = System.getProperty(ConfigConstants.DC_KEY,
+			ConfigConstants.DC_DEFAULT);
+		String cluster = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+			ConfigConstants.CLUSTER_NAME_DEFAULT);
+		String applicationName = System.getProperty(ConfigConstants.APPLICATION_NAME_KEY,
+			ConfigConstants.APPLICATION_NAME_DEFAULT);
 		String jobName = streamGraph.getJobName();
 		String tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
 		String operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
@@ -74,7 +74,8 @@ public class JobMeta {
 			LOG.info("jobName = {}", jobName);
 			return false;
 		}
-		String user = System.getenv("USER");
+		String user = System.getProperty(ConfigConstants.FLINK_OWNER_KEY,
+			ConfigConstants.FLINK_OWNER_DEFAULT);
 		Map<String, String> mysqlConfig = getMysqlConfig();
 		String url = String.format("jdbc:mysql://%s:%s/%s",
 			mysqlConfig.get("host"), mysqlConfig.get("port"), mysqlConfig.get("database"));

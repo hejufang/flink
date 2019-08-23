@@ -16,17 +16,13 @@
 #  See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
-# checkout to flink-1.9
-git checkout -b flink-1.9 origin/flink-1.9
-git branch -D flink-1.5
-
 # prepare output dir
 rm -rf temp_output
 mkdir -p temp_output
 rm -rf output
 mkdir -p output
 
-# compile flink-1.9
+# compile current branch
 mvn clean install -U -DskipTests -Pinclude-hadoop
 mkdir -p temp_output/deploy
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/deploy/flink-1.9 temp_output/deploy
@@ -34,6 +30,9 @@ mkdir -p temp_output/deploy/flink-1.9/lib
 mkdir -p temp_output/deploy/flink-1.9/basejar
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/lib/* temp_output/deploy/flink-1.9/lib/
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/basejar/* temp_output/deploy/flink-1.9/basejar/
+
+git checkout -b flink-1.9 origin/flink-1.9
+git branch -D flink-1.5
 
 # compile flink-1.5
 git clean -xdf  flink-end-to-end-tests/
