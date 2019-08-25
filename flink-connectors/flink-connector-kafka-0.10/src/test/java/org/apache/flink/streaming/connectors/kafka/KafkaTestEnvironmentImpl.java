@@ -31,6 +31,7 @@ import kafka.common.KafkaException;
 import kafka.metrics.KafkaMetricsReporter;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
+import kafka.utils.Time;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.collections.list.UnmodifiableList;
@@ -40,10 +41,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.network.ListenerName;
-import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.requests.MetadataResponse;
-import org.apache.kafka.common.utils.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,9 +56,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import scala.collection.mutable.ArraySeq;
 
+import static org.apache.flink.util.NetUtils.getAvailablePort;
 import static org.apache.flink.util.NetUtils.hostAndPortToUrlString;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -82,6 +82,32 @@ public class KafkaTestEnvironmentImpl extends KafkaTestEnvironment {
 	private Config config;
 	// 6 seconds is default. Seems to be too small for travis. 30 seconds
 	private int zkTimeout = 30000;
+
+	private Time time = new Time() {
+		@Override
+		public long milliseconds() {
+			return System.currentTimeMillis();
+		}
+
+		@Override
+		public void sleep(long ms) {
+			try {
+				Thread.sleep(ms);
+			} catch (InterruptedException ie) {
+				// ignore it
+			}
+		}
+
+		@Override
+		public long hiResClockMs() {
+			return TimeUnit.NANOSECONDS.toMillis(nanoseconds());
+		}
+
+		@Override
+		public long nanoseconds() {
+			return System.nanoTime();
+		}
+	};
 
 	public String getBrokerConnectionString() {
 		return brokerConnectionString;
@@ -242,11 +268,10 @@ public class KafkaTestEnvironmentImpl extends KafkaTestEnvironment {
 		LOG.info("Starting KafkaServer");
 		brokers = new ArrayList<>(config.getKafkaServersNumber());
 
-		ListenerName listenerName = ListenerName.forSecurityProtocol(config.isSecureMode() ? SecurityProtocol.SASL_PLAINTEXT : SecurityProtocol.PLAINTEXT);
 		for (int i = 0; i < config.getKafkaServersNumber(); i++) {
 			KafkaServer kafkaServer = getKafkaServer(i, tmpKafkaDirs.get(i));
 			brokers.add(kafkaServer);
-			brokerConnectionString += hostAndPortToUrlString(KAFKA_HOST, kafkaServer.socketServer().boundPort(listenerName));
+			brokerConnectionString += hostAndPortToUrlString(KAFKA_HOST, getAvailablePort());
 			brokerConnectionString +=  ",";
 		}
 
@@ -412,7 +437,9 @@ public class KafkaTestEnvironmentImpl extends KafkaTestEnvironment {
 
 			try {
 				scala.Option<String> stringNone = scala.Option.apply(null);
-				KafkaServer server = new KafkaServer(kafkaConfig, Time.SYSTEM, stringNone, new ArraySeq<KafkaMetricsReporter>(0));
+
+				KafkaServer server = new KafkaServer(kafkaConfig, time, stringNone,
+					new ArraySeq<KafkaMetricsReporter>(0));
 				server.startup();
 				return server;
 			}

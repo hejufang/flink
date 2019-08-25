@@ -37,7 +37,10 @@ under the License.
 
 	<!-- Allow users to pass custom connector versions -->
 	<properties>
-		<kafka.version>0.10.2.1</kafka.version>
+		<!-- TODO(zhangguanghui): modify kafka.version to 0.10.1.2,
+			because kafka no 0.10.1.2 release -->
+		<kafka.version>0.10.1.1</kafka.version>
+		<kafka.byted.versionn>0.10.1.2-bd1.5-SNAPSHOT</kafka.byted.versionn>
 	</properties>
 
 	<distributionManagement>
@@ -85,7 +88,7 @@ under the License.
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
-			<version>${kafka.version}</version>
+			<version>${kafka.byted.versionn}</version>
 		</dependency>
 
 		<!-- Table ecosystem -->
