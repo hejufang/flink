@@ -638,18 +638,18 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		}
 
 		/**
-		 * Takes the floating buffer first in order to make full use of floating
+		 * Takes the exclusive buffer first in order to make full use of exclusive
 		 * buffers reasonably.
 		 *
-		 * @return An available floating or exclusive buffer, may be null
+		 * @return An available exclusive or or exclusive buffer, may be null
 		 * if the channel is released.
 		 */
 		@Nullable
 		Buffer takeBuffer() {
-			if (floatingBuffers.size() > 0) {
-				return floatingBuffers.poll();
-			} else {
+			if (exclusiveBuffers.size() > 0) {
 				return exclusiveBuffers.poll();
+			} else {
+				return floatingBuffers.poll();
 			}
 		}
 

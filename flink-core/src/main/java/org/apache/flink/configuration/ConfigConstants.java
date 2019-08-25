@@ -397,6 +397,12 @@ public final class ConfigConstants {
 	public static final String CONTAINERIZED_HEAP_CUTOFF_RATIO = "containerized.heap-cutoff-ratio";
 
 	/**
+	 * Percentage of heap space to remove from jobmanager containers (YARN / Mesos), to compensate
+	 * for other JVM memory usage.
+	 */
+	public static final String CONTAINERIZED_JOBMANAGER_HEAP_CUTOFF_RATIO = "containerized.jobmanager.heap-cutoff-ratio";
+
+	/**
 	 * Minimum amount of heap memory to remove in containers, as a safety margin.
 	 * @deprecated Use {@link ResourceManagerOptions#CONTAINERIZED_HEAP_CUTOFF_MIN} instead.
 	 */
@@ -656,6 +662,17 @@ public final class ConfigConstants {
 	 */
 	@Deprecated
 	public static final String PATH_HADOOP_CONFIG = "fs.hdfs.hadoopconf";
+
+	/**
+	 * Store lib and configuration file.
+	 */
+	public static final String PATH_JOB_WORK_FILE = "hdfs://haruna/flink/";
+
+	/**
+	 * Key of the config dir in hdfs.
+	 */
+	public static final String JOB_WORK_DIR_KEY = "job.work.dir";
+
 
 	// ------------------------ File System Behavior ------------------------
 
@@ -1605,6 +1622,16 @@ public final class ConfigConstants {
 	@Deprecated
 	public static final boolean DEFAULT_MESOS_ARTIFACT_SERVER_SSL_ENABLED = true;
 
+	/**
+	 * Key of enabling core dump.
+	 */
+	public static final String ENABLE_CORE_DUMP_KEY = "enable.core.dump";
+
+	/**
+	 * Default value of enabling core dump.
+	 */
+	public static final boolean DEFAULT_ENABLE_CORE_DUMP = false;
+
 	// ------------------------ File System Behavior ------------------------
 
 	/**
@@ -2023,6 +2050,104 @@ public final class ConfigConstants {
 	// ---------------------------- Encoding ------------------------------
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+
+	public static final String APPLICATION_NAME_KEY = "applicationName";
+	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
+	public static final String CLUSTER_NAME_KEY = "clusterName";
+	public static final String CLUSTER_NAME_DEFAULT = "flink";
+	public static final String CONTAINER_LOG_TEMPLATE =
+		"http://%s:8042/node/containerlogs/%s";
+	public static final String CONTAINER_WEB_SHELL_TEMPLATE =
+		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
+	public static final String DC_KEY = "dc";
+	public static final String DC_DEFAULT = "cn";
+	public static final String DATA_SOURCE_KEY = "dataSource";
+	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String FILES = "files";
+	public static final String DTOP_TEMPLATE =
+		"https://grafana.byted.org/dashboard/db/flink-resource-monitor?orgId=1&var-appName=%s&var-datasource=%s";
+	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
+	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String JOB_NAME_KEY = "jobName";
+	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
+	public static final String METRIC_TEMPLATE =
+		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
+
+	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
+
+	public static final String FLINK_GC_LOG_OPTS_KEY = "flink.gc.log.opts";
+	public static final String FLINK_GC_LOG_OPTS_DEFAULT = "-XX:+PrintGCDetails -XX:+PrintGCDateStamps";
+	public static final String FLINK_GC_LOG_FILE_KEY = "flink.gc.log.file";
+	public static final String FLINK_DUMP_ON_OOM_KEY = "flink.dump.on.oom";
+	public static final boolean FLINK_DUMP_ON_OOM_DEFAULT = false;
+
+	/** Configuration key of yarn cluster name. */
+	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
+
+	public static final String KAFKA_SERVER_URL_KEY = "kafka_server_url";
+	public static final String KAFKA_SERVER_URL_DEFAUL = "http://kafka-config.byted.org";
+
+	public static final String FLINK_LOG_LAYOUT_KEY = "log.layout";
+	public static final String FLINK_LOG_LAYOUT_DEFAULT =
+		"%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n";
+	public static final String FLINK_LOG_LEVEL_KEY = "log.level";
+	public static final String FLINK_LOG_LEVEL_DEFAULT = "INFO";
+
+	public static final String FLINK_RUNTIME_LIB_DIR_KEY = "runtime.lib.dir";
+	public static final String FLINK_RUNTIME_LIB_DIR_DEFAULT =
+		"/opt/tiger/flink_deploy/deploy/flink-1.9/lib";
+	public static final String FLINK_RUNTIME_CONF_DIR_KEY = "runtime.conf.dir";
+	public static final String FLINK_RUNTIME_CONF_DIR_DEFAULT =
+		"/opt/tiger/flink_deploy/deploy/flink-1.9/conf";
+	public static final String FLINK_RUNTIME_CLASSPATH_KEY = "runtime.classpath";
+
+
+	public static final String FLINK_SUBVERSION_KEY = "flink.subversion";
+	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
+	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
+	public static final String FLINK_OWNER_KEY = "owner";
+	public static final String FLINK_OWNER_DEFAULT = "null";
+
+	// ---------------------------- Serializer Buffer ------------------------------
+	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
+	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;
+
+	// ---------------------------- Kafka Configurations ---------------------------
+	/** Configuration key for subset of subscribed partition list. */
+	public static final String PARTITION_LIST_OLD_KEY = "partition.list";
+	public static final String PARTITION_LIST_KEY = "partition_list";
+
+
+	// ---------------------------- Log4j Configurations --------------------------
+	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
+	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "yarn_container_level_log";
+
+	// ---------------------------- Config For SmartResources ---------------------------
+	public static final String SMART_RESOURCES_ADJUST_CHECK_API_KEY = "smart-resources.adjust-check-api";
+	public static final String SMART_RESOURCES_ADJUST_CHECK_BACKOFF_MS_KEY = "smart-resources.adjust-check-backoff-ms";
+	public static final int SMART_RESOURCES_ADJUST_CHECK_BACKOFF_MS_DEFAULT = 60 * 1000;
+	public static final String SMART_RESOURCES_ADJUST_CHECK_TIMEOUT_MS_KEY = "smart-resources.adjust-check-timeout-ms";
+	public static final int SMART_RESOURCES_ADJUST_CHECK_TIMEOUT_MS_DEFAULT = 5000;
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_KEY = "smart-resources.cpu-estimate-mode";
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_FLOOR = "floor";
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_ROUND = "round";
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_CEIL = "ceil";
+	public static final String SMART_RESOURCES_CPU_RESERVE_RATIO = "smart-resources.cpu-reserve-ratio";
+	public static final double SMART_RESOURCES_CPU_RESERVE_RATIO_DEFAULT = 0.2;
+	public static final String SMART_RESOURCES_DISABLE_MEM_ADJUST_KEY = "smart-resources.disable-mem-adjust";
+	public static final boolean SMART_RESOURCES_DISABLE_MEM_ADJUST_DEFAULT = false;
+	// TODO (@libenchao): fix durtion typo.
+	public static final String SMART_RESOURCES_DURTION_MINUTES_KEY = "smart-resources.durtion.minutes";
+	public static final int SMART_RESOURCES_DURTION_MINUTES_DEFAULT = 24 * 60;
+	public static final int SMART_RESOURCES_DURTION_MINUTES_MIN = 60;
+	public static final String SMART_RESOURCES_ENABLE_KEY = "smart-resources.enable_on_runtime";
+	public static final boolean SMART_RESOURCES_ENABLE_DEFAULT = false;
+	public static final String SMART_RESOURCES_ENABLE_OLD_KEY = "smart-resources.enable";
+	public static final String SMART_RESOURCES_MEM_RESERVE_RATIO = "smart-resources.mem-reserve-ratio";
+	public static final double SMART_RESOURCES_MEM_RESERVE_RATIO_DEFAULT = 0.2;
+	public static final String SMART_RESOURCES_MEM_MAX_MB_KEY = "smart-resources.mem-max-mb";
+	public static final int SMART_RESOURCES_MEM_MAX_MB_DEFAULT = 60 * 1024;
+	public static final String SMART_RESOURCES_SERVICE_NAME_KEY = "smart-resources.service-name";
 
 	/**
 	 * Not instantiable.

@@ -78,7 +78,11 @@ public class PrintSinkFunction<IN> extends RichSinkFunction<IN> {
 
 	@Override
 	public void invoke(IN record) {
+		long startTime = System.currentTimeMillis();
 		writer.write(record);
+		if (latencyHistogram != null) {
+			latencyHistogram.update(System.currentTimeMillis() - startTime);
+		}
 	}
 
 	@Override

@@ -26,7 +26,7 @@ under the License.
 	<parent>
 		<groupId>org.apache.flink</groupId>
 		<artifactId>flink-connectors</artifactId>
-		<version>1.9-SNAPSHOT</version>
+		<version>1.9-byted-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
@@ -76,7 +76,7 @@ under the License.
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-shaded-hadoop-2-uber</artifactId>
-			<version>${hivemetastore.hadoop.version}-${flink.shaded.version}</version>
+			<version>${hivemetastore.hadoop.version}-7.0</version>
 			<scope>provided</scope>
 		</dependency>
 

@@ -42,6 +42,7 @@ public abstract class WrappingFunction<T extends Function> extends AbstractRichF
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
+		super.open(parameters);
 		FunctionUtils.openFunction(this.wrappedFunction, parameters);
 	}
 

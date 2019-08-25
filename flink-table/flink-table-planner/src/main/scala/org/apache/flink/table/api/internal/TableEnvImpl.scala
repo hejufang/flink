@@ -117,6 +117,27 @@ abstract class TableEnvImpl(
       function)
   }
 
+  override def registerFunction[T](
+      name: String,
+      function: TableFunction[T])
+    : Unit = {
+    registerTableFunctionInternal[T](name, function)(null)
+  }
+
+  override def registerFunction[T, ACC](
+    name: String,
+    function: AggregateFunction[T, ACC])
+  : Unit = {
+    registerAggregateFunctionInternal[T, ACC](name, function)(null, null)
+  }
+
+  override def registerFunction[T, ACC](
+    name: String,
+    function: TableAggregateFunction[T, ACC])
+  : Unit = {
+    registerAggregateFunctionInternal[T, ACC](name, function)(null, null)
+  }
+
   /**
     * Registers a [[TableFunction]] under a unique name. Replaces already existing
     * user-defined functions under this name.

@@ -27,6 +27,8 @@
     "org.apache.flink.sql.parser.ddl.SqlCreateTable.TableCreationContext",
     "org.apache.flink.sql.parser.ddl.SqlCreateView",
     "org.apache.flink.sql.parser.ddl.SqlDropView",
+    "org.apache.flink.sql.parser.ddl.SqlCreateFunction",
+    "org.apache.flink.sql.parser.ddl.SqlWatermark",
     "org.apache.flink.sql.parser.ddl.SqlTableColumn",
     "org.apache.flink.sql.parser.ddl.SqlTableOption",
     "org.apache.flink.sql.parser.dml.RichSqlInsert",
@@ -61,6 +63,7 @@
     "BOUNDED",
     "DELAY",
     "OVERWRITE",
+    "WAIT"
     "STRING",
     "BYTES"
   ]
@@ -429,7 +432,8 @@
   # Each must accept arguments "(SqlParserPos pos, boolean replace)".
   createStatementParserMethods: [
     "SqlCreateTable",
-    "SqlCreateView"
+    "SqlCreateView",
+    "SqlCreateFunction"
   ]
 
   # List of methods for parsing extensions to "DROP" calls.

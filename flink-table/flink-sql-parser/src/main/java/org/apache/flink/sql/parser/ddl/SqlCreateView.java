@@ -46,6 +46,8 @@ public class SqlCreateView extends SqlCreate implements ExtendedSqlNode {
 	private final SqlNode query;
 	private final SqlCharStringLiteral comment;
 
+	private SqlNode expandedQuery;
+
 	public SqlCreateView(
 			SqlParserPos pos,
 			SqlIdentifier viewName,
@@ -84,6 +86,22 @@ public class SqlCreateView extends SqlCreate implements ExtendedSqlNode {
 
 	public SqlCharStringLiteral getComment() {
 		return comment;
+	}
+
+	public SqlNode getExpandedQuery() {
+		return expandedQuery;
+	}
+
+	public void setExpandedQuery(SqlNode expandedQuery) {
+		this.expandedQuery = expandedQuery;
+	}
+
+	public String[] fullViewName() {
+		return viewName.names.toArray(new String[0]);
+	}
+
+	public boolean isIfNotExists() {
+		return ifNotExists;
 	}
 
 	@Override

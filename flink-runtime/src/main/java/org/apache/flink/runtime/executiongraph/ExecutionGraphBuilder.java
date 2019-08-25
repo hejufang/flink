@@ -262,8 +262,8 @@ public class ExecutionGraphBuilder {
 					maxNumberOfCheckpointsToRetain = CheckpointingOptions.MAX_RETAINED_CHECKPOINTS.defaultValue();
 				}
 
-				completedCheckpoints = recoveryFactory.createCheckpointStore(jobId, maxNumberOfCheckpointsToRetain, classLoader);
-				checkpointIdCounter = recoveryFactory.createCheckpointIDCounter(jobId);
+				completedCheckpoints = recoveryFactory.createCheckpointStore(jobId, jobName, maxNumberOfCheckpointsToRetain, classLoader);
+				checkpointIdCounter = recoveryFactory.createCheckpointIDCounter(jobId, jobName);
 			}
 			catch (Exception e) {
 				throw new JobExecutionException(jobId, "Failed to initialize high-availability checkpoint handler", e);

@@ -22,6 +22,7 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
 
+import com.bytedance.mysql.MysqlDriverManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,21 +42,45 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 	private static final long serialVersionUID = 1L;
 	static final int DEFAULT_FLUSH_MAX_SIZE = 5000;
 	static final long DEFAULT_FLUSH_INTERVAL_MILLS = 0;
-
+	protected static final int VALID_CONNECTION_TIMEOUT_SEC = 10;
+	private static final String bytedanceMySQLUrlTemplate = "jdbc:mysql:///%s?db_consul=%s&psm=%s" +
+		"&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractJDBCOutputFormat.class);
 
 	private final String username;
 	private final String password;
 	private final String drivername;
+	private final boolean useBytedanceMysql;
+	private final String consul;
+	private final String psm;
+	private final String dbname;
 	protected final String dbURL;
-
 	protected transient Connection connection;
+	protected int taskNumber;
 
-	public AbstractJDBCOutputFormat(String username, String password, String drivername, String dbURL) {
+	public AbstractJDBCOutputFormat(String username, String password, String drivername, String dbURL,
+			boolean useBytedanceMysql, String consul, String psm, String dbname) {
 		this.username = username;
 		this.password = password;
 		this.drivername = drivername;
-		this.dbURL = dbURL;
+		this.useBytedanceMysql = useBytedanceMysql;
+		this.consul = consul;
+		this.psm = psm;
+		this.dbname = dbname;
+
+		if (dbURL == null) {
+			if (useBytedanceMysql) {
+				this.dbURL = String.format(bytedanceMySQLUrlTemplate, dbname, consul, psm);
+			} else {
+				throw new RuntimeException("Can't init db url, because " +
+					"dbUrl == null & useBytedanceMysql is false");
+			}
+		} else {
+			this.dbURL = dbURL;
+		}
+		LOG.info("username = {}, password = {}, drivername = {}, dbURL = {}, consul = {}," +
+				"psm = {}, useBytedanceMysql = {}, dbname = {}", username, password,
+			drivername, dbURL, consul, psm, useBytedanceMysql, dbname);
 	}
 
 	@Override
@@ -64,10 +89,24 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 
 	protected void establishConnection() throws SQLException, ClassNotFoundException {
 		Class.forName(drivername);
-		if (username == null) {
-			connection = DriverManager.getConnection(dbURL);
+		if (useBytedanceMysql) {
+			if (username == null) {
+				connection = MysqlDriverManager.getConnection(dbURL);
+			} else {
+				connection = MysqlDriverManager.getConnection(dbURL, username, password);
+			}
 		} else {
-			connection = DriverManager.getConnection(dbURL, username, password);
+			if (username == null) {
+				connection = DriverManager.getConnection(dbURL);
+			} else {
+				connection = DriverManager.getConnection(dbURL, username, password);
+			}
+		}
+
+		if (connection == null) {
+			String errMsg = String.format("can't get connection, dbUrl = %s, username = %s, " +
+					"password = %s", dbURL, username, password);
+			throw new RuntimeException(errMsg);
 		}
 	}
 

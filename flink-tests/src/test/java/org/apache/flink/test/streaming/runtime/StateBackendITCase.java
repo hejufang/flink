@@ -112,6 +112,11 @@ public class StateBackendITCase extends AbstractTestBase {
 		}
 
 		@Override
+		public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+			return createCheckpointStorage(jobId);
+		}
+
+		@Override
 		public <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
 			Environment env,
 			JobID jobID,

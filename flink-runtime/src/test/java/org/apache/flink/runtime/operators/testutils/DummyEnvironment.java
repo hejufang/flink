@@ -102,6 +102,11 @@ public class DummyEnvironment implements Environment {
 	}
 
 	@Override
+	public String getJobName() {
+		return null;
+	}
+
+	@Override
 	public JobVertexID getJobVertexId() {
 		return jobVertexId;
 	}

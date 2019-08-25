@@ -27,7 +27,10 @@ import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.catalog.ExternalCatalog;
 import org.apache.flink.table.descriptors.ConnectTableDescriptor;
 import org.apache.flink.table.descriptors.ConnectorDescriptor;
+import org.apache.flink.table.functions.AggregateFunction;
 import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TableAggregateFunction;
+import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
 
@@ -134,6 +137,24 @@ public interface TableEnvironment {
 	 * user-defined functions under this name.
 	 */
 	void registerFunction(String name, ScalarFunction function);
+
+	/**
+	 * Registers a {@link TableFunction} under a unique name. Replaces already existing
+	 * user-defined functions under this name.
+	 */
+	<T> void registerFunction(String name, TableFunction<T> function);
+
+	/**
+	 * Registers a {@link AggregateFunction} under a unique name. Replaces already existing
+	 * user-defined functions under this name.
+	 */
+	<T, ACC> void registerFunction(String name, AggregateFunction<T, ACC> function);
+
+	/**
+	 * Registers a {@link TableAggregateFunction} under a unique name. Replaces already existing
+	 * user-defined functions under this name.
+	 */
+	<T, ACC> void registerFunction(String name, TableAggregateFunction<T, ACC> function);
 
 	/**
 	 * Registers a {@link Table} under a unique name in the TableEnvironment's catalog.
@@ -414,6 +435,16 @@ public interface TableEnvironment {
 	 * @param stmt The SQL statement to evaluate.
 	 */
 	void sqlUpdate(String stmt);
+
+	/**
+	 * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE or DELETE; or DDL statements;
+	 * NOTE: Currently only SQL INSERT statements and CREATE TABLE statements are supported.
+	 *
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @return An optional table with value if the last statement is a query statement,
+	 *         otherwise returns Optional.EMPTY.
+	 * */
+	Optional<Table> sql(String stmt);
 
 	/**
 	 * Gets the current default catalog name of the current session.

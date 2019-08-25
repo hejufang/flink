@@ -82,6 +82,9 @@ public abstract class AbstractFileStateBackend extends AbstractStateBackend {
 	@Nullable
 	private final Path baseSavepointPath;
 
+	/** The all configuration. */
+	protected Configuration config;
+
 	/**
 	 * Creates a backend with the given optional checkpoint- and savepoint base directories.
 	 *
@@ -130,6 +133,7 @@ public abstract class AbstractFileStateBackend extends AbstractStateBackend {
 
 		this(parameterOrConfigured(baseCheckpointPath, configuration, CheckpointingOptions.CHECKPOINTS_DIRECTORY),
 				parameterOrConfigured(baseSavepointPath, configuration, CheckpointingOptions.SAVEPOINT_DIRECTORY));
+		this.config = configuration;
 	}
 
 	// ------------------------------------------------------------------------

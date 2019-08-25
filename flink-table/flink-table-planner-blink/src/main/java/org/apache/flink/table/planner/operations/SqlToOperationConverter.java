@@ -18,18 +18,26 @@
 
 package org.apache.flink.table.planner.operations;
 
+import org.apache.flink.sql.parser.ddl.SqlCreateFunction;
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
+import org.apache.flink.sql.parser.ddl.SqlCreateView;
 import org.apache.flink.sql.parser.ddl.SqlDropTable;
 import org.apache.flink.sql.parser.ddl.SqlTableColumn;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
+import org.apache.flink.sql.parser.ddl.SqlWatermark;
 import org.apache.flink.sql.parser.dml.RichSqlInsert;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
+import org.apache.flink.table.catalog.CatalogView;
+import org.apache.flink.table.catalog.QueryOperationCatalogView;
+import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.ddl.CreateFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
+import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
@@ -83,8 +91,12 @@ public class SqlToOperationConverter {
 		SqlToOperationConverter converter = new SqlToOperationConverter(flinkPlanner);
 		if (validated instanceof SqlCreateTable) {
 			return converter.convertCreateTable((SqlCreateTable) validated);
+		} if (validated instanceof SqlCreateView) {
+			return converter.convertCreateView((SqlCreateView) validated);
 		} if (validated instanceof SqlDropTable) {
 			return converter.convertDropTable((SqlDropTable) validated);
+		} else if (validated instanceof SqlCreateFunction) {
+			return converter.convertCreateFunction((SqlCreateFunction) validated);
 		} else if (validated instanceof RichSqlInsert) {
 			return converter.convertSqlInsert((RichSqlInsert) validated);
 		} else if (validated.getKind().belongsTo(SqlKind.QUERY)) {
@@ -132,9 +144,24 @@ public class SqlToOperationConverter {
 				.map(p -> ((SqlIdentifier) p).getSimple())
 				.collect(Collectors.toList());
 		}
+		//set watermark (rowtime)
+		Map<String, Rowtime> rowtimes = new HashMap<>();
+		SqlWatermark watermark = sqlCreateTable.getWatermark();
+		if (watermark != null) {
+			Rowtime rowtime = new Rowtime();
+			String rowtimeName = watermark.getColumnName().getSimple();
+			rowtime.timestampsFromField(rowtimeName);
+			try {
+				rowtime.watermarksPeriodicBounded(watermark.getWatermarkOffset());
+			} catch (Exception e) {
+				throw new SqlConversionException(e.getMessage());
+			}
+			rowtimes.put(rowtimeName, rowtime);
+		}
 		CatalogTable catalogTable = new CatalogTableImpl(tableSchema,
 			partitionKeys,
 			properties,
+			rowtimes,
 			tableComment);
 		return new CreateTableOperation(sqlCreateTable.fullTableName(), catalogTable,
 			sqlCreateTable.isIfNotExists());
@@ -143,6 +170,24 @@ public class SqlToOperationConverter {
 	/** Convert DROP TABLE statement. */
 	private Operation convertDropTable(SqlDropTable sqlDropTable) {
 		return new DropTableOperation(sqlDropTable.fullTableName(), sqlDropTable.getIfExists());
+	}
+
+	/**
+	 * Convert the {@link SqlCreateView} node.
+	 */
+	private Operation convertCreateView(SqlCreateView sqlCreateView) {
+		flinkPlanner.validate(sqlCreateView.getQuery());
+		String comment = (sqlCreateView.getComment() == null) ? "" : sqlCreateView.getComment().toString();
+		CatalogView catalogView = new QueryOperationCatalogView(toQueryOperation(flinkPlanner, sqlCreateView.getQuery()), comment);
+		return new CreateViewOperation(sqlCreateView.fullViewName(), catalogView, sqlCreateView.isIfNotExists());
+	}
+
+	/** Convert CREATE FUNCTION statement. */
+	private Operation convertCreateFunction(SqlCreateFunction sqlCreateFunction) {
+		return new CreateFunctionOperation(
+			sqlCreateFunction.getFunctionName().getSimple(),
+			sqlCreateFunction.getClassName(),
+			false);
 	}
 
 	/** Convert insert into statement. */

@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
  */
 @PublicEvolving
 public class StreamContextEnvironment extends StreamExecutionEnvironment {
-
 	private static final Logger LOG = LoggerFactory.getLogger(StreamContextEnvironment.class);
 
 	private final ContextEnvironment ctx;
@@ -47,8 +46,10 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+		replaceJobName(streamGraph);
+		saveMetaAndRegisterDashboard(streamGraph);
+		LOG.info("StreamContextEnvironment execute {}", streamGraph.getJobName());
 		transformations.clear();
-
 		// execute the programs
 		if (ctx instanceof DetachedEnvironment) {
 			LOG.warn("Job was executed in detached mode, the results will be available on completion.");
@@ -57,7 +58,8 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		} else {
 			return ctx
 				.getClient()
-				.run(streamGraph, ctx.getJars(), ctx.getClasspaths(), ctx.getUserCodeClassLoader(), ctx.getSavepointRestoreSettings())
+				.run(streamGraph, ctx.getJars(), ctx.getClasspaths(), ctx.getUserCodeClassLoader(),
+						ctx.getSavepointRestoreSettings())
 				.getJobExecutionResult();
 		}
 	}

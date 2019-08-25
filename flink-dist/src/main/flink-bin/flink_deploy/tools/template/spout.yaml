@@ -1,0 +1,5 @@
+- spout_name : {{topic_name}}
+  args:
+    kafka_cluster: xxxxxx
+    topic_name : yyyyyy
+    partition : 1  #modify to exact partition num

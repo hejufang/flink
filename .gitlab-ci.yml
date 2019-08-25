@@ -1,0 +1,15 @@
+image: hub.byted.org/maven3-jdk-8:6afdcb40bff3b6dc59baa8598707d4be
+
+stages:
+  - build
+
+build:
+  stage: build
+  script:
+    # TODO(huweihua): remove skipTests when we can pass unitTest.
+    # - mvn clean install -DskipTests -Pinclude-hadoop -T 1C
+    - ./build_local.sh
+#  only:
+#    - merge_requests
+  tags:
+    - inf-compute-stream

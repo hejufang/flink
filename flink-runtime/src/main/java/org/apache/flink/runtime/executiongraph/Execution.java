@@ -709,8 +709,12 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			}
 
 			if (LOG.isInfoEnabled()) {
-				LOG.info(String.format("Deploying %s (attempt #%d) to %s", vertex.getTaskNameWithSubtaskIndex(),
-						attemptNumber, getAssignedResourceLocation()));
+				String resourceId = null;
+				if (getAssignedResourceLocation() != null) {
+					resourceId = getAssignedResourceLocation().getResourceID().getResourceIdString();
+				}
+				LOG.info("Deploying {} (attempt #{}) to {}, resourceId: {}", vertex.getTaskNameWithSubtaskIndex(),
+						attemptNumber, getAssignedResourceLocation().getHostname(), resourceId);
 			}
 
 			final TaskDeploymentDescriptor deployment = TaskDeploymentDescriptorFactory
@@ -1487,10 +1491,23 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		if (STATE_UPDATER.compareAndSet(this, currentState, targetState)) {
 			markTimestamp(targetState);
 
+			TaskManagerLocation location = getVertex().getCurrentAssignedResourceLocation();
+			String resourceId = null;
+			String hostname = null;
+			if (location != null && location.getResourceID() != null) {
+				hostname = location.getHostname();
+				if (location.getResourceID() != null) {
+					resourceId = location.getResourceID().getResourceIdString();
+				}
+			}
+
 			if (error == null) {
-				LOG.info("{} ({}) switched from {} to {}.", getVertex().getTaskNameWithSubtaskIndex(), getAttemptId(), currentState, targetState);
+				LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.", getVertex().getTaskNameWithSubtaskIndex(),
+					getAttemptId(), currentState, targetState, hostname, resourceId);
 			} else {
-				LOG.info("{} ({}) switched from {} to {}.", getVertex().getTaskNameWithSubtaskIndex(), getAttemptId(), currentState, targetState, error);
+				LOG.warn("{} ({}) switched from {} to {}, host {} resource id {}.",
+					getVertex().getTaskNameWithSubtaskIndex(), getAttemptId(), currentState, targetState,
+					hostname, resourceId, error);
 			}
 
 			if (targetState.isTerminal()) {

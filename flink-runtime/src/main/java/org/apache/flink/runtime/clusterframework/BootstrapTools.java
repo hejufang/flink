@@ -46,6 +46,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.BindException;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -438,6 +439,26 @@ public class BootstrapTools {
 		if (flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS).length() > 0) {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS);
 		}
+
+		String logLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_LEVEL_KEY,
+			ConfigConstants.FLINK_LOG_LEVEL_DEFAULT);
+		javaOpts += " -Dlog.level=" + logLevel;
+
+		String logLayout = flinkConfig.getString(ConfigConstants.FLINK_LOG_LAYOUT_KEY,
+			ConfigConstants.FLINK_LOG_LAYOUT_DEFAULT);
+		javaOpts += " -Dlog.layout=\\\"" + logLayout + "\\\"";
+
+		// JVM GC log opts
+		javaOpts += " " + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_OPTS_KEY,
+			ConfigConstants.FLINK_GC_LOG_OPTS_DEFAULT);
+		javaOpts += " " + "-Xloggc:" + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_FILE_KEY,
+			logDirectory + "/gc.log");
+
+		// JVM dump on OOM config
+		if (flinkConfig.getBoolean(ConfigConstants.FLINK_DUMP_ON_OOM_KEY, ConfigConstants.FLINK_DUMP_ON_OOM_DEFAULT)) {
+			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
@@ -445,19 +466,38 @@ public class BootstrapTools {
 		}
 		startCommandValues.put("jvmopts", javaOpts);
 
+		boolean isInDockerMode = flinkConfig.getBoolean("isInDockerMode", false);
+
+		String log4jConfFile = configDirectory + "/log4j.properties";
+		String logbackConfFile = configDirectory + "/logback.xml";
+		if (isInDockerMode) {
+			String runtimeConfDir =
+				flinkConfig.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
+					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);
+			log4jConfFile = Paths.get(runtimeConfDir, "log4j.properties").
+				toAbsolutePath().toString();
+			logbackConfFile = Paths.get(runtimeConfDir, "logback.xml").
+				toAbsolutePath().toString();
+			hasLogback = new File(logbackConfFile).exists();
+			hasLog4j = new File(logbackConfFile).exists();
+		}
+
 		String logging = "";
 		if (hasLogback || hasLog4j) {
 			logging = "-Dlog.file=" + logDirectory + "/taskmanager.log";
 			if (hasLogback) {
 				logging +=
-					" -Dlogback.configurationFile=file:" + configDirectory +
-						"/logback.xml";
+					" -Dlogback.configurationFile=file:" + logbackConfFile;
 			}
 			if (hasLog4j) {
-				logging += " -Dlog4j.configuration=file:" + configDirectory +
-					"/log4j.properties";
+				logging += " -Dlog4j.configuration=file:" + log4jConfFile;
 			}
 		}
+
+		// databus channel configuration for log collection.
+		String databusChannel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+		logging += " -Dlog.databus.channel=" + databusChannel;
 
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());

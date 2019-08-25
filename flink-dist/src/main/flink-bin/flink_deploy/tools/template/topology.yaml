@@ -1,0 +1,33 @@
+topology_name : {{topology_name}}
+
+#run topology in local mode
+topology_standalone_mode : {{is_test}}
+topology_standalone_time : 500
+
+# add flink resource args
+flink_resource_args:
+  tm_slot: 4
+  tm_cores: 2
+  tm_memory: 5000
+  tm_num: 4
+
+# add flink dynamic properties
+flink_args:
+  containerized.heap-cutoff-ratio: 0.3
+
+common_args :
+  metrics_namespace_prefix : "pyflink.{{topology_name}}"
+  log_file: "/var/log/tiger/{{topology_name}}.log"
+
+spout:
+  common_args:
+    consumer_group : {{topology_name}}
+    output_fields : ["msg"]
+    script_name : /opt/tiger/pyFlink/pytopology/runner/kafka_spout.py
+    is_thread_num_determined_by_partition : true
+    whence : 1
+    read_num : 100
+  spout_list :
+
+bolt:
+  bolt_list:

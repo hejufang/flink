@@ -63,6 +63,7 @@ public class ExtractTimestampsOperator<T>
 
 	@Override
 	public void processElement(StreamRecord<T> element) throws Exception {
+		long startTime = System.currentTimeMillis();
 		long newTimestamp = userFunction.extractTimestamp(element.getValue(), element.getTimestamp());
 		output.collect(element.replace(element.getValue(), newTimestamp));
 		long watermark = userFunction.extractWatermark(element.getValue(), newTimestamp);
@@ -70,6 +71,7 @@ public class ExtractTimestampsOperator<T>
 			currentWatermark = watermark;
 			output.emitWatermark(new Watermark(currentWatermark));
 		}
+		latencyHistogram.update(System.currentTimeMillis() - startTime);
 	}
 
 	@Override

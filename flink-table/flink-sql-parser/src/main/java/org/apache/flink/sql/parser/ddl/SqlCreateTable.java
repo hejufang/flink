@@ -65,6 +65,8 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 
 	private final SqlCharStringLiteral comment;
 
+	private final SqlWatermark watermark;
+
 	public SqlCreateTable(
 			SqlParserPos pos,
 			SqlIdentifier tableName,
@@ -73,7 +75,8 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 			List<SqlNodeList> uniqueKeysList,
 			SqlNodeList propertyList,
 			SqlNodeList partitionKeyList,
-			SqlCharStringLiteral comment) {
+			SqlCharStringLiteral comment,
+			SqlWatermark watermark) {
 		super(OPERATOR, pos, false, false);
 		this.tableName = requireNonNull(tableName, "Table name is missing");
 		this.columnList = requireNonNull(columnList, "Column list should not be null");
@@ -82,6 +85,7 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 		this.propertyList = propertyList;
 		this.partitionKeyList = partitionKeyList;
 		this.comment = comment;
+		this.watermark = watermark;
 	}
 
 	@Override
@@ -121,6 +125,10 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 
 	public SqlCharStringLiteral getComment() {
 		return comment;
+	}
+
+	public SqlWatermark getWatermark() {
+		return watermark;
 	}
 
 	public boolean isIfNotExists() {
@@ -276,6 +284,10 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 				writer.endList(keyFrame);
 			}
 		}
+		if (watermark != null) {
+			printIndent(writer);
+			watermark.unparse(writer, leftPrec, rightPrec);
+		}
 
 		writer.newlineAndIndent();
 		writer.endList(frame);
@@ -320,6 +332,7 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 		public List<SqlNode> columnList = new ArrayList<>();
 		public SqlNodeList primaryKeyList;
 		public List<SqlNodeList> uniqueKeysList = new ArrayList<>();
+		public SqlWatermark watermark;
 	}
 
 	public String[] fullTableName() {

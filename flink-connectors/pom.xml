@@ -26,7 +26,7 @@ under the License.
 	<parent>
 		<groupId>org.apache.flink</groupId>
 		<artifactId>flink-parent</artifactId>
-		<version>1.9-SNAPSHOT</version>
+		<version>1.9-byted-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
@@ -50,6 +50,7 @@ under the License.
 		<module>flink-connector-elasticsearch5</module>
 		<module>flink-connector-elasticsearch6</module>
 		<module>flink-connector-hive</module>
+		<module>flink-connector-elasticsearch6-kms</module>
 		<module>flink-connector-rabbitmq</module>
 		<module>flink-connector-twitter</module>
 		<module>flink-connector-nifi</module>
@@ -57,6 +58,8 @@ under the License.
 		<module>flink-connector-filesystem</module>
 		<module>flink-connector-kafka</module>
 		<module>flink-connector-gcp-pubsub</module>
+		<module>flink-connector-redis</module>
+		<module>flink-connector-clickhouse</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

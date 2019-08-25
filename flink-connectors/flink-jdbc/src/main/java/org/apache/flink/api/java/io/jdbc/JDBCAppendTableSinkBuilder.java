@@ -32,6 +32,10 @@ public class JDBCAppendTableSinkBuilder {
 	private String driverName;
 	private String dbURL;
 	private String query;
+	private boolean useBytedanceMysql;
+	private String consul;
+	private String psm;
+	private String dbname;
 	private int batchSize = DEFAULT_FLUSH_MAX_SIZE;
 	private int[] parameterTypes;
 
@@ -115,6 +119,26 @@ public class JDBCAppendTableSinkBuilder {
 		return this;
 	}
 
+	public JDBCAppendTableSinkBuilder setUseBytedanceMysql(boolean useBytedanceMysql) {
+		this.useBytedanceMysql = useBytedanceMysql;
+		return this;
+	}
+
+	public JDBCAppendTableSinkBuilder setConsul(String consul) {
+		this.consul = consul;
+		return this;
+	}
+
+	public JDBCAppendTableSinkBuilder setPsm(String psm) {
+		this.psm = psm;
+		return this;
+	}
+
+	public JDBCAppendTableSinkBuilder setDbname(String dbname) {
+		this.dbname = dbname;
+		return this;
+	}
+
 	/**
 	 * Finalizes the configuration and checks validity.
 	 *
@@ -133,6 +157,10 @@ public class JDBCAppendTableSinkBuilder {
 			.setDrivername(driverName)
 			.setBatchInterval(batchSize)
 			.setSqlTypes(parameterTypes)
+			.setUseBytedanceMysql(useBytedanceMysql)
+			.setConsul(consul)
+			.setPsm(psm)
+			.setDbname(dbname)
 			.finish();
 
 		return new JDBCAppendTableSink(format);

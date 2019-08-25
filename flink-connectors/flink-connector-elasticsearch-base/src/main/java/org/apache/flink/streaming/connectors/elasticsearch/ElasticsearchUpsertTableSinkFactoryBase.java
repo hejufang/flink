@@ -27,7 +27,6 @@ import org.apache.flink.streaming.connectors.elasticsearch.util.IgnoringFailureH
 import org.apache.flink.streaming.connectors.elasticsearch.util.NoOpFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExecutionFailureHandler;
 import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.ElasticsearchValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
@@ -40,6 +39,7 @@ import org.apache.flink.table.sinks.UpsertStreamTableSink;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
+import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import java.util.ArrayList;
@@ -61,8 +61,13 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_SIZE;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_CONSUL;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_HTTP_SCHEMA;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_PASSWORD;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_PATH_PREFIX;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_USERNAME;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_DOCUMENT_TYPE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_CLASS;
@@ -77,9 +82,11 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_PROTOCOL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_INDEX;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_DELIMITER;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_FIELD_INDICES;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_NULL_LITERAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_TYPE_VALUE_ELASTICSEARCH;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
+import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_DERIVE_SCHEMA;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_TYPE;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
@@ -134,6 +141,12 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		properties.add(CONNECTOR_BULK_FLUSH_BACKOFF_DELAY);
 		properties.add(CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT);
 		properties.add(CONNECTOR_CONNECTION_PATH_PREFIX);
+		properties.add(CONNECTOR_CONNECTION_CONSUL);
+		properties.add(CONNECTOR_CONNECTION_HTTP_SCHEMA);
+		properties.add(CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG);
+		properties.add(CONNECTOR_CONNECTION_USERNAME);
+		properties.add(CONNECTOR_CONNECTION_PASSWORD);
+		properties.add(CONNECTOR_KEY_FIELD_INDICES);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -160,7 +173,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			getSerializationSchema(properties),
 			SUPPORTED_CONTENT_TYPE,
 			getFailureHandler(descriptorProperties),
-			getSinkOptions(descriptorProperties));
+			getSinkOptions(descriptorProperties),
+			getKeyFieldIndices(descriptorProperties));
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -180,7 +194,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		SerializationSchema<Row> serializationSchema,
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
-		Map<SinkOption, String> sinkOptions);
+		Map<SinkOption, String> sinkOptions,
+		int[] keyFieldIndices);
 
 	// --------------------------------------------------------------------------------------------
 	// Helper methods
@@ -210,21 +225,18 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 	}
 
 	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {
-		final String formatType = properties.get(FORMAT_TYPE);
-		// we could have added this check to the table factory context
-		// but this approach allows to throw more helpful error messages
-		// if the supported format has not been added
-		if (formatType == null || !formatType.equals(SUPPORTED_FORMAT_TYPE)) {
-			throw new ValidationException(
-				"The Elasticsearch sink requires a '" + SUPPORTED_FORMAT_TYPE + "' format.");
-		}
+		//we put fixed property here to avoid user to set format schema
+		Map<String, String> extendedProperties = new HashMap<>();
+		properties.forEach(extendedProperties::put);
+		extendedProperties.putIfAbsent(FORMAT_TYPE, SUPPORTED_FORMAT_TYPE);
+		extendedProperties.putIfAbsent(FORMAT_DERIVE_SCHEMA, "true");
 
 		@SuppressWarnings("unchecked")
 		final SerializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
 			SerializationSchemaFactory.class,
-			properties,
+			extendedProperties,
 			this.getClass().getClassLoader());
-		return formatFactory.createSerializationSchema(properties);
+		return formatFactory.createSerializationSchema(extendedProperties);
 	}
 
 	private ActionRequestFailureHandler getFailureHandler(DescriptorProperties descriptorProperties) {
@@ -247,7 +259,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		}
 	}
 
-	private Map<SinkOption, String> getSinkOptions(DescriptorProperties descriptorProperties) {
+	protected Map<SinkOption, String> getSinkOptions(DescriptorProperties descriptorProperties) {
 		final Map<SinkOption, String> options = new HashMap<>();
 
 		descriptorProperties.getOptionalBoolean(CONNECTOR_FLUSH_ON_CHECKPOINT)
@@ -282,8 +294,21 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		mapSinkOption(descriptorProperties, options, CONNECTOR_BULK_FLUSH_BACKOFF_DELAY, SinkOption.BULK_FLUSH_BACKOFF_DELAY);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT, SinkOption.REST_MAX_RETRY_TIMEOUT);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_PATH_PREFIX, SinkOption.REST_PATH_PREFIX);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_CONSUL, SinkOption.CONSUL);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_HTTP_SCHEMA, SinkOption.HTTP_SCHEMA);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG, SinkOption.ENABLE_PASSWORD_CONFIG);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_USERNAME, SinkOption.USERNAME);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_PASSWORD, SinkOption.PASSWORD);
 
 		return options;
+	}
+
+	private int[] getKeyFieldIndices(DescriptorProperties descriptorProperties) {
+		String indicesString = descriptorProperties.getOptionalString(CONNECTOR_KEY_FIELD_INDICES).orElse(null);
+		if (StringUtils.isEmpty(indicesString)) {
+			return new int[0];
+		}
+		return Arrays.stream(indicesString.split(",")).mapToInt(Integer::parseInt).toArray();
 	}
 
 	private void mapSinkOption(

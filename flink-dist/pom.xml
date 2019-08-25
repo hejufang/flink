@@ -25,7 +25,7 @@ under the License.
 	<parent>
 		<groupId>org.apache.flink</groupId>
 		<artifactId>flink-parent</artifactId>
-		<version>1.9-SNAPSHOT</version>
+		<version>1.9-byted-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
@@ -102,7 +102,7 @@ under the License.
 			<artifactId>flink-metrics-jmx_${scala.binary.version}</artifactId>
 			<version>${project.version}</version>
 		</dependency>
-        
+
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-mesos_${scala.binary.version}</artifactId>
@@ -222,6 +222,13 @@ under the License.
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-metrics-dropwizard</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-metrics-opentsdb</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
@@ -379,6 +386,13 @@ under the License.
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-shaded-netty-tcnative-dynamic</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>com.bytedance.flink</groupId>
+			<artifactId>flink-python-byted</artifactId>
+			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<!-- end optional Flink libraries -->
@@ -583,6 +597,20 @@ under the License.
 									<projectName>Apache Flink</projectName>
 								</transformer>
 							</transformers>
+							<relocations>
+								<relocation>
+									<pattern>com.alibaba</pattern>
+									<shadedPattern>org.apache.flink.shaded.dist.com.alibaba</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.yaml</pattern>
+									<shadedPattern>org.apache.flink.shaded.dist.org.yaml</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons.cli</pattern>
+									<shadedPattern>org.apache.flink.shaded.dist.org.apache.commons.cli</shadedPattern>
+								</relocation>
+							</relocations>
 						</configuration>
 					</execution>
 					<execution>
@@ -662,6 +690,18 @@ under the License.
 						<skip>true</skip>
 					</gitDescribe>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

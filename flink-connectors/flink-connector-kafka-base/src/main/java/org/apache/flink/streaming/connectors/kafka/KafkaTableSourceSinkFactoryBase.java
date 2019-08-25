@@ -48,13 +48,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_VERSION;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_CLUSTER;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_GROUP_ID;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_KAFKA_PROPERTIES;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_OWNER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_KEY;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_VALUE;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PSM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_CLASS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM;
@@ -64,6 +70,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIF
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_PARTITION;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_STARTUP_MODE;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TEAM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TOPIC;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TYPE_VALUE_KAFKA;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_CLASS;
@@ -80,7 +87,6 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
 import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.UPDATE_MODE;
-import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.UPDATE_MODE_VALUE_APPEND;
 
 /**
  * Factory for creating configured instances of {@link KafkaTableSourceBase}.
@@ -92,19 +98,25 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 	@Override
 	public Map<String, String> requiredContext() {
 		Map<String, String> context = new HashMap<>();
-		context.put(UPDATE_MODE, UPDATE_MODE_VALUE_APPEND); // append mode
 		context.put(CONNECTOR_TYPE, CONNECTOR_TYPE_VALUE_KAFKA); // kafka
 		context.put(CONNECTOR_VERSION, kafkaVersion()); // version
-		context.put(CONNECTOR_PROPERTY_VERSION, "1"); // backwards compatibility
 		return context;
 	}
 
 	@Override
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
+		properties.add(CONNECTOR_PROPERTY_VERSION);
+		properties.add(UPDATE_MODE);
 
 		// kafka
 		properties.add(CONNECTOR_TOPIC);
+		properties.add(CONNECTOR_CLUSTER);
+		properties.add(CONNECTOR_PSM);
+		properties.add(CONNECTOR_TEAM);
+		properties.add(CONNECTOR_OWNER);
+		properties.add(CONNECTOR_GROUP_ID);
+		properties.add(CONNECTOR_KAFKA_PROPERTIES + ".*");
 		properties.add(CONNECTOR_PROPERTIES);
 		properties.add(CONNECTOR_PROPERTIES + ".#." + CONNECTOR_PROPERTIES_KEY);
 		properties.add(CONNECTOR_PROPERTIES + ".#." + CONNECTOR_PROPERTIES_VALUE);
@@ -152,7 +164,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 				descriptorProperties,
 				Optional.of(deserializationSchema.getProducedType())),
 			topic,
-			getKafkaProperties(descriptorProperties),
+			getKafkaProperties(descriptorProperties, topic),
 			deserializationSchema,
 			startupOptions.startupMode,
 			startupOptions.specificOffsets);
@@ -272,7 +284,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		return formatFactory.createSerializationSchema(properties);
 	}
 
-	private Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
+	private Properties getKafkaProperties(DescriptorProperties descriptorProperties, String topic) {
 		final Properties kafkaProperties = new Properties();
 		final List<Map<String, String>> propsList = descriptorProperties.getFixedIndexedProperties(
 			CONNECTOR_PROPERTIES,
@@ -281,7 +293,39 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 			descriptorProperties.getString(kv.get(CONNECTOR_PROPERTIES_KEY)),
 			descriptorProperties.getString(kv.get(CONNECTOR_PROPERTIES_VALUE))
 		));
+
+		// Replace mainProperties with short keys (cut the prefix 'connector.'),
+		// for example <'connector.cluster', 'cluster1'> -> <'cluster', 'cluster1'>
+		List<String> mainProperties = getMainProperties();
+		int prefixLength = (CONNECTOR + ".").length();
+		mainProperties.forEach(p -> descriptorProperties.getOptionalString(p).ifPresent(
+			v -> kafkaProperties.put(p.substring(prefixLength), v)));
+
+		// Replace dynamic properties with short keys (cut the prefix 'connector.dynamic.')
+		// for example <'connector.dynamic.ignore.dc.check', 'true'> -> <'ignore.dc.check', 'true'>
+		int dynamicPrefixLength = (CONNECTOR_KAFKA_PROPERTIES + ".").length();
+		descriptorProperties.asMap().entrySet().forEach(entry -> {
+			if (entry.getKey().startsWith(CONNECTOR_KAFKA_PROPERTIES + ".")) {
+				kafkaProperties.put(
+					entry.getKey().substring(dynamicPrefixLength), entry.getValue());
+			}
+		});
 		return kafkaProperties;
+	}
+
+	private Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
+		return getKafkaProperties(descriptorProperties, null);
+	}
+
+	private List<String> getMainProperties() {
+		List<String> properties = new ArrayList<>();
+		properties.add(CONNECTOR_CLUSTER);
+		properties.add(CONNECTOR_TOPIC);
+		properties.add(CONNECTOR_PSM);
+		properties.add(CONNECTOR_TEAM);
+		properties.add(CONNECTOR_OWNER);
+		properties.add(CONNECTOR_GROUP_ID);
+		return properties;
 	}
 
 	private StartupOptions getStartupOptions(

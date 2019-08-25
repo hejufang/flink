@@ -28,9 +28,9 @@ import com.codahale.metrics.Snapshot;
  */
 class DropwizardHistogramStatistics extends HistogramStatistics {
 
-	private final com.codahale.metrics.Snapshot snapshot;
+	private final Snapshot snapshot;
 
-	DropwizardHistogramStatistics(com.codahale.metrics.Snapshot snapshot) {
+	DropwizardHistogramStatistics(Snapshot snapshot) {
 		this.snapshot = snapshot;
 	}
 

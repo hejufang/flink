@@ -18,11 +18,14 @@
 
 package org.apache.flink.runtime.util;
 
+import org.apache.curator.utils.EnsurePath;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.SecurityOptions;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.ZooKeeperCheckpointIDCounter;
@@ -265,11 +268,46 @@ public class ZooKeeperUtils {
 	}
 
 	/**
+	 * Ensure namespace path exists, and return the namespace without first '/'.
+	 *
+	 * @param client {@link CuratorFramework} object
+	 * @param zookeeperNamespace the namespace of zookeeper.
+	 * @return namespace without first '/'.
+	 */
+	public static String ensureNamespace(CuratorFramework client, String zookeeperNamespace) throws Exception {
+		if (zookeeperNamespace.startsWith("/")) {
+			new EnsurePath(zookeeperNamespace).ensure(client.getZookeeperClient());
+			zookeeperNamespace = zookeeperNamespace.substring(1);
+		} else {
+			new EnsurePath("/" + zookeeperNamespace).ensure(client.getZookeeperClient());
+		}
+		return zookeeperNamespace;
+	}
+
+	/**
+	 * Create new zookeeper namespace with jobName.
+	 *
+	 * @param configuration                  {@link Configuration} object
+	 * @param jobName                        Name of job to create the instance for
+	 * @return new zookeeper namespace with jobName.
+	 */
+	private static String createNamespace(Configuration configuration, String jobName) {
+		String root = configuration.getString(HighAvailabilityOptions.HA_ZOOKEEPER_ROOT);
+		Path namespace = new Path(root, jobName);
+		String checkpointJobDirectory = configuration.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
+		if (checkpointJobDirectory != null) {
+			namespace = new Path(namespace, checkpointJobDirectory);
+		}
+		return namespace.getPath();
+	}
+
+	/**
 	 * Creates a {@link ZooKeeperCompletedCheckpointStore} instance.
 	 *
 	 * @param client                         The {@link CuratorFramework} ZooKeeper client to use
 	 * @param configuration                  {@link Configuration} object
 	 * @param jobId                          ID of job to create the instance for
+	 * @param jobName                        Name of job to create the instance for
 	 * @param maxNumberOfCheckpointsToRetain The maximum number of checkpoints to retain
 	 * @param executor to run ZooKeeper callbacks
 	 * @return {@link ZooKeeperCompletedCheckpointStore} instance
@@ -279,23 +317,32 @@ public class ZooKeeperUtils {
 			CuratorFramework client,
 			Configuration configuration,
 			JobID jobId,
+			String jobName,
 			int maxNumberOfCheckpointsToRetain,
 			Executor executor) throws Exception {
 
 		checkNotNull(configuration, "Configuration");
 
-		String checkpointsPath = configuration.getString(
-			HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH);
+		Path checkpointsPath = new Path(configuration.getString(
+			HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH));
 
 		RetrievableStateStorageHelper<CompletedCheckpoint> stateStorage = createFileSystemStateStorage(
 			configuration,
 			"completedCheckpoint");
 
-		checkpointsPath += ZooKeeperSubmittedJobGraphStore.getPathForJob(jobId);
+		ZooKeeperStateHandleStore<CompletedCheckpoint> zooKeeperStateHandleStore;
 
-		final ZooKeeperCompletedCheckpointStore zooKeeperCompletedCheckpointStore = new ZooKeeperCompletedCheckpointStore(
+		if (jobName != null && configuration.getBoolean(CheckpointingOptions.CHECKPOINTS_ACROSS_CLUSTER)) {
+			String namespace = createNamespace(configuration, jobName);
+			checkpointsPath = new Path(checkpointsPath, jobName);
+			zooKeeperStateHandleStore =  createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), namespace, stateStorage);
+		} else {
+			checkpointsPath = new Path(checkpointsPath, jobId.toString());
+			zooKeeperStateHandleStore =  createZooKeeperStateHandleStore(client, checkpointsPath.getPath(), stateStorage);
+		}
+		ZooKeeperCompletedCheckpointStore zooKeeperCompletedCheckpointStore = new ZooKeeperCompletedCheckpointStore(
 			maxNumberOfCheckpointsToRetain,
-			createZooKeeperStateHandleStore(client, checkpointsPath, stateStorage),
+			zooKeeperStateHandleStore,
 			executor);
 
 		LOG.info("Initialized {} in '{}'.", ZooKeeperCompletedCheckpointStore.class.getSimpleName(), checkpointsPath);
@@ -320,25 +367,43 @@ public class ZooKeeperUtils {
 		return new ZooKeeperStateHandleStore<>(useNamespaceAndEnsurePath(client, path), stateStorage);
 	}
 
+	public static <T extends Serializable> ZooKeeperStateHandleStore<T> createZooKeeperStateHandleStore(
+		final CuratorFramework client,
+		final String path,
+		final String namespace,
+		final RetrievableStateStorageHelper<T> stateStorage) throws Exception {
+
+		String fullNamespace = new Path(namespace, path).getPath();
+		fullNamespace = ensureNamespace(client, fullNamespace);
+		return new ZooKeeperStateHandleStore<>(client.usingNamespace(fullNamespace), stateStorage);
+	}
+
 	/**
 	 * Creates a {@link ZooKeeperCheckpointIDCounter} instance.
 	 *
 	 * @param client        The {@link CuratorFramework} ZooKeeper client to use
 	 * @param configuration {@link Configuration} object
 	 * @param jobId         ID of job to create the instance for
+	 * @param jobName       Name of job to create the instance for
 	 * @return {@link ZooKeeperCheckpointIDCounter} instance
 	 */
 	public static ZooKeeperCheckpointIDCounter createCheckpointIDCounter(
 			CuratorFramework client,
 			Configuration configuration,
-			JobID jobId) {
+			JobID jobId,
+			String jobName) throws Exception {
 
-		String checkpointIdCounterPath = configuration.getString(
-				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH);
+		Path checkpointIdCounterPath = new Path(configuration.getString(
+				HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINT_COUNTER_PATH));
 
-		checkpointIdCounterPath += ZooKeeperSubmittedJobGraphStore.getPathForJob(jobId);
-
-		return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath);
+		if (jobName != null && configuration.getBoolean(CheckpointingOptions.CHECKPOINTS_ACROSS_CLUSTER)) {
+			String namespace = createNamespace(configuration, jobName);
+			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobName);
+			return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath.getPath(), namespace);
+		} else {
+			checkpointIdCounterPath = new Path(checkpointIdCounterPath, jobId.toString());
+			return new ZooKeeperCheckpointIDCounter(client, checkpointIdCounterPath.getPath());
+		}
 	}
 
 	/**

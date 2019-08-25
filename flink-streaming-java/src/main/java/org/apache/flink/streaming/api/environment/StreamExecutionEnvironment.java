@@ -50,6 +50,9 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.monitor.Dashboard;
+import org.apache.flink.monitor.JobMeta;
+import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.StateBackend;
@@ -73,12 +76,15 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.source.StatefulSequenceSource;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
+import org.apache.flink.streaming.api.graph.StreamNode;
 import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SplittableIterator;
 import org.apache.flink.util.StringUtils;
 
 import com.esotericsoftware.kryo.Serializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -104,8 +110,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @Public
 public abstract class StreamExecutionEnvironment {
 
+	private static final Logger LOG = LoggerFactory.getLogger(StreamExecutionEnvironment.class);
+
 	/** The default name to use for a streaming job if no other name has been specified. */
 	public static final String DEFAULT_JOB_NAME = "Flink Streaming Job";
+
+	private static final int OPERATOR_NAME_MAX_LENGTH = 20;
 
 	/** The time characteristic that is used if none other is set. */
 	private static final TimeCharacteristic DEFAULT_TIME_CHARACTERISTIC = TimeCharacteristic.ProcessingTime;
@@ -1850,5 +1860,68 @@ public abstract class StreamExecutionEnvironment {
 	 */
 	public void registerCachedFile(String filePath, String name, boolean executable) {
 		this.cacheFile.add(new Tuple2<>(name, new DistributedCache.DistributedCacheEntry(filePath, executable)));
+	}
+
+	public void replaceJobName(StreamGraph streamGraph) {
+		String appName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		// Replace job name with yarn app name.
+		if (appName != null && !"".equals(appName)){
+			streamGraph.setJobName(appName);
+		} else {
+			LOG.warn("no app name = {}", streamGraph.getJobName());
+		}
+	}
+
+	public void saveMetaAndRegisterDashboard(StreamGraph streamGraph) {
+		String jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,
+			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
+		if ("pyFlink".equals(jobType)) {
+			return;
+		}
+
+		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+			ConfigConstants.CLUSTER_NAME_DEFAULT);
+		LOG.info("clusterName = {}", clusterName);
+		for (StreamNode node : streamGraph.getStreamNodes()) {
+			String operatorName = node.getOperatorName();
+			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
+			if (operatorName.length() > OPERATOR_NAME_MAX_LENGTH) {
+				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
+			}
+			node.setOperatorName(operatorName);
+		}
+		JobGraph jobGraph = streamGraph.getJobGraph();
+		String dataSource = System.getProperty(ConfigConstants.DATA_SOURCE_KEY,
+			ConfigConstants.DATA_SOURCE_DEFAULT);
+		LOG.info("dataSource = {}", dataSource);
+		try {
+			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph);
+			if (jobMeta.saveToDB()) {
+				LOG.info("Succeed in save job meta to database.");
+			} else {
+				LOG.warn("Failed to save job meta to database.");
+			}
+		} catch (Throwable e) {
+			LOG.warn("Failed to save job meta to database.", e);
+		}
+
+		int maxRetryTimes = 5;
+		int retryTimes = 0;
+		boolean registerDashboardSuccessfully = false;
+		while (retryTimes++ < maxRetryTimes && !registerDashboardSuccessfully) {
+			try {
+				Dashboard dashboard = new Dashboard(clusterName, dataSource, streamGraph,
+					jobGraph);
+				registerDashboardSuccessfully = dashboard.registerDashboard();
+			} catch (Throwable e){
+				registerDashboardSuccessfully = false;
+				LOG.info("Failed to registering dashboard, retry", e);
+			}
+		}
+		if (registerDashboardSuccessfully){
+			LOG.info("Succeed in registering dashboard.");
+		} else {
+			LOG.warn("Failed to registering dashboard!");
+		}
 	}
 }

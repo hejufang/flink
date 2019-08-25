@@ -111,6 +111,11 @@ public class SavepointEnvironment implements Environment {
 	}
 
 	@Override
+	public String getJobName() {
+		return null;
+	}
+
+	@Override
 	public JobVertexID getJobVertexId() {
 		return vertexID;
 	}

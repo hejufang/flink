@@ -49,6 +49,42 @@ public class YarnConfigKeys {
 	public static final String ENV_KRB5_PATH = "_KRB5_PATH";
 	public static final String ENV_YARN_SITE_XML_PATH = "_YARN_SITE_XML_PATH";
 
+	public static final String ENV_FLINK_YARN_JOB = "_FLINK_YARN_JOB";
+	public static final String ENV_FLINK_YARN_QUEUE = "_FLINK_YARN_QUEUE";
+
+	public static final String ENV_LD_LIBRARY_PATH = "LD_LIBRARY_PATH";
+
+	// ---------------------------- Config for docker ---------------------------
+	public static final String IS_IN_DOCKER_MODE_KEY = "isInDockerMode";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY = "YARN_CONTAINER_RUNTIME_TYPE";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT = "docker";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY =
+		"YARN_CONTAINER_RUNTIME_DOCKER_IMAGE";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY =
+		"YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT =
+		"/opt/tiger/ss_conf:/opt/tiger/ss_conf;/opt/tiger/ss_lib:/opt/tiger/ss_lib";
+
+	public static final String DOCKER_IMAGE_KEY = "docker.image";
+	public static final String DOCKER_DEFAULT_IMAGE_KEY = "docker.default_image";
+	public static final String DOCKER_IMAGE_DEFAULT = "yarn_runtime_flink:latest";
+	public static final String DOCKER_MOUNTS_KEY = "docker.mount";
+	public static final String DOCKER_VERSION_LATEST = "latest";
+	public static final String DOCKER_SERVER_KEY = "docker.server";
+	public static final String DOCKER_SERVER_DEFAULT = "image-manager.byted.org";
+	public static final String DOCKER_HUB_KEY = "docker.hub";
+	public static final String DOCKER_HUB_DEFAULT = "hub.byted.org";
+	public static final String DOCKER_REGION_KEY = "docker.region";
+	public static final String DOCKER_REGION_DEFAULT = "China-North-LF";
+	public static final String DOCKER_AUTHORIZATION_KEY = "docker.authorization";
+	public static final String DOCKER_AUTHORIZATION_DEFAULT = "Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q=";
+	public static final String DOCKER_VERSION_URL_TEMPLATE_KEY = "docker.version_template_url";
+	public static final String DOCKER_VERSION_URL_TEMPLATE_DEFAULT =
+		"http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s";
+	public static final String DOCKER_HTTP_HEADER_AUTHORIZATION_KEY = "Authorization";
+	public static final String ENV_SPT_NOENV = "SPT_NOENV";
+	public static final String ENV_CORE_DUMP_PROC_NAME = "CORE_DUMP_PROC_NAME";
+
 	// ------------------------------------------------------------------------
 
 	/** Private constructor to prevent instantiation. */

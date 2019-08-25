@@ -38,6 +38,10 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_DRIVER = "connector.driver";
 	public static final String CONNECTOR_USERNAME = "connector.username";
 	public static final String CONNECTOR_PASSWORD = "connector.password";
+	public static final String CONNECTOR_USE_BYTEDANCE_MYSQL = "connector.use-bytedance-mysql";
+	public static final String CONNECTOR_CONSUL = "connector.consul";
+	public static final String CONNECTOR_PSM = "connector.psm";
+	public static final String CONNECTOR_DBNAME = "connector.dbname";
 
 	public static final String CONNECTOR_READ_PARTITION_COLUMN = "connector.read.partition.column";
 	public static final String CONNECTOR_READ_PARTITION_LOWER_BOUND = "connector.read.partition.lower-bound";
@@ -63,15 +67,34 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 	}
 
 	private void validateCommonProperties(DescriptorProperties properties) {
-		properties.validateString(CONNECTOR_URL, false, 1);
+		properties.validateString(CONNECTOR_URL, true);
 		properties.validateString(CONNECTOR_TABLE, false, 1);
 		properties.validateString(CONNECTOR_DRIVER, true);
 		properties.validateString(CONNECTOR_USERNAME, true);
 		properties.validateString(CONNECTOR_PASSWORD, true);
+		properties.validateBoolean(CONNECTOR_USE_BYTEDANCE_MYSQL, true);
+		properties.validateString(CONNECTOR_CONSUL, true);
+		properties.validateString(CONNECTOR_PSM, true);
+		properties.validateString(CONNECTOR_DBNAME, true);
 
-		final String url = properties.getString(CONNECTOR_URL);
-		final Optional<JDBCDialect> dialect = JDBCDialects.get(url);
-		Preconditions.checkState(dialect.isPresent(), "Cannot handle such jdbc url: " + url);
+		final Optional<String> url = properties.getOptionalString(CONNECTOR_URL);
+		final Optional<Boolean> useBytedanceMySQL = properties.getOptionalBoolean(CONNECTOR_USE_BYTEDANCE_MYSQL);
+
+		if (url.isPresent()) {
+			final Optional<JDBCDialect> dialect = JDBCDialects.get(url.get());
+			Preconditions.checkState(dialect.isPresent(), "Cannot handle such jdbc url: " + url.get());
+		} else {
+			Preconditions.checkState(useBytedanceMySQL.isPresent() && useBytedanceMySQL.get(),
+				"connector.use_bytedance_mysql must be true when url is null");
+			Preconditions.checkState(properties.getOptionalString(CONNECTOR_CONSUL).isPresent(),
+				"connector.consul must be provided when url is null");
+			Preconditions.checkState(properties.getOptionalString(CONNECTOR_PSM).isPresent(),
+				"connector.psm must be provided when url is null");
+			Preconditions.checkState(properties.getOptionalString(CONNECTOR_DBNAME).isPresent(),
+				"connector.dbname must be provided when url is null");
+			final Optional<JDBCDialect> dialect = JDBCDialects.get("jdbc:mysql:");
+			Preconditions.checkState(dialect.isPresent(), "Cannot handle such jdbc url: jdbc:mysql:");
+		}
 
 		Optional<String> password = properties.getOptionalString(CONNECTOR_PASSWORD);
 		if (password.isPresent()) {

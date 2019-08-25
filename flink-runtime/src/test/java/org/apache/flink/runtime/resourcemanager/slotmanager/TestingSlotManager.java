@@ -71,6 +71,9 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public int getNumberAssignedPendingTaskManagerSlots() { return 0; }
+
+	@Override
 	public void start(ResourceManagerId newResourceManagerId, Executor newMainThreadExecutor, ResourceActions newResourceActions) {
 
 	}
@@ -83,6 +86,11 @@ public class TestingSlotManager implements SlotManager {
 	@Override
 	public boolean registerSlotRequest(SlotRequest slotRequest) {
 		return false;
+	}
+
+	@Override
+	public void cancelAllPendingSlotRequests(Exception cause) {
+
 	}
 
 	@Override

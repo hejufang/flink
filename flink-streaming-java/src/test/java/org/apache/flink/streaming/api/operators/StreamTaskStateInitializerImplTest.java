@@ -138,6 +138,11 @@ public class StreamTaskStateInitializerImplTest {
 			}
 
 			@Override
+			public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
 			public <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
 				Environment env,
 				JobID jobID,

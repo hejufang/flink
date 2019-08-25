@@ -36,16 +36,25 @@ public class JDBCOptions {
 	private String driverName;
 	private String username;
 	private String password;
+	private String consul;
+	private String psm;
+	private String dbname;
+	private boolean useBytedanceMysql;
 	private JDBCDialect dialect;
 
 	private JDBCOptions(String dbURL, String tableName, String driverName, String username,
-			String password, JDBCDialect dialect) {
+			String password, JDBCDialect dialect, boolean useBytedanceMysql, String consul,
+			String psm, String dbname) {
 		this.dbURL = dbURL;
 		this.tableName = tableName;
 		this.driverName = driverName;
 		this.username = username;
 		this.password = password;
 		this.dialect = dialect;
+		this.useBytedanceMysql = useBytedanceMysql;
+		this.consul = consul;
+		this.psm = psm;
+		this.dbname = dbname;
 	}
 
 	public String getDbURL() {
@@ -72,6 +81,22 @@ public class JDBCOptions {
 		return dialect;
 	}
 
+	public boolean getUseBytedanceMysql() {
+		return useBytedanceMysql;
+	}
+
+	public String getConsul() {
+		return consul;
+	}
+
+	public String getPsm() {
+		return psm;
+	}
+
+	public String getDbname() {
+		return dbname;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -85,7 +110,11 @@ public class JDBCOptions {
 				Objects.equals(driverName, options.driverName) &&
 				Objects.equals(username, options.username) &&
 				Objects.equals(password, options.password) &&
-				Objects.equals(dialect.getClass().getName(), options.dialect.getClass().getName());
+				Objects.equals(dialect.getClass().getName(), options.dialect.getClass().getName()) &&
+				Objects.equals(consul, options.consul) &&
+				Objects.equals(psm, options.psm) &&
+				useBytedanceMysql == options.useBytedanceMysql &&
+				Objects.equals(dbname, options.dbname);
 		} else {
 			return false;
 		}
@@ -100,6 +129,10 @@ public class JDBCOptions {
 		private String driverName;
 		private String username;
 		private String password;
+		private String consul;
+		private String psm;
+		private boolean useBytedanceMysql;
+		private String dbname;
 		private JDBCDialect dialect;
 
 		/**
@@ -152,8 +185,27 @@ public class JDBCOptions {
 			return this;
 		}
 
+		public Builder setUseBytedanceMysql(boolean useBytedanceMysql) {
+			this.useBytedanceMysql = useBytedanceMysql;
+			return this;
+		}
+
+		public Builder setConsul(String consul) {
+			this.consul = consul;
+			return this;
+		}
+
+		public Builder setPsm(String psm) {
+			this.psm = psm;
+			return this;
+		}
+
+		public Builder setDbname(String dbname) {
+			this.dbname = dbname;
+			return this;
+		}
+
 		public JDBCOptions build() {
-			checkNotNull(dbURL, "No dbURL supplied.");
 			checkNotNull(tableName, "No tableName supplied.");
 			if (this.dialect == null) {
 				Optional<JDBCDialect> optional = JDBCDialects.get(dbURL);
@@ -168,7 +220,8 @@ public class JDBCOptions {
 				});
 			}
 
-			return new JDBCOptions(dbURL, tableName, driverName, username, password, dialect);
+			return new JDBCOptions(dbURL, tableName, driverName, username, password,
+				dialect, useBytedanceMysql, consul, psm, dbname);
 		}
 	}
 }

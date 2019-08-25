@@ -207,6 +207,21 @@ public class NettyShuffleEnvironmentOptions {
 			.withDeprecatedKeys("taskmanager.net.transport")
 			.withDescription("The Netty transport type, either \"nio\" or \"epoll\"");
 
+	public static final ConfigOption<Integer> CLIENT_HEARTBEAT_INTERVAL_SECONDS = ConfigOptions
+		.key("taskmanager.network.netty.client.heartbeatIntervalSec")
+		.defaultValue(5)
+		.withDescription("The netty heart beat interval");
+
+	public static final ConfigOption<Integer> CLIENT_MAX_LOST_HEARTBEATS = ConfigOptions
+		.key("taskmanager.network.netty.client.maxLostHeartbeats")
+		.defaultValue(24)
+		.withDescription("The netty client timeout when losts MAX_LOST_HEARTS");
+
+	public static final ConfigOption<Boolean> CLIENT_READ_TIMEOUT_ENABLED = ConfigOptions
+		.key("taskmanager.network.netty.client.readTimeout.enabled")
+		.defaultValue(Boolean.TRUE)
+		.withDescription("Enable netty client read timeout");
+
 	// ------------------------------------------------------------------------
 	//  Partition Request Options
 	// ------------------------------------------------------------------------

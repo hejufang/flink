@@ -21,13 +21,19 @@ package org.apache.flink.runtime.io.network.netty;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
-
+import org.apache.flink.shaded.netty4.io.netty.handler.timeout.IdleStateHandler;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandler;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Defines the server and client channel handlers, i.e. the protocol, used by netty.
  */
 public class NettyProtocol {
+	private static final Logger LOGGER = LoggerFactory.getLogger(NettyProtocol.class);
 
 	private final NettyMessage.NettyMessageEncoder
 		messageEncoder = new NettyMessage.NettyMessageEncoder();
@@ -36,11 +42,20 @@ public class NettyProtocol {
 	private final TaskEventPublisher taskEventPublisher;
 
 	private final boolean creditBasedEnabled;
+	private final boolean readTimeoutEnabled;
+	private final int heartBeatInterval;
+	private final int maxLostHeartbeats;
 
-	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher, boolean creditBasedEnabled) {
+	NettyProtocol(ResultPartitionProvider partitionProvider, TaskEventPublisher taskEventPublisher,
+				  boolean creditBasedEnabled, NettyConfig nettyConfig) {
 		this.partitionProvider = partitionProvider;
 		this.taskEventPublisher = taskEventPublisher;
 		this.creditBasedEnabled = creditBasedEnabled;
+		this.readTimeoutEnabled = nettyConfig.isClientReadTimeoutEnabled();
+		this.heartBeatInterval = nettyConfig.getClientHeartBeatSeconds();
+		this.maxLostHeartbeats = nettyConfig.getMaxLostHeartbeats();
+		LOGGER.info("readTimeoutEnable = {}, heartbeat Interval = {}, max lost heart beats = {}",
+			this.readTimeoutEnabled, this.heartBeatInterval, this.maxLostHeartbeats);
 	}
 
 	/**
@@ -125,10 +140,20 @@ public class NettyProtocol {
 		NetworkClientHandler networkClientHandler =
 			creditBasedEnabled ? new CreditBasedPartitionRequestClientHandler() :
 				new PartitionRequestClientHandler();
-		return new ChannelHandler[] {
-			messageEncoder,
-			new NettyMessage.NettyMessageDecoder(!creditBasedEnabled),
-			networkClientHandler};
+
+		if (readTimeoutEnabled) {
+			return new ChannelHandler[]{
+				messageEncoder,
+				new NettyMessage.NettyMessageDecoder(!creditBasedEnabled),
+				new IdleStateHandler(heartBeatInterval, 0, 0, TimeUnit.SECONDS),
+				new HeartBeatHandler(maxLostHeartbeats),
+				networkClientHandler};
+		} else {
+			return new ChannelHandler[]{
+				messageEncoder,
+				new NettyMessage.NettyMessageDecoder(!creditBasedEnabled),
+				networkClientHandler};
+		}
 	}
 
 }

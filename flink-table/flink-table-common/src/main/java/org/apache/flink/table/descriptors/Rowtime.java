@@ -131,6 +131,14 @@ public class Rowtime implements Descriptor {
 	}
 
 	/**
+	 * Copy from other Rowtime.
+	 */
+	public Rowtime copy(Rowtime other) {
+		internalProperties.putProperties(other.internalProperties);
+		return this;
+	}
+
+	/**
 	 * Converts this descriptor into a set of properties.
 	 */
 	@Override

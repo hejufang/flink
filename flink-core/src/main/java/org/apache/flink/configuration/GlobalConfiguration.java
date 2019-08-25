@@ -23,14 +23,15 @@ import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nullable;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.util.Map;
 
 /**
  * Global configuration object for Flink. Similar to Java properties configuration
@@ -48,6 +49,9 @@ public final class GlobalConfiguration {
 
 	// the hidden content to be displayed
 	public static final String HIDDEN_CONTENT = "******";
+
+	// the key of common configuration in yaml file.
+	public static final String COMMON = "common";
 
 	// --------------------------------------------------------------------------------------------
 
@@ -102,7 +106,8 @@ public final class GlobalConfiguration {
 	 * @param dynamicProperties configuration file containing the dynamic properties. Null if none.
 	 * @return The configuration loaded from the given configuration directory
 	 */
-	public static Configuration loadConfiguration(final String configDir, @Nullable final Configuration dynamicProperties) {
+	public static Configuration loadConfiguration(final String configDir,
+		@Nullable final Configuration dynamicProperties) {
 
 		if (configDir == null) {
 			throw new IllegalArgumentException("Given configuration directory is null, cannot load configuration");
@@ -179,42 +184,32 @@ public final class GlobalConfiguration {
 	 * @see <a href="http://www.yaml.org/spec/1.2/spec.html">YAML 1.2 specification</a>
 	 */
 	private static Configuration loadYAMLResource(File file) {
-		final Configuration config = new Configuration();
-
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)))){
-
-			String line;
-			int lineNo = 0;
-			while ((line = reader.readLine()) != null) {
-				lineNo++;
-				// 1. check for comments
-				String[] comments = line.split("#", 2);
-				String conf = comments[0].trim();
-
-				// 2. get key and value
-				if (conf.length() > 0) {
-					String[] kv = conf.split(": ", 2);
-
-					// skip line with no valid key-value pair
-					if (kv.length == 1) {
-						LOG.warn("Error while trying to split key and value in configuration file " + file + ":" + lineNo + ": \"" + line + "\"");
-						continue;
-					}
-
-					String key = kv[0].trim();
-					String value = kv[1].trim();
-
-					// sanity check
-					if (key.length() == 0 || value.length() == 0) {
-						LOG.warn("Error after splitting key and value in configuration file " + file + ":" + lineNo + ": \"" + line + "\"");
-						continue;
-					}
-
-					LOG.info("Loading configuration property: {}, {}", key, isSensitive(key) ? HIDDEN_CONTENT : value);
-					config.setString(key, value);
-				}
+		Configuration config = new Configuration();
+		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+			ConfigConstants.CLUSTER_NAME_DEFAULT);
+		try {
+			InputStream input = new FileInputStream(file);
+			Yaml yaml = new Yaml();
+			Map<String, Object> allYamlConf = (Map<String, Object>) yaml.load(input);
+			Map<String, Object> commonConf = (Map<String, Object>) allYamlConf.get(COMMON);
+			Map<String, Object> clusterConf = (Map<String, Object>) allYamlConf.get(clusterName);
+			if (commonConf != null && clusterConf != null) {
+				commonConf.putAll(clusterConf);
+				allYamlConf = commonConf;
 			}
-		} catch (IOException e) {
+			String[] dynamicParam = {ConfigConstants.CLUSTER_NAME_KEY,
+				ConfigConstants.HDFS_PREFIX_KEY,
+				ConfigConstants.DC_KEY};
+			for (Map.Entry<String, Object> entry : allYamlConf.entrySet()) {
+				String key = entry.getKey();
+				String value = entry.getValue().toString();
+				for (String param : dynamicParam) {
+					value = value.replace(String.format("${%s}", param),
+						(String) allYamlConf.get(param));
+				}
+				config.setString(key, value);
+			}
+		} catch (FileNotFoundException e) {
 			throw new RuntimeException("Error parsing YAML configuration.", e);
 		}
 

@@ -75,7 +75,9 @@ public class JobDetailsInfoTest extends RestResponseMarshallingTestBase<JobDetai
 			timestamps,
 			jobVertexInfos,
 			jobVerticesPerState,
-			jsonPlan);
+			jsonPlan,
+			"metric",
+			"dtop");
 	}
 
 	private JobDetailsInfo.JobVertexDetailsInfo createJobVertexDetailsInfo(Random random) {

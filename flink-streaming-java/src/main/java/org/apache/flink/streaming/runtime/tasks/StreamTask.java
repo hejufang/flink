@@ -360,7 +360,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				.createCheckpointExceptionHandler(getEnvironment());
 
 			stateBackend = createStateBackend();
-			checkpointStorage = stateBackend.createCheckpointStorage(getEnvironment().getJobID());
+			LOG.info("Try to create checkpoint with job: {}", getEnvironment().getJobName());
+			checkpointStorage = stateBackend.createCheckpointStorage(
+				getEnvironment().getJobID(), getEnvironment().getJobName());
 
 			// if the clock is not already set, then assign a default TimeServiceProvider
 			if (timerService == null) {

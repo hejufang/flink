@@ -43,6 +43,8 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
@@ -173,7 +175,8 @@ public class MesosResourceManagerTest extends TestLogger {
 			MesosConfiguration mesosConfig,
 			MesosTaskManagerParameters taskManagerParameters,
 			ContainerSpecification taskManagerContainerSpec,
-			JobManagerMetricGroup jobManagerMetricGroup) {
+			JobManagerMetricGroup jobManagerMetricGroup,
+			FailureRater failureRater) {
 			super(
 				rpcService,
 				resourceManagerEndpointId,
@@ -191,7 +194,8 @@ public class MesosResourceManagerTest extends TestLogger {
 				taskManagerParameters,
 				taskManagerContainerSpec,
 				null,
-				jobManagerMetricGroup);
+				jobManagerMetricGroup,
+				failureRater);
 		}
 
 		@Override
@@ -224,6 +228,12 @@ public class MesosResourceManagerTest extends TestLogger {
 		@Override
 		public <V> CompletableFuture<V> callAsync(Callable<V> callable, Time timeout) {
 			return super.callAsync(callable, timeout);
+		}
+
+		@VisibleForTesting
+		@Override
+		public int getNumberRequiredTaskManagerSlots() {
+			return super.getNumberRequiredTaskManagerSlots();
 		}
 	}
 
@@ -281,7 +291,6 @@ public class MesosResourceManagerTest extends TestLogger {
 				Collections.<Protos.Volume>emptyList(), Collections.<Protos.Parameter>emptyList(), false,
 				Collections.<ConstraintEvaluator>emptyList(), "", Option.<String>empty(),
 				Option.<String>empty(), Collections.<String>emptyList());
-
 			// resource manager
 			rmResourceID = ResourceID.generate();
 			resourceManager =
@@ -301,7 +310,8 @@ public class MesosResourceManagerTest extends TestLogger {
 					rmServices.mesosConfig,
 					tmParams,
 					containerSpecification,
-					UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
+					UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup(),
+					FailureRaterUtil.createFailureRater(flinkConfig));
 
 			// TaskExecutors
 			task1Executor = mockTaskExecutor(task1);
@@ -686,6 +696,7 @@ public class MesosResourceManagerTest extends TestLogger {
 			when(rmServices.workerStore.getFrameworkID()).thenReturn(Option.apply(framework1));
 			when(rmServices.workerStore.recoverWorkers()).thenReturn(singletonList(worker1launched));
 			when(rmServices.workerStore.newTaskID()).thenReturn(task2);
+			when(resourceManager.getNumberRequiredTaskManagerSlots()).thenReturn(1);
 			startResourceManager();
 
 			// tell the RM that a task failed

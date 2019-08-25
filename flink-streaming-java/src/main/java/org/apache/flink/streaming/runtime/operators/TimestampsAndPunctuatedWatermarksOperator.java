@@ -45,6 +45,7 @@ public class TimestampsAndPunctuatedWatermarksOperator<T>
 
 	@Override
 	public void processElement(StreamRecord<T> element) throws Exception {
+		long startTime = System.currentTimeMillis();
 		final T value = element.getValue();
 		final long newTimestamp = userFunction.extractTimestamp(value,
 				element.hasTimestamp() ? element.getTimestamp() : Long.MIN_VALUE);
@@ -56,6 +57,7 @@ public class TimestampsAndPunctuatedWatermarksOperator<T>
 			currentWatermark = nextWatermark.getTimestamp();
 			output.emitWatermark(nextWatermark);
 		}
+		latencyHistogram.update(System.currentTimeMillis() - startTime);
 	}
 
 	/**

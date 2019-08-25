@@ -112,6 +112,13 @@
 		</file>
 
 		<file>
+			<source>../flink-metrics/flink-metrics-opentsdb/target/flink-metrics-opentsdb-${project.version}-jar-with-dependencies.jar</source>
+			<outputDirectory>opt/</outputDirectory>
+			<destName>flink-metrics-opentsdb-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
 			<source>../flink-metrics/flink-metrics-slf4j/target/flink-metrics-slf4j-${project.version}.jar</source>
 			<outputDirectory>opt/</outputDirectory>
 			<destName>flink-metrics-slf4j-${project.version}.jar</destName>
@@ -166,6 +173,14 @@
 			<source>../flink-python/target/flink-python_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>opt</outputDirectory>
 			<destName>flink-python_${scala.binary.version}-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<!-- Orc API -->
+		<file>
+			<source>../flink-connectors/flink-orc/target/flink-orc_${scala.binary.version}-${project.version}.jar</source>
+			<outputDirectory>opt</outputDirectory>
+			<destName>flink-orc_${scala.binary.version}-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 	</files>

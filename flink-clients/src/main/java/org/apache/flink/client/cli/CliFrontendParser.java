@@ -134,6 +134,12 @@ public class CliFrontendParser {
 		"Python module with the program entry point. " +
 			"This option must be used in conjunction with `--pyFiles`.");
 
+	static final Option CLUSTER_NAME_OPTION = new Option("cn", "clusterName", true,
+			"Yarn cluster name");
+
+	static final Option OWNER_OPTION = new Option("o", "owner", true,
+		"Owner of the job");
+
 	static {
 		HELP_OPTION.setRequired(false);
 
@@ -214,6 +220,7 @@ public class CliFrontendParser {
 		options.addOption(PY_OPTION);
 		options.addOption(PYFILES_OPTION);
 		options.addOption(PYMODULE_OPTION);
+
 		return options;
 	}
 
@@ -234,7 +241,10 @@ public class CliFrontendParser {
 		Options options = buildGeneralOptions(new Options());
 		options = getProgramSpecificOptions(options);
 		options.addOption(SAVEPOINT_PATH_OPTION);
-		return options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
+		options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
+		options.addOption(CLUSTER_NAME_OPTION);
+		options.addOption(OWNER_OPTION);
+		return options;
 	}
 
 	static Options getInfoCommandOptions() {
@@ -263,6 +273,7 @@ public class CliFrontendParser {
 	static Options getSavepointCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
+		options.addOption(CLUSTER_NAME_OPTION);
 		return options.addOption(JAR_OPTION);
 	}
 
@@ -301,6 +312,10 @@ public class CliFrontendParser {
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(JAR_OPTION);
 		return options;
+	}
+
+	public static Option getOwnerOption() {
+		return OWNER_OPTION;
 	}
 
 	/**

@@ -46,6 +46,7 @@ import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.TernaryBoolean;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
@@ -102,6 +103,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 
 	/** Maximum size of state that is stored with the metadata, rather than in files (1 MiByte). */
 	private static final int MAX_FILE_STATE_THRESHOLD = 1024 * 1024;
+
+	private static final Logger LOG = LoggerFactory.getLogger(FsStateBackend.class);
 
 	// ------------------------------------------------------------------------
 
@@ -488,6 +491,25 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			jobId,
 			getMinFileSizeThreshold(),
 			getWriteBufferSize());
+	}
+
+	public CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName) throws IOException {
+		LOG.info("createCheckpointStorage, jobId {}, jobName, {}", jobId, jobName);
+		if (config != null && config.getBoolean(CheckpointingOptions.CHECKPOINTS_ACROSS_CLUSTER)) {
+			checkNotNull(jobId, "jobId");
+			checkNotNull(jobName, "jobName");
+			return new FsCheckpointStorage(
+				getCheckpointPath().getFileSystem(),
+				getCheckpointPath(),
+				getSavepointPath(),
+				jobId,
+				jobName,
+				config.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE),
+				getMinFileSizeThreshold(),
+				getWriteBufferSize());
+		} else {
+			return createCheckpointStorage(jobId);
+		}
 	}
 
 	// ------------------------------------------------------------------------

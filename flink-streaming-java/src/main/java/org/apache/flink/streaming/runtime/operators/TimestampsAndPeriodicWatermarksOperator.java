@@ -61,10 +61,12 @@ public class TimestampsAndPeriodicWatermarksOperator<T>
 
 	@Override
 	public void processElement(StreamRecord<T> element) throws Exception {
+		long startTime = System.currentTimeMillis();
 		final long newTimestamp = userFunction.extractTimestamp(element.getValue(),
 				element.hasTimestamp() ? element.getTimestamp() : Long.MIN_VALUE);
 
 		output.collect(element.replace(element.getValue(), newTimestamp));
+		latencyHistogram.update(System.currentTimeMillis() - startTime);
 	}
 
 	@Override

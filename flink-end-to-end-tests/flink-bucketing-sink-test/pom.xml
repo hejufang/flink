@@ -24,7 +24,7 @@
 	<parent>
 		<groupId>org.apache.flink</groupId>
 		<artifactId>flink-end-to-end-tests</artifactId>
-		<version>1.9-SNAPSHOT</version>
+		<version>1.9-byted-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
@@ -53,6 +53,50 @@
 			<scope>provided</scope>
 			<exclusions>
 				<!-- Needed for proper dependency convergence -->
+				<exclusion>
+					<groupId>org.apache.curator</groupId>
+					<artifactId>curator-client</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.curator</groupId>
+					<artifactId>curator-recipes</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.curator</groupId>
+					<artifactId>curator-framework</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-lang</groupId>
+					<artifactId>commons-lang</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.google.guava</groupId>
+					<artifactId>guava</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.jcraft</groupId>
+					<artifactId>jsch</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.apache.hadoop</groupId>
+					<artifactId>hadoop-annotations</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.codehaus.jackson</groupId>
+					<artifactId>jackson-core-asl</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.codehaus.jackson</groupId>
+					<artifactId>jackson-mapper-asl</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>javax.servlet</groupId>
+					<artifactId>servlet-api</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>com.bytedance</groupId>
+					<artifactId>metrics4j</artifactId>
+				</exclusion>
 				<exclusion>
 					<groupId>commons-beanutils</groupId>
 					<artifactId>commons-beanutils</artifactId>

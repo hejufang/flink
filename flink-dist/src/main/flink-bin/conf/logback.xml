@@ -17,8 +17,16 @@
   -->
 
 <configuration>
-    <appender name="file" class="ch.qos.logback.core.FileAppender">
+    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${log.file}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+            <fileNamePattern>${log.file}.%i.log</fileNamePattern>
+            <minIndex>1</minIndex>
+            <maxIndex>5</maxIndex>
+        </rollingPolicy>
+        <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+            <maxFileSize>100MB</maxFileSize>
+        </triggeringPolicy>
         <append>false</append>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{60} %X{sourceThread} - %msg%n</pattern>
@@ -26,28 +34,28 @@
     </appender>
 
     <!-- This affects logging for both user code and Flink -->
-    <root level="INFO">
+    <root level="${log.level}">
         <appender-ref ref="file"/>
     </root>
 
     <!-- Uncomment this if you want to only change Flink's logging -->
-    <!--<logger name="org.apache.flink" level="INFO">-->
+    <!--<logger name="org.apache.flink" level="${log.level}">-->
         <!--<appender-ref ref="file"/>-->
     <!--</logger>-->
 
     <!-- The following lines keep the log level of common libraries/connectors on
          log level INFO. The root logger does not override this. You have to manually
          change the log levels here. -->
-    <logger name="akka" level="INFO">
+    <logger name="akka" level="${log.level}">
         <appender-ref ref="file"/>
     </logger>
-    <logger name="org.apache.kafka" level="INFO">
+    <logger name="org.apache.kafka" level="${log.level}">
         <appender-ref ref="file"/>
     </logger>
-    <logger name="org.apache.hadoop" level="INFO">
+    <logger name="org.apache.hadoop" level="${log.level}">
         <appender-ref ref="file"/>
     </logger>
-    <logger name="org.apache.zookeeper" level="INFO">
+    <logger name="org.apache.zookeeper" level="${log.level}">
         <appender-ref ref="file"/>
     </logger>
 

@@ -21,6 +21,16 @@ under the License.
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
+        <distributionManagement>
+            <repository>
+            <id>bytedance-releases</id>
+            <url>https://maven.byted.org/repository/releases</url>
+          </repository>
+          <snapshotRepository>
+            <id>bytedance-snapshots</id>
+            <url>https://maven.byted.org/repository/snapshots</url>
+          </snapshotRepository>
+        </distributionManagement>
 
 	<parent>
 		<groupId>org.apache</groupId>
@@ -38,7 +48,7 @@ under the License.
 
 	<groupId>org.apache.flink</groupId>
 	<artifactId>force-shading</artifactId>
-	<version>1.9-SNAPSHOT</version>
+	<version>1.9-byted-SNAPSHOT</version>
 
 	<packaging>jar</packaging>
 

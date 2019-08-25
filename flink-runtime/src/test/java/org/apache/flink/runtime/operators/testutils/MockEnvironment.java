@@ -213,6 +213,11 @@ public class MockEnvironment implements Environment, AutoCloseable {
 	}
 
 	@Override
+	public String getJobName() {
+		return null;
+	}
+
+	@Override
 	public Configuration getJobConfiguration() {
 		return this.jobConfiguration;
 	}

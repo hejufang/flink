@@ -49,6 +49,8 @@ public class RecordWriterOutput<OUT> implements OperatorChain.WatermarkGaugeExpo
 
 	private SerializationDelegate<StreamElement> serializationDelegate;
 
+	private SerializationDelegate<StreamElement> nonElementDelegate;
+
 	private final StreamStatusProvider streamStatusProvider;
 
 	private final OutputTag outputTag;
@@ -74,6 +76,7 @@ public class RecordWriterOutput<OUT> implements OperatorChain.WatermarkGaugeExpo
 
 		if (outSerializer != null) {
 			serializationDelegate = new SerializationDelegate<StreamElement>(outRecordSerializer);
+			nonElementDelegate = new SerializationDelegate<>(outRecordSerializer);
 		}
 
 		this.streamStatusProvider = checkNotNull(streamStatusProvider);
@@ -113,12 +116,12 @@ public class RecordWriterOutput<OUT> implements OperatorChain.WatermarkGaugeExpo
 
 	@Override
 	public void emitWatermark(Watermark mark) {
+		nonElementDelegate.setInstance(mark);
 		watermarkGauge.setCurrentWatermark(mark.getTimestamp());
-		serializationDelegate.setInstance(mark);
 
 		if (streamStatusProvider.getStreamStatus().isActive()) {
 			try {
-				recordWriter.broadcastEmit(serializationDelegate);
+				recordWriter.broadcastEmit(nonElementDelegate);
 			} catch (Exception e) {
 				throw new RuntimeException(e.getMessage(), e);
 			}
@@ -138,10 +141,10 @@ public class RecordWriterOutput<OUT> implements OperatorChain.WatermarkGaugeExpo
 
 	@Override
 	public void emitLatencyMarker(LatencyMarker latencyMarker) {
-		serializationDelegate.setInstance(latencyMarker);
+		nonElementDelegate.setInstance(latencyMarker);
 
 		try {
-			recordWriter.randomEmit(serializationDelegate);
+			recordWriter.randomEmit(nonElementDelegate);
 		}
 		catch (Exception e) {
 			throw new RuntimeException(e.getMessage(), e);

@@ -50,7 +50,9 @@ public class TaskManagerDetailsInfo extends TaskManagerInfo {
 			@JsonProperty(FIELD_NAME_NUMBER_SLOTS) int numberSlots,
 			@JsonProperty(FIELD_NAME_NUMBER_AVAILABLE_SLOTS) int numberAvailableSlots,
 			@JsonProperty(FIELD_NAME_HARDWARE) HardwareDescription hardwareDescription,
-			@JsonProperty(FIELD_NAME_METRICS) TaskManagerMetricsInfo taskManagerMetrics) {
+			@JsonProperty(FIELD_NAME_METRICS) TaskManagerMetricsInfo taskManagerMetrics,
+			@JsonProperty(FIELD_NAME_WEB_SHELL) String webShell,
+			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog) {
 		super(
 			resourceId,
 			address,
@@ -58,7 +60,9 @@ public class TaskManagerDetailsInfo extends TaskManagerInfo {
 			lastHeartbeat,
 			numberSlots,
 			numberAvailableSlots,
-			hardwareDescription);
+			hardwareDescription,
+			webShell,
+			tmLog);
 
 		this.taskManagerMetrics = Preconditions.checkNotNull(taskManagerMetrics);
 	}
@@ -72,7 +76,9 @@ public class TaskManagerDetailsInfo extends TaskManagerInfo {
 			taskManagerInfo.getNumberSlots(),
 			taskManagerInfo.getNumberAvailableSlots(),
 			taskManagerInfo.getHardwareDescription(),
-			taskManagerMetrics);
+			taskManagerMetrics,
+			taskManagerInfo.getWebShell(),
+			taskManagerInfo.getTmLog());
 	}
 
 	@Override

@@ -69,6 +69,7 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.util.BtraceUtil;
 import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,8 +85,10 @@ import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -98,7 +101,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_PLUGINS_DIR;
@@ -112,6 +114,11 @@ import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.getDynamicProperties
  */
 public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractYarnClusterDescriptor.class);
+
+	private static final String LD_LIBRARY_PATH = "/opt/tiger/ss_lib/so:" +
+		"/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib";
+
+	private static final String SPT_NOENV = "ANY_VALUE_BUT_EMPTY";
 
 	private final YarnConfiguration yarnConfiguration;
 
@@ -142,6 +149,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	private String nodeLabel;
 
 	private String applicationType;
+
+	/** Optional Jar file to include in the system class loader of all application nodes
+	 * (for per-job submission). */
+	private final Set<File> userJarFiles = new HashSet<>();
 
 	private YarnConfigOptions.UserJarInclusion userJarInclusion;
 
@@ -191,6 +202,20 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			throw new IllegalArgumentException("The passed jar path ('" + localJarPath + "') does not end with the 'jar' extension");
 		}
 		this.flinkJarPath = localJarPath;
+	}
+
+	/**
+	 * Sets the user jar which is included in the system classloader of all nodes.
+	 */
+	public void setProvidedUserJarFiles(List<URL> userJarFiles) {
+		for (URL jarFile : userJarFiles) {
+			try {
+				this.userJarFiles.add(new File(jarFile.toURI()));
+			} catch (URISyntaxException e) {
+				throw new IllegalArgumentException("Couldn't add local user jar: " + jarFile
+					+ " Currently only file:/// URLs are supported.");
+			}
+		}
 	}
 
 	/**
@@ -496,7 +521,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			throw yde;
 		}
 
-		LOG.info("Cluster specification: {}", validClusterSpecification);
+		LOG.info("Cluster specification: {}", clusterSpecification);
 
 		final ClusterEntrypoint.ExecutionMode executionMode = detached ?
 			ClusterEntrypoint.ExecutionMode.DETACHED
@@ -610,6 +635,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		return new ClusterSpecification.ClusterSpecificationBuilder()
+			.setMasterVcores(clusterSpecification.getMasterVcores())
 			.setMasterMemoryMB(jobManagerMemoryMb)
 			.setTaskManagerMemoryMB(taskManagerMemoryMb)
 			.setNumberTaskManagers(clusterSpecification.getNumberTaskManagers())
@@ -701,6 +727,24 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
+		// Add user files to work dir, and also to CLASSPATH.
+		String userFiles = configuration.getString(ConfigConstants.FILES, null);
+		LOG.info("userFiles = {}", userFiles);
+		if (userFiles != null) {
+			String [] userFileArray = userFiles.split(";");
+			for (String userFile: userFileArray) {
+				systemShipFiles.add(new File(userFile));
+			}
+		}
+
+		String dockerImage =
+			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
+		boolean isOnDockerMode = false;
+		if (dockerImage != null && !dockerImage.isEmpty()) {
+			isOnDockerMode = true;
+		}
+		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isOnDockerMode);
+
 		addEnvironmentFoldersToShipFiles(systemShipFiles);
 
 		// Set-up ApplicationSubmissionContext for the application
@@ -734,12 +778,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					1));
 		}
 
-		final Set<File> userJarFiles = (jobGraph == null)
-			// not per-job submission
-			? Collections.emptySet()
-			// add user code jars from the provided JobGraph
-			: jobGraph.getUserJars().stream().map(f -> f.toUri()).map(File::new).collect(Collectors.toSet());
-
 		// local resource map for Yarn
 		final Map<String, LocalResource> localResources = new HashMap<>(2 + systemShipFiles.size() + userJarFiles.size());
 		// list of remote paths (after upload)
@@ -748,14 +786,38 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		StringBuilder envShipFileList = new StringBuilder();
 
 		// upload and register ship files
-		List<String> systemClassPaths = uploadAndRegisterFiles(
-			systemShipFiles,
-			fs,
-			homeDir,
-			appId,
-			paths,
-			localResources,
-			envShipFileList);
+		List<String> systemClassPaths = new ArrayList<>();
+
+		if (!isOnDockerMode) {
+			// upload and register ship files
+			systemClassPaths = uploadAndRegisterFiles(
+				systemShipFiles,
+				fs,
+				homeDir,
+				appId,
+				paths,
+				localResources,
+				envShipFileList);
+		} else {
+			LOG.info("Reset system class path in docker mode.");
+			systemClassPaths = new ArrayList<>();
+			String runtimeLibDir =
+				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_LIB_DIR_KEY,
+					ConfigConstants.FLINK_RUNTIME_LIB_DIR_DEFAULT);
+			String runtimeConfDir =
+				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
+					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);
+			String runtimeClasspath =
+				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_CLASSPATH_KEY, "");
+			LOG.info("runtimeLibDir = {}", runtimeLibDir);
+			LOG.info("runtimeConfDir = {}", runtimeConfDir);
+			systemClassPaths.add(Paths.get(runtimeLibDir, "*").toAbsolutePath().toString());
+			systemClassPaths.add(Paths.get(runtimeConfDir, "*").toAbsolutePath().toString());
+			if (runtimeClasspath != null && !runtimeClasspath.isEmpty()) {
+				systemClassPaths.addAll(Arrays.asList(runtimeClasspath.split(":")));
+			}
+			LOG.info("reset systemClassPaths to {}", systemClassPaths);
+		}
 
 		final List<String> userClassPaths = uploadAndRegisterFiles(
 			userJarFiles,
@@ -771,7 +833,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		// normalize classpath by sorting
-		Collections.sort(systemClassPaths);
+
+		// Remove sorting for class path. Ensure that user jar appear before lib jar.
+//		Collections.sort(systemClassPaths);
+
 		Collections.sort(userClassPaths);
 
 		// classpath assembler
@@ -785,16 +850,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			classPathBuilder.append(classPath).append(File.pathSeparator);
 		}
 
-		// Setup jar for ApplicationMaster
-		Path remotePathJar = setupSingleLocalResource(
-			"flink.jar",
-			fs,
-			appId,
-			flinkJarPath,
-			localResources,
-			homeDir,
-			"");
-
 		// set the right configuration values for the TaskManager
 		configuration.setInteger(
 			TaskManagerOptions.NUM_TASK_SLOTS,
@@ -803,6 +858,23 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		configuration.setString(
 			TaskManagerOptions.TASK_MANAGER_HEAP_MEMORY,
 			clusterSpecification.getTaskManagerMemoryMB() + "m");
+
+		Path remotePathJar = null;
+		if (!isOnDockerMode) {
+			// Setup jar for ApplicationMaster
+			remotePathJar = setupSingleLocalResource(
+				"flink.jar",
+				fs,
+				appId,
+				flinkJarPath,
+				localResources,
+				homeDir,
+				"");
+			paths.add(remotePathJar);
+			classPathBuilder.append("flink.jar").append(File.pathSeparator);
+		} else {
+			LOG.info("Do not need to upload flink.jar in docker mode");
+		}
 
 		// Upload the flink configuration
 		// write out configuration file
@@ -819,8 +891,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			homeDir,
 			"");
 
-		paths.add(remotePathJar);
-		classPathBuilder.append("flink.jar").append(File.pathSeparator);
 		paths.add(remotePathConf);
 		classPathBuilder.append("flink-conf.yaml").append(File.pathSeparator);
 
@@ -942,7 +1012,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// set Flink on YARN internal configuration values
 		appMasterEnv.put(YarnConfigKeys.ENV_TM_COUNT, String.valueOf(clusterSpecification.getNumberTaskManagers()));
 		appMasterEnv.put(YarnConfigKeys.ENV_TM_MEMORY, String.valueOf(clusterSpecification.getTaskManagerMemoryMB()));
-		appMasterEnv.put(YarnConfigKeys.FLINK_JAR_PATH, remotePathJar.toString());
+		if (remotePathJar == null) {
+			appMasterEnv.put(YarnConfigKeys.FLINK_JAR_PATH, "");
+		} else {
+			appMasterEnv.put(YarnConfigKeys.FLINK_JAR_PATH, remotePathJar.toString());
+		}
 		appMasterEnv.put(YarnConfigKeys.ENV_APP_ID, appId.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_HOME_DIR, homeDir.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_SHIP_FILES, envShipFileList.toString());
@@ -950,9 +1024,61 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		appMasterEnv.put(YarnConfigKeys.ENV_DETACHED, String.valueOf(detached));
 		appMasterEnv.put(YarnConfigKeys.ENV_ZOOKEEPER_NAMESPACE, getZookeeperNamespace());
 		appMasterEnv.put(YarnConfigKeys.FLINK_YARN_FILES, yarnFilesDir.toUri().toString());
+		appMasterEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH, LD_LIBRARY_PATH);
 
 		// https://github.com/apache/hadoop/blob/trunk/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/markdown/YarnApplicationSecurity.md#identity-on-an-insecure-cluster-hadoop_user_name
 		appMasterEnv.put(YarnConfigKeys.ENV_HADOOP_USER_NAME, UserGroupInformation.getCurrentUser().getUserName());
+		String partitionList = configuration.getString(ConfigConstants.PARTITION_LIST_OLD_KEY, null);
+		partitionList = configuration.getString(ConfigConstants.PARTITION_LIST_KEY, partitionList);
+
+		if (partitionList != null && !partitionList.isEmpty()) {
+			appMasterEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
+			LOG.info("{} = {}", ConfigConstants.PARTITION_LIST_KEY, partitionList);
+		}
+
+		appMasterEnv.put(YarnConfigKeys.ENV_SPT_NOENV, SPT_NOENV);
+
+		boolean enableCoreDump = flinkConfiguration.getBoolean(ConfigConstants.ENABLE_CORE_DUMP_KEY,
+			ConfigConstants.DEFAULT_ENABLE_CORE_DUMP);
+		String jobName = getJobName();
+		if (enableCoreDump && jobName != null && !jobName.isEmpty()) {
+			appMasterEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
+		}
+
+		// Add environment params to AM appMasterEnv for docker mode.
+		Utils.setDockerEnv(flinkConfiguration, appMasterEnv);
+		String realDockerImage =
+			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
+		if (realDockerImage != null && !realDockerImage.trim().isEmpty()) {
+			LOG.info("Add {}={} to dynamicPropertiesEncoded.", YarnConfigKeys.DOCKER_IMAGE_KEY,
+				realDockerImage);
+			if (dynamicPropertiesEncoded != null && !dynamicPropertiesEncoded.trim().isEmpty()) {
+				dynamicPropertiesEncoded = String.format("%s@@%s=%s", dynamicPropertiesEncoded,
+					YarnConfigKeys.DOCKER_IMAGE_KEY, realDockerImage);
+			} else {
+				dynamicPropertiesEncoded =
+					String.format("%s=%s", YarnConfigKeys.DOCKER_IMAGE_KEY, realDockerImage);
+			}
+		}
+
+		String name;
+		if (customName == null) {
+			int taskManagerCount = clusterSpecification.getNumberTaskManagers();
+			name = "Flink session with " + taskManagerCount + " TaskManagers";
+			if (detached) {
+				name += " (detached)";
+			}
+		} else {
+			name = customName;
+		}
+
+		if (name != null) {
+			//Replace spaces by hyphen as space is difficult to handle in the subsequent process.
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, name.replace(" ", "-"));
+		}
+		if (this.yarnQueue != null) {
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, this.yarnQueue.replace(" ", "-"));
+		}
 
 		if (remotePathKeytab != null) {
 			appMasterEnv.put(YarnConfigKeys.KEYTAB_PATH, remotePathKeytab.toString());
@@ -969,8 +1095,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		if (dynamicPropertiesEncoded != null) {
+			LOG.info("ADD {}={} to AM environment.", YarnConfigKeys.ENV_DYNAMIC_PROPERTIES,
+				dynamicPropertiesEncoded);
 			appMasterEnv.put(YarnConfigKeys.ENV_DYNAMIC_PROPERTIES, dynamicPropertiesEncoded);
 		}
+
+		BtraceUtil.attachToEnv(appMasterEnv, null);
 
 		// set classpath from YARN configuration
 		Utils.setupYarnClassPath(yarnConfiguration, appMasterEnv);
@@ -980,11 +1110,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Set up resource type requirements for ApplicationMaster
 		Resource capability = Records.newRecord(Resource.class);
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
-		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+		capability.setVirtualCores(clusterSpecification.getMasterVcores());
+		LOG.info("jm cores = {}", clusterSpecification.getMasterVcores());
 
-		final String customApplicationName = customName != null ? customName : applicationName;
-
-		appContext.setApplicationName(customApplicationName);
+		appContext.setApplicationName(name);
 		appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
 		appContext.setAMContainerSpec(amContainer);
 		appContext.setResource(capability);
@@ -1052,15 +1181,31 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		return report;
 	}
 
+	private String getJobName () {
+		try {
+			int index = customName.lastIndexOf("_");
+			String jobName = this.customName.substring(0, index);
+			return jobName;
+		} catch (Exception e) {
+			LOG.warn("Failed to get job name from jar.");
+		}
+		return null;
+	}
+
+
 	/**
 	 * Returns the Path where the YARN application files should be uploaded to.
 	 *
 	 * @param appId YARN application id
 	 */
 	private Path getYarnFilesDir(final ApplicationId appId) throws IOException {
-		final FileSystem fileSystem = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fileSystem.getHomeDirectory();
-		return new Path(homeDir, ".flink/" + appId + '/');
+//		final FileSystem fileSystem = FileSystem.get(yarnConfiguration);
+//		final Path homeDir = fileSystem.getHomeDirectory();
+//		return new Path(homeDir, ".flink/" + appId + '/');
+
+		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY, ConfigConstants.PATH_JOB_WORK_FILE);
+		Path yarnFilesDir = new Path(jobWorkDir, ".flink/" + appId + '/');
+		return yarnFilesDir;
 	}
 
 	/**
@@ -1093,7 +1238,9 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			appId.toString(),
 			localSrcPath,
 			targetHomeDir,
-			relativeTargetPath);
+			relativeTargetPath,
+			null,
+			true);
 
 		localResources.put(key, resource.f1);
 
@@ -1564,6 +1711,20 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		if (flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS).length() > 0) {
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
 		}
+
+		String logLevel = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_LEVEL_KEY,
+			ConfigConstants.FLINK_LOG_LEVEL_DEFAULT);
+		javaOpts += " -Dlog.level=" + logLevel;
+
+		String logLayout = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_LAYOUT_KEY,
+			ConfigConstants.FLINK_LOG_LAYOUT_DEFAULT);
+		javaOpts += " -Dlog.layout=\\\"" + logLayout + "\\\"";
+
+		// set databus channel
+		String databusChannel = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+		javaOpts += " -Dlog.databus.channel=" + databusChannel;
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
@@ -1583,15 +1744,30 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		startCommandValues.put("jvmopts", javaOpts);
 		String logging = "";
 
+		boolean isInDockerMode =
+			flinkConfiguration.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+
+		String log4jConfFile = CONFIG_FILE_LOG4J_NAME;
+		String logbackConfFile = CONFIG_FILE_LOGBACK_NAME;
+		if (isInDockerMode) {
+			String runtimeConfDir =
+				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
+					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);
+			log4jConfFile = Paths.get(runtimeConfDir, CONFIG_FILE_LOG4J_NAME).
+				toAbsolutePath().toString();
+			logbackConfFile = Paths.get(runtimeConfDir, CONFIG_FILE_LOGBACK_NAME).
+				toAbsolutePath().toString();
+		}
+
 		if (hasLogback || hasLog4j) {
 			logging = "-Dlog.file=\"" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.log\"";
 
 			if (hasLogback) {
-				logging += " -Dlogback.configurationFile=file:" + CONFIG_FILE_LOGBACK_NAME;
+				logging += " -Dlogback.configurationFile=file:" + logbackConfFile;
 			}
 
 			if (hasLog4j) {
-				logging += " -Dlog4j.configuration=file:" + CONFIG_FILE_LOG4J_NAME;
+				logging += " -Dlog4j.configuration=file:" + log4jConfFile;
 			}
 		}
 

@@ -20,6 +20,12 @@ package org.apache.flink.api.common.functions;
 
 import org.apache.flink.annotation.Public;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.DropwizardHistogramWrapper;
+import org.apache.flink.metrics.Histogram;
+
+import com.codahale.metrics.SlidingWindowReservoir;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 
@@ -32,7 +38,11 @@ import java.io.Serializable;
 @Public
 public abstract class AbstractRichFunction implements RichFunction, Serializable {
 
+	private static final Logger LOG = LoggerFactory.getLogger(AggregateFunction.class);
 	private static final long serialVersionUID = 1L;
+	private static final String METRICS_NAME = "latency";
+
+	public Histogram latencyHistogram;
 
 	// --------------------------------------------------------------------------------------------
 	//  Runtime context access
@@ -70,7 +80,20 @@ public abstract class AbstractRichFunction implements RichFunction, Serializable
 	// --------------------------------------------------------------------------------------------
 
 	@Override
-	public void open(Configuration parameters) throws Exception {}
+	public void open(Configuration parameters) throws Exception{
+		try {
+			com.codahale.metrics.Histogram dropwizardHistogram =
+				new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500));
+			RuntimeContext runtimeContext = this.getRuntimeContext();
+			latencyHistogram = runtimeContext.getMetricGroup().histogram(METRICS_NAME,
+				new DropwizardHistogramWrapper(dropwizardHistogram));
+		} catch (Exception e) {
+			// Some RichFunction cannot get runtime context, otherwise it will throw an exception.
+			// So we just ignore the exception and continue;
+			LOG.info("An exception occurred while init latencyHistogram, we just ignore it since " +
+				"some subclass dose not have to use it.");
+		}
+	}
 
 	@Override
 	public void close() throws Exception {}

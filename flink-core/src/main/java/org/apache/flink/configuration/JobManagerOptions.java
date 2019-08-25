@@ -96,6 +96,14 @@ public class JobManagerOptions {
 		.withDescription("JVM heap size (in megabytes) for the JobManager.");
 
 	/**
+	 * Vcores for the JobManager.
+	 */
+	public static final ConfigOption<Integer> JOB_MANAGER_VCORES =
+		key("jobmanager.vcores")
+			.defaultValue(3)
+			.withDescription("Vcores for the JobManager.");
+
+	/**
 	 * The maximum number of prior execution attempts kept in history.
 	 */
 	public static final ConfigOption<Integer> MAX_ATTEMPTS_HISTORY_SIZE =
@@ -130,6 +138,14 @@ public class JobManagerOptions {
 							"../dev/task_failure_recovery.html#restart-pipelined-region-failover-strategy",
 							"here"))
 				).build());
+
+	/**
+	 * The maximum number of failure execution attempts.
+	 */
+	public static final ConfigOption<Integer> MAX_ATTEMPTS_EXECUTION_FAILURE_COUNT =
+		key("jobmanager.execution.attempts-failure-size")
+			.defaultValue(6)
+			.withDescription("The maximum number of failure execution attempts.");
 
 	/**
 	 * The location where the JobManager stores the archives of completed jobs.
@@ -194,6 +210,18 @@ public class JobManagerOptions {
 		key("jobmanager.partition.release-during-job-execution")
 			.defaultValue(true)
 			.withDescription("Controls whether partitions should already be released during the job execution.");
+
+	@Documentation.ExcludeFromDocumentation("dev use only; likely temporary")
+	public static final ConfigOption<Boolean> FORCE_PARTITION_RELEASE_ON_CONSUMPTION =
+			key("jobmanager.scheduler.partition.force-release-on-consumption")
+			.defaultValue(true);
+
+	/**
+	 * Config for individual-forever failover strategy.
+	 * */
+	public static final ConfigOption<Integer> INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS =
+		key("jobmanager.execution.individual-forever.tm.launch.waiting.ms")
+		.defaultValue(30 * 1000);
 
 	// ---------------------------------------------------------------------------------------------
 

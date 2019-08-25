@@ -217,7 +217,8 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 				getLong(
 					checkNotNull(props, "props"),
 					KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS, PARTITION_DISCOVERY_DISABLED),
-				!getBoolean(props, KEY_DISABLE_METRICS, false));
+				!getBoolean(props, KEY_DISABLE_METRICS, false),
+				props);
 
 		this.properties = props;
 		setDeserializer(this.properties);
@@ -293,6 +294,10 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 		// this should not be reached, since we do not expose the timestamp-based startup feature in version 0.9.
 		throw new UnsupportedOperationException(
 			"Fetching partition offsets using timestamps is only supported in Kafka versions 0.10 and above.");
+	}
+
+	public Properties getProperties() {
+		return properties;
 	}
 
 	// ------------------------------------------------------------------------

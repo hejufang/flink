@@ -33,11 +33,11 @@ import java.util.Arrays;
 /**
  * A simple and efficient serializer for the {@link java.io.DataOutput} interface.
  */
-public class DataOutputSerializer implements DataOutputView, MemorySegmentWritable {
+public class DataOutputSerializer implements DataOutputView {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DataOutputSerializer.class);
 
-	private static final int PRUNE_BUFFER_THRESHOLD = 5 * 1024 * 1024;
+	private static int pruneBufferThreshold = 1 * 1024 * 1024;
 
 	// ------------------------------------------------------------------------
 
@@ -110,8 +110,7 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 	}
 
 	public void pruneBuffer() {
-		clear();
-		if (this.buffer.length > PRUNE_BUFFER_THRESHOLD) {
+		if (this.buffer.length > pruneBufferThreshold) {
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("Releasing serialization buffer of " + this.buffer.length + " bytes.");
 			}
@@ -152,18 +151,6 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 			resize(len);
 		}
 		System.arraycopy(b, off, this.buffer, this.position, len);
-		this.position += len;
-	}
-
-	@Override
-	public void write(MemorySegment segment, int off, int len) throws IOException {
-		if (len < 0 || off > segment.size() - len) {
-			throw new ArrayIndexOutOfBoundsException();
-		}
-		if (this.position > this.buffer.length - len) {
-			resize(len);
-		}
-		segment.get(off, this.buffer, this.position, len);
 		this.position += len;
 	}
 
@@ -380,4 +367,9 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 	private static final long BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
 
 	private static final boolean LITTLE_ENDIAN = (MemoryUtils.NATIVE_BYTE_ORDER == ByteOrder.LITTLE_ENDIAN);
+
+	public static void updatePruneBufferThreshold(int threshold) {
+		LOG.info("update prune buffer threshold to {}", threshold);
+		pruneBufferThreshold = threshold;
+	}
 }

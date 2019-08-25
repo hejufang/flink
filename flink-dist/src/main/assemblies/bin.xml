@@ -54,13 +54,6 @@ under the License.
 
 		<!-- Table/SQL Uber JAR -->
 		<file>
-			<source>../flink-table/flink-table-uber/target/flink-table-uber_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<destName>flink-table_${scala.binary.version}-${project.version}.jar</destName>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
 			<source>../flink-table/flink-table-uber-blink/target/flink-table-uber-blink_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<destName>flink-table-blink_${scala.binary.version}-${project.version}.jar</destName>
@@ -86,9 +79,58 @@ under the License.
 			<destName>NOTICE</destName>
 			<fileMode>0644</fileMode>
 		</file>
-	</files>
 
+		<file>
+			<source>../flink-contrib/flink-python-byted/target/flink-python-byted-${project.version}.jar</source>
+			<outputDirectory>basejar/</outputDirectory>
+			<destName>flink-python-byted.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>../flink-formats/flink-json/target/flink-json-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>../flink-metrics/flink-metrics-dropwizard/target/flink-metrics-dropwizard-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>../flink-metrics/flink-metrics-opentsdb/target/flink-metrics-opentsdb-${project.version}-jar-with-dependencies.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<destName>flink-metrics-opentsdb-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>../flink-python/target/flink-python_${scala.binary.version}-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>src/main/resources/flink-conf.yaml</source>
+			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/conf/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>src/main/flink-bin/flink_deploy/__init__.py</source>
+			<outputDirectory>flink_deploy</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+	</files>
 	<fileSets>
+		<fileSet>
+			<directory>lib</directory>
+			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</fileSet>
+
 		<fileSet>
 			<directory>../licenses-binary</directory>
 			<outputDirectory>licenses</outputDirectory>
@@ -254,6 +296,37 @@ under the License.
 		<fileSet>
 			<directory>../flink-python/pyflink/table/examples</directory>
 			<outputDirectory>examples/python/table</outputDirectory>
+			<fileMode>0755</fileMode>
+		</fileSet>
+
+		<!-- copy files to flink_deploy -->
+		<fileSet>
+			<directory>src/main/flink-bin/conf</directory>
+			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/conf</outputDirectory>
+			<fileMode>0644</fileMode>
+		</fileSet>
+
+		<fileSet>
+			<directory>src/main/flink-bin/bin</directory>
+			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/bin</outputDirectory>
+			<fileMode>0755</fileMode>
+		</fileSet>
+
+		<fileSet>
+			<directory>src/main/flink-bin/flink_deploy/deploy/flink-${flink.release.version}/basejar</directory>
+			<outputDirectory>flink_deploy/deploy/flink-${flink.release.version}/basejar</outputDirectory>
+			<fileMode>0644</fileMode>
+		</fileSet>
+
+		<fileSet>
+			<directory>src/main/flink-bin/flink_deploy/ops</directory>
+			<outputDirectory>flink_deploy/ops</outputDirectory>
+			<fileMode>0755</fileMode>
+		</fileSet>
+
+		<fileSet>
+			<directory>src/main/flink-bin/flink_deploy/tools</directory>
+			<outputDirectory>flink_deploy/tools</outputDirectory>
 			<fileMode>0755</fileMode>
 		</fileSet>
 

@@ -21,6 +21,7 @@ package org.apache.flink.table.catalog;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.config.CatalogConfig;
 import org.apache.flink.table.descriptors.DescriptorProperties;
+import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.descriptors.Schema;
 
 import java.util.ArrayList;
@@ -46,7 +47,16 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 			List<String> partitionKeys,
 			Map<String, String> properties,
 			String comment) {
-		super(tableSchema, partitionKeys, properties, comment);
+		this(tableSchema, partitionKeys, properties, new HashMap<>(), comment);
+	}
+
+	public CatalogTableImpl(
+		TableSchema tableSchema,
+		List<String> partitionKeys,
+		Map<String, String> properties,
+		Map<String, Rowtime> rowtimes,
+		String comment) {
+		super(tableSchema, partitionKeys, properties, rowtimes, comment);
 	}
 
 	@Override
@@ -55,6 +65,7 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 			getSchema().copy(),
 			new ArrayList<>(getPartitionKeys()),
 			new HashMap<>(getProperties()),
+			new HashMap<>(getRowtimes()),
 			getComment());
 	}
 
@@ -68,11 +79,23 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 		return Optional.of("This is a catalog table in an im-memory catalog");
 	}
 
+	public Map<Integer, Map<String, String>> rowtimeToTableSchema() {
+		TableSchema tableSchema = getSchema();
+		Map<Integer, Map<String, String>> rowtimeToTableSchema = new HashMap<>();
+		for (Map.Entry<String, Rowtime> rowtime : getRowtimes().entrySet()) {
+			int index = tableSchema.getFieldNameIndex(rowtime.getKey()).get();
+			rowtimeToTableSchema.put(index, rowtime.getValue().toProperties());
+		}
+		return rowtimeToTableSchema;
+	}
+
 	@Override
 	public Map<String, String> toProperties() {
 		DescriptorProperties descriptor = new DescriptorProperties();
 
 		descriptor.putTableSchema(Schema.SCHEMA, getSchema());
+
+		descriptor.putFixedIndexedVariableProperties(Schema.SCHEMA, rowtimeToTableSchema());
 
 		Map<String, String> properties = new HashMap<>(getProperties());
 		properties.remove(CatalogConfig.IS_GENERIC);

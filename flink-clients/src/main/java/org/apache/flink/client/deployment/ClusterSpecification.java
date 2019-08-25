@@ -26,12 +26,15 @@ import org.apache.flink.configuration.TaskManagerOptions;
  * Description of the cluster to start by the {@link ClusterDescriptor}.
  */
 public final class ClusterSpecification {
+	private final int masterVcores;
 	private final int masterMemoryMB;
 	private final int taskManagerMemoryMB;
 	private final int numberTaskManagers;
 	private final int slotsPerTaskManager;
 
-	private ClusterSpecification(int masterMemoryMB, int taskManagerMemoryMB, int numberTaskManagers, int slotsPerTaskManager) {
+	private ClusterSpecification(int masterVcores, int masterMemoryMB, int taskManagerMemoryMB,
+			int numberTaskManagers, int slotsPerTaskManager) {
+		this.masterVcores = masterVcores;
 		this.masterMemoryMB = masterMemoryMB;
 		this.taskManagerMemoryMB = taskManagerMemoryMB;
 		this.numberTaskManagers = numberTaskManagers;
@@ -54,10 +57,15 @@ public final class ClusterSpecification {
 		return slotsPerTaskManager;
 	}
 
+	public int getMasterVcores() {
+		return masterVcores;
+	}
+
 	@Override
 	public String toString() {
 		return "ClusterSpecification{" +
-			"masterMemoryMB=" + masterMemoryMB +
+			", masterVcore=" + masterVcores +
+			", masterMemoryMB=" + masterMemoryMB +
 			", taskManagerMemoryMB=" + taskManagerMemoryMB +
 			", numberTaskManagers=" + numberTaskManagers +
 			", slotsPerTaskManager=" + slotsPerTaskManager +
@@ -67,10 +75,12 @@ public final class ClusterSpecification {
 	public static ClusterSpecification fromConfiguration(Configuration configuration) {
 		int slots = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS, 1);
 
+		int jobManagerVcores = ConfigurationUtils.getJobManagerVcore(configuration);
 		int jobManagerMemoryMb = ConfigurationUtils.getJobManagerHeapMemory(configuration).getMebiBytes();
 		int taskManagerMemoryMb = ConfigurationUtils.getTaskManagerHeapMemory(configuration).getMebiBytes();
 
 		return new ClusterSpecificationBuilder()
+			.setMasterVcores(jobManagerVcores)
 			.setMasterMemoryMB(jobManagerMemoryMb)
 			.setTaskManagerMemoryMB(taskManagerMemoryMb)
 			.setNumberTaskManagers(1)
@@ -82,6 +92,7 @@ public final class ClusterSpecification {
 	 * Builder for the {@link ClusterSpecification} instance.
 	 */
 	public static class ClusterSpecificationBuilder {
+		private int masterVcores = 1;
 		private int masterMemoryMB = 768;
 		private int taskManagerMemoryMB = 768;
 		private int numberTaskManagers = 1;
@@ -107,8 +118,14 @@ public final class ClusterSpecification {
 			return this;
 		}
 
+		public ClusterSpecificationBuilder setMasterVcores(int masterVcores) {
+			this.masterVcores = masterVcores;
+			return this;
+		}
+
 		public ClusterSpecification createClusterSpecification() {
 			return new ClusterSpecification(
+				masterVcores,
 				masterMemoryMB,
 				taskManagerMemoryMB,
 				numberTaskManagers,

@@ -19,6 +19,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BASE_URL } from 'config';
+import { SrResponse } from '../interfaces/sr';
 
 @Injectable({
   providedIn: 'root'
@@ -43,6 +44,10 @@ export class JobManagerService {
    */
   loadStdout() {
     return this.httpClient.get(`${BASE_URL}/jobmanager/stdout`, { responseType: 'text' });
+  }
+
+  loadSr() {
+    return this.httpClient.get<SrResponse>(`${BASE_URL}/sr`);
   }
 
   constructor(private httpClient: HttpClient) {}

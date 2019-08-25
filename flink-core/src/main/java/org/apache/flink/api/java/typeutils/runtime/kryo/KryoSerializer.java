@@ -37,6 +37,7 @@ import org.apache.flink.util.InstantiationUtil;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
+import com.esotericsoftware.kryo.Registration;
 import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
@@ -53,6 +54,7 @@ import java.io.ObjectInputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -352,6 +354,13 @@ public class KryoSerializer<T> extends TypeSerializer<T> {
 				} else {
 					throw ke;
 				}
+			} catch (IndexOutOfBoundsException e) {
+				LOG.info("IndexOutOfBoundsException type {} source data is: {}.",
+					type.getName(), Arrays.toString(input.getBuffer()));
+				input.setPosition(0);
+				Registration registration = kryo.readClass(input);
+				LOG.info("IndexOutOfBoundsException registration type is {}.", registration.getType().getName());
+				throw e;
 			}
 		}
 		finally {

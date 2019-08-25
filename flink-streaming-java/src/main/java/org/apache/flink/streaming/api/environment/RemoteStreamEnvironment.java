@@ -303,6 +303,10 @@ public class RemoteStreamEnvironment extends StreamExecutionEnvironment {
 
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+		replaceJobName(streamGraph);
+		saveMetaAndRegisterDashboard(streamGraph);
+
+		LOG.info("RemoteStreamEnvironment execute {}", streamGraph.getJobName());
 		transformations.clear();
 		return executeRemotely(streamGraph, jarFiles);
 	}

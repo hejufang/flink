@@ -53,6 +53,8 @@ import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.runtime.util.TestingTaskManagerRuntimeInfo;
 import org.apache.flink.util.Preconditions;
 
+import javax.annotation.Nullable;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -86,6 +88,8 @@ public class StreamMockEnvironment implements Environment {
 
 	private final JobID jobID;
 
+	private final String jobName;
+
 	private final ExecutionAttemptID executionAttemptID;
 
 	private final BroadcastVariableManager bcVarManager = new BroadcastVariableManager();
@@ -118,6 +122,7 @@ public class StreamMockEnvironment implements Environment {
 		TaskStateManager taskStateManager) {
 		this(
 			new JobID(),
+			"",
 			new ExecutionAttemptID(0L, 0L),
 			jobConfig,
 			taskConfig,
@@ -130,6 +135,7 @@ public class StreamMockEnvironment implements Environment {
 
 	public StreamMockEnvironment(
 		JobID jobID,
+		String jobName,
 		ExecutionAttemptID executionAttemptID,
 		Configuration jobConfig,
 		Configuration taskConfig,
@@ -140,6 +146,7 @@ public class StreamMockEnvironment implements Environment {
 		TaskStateManager taskStateManager) {
 
 		this.jobID = jobID;
+		this.jobName = jobName;
 		this.executionAttemptID = executionAttemptID;
 
 		int subtaskIndex = 0;
@@ -218,6 +225,12 @@ public class StreamMockEnvironment implements Environment {
 	@Override
 	public JobID getJobID() {
 		return this.jobID;
+	}
+
+	@Nullable
+	@Override
+	public String getJobName() {
+		return this.jobName;
 	}
 
 	@Override

@@ -24,6 +24,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.client.deployment.ClusterDeploymentException;
 import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClient;
@@ -34,6 +35,7 @@ import org.apache.flink.client.program.ProgramMissingJobException;
 import org.apache.flink.client.program.ProgramParametrizationException;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationMapping;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -168,6 +170,7 @@ public class CliFrontend {
 	 */
 	protected void run(String[] args) throws Exception {
 		LOG.info("Running 'run' command.");
+		args = setJobName(args);
 
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 
@@ -176,6 +179,11 @@ public class CliFrontend {
 		final CommandLine commandLine = CliFrontendParser.parse(commandLineOptions, args, true);
 
 		final RunOptions runOptions = new RunOptions(commandLine);
+
+		String owner = commandLine.getOptionValue(CliFrontendParser.getOwnerOption().getOpt(),
+			ConfigConstants.FLINK_OWNER_DEFAULT);
+		LOG.info("owner = {}", owner);
+		System.setProperty(ConfigConstants.FLINK_OWNER_KEY, owner);
 
 		// evaluate help flag
 		if (runOptions.isPrintHelp()) {
@@ -208,6 +216,68 @@ public class CliFrontend {
 		}
 	}
 
+	/**
+	 * Sets job name for metrics and dashboard.
+	 *
+	 * @param args Original arguments.
+	 */
+	public String[] setJobName(String[] args) {
+		boolean metricsJobNameExist = false;
+		int jobNameIndex = -2;
+		int clusterNameIndex = -2;
+		List<String> newArgsList = new ArrayList<>();
+		String jobName;
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].contains("metrics.reporter.opentsdb_reporter.jobname")) {
+				metricsJobNameExist = true;
+			} else if (args[i].equals("-ynm")) {
+				jobNameIndex = i + 1;
+			} else if (args[i].equals("-cn")) {
+				clusterNameIndex = i + 1;
+			}
+		}
+		//1.Set an environment property for registering grafana dashboard.
+		String clusterName = null;
+		if (clusterNameIndex > 0 && clusterNameIndex < args.length) {
+			clusterName = args[clusterNameIndex];
+		} else {
+			clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY);
+		}
+
+		// replace old cluster name with a new one.
+		clusterName = ConfigurationMapping.replaceClusterName(clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+		LOG.info("Cluster name is : " + clusterName);
+
+		if (jobNameIndex > 0 && jobNameIndex < args.length) {
+			jobName = args[jobNameIndex];
+			int i = jobName.lastIndexOf('_');
+			if (i > 0) {
+				jobName = jobName.substring(0, i);
+			}
+			//2.Set an environment property for registering grafana dashboard.
+			System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
+			LOG.info("Job name is set to: " + jobName);
+			if (!metricsJobNameExist) {
+				//3.Add job name for metrics.
+				newArgsList.add("-yD");
+				newArgsList.add("metrics.reporter.opentsdb_reporter.jobname=" + jobName);
+			}
+		}
+
+		if (clusterName != null) {
+			newArgsList.add("-yD");
+			newArgsList.add("clusterName=" + clusterName);
+			LOG.info("Cluster name is : {}", clusterName);
+		}
+
+		newArgsList.addAll(Arrays.asList(args));
+		LOG.info("args = {}", newArgsList);
+		String[] newArgsArray = new String[newArgsList.size()];
+		newArgsList.toArray(newArgsArray);
+		return newArgsArray;
+	}
+
 	private <T> void runProgram(
 			CustomCommandLine<T> customCommandLine,
 			CommandLine commandLine,
@@ -215,10 +285,9 @@ public class CliFrontend {
 			PackagedProgram program) throws ProgramInvocationException, FlinkException {
 		final ClusterDescriptor<T> clusterDescriptor = customCommandLine.createClusterDescriptor(commandLine);
 
+		ClusterClient<T> client = null;
 		try {
 			final T clusterId = customCommandLine.getClusterId(commandLine);
-
-			final ClusterClient<T> client;
 
 			// directly deploy the job if the cluster is started in job mode and detached
 			if (clusterId == null && runOptions.getDetachedMode()) {
@@ -291,6 +360,19 @@ public class CliFrontend {
 					}
 				}
 			}
+		} catch (ClusterDeploymentException e) {
+			LOG.error("Error occured while deploy Yarn session cluster", e);
+			if (client != null) {
+				LOG.info("client is not null, try to shut it down.");
+				try {
+					client.shutdown();
+				} catch (Exception e1) {
+					LOG.info("Could not properly shut down the client.", e1);
+				}
+			} else {
+				LOG.info("Client is null.");
+			}
+			System.exit(-1);
 		} finally {
 			try {
 				clusterDescriptor.close();
@@ -1056,6 +1138,23 @@ public class CliFrontend {
 		}
 	}
 
+	public static void putSystemProperties(Configuration configuration) {
+		// Use data source when register dashboard.
+		System.setProperty(ConfigConstants.DATA_SOURCE_KEY,
+			configuration.getString(ConfigConstants.DATA_SOURCE_KEY,
+				ConfigConstants.DATA_SOURCE_DEFAULT));
+
+		// Use dc when register dashboard
+		System.setProperty(ConfigConstants.DC_KEY,
+			configuration.getString(ConfigConstants.DC_KEY,
+				ConfigConstants.DC_DEFAULT));
+
+		// Use kafka server url when register dashboard
+		System.setProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
+			configuration.getString(ConfigConstants.KAFKA_SERVER_URL_KEY,
+				ConfigConstants.KAFKA_SERVER_URL_DEFAUL));
+	}
+
 	/**
 	 * Submits the job based on the arguments.
 	 */
@@ -1065,8 +1164,21 @@ public class CliFrontend {
 		// 1. find the configuration directory
 		final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
+		String clusterName = parseArgs(args, "-cn", ConfigConstants.CLUSTER_NAME_DEFAULT);
+		clusterName = ConfigurationMapping.replaceClusterName(clusterName);
+		LOG.info("clusterName = {}", clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+
 		// 2. load the global configuration
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configurationDirectory);
+
+		String jobType = parseDynamicProperty(args, ConfigConstants.FLINK_JOB_TYPE_KEY,
+			configuration.getString(ConfigConstants.FLINK_JOB_TYPE_KEY,
+				ConfigConstants.FLINK_JOB_TYPE_DEFAULT));
+		LOG.info("jobType = {}", jobType);
+		System.setProperty(ConfigConstants.FLINK_JOB_TYPE_KEY, jobType);
+
+		putSystemProperties(configuration);
 
 		// 3. load the custom command lines
 		final List<CustomCommandLine<?>> customCommandLines = loadCustomCommandLines(
@@ -1089,6 +1201,28 @@ public class CliFrontend {
 			strippedThrowable.printStackTrace();
 			System.exit(31);
 		}
+	}
+
+	public static String parseArgs(String[] args, String propertyFlag, String defaultValue) {
+		for (int i = 0; i < args.length; i++) {
+			if (propertyFlag.equals(args[i]) && (i + 1 < args.length)) {
+				String value = args[i + 1];
+				return value;
+			}
+		}
+		return defaultValue;
+	}
+
+	public static String parseDynamicProperty(String[] args, String propertyFlag,
+		String defaultValue) {
+		for (int i = 0; i < args.length; i++) {
+			if ("-yD".equals(args[i]) && (i + 2) < args.length &&
+				propertyFlag.equals(args[i + 1])) {
+				String value = args[i + 2];
+				return value;
+			}
+		}
+		return defaultValue;
 	}
 
 	// --------------------------------------------------------------------------------------------

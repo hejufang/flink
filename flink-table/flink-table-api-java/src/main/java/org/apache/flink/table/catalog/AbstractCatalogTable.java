@@ -19,8 +19,10 @@
 package org.apache.flink.table.catalog;
 
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.descriptors.Rowtime;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,6 +38,8 @@ public abstract class AbstractCatalogTable implements CatalogTable {
 	private final List<String> partitionKeys;
 	// Properties of the table
 	private final Map<String, String> properties;
+	// Rowtime of the table
+	private final Map<String, Rowtime> rowtimes;
 	// Comment of the table
 	private final String comment;
 
@@ -43,17 +47,27 @@ public abstract class AbstractCatalogTable implements CatalogTable {
 			TableSchema tableSchema,
 			Map<String, String> properties,
 			String comment) {
-		this(tableSchema, new ArrayList<>(), properties, comment);
+		this(tableSchema, properties, new HashMap<>(), comment);
+	}
+
+	public AbstractCatalogTable(
+		TableSchema tableSchema,
+		Map<String, String> properties,
+		Map<String, Rowtime> rowtimes,
+		String comment) {
+		this(tableSchema, new ArrayList<>(), properties, rowtimes, comment);
 	}
 
 	public AbstractCatalogTable(
 			TableSchema tableSchema,
 			List<String> partitionKeys,
 			Map<String, String> properties,
+			Map<String, Rowtime> rowtimes,
 			String comment) {
 		this.tableSchema = checkNotNull(tableSchema, "tableSchema cannot be null");
 		this.partitionKeys = checkNotNull(partitionKeys, "partitionKeys cannot be null");
 		this.properties = checkNotNull(properties, "properties cannot be null");
+		this.rowtimes = checkNotNull(rowtimes, "rowtime cannot be null");
 		this.comment = comment;
 	}
 
@@ -75,6 +89,10 @@ public abstract class AbstractCatalogTable implements CatalogTable {
 	@Override
 	public TableSchema getSchema() {
 		return tableSchema;
+	}
+
+	public Map<String, Rowtime> getRowtimes() {
+		return rowtimes;
 	}
 
 	@Override

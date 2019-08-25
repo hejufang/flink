@@ -71,7 +71,6 @@ public abstract class TableFormatFactoryBase<T> implements TableFormatFactory<T>
 	public final Map<String, String> requiredContext() {
 		final Map<String, String> context = new HashMap<>();
 		context.put(FormatDescriptorValidator.FORMAT_TYPE, type);
-		context.put(FormatDescriptorValidator.FORMAT_PROPERTY_VERSION, version);
 		context.putAll(requiredFormatContext());
 		return context;
 	}
@@ -101,6 +100,7 @@ public abstract class TableFormatFactoryBase<T> implements TableFormatFactory<T>
 			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_SERIALIZED);
 			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_DELAY);
 		}
+		properties.add(FormatDescriptorValidator.FORMAT_PROPERTY_VERSION);
 		properties.addAll(supportedFormatProperties());
 		return properties;
 	}

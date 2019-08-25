@@ -19,6 +19,9 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.client.cli.CliFrontend;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -26,6 +29,7 @@ import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.StringUtils;
 
+import com.alibaba.fastjson.JSONObject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -46,6 +50,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
+import org.apache.hadoop.yarn.util.BtraceUtil;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
@@ -94,7 +99,8 @@ public final class Utils {
 	 */
 	public static int calculateHeapSize(int memory, org.apache.flink.configuration.Configuration conf) {
 
-		float memoryCutoffRatio = conf.getFloat(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_RATIO);
+		float memoryCutoffRatio = conf.getFloat(ConfigConstants.CONTAINERIZED_JOBMANAGER_HEAP_CUTOFF_RATIO,
+			conf.getFloat(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_RATIO));
 		int minCutoff = conf.getInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN);
 
 		if (memoryCutoffRatio > 1 || memoryCutoffRatio < 0) {
@@ -149,12 +155,23 @@ public final class Utils {
 		String appId,
 		Path localSrcPath,
 		Path homedir,
-		String relativeTargetPath) throws IOException {
+		String relativeTargetPath,
+		org.apache.flink.configuration.Configuration flinkConfig,
+		boolean overrideHomeDir) throws IOException {
 
 		File localFile = new File(localSrcPath.toUri().getPath());
 		if (localFile.isDirectory()) {
 			throw new IllegalArgumentException("File to copy must not be a directory: " +
 				localSrcPath);
+		}
+		if (overrideHomeDir) {
+			if (flinkConfig == null) {
+				String configurationDirectory = CliFrontend.getConfigurationDirectoryFromEnv();
+				flinkConfig = GlobalConfiguration.loadConfiguration(configurationDirectory);
+			}
+			String jobWorkDir = flinkConfig.getString(ConfigConstants.JOB_WORK_DIR_KEY,
+				ConfigConstants.PATH_JOB_WORK_FILE);
+			homedir = new Path(jobWorkDir);
 		}
 
 		// copy resource to HDFS
@@ -481,12 +498,22 @@ public final class Utils {
 			hasKrb5 = true;
 		}
 
-		// register Flink Jar with remote HDFS
-		final LocalResource flinkJar;
-		{
-			Path remoteJarPath = new Path(remoteFlinkJarPath);
-			FileSystem fs = remoteJarPath.getFileSystem(yarnConfig);
-			flinkJar = registerLocalResource(fs, remoteJarPath);
+		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
+
+		boolean isInDockerMode =
+			flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+
+		if (!isInDockerMode) {
+			// register Flink Jar with remote HDFS
+			final LocalResource flinkJar;
+			{
+				Path remoteJarPath = new Path(remoteFlinkJarPath);
+				FileSystem fs = remoteJarPath.getFileSystem(yarnConfig);
+				flinkJar = registerLocalResource(fs, remoteJarPath);
+			}
+			taskManagerLocalResources.put("flink.jar", flinkJar);
+		} else {
+			LOG.info("Do not need to add flink.jar in docker mode.");
 		}
 
 		// register conf with local fs
@@ -507,7 +534,9 @@ public final class Utils {
 					appId,
 					new Path(taskManagerConfigFile.toURI()),
 					homeDirPath,
-					"").f1;
+					"",
+					flinkConfig,
+					true).f1;
 
 				log.debug("Prepared local resource for modified yaml: {}", flinkConf);
 			} finally {
@@ -520,8 +549,6 @@ public final class Utils {
 			}
 		}
 
-		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
-		taskManagerLocalResources.put("flink.jar", flinkJar);
 		taskManagerLocalResources.put("flink-conf.yaml", flinkConf);
 
 		//To support Yarn Secure Integration Test Scenario
@@ -576,11 +603,36 @@ public final class Utils {
 
 		containerEnv.put(YarnConfigKeys.ENV_HADOOP_USER_NAME, UserGroupInformation.getCurrentUser().getUserName());
 
+		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, env.get(YarnConfigKeys.ENV_FLINK_YARN_QUEUE));
+		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, env.get(YarnConfigKeys.ENV_FLINK_YARN_JOB));
+
+		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
+			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
+
+		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);
+		if (partitionList != null && !partitionList.isEmpty()) {
+			containerEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
+			LOG.info("Set {} in container environment = {}",
+				ConfigConstants.PARTITION_LIST_KEY, partitionList);
+		}
+
 		if (remoteKeytabPath != null && remoteKeytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PATH, remoteKeytabPath);
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);
 		}
 
+		containerEnv.put(YarnConfigKeys.ENV_SPT_NOENV,
+			env.get(YarnConfigKeys.ENV_SPT_NOENV));
+
+		String jobName = env.get(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME);
+		if (jobName != null) {
+			containerEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
+		}
+
+		// Add environment params to TM appMasterEnv for docker mode.
+		setDockerEnv(flinkConfig, containerEnv);
+
+		BtraceUtil.attachToEnv(containerEnv, null);
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.
@@ -625,6 +677,99 @@ public final class Utils {
 	}
 
 	/**
+	 * If docker image id is configured in flinkConfiguration, add docker environment parameters
+	 * to environment map.
+	 *
+	 * @param flinkConfiguration flink configuration.
+	 * @param envMap environment map.
+	 * */
+	public static void setDockerEnv(org.apache.flink.configuration.Configuration flinkConfiguration,
+									Map<String, String> envMap) {
+		try {
+			String dockerImage =
+				flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
+			if (dockerImage != null && !dockerImage.trim().isEmpty()) {
+				LOG.info("Docker image: {} has been configured, set docker environment params.",
+					dockerImage);
+				dockerImage = getDockerImage(dockerImage, flinkConfiguration);
+				flinkConfiguration.setString(YarnConfigKeys.DOCKER_IMAGE_KEY, dockerImage);
+				LOG.info("The real docker image id is: {}", dockerImage);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
+					YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT);
+				String dockerMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT;
+				String otherDockerMounts = flinkConfiguration.getString(
+					YarnConfigKeys.DOCKER_MOUNTS_KEY, null);
+				if (otherDockerMounts != null && !otherDockerMounts.isEmpty()) {
+					dockerMounts = otherDockerMounts + ";" + dockerMounts;
+				}
+				LOG.info("Docker mounts: {}", dockerMounts);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+			} else {
+				LOG.info("No docker image configured, run on physical machines.");
+			}
+		} catch (IOException e) {
+			LOG.error("ERROR occurred while get real docker image", e);
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * Add docker hub before image and replace 'latest' docker version with the real version.
+	 * @param flinkConfiguration flink configuration.
+	 *
+	 * @return the real docker version.
+	 * */
+	public static String getDockerImage(String dockerImage,
+		org.apache.flink.configuration.Configuration flinkConfiguration)  throws IOException {
+		if (dockerImage == null) {
+			return null;
+		}
+
+		if ("default".equalsIgnoreCase(dockerImage)) {
+			dockerImage = flinkConfiguration.getString(YarnConfigKeys.DOCKER_DEFAULT_IMAGE_KEY,
+				YarnConfigKeys.DOCKER_IMAGE_DEFAULT);
+		}
+
+		String dockerHub = flinkConfiguration.getString(YarnConfigKeys.DOCKER_HUB_KEY,
+			YarnConfigKeys.DOCKER_HUB_DEFAULT);
+
+		String [] items = dockerImage.trim().split(":");
+		if (items.length != 2) {
+			throw new RuntimeException("docker.image must be {psm}:{version}.");
+		}
+		String dockerPsm = items[0].trim();
+		String dockerVersion = items[1].trim();
+
+		if (!YarnConfigKeys.DOCKER_VERSION_LATEST.equalsIgnoreCase(dockerVersion)) {
+			if (!dockerImage.startsWith(dockerHub)) {
+				dockerImage = dockerHub + "/" + dockerImage;
+			}
+			return dockerImage;
+		}
+		LOG.info("Replace 'latest' version with real latest version id.");
+
+		String dockerServer = flinkConfiguration.getString(YarnConfigKeys.DOCKER_SERVER_KEY,
+			YarnConfigKeys.DOCKER_SERVER_DEFAULT);
+		String dockerRegion = flinkConfiguration.getString(YarnConfigKeys.DOCKER_REGION_KEY,
+			YarnConfigKeys.DOCKER_REGION_DEFAULT);
+		String dockerAuthorization = flinkConfiguration.getString(
+			YarnConfigKeys.DOCKER_AUTHORIZATION_KEY, YarnConfigKeys.DOCKER_AUTHORIZATION_DEFAULT);
+		String dockerUrlTemplate = flinkConfiguration.getString(
+			YarnConfigKeys.DOCKER_VERSION_URL_TEMPLATE_KEY,
+			YarnConfigKeys.DOCKER_VERSION_URL_TEMPLATE_DEFAULT);
+		String dockerUrl = String.format(dockerUrlTemplate, dockerServer, dockerPsm, dockerRegion);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(YarnConfigKeys.DOCKER_HTTP_HEADER_AUTHORIZATION_KEY, dockerAuthorization);
+		HttpUtil.HttpResponsePojo response = HttpUtil.sendGet(dockerUrl, headers);
+		String content = response.getContent();
+		JSONObject respJson = JSONObject.parseObject(content);
+		String image = (String) respJson.getOrDefault(dockerRegion, null);
+		LOG.info("Get image from {}, image is: {}", dockerUrl, image);
+		return image;
+	}
+
+	/**
 	 * Validates a condition, throwing a RuntimeException if the condition is violated.
 	 *
 	 * @param condition The condition.
@@ -632,7 +777,7 @@ public final class Utils {
 	 *                {@link String#format(String, Object...)}.
 	 * @param values The format arguments.
 	 */
-	static void require(boolean condition, String message, Object... values) {
+	public static void require(boolean condition, String message, Object... values) {
 		if (!condition) {
 			throw new RuntimeException(String.format(message, values));
 		}

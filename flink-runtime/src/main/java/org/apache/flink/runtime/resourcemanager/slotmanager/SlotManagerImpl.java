@@ -195,6 +195,7 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	@VisibleForTesting
+	@Override
 	public int getNumberAssignedPendingTaskManagerSlots() {
 		return (int) pendingSlots.values().stream().filter(slot -> slot.getAssignedPendingSlotRequest() != null).count();
 	}
@@ -317,6 +318,26 @@ public class SlotManagerImpl implements SlotManager {
 
 			return true;
 		}
+	}
+
+	/**
+	 * Cancel all pending slot requests.
+	 * @param cause the exception caused the cancellation
+	 */
+	@Override
+	public void cancelAllPendingSlotRequests(Exception cause) {
+		for (PendingSlotRequest pendingSlotRequest : pendingSlotRequests.values()) {
+			cancelPendingSlotRequest(pendingSlotRequest);
+
+			// notify each job master about this exception
+			resourceActions.notifyAllocationFailure(
+				pendingSlotRequest.getJobId(),
+				pendingSlotRequest.getAllocationId(),
+				cause
+			);
+		}
+
+		pendingSlotRequests.clear();
 	}
 
 	/**

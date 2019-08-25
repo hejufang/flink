@@ -37,6 +37,12 @@ import org.apache.flink.util.SerializedValue;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -65,7 +71,7 @@ import java.util.regex.Pattern;
  */
 @PublicEvolving
 public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
-
+	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaConsumer010.class);
 	private static final long serialVersionUID = 2324564345203409112L;
 
 	// ------------------------------------------------------------------------
@@ -131,6 +137,30 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	 */
 	public FlinkKafkaConsumer010(List<String> topics, KafkaDeserializationSchema<T> deserializer, Properties props) {
 		super(topics, deserializer, props);
+		String kafkaClusterName = props.getProperty("cluster");
+		int threshold = 10000;
+		if (props.containsKey("threshold")) {
+			threshold = Integer.parseInt(props.getProperty("threshold"));
+		}
+		String groupId = props.getProperty("group.id");
+		if (kafkaClusterName != null && !"".equals(kafkaClusterName)) {
+			String kafkaMetricsStr = System.getProperty("flink_kafka_metrics", "[]");
+			JSONParser parser = new JSONParser();
+			try {
+				JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
+				for (String topic: topics) {
+					JSONObject jsonObject = new JSONObject();
+					jsonObject.put("cluster", kafkaClusterName);
+					jsonObject.put("topic", topic);
+					jsonObject.put("consumer", groupId);
+					jsonObject.put("threshold", threshold);
+					jsonArray.add(jsonObject);
+				}
+				System.setProperty("flink_kafka_metrics", jsonArray.toJSONString());
+			} catch (ParseException e) {
+				LOG.error("Parse kafka metrics failed", e);
+			}
+		}
 	}
 
 	/**

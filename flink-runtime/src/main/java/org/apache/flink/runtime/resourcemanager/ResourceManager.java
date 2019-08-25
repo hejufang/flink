@@ -24,6 +24,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -34,6 +35,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
 import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -52,6 +54,7 @@ import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.exceptions.MaximumFailedTaskManagerExceedingException;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorException;
 import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistration;
@@ -67,6 +70,8 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
+import org.apache.flink.runtime.util.clock.SystemClock;
+import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
@@ -138,6 +143,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final JobManagerMetricGroup jobManagerMetricGroup;
 
+	private final FailureRater failureRater;
+
 	/** The service to elect a ResourceManager leader. */
 	private LeaderElectionService leaderElectionService;
 
@@ -146,6 +153,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	/** The heartbeat manager with job managers. */
 	private HeartbeatManager<Void, Void> jobManagerHeartbeatManager;
+
+	private boolean exitProcessOnJobManagerTimedout = false;
 
 	/**
 	 * Represents asynchronous state clearing work.
@@ -156,17 +165,48 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private CompletableFuture<Void> clearStateFuture = CompletableFuture.completedFuture(null);
 
 	public ResourceManager(
-			RpcService rpcService,
-			String resourceManagerEndpointId,
-			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
-			HeartbeatServices heartbeatServices,
-			SlotManager slotManager,
-			MetricRegistry metricRegistry,
-			JobLeaderIdService jobLeaderIdService,
-			ClusterInformation clusterInformation,
-			FatalErrorHandler fatalErrorHandler,
-			JobManagerMetricGroup jobManagerMetricGroup) {
+		RpcService rpcService,
+		String resourceManagerEndpointId,
+		ResourceID resourceId,
+		Configuration flinkConfig,
+		HighAvailabilityServices highAvailabilityServices,
+		HeartbeatServices heartbeatServices,
+		SlotManager slotManager,
+		MetricRegistry metricRegistry,
+		JobLeaderIdService jobLeaderIdService,
+		ClusterInformation clusterInformation,
+		FatalErrorHandler fatalErrorHandler,
+		JobManagerMetricGroup jobManagerMetricGroup,
+		FailureRater failureRater) {
+		this(rpcService,
+			resourceManagerEndpointId,
+			resourceId,
+			highAvailabilityServices,
+			heartbeatServices,
+			slotManager,
+			metricRegistry,
+			jobLeaderIdService,
+			clusterInformation,
+			fatalErrorHandler,
+			jobManagerMetricGroup,
+			failureRater
+			);
+		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
+	}
+
+	public ResourceManager(
+		RpcService rpcService,
+		String resourceManagerEndpointId,
+		ResourceID resourceId,
+		HighAvailabilityServices highAvailabilityServices,
+		HeartbeatServices heartbeatServices,
+		SlotManager slotManager,
+		MetricRegistry metricRegistry,
+		JobLeaderIdService jobLeaderIdService,
+		ClusterInformation clusterInformation,
+		FatalErrorHandler fatalErrorHandler,
+		JobManagerMetricGroup jobManagerMetricGroup,
+		FailureRater failureRater) {
 
 		super(rpcService, resourceManagerEndpointId);
 
@@ -179,6 +219,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.clusterInformation = checkNotNull(clusterInformation);
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 		this.jobManagerMetricGroup = checkNotNull(jobManagerMetricGroup);
+		this.failureRater = checkNotNull(failureRater);
 
 		this.jobManagerRegistrations = new HashMap<>(4);
 		this.jmResourceIdRegistrations = new HashMap<>(4);
@@ -521,6 +562,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final ResourceID resourceId = taskExecutorEntry.getKey();
 			final WorkerRegistration<WorkerType> taskExecutor = taskExecutorEntry.getValue();
 
+			String host = taskExecutor.getTaskExecutorGateway().getHostname();
+			String webShell = WebMonitorUtils.getContainerWebShell(resourceId.getResourceIdString(), host);
+			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
+
 			taskManagerInfos.add(
 				new TaskManagerInfo(
 					resourceId,
@@ -529,7 +575,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					taskManagerHeartbeatManager.getLastHeartbeatFrom(resourceId),
 					slotManager.getNumberRegisteredSlotsOf(taskExecutor.getInstanceID()),
 					slotManager.getNumberFreeSlotsOf(taskExecutor.getInstanceID()),
-					taskExecutor.getHardwareDescription()));
+					taskExecutor.getHardwareDescription(),
+					webShell,
+					tmLog));
 		}
 
 		return CompletableFuture.completedFuture(taskManagerInfos);
@@ -544,6 +592,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			return FutureUtils.completedExceptionally(new UnknownTaskExecutorException(resourceId));
 		} else {
 			final InstanceID instanceId = taskExecutor.getInstanceID();
+			String host = taskExecutor.getTaskExecutorGateway().getHostname();
+			String webShell = WebMonitorUtils.getContainerWebShell(resourceId.getResourceIdString(), host);
+			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 			final TaskManagerInfo taskManagerInfo = new TaskManagerInfo(
 				resourceId,
 				taskExecutor.getTaskExecutorGateway().getAddress(),
@@ -551,7 +603,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				taskManagerHeartbeatManager.getLastHeartbeatFrom(resourceId),
 				slotManager.getNumberRegisteredSlotsOf(instanceId),
 				slotManager.getNumberFreeSlotsOf(instanceId),
-				taskExecutor.getHardwareDescription());
+				taskExecutor.getHardwareDescription(),
+				webShell,
+				tmLog);
 
 			return CompletableFuture.completedFuture(taskManagerInfo);
 		}
@@ -741,6 +795,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		jobManagerMetricGroup.gauge(
 			MetricNames.NUM_REGISTERED_TASK_MANAGERS,
 			() -> (long) taskExecutors.size());
+		jobManagerMetricGroup.meter(
+			MetricNames.WORKER_FAILURE_RATE,
+			failureRater);
 	}
 
 	private void clearStateInternal() {
@@ -861,6 +918,53 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			// unregister in order to clean up potential left over state
 			slotManager.unregisterTaskManager(instanceId);
 		}
+	}
+
+
+	protected Collection<ResourceProfile> tryStartNewWorker(ResourceProfile resourceProfile) {
+		if (failureRater.exceedsFailureRate()) {
+			return Collections.emptyList();
+		}
+
+		return startNewWorker(resourceProfile);
+	}
+
+	/**
+	 * Request new container if pending containers cannot satisfies pending slot requests.
+	 */
+	protected void startNewWorkerIfNeeded(ResourceProfile resourceProfile, int pendingSlots) {
+		int currentPendingSlots = pendingSlots;
+		while (currentPendingSlots < getNumberRequiredTaskManagerSlots()) {
+			final Collection<ResourceProfile> slots = tryStartNewWorker(resourceProfile);
+
+			if (slots.isEmpty()) {
+				break;
+			}
+
+			currentPendingSlots += slots.size();
+		}
+	}
+
+	/**
+	 * Record failure number of worker in ResourceManagers. If maximum failure rate is detected,
+	 * then cancel all pending requests.
+	 *
+	 * @return whether should acquire new container/worker after the failure
+	 */
+	@VisibleForTesting
+	protected void recordWorkerFailure() {
+		failureRater.markFailure(SystemClock.getInstance());
+		if (failureRater.exceedsFailureRate()) {
+			cancelAllPendingSlotRequests(new MaximumFailedTaskManagerExceedingException(
+				new RuntimeException(String.format("Maximum number of failed workers %f"
+						+ " is detected in Resource Manager", failureRater.getCurrentFailureRate()))));
+
+		}
+
+	}
+
+	private void cancelAllPendingSlotRequests(Exception cause) {
+		slotManager.cancelAllPendingSlotRequests(cause);
 	}
 
 	// ------------------------------------------------------------------------
@@ -1100,6 +1204,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobId);
 			if (jobManagerRegistration != null) {
 				jobManagerRegistration.getJobManagerGateway().notifyAllocationFailure(allocationId, cause);
+			} else {
+				if (exitProcessOnJobManagerTimedout) {
+					ResourceManagerException exception = new ResourceManagerException("Job Manager is lost, can not notify allocation failure.");
+					onFatalError(exception);
+				}
 			}
 		}
 	}

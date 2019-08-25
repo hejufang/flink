@@ -38,4 +38,7 @@ public class SuppressRestartsException extends RuntimeException {
 				"stack trace for the root cause.", cause);
 	}
 
+	public SuppressRestartsException(String message, Throwable cause) {
+		super(message, cause);
+	}
 }
