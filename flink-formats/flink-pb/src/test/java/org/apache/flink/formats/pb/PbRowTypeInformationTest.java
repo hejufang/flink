@@ -18,8 +18,14 @@
 
 package org.apache.flink.formats.pb;
 
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+
 import com.google.protobuf.Descriptors;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * Test {@link PbRowTypeInformation}.
@@ -27,7 +33,36 @@ import org.junit.Test;
 public class PbRowTypeInformationTest {
 	@Test
 	public void rowTypeInformationGenerateTest() {
+		TypeInformation[] arrayTypes = new TypeInformation[2];
+		arrayTypes[0] = Types.STRING;
+		arrayTypes[1] = Types.MAP(Types.STRING, Types.INT);
+		String[] arrayNames = new String[2];
+		arrayNames[0] = "stringTestInMessage";
+		arrayNames[1] = "MapTestInMessage";
+
+		TypeInformation[] types = new TypeInformation[9];
+		types[0] = Types.INT;
+		types[1] = Types.LONG;
+		types[2] = Types.STRING;
+		types[3] = Types.BOOLEAN;
+		types[4] = Types.DOUBLE;
+		types[5] = Types.FLOAT;
+		types[6] = Types.STRING;
+		types[7] = Types.OBJECT_ARRAY(new RowTypeInfo(arrayTypes, arrayNames));
+		types[8] = Types.PRIMITIVE_ARRAY(Types.BYTE);
+		String[] names = new String[9];
+		names[0] = "intTest";
+		names[1] = "longTest";
+		names[2] = "stringTest";
+		names[3] = "boolTest";
+		names[4] = "doubleTest";
+		names[5] = "floatTest";
+		names[6] = "enumTest";
+		names[7] = "arrayTest";
+		names[8] = "bytesTest";
+
 		Descriptors.Descriptor pbSchema = PbDeserializeTest.TestPbDeserailize.getDescriptor();
-		System.out.println(PbRowTypeInformation.generateRow(pbSchema));
+
+		assertEquals(new RowTypeInfo(types, names), PbRowTypeInformation.generateRow(pbSchema));
 	}
 }

@@ -107,7 +107,7 @@ under the License.
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-checkstyle-plugin</artifactId>
 				<configuration>
-					<excludes>**/PbDeserializeTest**</excludes>
+					<excludes>**/PbDeserializeTest**,**/CanalEntry**</excludes>
 				</configuration>
 			</plugin>
 		</plugins>

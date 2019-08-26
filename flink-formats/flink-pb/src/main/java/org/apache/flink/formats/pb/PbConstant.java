@@ -31,4 +31,12 @@ public class PbConstant {
 	public static final String FORMAT_PB_CLASS = "format.pb-class";
 	public static final String FORMAT_PB_MESSAGE = "format.pb-message";
 	public static final String FORMAT_PB_FAIL_ON_DESERIALIZED = "format.fail-on-deserialized";
+
+	public static final String FORMAT_BINLOG_TYPE_VALUE = "pb_binlog";
+	public static final String FORMAT_BINLOG_TYPE_HEADER = "header";
+	public static final String FORMAT_BINLOG_TYPE_ENTRY_TYPE = "entryType";
+	public static final String FORMAT_BINLOG_TYPE_TRANSACTION_BEGIN = "TransactionBegin";
+	public static final String FORMAT_BINLOG_TYPE_TRANSACTION_END = "TransactionEnd";
+	public static final String FORMAT_BINLOG_TYPE_ROW_CHANGE = "RowChange";
+	public static final String FORMAT_BINLOG_TYPE_STORE_VALUE = "storeValue";
 }

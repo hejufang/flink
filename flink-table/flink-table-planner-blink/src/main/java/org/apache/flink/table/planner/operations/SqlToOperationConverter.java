@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.operations;
 
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.formats.pb.PbBinlogRowFormatFactory;
 import org.apache.flink.formats.pb.PbConstant;
 import org.apache.flink.formats.pb.PbRowFormatFactory;
 import org.apache.flink.sql.parser.ddl.SqlCreateFunction;
@@ -251,11 +252,23 @@ public class SqlToOperationConverter {
 		TableSchema.Builder builder = new TableSchema.Builder();
 		Map<String, String> propertiesMap = propertiesToMap(sqlCreateTable.getPropertyList());
 
-		if (sqlCreateTable.getColumnList().size() == 0 &&
-			propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "").equalsIgnoreCase(PbConstant.FORMAT_TYPE_VALUE)) {
-			PbRowFormatFactory pbFactory = new PbRowFormatFactory();
-			RowTypeInfo rowTypeInfo = (RowTypeInfo) pbFactory.getRowTypeInformation(
-				propertiesToMap(sqlCreateTable.getPropertyList()));
+		if (sqlCreateTable.getColumnList().size() == 0) {
+			RowTypeInfo rowTypeInfo;
+
+			if (propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "")
+					.equals(PbConstant.FORMAT_TYPE_VALUE)) {
+				PbRowFormatFactory pbFactory = new PbRowFormatFactory();
+				rowTypeInfo = (RowTypeInfo) pbFactory.getRowTypeInformation(
+					propertiesToMap(sqlCreateTable.getPropertyList()));
+			} else if (propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "")
+					.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)) {
+				PbBinlogRowFormatFactory binlogFactory = new PbBinlogRowFormatFactory();
+				rowTypeInfo = (RowTypeInfo) binlogFactory.getBinlogRowTypeInformation(
+					propertiesToMap(sqlCreateTable.getPropertyList()));
+			} else {
+				throw new SqlConversionException("Table columns should not be empty except pb or pb_binlog!");
+			}
+
 			for (int index = 0; index < rowTypeInfo.getArity(); index++) {
 				builder = builder.field(rowTypeInfo.getFieldNames()[index], rowTypeInfo.getTypeAt(index));
 			}

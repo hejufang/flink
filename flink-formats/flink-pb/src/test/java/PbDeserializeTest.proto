@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+// If you modify this file, please use protoc to rebuild the java file.
+// It cannot be built automatic because we do not find a proper maven plugin.
 syntax = "proto3";
 
 package org.apache.flink.formats.pb;
