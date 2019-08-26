@@ -41,7 +41,10 @@ import org.apache.flink.table.planner.catalog.CatalogManagerCalciteSchema;
 import org.apache.flink.table.planner.delegation.PlannerContext;
 import org.apache.flink.table.planner.operations.SqlConversionException;
 import org.apache.flink.table.planner.operations.SqlToOperationConverter;
+import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.TimestampKind;
+import org.apache.flink.table.types.logical.TimestampType;
 
 import org.apache.calcite.sql.SqlNode;
 import org.junit.After;
@@ -106,6 +109,7 @@ public class SqlToOperationConverterTest {
 			"  a bigint,\n" +
 			"  b varchar, \n" +
 			"  c int, \n" +
+			"  proc as PROCTIME(), \n" +
 			"  d varchar" +
 			")\n" +
 			"  PARTITIONED BY (a, d)\n" +
@@ -120,13 +124,15 @@ public class SqlToOperationConverterTest {
 		CatalogTable catalogTable = op.getCatalogTable();
 		assertEquals(Arrays.asList("a", "d"), catalogTable.getPartitionKeys());
 		assertArrayEquals(catalogTable.getSchema().getFieldNames(),
-			new String[] {"a", "b", "c", "d"});
+			new String[] {"a", "b", "c", "d", "proc"});
 		assertArrayEquals(catalogTable.getSchema().getFieldDataTypes(),
 			new DataType[]{
 				DataTypes.BIGINT(),
 				DataTypes.VARCHAR(Integer.MAX_VALUE),
 				DataTypes.INT(),
-				DataTypes.VARCHAR(Integer.MAX_VALUE)});
+				DataTypes.VARCHAR(Integer.MAX_VALUE),
+					new AtomicDataType(new TimestampType(true, TimestampKind.PROCTIME, 3))
+							.bridgedTo(java.sql.Timestamp.class)});
 	}
 
 	@Test(expected = SqlConversionException.class)

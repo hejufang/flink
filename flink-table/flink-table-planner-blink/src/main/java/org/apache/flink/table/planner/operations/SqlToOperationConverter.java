@@ -48,11 +48,13 @@ import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.planner.calcite.FlinkTypeSystem;
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter;
+import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.logical.TimestampKind;
 import org.apache.flink.table.types.logical.TimestampType;
 
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -62,7 +64,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static org.apache.flink.table.descriptors.Schema.SCHEMA;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
 
 /**
  * Mix-in tool class for {@code SqlNode} that allows DDL commands to be
@@ -177,6 +183,16 @@ public class SqlToOperationConverter {
 			}
 			tableSchema = schemaWithRowtime.build();
 		}
+
+		Optional<String> procName = getComputedProcField(sqlCreateTable);
+		if (procName.isPresent()) {
+			Optional<Integer> fieldIdx = tableSchema.getFieldNameIndex(procName.get());
+			if (!fieldIdx.isPresent()) {
+				throw new SqlConversionException(String.format("cannot find %s in tableSchema", procName));
+			}
+			properties.put(SCHEMA + "." + fieldIdx.get() + "." + SCHEMA_PROCTIME, "true");
+		}
+
 		CatalogTable catalogTable = new CatalogTableImpl(tableSchema,
 			partitionKeys,
 			properties,
@@ -289,8 +305,12 @@ public class SqlToOperationConverter {
 				physicalSchema = builder.build();
 			}
 			assert physicalSchema != null;
-			if (sqlCreateTable.containsComputedColumn()) {
-				throw new SqlConversionException("Computed columns for DDL is not supported yet!");
+
+			Optional<String> procName = getComputedProcField(sqlCreateTable);
+			if (procName.isPresent()) {
+				builder.field(procName.get(),  new AtomicDataType(new TimestampType(true, TimestampKind.PROCTIME, 3))
+						.bridgedTo(java.sql.Timestamp.class));
+				physicalSchema = builder.build();
 			}
 		}
 
@@ -310,5 +330,32 @@ public class SqlToOperationConverter {
 		// transform to a relational tree
 		RelRoot relational = planner.rel(validated);
 		return new PlannerQueryOperation(relational.project());
+	}
+
+	/**
+	 * only support computed field of proctime, i.e. xxx as PROCTIME()
+	 */
+	private Optional<String> getComputedProcField(SqlCreateTable sqlCreateTable) {
+		final List<SqlBasicCall> computedColumns = sqlCreateTable.getColumnList().getList().stream()
+				.filter(n -> n instanceof SqlBasicCall).map(SqlBasicCall.class::cast)
+				.collect(Collectors.toList());
+		final List<SqlBasicCall> procColumns = computedColumns.stream()
+				.filter(node -> {
+					SqlBasicCall computedFunction = node.operand(0);
+					return computedFunction.getOperator().getName().toUpperCase().equals("PROCTIME");
+				})
+				.collect(Collectors.toList());
+		assert procColumns.size() <= 1;
+
+		if (computedColumns.size() != procColumns.size()) {
+			throw new SqlConversionException("Computed columns for DDL except PROCTIME() are not supported yet!");
+		}
+
+		if (procColumns.size() == 1) {
+			SqlIdentifier computedName = procColumns.get(0).operand(1);
+			return Optional.of(computedName.getSimple());
+		} else {
+			return Optional.empty();
+		}
 	}
 }

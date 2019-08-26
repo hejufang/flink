@@ -156,10 +156,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			try {
 				byte[] key = String.valueOf(keys[0]).getBytes();
 				byte[] value = jedis.get(key);
-				Row row = convertToRowFromResult(key, value, fieldTypes);
-				collect(row);
-				if (cache != null) {
-					cache.put(keyRow, row);
+				if (value != null) {
+					Row row = convertToRowFromResult(key, value, fieldTypes);
+					collect(row);
+					if (cache != null) {
+						cache.put(keyRow, row);
+					}
 				}
 				break;
 			} catch (Exception e) {
@@ -204,10 +206,6 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	}
 
 	private Object convertByteArrayToFieldType(byte[] field, TypeInformation<?> fieldType) {
-		if (field == null) {
-			return null;
-		}
-
 		Class fieldTypeClass = fieldType.getTypeClass();
 		Object convertResult;
 		if (fieldTypeClass == String.class) {
@@ -299,5 +297,4 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			return new RedisLookupFunction(options, lookupOptions, fieldNames, fieldTypes, keyNames);
 		}
 	}
-
 }
