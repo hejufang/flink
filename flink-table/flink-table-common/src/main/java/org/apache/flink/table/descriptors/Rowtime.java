@@ -52,6 +52,7 @@ public class Rowtime implements Descriptor {
 	public static final String ROWTIME_WATERMARKS_CLASS = "rowtime.watermarks.class";
 	public static final String ROWTIME_WATERMARKS_SERIALIZED = "rowtime.watermarks.serialized";
 	public static final String ROWTIME_WATERMARKS_DELAY = "rowtime.watermarks.delay";
+	public static final String ROWTIME_WATERMARKS_PARAMETERS = "rowtime.watermarks.parameters";
 
 	/**
 	 * Sets a built-in timestamp extractor that converts an existing {@link Long} or

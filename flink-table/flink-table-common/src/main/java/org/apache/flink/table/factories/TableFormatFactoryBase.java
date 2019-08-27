@@ -53,6 +53,7 @@ public abstract class TableFormatFactoryBase<T> implements TableFormatFactory<T>
 	private static final String ROWTIME_WATERMARKS_TYPE = "rowtime.watermarks.type";
 	private static final String ROWTIME_WATERMARKS_CLASS = "rowtime.watermarks.class";
 	private static final String ROWTIME_WATERMARKS_SERIALIZED = "rowtime.watermarks.serialized";
+	private static final String ROWTIME_WATERMARKS_PARAMETERS = "rowtime.watermarks.parameters";
 	private static final String ROWTIME_WATERMARKS_DELAY = "rowtime.watermarks.delay";
 
 	private String type;
@@ -98,6 +99,7 @@ public abstract class TableFormatFactoryBase<T> implements TableFormatFactory<T>
 			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_TYPE);
 			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_CLASS);
 			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_SERIALIZED);
+			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_PARAMETERS);
 			properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_DELAY);
 		}
 		properties.add(FormatDescriptorValidator.FORMAT_PROPERTY_VERSION);

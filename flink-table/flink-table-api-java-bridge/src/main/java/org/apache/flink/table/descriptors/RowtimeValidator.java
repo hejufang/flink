@@ -29,8 +29,15 @@ import org.apache.flink.table.sources.wmstrategies.BoundedOutOfOrderTimestamps;
 import org.apache.flink.table.sources.wmstrategies.PreserveWatermarks;
 import org.apache.flink.table.sources.wmstrategies.WatermarkStrategy;
 import org.apache.flink.table.utils.EncodingUtils;
+import org.apache.flink.table.utils.ParameterEntity;
+import org.apache.flink.table.utils.ParameterParseUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Constructor;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -44,6 +51,7 @@ import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_TYPE
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_TYPE_VALUE_FROM_SOURCE;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_CLASS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_DELAY;
+import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_PARAMETERS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_SERIALIZED;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_TYPE;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_TYPE_VALUE_CUSTOM;
@@ -56,6 +64,7 @@ import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_TYPE
  */
 @PublicEvolving
 public class RowtimeValidator implements DescriptorValidator {
+	private static final Logger LOG = LoggerFactory.getLogger(RowtimeValidator.class);
 
 	private final boolean supportsSourceTimestamps;
 	private final boolean supportsSourceWatermarks;
@@ -98,7 +107,8 @@ public class RowtimeValidator implements DescriptorValidator {
 
 		Consumer<String> watermarkCustom = s -> {
 			properties.validateString(prefix + ROWTIME_WATERMARKS_CLASS, false, 1);
-			properties.validateString(prefix + ROWTIME_WATERMARKS_SERIALIZED, false, 1);
+			properties.validateString(prefix + ROWTIME_WATERMARKS_SERIALIZED, true, 1);
+			properties.validateString(prefix + ROWTIME_WATERMARKS_PARAMETERS, true, 1);
 		};
 
 		Map<String, Consumer<String>> watermarksValidation = new HashMap<>();
@@ -163,9 +173,42 @@ public class RowtimeValidator implements DescriptorValidator {
 			case ROWTIME_WATERMARKS_TYPE_VALUE_CUSTOM:
 				Class<WatermarkStrategy> clazz = properties.getClass(
 						prefix + ROWTIME_WATERMARKS_CLASS, WatermarkStrategy.class);
-				strategy = EncodingUtils.decodeStringToObject(
-						properties.getString(prefix + ROWTIME_WATERMARKS_SERIALIZED),
-						clazz);
+				Optional<String> watermarkSerialized =
+					properties.getOptionalString(prefix + ROWTIME_WATERMARKS_SERIALIZED);
+				Optional<String> watermarkParameters =
+					properties.getOptionalString(prefix + ROWTIME_WATERMARKS_PARAMETERS);
+				if (watermarkSerialized.isPresent()) {
+					// 1.Config watermark strategy with serialized object.
+					strategy = EncodingUtils.decodeStringToObject(watermarkSerialized.get(), clazz);
+				} else if (watermarkParameters.isPresent()) {
+					// 2.Config watermark strategy with class and constructor parameters.
+					String parameterStr = watermarkParameters.get();
+					try {
+						ParameterEntity parameterEntry = ParameterParseUtils.parse(parameterStr);
+						List<Class> paramClassList = parameterEntry.getParamClassList();
+						List<Object> parsedParams = parameterEntry.getParsedParams();
+						Constructor constructor = clazz.getDeclaredConstructor(
+							paramClassList.toArray(new Class[paramClassList.size()]));
+						strategy =
+							(WatermarkStrategy) constructor.newInstance(parsedParams.toArray());
+					} catch (Exception e) {
+						LOG.error("Failed to construct WatermarkStrategy with parameters: {}, " +
+							"please make sure {} has the proper constructor",
+							parameterStr, clazz.getName(), e);
+						throw new RuntimeException("Failed to parse WatermarkStrategy " +
+							"with parameters", e);
+					}
+				} else {
+					// 3.Config watermark strategy with empty constructor class.
+					try {
+						strategy = clazz.newInstance();
+					} catch (InstantiationException | IllegalAccessException e) {
+						LOG.error("Failed to parse WatermarkStrategy, the custom watermark " +
+								"strategy must be config in three ways: 1. serialized object; " +
+								"2. class and constructor parameters; 3. empty constructor class");
+						throw new RuntimeException("Failed to parse WatermarkStrategy", e);
+					}
+				}
 				break;
 			default:
 				throw new RuntimeException("Unsupported rowtime timestamps type: " + s);

@@ -79,6 +79,7 @@ import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_SERI
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_TYPE;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_CLASS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_DELAY;
+import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_PARAMETERS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_SERIALIZED;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_TYPE;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -139,6 +140,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		properties.add(SCHEMA + ".#." + ROWTIME_TIMESTAMPS_SERIALIZED);
 		properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_TYPE);
 		properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_CLASS);
+		properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_PARAMETERS);
 		properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_SERIALIZED);
 		properties.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_DELAY);
 

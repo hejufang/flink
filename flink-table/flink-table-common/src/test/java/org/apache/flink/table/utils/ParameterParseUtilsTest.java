@@ -26,26 +26,25 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 
 /**
- * Tests for {@link org.apache.flink.table.utils.SqlSplitUtils}.
+ * Tests for {@link org.apache.flink.table.utils.ParameterParseUtils}.
  */
-public class SqlSplitUtilsTest {
+public class ParameterParseUtilsTest {
 
 	@Test
-	public void testGetSqlList() {
-		String sql =
-			"create table t1 (id int, name varchar);\n select id from t1;";
-		List<String> sqlList = SqlSplitUtils.getSqlList(sql);
-		ArrayList<String> expectedResult = new ArrayList<>();
-		String subSql1 = "create table t1 (id int, name varchar)";
-		int whitespaceNum = (subSql1 + ";").length();
-		StringBuffer sb = new StringBuffer();
-		for (int i = 0; i < whitespaceNum; i++) {
-			sb.append(" ");
-		}
-		sb.append("\n select id from t1");
-		String subSql2 = sb.toString();
-		expectedResult.add(subSql1);
-		expectedResult.add(subSql2);
-		assertEquals(expectedResult, sqlList);
+	public void parse() {
+		String parameters = "\"test, me\", 1123, 88.43";
+		ParameterEntity parameterEntity = ParameterParseUtils.parse(parameters);
+
+		List<Class> expectedParamClassList = new ArrayList<>();
+		expectedParamClassList.add(String.class);
+		expectedParamClassList.add(long.class);
+		expectedParamClassList.add(float.class);
+		List<Object> expectedParsedParams = new ArrayList<>();
+		expectedParsedParams.add("test, me");
+		expectedParsedParams.add(1123L);
+		expectedParsedParams.add(88.43f);
+
+		assertEquals(parameterEntity.getParamClassList(), expectedParamClassList);
+		assertEquals(parameterEntity.getParsedParams(), expectedParsedParams);
 	}
 }

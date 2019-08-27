@@ -18,34 +18,34 @@
 
 package org.apache.flink.table.utils;
 
-import org.junit.Test;
-
-import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-
 /**
- * Tests for {@link org.apache.flink.table.utils.SqlSplitUtils}.
+ * Param entity, which contains param class list and parsed params.
  */
-public class SqlSplitUtilsTest {
 
-	@Test
-	public void testGetSqlList() {
-		String sql =
-			"create table t1 (id int, name varchar);\n select id from t1;";
-		List<String> sqlList = SqlSplitUtils.getSqlList(sql);
-		ArrayList<String> expectedResult = new ArrayList<>();
-		String subSql1 = "create table t1 (id int, name varchar)";
-		int whitespaceNum = (subSql1 + ";").length();
-		StringBuffer sb = new StringBuffer();
-		for (int i = 0; i < whitespaceNum; i++) {
-			sb.append(" ");
-		}
-		sb.append("\n select id from t1");
-		String subSql2 = sb.toString();
-		expectedResult.add(subSql1);
-		expectedResult.add(subSql2);
-		assertEquals(expectedResult, sqlList);
+public class ParameterEntity {
+	private List<Class> paramClassList;
+	private List<Object> parsedParams;
+
+	public ParameterEntity(List<Class> paramClassList, List<Object> parsedParams) {
+		this.paramClassList = paramClassList;
+		this.parsedParams = parsedParams;
+	}
+
+	public List<Class> getParamClassList() {
+		return paramClassList;
+	}
+
+	public void setParamClassList(List<Class> paramClassList) {
+		this.paramClassList = paramClassList;
+	}
+
+	public List<Object> getParsedParams() {
+		return parsedParams;
+	}
+
+	public void setParsedParams(List<Object> parsedParams) {
+		this.parsedParams = parsedParams;
 	}
 }

@@ -52,7 +52,7 @@ public class SqlSplitUtils {
 			String str = context.substring(index, match.start() + 1)
 				.replaceAll("\\\\;", ";")
 				.replaceAll("^;", "");
-			String prefix = context.substring(0, index).replaceAll("[^\n]", "");
+			String prefix = context.substring(0, index).replaceAll("[^\n]", " ");
 			String realStatement = prefix + str;
 			sqlList.add(realStatement);
 			index = match.start() + 2;

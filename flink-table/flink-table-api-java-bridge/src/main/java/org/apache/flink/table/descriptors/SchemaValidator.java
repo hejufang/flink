@@ -46,6 +46,7 @@ import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_TYPE
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_TYPE_VALUE_FROM_FIELD;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_CLASS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_DELAY;
+import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_PARAMETERS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_SERIALIZED;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_WATERMARKS_TYPE;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -138,6 +139,7 @@ public class SchemaValidator implements DescriptorValidator {
 		keys.add(SCHEMA + ".#." + ROWTIME_TIMESTAMPS_SERIALIZED);
 		keys.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_TYPE);
 		keys.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_CLASS);
+		keys.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_PARAMETERS);
 		keys.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_SERIALIZED);
 		keys.add(SCHEMA + ".#." + ROWTIME_WATERMARKS_DELAY);
 
