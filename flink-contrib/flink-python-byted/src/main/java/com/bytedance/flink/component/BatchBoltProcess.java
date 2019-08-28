@@ -24,6 +24,7 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.util.Collector;
 
@@ -61,6 +62,8 @@ public class BatchBoltProcess<IN, OUT> extends ProcessFunction<IN, OUT> {
 	 * Number of this parallel subtask, The numbering starts from 0 and goes up to parallelism-1.
 	 */
 	private Integer subTaskId;
+	private volatile boolean localFailover;
+	private volatile PyBoltProcess boltProcess;
 
 	public BatchBoltProcess(Bolt bolt, String name, Schema outputSchema, long timeoutMs,
 							TypeInformation<IN> elementTypeInfo) {
@@ -84,10 +87,38 @@ public class BatchBoltProcess<IN, OUT> extends ProcessFunction<IN, OUT> {
 		runtimeConfig.setSubTaskId(subTaskId);
 		runtimeConfig.setTaskName(name);
 		EnvironmentInitUtils.prepareLocalDir(runtimeConfig, bolt);
+		localFailover = (boolean) runtimeConfig.getOrDefault(Constants.LOCAL_FAILOVER, false);
 
 		boltCollector = new BoltCollector<>(numberOfOutputAttribute, new NoOutputCollector<OUT>());
+		String boltProgressKey = runtimeConfig.getJobName() + "-" + this.name + "-"
+			+ runtimeConfig.getSubTaskId();
+		boolean attached = false;
+		if (localFailover) {
+			boltProcess = (PyBoltProcess) PYFlinkProgressCache.getInstance().get(boltProgressKey);
+			if (boltProcess != null) {
+				try {
+					ShellBolt shellBolt = (ShellBolt) boltProcess.getBolt();
+					shellBolt.attach(boltCollector);
+					this.bolt = shellBolt;
+					attached = true;
+					boltProcess.markInUse();
+					LOG.warn("attach successed batch bolt, {}", boltProgressKey);
+				} catch (Exception e) {
+					LOG.warn("attach failed batch bolt, " + boltProgressKey, e);
+				}
+			} else {
+				LOG.warn("attach init batch bolt, {}" + boltProgressKey);
+			}
+		}
 
-		bolt.open(runtimeConfig, boltCollector);
+		if (!attached) {
+			bolt.open(runtimeConfig, boltCollector);
+			if (localFailover) {
+				boltProcess = new PyBoltProcess(runtimeConfig, name, subTaskId, bolt);
+				PYFlinkProgressCache.getInstance().put(boltProgressKey, boltProcess);
+				LOG.info("cached batch bolt progress, name:{}, taskId:{}", name, subTaskId);
+			}
+		}
 	}
 
 	@Override

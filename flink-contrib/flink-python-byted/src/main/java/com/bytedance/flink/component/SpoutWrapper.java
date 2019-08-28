@@ -18,13 +18,17 @@
 package com.bytedance.flink.component;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 
 import com.bytedance.flink.collector.SpoutCollector;
+import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.pojo.RuntimeConfig;
 import com.bytedance.flink.utils.EnvironmentInitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A spout wrapper is a RichParallelSourceFunction and it wraps a ShellSpout.
@@ -43,6 +47,8 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 	 * Number of this parallel subtask, The numbering starts from 0 and goes up to parallelism-1.
 	 */
 	private Integer subTaskId;
+	private volatile boolean localFailover;
+	private volatile PySpoutProcess spoutProgress;
 
 	public SpoutWrapper(Spout spout, String name, Integer numberOfAttributes) {
 		this.spout = spout;
@@ -65,10 +71,50 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 		runtimeConfig.setTaskName(name);
 		EnvironmentInitUtils.prepareLocalDir(runtimeConfig, spout);
 		SpoutCollector<OUT> spoutCollector = new SpoutCollector<>(numberOfAttributes, sourceContext);
-		spout.open(runtimeConfig, spoutCollector);
+		localFailover = (boolean) runtimeConfig.getOrDefault(Constants.LOCAL_FAILOVER, false);
+		String spoutProgressKey = runtimeConfig.getJobName() + "-" + this.name + "-"
+			+ runtimeConfig.getSubTaskId();
+
+		boolean attached = false;
+		if (localFailover) {
+			spoutProgress = (PySpoutProcess) PYFlinkProgressCache.getInstance().get(spoutProgressKey);
+			if (spoutProgress != null) {
+				try {
+					ShellSpout shellSpout = (ShellSpout) spoutProgress.getSpout();
+					shellSpout.attach(spoutCollector);
+					this.spout = shellSpout;
+					attached = true;
+					spoutProgress.markInUse();
+					LOG.warn("attach successed spout, {}", spoutProgressKey);
+				} catch (Exception e) {
+					LOG.warn("attach failed spout, " + spoutProgressKey, e);
+				}
+			} else {
+				LOG.warn("attach init spout, {}" + spoutProgressKey);
+			}
+		}
+
+		if (!attached) {
+			spout.open(runtimeConfig, spoutCollector);
+			if (localFailover) {
+				spoutProgress = new PySpoutProcess(runtimeConfig, name, subTaskId, spout);
+				PYFlinkProgressCache.getInstance().put(spoutProgressKey, spoutProgress);
+				LOG.info("cached spout progress, name:{}, taskId:{}", name, subTaskId);
+			}
+		}
 
 		while (isRunning) {
 			spout.nextTuple();
+		}
+
+		AtomicBoolean holder = PYFlinkProgressCache.getInstance().getProgressHolderFlag();
+		LOG.info("PYJStrom process holder: {}.", holder);
+		while (holder.get()) {
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				LOG.info("Interrupted, but is pyFlink process holder, ignore and sleep again.");
+			}
 		}
 	}
 
@@ -80,6 +126,13 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 	@Override
 	public void close() throws Exception {
 		LOG.info("Try to close spout {}-{}", name, subTaskId);
-		this.spout.close();
+		if (this.localFailover) {
+			LOG.info("Suspend spout progress");
+			((ShellSpout) this.spout).suspend();
+			this.spoutProgress.markUnUse();
+		} else {
+			LOG.info("Close spout progress");
+			this.spout.close();
+		}
 	}
 }

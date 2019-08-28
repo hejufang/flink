@@ -175,6 +175,9 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
 	}
 
 	@Override
+	public void cleanupPYFlinkCache() { }
+
+	@Override
 	public CompletableFuture<TransientBlobKey> requestFileUpload(FileType fileType, Time timeout) {
 		return FutureUtils.completedExceptionally(new UnsupportedOperationException());
 	}

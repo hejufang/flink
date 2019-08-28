@@ -493,8 +493,21 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 * @return The preferred execution locations for the execution attempt.
 	 */
 	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocations() {
-		Collection<CompletableFuture<TaskManagerLocation>> basedOnState = getPreferredLocationsBasedOnState();
-		return basedOnState != null ? basedOnState : getPreferredLocationsBasedOnInputs();
+		return getPreferredLocations(false);
+	}
+
+	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocations(boolean previousLocationFirstAlways) {
+		if (previousLocationFirstAlways) {
+			TaskManagerLocation priorLocation = getLatestPriorLocation();
+			if (priorLocation != null) {
+				return Collections.singleton(CompletableFuture.completedFuture(priorLocation));
+			} else {
+				return getPreferredLocationsBasedOnInputs();
+			}
+		} else {
+			Collection<CompletableFuture<TaskManagerLocation>> basedOnState = getPreferredLocationsBasedOnState();
+			return basedOnState != null ? basedOnState : getPreferredLocationsBasedOnInputs();
+		}
 	}
 
 	/**

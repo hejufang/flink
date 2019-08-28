@@ -114,4 +114,9 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
 			cause,
 			timeout);
 	}
+
+	@Override
+	public void triggerCleanupPYFlinkCache() {
+		taskExecutorGateway.cleanupPYFlinkCache();
+	}
 }

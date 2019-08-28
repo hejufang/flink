@@ -493,10 +493,23 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			SlotProviderStrategy slotProviderStrategy,
 			LocationPreferenceConstraint locationPreferenceConstraint,
 			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
+		return allocateResourcesForExecution(
+			slotProviderStrategy,
+			locationPreferenceConstraint,
+			allPreviousExecutionGraphAllocationIds,
+			false);
+	}
+
+	CompletableFuture<Execution> allocateResourcesForExecution(
+		SlotProviderStrategy slotProviderStrategy,
+		LocationPreferenceConstraint locationPreferenceConstraint,
+		@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds,
+		boolean previousLocationFirstAlways) {
 		return allocateAndAssignSlotForExecution(
 			slotProviderStrategy,
 			locationPreferenceConstraint,
-			allPreviousExecutionGraphAllocationIds)
+			allPreviousExecutionGraphAllocationIds,
+			previousLocationFirstAlways)
 			.thenCompose(slot -> registerProducedPartitions(slot.getTaskManagerLocation()));
 	}
 
@@ -513,7 +526,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	private CompletableFuture<LogicalSlot> allocateAndAssignSlotForExecution(
 			SlotProviderStrategy slotProviderStrategy,
 			LocationPreferenceConstraint locationPreferenceConstraint,
-			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
+			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds,
+			boolean previousLocationFirstAlways) {
 
 		checkNotNull(slotProviderStrategy);
 
@@ -546,7 +560,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 			// calculate the preferred locations
 			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture =
-				calculatePreferredLocations(locationPreferenceConstraint);
+				calculatePreferredLocations(locationPreferenceConstraint, previousLocationFirstAlways);
 
 			final SlotRequestId slotRequestId = new SlotRequestId();
 
@@ -1447,7 +1461,11 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 */
 	@VisibleForTesting
 	public CompletableFuture<Collection<TaskManagerLocation>> calculatePreferredLocations(LocationPreferenceConstraint locationPreferenceConstraint) {
-		final Collection<CompletableFuture<TaskManagerLocation>> preferredLocationFutures = getVertex().getPreferredLocations();
+		return calculatePreferredLocations(locationPreferenceConstraint, false);
+	}
+
+	public CompletableFuture<Collection<TaskManagerLocation>> calculatePreferredLocations(LocationPreferenceConstraint locationPreferenceConstraint, boolean previousLocationFirstAlways) {
+		final Collection<CompletableFuture<TaskManagerLocation>> preferredLocationFutures = getVertex().getPreferredLocations(previousLocationFirstAlways);
 		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture;
 
 		switch(locationPreferenceConstraint) {

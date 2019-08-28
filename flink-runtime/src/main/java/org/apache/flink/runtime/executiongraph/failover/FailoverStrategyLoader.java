@@ -47,8 +47,11 @@ public class FailoverStrategyLoader {
 	/** Config name for the {@link RestartPipelinedRegionStrategy}. */
 	public static final String LEGACY_PIPELINED_REGION_RESTART_STRATEGY_NAME = "region-legacy";
 
-	/** Config name for the {@link RestartSingleStrategy} */
+	/** Config name for the {@link RestartSingleStrategy}. */
 	public static final String SINGLE_RESTART_STRATEGY_NAME = "single";
+
+	/** Config name for the {@link LocalRestartAllStrategy}. */
+	public static final String LOCAL_RESTART_STRATEGY_NAME = "local";
 
 	// ------------------------------------------------------------------------
 
@@ -85,6 +88,9 @@ public class FailoverStrategyLoader {
 
 				case SINGLE_RESTART_STRATEGY_NAME:
 					return new RestartSingleStrategy.Factory();
+
+				case LOCAL_RESTART_STRATEGY_NAME:
+					return new LocalRestartAllStrategy.Factory(config);
 
 				default:
 					// we could interpret the parameter as a factory class name and instantiate that

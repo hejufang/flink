@@ -152,4 +152,9 @@ public interface TaskManagerGateway {
 		final AllocationID allocationId,
 		final Throwable cause,
 		@RpcTimeout final Time timeout);
+
+	/**
+	 * Tell taskmanager cleanup pyFlink cache.
+	 * */
+	void triggerCleanupPYFlinkCache();
 }

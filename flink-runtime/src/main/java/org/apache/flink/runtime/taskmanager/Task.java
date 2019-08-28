@@ -62,6 +62,7 @@ import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
+import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
@@ -91,6 +92,7 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -276,6 +278,10 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 	 * {@link #asyncCallDispatcher} because user code may dynamically load classes in all callbacks.
 	 */
 	private ClassLoader userCodeClassLoader;
+
+	private volatile boolean isMainLoopFinished = false;
+
+	private volatile AtomicBoolean progressHolder;
 
 	/**
 	 * <p><b>IMPORTANT:</b> This constructor may not start any work that would need to
@@ -533,6 +539,24 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 			doRun();
 		} finally {
 			terminationFuture.complete(executionState);
+		}
+	}
+
+	private boolean isProgressHolder() {
+		if (progressHolder == null) {
+			Thread invokableExecutingThread;
+			if (invokable != null) {
+				invokableExecutingThread = Objects.requireNonNull(invokable).getExecutingThread().orElse(Thread.currentThread());
+			} else {
+				invokableExecutingThread = Thread.currentThread();
+			}
+			progressHolder = PYFlinkProgressCache.getInstance().getProgressHolderFlag(invokableExecutingThread);
+		}
+
+		if (progressHolder != null) {
+			return progressHolder.get();
+		} else {
+			return false;
 		}
 	}
 
@@ -854,6 +878,16 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 				LOG.error("Error during metrics de-registration of task {} ({}).", taskNameWithSubtask, executionId, t);
 			}
 		}
+
+		isMainLoopFinished = true;
+		while (isProgressHolder()) {
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				LOG.info("{} interrupted, but is pyFlink process holder, ignore and sleep again", taskNameWithSubtask);
+			}
+		}
+		LOG.info("{} finished", taskNameWithSubtask);
 	}
 
 	@VisibleForTesting
@@ -1057,7 +1091,8 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 									invokable,
 									executingThread,
 									taskNameWithSubtask,
-									taskCancellationInterval);
+									taskCancellationInterval,
+									this);
 
 							Thread interruptingThread = new Thread(
 									executingThread.getThreadGroup(),
@@ -1075,7 +1110,8 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 									executingThread,
 									taskManagerActions,
 									taskCancellationTimeout,
-									LOG);
+									LOG,
+									this);
 
 							Thread watchDogThread = new Thread(
 									executingThread.getThreadGroup(),
@@ -1457,7 +1493,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 		private final Logger log;
 
 		/** The invokable task. */
-		private final AbstractInvokable task;
+		private final AbstractInvokable invokable;
 
 		/** The executing task thread that we wait for to terminate. */
 		private final Thread executerThread;
@@ -1468,18 +1504,22 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 		/** The interval in which we interrupt. */
 		private final long interruptIntervalMillis;
 
+		private final Task task;
+
 		TaskInterrupter(
 				Logger log,
-				AbstractInvokable task,
+				AbstractInvokable invokable,
 				Thread executerThread,
 				String taskName,
-				long interruptIntervalMillis) {
+				long interruptIntervalMillis,
+				Task task) {
 
 			this.log = log;
-			this.task = task;
+			this.invokable = invokable;
 			this.executerThread = executerThread;
 			this.taskName = taskName;
 			this.interruptIntervalMillis = interruptIntervalMillis;
+			this.task = task;
 		}
 
 		@Override
@@ -1492,7 +1532,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 
 				// log stack trace where the executing thread is stuck and
 				// interrupt the running thread periodically while it is still alive
-				while (task.shouldInterruptOnCancel() && executerThread.isAlive()) {
+				while (invokable.shouldInterruptOnCancel() && task.needCancelMainExecutor() && executerThread.isAlive()) {
 					// build the stack trace of where the thread is stuck, for the log
 					StackTraceElement[] stack = executerThread.getStackTrace();
 					StringBuilder bld = new StringBuilder();
@@ -1538,11 +1578,14 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 		/** The timeout for cancellation. */
 		private final long timeoutMillis;
 
+		private final Task task;
+
 		TaskCancelerWatchDog(
 				Thread executerThread,
 				TaskManagerActions taskManager,
 				long timeoutMillis,
-				Logger log) {
+				Logger log,
+				Task task) {
 
 			checkArgument(timeoutMillis > 0);
 
@@ -1550,15 +1593,20 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 			this.executerThread = executerThread;
 			this.taskManager = taskManager;
 			this.timeoutMillis = timeoutMillis;
+			this.task = task;
 		}
 
 		@Override
 		public void run() {
 			try {
+				if (!task.needCancelMainExecutor()) {
+					return;
+				}
+
 				final long hardKillDeadline = System.nanoTime() + timeoutMillis * 1_000_000;
 
 				long millisLeft;
-				while (executerThread.isAlive()
+				while (task.needCancelMainExecutor() && executerThread.isAlive()
 						&& (millisLeft = (hardKillDeadline - System.nanoTime()) / 1_000_000) > 0) {
 
 					try {
@@ -1569,7 +1617,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 					}
 				}
 
-				if (executerThread.isAlive()) {
+				if (task.needCancelMainExecutor() && executerThread.isAlive()) {
 					String msg = "Task did not exit gracefully within " + (timeoutMillis / 1000) + " + seconds.";
 					log.error(msg);
 					taskManager.notifyFatalError(msg, null);
@@ -1580,5 +1628,9 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 				log.error("Error in Task Cancellation Watch Dog", t);
 			}
 		}
+	}
+
+	private boolean needCancelMainExecutor() {
+		return !isMainLoopFinished || progressHolder == null || !isProgressHolder();
 	}
 }

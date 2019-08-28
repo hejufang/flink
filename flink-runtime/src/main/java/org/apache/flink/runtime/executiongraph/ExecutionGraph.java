@@ -46,6 +46,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
+import org.apache.flink.runtime.executiongraph.failover.LocalRestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.adapter.DefaultFailoverTopology;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
@@ -65,6 +66,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
+import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
 import org.apache.flink.runtime.scheduler.adapter.ExecutionGraphToSchedulingTopologyAdapter;
@@ -320,6 +322,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** Shuffle master to register partitions for task deployment. */
 	private final ShuffleMaster<?> shuffleMaster;
 
+	private volatile boolean previousLocationFirst;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -512,6 +516,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.resultPartitionAvailabilityChecker = new ExecutionGraphResultPartitionAvailabilityChecker(
 			this::createResultPartitionId,
 			partitionTracker);
+
+		if (failoverStrategy instanceof LocalRestartAllStrategy) {
+			previousLocationFirst = true;
+		}
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
@@ -954,7 +962,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			final CompletableFuture<Void> newSchedulingFuture = SchedulingUtils.schedule(
 				scheduleMode,
 				getAllExecutionVertices(),
-				this);
+				this,
+				previousLocationFirst);
 
 			if (state == JobStatus.RUNNING && currentGlobalModVersion == globalModVersion) {
 				schedulingFuture = newSchedulingFuture;
@@ -1172,6 +1181,21 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			}
 
 			// else: concurrent change to execution state, retry
+		}
+	}
+
+	public void cleanupPYFlinkCache() {
+		HashSet<TaskManagerGateway> taskManagerGateways = new HashSet<>();
+		for (Execution execution: currentExecutions.values()) {
+			taskManagerGateways.add(execution.getAssignedResource().getTaskManagerGateway());
+		}
+
+		for (TaskManagerGateway taskManagerGateway: taskManagerGateways) {
+			try {
+				taskManagerGateway.triggerCleanupPYFlinkCache();
+			} catch (Exception e) {
+				LOG.error("trigger cleanup pyFlink cache error failed", e);
+			}
 		}
 	}
 

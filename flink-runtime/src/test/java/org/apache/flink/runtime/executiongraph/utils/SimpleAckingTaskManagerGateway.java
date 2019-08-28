@@ -134,4 +134,9 @@ public class SimpleAckingTaskManagerGateway implements TaskManagerGateway {
 			return CompletableFuture.completedFuture(Acknowledge.get());
 		}
 	}
+
+	@Override
+	public void triggerCleanupPYFlinkCache() {
+		throw new UnsupportedOperationException("Operation is not yet supported.");
+	}
 }

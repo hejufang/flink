@@ -191,6 +191,11 @@ public interface TaskExecutorGateway extends RpcGateway {
 		@RpcTimeout final Time timeout);
 
 	/**
+	 * cleanup PYFlink cache.
+	 */
+	void cleanupPYFlinkCache();
+
+	/**
 	 * Requests the file upload of the specified type to the cluster's {@link BlobServer}.
 	 *
 	 * @param fileType to upload

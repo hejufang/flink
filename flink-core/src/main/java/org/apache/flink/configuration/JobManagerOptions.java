@@ -223,6 +223,16 @@ public class JobManagerOptions {
 		key("jobmanager.execution.individual-forever.tm.launch.waiting.ms")
 		.defaultValue(30 * 1000);
 
+	/**
+	 * Config for local-failover strategy.
+	 * */
+	public static final ConfigOption<Long> LOCAL_RESTART_FAILURE_RATE_INTERVAL_MS =
+		key("jobmanager.execution.localfailover.failure-rate-interval-ms")
+			.defaultValue(30 * 60 * 1000L);
+	public static final ConfigOption<Integer> LOCAL_RESTART_MAX_FAILURES_PER_INTERVAL =
+		key("jobmanager.execution.localfailover.max-failures-per-interval")
+			.defaultValue(5);
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

@@ -48,9 +48,17 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class SchedulingUtils {
 
 	public static CompletableFuture<Void> schedule(
+		ScheduleMode scheduleMode,
+		final Iterable<ExecutionVertex> vertices,
+		final ExecutionGraph executionGraph) {
+		return schedule(scheduleMode, vertices, executionGraph, false);
+	}
+
+	public static CompletableFuture<Void> schedule(
 			ScheduleMode scheduleMode,
 			final Iterable<ExecutionVertex> vertices,
-			final ExecutionGraph executionGraph) {
+			final ExecutionGraph executionGraph,
+			boolean previousLocationFirst) {
 
 		switch (scheduleMode) {
 			case LAZY_FROM_SOURCES:
@@ -58,7 +66,7 @@ public class SchedulingUtils {
 				return scheduleLazy(vertices, executionGraph);
 
 			case EAGER:
-				return scheduleEager(vertices, executionGraph);
+				return scheduleEager(vertices, executionGraph, previousLocationFirst);
 
 			default:
 				throw new IllegalStateException(String.format("Schedule mode %s is invalid.", scheduleMode));
@@ -107,7 +115,8 @@ public class SchedulingUtils {
 	 */
 	public static CompletableFuture<Void> scheduleEager(
 			final Iterable<ExecutionVertex> vertices,
-			final ExecutionGraph executionGraph) {
+			final ExecutionGraph executionGraph,
+			boolean previousLocationFirst) {
 
 		executionGraph.assertRunningInJobMasterMainThread();
 
@@ -131,7 +140,8 @@ public class SchedulingUtils {
 			CompletableFuture<Execution> allocationFuture = ev.getCurrentExecutionAttempt().allocateResourcesForExecution(
 				slotProviderStrategy,
 				LocationPreferenceConstraint.ALL,
-				allPreviousAllocationIds);
+				allPreviousAllocationIds,
+				previousLocationFirst);
 
 			allAllocationFutures.add(allocationFuture);
 		}

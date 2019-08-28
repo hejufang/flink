@@ -19,12 +19,14 @@ package com.bytedance.flink.component;
 
 import org.apache.flink.api.java.tuple.Tuple;
 import org.apache.flink.api.java.tuple.Tuple1;
+import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
 import com.bytedance.flink.collector.BoltCollector;
+import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.pojo.RuntimeConfig;
 import com.bytedance.flink.pojo.Schema;
 import com.bytedance.flink.utils.EnvironmentInitUtils;
@@ -48,6 +50,8 @@ public class BoltWrapper<IN, OUT> extends AbstractStreamOperator<OUT>
 	 * Number of this parallel subtask, The numbering starts from 0 and goes up to parallelism-1.
 	 */
 	private Integer subTaskId;
+	private volatile boolean localFailover;
+	private volatile PyBoltProcess boltProcess;
 
 	public BoltWrapper(Bolt bolt, String name, Schema outputSchema) {
 		this.bolt = bolt;
@@ -80,7 +84,38 @@ public class BoltWrapper<IN, OUT> extends AbstractStreamOperator<OUT>
 		TimestampedCollector<OUT> flinkCollector = new TimestampedCollector<>(this.output);
 
 		boltCollector = new BoltCollector<>(numberOfOutputAttribute, flinkCollector);
-		bolt.open(runtimeConfig, boltCollector);
+		localFailover = (boolean) runtimeConfig.getOrDefault(Constants.LOCAL_FAILOVER, false);
+
+		String boltProgressKey = runtimeConfig.getJobName() + "-" + this.name + "-"
+			+ runtimeConfig.getSubTaskId();
+		boolean attached = false;
+		if (localFailover) {
+			boltProcess = (PyBoltProcess) PYFlinkProgressCache.getInstance().get(boltProgressKey);
+
+			if (boltProcess != null) {
+				try {
+					ShellBolt shellBolt = (ShellBolt) boltProcess.getBolt();
+					shellBolt.attach(boltCollector);
+					this.bolt = shellBolt;
+					attached = true;
+					boltProcess.markInUse();
+					LOG.warn("attach successed bolt, {}", boltProgressKey);
+				} catch (Exception e) {
+					LOG.warn("attach failed bolt, " + boltProgressKey, e);
+				}
+			} else {
+				LOG.warn("attach init bolt, {}", boltProgressKey);
+			}
+		}
+
+		if (!attached) {
+			bolt.open(runtimeConfig, boltCollector);
+			if (localFailover) {
+				boltProcess = new PyBoltProcess(runtimeConfig, name, subTaskId, bolt);
+				PYFlinkProgressCache.getInstance().put(boltProgressKey, boltProcess);
+				LOG.info("cached bolt progress, name:{}, taskId:{}", name, subTaskId);
+			}
+		}
 	}
 
 	@Override
@@ -88,7 +123,19 @@ public class BoltWrapper<IN, OUT> extends AbstractStreamOperator<OUT>
 		LOG.info("Try to dispose bolt {}-{}", name, subTaskId);
 		super.dispose();
 		if (bolt != null) {
-			bolt.close();
+			if (localFailover) {
+				LOG.info("Suspend bolt progress");
+				((ShellBolt) bolt).suspend();
+				if (boltProcess != null) {
+					LOG.info("Mark bolt as unused.");
+					boltProcess.markUnUse();
+				}
+			} else {
+				bolt.close();
+				if (boltProcess != null) {
+					boltProcess.clear();
+				}
+			}
 		}
 	}
 }

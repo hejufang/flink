@@ -67,6 +67,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.StackTraceSampleResponse;
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
+import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
 import org.apache.flink.runtime.query.KvStateClientProxy;
 import org.apache.flink.runtime.query.KvStateRegistry;
 import org.apache.flink.runtime.query.KvStateServer;
@@ -901,6 +902,11 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 	}
 
 	@Override
+	public void cleanupPYFlinkCache() {
+		PYFlinkProgressCache.getInstance().clear();
+	}
+
+	@Override
 	public CompletableFuture<TransientBlobKey> requestFileUpload(FileType fileType, Time timeout) {
 		log.debug("Request file {} upload.", fileType);
 
@@ -1239,6 +1245,9 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		}
 
 		log.info("Establish JobManager connection for job {}.", jobId);
+
+		log.info("Clean pyFlink cache.");
+		PYFlinkProgressCache.getInstance().clear();
 
 		ResourceID jobManagerResourceID = registrationSuccess.getResourceID();
 		JobManagerConnection newJobManagerConnection = associateWithJobManager(
