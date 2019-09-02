@@ -188,8 +188,8 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 				"comment 'test table comment ABC.'\n" +
 				"PARTITIONED BY (a, h)\n" +
 				"  with (\n" +
-				"    connector = 'kafka', \n" +
-				"    kafka.topic = 'log.test'\n" +
+				"    'connector' = 'kafka', \n" +
+				"    'kafka.topic' = 'log.test'\n" +
 				")\n",
 			"CREATE TABLE `TBL1` (\n" +
 				"  `A`  BIGINT  COMMENT 'test column comment AAA.',\n" +
@@ -203,8 +203,8 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 				"COMMENT 'test table comment ABC.'\n" +
 				"PARTITIONED BY (`A`, `H`)\n" +
 				"WITH (\n" +
-				"  `CONNECTOR` = 'kafka',\n" +
-				"  `KAFKA`.`TOPIC` = 'log.test'\n" +
+				"  'connector' = 'kafka',\n" +
+				"  'kafka.topic' = 'log.test'\n" +
 				")");
 	}
 
