@@ -400,6 +400,19 @@ public class BootstrapTools {
 		return config;
 	}
 
+	public static String getTaskManagerShellCommand(
+		Configuration flinkConfig,
+		ContaineredTaskManagerParameters tmParams,
+		String configDirectory,
+		String logDirectory,
+		boolean hasLogback,
+		boolean hasLog4j,
+		boolean hasKrb5,
+		Class<?> mainClass) {
+		return getTaskManagerShellCommand(flinkConfig, tmParams, configDirectory, logDirectory,
+			hasLogback, hasLog4j, hasKrb5, mainClass, false, false);
+	}
+
 	/**
 	 * Generates the shell command to start a task manager.
 	 * @param flinkConfig The Flink configuration.
@@ -419,7 +432,9 @@ public class BootstrapTools {
 			boolean hasLogback,
 			boolean hasLog4j,
 			boolean hasKrb5,
-			Class<?> mainClass) {
+			Class<?> mainClass,
+			boolean isInDockerMode,
+			boolean isDockerImageIncludeLib) {
 
 		final Map<String, String> startCommandValues = new HashMap<>();
 		startCommandValues.put("java", "$JAVA_HOME/bin/java");
@@ -466,11 +481,9 @@ public class BootstrapTools {
 		}
 		startCommandValues.put("jvmopts", javaOpts);
 
-		boolean isInDockerMode = flinkConfig.getBoolean("isInDockerMode", false);
-
 		String log4jConfFile = configDirectory + "/log4j.properties";
 		String logbackConfFile = configDirectory + "/logback.xml";
-		if (isInDockerMode) {
+		if (isInDockerMode && isDockerImageIncludeLib) {
 			String runtimeConfDir =
 				flinkConfig.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
 					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);

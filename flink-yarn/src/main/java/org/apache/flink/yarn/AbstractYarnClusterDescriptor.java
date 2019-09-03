@@ -738,13 +738,15 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
+		boolean isDockerImageIncludeLib =
+			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
 		String dockerImage =
 			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
-		boolean isOnDockerMode = false;
+		boolean isInDockerMode = false;
 		if (dockerImage != null && !dockerImage.isEmpty()) {
-			isOnDockerMode = true;
+			isInDockerMode = true;
 		}
-		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isOnDockerMode);
+		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isInDockerMode);
 
 		addEnvironmentFoldersToShipFiles(systemShipFiles);
 
@@ -789,17 +791,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// upload and register ship files
 		List<String> systemClassPaths = new ArrayList<>();
 
-		if (!isOnDockerMode) {
-			// upload and register ship files
-			systemClassPaths = uploadAndRegisterFiles(
-				systemShipFiles,
-				fs,
-				homeDir,
-				appId,
-				paths,
-				localResources,
-				envShipFileList);
-		} else {
+		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Reset system class path in docker mode.");
 			systemClassPaths = new ArrayList<>();
 			String runtimeLibDir =
@@ -818,6 +810,16 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				systemClassPaths.addAll(Arrays.asList(runtimeClasspath.split(":")));
 			}
 			LOG.info("reset systemClassPaths to {}", systemClassPaths);
+		} else {
+			// upload and register ship files
+			systemClassPaths = uploadAndRegisterFiles(
+				systemShipFiles,
+				fs,
+				homeDir,
+				appId,
+				paths,
+				localResources,
+				envShipFileList);
 		}
 
 		final List<String> userClassPaths = uploadAndRegisterFiles(
@@ -875,7 +877,9 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		Path remotePathJar = null;
-		if (!isOnDockerMode) {
+		if (isInDockerMode && isDockerImageIncludeLib) {
+			LOG.info("Do not need to upload flink.jar in docker mode");
+		} else {
 			// Setup jar for ApplicationMaster
 			remotePathJar = setupSingleLocalResource(
 				"flink.jar",
@@ -887,8 +891,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				"");
 			paths.add(remotePathJar);
 			classPathBuilder.append("flink.jar").append(File.pathSeparator);
-		} else {
-			LOG.info("Do not need to upload flink.jar in docker mode");
 		}
 
 		// Upload the flink configuration
@@ -1768,10 +1770,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		boolean isInDockerMode =
 			flinkConfiguration.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+		boolean isDockerImageIncludeLib =
+			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
 
 		String log4jConfFile = CONFIG_FILE_LOG4J_NAME;
 		String logbackConfFile = CONFIG_FILE_LOGBACK_NAME;
-		if (isInDockerMode) {
+		if (isInDockerMode && isDockerImageIncludeLib) {
 			String runtimeConfDir =
 				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
 					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);

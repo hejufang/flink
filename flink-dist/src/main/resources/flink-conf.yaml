@@ -115,7 +115,8 @@ common:
   runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/lib
   runtime.conf.dir: /opt/tiger/flink_deploy/deploy/flink-1.9/conf
 
-  docker.default_image: yarn_runtime_flink:latest
+  docker.default_image: yarn_runtime_flink_1.9:latest
+  docker.image.include_lib: false
   docker.authorization: "Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q="
   docker.version_template_url: http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s
   docker.server: image-manager.byted.org

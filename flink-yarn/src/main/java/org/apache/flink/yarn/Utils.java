@@ -28,6 +28,7 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import com.alibaba.fastjson.JSONObject;
 import org.apache.hadoop.conf.Configuration;
@@ -502,8 +503,12 @@ public final class Utils {
 
 		boolean isInDockerMode =
 			flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
+		boolean isDockerImageIncludeLib =
+			flinkConfig.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
 
-		if (!isInDockerMode) {
+		if (isInDockerMode && isDockerImageIncludeLib) {
+			LOG.info("Do not need to add flink.jar in docker mode.");
+		} else {
 			// register Flink Jar with remote HDFS
 			final LocalResource flinkJar;
 			{
@@ -512,8 +517,6 @@ public final class Utils {
 				flinkJar = registerLocalResource(fs, remoteJarPath);
 			}
 			taskManagerLocalResources.put("flink.jar", flinkJar);
-		} else {
-			LOG.info("Do not need to add flink.jar in docker mode.");
 		}
 
 		// register conf with local fs
@@ -581,8 +584,9 @@ public final class Utils {
 		boolean hasLog4j = new File(workingDirectory, "log4j.properties").exists();
 
 		String launchCommand = BootstrapTools.getTaskManagerShellCommand(
-				flinkConfig, tmParams, ".", ApplicationConstants.LOG_DIR_EXPANSION_VAR,
-				hasLogback, hasLog4j, hasKrb5, taskManagerMainClass);
+			flinkConfig, tmParams, ".", ApplicationConstants.LOG_DIR_EXPANSION_VAR,
+			hasLogback, hasLog4j, hasKrb5, taskManagerMainClass,
+			isInDockerMode, isDockerImageIncludeLib);
 
 		if (log.isDebugEnabled()) {
 			log.debug("Starting TaskManagers with command: " + launchCommand);
