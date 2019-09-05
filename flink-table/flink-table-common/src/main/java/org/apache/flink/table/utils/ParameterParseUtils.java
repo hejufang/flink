@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -38,13 +39,16 @@ public class ParameterParseUtils {
 	 * The parameter classes will be stored in paramClassList.
 	 * The parsed parameters will be stored in parsedParams.
 	 * */
-	public static ParameterEntity parse(String paramStr){
-		List<Class> paramClassList = new ArrayList<>();
-		List<Object> parsedParams = new ArrayList<>();
-
+	public static ParameterEntity parse(String paramStr) {
 		// split string with comma out of double quotation marks.
 		String[] tokens = paramStr.split(COMMA_OUT_OF_DOUBLE_QUOTATION_MARKS, -1);
-		for (String param : tokens) {
+		return parse(Arrays.asList(tokens));
+	}
+
+	public static ParameterEntity parse(List<String> paramList) {
+		List<Class> paramClassList = new ArrayList<>();
+		List<Object> parsedParams = new ArrayList<>();
+		for (String param : paramList) {
 			param = param.trim();
 			try {
 				long longValue = Long.parseLong(param);

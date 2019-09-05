@@ -34,6 +34,7 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.util.ImmutableNullableList;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,7 +43,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class SqlWatermark extends SqlCall {
 	private static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("WATERMARK", SqlKind.OTHER);
-	private static final String WITH_OFFSET_FUNC = "withOffset";
+	public static final String WITH_OFFSET_FUNC = "withOffset";
 
 	private SqlIdentifier watermarkName;
 	private SqlIdentifier columnName;
@@ -65,6 +66,12 @@ public class SqlWatermark extends SqlCall {
 	@Override
 	public List<SqlNode> getOperandList() {
 		return ImmutableNullableList.of(watermarkName, columnName, functionCall);
+	}
+
+	public List<String> getFunctionArguments() {
+		return this.functionCall.getOperandList().stream()
+			.map(SqlNode::toString)
+			.collect(Collectors.toList());
 	}
 
 	@Override

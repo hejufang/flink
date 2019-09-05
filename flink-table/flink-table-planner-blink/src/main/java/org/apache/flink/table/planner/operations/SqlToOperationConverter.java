@@ -48,18 +48,25 @@ import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.planner.calcite.FlinkTypeSystem;
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter;
+import org.apache.flink.table.sources.wmstrategies.WatermarkStrategy;
 import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.logical.TimestampKind;
 import org.apache.flink.table.types.logical.TimestampType;
+import org.apache.flink.table.utils.ParameterEntity;
+import org.apache.flink.table.utils.ParameterParseUtils;
 
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -82,6 +89,8 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
  * {@link org.apache.flink.table.delegation.Planner}.
  */
 public class SqlToOperationConverter {
+	private static final Logger LOG = LoggerFactory.getLogger(SqlToOperationConverter.class);
+
 	private FlinkPlannerImpl flinkPlanner;
 
 	//~ Constructors -----------------------------------------------------------
@@ -165,9 +174,31 @@ public class SqlToOperationConverter {
 			String rowtimeName = watermark.getColumnName().getSimple();
 			rowtime.timestampsFromField(rowtimeName);
 			try {
-				rowtime.watermarksPeriodicBounded(watermark.getWatermarkOffset());
+				SqlFunction sqlFunction = (SqlFunction) watermark.getFunctionCall().getOperator();
+				String watermarkStrategy = sqlFunction.getSqlIdentifier().toString();
+				LOG.info("Watermark strategy name: {}", watermarkStrategy);
+				if (SqlWatermark.WITH_OFFSET_FUNC.equalsIgnoreCase(watermarkStrategy)) {
+					rowtime.watermarksPeriodicBounded(watermark.getWatermarkOffset());
+				} else {
+					Class<WatermarkStrategy> clazz =
+						(Class<WatermarkStrategy>) Class.forName(watermarkStrategy, true,
+							Thread.currentThread().getContextClassLoader());
+					List <String> paramList = watermark.getFunctionArguments();
+					LOG.info("Watermark strategy origin constructor params: {}", paramList);
+					ParameterEntity parameterEntity = ParameterParseUtils.parse(paramList);
+					List<Class> paramClassList = parameterEntity.getParamClassList();
+					List<Object> parsedParams = parameterEntity.getParsedParams();
+					LOG.info("Watermark strategy constructor parameter classes: {}",
+						paramClassList);
+					LOG.info("Watermark strategy parsed constructor params: {}", parsedParams);
+					Constructor constructor = clazz.getDeclaredConstructor(
+						paramClassList.toArray(new Class[paramClassList.size()]));
+					WatermarkStrategy strategy =
+						(WatermarkStrategy) constructor.newInstance(parsedParams.toArray());
+					rowtime.watermarksFromStrategy(strategy);
+				}
 			} catch (Exception e) {
-				throw new SqlConversionException(e.getMessage());
+				throw new RuntimeException("Failed to parse watermark strategy.", e);
 			}
 			rowtimes.put(rowtimeName, rowtime);
 
