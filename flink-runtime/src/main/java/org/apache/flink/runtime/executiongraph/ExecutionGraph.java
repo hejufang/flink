@@ -99,6 +99,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -324,6 +325,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private volatile boolean previousLocationFirst;
 
+	/** Schedule task to slot fairly. */
+	private final boolean scheduleTaskFairly;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -436,6 +440,43 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	}
 
 	public ExecutionGraph(
+		JobInformation jobInformation,
+		ScheduledExecutorService futureExecutor,
+		Executor ioExecutor,
+		Time rpcTimeout,
+		RestartStrategy restartStrategy,
+		int maxPriorAttemptsHistoryLength,
+		FailoverStrategy.Factory failoverStrategyFactory,
+		SlotProvider slotProvider,
+		ClassLoader userClassLoader,
+		BlobWriter blobWriter,
+		Time allocationTimeout,
+		PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory,
+		ShuffleMaster<?> shuffleMaster,
+		PartitionTracker partitionTracker,
+		ScheduleMode scheduleMode,
+		boolean allowQueuedScheduling) throws IOException {
+		this(
+			jobInformation,
+			futureExecutor,
+			ioExecutor,
+			rpcTimeout,
+			restartStrategy,
+			maxPriorAttemptsHistoryLength,
+			failoverStrategyFactory,
+			slotProvider,
+			userClassLoader,
+			blobWriter,
+			allocationTimeout,
+			partitionReleaseStrategyFactory,
+			shuffleMaster,
+			partitionTracker,
+			scheduleMode,
+			allowQueuedScheduling,
+			false);
+	}
+
+	public ExecutionGraph(
 			JobInformation jobInformation,
 			ScheduledExecutorService futureExecutor,
 			Executor ioExecutor,
@@ -451,7 +492,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			ShuffleMaster<?> shuffleMaster,
 			PartitionTracker partitionTracker,
 			ScheduleMode scheduleMode,
-			boolean allowQueuedScheduling) throws IOException {
+			boolean allowQueuedScheduling,
+			boolean scheduleTaskFairly) throws IOException {
 
 		checkNotNull(futureExecutor);
 
@@ -520,6 +562,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		if (failoverStrategy instanceof LocalRestartAllStrategy) {
 			previousLocationFirst = true;
 		}
+
+		this.scheduleTaskFairly = scheduleTaskFairly;
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
@@ -760,11 +804,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return Collections.unmodifiableMap(this.tasks);
 	}
 
-	@Override
-	public Iterable<ExecutionJobVertex> getVerticesTopologically() {
-		// we return a specific iterator that does not fail with concurrent modifications
-		// the list is append only, so it is safe for that
-		final int numElements = this.verticesInCreationOrder.size();
+	private Iterable<ExecutionJobVertex> getVerticesIterableInternal(List<ExecutionJobVertex> vertices) {
+		final int numElements = vertices.size();
 
 		return new Iterable<ExecutionJobVertex>() {
 			@Override
@@ -780,7 +821,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 					@Override
 					public ExecutionJobVertex next() {
 						if (hasNext()) {
-							return verticesInCreationOrder.get(pos++);
+							return vertices.get(pos++);
 						} else {
 							throw new NoSuchElementException();
 						}
@@ -795,6 +836,23 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		};
 	}
 
+	public Iterable<ExecutionJobVertex> getVerticesTopologically(boolean orderByParallelism) {
+		if (orderByParallelism) {
+			List<ExecutionJobVertex> vertices = new ArrayList<>(verticesInCreationOrder);
+			vertices.sort(Comparator.comparing(ExecutionJobVertex::getParallelism).reversed());
+			return getVerticesIterableInternal(vertices);
+		} else {
+			return getVerticesIterableInternal(verticesInCreationOrder);
+		}
+	}
+
+	@Override
+	public Iterable<ExecutionJobVertex> getVerticesTopologically() {
+		// we return a specific iterator that does not fail with concurrent modifications
+		// the list is append only, so it is safe for that
+		return getVerticesTopologically(false);
+	}
+
 	public int getTotalNumberOfVertices() {
 		return numVerticesTotal;
 	}
@@ -805,10 +863,14 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	@Override
 	public Iterable<ExecutionVertex> getAllExecutionVertices() {
+		return getAllExecutionVertices(false);
+	}
+
+	public Iterable<ExecutionVertex> getAllExecutionVertices(boolean orderByParallelism) {
 		return new Iterable<ExecutionVertex>() {
 			@Override
 			public Iterator<ExecutionVertex> iterator() {
-				return new AllVerticesIterator(getVerticesTopologically().iterator());
+				return new AllVerticesIterator(getVerticesTopologically(orderByParallelism).iterator());
 			}
 		};
 	}
@@ -961,7 +1023,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 			final CompletableFuture<Void> newSchedulingFuture = SchedulingUtils.schedule(
 				scheduleMode,
-				getAllExecutionVertices(),
+				// schedule vertices ordered by parallelism desc when scheduleTaskFairly.
+				getAllExecutionVertices(scheduleTaskFairly),
 				this,
 				previousLocationFirst);
 

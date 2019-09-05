@@ -241,6 +241,14 @@ public class JobManagerOptions {
 		key("jobmanager.execution.failover.previous-location-first-always")
 		.defaultValue(false);
 
+	/**
+	 * Config for task fairly schedule.
+	 * */
+	public static final ConfigOption<Boolean> SCHEDULE_TASK_FAIRLY =
+		key("jobmanager.execution.schedule-task-fairly")
+			.defaultValue(true)
+			.withDescription("Whether schedule task fairly.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

@@ -158,6 +158,9 @@ public class ExecutionGraphBuilder {
 		final int maxPriorAttemptsHistoryLength =
 				jobManagerConfig.getInteger(JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE);
 
+		final boolean scheduleTaskFairly =
+				jobManagerConfig.getBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY);
+
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
 			PartitionReleaseStrategyFactoryLoader.loadPartitionReleaseStrategyFactory(jobManagerConfig);
 
@@ -181,7 +184,8 @@ public class ExecutionGraphBuilder {
 					shuffleMaster,
 					partitionTracker,
 					jobGraph.getScheduleMode(),
-					jobGraph.getAllowQueuedScheduling());
+					jobGraph.getAllowQueuedScheduling(),
+					scheduleTaskFairly);
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}

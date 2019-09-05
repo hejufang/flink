@@ -44,15 +44,18 @@ import java.util.AbstractCollection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Manager which is responsible for slot sharing. Slot sharing allows to run different
@@ -102,10 +105,20 @@ public class SlotSharingManager {
 	/** Root nodes which have been completed (the underlying allocated slot has been assigned). */
 	private final Map<TaskManagerLocation, Map<AllocationID, MultiTaskSlot>> resolvedRootSlots;
 
+	private final boolean scheduleTaskFairly;
+
+	SlotSharingManager(
+		SlotSharingGroupId slotSharingGroupId,
+		AllocatedSlotActions allocatedSlotActions,
+		SlotOwner slotOwner) {
+		this(slotSharingGroupId, allocatedSlotActions, slotOwner, false);
+	}
+
 	SlotSharingManager(
 			SlotSharingGroupId slotSharingGroupId,
 			AllocatedSlotActions allocatedSlotActions,
-			SlotOwner slotOwner) {
+			SlotOwner slotOwner,
+			boolean scheduleTaskFairly) {
 		this.slotSharingGroupId = Preconditions.checkNotNull(slotSharingGroupId);
 		this.allocatedSlotActions = Preconditions.checkNotNull(allocatedSlotActions);
 		this.slotOwner = Preconditions.checkNotNull(slotOwner);
@@ -113,6 +126,7 @@ public class SlotSharingManager {
 		allTaskSlots = new HashMap<>(16);
 		unresolvedRootSlots = new HashMap<>(16);
 		resolvedRootSlots = new HashMap<>(16);
+		this.scheduleTaskFairly = scheduleTaskFairly;
 	}
 
 	public boolean isEmpty() {
@@ -182,11 +196,17 @@ public class SlotSharingManager {
 
 	@Nonnull
 	public Collection<SlotSelectionStrategy.SlotInfoAndResources> listResolvedRootSlotInfo(@Nullable AbstractID groupId) {
-		return resolvedRootSlots
+		Stream<MultiTaskSlot> multiTaskSlotStream = resolvedRootSlots
 			.values()
 			.stream()
 				.flatMap((Map<AllocationID, MultiTaskSlot> map) -> map.values().stream())
-				.filter(validMultiTaskSlotAndDoesNotContain(groupId))
+				.filter(validMultiTaskSlotAndDoesNotContain(groupId));
+
+		if (scheduleTaskFairly) {
+			multiTaskSlotStream = multiTaskSlotStream.sorted(byAllocatedNumber());
+		}
+
+		return multiTaskSlotStream
 				.map((MultiTaskSlot multiTaskSlot) -> {
 					SlotInfo slotInfo = multiTaskSlot.getSlotContextFuture().join();
 					return new SlotSelectionStrategy.SlotInfoAndResources(
@@ -197,6 +217,10 @@ public class SlotSharingManager {
 
 	private Predicate<MultiTaskSlot> validMultiTaskSlotAndDoesNotContain(@Nullable AbstractID groupId) {
 		return (MultiTaskSlot multiTaskSlot) -> !multiTaskSlot.contains(groupId) && !multiTaskSlot.isReleasing();
+	}
+
+	private Comparator<MultiTaskSlot> byAllocatedNumber() {
+		return Comparator.comparing(MultiTaskSlot::getAllocatedNumber);
 	}
 
 	@Nullable
@@ -214,10 +238,41 @@ public class SlotSharingManager {
 	 */
 	@Nullable
 	MultiTaskSlot getUnresolvedRootSlot(AbstractID groupId) {
-		return unresolvedRootSlots.values().stream()
-			.filter(validMultiTaskSlotAndDoesNotContain(groupId))
-			.findFirst()
+		Stream<MultiTaskSlot> multiTaskSlotStream = unresolvedRootSlots.values().stream()
+			.filter(validMultiTaskSlotAndDoesNotContain(groupId));
+		Optional<MultiTaskSlot> multiTaskSlot;
+		if (scheduleTaskFairly) {
+			multiTaskSlot = multiTaskSlotStream.min(byAllocatedNumber());
+		} else {
+			multiTaskSlot = multiTaskSlotStream.findFirst();
+		}
+		return multiTaskSlot.orElse(null);
+	}
+
+	boolean preferUnresolvedRootSlot(AbstractID groupId) {
+		// when schedulerTaskFairly, prefer the one which have the minimal allocated task size.
+		if (!scheduleTaskFairly) {
+			return false;
+		}
+
+		MultiTaskSlot minUnresolvedRootSlot = unresolvedRootSlots.values().stream()
+			.filter(validMultiTaskSlotAndDoesNotContain((groupId)))
+			.min(byAllocatedNumber())
 			.orElse(null);
+		if (minUnresolvedRootSlot == null) {
+			return false;
+		}
+
+		MultiTaskSlot minResolvedRootSlot = resolvedRootSlots.values().stream()
+			.flatMap((Map<AllocationID, MultiTaskSlot> map) -> map.values().stream())
+			.filter(validMultiTaskSlotAndDoesNotContain(groupId))
+			.min(byAllocatedNumber())
+			.orElse(null);
+		if (minResolvedRootSlot == null) {
+			return true;
+		}
+
+		return minUnresolvedRootSlot.getAllocatedNumber() < minResolvedRootSlot.getAllocatedNumber();
 	}
 
 	@Override
@@ -387,6 +442,10 @@ public class SlotSharingManager {
 
 				return slotContext;
 			});
+		}
+
+		int getAllocatedNumber() {
+			return children.size();
 		}
 
 		CompletableFuture<? extends SlotContext> getSlotContextFuture() {

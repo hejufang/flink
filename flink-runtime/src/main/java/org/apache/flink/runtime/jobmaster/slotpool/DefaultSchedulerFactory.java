@@ -38,7 +38,13 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 	@Nonnull
 	@Override
 	public Scheduler createScheduler(@Nonnull SlotPool slotPool) {
-		return new SchedulerImpl(slotSelectionStrategy, slotPool);
+		return createScheduler(slotPool, false);
+	}
+
+	@Nonnull
+	@Override
+	public Scheduler createScheduler(@Nonnull SlotPool slotPool, boolean scheduleTaskFairly) {
+		return new SchedulerImpl(slotSelectionStrategy, slotPool, scheduleTaskFairly);
 	}
 
 	@Nonnull

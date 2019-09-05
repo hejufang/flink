@@ -30,4 +30,7 @@ public interface SchedulerFactory {
 	 */
 	@Nonnull
 	Scheduler createScheduler(@Nonnull SlotPool slotPool);
+
+	@Nonnull
+	Scheduler createScheduler(@Nonnull SlotPool slotPool, boolean scheduleTaskFairly);
 }

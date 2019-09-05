@@ -78,10 +78,20 @@ public class SchedulerImpl implements Scheduler {
 	@Nonnull
 	private final Map<SlotSharingGroupId, SlotSharingManager> slotSharingManagers;
 
+	/** Scheduler fairly. */
+	private final boolean scheduleTaskFairly;
+
 	public SchedulerImpl(
 		@Nonnull SlotSelectionStrategy slotSelectionStrategy,
 		@Nonnull SlotPool slotPool) {
-		this(slotSelectionStrategy, slotPool, new HashMap<>(DEFAULT_SLOT_SHARING_MANAGERS_MAP_SIZE));
+		this(slotSelectionStrategy, slotPool, false);
+	}
+
+	public SchedulerImpl(
+		@Nonnull SlotSelectionStrategy slotSelectionStrategy,
+		@Nonnull SlotPool slotPool,
+		boolean scheduleTaskFairly) {
+		this(slotSelectionStrategy, slotPool, new HashMap<>(DEFAULT_SLOT_SHARING_MANAGERS_MAP_SIZE), scheduleTaskFairly);
 	}
 
 	@VisibleForTesting
@@ -89,6 +99,16 @@ public class SchedulerImpl implements Scheduler {
 		@Nonnull SlotSelectionStrategy slotSelectionStrategy,
 		@Nonnull SlotPool slotPool,
 		@Nonnull Map<SlotSharingGroupId, SlotSharingManager> slotSharingManagers) {
+		this(slotSelectionStrategy, slotPool, slotSharingManagers, false);
+
+	}
+
+	@VisibleForTesting
+	public SchedulerImpl(
+		@Nonnull SlotSelectionStrategy slotSelectionStrategy,
+		@Nonnull SlotPool slotPool,
+		@Nonnull Map<SlotSharingGroupId, SlotSharingManager> slotSharingManagers,
+		boolean scheduleTaskFairly) {
 
 		this.slotSelectionStrategy = slotSelectionStrategy;
 		this.slotSharingManagers = slotSharingManagers;
@@ -96,6 +116,7 @@ public class SchedulerImpl implements Scheduler {
 		this.componentMainThreadExecutor = new ComponentMainThreadExecutor.DummyComponentMainThreadExecutor(
 			"Scheduler is not initialized with proper main thread executor. " +
 				"Call to Scheduler.start(...) required.");
+		this.scheduleTaskFairly = scheduleTaskFairly;
 	}
 
 	@Override
@@ -326,7 +347,8 @@ public class SchedulerImpl implements Scheduler {
 			id -> new SlotSharingManager(
 				id,
 				slotPool,
-				this));
+				this,
+				scheduleTaskFairly));
 
 		final SlotSharingManager.MultiTaskSlotLocality multiTaskSlotLocality;
 		try {
@@ -523,7 +545,9 @@ public class SchedulerImpl implements Scheduler {
 			}
 		}
 
-		if (multiTaskSlotLocality != null) {
+		// not satisfy the constraint of slot selection until now. Determine whether prefer unresolvedRootSlot.
+		if (multiTaskSlotLocality != null &&
+			!(allowQueuedScheduling && slotSharingManager.preferUnresolvedRootSlot(groupId))) {
 			// prefer slot sharing group slots over unused slots
 			if (optionalPoolSlotAndLocality.isPresent()) {
 				slotPool.releaseSlot(
