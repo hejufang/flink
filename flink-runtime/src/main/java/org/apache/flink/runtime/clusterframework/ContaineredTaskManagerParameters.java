@@ -19,9 +19,13 @@
 package org.apache.flink.runtime.clusterframework;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +34,8 @@ import java.util.Map;
  * This class describes the basic parameters for launching a TaskManager process.
  */
 public class ContaineredTaskManagerParameters implements java.io.Serializable {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ContaineredTaskManagerParameters.class);
 
 	private static final long serialVersionUID = -3096987654278064670L;
 
@@ -158,8 +164,54 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 
 		// (2) split the remaining Java memory between heap and off-heap
 		final long heapSizeMB = TaskManagerServices.calculateHeapSizeMB(containerMemoryMB - cutoffMB, config);
+
 		// use the cut-off memory for off-heap (that was its intention)
-		final long offHeapSizeMB = containerMemoryMB - heapSizeMB;
+		long offHeapSizeMB = containerMemoryMB - heapSizeMB;
+
+		// extract non_heap_direct memory from offHeap
+		if (config.getBoolean(ContaineredTaskManagerOptions.ENABLE_NON_HEAP_DIRECT_FRACTION)) {
+			try {
+				long nonHeapDirectMemoryMB = (long) (containerMemoryMB *
+					config.getFloat(ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION));
+				long maxNonHeapDirectMemoryMB = MemorySize.parse(
+					config.getString(ContaineredTaskManagerOptions.NON_HEAP_DIRECT_MAX)).getMebiBytes();
+				long minNonHeapDirectMemoryMB = MemorySize.parse(
+					config.getString(ContaineredTaskManagerOptions.NON_HEAP_DIRECT_MIN)).getMebiBytes();
+
+				if (nonHeapDirectMemoryMB < minNonHeapDirectMemoryMB) {
+					nonHeapDirectMemoryMB = minNonHeapDirectMemoryMB;
+					LOG.warn("{}={}MB is smaller than {}={}, using {}",
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION.key(),
+						nonHeapDirectMemoryMB,
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_MIN.key(),
+						minNonHeapDirectMemoryMB,
+						minNonHeapDirectMemoryMB);
+				}
+				if (nonHeapDirectMemoryMB > maxNonHeapDirectMemoryMB) {
+					nonHeapDirectMemoryMB = maxNonHeapDirectMemoryMB;
+					LOG.warn("{}={}MB is larger than {}={}, using {}",
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION.key(),
+						nonHeapDirectMemoryMB,
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_MAX.key(),
+						maxNonHeapDirectMemoryMB,
+						maxNonHeapDirectMemoryMB);
+				}
+
+				if (nonHeapDirectMemoryMB >= cutoffMB) {
+					LOG.error("{} is bigger than cutoff fraction, disabling {}",
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION.key(),
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION.key());
+				} else {
+					LOG.info("{} is enabled with {} MB",
+						ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION.key(),
+						nonHeapDirectMemoryMB);
+					offHeapSizeMB -= nonHeapDirectMemoryMB;
+				}
+			} catch (RuntimeException e) {
+				LOG.error("error occurred while parsing param, disable {}",
+					ContaineredTaskManagerOptions.NON_HEAP_DIRECT_FRACTION.key(), e);
+			}
+		}
 
 		// (3) obtain the additional environment variables from the configuration
 		final HashMap<String, String> envVars = new HashMap<>();

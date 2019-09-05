@@ -24,6 +24,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.util.NetUtils;
@@ -446,6 +447,12 @@ public class BootstrapTools {
 		if (tmParams.taskManagerDirectMemoryLimitMB() >= 0) {
 			params.add(String.format("-XX:MaxDirectMemorySize=%dm",
 				tmParams.taskManagerDirectMemoryLimitMB()));
+		}
+		if (flinkConfig.getBoolean(ContaineredTaskManagerOptions.ENABLE_METASPACE_SIZE)) {
+			long metaspaceMB = MemorySize.parse(flinkConfig.getString(ContaineredTaskManagerOptions.METASPACE_SIZE))
+				.getMebiBytes();
+			params.add(String.format("-XX:MetaspaceSize=%dm", metaspaceMB));
+			params.add(String.format("-XX:MaxMetaspaceSize=%dm", metaspaceMB));
 		}
 
 		startCommandValues.put("jvmmem", StringUtils.join(params, ' '));
