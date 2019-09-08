@@ -194,6 +194,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		return flinkConfiguration;
 	}
 
+	@Override
+	public void setDefaultConfigurationForStream() {
+		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
+		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
+	}
+
 	public void setQueue(String queue) {
 		this.yarnQueue = queue;
 	}
@@ -1753,6 +1759,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
 			javaOpts += " -Djava.security.krb5.conf=krb5.conf";
+		}
+
+		// Use G1GC
+		if (flinkConfiguration.getBoolean(ConfigConstants.FLINK_GC_G1_KEY, ConfigConstants.FLINK_GC_G1_DEFAULT)) {
+			javaOpts += " -XX:+UseG1GC";
+			javaOpts += " -XX:MaxGCPauseMillis=" + flinkConfiguration.getInteger(
+				ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_KEY, ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT);
 		}
 
 		// Set up the container launch context for the application master

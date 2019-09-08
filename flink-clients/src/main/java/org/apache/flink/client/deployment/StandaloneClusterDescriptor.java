@@ -71,6 +71,11 @@ public class StandaloneClusterDescriptor implements ClusterDescriptor<Standalone
 	}
 
 	@Override
+	public void setDefaultConfigurationForStream() {
+		// nothing to do
+	}
+
+	@Override
 	public void close() throws Exception {
 		// nothing to do
 	}

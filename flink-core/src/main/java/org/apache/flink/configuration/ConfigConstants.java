@@ -2078,6 +2078,10 @@ public final class ConfigConstants {
 	public static final String FLINK_GC_LOG_OPTS_KEY = "flink.gc.log.opts";
 	public static final String FLINK_GC_LOG_OPTS_DEFAULT = "-XX:+PrintGCDetails -XX:+PrintGCDateStamps";
 	public static final String FLINK_GC_LOG_FILE_KEY = "flink.gc.log.file";
+	public static final String FLINK_GC_G1_KEY = "flink.gc.g1";
+	public static final boolean FLINK_GC_G1_DEFAULT = true;
+	public static final String FLINK_MAX_GC_PAUSE_MILLIS_KEY = "flink.gc.MaxGCPauseMillis";
+	public static final int FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT = 50;
 	public static final String FLINK_DUMP_ON_OOM_KEY = "flink.dump.on.oom";
 	public static final boolean FLINK_DUMP_ON_OOM_DEFAULT = false;
 

@@ -292,11 +292,27 @@ public class CliFrontend {
 
 			// directly deploy the job if the cluster is started in job mode and detached
 			if (clusterId == null && runOptions.getDetachedMode()) {
-				int parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
-
-				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
-
 				final ClusterSpecification clusterSpecification = customCommandLine.getClusterSpecification(commandLine);
+				int parallelism;
+				if (PackagedProgramUtils.isStreamJob(program, configuration)) {
+					// enable gang scheduler when stream job
+					clusterDescriptor.setDefaultConfigurationForStream();
+
+					parallelism = runOptions.getParallelism();
+					int slotsPerTaskManager = clusterSpecification.getSlotsPerTaskManager();
+					int taskManagerNumber = clusterSpecification.getNumberTaskManagers();
+					if (parallelism == -1) {
+						parallelism = taskManagerNumber * slotsPerTaskManager;
+						logAndSysout("Set parallelism to " + parallelism);
+					} else if (slotsPerTaskManager * taskManagerNumber < parallelism) {
+						slotsPerTaskManager = (parallelism + taskManagerNumber - 1) / taskManagerNumber;
+						clusterSpecification.setSlotsPerTaskManager(slotsPerTaskManager);
+						logAndSysout("Set slotsPerTaskManager to " + slotsPerTaskManager);
+					}
+				} else {
+					parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
+				}
+				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
 				client = clusterDescriptor.deployJobCluster(
 					clusterSpecification,
 					jobGraph,

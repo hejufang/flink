@@ -41,22 +41,10 @@ import java.net.URL;
  */
 public class PackagedProgramUtils {
 
-	/**
-	 * Creates a {@link JobGraph} with a specified {@link JobID}
-	 * from the given {@link PackagedProgram}.
-	 *
-	 * @param packagedProgram to extract the JobGraph from
-	 * @param configuration to use for the optimizer and job graph generator
-	 * @param defaultParallelism for the JobGraph
-	 * @param jobID the pre-generated job id
-	 * @return JobGraph extracted from the PackagedProgram
-	 * @throws ProgramInvocationException if the JobGraph generation failed
-	 */
-	public static JobGraph createJobGraph(
-			PackagedProgram packagedProgram,
-			Configuration configuration,
-			int defaultParallelism,
-			@Nullable JobID jobID) throws ProgramInvocationException {
+	public static FlinkPlan createFlinkPlan(
+		PackagedProgram packagedProgram,
+		Configuration configuration,
+		int defaultParallelism) throws ProgramInvocationException {
 		Thread.currentThread().setContextClassLoader(packagedProgram.getUserCodeClassLoader());
 		final Optimizer optimizer = new Optimizer(new DataStatistics(), new DefaultCostEstimator(), configuration);
 		final FlinkPlan flinkPlan;
@@ -81,6 +69,26 @@ public class PackagedProgramUtils {
 		} else {
 			throw new ProgramInvocationException("PackagedProgram does not have a valid invocation mode.");
 		}
+		return flinkPlan;
+	}
+
+	/**
+	 * Creates a {@link JobGraph} with a specified {@link JobID}
+	 * from the given {@link PackagedProgram}.
+	 *
+	 * @param packagedProgram to extract the JobGraph from
+	 * @param configuration to use for the optimizer and job graph generator
+	 * @param defaultParallelism for the JobGraph
+	 * @param jobID the pre-generated job id
+	 * @return JobGraph extracted from the PackagedProgram
+	 * @throws ProgramInvocationException if the JobGraph generation failed
+	 */
+	public static JobGraph createJobGraph(
+			PackagedProgram packagedProgram,
+			Configuration configuration,
+			int defaultParallelism,
+			@Nullable JobID jobID) throws ProgramInvocationException {
+		final FlinkPlan flinkPlan = createFlinkPlan(packagedProgram, configuration, defaultParallelism);
 
 		final JobGraph jobGraph;
 
@@ -120,6 +128,13 @@ public class PackagedProgramUtils {
 		Configuration configuration,
 		int defaultParallelism) throws ProgramInvocationException {
 		return createJobGraph(packagedProgram, configuration, defaultParallelism, null);
+	}
+
+	public static boolean isStreamJob(
+		PackagedProgram packagedProgram,
+		Configuration configuration) throws ProgramInvocationException {
+		final FlinkPlan flinkPlan = createFlinkPlan(packagedProgram, configuration, 1);
+		return (flinkPlan instanceof StreamingPlan);
 	}
 
 	private PackagedProgramUtils() {}

@@ -476,6 +476,13 @@ public class BootstrapTools {
 		javaOpts += " " + "-Xloggc:" + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_FILE_KEY,
 			logDirectory + "/gc.log");
 
+		// Use G1GC
+		if (flinkConfig.getBoolean(ConfigConstants.FLINK_GC_G1_KEY, ConfigConstants.FLINK_GC_G1_DEFAULT)) {
+			javaOpts += " -XX:+UseG1GC";
+			javaOpts += " -XX:MaxGCPauseMillis=" + flinkConfig.getInteger(
+				ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_KEY, ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT);
+		}
+
 		// JVM dump on OOM config
 		if (flinkConfig.getBoolean(ConfigConstants.FLINK_DUMP_ON_OOM_KEY, ConfigConstants.FLINK_DUMP_ON_OOM_DEFAULT)) {
 			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;

@@ -30,7 +30,7 @@ public final class ClusterSpecification {
 	private final int masterMemoryMB;
 	private final int taskManagerMemoryMB;
 	private final int numberTaskManagers;
-	private final int slotsPerTaskManager;
+	private int slotsPerTaskManager;
 
 	private ClusterSpecification(int masterVcores, int masterMemoryMB, int taskManagerMemoryMB,
 			int numberTaskManagers, int slotsPerTaskManager) {
@@ -55,6 +55,10 @@ public final class ClusterSpecification {
 
 	public int getSlotsPerTaskManager() {
 		return slotsPerTaskManager;
+	}
+
+	public void setSlotsPerTaskManager(int slotsPerTaskManager) {
+		this.slotsPerTaskManager = slotsPerTaskManager;
 	}
 
 	public int getMasterVcores() {

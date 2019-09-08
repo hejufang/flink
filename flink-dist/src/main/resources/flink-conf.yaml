@@ -17,22 +17,13 @@
 ################################################################################
 
 common:
-  # TODO(zoudan):remove useless configurations
-  jobmanager.rpc.address: 10.6.192.144
-  jobmanager.rpc.port: 16123
-  jobmanager.heap.mb: 5120
-  taskmanager.heap.mb: 2048
-  taskmanager.numberOfTaskSlots: 2
   taskmanager.memory.preallocate: false
-  high-availability.job.delay: 10 s
   parallelism.default: 1
   io.tmp.dirs: /opt/tmp/flink
   taskmanager.tmp.dirs: /opt/tmp/flink
-  web.port: 18081
   state.backend: rocksdb
   state.checkpoints.dir: ${hdfs.prefix}/${dc}/${clusterName}/1.9/flink/fs_checkpoint_dir
   state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
-  env.log.dir: /opt/log/tiger/flink
   taskmanager.network.memory.fraction: 0.3
   taskmanager.network.memory.max: 2147483648
 
@@ -40,7 +31,6 @@ common:
   high-availability.storageDir: ${hdfs.prefix}/${clusterName}/1.9/ha/
   high-availability.zookeeper.path.root: /${dc}/${clusterName}/flink
 
-  yarn.containers.vcores : 0
   yarn.application-attempts: 5
   yarn.application-attempt-failures-validity-interval: 3600000
 
@@ -60,22 +50,18 @@ common:
   akka.ask.timeout: 60 s
 
   containerized.jobmanager.heap-cutoff-ratio: 0.1
-  job.submit.condition.judge-slots: true
 
-  flink.jar.path: flink-dist_2.11-1.9-byted-SNAPSHOT.jar
   flink.lib.path: lib_new_conf
-  use.local.lib: true
 
-  use.old.classpath.order: false
 
   restart-strategy: failure-rate
-  restart-strategy.failure-rate.max-failures-per-interval: 5
+  restart-strategy.failure-rate.max-failures-per-interval: 50
   restart-strategy.failure-rate.failure-rate-interval: 30 min
   restart-strategy.failure-rate.delay: 20 s
 
 # restart-strategy: fixed-delay
-  restart-strategy.fixed-delay.attempts: 100
-  restart-strategy.fixed-delay.delay: 20 s
+# restart-strategy.fixed-delay.attempts: 100
+# restart-strategy.fixed-delay.delay: 20 s
 # The failover strategy, i.e., how the job computation recovers from task failures.
 # Only restart tasks that may have been affected by the task failure, which typically includes
 # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
@@ -87,15 +73,13 @@ common:
 # Rest & web frontend
 #==============================================================================
 
-  mode: legacy
-
   dc: cn
   check.job.unique: true
 
   job.unique.zookeeper.client.session-timeout: 5000
   job.unique.zookeeper.client.connection-timeout: 10000
 
-  taskmanager.network.credit-model: false
+  taskmanager.network.credit-model: true
   yarn.per-job-cluster.include-user-jar: FIRST
 
   base_jar: deploy/flink-1.9/basejar/flink-python-byted.jar
@@ -122,6 +106,11 @@ common:
   docker.server: image-manager.byted.org
   docker.hub: hub.byted.org
   docker.region: China-North-LF
+
+  nmclientasync.enabled: true
+  yarn.gang-scheduler.enable: false
+  taskmanager.initial-on-start: false
+  taskmanager.network.netty.client.readTimeout.enabled: true
 
 flink:
   dc: cn

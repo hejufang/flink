@@ -209,7 +209,7 @@ public class YarnConfigOptions {
 	 */
 	public static final ConfigOption<Boolean> NMCLINETASYNC_ENABLED =
 		key("nmclientasync.enabled")
-			.defaultValue(false)
+			.defaultValue(true)
 			.withDescription("Enable NMClientAsync when start task managers.");
 
 	/**
@@ -226,7 +226,7 @@ public class YarnConfigOptions {
 	 */
 	public static final ConfigOption<Boolean> GANG_SCHEDULER =
 		key("yarn.gang-scheduler.enable")
-			.defaultValue(true)
+			.defaultValue(false)
 			.withDescription("Use GangScheduler when allocate containers from Yarn.");
 
 	/**
@@ -234,8 +234,9 @@ public class YarnConfigOptions {
 	 */
 	public static final ConfigOption<Float> GANG_NODE_SKIP_HIGH_LOAD =
 		key("yarn.gang-scheduler.node-skip-high-load")
-			.defaultValue(1.2f)
-			.withDescription("Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores.");
+			.defaultValue(1.5f)
+			.withDescription("Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores." +
+				"0 means disable this constraints.");
 
 	/**
 	 * The weight of container-decentralized-average in GANG Scheduler.

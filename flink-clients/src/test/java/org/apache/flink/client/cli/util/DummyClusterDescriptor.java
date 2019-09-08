@@ -65,6 +65,11 @@ public class DummyClusterDescriptor<T> implements ClusterDescriptor<T> {
 	}
 
 	@Override
+	public void setDefaultConfigurationForStream() {
+		// nothing to do
+	}
+
+	@Override
 	public void close() {
 		// nothing to do
 	}
