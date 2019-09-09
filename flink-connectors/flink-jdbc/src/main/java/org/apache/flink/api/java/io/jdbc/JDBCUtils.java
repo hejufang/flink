@@ -20,9 +20,12 @@ package org.apache.flink.api.java.io.jdbc;
 
 import org.apache.flink.types.Row;
 
+import com.bytedance.mysql.MysqlDriverManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -230,5 +233,31 @@ public class JDBCUtils {
 		} else {
 			return ret;
 		}
+	}
+
+	public static Connection establishConnection(String drivername, String dbURL, String username,
+		String password, boolean useBytedanceMysql) throws SQLException, ClassNotFoundException {
+		Connection connection;
+		Class.forName(drivername);
+		if (useBytedanceMysql) {
+			if (username == null) {
+				connection = MysqlDriverManager.getConnection(dbURL);
+			} else {
+				connection = MysqlDriverManager.getConnection(dbURL, username, password);
+			}
+		} else {
+			if (username == null) {
+				connection = DriverManager.getConnection(dbURL);
+			} else {
+				connection = DriverManager.getConnection(dbURL, username, password);
+			}
+		}
+
+		if (connection == null) {
+			String errMsg = String.format("can't get connection, dbUrl = %s, username = %s, " +
+				"password = %s", dbURL, username, password);
+			throw new RuntimeException(errMsg);
+		}
+		return connection;
 	}
 }

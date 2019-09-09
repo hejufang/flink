@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -66,6 +65,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	private final String dbURL;
 	private final String username;
 	private final String password;
+	private final boolean useBytedanceMysql;
 	private final TypeInformation[] keyTypes;
 	private final int[] keySqlTypes;
 	private final String[] fieldNames;
@@ -86,6 +86,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 		this.dbURL = options.getDbURL();
 		this.username = options.getUsername();
 		this.password = options.getPassword();
+		this.useBytedanceMysql = options.getUseBytedanceMysql();
 		this.fieldNames = fieldNames;
 		this.fieldTypes = fieldTypes;
 		List<String> nameList = Arrays.asList(fieldNames);
@@ -112,7 +113,8 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	@Override
 	public void open(FunctionContext context) throws Exception {
 		try {
-			establishConnection();
+			dbConn = JDBCUtils.establishConnection(drivername, dbURL, username, password,
+				useBytedanceMysql);
 			statement = dbConn.prepareStatement(query);
 			this.cache = cacheMaxSize == -1 || cacheExpireMs == -1 ? null : CacheBuilder.newBuilder()
 					.expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)
@@ -181,15 +183,6 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 			row.setField(i, getFieldFromResultSet(i, outputSqlTypes[i], resultSet));
 		}
 		return row;
-	}
-
-	private void establishConnection() throws SQLException, ClassNotFoundException {
-		Class.forName(drivername);
-		if (username == null) {
-			dbConn = DriverManager.getConnection(dbURL);
-		} else {
-			dbConn = DriverManager.getConnection(dbURL, username, password);
-		}
 	}
 
 	@Override

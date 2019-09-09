@@ -36,9 +36,11 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_URL = "connector.url";
 	public static final String CONNECTOR_TABLE = "connector.table";
 	public static final String CONNECTOR_DRIVER = "connector.driver";
+	public static final String CONNECTOR_DRIVER_DEFAULT = "com.mysql.jdbc.Driver";
 	public static final String CONNECTOR_USERNAME = "connector.username";
 	public static final String CONNECTOR_PASSWORD = "connector.password";
 	public static final String CONNECTOR_USE_BYTEDANCE_MYSQL = "connector.use-bytedance-mysql";
+	public static final boolean CONNECTOR_USE_BYTEDANCE_MYSQL_DEFAULT = true;
 	public static final String CONNECTOR_CONSUL = "connector.consul";
 	public static final String CONNECTOR_PSM = "connector.psm";
 	public static final String CONNECTOR_DBNAME = "connector.dbname";
@@ -78,13 +80,15 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_DBNAME, true);
 
 		final Optional<String> url = properties.getOptionalString(CONNECTOR_URL);
-		final Optional<Boolean> useBytedanceMySQL = properties.getOptionalBoolean(CONNECTOR_USE_BYTEDANCE_MYSQL);
+		Boolean useBytedanceMySQL =
+			properties.getOptionalBoolean(CONNECTOR_USE_BYTEDANCE_MYSQL)
+				.orElse(CONNECTOR_USE_BYTEDANCE_MYSQL_DEFAULT);
 
 		if (url.isPresent()) {
 			final Optional<JDBCDialect> dialect = JDBCDialects.get(url.get());
 			Preconditions.checkState(dialect.isPresent(), "Cannot handle such jdbc url: " + url.get());
 		} else {
-			Preconditions.checkState(useBytedanceMySQL.isPresent() && useBytedanceMySQL.get(),
+			Preconditions.checkState(useBytedanceMySQL,
 				"connector.use_bytedance_mysql must be true when url is null");
 			Preconditions.checkState(properties.getOptionalString(CONNECTOR_CONSUL).isPresent(),
 				"connector.consul must be provided when url is null");

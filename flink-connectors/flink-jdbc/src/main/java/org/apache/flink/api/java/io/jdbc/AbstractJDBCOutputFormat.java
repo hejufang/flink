@@ -22,7 +22,6 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
 
-import com.bytedance.mysql.MysqlDriverManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,17 +66,7 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 		this.consul = consul;
 		this.psm = psm;
 		this.dbname = dbname;
-
-		if (dbURL == null) {
-			if (useBytedanceMysql) {
-				this.dbURL = String.format(bytedanceMySQLUrlTemplate, dbname, consul, psm);
-			} else {
-				throw new RuntimeException("Can't init db url, because " +
-					"dbUrl == null & useBytedanceMysql is false");
-			}
-		} else {
-			this.dbURL = dbURL;
-		}
+		this.dbURL = dbURL;
 		LOG.info("username = {}, password = {}, drivername = {}, dbURL = {}, consul = {}," +
 				"psm = {}, useBytedanceMysql = {}, dbname = {}", username, password,
 			drivername, dbURL, consul, psm, useBytedanceMysql, dbname);
@@ -88,26 +77,8 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 	}
 
 	protected void establishConnection() throws SQLException, ClassNotFoundException {
-		Class.forName(drivername);
-		if (useBytedanceMysql) {
-			if (username == null) {
-				connection = MysqlDriverManager.getConnection(dbURL);
-			} else {
-				connection = MysqlDriverManager.getConnection(dbURL, username, password);
-			}
-		} else {
-			if (username == null) {
-				connection = DriverManager.getConnection(dbURL);
-			} else {
-				connection = DriverManager.getConnection(dbURL, username, password);
-			}
-		}
-
-		if (connection == null) {
-			String errMsg = String.format("can't get connection, dbUrl = %s, username = %s, " +
-					"password = %s", dbURL, username, password);
-			throw new RuntimeException(errMsg);
-		}
+		connection =
+			JDBCUtils.establishConnection(drivername, dbURL, username, password, useBytedanceMysql);
 	}
 
 	protected void closeDbConnection() throws IOException {

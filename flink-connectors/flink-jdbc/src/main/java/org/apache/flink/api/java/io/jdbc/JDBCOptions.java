@@ -30,6 +30,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Common options of {@link JDBCScanOptions} and {@link JDBCLookupOptions} for the JDBC connector.
  */
 public class JDBCOptions {
+	private static final String BYTEDANCE_MYSQL_URL_TEMPLATE = "jdbc:mysql:///%s?db_consul=%s" +
+		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
 
 	private String dbURL;
 	private String tableName;
@@ -220,6 +222,14 @@ public class JDBCOptions {
 				});
 			}
 
+			if (dbURL == null) {
+				if (useBytedanceMysql) {
+					this.dbURL = String.format(BYTEDANCE_MYSQL_URL_TEMPLATE, dbname, consul, psm);
+				} else {
+					throw new RuntimeException("Can't init db url, because " +
+						"dbUrl == null & useBytedanceMysql is false");
+				}
+			}
 			return new JDBCOptions(dbURL, tableName, driverName, username, password,
 				dialect, useBytedanceMysql, consul, psm, dbname);
 		}

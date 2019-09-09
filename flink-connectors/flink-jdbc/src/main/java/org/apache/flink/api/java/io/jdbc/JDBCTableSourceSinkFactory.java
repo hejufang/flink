@@ -40,6 +40,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_CONSUL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DBNAME;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DRIVER;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DRIVER_DEFAULT;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
@@ -55,6 +56,7 @@ import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_TYPE_VA
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_URL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_USERNAME;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_USE_BYTEDANCE_MYSQL;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_USE_BYTEDANCE_MYSQL_DEFAULT;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_WRITE_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_WRITE_MAX_RETRIES;
@@ -165,6 +167,11 @@ public class JDBCTableSourceSinkFactory implements
 			builder.setDBUrl(null)
 				.setDialect(JDBCDialects.get("jdbc:mysql:").get());
 		}
+
+		// Set default driver
+		builder.setDriverName(CONNECTOR_DRIVER_DEFAULT);
+		// Enable bytedance mysql by default
+		builder.setUseBytedanceMysql(CONNECTOR_USE_BYTEDANCE_MYSQL_DEFAULT);
 
 		descriptorProperties.getOptionalString(CONNECTOR_DRIVER).ifPresent(builder::setDriverName);
 		descriptorProperties.getOptionalString(CONNECTOR_USERNAME).ifPresent(builder::setUsername);
