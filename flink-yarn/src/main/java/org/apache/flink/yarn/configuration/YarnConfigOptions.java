@@ -234,7 +234,7 @@ public class YarnConfigOptions {
 	 */
 	public static final ConfigOption<Float> GANG_NODE_SKIP_HIGH_LOAD =
 		key("yarn.gang-scheduler.node-skip-high-load")
-			.defaultValue(1.5f)
+			.defaultValue(2.5f)
 			.withDescription("Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores." +
 				"0 means disable this constraints.");
 

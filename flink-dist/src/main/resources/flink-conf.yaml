@@ -108,9 +108,16 @@ common:
   docker.region: China-North-LF
 
   nmclientasync.enabled: true
-  yarn.gang-scheduler.enable: false
   taskmanager.initial-on-start: false
   taskmanager.network.netty.client.readTimeout.enabled: true
+
+  # Gang scheduler
+  yarn.gang-scheduler.enable: false
+  yarn.gang-scheduler.node-skip-high-load: 2.5
+  yarn.gang-scheduler.container-decentralized-average-weight: 0
+  yarn.gang-scheduler.node-quota-usage-average-weight: 1
+  yarn.gang-scheduler.wait-time-before-fatal-ms: 300000
+  yarn.gang-scheduler.wait-time-before-retry-ms: 1000
 
 flink:
   dc: cn
