@@ -628,7 +628,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@Override
 	public void onContainersCompleted(final List<ContainerStatus> statuses) {
 		runAsync(() -> {
-				log.debug("YARN ResourceManager reported the following containers completed: {}.", statuses);
+				log.info("YARN ResourceManager reported the following containers completed: {}.", statuses);
 				for (final ContainerStatus containerStatus : statuses) {
 
 					final ResourceID resourceId = new ResourceID(containerStatus.getContainerId().toString());
@@ -738,6 +738,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onShutdownRequest() {
+		log.info("Received onShutdownRequest from Yarn ResourceManager.");
 		closeAsync();
 	}
 
@@ -748,6 +749,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onError(Throwable error) {
+		log.info("Received onError from Yarn ResourceManager, ", error);
 		onFatalError(error);
 	}
 
