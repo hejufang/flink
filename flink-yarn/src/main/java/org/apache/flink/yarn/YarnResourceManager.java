@@ -551,6 +551,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onShutdownRequest() {
+		log.info("Received onShutdownRequest from Yarn ResourceManager.");
 		onFatalError(new ResourceManagerException(ERROR_MASSAGE_ON_SHUTDOWN_REQUEST));
 	}
 
@@ -561,6 +562,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onError(Throwable error) {
+		log.info("Received onError from Yarn ResourceManager, ", error);
 		onFatalError(error);
 	}
 
