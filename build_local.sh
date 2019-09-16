@@ -17,11 +17,8 @@
 # limitations under the License.
 ################################################################################
 rm -rf output
-mkdir -p output
+mkdir -p output/deploy/flink-1.9
 mvn clean install -DskipTests -T 1C -Pinclude-hadoop
 
-cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output
-mkdir -p output/deploy/flink-1.9/lib
-mkdir -p output/deploy/flink-1.9/basejar
-cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/lib/* output/deploy/flink-1.9/lib/
-cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/basejar/* output/deploy/flink-1.9/basejar/
+cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/* output/deploy/flink-1.9/
+cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output/
