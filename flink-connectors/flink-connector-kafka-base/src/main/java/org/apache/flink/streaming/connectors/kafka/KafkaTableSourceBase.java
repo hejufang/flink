@@ -44,6 +44,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
+
 /**
  * A version-agnostic Kafka {@link StreamTableSource}.
  *
@@ -160,7 +163,15 @@ public abstract class KafkaTableSourceBase implements
 		DeserializationSchema<Row> deserializationSchema = getDeserializationSchema();
 		// Version-specific Kafka consumer
 		FlinkKafkaConsumerBase<Row> kafkaConsumer = getKafkaConsumer(topic, properties, deserializationSchema);
-		return env.addSource(kafkaConsumer).name(explainSource());
+
+		// Set Kafka Source Parallelism
+		String parallelismKey = CONNECTOR_PARALLELISM.substring((CONNECTOR + ".").length());
+		int parallelism = Integer.valueOf(properties.getProperty(parallelismKey, "-1"));
+		if (parallelism > 0) {
+			return env.addSource(kafkaConsumer).name(explainSource()).setParallelism(parallelism);
+		} else {
+			return env.addSource(kafkaConsumer).name(explainSource());
+		}
 	}
 
 	@Override

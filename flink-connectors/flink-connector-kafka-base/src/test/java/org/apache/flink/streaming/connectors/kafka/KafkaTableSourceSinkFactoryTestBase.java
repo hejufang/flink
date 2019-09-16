@@ -227,6 +227,48 @@ public abstract class KafkaTableSourceSinkFactoryTestBase extends TestLogger {
 		assertTrue(getExpectedFlinkKafkaProducer().isAssignableFrom(streamMock.sinkFunction.getClass()));
 	}
 
+	/**
+	 * Test kafka source parallelism.
+	 */
+	@Test
+	public void testTableSourceParallelism() {
+		// construct table source using descriptors and table source factory
+
+		final TestTableDescriptor testDesc = new TestTableDescriptor(
+			new Kafka()
+				.version(getKafkaVersion())
+				.topic(TOPIC)
+				.properties(KAFKA_PROPERTIES)
+				.sinkPartitionerRoundRobin() // test if accepted although not needed
+				.startFromSpecificOffsets(OFFSETS))
+			.withFormat(new TestTableFormat())
+			.withSchema(
+				new Schema()
+					.field(FRUIT_NAME, Types.STRING()).from(NAME)
+					.field(COUNT, Types.DECIMAL()) // no from so it must match with the input
+					.field(EVENT_TIME, Types.SQL_TIMESTAMP()).rowtime(
+					new Rowtime().timestampsFromField(TIME).watermarksPeriodicAscending())
+					.field(PROC_TIME, Types.SQL_TIMESTAMP()).proctime())
+			.inAppendMode();
+
+		int parallelism = 16;
+		Map<String, String> propertiesMap = new HashMap<>(testDesc.toProperties());
+		propertiesMap.put("connector.cluster", "kafka_test");
+		propertiesMap.put("connector.team", "flink_test");
+		propertiesMap.put("connector.psm", "flink_test");
+		propertiesMap.put("connector.owner", "flink_test");
+		propertiesMap.put("connector.group.id", "flink_test");
+		propertiesMap.put("connector.parallelism", String.valueOf(parallelism));
+
+		final TableSource<?> actualSource = TableFactoryService.find(StreamTableSourceFactory.class, propertiesMap)
+			.createStreamTableSource(propertiesMap);
+
+		// test kafka source parallelism
+		final KafkaTableSourceBase actualKafkaSource = (KafkaTableSourceBase) actualSource;
+		final StreamExecutionEnvironmentMock mock = new StreamExecutionEnvironmentMock();
+		assertEquals(parallelism, actualKafkaSource.getDataStream(mock).getParallelism());
+	}
+
 	private static class StreamExecutionEnvironmentMock extends StreamExecutionEnvironment {
 
 		public SourceFunction<?> sourceFunction;

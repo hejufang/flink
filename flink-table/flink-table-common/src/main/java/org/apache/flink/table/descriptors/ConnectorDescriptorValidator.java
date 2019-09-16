@@ -48,9 +48,15 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	 */
 	public static final String CONNECTOR_VERSION = "connector.version";
 
+	/**
+	 * Key for describing the parallelism of the connector.
+	 */
+	public static final String CONNECTOR_PARALLELISM = "connector.parallelism";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateString(CONNECTOR_TYPE, false, 1);
 		properties.validateInt(CONNECTOR_PROPERTY_VERSION, true, 0);
+		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 	}
 }

@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_VERSION;
@@ -117,6 +118,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		properties.add(CONNECTOR_TEAM);
 		properties.add(CONNECTOR_OWNER);
 		properties.add(CONNECTOR_GROUP_ID);
+		properties.add(CONNECTOR_PARALLELISM);
 		properties.add(CONNECTOR_KAFKA_PROPERTIES + ".*");
 		properties.add(CONNECTOR_PROPERTIES);
 		properties.add(CONNECTOR_PROPERTIES + ".#." + CONNECTOR_PROPERTIES_KEY);
@@ -327,6 +329,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		properties.add(CONNECTOR_TEAM);
 		properties.add(CONNECTOR_OWNER);
 		properties.add(CONNECTOR_GROUP_ID);
+		properties.add(CONNECTOR_PARALLELISM);
 		return properties;
 	}
 
