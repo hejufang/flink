@@ -19,9 +19,7 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.client.cli.CliFrontend;
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -156,23 +154,12 @@ public final class Utils {
 		String appId,
 		Path localSrcPath,
 		Path homedir,
-		String relativeTargetPath,
-		org.apache.flink.configuration.Configuration flinkConfig,
-		boolean overrideHomeDir) throws IOException {
+		String relativeTargetPath) throws IOException {
 
 		File localFile = new File(localSrcPath.toUri().getPath());
 		if (localFile.isDirectory()) {
 			throw new IllegalArgumentException("File to copy must not be a directory: " +
 				localSrcPath);
-		}
-		if (overrideHomeDir) {
-			if (flinkConfig == null) {
-				String configurationDirectory = CliFrontend.getConfigurationDirectoryFromEnv();
-				flinkConfig = GlobalConfiguration.loadConfiguration(configurationDirectory);
-			}
-			String jobWorkDir = flinkConfig.getString(ConfigConstants.JOB_WORK_DIR_KEY,
-				ConfigConstants.PATH_JOB_WORK_FILE);
-			homedir = new Path(jobWorkDir);
 		}
 
 		// copy resource to HDFS
@@ -537,9 +524,7 @@ public final class Utils {
 					appId,
 					new Path(taskManagerConfigFile.toURI()),
 					homeDirPath,
-					"",
-					flinkConfig,
-					true).f1;
+					"").f1;
 
 				log.debug("Prepared local resource for modified yaml: {}", flinkConf);
 			} finally {

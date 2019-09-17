@@ -90,6 +90,7 @@ import java.util.stream.Stream;
 import static org.apache.flink.client.cli.CliFrontendParser.DETACHED_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.SHUTDOWN_IF_ATTACHED_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.YARN_DETACHED_OPTION;
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
 import static org.apache.flink.configuration.HighAvailabilityOptions.HA_CLUSTER_ID;
 
 /**
@@ -570,6 +571,10 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		if (commandLine.hasOption(slots.getOpt())) {
 			effectiveConfiguration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, Integer.parseInt(commandLine.getOptionValue(slots.getOpt())));
 		}
+
+		// reload config by dynamic properties.
+		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
+		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
 		if (isYarnPropertiesFileMode(commandLine)) {
 			return applyYarnProperties(effectiveConfiguration);

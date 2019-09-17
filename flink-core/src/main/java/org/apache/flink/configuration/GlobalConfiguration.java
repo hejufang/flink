@@ -31,7 +31,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * Global configuration object for Flink. Similar to Java properties configuration
@@ -52,6 +56,12 @@ public final class GlobalConfiguration {
 
 	// the key of common configuration in yaml file.
 	public static final String COMMON = "common";
+
+	// the key of flexible origin value in yaml file.
+	private static final String ORIGIN_KEY_POSTFIX = "#ORIGIN#";
+
+	private static final String[] DYNAMIC_PARAM_KEYS = {
+		ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.HDFS_PREFIX_KEY, ConfigConstants.DC_KEY};
 
 	// --------------------------------------------------------------------------------------------
 
@@ -197,23 +207,75 @@ public final class GlobalConfiguration {
 				commonConf.putAll(clusterConf);
 				allYamlConf = commonConf;
 			}
-			String[] dynamicParam = {ConfigConstants.CLUSTER_NAME_KEY,
-				ConfigConstants.HDFS_PREFIX_KEY,
-				ConfigConstants.DC_KEY};
 			for (Map.Entry<String, Object> entry : allYamlConf.entrySet()) {
 				String key = entry.getKey();
+				if (isWithOriginPostfix(key)) {
+					// OriginKey can not be replaced.
+					continue;
+				}
+
 				String value = entry.getValue().toString();
-				for (String param : dynamicParam) {
-					value = value.replace(String.format("${%s}", param),
-						(String) allYamlConf.get(param));
+				String valueOld = value;
+				for (String param : DYNAMIC_PARAM_KEYS) {
+					String paramKey = String.format("${%s}", param);
+					if (value.contains(paramKey)) {
+						value = value.replace(paramKey, (String) allYamlConf.get(param));
+					}
 				}
 				config.setString(key, value);
+
+				// save OriginKey with value.
+				if (!value.equals(valueOld)) {
+					config.setString(appendOriginPostfixTo(key), valueOld);
+				}
 			}
 		} catch (FileNotFoundException e) {
 			throw new RuntimeException("Error parsing YAML configuration.", e);
 		}
 
 		return config;
+	}
+
+	private static String appendOriginPostfixTo(String key) {
+		return key + ORIGIN_KEY_POSTFIX;
+	}
+
+	private static String trimOriginPostfixFrom(String key) {
+		return key.substring(0, key.length() - ORIGIN_KEY_POSTFIX.length());
+	}
+
+	private static boolean isWithOriginPostfix(String key) {
+		return key.endsWith(ORIGIN_KEY_POSTFIX);
+	}
+
+	/**
+	 * Reload config with dynamic properties.
+	 * @param config old Configuration.
+	 * @param properties dynamic properties.
+	 */
+	public static void reloadConfigWithDynamicProperties(Configuration config, Properties properties) {
+		List<String> dynamicParamKeys = new ArrayList<>(Arrays.asList(DYNAMIC_PARAM_KEYS));
+		for (String key : config.keySet()) {
+			if (isWithOriginPostfix(key)) {
+				String value = config.getString(key, null);
+				String valueOld = value;
+				for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+					String propertyKey = entry.getKey().toString();
+					String propertyValue = entry.getValue().toString();
+					dynamicParamKeys.remove(propertyKey);
+					value = value.replace(String.format("${%s}", propertyKey), propertyValue);
+				}
+				for (String param : dynamicParamKeys) {
+					String paramKey = String.format("${%s}", param);
+					if (value.contains(paramKey)) {
+						value = value.replace(paramKey, config.getString(param, null));
+					}
+				}
+				if (!value.equals(valueOld)) {
+					config.setString(trimOriginPostfixFrom(key), value);
+				}
+			}
+		}
 	}
 
 	/**

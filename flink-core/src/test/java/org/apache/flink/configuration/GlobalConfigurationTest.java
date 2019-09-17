@@ -28,11 +28,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Properties;
 import java.util.UUID;
 
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -54,21 +56,21 @@ public class GlobalConfigurationTest extends TestLogger {
 				pw.println("###########################"); // should be skipped
 				pw.println("# Some : comments : to skip"); // should be skipped
 				pw.println("###########################"); // should be skipped
-				pw.println("mykey1: myvalue1"); // OK, simple correct case
-				pw.println("mykey2       : myvalue2"); // OK, whitespace before colon is correct
-				pw.println("mykey3:myvalue3"); // SKIP, missing white space after colon
-				pw.println(" some nonsense without colon and whitespace separator"); // SKIP
-				pw.println(" :  "); // SKIP
+				pw.println("common:");
+				pw.println("  mykey1: myvalue1"); // OK, simple correct case
+				pw.println("  mykey2       : myvalue2"); // OK, whitespace before colon is correct
+				pw.println("  mykey3: myvalue3"); // OK
 				pw.println("   "); // SKIP (silently)
 				pw.println(" "); // SKIP (silently)
-				pw.println("mykey4: myvalue4# some comments"); // OK, skip comments only
-				pw.println("   mykey5    :    myvalue5    "); // OK, trim unnecessary whitespace
-				pw.println("mykey6: my: value6"); // OK, only use first ': ' as separator
-				pw.println("mykey7: "); // SKIP, no value provided
-				pw.println(": myvalue8"); // SKIP, no key provided
+				pw.println("  mykey4: myvalue4 # some comments"); // OK, skip comments only
+				pw.println("  mykey5    :    myvalue5    "); // OK, trim unnecessary whitespace
 
-				pw.println("mykey9: myvalue9"); // OK
-				pw.println("mykey9: myvalue10"); // OK, overwrite last value
+				pw.println("  mykey6: myvalue6"); // OK
+				pw.println("  mykey6: myvalue7"); // OK, overwrite last value
+				pw.println("  mykey8: myvalue8"); // OK
+				pw.println("  # mykey9: myvalue9"); // SKIP
+				pw.println("flink:");
+				pw.println("  mykey8: myvalue9"); // OK, overwrite last value
 
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
@@ -77,18 +79,17 @@ public class GlobalConfigurationTest extends TestLogger {
 			Configuration conf = GlobalConfiguration.loadConfiguration(tmpDir.getAbsolutePath());
 
 			// all distinct keys from confFile1 + confFile2 key
-			assertEquals(6, conf.keySet().size());
+			assertEquals(7, conf.keySet().size());
 
 			// keys 1, 2, 4, 5, 6, 7, 8 should be OK and match the expected values
 			assertEquals("myvalue1", conf.getString("mykey1", null));
 			assertEquals("myvalue2", conf.getString("mykey2", null));
-			assertEquals("null", conf.getString("mykey3", "null"));
+			assertEquals("myvalue3", conf.getString("mykey3", "null"));
 			assertEquals("myvalue4", conf.getString("mykey4", null));
 			assertEquals("myvalue5", conf.getString("mykey5", null));
-			assertEquals("my: value6", conf.getString("mykey6", null));
-			assertEquals("null", conf.getString("mykey7", "null"));
-			assertEquals("null", conf.getString("mykey8", "null"));
-			assertEquals("myvalue10", conf.getString("mykey9", null));
+			assertEquals("myvalue7", conf.getString("mykey6", null));
+			assertEquals("myvalue9", conf.getString("mykey8", null));
+			assertNull(conf.getString("mykey9", null));
 		} finally {
 			confFile.delete();
 			tmpDir.delete();
@@ -110,8 +111,7 @@ public class GlobalConfigurationTest extends TestLogger {
 		GlobalConfiguration.loadConfiguration(tempFolder.getRoot().getAbsolutePath());
 	}
 
-	@Test
-	// We allow malformed YAML files
+	@Test(expected = Exception.class)
 	public void testInvalidYamlFile() throws IOException {
 		final File confFile = tempFolder.newFile(GlobalConfiguration.FLINK_CONF_FILENAME);
 
@@ -119,7 +119,33 @@ public class GlobalConfigurationTest extends TestLogger {
 			pw.append("invalid");
 		}
 
-		assertNotNull(GlobalConfiguration.loadConfiguration(tempFolder.getRoot().getAbsolutePath()));
+		GlobalConfiguration.loadConfiguration(tempFolder.getRoot().getAbsolutePath());
+	}
+
+	@Test
+	public void testReloadConfigWithDynamicProperties() throws IOException {
+		final File confFile = tempFolder.newFile(GlobalConfiguration.FLINK_CONF_FILENAME);
+
+		try (PrintWriter pw = new PrintWriter(confFile)) {
+			pw.println("common:\n" +
+				"  state.checkpoints.dir: ${hdfs.prefix}/${dc}/${clusterName}/1.9/flink/fs_checkpoint_dir");
+			pw.println("flink:\n" +
+				"  dc: cn\n" +
+				"  clusterName: flink\n" +
+				"  hdfs.prefix: hdfs://haruna/flink_lf");
+		}
+		Configuration config = GlobalConfiguration.loadConfiguration(tempFolder.getRoot().getAbsolutePath());
+		assertEquals(
+			config.getString("state.checkpoints.dir", null),
+			"hdfs://haruna/flink_lf/cn/flink/1.9/flink/fs_checkpoint_dir");
+
+		Properties properties = new Properties();
+		properties.setProperty("dc", "test");
+
+		reloadConfigWithDynamicProperties(config, properties);
+		assertEquals(
+			config.getString("state.checkpoints.dir", null),
+			"hdfs://haruna/flink_lf/test/flink/1.9/flink/fs_checkpoint_dir");
 	}
 
 	@Test

@@ -700,7 +700,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Copy the application master jar to the filesystem
 		// Create a local resource to point to the destination jar path
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fs.getHomeDirectory();
+
+		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,
+				ConfigConstants.PATH_JOB_WORK_FILE);
+		final Path homeDir = new Path(jobWorkDir);
 
 		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
 		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
@@ -1268,9 +1271,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			appId.toString(),
 			localSrcPath,
 			targetHomeDir,
-			relativeTargetPath,
-			null,
-			true);
+			relativeTargetPath);
 
 		localResources.put(key, resource.f1);
 
