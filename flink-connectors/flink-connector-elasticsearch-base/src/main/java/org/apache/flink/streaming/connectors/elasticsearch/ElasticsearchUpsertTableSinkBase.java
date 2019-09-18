@@ -400,6 +400,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 		/**
 		 * Creates an update request to be added to a {@link RequestIndexer}.
+		 * Note: the type field has been deprecated since Elasticsearch 7.x and it would not take any effort.
 		 */
 		UpdateRequest createUpdateRequest(
 			String index,
@@ -410,6 +411,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 		/**
 		 * Creates an index request to be added to a {@link RequestIndexer}.
+		 * Note: the type field has been deprecated since Elasticsearch 7.x and it would not take any effort.
 		 */
 		IndexRequest createIndexRequest(
 			String index,
@@ -419,6 +421,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 		/**
 		 * Creates a delete request to be added to a {@link RequestIndexer}.
+		 * Note: the type field has been deprecated since Elasticsearch 7.x and it would not take any effort.
 		 */
 		DeleteRequest createDeleteRequest(
 			String index,

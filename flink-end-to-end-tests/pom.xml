@@ -70,6 +70,7 @@ under the License.
 		<module>flink-streaming-kafka010-test</module>
 		<module>flink-plugins-test</module>
 		<module>flink-tpch-test</module>
+		<module>flink-elasticsearch7-test</module>
 	</modules>
 
 	<!-- See main pom.xml for explanation of profiles -->
