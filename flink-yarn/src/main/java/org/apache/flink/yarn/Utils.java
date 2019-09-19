@@ -731,9 +731,18 @@ public final class Utils {
 		String dockerVersion = items[1].trim();
 
 		if (!YarnConfigKeys.DOCKER_VERSION_LATEST.equalsIgnoreCase(dockerVersion)) {
-			if (!dockerImage.startsWith(dockerHub)) {
-				dockerImage = dockerHub + "/" + dockerImage;
+			if (flinkConfiguration.containsKey(YarnConfigKeys.DOCKER_NAMESPACE_KEY)) {
+				String dockerNamespace = flinkConfiguration.getString(YarnConfigKeys.DOCKER_NAMESPACE_KEY,
+					YarnConfigKeys.DOCKER_NAMESPACE_DEFAULT);
+				if (!dockerImage.startsWith(dockerHub + "/" + dockerNamespace)) {
+					dockerImage = dockerHub + "/" + dockerNamespace + "/" + dockerImage;
+				}
+			} else {
+				if (!dockerImage.startsWith(dockerHub)) {
+					dockerImage = dockerHub + "/" + dockerImage;
+				}
 			}
+
 			return dockerImage;
 		}
 		LOG.info("Replace 'latest' version with real latest version id.");

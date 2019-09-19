@@ -74,6 +74,8 @@ public class YarnConfigKeys {
 	public static final String DOCKER_SERVER_DEFAULT = "image-manager.byted.org";
 	public static final String DOCKER_HUB_KEY = "docker.hub";
 	public static final String DOCKER_HUB_DEFAULT = "hub.byted.org";
+	public static final String DOCKER_NAMESPACE_KEY = "docker.namespace";
+	public static final String DOCKER_NAMESPACE_DEFAULT = "yarn";
 	public static final String DOCKER_REGION_KEY = "docker.region";
 	public static final String DOCKER_REGION_DEFAULT = "China-North-LF";
 	public static final String DOCKER_AUTHORIZATION_KEY = "docker.authorization";
