@@ -33,11 +33,11 @@ import java.util.Arrays;
 /**
  * A simple and efficient serializer for the {@link java.io.DataOutput} interface.
  */
-public class DataOutputSerializer implements DataOutputView {
+public class DataOutputSerializer implements DataOutputView, MemorySegmentWritable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DataOutputSerializer.class);
 
-	private static int pruneBufferThreshold = 1 * 1024 * 1024;
+	private static int pruneBufferThreshold = 5 * 1024 * 1024;
 
 	// ------------------------------------------------------------------------
 
@@ -110,6 +110,7 @@ public class DataOutputSerializer implements DataOutputView {
 	}
 
 	public void pruneBuffer() {
+		clear();
 		if (this.buffer.length > pruneBufferThreshold) {
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("Releasing serialization buffer of " + this.buffer.length + " bytes.");
@@ -151,6 +152,18 @@ public class DataOutputSerializer implements DataOutputView {
 			resize(len);
 		}
 		System.arraycopy(b, off, this.buffer, this.position, len);
+		this.position += len;
+	}
+
+	@Override
+	public void write(MemorySegment segment, int off, int len) throws IOException {
+		if (len < 0 || off > segment.size() - len) {
+			throw new ArrayIndexOutOfBoundsException();
+		}
+		if (this.position > this.buffer.length - len) {
+			resize(len);
+		}
+		segment.get(off, this.buffer, this.position, len);
 		this.position += len;
 	}
 
