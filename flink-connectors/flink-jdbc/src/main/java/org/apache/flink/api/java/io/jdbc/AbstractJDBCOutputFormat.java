@@ -53,12 +53,13 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 	private final String consul;
 	private final String psm;
 	private final String dbname;
+	private final String initSql;
 	protected final String dbURL;
 	protected transient Connection connection;
 	protected int taskNumber;
 
 	public AbstractJDBCOutputFormat(String username, String password, String drivername, String dbURL,
-			boolean useBytedanceMysql, String consul, String psm, String dbname) {
+			boolean useBytedanceMysql, String consul, String psm, String dbname, String initSql) {
 		this.username = username;
 		this.password = password;
 		this.drivername = drivername;
@@ -67,9 +68,10 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 		this.psm = psm;
 		this.dbname = dbname;
 		this.dbURL = dbURL;
+		this.initSql = initSql;
 		LOG.info("username = {}, password = {}, drivername = {}, dbURL = {}, consul = {}," +
-				"psm = {}, useBytedanceMysql = {}, dbname = {}", username, password,
-			drivername, dbURL, consul, psm, useBytedanceMysql, dbname);
+				"psm = {}, useBytedanceMysql = {}, dbname = {}, initSql = {}", username, password,
+			drivername, dbURL, consul, psm, useBytedanceMysql, dbname, initSql);
 	}
 
 	@Override
@@ -77,8 +79,8 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 	}
 
 	protected void establishConnection() throws SQLException, ClassNotFoundException {
-		connection =
-			JDBCUtils.establishConnection(drivername, dbURL, username, password, useBytedanceMysql);
+		connection = JDBCUtils.establishConnection(drivername, dbURL, username, password,
+			useBytedanceMysql, initSql);
 	}
 
 	protected void closeDbConnection() throws IOException {

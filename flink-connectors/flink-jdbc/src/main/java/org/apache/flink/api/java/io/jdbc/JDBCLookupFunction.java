@@ -66,6 +66,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	private final String username;
 	private final String password;
 	private final boolean useBytedanceMysql;
+	private final String initSql;
 	private final TypeInformation[] keyTypes;
 	private final int[] keySqlTypes;
 	private final String[] fieldNames;
@@ -87,6 +88,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 		this.username = options.getUsername();
 		this.password = options.getPassword();
 		this.useBytedanceMysql = options.getUseBytedanceMysql();
+		this.initSql = options.getInitSql();
 		this.fieldNames = fieldNames;
 		this.fieldTypes = fieldTypes;
 		List<String> nameList = Arrays.asList(fieldNames);
@@ -114,7 +116,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	public void open(FunctionContext context) throws Exception {
 		try {
 			dbConn = JDBCUtils.establishConnection(drivername, dbURL, username, password,
-				useBytedanceMysql);
+				useBytedanceMysql, initSql);
 			statement = dbConn.prepareStatement(query);
 			this.cache = cacheMaxSize == -1 || cacheExpireMs == -1 ? null : CacheBuilder.newBuilder()
 					.expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)

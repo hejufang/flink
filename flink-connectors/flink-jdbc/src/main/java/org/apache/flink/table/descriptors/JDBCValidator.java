@@ -44,6 +44,7 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_CONSUL = "connector.consul";
 	public static final String CONNECTOR_PSM = "connector.psm";
 	public static final String CONNECTOR_DBNAME = "connector.dbname";
+	public static final String CONNECTOR_INIT_SQL = "connector.init-sql";
 
 	public static final String CONNECTOR_READ_PARTITION_COLUMN = "connector.read.partition.column";
 	public static final String CONNECTOR_READ_PARTITION_LOWER_BOUND = "connector.read.partition.lower-bound";
@@ -78,6 +79,7 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_CONSUL, true);
 		properties.validateString(CONNECTOR_PSM, true);
 		properties.validateString(CONNECTOR_DBNAME, true);
+		properties.validateString(CONNECTOR_INIT_SQL, true);
 
 		final Optional<String> url = properties.getOptionalString(CONNECTOR_URL);
 		Boolean useBytedanceMySQL =

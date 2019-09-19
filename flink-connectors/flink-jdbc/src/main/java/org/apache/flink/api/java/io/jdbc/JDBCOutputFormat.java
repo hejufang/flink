@@ -54,8 +54,8 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 
 	public JDBCOutputFormat(String username, String password, String drivername,
 			String dbURL, String query, int batchInterval, int[] typesArray,
-			boolean useBytedanceMysql, String consul, String psm, String dbname) {
-		super(username, password, drivername, dbURL, useBytedanceMysql, consul, psm, dbname);
+			boolean useBytedanceMysql, String consul, String psm, String dbname, String initSql) {
+		super(username, password, drivername, dbURL, useBytedanceMysql, consul, psm, dbname, initSql);
 		this.query = query;
 		this.batchInterval = batchInterval;
 		this.typesArray = typesArray;
@@ -172,6 +172,7 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 		private String consul;
 		private String psm;
 		private String dbname;
+		private String initSql;
 		private int batchInterval = DEFAULT_FLUSH_MAX_SIZE;
 		private int[] typesArray;
 
@@ -232,6 +233,11 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 			return this;
 		}
 
+		public JDBCOutputFormatBuilder setInitSql(String initSql) {
+			this.initSql = initSql;
+			return this;
+		}
+
 		/**
 		 * Finalizes the configuration and checks validity.
 		 *
@@ -253,7 +259,7 @@ public class JDBCOutputFormat extends AbstractJDBCOutputFormat<Row> {
 
 			return new JDBCOutputFormat(
 					username, password, drivername, dbURL, query, batchInterval, typesArray,
-				useBytedanceMysql, consul, psm, dbname);
+				useBytedanceMysql, consul, psm, dbname, initSql);
 		}
 	}
 

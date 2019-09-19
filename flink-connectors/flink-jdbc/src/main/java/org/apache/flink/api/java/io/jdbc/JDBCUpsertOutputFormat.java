@@ -80,7 +80,7 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 			int maxRetryTimes) {
 		super(options.getUsername(), options.getPassword(), options.getDriverName(),
 			options.getDbURL(), options.getUseBytedanceMysql(), options.getConsul(),
-			options.getPsm(), options.getDbname());
+			options.getPsm(), options.getDbname(), options.getInitSql());
 		this.tableName = options.getTableName();
 		this.dialect = options.getDialect();
 		this.fieldNames = fieldNames;

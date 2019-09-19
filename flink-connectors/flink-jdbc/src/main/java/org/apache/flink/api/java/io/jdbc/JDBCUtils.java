@@ -29,6 +29,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /**
  * Utils for jdbc connectors.
@@ -236,7 +237,7 @@ public class JDBCUtils {
 	}
 
 	public static Connection establishConnection(String drivername, String dbURL, String username,
-		String password, boolean useBytedanceMysql) throws SQLException, ClassNotFoundException {
+		String password, boolean useBytedanceMysql, String initSql) throws SQLException, ClassNotFoundException {
 		Connection connection;
 		Class.forName(drivername);
 		if (useBytedanceMysql) {
@@ -258,6 +259,14 @@ public class JDBCUtils {
 				"password = %s", dbURL, username, password);
 			throw new RuntimeException(errMsg);
 		}
+
+		if (initSql != null) {
+			try (Statement statement = connection.createStatement()){
+				LOG.info("Execute init sql: {}", initSql);
+				statement.execute(initSql);
+			}
+		}
+
 		return connection;
 	}
 }

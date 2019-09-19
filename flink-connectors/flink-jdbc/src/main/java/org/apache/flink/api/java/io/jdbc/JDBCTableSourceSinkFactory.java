@@ -41,6 +41,7 @@ import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_CONSUL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DBNAME;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DRIVER;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DRIVER_DEFAULT;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_INIT_SQL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
@@ -92,6 +93,7 @@ public class JDBCTableSourceSinkFactory implements
 		properties.add(CONNECTOR_PSM);
 		properties.add(CONNECTOR_CONSUL);
 		properties.add(CONNECTOR_DBNAME);
+		properties.add(CONNECTOR_INIT_SQL);
 		properties.add(CONNECTOR_PROPERTY_VERSION);
 
 		// scan options
@@ -181,6 +183,7 @@ public class JDBCTableSourceSinkFactory implements
 		descriptorProperties.getOptionalString(CONNECTOR_CONSUL).ifPresent(builder::setConsul);
 		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(CONNECTOR_DBNAME).ifPresent(builder::setDbname);
+		descriptorProperties.getOptionalString(CONNECTOR_INIT_SQL).ifPresent(builder::setInitSql);
 		return builder.build();
 	}
 

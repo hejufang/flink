@@ -43,10 +43,11 @@ public class JDBCOptions {
 	private String dbname;
 	private boolean useBytedanceMysql;
 	private JDBCDialect dialect;
+	private String initSql;
 
 	private JDBCOptions(String dbURL, String tableName, String driverName, String username,
 			String password, JDBCDialect dialect, boolean useBytedanceMysql, String consul,
-			String psm, String dbname) {
+			String psm, String dbname, String initSql) {
 		this.dbURL = dbURL;
 		this.tableName = tableName;
 		this.driverName = driverName;
@@ -57,6 +58,7 @@ public class JDBCOptions {
 		this.consul = consul;
 		this.psm = psm;
 		this.dbname = dbname;
+		this.initSql = initSql;
 	}
 
 	public String getDbURL() {
@@ -99,6 +101,10 @@ public class JDBCOptions {
 		return dbname;
 	}
 
+	public String getInitSql() {
+		return initSql;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -136,6 +142,7 @@ public class JDBCOptions {
 		private boolean useBytedanceMysql;
 		private String dbname;
 		private JDBCDialect dialect;
+		private String initSql;
 
 		/**
 		 * required, table name.
@@ -207,6 +214,14 @@ public class JDBCOptions {
 			return this;
 		}
 
+		/**
+		 * optional, set init sql which will be executed when create a db connection.
+		 */
+		public Builder setInitSql(String initSql) {
+			this.initSql = initSql;
+			return this;
+		}
+
 		public JDBCOptions build() {
 			checkNotNull(tableName, "No tableName supplied.");
 			if (this.dialect == null) {
@@ -231,7 +246,7 @@ public class JDBCOptions {
 				}
 			}
 			return new JDBCOptions(dbURL, tableName, driverName, username, password,
-				dialect, useBytedanceMysql, consul, psm, dbname);
+				dialect, useBytedanceMysql, consul, psm, dbname, initSql);
 		}
 	}
 }
