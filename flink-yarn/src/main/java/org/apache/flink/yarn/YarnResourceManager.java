@@ -150,6 +150,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	 * In task executor we use the hostnames given by YARN consistently throughout akka */
 	static final String ENV_FLINK_NODE_ID = "_FLINK_NODE_ID";
 
+	static final String ERROR_MASSAGE_ON_SHUTDOWN_REQUEST = "Received shutdown request from YARN ResourceManager.";
+
 	/** Default heartbeat interval between this resource manager and the YARN ResourceManager. */
 	private final int yarnHeartbeatIntervalMillis;
 
@@ -892,7 +894,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@Override
 	public void onShutdownRequest() {
 		log.info("Received onShutdownRequest from Yarn ResourceManager.");
-		closeAsync();
+		onFatalError(new ResourceManagerException(ERROR_MASSAGE_ON_SHUTDOWN_REQUEST));
 	}
 
 	@Override
