@@ -161,6 +161,8 @@ public class FileUploadHandlerTest extends TestLogger {
 		try (Response response = client.newCall(fileRequest).execute()) {
 			assertEquals(fileHandler.getMessageHeaders().getResponseStatusCode().code(), response.code());
 		}
+
+		verifyNoFileIsRegisteredToDeleteOnExitHook();
 	}
 
 	@Test
@@ -187,6 +189,8 @@ public class FileUploadHandlerTest extends TestLogger {
 			assertEquals(mixedHandler.getMessageHeaders().getResponseStatusCode().code(), response.code());
 			assertEquals(json, mixedHandler.lastReceivedRequest);
 		}
+
+		verifyNoFileIsRegisteredToDeleteOnExitHook();
 	}
 
 	@Test
@@ -213,6 +217,8 @@ public class FileUploadHandlerTest extends TestLogger {
 			// FileUploads are outright forbidden
 			assertEquals(HttpResponseStatus.BAD_REQUEST.code(), response.code());
 		}
+
+		verifyNoFileIsRegisteredToDeleteOnExitHook();
 	}
 
 	@Test
@@ -237,6 +243,8 @@ public class FileUploadHandlerTest extends TestLogger {
 			// JSON payload did not match expected format
 			assertEquals(HttpResponseStatus.BAD_REQUEST.code(), response.code());
 		}
+
+		verifyNoFileIsRegisteredToDeleteOnExitHook();
 	}
 
 	@Test
