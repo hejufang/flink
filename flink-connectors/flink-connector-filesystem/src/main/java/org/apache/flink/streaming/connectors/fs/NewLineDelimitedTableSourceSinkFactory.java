@@ -19,14 +19,18 @@
 package org.apache.flink.streaming.connectors.fs;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FileSystemValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
 import org.apache.flink.table.factories.DeserializationSchemaFactory;
+import org.apache.flink.table.factories.SerializationSchemaFactory;
+import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.factories.TableFactoryService;
+import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
@@ -60,8 +64,11 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
 /**
  * newLine delimited table source factory.
  */
-public class NewLineDelimitedTableSourceFactory implements
-	StreamTableSourceFactory<Row> {
+public class NewLineDelimitedTableSourceSinkFactory implements
+	StreamTableSourceFactory<Row>,
+	StreamTableSinkFactory<Row> {
+
+	private static final String CONF_OUTPUT_FORMAT_COMPRESS_CODEC = "fileoutputformat.compress.codec";
 
 	@Override
 	public Map<String, String> requiredContext() {
@@ -96,6 +103,8 @@ public class NewLineDelimitedTableSourceFactory implements
 
 		// format wildcard
 		properties.add(FORMAT + ".*");
+
+		properties.add(CONF_OUTPUT_FORMAT_COMPRESS_CODEC);
 
 		return properties;
 	}
@@ -148,5 +157,37 @@ public class NewLineDelimitedTableSourceFactory implements
 			properties,
 			this.getClass().getClassLoader());
 		return formatFactory.createDeserializationSchema(properties);
+	}
+
+	@Override
+	public StreamTableSink<Row> createStreamTableSink(Map<String, String> properties) {
+		return createTableSink(true, properties);
+	}
+
+	private StreamTableSink<Row> createTableSink(boolean isStreaming, Map<String, String> properties) {
+		DescriptorProperties params = new DescriptorProperties();
+		params.putProperties(properties);
+
+		// validate
+		new FileSystemValidator().validate(params);
+		new SchemaValidator(isStreaming, false, false).validate(params);
+
+		final SerializationSchema<Row> serializationSchema = getSerializationSchema(properties);
+		String path = params.getString(CONNECTOR_PATH);
+
+		TableSchema tableSchema = params.getTableSchema(SCHEMA);
+		Optional<String> codec = params.getOptionalString(CONF_OUTPUT_FORMAT_COMPRESS_CODEC);
+
+		return codec.map(
+			value -> new NewLineDelimitedTableSink(path, tableSchema, serializationSchema, value)
+		).orElse(new NewLineDelimitedTableSink(path, tableSchema, serializationSchema));
+	}
+
+	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {
+		@SuppressWarnings("unchecked") final SerializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
+			SerializationSchemaFactory.class,
+			properties,
+			this.getClass().getClassLoader());
+		return formatFactory.createSerializationSchema(properties);
 	}
 }
