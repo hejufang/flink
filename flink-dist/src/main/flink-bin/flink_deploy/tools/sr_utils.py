@@ -10,7 +10,6 @@ from conf_utils import ConfUtils
 from datetime import datetime
 from yaml_util import YamlUtil
 
-
 class SmartResourcesUtils(object):
     """ SmartResources Client wrapper """
 

@@ -49,6 +49,7 @@ class ConfUtils(object):
         if 'base_jar' in conf:
             conf['base_jar'] = \
                 os.path.join(upper_directory, conf.get('base_jar'))
+
         if 'bin' in conf:
             conf['bin'] = \
                 os.path.join(upper_directory, conf.get('bin'))

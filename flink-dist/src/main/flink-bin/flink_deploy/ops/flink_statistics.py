@@ -66,7 +66,7 @@ class FlinkStatistics():
     @staticmethod
     def run():
         FlinkStatistics.flink_node_count()
-        YarnUtil.get_flink_running_app_num_by_cluster()
+        YarnUtil.get_flink_running_app_num_by_cluster("flink")
 
 
 if __name__ == '__main__':

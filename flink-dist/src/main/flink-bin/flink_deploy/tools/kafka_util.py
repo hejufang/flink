@@ -15,9 +15,14 @@ KAFKA_SERVER_URL_DEFAULT = "http://kafka-config.byted.org"
 class KafkaUtil(object):
     @staticmethod
     def get_kafka_partition(kafka_cluster, topic):
-        kafka_proxy = KafkaProxy(topic=topic, cluster_name=kafka_cluster)
-        partitions = kafka_proxy.get_kafka_producer().partitions_for(topic)
-        return len(partitions)
+        try:
+            kafka_proxy = KafkaProxy(topic=topic, cluster_name=kafka_cluster)
+            partitions = kafka_proxy.get_kafka_producer().partitions_for(topic)
+            return len(partitions)
+        except Exception as e:
+            print "Failed to get partitions for cluster: %s, topic: %s, please make sure " \
+                  "you write the right kafka cluster & topic" % (kafka_cluster, topic)
+            raise Exception(e)
 
     @staticmethod
     def get_kafka_metric_conf(kafka_cluster,

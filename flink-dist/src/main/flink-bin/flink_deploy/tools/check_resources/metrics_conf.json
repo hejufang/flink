@@ -1,0 +1,22 @@
+{
+  "metrics_template": "http://metrics.byted.org/proxy/api/query?_region=%s&start=%s&end=%s&m=%s:%s",
+  "resource_metrics": {
+    "application": {
+      "alloc_cpu": "inf.dtop.%s.alloc.CPU.all",
+      "used_cpu": "inf.dtop.%s.used.CPU.all",
+      "alloc_memory": "inf.dtop.%s.alloc.MEM.all",
+      "used_memory": "inf.dtop.%s.used.MEM.all",
+      "alloc_jvm_memory": "inf.dtop.%s.used.JHC.all",
+      "used_jvm_memory": "inf.dtop.%s.used.JHU.all"
+    },
+    "container": {
+      "alloc_cpu": "inf.dtop.%s.alloc.CPU{container_id=*}",
+      "used_cpu": "inf.dtop.%s.used.CPU{container_id=*}",
+      "sys_cpu": "inf.dtop.%s.used.SYS{container_id=*}",
+      "alloc_memory": "inf.dtop.%s.alloc.MEM{container_id=*}",
+      "used_memory": "inf.dtop.%s.used.MEM{container_id=*}",
+      "alloc_jvm_memory": "inf.dtop.%s.used.JHC{container_id=*}",
+      "used_jvm_memory": "inf.dtop.%s.used.JHU{container_id=*}"
+    }
+  }
+}

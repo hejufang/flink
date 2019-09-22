@@ -39,7 +39,10 @@ TM_MEMORY_MB_MAX_CEILING = 100 * 1024
 TM_VCORES_MAX = 8
 TM_VCORES_MAX_CEILING = 47
 DEFAULT_TOPIC_THRESHOLD = 100 * 1000
-FLINK_1_9_VERVION='1.9'
+FLINK_1_9_VERVION = '1.9'
+FLINK_1_5_VERVION = '1.5'
+DEFAULT_VERSION = FLINK_1_5_VERVION
+VALID_VERSIONS = [FLINK_1_9_VERVION, FLINK_1_5_VERVION]
 
 
 class NoEnoughResArgs(Exception):
@@ -63,8 +66,6 @@ class FlinkTopology(object):
     PYJSTORM = "pyJstorm"
     LOCAL_MODE = 1
     CLUSTER_MODE = 0
-    VALID_VERSIONS = ["1.5", "1.9"]
-    DEFAULT_VERSION = "1.5"
     RESOURCES_OPTIMIZE_WIKI = "https://wiki.bytedance.net/pages/viewpage.action?pageId=151754851"
     SKIP_UNIMPORTANCE_PROCESS = "skip_unimportance_process"
 
@@ -92,8 +93,8 @@ class FlinkTopology(object):
 
     @classmethod
     def from_args(cls, args):
-        if args.version not in FlinkTopology.VALID_VERSIONS:
-            args.version = FlinkTopology.DEFAULT_VERSION
+        if args.version not in VALID_VERSIONS:
+            args.version = DEFAULT_VERSION
 
         yaml_file = os.path.abspath(args.yaml)
         if not os.path.isfile(yaml_file):
@@ -118,7 +119,7 @@ class FlinkTopology(object):
         if args.queue_name is None:
             print red("Please specify queue name")
             return
-        print 'version = ' + str(args.version)
+
         return cls(cluster_name=args.cluster_name, queue_name=args.queue_name,
                    yaml_file=yaml_file, config_dir=args.config_dir,
                    flink_args=args.flink_args, user=user,
@@ -142,6 +143,8 @@ class FlinkTopology(object):
         self.cluster_name = ConfUtils.replace_cluster_conf(cluster_name)
         self.flink_conf = ConfUtils.get_flink_conf(self.cluster_name, version)
         self.hadoop_conf_dir = self.flink_conf.get('HADOOP_CONF_DIR')
+        YarnUtil.YAOP_HOST = self.flink_conf.get('yaop_url', YarnUtil.YAOP_HOST)
+        YarnUtil.YAOP_TOKEN = self.flink_conf.get('yaop_token', YarnUtil.YAOP_TOKEN)
         self.queue_name = queue_name
         self.vcores = self.flink_conf.get('vcores')
         self.ms_base_url = self.flink_conf.get('ms_url')
@@ -157,14 +160,13 @@ class FlinkTopology(object):
         self.skip_unimportance_process = self.user_yaml_conf.get(
             FlinkTopology.SKIP_UNIMPORTANCE_PROCESS, self.skip_unimportance_process)
         print "skip_unimportance_process = %s" % self.skip_unimportance_process
-        self.is_restructure_mode = self.user_yaml_conf.get(
-            'is_restructure_mode', True)
-        # 0: cluster mode , 1: local mode
-        self.run_mode = self.user_yaml_conf.get("topology_standalone_mode",
-                                                FlinkTopology.CLUSTER_MODE)
         self.job_type = FlinkTopology.PYFLINK
         self.base_jar = self.flink_conf.get('base_jar')
         self.bin = self.flink_conf.get('bin')
+
+        # 0: cluster mode , 1: local mode
+        self.run_mode = self.user_yaml_conf.get("topology_standalone_mode",
+                                                FlinkTopology.CLUSTER_MODE)
         self.topology_name = self.user_yaml_conf.get('topology_name')
         self.flink_yarn_args = self.user_yaml_conf.get('flink_args', {})
 
@@ -424,23 +426,23 @@ class FlinkTopology(object):
         out_and_info("Build topology have finished.")
 
     def build_start_cmd(self):
-        main_class = "com.bytedance.flink.topology.PyFlinkRunner"
         if self.version == FLINK_1_9_VERVION:
+            main_class = "com.bytedance.flink.topology.PyFlinkRunner"
             yaml_file_name = os.path.basename(self.yaml_file)
+            # TODO(zoudan): remove params 'userJar' and 'userYamlFileName'
             return self.bin + " " + "run" + " " + "-c" + " " + main_class \
                    + " " + "-cn" + " " + self.cluster_name + " " \
                    + " " + self.flink_args + " " \
                    + "--clusterName" + " " + self.cluster_name + " " \
                    + "--userYamlFileName" + " " + yaml_file_name + " " \
-                   + "--flinkConfigDir" + " " + self.config_dir + " "\
+                   + "--flinkConfigDir" + " " + self.config_dir + " " \
                    + "--userJar" + " " + self.output_jar
+        elif self.save_pid:
+            return self.bin + " " + "save_pid" + " " + self.output_jar + " " + \
+                   self.yaml_file + " " + self.cluster_name + " " + self.flink_args
         else:
-            if self.save_pid:
-                return self.bin + " " + "save_pid" + " " + self.output_jar + " " + \
-                       self.yaml_file + " " + self.cluster_name + " " + self.flink_args
-            else:
-                return self.bin + " " + self.output_jar + " " + self.yaml_file + " " + \
-                       self.cluster_name + " " + self.flink_args
+            return self.bin + " " + self.output_jar + " " + self.yaml_file + " " + \
+                   self.cluster_name + " " + self.flink_args
 
     def ensure_dir(self, path):
         path = path.strip()
@@ -462,8 +464,7 @@ class FlinkTopology(object):
 
     def start(self):
         start_time = time.time()
-        if not self.skip_unimportance_process \
-                and self.run_mode == FlinkTopology.CLUSTER_MODE:
+        if not self.skip_unimportance_process and self.run_mode == FlinkTopology.CLUSTER_MODE:
             if YarnUtil.is_exists(self.user,
                                   self.region,
                                   self.cluster_name,
@@ -701,11 +702,10 @@ class FlinkTopology(object):
                 value = self.flink_yarn_args[key]
                 if isinstance(value, basestring):
                     self.flink_args += ' -yD %s=%s' % (
-                        key, self.flink_yarn_args[key].replace(" ", "#"))
+                        key, self.flink_yarn_args[key].replace(" ", "#").replace(";", "@@"))
                 else:
                     self.flink_args += ' -yD %s=%s' % (
                         key, self.flink_yarn_args[key])
-
         if 'yarn.containers.vcores=' not in self.flink_args:
             if flink_resource.tm_cores:
                 tm_cores = flink_resource.tm_cores

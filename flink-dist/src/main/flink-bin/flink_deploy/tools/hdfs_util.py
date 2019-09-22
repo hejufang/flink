@@ -21,7 +21,7 @@ def delete_application_hdfs_path(conf_dir, hadoop_conf_dir, path):
     if "application_" not in path:
         print ("Cannot delete invalid hdfs path: " + path)
         return False
-    delete_cmd = "hadoop fs -rm -r " + path
+    delete_cmd = "/opt/tiger/yarn_deploy/hadoop/bin/hadoop fs -rm -r " + path
     os.popen(delete_cmd)
 
 

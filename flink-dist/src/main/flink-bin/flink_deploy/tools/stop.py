@@ -21,7 +21,7 @@ example: ﻿/opt/tiger/flink_deploy/tools/stop.py -r va -c awsva -a application_
                             va: maliva
 """
 DEFAULT_VERSION = "1.5"
-VALID_VERSIONS = ["1.5"]
+VALID_VERSIONS = ["1.5", "1.9"]
 
 
 class YarnApplication:
