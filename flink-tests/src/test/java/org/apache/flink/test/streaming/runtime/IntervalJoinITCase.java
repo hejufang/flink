@@ -390,6 +390,118 @@ public class IntervalJoinITCase {
 		);
 	}
 
+	@Test
+	public void testLeftOuterJoin() throws Exception {
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		KeyedStream<Tuple2<String, Integer>, String> streamOne = env.fromElements(
+			Tuple2.of("key1", 0),
+			Tuple2.of("key2", 1),
+			Tuple2.of("key3", 2)
+		)
+			.assignTimestampsAndWatermarks(new AscendingTuple2TimestampExtractor())
+			.keyBy(new Tuple2KeyExtractor());
+
+		KeyedStream<Tuple2<String, Integer>, String> streamTwo = env.fromElements(
+			Tuple2.of("key1", 0),
+			Tuple2.of("key2", 1),
+			Tuple2.of("key4", 2)
+		)
+			.assignTimestampsAndWatermarks(new AscendingTuple2TimestampExtractor())
+			.keyBy(new Tuple2KeyExtractor());
+
+		streamOne
+			.intervalLeftOuterJoin(streamTwo)
+			.between(Time.milliseconds(0), Time.milliseconds(1))
+			.process(new CombineToStringJoinFunction())
+			.addSink(new ResultSink());
+
+		env.execute();
+
+		expectInAnyOrder(
+			"(key1,0):(key1,0)",
+			"(key2,1):(key2,1)",
+			"(key3,2):null"
+		);
+	}
+
+	@Test
+	public void testRightOuterJoin() throws Exception {
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		KeyedStream<Tuple2<String, Integer>, String> streamOne = env.fromElements(
+			Tuple2.of("key1", 0),
+			Tuple2.of("key2", 1),
+			Tuple2.of("key3", 2)
+		)
+			.assignTimestampsAndWatermarks(new AscendingTuple2TimestampExtractor())
+			.keyBy(new Tuple2KeyExtractor());
+
+		KeyedStream<Tuple2<String, Integer>, String> streamTwo = env.fromElements(
+			Tuple2.of("key1", 0),
+			Tuple2.of("key2", 1),
+			Tuple2.of("key4", 2)
+		)
+			.assignTimestampsAndWatermarks(new AscendingTuple2TimestampExtractor())
+			.keyBy(new Tuple2KeyExtractor());
+
+		streamOne
+			.intervalRightOuterJoin(streamTwo)
+			.between(Time.milliseconds(0), Time.milliseconds(1))
+			.process(new CombineToStringJoinFunction())
+			.addSink(new ResultSink());
+
+		env.execute();
+
+		expectInAnyOrder(
+			"(key1,0):(key1,0)",
+			"(key2,1):(key2,1)",
+			"null:(key4,2)"
+		);
+	}
+
+	@Test
+	public void testFullOuterJoin() throws Exception {
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		KeyedStream<Tuple2<String, Integer>, String> streamOne = env.fromElements(
+			Tuple2.of("key1", 0),
+			Tuple2.of("key2", 1),
+			Tuple2.of("key3", 2)
+		)
+			.assignTimestampsAndWatermarks(new AscendingTuple2TimestampExtractor())
+			.keyBy(new Tuple2KeyExtractor());
+
+		KeyedStream<Tuple2<String, Integer>, String> streamTwo = env.fromElements(
+			Tuple2.of("key1", 0),
+			Tuple2.of("key2", 1),
+			Tuple2.of("key4", 2)
+		)
+			.assignTimestampsAndWatermarks(new AscendingTuple2TimestampExtractor())
+			.keyBy(new Tuple2KeyExtractor());
+
+		streamOne
+			.intervalFullOuterJoin(streamTwo)
+			.between(Time.milliseconds(0), Time.milliseconds(1))
+			.process(new CombineToStringJoinFunction())
+			.addSink(new ResultSink());
+
+		env.execute();
+
+		expectInAnyOrder(
+			"(key1,0):(key1,0)",
+			"(key2,1):(key2,1)",
+			"(key3,2):null",
+			"null:(key4,2)"
+		);
+	}
+
 	@Test(expected = UnsupportedTimeCharacteristicException.class)
 	public void testExecutionFailsInProcessingTime() throws Exception {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();

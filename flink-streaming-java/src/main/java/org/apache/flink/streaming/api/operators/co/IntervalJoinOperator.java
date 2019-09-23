@@ -112,6 +112,8 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 
 	private transient InternalTimerService<String> internalTimerService;
 
+	private IntervalJoinType joinType;
+
 	/**
 	 * Creates a new IntervalJoinOperator.
 	 *
@@ -123,6 +125,7 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 	 *                            the upper bound
 	 * @param udf                 A user-defined {@link ProcessJoinFunction} that gets called
 	 *                            whenever two elements of T1 and T2 are joined
+	 * @param joinType            The join type
 	 */
 	public IntervalJoinOperator(
 			long lowerBound,
@@ -131,7 +134,8 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 			boolean upperBoundInclusive,
 			TypeSerializer<T1> leftTypeSerializer,
 			TypeSerializer<T2> rightTypeSerializer,
-			ProcessJoinFunction<T1, T2, OUT> udf) {
+			ProcessJoinFunction<T1, T2, OUT> udf,
+			IntervalJoinType joinType) {
 
 		super(Preconditions.checkNotNull(udf));
 
@@ -145,6 +149,8 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 
 		this.leftTypeSerializer = Preconditions.checkNotNull(leftTypeSerializer);
 		this.rightTypeSerializer = Preconditions.checkNotNull(rightTypeSerializer);
+
+		this.joinType = joinType;
 	}
 
 	@Override
@@ -223,8 +229,7 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 			return;
 		}
 
-		addToBuffer(ourBuffer, ourValue, ourTimestamp);
-
+		boolean hasBeenJoined = false;
 		for (Map.Entry<Long, List<BufferEntry<OTHER>>> bucket: otherBuffer.entries()) {
 			final long timestamp  = bucket.getKey();
 
@@ -233,14 +238,31 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 				continue;
 			}
 
+			hasBeenJoined = true;
+			boolean otherJoinedStateChanged = false;
 			for (BufferEntry<OTHER> entry: bucket.getValue()) {
 				if (isLeft) {
 					collect((T1) ourValue, (T2) entry.element, ourTimestamp, timestamp);
 				} else {
 					collect((T1) entry.element, (T2) ourValue, timestamp, ourTimestamp);
 				}
+
+				if (!entry.hasBeenJoined) {
+					entry.hasBeenJoined = true;
+					otherJoinedStateChanged = true;
+				}
+			}
+
+			if (otherJoinedStateChanged) {
+				if (joinType == IntervalJoinType.INTERVAL_FULL_OUTER_JOIN ||
+					(isLeft && joinType == IntervalJoinType.INTERVAL_RIGHT_OUTER_JOIN) ||
+					(!isLeft && joinType == IntervalJoinType.INTERVAL_LEFT_OUTER_JOIN)) {
+					otherBuffer.put(bucket.getKey(), bucket.getValue());
+				}
 			}
 		}
+
+		addToBuffer(ourBuffer, ourValue, ourTimestamp, hasBeenJoined);
 
 		long cleanupTime = (relativeUpperBound > 0L) ? ourTimestamp + relativeUpperBound : ourTimestamp;
 		if (isLeft) {
@@ -267,12 +289,13 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 	private static <T> void addToBuffer(
 			final MapState<Long, List<IntervalJoinOperator.BufferEntry<T>>> buffer,
 			final T value,
-			final long timestamp) throws Exception {
+			final long timestamp,
+			boolean hasBeenJoined) throws Exception {
 		List<BufferEntry<T>> elemsInBucket = buffer.get(timestamp);
 		if (elemsInBucket == null) {
 			elemsInBucket = new ArrayList<>();
 		}
-		elemsInBucket.add(new BufferEntry<>(value, false));
+		elemsInBucket.add(new BufferEntry<>(value, hasBeenJoined));
 		buffer.put(timestamp, elemsInBucket);
 	}
 
@@ -287,12 +310,33 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 		switch (namespace) {
 			case CLEANUP_NAMESPACE_LEFT: {
 				long timestamp = (upperBound <= 0L) ? timerTimestamp : timerTimestamp - upperBound;
+				if (joinType == IntervalJoinType.INTERVAL_FULL_OUTER_JOIN || joinType == IntervalJoinType.INTERVAL_LEFT_OUTER_JOIN) {
+					List<BufferEntry<T1>> leftElements = leftBuffer.get(timestamp);
+					if (leftElements != null) {
+						for (BufferEntry<T1> element : leftElements) {
+							if (!element.hasBeenJoined) {
+								collect(element.element, null, timestamp, 0);
+							}
+						}
+					}
+				}
 				logger.trace("Removing from left buffer @ {}", timestamp);
 				leftBuffer.remove(timestamp);
 				break;
 			}
 			case CLEANUP_NAMESPACE_RIGHT: {
 				long timestamp = (lowerBound <= 0L) ? timerTimestamp + lowerBound : timerTimestamp;
+				if (joinType == IntervalJoinType.INTERVAL_FULL_OUTER_JOIN || joinType == IntervalJoinType.INTERVAL_RIGHT_OUTER_JOIN) {
+					List<BufferEntry<T2>> rightElements = rightBuffer.get(timestamp);
+					if (rightElements != null) {
+						for (BufferEntry<T2> element : rightElements) {
+							if (!element.hasBeenJoined) {
+								collect(null, element.element, 0, timestamp);
+							}
+						}
+					}
+				}
+
 				logger.trace("Removing from right buffer @ {}", timestamp);
 				rightBuffer.remove(timestamp);
 				break;
@@ -363,8 +407,8 @@ public class IntervalJoinOperator<K, T1, T2, OUT>
 	@VisibleForTesting
 	static class BufferEntry<T> {
 
-		private final T element;
-		private final boolean hasBeenJoined;
+		private T element;
+		private boolean hasBeenJoined;
 
 		BufferEntry(T element, boolean hasBeenJoined) {
 			this.element = element;

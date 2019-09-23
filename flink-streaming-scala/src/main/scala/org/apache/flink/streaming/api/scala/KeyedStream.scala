@@ -30,6 +30,7 @@ import org.apache.flink.streaming.api.functions.co.ProcessJoinFunction
 import org.apache.flink.streaming.api.functions.query.{QueryableAppendingStateOperator, QueryableValueStateOperator}
 import org.apache.flink.streaming.api.functions.{KeyedProcessFunction, ProcessFunction}
 import org.apache.flink.streaming.api.operators.StreamGroupedReduce
+import org.apache.flink.streaming.api.operators.co.IntervalJoinType
 import org.apache.flink.streaming.api.scala.function.StatefulFunction
 import org.apache.flink.streaming.api.windowing.assigners._
 import org.apache.flink.streaming.api.windowing.time.Time
@@ -125,7 +126,49 @@ class KeyedStream[T, K](javaStream: KeyedJavaStream[T, K]) extends DataStream[T]
     */
   @PublicEvolving
   def intervalJoin[OTHER](otherStream: KeyedStream[OTHER, K]): IntervalJoin[T, OTHER, K] = {
-    new IntervalJoin[T, OTHER, K](this, otherStream)
+    new IntervalJoin[T, OTHER, K](this, otherStream, IntervalJoinType.INTERVAL_INNER_JOIN)
+  }
+
+  /**
+    * Left outer join elements of this [[KeyedStream]] with elements of another [[KeyedStream]] over
+    * a time interval that can be specified with [[IntervalJoin.between]].
+    *
+    * @param otherStream The other keyed stream to join this keyed stream with
+    * @tparam OTHER Type parameter of elements in the other stream
+    * @return An instance of [[IntervalJoin]] with this keyed stream and the other keyed stream
+    */
+  @PublicEvolving
+  def intervalLeftOuterJoin[OTHER](otherStream: KeyedStream[OTHER, K])
+    : IntervalJoin[T, OTHER, K] = {
+    new IntervalJoin[T, OTHER, K](this, otherStream, IntervalJoinType.INTERVAL_LEFT_OUTER_JOIN)
+  }
+
+  /**
+    * Right outer join elements of this [[KeyedStream]] with elements of another [[KeyedStream]]
+    * over a time interval that can be specified with [[IntervalJoin.between]].
+    *
+    * @param otherStream The other keyed stream to join this keyed stream with
+    * @tparam OTHER Type parameter of elements in the other stream
+    * @return An instance of [[IntervalJoin]] with this keyed stream and the other keyed stream
+    */
+  @PublicEvolving
+  def intervalRightOuterJoin[OTHER](otherStream: KeyedStream[OTHER, K])
+    : IntervalJoin[T, OTHER, K] = {
+    new IntervalJoin[T, OTHER, K](this, otherStream, IntervalJoinType.INTERVAL_RIGHT_OUTER_JOIN)
+  }
+
+  /**
+    * Full outer join elements of this [[KeyedStream]] with elements of another [[KeyedStream]] over
+    * a time interval that can be specified with [[IntervalJoin.between]].
+    *
+    * @param otherStream The other keyed stream to join this keyed stream with
+    * @tparam OTHER Type parameter of elements in the other stream
+    * @return An instance of [[IntervalJoin]] with this keyed stream and the other keyed stream
+    */
+  @PublicEvolving
+  def intervalFullOuterJoin[OTHER](otherStream: KeyedStream[OTHER, K])
+    : IntervalJoin[T, OTHER, K] = {
+    new IntervalJoin[T, OTHER, K](this, otherStream, IntervalJoinType.INTERVAL_FULL_OUTER_JOIN)
   }
 
   /**
@@ -136,7 +179,8 @@ class KeyedStream[T, K](javaStream: KeyedJavaStream[T, K]) extends DataStream[T]
     */
   @PublicEvolving
   class IntervalJoin[IN1, IN2, KEY](val streamOne: KeyedStream[IN1, KEY],
-                                    val streamTwo: KeyedStream[IN2, KEY]) {
+                                    val streamTwo: KeyedStream[IN2, KEY],
+                                    val joinType: IntervalJoinType) {
 
     /**
       * Specifies the time boundaries over which the join operation works, so that
@@ -153,7 +197,7 @@ class KeyedStream[T, K](javaStream: KeyedJavaStream[T, K]) extends DataStream[T]
     def between(lowerBound: Time, upperBound: Time): IntervalJoined[IN1, IN2, KEY] = {
       val lowerMillis = lowerBound.toMilliseconds
       val upperMillis = upperBound.toMilliseconds
-      new IntervalJoined[IN1, IN2, KEY](streamOne, streamTwo, lowerMillis, upperMillis)
+      new IntervalJoined[IN1, IN2, KEY](streamOne, streamTwo, lowerMillis, upperMillis, joinType)
     }
   }
 
@@ -169,10 +213,13 @@ class KeyedStream[T, K](javaStream: KeyedJavaStream[T, K]) extends DataStream[T]
   class IntervalJoined[IN1, IN2, KEY](private val firstStream: KeyedStream[IN1, KEY],
                                       private val secondStream: KeyedStream[IN2, KEY],
                                       private val lowerBound: Long,
-                                      private val upperBound: Long) {
+                                      private val upperBound: Long,
+                                      private val joinType: IntervalJoinType) {
 
     private var lowerBoundInclusive = true
     private var upperBoundInclusive = true
+
+    private var intervalJoinType = IntervalJoinType.INTERVAL_INNER_JOIN
 
     /**
       * Set the lower bound to be exclusive
@@ -213,7 +260,8 @@ class KeyedStream[T, K](javaStream: KeyedJavaStream[T, K]) extends DataStream[T]
         lowerBound,
         upperBound,
         lowerBoundInclusive,
-        upperBoundInclusive)
+        upperBoundInclusive,
+        joinType)
       asScalaStream(javaJoined.process(processJoinFunction, outType))
     }
   }

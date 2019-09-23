@@ -53,6 +53,7 @@ import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamGroupedFold;
 import org.apache.flink.streaming.api.operators.StreamGroupedReduce;
 import org.apache.flink.streaming.api.operators.co.IntervalJoinOperator;
+import org.apache.flink.streaming.api.operators.co.IntervalJoinType;
 import org.apache.flink.streaming.api.transformations.OneInputTransformation;
 import org.apache.flink.streaming.api.transformations.PartitionTransformation;
 import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
@@ -412,7 +413,46 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 	 */
 	@PublicEvolving
 	public <T1> IntervalJoin<T, T1, KEY> intervalJoin(KeyedStream<T1, KEY> otherStream) {
-		return new IntervalJoin<>(this, otherStream);
+		return new IntervalJoin<>(this, otherStream, IntervalJoinType.INTERVAL_INNER_JOIN);
+	}
+
+	/**
+	 * Left outer join elements of this {@link KeyedStream} with elements of another {@link KeyedStream} over
+	 * a time interval that can be specified with {@link IntervalJoin#between(Time, Time)}.
+	 *
+	 * @param otherStream The other keyed stream to join this keyed stream with
+	 * @param <T1> Type parameter of elements in the other stream
+	 * @return An instance of {@link IntervalJoin} with this keyed stream and the other keyed stream
+	 */
+	@PublicEvolving
+	public <T1> IntervalJoin<T, T1, KEY> intervalLeftOuterJoin(KeyedStream<T1, KEY> otherStream) {
+		return new IntervalJoin<>(this, otherStream, IntervalJoinType.INTERVAL_LEFT_OUTER_JOIN);
+	}
+
+	/**
+	 * Right outer join elements of this {@link KeyedStream} with elements of another {@link KeyedStream} over
+	 * a time interval that can be specified with {@link IntervalJoin#between(Time, Time)}.
+	 *
+	 * @param otherStream The other keyed stream to join this keyed stream with
+	 * @param <T1> Type parameter of elements in the other stream
+	 * @return An instance of {@link IntervalJoin} with this keyed stream and the other keyed stream
+	 */
+	@PublicEvolving
+	public <T1> IntervalJoin<T, T1, KEY> intervalRightOuterJoin(KeyedStream<T1, KEY> otherStream) {
+		return new IntervalJoin<>(this, otherStream, IntervalJoinType.INTERVAL_RIGHT_OUTER_JOIN);
+	}
+
+	/**
+	 * Full outer join elements of this {@link KeyedStream} with elements of another {@link KeyedStream} over
+	 * a time interval that can be specified with {@link IntervalJoin#between(Time, Time)}.
+	 *
+	 * @param otherStream The other keyed stream to join this keyed stream with
+	 * @param <T1> Type parameter of elements in the other stream
+	 * @return An instance of {@link IntervalJoin} with this keyed stream and the other keyed stream
+	 */
+	@PublicEvolving
+	public <T1> IntervalJoin<T, T1, KEY> intervalFullOuterJoin(KeyedStream<T1, KEY> otherStream) {
+		return new IntervalJoin<>(this, otherStream, IntervalJoinType.INTERVAL_FULL_OUTER_JOIN);
 	}
 
 	/**
@@ -425,13 +465,16 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 
 		private final KeyedStream<T1, KEY> streamOne;
 		private final KeyedStream<T2, KEY> streamTwo;
+		private IntervalJoinType joinType;
 
 		IntervalJoin(
 				KeyedStream<T1, KEY> streamOne,
-				KeyedStream<T2, KEY> streamTwo
+				KeyedStream<T2, KEY> streamTwo,
+				IntervalJoinType joinType
 		) {
 			this.streamOne = checkNotNull(streamOne);
 			this.streamTwo = checkNotNull(streamTwo);
+			this.joinType = joinType;
 		}
 
 		/**
@@ -463,7 +506,8 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 				lowerBound.toMilliseconds(),
 				upperBound.toMilliseconds(),
 				true,
-				true
+				true,
+				joinType
 			);
 		}
 	}
@@ -491,13 +535,16 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 		private boolean lowerBoundInclusive;
 		private boolean upperBoundInclusive;
 
+		private IntervalJoinType joinType;
+
 		public IntervalJoined(
 				KeyedStream<IN1, KEY> left,
 				KeyedStream<IN2, KEY> right,
 				long lowerBound,
 				long upperBound,
 				boolean lowerBoundInclusive,
-				boolean upperBoundInclusive) {
+				boolean upperBoundInclusive,
+				IntervalJoinType joinType) {
 
 			this.left = checkNotNull(left);
 			this.right = checkNotNull(right);
@@ -510,6 +557,8 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 
 			this.keySelector1 = left.getKeySelector();
 			this.keySelector2 = right.getKeySelector();
+
+			this.joinType = joinType;
 		}
 
 		/**
@@ -584,7 +633,8 @@ public class KeyedStream<T, KEY> extends DataStream<T> {
 					upperBoundInclusive,
 					left.getType().createSerializer(left.getExecutionConfig()),
 					right.getType().createSerializer(right.getExecutionConfig()),
-					cleanedUdf
+					cleanedUdf,
+					joinType
 				);
 
 			return left
