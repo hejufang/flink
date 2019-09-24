@@ -205,9 +205,9 @@ class Alert(object):
             if ms_zone:
                 headers = {"Ms-Zone": ms_zone}
             (succ, alerts) = HttpUtil.do_get(url, headers=headers)
-            if not succ or not alerts:
+            if not succ or not alerts or not alerts['data']:
                 continue
-            for rule in alerts:
+            for rule in alerts['data']:
                 url = self.ms_base_url + '/relation/v1/alarm_rule/delete_by_alias'
                 (succ, reps) = HttpUtil.do_post(url, data={"rule_alias": rule}, headers=headers)
                 if not succ or reps['error_code'] != 0:
