@@ -20,7 +20,9 @@ package org.apache.flink.streaming.connectors.kafka.internals;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.View;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
@@ -42,6 +44,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITTED_OFFSETS_METRICS_GAUGE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CURRENT_OFFSETS_METRICS_GAUGE;
+import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CURRENT_OFFSETS_METRICS_RATE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.LEGACY_COMMITTED_OFFSETS_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.LEGACY_CURRENT_OFFSETS_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.OFFSETS_BY_PARTITION_METRICS_GROUP;
@@ -622,8 +625,11 @@ public abstract class AbstractFetcher<T, KPH> {
 				.addGroup(OFFSETS_BY_TOPIC_METRICS_GROUP, ktp.getTopic())
 				.addGroup(OFFSETS_BY_PARTITION_METRICS_GROUP, Integer.toString(ktp.getPartition()));
 
-			topicPartitionGroup.gauge(CURRENT_OFFSETS_METRICS_GAUGE, new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET));
+			OffsetGauge currentOffsetGauge = new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET);
+			topicPartitionGroup.gauge(CURRENT_OFFSETS_METRICS_GAUGE, currentOffsetGauge);
 			topicPartitionGroup.gauge(COMMITTED_OFFSETS_METRICS_GAUGE, new OffsetGauge(ktp, OffsetGaugeType.COMMITTED_OFFSET));
+
+			topicPartitionGroup.meter(CURRENT_OFFSETS_METRICS_RATE, new OffsetMeterView(currentOffsetGauge, 60));
 
 			legacyCurrentOffsetsMetricGroup.gauge(getLegacyOffsetsMetricsGaugeName(ktp), new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET));
 			legacyCommittedOffsetsMetricGroup.gauge(getLegacyOffsetsMetricsGaugeName(ktp), new OffsetGauge(ktp, OffsetGaugeType.COMMITTED_OFFSET));
@@ -667,6 +673,47 @@ public abstract class AbstractFetcher<T, KPH> {
 			}
 		}
 	}
+
+	private static class OffsetMeterView implements Meter, View {
+
+		private final OffsetGauge gauge;
+		private final int timeSpanInSeconds;
+		private final long[] values;
+		private int time = 0;
+		private double currentRate = 0.0;
+
+		public OffsetMeterView(OffsetGauge gauge, int timeSpanInSeconds) {
+			this.gauge = gauge;
+			this.timeSpanInSeconds = Math.max(
+				timeSpanInSeconds - (timeSpanInSeconds % UPDATE_INTERVAL_SECONDS),
+				UPDATE_INTERVAL_SECONDS);
+			this.values = new long[this.timeSpanInSeconds / UPDATE_INTERVAL_SECONDS + 1];
+		}
+
+		@Override
+		public void markEvent() {}
+
+		@Override
+		public void markEvent(long n) {}
+
+		@Override
+		public double getRate() {
+			return currentRate;
+		}
+
+		@Override
+		public long getCount() {
+			return 0;
+		}
+
+		@Override
+		public void update() {
+			time = (time + 1) % values.length;
+			values[time] = gauge.getValue();
+			currentRate =  ((double) (values[time] - values[(time + 1) % values.length]) / timeSpanInSeconds);
+		}
+	}
+
  	// ------------------------------------------------------------------------
 
 	/**

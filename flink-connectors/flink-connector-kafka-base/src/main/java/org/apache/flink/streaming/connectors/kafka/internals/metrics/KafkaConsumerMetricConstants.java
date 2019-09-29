@@ -46,6 +46,8 @@ public class KafkaConsumerMetricConstants {
 	public static final String CURRENT_OFFSETS_METRICS_GAUGE = "currentOffsets";
 	public static final String COMMITTED_OFFSETS_METRICS_GAUGE = "committedOffsets";
 
+	public static final String CURRENT_OFFSETS_METRICS_RATE = "currentOffsetsRate";
+
 	// ------------------------------------------------------------------------
 	//  Legacy metrics
 	// ------------------------------------------------------------------------

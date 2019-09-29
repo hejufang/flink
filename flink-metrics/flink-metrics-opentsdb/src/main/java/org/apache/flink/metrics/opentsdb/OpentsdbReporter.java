@@ -23,19 +23,22 @@ import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.HistogramStatistics;
 import org.apache.flink.metrics.Meter;
+import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 
 import com.bytedance.metrics.UdpMetricsClient;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,7 +46,6 @@ import java.util.regex.Pattern;
  * Created by zhangguanghui on 2017/7/25.
  */
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
-	private static final Logger LOG = LoggerFactory.getLogger(OpentsdbReporter.class);
 	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
 	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
@@ -57,16 +59,72 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
 
+	// *************************************************************************
+	//     Global Aggregated Metric (add metric name below if needed)
+	// *************************************************************************
+
+	private static final String GLOBAL_PREFIX = "job";
+	private static final String FULL_RESTARTS_METRIC = "fullRestarts";
+	private static final String CURRENT_OFFSETS_RATE_METRIC = "currentOffsetsRate";
+	private static final String FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
+
+	private Set<String> globalNeededMetrics = new HashSet<>();
+	private Map<String, String> globalMetricNames = new HashMap<>();
+
 	@Override
 	public void open(MetricConfig config) {
 		this.prefix = config.getString("prefix", "flink");
 		this.udpMetricsClient = new UdpMetricsClient(this.prefix);
 		this.jobName = config.getString("jobname", "flink");
-		LOG.info("prefix = {} jobName = {}", this.prefix, this.jobName);
+		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
+
+		globalNeededMetrics.add(FULL_RESTARTS_METRIC);
+		globalNeededMetrics.add(CURRENT_OFFSETS_RATE_METRIC);
+		globalNeededMetrics.add(FAILED_CHECKPOINTS_METRIC);
+	}
+
+	@Override
+	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
+		final String name = group.getMetricIdentifier(metricName, this);
+
+		if (globalNeededMetrics.contains(metricName)) {
+			log.info("Register global metric: {}.", name);
+			globalMetricNames.put(name, metricName);
+		}
+
+		synchronized (this) {
+			if (metric instanceof Counter) {
+				counters.put((Counter) metric, name);
+			} else if (metric instanceof Gauge) {
+				gauges.put((Gauge<?>) metric, name);
+			} else if (metric instanceof Histogram) {
+				histograms.put((Histogram) metric, name);
+			} else if (metric instanceof Meter) {
+				meters.put((Meter) metric, name);
+			} else {
+				log.warn("Cannot add unknown metric type {}. This indicates that the reporter " +
+					"does not support this metric type.", metric.getClass().getName());
+			}
+		}
 	}
 
 	@Override
 	public void close() {
+	}
+
+	private void reportGlobalMetrics(String type, String name, String metricName,
+					double value, String tags) throws IOException {
+		if (globalMetricNames.containsKey(name)) {
+			String emitMetricName = globalMetricNames.get(name);
+			if (!emitMetricName.equals(metricName)) {
+				String prefixEmitMetricName = GLOBAL_PREFIX + "." + emitMetricName;
+				if (type.equals("counter")) {
+					this.udpMetricsClient.emitCounterWithTag(prefixEmitMetricName, value, tags);
+				} else {
+					this.udpMetricsClient.emitStoreWithTag(prefixEmitMetricName, value, tags);
+				}
+			}
+		}
 	}
 
 	@Override
@@ -77,6 +135,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				double value = counterStringEntry.getKey().getCount();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
 				this.udpMetricsClient.emitCounterWithTag(tuple.x, value, tuple.y);
+				reportGlobalMetrics("counter", name, tuple.x, value, tuple.y);
 			}
 
 			for (Map.Entry<Gauge<?>, String> gaugeStringEntry : gauges.entrySet()) {
@@ -86,10 +145,12 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				if (value instanceof Number) {
 					double d = ((Number) value).doubleValue();
 					this.udpMetricsClient.emitStoreWithTag(tuple.x, d, tuple.y);
+					reportGlobalMetrics("gauge", name, tuple.x, d, tuple.y);
 				} else if (value instanceof String){
 					try {
 						double d = Double.parseDouble((String) value);
 						this.udpMetricsClient.emitStoreWithTag(tuple.x, d, tuple.y);
+						reportGlobalMetrics("gauge", name, tuple.x, d, tuple.y);
 					} catch (NumberFormatException nf) {
 //						LOG.warn("can't change to Number {}", value);
 					}
@@ -105,6 +166,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "rate"), meter.getRate(), tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "count"), meter.getCount(), tuple.y);
+				reportGlobalMetrics("meter", name, tuple.x, meter.getRate(), tuple.y);
 			}
 
 			for (Map.Entry<Histogram, String> histogramStringEntry : histograms.entrySet()) {
@@ -120,15 +182,14 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "p99"), statistics.getQuantile(0.99), tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "p75"), statistics.getQuantile(0.75), tuple.y);
 				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "p50"), statistics.getQuantile(0.50), tuple.y);
+				reportGlobalMetrics("histogram", name, tuple.x, histogram.getCount(), tuple.y);
 			}
-
 		} catch (IOException ie) {
-			LOG.error("Failed to send Metrics", ie);
+			log.error("Failed to send Metrics", ie);
 		} catch (ConcurrentModificationException ce) {
 			// ignore it
-			LOG.warn("encounter ConcurrentModificationException, ignore it");
+			log.warn("encounter ConcurrentModificationException, ignore it");
 		}
-
 	}
 
 	@Override
@@ -182,7 +243,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				taskManagerMetricName = simplifyMetricsName(taskManagerMetricName);
 			}
 
-			if (taskManagerMetricName != "") {
+			if (!taskManagerMetricName.equals("")) {
 				Matcher taskMatcher = TASK_MANAGER_PATTERN_2.matcher(taskManagerMetricName);
 				if (taskMatcher.find()) {
 					String taskId = taskMatcher.group(2);
