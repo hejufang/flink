@@ -110,9 +110,13 @@ public class HadoopUtils {
 				"(Flink configuration, environment variables).");
 		}
 
-		int retries = flinkConfiguration.getInteger(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES);
-		result.setInt(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
-		LOG.info("using hdfs param {}={}", HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
+		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES)) {
+			int retries = flinkConfiguration.getInteger(
+				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES);
+			result.setInt(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
+			LOG.info("using hdfs param {}={}",
+				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES, retries);
+		}
 
 		return result;
 	}
