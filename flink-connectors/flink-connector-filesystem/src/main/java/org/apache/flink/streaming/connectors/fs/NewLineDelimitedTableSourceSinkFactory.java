@@ -22,6 +22,7 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.descriptors.CsvValidator;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FileSystemValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
@@ -178,9 +179,12 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		TableSchema tableSchema = params.getTableSchema(SCHEMA);
 		Optional<String> codec = params.getOptionalString(CONF_OUTPUT_FORMAT_COMPRESS_CODEC);
 
+		// csv格式需打印出header信息
+		String fieldDelimiter = params.getOptionalString(CsvValidator.FORMAT_FIELD_DELIMITER).orElse(null);
+
 		return codec.map(
-			value -> new NewLineDelimitedTableSink(path, tableSchema, serializationSchema, value)
-		).orElse(new NewLineDelimitedTableSink(path, tableSchema, serializationSchema));
+			value -> new NewLineDelimitedTableSink(path, tableSchema, serializationSchema, value, fieldDelimiter)
+		).orElse(new NewLineDelimitedTableSink(path, tableSchema, serializationSchema, fieldDelimiter));
 	}
 
 	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {

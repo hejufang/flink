@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -56,7 +56,7 @@ public class NewLineDelimitedTableSinkITCase {
 
 	private static final TableSchema TABLE_SCHEMA = new TableSchema(FIELD_NAMES, FIELD_TYPES);
 
-	private void execute(String filePath, SerializationSchema serSchema, String codec) throws Exception{
+	private void execute(String filePath, SerializationSchema serSchema, String codec, String fieldDelimiter) throws Exception {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
 		Row row1 = Row.of("this is", 1, 2.0);
 		Row row2 = Row.of("a test", 3, 4.0);
@@ -65,7 +65,7 @@ public class NewLineDelimitedTableSinkITCase {
 		list.add(row2);
 		DataStream<Row> rows = env.fromCollection(list);
 
-		NewLineDelimitedTableSink newLineDelimitedTableSink = new NewLineDelimitedTableSink(filePath, TABLE_SCHEMA, 1, null, serSchema, codec);
+		NewLineDelimitedTableSink newLineDelimitedTableSink = new NewLineDelimitedTableSink(filePath, TABLE_SCHEMA, 1, null, serSchema, codec, fieldDelimiter);
 		newLineDelimitedTableSink.emitDataStream(rows);
 		env.execute();
 	}
@@ -78,14 +78,31 @@ public class NewLineDelimitedTableSinkITCase {
 	}
 
 	@Test
-	public void testCsvSer() throws Exception {
+	public void testCsvSerWithHeader() throws Exception {
 		final CsvRowSerializationSchema serSchema = new CsvRowSerializationSchema.Builder(SCHEMA).build();
 		UUID uuid = UUID.randomUUID();
 		String tempFilePath = "/tmp/" + uuid.toString() + ".csv";
-		execute(tempFilePath, serSchema, null);
+		execute(tempFilePath, serSchema, null, ",");
+
+		List<String> results = Files.lines(Paths.get(tempFilePath)).collect(Collectors.toList());
+
+		Assert.assertEquals("header1,header2,header3", results.get(0));
+		Assert.assertEquals("\"this is\",1,2.0", results.get(1));
+		Assert.assertEquals("\"a test\",3,4.0", results.get(2));
+
+		deleteFile(tempFilePath);
+	}
+
+	@Test
+	public void testCsvSerWithNoHeader() throws Exception {
+		final CsvRowSerializationSchema serSchema = new CsvRowSerializationSchema.Builder(SCHEMA).build();
+		UUID uuid = UUID.randomUUID();
+		String tempFilePath = "/tmp/" + uuid.toString() + ".csv";
+		execute(tempFilePath, serSchema, null, null);
 
 		List<String> results = Files.lines(Paths.get(tempFilePath)).collect(Collectors.toList());
 		Assert.assertEquals("\"this is\",1,2.0", results.get(0));
+		Assert.assertEquals("\"a test\",3,4.0", results.get(1));
 
 		deleteFile(tempFilePath);
 	}
@@ -95,7 +112,7 @@ public class NewLineDelimitedTableSinkITCase {
 		final JsonRowSerializationSchema serSchema = new JsonRowSerializationSchema.Builder(SCHEMA).build();
 		UUID uuid = UUID.randomUUID();
 		String tempFilePath = "/tmp/" + uuid.toString() + ".json";
-		execute(tempFilePath, serSchema, null);
+		execute(tempFilePath, serSchema, null, null);
 
 		List<String> results = Files.lines(Paths.get(tempFilePath)).collect(Collectors.toList());
 		Assert.assertEquals("{\"header1\":\"this is\",\"header2\":1,\"header3\":2.0}", results.get(0));

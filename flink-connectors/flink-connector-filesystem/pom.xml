@@ -73,18 +73,18 @@ under the License.
 			<scope>provided</scope>
 		</dependency>
 
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-csv</artifactId>
+			<version>${project.version}</version>
+			<scope>compile</scope>
+		</dependency>
+
 		<!-- test dependencies -->
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-json</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-csv</artifactId>
 			<version>${project.version}</version>
 			<scope>test</scope>
 		</dependency>
@@ -182,8 +182,8 @@ under the License.
 
 					<environmentVariables>
 						<!-- Make sure external hadoop environment will not affect maven building -->
-						<HADOOP_HOME />
-						<HADOOP_CONF_DIR />
+						<HADOOP_HOME/>
+						<HADOOP_CONF_DIR/>
 					</environmentVariables>
 				</configuration>
 			</plugin>
