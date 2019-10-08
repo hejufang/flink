@@ -42,7 +42,6 @@ public class HeartBeatHandler extends ChannelInboundHandlerAdapter {
 		if (msg instanceof NettyMessage.HeartBeat) {
 			NettyMessage.HeartBeat heartBeat = (NettyMessage.HeartBeat) msg;
 			LOGGER.debug("heartbeat = {}", heartBeat);
-			ctx.writeAndFlush(new NettyMessage.HeartBeat());
 			readIdleCount = 0;
 		} else {
 			ctx.fireChannelRead(msg);
