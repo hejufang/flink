@@ -701,8 +701,12 @@ class FlinkTopology(object):
             for key in self.flink_yarn_args:
                 value = self.flink_yarn_args[key]
                 if isinstance(value, basestring):
-                    self.flink_args += ' -yD %s="%s"' % (
-                        key, self.flink_yarn_args[key].replace("\"", "\\\""))
+                    if self.version == FLINK_1_9_VERVION:
+                        self.flink_args += ' -yD %s="%s"' % (
+                            key, self.flink_yarn_args[key].replace("\"", "\\\""))
+                    else:
+                        self.flink_args += ' -yD %s=%s' % (
+                            key, self.flink_yarn_args[key].replace(" ", "#").replace(";", "@@"))
                 else:
                     self.flink_args += ' -yD %s=%s' % (
                         key, self.flink_yarn_args[key])
