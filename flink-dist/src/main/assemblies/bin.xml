@@ -88,12 +88,6 @@ under the License.
 		</file>
 
 		<file>
-			<source>../flink-formats/flink-json/target/flink-json-${project.version}.jar</source>
-			<outputDirectory>lib/</outputDirectory>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
 			<source>../flink-metrics/flink-metrics-dropwizard/target/flink-metrics-dropwizard-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<fileMode>0644</fileMode>
