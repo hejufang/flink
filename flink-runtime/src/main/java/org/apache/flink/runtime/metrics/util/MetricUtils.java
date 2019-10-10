@@ -211,8 +211,10 @@ public class MetricUtils {
 	private static void instantiateCPUMetrics(MetricGroup metrics) {
 		try {
 			final com.sun.management.OperatingSystemMXBean mxBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-
-			metrics.<Double, Gauge<Double>>gauge("Load", mxBean::getProcessCpuLoad);
+			final int cpuCores = Runtime.getRuntime().availableProcessors();
+			// 原有的 Load 表示 jvm 使用的 cpu / cpu 总数，如机器 48 core，jvm cpu 使用率为 150%，则 Load = 1.5 / 48
+			// 这里使用 Runtime.getRuntime().availableProcessors() 获取机器 core 个数，同 #Hardware#getNumberCPUCores()
+			metrics.<Double, Gauge<Double>>gauge("Load", () -> mxBean.getProcessCpuLoad() * cpuCores);
 			metrics.<Long, Gauge<Long>>gauge("Time", mxBean::getProcessCpuTime);
 		} catch (Exception e) {
 			LOG.warn("Cannot access com.sun.management.OperatingSystemMXBean.getProcessCpuLoad()" +
