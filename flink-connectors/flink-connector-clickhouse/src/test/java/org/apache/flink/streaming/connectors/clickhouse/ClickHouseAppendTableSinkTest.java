@@ -64,14 +64,14 @@ public class ClickHouseAppendTableSinkTest {
 			"    executeTime bigint, \n" +
 			"    type varchar \n" +
 			") with (\n" +
-			"connector.type = 'clickhouse',\n" +
-			"connector.driver = 'ru.yandex.clickhouse.ClickHouseDriver', \n" +
-			"connector.url = 'jdbc:clickhouse://10.11.182.139:8123/', \n" +
-			"connector.db = 'dts_tst', \n" +
-			"`connector.table` = 'priest_user_test_local', \n" +
-			"`connector.table.primary-key` = 'id', \n" +
-			"`connector.username` = '', \n" +
-			"`connector.password` = '' \n" +
+			"'connector.type' = 'clickhouse',\n" +
+			"'connector.driver' = 'ru.yandex.clickhouse.ClickHouseDriver', \n" +
+			"'connector.url' = 'jdbc:clickhouse://10.11.182.139:8123/', \n" +
+			"'connector.db' = 'dts_tst', \n" +
+			"'connector.table' = 'priest_user_test_local', \n" +
+			"'connector.table.primary-key' = 'id', \n" +
+			"'connector.username' = '', \n" +
+			"'connector.password' = '' \n" +
 			")";
 
 		tEnv.sqlUpdate(sinkDDL);

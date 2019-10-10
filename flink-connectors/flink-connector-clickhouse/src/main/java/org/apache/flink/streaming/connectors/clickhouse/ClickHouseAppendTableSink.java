@@ -22,10 +22,11 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.sinks.AppendStreamTableSink;
 import org.apache.flink.table.sinks.BatchTableSink;
 import org.apache.flink.table.sinks.TableSink;
-import org.apache.flink.table.util.TableConnectorUtil;
+import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
@@ -51,9 +52,15 @@ public class ClickHouseAppendTableSink implements AppendStreamTableSink<Row>, Ba
 
 	@Override
 	public void emitDataStream(DataStream<Row> dataStream) {
-		dataStream
+		consumeDataStream(dataStream);
+	}
+
+	@Override
+	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
+		return dataStream
 			.addSink(new ClickHouseSinkFunction(outputFormat))
-			.name(TableConnectorUtil.generateRuntimeName(this.getClass(), fieldNames));
+			.setParallelism(dataStream.getParallelism())
+			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), fieldNames));
 	}
 
 	@Override
