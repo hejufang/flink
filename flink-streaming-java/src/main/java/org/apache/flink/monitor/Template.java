@@ -273,7 +273,7 @@ public class Template {
 			"}";
 
 	public static final String LAG_SIZE_TARGET = "{\n" +
-			"							\"aggregator\": \"sum\",\n" +
+			"							\"aggregator\": \"max\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"${lag}\",\n" +

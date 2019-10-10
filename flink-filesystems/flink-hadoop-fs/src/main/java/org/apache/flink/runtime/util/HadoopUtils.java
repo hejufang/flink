@@ -115,7 +115,7 @@ public class HadoopUtils {
 				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES);
 			result.setInt(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
 			LOG.info("using hdfs param {}={}",
-				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES, retries);
+				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
 		}
 
 		return result;
