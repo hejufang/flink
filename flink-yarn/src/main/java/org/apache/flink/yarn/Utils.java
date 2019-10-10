@@ -595,6 +595,10 @@ public final class Utils {
 		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, env.get(YarnConfigKeys.ENV_FLINK_YARN_QUEUE));
 		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, env.get(YarnConfigKeys.ENV_FLINK_YARN_JOB));
 
+		if (env.containsKey(YarnConfigKeys.ENV_FLINK_YARN_DC)) {
+			containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, env.get(YarnConfigKeys.ENV_FLINK_YARN_DC));
+		}
+
 		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
 			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
 

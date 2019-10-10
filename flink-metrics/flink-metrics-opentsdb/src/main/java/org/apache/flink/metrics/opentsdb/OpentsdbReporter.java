@@ -46,6 +46,9 @@ import java.util.regex.Pattern;
  * Created by zhangguanghui on 2017/7/25.
  */
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
+	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN = Pattern.compile(
+		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\S+)");
+
 	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
 	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
@@ -58,6 +61,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private UdpMetricsClient udpMetricsClient;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
+	private String region;
 
 	// *************************************************************************
 	//     Global Aggregated Metric (add metric name below if needed)
@@ -78,6 +82,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		this.jobName = config.getString("jobname", "flink");
 		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
 
+		// avoid yarn dependency
+		this.region = System.getenv("_FLINK_YARN_DC");
+
 		globalNeededMetrics.add(FULL_RESTARTS_METRIC);
 		globalNeededMetrics.add(CURRENT_OFFSETS_RATE_METRIC);
 		globalNeededMetrics.add(FAILED_CHECKPOINTS_METRIC);
@@ -87,6 +94,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final String name = group.getMetricIdentifier(metricName, this);
 
+		log.debug("Register Metric={}", name);
 		if (globalNeededMetrics.contains(metricName)) {
 			log.info("Register global metric: {}.", name);
 			globalMetricNames.put(name, metricName);
@@ -213,6 +221,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		* */
 		List<TagKv> tags = new ArrayList<>();
 		tags.add(new TagKv("jobname", this.jobName));
+		tags.add(new TagKv("region", this.region));
 		if (key.contains("jobmanager")) {
 			Matcher m = JOB_MANAGER_PATTERN.matcher(key);
 			if (m.find()) {
@@ -244,19 +253,37 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			}
 
 			if (!taskManagerMetricName.equals("")) {
-				Matcher taskMatcher = TASK_MANAGER_PATTERN_2.matcher(taskManagerMetricName);
-				if (taskMatcher.find()) {
-					String taskId = taskMatcher.group(2);
+				Matcher taskAndKafkaMatcher = TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN.matcher(taskManagerMetricName);
+				if (taskAndKafkaMatcher.find()) {
+					String jobAndSource = taskAndKafkaMatcher.group(1);
+					String taskId = taskAndKafkaMatcher.group(2);
+					String topic = taskAndKafkaMatcher.group(3);
+					String partition = taskAndKafkaMatcher.group(4);
+					String quota = taskAndKafkaMatcher.group(5);
+
 					tags.add(new TagKv("taskid", taskId));
-					String metricName = "taskmanager." + taskMatcher.group(1) + "." + taskMatcher.group(3);
-					Tuple<String, String> kafkaConsumerMetrics =
-							getKafkaConsumerMetrics(metricName, tags);
-					if (kafkaConsumerMetrics != null) {
-						return kafkaConsumerMetrics;
-					}
+					tags.add(new TagKv("topic", topic));
+					tags.add(new TagKv("partition", partition));
+
+					String metricName =
+						"taskmanager." + jobAndSource + ".KafkaConsumer." + quota;
+					metricName = metricName.replace("..", ".");
 					return new Tuple<>(metricName, TagKv.compositeTags(tags));
+				} else {
+					Matcher taskMatcher = TASK_MANAGER_PATTERN_2.matcher(taskManagerMetricName);
+					if (taskMatcher.find()) {
+						String taskId = taskMatcher.group(2);
+						tags.add(new TagKv("taskid", taskId));
+						String metricName = "taskmanager." + taskMatcher.group(1) + "." + taskMatcher.group(3);
+						Tuple<String, String> kafkaConsumerMetrics =
+							getKafkaConsumerMetrics(metricName, tags);
+						if (kafkaConsumerMetrics != null) {
+							return kafkaConsumerMetrics;
+						}
+						return new Tuple<>(metricName, TagKv.compositeTags(tags));
+					}
+					return new Tuple<>(taskManagerMetricName, TagKv.compositeTags(tags));
 				}
-				return new Tuple<>(taskManagerMetricName, TagKv.compositeTags(tags));
 			}
 			return new Tuple<>(key, TagKv.compositeTags(tags));
 		}
@@ -333,6 +360,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	public String getJobName() {
 		return jobName;
+	}
+
+	public String getRegion() {
+		return region;
 	}
 
 	public String getPrefix() {

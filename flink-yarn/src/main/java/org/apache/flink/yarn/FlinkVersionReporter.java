@@ -55,6 +55,8 @@ public class FlinkVersionReporter implements Runnable {
 			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
 		String isInDockerMode = this.flinkConfig.getString(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, null);
 		String dockerImage = this.flinkConfig.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
+		String dc = this.flinkConfig.getString(ConfigConstants.DC_KEY, null);
+		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();
 		String commitId = rev.commitId;
@@ -94,6 +96,12 @@ public class FlinkVersionReporter implements Runnable {
 		}
 		if (dockerImage != null && !dockerImage.isEmpty()) {
 			tags = tags + "|dockerImage=" + dockerImage;
+		}
+		if (dc != null && !dc.isEmpty()) {
+			tags = tags + "|region=" + dc;
+		}
+		if (flinkApi != null && !flinkApi.isEmpty()) {
+			tags = tags + "|flinkApi=" + flinkApi;
 		}
 	}
 

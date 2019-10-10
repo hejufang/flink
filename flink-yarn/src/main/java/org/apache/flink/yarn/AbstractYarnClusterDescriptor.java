@@ -198,6 +198,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	public void setDefaultConfigurationForStream() {
 		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
 		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
+		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
 	}
 
 	public void setQueue(String queue) {
@@ -1063,6 +1064,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		appMasterEnv.put(YarnConfigKeys.ENV_SPT_NOENV, SPT_NOENV);
+
+		String dc = configuration.getString(ConfigConstants.DC_KEY, null);
+		if (dc != null) {
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, dc);
+		} else {
+			LOG.warn("Unable to parse dc.");
+		}
 
 		boolean enableCoreDump = flinkConfiguration.getBoolean(ConfigConstants.ENABLE_CORE_DUMP_KEY,
 			ConfigConstants.DEFAULT_ENABLE_CORE_DUMP);

@@ -710,7 +710,10 @@ public abstract class AbstractFetcher<T, KPH> {
 		public void update() {
 			time = (time + 1) % values.length;
 			values[time] = gauge.getValue();
-			currentRate =  ((double) (values[time] - values[(time + 1) % values.length]) / timeSpanInSeconds);
+			// update after one cycle
+			if (values[(time + 1) % values.length] > 0) {
+				currentRate =  ((double) (values[time] - values[(time + 1) % values.length]) / timeSpanInSeconds);
+			}
 		}
 	}
 

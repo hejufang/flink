@@ -2108,6 +2108,7 @@ public final class ConfigConstants {
 
 	public static final String FLINK_SUBVERSION_KEY = "flink.subversion";
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
+	public static final String FLINK_JOB_API_KEY = "flink.job_api";
 	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
 	public static final String FLINK_OWNER_KEY = "owner";
 	public static final String FLINK_OWNER_DEFAULT = "null";

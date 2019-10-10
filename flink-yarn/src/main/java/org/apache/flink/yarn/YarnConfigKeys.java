@@ -51,6 +51,7 @@ public class YarnConfigKeys {
 
 	public static final String ENV_FLINK_YARN_JOB = "_FLINK_YARN_JOB";
 	public static final String ENV_FLINK_YARN_QUEUE = "_FLINK_YARN_QUEUE";
+	public static final String ENV_FLINK_YARN_DC = "_FLINK_YARN_DC"; // Used for metrics reporter (Java Flink And PyFlink)
 
 	public static final String ENV_LD_LIBRARY_PATH = "LD_LIBRARY_PATH";
 
