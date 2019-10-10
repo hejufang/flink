@@ -21,6 +21,7 @@ package org.apache.flink.yarn;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import com.bytedance.metrics.UdpMetricsClient;
 import org.slf4j.Logger;
@@ -52,6 +53,9 @@ public class FlinkVersionReporter implements Runnable {
 		udpMetricsClient = new UdpMetricsClient(FLINK_VERSION_METRICS_PREFIX);
 		String subVersion = this.flinkConfig.getString(ConfigConstants.FLINK_SUBVERSION_KEY, null);
 		String flinkJobType = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_TYPE_KEY, ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
+		String dc = this.flinkConfig.getString(ConfigConstants.DC_KEY, null);
+		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
+		String applicationType = this.flinkConfig.getString(YarnConfigOptions.APPLICATION_TYPE);
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();
 		String commitId = rev.commitId;
@@ -84,6 +88,19 @@ public class FlinkVersionReporter implements Runnable {
 		if (owner != null && !owner.isEmpty()) {
 			tags = tags + "|owner=" + owner;
 		}
+		if (dc != null && !dc.isEmpty()) {
+			tags = tags + "|region=" + dc;
+		}
+		if (flinkApi != null && !flinkApi.isEmpty()) {
+			tags = tags + "|flinkApi=" + flinkApi;
+		}
+		if (applicationType != null && !applicationType.isEmpty()) {
+			tags = tags + "|appType=" + formatTag(applicationType);
+		}
+	}
+
+	String formatTag(String name) {
+		return name.replaceAll(" ", "-");
 	}
 
 	@Override

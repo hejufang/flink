@@ -231,7 +231,7 @@ public class YarnConfigOptions {
 	public static final ConfigOption<String> APPLICATION_TYPE =
 			key("yarn.application.type")
 				.stringType()
-				.noDefaultValue()
+				.defaultValue("Apache Flink")
 				.withDescription("A custom type for your YARN application..");
 
 	public static final ConfigOption<String> NODE_LABEL =

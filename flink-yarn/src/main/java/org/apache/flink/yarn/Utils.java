@@ -468,6 +468,9 @@ public final class Utils {
 		containerEnv.put(YarnConfigKeys.ENV_HADOOP_USER_NAME, UserGroupInformation.getCurrentUser().getUserName());
 
 		containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, env.get(YarnConfigKeys.ENV_FLINK_YARN_JOB));
+		if (env.containsKey(YarnConfigKeys.ENV_FLINK_YARN_DC)) {
+			containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, env.get(YarnConfigKeys.ENV_FLINK_YARN_DC));
+		}
 
 		if (remoteKeytabPath != null && localKeytabPath != null && keytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.REMOTE_KEYTAB_PATH, remoteKeytabPath);

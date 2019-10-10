@@ -181,12 +181,17 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 		// avoid yarn dependency
 		this.region = System.getenv("_FLINK_YARN_DC");
+
+		globalNeededMetrics.add(FULL_RESTARTS_METRIC);
+		globalNeededMetrics.add(CURRENT_OFFSETS_RATE_METRIC);
+		globalNeededMetrics.add(FAILED_CHECKPOINTS_METRIC);
 	}
 
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final String name = group.getMetricIdentifier(metricName, this);
 
+		log.debug("Register Metric={}", name);
 		if (globalNeededMetrics.contains(metricName)) {
 			log.info("Register global metric: {}.", name);
 			globalMetricNames.put(name, metricName);
