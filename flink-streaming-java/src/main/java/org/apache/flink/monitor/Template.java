@@ -622,6 +622,58 @@ public class Template {
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"currentTagKey\": \"\",\n" +
+			"							\"currentTagValue\": \"\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count\",\n" +
+			"							\"refId\": \"E\",\n" +
+			"							\"shouldComputeRate\": true,\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"currentTagKey\": \"\",\n" +
+			"							\"currentTagValue\": \"\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time\",\n" +
+			"							\"refId\": \"F\",\n" +
+			"							\"shouldComputeRate\": true,\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"currentTagKey\": \"\",\n" +
+			"							\"currentTagValue\": \"\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count\",\n" +
+			"							\"refId\": \"G\",\n" +
+			"							\"shouldComputeRate\": true,\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"currentTagKey\": \"\",\n" +
+			"							\"currentTagValue\": \"\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time\",\n" +
+			"							\"refId\": \"H\",\n" +
+			"							\"shouldComputeRate\": true,\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
 			"						}\n" +
 			"					],\n" +
 			"					\"thresholds\": [],\n" +
