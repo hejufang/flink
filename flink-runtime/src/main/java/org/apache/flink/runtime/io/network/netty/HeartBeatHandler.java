@@ -59,7 +59,7 @@ public class HeartBeatHandler extends ChannelInboundHandlerAdapter {
 					LOGGER.error(errMsg);
 					ctx.fireExceptionCaught(new Exception(errMsg));
 				} else {
-					LOGGER.info("It is {} idleStateEvent", readIdleCount);
+					LOGGER.debug("It is {} idleStateEvent", readIdleCount);
 					sendHeartBeat(ctx);
 				}
 			}
