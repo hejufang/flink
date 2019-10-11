@@ -62,7 +62,6 @@ public class RedisDimensionTableITCase {
 				") with (" +
 				"  'connector.type' = 'redis'," +
 				"  'connector.cluster' = 'toutiao.redis.data_inf_dtop.service.lf', " +
-				"  'connector.psm' = 'inf.compute.test', " +
 				"  'connector.lookup.cache.ttl' = '60000', " +
 				"  'connector.lookup.cache.max-rows' = '20' " +
 				")");
@@ -78,7 +77,7 @@ public class RedisDimensionTableITCase {
 				" left join redis_dim FOR SYSTEM_TIME AS OF T.proc AS D" +
 				"  on T.id=D.id ");
 
-		tEnv.execute("luoqi test");
+		tEnv.execute("Redis test");
 	}
 
 	static class CollectionTableSink extends TableSinkBase implements BatchTableSink, org.apache.flink.table.sinks.AppendStreamTableSink {

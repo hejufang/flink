@@ -20,6 +20,7 @@ package org.apache.flink.api.java.io.jdbc;
 
 import org.apache.flink.api.java.io.jdbc.dialect.JDBCDialects;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.JDBCValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
@@ -149,13 +150,28 @@ public class JDBCTableSourceSinkFactory implements
 	}
 
 	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+		// The origin properties is an UnmodifiableMap, so we create a new one.
+		Map<String, String> newProperties = new HashMap<>(properties);
+		addDefaultProperties(newProperties);
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(properties);
+		descriptorProperties.putProperties(newProperties);
 
 		new SchemaValidator(true, false, false).validate(descriptorProperties);
 		new JDBCValidator().validate(descriptorProperties);
 
 		return descriptorProperties;
+	}
+
+	/**
+	 * Add default psm info to properties.
+	 * */
+	private void addDefaultProperties(Map<String, String> properties) {
+		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY,
+			ConfigConstants.JOB_NAME_DEFAULT);
+		if (!properties.containsKey(CONNECTOR_PSM)) {
+			properties.put(CONNECTOR_PSM,
+				String.format(ConfigConstants.FLINK_PSM_TEMPLATE, jobName));
+		}
 	}
 
 	private JDBCOptions getJDBCOptions(DescriptorProperties descriptorProperties) {

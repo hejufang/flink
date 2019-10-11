@@ -39,11 +39,7 @@ public class AbaseTableFactory extends RedisTableFactory {
 	}
 
 	@Override
-	public DescriptorProperties getValidatedProperties(Map<String, String> properties) {
-		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(properties);
+	public void validate(DescriptorProperties descriptorProperties) {
 		new AbaseValidator().validate(descriptorProperties);
-		return descriptorProperties;
 	}
-
 }

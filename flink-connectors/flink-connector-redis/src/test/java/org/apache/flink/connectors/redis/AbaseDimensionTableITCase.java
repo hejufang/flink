@@ -62,8 +62,7 @@ public class AbaseDimensionTableITCase {
 				") with (" +
 				"'connector.type' = 'abase'," +
 				"'connector.table' = 'sandbox'," +
-				"'connector.cluster' = 'abase_sandbox.service.lf'," +
-				"'connector.psm' = 'inf.compute.test'" +
+				"'connector.cluster' = 'abase_sandbox.service.lf'" +
 				")");
 
 		final CollectionTableSink tableSink = (CollectionTableSink) new CollectionTableSink().configure(
@@ -77,7 +76,7 @@ public class AbaseDimensionTableITCase {
 				" left join abase_dim FOR SYSTEM_TIME AS OF T.proc AS D" +
 				"  on T.id=D.id ");
 
-		tEnv.execute("luoqi test");
+		tEnv.execute("Abast test");
 	}
 
 	static class CollectionTableSink extends TableSinkBase implements BatchTableSink, org.apache.flink.table.sinks.AppendStreamTableSink {

@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.kafka;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartitioner;
@@ -157,7 +158,8 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
 		final String topic = descriptorProperties.getString(CONNECTOR_TOPIC);
-		final DeserializationSchema<Row> deserializationSchema = getDeserializationSchema(properties);
+		final DeserializationSchema<Row> deserializationSchema =
+			getDeserializationSchema(descriptorProperties.asMap());
 		final StartupOptions startupOptions = getStartupOptions(descriptorProperties, topic);
 
 		return createKafkaTableSource(
@@ -195,7 +197,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 			topic,
 			getKafkaProperties(descriptorProperties),
 			getFlinkKafkaPartitioner(descriptorProperties),
-			getSerializationSchema(properties));
+			getSerializationSchema(descriptorProperties.asMap()));
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -260,8 +262,11 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 	// --------------------------------------------------------------------------------------------
 
 	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+		// The origin properties is an UnmodifiableMap, so we create a new one.
+		Map<String, String> newProperties = new HashMap<>(properties);
+		addDefaultProperties(newProperties);
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(properties);
+		descriptorProperties.putProperties(newProperties);
 
 		// allow Kafka timestamps to be used, watermarks can not be received from source
 		new SchemaValidator(true, supportsKafkaTimestamps(), false).validate(descriptorProperties);
@@ -319,6 +324,31 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 
 	private Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
 		return getKafkaProperties(descriptorProperties, null);
+	}
+
+	/**
+	 * Add default psm, owner, team info to kafka properties.
+	 *
+	 * @param properties kafka properties.
+	 * */
+	private void addDefaultProperties(Map<String, String> properties) {
+		String owner = System.getProperty(ConfigConstants.FLINK_OWNER_KEY,
+			ConfigConstants.FLINK_OWNER_DEFAULT);
+		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY,
+			ConfigConstants.JOB_NAME_DEFAULT);
+		if (!properties.containsKey(CONNECTOR_PSM)) {
+			properties.put(CONNECTOR_PSM,
+				String.format(ConfigConstants.FLINK_PSM_TEMPLATE, jobName));
+		}
+
+		if (!properties.containsKey(CONNECTOR_OWNER)) {
+			properties.put(CONNECTOR_OWNER, owner);
+		}
+
+		if (!properties.containsKey(CONNECTOR_TEAM)) {
+			properties.put(CONNECTOR_TEAM,
+				String.format(ConfigConstants.FLINK_TEAM_TEMPLATE, owner));
+		}
 	}
 
 	private List<String> getMainProperties() {

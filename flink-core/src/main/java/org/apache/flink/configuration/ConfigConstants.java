@@ -2069,6 +2069,7 @@ public final class ConfigConstants {
 	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
 	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String JOB_NAME_KEY = "jobName";
+	public static final String JOB_NAME_DEFAULT = "unknown";
 	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
 	public static final String METRIC_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
@@ -2112,6 +2113,9 @@ public final class ConfigConstants {
 	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
 	public static final String FLINK_OWNER_KEY = "owner";
 	public static final String FLINK_OWNER_DEFAULT = "null";
+
+	public static final String FLINK_PSM_TEMPLATE = "inf.flink.%s";
+	public static final String FLINK_TEAM_TEMPLATE = "inf.flink.%s";
 
 	// ---------------------------- Serializer Buffer ------------------------------
 	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";

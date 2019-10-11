@@ -52,8 +52,7 @@ public class AbaseUpsertTableSinkITCase extends AbstractTestBase {
 			"'connector.type' = 'abase'," +
 			"'connector.table' = 'sandbox'," +
 			"'connector.cluster' = 'abase_sandbox.service.lf'," +
-			"'connector.batch-size' = '1'," +
-			"'connector.psm' = 'inf.compute.test'" +
+			"'connector.batch-size' = '1'" +
 			")");
 
 		tEnv.sqlUpdate("insert into abase_test select id, text from source");

@@ -51,8 +51,7 @@ public class RedisUpsertTableSinkITCase extends AbstractTestBase {
 			") with (" +
 			"'connector.type' = 'redis'," +
 			"'connector.cluster' = 'toutiao.redis.data_inf_dtop.service.lf'," +
-			"'connector.batch-size' = '1'," +
-			"'connector.psm' = 'inf.compute.test'" +
+			"'connector.batch-size' = '1'" +
 			")");
 
 		tEnv.sqlUpdate("insert into redis_test select id, text from source");

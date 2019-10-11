@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.redis;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.RedisValidator;
@@ -127,10 +128,29 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 	}
 
 	public DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+		// The origin properties is an UnmodifiableMap, so we create a new one.
+		Map<String, String> newProperties = new HashMap<>(properties);
+		addDefaultProperties(newProperties);
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(properties);
-		new RedisValidator().validate(descriptorProperties);
+		descriptorProperties.putProperties(newProperties);
+		validate(descriptorProperties);
 		return descriptorProperties;
+	}
+
+	protected void validate(DescriptorProperties descriptorProperties) {
+		new RedisValidator().validate(descriptorProperties);
+	}
+
+	/**
+	 * Add default psm info to properties.
+	 * */
+	private void addDefaultProperties(Map<String, String> properties) {
+		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY,
+			ConfigConstants.JOB_NAME_DEFAULT);
+		if (!properties.containsKey(CONNECTOR_PSM)) {
+			properties.put(CONNECTOR_PSM,
+				String.format(ConfigConstants.FLINK_PSM_TEMPLATE, jobName));
+		}
 	}
 
 	private RedisOptions getRedisOptions(DescriptorProperties descriptorProperties) {
