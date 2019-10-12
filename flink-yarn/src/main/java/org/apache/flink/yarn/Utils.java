@@ -600,10 +600,7 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, env.get(YarnConfigKeys.ENV_FLINK_YARN_DC));
 		}
 
-		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
-			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
-
-		addDefaultEnv(env);
+		addDefaultEnv(containerEnv);
 
 		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);
 		if (partitionList != null && !partitionList.isEmpty()) {
