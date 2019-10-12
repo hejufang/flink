@@ -263,11 +263,11 @@ boe:
 cof:
   dc: vm
   clusterName: cof
-  high-availability.zookeeper.quorum: 10.225.33.2:2181,10.225.28.3:2181,10.225.33.6:2181,10.225.125.22:2181,10.225.125.29:2181
+  high-availability.zookeeper.quorum: 10.225.125.22:2181,10.225.125.29:2181,10.225.28.3:2181,10.225.33.2:2181,10.225.33.6:2181
   hdfs.prefix: hdfs://westeros/flink_cof
   dataSource: bytetsd_cof
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
-  yaop_url: http://10.225.131.41:8092
+  yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
