@@ -145,9 +145,7 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		newLineDelimitedTableSourceBuilder.setConfig(configuration);
 
 		TableSchema tableSchema = params.getTableSchema(SCHEMA);
-		for (int i = 0; i < tableSchema.getFieldCount(); ++i) {
-			newLineDelimitedTableSourceBuilder.setField(tableSchema.getFieldNames()[i], tableSchema.getFieldTypes()[i]);
-		}
+		newLineDelimitedTableSourceBuilder.setSchema(tableSchema);
 
 		return newLineDelimitedTableSourceBuilder.build();
 	}

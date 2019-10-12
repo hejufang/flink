@@ -22,28 +22,38 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.FileInputSplit;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.functions.AsyncTableFunction;
+import org.apache.flink.table.functions.FunctionContext;
+import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.sources.DefinedProctimeAttribute;
 import org.apache.flink.table.sources.DefinedRowtimeAttributes;
+import org.apache.flink.table.sources.LookupableTableSource;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * newline delimited table source.
  */
-public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
+public class NewLineDelimitedTableSource implements StreamTableSource<Row>, LookupableTableSource<Row>,
 	DefinedProctimeAttribute,
 	DefinedRowtimeAttributes {
 
 	private Path path;
+
+	private TableSchema schema;
 
 	private Configuration config;
 
@@ -53,10 +63,11 @@ public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
 
 	private List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors;
 
-	private NewLineDelimitedTableSource(Path path, Configuration config, Optional<String> proctimeAttribute,
+	private NewLineDelimitedTableSource(Path path, TableSchema schema, Configuration config, Optional<String> proctimeAttribute,
 		List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
 		DeserializationSchema<Row> deserializationSchema) {
 		this.path = path;
+		this.schema = schema;
 		this.config = config;
 		this.proctimeAttribute = proctimeAttribute;
 		this.rowtimeAttributeDescriptors = rowtimeAttributeDescriptors;
@@ -71,16 +82,23 @@ public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
 	}
 
 	@Override
-	public TableSchema getTableSchema() {
-		RowTypeInfo rowTypeInfo = (RowTypeInfo) deserializationSchema.getProducedType();
-		String[] fieldNames = rowTypeInfo.getFieldNames();
-		TypeInformation<?>[] filedTypes = rowTypeInfo.getFieldTypes();
+	public TableFunction<Row> getLookupFunction(String[] lookupKeys) {
+		return new NewLineDelimitedLookupFunction(path, schema.getFieldNames(), schema.getFieldTypes(), config, deserializationSchema, lookupKeys);
+	}
 
-		TableSchema.Builder builder = new TableSchema.Builder();
-		for (int i = 0; i < rowTypeInfo.getArity(); i++) {
-			builder.field(fieldNames[i], filedTypes[i]);
-		}
-		return builder.build();
+	@Override
+	public AsyncTableFunction<Row> getAsyncLookupFunction(String[] lookupKeys) {
+		throw new UnsupportedOperationException("NewLineDelimitedTableSource do not support async lookup");
+	}
+
+	@Override
+	public boolean isAsyncEnabled() {
+		return false;
+	}
+
+	@Override
+	public TableSchema getTableSchema() {
+		return schema;
 	}
 
 	@Override
@@ -108,9 +126,9 @@ public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
 	 */
 	public static class Builder {
 
-		private LinkedHashMap<String, TypeInformation<?>> schema = new LinkedHashMap<>();
-
 		private Path path;
+
+		private TableSchema schema;
 
 		private Configuration config;
 
@@ -134,6 +152,11 @@ public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
 			return this;
 		}
 
+		public Builder setSchema(TableSchema schema) {
+			this.schema = schema;
+			return this;
+		}
+
 		public Builder setConfig(Configuration config) {
 			this.config = config;
 			return this;
@@ -141,14 +164,6 @@ public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
 
 		public Builder setDeserializationSchema(DeserializationSchema<Row> deserializationSchema) {
 			this.deserializationSchema = deserializationSchema;
-			return this;
-		}
-
-		public Builder setField(String fieldName, TypeInformation<?> fieldType) {
-			if (schema.containsKey(fieldName)) {
-				throw new IllegalArgumentException("Duplicate field name " + fieldName);
-			}
-			schema.put(fieldName, fieldType);
 			return this;
 		}
 
@@ -169,11 +184,116 @@ public class NewLineDelimitedTableSource implements StreamTableSource<Row>,
 
 			return new NewLineDelimitedTableSource(
 				path,
+				schema,
 				config,
 				proctimeAttribute,
 				rowtimeAttributeDescriptors,
 				deserializationSchema
 			);
+		}
+	}
+
+	/**
+	 * LookupFunction to support lookup in NewLineDelimitedTableSource.
+	 */
+	public static class NewLineDelimitedLookupFunction extends TableFunction<Row> {
+		private static final long serialVersionUID = 1L;
+
+		private final Path path;
+		private String[] fieldNames;
+		private TypeInformation[] fieldTypes;
+		private final Configuration config;
+		private final DeserializationSchema<Row> deserializationSchema;
+
+		private final List<Integer> sourceKeys = new ArrayList<>();
+		private final List<Integer> targetKeys = new ArrayList<>();
+		private final Map<Object, List<Row>> dataMap = new HashMap<>();
+
+		NewLineDelimitedLookupFunction(Path path, String[] fieldNames, TypeInformation[] fieldTypes, Configuration config,
+			DeserializationSchema<Row> deserializationSchema,
+			String[] lookupKeys) {
+
+			this.path = path;
+			this.fieldNames = fieldNames;
+			this.fieldTypes = fieldTypes;
+			this.config = config;
+			this.deserializationSchema = deserializationSchema;
+
+			List<String> fields = Arrays.asList(fieldNames);
+			for (int i = 0; i < lookupKeys.length; i++) {
+				sourceKeys.add(i);
+				int targetIdx = fields.indexOf(lookupKeys[i]);
+				assert targetIdx != -1;
+				targetKeys.add(targetIdx);
+			}
+		}
+
+		@Override
+		public TypeInformation<Row> getResultType() {
+			return new RowTypeInfo(fieldTypes, fieldNames);
+		}
+
+		@Override
+		public void open(FunctionContext context) throws Exception {
+			super.open(context);
+			TypeInformation<Row> rowType = getResultType();
+
+			NewLineDelimitedInputFormat inputFormat = new NewLineDelimitedInputFormat(path, config, deserializationSchema);
+			FileInputSplit[] inputSplits = inputFormat.createInputSplits(1);
+			for (FileInputSplit split : inputSplits) {
+				inputFormat.open(split);
+				Row row = new Row(rowType.getArity());
+				while (true) {
+					Row r = (Row) inputFormat.nextRecord(row);
+					if (r == null) {
+						break;
+					} else {
+						Object key = getTargetKey(r);
+						List<Row> rows = dataMap.computeIfAbsent(key, k -> new ArrayList<>());
+						rows.add(Row.copy(r));
+					}
+				}
+				inputFormat.close();
+			}
+		}
+
+		public void eval(Object... values) {
+			Object srcKey = getSourceKey(Row.of(values));
+			if (dataMap.containsKey(srcKey)) {
+				for (Row row1 : dataMap.get(srcKey)) {
+					collect(row1);
+				}
+			}
+		}
+
+		private Object getSourceKey(Row source) {
+			return getKey(source, sourceKeys);
+		}
+
+		private Object getTargetKey(Row target) {
+			return getKey(target, targetKeys);
+		}
+
+		private Object getKey(Row input, List<Integer> keys) {
+			if (keys.size() == 1) {
+				int keyIdx = keys.get(0);
+				if (input.getField(keyIdx) != null) {
+					return input.getField(keyIdx);
+				}
+				return null;
+			} else {
+				Row key = new Row(keys.size());
+				for (int i = 0; i < keys.size(); i++) {
+					int keyIdx = keys.get(i);
+					key.setField(i, input.getField(keyIdx));
+				}
+				return key;
+			}
+		}
+
+		@Override
+		public void close() throws Exception {
+			super.close();
 		}
 	}
 }
