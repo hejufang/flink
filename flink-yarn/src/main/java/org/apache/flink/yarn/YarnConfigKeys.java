@@ -55,6 +55,12 @@ public class YarnConfigKeys {
 
 	public static final String ENV_LD_LIBRARY_PATH = "LD_LIBRARY_PATH";
 
+	/** Default value of LD_LIBRARY_PATH. */
+	public static final String LD_LIBRARY_PATH_DEFAULT = "/opt/tiger/ss_lib/so:" +
+		"/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib";
+
+	public static final String SPT_NOENV = "ANY_VALUE_BUT_EMPTY";
+
 	// ---------------------------- Config for docker ---------------------------
 	public static final String IS_IN_DOCKER_MODE_KEY = "isInDockerMode";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY = "YARN_CONTAINER_RUNTIME_TYPE";

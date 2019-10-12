@@ -70,6 +70,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.yarn.YarnConfigKeys.ENV_FLINK_CLASSPATH;
+import static org.apache.flink.yarn.YarnConfigKeys.LD_LIBRARY_PATH_DEFAULT;
 
 /**
  * Utility class that provides helper methods to work with Apache Hadoop YARN.
@@ -602,6 +603,8 @@ public final class Utils {
 		containerEnv.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH,
 			env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH));
 
+		addDefaultEnv(env);
+
 		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);
 		if (partitionList != null && !partitionList.isEmpty()) {
 			containerEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
@@ -667,6 +670,19 @@ public final class Utils {
 		}
 
 		return ctx;
+	}
+
+	/**
+	 * Add default environment variables to env map.
+	 * */
+	public static void addDefaultEnv(Map<String, String> env) {
+		String ldLibraryPath = env.get(YarnConfigKeys.ENV_LD_LIBRARY_PATH);
+		if (ldLibraryPath != null && !ldLibraryPath.isEmpty()) {
+			ldLibraryPath = ldLibraryPath + ":" + LD_LIBRARY_PATH_DEFAULT;
+		} else {
+			ldLibraryPath = LD_LIBRARY_PATH_DEFAULT;
+		}
+		env.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH, ldLibraryPath);
 	}
 
 	/**
