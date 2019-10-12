@@ -54,11 +54,11 @@ import scala.collection.JavaConversions._
   *                respect to the Connection producing this table.
   * @param table   wrapped flink table
   */
-class FlinkRelOptTable protected(
-    schema: RelOptSchema,
-    rowType: RelDataType,
-    names: JList[String],
-    table: FlinkTable)
+class FlinkRelOptTable(
+    val schema: RelOptSchema,
+    val rowType: RelDataType,
+    val names: JList[String],
+    val table: FlinkTable)
   extends AbstractPreparingTable {
 
   // Default value of rowCount if there is no available stats.

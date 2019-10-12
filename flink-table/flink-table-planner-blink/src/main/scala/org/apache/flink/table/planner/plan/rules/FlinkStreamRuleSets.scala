@@ -66,6 +66,7 @@ object FlinkStreamRuleSets {
     * Convert table references before query decorrelation.
     */
   val TABLE_REF_RULES: RuleSet = RuleSets.ofList(
+    ComputedColumnRule.INSTANCE,
     TableScanRule.INSTANCE,
     EnumerableToLogicalTableScan.INSTANCE
   )

@@ -22,6 +22,7 @@ import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.plan.stats.FlinkStatistic
 import org.apache.flink.table.planner.sources.TableSourceUtil
 import org.apache.flink.table.sources.TableSource
+import org.apache.flink.table.catalog.CatalogTable
 
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeFactory}
 
@@ -37,11 +38,26 @@ class TableSourceTable[T](
     val tableSource: TableSource[T],
     val isStreamingMode: Boolean,
     val statistic: FlinkStatistic,
-    val selectedFields: Option[Array[Int]])
+    val selectedFields: Option[Array[Int]],
+    var catalogTable: CatalogTable)
   extends FlinkTable {
 
+  def this(tableSource: TableSource[T],
+           isStreamingMode: Boolean,
+           statistic: FlinkStatistic,
+           catalogTable: CatalogTable) {
+    this(tableSource, isStreamingMode, statistic, None, catalogTable)
+  }
+
+  def this(tableSource: TableSource[T],
+           isStreamingMode: Boolean,
+           statistic: FlinkStatistic,
+           selectedFields: Option[Array[Int]]) {
+    this(tableSource, isStreamingMode, statistic, selectedFields, null)
+  }
+
   def this(tableSource: TableSource[T], isStreamingMode: Boolean, statistic: FlinkStatistic) {
-    this(tableSource, isStreamingMode, statistic, None)
+    this(tableSource, isStreamingMode, statistic, None, null)
   }
 
   // TODO implements this

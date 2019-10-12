@@ -30,12 +30,18 @@ import org.apache.flink.sql.parser.ddl.SqlTableColumn;
 import org.apache.flink.sql.parser.ddl.SqlTableOption;
 import org.apache.flink.sql.parser.ddl.SqlWatermark;
 import org.apache.flink.sql.parser.dml.RichSqlInsert;
+import org.apache.flink.sql.parser.error.SqlParseException;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.catalog.Catalog;
+import org.apache.flink.table.catalog.CatalogManager;
 import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.CatalogView;
+import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.catalog.QueryOperationCatalogView;
+import org.apache.flink.table.catalog.exceptions.DatabaseNotExistException;
+import org.apache.flink.table.catalog.exceptions.TableAlreadyExistException;
 import org.apache.flink.table.descriptors.FormatDescriptorValidator;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
@@ -47,16 +53,20 @@ import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.planner.calcite.FlinkTypeSystem;
+import org.apache.flink.table.planner.catalog.ComputedColumnCatalogTableImpl;
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter;
 import org.apache.flink.table.sources.wmstrategies.WatermarkStrategy;
 import org.apache.flink.table.types.AtomicDataType;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.TimestampKind;
 import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.utils.ParameterEntity;
 import org.apache.flink.table.utils.ParameterParseUtils;
 
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -68,10 +78,15 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -91,12 +106,17 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
 public class SqlToOperationConverter {
 	private static final Logger LOG = LoggerFactory.getLogger(SqlToOperationConverter.class);
 
+	private static final String PREFIX = "_INNER_TABLE_";
+	private static final AtomicInteger COUNTER = new AtomicInteger(0);
+
 	private FlinkPlannerImpl flinkPlanner;
+	private CatalogManager catalogManager;
 
 	//~ Constructors -----------------------------------------------------------
 
-	private SqlToOperationConverter(FlinkPlannerImpl flinkPlanner) {
+	private SqlToOperationConverter(FlinkPlannerImpl flinkPlanner, CatalogManager catalogManager) {
 		this.flinkPlanner = flinkPlanner;
+		this.catalogManager = catalogManager;
 	}
 
 	/**
@@ -107,10 +127,10 @@ public class SqlToOperationConverter {
 	 * @param flinkPlanner     FlinkPlannerImpl to convertCreateTable sql node to rel node
 	 * @param sqlNode          SqlNode to execute on
 	 */
-	public static Operation convert(FlinkPlannerImpl flinkPlanner, SqlNode sqlNode) {
+	public static Operation convert(FlinkPlannerImpl flinkPlanner, SqlNode sqlNode, CatalogManager catalogManager) {
 		// validate the query
 		final SqlNode validated = flinkPlanner.validate(sqlNode);
-		SqlToOperationConverter converter = new SqlToOperationConverter(flinkPlanner);
+		SqlToOperationConverter converter = new SqlToOperationConverter(flinkPlanner, catalogManager);
 		if (validated instanceof SqlCreateTable) {
 			return converter.convertCreateTable((SqlCreateTable) validated);
 		} if (validated instanceof SqlCreateView) {
@@ -150,8 +170,9 @@ public class SqlToOperationConverter {
 					((SqlTableOption) p).getValueString()));
 		}
 
-		TableSchema tableSchema = createTableSchema(sqlCreateTable,
-			new FlinkTypeFactory(new FlinkTypeSystem())); // need to make type factory singleton ?
+		FlinkTypeFactory flinkTypeFactory = new FlinkTypeFactory(new FlinkTypeSystem());
+
+		TableSchema tableSchema = createTableSchema(sqlCreateTable, flinkTypeFactory); // need to make type factory singleton ?
 		String tableComment = "";
 		if (sqlCreateTable.getComment() != null) {
 			tableComment = sqlCreateTable.getComment().getNlsString().getValue();
@@ -229,6 +250,114 @@ public class SqlToOperationConverter {
 			properties,
 			rowtimes,
 			tableComment);
+
+		if (sqlCreateTable.containsComputedColumn()) {
+			// 0. create temp table for original table.
+			String tmpTableName = PREFIX + COUNTER.getAndIncrement();
+			String[] fullPath = catalogManager.getFullTablePath(Collections.singletonList(tmpTableName));
+			Catalog catalog = catalogManager.getCatalog(fullPath[0])
+				.orElseThrow(() -> new TableException("catalog " + fullPath[0] + " does not exist!"));
+			ObjectPath objectPath = new ObjectPath(fullPath[1], fullPath[2]);
+			try {
+				catalog.createTable(objectPath, catalogTable, false);
+			} catch (TableAlreadyExistException e) {
+				throw new TableException("Table " + tmpTableName + " already exist!");
+			} catch (DatabaseNotExistException e) {
+				throw new TableException("Database " + fullPath[1] + " does not exist!");
+			}
+
+			// 1. create view on original table.
+			String columns = sqlCreateTable.getColumnSqlString();
+			String viewSql = "SELECT " + columns + " FROM " + tmpTableName;
+			SqlNode viewNode = flinkPlanner.parse(viewSql);
+			flinkPlanner.validate(viewNode);
+			RelRoot root = flinkPlanner.rel(viewNode);
+			LogicalProject project = (LogicalProject) root.rel;
+			List<RexNode> fields = project.getProjects();
+
+			RelDataType rowType = project.getRowType();
+			String[] fieldNames = rowType.getFieldNames().toArray(new String[0]);
+			DataType[] fieldTypes = rowType.getFieldList()
+				.stream()
+				.map(field ->
+					LogicalTypeDataTypeConverter.fromLogicalTypeToDataType(
+						FlinkTypeFactory.toLogicalType(field.getType())))
+				.toArray(DataType[]::new);
+			TableSchema newSchema = TableSchema.builder().fields(fieldNames, fieldTypes).build();
+
+			// 2. deals with watermark.
+			String watermarkColumn = null;
+			String watermarkStrategy = null;
+			long watermarkOffset = -1;
+
+			if (watermark != null) {
+				watermarkColumn = watermark.getColumnName().getSimple();
+				SqlFunction sqlFunction = (SqlFunction) watermark.getFunctionCall().getOperator();
+				watermarkStrategy = sqlFunction.getSqlIdentifier().toString();
+				LOG.info("Watermark strategy name: {}", watermarkStrategy);
+				if (SqlWatermark.WITH_OFFSET_FUNC.equalsIgnoreCase(watermarkStrategy)) {
+					try {
+						watermarkOffset = watermark.getWatermarkOffset();
+					} catch (SqlParseException e) {
+						throw new TableException("get watermark offset error");
+					}
+				}
+			}
+
+			Set<String> nonComputedColumns = new HashSet<>(Arrays.asList(tableSchema.getFieldNames()));
+			List<String> computedColumns = new ArrayList<>();
+			for (int i = 0; i < fieldNames.length; ++i) {
+				if (!nonComputedColumns.contains(fieldNames[i])) {
+					computedColumns.add(fieldNames[i]);
+				}
+			}
+
+			// 3. add rowtime indicator.
+			boolean hasWatermark = false;
+			if (computedColumns.contains(watermarkColumn)) {
+				hasWatermark = true;
+				TableSchema.Builder schemaWithRowtime = TableSchema.builder();
+				for (String fieldName : newSchema.getFieldNames()) {
+					if (fieldName.equalsIgnoreCase(watermarkColumn)) {
+						schemaWithRowtime.field(fieldName, LogicalTypeDataTypeConverter.fromLogicalTypeToDataType(
+							new TimestampType(true, TimestampKind.ROWTIME, 3)));
+					} else {
+						schemaWithRowtime.field(fieldName, newSchema.getFieldDataType(fieldName).get());
+					}
+				}
+				newSchema = schemaWithRowtime.build();
+			}
+
+			// 4. add new CatalogTable.
+			int rowtimeIndex = 0;
+			for (int i = 0; i < fieldNames.length; ++i) {
+				if (fieldNames[i].equals(watermarkColumn)) {
+					rowtimeIndex = i;
+					break;
+				}
+			}
+
+			Map<String, RexNode> computedColumnsMap = new HashMap<>();
+			for (int i = 0; i < fieldNames.length; ++i) {
+				computedColumnsMap.put(fieldNames[i], fields.get(i));
+			}
+
+			// if computedColumns.size() == 0, then only proctime is computedColumn.
+			if (computedColumns.size() != 0) {
+				catalogTable = new ComputedColumnCatalogTableImpl(
+					newSchema,
+					partitionKeys,
+					properties,
+					rowtimes,
+					tableComment,
+					rowtimeIndex,
+					watermarkOffset,
+					computedColumnsMap,
+					hasWatermark);
+			}
+			// 5. map LogicalTableScan to LogicalTableScan->LogicalProject->WatermarkAssigner in ComputedColumnRule
+		}
+
 		return new CreateTableOperation(sqlCreateTable.fullTableName(), catalogTable,
 			sqlCreateTable.isIfNotExists());
 	}
@@ -263,7 +392,7 @@ public class SqlToOperationConverter {
 		return new CatalogSinkModifyOperation(
 			targetTablePath,
 			(PlannerQueryOperation) SqlToOperationConverter.convert(flinkPlanner,
-				insert.getSource()),
+				insert.getSource(), this.catalogManager),
 			insert.getStaticPartitionKVs());
 	}
 
@@ -371,16 +500,13 @@ public class SqlToOperationConverter {
 				.filter(n -> n instanceof SqlBasicCall).map(SqlBasicCall.class::cast)
 				.collect(Collectors.toList());
 		final List<SqlBasicCall> procColumns = computedColumns.stream()
-				.filter(node -> {
-					SqlBasicCall computedFunction = node.operand(0);
-					return computedFunction.getOperator().getName().toUpperCase().equals("PROCTIME");
-				})
-				.collect(Collectors.toList());
+			.filter(node -> node.operand(0) instanceof SqlBasicCall)
+			.filter(node -> {
+				SqlBasicCall computedFunction = node.operand(0);
+				return computedFunction.getOperator().getName().toUpperCase().equals("PROCTIME");
+			})
+			.collect(Collectors.toList());
 		assert procColumns.size() <= 1;
-
-		if (computedColumns.size() != procColumns.size()) {
-			throw new SqlConversionException("Computed columns for DDL except PROCTIME() are not supported yet!");
-		}
 
 		if (procColumns.size() == 1) {
 			SqlIdentifier computedName = procColumns.get(0).operand(1);

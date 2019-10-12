@@ -79,12 +79,12 @@ public class CatalogTableImpl extends AbstractCatalogTable {
 		return Optional.of("This is a catalog table in an im-memory catalog");
 	}
 
-	public Map<Integer, Map<String, String>> rowtimeToTableSchema() {
+	private Map<Integer, Map<String, String>> rowtimeToTableSchema() {
 		TableSchema tableSchema = getSchema();
 		Map<Integer, Map<String, String>> rowtimeToTableSchema = new HashMap<>();
 		for (Map.Entry<String, Rowtime> rowtime : getRowtimes().entrySet()) {
-			int index = tableSchema.getFieldNameIndex(rowtime.getKey()).get();
-			rowtimeToTableSchema.put(index, rowtime.getValue().toProperties());
+			Optional<Integer> index = tableSchema.getFieldNameIndex(rowtime.getKey());
+			index.ifPresent(integer -> rowtimeToTableSchema.put(integer, rowtime.getValue().toProperties()));
 		}
 		return rowtimeToTableSchema;
 	}

@@ -168,7 +168,7 @@ public class SqlToOperationConverterTest {
 		final FlinkPlannerImpl planner = getPlannerBySqlDialect(SqlDialect.DEFAULT);
 		SqlNode node = planner.parse(sql);
 		assert node instanceof SqlCreateTable;
-		Operation operation = SqlToOperationConverter.convert(planner, node);
+		Operation operation = SqlToOperationConverter.convert(planner, node, catalogManager);
 		assert operation instanceof CreateTableOperation;
 		CreateTableOperation op = (CreateTableOperation) operation;
 		CatalogTable catalogTable = op.getCatalogTable();
@@ -198,7 +198,7 @@ public class SqlToOperationConverterTest {
 
 	private Operation parse(String sql, FlinkPlannerImpl planner) {
 		SqlNode node = planner.parse(sql);
-		return SqlToOperationConverter.convert(planner, node);
+		return SqlToOperationConverter.convert(planner, node, catalogManager);
 	}
 
 	private FlinkPlannerImpl getPlannerBySqlDialect(SqlDialect sqlDialect) {

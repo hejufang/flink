@@ -180,7 +180,8 @@ class DatabaseCalciteSchema extends FlinkSchema {
 		return new TableSourceTable<>(
 			tableSource,
 			!((StreamTableSource<?>) tableSource).isBounded(),
-			FlinkStatistic.UNKNOWN()
+			FlinkStatistic.UNKNOWN(),
+			table
 		);
 	}
 

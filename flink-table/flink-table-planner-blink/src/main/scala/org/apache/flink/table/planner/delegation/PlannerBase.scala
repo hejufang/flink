@@ -128,13 +128,13 @@ abstract class PlannerBase(
     val parsed = planner.parse(stmt)
     parsed match {
       case insert: RichSqlInsert =>
-        List(SqlToOperationConverter.convert(planner, insert))
+        List(SqlToOperationConverter.convert(planner, insert, catalogManager))
       case query if query.getKind.belongsTo(SqlKind.QUERY) =>
-        List(SqlToOperationConverter.convert(planner, query))
+        List(SqlToOperationConverter.convert(planner, query, catalogManager))
       case function: SqlCreateFunction =>
-        List(SqlToOperationConverter.convert(planner, function))
+        List(SqlToOperationConverter.convert(planner, function, catalogManager))
       case ddl if ddl.getKind.belongsTo(SqlKind.DDL) =>
-        List(SqlToOperationConverter.convert(planner, ddl))
+        List(SqlToOperationConverter.convert(planner, ddl, catalogManager))
       case _ =>
         throw new TableException(s"Unsupported query: $stmt")
     }
