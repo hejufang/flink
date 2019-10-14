@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.streaming.connectors.fs.NewLineDelimitedInputFormat.CONF_INPUT_FORMAT_COMPRESS_CODEC;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.FileSystemValidator.CONNECTOR_PATH;
@@ -69,7 +70,7 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 	StreamTableSourceFactory<Row>,
 	StreamTableSinkFactory<Row> {
 
-	private static final String CONF_OUTPUT_FORMAT_COMPRESS_CODEC = "fileoutputformat.compress.codec";
+	private static final String CONF_OUTPUT_FORMAT_COMPRESS_CODEC = "file_output_format.compress.codec";
 
 	@Override
 	public Map<String, String> requiredContext() {
@@ -105,6 +106,7 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		// format wildcard
 		properties.add(FORMAT + ".*");
 
+		properties.add(CONF_INPUT_FORMAT_COMPRESS_CODEC.key());
 		properties.add(CONF_OUTPUT_FORMAT_COMPRESS_CODEC);
 
 		return properties;

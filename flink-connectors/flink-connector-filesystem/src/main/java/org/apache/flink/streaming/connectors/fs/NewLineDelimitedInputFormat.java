@@ -38,7 +38,7 @@ public class NewLineDelimitedInputFormat<OUT> extends DelimitedInputFormat<OUT> 
 	public static final String BASE64_CODEC = "base64";
 
 	public static final ConfigOption<String> CONF_INPUT_FORMAT_COMPRESS_CODEC =
-		key("fileinputformat.compress.codec")
+		key("file_input_format.compress.codec")
 		.defaultValue(DEFAULT_CODEC);
 
 
