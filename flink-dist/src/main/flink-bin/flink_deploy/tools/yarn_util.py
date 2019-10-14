@@ -19,7 +19,7 @@ class YarnUtil(object):
     KILL_APP_URL = "/v2/app_kill?operator=%s&region=%s&cluster_id=%s&app_id=%s"
     GET_APP_INFO_URL = "/v2/app?operator=%s&region=%s&cluster_id=%s&app_id=%s"
 
-    YAOP_HOST = "http://yaop-flink.bytedance.net"
+    YAOP_HOST = "http://flink-yaop.byted.org"
     YAOP_TOKEN = "7693dd6d6beaa3a69401fb30efc2211e"
     APP_ID_KEY = "app_id"
     APP_NAME_KEY = "app_name"
