@@ -190,7 +190,8 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 				backupRows.clear();
 				break;
 			} catch (SQLException e) {
-				LOG.error("JDBC executeBatch error, retry times = {}", i, e);
+				LOG.error("JDBC executeBatch error, retry times = {}, maxRetryTimes = {}",
+					i, maxRetryTimes, e);
 				if (i >= maxRetryTimes) {
 					throw e;
 				}

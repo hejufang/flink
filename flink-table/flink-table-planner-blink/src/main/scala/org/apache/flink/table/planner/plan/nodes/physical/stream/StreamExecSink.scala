@@ -111,9 +111,15 @@ class StreamExecSink[T](
             tableKeys match {
               case Some(keys) => upsertSink.setKeyFields(keys)
               case None if isAppendOnlyTable => upsertSink.setKeyFields(null)
-              case None if !isAppendOnlyTable => throw new TableException(
-                "UpsertStreamTableSink requires that Table has" +
-                    " a full primary keys if it is updated.")
+              case None if !isAppendOnlyTable => {
+                // We do not check the null key field here,
+                // expect the upsert sink to do it if necessary.
+                LOG.info("KeyField is null and isAppendOnlyTable is false, " +
+                  "we just ignore it for now.")
+                upsertSink.setKeyFields(null)
+                // throw new TableException("UpsertStreamTableSink requires that Table has
+                // a full primary keys if it is updated.")
+              }
             }
 
             translateToTransformation(withChangeFlag = true, planner)

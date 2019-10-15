@@ -32,6 +32,9 @@ import org.apache.flink.table.sinks.UpsertStreamTableSink;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -44,6 +47,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An upsert {@link UpsertStreamTableSink} for JDBC.
  */
 public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
+	private static final Logger LOG = LoggerFactory.getLogger(JDBCUpsertTableSink.class);
 
 	private final TableSchema schema;
 	private final JDBCOptions options;
@@ -69,7 +73,9 @@ public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	private JDBCUpsertOutputFormat newFormat() {
 		if (!isAppendOnly && (keyFields == null || keyFields.length == 0)) {
-			throw new UnsupportedOperationException("JDBCUpsertTableSink can not support ");
+			LOG.info("keyFields = {} while isAppendOnly is {}, just ignore it.",
+				keyFields, isAppendOnly);
+			// throw new UnsupportedOperationException("JDBCUpsertTableSink can not support ");
 		}
 
 		// sql types
