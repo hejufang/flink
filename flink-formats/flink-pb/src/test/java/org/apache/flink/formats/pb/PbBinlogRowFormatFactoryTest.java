@@ -39,14 +39,25 @@ public class PbBinlogRowFormatFactoryTest {
 	public void testDeserializationSchema() {
 		final Map<String, String> properties = new HashMap<>();
 		properties.put("format.type", "pb_binlog");
+		properties.put("schema.0.name", "header");
+		properties.put("schema.0.type", "ROW<version INT, logfileName VARCHAR, logfileOffset BIGINT, serverId BIGINT, serverenCode VARCHAR, executeTime BIGINT, sourceType VARCHAR, schemaName VARCHAR, tableName VARCHAR, eventLength BIGINT, eventType VARCHAR, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>>");
+		properties.put("schema.1.name", "entryType");
+		properties.put("schema.1.type", "VARCHAR");
+		properties.put("schema.2.name", "TransactionBegin");
+		properties.put("schema.2.type", "ROW<executeTime BIGINT, transactionId VARCHAR, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>, threadId BIGINT>");
+		properties.put("schema.3.name", "RowChange");
+		properties.put("schema.3.type", "ROW<tableId BIGINT, eventType VARCHAR, isDdl BOOLEAN, sql VARCHAR, rowDatas OBJECT_ARRAY<ROW<beforeColumns OBJECT_ARRAY<ROW<index INT, sqlType INT, name VARCHAR, isKey BOOLEAN, updated BOOLEAN, isNull BOOLEAN, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>, value VARCHAR, length INT, mysqlType VARCHAR>>, afterColumns OBJECT_ARRAY<ROW<index INT, sqlType INT, name VARCHAR, isKey BOOLEAN, updated BOOLEAN, isNull BOOLEAN, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>, value VARCHAR, length INT, mysqlType VARCHAR>>, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>>>, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>, ddlSchemaName VARCHAR>");
+		properties.put("schema.4.name", "TransactionEnd");
+		properties.put("schema.4.type", "ROW<executeTime BIGINT, transactionId VARCHAR, props OBJECT_ARRAY<ROW<key VARCHAR, value VARCHAR>>>");
 
 		final DeserializationSchema<?> deserializationSchema = TableFactoryService
 			.find(DeserializationSchemaFactory.class, properties)
 			.createDeserializationSchema(properties);
 
 		TypeInformation[] types = ((RowTypeInfo) PbBinlogRowFormatFactory.getBinlogRowTypeInformation()).getFieldTypes();
+		RowTypeInfo rowTypeInfo = (RowTypeInfo) PbBinlogRowFormatFactory.deriveSchema(properties).toRowType();
 
-		final PbBinlogRowDeserializationSchema expectedSchema = PbBinlogRowDeserializationSchema.Builder.newBuilder()
+		final PbBinlogRowDeserializationSchema expectedSchema = PbBinlogRowDeserializationSchema.Builder.newBuilder(rowTypeInfo)
 			.setHeaderType(types[0])
 			.setEntryTypeType(types[1])
 			.setTransactionBeginTypeInfo(types[2])

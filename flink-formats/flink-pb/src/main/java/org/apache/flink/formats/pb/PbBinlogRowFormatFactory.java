@@ -87,7 +87,9 @@ public class PbBinlogRowFormatFactory extends TableFormatFactoryBase<Row>
 
 		TypeInformation[] types = getBinlogRowTypeInformationsArray();
 
-		PbBinlogRowDeserializationSchema.Builder schemaBuilder = PbBinlogRowDeserializationSchema.Builder.newBuilder()
+		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
+
+		PbBinlogRowDeserializationSchema.Builder schemaBuilder = PbBinlogRowDeserializationSchema.Builder.newBuilder(typeInfo)
 			.setHeaderType(types[0])
 			.setEntryTypeType(types[1])
 			.setTransactionBeginTypeInfo(types[2])

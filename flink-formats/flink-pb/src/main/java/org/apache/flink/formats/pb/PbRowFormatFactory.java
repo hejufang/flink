@@ -20,6 +20,7 @@ package org.apache.flink.formats.pb;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.PbValidator;
 import org.apache.flink.table.factories.DeserializationSchemaFactory;
@@ -58,7 +59,7 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 
 		String pbDescriptorClass = getDescriptorClass(descriptorProperties);
 		Descriptors.Descriptor pbDescriptor = createDescriptor(descriptorProperties);
-		TypeInformation<Row> typeInfo = PbRowTypeInformation.generateRow(pbDescriptor, getTimestampSchemaIndex(descriptorProperties));
+		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
 
 		PbRowDeserializationSchema.Builder schemaBuilder = PbRowDeserializationSchema.Builder.newBuilder()
 			.setPbDescriptorClass(pbDescriptorClass)

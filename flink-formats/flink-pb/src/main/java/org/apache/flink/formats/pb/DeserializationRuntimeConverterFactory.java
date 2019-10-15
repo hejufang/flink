@@ -121,12 +121,20 @@ public class DeserializationRuntimeConverterFactory {
 			DynamicMessage dynamicMessage = (DynamicMessage) message;
 			int arity = fieldConverters.size();
 			Row row = new Row(arity);
-			for (int i = 0; i < arity; i++) {
+			for (int i = 0; i < fieldDescriptors.size(); i++) {
 				Descriptors.FieldDescriptor fieldDescriptor = fieldDescriptors.get(i);
 				Object convertField = fieldConverters.get(i).convert(
 					dynamicMessage.getField(fieldDescriptor),
 					fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? fieldDescriptor.getMessageType().getFields() : Arrays.asList(fieldDescriptor));
 				row.setField(i, convertField);
+			}
+
+			// Assume all computed columns are Timestamp.
+			// TODO: Remove computed columns definition from source.
+			if (arity > fieldDescriptors.size()) {
+				for (int i = fieldDescriptors.size(); i < arity; ++i) {
+					row.setField(i, new Timestamp(System.currentTimeMillis()));
+				}
 			}
 
 			return row;

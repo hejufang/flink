@@ -20,6 +20,7 @@ package org.apache.flink.formats.pb;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
 
 import com.alibaba.otter.canal.protocol.CanalEntry;
@@ -28,6 +29,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -43,6 +45,7 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 	private final TypeInformation<Row> transactionBeginTypeInfo;
 	private final TypeInformation<Row> rowChangeTypeInfo;
 	private final TypeInformation<Row> transactionEndTypeInfo;
+	private final RowTypeInfo typeInfo;
 
 	private final DeserializationRuntimeConverter headerRuntimeConverter;
 	private final DeserializationRuntimeConverter entryTypeRuntimeConverter;
@@ -51,11 +54,13 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 	private final DeserializationRuntimeConverter transactionEndRuntimeConverter;
 
 	private PbBinlogRowDeserializationSchema(
+		RowTypeInfo typeInfo,
 		TypeInformation<Row> headerTypeInfo,
 		TypeInformation entryTypeTypeInfo,
 		TypeInformation<Row> transactionBeginTypeInfo,
 		TypeInformation<Row> rowChangeTypeInfo,
 		TypeInformation<Row> transactionEndTypeInfo) {
+		this.typeInfo = typeInfo;
 		this.headerTypeInfo = headerTypeInfo;
 		this.headerRuntimeConverter = DeserializationRuntimeConverterFactory.createConverter(headerTypeInfo);
 		this.entryTypeTypeInfo = entryTypeTypeInfo;
@@ -73,7 +78,7 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 		try {
 			Descriptors.Descriptor binlogDescriptor = CanalEntry.Entry.getDescriptor();
 			DynamicMessage dynamicMessage = DynamicMessage.parseFrom(binlogDescriptor, message);
-			Row row = new Row(5);
+			Row row = new Row(typeInfo.getFieldNames().length);
 
 			Descriptors.FieldDescriptor headerField = binlogDescriptor.findFieldByName(PbConstant.FORMAT_BINLOG_TYPE_HEADER);
 			Object header = headerRuntimeConverter.convert(
@@ -155,6 +160,14 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 				row.setField(4, transactionEnd);
 			}
 
+			// Assume all computed columns are Timestamp.
+			// TODO: Remove computed columns definition from source.
+			if (row.getArity() > 5) {
+				for (int i = 5; i < row.getArity(); ++i) {
+					row.setField(i, new Timestamp(System.currentTimeMillis()));
+				}
+			}
+
 			return row;
 		} catch (Throwable t) {
 			throw new IOException("Failed to deserialize PB Binlog object.", t);
@@ -168,7 +181,7 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 
 	@Override
 	public TypeInformation<Row> getProducedType() {
-		return PbBinlogRowFormatFactory.getBinlogRowTypeInformation();
+		return typeInfo;
 	}
 
 	@Override
@@ -205,9 +218,14 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 		private TypeInformation<Row> transactionBeginTypeInfo;
 		private TypeInformation<Row> rowChangeTypeInfo;
 		private TypeInformation<Row> transactionEndTypeInfo;
+		private final RowTypeInfo typeInfo;
 
-		public static Builder newBuilder() {
-			return new Builder();
+		public static Builder newBuilder(RowTypeInfo typeInfo) {
+			return new Builder(typeInfo);
+		}
+
+		public Builder(RowTypeInfo typeInfo) {
+			this.typeInfo = typeInfo;
 		}
 
 		public Builder setHeaderType(TypeInformation<Row> headerTypeInfo) {
@@ -237,6 +255,7 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 
 		public PbBinlogRowDeserializationSchema build() {
 			return new PbBinlogRowDeserializationSchema(
+				this.typeInfo,
 				this.headerTypeInfo,
 				this.entryTypeTypeInfo,
 				this.transactionBeginTypeInfo,

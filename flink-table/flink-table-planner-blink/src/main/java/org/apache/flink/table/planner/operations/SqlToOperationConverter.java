@@ -267,7 +267,16 @@ public class SqlToOperationConverter {
 			}
 
 			// 1. create view on original table.
-			String columns = sqlCreateTable.getColumnSqlString();
+			// pb and pb_binlog has no schema definition in DDL, so we add columns from TableSchema
+			String columns;
+			String formatType = properties.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "");
+			if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE) || formatType.equals(PbConstant.FORMAT_TYPE_VALUE)) {
+				columns = String.join(",", tableSchema.getFieldNames());
+				columns += "," + sqlCreateTable.getColumnSqlString();
+			} else {
+				columns = sqlCreateTable.getColumnSqlString();
+			}
+
 			String viewSql = "SELECT " + columns + " FROM " + tmpTableName;
 			SqlNode viewNode = flinkPlanner.parse(viewSql);
 			flinkPlanner.validate(viewNode);
@@ -422,13 +431,15 @@ public class SqlToOperationConverter {
 	 * @param factory        FlinkTypeFactory instance.
 	 * @return TableSchema
 	 */
-	private TableSchema createTableSchema(SqlCreateTable sqlCreateTable,
-			FlinkTypeFactory factory) {
+	private TableSchema createTableSchema(SqlCreateTable sqlCreateTable, FlinkTypeFactory factory) {
 		TableSchema physicalSchema = null;
 		TableSchema.Builder builder = new TableSchema.Builder();
 		Map<String, String> propertiesMap = propertiesToMap(sqlCreateTable.getPropertyList());
 
-		if (sqlCreateTable.getColumnList().size() == 0) {
+		String formatType = propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "");
+		if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE) ||
+				formatType.equals(PbConstant.FORMAT_TYPE_VALUE) ||
+				sqlCreateTable.getColumnList().size() == 0) {
 			RowTypeInfo rowTypeInfo;
 
 			if (propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "")
