@@ -20,6 +20,7 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
@@ -43,6 +44,7 @@ public class SlotManagerConfiguration {
 	private final Time slotRequestTimeout;
 	private final Time taskManagerTimeout;
 	private final boolean waitResultConsumedBeforeRelease;
+	private final boolean evenlySpreadOutSlots;
 
 	private final int numInitialTaskManagers;
 	private final boolean initialTaskManager;
@@ -54,7 +56,8 @@ public class SlotManagerConfiguration {
 		Time taskManagerRequestTimeout,
 		Time slotRequestTimeout,
 		Time taskManagerTimeout,
-		boolean waitResultConsumedBeforeRelease) {
+		boolean waitResultConsumedBeforeRelease,
+		boolean evenlySpreadOutSlots) {
 		this(taskManagerRequestTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,
@@ -62,28 +65,8 @@ public class SlotManagerConfiguration {
 			0,
 			false,
 			0,
-			0);
-	}
-
-	public SlotManagerConfiguration(
-			Time taskManagerRequestTimeout,
-			Time slotRequestTimeout,
-			Time taskManagerTimeout,
-			boolean waitResultConsumedBeforeRelease,
-			int numInitialTaskManagers,
-			boolean initialTaskManager,
-			int extraInitialTaskManagerNumbers,
-			float extraInitialTaskManagerFraction) {
-
-		this(taskManagerRequestTimeout,
-				slotRequestTimeout,
-				taskManagerTimeout,
-				waitResultConsumedBeforeRelease,
-				numInitialTaskManagers,
-				initialTaskManager,
-				extraInitialTaskManagerNumbers,
-				extraInitialTaskManagerFraction,
-				false);
+			0,
+			evenlySpreadOutSlots);
 	}
 
 	public SlotManagerConfiguration(
@@ -95,7 +78,31 @@ public class SlotManagerConfiguration {
 			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction,
-			boolean shufflePendingSlots) {
+			boolean evenlySpreadOutSlots) {
+
+		this(taskManagerRequestTimeout,
+				slotRequestTimeout,
+				taskManagerTimeout,
+				waitResultConsumedBeforeRelease,
+				numInitialTaskManagers,
+				initialTaskManager,
+				extraInitialTaskManagerNumbers,
+				extraInitialTaskManagerFraction,
+				false,
+				evenlySpreadOutSlots);
+	}
+
+	public SlotManagerConfiguration(
+			Time taskManagerRequestTimeout,
+			Time slotRequestTimeout,
+			Time taskManagerTimeout,
+			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers,
+			boolean initialTaskManager,
+			int extraInitialTaskManagerNumbers,
+			float extraInitialTaskManagerFraction,
+			boolean shufflePendingSlots,
+			boolean evenlySpreadOutSlots) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
@@ -106,6 +113,7 @@ public class SlotManagerConfiguration {
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 		this.shufflePendingSlots = shufflePendingSlots;
+		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -144,6 +152,10 @@ public class SlotManagerConfiguration {
 		return shufflePendingSlots;
 	}
 
+	public boolean evenlySpreadOutSlots() {
+		return evenlySpreadOutSlots;
+	}
+
 	public static SlotManagerConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
 		final String strTimeout = configuration.getString(AkkaOptions.ASK_TIMEOUT);
 		final Time rpcTimeout;
@@ -170,11 +182,19 @@ public class SlotManagerConfiguration {
 		float extraInitialTaskManagerFraction = configuration.getFloat(TaskManagerOptions.EXTRA_INITIAL_TASK_MANAGERS_FRACTION);
 
 		boolean shufflePendingSlots = configuration.getBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS);
+		boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
 
 		return new SlotManagerConfiguration(
-			rpcTimeout, slotRequestTimeout, taskManagerTimeout, waitResultConsumedBeforeRelease,
-			numInitialTaskManagers, initialTaskManager, extraInitialTaskManagerNumbers, extraInitialTaskManagerFraction,
-			shufflePendingSlots);
+			rpcTimeout,
+			slotRequestTimeout,
+			taskManagerTimeout,
+			waitResultConsumedBeforeRelease,
+			numInitialTaskManagers,
+			initialTaskManager,
+			extraInitialTaskManagerNumbers,
+			extraInitialTaskManagerFraction,
+			shufflePendingSlots,
+			evenlySpreadOutSlots);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {
