@@ -46,6 +46,11 @@ public interface JDBCWriter extends Serializable {
 	void executeBatch() throws SQLException;
 
 	/**
+	 * Clear records in writer.
+	 */
+	void clearRecord() throws SQLException;
+
+	/**
 	 * Close JDBC related statements and other classes.
 	 */
 	void close() throws SQLException;

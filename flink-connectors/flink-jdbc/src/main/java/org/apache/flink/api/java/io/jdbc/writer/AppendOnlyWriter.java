@@ -63,6 +63,11 @@ public class AppendOnlyWriter implements JDBCWriter {
 	}
 
 	@Override
+	public void clearRecord() throws SQLException {
+		statement.clearBatch();
+	}
+
+	@Override
 	public void close() throws SQLException {
 		if (statement != null) {
 			statement.close();

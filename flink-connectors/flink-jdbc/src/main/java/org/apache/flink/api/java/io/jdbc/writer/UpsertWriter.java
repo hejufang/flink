@@ -102,6 +102,11 @@ public abstract class UpsertWriter implements JDBCWriter {
 	}
 
 	@Override
+	public void clearRecord() throws SQLException {
+		keyToRows.clear();
+	}
+
+	@Override
 	public void executeBatch() throws SQLException {
 		if (keyToRows.size() > 0) {
 			for (Map.Entry<Row, Tuple2<Boolean, Row>> entry : keyToRows.entrySet()) {

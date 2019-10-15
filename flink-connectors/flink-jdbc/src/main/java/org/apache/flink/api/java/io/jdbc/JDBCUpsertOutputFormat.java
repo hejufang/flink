@@ -144,7 +144,10 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 		}
 
 		if (keyFields == null || keyFields.length == 0) {
-			String insertSQL = dialect.getInsertIntoStatement(tableName, fieldNames);
+			String insertSQL;
+			// use upsert statement for insert mode.
+			insertSQL = dialect.getUpsertStatement(tableName, fieldNames, new String[]{})
+				.orElseGet(() -> dialect.getInsertIntoStatement(tableName, fieldNames));
 			jdbcWriter = new AppendOnlyWriter(insertSQL, fieldTypes);
 		} else {
 			jdbcWriter = UpsertWriter.create(
@@ -176,11 +179,7 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 		if (!connection.isValid(VALID_CONNECTION_TIMEOUT_SEC)) {
 			LOG.warn("Jdbc connection for subTask: {} is invalid, reconnecting ...", this.taskNumber);
 			updateJDBCWriter();
-			batchCount = 0;
-			for (Tuple2<Boolean, Row> tuple2: backupRows) {
-				jdbcWriter.addRecord(tuple2);
-				batchCount++;
-			}
+			addRowsToWriter();
 		}
 
 		for (int i = 1; i <= maxRetryTimes; i++) {
@@ -195,8 +194,23 @@ public class JDBCUpsertOutputFormat extends AbstractJDBCOutputFormat<Tuple2<Bool
 				if (i >= maxRetryTimes) {
 					throw e;
 				}
+				// jdbcWriter.executeBatch() may clear batch even the execution fails,
+				// so we clear the batch and add records to writer again.
+				jdbcWriter.clearRecord();
+				addRowsToWriter();
 				Thread.sleep(1000 * i);
 			}
+		}
+	}
+
+	/**
+	 * Add backup rows to jdbc writer.
+	 * */
+	private void addRowsToWriter() throws SQLException {
+		batchCount = 0;
+		for (Tuple2<Boolean, Row> tuple2: backupRows) {
+			jdbcWriter.addRecord(tuple2);
+			batchCount++;
 		}
 	}
 
