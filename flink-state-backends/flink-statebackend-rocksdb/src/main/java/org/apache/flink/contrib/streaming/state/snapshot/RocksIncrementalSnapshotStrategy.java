@@ -157,7 +157,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		final List<StateMetaInfoSnapshot> stateMetaInfoSnapshots = new ArrayList<>(kvStateInformation.size());
 		final Set<StateHandleID> baseSstFiles = snapshotMetaData(checkpointId, stateMetaInfoSnapshots);
 
-		takeDBNativeCheckpoint(snapshotDirectory);
+		takeDBNativeCheckpoint(checkpointId, snapshotDirectory);
 
 		final RocksDBIncrementalSnapshotOperation snapshotOperation =
 			new RocksDBIncrementalSnapshotOperation(
@@ -222,6 +222,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	private Set<StateHandleID> snapshotMetaData(
 		long checkpointId,
 		@Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots) {
+		long startTime = System.currentTimeMillis();
 
 		final long lastCompletedCheckpoint;
 		final Set<StateHandleID> baseSstFiles;
@@ -231,17 +232,20 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			lastCompletedCheckpoint = lastCompletedCheckpointId;
 			baseSstFiles = materializedSstFiles.get(lastCompletedCheckpoint);
 		}
-		LOG.trace("Taking incremental snapshot for checkpoint {}. Snapshot is based on last completed checkpoint {} " +
-			"assuming the following (shared) files as base: {}.", checkpointId, lastCompletedCheckpoint, baseSstFiles);
 
 		// snapshot meta data to save
 		for (Map.Entry<String, RocksDbKvStateInfo> stateMetaInfoEntry : kvStateInformation.entrySet()) {
 			stateMetaInfoSnapshots.add(stateMetaInfoEntry.getValue().metaInfo.snapshot());
 		}
+
+		LOG.debug("Taking incremental snapshot for checkpoint {}. Snapshot is based on last completed checkpoint {} " +
+			"assuming the following (shared) files as base: {}, duration: {}ms.", checkpointId, lastCompletedCheckpoint,
+			baseSstFiles, System.currentTimeMillis() - startTime);
 		return baseSstFiles;
 	}
 
-	private void takeDBNativeCheckpoint(@Nonnull SnapshotDirectory outputDirectory) throws Exception {
+	private void takeDBNativeCheckpoint(long checkpointId, @Nonnull SnapshotDirectory outputDirectory) throws Exception {
+		long startTime = System.currentTimeMillis();
 		// create hard links of living files in the output path
 		try (
 			ResourceGuard.Lease ignored = rocksDBResourceGuard.acquireResource();
@@ -255,6 +259,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			}
 			throw ex;
 		}
+		LOG.debug("Taking DB native checkpoint for checkpoint {}, duration: {}ms.", checkpointId,
+			System.currentTimeMillis() - startTime);
 	}
 
 	/**
@@ -437,6 +443,10 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			Map<StateHandleID, StreamStateHandle> sstFiles,
 			Map<StateHandleID, Path> sstFilePaths,
 			Map<StateHandleID, Path> miscFilePaths) {
+			int reuseFilesNum = 0;
+			long reuseFilesSize = 0;
+			int incrementalFilesNum = 0;
+			long incrementalFilesSize = 0;
 			for (FileStatus fileStatus : fileStatuses) {
 				final Path filePath = fileStatus.getPath();
 				final String fileName = filePath.getName();
@@ -449,13 +459,19 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						// we introduce a placeholder state handle, that is replaced with the
 						// original from the shared state registry (created from a previous checkpoint)
 						sstFiles.put(stateHandleID, new PlaceholderStreamStateHandle());
+						reuseFilesNum++;
+						reuseFilesSize += fileStatus.getLen();
 					} else {
 						sstFilePaths.put(stateHandleID, filePath);
+						incrementalFilesNum++;
+						incrementalFilesSize += fileStatus.getLen();
 					}
 				} else {
 					miscFilePaths.put(stateHandleID, filePath);
 				}
 			}
+			LOG.debug("Calc incremental files for checkpoint {}, reuseFilesNum: {}, reuseFilesSize: {}, incrementalFilesNum: {},"
+				+ "incrementalFilesSize: {}.", reuseFilesNum, reuseFilesSize, incrementalFilesNum, incrementalFilesSize);
 		}
 
 		@Nonnull
