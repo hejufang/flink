@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategyLoader;
@@ -51,13 +52,23 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 
 	@Nonnull
 	private static SlotSelectionStrategy selectSlotSelectionStrategy(@Nonnull Configuration configuration) {
+		final boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
+
+		final SlotSelectionStrategy locationPreferenceSlotSelectionStrategy;
+
+		if (evenlySpreadOutSlots) {
+			locationPreferenceSlotSelectionStrategy = LocationPreferenceSlotSelectionStrategy.createEvenlySpreadOut();
+		} else {
+			locationPreferenceSlotSelectionStrategy = LocationPreferenceSlotSelectionStrategy.createDefault();
+		}
+
 		if (configuration.getBoolean(JobManagerOptions.FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS) ||
 			configuration.getBoolean(CheckpointingOptions.LOCAL_RECOVERY) ||
 			configuration.getString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY)
 				.toLowerCase().equals(FailoverStrategyLoader.LOCAL_RESTART_STRATEGY_NAME)) {
-			return PreviousAllocationSlotSelectionStrategy.create();
+			return PreviousAllocationSlotSelectionStrategy.create(locationPreferenceSlotSelectionStrategy);
 		} else {
-			return LocationPreferenceSlotSelectionStrategy.createDefault();
+			return locationPreferenceSlotSelectionStrategy;
 		}
 	}
 
