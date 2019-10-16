@@ -249,6 +249,11 @@ public class JobManagerOptions {
 			.defaultValue(true)
 			.withDescription("Whether schedule task fairly.");
 
+	public static final ConfigOption<Integer> TASK_MANAGER_COUNT =
+		key("jobmanager.tm.count")
+			.defaultValue(0)
+			.withDescription("Number of task manager");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

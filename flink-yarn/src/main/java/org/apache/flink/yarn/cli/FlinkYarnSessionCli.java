@@ -572,6 +572,11 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			effectiveConfiguration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, Integer.parseInt(commandLine.getOptionValue(slots.getOpt())));
 		}
 
+		if (commandLine.hasOption(container.getOpt())) {
+			String tmCountVal = commandLine.getOptionValue(container.getOpt());
+			effectiveConfiguration.setInteger(JobManagerOptions.TASK_MANAGER_COUNT, Integer.parseInt(tmCountVal));
+		}
+
 		// reload config by dynamic properties.
 		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);

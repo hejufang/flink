@@ -869,18 +869,16 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			TaskManagerOptions.TASK_MANAGER_HEAP_MEMORY,
 			clusterSpecification.getTaskManagerMemoryMB() + "m");
 
-		if (configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START)) {
-			int numTaskManagers;
-			if (jobGraph == null) {
-				numTaskManagers = clusterSpecification.getNumberTaskManagers();
-			} else {
-				numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPreTaskManager - 1) / slotsPreTaskManager;
-			}
-
-			configuration.setInteger(
-				TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS,
-				numTaskManagers);
+		int numTaskManagers;
+		if (jobGraph == null) {
+			numTaskManagers = clusterSpecification.getNumberTaskManagers();
+		} else {
+			numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPreTaskManager - 1) / slotsPreTaskManager;
 		}
+
+		configuration.setInteger(
+			TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS,
+			numTaskManagers);
 
 		Path remotePathJar = null;
 		if (isInDockerMode && isDockerImageIncludeLib) {

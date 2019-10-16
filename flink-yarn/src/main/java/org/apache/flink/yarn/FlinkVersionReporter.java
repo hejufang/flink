@@ -20,7 +20,10 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import com.bytedance.metrics.UdpMetricsClient;
 import org.slf4j.Logger;
@@ -37,11 +40,15 @@ public class FlinkVersionReporter implements Runnable {
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkVersionReporter.class);
 	private static final String FLINK_VERSION_METRICS_PREFIX = "inf.flink";
 	private static final String FLINK_VERSION_METRICS_NAME = "version";
+	private static final String FLINK_VERSION_RESOURCE_CORE_NAME = "resource.core";
+	private static final String FLINK_VERSION_RESOURCE_MEMORY_NAME = "resource.memory";
 
 	private String tags;
 	private Configuration flinkConfig;
 	private UdpMetricsClient udpMetricsClient;
 	private boolean isRunning = true;
+	private int totalCores;
+	private long totalMemory;
 
 	public FlinkVersionReporter(Configuration flinkConfig) {
 		this.flinkConfig = flinkConfig;
@@ -57,6 +64,16 @@ public class FlinkVersionReporter implements Runnable {
 		String dockerImage = this.flinkConfig.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
 		String dc = this.flinkConfig.getString(ConfigConstants.DC_KEY, null);
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
+
+		// calculate resources
+		int jmCore = ConfigurationUtils.getJobManagerVcore(flinkConfig);
+		long jmMemory = ConfigurationUtils.getJobManagerHeapMemory(flinkConfig).getGibiBytes();
+		long tmMemory = ConfigurationUtils.getTaskManagerHeapMemory(flinkConfig).getGibiBytes();
+		int tmCore = flinkConfig.getInteger(YarnConfigOptions.VCORES);
+		int tmCount = flinkConfig.getInteger(JobManagerOptions.TASK_MANAGER_COUNT);
+		this.totalCores = jmCore + tmCore * tmCount;
+		this.totalMemory = jmMemory + tmMemory * tmCount;
+
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();
 		String commitId = rev.commitId;
@@ -110,7 +127,14 @@ public class FlinkVersionReporter implements Runnable {
 		while (isRunning) {
 			try {
 				LOG.debug("Emit flink version counter.");
+
+				// send basic information tagged by version
 				udpMetricsClient.emitStoreWithTag(FLINK_VERSION_METRICS_NAME, 1, tags);
+
+				// send resouce tagged by version
+				udpMetricsClient.emitStoreWithTag(FLINK_VERSION_RESOURCE_CORE_NAME, this.totalCores, tags);
+				udpMetricsClient.emitStoreWithTag(FLINK_VERSION_RESOURCE_MEMORY_NAME, this.totalMemory, tags);
+
 				Thread.sleep(10 * 1000);
 			} catch (IOException | InterruptedException e) {
 				LOG.warn("Failed to emit flink version counter.", e);
