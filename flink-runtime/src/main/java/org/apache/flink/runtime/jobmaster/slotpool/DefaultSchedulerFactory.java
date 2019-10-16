@@ -55,9 +55,9 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 			configuration.getBoolean(CheckpointingOptions.LOCAL_RECOVERY) ||
 			configuration.getString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY)
 				.toLowerCase().equals(FailoverStrategyLoader.LOCAL_RESTART_STRATEGY_NAME)) {
-			return PreviousAllocationSlotSelectionStrategy.INSTANCE;
+			return PreviousAllocationSlotSelectionStrategy.create();
 		} else {
-			return LocationPreferenceSlotSelectionStrategy.INSTANCE;
+			return LocationPreferenceSlotSelectionStrategy.createDefault();
 		}
 	}
 
