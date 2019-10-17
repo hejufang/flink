@@ -21,8 +21,6 @@ import org.apache.flink.table.descriptors.ConnectorDescriptorValidator;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.commons.lang3.StringUtils;
-
 import java.util.Optional;
 
 /**
@@ -35,14 +33,14 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_URL = "connector.url";
 	public static final String CONNECTOR_DB = "connector.db";
 	public static final String CONNECTOR_TABLE = "connector.table";
-	public static final String CONNECTOR_TABLE_PRIMARY_KEY = "connector.table.primary-key";
+	public static final String CONNECTOR_TABLE_SIGN_COLUMN = "connector.table.sign.column";
 	public static final String CONNECTOR_DRIVER = "connector.driver";
 	public static final String CONNECTOR_USERNAME = "connector.username";
 	public static final String CONNECTOR_PASSWORD = "connector.password";
+	public static final String CONNECTOR_PSM = "connector.psm";
 
 	public static final String CONNECTOR_WRITE_FLUSH_MAX_ROWS = "connector.write.flush.max-rows";
 	public static final String CONNECTOR_WRITE_FLUSH_INTERVAL = "connector.write.flush.interval";
-	public static final String CONNECTOR_WRITE_MAX_RETRIES = "connector.write.max-retries";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -52,17 +50,20 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 	}
 
 	private void validateCommonProperties(DescriptorProperties properties) {
-		properties.validateString(CONNECTOR_URL, false, 1);
 		properties.validateString(CONNECTOR_TABLE, false, 1);
+		properties.validateString(CONNECTOR_TABLE_SIGN_COLUMN, false, 1);
+		properties.validateString(CONNECTOR_URL, true);
+		properties.validateString(CONNECTOR_PSM, true);
 		properties.validateString(CONNECTOR_DRIVER, true);
 		properties.validateString(CONNECTOR_USERNAME, true);
 		properties.validateString(CONNECTOR_PASSWORD, true);
 
-		final String url = properties.getString(CONNECTOR_URL);
+		final String url = properties.getOptionalString(CONNECTOR_URL).orElse(null);
+		final String psm = properties.getOptionalString(CONNECTOR_PSM).orElse(null);
 
-		Preconditions.checkArgument(
-			!StringUtils.isBlank(url),
-			"jdbc url must not be provided");
+		if (null == url && null == psm) {
+			throw new IllegalArgumentException("jdbc url or clickhouse psm must not be provided");
+		}
 
 		Optional<String> password = properties.getOptionalString(CONNECTOR_PASSWORD);
 		if (password.isPresent()) {
@@ -75,7 +76,6 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 	private void validateSinkProperties(DescriptorProperties properties) {
 		properties.validateInt(CONNECTOR_WRITE_FLUSH_MAX_ROWS, true);
 		properties.validateDuration(CONNECTOR_WRITE_FLUSH_INTERVAL, true, 1);
-		properties.validateInt(CONNECTOR_WRITE_MAX_RETRIES, true);
 	}
 
 }

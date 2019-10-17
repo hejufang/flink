@@ -57,19 +57,18 @@ public class ClickHouseAppendTableSinkFactory implements StreamTableSinkFactory<
 
 		final ClickHouseAppendTableSinkBuilder builder = ClickHouseAppendTableSink.builder()
 			.setDrivername(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_DRIVER))
-			.setDbUrl(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_URL))
 			.setDbName(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_DB))
 			.setTableName(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_TABLE))
+			.setSignColumn(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN))
 			.setColumnNames(fieldNames)
 			.setParameterTypes(fieldTypes)
 			.setTableScehma(tableSchema);
 
-		String[] primaryKey = descriptorProperties.getString(ClickHouseValidator.CONNECTOR_TABLE_PRIMARY_KEY)
-			.replaceAll(" ", "").split(",");
-		builder.setPrimaryKey(primaryKey);
-
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_URL).ifPresent(builder::setDbUrl);
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_USERNAME).ifPresent(builder::setUsername);
 		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PASSWORD).ifPresent(builder::setPassword);
+		descriptorProperties.getOptionalInt(ClickHouseValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS).ifPresent(builder::setFlushMaxSize);
 
 		return builder.build();
 	}
@@ -90,16 +89,16 @@ public class ClickHouseAppendTableSinkFactory implements StreamTableSinkFactory<
 		// common options
 		properties.add(ClickHouseValidator.CONNECTOR_DRIVER);
 		properties.add(ClickHouseValidator.CONNECTOR_URL);
+		properties.add(ClickHouseValidator.CONNECTOR_PSM);
 		properties.add(ClickHouseValidator.CONNECTOR_DB);
 		properties.add(ClickHouseValidator.CONNECTOR_TABLE);
+		properties.add(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN);
 		properties.add(ClickHouseValidator.CONNECTOR_USERNAME);
 		properties.add(ClickHouseValidator.CONNECTOR_PASSWORD);
 
 		// sink options
-		properties.add(ClickHouseValidator.CONNECTOR_TABLE_PRIMARY_KEY);
 		properties.add(ClickHouseValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS);
 		properties.add(ClickHouseValidator.CONNECTOR_WRITE_FLUSH_INTERVAL);
-		properties.add(ClickHouseValidator.CONNECTOR_WRITE_MAX_RETRIES);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
