@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn;
-
-import org.apache.flink.configuration.Configuration;
+package org.apache.flink.configuration;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +37,7 @@ public class ConfigUtils {
 		for (String key : configuration.keySet()) {
 			String value = configuration.getString(key, null);
 			if (value != null) {
-				String formatKey = formatEnvironmentVariable(YarnConfigKeys.ENV_FLINK_CONFIG_PREFIX + key);
+				String formatKey = formatEnvironmentVariable(ConfigConstants.ENV_FLINK_CONFIG_PREFIX + key);
 				if (!pattern.matcher(formatKey).find()) {
 					throw new IllegalArgumentException("Illegal configuration key : " + formatKey + ", only #.- and letter and number.");
 				}
@@ -51,13 +49,13 @@ public class ConfigUtils {
 		LOG.info("Write configuration into environment variables(size={}).", size);
 	}
 
-	private static String reformatEnvironmentVariable(String s) {
+	public static String reformatEnvironmentVariable(String s) {
 		return s.replaceAll("_dot_", ".")
 			.replaceAll("_well_", "#")
 			.replaceAll("_line_", "-");
 	}
 
-	private static String formatEnvironmentVariable(String s) {
+	public static String formatEnvironmentVariable(String s) {
 		return s.replaceAll("\\.", "_dot_")
 			.replaceAll("#", "_well_")
 			.replaceAll("-", "_line_");
