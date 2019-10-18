@@ -2074,6 +2074,9 @@ public final class ConfigConstants {
 	public static final String METRIC_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
 
+	public static final String ENABLE_REST_SUBMIT = "enable.job.rest.submit";
+	public static final boolean ENABLE_REST_SUBMIT_DEFAULT = false;
+
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
 
 	public static final String FLINK_GC_LOG_OPTS_KEY = "flink.gc.log.opts";
@@ -2098,6 +2101,14 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_LEVEL_KEY = "log.level";
 	public static final String FLINK_LOG_LEVEL_DEFAULT = "INFO";
 
+	public static final String FLINK_RUNTIME_BASE_LIB_DIR_KEY = "runtime.base.dir";
+	public static final String FLINK_RUNTIME_BASE_LIB_DIR_DEFAULT = "/opt/tiger";
+	public static final String FLINK_RUNTIME_USER_LIB_DIR_KEY = "runtime.user.lib.dir";
+	public static final String FLINK_RUNTIME_USER_LIB_DIR_DEFAULT = null;
+
+	public static final String FLINK_RUNTIME_BASEJAR_KEY = "runtime.basejar.dir";
+	public static final String FLINK_RUNTIME_BASEJAR_DEFAULT =
+		"/opt/tiger/flink_deploy/deploy/flink-1.9/basejar";
 	public static final String FLINK_RUNTIME_LIB_DIR_KEY = "runtime.lib.dir";
 	public static final String FLINK_RUNTIME_LIB_DIR_DEFAULT =
 		"/opt/tiger/flink_deploy/deploy/flink-1.9/lib";
@@ -2157,6 +2168,8 @@ public final class ConfigConstants {
 	public static final String SMART_RESOURCES_MEM_MAX_MB_KEY = "smart-resources.mem-max-mb";
 	public static final int SMART_RESOURCES_MEM_MAX_MB_DEFAULT = 60 * 1024;
 	public static final String SMART_RESOURCES_SERVICE_NAME_KEY = "smart-resources.service-name";
+
+	public static final String DEPLOY_HDFS_ENABLED = "deploy.hdfs.enabled";
 
 	/**
 	 * Not instantiable.

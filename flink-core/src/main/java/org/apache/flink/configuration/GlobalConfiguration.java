@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 /**
  * Global configuration object for Flink. Similar to Java properties configuration
@@ -47,6 +48,9 @@ public final class GlobalConfiguration {
 	private static final Logger LOG = LoggerFactory.getLogger(GlobalConfiguration.class);
 
 	public static final String FLINK_CONF_FILENAME = "flink-conf.yaml";
+
+	// avoid flink-yarn dependency
+	public static final String ENV_FLINK_CONFIG_PREFIX = "_FLINK_CONFIG_";
 
 	// the keys whose values should be hidden
 	private static final String[] SENSITIVE_KEYS = new String[] {"password", "secret"};
@@ -133,19 +137,69 @@ public final class GlobalConfiguration {
 		// get Flink yaml configuration file
 		final File yamlConfigFile = new File(confDirFile, FLINK_CONF_FILENAME);
 
-		if (!yamlConfigFile.exists()) {
+		Map<String, String> env = System.getenv();
+		LOG.info("Environment variable size: {}", env.size());
+		List<String> configEnvKeys = env.keySet().stream().filter(key ->
+			key.startsWith(ENV_FLINK_CONFIG_PREFIX)).collect(Collectors.toList());
+		LOG.info("Flink configuration environment variable size: {}", configEnvKeys.size());
+		LOG.info("Keys: {}", configEnvKeys.stream().map(
+			GlobalConfiguration::reformatEnvironmentVariable).collect(Collectors.joining(",")));
+
+		Configuration configuration;
+		if (yamlConfigFile.exists()) {
+			configuration = loadYAMLResource(yamlConfigFile);
+		} else if (configEnvKeys.size() > 0) {
+			configuration = loadConfigFromEnvironmentVariable(env, configEnvKeys);
+		} else {
 			throw new IllegalConfigurationException(
 				"The Flink config file '" + yamlConfigFile +
-					"' (" + confDirFile.getAbsolutePath() + ") does not exist.");
+					"' (" + confDirFile.getAbsolutePath() + ") and environment variable " +
+					ENV_FLINK_CONFIG_PREFIX + " both do not exist.");
 		}
-
-		Configuration configuration = loadYAMLResource(yamlConfigFile);
 
 		if (dynamicProperties != null) {
 			configuration.addAll(dynamicProperties);
 		}
 
 		return enrichWithEnvironmentVariables(configuration);
+	}
+
+	private static Configuration loadConfigFromEnvironmentVariable(Map<String, String> env, List<String> keys) {
+		Configuration configuration = new Configuration();
+		keys.forEach(key -> {
+			String reformatKey = reformatEnvironmentVariable(key);
+			String value = env.get(key);
+			String valueOld = value;
+			for (String param : DYNAMIC_PARAM_KEYS) {
+				String paramKey = String.format("${%s}", param);
+				if (value.contains(paramKey)) {
+					value = value.replace(paramKey, env.get(formatEnvironmentVariable(param)));
+				}
+			}
+			configuration.setString(reformatKey, value);
+
+			// save OriginKey with value.
+			if (!value.equals(valueOld)) {
+				configuration.setString(appendOriginPostfixTo(reformatKey), valueOld);
+			}
+			configuration.setString(reformatKey.replaceAll(
+				ENV_FLINK_CONFIG_PREFIX, ""), value);
+		});
+		return configuration;
+	}
+
+	// avoid dependency same as #org.apache.flink.yarn.ConfigUtils#reformatEnvironmentVariable
+	private static String reformatEnvironmentVariable(String s) {
+		return s.replaceAll("_dot_", ".")
+				.replaceAll("_well_", "#")
+				.replaceAll("_line_", "-");
+	}
+
+	// avoid dependency same as #org.apache.flink.yarn.ConfigUtils#formatEnvironmentVariable
+	private static String formatEnvironmentVariable(String s) {
+		return s.replaceAll("\\.", "_dot_")
+			.replaceAll("#", "_well_")
+			.replaceAll("-", "_line_");
 	}
 
 	private static Configuration enrichWithEnvironmentVariables(Configuration configuration) {

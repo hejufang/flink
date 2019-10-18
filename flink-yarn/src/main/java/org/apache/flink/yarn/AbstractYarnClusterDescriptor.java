@@ -693,17 +693,39 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			configuration,
 			PluginUtils.createPluginManagerFromRootFolder(configuration));
 
+		boolean isDockerImageIncludeLib =
+			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
+		boolean isDockerImageIncludeUserLib =
+			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_USER_LIB);
+		String dockerImage =
+			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
+
+		boolean isInDockerMode = false;
+		if (dockerImage != null && !dockerImage.isEmpty()) {
+			isInDockerMode = true;
+		}
+		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isInDockerMode);
+
+		if (jobGraph == null && isInDockerMode && isDockerImageIncludeLib && isDockerImageIncludeUserLib) {
+			// this means we don't need hdfs any more
+			LOG.info("Do not need HDFS here.");
+			configuration.setBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, false);
+		}
+
 		// initialize file system
 		// Copy the application master jar to the filesystem
 		// Create a local resource to point to the destination jar path
-		final FileSystem fs = FileSystem.get(yarnConfiguration);
+		FileSystem fs = null;
+		if (configuration.getBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, true)) {
+			fs = FileSystem.get(yarnConfiguration);
+		}
 
 		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,
 				ConfigConstants.PATH_JOB_WORK_FILE);
 		final Path homeDir = new Path(jobWorkDir);
 
 		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
-		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
+		if (fs != null && !fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
 				fs.getScheme().startsWith("file")) {
 			LOG.warn("The file system scheme is '" + fs.getScheme() + "'. This indicates that the "
 					+ "specified Hadoop configuration path is wrong and the system is using the default Hadoop configuration values."
@@ -743,16 +765,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				systemShipFiles.add(new File(userFile));
 			}
 		}
-
-		boolean isDockerImageIncludeLib =
-			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
-		String dockerImage =
-			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
-		boolean isInDockerMode = false;
-		if (dockerImage != null && !dockerImage.isEmpty()) {
-			isInDockerMode = true;
-		}
-		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isInDockerMode);
 
 		addEnvironmentFoldersToShipFiles(systemShipFiles);
 
@@ -806,12 +818,17 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			String runtimeConfDir =
 				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_CONF_DIR_KEY,
 					ConfigConstants.FLINK_RUNTIME_CONF_DIR_DEFAULT);
+			String runtimeBasejarDir =
+				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_BASEJAR_KEY,
+					ConfigConstants.FLINK_RUNTIME_BASEJAR_DEFAULT);
 			String runtimeClasspath =
 				flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_CLASSPATH_KEY, "");
 			LOG.info("runtimeLibDir = {}", runtimeLibDir);
 			LOG.info("runtimeConfDir = {}", runtimeConfDir);
+			LOG.info("runtimeBasejarDir = {}", runtimeBasejarDir);
 			systemClassPaths.add(Paths.get(runtimeLibDir, "*").toAbsolutePath().toString());
 			systemClassPaths.add(Paths.get(runtimeConfDir, "*").toAbsolutePath().toString());
+			systemClassPaths.add(Paths.get(runtimeBasejarDir, "*").toAbsolutePath().toString());
 			if (runtimeClasspath != null && !runtimeClasspath.isEmpty()) {
 				systemClassPaths.addAll(Arrays.asList(runtimeClasspath.split(":")));
 			}
@@ -828,14 +845,40 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				envShipFileList);
 		}
 
-		final List<String> userClassPaths = uploadAndRegisterFiles(
-			userJarFiles,
-			fs,
-			homeDir,
-			appId,
-			paths,
-			localResources,
-			envShipFileList);
+		List<String> userClassPaths = new ArrayList<>();
+		if (isInDockerMode && isDockerImageIncludeUserLib) {
+			LOG.info("Do not need to upload user jar in docker mode if included.");
+			String userLibBaseDir = flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_BASE_LIB_DIR_KEY,
+				ConfigConstants.FLINK_RUNTIME_BASE_LIB_DIR_DEFAULT);
+			String userLibRelativeDir = flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_USER_LIB_DIR_KEY,
+				ConfigConstants.FLINK_RUNTIME_USER_LIB_DIR_DEFAULT);
+
+			if (userLibRelativeDir == null) {
+				throw new IllegalArgumentException(String.format("Please set %s to load user lib.",
+					ConfigConstants.FLINK_RUNTIME_USER_LIB_DIR_KEY));
+			}
+
+			String userLibDir;
+			if (userLibRelativeDir.startsWith("/")) {
+				userLibDir = userLibBaseDir + userLibRelativeDir;
+			} else {
+				userLibDir = userLibBaseDir + "/" + userLibRelativeDir;
+			}
+			LOG.info("runtimeUserDir = {}", userLibDir);
+			// To get resources/xx.py in #EnvironmentInitUtils#prepareLocalDir
+			userClassPaths.add(Paths.get(userLibDir).toAbsolutePath().toString());
+			// To get jars for java flink
+			userClassPaths.add(Paths.get(userLibDir, "*").toAbsolutePath().toString());
+		} else {
+			userClassPaths = uploadAndRegisterFiles(
+				userJarFiles,
+				fs,
+				homeDir,
+				appId,
+				paths,
+				localResources,
+				envShipFileList);
+		}
 
 		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.ORDER) {
 			systemClassPaths.addAll(userClassPaths);
@@ -899,21 +942,25 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		// Upload the flink configuration
 		// write out configuration file
-		File tmpConfigurationFile = File.createTempFile(appId + "-flink-conf.yaml", null);
-		tmpConfigurationFile.deleteOnExit();
-		BootstrapTools.writeConfiguration(configuration, tmpConfigurationFile);
+		if (isInDockerMode && isDockerImageIncludeUserLib) {
+			LOG.info("Do not need to upload flink-conf.yaml");
+		} else {
+			File tmpConfigurationFile = File.createTempFile(appId + "-flink-conf.yaml", null);
+			tmpConfigurationFile.deleteOnExit();
+			BootstrapTools.writeConfiguration(configuration, tmpConfigurationFile);
 
-		Path remotePathConf = setupSingleLocalResource(
-			"flink-conf.yaml",
-			fs,
-			appId,
-			new Path(tmpConfigurationFile.getAbsolutePath()),
-			localResources,
-			homeDir,
-			"");
+			Path remotePathConf = setupSingleLocalResource(
+				"flink-conf.yaml",
+				fs,
+				appId,
+				new Path(tmpConfigurationFile.getAbsolutePath()),
+				localResources,
+				homeDir,
+				"");
 
-		paths.add(remotePathConf);
-		classPathBuilder.append("flink-conf.yaml").append(File.pathSeparator);
+			paths.add(remotePathConf);
+			classPathBuilder.append("flink-conf.yaml").append(File.pathSeparator);
+		}
 
 		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.LAST) {
 			for (String userClassPath : userClassPaths) {
@@ -952,8 +999,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		final Path yarnFilesDir = getYarnFilesDir(appId);
-		FsPermission permission = new FsPermission(FsAction.ALL, FsAction.NONE, FsAction.NONE);
-		fs.setPermission(yarnFilesDir, permission); // set permission for path.
+		if (fs != null) {
+			FsPermission permission = new FsPermission(FsAction.ALL, FsAction.NONE, FsAction.NONE);
+			fs.setPermission(yarnFilesDir, permission); // set permission for path.
+		}
 
 		//To support Yarn Secure Integration Test Scenario
 		//In Integration test setup, the Yarn containers created by YarnMiniCluster does not have the Yarn site XML
@@ -1021,13 +1070,21 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		amContainer.setLocalResources(localResources);
-		fs.close();
+		if (fs != null) {
+			fs.close();
+		}
 
 		// Setup CLASSPATH and environment variables for ApplicationMaster
 		final Map<String, String> appMasterEnv = new HashMap<>();
+
+		// set env from configuration
+		if (isInDockerMode && isDockerImageIncludeUserLib) {
+			ConfigUtils.writeFlinkConfigIntoEnv(appMasterEnv, configuration);
+		}
 		// set user specified app master environment variables
 		appMasterEnv.putAll(Utils.getEnvironmentVariables(ResourceManagerOptions.CONTAINERIZED_MASTER_ENV_PREFIX, configuration));
 		// set Flink app class path
+		LOG.info("Classpath: {}", classPathBuilder.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_CLASSPATH, classPathBuilder.toString());
 
 		// set Flink on YARN internal configuration values
@@ -1683,7 +1740,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			try {
 				FileSystem fs = FileSystem.get(yarnConfiguration);
 
-				if (!fs.delete(yarnFilesDir, true)) {
+				if (fs.exists(yarnFilesDir) && !fs.delete(yarnFilesDir, true)) {
 					throw new IOException("Deleting files in " + yarnFilesDir + " was unsuccessful");
 				}
 

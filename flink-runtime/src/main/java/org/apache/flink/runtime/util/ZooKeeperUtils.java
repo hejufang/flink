@@ -21,6 +21,7 @@ package org.apache.flink.runtime.util;
 import org.apache.curator.utils.EnsurePath;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
@@ -38,6 +39,7 @@ import org.apache.flink.runtime.leaderretrieval.ZooKeeperLeaderRetrievalService;
 import org.apache.flink.runtime.zookeeper.RetrievableStateStorageHelper;
 import org.apache.flink.runtime.zookeeper.ZooKeeperStateHandleStore;
 import org.apache.flink.runtime.zookeeper.filesystem.FileSystemStateStorageHelper;
+import org.apache.flink.runtime.zookeeper.filesystem.VoidStateStorageHelper;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.commons.lang3.StringUtils;
@@ -243,7 +245,12 @@ public class ZooKeeperUtils {
 
 		checkNotNull(configuration, "Configuration");
 
-		RetrievableStateStorageHelper<SubmittedJobGraph> stateStorage = createFileSystemStateStorage(configuration, "submittedJobGraph");
+		RetrievableStateStorageHelper<SubmittedJobGraph> stateStorage;
+		if (configuration.getBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, true)) {
+			stateStorage = createFileSystemStateStorage(configuration, "submittedJobGraph");
+		} else {
+			stateStorage = createVoidStateStorage();
+		}
 
 		// ZooKeeper submitted jobs root dir
 		String zooKeeperSubmittedJobsPath = configuration.getString(HighAvailabilityOptions.HA_ZOOKEEPER_JOBGRAPHS_PATH);
@@ -427,6 +434,10 @@ public class ZooKeeperUtils {
 		} else {
 			return new FileSystemStateStorageHelper<T>(rootPath, prefix);
 		}
+	}
+
+	public static <T extends Serializable> VoidStateStorageHelper<T> createVoidStateStorage() {
+		return new VoidStateStorageHelper<>();
 	}
 
 	public static String generateZookeeperPath(String root, String namespace) {

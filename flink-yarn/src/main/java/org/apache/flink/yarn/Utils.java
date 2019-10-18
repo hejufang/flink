@@ -449,6 +449,8 @@ public final class Utils {
 		final String remoteYarnConfPath = env.get(YarnConfigKeys.ENV_YARN_SITE_XML_PATH);
 		final String remoteKrb5Path = env.get(YarnConfigKeys.ENV_KRB5_PATH);
 
+		Map<String, String> containerEnv = new HashMap<>();
+
 		if (log.isDebugEnabled()) {
 			log.debug("TM:remote keytab path obtained {}", remoteKeytabPath);
 			log.debug("TM:remote keytab principal obtained {}", remoteKeytabPrincipal);
@@ -493,6 +495,8 @@ public final class Utils {
 			flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
 		boolean isDockerImageIncludeLib =
 			flinkConfig.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
+		boolean isDockerImageIncludeUserLib =
+			flinkConfig.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_USER_LIB);
 
 		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Do not need to add flink.jar in docker mode.");
@@ -507,38 +511,42 @@ public final class Utils {
 			taskManagerLocalResources.put("flink.jar", flinkJar);
 		}
 
-		// register conf with local fs
-		final LocalResource flinkConf;
-		{
-			// write the TaskManager configuration to a local file
-			final File taskManagerConfigFile =
+		if (isInDockerMode && isDockerImageIncludeUserLib) {
+			LOG.info("Do not need to add flink-conf.yaml in docker mode.");
+			ConfigUtils.writeFlinkConfigIntoEnv(containerEnv, taskManagerConfig);
+		} else {
+			// register conf with local fs
+			final LocalResource flinkConf;
+			{
+				// write the TaskManager configuration to a local file
+				final File taskManagerConfigFile =
 					new File(workingDirectory, UUID.randomUUID() + "-taskmanager-conf.yaml");
-			log.debug("Writing TaskManager configuration to {}", taskManagerConfigFile.getAbsolutePath());
-			BootstrapTools.writeConfiguration(taskManagerConfig, taskManagerConfigFile);
+				log.debug("Writing TaskManager configuration to {}", taskManagerConfigFile.getAbsolutePath());
+				BootstrapTools.writeConfiguration(taskManagerConfig, taskManagerConfigFile);
 
-			try {
-				Path homeDirPath = new Path(clientHomeDir);
-				FileSystem fs = homeDirPath.getFileSystem(yarnConfig);
-
-				flinkConf = setupLocalResource(
-					fs,
-					appId,
-					new Path(taskManagerConfigFile.toURI()),
-					homeDirPath,
-					"").f1;
-
-				log.debug("Prepared local resource for modified yaml: {}", flinkConf);
-			} finally {
 				try {
-					FileUtils.deleteFileOrDirectory(taskManagerConfigFile);
-				} catch (IOException e) {
-					log.info("Could not delete temporary configuration file " +
-						taskManagerConfigFile.getAbsolutePath() + '.', e);
+					Path homeDirPath = new Path(clientHomeDir);
+					FileSystem fs = homeDirPath.getFileSystem(yarnConfig);
+
+					flinkConf = setupLocalResource(
+						fs,
+						appId,
+						new Path(taskManagerConfigFile.toURI()),
+						homeDirPath,
+						"").f1;
+
+					log.debug("Prepared local resource for modified yaml: {}", flinkConf);
+				} finally {
+					try {
+						FileUtils.deleteFileOrDirectory(taskManagerConfigFile);
+					} catch (IOException e) {
+						log.info("Could not delete temporary configuration file " +
+							taskManagerConfigFile.getAbsolutePath() + '.', e);
+					}
 				}
 			}
+			taskManagerLocalResources.put("flink-conf.yaml", flinkConf);
 		}
-
-		taskManagerLocalResources.put("flink-conf.yaml", flinkConf);
 
 		//To support Yarn Secure Integration Test Scenario
 		if (yarnConfResource != null) {
@@ -584,7 +592,6 @@ public final class Utils {
 		ctx.setCommands(Collections.singletonList(launchCommand));
 		ctx.setLocalResources(taskManagerLocalResources);
 
-		Map<String, String> containerEnv = new HashMap<>();
 		containerEnv.putAll(tmParams.taskManagerEnv());
 
 		// add YARN classpath, etc to the container environment

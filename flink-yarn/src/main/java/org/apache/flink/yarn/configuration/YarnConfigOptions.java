@@ -283,6 +283,11 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Specific whether the docker image includes Flink libs.");
 
+	public static final ConfigOption<Boolean> IS_DOCKER_INCLUDE_USER_LIB =
+		key("docker.image.include_user_lib")
+			.defaultValue(false)
+			.withDescription("Specific whether the docker image includes user libs.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 

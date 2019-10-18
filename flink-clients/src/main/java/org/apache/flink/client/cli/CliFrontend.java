@@ -312,13 +312,35 @@ public class CliFrontend {
 				} else {
 					parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
 				}
-				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
-				client = clusterDescriptor.deployJobCluster(
-					clusterSpecification,
-					jobGraph,
-					runOptions.getDetachedMode());
 
-				logAndSysout("Job has been submitted with JobID " + jobGraph.getJobID());
+				final boolean enableRestSubmit = configuration.getBoolean(ConfigConstants.ENABLE_REST_SUBMIT,
+					ConfigConstants.ENABLE_REST_SUBMIT_DEFAULT);
+
+				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
+				if (enableRestSubmit) {
+					LOG.info("Deploy job through RestClusterClient to avoid upload jobGraph file to HDFS.");
+					try {
+						client = clusterDescriptor.deploySessionCluster(clusterSpecification);
+						LOG.info("Finish deploying cluster, submit job now...");
+						client.setPrintStatusDuringExecution(runOptions.getStdoutLogging());
+						client.setDetached(runOptions.getDetachedMode());
+						client.submitJob(jobGraph, getClass().getClassLoader());
+					} catch (Throwable throwable) {
+						if (client == null) {
+							LOG.error("Client should not be null after deploying cluster!");
+						} else {
+							client.shutDownCluster();
+						}
+						throw throwable;
+					}
+				} else {
+					client = clusterDescriptor.deployJobCluster(
+						clusterSpecification,
+						jobGraph,
+						runOptions.getDetachedMode());
+
+					logAndSysout("Job has been submitted with JobID " + jobGraph.getJobID());
+				}
 
 				if (client.getFlinkConfiguration().getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START)) {
 					client.waitForClusterToBeReady(jobGraph.calcMinRequiredSlotsNum());
@@ -1199,6 +1221,9 @@ public class CliFrontend {
 		LOG.info("jobType = {}", jobType);
 		System.setProperty(ConfigConstants.FLINK_JOB_TYPE_KEY, jobType);
 
+		boolean enableRestSubmit = Boolean.parseBoolean(parseDynamicProperty(args, ConfigConstants.ENABLE_REST_SUBMIT, "false"));
+		configuration.setBoolean(ConfigConstants.ENABLE_REST_SUBMIT, enableRestSubmit);
+
 		putSystemProperties(configuration);
 
 		// 3. load the custom command lines
@@ -1237,10 +1262,15 @@ public class CliFrontend {
 	public static String parseDynamicProperty(String[] args, String propertyFlag,
 		String defaultValue) {
 		for (int i = 0; i < args.length; i++) {
-			if ("-yD".equals(args[i]) && (i + 2) < args.length &&
-				propertyFlag.equals(args[i + 1])) {
-				String value = args[i + 2];
-				return value;
+			if ("-yD".equals(args[i]) && (i + 1) < args.length) {
+				String value = args[i + 1];
+				String[] kvPair = value.split("=");
+				if (kvPair.length == 2) {
+					String key = kvPair[0];
+					if (key.equals(propertyFlag)) {
+						return kvPair[1];
+					}
+				}
 			}
 		}
 		return defaultValue;
