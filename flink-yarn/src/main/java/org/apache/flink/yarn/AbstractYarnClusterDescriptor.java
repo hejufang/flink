@@ -1370,6 +1370,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		final List<String> classPaths = new ArrayList<>(2 + shipFiles.size());
 		for (File shipFile : shipFiles) {
+			long beginUploadTime = System.currentTimeMillis();
+			LOG.info("Begin to upload and register files = {}", shipFile.getAbsolutePath());
 			if (shipFile.isDirectory()) {
 				// add directories to the classpath
 				java.nio.file.Path shipPath = shipFile.toPath();
@@ -1422,7 +1424,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					classPaths.add(key);
 				}
 			}
-
+			LOG.info("Success to upload and register files = {}, spent time = {} ms",
+				shipFile.getAbsolutePath(), System.currentTimeMillis() - beginUploadTime);
 		}
 		return classPaths;
 	}
