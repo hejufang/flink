@@ -92,6 +92,12 @@ public class SlotManagerImpl implements SlotManager {
 	/** Initial task managers on slot manager start. */
 	private final boolean initialTaskManager;
 
+	/** Number of extra task managers, avoid slow nodes. */
+	private final int extraInitialTaskManagerNumbers;
+
+	/** Fraction of extra task managers, avoid slow nodes */
+	private final float extraInitialTaskManagerFraction;
+
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
 
@@ -141,7 +147,9 @@ public class SlotManagerImpl implements SlotManager {
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			0,
-			false);
+			false,
+			0,
+			0);
 	}
 
 	public SlotManagerImpl(
@@ -151,7 +159,9 @@ public class SlotManagerImpl implements SlotManager {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean initialTaskManager) {
+			boolean initialTaskManager,
+			int extraInitialTaskManagerNumbers,
+			float extraInitialTaskManagerFraction) {
 
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
@@ -160,6 +170,8 @@ public class SlotManagerImpl implements SlotManager {
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
 		this.initialTaskManager = initialTaskManager;
+		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
+		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -246,7 +258,9 @@ public class SlotManagerImpl implements SlotManager {
 
 		if (initialTaskManager && numInitialTaskManagers > 0) {
 			// initial slot manager with enough task managers.
-			initialResources(ResourceProfile.UNKNOWN, numInitialTaskManagers);
+			int extraTaskManagerNumber = Math.max(
+					(int) (numInitialTaskManagers * extraInitialTaskManagerFraction), extraInitialTaskManagerNumbers);
+			initialResources(ResourceProfile.UNKNOWN, numInitialTaskManagers + extraTaskManagerNumber);
 		}
 
 		started = true;

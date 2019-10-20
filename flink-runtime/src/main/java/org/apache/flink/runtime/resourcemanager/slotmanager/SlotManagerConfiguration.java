@@ -46,6 +46,8 @@ public class SlotManagerConfiguration {
 
 	private final int numInitialTaskManagers;
 	private final boolean initialTaskManager;
+	private final int extraInitialTaskManagerNumbers;
+	private final float extraInitialTaskManagerFraction;
 
 	public SlotManagerConfiguration(
 		Time taskManagerRequestTimeout,
@@ -57,7 +59,9 @@ public class SlotManagerConfiguration {
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			0,
-			false);
+			false,
+			0,
+			0);
 	}
 
 	public SlotManagerConfiguration(
@@ -66,7 +70,9 @@ public class SlotManagerConfiguration {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean initialTaskManager) {
+			boolean initialTaskManager,
+			int extraInitialTaskManagerNumbers,
+			float extraInitialTaskManagerFraction) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
@@ -74,6 +80,8 @@ public class SlotManagerConfiguration {
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
 		this.initialTaskManager = initialTaskManager;
+		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
+		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -100,6 +108,14 @@ public class SlotManagerConfiguration {
 		return initialTaskManager;
 	}
 
+	public int getExtraInitialTaskManagerNumbers() {
+		return extraInitialTaskManagerNumbers;
+	}
+
+	public float getExtraInitialTaskManagerFraction() {
+		return extraInitialTaskManagerFraction;
+	}
+
 	public static SlotManagerConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
 		final String strTimeout = configuration.getString(AkkaOptions.ASK_TIMEOUT);
 		final Time rpcTimeout;
@@ -122,9 +138,12 @@ public class SlotManagerConfiguration {
 
 		boolean initialTaskManager = configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START);
 
+		int extraInitialTaskManagerNumbers = configuration.getInteger(TaskManagerOptions.NUM_EXTRA_INITIAL_TASK_MANAGERS);
+		float extraInitialTaskManagerFraction = configuration.getFloat(TaskManagerOptions.EXTRA_INITIAL_TASK_MANAGERS_FRACTION);
+
 		return new SlotManagerConfiguration(
 			rpcTimeout, slotRequestTimeout, taskManagerTimeout, waitResultConsumedBeforeRelease,
-			numInitialTaskManagers, initialTaskManager);
+			numInitialTaskManagers, initialTaskManager, extraInitialTaskManagerNumbers, extraInitialTaskManagerFraction);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {
