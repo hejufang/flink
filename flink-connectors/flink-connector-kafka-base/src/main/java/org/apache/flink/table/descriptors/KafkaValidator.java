@@ -50,9 +50,12 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_STARTUP_MODE_VALUE_LATEST = "latest-offset";
 	public static final String CONNECTOR_STARTUP_MODE_VALUE_GROUP_OFFSETS = "group-offsets";
 	public static final String CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_OFFSETS = "specific-offsets";
+	public static final String CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_TIMESTAMP = "specific-timestamp";
 	public static final String CONNECTOR_SPECIFIC_OFFSETS = "connector.specific-offsets";
 	public static final String CONNECTOR_SPECIFIC_OFFSETS_PARTITION = "partition";
 	public static final String CONNECTOR_SPECIFIC_OFFSETS_OFFSET = "offset";
+	public static final String CONNECTOR_SPECIFIC_TIMESTAMP = "connector.specific-timestamp";
+	public static final String CONNECTOR_RELATIVE_OFFSET = "connector.relative-offset";
 	public static final String CONNECTOR_KAFKA_PROPERTIES = "connector.kafka.properties";
 	public static final String CONNECTOR_PROPERTIES = "connector.properties";
 	public static final String CONNECTOR_PROPERTIES_KEY = "key";
@@ -103,9 +106,14 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		startupModeValidation.put(CONNECTOR_STARTUP_MODE_VALUE_EARLIEST, noValidation());
 		startupModeValidation.put(CONNECTOR_STARTUP_MODE_VALUE_LATEST, noValidation());
 		startupModeValidation.put(
+			CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_TIMESTAMP,
+			key -> properties.validateLong(CONNECTOR_SPECIFIC_TIMESTAMP, false));
+		startupModeValidation.put(
 			CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_OFFSETS,
 			key -> properties.validateFixedIndexedProperties(CONNECTOR_SPECIFIC_OFFSETS, false, specificOffsetValidators));
 		properties.validateEnum(CONNECTOR_STARTUP_MODE, true, startupModeValidation);
+		properties.validateLong(CONNECTOR_RELATIVE_OFFSET, true);
+		properties.validateLong(CONNECTOR_SPECIFIC_TIMESTAMP, true);
 	}
 
 	private void validateKafkaProperties(DescriptorProperties properties) {
@@ -141,6 +149,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 				return CONNECTOR_STARTUP_MODE_VALUE_GROUP_OFFSETS;
 			case SPECIFIC_OFFSETS:
 				return CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_OFFSETS;
+			case TIMESTAMP:
+				return CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_TIMESTAMP;
 		}
 		throw new IllegalArgumentException("Invalid startup mode.");
 	}

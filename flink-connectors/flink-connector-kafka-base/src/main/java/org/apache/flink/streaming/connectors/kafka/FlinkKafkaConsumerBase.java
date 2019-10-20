@@ -52,10 +52,13 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionStateSentinel;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +72,7 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITS_FAILED_METRICS_COUNTER;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITS_SUCCEEDED_METRICS_COUNTER;
@@ -168,6 +172,10 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	/** Timestamp to determine startup offsets; only relevant when startup mode is {@link StartupMode#TIMESTAMP}. */
 	private Long startupOffsetsTimestamp;
+
+	/** Relative offset for {@link StartupMode#LATEST} or {@link StartupMode#GROUP_OFFSETS} or
+	 * {@link StartupMode#EARLIEST}, can be negative and positive. */
+	private Long relativeOffset;
 
 	// ------------------------------------------------------------------------
 	//  runtime state (used individually by each parallel subtask)
@@ -498,6 +506,23 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	}
 
 	/**
+	 * Set relative offset.
+	 * This can only be set on EARLIEST/GROUP_OFFSETS/LATEST mode.
+	 * @param relativeOffset The relative offset.
+	 * @return The consumer object, to allow function chaining.
+	 */
+	public FlinkKafkaConsumerBase<T> setRelativeOffset(long relativeOffset) {
+		if (startupMode != StartupMode.EARLIEST
+			&& startupMode != StartupMode.GROUP_OFFSETS
+			&& startupMode != StartupMode.LATEST) {
+			throw new FlinkRuntimeException("Relative offset should be only when StartupMode is " +
+				"EARLIEST or GROUP_OFFSETS or LATEST");
+		}
+		this.relativeOffset = relativeOffset;
+		return this;
+	}
+
+	/**
 	 * By default, when restoring from a checkpoint / savepoint, the consumer always
 	 * ignores restored partitions that are no longer associated with the current specified topics or
 	 * topic pattern to subscribe to.
@@ -625,24 +650,50 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 					break;
 				default:
-					for (KafkaTopicPartition seedPartition : allPartitions) {
-						subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+					if (relativeOffset == null) {
+						for (KafkaTopicPartition seedPartition : allPartitions) {
+							subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+						}
+					} else {
+						if (startupMode == StartupMode.EARLIEST && relativeOffset < 0) {
+							throw new FlinkRuntimeException("RelativeOffset should not < 0 when StartupMode is EARLIEST");
+						}
+						if (startupMode == StartupMode.LATEST && relativeOffset > 0) {
+							throw new FlinkRuntimeException("RelativeOffset should not > 0 when StartupMode is LATEST");
+						}
+
+						Map<KafkaTopicPartition, Long> offsets = fetchOffsetsWithStartupMode(allPartitions, startupMode);
+						for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset : offsets.entrySet()) {
+							subscribedPartitionsToStartOffsets.put(
+								partitionToOffset.getKey(),
+								(partitionToOffset.getValue() == null)
+									// if an offset cannot be retrieved for a partition with the given timestamp,
+									// we default to using the latest offset for the partition
+									? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
+									// since the specified offsets represent the next record to read, we subtract
+									// it by one so that the initial state of the consumer will be correct
+									: partitionToOffset.getValue() + relativeOffset - 1);
+						}
 					}
 			}
 
 			if (!subscribedPartitionsToStartOffsets.isEmpty()) {
 				switch (startupMode) {
 					case EARLIEST:
-						LOG.info("Consumer subtask {} will start reading the following {} partitions from the earliest offsets: {}",
+						LOG.info("Consumer subtask {} will start reading the following {} partitions from the earliest " +
+								"offsets: {} with relativeOffset={}",
 							getRuntimeContext().getIndexOfThisSubtask(),
 							subscribedPartitionsToStartOffsets.size(),
-							subscribedPartitionsToStartOffsets.keySet());
+							subscribedPartitionsToStartOffsets.keySet(),
+							relativeOffset);
 						break;
 					case LATEST:
-						LOG.info("Consumer subtask {} will start reading the following {} partitions from the latest offsets: {}",
+						LOG.info("Consumer subtask {} will start reading the following {} partitions from the latest " +
+								"offsets: {} with relativeOffset={}",
 							getRuntimeContext().getIndexOfThisSubtask(),
 							subscribedPartitionsToStartOffsets.size(),
-							subscribedPartitionsToStartOffsets.keySet());
+							subscribedPartitionsToStartOffsets.keySet(),
+							relativeOffset);
 						break;
 					case TIMESTAMP:
 						LOG.info("Consumer subtask {} will start reading the following {} partitions from timestamp {}: {}",
@@ -674,10 +725,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 						}
 						break;
 					case GROUP_OFFSETS:
-						LOG.info("Consumer subtask {} will start reading the following {} partitions from the committed group offsets in Kafka: {}",
+						LOG.info("Consumer subtask {} will start reading the following {} partitions from the committed " +
+								"group offsets in Kafka: {} with relativeOffset={}",
 							getRuntimeContext().getIndexOfThisSubtask(),
 							subscribedPartitionsToStartOffsets.size(),
-							subscribedPartitionsToStartOffsets.keySet());
+							subscribedPartitionsToStartOffsets.keySet(),
+							relativeOffset);
 				}
 			} else {
 				LOG.info("Consumer subtask {} initially has no partitions to read from.",
@@ -1062,6 +1115,39 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	protected abstract Map<KafkaTopicPartition, Long> fetchOffsetsWithTimestamp(
 			Collection<KafkaTopicPartition> partitions,
 			long timestamp);
+
+	private Map<KafkaTopicPartition, Long> fetchOffsetsWithStartupMode(
+			List<KafkaTopicPartition> partitions,
+			StartupMode startupMode) {
+		final Map<KafkaTopicPartition, Long> result = new HashMap<>(partitions.size());
+		final List<TopicPartition> topicPartitions = partitions.stream()
+			.map(partition -> new TopicPartition(partition.getTopic(), partition.getPartition()))
+			.collect(Collectors.toList());
+
+		// use a short-lived consumer to fetch the offsets;
+		// this is ok because this is a one-time operation that happens only on startup
+		try (KafkaConsumer<?, ?> consumer = new KafkaConsumer(properties)) {
+			consumer.assign(topicPartitions);
+			if (startupMode == StartupMode.LATEST) {
+				consumer.seekToEnd(topicPartitions);
+			} else if (startupMode == StartupMode.EARLIEST) {
+				consumer.seekToBeginning(topicPartitions);
+			} else if (startupMode == StartupMode.GROUP_OFFSETS) {
+				// do nothing.
+			} else {
+				// This only happens when we add a new StartupMode and forget to deal with it.
+				throw new FlinkRuntimeException("StartupMode must be EARLIEST or GROUP_OFFSETS or LATEST " +
+					"to fetch offsets");
+			}
+
+			for (int i = 0; i < partitions.size(); ++i) {
+				long offset = consumer.position(topicPartitions.get(i));
+				result.put(partitions.get(i), offset);
+			}
+		}
+
+		return result;
+	}
 
 	// ------------------------------------------------------------------------
 	//  ResultTypeQueryable methods

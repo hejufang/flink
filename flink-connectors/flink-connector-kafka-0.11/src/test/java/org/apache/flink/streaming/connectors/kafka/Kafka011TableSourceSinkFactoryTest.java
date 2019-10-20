@@ -65,7 +65,9 @@ public class Kafka011TableSourceSinkFactoryTest extends KafkaTableSourceSinkFact
 			Properties properties,
 			DeserializationSchema<Row> deserializationSchema,
 			StartupMode startupMode,
-			Map<KafkaTopicPartition, Long> specificStartupOffsets) {
+			Map<KafkaTopicPartition, Long> specificStartupOffsets,
+			Long relativeOffset,
+			Long timestamp) {
 
 		return new Kafka011TableSource(
 			schema,
@@ -76,7 +78,9 @@ public class Kafka011TableSourceSinkFactoryTest extends KafkaTableSourceSinkFact
 			properties,
 			deserializationSchema,
 			startupMode,
-			specificStartupOffsets
+			specificStartupOffsets,
+			relativeOffset,
+			timestamp
 		);
 	}
 

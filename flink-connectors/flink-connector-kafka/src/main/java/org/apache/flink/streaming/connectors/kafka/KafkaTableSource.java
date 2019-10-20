@@ -51,6 +51,8 @@ public class KafkaTableSource extends KafkaTableSourceBase {
 	 * @param startupMode                 Startup mode for the contained consumer.
 	 * @param specificStartupOffsets      Specific startup offsets; only relevant when startup
 	 *                                    mode is {@link StartupMode#SPECIFIC_OFFSETS}.
+	 * @param relativeOffset              Relative offset.
+	 * @param timestamp                   Timestamp for consumer to start from.
 	 */
 	public KafkaTableSource(
 		TableSchema schema,
@@ -61,7 +63,9 @@ public class KafkaTableSource extends KafkaTableSourceBase {
 		Properties properties,
 		DeserializationSchema<Row> deserializationSchema,
 		StartupMode startupMode,
-		Map<KafkaTopicPartition, Long> specificStartupOffsets) {
+		Map<KafkaTopicPartition, Long> specificStartupOffsets,
+		Long relativeOffset,
+		Long timestamp) {
 
 		super(
 			schema,
@@ -72,7 +76,9 @@ public class KafkaTableSource extends KafkaTableSourceBase {
 			properties,
 			deserializationSchema,
 			startupMode,
-			specificStartupOffsets);
+			specificStartupOffsets,
+			relativeOffset,
+			timestamp);
 	}
 
 	/**

@@ -91,6 +91,13 @@ public abstract class KafkaTableSourceBase implements
 	/** Specific startup offsets; only relevant when startup mode is {@link StartupMode#SPECIFIC_OFFSETS}. */
 	private final Map<KafkaTopicPartition, Long> specificStartupOffsets;
 
+	/** Relative offset; only relavent when startup mode is in
+	 * {{@link StartupMode#EARLIEST}, {@link StartupMode#GROUP_OFFSETS}, {@link StartupMode#LATEST}}. */
+	private final Long relativeOffset;
+
+	/** Specific timestamp for kafka consumer to consume from. */
+	private final Long timestamp;
+
 	/**
 	 * Creates a generic Kafka {@link StreamTableSource}.
 	 *
@@ -105,6 +112,8 @@ public abstract class KafkaTableSourceBase implements
 	 * @param startupMode                 Startup mode for the contained consumer.
 	 * @param specificStartupOffsets      Specific startup offsets; only relevant when startup
 	 *                                    mode is {@link StartupMode#SPECIFIC_OFFSETS}.
+	 * @param relativeOffset              Relative offset.
+	 * @param timestamp                   Timestamp for consumer to start from.
 	 */
 	protected KafkaTableSourceBase(
 			TableSchema schema,
@@ -115,7 +124,9 @@ public abstract class KafkaTableSourceBase implements
 			Properties properties,
 			DeserializationSchema<Row> deserializationSchema,
 			StartupMode startupMode,
-			Map<KafkaTopicPartition, Long> specificStartupOffsets) {
+			Map<KafkaTopicPartition, Long> specificStartupOffsets,
+			Long relativeOffset,
+			Long timestamp) {
 		this.schema = Preconditions.checkNotNull(schema, "Schema must not be null.");
 		this.proctimeAttribute = validateProctimeAttribute(proctimeAttribute);
 		this.rowtimeAttributeDescriptors = validateRowtimeAttributeDescriptors(rowtimeAttributeDescriptors);
@@ -127,6 +138,8 @@ public abstract class KafkaTableSourceBase implements
 		this.startupMode = Preconditions.checkNotNull(startupMode, "Startup mode must not be null.");
 		this.specificStartupOffsets = Preconditions.checkNotNull(
 			specificStartupOffsets, "Specific offsets must not be null.");
+		this.relativeOffset = relativeOffset;
+		this.timestamp = timestamp;
 	}
 
 	/**
@@ -150,7 +163,9 @@ public abstract class KafkaTableSourceBase implements
 			topic, properties,
 			deserializationSchema,
 			StartupMode.GROUP_OFFSETS,
-			Collections.emptyMap());
+			Collections.emptyMap(),
+			null,
+			null);
 	}
 
 	/**
@@ -283,6 +298,11 @@ public abstract class KafkaTableSourceBase implements
 			case SPECIFIC_OFFSETS:
 				kafkaConsumer.setStartFromSpecificOffsets(specificStartupOffsets);
 				break;
+			case TIMESTAMP:
+				kafkaConsumer.setStartFromTimestamp(timestamp);
+		}
+		if (relativeOffset != null) {
+			kafkaConsumer.setRelativeOffset(relativeOffset);
 		}
 		return kafkaConsumer;
 	}

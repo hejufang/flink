@@ -63,6 +63,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPER
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_KEY;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_VALUE;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PSM;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RELATIVE_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_CLASS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM;
@@ -71,6 +72,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_P
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_PARTITION;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_TIMESTAMP;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_STARTUP_MODE;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TEAM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TOPIC;
@@ -129,6 +131,8 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		properties.add(CONNECTOR_SPECIFIC_OFFSETS + ".#." + CONNECTOR_SPECIFIC_OFFSETS_OFFSET);
 		properties.add(CONNECTOR_SINK_PARTITIONER);
 		properties.add(CONNECTOR_SINK_PARTITIONER_CLASS);
+		properties.add(CONNECTOR_RELATIVE_OFFSET);
+		properties.add(CONNECTOR_SPECIFIC_TIMESTAMP);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -173,7 +177,9 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 			getKafkaProperties(descriptorProperties, topic),
 			deserializationSchema,
 			startupOptions.startupMode,
-			startupOptions.specificOffsets);
+			startupOptions.specificOffsets,
+			startupOptions.relativeOffset,
+			startupOptions.timestamp);
 	}
 
 	@Override
@@ -240,7 +246,9 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		Properties properties,
 		DeserializationSchema<Row> deserializationSchema,
 		StartupMode startupMode,
-		Map<KafkaTopicPartition, Long> specificStartupOffsets);
+		Map<KafkaTopicPartition, Long> specificStartupOffsets,
+		Long relativeOffset,
+		Long timestamp);
 
 	/**
 	 * Constructs the version-specific Kafka table sink.
@@ -380,6 +388,9 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 					case KafkaValidator.CONNECTOR_STARTUP_MODE_VALUE_GROUP_OFFSETS:
 						return StartupMode.GROUP_OFFSETS;
 
+					case KafkaValidator.CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_TIMESTAMP:
+						return StartupMode.TIMESTAMP;
+
 					case KafkaValidator.CONNECTOR_STARTUP_MODE_VALUE_SPECIFIC_OFFSETS:
 						final List<Map<String, String>> offsetList = descriptorProperties.getFixedIndexedProperties(
 							CONNECTOR_SPECIFIC_OFFSETS,
@@ -398,6 +409,12 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 		final StartupOptions options = new StartupOptions();
 		options.startupMode = startupMode;
 		options.specificOffsets = specificOffsets;
+		if (descriptorProperties.containsKey(CONNECTOR_RELATIVE_OFFSET)) {
+			options.relativeOffset = descriptorProperties.getLong(CONNECTOR_RELATIVE_OFFSET);
+		}
+		if (descriptorProperties.containsKey(CONNECTOR_SPECIFIC_TIMESTAMP)) {
+			options.timestamp = descriptorProperties.getLong(CONNECTOR_SPECIFIC_TIMESTAMP);
+		}
 		return options;
 	}
 
@@ -432,5 +449,7 @@ public abstract class KafkaTableSourceSinkFactoryBase implements
 	private static class StartupOptions {
 		private StartupMode startupMode;
 		private Map<KafkaTopicPartition, Long> specificOffsets;
+		private Long relativeOffset;
+		private Long timestamp;
 	}
 }
