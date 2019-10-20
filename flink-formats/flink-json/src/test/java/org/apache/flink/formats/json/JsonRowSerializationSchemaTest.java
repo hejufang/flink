@@ -28,6 +28,8 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.flink.formats.utils.SerializationSchemaMatcher.whenSerializedWith;
@@ -56,6 +58,24 @@ public class JsonRowSerializationSchemaTest {
 		final JsonRowDeserializationSchema deserializationSchema = new JsonRowDeserializationSchema.Builder(rowSchema)
 			.build();
 
+		assertThat(row, whenSerializedWith(serializationSchema)
+			.andDeserializedWith(deserializationSchema)
+			.equalsTo(row));
+	}
+
+	@Test
+	public void testMapSerialization() {
+		final TypeInformation<Row> rowSchema = Types.ROW_NAMED(new String[]{"map"}, Types.MAP(Types.STRING, Types.LONG));
+
+		final Map<String, Long> map = new HashMap<>();
+		map.put("hello", 1L);
+		map.put("flink", 2L);
+		map.put("SQL", 3L);
+		final Row row = new Row(1);
+		row.setField(0, map);
+
+		final JsonRowSerializationSchema serializationSchema = new JsonRowSerializationSchema.Builder(rowSchema).build();
+		final JsonRowDeserializationSchema deserializationSchema = new JsonRowDeserializationSchema.Builder(rowSchema).build();
 		assertThat(row, whenSerializedWith(serializationSchema)
 			.andDeserializedWith(deserializationSchema)
 			.equalsTo(row));

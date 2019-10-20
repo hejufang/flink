@@ -24,6 +24,8 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMap
 
 import org.junit.Test;
 
+import java.util.HashMap;
+
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -38,7 +40,13 @@ public class JsonRowDefaultValueTest {
 
 		JsonRowDeserializationSchema deserializationSchema = new JsonRowDeserializationSchema.Builder(
 			Types.ROW(
-				Types.LONG, Types.STRING, Types.INT, Types.DOUBLE, Types.PRIMITIVE_ARRAY(Types.BYTE), Types.ROW(Types.BOOLEAN))
+				Types.LONG,
+				Types.STRING,
+				Types.INT,
+				Types.DOUBLE,
+				Types.PRIMITIVE_ARRAY(Types.BYTE),
+				Types.ROW(Types.BOOLEAN),
+				Types.MAP(Types.STRING, Types.INT))
 		).defaultOnMissingField().build();
 
 		Row deserializedRow = deserializationSchema.deserialize(serializedJson);
@@ -46,13 +54,14 @@ public class JsonRowDefaultValueTest {
 		Row subRow = new Row(1);
 		subRow.setField(0, false);
 
-		Row row = new Row(6);
+		Row row = new Row(7);
 		row.setField(0, 0L);
 		row.setField(1, "");
 		row.setField(2, 0);
 		row.setField(3, 0.0);
 		row.setField(4, new byte[]{});
 		row.setField(5, subRow);
+		row.setField(6, new HashMap<>());
 
 		assertEquals(row, deserializedRow);
 	}

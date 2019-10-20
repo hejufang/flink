@@ -22,6 +22,7 @@ import org.apache.flink.api.common.typeinfo.BasicArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
+import org.apache.flink.api.java.typeutils.MapTypeInfo;
 import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
@@ -34,6 +35,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -135,9 +137,15 @@ public class JsonRowDefaultValue implements Serializable {
 			return Optional.of(createObjectArrayConverter(((BasicArrayTypeInfo) typeInfo).getComponentInfo()));
 		} else if (isPrimitiveByteArray(typeInfo)) {
 			return Optional.of(createByteArrayConverter());
+		} else if (typeInfo instanceof MapTypeInfo) {
+			return Optional.of(createMapConverter());
 		} else {
 			return Optional.empty();
 		}
+	}
+
+	private DefaultValueRuntimeConverter createMapConverter() {
+		return HashMap::new;
 	}
 
 	private boolean isPrimitiveByteArray(TypeInformation<?> typeInfo) {
