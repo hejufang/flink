@@ -69,6 +69,7 @@ class ComputedColumnRule extends RelOptRule(
     val project = relBuilder.build()
 
     if (catalogTable.hasWatermark) {
+      tableSourceTable.isWatermarkAssigned = true
       val newRel = new LogicalWatermarkAssigner(
         oldRel.getCluster,
         oldRel.getTraitSet,

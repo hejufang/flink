@@ -153,7 +153,7 @@ class StreamExecTableSourceScan(
     val rowtimeDesc: Option[RowtimeAttributeDescriptor] =
       TableSourceUtil.getRowtimeAttributeDescriptor(tableSource, tableSourceTable.selectedFields)
 
-    val withWatermarks = if (rowtimeDesc.isDefined) {
+    val withWatermarks = if (!tableSourceTable.isWatermarkAssigned && rowtimeDesc.isDefined) {
       val rowtimeFieldIdx = getRowType.getFieldNames.indexOf(rowtimeDesc.get.getAttributeName)
       val watermarkStrategy = rowtimeDesc.get.getWatermarkStrategy
       watermarkStrategy match {

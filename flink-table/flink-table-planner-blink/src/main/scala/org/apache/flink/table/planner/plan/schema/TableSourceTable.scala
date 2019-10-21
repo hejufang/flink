@@ -42,6 +42,8 @@ class TableSourceTable[T](
     var catalogTable: CatalogTable)
   extends FlinkTable {
 
+  var isWatermarkAssigned = false
+
   def this(tableSource: TableSource[T],
            isStreamingMode: Boolean,
            statistic: FlinkStatistic,
