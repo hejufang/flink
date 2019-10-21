@@ -45,6 +45,7 @@ import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalException;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.rest.handler.legacy.messages.ClusterOverviewWithVersion;
+import org.apache.flink.runtime.rest.util.RestClientException;
 import org.apache.flink.runtime.util.LeaderConnectionInfo;
 import org.apache.flink.runtime.util.LeaderRetrievalUtils;
 import org.apache.flink.util.FlinkException;
@@ -497,14 +498,21 @@ public abstract class ClusterClient<T> {
 		for (ClusterOverviewWithVersion currentStatus, lastStatus = null; true; lastStatus = currentStatus) {
 			try {
 				currentStatus = getClusterOverview().get();
-			} catch (InterruptedException | ExecutionException e) {
+			} catch (ExecutionException e) {
+				if (e.getCause() instanceof RestClientException) {
+					log.warn("Ignore RestClientException while waiting TaskManagers.");
+					currentStatus = null;
+				} else {
+					throw new RuntimeException("Error while waiting for TaskManagers", e);
+				}
+			} catch (InterruptedException e) {
 				throw new RuntimeException("Error while waiting for TaskManagers", e);
 			}
 			if (currentStatus != null && !currentStatus.equals(lastStatus)) {
 				if (currentStatus.isRmFatal()) {
 					log.error(currentStatus.getRmFatalMessage());
 					shutDownCluster();
-					throw new RuntimeException(currentStatus.getRmFatalMessage());
+					System.exit(-1);
 				}
 				log.info("TaskManager status (Taskmanagers: " + currentStatus.getNumTaskManagersConnected()
 					+ ", MinRequiredSlots: "
