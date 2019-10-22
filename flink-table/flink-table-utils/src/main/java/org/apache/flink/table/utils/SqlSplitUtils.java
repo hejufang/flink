@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.utils;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -43,7 +45,7 @@ public class SqlSplitUtils {
 		int index = 0;
 		while (match.find()) {
 
-			if (isInComment(context, match.start() + 1)
+			if (isSemicolonInComment(context, match.start() + 1)
 				|| !containsEvenNumberPatterns(context.substring(index, match.start() + 1), '\'')
 				|| !containsEvenNumberPatterns(context.substring(index, match.start() + 1), '\"')) {
 				continue;
@@ -61,16 +63,18 @@ public class SqlSplitUtils {
 		if (index < context.length() - 1 && context.substring(index).trim().length() != 0) {
 			String str = context.substring(index).replaceAll("\\\\;", ";")
 				.replaceAll("^;", "");
-			String prefix = context.substring(0, index).replaceAll("[^\n]", " ");
-			String realStatement = prefix + str;
-			sqlList.add(realStatement);
+			if (!isComment(str)) {
+				String prefix = context.substring(0, index).replaceAll("[^\n]", " ");
+				String realStatement = prefix + str;
+				sqlList.add(realStatement);
+			}
 		}
 		return sqlList;
 	}
 
 	/**
 	 * Whether the statement contains even number of patterns.
-	 * */
+	 */
 	private static boolean containsEvenNumberPatterns(String statement, char pattern) {
 		int count = 0;
 		for (int i = 0; i < statement.length(); i++) {
@@ -86,14 +90,14 @@ public class SqlSplitUtils {
 	}
 
 	/**
-	 * Adjust whether the statement is in a comment closure.
+	 * Adjust whether the semicolon is in a comment closure.
 	 *
 	 * @param context the whole sql context.
-	 * @param index the index of last letter in statement.
+	 * @param index index of the semicolon in statement.
 	 *
-	 * @return whether the statement is in a comment closure.
-	 * */
-	private static boolean isInComment(String context, int index) {
+	 * @return whether the semicolon is in a comment closure.
+	 */
+	private static boolean isSemicolonInComment(String context, int index) {
 		Matcher singleMatch = PATTERN_SINGLE_LINE.matcher(context);
 
 		while (singleMatch.find()) {
@@ -117,5 +121,34 @@ public class SqlSplitUtils {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Adjust whether the whole statement is a comment.
+	 *
+	 * @param statement the target statement.
+	 *
+	 * @return whether the statement is a comment.
+	 */
+	@VisibleForTesting
+	static boolean isComment(String statement) {
+		statement = statement.trim();
+		Matcher multiMatch = PATTERN_MULTI_LINE.matcher(statement);
+
+		if (multiMatch.matches()) {
+			// This statement is in a "/* */" closure.
+			return true;
+		}
+		String[] lines = statement.split("\n");
+		for (String line : lines) {
+			line = line.trim();
+			Matcher multiCommentMatch = PATTERN_MULTI_LINE.matcher(line);
+			Matcher singleCommentMatch = PATTERN_SINGLE_LINE.matcher(line);
+			if (!multiCommentMatch.matches() && !singleCommentMatch.matches()) {
+				// This line is in a "/* */" closure or behind "--".
+				return false;
+			}
+		}
+		return true;
 	}
 }

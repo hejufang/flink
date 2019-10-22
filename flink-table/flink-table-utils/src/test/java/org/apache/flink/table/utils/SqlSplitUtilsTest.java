@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link org.apache.flink.table.utils.SqlSplitUtils}.
@@ -33,7 +35,7 @@ public class SqlSplitUtilsTest {
 	@Test
 	public void testGetSqlList() {
 		String sql =
-			"create table t1 (id int, name varchar);\n select id from t1;";
+			"create table t1 (id int, name varchar);\n select id from t1; -- comment";
 		List<String> sqlList = SqlSplitUtils.getSqlList(sql);
 		ArrayList<String> expectedResult = new ArrayList<>();
 		String subSql1 = "create table t1 (id int, name varchar)";
@@ -47,5 +49,17 @@ public class SqlSplitUtilsTest {
 		expectedResult.add(subSql1);
 		expectedResult.add(subSql2);
 		assertEquals(expectedResult, sqlList);
+	}
+
+	@Test
+	public void testIsComment() {
+		String comment1 = " -- This is a comment \n --comment 2 \n /* comment 3 */";
+		String comment2 = " /* -- This is a comment \n comment2 */";
+		String statement1 = " -- This is a comment \n -- comment 2 \n select * from tableA";
+		String statement2 = " /* This is a comment */ \n select * from tableA";
+		assertTrue(SqlSplitUtils.isComment(comment1));
+		assertTrue(SqlSplitUtils.isComment(comment2));
+		assertFalse(SqlSplitUtils.isComment(statement1));
+		assertFalse(SqlSplitUtils.isComment(statement2));
 	}
 }

@@ -29,6 +29,13 @@ under the License.
 	<description>
 		This module contains table common utils.
 	</description>
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-annotations</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+	</dependencies>
 
 	<packaging>jar</packaging>
 
