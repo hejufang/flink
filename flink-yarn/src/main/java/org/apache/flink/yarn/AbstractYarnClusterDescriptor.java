@@ -707,17 +707,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isInDockerMode);
 
-		if (jobGraph == null && isInDockerMode && isDockerImageIncludeLib && isDockerImageIncludeUserLib) {
-			// this means we don't need hdfs any more
-			LOG.info("Do not need HDFS here.");
-			configuration.setBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, false);
-		}
-
 		// initialize file system
 		// Copy the application master jar to the filesystem
 		// Create a local resource to point to the destination jar path
 		FileSystem fs = null;
-		if (configuration.getBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, true)) {
+		if (configuration.getBoolean(ConfigConstants.HDFS_DEPENDENCY_ENABLED, ConfigConstants.HDFS_DEPENDENCY_ENABLED_DEFAULT)) {
 			fs = FileSystem.get(yarnConfiguration);
 		}
 

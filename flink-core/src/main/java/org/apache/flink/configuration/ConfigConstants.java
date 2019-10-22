@@ -2077,8 +2077,8 @@ public final class ConfigConstants {
 	public static final String METRIC_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
 
-	public static final String ENABLE_REST_SUBMIT = "enable.job.rest.submit";
-	public static final boolean ENABLE_REST_SUBMIT_DEFAULT = false;
+	public static final String PER_JOB_REST_SUBMIT_ENABLED = "per-job.rest.submit.enabled";
+	public static final boolean PER_JOB_REST_SUBMIT_ENABLED_DEFAULT = false;
 
 	// ---------------------------- Print GC Detail & dump on OOM Config ------------------------------
 
@@ -2172,7 +2172,8 @@ public final class ConfigConstants {
 	public static final int SMART_RESOURCES_MEM_MAX_MB_DEFAULT = 60 * 1024;
 	public static final String SMART_RESOURCES_SERVICE_NAME_KEY = "smart-resources.service-name";
 
-	public static final String DEPLOY_HDFS_ENABLED = "deploy.hdfs.enabled";
+	public static final String HDFS_DEPENDENCY_ENABLED = "hdfs.dependency.enabled";
+	public static final boolean HDFS_DEPENDENCY_ENABLED_DEFAULT = true;
 
 	/**
 	 * Not instantiable.

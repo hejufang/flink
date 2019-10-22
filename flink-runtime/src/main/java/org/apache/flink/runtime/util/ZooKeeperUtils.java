@@ -246,7 +246,7 @@ public class ZooKeeperUtils {
 		checkNotNull(configuration, "Configuration");
 
 		RetrievableStateStorageHelper<SubmittedJobGraph> stateStorage;
-		if (configuration.getBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, true)) {
+		if (configuration.getBoolean(ConfigConstants.HDFS_DEPENDENCY_ENABLED, ConfigConstants.HDFS_DEPENDENCY_ENABLED_DEFAULT)) {
 			stateStorage = createFileSystemStateStorage(configuration, "submittedJobGraph");
 		} else {
 			stateStorage = createVoidStateStorage();

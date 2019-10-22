@@ -20,6 +20,7 @@ package org.apache.flink.streaming.runtime.tasks;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.accumulators.Accumulator;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FileSystemSafetyNet;
@@ -361,8 +362,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 			stateBackend = createStateBackend();
 			LOG.info("Try to create checkpoint with job: {}", getEnvironment().getJobName());
-			checkpointStorage = stateBackend.createCheckpointStorage(
-				getEnvironment().getJobID(), getEnvironment().getJobName());
+
+			if (getEnvironment().getTaskManagerInfo().getConfiguration().getBoolean(
+				ConfigConstants.HDFS_DEPENDENCY_ENABLED, ConfigConstants.HDFS_DEPENDENCY_ENABLED_DEFAULT)) {
+				checkpointStorage = stateBackend.createCheckpointStorage(
+					getEnvironment().getJobID(), getEnvironment().getJobName());
+			}
 
 			// if the clock is not already set, then assign a default TimeServiceProvider
 			if (timerService == null) {

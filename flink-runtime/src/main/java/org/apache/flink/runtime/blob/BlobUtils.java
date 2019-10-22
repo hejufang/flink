@@ -89,7 +89,8 @@ public class BlobUtils {
 	 * 		thrown if the (distributed) file storage cannot be created
 	 */
 	public static BlobStoreService createBlobStoreFromConfig(Configuration config) throws IOException {
-		if (HighAvailabilityMode.isHighAvailabilityModeActivated(config) && config.getBoolean(ConfigConstants.DEPLOY_HDFS_ENABLED, true)) {
+		if (HighAvailabilityMode.isHighAvailabilityModeActivated(config) && config.getBoolean(
+			ConfigConstants.HDFS_DEPENDENCY_ENABLED, ConfigConstants.HDFS_DEPENDENCY_ENABLED_DEFAULT)) {
 			return createFileSystemBlobStore(config);
 		} else {
 			return new VoidBlobStore();

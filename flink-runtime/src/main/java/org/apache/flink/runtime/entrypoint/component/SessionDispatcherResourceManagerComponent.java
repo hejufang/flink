@@ -18,11 +18,15 @@
 
 package org.apache.flink.runtime.entrypoint.component;
 
+import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.dispatcher.Dispatcher;
+import org.apache.flink.runtime.dispatcher.StandaloneDispatcher;
 import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.webmonitor.WebMonitorEndpoint;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * {@link DispatcherResourceManagerComponent} used by session clusters.
@@ -36,5 +40,17 @@ class SessionDispatcherResourceManagerComponent extends DispatcherResourceManage
 			WebMonitorEndpoint<?> webMonitorEndpoint,
 			JobManagerMetricGroup jobManagerMetricGroup) {
 		super(dispatcher, resourceManager, dispatcherLeaderRetrievalService, resourceManagerRetrievalService, webMonitorEndpoint, jobManagerMetricGroup);
+
+		final CompletableFuture<ApplicationStatus> shutDownFuture = getShutDownFuture();
+
+		if (dispatcher instanceof StandaloneDispatcher) {
+			((StandaloneDispatcher) dispatcher).getJobTerminationFuture().whenComplete((applicationStatus, throwable) -> {
+				if (throwable != null) {
+					shutDownFuture.completeExceptionally(throwable);
+				} else {
+					shutDownFuture.complete(applicationStatus);
+				}
+			});
+		}
 	}
 }

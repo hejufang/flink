@@ -313,11 +313,11 @@ public class CliFrontend {
 					parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
 				}
 
-				final boolean enableRestSubmit = configuration.getBoolean(ConfigConstants.ENABLE_REST_SUBMIT,
-					ConfigConstants.ENABLE_REST_SUBMIT_DEFAULT);
+				final boolean perJobRestSubmitEnabled = configuration.getBoolean(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED,
+					ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED_DEFAULT);
 
 				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
-				if (enableRestSubmit) {
+				if (perJobRestSubmitEnabled) {
 					LOG.info("Deploy job through RestClusterClient to avoid upload jobGraph file to HDFS.");
 					try {
 						client = clusterDescriptor.deploySessionCluster(clusterSpecification);
@@ -1221,8 +1221,9 @@ public class CliFrontend {
 		LOG.info("jobType = {}", jobType);
 		System.setProperty(ConfigConstants.FLINK_JOB_TYPE_KEY, jobType);
 
-		boolean enableRestSubmit = Boolean.parseBoolean(parseDynamicProperty(args, ConfigConstants.ENABLE_REST_SUBMIT, "false"));
-		configuration.setBoolean(ConfigConstants.ENABLE_REST_SUBMIT, enableRestSubmit);
+		boolean perJobRestSubmitEnabled = Boolean.parseBoolean(parseDynamicProperty(args, ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED,
+			String.valueOf(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED_DEFAULT)));
+		configuration.setBoolean(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED, perJobRestSubmitEnabled);
 
 		putSystemProperties(configuration);
 
