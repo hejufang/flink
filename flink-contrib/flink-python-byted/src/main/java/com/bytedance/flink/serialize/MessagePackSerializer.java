@@ -94,7 +94,12 @@ public class MessagePackSerializer implements MessageSerializable {
 				if (shellMsg.getTuple() == null) {
 					shellMsg.setTuple(new ArrayList<>());
 				}
-				shellMsg.getTuple().add(valueToJavaType(element));
+				try {
+					shellMsg.getTuple().add(valueToJavaType(element));
+				} catch (Throwable e) {
+					LOG.error("ValueToJavaType error, error element: {}, tupleValue: {}", element, tupleValue);
+					throw e;
+				}
 			}
 		}
 		return shellMsg;
