@@ -84,9 +84,12 @@ public class PbRowDeserializationSchemaTest {
 
 		Descriptors.Descriptor descriptor = PbDeserializeTest.TestPbDeserailize.getDescriptor();
 
+		int skipBytes = 8;
+
 		PbRowDeserializationSchema schema = PbRowDeserializationSchema.Builder.newBuilder()
 			.setTypeInfo(PbRowTypeInformation.generateRow(descriptor))
 			.setPbDescriptorClass("org.apache.flink.formats.pb.PbDeserializeTest$TestPbDeserailize")
+			.setSkipBytes(skipBytes)
 			.build();
 
 		Row resultRow = new Row(9);
@@ -100,6 +103,12 @@ public class PbRowDeserializationSchemaTest {
 		resultRow.setField(7, arrayValue);
 		resultRow.setField(8, byteStringValue.toByteArray());
 
-		assertEquals(resultRow, schema.deserialize(deserializedRowBuilder.build().toByteArray()));
+		byte[] testBytes = new byte[skipBytes];
+		byte[] deserializedBytes = deserializedRowBuilder.build().toByteArray();
+		byte[] totalBytes = new byte[testBytes.length + deserializedBytes.length];
+		System.arraycopy(testBytes, 0, totalBytes, 0, testBytes.length);
+		System.arraycopy(deserializedBytes, 0, totalBytes, testBytes.length,
+			deserializedBytes.length);
+		assertEquals(resultRow, schema.deserialize(totalBytes));
 	}
 }

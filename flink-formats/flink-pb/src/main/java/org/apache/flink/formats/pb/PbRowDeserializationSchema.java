@@ -29,6 +29,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Objects;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -55,15 +56,28 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 
 	private Descriptors.Descriptor pbDescriptor = null;
 
-	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass) {
+	private final int skipBytes;
+
+	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
+		int skipBytes) {
 		checkNotNull(typeInfo, "Type information");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
+		this.skipBytes = skipBytes;
 		this.runtimeConverter = DeserializationRuntimeConverterFactory.createConverter(this.typeInfo);
 	}
 
 	@Override
 	public Row deserialize(byte[] message) throws IOException {
+		if (skipBytes > 0) {
+			if (message.length < skipBytes) {
+				throw new RuntimeException(String.format("The message length is %s, " +
+					"which is less than the skip bytes %s", message.length, skipBytes));
+			} else {
+				message = Arrays.copyOfRange(message, skipBytes, message.length);
+			}
+		}
+
 		// lazy initial pbDescriptor
 		if (pbDescriptor == null) {
 			pbDescriptor = PbValidator.validateAndReturnDescriptor(pbDescriptorClass);
@@ -96,6 +110,7 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		}
 		final PbRowDeserializationSchema that = (PbRowDeserializationSchema) o;
 		return Objects.equals(typeInfo, that.typeInfo) &&
+			Objects.equals(skipBytes, that.skipBytes) &&
 			Objects.equals(pbDescriptor, that.pbDescriptor);
 	}
 
@@ -110,6 +125,7 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 	public static class Builder {
 		private TypeInformation<Row> typeInfo;
 		private String pbDescriptorClass;
+		private int skipBytes;
 
 		public static Builder newBuilder() {
 			return new Builder();
@@ -125,8 +141,14 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 			return this;
 		}
 
+		public Builder setSkipBytes(int skipBytes) {
+			this.skipBytes = skipBytes;
+			return this;
+		}
+
 		public PbRowDeserializationSchema build() {
-			return new PbRowDeserializationSchema(this.typeInfo, this.pbDescriptorClass);
+			return new PbRowDeserializationSchema(this.typeInfo, this.pbDescriptorClass,
+				this.skipBytes);
 		}
 	}
 }

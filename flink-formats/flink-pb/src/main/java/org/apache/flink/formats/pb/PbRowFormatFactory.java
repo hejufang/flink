@@ -50,6 +50,7 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 	protected List<String> supportedFormatProperties() {
 		final List<String> properties = new ArrayList<>();
 		properties.add(PbConstant.FORMAT_PB_CLASS);
+		properties.add(PbConstant.FORMAT_PB_SKIP_BYTES);
 		return properties;
 	}
 
@@ -58,13 +59,15 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
 		String pbDescriptorClass = getDescriptorClass(descriptorProperties);
-		Descriptors.Descriptor pbDescriptor = createDescriptor(descriptorProperties);
 		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
+		Optional<Integer> skipBytes =
+			descriptorProperties.getOptionalInt(PbConstant.FORMAT_PB_SKIP_BYTES);
 
 		PbRowDeserializationSchema.Builder schemaBuilder = PbRowDeserializationSchema.Builder.newBuilder()
 			.setPbDescriptorClass(pbDescriptorClass)
 			.setTypeInfo(typeInfo);
 
+		skipBytes.ifPresent(schemaBuilder::setSkipBytes);
 		return schemaBuilder.build();
 	}
 

@@ -29,6 +29,7 @@ public class PbConstant {
 
 	public static final String FORMAT_TYPE_VALUE = "pb";
 	public static final String FORMAT_PB_CLASS = "format.pb-class";
+	public static final String FORMAT_PB_SKIP_BYTES = "format.skip-bytes";
 	public static final String FORMAT_PB_MESSAGE = "format.pb-message";
 	public static final String FORMAT_PB_FAIL_ON_DESERIALIZED = "format.fail-on-deserialized";
 

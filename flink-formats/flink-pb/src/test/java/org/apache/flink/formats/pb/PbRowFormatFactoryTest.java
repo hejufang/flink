@@ -39,6 +39,7 @@ public class PbRowFormatFactoryTest {
 		String pbClass = "org.apache.flink.formats.pb.PbDeserializeTest$TestPbDeserailize";
 		final Map<String, String> properties = new HashMap<>();
 		properties.put("format.type", "pb");
+		properties.put("format.skip-bytes", "1");
 		properties.put("format.pb-class", pbClass);
 
 		final DeserializationSchema<?> deserializationSchema = TableFactoryService
@@ -49,6 +50,7 @@ public class PbRowFormatFactoryTest {
 		final PbRowDeserializationSchema expectedSchema = PbRowDeserializationSchema.Builder.newBuilder()
 			.setPbDescriptorClass(pbClass)
 			.setTypeInfo(PbRowTypeInformation.generateRow(descriptor))
+			.setSkipBytes(1)
 			.build();
 
 		assertEquals(expectedSchema, deserializationSchema);
