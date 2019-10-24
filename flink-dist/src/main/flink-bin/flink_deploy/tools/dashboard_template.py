@@ -1772,6 +1772,58 @@ class DashboardTemplate(object):
                 }
             ]
         ''')
+        self.gc_template_1_9 = Template('''
+            [
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                }
+            ]
+        ''')
         self.threads_template = Template('''
             [
                 {
@@ -2032,6 +2084,11 @@ class DashboardTemplate(object):
 
         if flink_version == '1.5':
             gc_targets = self.gc_template_1_5.substitute({
+                "datasource": data_source,
+                "jobname": topology_name
+            })
+        elif flink_version == '1.9':
+            gc_targets = self.gc_template_1_9.substitute({
                 "datasource": data_source,
                 "jobname": topology_name
             })
