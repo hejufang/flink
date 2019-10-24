@@ -259,7 +259,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			}
 			throw ex;
 		}
-		LOG.debug("Taking DB native checkpoint for checkpoint {}, duration: {}ms.", checkpointId,
+		LOG.info("Taking DB native checkpoint for checkpoint {}, duration: {}ms.", checkpointId,
 			System.currentTimeMillis() - startTime);
 	}
 
@@ -323,7 +323,10 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				Preconditions.checkNotNull(metaStateHandle.getJobManagerOwnedSnapshot(),
 					"Metadata for job manager was not properly created.");
 
+				long uploadBeginTs = System.currentTimeMillis();
 				uploadSstFiles(sstFiles, miscFiles);
+				LOG.info("Uploading sst files (checkpoint={}) cost {}ms in incremental snapshot.", checkpointId,
+						System.currentTimeMillis() - uploadBeginTs);
 
 				synchronized (materializedSstFiles) {
 					materializedSstFiles.put(checkpointId, sstFiles.keySet());
@@ -471,7 +474,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				}
 			}
 			LOG.debug("Calc incremental files for checkpoint {}, reuseFilesNum: {}, reuseFilesSize: {}, incrementalFilesNum: {},"
-				+ "incrementalFilesSize: {}.", reuseFilesNum, reuseFilesSize, incrementalFilesNum, incrementalFilesSize);
+				+ "incrementalFilesSize: {}.", checkpointId, reuseFilesNum, reuseFilesSize, incrementalFilesNum, incrementalFilesSize);
 		}
 
 		@Nonnull
