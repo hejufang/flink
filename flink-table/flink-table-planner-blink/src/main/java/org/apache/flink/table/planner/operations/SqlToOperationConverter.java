@@ -271,7 +271,10 @@ public class SqlToOperationConverter {
 			String columns;
 			String formatType = properties.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "");
 			if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE) || formatType.equals(PbConstant.FORMAT_TYPE_VALUE)) {
-				columns = String.join(",", tableSchema.getFieldNames());
+				columns = String.join("`, `", tableSchema.getFieldNames());
+				if (tableSchema.getFieldNames().length > 0) {
+					columns = "`" + columns + "`";
+				}
 				columns += "," + sqlCreateTable.getColumnSqlString();
 			} else {
 				columns = sqlCreateTable.getColumnSqlString();
