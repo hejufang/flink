@@ -18,31 +18,28 @@
 
 package org.apache.flink.streaming.connectors.kafka;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.types.Row;
 
 import java.util.Optional;
 import java.util.Properties;
 
-
 /**
- * Factory for creating configured instances of {@link KafkaTableSourceBase}.
+ * Kafka 0.10 upsert table sink for writing data into Kafka.
  */
-public abstract class KafkaTableSourceSinkFactoryBase
-	extends AbstractKafkaTableSourceSinkFactoryBase<Row> {
+@Internal
+public class Kafka010UpsertTableSink extends KafkaUpsertTableSinkBase {
 
-	@Override
-	public StreamTableSink<Row> createKafkaTableSink(
-		TableSchema schema,
-		String topic,
-		Properties properties,
-		Optional<FlinkKafkaPartitioner<Row>> partitioner,
-		SerializationSchema<Row> serializationSchema,
-		String updateMode) {
-		return createKafkaTableSink(
+	public Kafka010UpsertTableSink(
+			TableSchema schema,
+			String topic,
+			Properties properties,
+			Optional<FlinkKafkaPartitioner<Row>> partitioner,
+			SerializationSchema<Row> serializationSchema) {
+		super(
 			schema,
 			topic,
 			properties,
@@ -50,18 +47,16 @@ public abstract class KafkaTableSourceSinkFactoryBase
 			serializationSchema);
 	}
 
-	/**
-	 * Constructs the version-specific Kafka table sink.
-	 *
-	 * @param schema      Schema of the produced table.
-	 * @param topic       Kafka topic to consume.
-	 * @param properties  Properties for the Kafka consumer.
-	 * @param partitioner Partitioner to select Kafka partition for each item.
-	 */
-	protected abstract StreamTableSink<Row> createKafkaTableSink(
-		TableSchema schema,
-		String topic,
-		Properties properties,
-		Optional<FlinkKafkaPartitioner<Row>> partitioner,
-		SerializationSchema<Row> serializationSchema);
+	@Override
+	protected FlinkKafkaProducerBase<Row> createKafkaProducer(
+			String topic,
+			Properties properties,
+			SerializationSchema<Row> serializationSchema,
+			Optional<FlinkKafkaPartitioner<Row>> partitioner) {
+		return new FlinkKafkaProducer010<>(
+			topic,
+			serializationSchema,
+			properties,
+			partitioner.orElse(null));
+	}
 }
