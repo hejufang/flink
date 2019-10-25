@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.SerializedThrowable;
 
 /**
  * Base class for checkpoint related exceptions.
@@ -40,12 +41,14 @@ public class CheckpointException extends Exception {
 	}
 
 	public CheckpointException(CheckpointFailureReason failureReason, Throwable cause) {
-		super(failureReason.message(), cause);
+		super(failureReason.message(),
+				cause == null ? null : new SerializedThrowable(cause));
 		this.checkpointFailureReason = Preconditions.checkNotNull(failureReason);
 	}
 
 	public CheckpointException(String message, CheckpointFailureReason failureReason, Throwable cause) {
-		super(message + " Failure reason: " + failureReason.message(), cause);
+		super(message + " Failure reason: " + failureReason.message(),
+				cause == null ? null : new SerializedThrowable(cause));
 		this.checkpointFailureReason = Preconditions.checkNotNull(failureReason);
 	}
 
