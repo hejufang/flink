@@ -24,6 +24,7 @@ import org.apache.flink.table.planner.plan.nodes.FlinkConventions
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalMatch
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamExecMatch
 import org.apache.flink.table.planner.plan.utils.{MatchUtil, RexDefaultVisitor}
+import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
 
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall, RelTraitSet}
 import org.apache.calcite.rel.RelNode
@@ -32,6 +33,7 @@ import org.apache.calcite.rel.convert.ConverterRule
 import org.apache.calcite.rex.{RexCall, RexInputRef, RexNode}
 import org.apache.calcite.sql.SqlAggFunction
 
+import java.util.ArrayList
 import java.util.{List => JList}
 
 import scala.collection.JavaConverters._
@@ -57,8 +59,15 @@ class StreamExecMatchRule
   override def convert(rel: RelNode): RelNode = {
     val logicalMatch: FlinkLogicalMatch = rel.asInstanceOf[FlinkLogicalMatch]
     val traitSet: RelTraitSet = rel.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL)
+    val partitionKeys = new ArrayList[Integer]()
+    for (i <- 0 until logicalMatch.getPartitionKeys.size()) {
+      val inputRef: RexInputRef = logicalMatch.getPartitionKeys.get(i).asInstanceOf[RexInputRef]
+      partitionKeys.add(inputRef.getIndex)
+    }
+    val newTraitSet = traitSet.replace(FlinkConventions.STREAM_PHYSICAL)
+      .replace(FlinkRelDistribution.hash(partitionKeys))
     val convertInput: RelNode =
-      RelOptRule.convert(logicalMatch.getInput, FlinkConventions.STREAM_PHYSICAL)
+      RelOptRule.convert(logicalMatch.getInput, newTraitSet)
 
     try {
       Class
