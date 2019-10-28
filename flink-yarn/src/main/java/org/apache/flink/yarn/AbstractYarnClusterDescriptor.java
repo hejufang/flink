@@ -38,6 +38,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
@@ -494,6 +495,15 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
 		for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
 			flinkConfiguration.setString(dynProperty.getKey(), dynProperty.getValue());
+		}
+
+		// hack fs.defaultFs in yanrConfiguration
+		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
+			String defaultFS = flinkConfiguration.getString(HdfsConfigOptions.HDFS_DEFAULT_FS);
+			if (defaultFS.length() > 0) {
+				LOG.info("Using new fsDefault={}", defaultFS);
+				yarnConfiguration.set(HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+			}
 		}
 
 		// ------------------ Check if the YARN ClusterClient has the requested resources --------------

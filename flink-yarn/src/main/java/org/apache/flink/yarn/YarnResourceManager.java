@@ -31,6 +31,7 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -250,6 +251,16 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			failureRater);
 		this.flinkConfig  = flinkConfig;
 		this.yarnConfig = new YarnConfiguration();
+
+		// hack fs.defaultFs in yanrConfiguration
+		if (flinkConfig.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
+			String defaultFS = flinkConfig.getString(HdfsConfigOptions.HDFS_DEFAULT_FS);
+			if (defaultFS.length() > 0) {
+				log.info("Using new fsDefault={}", defaultFS);
+				yarnConfig.set(HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+			}
+		}
+
 		this.env = env;
 		this.workerNodeMap = new ConcurrentHashMap<>();
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(

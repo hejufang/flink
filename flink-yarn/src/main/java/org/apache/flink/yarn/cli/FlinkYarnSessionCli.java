@@ -291,7 +291,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			YarnConfiguration yarnConfiguration,
 			String configurationDirectory,
 			CommandLine cmd) {
-
 		AbstractYarnClusterDescriptor yarnClusterDescriptor = getClusterDescriptor(
 			configuration,
 			yarnConfiguration,

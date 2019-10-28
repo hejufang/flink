@@ -33,4 +33,9 @@ public class HdfsConfigOptions {
 		key("dfs.client.block.write.retries")
 			.defaultValue(3)
 			.withDescription("HDFS client block write retries");
+
+	public static final ConfigOption<String> HDFS_DEFAULT_FS =
+			key("fs.defaultFS")
+			.defaultValue("")
+			.withDescription("HDFS defaultFS");
 }

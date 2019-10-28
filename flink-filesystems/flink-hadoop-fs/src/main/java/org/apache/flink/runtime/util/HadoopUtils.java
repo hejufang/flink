@@ -118,6 +118,16 @@ public class HadoopUtils {
 				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
 		}
 
+		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
+			// override fs.defaultFS
+			String defaultFS = flinkConfiguration.getString(HdfsConfigOptions.HDFS_DEFAULT_FS);
+			if (defaultFS.length() > 0) {
+				result.setStrings(HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+				LOG.info("using hdfs param {}={}",
+						HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+			}
+		}
+
 		return result;
 	}
 
