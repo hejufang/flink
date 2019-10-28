@@ -165,6 +165,12 @@ public final class LegacyTypeInfoDataTypeConverter {
 				((ObjectArrayTypeInfo) typeInfo).getComponentInfo());
 		}
 
+		else if (typeInfo == BasicArrayTypeInfo.STRING_ARRAY_TYPE_INFO) {
+			return convertToArrayType(
+				typeInfo.getTypeClass(),
+				((BasicArrayTypeInfo) typeInfo).getComponentInfo());
+		}
+
 		else if (typeInfo instanceof BasicArrayTypeInfo) {
 			return createLegacyType(LogicalTypeRoot.ARRAY, typeInfo);
 		}

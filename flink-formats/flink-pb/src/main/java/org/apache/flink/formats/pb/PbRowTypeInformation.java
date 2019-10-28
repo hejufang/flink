@@ -54,23 +54,9 @@ public class PbRowTypeInformation {
 
 	public static TypeInformation<?> generateFieldTypeInformation(Descriptors.FieldDescriptor field) {
 		JavaType fieldType = field.getJavaType();
-		if (fieldType.equals(JavaType.STRING)) {
-			return Types.STRING;
-		} else if (fieldType.equals(JavaType.LONG)) {
-			return Types.LONG;
-		} else if (fieldType.equals(JavaType.BOOLEAN)) {
-			return Types.BOOLEAN;
-		} else if (fieldType.equals(JavaType.INT)) {
-			return Types.INT;
-		} else if (fieldType.equals(JavaType.DOUBLE)) {
-			return Types.DOUBLE;
-		} else if (fieldType.equals(JavaType.FLOAT)) {
-			return Types.FLOAT;
-		} else if (fieldType.equals(JavaType.ENUM)) {
-			return Types.STRING;
-		} else if (fieldType.equals(JavaType.BYTE_STRING)) {
-			return Types.PRIMITIVE_ARRAY(Types.BYTE);
-		} else if (fieldType.equals(JavaType.MESSAGE)) {
+
+		TypeInformation typeInfo;
+		if (fieldType.equals(JavaType.MESSAGE)) {
 			if (field.isMapField()) {
 				return Types.MAP(generateFieldTypeInformation(field.getMessageType().findFieldByName(PbConstant.KEY)),
 					generateFieldTypeInformation(field.getMessageType().findFieldByName(PbConstant.VALUE)));
@@ -79,8 +65,30 @@ public class PbRowTypeInformation {
 			} else {
 				return generateRow(field.getMessageType());
 			}
+		} else {
+			if (fieldType.equals(JavaType.STRING)) {
+				typeInfo = Types.STRING;
+			} else if (fieldType.equals(JavaType.LONG)) {
+				typeInfo = Types.LONG;
+			} else if (fieldType.equals(JavaType.BOOLEAN)) {
+				typeInfo = Types.BOOLEAN;
+			} else if (fieldType.equals(JavaType.INT)) {
+				typeInfo = Types.INT;
+			} else if (fieldType.equals(JavaType.DOUBLE)) {
+				typeInfo = Types.DOUBLE;
+			} else if (fieldType.equals(JavaType.FLOAT)) {
+				typeInfo = Types.FLOAT;
+			} else if (fieldType.equals(JavaType.ENUM)) {
+				typeInfo = Types.STRING;
+			} else if (fieldType.equals(JavaType.BYTE_STRING)) {
+				typeInfo = Types.PRIMITIVE_ARRAY(Types.BYTE);
+			} else {
+				typeInfo = Types.STRING;
+			}
+			if (field.isRepeated()) {
+				return ObjectArrayTypeInfo.getInfoFor(typeInfo);
+			}
+			return typeInfo;
 		}
-
-		return Types.STRING;
 	}
 }
