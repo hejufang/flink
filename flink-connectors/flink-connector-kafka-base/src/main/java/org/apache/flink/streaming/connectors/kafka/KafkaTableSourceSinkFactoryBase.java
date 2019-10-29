@@ -24,8 +24,12 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.types.Row;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+
+import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.UPDATE_MODE;
+import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.UPDATE_MODE_VALUE_APPEND;
 
 
 /**
@@ -33,6 +37,13 @@ import java.util.Properties;
  */
 public abstract class KafkaTableSourceSinkFactoryBase
 	extends AbstractKafkaTableSourceSinkFactoryBase<Row> {
+
+	@Override
+	public Map<String, String> requiredContext() {
+		Map<String, String> context = super.requiredContext();
+		context.put(UPDATE_MODE, UPDATE_MODE_VALUE_APPEND);
+		return context;
+	}
 
 	@Override
 	public StreamTableSink<Row> createKafkaTableSink(
