@@ -117,7 +117,7 @@ public abstract class KafkaUpsertTableSinkBase implements UpsertStreamTableSink<
 		DataStream<Row> rowDataStream = dataStream.map(new MapFunction<Tuple2<Boolean, Row>, Row>() {
 			@Override
 			public Row map(Tuple2<Boolean, Row> value) throws Exception {
-				if (value != null) {
+				if (value != null && value.f0) {
 					return value.f1;
 				}
 				return null;
