@@ -2135,6 +2135,13 @@ public final class ConfigConstants {
 	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
 	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;
 
+	// ------------------- Yarn Container Local Directories ------------------------
+	public static final String CONTAINER_LOCAL_DIRS = "flink.yarn.container.local.dir";
+	public static final String CONTAINER_CURRENT_WORKING_DIR = "flink.yarn.container.current.dir";
+	public static final String CONTAINER_ID = "flink.yarn.container.id";
+
+	public static final String FLINK_ROCKSDB_DISK = "flink.rocksdb.disk";
+
 	// ---------------------------- Kafka Configurations ---------------------------
 	/** Configuration key for subset of subscribed partition list. */
 	public static final String PARTITION_LIST_OLD_KEY = "partition.list";

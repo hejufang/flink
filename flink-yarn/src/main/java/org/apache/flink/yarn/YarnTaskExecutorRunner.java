@@ -107,6 +107,9 @@ public class YarnTaskExecutorRunner {
 			Preconditions.checkArgument(containerId != null,
 				"ContainerId variable %s not set", YarnResourceManager.ENV_FLINK_CONTAINER_ID);
 
+			// set containerId into configuration
+			configuration.setString(ConfigConstants.CONTAINER_ID, containerId);
+
 			SecurityUtils.getInstalledContext().runSecured((Callable<Void>) () -> {
 				TaskManagerRunner.runTaskManager(configuration, new ResourceID(containerId));
 				return null;
@@ -171,6 +174,15 @@ public class YarnTaskExecutorRunner {
 		if (taskExecutorHostname != null) {
 			configuration.setString(TaskManagerOptions.HOST, taskExecutorHostname);
 		}
+
+		// set local dirs passed by yarn container
+		final String localDirs = variables.getOrDefault(Environment.LOCAL_DIRS.key(), null);
+		if (localDirs != null) {
+			configuration.setString(ConfigConstants.CONTAINER_LOCAL_DIRS, localDirs);
+		}
+
+		// set curernt working dir
+		configuration.setString(ConfigConstants.CONTAINER_CURRENT_WORKING_DIR, currDir);
 	}
 
 	private static void installSecurityContext(Configuration configuration) throws Exception {

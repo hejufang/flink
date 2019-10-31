@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.core.fs.CloseableRegistry;
@@ -324,7 +325,33 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			this.localRocksDbDirectories = original.localRocksDbDirectories;
 		}
 		else {
-			final String rocksdbLocalPaths = config.getString(RocksDBOptions.LOCAL_DIRECTORIES);
+			// use local dir otherwise nodemanager cannot clean the files
+			String rocksdbLocalPaths = null;
+			final String localDirs = config.getString(ConfigConstants.CONTAINER_LOCAL_DIRS, null);
+			if (localDirs != null) {
+				final String disk = config.getString(ConfigConstants.FLINK_ROCKSDB_DISK, null);
+				final String containerId = config.getString(ConfigConstants.CONTAINER_ID, null);
+				if (disk != null && containerId != null) {
+					String[] localDirsArray = localDirs.split(",|" + File.pathSeparator);
+					for (String localDir : localDirsArray) {
+						if (localDir.startsWith("/" + disk)) {
+							rocksdbLocalPaths = localDir + "/" + containerId;
+							break;
+						}
+					}
+				}
+			}
+
+			if (rocksdbLocalPaths == null) {
+				rocksdbLocalPaths = config.getString(RocksDBOptions.LOCAL_DIRECTORIES);
+			}
+
+			if (rocksdbLocalPaths == null) {
+				rocksdbLocalPaths = config.getString(ConfigConstants.CONTAINER_CURRENT_WORKING_DIR, null);
+			}
+
+			LOG.info("Using {} as rocksdb local directory.", rocksdbLocalPaths);
+
 			if (rocksdbLocalPaths != null) {
 				String[] directories = rocksdbLocalPaths.split(",|" + File.pathSeparator);
 
