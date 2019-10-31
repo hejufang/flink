@@ -132,6 +132,8 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	/** Number of unacknowledged records. */
 	protected long pendingRecords;
 
+	private static final long KAFKA_LINGER_MS_DEFAULT = 1000;
+
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
 	 *
@@ -170,6 +172,10 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 //		if (!this.producerConfig.containsKey(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
 //			throw new IllegalArgumentException(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG + " must be supplied in the producer config properties.");
 //		}
+
+		if (!producerConfig.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+			this.producerConfig.put(ProducerConfig.LINGER_MS_CONFIG, KAFKA_LINGER_MS_DEFAULT);
+		}
 
 		this.topicPartitionsMap = new HashMap<>();
 	}
