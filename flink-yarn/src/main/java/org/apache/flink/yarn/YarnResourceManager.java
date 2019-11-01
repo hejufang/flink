@@ -194,6 +194,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	// for smart resources
 	private Thread containerResourcesUpdater;
 	private Map<ContainerId, Long/* expired time ms */> pendingUpdating;
+	/**
+	 * Resource Manager has already updated, wait NodeManager update success.
+	 */
+	private Map<ContainerId, Container> waitNMUpdate;
 	private ContainerResources targetResources;
 	private long resourcesUpdateTimeoutMS = 2 * 60 * 1000;
 	private EstimaterClient estimaterClient;
@@ -306,6 +310,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		smartResourcesConfig.put(ConfigConstants.SMART_RESOURCES_ENABLE_KEY, smartResourcesEnable);
 		if (smartResourcesEnable) {
 			this.pendingUpdating = new HashMap<>();
+			this.waitNMUpdate = new HashMap<>();
 			String smartResourcesServiceName =
 				flinkConfig.getString(ConfigConstants.SMART_RESOURCES_SERVICE_NAME_KEY, null);
 			Preconditions.checkNotNull(smartResourcesServiceName, "SmartResources enabled and service name not set");
@@ -966,8 +971,25 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	@Override
+	public void onContainerResourceUpdated(ContainerId containerId, Resource resource) {
+		log.info("Update container resource success {}", containerId);
+		Container updatedContainer = waitNMUpdate.get(containerId);
+		Container oldContainer = workerNodeMap.get(getResourceID(updatedContainer)).getContainer();
+		workerNodeMap.put(getResourceID(updatedContainer), new YarnWorkerNode(updatedContainer));
+		waitNMUpdate.remove(containerId);
+		log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
+				containerId, oldContainer.getResource().getMemorySize(), oldContainer.getResource().getVirtualCores(),
+				updatedContainer.getResource().getMemorySize(), updatedContainer.getResource().getVirtualCores());
+	}
+
+	@Override
 	public void onGetContainerStatusError(ContainerId containerId, Throwable throwable) {
 		log.error("Get container status error {}", containerId, throwable);
+	}
+
+	@Override
+	public void onUpdateContainerResourceError(ContainerId containerId, Throwable t) {
+		log.error("Update container resource error {}", containerId, t);
 	}
 
 	@Override
@@ -994,13 +1016,18 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					old.getResource().getMemory(), old.getResource().getVirtualCores(),
 					updatedContainer.getContainer().getResource().getMemory(),
 					updatedContainer.getContainer().getResource().getVirtualCores());
-				nodeManagerClient.updateContainerResource(updatedContainer.getContainer());
-				workerNodeMap.put(getResourceID(updatedContainer.getContainer()),
-					new YarnWorkerNode(updatedContainer.getContainer()));
-				log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
-					old.getId(), old.getResource().getMemory(), old.getResource().getVirtualCores(),
-					updatedContainer.getContainer().getResource().getMemory(),
-					updatedContainer.getContainer().getResource().getVirtualCores());
+				if (nmClientAsyncEnabled) {
+					nodeManagerClientAsync.updateContainerResourceAsync(updatedContainer.getContainer());
+					waitNMUpdate.put(updatedContainer.getContainer().getId(), updatedContainer.getContainer());
+				} else {
+					nodeManagerClient.updateContainerResource(updatedContainer.getContainer());
+					workerNodeMap.put(getResourceID(updatedContainer.getContainer()),
+							new YarnWorkerNode(updatedContainer.getContainer()));
+					log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
+							old.getId(), old.getResource().getMemory(), old.getResource().getVirtualCores(),
+							updatedContainer.getContainer().getResource().getMemory(),
+							updatedContainer.getContainer().getResource().getVirtualCores());
+				}
 			} catch (YarnException | IOException e) {
 				log.error("update container resources error, "
 					+ updatedContainer.getContainer().getId(), e);
