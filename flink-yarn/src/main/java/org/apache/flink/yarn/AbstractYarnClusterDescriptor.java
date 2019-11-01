@@ -1004,7 +1004,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 
 		final Path yarnFilesDir = getYarnFilesDir(appId);
-		if (fs != null) {
+		if (fs != null && fs.exists(yarnFilesDir)) {
 			FsPermission permission = new FsPermission(FsAction.ALL, FsAction.NONE, FsAction.NONE);
 			fs.setPermission(yarnFilesDir, permission); // set permission for path.
 		}
