@@ -325,8 +325,11 @@ public final class WebMonitorUtils {
 		} else {
 			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
 				ConfigConstants.APPLICATION_NAME_DEFAULT);
-			String jobName = applicatioName.substring(0, applicatioName.lastIndexOf("_"))
-				.replace(".", "-");
+			String jobName = applicatioName;
+			if (applicatioName.lastIndexOf("_") != -1) {
+				jobName = applicatioName.substring(0, applicatioName.lastIndexOf("_"))
+					.replace(".", "-");
+			}
 			String clusterName = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY,
 				ConfigConstants.CLUSTER_NAME_DEFAULT);
 			String metric = String.format(ConfigConstants.METRIC_TEMPLATE, clusterName, jobName);
