@@ -382,7 +382,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	@Override
 	public void onContainersCompleted(final List<ContainerStatus> statuses) {
 		runAsync(() -> {
-				log.debug("YARN ResourceManager reported the following containers completed: {}.", statuses);
+				log.warn("YARN ResourceManager reported {} containers completed.", statuses.size());
 				for (final ContainerStatus containerStatus : statuses) {
 
 					final ResourceID resourceId = new ResourceID(containerStatus.getContainerId().toString());
@@ -391,6 +391,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					notifyAllocatedWorkerStopped(resourceId);
 
 					if (yarnWorkerNode != null) {
+						log.warn("Container {} on {} completed with exit code {}, {}",
+								containerStatus.getContainerId(),
+								yarnWorkerNode.getContainer().getNodeId().getHost(),
+								containerStatus.getExitStatus(),
+								containerStatus.getDiagnostics());
 						recordWorkerFailure();
 						// Container completed unexpectedly ~> start a new one
 						requestYarnContainerIfRequired();
@@ -451,6 +456,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			final Container container = containerIterator.next();
 			final AMRMClient.ContainerRequest pendingRequest = pendingRequestsIterator.next();
 			final ResourceID resourceId = getContainerResourceId(container);
+			log.info("Received new container: {} on {}", container.getId(), container.getNodeId().getHost());
 
 			notifyNewWorkerAllocated(workerResourceSpec, resourceId);
 			startTaskExecutorInContainer(container, workerResourceSpec, resourceId);
