@@ -644,8 +644,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@Override
 	public void onContainersCompleted(final List<ContainerStatus> statuses) {
 		runAsync(() -> {
-				log.info("YARN ResourceManager reported the following containers completed: {}.", statuses);
+				log.warn("YARN ResourceManager reported {} containers completed.", statuses.size());
 				for (final ContainerStatus containerStatus : statuses) {
+					log.warn("Container {} on {} completed, {}",
+							containerStatus.getContainerId(),
+							containerStatus.getHost(),
+							containerStatus.getDiagnostics());
 
 					final ResourceID resourceId = new ResourceID(containerStatus.getContainerId().toString());
 					final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
@@ -670,8 +674,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 			for (Container container : containers) {
 				log.info(
-					"Received new container: {} - Remaining pending container requests: {}",
+					"Received new container: {} on {} - Remaining pending container requests: {}",
 					container.getId(),
+					container.getNodeId().getHost(),
 					numPendingContainerRequests);
 
 				if (numPendingContainerRequests > 0) {
