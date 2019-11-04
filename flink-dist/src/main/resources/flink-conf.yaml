@@ -107,7 +107,7 @@ common:
   docker.hub: hub.byted.org
   docker.region: China-North-LF
 
-  nmclientasync.enabled: true
+  nmclientasync.enabled: false
   taskmanager.initial-on-start: false
   taskmanager.network.netty.client.readTimeout.enabled: true
   resourcemanager.taskmanager-timeout: 900000
