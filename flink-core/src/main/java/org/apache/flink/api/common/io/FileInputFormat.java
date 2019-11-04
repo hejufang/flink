@@ -25,6 +25,7 @@ import org.apache.flink.api.common.io.compression.GzipInflaterInputStreamFactory
 import org.apache.flink.api.common.io.compression.InflaterInputStreamFactory;
 import org.apache.flink.api.common.io.compression.XZInputStreamFactory;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
@@ -42,6 +43,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -599,98 +603,168 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 
 		// returns if unsplittable
 		if (unsplittable) {
-			int splitNum = 0;
-			for (final FileStatus file : files) {
-				final FileSystem fs = file.getPath().getFileSystem();
-				final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, file.getLen());
-				Set<String> hosts = new HashSet<String>();
-				for(BlockLocation block : blocks) {
-					hosts.addAll(Arrays.asList(block.getHosts()));
-				}
-				long len = file.getLen();
-				if(testForUnsplittable(file)) {
-					len = READ_WHOLE_SPLIT_FLAG;
-				}
-				FileInputSplit fis = new FileInputSplit(splitNum++, file.getPath(), 0, len,
-						hosts.toArray(new String[hosts.size()]));
-				inputSplits.add(fis);
-			}
-			return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);
+			return buildSplitsForUnsplittableInput(inputSplits, files);
+		} else {
+			final long maxSplitSize = totalLength / minNumSplits + (totalLength % minNumSplits == 0 ? 0 : 1);
+			return buildSplitsForSplittableInput(inputSplits, files, maxSplitSize);
 		}
-		
+	}
 
-		final long maxSplitSize = totalLength / minNumSplits + (totalLength % minNumSplits == 0 ? 0 : 1);
-
-		// now that we have the files, generate the splits
-		int splitNum = 0;
+	private FileInputSplit[] buildSplitsForUnsplittableInput(List<FileInputSplit> inputSplits,
+		List<FileStatus> files) throws IOException {
+		long startMS = System.currentTimeMillis();
+		AtomicInteger splitNum = new AtomicInteger(0);
+		final List<CompletableFuture<Tuple2<FileInputSplit, IOException>>> fisFutures = new ArrayList<>();
 		for (final FileStatus file : files) {
-
-			final FileSystem fs = file.getPath().getFileSystem();
-			final long len = file.getLen();
-			final long blockSize = file.getBlockSize();
-			
-			final long minSplitSize;
-			if (this.minSplitSize <= blockSize) {
-				minSplitSize = this.minSplitSize;
-			}
-			else {
-				if (LOG.isWarnEnabled()) {
-					LOG.warn("Minimal split size of " + this.minSplitSize + " is larger than the block size of " + 
-						blockSize + ". Decreasing minimal split size to block size.");
+			fisFutures.add(CompletableFuture.supplyAsync(() -> {
+				try {
+					final FileSystem fs = file.getPath().getFileSystem();
+					final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, file.getLen());
+					Set<String> hosts = new HashSet<String>();
+					for (BlockLocation block : blocks) {
+						hosts.addAll(Arrays.asList(block.getHosts()));
+					}
+					long len = file.getLen();
+					if (testForUnsplittable(file)) {
+						len = READ_WHOLE_SPLIT_FLAG;
+					}
+					FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), 0, len,
+						hosts.toArray(new String[hosts.size()]));
+					return new Tuple2<>(fis, null);
+				} catch (IOException ioException) {
+					return new Tuple2<>(null, ioException);
 				}
-				minSplitSize = blockSize;
-			}
+			}));
+		}
 
-			final long splitSize = Math.max(minSplitSize, Math.min(maxSplitSize, blockSize));
-			final long halfSplit = splitSize >>> 1;
-
-			final long maxBytesForLastSplit = (long) (splitSize * MAX_SPLIT_SIZE_DISCREPANCY);
-
-			if (len > 0) {
-
-				// get the block locations and make sure they are in order with respect to their offset
-				final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, len);
-				Arrays.sort(blocks);
-
-				long bytesUnassigned = len;
-				long position = 0;
-
-				int blockIndex = 0;
-
-				while (bytesUnassigned > maxBytesForLastSplit) {
-					// get the block containing the majority of the data
-					blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
-					// create a new split
-					FileInputSplit fis = new FileInputSplit(splitNum++, file.getPath(), position, splitSize,
-						blocks[blockIndex].getHosts());
-					inputSplits.add(fis);
-
-					// adjust the positions
-					position += splitSize;
-					bytesUnassigned -= splitSize;
-				}
-
-				// assign the last split
-				if (bytesUnassigned > 0) {
-					blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
-					final FileInputSplit fis = new FileInputSplit(splitNum++, file.getPath(), position,
-						bytesUnassigned, blocks[blockIndex].getHosts());
-					inputSplits.add(fis);
-				}
+		IOException ioException = null;
+		for (CompletableFuture<Tuple2<FileInputSplit, IOException>> fisFuture : fisFutures) {
+			if (ioException != null) {
+				fisFuture.cancel(true);
 			} else {
-				// special case with a file of zero bytes size
-				final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, 0);
-				String[] hosts;
-				if (blocks.length > 0) {
-					hosts = blocks[0].getHosts();
-				} else {
-					hosts = new String[0];
+				try {
+					Tuple2<FileInputSplit, IOException> result = fisFuture.get();
+					if (result.f1 != null) {
+						ioException = result.f1;
+					} else {
+						inputSplits.add(result.f0);
+					}
+				} catch (InterruptedException | ExecutionException e) {
+					ioException = new IOException("Split input error.", e);
 				}
-				final FileInputSplit fis = new FileInputSplit(splitNum++, file.getPath(), 0, 0, hosts);
-				inputSplits.add(fis);
 			}
 		}
 
+		if (ioException != null) {
+			throw ioException;
+		}
+
+		LOG.info("Finished build splits for UnsplittableInput, fileNum: {}, costtime: {} ms.", files.size(), System.currentTimeMillis() - startMS);
+		return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);
+	}
+
+	private FileInputSplit[] buildSplitsForSplittableInput(List<FileInputSplit> inputSplits,
+		List<FileStatus> files, long maxSplitSize) throws IOException {
+		long startMS = System.currentTimeMillis();
+		final List<CompletableFuture<Tuple2<List<FileInputSplit>, IOException>>> fisFutures = new ArrayList<>();
+		final AtomicInteger splitNum = new AtomicInteger(0);
+		for (final FileStatus file : files) {
+			fisFutures.add(CompletableFuture.supplyAsync(() -> {
+				try {
+					List<FileInputSplit> inputSplitsTmp = new ArrayList<>();
+					final FileSystem fs = file.getPath().getFileSystem();
+					final long len = file.getLen();
+					final long blockSize = file.getBlockSize();
+
+					final long minSplitSize;
+					if (this.minSplitSize <= blockSize) {
+						minSplitSize = this.minSplitSize;
+					}
+					else {
+						if (LOG.isWarnEnabled()) {
+							LOG.warn("Minimal split size of {} is larger than the block size of {}. Decreasing minimal split size to block size.",
+								this.minSplitSize, blockSize);
+						}
+						minSplitSize = blockSize;
+					}
+
+					final long splitSize = Math.max(minSplitSize, Math.min(maxSplitSize, blockSize));
+					final long halfSplit = splitSize >>> 1;
+
+					final long maxBytesForLastSplit = (long) (splitSize * MAX_SPLIT_SIZE_DISCREPANCY);
+
+					if (len > 0) {
+						// get the block locations and make sure they are in order with respect to their offset
+						final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, len);
+						Arrays.sort(blocks);
+
+						long bytesUnassigned = len;
+						long position = 0;
+
+						int blockIndex = 0;
+
+						while (bytesUnassigned > maxBytesForLastSplit) {
+							// get the block containing the majority of the data
+							blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
+							// create a new split
+							FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), position, splitSize,
+								blocks[blockIndex].getHosts());
+							inputSplits.add(fis);
+
+							// adjust the positions
+							position += splitSize;
+							bytesUnassigned -= splitSize;
+						}
+
+						// assign the last split
+						if (bytesUnassigned > 0) {
+							blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
+							final FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), position,
+								bytesUnassigned, blocks[blockIndex].getHosts());
+							inputSplitsTmp.add(fis);
+						}
+					} else {
+						// special case with a file of zero bytes size
+						final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, 0);
+						String[] hosts;
+						if (blocks.length > 0) {
+							hosts = blocks[0].getHosts();
+						} else {
+							hosts = new String[0];
+						}
+						final FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), 0, 0, hosts);
+						inputSplitsTmp.add(fis);
+					}
+					return new Tuple2<>(inputSplitsTmp, null);
+				} catch (IOException ioException) {
+					return new Tuple2<>(null, ioException);
+				}
+			}));
+		}
+
+		IOException ioException = null;
+		for (CompletableFuture<Tuple2<List<FileInputSplit>, IOException>> fisFuture : fisFutures) {
+			if (ioException != null) {
+				fisFuture.cancel(true);
+			} else {
+				try {
+					Tuple2<List<FileInputSplit>, IOException> result = fisFuture.get();
+					if (result.f1 != null) {
+						ioException = result.f1;
+					} else {
+						inputSplits.addAll(result.f0);
+					}
+				} catch (InterruptedException | ExecutionException e) {
+					ioException = new IOException("Split input error.", e);
+				}
+			}
+		}
+
+		if (ioException != null) {
+			throw ioException;
+		}
+
+		LOG.info("Finished build splits for SplittableInput, fileNum: {}, costtime: {} ms.", files.size(), System.currentTimeMillis() - startMS);
 		return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);
 	}
 
