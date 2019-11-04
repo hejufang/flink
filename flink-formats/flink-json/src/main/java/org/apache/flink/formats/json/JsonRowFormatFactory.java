@@ -30,6 +30,7 @@ import org.apache.flink.table.factories.TableFormatFactoryBase;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,6 +52,7 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(JsonValidator.FORMAT_SCHEMA);
 		properties.add(JsonValidator.FORMAT_FAIL_ON_MISSING_FIELD);
 		properties.add(JsonValidator.FORMAT_DEFAULT_ON_MISSING_DIELD);
+		properties.add(JsonValidator.FORMAT_JSON_PARSER_FEATURE + ".*");
 		return properties;
 	}
 
@@ -76,6 +78,11 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 				}
 			});
 
+		Map<String, Boolean> jsonParserFeatureMap = new HashMap<>();
+		descriptorProperties.getPropertiesWithPrefix(JsonValidator.FORMAT_JSON_PARSER_FEATURE)
+			.forEach((k, v) -> jsonParserFeatureMap.put(k.toUpperCase(), Boolean.parseBoolean(v)));
+		// set json parser feature
+		schema.jsonParserFeatureMap(jsonParserFeatureMap);
 		return schema.build();
 	}
 

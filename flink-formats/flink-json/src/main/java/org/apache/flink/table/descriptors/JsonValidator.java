@@ -32,6 +32,7 @@ public class JsonValidator extends FormatDescriptorValidator {
 	public static final String FORMAT_JSON_SCHEMA = "format.json-schema";
 	public static final String FORMAT_FAIL_ON_MISSING_FIELD = "format.fail-on-missing-field";
 	public static final String FORMAT_DEFAULT_ON_MISSING_DIELD = "format.default-on-missing-field";
+	public static final String FORMAT_JSON_PARSER_FEATURE = "format.json-parser-feature";
 
 	@Override
 	public void validate(DescriptorProperties properties) {

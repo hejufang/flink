@@ -30,6 +30,7 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.WrappingRuntimeException;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -87,7 +88,10 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 	private boolean defaultOnMissingField;
 
 	/** Object mapper for parsing the JSON. */
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper objectMapper;
+
+	/** Json parser feature map, see JsonParser.Feature. */
+	Map<String, Boolean> jsonParserFeatureMap;
 
 	private DeserializationRuntimeConverter runtimeConverter;
 
@@ -97,12 +101,23 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			TypeInformation<Row> typeInfo,
 			boolean failOnMissingField,
 			boolean defaultOnMissingField) {
+		this(typeInfo, failOnMissingField, defaultOnMissingField, new HashMap<>());
+	}
+
+	private JsonRowDeserializationSchema(
+		TypeInformation<Row> typeInfo,
+		boolean failOnMissingField,
+		boolean defaultOnMissingField,
+		Map<String, Boolean> jsonParserFeatureMap) {
 		checkNotNull(typeInfo, "Type information");
 		checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.failOnMissingField = failOnMissingField;
 		this.defaultOnMissingField = defaultOnMissingField;
 		this.runtimeConverter = createConverter(this.typeInfo);
+		objectMapper = new ObjectMapper();
+		this.jsonParserFeatureMap = jsonParserFeatureMap;
+		jsonParserFeatureMap.forEach((k, v) -> objectMapper.configure(JsonParser.Feature.valueOf(k), v));
 	}
 
 	/**
@@ -159,6 +174,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		private final RowTypeInfo typeInfo;
 		private boolean failOnMissingField = false;
 		private boolean defaultOnMissingField = false;
+		private Map<String, Boolean> jsonParserFeatureMap = new HashMap<>();
 
 		/**
 		 * Creates a JSON deserialization schema for the given type information.
@@ -202,8 +218,17 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			return this;
 		}
 
+		/**
+		 * Configures json parser feature.
+		 */
+		public Builder jsonParserFeatureMap(Map<String, Boolean> jsonParserFeatureMap) {
+			this.jsonParserFeatureMap = jsonParserFeatureMap;
+			return this;
+		}
+
 		public JsonRowDeserializationSchema build() {
-			return new JsonRowDeserializationSchema(typeInfo, failOnMissingField, defaultOnMissingField);
+			return new JsonRowDeserializationSchema(typeInfo, failOnMissingField,
+				defaultOnMissingField, jsonParserFeatureMap);
 		}
 	}
 
