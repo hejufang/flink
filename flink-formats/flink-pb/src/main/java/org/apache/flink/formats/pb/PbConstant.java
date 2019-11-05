@@ -26,6 +26,7 @@ public class PbConstant {
 	public static final String VALUE = "value";
 
 	public static final String PB_METHOD_GET_DESCRIPTOR = "getDescriptor";
+	public static final String PB_METHOD_NEW_BUILDER = "newBuilder";
 
 	public static final String FORMAT_TYPE_VALUE = "pb";
 	public static final String FORMAT_PB_CLASS = "format.pb-class";

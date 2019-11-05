@@ -165,11 +165,11 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	 * Runtime converter that maps between Java objects and corresponding {@link JsonNode}s.
 	 */
 	@FunctionalInterface
-	private interface SerializationRuntimeConverter extends Serializable {
+	public interface SerializationRuntimeConverter extends Serializable {
 		JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object object);
 	}
 
-	private SerializationRuntimeConverter createConverter(TypeInformation<?> typeInfo) {
+	public SerializationRuntimeConverter createConverter(TypeInformation<?> typeInfo) {
 		SerializationRuntimeConverter baseConverter = createConverterForSimpleType(typeInfo)
 			.orElseGet(() ->
 				createContainerConverter(typeInfo)

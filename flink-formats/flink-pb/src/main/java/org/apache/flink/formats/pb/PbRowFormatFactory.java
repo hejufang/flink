@@ -19,11 +19,13 @@
 package org.apache.flink.formats.pb;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.PbValidator;
 import org.apache.flink.table.factories.DeserializationSchemaFactory;
+import org.apache.flink.table.factories.SerializationSchemaFactory;
 import org.apache.flink.table.factories.TableFormatFactoryBase;
 import org.apache.flink.types.Row;
 
@@ -40,7 +42,7 @@ import java.util.regex.Pattern;
  * Table format factory for providing configured instances of PB-to-row {@link DeserializationSchema}.
  */
 public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
-	implements DeserializationSchemaFactory<Row> {
+	implements DeserializationSchemaFactory<Row>, SerializationSchemaFactory<Row> {
 
 	public PbRowFormatFactory() {
 		super(PbConstant.FORMAT_TYPE_VALUE, 1, true);
@@ -69,6 +71,15 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 
 		skipBytes.ifPresent(schemaBuilder::setSkipBytes);
 		return schemaBuilder.build();
+	}
+
+	@Override
+	public SerializationSchema<Row> createSerializationSchema(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+
+		String pbDescriptorClass = getDescriptorClass(descriptorProperties);
+		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
+		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass);
 	}
 
 	public TypeInformation<Row> getRowTypeInformation(Map<String, String> properties) {
