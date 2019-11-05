@@ -24,7 +24,7 @@ import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.curator.retry.RetryUntilElapsed;
 
 import static org.apache.flink.yarn.Utils.require;
 
@@ -32,16 +32,14 @@ import static org.apache.flink.yarn.Utils.require;
  * Utility class that provides helper methods to work with Zookeeper.
  */
 public class ZkUtils {
-	public static CuratorFramework newZkClient(Configuration config) {
+	public static CuratorFramework createUniqueJobCheckerZkClient(Configuration config) {
 		String zkQuorum = config.getString(HighAvailabilityOptions.HA_ZOOKEEPER_QUORUM);
 		require(zkQuorum != null && !zkQuorum.isEmpty(), "Zookeeper quorum not set.");
 
 		int sessionTimeoutMs = config.getInteger(HighAvailabilityOptions.JOB_UNIQUE_ZOOKEEPER_SESSION_TIMEOUT);
 		int connectionTimeoutMs = config.getInteger(HighAvailabilityOptions.JOB_UNIQUE_ZOOKEEPER_CONNECTION_TIMEOUT);
-		int baseSleepTimeMs = config.getInteger(HighAvailabilityOptions.ZOOKEEPER_RETRY_WAIT);
-		int retryTimes = config.getInteger(HighAvailabilityOptions.ZOOKEEPER_MAX_RETRY_ATTEMPTS);
-		RetryPolicy retryPolicy = new ExponentialBackoffRetry(baseSleepTimeMs, retryTimes);
-		CuratorFramework client = CuratorFrameworkFactory.newClient(zkQuorum, sessionTimeoutMs, connectionTimeoutMs, retryPolicy);
-		return client;
+		int baseSleepTimeMs = config.getInteger(HighAvailabilityOptions.JOB_UNIQUE_ZOOKEEPER_RETRY_WAIT);
+		RetryPolicy retryPolicy = new RetryUntilElapsed(Integer.MAX_VALUE, baseSleepTimeMs);
+		return CuratorFrameworkFactory.newClient(zkQuorum, sessionTimeoutMs, connectionTimeoutMs, retryPolicy);
 	}
 }
