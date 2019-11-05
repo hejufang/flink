@@ -120,4 +120,9 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.withDescription("The amount of the cache for data blocks in RocksDB. " +
 				"RocksDB has default block-cache size as '8MB'.");
 
+	public static final ConfigOption<String> BLOOMFILTER_ENABLED =
+		key("state.backend.rocksdb.block.bloomfilter.enabled")
+			.defaultValue("true")
+			.withDescription("Whether enable bloom filter feature in block.");
+
 }
