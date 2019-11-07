@@ -959,15 +959,21 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	}
 
 	/**
-	 * Request new container if pending containers cannot satisfies pending slot requests.
+	 * Request new containers if pending containers cannot satisfies pending slot requests.
 	 */
-	protected void startNewWorkerIfNeeded(ResourceProfile resourceProfile, int pendingWorkers, int numberOfTaskSlots) {
+	protected void startNewWorkerIfNeeded(
+			ResourceProfile resourceProfile,
+			int pendingWorkers,
+			int numberOfTaskSlots,
+			int numberOfAllocatedWorkers) {
 		// round up division
 		int numberRequiredTaskManagers = (getNumberRequiredTaskManagerSlots() + numberOfTaskSlots - 1) / numberOfTaskSlots;
-		int newWorkerNumber = numberRequiredTaskManagers - pendingWorkers;
+		// Get the number of workers that have allocated by Yarn, but not register to SlotManager.
+		int startingWorkers = Math.max(0, numberOfAllocatedWorkers - getTaskManagerRegistrationSize());
+		int needWorkerNumber = numberRequiredTaskManagers - pendingWorkers - startingWorkers;
 
-		if (newWorkerNumber > 0) {
-			tryStartNewWorkers(resourceProfile, newWorkerNumber);
+		if (needWorkerNumber > 0) {
+			tryStartNewWorkers(resourceProfile, needWorkerNumber);
 		}
 	}
 
@@ -1369,6 +1375,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	protected int getNumberRequiredTaskManagerSlots() {
 		return slotManager.getNumberPendingTaskManagerSlots();
+	}
+
+	private int getTaskManagerRegistrationSize() {
+		return slotManager.getTaskManagerRegistrationSize();
 	}
 
 	// ------------------------------------------------------------------------

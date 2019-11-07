@@ -829,8 +829,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private void recordFailureAndStartNewWorkerIfNeeded() {
 		recordWorkerFailure();
-		// and ask for a new one
-		startNewWorkerIfNeeded(ResourceProfile.UNKNOWN, numPendingContainerRequests, numberOfTaskSlots);
+		// and ask for new workers.
+		startNewWorkerIfNeeded(ResourceProfile.UNKNOWN, numPendingContainerRequests, numberOfTaskSlots, workerNodeMap.size());
 	}
 
 	private void requestYarnContainer() {

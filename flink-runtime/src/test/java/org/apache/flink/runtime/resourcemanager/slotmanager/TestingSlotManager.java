@@ -66,6 +66,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public int getTaskManagerRegistrationSize() {
+		return 0;
+	}
+
+	@Override
 	public int getNumberPendingSlotRequests() {
 		return 0;
 	}
