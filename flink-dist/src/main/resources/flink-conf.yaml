@@ -121,6 +121,9 @@ common:
   yarn.gang-scheduler.wait-time-before-fatal-ms: 300000
   yarn.gang-scheduler.wait-time-before-retry-ms: 1000
 
+  # GC log options
+  flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
+
 flink:
   dc: cn
   clusterName: flink
