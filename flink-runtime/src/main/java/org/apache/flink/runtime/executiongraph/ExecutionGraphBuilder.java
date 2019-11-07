@@ -158,9 +158,8 @@ public class ExecutionGraphBuilder {
 		final int maxPriorAttemptsHistoryLength =
 				jobManagerConfig.getInteger(JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE);
 
-//		final boolean scheduleTaskFairly =
-//				jobManagerConfig.getBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY);
-		final boolean scheduleTaskFairly = false;
+		final boolean scheduleTaskFairly =
+				jobManagerConfig.getBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY);
 
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
 			PartitionReleaseStrategyFactoryLoader.loadPartitionReleaseStrategyFactory(jobManagerConfig);

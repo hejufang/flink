@@ -33,7 +33,9 @@ import org.apache.flink.util.FlinkException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -152,15 +154,25 @@ public class SchedulingUtils {
 
 		return allAllocationsFuture.thenAccept(
 			(Collection<Execution> executionsToDeploy) -> {
+				final Map<ExecutionVertex, Execution> allocationFutures = new HashMap<>();
 				for (Execution execution : executionsToDeploy) {
-					try {
-						execution.deploy();
-					} catch (Throwable t) {
-						throw new CompletionException(
-							new FlinkException(
-								String.format("Could not deploy execution %s.", execution),
-								t));
+					allocationFutures.put(execution.getVertex(), execution);
+				}
+				// deploy in creation order
+				for (ExecutionVertex ev : executionGraph.getAllExecutionVertices()) {
+					Execution execution = allocationFutures.remove(ev);
+					if (execution != null) {
+						try {
+							execution.deploy();
+						} catch (Throwable t) {
+							throw new CompletionException(new FlinkException(
+									String.format("Could not deploy execution %s.", execution), t));
+						}
 					}
+				}
+				if (!allocationFutures.isEmpty()) {
+					throw new CompletionException(new FlinkException(
+							String.format("The follow Executions not in ExecutionGraph, %s", allocationFutures)));
 				}
 			})
 			// Generate a more specific failure message for the eager scheduling

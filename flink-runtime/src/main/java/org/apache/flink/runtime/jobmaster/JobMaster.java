@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blob.BlobWriter;
@@ -244,8 +245,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		this.slotPool = checkNotNull(slotPoolFactory).createSlotPool(jobGraph.getJobID());
 
-//		final boolean scheduleTaskFairly = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY);
-		final boolean scheduleTaskFairly = false;
+		final boolean scheduleTaskFairly = jobMasterConfiguration.getConfiguration().getBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY);
 		log.info("scheduleTaskFairly: {}.", scheduleTaskFairly);
 		this.scheduler = checkNotNull(schedulerFactory).createScheduler(slotPool, scheduleTaskFairly);
 
