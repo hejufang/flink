@@ -707,7 +707,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		boolean isDockerImageIncludeLib =
 			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
 		boolean isDockerImageIncludeUserLib =
-			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_USER_LIB);
+			flinkConfiguration.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_USERLIB);
 		String dockerImage =
 			flinkConfiguration.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, "");
 
@@ -853,27 +853,17 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		List<String> userClassPaths = new ArrayList<>();
 		if (isInDockerMode && isDockerImageIncludeUserLib) {
 			LOG.info("Do not need to upload user jar in docker mode if included.");
-			String userLibBaseDir = flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_BASE_LIB_DIR_KEY,
-				ConfigConstants.FLINK_RUNTIME_BASE_LIB_DIR_DEFAULT);
-			String userLibRelativeDir = flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_USER_LIB_DIR_KEY,
-				ConfigConstants.FLINK_RUNTIME_USER_LIB_DIR_DEFAULT);
+			String userlibPath = flinkConfiguration.getString(ConfigConstants.FLINK_RUNTIME_USERLIB_PATH_KEY,
+				ConfigConstants.FLINK_RUNTIME_USERLIB_PATH_DEFAULT);
 
-			if (userLibRelativeDir == null) {
+			if (userlibPath == null) {
 				throw new IllegalArgumentException(String.format("Please set %s to load user lib.",
-					ConfigConstants.FLINK_RUNTIME_USER_LIB_DIR_KEY));
+					ConfigConstants.FLINK_RUNTIME_USERLIB_PATH_KEY));
 			}
 
-			String userLibDir;
-			if (userLibRelativeDir.startsWith("/")) {
-				userLibDir = userLibBaseDir + userLibRelativeDir;
-			} else {
-				userLibDir = userLibBaseDir + "/" + userLibRelativeDir;
-			}
-			LOG.info("runtimeUserDir = {}", userLibDir);
+			LOG.info("runtimeUserlibPath = {}", userlibPath);
 			// To get resources/xx.py in #EnvironmentInitUtils#prepareLocalDir
-			userClassPaths.add(Paths.get(userLibDir).toAbsolutePath().toString());
-			// To get jars for java flink
-			userClassPaths.add(Paths.get(userLibDir, "*").toAbsolutePath().toString());
+			userClassPaths.add(Paths.get(userlibPath).toAbsolutePath().toString());
 		} else {
 			userClassPaths = uploadAndRegisterFiles(
 				userJarFiles,

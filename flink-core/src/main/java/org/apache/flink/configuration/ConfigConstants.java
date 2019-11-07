@@ -2104,10 +2104,8 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_LEVEL_KEY = "log.level";
 	public static final String FLINK_LOG_LEVEL_DEFAULT = "INFO";
 
-	public static final String FLINK_RUNTIME_BASE_LIB_DIR_KEY = "runtime.base.dir";
-	public static final String FLINK_RUNTIME_BASE_LIB_DIR_DEFAULT = "/opt/tiger";
-	public static final String FLINK_RUNTIME_USER_LIB_DIR_KEY = "runtime.user.lib.dir";
-	public static final String FLINK_RUNTIME_USER_LIB_DIR_DEFAULT = null;
+	public static final String FLINK_RUNTIME_USERLIB_PATH_KEY = "runtime.userlib.path";
+	public static final String FLINK_RUNTIME_USERLIB_PATH_DEFAULT = null;
 
 	public static final String FLINK_RUNTIME_BASEJAR_KEY = "runtime.basejar.dir";
 	public static final String FLINK_RUNTIME_BASEJAR_DEFAULT =

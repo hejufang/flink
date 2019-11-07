@@ -497,7 +497,7 @@ public final class Utils {
 		boolean isDockerImageIncludeLib =
 			flinkConfig.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_LIB);
 		boolean isDockerImageIncludeUserLib =
-			flinkConfig.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_USER_LIB);
+			flinkConfig.getBoolean(YarnConfigOptions.IS_DOCKER_INCLUDE_USERLIB);
 
 		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Do not need to add flink.jar in docker mode.");
