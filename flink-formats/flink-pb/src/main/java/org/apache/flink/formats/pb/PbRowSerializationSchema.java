@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 
 /**
  * Serialization schema that serializes an object of Flink types into a protobuf bytes.
@@ -63,13 +64,20 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 	/** Reusable object node. */
 	private transient ObjectNode node;
 
+	/** Reusable byte buffer. */
+	private transient ByteBuffer byteBuffer;
+
+	private final boolean sinkWithSizeHeader;
+
 	private final JsonRowSerializationSchema.SerializationRuntimeConverter jsonRuntimeConverter;
 
-	public PbRowSerializationSchema(RowTypeInfo typeInfo, String pbDescriptorClass) {
+	public PbRowSerializationSchema(RowTypeInfo typeInfo, String pbDescriptorClass,
+		boolean sinkWithSizeHeader) {
 		this.typeInfo = typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.jsonRuntimeConverter =
 			new JsonRowSerializationSchema(this.typeInfo).createConverter(this.typeInfo);
+		this.sinkWithSizeHeader = sinkWithSizeHeader;
 	}
 
 	@Override
@@ -89,7 +97,20 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 			Method buildMethod = pbClass.getMethod(PbConstant.PB_METHOD_NEW_BUILDER);
 			Message.Builder builder = (Message.Builder) buildMethod.invoke(null);
 			JsonFormat.parser().merge(jsonNode.toString(), builder);
-			return builder.build().toByteArray();
+			byte[] dataBytes = builder.build().toByteArray();
+			if (sinkWithSizeHeader) {
+				if (byteBuffer == null) {
+					byteBuffer = ByteBuffer.allocate(Long.BYTES);
+				}
+				int size = dataBytes.length;
+				byte[] sizeByte = byteBuffer.putLong(size).array();
+				byte[] newBytes = new byte[dataBytes.length + sizeByte.length];
+				System.arraycopy(sizeByte, 0, newBytes, 0, sizeByte.length);
+				System.arraycopy(dataBytes, 0, newBytes, sizeByte.length, dataBytes.length);
+				byteBuffer.clear();
+				return newBytes;
+			}
+			return dataBytes;
 		} catch (ClassNotFoundException e) {
 			LOG.error("Failed to find class {}, please make sure this class is in class paths.",
 				pbDescriptorClass, e);

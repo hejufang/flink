@@ -53,6 +53,7 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 		final List<String> properties = new ArrayList<>();
 		properties.add(PbConstant.FORMAT_PB_CLASS);
 		properties.add(PbConstant.FORMAT_PB_SKIP_BYTES);
+		properties.add(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER);
 		return properties;
 	}
 
@@ -76,10 +77,12 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 	@Override
 	public SerializationSchema<Row> createSerializationSchema(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
-
+		boolean sinkWithSizeHeader =
+			descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER)
+				.orElse(false);
 		String pbDescriptorClass = getDescriptorClass(descriptorProperties);
 		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
-		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass);
+		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass, sinkWithSizeHeader);
 	}
 
 	public TypeInformation<Row> getRowTypeInformation(Map<String, String> properties) {
