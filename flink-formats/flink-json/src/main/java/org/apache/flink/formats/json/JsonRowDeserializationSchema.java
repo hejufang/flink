@@ -35,6 +35,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessin
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ContainerNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.TextNode;
 
@@ -371,7 +372,13 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		} else if (simpleTypeInfo == Types.BOOLEAN) {
 			return Optional.of((mapper, jsonNode) -> jsonNode.asBoolean());
 		} else if (simpleTypeInfo == Types.STRING) {
-			return Optional.of((mapper, jsonNode) -> jsonNode.asText());
+			return Optional.of((mapper, jsonNode) -> {
+				if (jsonNode instanceof ContainerNode) {
+					return jsonNode.toString();
+				} else {
+					return jsonNode.asText();
+				}
+			});
 		} else if (simpleTypeInfo == Types.INT) {
 			return Optional.of((mapper, jsonNode) -> jsonNode.asInt());
 		} else if (simpleTypeInfo == Types.LONG) {

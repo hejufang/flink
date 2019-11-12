@@ -53,6 +53,7 @@ public class JsonRowDeserializationSchemaTest {
 		String name = "asdlkjasjkdla998y1122";
 		byte[] bytes = new byte[1024];
 		ThreadLocalRandom.current().nextBytes(bytes);
+		String nestedField = "{\"booleanField\":true,\"stringField\":\"string_value\"}";
 
 		ObjectMapper objectMapper = new ObjectMapper();
 
@@ -61,19 +62,21 @@ public class JsonRowDeserializationSchemaTest {
 		root.put("id", id);
 		root.put("name", name);
 		root.put("bytes", bytes);
+		root.putObject("nested").put("booleanField", true).put("stringField", "string_value");
 
 		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
 		JsonRowDeserializationSchema deserializationSchema = new JsonRowDeserializationSchema.Builder(
 			Types.ROW_NAMED(
-				new String[]{"id", "name", "bytes"},
-				Types.LONG, Types.STRING, Types.PRIMITIVE_ARRAY(Types.BYTE))
+				new String[]{"id", "name", "bytes", "nested"},
+				Types.LONG, Types.STRING, Types.PRIMITIVE_ARRAY(Types.BYTE), Types.STRING)
 		).build();
 
-		Row row = new Row(3);
+		Row row = new Row(4);
 		row.setField(0, id);
 		row.setField(1, name);
 		row.setField(2, bytes);
+		row.setField(3, nestedField);
 
 		assertThat(serializedJson, whenDeserializedWith(deserializationSchema).equalsTo(row));
 	}

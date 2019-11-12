@@ -61,7 +61,8 @@ public class JsonTest extends DescriptorTestBase {
 
 	@Test(expected = ValidationException.class)
 	public void testMissingSchema() {
-		removePropertyAndVerify(descriptors().get(0), "format.json-schema");
+		final Descriptor desc = new Json();
+		addPropertyAndVerify(desc, "format.derive-schema", "false");
 	}
 
 	@Test(expected = ValidationException.class)
