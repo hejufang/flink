@@ -1,0 +1,69 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.connectors.print;
+
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.table.descriptors.DescriptorProperties;
+import org.apache.flink.table.factories.StreamTableSinkFactory;
+import org.apache.flink.table.sinks.StreamTableSink;
+import org.apache.flink.types.Row;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.flink.connectors.print.PrintValidator.CONNECTOR_PRINT_SAMPLE_RATIO;
+import static org.apache.flink.connectors.print.PrintValidator.CONNECTOR_PRINT_SAMPLE_RATIO_DEFAULT;
+import static org.apache.flink.connectors.print.PrintValidator.PRINT;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
+
+/**
+ * Print Table Factory.
+ */
+public class PrintTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+	@Override
+	public StreamTableSink<Tuple2<Boolean, Row>> createStreamTableSink(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
+		descriptorProperties.putProperties(properties);
+		double sampleRatio = descriptorProperties.getOptionalDouble(CONNECTOR_PRINT_SAMPLE_RATIO)
+			.orElse(CONNECTOR_PRINT_SAMPLE_RATIO_DEFAULT);
+		return new PrintUpsertTableSink(descriptorProperties.getTableSchema(SCHEMA), sampleRatio);
+	}
+
+	@Override
+	public Map<String, String> requiredContext() {
+		Map<String, String> requiredContext = new HashMap<>();
+		requiredContext.put(CONNECTOR_TYPE, PRINT);
+		return requiredContext;
+	}
+
+	@Override
+	public List<String> supportedProperties() {
+		List<String> properties = new ArrayList<>();
+		properties.add(CONNECTOR_PRINT_SAMPLE_RATIO);
+
+		// schema
+		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
+		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
+		return properties;
+	}
+}
