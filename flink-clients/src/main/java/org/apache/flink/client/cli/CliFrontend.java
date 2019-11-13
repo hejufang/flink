@@ -293,30 +293,20 @@ public class CliFrontend {
 			// directly deploy the job if the cluster is started in job mode and detached
 			if (clusterId == null && runOptions.getDetachedMode()) {
 				final ClusterSpecification clusterSpecification = customCommandLine.getClusterSpecification(commandLine);
-				int parallelism;
-				if (PackagedProgramUtils.isStreamJob(program, configuration)) {
+				int parallelism = customCommandLine.adjustDefaultParallelism(defaultParallelism, commandLine, runOptions);
+				LOG.info("Set default parallelism to " + parallelism);
+
+				FlinkPlan flinkPlan = PackagedProgramUtils.createFlinkPlan(program, configuration, parallelism);
+
+				if (flinkPlan instanceof StreamingPlan) {
 					// enable gang scheduler when stream job
 					clusterDescriptor.setDefaultConfigurationForStream();
-
-					parallelism = runOptions.getParallelism();
-					int slotsPerTaskManager = clusterSpecification.getSlotsPerTaskManager();
-					int taskManagerNumber = clusterSpecification.getNumberTaskManagers();
-					if (parallelism == -1) {
-						parallelism = taskManagerNumber * slotsPerTaskManager;
-						logAndSysout("Set parallelism to " + parallelism);
-					} else if (slotsPerTaskManager * taskManagerNumber < parallelism) {
-						slotsPerTaskManager = (parallelism + taskManagerNumber - 1) / taskManagerNumber;
-						clusterSpecification.setSlotsPerTaskManager(slotsPerTaskManager);
-						logAndSysout("Set slotsPerTaskManager to " + slotsPerTaskManager);
-					}
-				} else {
-					parallelism = runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
 				}
 
 				final boolean perJobRestSubmitEnabled = configuration.getBoolean(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED,
 					ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED_DEFAULT);
 
-				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(program, configuration, parallelism);
+				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(flinkPlan, program, configuration);
 				if (perJobRestSubmitEnabled) {
 					LOG.info("Deploy job through RestClusterClient to avoid upload jobGraph file to HDFS.");
 					try {

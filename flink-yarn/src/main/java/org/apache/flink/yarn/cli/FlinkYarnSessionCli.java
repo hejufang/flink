@@ -21,6 +21,7 @@ package org.apache.flink.yarn.cli;
 import org.apache.flink.client.cli.AbstractCustomCommandLine;
 import org.apache.flink.client.cli.CliArgsException;
 import org.apache.flink.client.cli.CliFrontend;
+import org.apache.flink.client.cli.RunOptions;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.configuration.ConfigConstants;
@@ -88,6 +89,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.apache.flink.client.cli.CliFrontendParser.DETACHED_OPTION;
+import static org.apache.flink.client.cli.CliFrontendParser.PARALLELISM_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.SHUTDOWN_IF_ATTACHED_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.YARN_DETACHED_OPTION;
 import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
@@ -569,6 +571,13 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 		if (commandLine.hasOption(slots.getOpt())) {
 			effectiveConfiguration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, Integer.parseInt(commandLine.getOptionValue(slots.getOpt())));
+		} else if (commandLine.hasOption(PARALLELISM_OPTION.getOpt()) && commandLine.hasOption(container.getOpt())) {
+			// tm_slots can be calculated by parallelism and tm_num.
+			int parallelism = Integer.parseInt(commandLine.getOptionValue(PARALLELISM_OPTION.getOpt()));
+			int tmCount = Integer.parseInt(commandLine.getOptionValue(container.getOpt()));
+			int numTaskSlots = (int) Math.ceil((double) parallelism / tmCount);
+			effectiveConfiguration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, numTaskSlots);
+			LOG.info("Set slotsPerTaskManager to " + numTaskSlots);
 		}
 
 		if (commandLine.hasOption(container.getOpt())) {
@@ -1052,5 +1061,18 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			configurationDirectory,
 			yarnClient,
 			false);
+	}
+
+	@Override
+	public int adjustDefaultParallelism(int defaultParallelism, CommandLine commandLine, RunOptions runOptions) {
+		if (runOptions.getParallelism() == -1) {
+			if (commandLine.hasOption(slots.getOpt()) && commandLine.hasOption(container.getOpt())) {
+				return Integer.parseInt(commandLine.getOptionValue(slots.getOpt())) * Integer.parseInt(commandLine.getOptionValue(container.getOpt()));
+			} else {
+				return defaultParallelism;
+			}
+		} else {
+			return runOptions.getParallelism();
+		}
 	}
 }

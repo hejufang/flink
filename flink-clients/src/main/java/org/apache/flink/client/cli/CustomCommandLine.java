@@ -97,4 +97,8 @@ public interface CustomCommandLine<T> {
 		addRunOptions(options);
 		return CliFrontendParser.parse(options, args, stopAtNonOptions);
 	}
+
+	default int adjustDefaultParallelism(int defaultParallelism, CommandLine commandLine, RunOptions runOptions) {
+		return runOptions.getParallelism() == -1 ? defaultParallelism : runOptions.getParallelism();
+	}
 }
