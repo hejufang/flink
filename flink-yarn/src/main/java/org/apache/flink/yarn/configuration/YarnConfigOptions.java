@@ -288,6 +288,11 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Specific whether the docker image includes user libs.");
 
+	public static final ConfigOption<Boolean> SET_TASK_MANAGER_TOKEN =
+			key("yarn.taskmanager.set_token")
+			.defaultValue(false)
+			.withDescription("Whether set security tokens to  TaskManager YARN container context.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 
