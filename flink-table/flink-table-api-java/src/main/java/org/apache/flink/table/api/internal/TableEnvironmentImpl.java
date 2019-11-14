@@ -72,6 +72,9 @@ import org.apache.flink.table.sources.TableSourceValidation;
 import org.apache.flink.table.utils.SqlSplitUtils;
 import org.apache.flink.util.StringUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -90,6 +93,7 @@ public class TableEnvironmentImpl implements TableEnvironment {
 	// Flag that tells if the TableSource/TableSink used in this environment is stream table source/sink,
 	// and this should always be true. This avoids too many hard code.
 	private static final boolean IS_STREAM_TABLE = true;
+	private static final Logger LOG = LoggerFactory.getLogger(TableEnvironmentImpl.class);
 	private final CatalogManager catalogManager;
 	private final OperationTreeBuilder operationTreeBuilder;
 	private final List<ModifyOperation> bufferedModifyOperations = new ArrayList<>();
@@ -456,7 +460,10 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		for (int i = 0; i < statementList.size(); i++) {
 			String statement = statementList.get(i);
 			List<Operation> operations = planner.parse(statement);
-
+			if (operations.size() == 0) {
+				LOG.info("operation of statement: '{}' is empty, continue.", statement);
+				continue;
+			}
 			if (operations.size() != 1) {
 				throw new ValidationException("Unexpected sql: '" + statement + "', " +
 					"each splitted statement is supposed to be a single SQL statement");

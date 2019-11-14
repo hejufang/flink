@@ -420,6 +420,20 @@ SqlCreate SqlCreateFunction(Span s, boolean replace) :
     }
 }
 
+SqlAddResource SqlAddResource() :
+{
+    SqlIdentifier resourceName = null;
+}
+{
+    <ADD> <RESOURCES>
+
+    resourceName = SimpleIdentifier()
+
+    {
+        return new SqlAddResource(getPos(), resourceName);
+    }
+}
+
 SqlIdentifier FlinkCollectionsTypeName() :
 {
 }

@@ -22,7 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.sql.parser.dml.RichSqlInsert
-import org.apache.flink.sql.parser.ddl.SqlCreateFunction
+import org.apache.flink.sql.parser.ddl.{SqlAddResource, SqlCreateFunction}
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException}
@@ -45,15 +45,15 @@ import org.apache.flink.table.planner.sinks.{DataStreamTableSink, TableSinkUtils
 import org.apache.flink.table.planner.utils.JavaScalaConversionUtil
 import org.apache.flink.table.sinks.{PartitionableTableSink, TableSink}
 import org.apache.flink.table.types.utils.LegacyTypeInfoDataTypeConverter
-
 import org.apache.calcite.jdbc.CalciteSchemaBuilder.asRootSchema
 import org.apache.calcite.plan.{RelTrait, RelTraitDef}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.sql.SqlKind
 import org.apache.calcite.tools.FrameworkConfig
-
-import _root_.java.util.{List => JList}
+import _root_.java.util.{Collections, List => JList}
 import java.util
+
+import org.slf4j.LoggerFactory
 
 import _root_.scala.collection.JavaConversions._
 
@@ -79,6 +79,7 @@ abstract class PlannerBase(
     isStreamingMode: Boolean)
   extends Planner {
 
+  private val LOG = LoggerFactory.getLogger(this.getClass)
   // temporary utility until we don't use planner expressions anymore
   functionCatalog.setPlannerTypeInferenceUtil(PlannerTypeInferenceUtilImpl.INSTANCE)
 
@@ -127,6 +128,9 @@ abstract class PlannerBase(
     // parse the sql query
     val parsed = planner.parse(stmt)
     parsed match {
+      case sqlAddResource: SqlAddResource =>
+        LOG.info("Ignore add source statement: {}", sqlAddResource.toString)
+        Collections.emptyList()
       case insert: RichSqlInsert =>
         List(SqlToOperationConverter.convert(planner, insert, catalogManager))
       case query if query.getKind.belongsTo(SqlKind.QUERY) =>

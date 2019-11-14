@@ -22,8 +22,9 @@
   # List of additional classes and packages to import.
   # Example. "org.apache.calcite.sql.*", "java.util.List".
   imports: [
+    "org.apache.flink.sql.parser.ddl.SqlAddResource",
     "org.apache.flink.sql.parser.ddl.SqlCreateTable",
-    "org.apache.flink.sql.parser.ddl.SqlDropTable"
+    "org.apache.flink.sql.parser.ddl.SqlDropTable",
     "org.apache.flink.sql.parser.ddl.SqlCreateTable.TableCreationContext",
     "org.apache.flink.sql.parser.ddl.SqlCreateView",
     "org.apache.flink.sql.parser.ddl.SqlDropView",
@@ -63,9 +64,10 @@
     "BOUNDED",
     "DELAY",
     "OVERWRITE",
-    "WAIT"
+    "WAIT",
     "STRING",
-    "BYTES"
+    "BYTES",
+    "RESOURCES"
   ]
 
   # List of keywords from "keywords" section that are not reserved.
@@ -387,7 +389,8 @@
   # Return type of method implementation should be 'SqlNode'.
   # Example: SqlShowDatabases(), SqlShowTables().
   statementParserMethods: [
-    "RichSqlInsert()"
+    "RichSqlInsert()",
+    "SqlAddResource()"
   ]
 
   # List of methods for parsing custom literals.
