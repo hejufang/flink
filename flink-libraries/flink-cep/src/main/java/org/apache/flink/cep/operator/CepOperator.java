@@ -42,6 +42,10 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Meter;
+import org.apache.flink.metrics.MeterView;
 import org.apache.flink.runtime.state.KeyedStateFunction;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.VoidNamespace;
@@ -84,6 +88,10 @@ public class CepOperator<IN, KEY, OUT>
 		implements OneInputStreamOperator<IN, OUT>, Triggerable<KEY, VoidNamespace> {
 
 	private static final long serialVersionUID = -4166778210774160757L;
+
+	private static final String LATE_ELEMENTS_DROPPED_METRIC_NAME = "numLateRecordsDropped";
+	private static final String LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME = "lateRecordsDroppedRate";
+	private static final String WATERMARK_LATENCY_METRIC_NAME = "watermarkLatency";
 
 	private final boolean isProcessingTime;
 
@@ -133,6 +141,14 @@ public class CepOperator<IN, KEY, OUT>
 
 	/** Thin context passed to NFA that gives access to time related characteristics. */
 	private transient TimerService cepTimerService;
+
+	// ------------------------------------------------------------------------
+	// Metrics
+	// ------------------------------------------------------------------------
+
+	private transient Counter numLateRecordsDropped;
+	private transient Meter lateRecordsDroppedRate;
+	private transient Gauge<Long> watermarkLatency;
 
 	public CepOperator(
 			final TypeSerializer<IN> inputSerializer,
@@ -221,6 +237,20 @@ public class CepOperator<IN, KEY, OUT>
 		context = new ContextFunctionImpl();
 		collector = new TimestampedCollector<>(output);
 		cepTimerService = new TimerServiceImpl();
+
+		// metrics
+		this.numLateRecordsDropped = metrics.counter(LATE_ELEMENTS_DROPPED_METRIC_NAME);
+		this.lateRecordsDroppedRate = metrics.meter(
+			LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME,
+			new MeterView(numLateRecordsDropped, 60));
+		this.watermarkLatency = metrics.gauge(WATERMARK_LATENCY_METRIC_NAME, () -> {
+			long watermark = timerService.currentWatermark();
+			if (watermark < 0) {
+				return 0L;
+			} else {
+				return timerService.currentProcessingTime() - watermark;
+			}
+		});
 	}
 
 	@Override
@@ -269,6 +299,8 @@ public class CepOperator<IN, KEY, OUT>
 
 			} else if (lateDataOutputTag != null) {
 				output.collect(lateDataOutputTag, element);
+			} else {
+				lateRecordsDroppedRate.markEvent();
 			}
 		}
 	}
@@ -287,7 +319,7 @@ public class CepOperator<IN, KEY, OUT>
 	}
 
 	private void bufferEvent(IN event, long currentTime) throws Exception {
-		List<IN> elementsForTimestamp =  elementQueueState.get(currentTime);
+		List<IN> elementsForTimestamp = elementQueueState.get(currentTime);
 		if (elementsForTimestamp == null) {
 			elementsForTimestamp = new ArrayList<>();
 		}
@@ -542,9 +574,17 @@ public class CepOperator<IN, KEY, OUT>
 	int getPQSize(KEY key) throws Exception {
 		setCurrentKey(key);
 		int counter = 0;
-		for (List<IN> elements: elementQueueState.values()) {
+		for (List<IN> elements : elementQueueState.values()) {
 			counter += elements.size();
 		}
 		return counter;
+	}
+
+	protected Counter getNumLateRecordsDropped() {
+		return numLateRecordsDropped;
+	}
+
+	protected Gauge<Long> getWatermarkLatency() {
+		return watermarkLatency;
 	}
 }
