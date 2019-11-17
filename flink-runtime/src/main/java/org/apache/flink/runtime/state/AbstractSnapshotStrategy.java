@@ -64,7 +64,7 @@ public abstract class AbstractSnapshotStrategy<T extends StateObject> implements
 
 		long duration = (System.currentTimeMillis() - startTime);
 
-		LOG.debug(
+		LOG.info(
 			template,
 			description,
 			checkpointOutDescription,
