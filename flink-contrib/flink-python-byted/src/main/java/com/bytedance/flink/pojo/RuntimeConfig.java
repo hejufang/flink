@@ -108,7 +108,7 @@ public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implement
 	}
 
 	public String getTmpDir() {
-		return (String) config.getOrDefault(Constants.TMP_DIRS, "");
+		return (String) config.getOrDefault(Constants.TMP_DIRS, "/tmp");
 	}
 
 	public void setTmpDir(String tmpDir) {

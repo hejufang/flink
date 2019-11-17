@@ -118,7 +118,7 @@ public class PyFlinkRunner {
 			if (jobConfig.getCommonArgs().containsKey(CoreOptions.TMP_DIRS)) {
 				tempDir = (String) jobConfig.getCommonArgs().get(CoreOptions.TMP_DIRS);
 			} else {
-				tempDir = flinkConfig.getString(CoreOptions.TMP_DIRS, "");
+				tempDir = flinkConfig.getString(CoreOptions.TMP_DIRS, "/tmp");
 			}
 		}
 		runtimeConfig.setCodeDir(Paths.get(tempDir, Constants.CODE_DIR_VAL).toString());
