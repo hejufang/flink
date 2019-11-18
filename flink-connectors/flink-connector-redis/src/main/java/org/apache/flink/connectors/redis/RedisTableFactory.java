@@ -17,15 +17,18 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
+import org.apache.flink.table.descriptors.FormatDescriptorValidator;
 import org.apache.flink.table.descriptors.RedisValidator;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.StreamTableSource;
+import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
@@ -34,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BATCH_SIZE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_CLUSTER;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FLUSH_MAX_RETRIES;
@@ -98,6 +102,9 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
 
+		// format wildcard
+		properties.add(FORMAT + ".*");
+
 		return properties;
 	}
 
@@ -120,6 +127,12 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		RedisOutputFormat.RedisOutputFormatBuilder builder =
 			RedisOutputFormat.buildRedisOutputFormat();
+
+		if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)) {
+			final SerializationSchema<Row> serializationSchema = TableConnectorUtils
+				.getSerializationSchema(properties, this.getClass().getClassLoader());
+			builder.setSerializationSchema(serializationSchema);
+		}
 
 		builder.setOptions(getRedisOptions(descriptorProperties));
 		TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);

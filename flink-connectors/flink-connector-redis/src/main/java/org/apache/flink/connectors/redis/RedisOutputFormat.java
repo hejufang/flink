@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.redis;
 
 import org.apache.flink.api.common.io.RichOutputFormat;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
@@ -52,6 +53,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private SpringDbPool springDbPool;
 	private ClientPool clientPool;
 	private AtomicInteger recordCursor = new AtomicInteger(0);
+	private SerializationSchema<Row> serializationSchema;
 
 	// <------------------------- connection configurations --------------------------->
 	private Integer batchSize;
@@ -145,7 +147,20 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					key = record.getField(0);
 					value = record.getField(1);
 
-					if (INCR_MODE.equalsIgnoreCase(mode)) {
+					if (serializationSchema != null) {
+						byte[] valueBytes = serializationSchema.serialize(record);
+						byte[] keyBytes;
+						if (key instanceof byte[]) {
+							keyBytes = (byte[]) key;
+						} else {
+							keyBytes = key.toString().getBytes();
+						}
+						if (ttlSeconds != null && ttlSeconds > 0) {
+							pipeline.setex(keyBytes, ttlSeconds, valueBytes);
+						} else {
+							pipeline.set(keyBytes, valueBytes);
+						}
+					} else if (INCR_MODE.equalsIgnoreCase(mode)) {
 						if (key instanceof byte[]) {
 							if (value instanceof Long) {
 								pipeline.incrBy((byte[]) key, (long) value);
@@ -254,6 +269,15 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	 */
 	public static class RedisOutputFormatBuilder {
 		private RedisOptions options;
+		private SerializationSchema<Row> serializationSchema;
+
+		/**
+		 * SerializationSchema for serialization.
+		 */
+		public RedisOutputFormatBuilder setSerializationSchema(SerializationSchema<Row> serializationSchema) {
+			this.serializationSchema = serializationSchema;
+			return this;
+		}
 
 		/**
 		 * required, redis options.
@@ -287,6 +311,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			format.mode = options.getMode();
 			format.batchSize = options.getBatchSize();
 			format.ttlSeconds = options.getTtlSeconds();
+			format.serializationSchema = this.serializationSchema;
 
 			if (format.cluster == null) {
 				LOG.info("cluster was not supplied.");

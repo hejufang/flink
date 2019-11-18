@@ -19,6 +19,12 @@
 package org.apache.flink.table.utils;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.table.factories.SerializationSchemaFactory;
+import org.apache.flink.table.factories.TableFactoryService;
+import org.apache.flink.types.Row;
+
+import java.util.Map;
 
 /**
  * Utilities for table sources and sinks.
@@ -40,5 +46,17 @@ public final class TableConnectorUtils {
 		} else {
 			return className + "(" + String.join(", ", fields) + ")";
 		}
+	}
+
+	/**
+	 * Returns SerializationSchema from properties with connector's ClassLoader.
+	 */
+	public static SerializationSchema<Row> getSerializationSchema(Map<String, String> properties, ClassLoader cl) {
+		@SuppressWarnings("unchecked")
+		final SerializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
+			SerializationSchemaFactory.class,
+			properties,
+			cl);
+		return formatFactory.createSerializationSchema(properties);
 	}
 }

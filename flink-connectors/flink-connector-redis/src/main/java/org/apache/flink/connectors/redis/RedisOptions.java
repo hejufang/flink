@@ -262,7 +262,23 @@ public class RedisOptions {
 			if (psm == null) {
 				LOG.info("psm was not supplied.");
 			}
-			return new RedisOptions(cluster, table, storage, psm, serverUpdatePeriod, timeout, maxTotalConnections, maxIdleConnections, minIdleConnections, forceConnectionsSetting, getResourceMaxRetries, flushMaxRetries, mode, batchSize, ttlSeconds, logFailuresOnly);
+			return new RedisOptions(
+				cluster,
+				table,
+				storage,
+				psm,
+				serverUpdatePeriod,
+				timeout,
+				maxTotalConnections,
+				maxIdleConnections,
+				minIdleConnections,
+				forceConnectionsSetting,
+				getResourceMaxRetries,
+				flushMaxRetries,
+				mode,
+				batchSize,
+				ttlSeconds,
+				logFailuresOnly);
 		}
 
 		@Override

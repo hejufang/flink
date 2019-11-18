@@ -31,13 +31,13 @@ import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.KafkaValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
 import org.apache.flink.table.factories.DeserializationSchemaFactory;
-import org.apache.flink.table.factories.SerializationSchemaFactory;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
+import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
@@ -206,7 +206,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			topic,
 			getKafkaProperties(descriptorProperties),
 			getFlinkKafkaPartitioner(descriptorProperties),
-			getSerializationSchema(descriptorProperties.asMap()),
+			TableConnectorUtils.getSerializationSchema(descriptorProperties.asMap(), this.getClass().getClassLoader()),
 			updateMode);
 	}
 
@@ -295,15 +295,6 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			properties,
 			this.getClass().getClassLoader());
 		return formatFactory.createDeserializationSchema(properties);
-	}
-
-	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {
-		@SuppressWarnings("unchecked")
-		final SerializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
-			SerializationSchemaFactory.class,
-			properties,
-			this.getClass().getClassLoader());
-		return formatFactory.createSerializationSchema(properties);
 	}
 
 	private Properties getKafkaProperties(DescriptorProperties descriptorProperties, String topic) {

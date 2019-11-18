@@ -27,13 +27,13 @@ import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FileSystemValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
 import org.apache.flink.table.factories.DeserializationSchemaFactory;
-import org.apache.flink.table.factories.SerializationSchemaFactory;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
+import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
@@ -173,7 +173,8 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		new FileSystemValidator().validate(params);
 		new SchemaValidator(isStreaming, false, false).validate(params);
 
-		final SerializationSchema<Row> serializationSchema = getSerializationSchema(properties);
+		final SerializationSchema<Row> serializationSchema = TableConnectorUtils.getSerializationSchema(
+				properties, this.getClass().getClassLoader());
 		String path = params.getString(CONNECTOR_PATH);
 
 		TableSchema tableSchema = params.getTableSchema(SCHEMA);
@@ -185,13 +186,5 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		return codec.map(
 			value -> new NewLineDelimitedTableSink(path, tableSchema, serializationSchema, value, fieldDelimiter)
 		).orElse(new NewLineDelimitedTableSink(path, tableSchema, serializationSchema, fieldDelimiter));
-	}
-
-	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {
-		@SuppressWarnings("unchecked") final SerializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
-			SerializationSchemaFactory.class,
-			properties,
-			this.getClass().getClassLoader());
-		return formatFactory.createSerializationSchema(properties);
 	}
 }

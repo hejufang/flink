@@ -31,11 +31,10 @@ import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.ElasticsearchValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
 import org.apache.flink.table.descriptors.StreamTableDescriptorValidator;
-import org.apache.flink.table.factories.SerializationSchemaFactory;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
-import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sinks.UpsertStreamTableSink;
+import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
@@ -231,12 +230,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		extendedProperties.putIfAbsent(FORMAT_TYPE, SUPPORTED_FORMAT_TYPE);
 		extendedProperties.putIfAbsent(FORMAT_DERIVE_SCHEMA, "true");
 
-		@SuppressWarnings("unchecked")
-		final SerializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
-			SerializationSchemaFactory.class,
-			extendedProperties,
-			this.getClass().getClassLoader());
-		return formatFactory.createSerializationSchema(extendedProperties);
+		return TableConnectorUtils.getSerializationSchema(extendedProperties, this.getClass().getClassLoader());
 	}
 
 	private ActionRequestFailureHandler getFailureHandler(DescriptorProperties descriptorProperties) {
