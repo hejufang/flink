@@ -66,8 +66,8 @@ public class MessagePackSerializer implements MessageSerializable {
 	}
 
 	public Number connect(RuntimeConfig config) throws IOException {
-		Map<String, Object> setupmsg = new HashMap();
-		setupmsg.put(Constants.CONF, config.toMap());
+		Map<String, Object> setupmsg = new HashMap<>();
+		setupmsg.put(Constants.CONF, config.getConfig());
 		setupmsg.put(Constants.PID_DIR_KEY, config.getPidDir());
 		this.writeMessage(setupmsg);
 		Map<String, Value> pidmsg = this.readMessage();

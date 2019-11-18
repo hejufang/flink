@@ -21,6 +21,8 @@ import org.apache.flink.api.common.ExecutionConfig;
 
 import com.bytedance.flink.configuration.Constants;
 
+import javax.annotation.Nonnull;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,14 +33,15 @@ import java.util.Set;
 /**
  * Runtime config.
  */
-public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implements Map {
+public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implements Map<String, Object> {
 
-	private final Map config = new HashMap();
+	//TODO: specify value type.
+	private final Map<String, Object> config = new HashMap<>();
 
 	public RuntimeConfig() {
 	}
 
-	public RuntimeConfig(Map config) {
+	public RuntimeConfig(Map<String, Object> config) {
 		this.config.putAll(config);
 	}
 
@@ -181,7 +184,7 @@ public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implement
 	}
 
 	@Override
-	public Object put(Object key, Object value) {
+	public Object put(String key, Object value) {
 		return config.put(key, value);
 	}
 
@@ -191,7 +194,7 @@ public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implement
 	}
 
 	@Override
-	public void putAll(Map m) {
+	public void putAll(@Nonnull Map<? extends String, ?> m) {
 		config.putAll(m);
 	}
 
@@ -200,23 +203,34 @@ public class RuntimeConfig extends ExecutionConfig.GlobalJobParameters implement
 		config.clear();
 	}
 
+	@Nonnull
 	@Override
-	public Set keySet() {
+	public Set<String> keySet() {
 		return config.keySet();
 	}
 
+	@Nonnull
 	@Override
-	public Collection values() {
+	public Collection<Object> values() {
 		return config.values();
 	}
 
+	@Nonnull
 	@Override
-	public Set<Entry> entrySet() {
+	public Set<Entry<String, Object>> entrySet() {
 		return config.entrySet();
 	}
 
 	@Override
 	public Map<String, String> toMap() {
+		Map<String, String> data = new HashMap<>();
+		for (Map.Entry<String, Object> entry : config.entrySet()) {
+			data.put(entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
+		}
+		return data;
+	}
+
+	public Map getConfig() {
 		return config;
 	}
 
