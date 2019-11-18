@@ -221,6 +221,10 @@ public class DataSinkTask<IT> extends AbstractInvokable {
 					format.writeRecord(record);
 				}
 			}
+
+			if (numRecordsIn.getCount() > 0) {
+				LOG.info(getLogString("Write " + numRecordsIn.getCount() + "records"));
+			}
 			
 			// close. We close here such that a regular close throwing an exception marks a task as failed.
 			if (!this.taskCanceled) {
@@ -281,10 +285,10 @@ public class DataSinkTask<IT> extends AbstractInvokable {
 		}
 
 		if (!this.taskCanceled) {
-			LOG.debug(getLogString("Finished data sink operator"));
+			LOG.info(getLogString("Finished data sink operator"));
 		}
 		else {
-			LOG.debug(getLogString("Data sink operator cancelled"));
+			LOG.info(getLogString("Data sink operator cancelled"));
 		}
 	}
 
