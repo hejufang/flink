@@ -71,6 +71,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final String FULL_RESTARTS_METRIC = "fullRestarts";
 	private static final String CURRENT_OFFSETS_RATE_METRIC = "currentOffsetsRate";
 	private static final String FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
+	private static final String NUMBER_OF_CHECKPOINTS_METRIC = "totalNumberOfCheckpoints";
 
 	private Set<String> globalNeededMetrics = new HashSet<>();
 	private Map<String, String> globalMetricNames = new HashMap<>();
@@ -88,6 +89,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		globalNeededMetrics.add(FULL_RESTARTS_METRIC);
 		globalNeededMetrics.add(CURRENT_OFFSETS_RATE_METRIC);
 		globalNeededMetrics.add(FAILED_CHECKPOINTS_METRIC);
+		globalNeededMetrics.add(NUMBER_OF_CHECKPOINTS_METRIC);
 	}
 
 	@Override
