@@ -587,6 +587,9 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 		// reload config by dynamic properties.
 		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
+		for (String key : properties.stringPropertyNames()) {
+			effectiveConfiguration.setString(key, properties.getProperty(key));
+		}
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
 		if (isYarnPropertiesFileMode(commandLine)) {

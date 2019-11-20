@@ -485,17 +485,17 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
-		isReadyForDeployment(clusterSpecification);
-
-		// ------------------ Check if the specified queue exists --------------------
-
-		checkYarnQueues(yarnClient);
-
 		// ------------------ Add dynamic properties to local flinkConfiguraton ------
 		Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
 		for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
 			flinkConfiguration.setString(dynProperty.getKey(), dynProperty.getValue());
 		}
+
+		isReadyForDeployment(clusterSpecification);
+
+		// ------------------ Check if the specified queue exists --------------------
+
+		checkYarnQueues(yarnClient);
 
 		// hack fs.defaultFs in yanrConfiguration
 		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
