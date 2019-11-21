@@ -49,7 +49,7 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 	private final ExecutionGraph executionGraph;
 
 	/** The executor that executes restart callbacks. */
-	private final Executor callbackExecutor;
+	private final Executor jobMasterMainThread;
 
 	/** If task failed cause is has no enough resource, sleep tmLaunchWaitingTimeMs waiting new tm launched. */
 	private final long tmLaunchWaitingTimeMs;
@@ -59,7 +59,7 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 
 	private RestartIndividualForeverStrategy(ExecutionGraph executionGraph, Configuration config) {
 		this.executionGraph = executionGraph;
-		this.callbackExecutor = executionGraph.getFutureExecutor();
+		this.jobMasterMainThread = executionGraph.getJobMasterMainThreadExecutor();
 		this.tmLaunchWaitingTimeMs = config.getInteger(JobManagerOptions.INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS);
 		this.previousLocationFirstAlways =
 			config.getBoolean(JobManagerOptions.FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS);
@@ -107,8 +107,7 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 					executionGraph.failGlobal(
 						new Exception("Error during fine grained recovery - triggering full recovery", e));
 				}
-			},
-			callbackExecutor);
+			}, jobMasterMainThread);
 	}
 
 	@Override
