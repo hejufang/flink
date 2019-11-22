@@ -51,7 +51,7 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 
 	private void validateCommonProperties(DescriptorProperties properties) {
 		properties.validateString(CONNECTOR_TABLE, false, 1);
-		properties.validateString(CONNECTOR_TABLE_SIGN_COLUMN, false, 1);
+		properties.validateString(CONNECTOR_TABLE_SIGN_COLUMN, true, 1);
 		properties.validateString(CONNECTOR_URL, true);
 		properties.validateString(CONNECTOR_PSM, true);
 		properties.validateString(CONNECTOR_DRIVER, true);

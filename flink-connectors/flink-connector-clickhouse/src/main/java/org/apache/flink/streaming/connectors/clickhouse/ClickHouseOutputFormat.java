@@ -21,6 +21,7 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,7 +89,9 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 
 	private String getInsertQuery() {
 		List<String> columns = new ArrayList<>(Arrays.asList(columnNames));
-		columns.add(signColumnName); // 加上sign列
+		if (signColumnName != null) {
+			columns.add(signColumnName); // 加上sign列
+		}
 		String[] values = new String[columns.size()];
 		Arrays.fill(values, "?");
 
@@ -113,7 +116,7 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 
 	@Override
 	public void writeRecord(Row record) {
-		if (typesArray != null && typesArray.length > 0 && typesArray.length != record.getArity()) {
+		if (typesArray != null && typesArray.length > 0 && typesArray.length != record.getArity() - 1) {
 			LOG.warn("Column SQL types array doesn't match arity of passed Row! Check the passed array...");
 		}
 
@@ -128,7 +131,7 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 				flush();
 			}
 		} catch (Exception e) {
-			throw new RuntimeException("Writing records to ClickHouse JDBC failed.", e);
+			throw new FlinkRuntimeException("Writing records to ClickHouse JDBC failed.", e);
 		}
 	}
 
@@ -225,27 +228,25 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 			switch (eventType) {
 				//insert对应的sign列是1, delete对应的sign列是-1, update需拆成delete+insert
 				case INSERT:
-					insertStatement.setInt(row.getArity(), 1);
+					if (signColumnName != null) {
+						insertStatement.setInt(row.getArity(), 1);
+					}
 					break;
 				case DELETE:
+					if (signColumnName == null) {
+						throw new FlinkRuntimeException("eventType can not be delete/DELETE when sign column is null.");
+					}
 					insertStatement.setInt(row.getArity(), -1);
 					break;
 				default:
-					throw new RuntimeException("Unsupported EventType: " + eventType);
+					throw new FlinkRuntimeException("Unsupported EventType: " + eventType);
 			}
-			if (typesArray == null) {
-				// no types provided
-				for (int index = 0; index < row.getArity() - 1; index++) {// 最后一列是BINLOG_EVENT_TYPE
-					LOG.warn("Unknown column type for column {}. Best effort approach to set its value: {}.", index + 1, row.getField(index));
-					insertStatement.setObject(index + 1, row.getField(index));
-				}
-			} else {
-				insertStatement = setStatementByRow(insertStatement, row);
-			}
+
+			insertStatement = setStatementByRow(insertStatement, row);
 			insertStatement.addBatch();
 			batchCount++;
 		} catch (SQLException e) {
-			throw new RuntimeException("Preparation of JDBC statement failed.", e);
+			throw new FlinkRuntimeException("Preparation of JDBC statement failed.", e);
 		}
 	}
 
@@ -254,7 +255,7 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 			try {
 				flush();
 			} catch (Exception e) {
-				throw new RuntimeException("Writing records to ClickHouse JDBC failed.", e);
+				throw new FlinkRuntimeException("Writing records to ClickHouse JDBC failed.", e);
 			}
 			// close the connection
 			try {
@@ -287,7 +288,7 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 			insertStatement.executeBatch();
 			batchCount = 0;
 		} catch (SQLException e) {
-			throw new RuntimeException("Execution of ClickHouse statement failed.", e);
+			throw new FlinkRuntimeException("Execution of ClickHouse statement failed.", e);
 		}
 	}
 
@@ -380,9 +381,6 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 			}
 			if (format.drivername == null) {
 				throw new IllegalArgumentException("No driver supplied.");
-			}
-			if (format.signColumnName == null) {
-				throw new IllegalArgumentException("No signColumnName supplied.");
 			}
 
 			return format;

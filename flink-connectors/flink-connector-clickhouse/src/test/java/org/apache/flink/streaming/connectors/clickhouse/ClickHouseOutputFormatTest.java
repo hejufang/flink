@@ -19,6 +19,7 @@ package org.apache.flink.streaming.connectors.clickhouse;
 
 import org.apache.flink.types.Row;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -28,6 +29,7 @@ import java.sql.Types;
 /**
  * Testing ClickHouseOutputFormat.
  */
+@Ignore
 public class ClickHouseOutputFormatTest {
 	private ClickHouseOutputFormat clickHouseOutputFormat;
 

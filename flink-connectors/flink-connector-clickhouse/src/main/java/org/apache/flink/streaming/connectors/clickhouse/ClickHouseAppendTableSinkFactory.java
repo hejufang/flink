@@ -60,11 +60,11 @@ public class ClickHouseAppendTableSinkFactory implements StreamTableSinkFactory<
 			.setDrivername(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_DRIVER))
 			.setDbName(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_DB))
 			.setTableName(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_TABLE))
-			.setSignColumn(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN))
 			.setColumnNames(fieldNames)
 			.setParameterTypes(fieldTypes)
 			.setTableScehma(tableSchema);
 
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN).ifPresent(builder::setSignColumn);
 		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_URL).ifPresent(builder::setDbUrl);
 		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_USERNAME).ifPresent(builder::setUsername);

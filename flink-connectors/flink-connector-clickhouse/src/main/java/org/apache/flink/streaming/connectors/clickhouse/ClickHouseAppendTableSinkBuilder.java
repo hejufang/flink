@@ -145,10 +145,6 @@ public class ClickHouseAppendTableSinkBuilder {
 			"ClickHouse parameterTypes name are not specified." +
 				" Please specify types using the setParameterTypes() method.");
 
-		Preconditions.checkNotNull(signColumnName,
-			"ClickHouse signColumnName are not specified." +
-				" Please specify types using the setParameterTypes() method.");
-
 		if (dbURL == null && psm == null) {
 			throw new NullPointerException("ClickHouse dbURL or psm must be specified.");
 		}
