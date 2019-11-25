@@ -266,6 +266,7 @@ boe:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.131.41:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+
 cof:
   dc: vm
   clusterName: cof
@@ -277,3 +278,9 @@ cof:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+
+swan:
+  dc: ka
+  clusterName: swan
+  high-availability.zookeeper.quorum: 10.230.2.2:2181,10.230.2.10:2181,10.230.2.7:2181
+  hdfs.prefix: hdfs://nestbackend/flink_swan
