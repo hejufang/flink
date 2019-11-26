@@ -123,6 +123,7 @@ common:
 
   # GC log options
   flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
+  flink.gc.g1: false
   yarn.taskmanager.set_token: false
 
 flink:

@@ -1780,6 +1780,54 @@ class DashboardTemplate(object):
                     "currentTagValue": "",
                     "downsampleAggregator": "avg",
                     "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time",
+                    "shouldComputeRate": true,
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
+                },
+                {
+                    "aggregator": "max",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
                     "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count",
                     "shouldComputeRate": true,
                     "tags": {
