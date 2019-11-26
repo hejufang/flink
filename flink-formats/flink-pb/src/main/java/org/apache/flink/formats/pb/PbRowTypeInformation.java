@@ -32,12 +32,19 @@ import java.util.Optional;
 /**
  * Generate Row type information according to pb descriptors.
  */
+
 public class PbRowTypeInformation {
 	public static TypeInformation<Row> generateRow(Descriptors.Descriptor root) {
 		return generateRow(root, Optional.empty());
 	}
 
-	public static TypeInformation<Row> generateRow(Descriptors.Descriptor root, Optional<Integer> timestemp) {
+	public static TypeInformation<Row> generateRow(Descriptors.Descriptor root,
+		Optional<Integer> timestemp) {
+		return generateRow(root, timestemp, false);
+	}
+
+	public static TypeInformation<Row> generateRow(Descriptors.Descriptor root,
+		Optional<Integer> timestemp, boolean withWrapper) {
 		int size = root.getFields().size();
 		TypeInformation[] types = new TypeInformation[size];
 		String[] rowFieldNames = new String[size];
@@ -49,7 +56,14 @@ public class PbRowTypeInformation {
 			types[i] = i == timestampIndex ? Types.SQL_TIMESTAMP : generateFieldTypeInformation(field);
 		}
 
-		return new RowTypeInfo(types, rowFieldNames);
+		RowTypeInfo pbTypeInfo = new RowTypeInfo(types, rowFieldNames);
+
+		if (withWrapper) {
+			pbTypeInfo = new RowTypeInfo(new RowTypeInfo[]{pbTypeInfo},
+				new String[]{PbConstant.FORMAT_PB_WRAPPER_NAME});
+		}
+
+		return pbTypeInfo;
 	}
 
 	public static TypeInformation<?> generateFieldTypeInformation(Descriptors.FieldDescriptor field) {

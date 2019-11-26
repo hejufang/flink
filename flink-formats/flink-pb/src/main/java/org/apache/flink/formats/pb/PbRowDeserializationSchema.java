@@ -29,6 +29,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -50,6 +51,11 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 	/** Type information describing the result type. */
 	private final RowTypeInfo typeInfo;
 
+	/** Type information describing the pb class. When there is no wrapper, it is the same as typeInfo. */
+	private final RowTypeInfo pbTypeInfo;
+
+	private final int columnCount;
+
 	private final String pbDescriptorClass;
 
 	private final DeserializationRuntimeConverter runtimeConverter;
@@ -58,13 +64,28 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 
 	private final int skipBytes;
 
+	private final boolean withWrapper;
+
 	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
 		int skipBytes) {
+		this(typeInfo, pbDescriptorClass, skipBytes, false);
+	}
+
+	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
+		int skipBytes, boolean withWrapper) {
 		checkNotNull(typeInfo, "Type information");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.skipBytes = skipBytes;
-		this.runtimeConverter = DeserializationRuntimeConverterFactory.createConverter(this.typeInfo);
+		this.withWrapper = withWrapper;
+		if (this.withWrapper) {
+			TypeInformation ti = this.typeInfo.getTypeAt(PbConstant.FORMAT_PB_WRAPPER_NAME);
+			pbTypeInfo = (RowTypeInfo) ti;
+		} else {
+			pbTypeInfo = this.typeInfo;
+		}
+		columnCount = this.typeInfo.getFieldTypes().length;
+		this.runtimeConverter = DeserializationRuntimeConverterFactory.createConverter(this.pbTypeInfo);
 	}
 
 	@Override
@@ -84,7 +105,17 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		}
 		try {
 			DynamicMessage dynamicMessage = DynamicMessage.parseFrom(pbDescriptor, message);
-			return (Row) runtimeConverter.convert(dynamicMessage, pbDescriptor.getFields());
+			Row pbRow = (Row) runtimeConverter.convert(dynamicMessage, pbDescriptor.getFields());
+			if (withWrapper) {
+				Row newRow = new Row(columnCount);
+				newRow.setField(0, pbRow);
+				for (int i = 1; i < columnCount; i++) {
+					// We assume that all computed columns are time columns.
+					newRow.setField(i, new Timestamp(System.currentTimeMillis()));
+				}
+				return newRow;
+			}
+			return pbRow;
 		} catch (Throwable t) {
 			throw new IOException("Failed to deserialize PB object.", t);
 		}
@@ -126,6 +157,7 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		private TypeInformation<Row> typeInfo;
 		private String pbDescriptorClass;
 		private int skipBytes;
+		private boolean withWrapper;
 
 		public static Builder newBuilder() {
 			return new Builder();
@@ -146,9 +178,14 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 			return this;
 		}
 
+		public Builder setWithWrapper(boolean withWrapper) {
+			this.withWrapper = withWrapper;
+			return this;
+		}
+
 		public PbRowDeserializationSchema build() {
 			return new PbRowDeserializationSchema(this.typeInfo, this.pbDescriptorClass,
-				this.skipBytes);
+				this.skipBytes, this.withWrapper);
 		}
 	}
 }

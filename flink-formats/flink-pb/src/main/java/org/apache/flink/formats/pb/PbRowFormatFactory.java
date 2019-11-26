@@ -54,6 +54,7 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(PbConstant.FORMAT_PB_CLASS);
 		properties.add(PbConstant.FORMAT_PB_SKIP_BYTES);
 		properties.add(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER);
+		properties.add(PbConstant.FORMAT_PB_WITH_WRAPPER);
 		return properties;
 	}
 
@@ -63,14 +64,15 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 
 		String pbDescriptorClass = getDescriptorClass(descriptorProperties);
 		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
-		Optional<Integer> skipBytes =
-			descriptorProperties.getOptionalInt(PbConstant.FORMAT_PB_SKIP_BYTES);
-
 		PbRowDeserializationSchema.Builder schemaBuilder = PbRowDeserializationSchema.Builder.newBuilder()
 			.setPbDescriptorClass(pbDescriptorClass)
 			.setTypeInfo(typeInfo);
 
-		skipBytes.ifPresent(schemaBuilder::setSkipBytes);
+		descriptorProperties.getOptionalInt(PbConstant.FORMAT_PB_SKIP_BYTES)
+			.ifPresent(schemaBuilder::setSkipBytes);
+
+		descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_WITH_WRAPPER)
+			.ifPresent(schemaBuilder::setWithWrapper);
 		return schemaBuilder.build();
 	}
 
@@ -81,14 +83,21 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 			descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER)
 				.orElse(false);
 		String pbDescriptorClass = getDescriptorClass(descriptorProperties);
+		boolean withWrapper =
+			descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_WITH_WRAPPER)
+				.orElse(false);
 		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
-		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass, sinkWithSizeHeader);
+		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass, sinkWithSizeHeader, withWrapper);
 	}
 
 	public TypeInformation<Row> getRowTypeInformation(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		Descriptors.Descriptor pbDescriptor = createDescriptor(descriptorProperties);
-		return PbRowTypeInformation.generateRow(pbDescriptor, getTimestampSchemaIndex(descriptorProperties));
+		boolean withWrapper =
+			descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_WITH_WRAPPER)
+				.orElse(false);
+		return PbRowTypeInformation.generateRow(pbDescriptor,
+			getTimestampSchemaIndex(descriptorProperties), withWrapper);
 	}
 
 	private Optional<Integer> getTimestampSchemaIndex(DescriptorProperties descriptorProperties) {

@@ -69,15 +69,23 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 
 	private final boolean sinkWithSizeHeader;
 
+	private final boolean withWrapper;
+
 	private final JsonRowSerializationSchema.SerializationRuntimeConverter jsonRuntimeConverter;
 
 	public PbRowSerializationSchema(RowTypeInfo typeInfo, String pbDescriptorClass,
 		boolean sinkWithSizeHeader) {
+		this(typeInfo, pbDescriptorClass, sinkWithSizeHeader, false);
+	}
+
+	public PbRowSerializationSchema(RowTypeInfo typeInfo, String pbDescriptorClass,
+		boolean sinkWithSizeHeader, boolean withWrapper) {
 		this.typeInfo = typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.jsonRuntimeConverter =
 			new JsonRowSerializationSchema(this.typeInfo).createConverter(this.typeInfo);
 		this.sinkWithSizeHeader = sinkWithSizeHeader;
+		this.withWrapper = withWrapper;
 	}
 
 	@Override
@@ -91,6 +99,9 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 		// 1. convert Row to  JsonNode.
 		JsonNode jsonNode = jsonRuntimeConverter.convert(mapper, node, element);
 
+		if (withWrapper) {
+			jsonNode = jsonNode.get(PbConstant.FORMAT_PB_WRAPPER_NAME);
+		}
 		try {
 			// 2. convert JsonNode to protobuf.
 			Class<?> pbClass = Class.forName(pbDescriptorClass);
