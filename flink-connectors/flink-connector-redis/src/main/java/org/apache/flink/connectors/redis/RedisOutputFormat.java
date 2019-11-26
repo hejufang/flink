@@ -242,7 +242,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					LOG.warn("Exception occurred while writing records with pipeline." +
 							" Automatically retry, retry times: {}, max retry times: {}",
 						flushRetryIndex, flushMaxRetries);
-					jedis = clientPool.getResource();
 					flushRetryIndex++;
 				} else {
 					LOG.error("Exception occurred while writing " +
