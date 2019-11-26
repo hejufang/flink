@@ -49,6 +49,7 @@ public class ClickHouseAppendTableSinkBuilder {
 	private String[] columnNames;
 	private int[] parameterTypes;
 	private TableSchema tableScehma;
+	private int parallelism;
 
 	private int flushMaxSize = DEFAULT_FLUSH_MAX_SIZE;
 
@@ -118,6 +119,11 @@ public class ClickHouseAppendTableSinkBuilder {
 		return this;
 	}
 
+	public ClickHouseAppendTableSinkBuilder setParallelism(int parallelism) {
+		this.parallelism = parallelism;
+		return this;
+	}
+
 	public ClickHouseAppendTableSink build() {
 		Preconditions.checkNotNull(drivername,
 			"drivername are not specified." +
@@ -175,6 +181,7 @@ public class ClickHouseAppendTableSinkBuilder {
 			.setSqlTypes(parameterTypes)
 			.setTableScehma(tableScehma)
 			.setFlushMaxSize(flushMaxSize)
+			.setParallelism(parallelism)
 			.build();
 
 		return new ClickHouseAppendTableSink(format);

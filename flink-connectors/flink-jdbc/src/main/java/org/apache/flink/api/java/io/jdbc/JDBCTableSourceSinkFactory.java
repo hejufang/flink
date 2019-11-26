@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_CONSUL;
@@ -96,6 +97,7 @@ public class JDBCTableSourceSinkFactory implements
 		properties.add(CONNECTOR_DBNAME);
 		properties.add(CONNECTOR_INIT_SQL);
 		properties.add(CONNECTOR_PROPERTY_VERSION);
+		properties.add(CONNECTOR_PARALLELISM);
 
 		// scan options
 		properties.add(CONNECTOR_READ_PARTITION_COLUMN);
@@ -145,7 +147,7 @@ public class JDBCTableSourceSinkFactory implements
 		descriptorProperties.getOptionalDuration(CONNECTOR_WRITE_FLUSH_INTERVAL).ifPresent(
 			s -> builder.setFlushIntervalMills(s.toMillis()));
 		descriptorProperties.getOptionalInt(CONNECTOR_WRITE_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
-
+		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
 		return builder.build();
 	}
 

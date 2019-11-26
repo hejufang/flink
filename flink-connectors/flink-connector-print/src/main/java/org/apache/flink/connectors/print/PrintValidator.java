@@ -31,5 +31,6 @@ public class PrintValidator extends ConnectorDescriptorValidator {
 	public void validate(DescriptorProperties properties) {
 		properties.validateValue(CONNECTOR_TYPE, PRINT, false);
 		properties.validateDouble(CONNECTOR_PRINT_SAMPLE_RATIO, true, 0, 1);
+		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 	}
 }

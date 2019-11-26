@@ -76,6 +76,7 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 	private void validateSinkProperties(DescriptorProperties properties) {
 		properties.validateInt(CONNECTOR_WRITE_FLUSH_MAX_ROWS, true);
 		properties.validateDuration(CONNECTOR_WRITE_FLUSH_INTERVAL, true, 1);
+		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 	}
 
 }

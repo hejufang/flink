@@ -45,6 +45,7 @@ public class RedisOptions {
 	private String mode;
 	private Integer batchSize;
 	private Integer ttlSeconds;
+	private int parallelism;
 
 	public String getCluster() {
 		return cluster;
@@ -110,12 +111,33 @@ public class RedisOptions {
 		return logFailuresOnly;
 	}
 
+	public int getParallelism() {
+		return parallelism;
+	}
+
 	/**
 	 * Flag indicating whether to accept failures (and log them), or to fail on failures.
 	 */
 	private boolean logFailuresOnly;
 
-	RedisOptions(String cluster, String table, String storage, String psm, Long serverUpdatePeriod, Integer timeout, Integer maxTotalConnections, Integer maxIdleConnections, Integer minIdleConnections, Boolean forceConnectionsSetting, Integer getResourceMaxRetries, Integer flushMaxRetries, String mode, Integer batchSize, Integer ttlSeconds, boolean logFailuresOnly) {
+	RedisOptions(
+		String cluster,
+		String table,
+		String storage,
+		String psm,
+		Long serverUpdatePeriod,
+		Integer timeout,
+		Integer maxTotalConnections,
+		Integer maxIdleConnections,
+		Integer minIdleConnections,
+		Boolean forceConnectionsSetting,
+		Integer getResourceMaxRetries,
+		Integer flushMaxRetries,
+		String mode,
+		Integer batchSize,
+		Integer ttlSeconds,
+		boolean logFailuresOnly,
+		int parallelism) {
 		this.cluster = cluster;
 		this.table = table;
 		this.storage = storage;
@@ -132,6 +154,7 @@ public class RedisOptions {
 		this.batchSize = batchSize;
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
+		this.parallelism = parallelism;
 	}
 
 	public static RedisOptionsBuilder builder() {
@@ -158,6 +181,7 @@ public class RedisOptions {
 		private Integer batchSize;
 		private Integer ttlSeconds;
 		private boolean logFailuresOnly;
+		private int parallelism;
 
 		RedisOptionsBuilder() {
 		}
@@ -255,6 +279,11 @@ public class RedisOptions {
 			return this;
 		}
 
+		public RedisOptionsBuilder setParallelism(int parallelism) {
+			this.parallelism = parallelism;
+			return this;
+		}
+
 		public RedisOptions build() {
 			if (cluster == null) {
 				LOG.info("cluster was not supplied.");
@@ -278,18 +307,31 @@ public class RedisOptions {
 				mode,
 				batchSize,
 				ttlSeconds,
-				logFailuresOnly);
+				logFailuresOnly,
+				parallelism);
 		}
 
 		@Override
 		public String toString() {
-			return "RedisOptions.RedisOptionsBuilder(cluster=" + this.cluster + ", table=" + this.table + ", storage=" +
-					this.storage + ", psm=" + this.psm + ", serverUpdatePeriod=" + this.serverUpdatePeriod + ", timeout=" +
-					this.timeout + ", maxTotalConnections=" + this.maxTotalConnections + ", maxIdleConnections=" +
-					this.maxIdleConnections + ", minIdleConnections=" + this.minIdleConnections + ", forceConnectionsSetting=" +
-					this.forceConnectionsSetting + ", getResourceMaxRetries=" + this.getResourceMaxRetries + ", flushMaxRetries=" +
-					this.flushMaxRetries + ", mode=" + this.mode + ", batchSize=" + this.batchSize + ", ttlSeconds=" +
-					this.ttlSeconds + ", logFailuresOnly=" + this.logFailuresOnly + ")";
+			return "RedisOptionsBuilder{" +
+				"cluster='" + cluster + '\'' +
+				", table='" + table + '\'' +
+				", storage='" + storage + '\'' +
+				", psm='" + psm + '\'' +
+				", serverUpdatePeriod=" + serverUpdatePeriod +
+				", timeout=" + timeout +
+				", maxTotalConnections=" + maxTotalConnections +
+				", maxIdleConnections=" + maxIdleConnections +
+				", minIdleConnections=" + minIdleConnections +
+				", forceConnectionsSetting=" + forceConnectionsSetting +
+				", getResourceMaxRetries=" + getResourceMaxRetries +
+				", flushMaxRetries=" + flushMaxRetries +
+				", mode='" + mode + '\'' +
+				", batchSize=" + batchSize +
+				", ttlSeconds=" + ttlSeconds +
+				", logFailuresOnly=" + logFailuresOnly +
+				", parallelism=" + parallelism +
+				'}';
 		}
 	}
 }

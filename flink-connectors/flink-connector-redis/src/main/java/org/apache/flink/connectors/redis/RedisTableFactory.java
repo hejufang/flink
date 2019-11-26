@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BATCH_SIZE;
@@ -78,6 +79,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
 
+		properties.add(CONNECTOR_PARALLELISM);
 		properties.add(CONNECTOR_CLUSTER);
 		properties.add(CONNECTOR_TABLE);
 		properties.add(CONNECTOR_PSM);
@@ -192,6 +194,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 				.ifPresent(builder::setForceConnectionsSetting);
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOG_FAILURES_ONLY)
 				.ifPresent(builder::setLogFailuresOnly);
+		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
 
 		return builder.build();
 	}

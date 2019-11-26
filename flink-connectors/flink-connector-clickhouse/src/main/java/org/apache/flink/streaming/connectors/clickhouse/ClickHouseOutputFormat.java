@@ -58,8 +58,13 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 	private int batchCount = 0;
 	private int flushMaxSize;
 	private int taskNumber;
+	private int parallelism;
 
 	private String insertQuery;
+
+	public int getParallelism() {
+		return parallelism;
+	}
 
 	@Override
 	public void configure(Configuration parameters) {
@@ -356,6 +361,11 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 
 		public ClickHouseOutputFormatBuilder setFlushMaxSize(int flushMaxSize) {
 			format.flushMaxSize = flushMaxSize;
+			return this;
+		}
+
+		public ClickHouseOutputFormatBuilder setParallelism(int parallelism) {
+			format.parallelism = parallelism;
 			return this;
 		}
 

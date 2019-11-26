@@ -31,6 +31,7 @@ import java.util.Map;
 import static org.apache.flink.connectors.print.PrintValidator.CONNECTOR_PRINT_SAMPLE_RATIO;
 import static org.apache.flink.connectors.print.PrintValidator.CONNECTOR_PRINT_SAMPLE_RATIO_DEFAULT;
 import static org.apache.flink.connectors.print.PrintValidator.PRINT;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
@@ -46,7 +47,9 @@ public class PrintTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		descriptorProperties.putProperties(properties);
 		double sampleRatio = descriptorProperties.getOptionalDouble(CONNECTOR_PRINT_SAMPLE_RATIO)
 			.orElse(CONNECTOR_PRINT_SAMPLE_RATIO_DEFAULT);
-		return new PrintUpsertTableSink(descriptorProperties.getTableSchema(SCHEMA), sampleRatio);
+		int parallelism = descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).orElse(-1);
+		return new PrintUpsertTableSink(descriptorProperties.getTableSchema(SCHEMA),
+			sampleRatio, parallelism);
 	}
 
 	@Override
@@ -60,6 +63,7 @@ public class PrintTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
 		properties.add(CONNECTOR_PRINT_SAMPLE_RATIO);
+		properties.add(CONNECTOR_PARALLELISM);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);

@@ -26,18 +26,30 @@ import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sinks.UpsertStreamTableSink;
 import org.apache.flink.types.Row;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * An {@link UpsertStreamTableSink} to print records to stdout.
  */
 public class PrintUpsertTableSink implements UpsertStreamTableSink<Row> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(PrintUpsertTableSink.class);
+
 	private final TableSchema tableSchema;
 	private final double sampleRatio;
+	private final int parallelism;
 
 	public PrintUpsertTableSink(TableSchema tableSchema, double sampleRatio) {
+		this(tableSchema, sampleRatio, -1);
+	}
+
+	public PrintUpsertTableSink(TableSchema tableSchema, double sampleRatio, int parallelism) {
 		this.tableSchema = tableSchema;
 		this.sampleRatio = sampleRatio;
+		this.parallelism = parallelism;
 	}
 
 	@Override
@@ -62,7 +74,8 @@ public class PrintUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public TableSink<Tuple2<Boolean, Row>> configure(String[] fieldNames, TypeInformation<?>[] fieldTypes) {
-		return new PrintUpsertTableSink(new TableSchema(fieldNames, fieldTypes), this.sampleRatio);
+		return new PrintUpsertTableSink(new TableSchema(fieldNames, fieldTypes),
+			this.sampleRatio, this.parallelism);
 	}
 
 	@Override
@@ -76,6 +89,10 @@ public class PrintUpsertTableSink implements UpsertStreamTableSink<Row> {
 		if (ratio < 1) {
 			dataStream =
 				dataStream.filter(value -> ThreadLocalRandom.current().nextDouble() < ratio);
+		}
+		if (parallelism > 0) {
+			LOG.info("Set parallelism to {} for print table sink", parallelism);
+			return dataStream.print().setParallelism(parallelism);
 		}
 		return dataStream.print();
 	}

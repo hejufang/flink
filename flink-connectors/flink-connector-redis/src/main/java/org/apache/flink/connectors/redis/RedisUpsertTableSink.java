@@ -28,10 +28,15 @@ import org.apache.flink.table.sinks.UpsertStreamTableSink;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * An upsert {@link UpsertStreamTableSink} for redis.
  */
 public class RedisUpsertTableSink implements UpsertStreamTableSink<Row> {
+	private static final Logger LOG = LoggerFactory.getLogger(RedisUpsertTableSink.class);
+
 	private final TableSchema tableSchema;
 	private final RedisOutputFormat outputFormat;
 
@@ -67,10 +72,17 @@ public class RedisUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
-		return dataStream.addSink(new RedisSinkFunction(outputFormat))
+		DataStreamSink dataStreamSink = dataStream.addSink(new RedisSinkFunction(outputFormat))
 			.setParallelism(dataStream.getParallelism())
 			.name(TableConnectorUtils.generateRuntimeName(this.getClass(),
 				tableSchema.getFieldNames()));
+
+		int parallelism = outputFormat.getParallelism();
+		if (parallelism > 0) {
+			dataStreamSink = dataStreamSink.setParallelism(parallelism);
+			LOG.info("Set parallelism to {} for redis/abase table sink.", parallelism);
+		}
+		return dataStreamSink;
 	}
 
 	@Override

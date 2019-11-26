@@ -57,18 +57,21 @@ public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	private String[] keyFields;
 	private boolean isAppendOnly;
+	private int parallelism;
 
 	private JDBCUpsertTableSink(
 		TableSchema schema,
 		JDBCOptions options,
 		int flushMaxSize,
 		long flushIntervalMills,
-		int maxRetryTime) {
+		int maxRetryTime,
+		int parallelism) {
 		this.schema = schema;
 		this.options = options;
 		this.flushMaxSize = flushMaxSize;
 		this.flushIntervalMills = flushIntervalMills;
 		this.maxRetryTime = maxRetryTime;
+		this.parallelism = parallelism;
 	}
 
 	private JDBCUpsertOutputFormat newFormat() {
@@ -95,10 +98,15 @@ public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
-		return dataStream
-				.addSink(new JDBCUpsertSinkFunction(newFormat()))
-				.setParallelism(dataStream.getParallelism())
-				.name(TableConnectorUtils.generateRuntimeName(this.getClass(), schema.getFieldNames()));
+		DataStreamSink dataStreamSink = dataStream
+			.addSink(new JDBCUpsertSinkFunction(newFormat()))
+			.setParallelism(dataStream.getParallelism())
+			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), schema.getFieldNames()));
+		if (parallelism > 0) {
+			dataStreamSink = dataStreamSink.setParallelism(parallelism);
+			LOG.info("Set parallelism to {} for jdbc sink", parallelism);
+		}
+		return dataStreamSink;
 	}
 
 	@Override
@@ -144,7 +152,8 @@ public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
 					"But was: " + Arrays.toString(fieldNames) + " / " + Arrays.toString(fieldTypes));
 		}
 
-		JDBCUpsertTableSink copy = new JDBCUpsertTableSink(schema, options, flushMaxSize, flushIntervalMills, maxRetryTime);
+		JDBCUpsertTableSink copy = new JDBCUpsertTableSink(
+			schema, options, flushMaxSize, flushIntervalMills, maxRetryTime, parallelism);
 		copy.keyFields = keyFields;
 		return copy;
 	}
@@ -178,6 +187,7 @@ public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
 		private int flushMaxSize = DEFAULT_FLUSH_MAX_SIZE;
 		private long flushIntervalMills = DEFAULT_FLUSH_INTERVAL_MILLS;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
+		private int parallelism;
 
 		/**
 		 * required, table schema of this table source.
@@ -220,10 +230,16 @@ public class JDBCUpsertTableSink implements UpsertStreamTableSink<Row> {
 			return this;
 		}
 
+		public Builder setParallelism(int parallelism) {
+			this.parallelism = parallelism;
+			return this;
+		}
+
 		public JDBCUpsertTableSink build() {
 			checkNotNull(schema, "No schema supplied.");
 			checkNotNull(options, "No options supplied.");
-			return new JDBCUpsertTableSink(schema, options, flushMaxSize, flushIntervalMills, maxRetryTimes);
+			return new JDBCUpsertTableSink(schema, options, flushMaxSize,
+				flushIntervalMills, maxRetryTimes, parallelism);
 		}
 	}
 }

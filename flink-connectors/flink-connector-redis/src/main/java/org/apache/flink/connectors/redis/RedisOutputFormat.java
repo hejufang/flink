@@ -72,6 +72,12 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private Integer getResourceMaxRetries;
 	private Integer flushMaxRetries;
 	private String mode;
+	private int parallelism;
+
+	public int getParallelism() {
+		return parallelism;
+	}
+
 	/**
 	 * Flag indicating whether to accept failures (and log them), or to fail on failures.
 	 */
@@ -311,6 +317,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			format.mode = options.getMode();
 			format.batchSize = options.getBatchSize();
 			format.ttlSeconds = options.getTtlSeconds();
+			format.parallelism = options.getParallelism();
 			format.serializationSchema = this.serializationSchema;
 
 			if (format.cluster == null) {

@@ -32,10 +32,16 @@ import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
  * A version-agnostic Kafka {@link AppendStreamTableSink}.
@@ -45,6 +51,8 @@ import java.util.Properties;
  */
 @Internal
 public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(KafkaTableSinkBase.class);
 
 	/** The schema of the table. */
 	private final TableSchema schema;
@@ -96,10 +104,18 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 			properties,
 			serializationSchema,
 			partitioner);
-		return dataStream
+		DataStreamSink dataStreamSink = dataStream
 			.addSink(kafkaProducer)
 			.setParallelism(dataStream.getParallelism())
 			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), getFieldNames()));
+		// Set Kafka Sink Parallelism
+		String parallelismKey = CONNECTOR_PARALLELISM.substring((CONNECTOR + ".").length());
+		int parallelism = Integer.valueOf(properties.getProperty(parallelismKey, "-1"));
+		if (parallelism > 0) {
+			LOG.info("Set parallelism to {} for kafka table sink.", parallelism);
+			dataStreamSink.setParallelism(parallelism);
+		}
+		return dataStreamSink;
 	}
 
 	@Override

@@ -30,12 +30,17 @@ import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 
 /**
  * ClickHouse table sink function.
  */
 public class ClickHouseAppendTableSink implements AppendStreamTableSink<Row>, BatchTableSink<Row> {
+	private static final Logger LOG = LoggerFactory.getLogger(ClickHouseAppendTableSink.class);
+
 	private ClickHouseOutputFormat outputFormat;
 	private String[] fieldNames;
 	private TypeInformation[] fieldTypes;
@@ -57,9 +62,14 @@ public class ClickHouseAppendTableSink implements AppendStreamTableSink<Row>, Ba
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
+		int parallelism = outputFormat.getParallelism();
+		if (parallelism <= 0) {
+			parallelism = dataStream.getParallelism();
+		}
+		LOG.info("Set parallelism to {} for clickhouse sink", parallelism);
 		return dataStream
 			.addSink(new ClickHouseSinkFunction(outputFormat))
-			.setParallelism(dataStream.getParallelism())
+			.setParallelism(parallelism)
 			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), fieldNames));
 	}
 

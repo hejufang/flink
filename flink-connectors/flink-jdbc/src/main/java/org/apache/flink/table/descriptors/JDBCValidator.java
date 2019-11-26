@@ -80,6 +80,7 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_PSM, true);
 		properties.validateString(CONNECTOR_DBNAME, true);
 		properties.validateString(CONNECTOR_INIT_SQL, true);
+		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 
 		final Optional<String> url = properties.getOptionalString(CONNECTOR_URL);
 		Boolean useBytedanceMySQL =

@@ -49,5 +49,6 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateValue(CONNECTOR_TYPE, REDIS, false);
 		properties.validateString(CONNECTOR_CLUSTER, false, 1);
 		properties.validateString(CONNECTOR_PSM, false, 1);
+		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 	}
 }
