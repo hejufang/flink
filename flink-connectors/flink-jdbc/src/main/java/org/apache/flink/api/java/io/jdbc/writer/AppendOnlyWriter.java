@@ -26,7 +26,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static org.apache.flink.api.java.io.jdbc.JDBCUtils.setRecordToStatement;
-import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
  * Just append record to jdbc, can not receive retract/delete message.
@@ -52,9 +51,11 @@ public class AppendOnlyWriter implements JDBCWriter {
 
 	@Override
 	public void addRecord(Tuple2<Boolean, Row> record) throws SQLException {
-		checkArgument(record.f0, "Append mode can not receive retract/delete message.");
-		setRecordToStatement(statement, fieldTypes, record.f1);
-		statement.addBatch();
+		if (record.f0) {
+			// Ignore the delete records(record.f0 == false).
+			setRecordToStatement(statement, fieldTypes, record.f1);
+			statement.addBatch();
+		}
 	}
 
 	@Override
