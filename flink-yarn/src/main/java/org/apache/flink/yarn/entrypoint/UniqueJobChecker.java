@@ -94,6 +94,7 @@ public class UniqueJobChecker extends Thread implements ConnectionStateListener 
 
 		this.jobInformation = String.format("%s_%s_%s_%s_%s_%s_%s", ip, containerId, dc, cluster, jobName, System.currentTimeMillis(), this.hashCode());
 		zkPath = String.format("%s/uniqueness/%s/%s/%s", zkRoot, dc, cluster, jobName);
+		LOG.info("Uniqueness zk path = {}", zkPath);
 
 		// first check
 		client = ZkUtils.createUniqueJobCheckerZkClient(configuration);
