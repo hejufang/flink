@@ -293,6 +293,22 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Whether set security tokens to  TaskManager YARN container context.");
 
+	public static final ConfigOption<Long> SLOW_CONTAINER_TIMEOUT_MS =
+		key("yarn.slow-container.timeout-ms")
+			.defaultValue(180000L)
+			.withDescription("Timeout in milliseconds of determine if the container is slow.");
+
+	public static final ConfigOption<Long> SLOW_CONTAINER_CHECK_INTERVAL_MS =
+		key("yarn.slow-container.check-interval-ms")
+		.defaultValue(60000L)
+		.withDescription("Interval in milliseconds of check if the container is slow.");
+
+	public static final ConfigOption<Double> SLOW_CONTAINER_ALLOCATION_MAX_FRACTION =
+		key("yarn.slow-container.allocation-max-fraction")
+			.defaultValue(0.1)
+			.withDescription("The largest ratio of slowContainers to startingContainers.");
+
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 

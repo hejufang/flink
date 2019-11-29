@@ -231,7 +231,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.taskExecutorGatewayFutures = new HashMap<>(8);
 	}
 
-
+	public Map<ResourceID, WorkerRegistration<WorkerType>> getTaskExecutors() {
+		return taskExecutors;
+	}
 
 	// ------------------------------------------------------------------------
 	//  RPC lifecycle methods
@@ -965,12 +967,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			ResourceProfile resourceProfile,
 			int pendingWorkers,
 			int numberOfTaskSlots,
-			int numberOfAllocatedWorkers) {
-		// round up division
-		int numberRequiredTaskManagers = (getNumberRequiredTaskManagerSlots() + numberOfTaskSlots - 1) / numberOfTaskSlots;
-		// Get the number of workers that have allocated by Yarn, but not register to SlotManager.
-		int startingWorkers = Math.max(0, numberOfAllocatedWorkers - getTaskManagerRegistrationSize());
-		int needWorkerNumber = numberRequiredTaskManagers - pendingWorkers - startingWorkers;
+			int numberOfAllocatedWorkers,
+			int numberOfSlowWorkers) {
+		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots);
+		// Get the number of workers that have allocated by Yarn, but not register to SlotManager, except the slow nodes.
+		int startingWorkers = Math.max(0, numberOfAllocatedWorkers - getTaskManagerRegistrationSize() - numberOfSlowWorkers);
+		int needWorkerNumber = numberRequiredWorkers - pendingWorkers - startingWorkers;
 
 		if (needWorkerNumber > 0) {
 			tryStartNewWorkers(resourceProfile, needWorkerNumber);

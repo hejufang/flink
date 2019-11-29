@@ -46,4 +46,21 @@ public class YarnWorkerNode implements ResourceIDRetrievable {
 	public Container getContainer() {
 		return container;
 	}
+
+	@Override
+	public int hashCode() {
+		return container.hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj == null) {
+			return false;
+		}
+		if (obj.getClass().isAssignableFrom(this.getClass())) {
+			return container.equals(((YarnWorkerNode) obj).getContainer());
+		} else {
+			return false;
+		}
+	}
 }
