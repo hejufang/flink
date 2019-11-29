@@ -46,7 +46,6 @@ import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
-import org.apache.flink.runtime.executiongraph.failover.LocalRestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.adapter.DefaultFailoverTopology;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
@@ -323,8 +322,6 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** Shuffle master to register partitions for task deployment. */
 	private final ShuffleMaster<?> shuffleMaster;
 
-	private volatile boolean previousLocationFirst;
-
 	/** Schedule task to slot fairly. */
 	private final boolean scheduleTaskFairly;
 
@@ -558,10 +555,6 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.resultPartitionAvailabilityChecker = new ExecutionGraphResultPartitionAvailabilityChecker(
 			this::createResultPartitionId,
 			partitionTracker);
-
-		if (failoverStrategy instanceof LocalRestartAllStrategy) {
-			previousLocationFirst = true;
-		}
 
 		this.scheduleTaskFairly = scheduleTaskFairly;
 
@@ -1025,8 +1018,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				scheduleMode,
 				// schedule vertices ordered by parallelism desc when scheduleTaskFairly.
 				getAllExecutionVertices(scheduleTaskFairly),
-				this,
-				previousLocationFirst);
+				this);
 
 			if (state == JobStatus.RUNNING && currentGlobalModVersion == globalModVersion) {
 				schedulingFuture = newSchedulingFuture;

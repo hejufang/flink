@@ -20,6 +20,8 @@ package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.runtime.executiongraph.failover.FailoverStrategyLoader;
 
 import javax.annotation.Nonnull;
 
@@ -49,7 +51,10 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 
 	@Nonnull
 	private static SlotSelectionStrategy selectSlotSelectionStrategy(@Nonnull Configuration configuration) {
-		if (configuration.getBoolean(CheckpointingOptions.LOCAL_RECOVERY)) {
+		if (configuration.getBoolean(JobManagerOptions.FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS) ||
+			configuration.getBoolean(CheckpointingOptions.LOCAL_RECOVERY) ||
+			configuration.getString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY)
+				.toLowerCase().equals(FailoverStrategyLoader.LOCAL_RESTART_STRATEGY_NAME)) {
 			return PreviousAllocationSlotSelectionStrategy.INSTANCE;
 		} else {
 			return LocationPreferenceSlotSelectionStrategy.INSTANCE;

@@ -54,15 +54,10 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 	/** If task failed cause is has no enough resource, sleep tmLaunchWaitingTimeMs waiting new tm launched. */
 	private final long tmLaunchWaitingTimeMs;
 
-	/** Whether to restart a subtask in previous location. */
-	private final boolean previousLocationFirstAlways;
-
 	private RestartIndividualForeverStrategy(ExecutionGraph executionGraph, Configuration config) {
 		this.executionGraph = executionGraph;
 		this.jobMasterMainThread = executionGraph.getJobMasterMainThreadExecutor();
 		this.tmLaunchWaitingTimeMs = config.getInteger(JobManagerOptions.INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS);
-		this.previousLocationFirstAlways =
-			config.getBoolean(JobManagerOptions.FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS);
 	}
 
 	@Override
@@ -97,7 +92,6 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 					long createTimestamp = System.currentTimeMillis();
 					Execution newExecution = vertexToRecover.resetForNewExecution(createTimestamp, globalModVersion);
 					// TODO: Schedule to other taskmanger if failed too many times.
-					newExecution.setPreviousLocationFirstAlways(previousLocationFirstAlways);
 					newExecution.scheduleForExecution();
 				}
 				catch (GlobalModVersionMismatch e) {

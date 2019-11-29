@@ -191,8 +191,6 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private Map<IntermediateResultPartitionID, ResultPartitionDeploymentDescriptor> producedPartitions;
 
-	private volatile boolean previousLocationFirstAlways;
-
 	// --------------------------------------------------------------------------------------------
 
 	/**
@@ -237,8 +235,6 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		this.taskManagerLocationFuture = new CompletableFuture<>();
 
 		this.assignedResource = null;
-
-		this.previousLocationFirstAlways = false;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -497,23 +493,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			SlotProviderStrategy slotProviderStrategy,
 			LocationPreferenceConstraint locationPreferenceConstraint,
 			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
-		return allocateResourcesForExecution(
-			slotProviderStrategy,
-			locationPreferenceConstraint,
-			allPreviousExecutionGraphAllocationIds,
-			previousLocationFirstAlways);
-	}
-
-	CompletableFuture<Execution> allocateResourcesForExecution(
-		SlotProviderStrategy slotProviderStrategy,
-		LocationPreferenceConstraint locationPreferenceConstraint,
-		@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds,
-		boolean previousLocationFirstAlways) {
 		return allocateAndAssignSlotForExecution(
 			slotProviderStrategy,
 			locationPreferenceConstraint,
-			allPreviousExecutionGraphAllocationIds,
-			previousLocationFirstAlways)
+			allPreviousExecutionGraphAllocationIds)
 			.thenCompose(slot -> registerProducedPartitions(slot.getTaskManagerLocation()));
 	}
 
@@ -524,15 +507,13 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 * @param locationPreferenceConstraint constraint for the location preferences
 	 * @param allPreviousExecutionGraphAllocationIds set with all previous allocation ids in the job graph.
 	 *                                                 Can be empty if the allocation ids are not required for scheduling.
-	 * @param previousLocationFirstAlways whether schedule task to previous location (taskmanager) preferential
 	 * @return Future which is completed with this execution once the slot has been assigned
 	 * 			or with an exception if an error occurred.
 	 */
 	private CompletableFuture<LogicalSlot> allocateAndAssignSlotForExecution(
 			SlotProviderStrategy slotProviderStrategy,
 			LocationPreferenceConstraint locationPreferenceConstraint,
-			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds,
-			boolean previousLocationFirstAlways) {
+			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
 
 		checkNotNull(slotProviderStrategy);
 
@@ -565,7 +546,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 			// calculate the preferred locations
 			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture =
-				calculatePreferredLocations(locationPreferenceConstraint, previousLocationFirstAlways);
+				calculatePreferredLocations(locationPreferenceConstraint);
 
 			final SlotRequestId slotRequestId = new SlotRequestId();
 
@@ -1466,11 +1447,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 */
 	@VisibleForTesting
 	public CompletableFuture<Collection<TaskManagerLocation>> calculatePreferredLocations(LocationPreferenceConstraint locationPreferenceConstraint) {
-		return calculatePreferredLocations(locationPreferenceConstraint, false);
-	}
-
-	public CompletableFuture<Collection<TaskManagerLocation>> calculatePreferredLocations(LocationPreferenceConstraint locationPreferenceConstraint, boolean previousLocationFirstAlways) {
-		final Collection<CompletableFuture<TaskManagerLocation>> preferredLocationFutures = getVertex().getPreferredLocations(previousLocationFirstAlways);
+		final Collection<CompletableFuture<TaskManagerLocation>> preferredLocationFutures = getVertex().getPreferredLocations();
 		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture;
 
 		switch(locationPreferenceConstraint) {
@@ -1635,9 +1612,5 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private void assertRunningInJobMasterMainThread() {
 		vertex.getExecutionGraph().assertRunningInJobMasterMainThread();
-	}
-
-	public void setPreviousLocationFirstAlways(boolean previousLocationFirstAlways) {
-		this.previousLocationFirstAlways = previousLocationFirstAlways;
 	}
 }
