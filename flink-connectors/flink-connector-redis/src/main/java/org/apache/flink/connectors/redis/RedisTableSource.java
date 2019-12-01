@@ -18,6 +18,7 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -31,6 +32,8 @@ import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.types.Row;
 
+import javax.annotation.Nullable;
+
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -43,23 +46,30 @@ public class RedisTableSource implements
 	private final RedisOptions options;
 	private final RedisLookupOptions lookupOptions;
 	private final TableSchema schema;
+	@Nullable
+	private final DeserializationSchema<Row> deserializationSchema;
 
 	// index of fields selected, null means that all fields are selected
 	private final int[] selectFields;
 	private final RowTypeInfo returnType;
 
-	private RedisTableSource(RedisOptions options, RedisLookupOptions lookupOptions, TableSchema schema) {
-		this(options, lookupOptions, schema, null);
+	private RedisTableSource(
+			RedisOptions options,
+			RedisLookupOptions lookupOptions,
+			TableSchema schema,
+			DeserializationSchema<Row> deserializationSchema) {
+		this(options, lookupOptions, schema, null, deserializationSchema);
 	}
 
 	private RedisTableSource(
 			RedisOptions options, RedisLookupOptions lookupOptions,
-			TableSchema schema, int[] selectFields) {
+			TableSchema schema, int[] selectFields, @Nullable DeserializationSchema<Row> deserializationSchema) {
 		this.options = options;
 		this.lookupOptions = lookupOptions;
 		this.schema = schema;
 
 		this.selectFields = selectFields;
+		this.deserializationSchema = deserializationSchema;
 
 		final TypeInformation<?>[] schemaTypeInfos = schema.getFieldTypes();
 		final String[] schemaFieldNames = schema.getFieldNames();
@@ -84,6 +94,7 @@ public class RedisTableSource implements
 				.setFieldTypes(returnType.getFieldTypes())
 				.setFieldNames(returnType.getFieldNames())
 				.setKeyNames(lookupKeys)
+				.setDeserializationSchema(deserializationSchema)
 				.build();
 	}
 
@@ -123,7 +134,7 @@ public class RedisTableSource implements
 
 	@Override
 	public TableSource<Row> projectFields(int[] fields) {
-		return new RedisTableSource(options, lookupOptions, schema, fields);
+		return new RedisTableSource(options, lookupOptions, schema, fields, deserializationSchema);
 	}
 
 	/**
@@ -134,6 +145,7 @@ public class RedisTableSource implements
 		private RedisOptions options;
 		private RedisLookupOptions lookupOptions;
 		private TableSchema schema;
+		private DeserializationSchema<Row> deserializationSchema;
 
 		/**
 		 * optional, lookup related options.
@@ -161,6 +173,14 @@ public class RedisTableSource implements
 		}
 
 		/**
+		 * optional, deserialization schema.
+		 */
+		public Builder setDeserializationSchema(DeserializationSchema<Row> deserializationSchema) {
+			this.deserializationSchema = deserializationSchema;
+			return this;
+		}
+
+		/**
 		 * Finalizes the configuration and checks validity.
 		 *
 		 * @return Configured JDBCTableSource
@@ -172,7 +192,7 @@ public class RedisTableSource implements
 			if (lookupOptions == null) {
 				lookupOptions = RedisLookupOptions.builder().build();
 			}
-			return new RedisTableSource(options, lookupOptions, schema);
+			return new RedisTableSource(options, lookupOptions, schema, deserializationSchema);
 		}
 	}
 }

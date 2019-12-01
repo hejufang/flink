@@ -18,6 +18,7 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.table.functions.FunctionContext;
@@ -31,6 +32,8 @@ import com.bytedance.kvclient.ClientPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -62,6 +65,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final TypeInformation[] keyTypes;
 	private final String[] fieldNames;
 	private final TypeInformation[] fieldTypes;
+	@Nullable
+	private final DeserializationSchema<Row> deserializationSchema;
 
 	// <------------------------- redis options --------------------------->
 	private final String cluster;
@@ -85,7 +90,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 
 	public RedisLookupFunction(
 			RedisOptions options, RedisLookupOptions lookupOptions,
-			String[] fieldNames, TypeInformation[] fieldTypes, String[] keyNames) {
+			String[] fieldNames, TypeInformation[] fieldTypes, String[] keyNames,
+			@Nullable DeserializationSchema<Row> deserializationSchema) {
 		this.fieldNames = fieldNames;
 		this.fieldTypes = fieldTypes;
 		List<String> nameList = Arrays.asList(fieldNames);
@@ -112,6 +118,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		this.cacheMaxSize = lookupOptions.getCacheMaxSize();
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
 		this.maxRetryTimes = lookupOptions.getMaxRetryTimes();
+
+		this.deserializationSchema = deserializationSchema;
 	}
 
 	public static Builder builder() {
@@ -157,7 +165,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				byte[] key = String.valueOf(keys[0]).getBytes();
 				byte[] value = jedis.get(key);
 				if (value != null) {
-					Row row = convertToRowFromResult(key, value, fieldTypes);
+					Row row;
+					if (deserializationSchema != null) {
+						row = deserializationSchema.deserialize(value);
+					} else {
+						row = convertToRowFromResult(key, value, fieldTypes);
+					}
 					collect(row);
 					if (cache != null) {
 						cache.put(keyRow, row);
@@ -239,6 +252,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		private String[] fieldNames;
 		private TypeInformation[] fieldTypes;
 		private String[] keyNames;
+		private DeserializationSchema<Row> deserializationSchema;
 
 		/**
 		 * required, redis options.
@@ -281,6 +295,14 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		}
 
 		/**
+		 * optional, deserialization schema.
+		 */
+		public Builder setDeserializationSchema(DeserializationSchema<Row> deserializationSchema) {
+			this.deserializationSchema = deserializationSchema;
+			return this;
+		}
+
+		/**
 		 * Finalizes the configuration and checks validity.
 		 *
 		 * @return Configured RedisLookupFunction
@@ -294,7 +316,13 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			checkNotNull(fieldTypes, "No fieldTypes supplied.");
 			checkNotNull(keyNames, "No keyNames supplied.");
 
-			return new RedisLookupFunction(options, lookupOptions, fieldNames, fieldTypes, keyNames);
+			return new RedisLookupFunction(
+				options,
+				lookupOptions,
+				fieldNames,
+				fieldTypes,
+				keyNames,
+				deserializationSchema);
 		}
 	}
 }

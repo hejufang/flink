@@ -19,7 +19,9 @@
 package org.apache.flink.table.utils;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.table.factories.DeserializationSchemaFactory;
 import org.apache.flink.table.factories.SerializationSchemaFactory;
 import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.types.Row;
@@ -58,5 +60,17 @@ public final class TableConnectorUtils {
 			properties,
 			cl);
 		return formatFactory.createSerializationSchema(properties);
+	}
+
+	/**
+	 * Returns DeserializationSchema from properties with connector's ClassLoader.
+	 */
+	public static DeserializationSchema<Row> getDeserializationSchema(Map<String, String> properties, ClassLoader cl) {
+		@SuppressWarnings("unchecked")
+		final DeserializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
+			DeserializationSchemaFactory.class,
+			properties,
+			cl);
+		return formatFactory.createDeserializationSchema(properties);
 	}
 }

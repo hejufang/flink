@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
@@ -117,10 +118,17 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 	@Override
 	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		DeserializationSchema<Row> deserializationSchema = null;
+		if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)) {
+			deserializationSchema = TableConnectorUtils.getDeserializationSchema(properties,
+				this.getClass().getClassLoader());
+		}
+
 		return RedisTableSource.builder()
 				.setOptions(getRedisOptions(descriptorProperties))
 				.setLookupOptions(getRedisLookupOptions(descriptorProperties))
 				.setSchema(descriptorProperties.getTableSchema(SCHEMA))
+				.setDeserializationSchema(deserializationSchema)
 				.build();
 	}
 

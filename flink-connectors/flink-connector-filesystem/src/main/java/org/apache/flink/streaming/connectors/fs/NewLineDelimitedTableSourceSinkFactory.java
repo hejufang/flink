@@ -26,10 +26,8 @@ import org.apache.flink.table.descriptors.CsvValidator;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FileSystemValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
-import org.apache.flink.table.factories.DeserializationSchemaFactory;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
-import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
@@ -128,7 +126,8 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		new FileSystemValidator().validate(params);
 		new SchemaValidator(isStreaming, false, false).validate(params);
 
-		final DeserializationSchema<Row> deserializationSchema = getDeserializationSchema(properties);
+		final DeserializationSchema<Row> deserializationSchema = TableConnectorUtils.getDeserializationSchema(
+			properties, this.getClass().getClassLoader());
 
 		// build
 		NewLineDelimitedTableSource.Builder newLineDelimitedTableSourceBuilder = NewLineDelimitedTableSource.builder();
@@ -150,14 +149,6 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 		newLineDelimitedTableSourceBuilder.setSchema(tableSchema);
 
 		return newLineDelimitedTableSourceBuilder.build();
-	}
-
-	private DeserializationSchema<Row> getDeserializationSchema(Map<String, String> properties) {
-		@SuppressWarnings("unchecked") final DeserializationSchemaFactory<Row> formatFactory = TableFactoryService.find(
-			DeserializationSchemaFactory.class,
-			properties,
-			this.getClass().getClassLoader());
-		return formatFactory.createDeserializationSchema(properties);
 	}
 
 	@Override
