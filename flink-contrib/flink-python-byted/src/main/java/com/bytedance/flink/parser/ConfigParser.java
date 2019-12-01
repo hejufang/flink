@@ -215,6 +215,14 @@ public class ConfigParser {
 			}
 			spoutInfo.getArgs().put(Constants.PARALLELISM, spoutInfo.getParallelism());
 
+			if (map.containsKey(Constants.SLOT_SHARE_GROUP)) {
+				spoutInfo.setSlotShareGroup((String) map.get(Constants.SLOT_SHARE_GROUP));
+			} else {
+				spoutInfo.setSlotShareGroup((String) spoutArgs.getOrDefault(
+					Constants.SLOT_SHARE_GROUP, null));
+			}
+			spoutInfo.getArgs().put(Constants.SLOT_SHARE_GROUP, spoutInfo.getSlotShareGroup());
+
 			// parse multi sources
 			if (map.containsKey(Constants.MULTI_SOURCE)) {
 				spoutInfo.setKafkaMultiSource((boolean) map.get(Constants.MULTI_SOURCE));
@@ -403,13 +411,21 @@ public class ConfigParser {
 			}
 			boltInfo.getArgs().put(Constants.PARALLELISM, boltInfo.getParallelism());
 
-			// parse spout name
+			// parse bolt name
 			if (map.containsKey(Constants.BOLT_NAME)) {
 				boltInfo.setName((String) map.get(Constants.BOLT_NAME));
 			} else {
 				boltInfo.setName((String) boltArgs.get(Constants.BOLT_NAME));
 			}
 			boltInfo.getArgs().put(Constants.BOLT_NAME, boltInfo.getName());
+
+			if (map.containsKey(Constants.SLOT_SHARE_GROUP)) {
+				boltInfo.setSlotShareGroup((String) map.get(Constants.SLOT_SHARE_GROUP));
+			} else {
+				boltInfo.setSlotShareGroup((String) boltArgs.getOrDefault(
+					Constants.SLOT_SHARE_GROUP, null));
+			}
+			boltInfo.getArgs().put(Constants.SLOT_SHARE_GROUP, boltInfo.getSlotShareGroup());
 
 			// parse interpreter
 			if (map.containsKey(Constants.INTERPRETER_KEY)) {

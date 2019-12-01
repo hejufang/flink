@@ -135,6 +135,9 @@ public class FlinkTopologyBuilder {
 			DataStreamSource<Tuple> source =
 				env.addSource(spoutWrapper, spoutName, getOutputType(outputFileds))
 					.setParallelism(spoutInfo.getParallelism());
+			if (spoutInfo.getSlotShareGroup() != null) {
+				source.slotSharingGroup(spoutInfo.getSlotShareGroup());
+			}
 			availableInputs.put(spoutName, source);
 		}
 	}
@@ -189,6 +192,9 @@ public class FlinkTopologyBuilder {
 				int parallelism = boltInfo.getParallelism();
 				SingleOutputStreamOperator<?> outputStream =
 					process(boltName, new ShellBolt(boltInfo), inputStreams).setParallelism(parallelism);
+				if (boltInfo.getSlotShareGroup() != null) {
+					outputStream.slotSharingGroup(boltInfo.getSlotShareGroup());
+				}
 			}
 		}
 	}

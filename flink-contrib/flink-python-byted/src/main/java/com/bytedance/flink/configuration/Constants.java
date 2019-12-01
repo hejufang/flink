@@ -148,6 +148,7 @@ public class Constants {
 	public static final String LOCAL_FAILOVER = "flink.localfailover";
 	public static final String LOG_FILE_KEY = "log_file";
 	public static final String LOG_FILE_VAL = "/var/log/tiger/wordcount.log";
+	public static final String SLOT_SHARE_GROUP = "slot_share_group";
 
 	public static final String NEXT = "next";
 	public static final String EMIT = "emit";

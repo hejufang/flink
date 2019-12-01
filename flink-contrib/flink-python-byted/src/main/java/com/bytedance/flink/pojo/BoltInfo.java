@@ -35,13 +35,14 @@ public class BoltInfo implements Serializable {
 	private List<String> outputFields;
 	private List<Grouping> groupList;
 	private Schema outputSchema;
+	private String slotShareGroup;
 
 	public BoltInfo() {
 	}
 
 	public BoltInfo(String name, String script, String interpreter, int parallelism,
 					Map<String, Object> args, List<String> outputFields,
-					List<Grouping> groupList) {
+					List<Grouping> groupList, String slotShareGroup) {
 		this.name = name;
 		this.script = script;
 		this.interpreter = interpreter;
@@ -50,6 +51,15 @@ public class BoltInfo implements Serializable {
 		this.outputFields = outputFields;
 		this.groupList = groupList;
 		this.outputSchema = new Schema(outputFields);
+		this.slotShareGroup = slotShareGroup;
+	}
+
+	public String getSlotShareGroup() {
+		return slotShareGroup;
+	}
+
+	public void setSlotShareGroup(String slotShareGroup) {
+		this.slotShareGroup = slotShareGroup;
 	}
 
 	public String getName() {
@@ -128,6 +138,7 @@ public class BoltInfo implements Serializable {
 			", outputFields=" + outputFields +
 			", groupList=" + groupList +
 			", outputSchema=" + outputSchema +
+			", slotShareGroup=" + slotShareGroup +
 			'}';
 	}
 }

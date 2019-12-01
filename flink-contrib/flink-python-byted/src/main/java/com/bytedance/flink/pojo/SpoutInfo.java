@@ -41,8 +41,17 @@ public class SpoutInfo implements Serializable {
 	private boolean isPartitionRangeConfigured;
 	private boolean isAutoPartition;
 	private Map<String, Object> args;
+	private String slotShareGroup;
 
 	public SpoutInfo() {
+	}
+
+	public String getSlotShareGroup() {
+		return slotShareGroup;
+	}
+
+	public void setSlotShareGroup(String slotShareGroup) {
+		this.slotShareGroup = slotShareGroup;
 	}
 
 	public String getName() {
@@ -191,6 +200,7 @@ public class SpoutInfo implements Serializable {
 			", partitionList=" + partitionList +
 			", isPartitionRangeConfigured=" + isPartitionRangeConfigured +
 			", isAutoPartition=" + isAutoPartition +
+			", slotShareGroup=" + slotShareGroup +
 			", args=" + args +
 			'}';
 	}
