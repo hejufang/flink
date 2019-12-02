@@ -23,6 +23,8 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import com.bytedance.commons.consul.Discovery;
+import com.bytedance.commons.consul.ServiceNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,19 +36,28 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 /**
  * ClickHouse output format.
  */
 public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 	private static final Logger LOG = LoggerFactory.getLogger(ClickHouseOutputFormat.class);
+	private static final String USER = "user";
+	private static final String PASSWORD = "password";
+	private static final String REPLICA_NUM = "replica_num";
+
 	private String dbName;
 	private String tableName;
 	private String username;
 	private String password;
 	private String drivername;
 	private String dbURL;
+	private String dbPsm;
 	// clickhouse里特殊的列, 1代表insert, -1代表delete
 	private String signColumnName;
 
@@ -61,6 +72,7 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 	private int flushMaxSize;
 	private int taskNumber;
 	private int parallelism;
+	private Properties properties;
 
 	private String insertQuery;
 
@@ -112,11 +124,16 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 
 	private void establishConnection() throws SQLException, ClassNotFoundException {
 		Class.forName(drivername);
-		if (username == null) {
-			dbConn = DriverManager.getConnection(dbURL);
-		} else {
-			dbConn = DriverManager.getConnection(dbURL, username, password);
+		if (dbPsm != null) {
+			dbURL = getDbUrlFromPsm();
 		}
+		if (username != null) {
+			properties.put(USER, username);
+		}
+		if (password != null) {
+			properties.put(PASSWORD, password);
+		}
+		dbConn = DriverManager.getConnection(dbURL, properties);
 	}
 
 	@Override
@@ -125,7 +142,7 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 			LOG.warn("Column SQL types array doesn't match arity of passed Row! Check the passed array...");
 		}
 
-		// 默认row的最后一列是事件类型(insert/delete/update)
+		// 默认row的最后一列是事件类型(insert/delete)
 		String eventTypeValue = (String) record.getField(record.getArity() - 1);
 		EventType eventType = EventType.valueOf(eventTypeValue.toUpperCase());
 		insertRecord(record, eventType);
@@ -301,6 +318,44 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 		return tableSchema;
 	}
 
+	private String getDbUrlFromPsm() {
+		if (dbPsm == null) {
+			return null;
+		}
+
+		String dbUrl;
+		Discovery discovery = new Discovery();
+		List<ServiceNode> serviceNodeList = discovery.translateOne(dbPsm);
+		List<ServiceNode> serviceNodeShuffleList;
+		List<ServiceNode> serviceNodeListWithReplicaNum = discovery.translateOne(dbPsm).stream()
+			.filter(x -> x.getTags().containsKey(REPLICA_NUM))
+			.collect(Collectors.toList());
+		if (serviceNodeListWithReplicaNum.isEmpty()){
+			// 没有replica_num参数的可以随机选一个节点
+			serviceNodeShuffleList = serviceNodeList;
+			LOG.info("Psm " + dbPsm + " has no replica_num tag");
+		} else {
+			// replica_num是1代表主, 2代表备. 写分布式表时既可用主也可以用备, 写本地表时只能用主. 此处统一选主节点.
+			List<ServiceNode> masterServiceNodeList = serviceNodeList.stream()
+				.filter(x -> x.getTags().getOrDefault(REPLICA_NUM, "").equals("1"))
+				.collect(Collectors.toList());
+			serviceNodeShuffleList = masterServiceNodeList;
+			LOG.info("Psm " + dbPsm + "has replica_num tag");
+		}
+		if (serviceNodeShuffleList == null || 0 == serviceNodeShuffleList.size()) {
+			throw new IllegalArgumentException("Invalid clickhouse psm: " + dbPsm);
+		}
+		Collections.shuffle(serviceNodeShuffleList, new Random(System.currentTimeMillis()));
+		ServiceNode sn = serviceNodeShuffleList.get(0);
+		String host = sn.getHost();
+		int port = sn.getPort();
+		dbUrl = "jdbc:clickhouse://" + host + ":" + port + "/";
+		LOG.info("Get dbUrl from clickhouse psm: " + dbUrl);
+
+		LOG.info("dbUrl is : " + dbUrl);
+		return dbUrl;
+	}
+
 	public static ClickHouseOutputFormatBuilder buildClickHouseOutputFormat() {
 		return new ClickHouseOutputFormatBuilder();
 	}
@@ -322,6 +377,11 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 
 		public ClickHouseOutputFormatBuilder setDbURL(String dbURL) {
 			format.dbURL = dbURL;
+			return this;
+		}
+
+		public ClickHouseOutputFormatBuilder setDbPsm(String dbPsm) {
+			format.dbPsm = dbPsm;
 			return this;
 		}
 
@@ -375,15 +435,17 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 			return this;
 		}
 
+		public ClickHouseOutputFormatBuilder setProperties(Properties properties) {
+			format.properties = properties;
+			return this;
+		}
+
 		/**
 		 * Finalizes the configuration and checks validity.
 		 *
 		 * @return Configured ClickHouseOutputFormat
 		 */
 		public ClickHouseOutputFormat build() {
-			if (format.dbURL == null) {
-				throw new IllegalArgumentException("No database URL supplied.");
-			}
 			if (format.drivername == null) {
 				throw new IllegalArgumentException("No driver supplied.");
 			}

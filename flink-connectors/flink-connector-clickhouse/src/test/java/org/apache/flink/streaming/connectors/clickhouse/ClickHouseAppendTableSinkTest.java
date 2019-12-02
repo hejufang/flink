@@ -161,7 +161,9 @@ public class ClickHouseAppendTableSinkTest {
 			"'connector.table' = '%s', \n" +
 			"'connector.table.sign.column' = 'sign', \n" +
 			"'connector.username' = 'hive2ch', \n" +
-			"'connector.password' = 'FlLKuUrEIMlYWXEd' \n" +
+			"'connector.password' = 'FlLKuUrEIMlYWXEd', \n" +
+			"'connector.clickhouse.properties.buffer_size'='65500', \n" +
+			"'connector.clickhouse.properties.async'='false' \n" +
 			")", chPsm, chDbName, chTableName);
 
 		tEnv.sqlUpdate(sinkDDL);
@@ -172,6 +174,7 @@ public class ClickHouseAppendTableSinkTest {
 		tEnv.execute("clickhouse jdbc output example");
 
 		// check
+		Thread.sleep(1000);
 		ServiceNode node = getServiceNode(chPsm);
 		String selectSql = String.format("select id, user_name from %s.%s where id=777", chDbName, chTableName);
 		ClickHouseProperties properties = new ClickHouseProperties();

@@ -39,6 +39,7 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_USERNAME = "connector.username";
 	public static final String CONNECTOR_PASSWORD = "connector.password";
 	public static final String CONNECTOR_PSM = "connector.psm";
+	public static final String CONNECTOR_CLICKHOUSE_PROPERTIES = "connector.clickhouse.properties";
 
 	public static final String CONNECTOR_WRITE_FLUSH_MAX_ROWS = "connector.write.flush.max-rows";
 	public static final String CONNECTOR_WRITE_FLUSH_INTERVAL = "connector.write.flush.interval";

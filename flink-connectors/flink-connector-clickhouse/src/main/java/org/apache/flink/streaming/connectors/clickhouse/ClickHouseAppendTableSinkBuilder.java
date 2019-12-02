@@ -21,15 +21,11 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.util.Preconditions;
 
-import com.bytedance.commons.consul.Discovery;
-import com.bytedance.commons.consul.ServiceNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.Properties;
 
 /**
  * ClickHouseAppendTableSink Builder.
@@ -50,6 +46,7 @@ public class ClickHouseAppendTableSinkBuilder {
 	private int[] parameterTypes;
 	private TableSchema tableScehma;
 	private int parallelism;
+	private Properties properties;
 
 	private int flushMaxSize = DEFAULT_FLUSH_MAX_SIZE;
 
@@ -124,6 +121,11 @@ public class ClickHouseAppendTableSinkBuilder {
 		return this;
 	}
 
+	public ClickHouseAppendTableSinkBuilder setProperties(Properties properties) {
+		this.properties = properties;
+		return this;
+	}
+
 	public ClickHouseAppendTableSink build() {
 		Preconditions.checkNotNull(drivername,
 			"drivername are not specified." +
@@ -145,29 +147,17 @@ public class ClickHouseAppendTableSinkBuilder {
 			"ClickHouse parameterTypes name are not specified." +
 				" Please specify types using the setParameterTypes() method.");
 
+		Preconditions.checkNotNull(properties,
+			"Properties must not be null.");
+
 		if (dbURL == null && psm == null) {
 			throw new NullPointerException("ClickHouse dbURL or psm must be specified.");
 		}
 
-		String dbUrl = dbURL;
-		if (psm != null) {
-			Discovery discovery = new Discovery();
-			List<ServiceNode> serviceNodeList = discovery.translateOne(psm);
-			if (serviceNodeList == null || 0 == serviceNodeList.size()) {
-				throw new IllegalArgumentException("Invalid clickhouse psm: " + psm);
-			}
-			Collections.shuffle(serviceNodeList, new Random(System.currentTimeMillis()));
-			ServiceNode sn = serviceNodeList.get(0);
-			String host = sn.getHost();
-			int port = sn.getPort();
-			dbUrl = "jdbc:clickhouse://" + host + ":" + port + "/";
-			LOG.info("Get dbUrl from clickhouse psm: " + dbUrl);
-		}
-		LOG.info("dbUrl is : " + dbUrl);
-
 		ClickHouseOutputFormat format = ClickHouseOutputFormat.buildClickHouseOutputFormat()
 			.setDrivername(drivername)
-			.setDbURL(dbUrl)
+			.setDbURL(dbURL)
+			.setDbPsm(psm)
 			.setUserName(username)
 			.setPassword(password)
 			.setDbName(dbName)
@@ -178,6 +168,7 @@ public class ClickHouseAppendTableSinkBuilder {
 			.setTableScehma(tableScehma)
 			.setFlushMaxSize(flushMaxSize)
 			.setParallelism(parallelism)
+			.setProperties(properties)
 			.build();
 
 		return new ClickHouseAppendTableSink(format);

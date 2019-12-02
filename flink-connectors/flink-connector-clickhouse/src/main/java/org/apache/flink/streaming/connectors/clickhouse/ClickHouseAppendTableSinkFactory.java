@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
@@ -82,6 +83,11 @@ public class ClickHouseAppendTableSinkFactory implements StreamTableSinkFactory<
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM)
 			.ifPresent(builder::setParallelism);
 
+		Map<String, String> clickhousePropertiesMap = descriptorProperties.getPropertiesWithPrefix(ClickHouseValidator.CONNECTOR_CLICKHOUSE_PROPERTIES);
+		Properties clickhouseProperties = new Properties();
+		clickhouseProperties.putAll(clickhousePropertiesMap);
+		builder.setProperties(clickhouseProperties);
+
 		return builder.build();
 	}
 
@@ -107,6 +113,7 @@ public class ClickHouseAppendTableSinkFactory implements StreamTableSinkFactory<
 		properties.add(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN);
 		properties.add(ClickHouseValidator.CONNECTOR_USERNAME);
 		properties.add(ClickHouseValidator.CONNECTOR_PASSWORD);
+		properties.add(ClickHouseValidator.CONNECTOR_CLICKHOUSE_PROPERTIES + ".*");
 
 		// sink options
 		properties.add(ClickHouseValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS);
