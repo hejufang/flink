@@ -26,28 +26,50 @@ import org.apache.flink.table.functions.AggregateFunctionDefinition;
 import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.functions.ScalarFunctionDefinition;
 import org.apache.flink.table.functions.TableFunctionDefinition;
+import org.apache.flink.table.functions.WindowFunction;
+import org.apache.flink.table.functions.WindowFunctionDefinition;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.planner.functions.utils.HiveAggSqlFunction;
 import org.apache.flink.table.planner.functions.utils.HiveScalarSqlFunction;
 import org.apache.flink.table.planner.functions.utils.HiveTableSqlFunction;
 import org.apache.flink.table.planner.functions.utils.UserDefinedFunctionUtils;
+import org.apache.flink.table.planner.functions.utils.WindowSqlFunction;
 import org.apache.flink.table.planner.plan.schema.DeferredTypeFlinkTableFunction;
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
 
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
+import org.apache.calcite.sql.SqlGroupedWindowFunction;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSyntax;
+import org.apache.calcite.sql.type.OperandTypes;
+import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatcher;
 
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.apache.flink.table.planner.functions.utils.HiveFunctionUtils.isHiveFunc;
+import static org.apache.flink.table.planner.utils.UserDefinedWindowUtils.ASSIGN_WINDOWS_METHOD;
+import static org.apache.flink.table.planner.utils.UserDefinedWindowUtils.END;
+import static org.apache.flink.table.planner.utils.UserDefinedWindowUtils.MERGE_WINDOW_METHOD;
+import static org.apache.flink.table.planner.utils.UserDefinedWindowUtils.PROCTIME;
+import static org.apache.flink.table.planner.utils.UserDefinedWindowUtils.ROWTIME;
+import static org.apache.flink.table.planner.utils.UserDefinedWindowUtils.START;
 import static org.apache.flink.table.types.utils.TypeConversions.fromLegacyInfoToDataType;
 
 /**
@@ -58,6 +80,7 @@ public class FunctionCatalogOperatorTable implements SqlOperatorTable {
 
 	private final FunctionCatalog functionCatalog;
 	private final FlinkTypeFactory typeFactory;
+	private final Map<String, SqlGroupedWindowFunction> registeredSqlGroupedWindowFunction = new HashMap<>();
 
 	public FunctionCatalogOperatorTable(
 			FunctionCatalog functionCatalog,
@@ -74,6 +97,11 @@ public class FunctionCatalogOperatorTable implements SqlOperatorTable {
 			List<SqlOperator> operatorList,
 			SqlNameMatcher nameMatcher) {
 		if (!opName.isSimple()) {
+			return;
+		}
+
+		if (registeredSqlGroupedWindowFunction.containsKey(opName.getSimple())) {
+			operatorList.add(registeredSqlGroupedWindowFunction.get(opName.getSimple()));
 			return;
 		}
 
@@ -121,6 +149,9 @@ public class FunctionCatalogOperatorTable implements SqlOperatorTable {
 			} else {
 				return convertScalarFunction(name, def);
 			}
+		} else if (functionDefinition instanceof WindowFunctionDefinition) {
+			WindowFunctionDefinition def = (WindowFunctionDefinition) functionDefinition;
+			return convertWindowFunction(name, def);
 		} else if (functionDefinition instanceof TableFunctionDefinition &&
 				category != null &&
 				category.isTableFunction()) {
@@ -165,6 +196,60 @@ public class FunctionCatalogOperatorTable implements SqlOperatorTable {
 			typeFactory
 		);
 		return Optional.of(scalarFunction);
+	}
+
+	private Optional<SqlFunction> convertWindowFunction(String name, WindowFunctionDefinition functionDefinition) {
+		WindowFunction windowFunction = functionDefinition.getWindowFunction();
+
+		UserDefinedWindowUtils.validateWindowFunction(windowFunction);
+
+		Method[] assignWindowMethod = UserDefinedFunctionUtils.checkAndExtractMethods(windowFunction, ASSIGN_WINDOWS_METHOD);
+
+		LogicalType[] logicalTypes = UserDefinedFunctionUtils.getParameterTypes(
+			windowFunction, assignWindowMethod[0].getParameterTypes());
+
+		SqlTypeFamily[] sqlTypeFamilies = Stream.of(logicalTypes)
+			.map(typeFactory::createFieldTypeFromLogicalType)
+			.map(RelDataType::getSqlTypeName)
+			.map(SqlTypeName::getFamily)
+			.toArray(SqlTypeFamily[]::new);
+		sqlTypeFamilies[0] = SqlTypeFamily.DATETIME; // need to specify first argument's type is timestamp
+
+		List<SqlGroupedWindowFunction> auxiliaries = new ArrayList<>();
+		WindowSqlFunction groupedWindowFunction =  new WindowSqlFunction(
+			name,
+			SqlKind.OTHER_FUNCTION,
+			null,
+			OperandTypes.family(sqlTypeFamilies)) {
+			@Override
+			public List<SqlGroupedWindowFunction> getAuxiliaryFunctions() {
+				return auxiliaries;
+			}
+		};
+		this.registeredSqlGroupedWindowFunction.put(name, groupedWindowFunction);
+
+		SqlGroupedWindowFunction windowStart = groupedWindowFunction.auxiliary(name + START, SqlKind.OTHER_FUNCTION);
+		this.registeredSqlGroupedWindowFunction.put(name + START, windowStart);
+		auxiliaries.add(windowStart);
+
+		SqlGroupedWindowFunction windowEnd = groupedWindowFunction.auxiliary(name + END, SqlKind.OTHER_FUNCTION);
+		this.registeredSqlGroupedWindowFunction.put(name + END, windowEnd);
+		auxiliaries.add(windowEnd);
+
+		SqlGroupedWindowFunction windowProctime = groupedWindowFunction.auxiliary(name + PROCTIME, SqlKind.OTHER_FUNCTION);
+		this.registeredSqlGroupedWindowFunction.put(name + PROCTIME, windowProctime);
+		auxiliaries.add(windowProctime);
+
+		SqlGroupedWindowFunction windowRowtime = groupedWindowFunction.auxiliary(name + ROWTIME, SqlKind.OTHER_FUNCTION);
+		this.registeredSqlGroupedWindowFunction.put(name + ROWTIME, windowRowtime);
+		auxiliaries.add(windowRowtime);
+
+		groupedWindowFunction.setWindowFunction(windowFunction);
+		groupedWindowFunction.setAssignWindowMethodParamTypes(logicalTypes);
+		boolean hasMergeMethod = UserDefinedFunctionUtils.ifMethodExistInFunction(MERGE_WINDOW_METHOD, windowFunction);
+		groupedWindowFunction.setHasMergeMethod(hasMergeMethod);
+
+		return Optional.of(groupedWindowFunction);
 	}
 
 	private Optional<SqlFunction> convertTableFunction(String name, TableFunctionDefinition functionDefinition) {

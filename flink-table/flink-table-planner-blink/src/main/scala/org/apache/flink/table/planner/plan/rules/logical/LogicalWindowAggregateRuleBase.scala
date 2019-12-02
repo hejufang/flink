@@ -23,8 +23,9 @@ import org.apache.flink.table.expressions.utils.ApiExpressionUtils.intervalOfMil
 import org.apache.flink.table.planner.calcite.FlinkRelBuilder.PlannerNamedWindowProperty
 import org.apache.flink.table.planner.expressions.PlannerWindowReference
 import org.apache.flink.table.planner.functions.sql.FlinkSqlOperatorTable
-import org.apache.flink.table.planner.plan.logical.{LogicalWindow, SessionGroupWindow, SlidingGroupWindow, TumblingGroupWindow}
+import org.apache.flink.table.planner.plan.logical._
 import org.apache.flink.table.planner.plan.nodes.calcite.LogicalWindowAggregate
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.getFieldIndices
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 
 import com.google.common.collect.ImmutableList
@@ -38,6 +39,7 @@ import org.apache.calcite.rel.logical.{LogicalAggregate, LogicalProject}
 import org.apache.calcite.rex._
 import org.apache.calcite.sql.`type`.SqlTypeUtil
 import org.apache.calcite.util.ImmutableBitSet
+import org.apache.flink.table.planner.functions.utils.WindowSqlFunction
 
 import _root_.scala.collection.JavaConversions._
 
@@ -69,7 +71,7 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
     val project: LogicalProject = call.rel(1)
 
     val (windowExpr, windowExprIdx) = getWindowExpressions(agg).head
-    val window = translateWindow(windowExpr, windowExprIdx, project.getInput.getRowType)
+    val window = translateWindow(windowExpr, windowExprIdx, project.getInput.getRowType, project)
 
     val rexBuilder = agg.getCluster.getRexBuilder
 
@@ -223,6 +225,8 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
               } else {
                 throw new TableException("SESSION window with alignment is not supported yet.")
               }
+            case _: WindowSqlFunction =>
+              true
             case _ => false
           }
         case _ => false
@@ -244,7 +248,8 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
   private[table] def translateWindow(
       windowExpr: RexCall,
       windowExprIdx: Int,
-      rowType: RelDataType): LogicalWindow = {
+      rowType: RelDataType,
+      project: LogicalProject): LogicalWindow = {
 
     val timeField = getTimeFieldReference(windowExpr.getOperands.get(0), windowExprIdx, rowType)
     val resultType = Some(fromDataTypeToLogicalType(timeField.getOutputDataType))
@@ -271,6 +276,18 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
           windowRef,
           timeField,
           intervalOfMillis(gap))
+
+      case w: WindowSqlFunction => {
+        val fieldIndices = getFieldIndices(windowExpr.getOperands, project, rowType)
+        UserDefinedGroupWindow(
+          windowRef,
+          timeField,
+          w.getWindowFunction,
+          w.getAssignWindowMethodParamTypes,
+          w.isHasMergeMethod,
+          fieldIndices
+        )
+      }
     }
   }
 

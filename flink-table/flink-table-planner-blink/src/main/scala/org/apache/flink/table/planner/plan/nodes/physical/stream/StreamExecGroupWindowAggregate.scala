@@ -30,9 +30,10 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.logical._
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.rules.physical.stream.StreamExecRetractionRules
-import org.apache.flink.table.planner.plan.utils.AggregateUtil.{hasRowIntervalType, hasTimeIntervalType, isProctimeAttribute, isRowtimeAttribute, toDuration, toLong, transformToStreamAggregateInfoList}
+import org.apache.flink.table.planner.plan.utils.AggregateUtil._
 import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, KeySelectorUtil, RelExplainUtil, WindowEmitStrategy}
 import org.apache.flink.table.runtime.generated.{GeneratedNamespaceAggsHandleFunction, GeneratedRecordEqualiser}
+import org.apache.flink.table.runtime.operators.window.assigners.{UserDefinedMergingWindowAssigner, UserDefinedWindowAssigner, WindowAssigner}
 import org.apache.flink.table.runtime.operators.window.{CountWindow, TimeWindow, WindowOperator, WindowOperatorBuilder}
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.BaseRowTypeInfo
@@ -255,6 +256,7 @@ class StreamExecGroupWindowAggregate(
         classOf[CountWindow]
       case SlidingGroupWindow(_, _, size, _) if hasRowIntervalType(size) =>
         classOf[CountWindow]
+      case UserDefinedGroupWindow(_, _, _, _, _, _) => classOf[TimeWindow]
       case _ => classOf[TimeWindow]
     }
 
@@ -341,6 +343,26 @@ class StreamExecGroupWindowAggregate(
       case SessionGroupWindow(_, timeField, gap)
           if isRowtimeAttribute(timeField) =>
         builder.session(toDuration(gap)).withEventTime(timeIdx)
+
+      case UserDefinedGroupWindow(_, _, windowFunction, assignWindowMethodParamTypes,
+      hasMergeMethod, paramIndices) => {
+        var userDefinedWindowAssigner: WindowAssigner[TimeWindow] = null
+        if (hasMergeMethod) {
+          userDefinedWindowAssigner = new UserDefinedMergingWindowAssigner(
+            assignWindowMethodParamTypes, paramIndices, windowFunction, inputTimeFieldIndex >= 0)
+        } else {
+          userDefinedWindowAssigner = new UserDefinedWindowAssigner(
+            assignWindowMethodParamTypes, paramIndices, windowFunction, inputTimeFieldIndex >= 0)
+        }
+        builder.assigner(userDefinedWindowAssigner)
+        if (inputTimeFieldIndex >= 0) {
+          builder.withEventTime(inputTimeFieldIndex)
+        } else {
+          builder.withProcessingTime();
+        }
+        // TODO: add user defined trigger.
+        builder
+      }
     }
 
     if (emitStrategy.produceUpdates) {

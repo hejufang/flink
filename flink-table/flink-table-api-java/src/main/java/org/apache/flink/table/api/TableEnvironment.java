@@ -31,6 +31,7 @@ import org.apache.flink.table.functions.AggregateFunction;
 import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.flink.table.functions.TableAggregateFunction;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.functions.WindowFunction;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
 
@@ -137,6 +138,14 @@ public interface TableEnvironment {
 	 * user-defined functions under this name.
 	 */
 	void registerFunction(String name, ScalarFunction function);
+
+	/**
+	 * Registers a {@link WindowFunction} under a unique name. Replaces already existing
+	 * user-defined functions under this name.
+	 */
+	default void registerFunction(String name, WindowFunction function) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Registers a {@link TableFunction} under a unique name. Replaces already existing

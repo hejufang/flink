@@ -25,15 +25,18 @@ import org.apache.flink.table.planner.plan.nodes.calcite._
 import org.apache.flink.table.planner.plan.schema.TimeIndicatorRelDataType
 import org.apache.flink.table.planner.plan.utils.TemporalJoinUtil
 import org.apache.flink.table.types.logical.TimestampType
-
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core._
 import org.apache.calcite.rel.logical._
 import org.apache.calcite.rel.{RelNode, RelShuttle}
 import org.apache.calcite.rex._
+import org.apache.calcite.sql.SqlGroupedWindowFunction
 import org.apache.calcite.sql.`type`.SqlTypeName
 import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.fun.SqlStdOperatorTable.FINAL
+import org.apache.flink.table.planner.functions.utils.WindowSqlFunction
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.PROCTIME
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.ROWTIME
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
@@ -570,7 +573,8 @@ class RexTimeIndicatorMaterializer(
       // skip materialization for special operators
       case FlinkSqlOperatorTable.SESSION |
            FlinkSqlOperatorTable.HOP |
-           FlinkSqlOperatorTable.TUMBLE =>
+           FlinkSqlOperatorTable.TUMBLE |
+           _: WindowSqlFunction =>
         updatedCall.getOperands.toList
 
       case _ =>
@@ -616,6 +620,10 @@ class RexTimeIndicatorMaterializer(
         // we cannot check the operands anymore but the return type at least
         if isTimeIndicatorType(updatedCall.getType) =>
         updatedCall
+
+      case w: SqlGroupedWindowFunction
+        if (w.getName.endsWith(PROCTIME) || w.getName.endsWith(ROWTIME))
+          && isTimeIndicatorType(updatedCall.getType) => updatedCall
 
       // materialize function's result and operands
       case _ if isTimeIndicatorType(updatedCall.getType) =>

@@ -37,6 +37,8 @@ import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.TableFunctionDefinition;
 import org.apache.flink.table.functions.UserDefinedAggregateFunction;
 import org.apache.flink.table.functions.UserFunctionsTypeHelper;
+import org.apache.flink.table.functions.WindowFunction;
+import org.apache.flink.table.functions.WindowFunctionDefinition;
 import org.apache.flink.util.Preconditions;
 
 import java.util.ArrayList;
@@ -80,6 +82,11 @@ public class FunctionCatalog implements FunctionLookup {
 			name,
 			new ScalarFunctionDefinition(name, function)
 		);
+	}
+
+	public void registerWindowFunction(String name, WindowFunction function) {
+		UserFunctionsTypeHelper.validateInstantiation(function.getClass());
+		registerFunction(name, new WindowFunctionDefinition(name, function));
 	}
 
 	public <T> void registerTableFunction(

@@ -33,9 +33,15 @@ import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.logical.{LogicalFilter, LogicalProject}
 import org.apache.calcite.rex.{RexCall, RexNode}
+import org.apache.calcite.sql.SqlGroupedWindowFunction
 import org.apache.calcite.tools.RelBuilder
 
 import scala.collection.JavaConversions._
+
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.END
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.PROCTIME
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.ROWTIME
+import org.apache.flink.table.planner.utils.UserDefinedWindowUtils.START
 
 class WindowPropertiesRule extends RelOptRule(
   operand(classOf[LogicalProject],
@@ -228,6 +234,8 @@ object WindowPropertiesRules {
                FlinkSqlOperatorTable.HOP_START |
                FlinkSqlOperatorTable.SESSION_START
           => true
+          case w: SqlGroupedWindowFunction if (w.groupFunction != null && w.getName.endsWith(START))
+            => true
           case _ => false
         }
       case _ => false
@@ -242,6 +250,8 @@ object WindowPropertiesRules {
           case FlinkSqlOperatorTable.TUMBLE_END |
                FlinkSqlOperatorTable.HOP_END |
                FlinkSqlOperatorTable.SESSION_END => true
+          case w: SqlGroupedWindowFunction if (w.groupFunction != null && w.getName.endsWith(END))
+          => true
           case _ => false
         }
       case _ => false
@@ -256,6 +266,8 @@ object WindowPropertiesRules {
           case FlinkSqlOperatorTable.TUMBLE_ROWTIME |
                FlinkSqlOperatorTable.HOP_ROWTIME |
                FlinkSqlOperatorTable.SESSION_ROWTIME => true
+          case w: SqlGroupedWindowFunction
+            if w.groupFunction != null && w.getName.endsWith(ROWTIME) => true
           case _ => false
         }
       case _ => false
@@ -270,6 +282,8 @@ object WindowPropertiesRules {
           case FlinkSqlOperatorTable.TUMBLE_PROCTIME |
                FlinkSqlOperatorTable.HOP_PROCTIME |
                FlinkSqlOperatorTable.SESSION_PROCTIME => true
+          case w: SqlGroupedWindowFunction
+            if w.groupFunction != null && w.getName.endsWith(PROCTIME) => true
           case _ => false
         }
       case _ => false

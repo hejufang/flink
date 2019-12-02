@@ -55,6 +55,7 @@ import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.flink.table.functions.TableAggregateFunction;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.UserFunctionsTypeHelper;
+import org.apache.flink.table.functions.WindowFunction;
 import org.apache.flink.table.operations.CatalogQueryOperation;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.ModifyOperation;
@@ -191,6 +192,11 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		functionCatalog.registerScalarFunction(
 			name,
 			function);
+	}
+
+	@Override
+	public void registerFunction(String name, WindowFunction function) {
+		functionCatalog.registerWindowFunction(name, function);
 	}
 
 	@Override
@@ -435,6 +441,8 @@ public class TableEnvironmentImpl implements TableEnvironment {
 					registerFunction(functionOperation.getFunctionName(), (AggregateFunction<?, ?>) function);
 				} else if (function instanceof TableAggregateFunction<?, ?>) {
 					registerFunction(functionOperation.getFunctionName(), (TableAggregateFunction<?, ?>) function);
+				} else if (function instanceof WindowFunction) {
+					registerFunction(functionOperation.getFunctionName(), (WindowFunction) function);
 				}
 			} catch (Exception e) {
 				throw new TableException("Error in loading user defined function!", e);

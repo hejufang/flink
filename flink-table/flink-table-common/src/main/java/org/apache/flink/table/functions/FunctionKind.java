@@ -36,5 +36,7 @@ public enum FunctionKind {
 
 	TABLE_AGGREGATE,
 
+	WINDOW,
+
 	OTHER
 }

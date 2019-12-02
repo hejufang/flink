@@ -19,7 +19,9 @@
 package org.apache.flink.table.planner.plan.logical
 
 import org.apache.flink.table.expressions._
+import org.apache.flink.table.functions.WindowFunction
 import org.apache.flink.table.planner.expressions.PlannerWindowReference
+import org.apache.flink.table.types.logical.LogicalType
 
 /**
   * Logical super class for group windows.
@@ -78,4 +80,16 @@ case class SessionGroupWindow(
     timeField) {
 
   override def toString: String = s"SessionGroupWindow($alias, $timeField, $gap)"
+}
+
+case class UserDefinedGroupWindow(
+    alias: PlannerWindowReference,
+    timeField: FieldReferenceExpression,
+    windowFunction: WindowFunction,
+    assignWindowMethodParamTypes: Array[LogicalType],
+    hasMergeMethod: Boolean,
+    paramIndices: Array[Int])
+  extends LogicalWindow(alias, timeField) {
+  override def toString: String = s"UserDefinedGroupWindow($alias, $timeField, " +
+    s"${windowFunction.getClass.getName})"
 }
