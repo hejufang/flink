@@ -347,7 +347,7 @@ public class SlotManagerImpl implements SlotManager {
 		checkInit();
 
 		if (checkDuplicateRequest(slotRequest.getAllocationId())) {
-			LOG.debug("Ignoring a duplicate slot request with allocation id {}.", slotRequest.getAllocationId());
+			LOG.info("Ignoring a duplicate slot request with allocation id {}.", slotRequest.getAllocationId());
 
 			return false;
 		} else {
@@ -402,7 +402,7 @@ public class SlotManagerImpl implements SlotManager {
 		PendingSlotRequest pendingSlotRequest = pendingSlotRequests.remove(allocationId);
 
 		if (null != pendingSlotRequest) {
-			LOG.debug("Cancel slot request {}.", allocationId);
+			LOG.info("Cancel slot request {}.", allocationId);
 
 			cancelPendingSlotRequest(pendingSlotRequest);
 
@@ -821,12 +821,15 @@ public class SlotManagerImpl implements SlotManager {
 		TaskManagerSlot taskManagerSlot = findMatchingSlot(resourceProfile);
 
 		if (taskManagerSlot != null) {
+			LOG.info("find matching slot for request with allocation id {}.", pendingSlotRequest.getAllocationId());
 			allocateSlot(taskManagerSlot, pendingSlotRequest);
 		} else {
 			Optional<PendingTaskManagerSlot> pendingTaskManagerSlotOptional = findFreeMatchingPendingTaskManagerSlot(resourceProfile);
 
 			if (!pendingTaskManagerSlotOptional.isPresent()) {
 				pendingTaskManagerSlotOptional = allocateResource(resourceProfile);
+			} else {
+				LOG.info("find matching pending slot for request with allocation id {}.", pendingSlotRequest.getAllocationId());
 			}
 
 			if (pendingTaskManagerSlotOptional.isPresent()) {

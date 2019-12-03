@@ -973,6 +973,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		// Get the number of workers that have allocated by Yarn, but not register to SlotManager, except the slow nodes.
 		int startingWorkers = Math.max(0, numberOfAllocatedWorkers - getTaskManagerRegistrationSize() - numberOfSlowWorkers);
 		int needWorkerNumber = numberRequiredWorkers - pendingWorkers - startingWorkers;
+		log.info("startNewWorkerIfNeeded, numberRequiredWorkers: {}, " +
+			"pendingWorkers: {}, numberOfAllocatedWorkers: {}, numberOfSlowWorkers: {}, startingWorkers: {}",
+			numberRequiredWorkers, pendingWorkers, numberOfAllocatedWorkers, numberOfSlowWorkers, startingWorkers);
 
 		if (needWorkerNumber > 0) {
 			tryStartNewWorkers(resourceProfile, needWorkerNumber);

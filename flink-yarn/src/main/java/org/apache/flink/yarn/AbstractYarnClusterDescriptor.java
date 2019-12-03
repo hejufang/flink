@@ -1826,6 +1826,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_KEY, ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT);
 		}
 
+		// JVM GC log opts
+		javaOpts += " " + flinkConfiguration.getString(ConfigConstants.FLINK_GC_LOG_OPTS_KEY,
+			ConfigConstants.FLINK_GC_LOG_OPTS_DEFAULT);
+		javaOpts += " " + "-Xloggc:" + flinkConfiguration.getString(ConfigConstants.FLINK_GC_LOG_FILE_KEY,
+			ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/gc.log");
+
 		// Set up the container launch context for the application master
 		ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);
 
