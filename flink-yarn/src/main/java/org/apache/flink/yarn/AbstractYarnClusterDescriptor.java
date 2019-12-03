@@ -107,6 +107,9 @@ import java.util.Set;
 
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_PLUGINS_DIR;
+import static org.apache.flink.configuration.ConfigConstants.YARN_APPLICATION_TYPE;
+import static org.apache.flink.configuration.ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT;
+import static org.apache.flink.configuration.JobManagerOptions.CHECK_JOB_UNIQUE;
 import static org.apache.flink.runtime.entrypoint.component.FileJobGraphRetriever.JOB_GRAPH_FILE_PATH;
 import static org.apache.flink.yarn.YarnConfigKeys.SPT_NOENV;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOG4J_NAME;
@@ -1196,10 +1199,17 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		capability.setVirtualCores(clusterSpecification.getMasterVcores());
 		LOG.info("jm cores = {}", clusterSpecification.getMasterVcores());
 
+		final String appType = applicationType != null ?
+			applicationType : YARN_STREAMING_APPLICATION_TYPE_DEFAULT;
 		appContext.setApplicationName(name);
-		appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
+		appContext.setApplicationType(appType);
 		appContext.setAMContainerSpec(amContainer);
 		appContext.setResource(capability);
+
+		flinkConfiguration.setString(YARN_APPLICATION_TYPE, appType);
+		if (!appType.equals(YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
+			flinkConfiguration.setBoolean(CHECK_JOB_UNIQUE, false);
+		}
 
 		// Set priority for application
 		int priorityNum = flinkConfiguration.getInteger(YarnConfigOptions.APPLICATION_PRIORITY);

@@ -2180,6 +2180,9 @@ public final class ConfigConstants {
 	public static final String HDFS_DEPENDENCY_ENABLED = "hdfs.dependency.enabled";
 	public static final boolean HDFS_DEPENDENCY_ENABLED_DEFAULT = true;
 
+	public static final String YARN_APPLICATION_TYPE = "yarn.application.type";
+	public static final String YARN_STREAMING_APPLICATION_TYPE_DEFAULT = "Apache Flink";
+
 	/**
 	 * Not instantiable.
 	 */

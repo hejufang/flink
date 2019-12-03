@@ -28,6 +28,7 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
+import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityContext;
 import org.apache.flink.runtime.security.SecurityUtils;
@@ -43,6 +44,8 @@ import org.slf4j.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+
+import static org.apache.flink.configuration.JobManagerOptions.CHECK_JOB_UNIQUE;
 
 /**
  * This class contains utility methods for the {@link YarnSessionClusterEntrypoint} and
@@ -146,5 +149,27 @@ public class YarnEntrypointUtils {
 
 		log.info("YARN daemon is running as: {} Yarn client user obtainer: {}",
 			currentUser.getShortUserName(), yarnClientUsername);
+	}
+
+	public static void checkJobUnique(
+		ClusterEntrypoint clusterEntrypoint,
+		Configuration configuration, Logger log) {
+		boolean checkJobUnique = configuration.getBoolean(CHECK_JOB_UNIQUE, true);
+		if (!checkJobUnique) {
+			log.debug("no need to check job unique");
+			return;
+		}
+		log.debug("need to check job unique");
+		UniqueJobChecker uniqueJobChecker = new UniqueJobChecker(configuration);
+		uniqueJobChecker.start();
+
+		clusterEntrypoint.getTerminationFuture()
+			.whenComplete(((applicationStatus, throwable) -> {
+				try {
+					uniqueJobChecker.close();
+				} catch (Throwable t) {
+					log.error("Error shutting down CuratorFramework client", t);
+				}
+		}));
 	}
 }

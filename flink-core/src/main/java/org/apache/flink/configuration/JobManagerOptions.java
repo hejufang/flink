@@ -254,6 +254,11 @@ public class JobManagerOptions {
 			.defaultValue(0)
 			.withDescription("Number of task manager");
 
+	public static final ConfigOption<Boolean> CHECK_JOB_UNIQUE =
+		key("check.job.unique")
+			.defaultValue(true)
+			.withDescription("Whether check job unique with ZK.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

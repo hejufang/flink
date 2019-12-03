@@ -116,17 +116,7 @@ public class YarnJobClusterEntrypoint extends JobClusterEntrypoint {
 			configuration,
 			workingDirectory);
 
-		UniqueJobChecker uniqueJobChecker = new UniqueJobChecker(configuration);
-		uniqueJobChecker.start();
-
-		yarnJobClusterEntrypoint.getTerminationFuture().whenComplete(((applicationStatus, throwable) -> {
-			try {
-				uniqueJobChecker.close();
-			} catch (Throwable t) {
-				LOG.error("Error shutting down CuratorFramework client", t);
-			}
-		}));
-
+		YarnEntrypointUtils.checkJobUnique(yarnJobClusterEntrypoint, configuration, LOG);
 		// start a Flink version reporter.
 		startVersionReporter(configuration);
 
