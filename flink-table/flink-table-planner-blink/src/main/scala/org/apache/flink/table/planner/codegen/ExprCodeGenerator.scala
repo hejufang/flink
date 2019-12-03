@@ -285,11 +285,25 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
       case _ => // ok
     }
 
-    val setFieldsCode = fieldExprs.zipWithIndex.map { case (fieldExpr, index) =>
+    val projects = fieldExprs.zipWithIndex.map { case (fieldExpr, index) =>
       val pos = fieldExprIdxToOutputRowPosMap.getOrElse(index,
         throw new CodeGenException(s"Illegal field expr index: $index"))
       baseRowSetField(ctx, returnTypeClazz, outRow, pos.toString, fieldExpr, outRowWriter)
-    }.mkString("\n")
+    }
+    val totalLen = projects.map(x => x.length).sum
+    val maxCodeLength = ctx.tableConfig.getMaxGeneratedCodeLength
+    val setFieldsCode = if (totalLen > maxCodeLength) {
+      // do the split.
+      ctx.setSplit()
+      projects.map(project => {
+        val methodName = newName("split")
+        val method = s"private void $methodName() {\n $project \n}"
+        ctx.addReusableMember(method)
+        s"$methodName();\n"
+      }).mkString("\n")
+    } else {
+      projects.mkString("\n")
+    }
 
     val outRowInitCode = if (!outRowAlreadyExists) {
       val initCode = generateRecordStatement(returnType, returnTypeClazz, outRow, outRowWriter)
