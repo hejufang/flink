@@ -29,6 +29,7 @@ import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -589,14 +590,44 @@ public class Kafka010Utils {
 	}
 
 	/**
+	 * Creates multiple FlinkKafkaProducers for a given topic.
+	 *
+	 * @param producerConfs            Configuration collection of multiple producers.
+	 * @param keyedserializationSchema User defined serialization schema supporting key/value
+	 *                                 messages.
+	 * @param router                   The Router that decide which cluster and which topic each
+	 *                                 message should write to, and can also do data transformation.
+	 */
+	public static <IN, OUT> FlinkKafkaMultiClusterProducer010<IN, OUT> createMultiClusterSink010(
+		Collection<KafkaProducerConfPOJO<OUT>> producerConfs,
+		KeyedSerializationSchema<OUT> keyedserializationSchema,
+		Router<IN, OUT> router) throws Exception {
+		return new FlinkKafkaMultiClusterProducer010<>(producerConfs, keyedserializationSchema, router);
+	}
+
+	/**
+	 * Creates multiple FlinkKafkaProducers for a given topic.
+	 *
+	 * @param producerConfs       Configuration collection of multiple producers.
+	 * @param serializationSchema User defined (keyless) serialization schema.
+	 * @param router              The Router that decide which cluster and which topic each message
+	 *                            should write to, and can also do data transformation.
+	 */
+	public static <IN, OUT> FlinkKafkaMultiClusterProducer010<IN, OUT> createMultiClusterSink010(
+			Collection<KafkaProducerConfPOJO<OUT>> producerConfs,
+			SerializationSchema<OUT> serializationSchema,
+			Router<IN, OUT> router) throws Exception {
+		return new FlinkKafkaMultiClusterProducer010<>(producerConfs, serializationSchema, router);
+	}
+
+	/**
 	 * Creates a kafka consumer configuration for a given kafka cluster.
 	 *
 	 * @param kafkaClusterName The name of kafka cluster.
 	 * @param consumerGroup    The consumer group that the consumer belongs to.
 	 */
 	private static Properties createKafkaConsumerConfig(String kafkaClusterName,
-														String consumerGroup,
-														List<String> topics) {
+			String consumerGroup, List<String> topics) {
 		Properties properties = new Properties();
 		properties.put(ConsumerConfig.CLUSTER_NAME_CONFIG, kafkaClusterName);
 		String topicList = "".join(",", topics);
