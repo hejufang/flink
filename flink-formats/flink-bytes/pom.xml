@@ -19,48 +19,30 @@ under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<artifactId>flink-formats</artifactId>
+		<groupId>org.apache.flink</groupId>
+		<version>1.9-byted-SNAPSHOT</version>
+	</parent>
 	<modelVersion>4.0.0</modelVersion>
 
-	<parent>
-		<groupId>org.apache.flink</groupId>
-		<artifactId>flink-parent</artifactId>
-		<version>1.9-byted-SNAPSHOT</version>
-		<relativePath>..</relativePath>
-	</parent>
-
-
-	<artifactId>flink-formats</artifactId>
-	<name>flink-formats</name>
-	<packaging>pom</packaging>
-
-	<modules>
-		<module>flink-avro</module>
-		<module>flink-json</module>
-		<module>flink-avro-confluent-registry</module>
-		<module>flink-parquet</module>
-		<module>flink-sequence-file</module>
-		<module>flink-csv</module>
-		<module>flink-pb</module>
-		<module>flink-bytes</module>
-	</modules>
-
-	<!-- override these root dependencies as 'provided', so they don't end up
-		in the jars-with-dependencies (uber jars) of formats and
-		user programs that depend on the formats -->
+	<artifactId>flink-bytes</artifactId>
+	<name>flink-bytes</name>
 
 	<dependencies>
 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-core</artifactId>
+			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-test-utils-junit</artifactId>
-			<scope>test</scope>
+			<artifactId>flink-table-common</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
 		</dependency>
 	</dependencies>
 
