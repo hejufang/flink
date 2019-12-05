@@ -33,6 +33,8 @@ public class JsonValidator extends FormatDescriptorValidator {
 	public static final String FORMAT_FAIL_ON_MISSING_FIELD = "format.fail-on-missing-field";
 	public static final String FORMAT_DEFAULT_ON_MISSING_DIELD = "format.default-on-missing-field";
 	public static final String FORMAT_JSON_PARSER_FEATURE = "format.json-parser-feature";
+	public static final String FORMAT_SKIP_DIRTY = "format.skip-dirty";
+	public static final String FORMAT_SKIP_INTERVAL_MS = "format.skip-interval-ms";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -56,5 +58,7 @@ public class JsonValidator extends FormatDescriptorValidator {
 
 		properties.validateBoolean(FORMAT_FAIL_ON_MISSING_FIELD, true);
 		properties.validateBoolean(FORMAT_DEFAULT_ON_MISSING_DIELD, true);
+		properties.validateBoolean(FORMAT_SKIP_DIRTY, true);
+		properties.validateInt(FORMAT_SKIP_INTERVAL_MS, true);
 	}
 }

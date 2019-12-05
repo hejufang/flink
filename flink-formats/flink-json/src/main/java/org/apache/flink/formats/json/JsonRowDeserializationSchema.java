@@ -39,6 +39,9 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Cont
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.TextNode;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.Date;
@@ -79,6 +82,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @PublicEvolving
 public class JsonRowDeserializationSchema implements DeserializationSchema<Row> {
 
+	private static final Logger LOG = LoggerFactory.getLogger(JsonRowDeserializationSchema.class);
+
+
 	private static final long serialVersionUID = -228294330688809195L;
 
 	/** Type information describing the result type. */
@@ -98,18 +104,24 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 
 	private JsonRowDefaultValue defaultValueSchema = new JsonRowDefaultValue();
 
+	private final boolean skipDirty;
+	private final int skipIntervalMs;
+	private long lastDirtyDataPrintTime = -1;
+
 	private JsonRowDeserializationSchema(
 			TypeInformation<Row> typeInfo,
 			boolean failOnMissingField,
 			boolean defaultOnMissingField) {
-		this(typeInfo, failOnMissingField, defaultOnMissingField, new HashMap<>());
+		this(typeInfo, failOnMissingField, defaultOnMissingField, new HashMap<>(), false, -1);
 	}
 
 	private JsonRowDeserializationSchema(
 		TypeInformation<Row> typeInfo,
 		boolean failOnMissingField,
 		boolean defaultOnMissingField,
-		Map<String, Boolean> jsonParserFeatureMap) {
+		Map<String, Boolean> jsonParserFeatureMap,
+		boolean skipDirty,
+		int skipIntervalMs) {
 		checkNotNull(typeInfo, "Type information");
 		checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
@@ -119,6 +131,8 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		objectMapper = new ObjectMapper();
 		this.jsonParserFeatureMap = jsonParserFeatureMap;
 		jsonParserFeatureMap.forEach((k, v) -> objectMapper.configure(JsonParser.Feature.valueOf(k), v));
+		this.skipDirty = skipDirty;
+		this.skipIntervalMs = skipIntervalMs;
 	}
 
 	/**
@@ -153,7 +167,18 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			final JsonNode root = objectMapper.readTree(message);
 			return (Row) runtimeConverter.convert(objectMapper, root);
 		} catch (Throwable t) {
-			throw new IOException("Failed to deserialize JSON object.", t);
+			if (skipDirty) {
+				long currentTime = System.currentTimeMillis();
+				if (currentTime - lastDirtyDataPrintTime > skipIntervalMs) {
+					lastDirtyDataPrintTime = currentTime;
+					LOG.warn("cannot deserialize message: {}", new String(message));
+				}
+
+				// return null to indicate it cannot be deserialized according DeserializationSchema.deserialize.
+				return null;
+			} else {
+				throw new IOException("Failed to deserialize JSON object.", t);
+			}
 		}
 	}
 
@@ -176,6 +201,12 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		private boolean failOnMissingField = false;
 		private boolean defaultOnMissingField = false;
 		private Map<String, Boolean> jsonParserFeatureMap = new HashMap<>();
+		private boolean skipDirty = false;
+		// Default skip interval is 10 second,
+		// which means each subtask will print dirty data no more than 10 per second.
+		// This value can be set by user.
+		// Negative value means print every dirty data.
+		private int skipIntervalMs = 10_000;
 
 		/**
 		 * Creates a JSON deserialization schema for the given type information.
@@ -227,9 +258,25 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			return this;
 		}
 
+		/**
+		 * Whether enable skip dirty data.
+		 */
+		public Builder skipDirty(boolean skipDirty) {
+			this.skipDirty = skipDirty;
+			return this;
+		}
+
+		/**
+		 * Skip dirty interval ms.
+		 */
+		public Builder skipIntervalMs(int skipIntervalMs) {
+			this.skipIntervalMs = skipIntervalMs;
+			return this;
+		}
+
 		public JsonRowDeserializationSchema build() {
 			return new JsonRowDeserializationSchema(typeInfo, failOnMissingField,
-				defaultOnMissingField, jsonParserFeatureMap);
+				defaultOnMissingField, jsonParserFeatureMap, skipDirty, skipIntervalMs);
 		}
 	}
 

@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.connectors.kafka.internals;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MetricGroup;
@@ -132,6 +133,8 @@ public abstract class AbstractFetcher<T, KPH> {
 	 */
 	private final MetricGroup consumerMetricGroup;
 
+	private final Counter skipDirty;
+
 	@Deprecated
 	private final MetricGroup legacyCurrentOffsetsMetricGroup;
 
@@ -156,6 +159,7 @@ public abstract class AbstractFetcher<T, KPH> {
 		this.consumerMetricGroup = checkNotNull(consumerMetricGroup);
 		this.legacyCurrentOffsetsMetricGroup = consumerMetricGroup.addGroup(LEGACY_CURRENT_OFFSETS_METRICS_GROUP);
 		this.legacyCommittedOffsetsMetricGroup = consumerMetricGroup.addGroup(LEGACY_COMMITTED_OFFSETS_METRICS_GROUP);
+		this.skipDirty = consumerMetricGroup.counter("skipDirty");
 
 		// figure out what we watermark mode we will be using
 		this.watermarksPeriodic = watermarksPeriodic;
@@ -408,6 +412,7 @@ public abstract class AbstractFetcher<T, KPH> {
 			}
 		} else {
 			// if the record is null, simply just update the offset state for partition
+			skipDirty.inc();
 			synchronized (checkpointLock) {
 				partitionState.setOffset(offset);
 			}

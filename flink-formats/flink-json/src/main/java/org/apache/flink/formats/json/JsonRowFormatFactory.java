@@ -53,6 +53,8 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(JsonValidator.FORMAT_FAIL_ON_MISSING_FIELD);
 		properties.add(JsonValidator.FORMAT_DEFAULT_ON_MISSING_DIELD);
 		properties.add(JsonValidator.FORMAT_JSON_PARSER_FEATURE + ".*");
+		properties.add(JsonValidator.FORMAT_SKIP_DIRTY);
+		properties.add(JsonValidator.FORMAT_SKIP_INTERVAL_MS);
 		return properties;
 	}
 
@@ -83,6 +85,8 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 			.forEach((k, v) -> jsonParserFeatureMap.put(k.toUpperCase(), Boolean.parseBoolean(v)));
 		// set json parser feature
 		schema.jsonParserFeatureMap(jsonParserFeatureMap);
+		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_SKIP_DIRTY).ifPresent(schema::skipDirty);
+		descriptorProperties.getOptionalInt(JsonValidator.FORMAT_SKIP_INTERVAL_MS).ifPresent(schema::skipIntervalMs);
 		return schema.build();
 	}
 
