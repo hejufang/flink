@@ -21,6 +21,7 @@ package org.apache.flink.streaming.connectors.kafka;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
@@ -35,16 +36,19 @@ import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
@@ -81,6 +85,9 @@ public abstract class KafkaTableSourceBase implements
 
 	/** Properties for the Kafka consumer. */
 	private final Properties properties;
+
+	/** Other configurations for kafka table source, such as keyby fields, parallelism and so on. */
+	private final Map<String, String> configurations;
 
 	/** Deserialization schema for decoding records from Kafka. */
 	private final DeserializationSchema<Row> deserializationSchema;
@@ -127,6 +134,33 @@ public abstract class KafkaTableSourceBase implements
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
 			Long relativeOffset,
 			Long timestamp) {
+			this(schema,
+				proctimeAttribute,
+				rowtimeAttributeDescriptors,
+				fieldMapping,
+				topic,
+				properties,
+				deserializationSchema,
+				startupMode,
+				specificStartupOffsets,
+				relativeOffset,
+				timestamp,
+				new HashMap<>());
+	}
+
+	protected KafkaTableSourceBase(
+		TableSchema schema,
+		Optional<String> proctimeAttribute,
+		List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+		Optional<Map<String, String>> fieldMapping,
+		String topic,
+		Properties properties,
+		DeserializationSchema<Row> deserializationSchema,
+		StartupMode startupMode,
+		Map<KafkaTopicPartition, Long> specificStartupOffsets,
+		Long relativeOffset,
+		Long timestamp,
+		Map<String, String> configurations) {
 		this.schema = Preconditions.checkNotNull(schema, "Schema must not be null.");
 		this.proctimeAttribute = validateProctimeAttribute(proctimeAttribute);
 		this.rowtimeAttributeDescriptors = validateRowtimeAttributeDescriptors(rowtimeAttributeDescriptors);
@@ -140,6 +174,7 @@ public abstract class KafkaTableSourceBase implements
 			specificStartupOffsets, "Specific offsets must not be null.");
 		this.relativeOffset = relativeOffset;
 		this.timestamp = timestamp;
+		this.configurations = configurations;
 	}
 
 	/**
@@ -180,13 +215,32 @@ public abstract class KafkaTableSourceBase implements
 		FlinkKafkaConsumerBase<Row> kafkaConsumer = getKafkaConsumer(topic, properties, deserializationSchema);
 
 		// Set Kafka Source Parallelism
-		String parallelismKey = CONNECTOR_PARALLELISM.substring((CONNECTOR + ".").length());
-		int parallelism = Integer.valueOf(properties.getProperty(parallelismKey, "-1"));
+		int parallelism = Integer.valueOf(configurations.getOrDefault(CONNECTOR_PARALLELISM, "-1"));
+
+		DataStream<Row> dataStream;
 		if (parallelism > 0) {
-			return env.addSource(kafkaConsumer).name(explainSource()).setParallelism(parallelism);
+			dataStream = env.addSource(kafkaConsumer).name(explainSource()).setParallelism(parallelism);
 		} else {
-			return env.addSource(kafkaConsumer).name(explainSource());
+			dataStream = env.addSource(kafkaConsumer).name(explainSource());
 		}
+
+		// Transfer the stream to a KeyedStream if necessary.
+		String keybyFields = configurations.get(CONNECTOR_KEYBY_FIELDS);
+		if (keybyFields != null && !keybyFields.isEmpty()) {
+			String[] fields = Arrays.stream(keybyFields.split(","))
+				.map(String::trim).toArray(String[]::new);
+			RowTypeInfo resultTypeInformation = (RowTypeInfo) getReturnType();
+			String[] rowFieldNames = resultTypeInformation.getFieldNames();
+			for (String fieldName : fields) {
+				int fieldIndex = resultTypeInformation.getFieldIndex(fieldName);
+				if (fieldIndex < 0) {
+					throw new FlinkRuntimeException(String.format("Keyby filed '%s' not found in " +
+						"table source, all row fields are: %s", fieldName, Arrays.asList(rowFieldNames)));
+				}
+			}
+			dataStream = dataStream.keyBy(fields);
+		}
+		return dataStream;
 	}
 
 	@Override

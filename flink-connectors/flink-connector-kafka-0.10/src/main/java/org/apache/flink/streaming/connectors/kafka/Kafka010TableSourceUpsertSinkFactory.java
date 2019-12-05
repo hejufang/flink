@@ -20,11 +20,13 @@ package org.apache.flink.streaming.connectors.kafka;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.KafkaValidator;
+import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.types.Row;
 
@@ -60,7 +62,8 @@ public class Kafka010TableSourceUpsertSinkFactory extends KafkaTableSourceUpsert
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
 			Long relativeOffset,
-			Long timestamp) {
+			Long timestamp,
+			Map<String, String> configurations) {
 
 		return new Kafka010TableSource(
 			schema,
@@ -73,22 +76,25 @@ public class Kafka010TableSourceUpsertSinkFactory extends KafkaTableSourceUpsert
 			startupMode,
 			specificStartupOffsets,
 			relativeOffset,
-			timestamp);
+			timestamp,
+			configurations);
 	}
 
 	@Override
-	protected KafkaUpsertTableSinkBase createKafkaTableSink(
-			TableSchema schema,
-			String topic,
-			Properties properties,
-			Optional<FlinkKafkaPartitioner<Row>> partitioner,
-			SerializationSchema<Row> serializationSchema) {
-
+	protected StreamTableSink<Tuple2<Boolean, Row>> createKafkaTableSink(
+		TableSchema schema,
+		String topic,
+		Properties properties,
+		Optional<FlinkKafkaPartitioner<Row>> partitioner,
+		SerializationSchema<Row> serializationSchema,
+		String updateMode,
+		Map<String, String> configuration) {
 		return new Kafka010UpsertTableSink(
 			schema,
 			topic,
 			properties,
 			partitioner,
-			serializationSchema);
+			serializationSchema,
+			configuration);
 	}
 }

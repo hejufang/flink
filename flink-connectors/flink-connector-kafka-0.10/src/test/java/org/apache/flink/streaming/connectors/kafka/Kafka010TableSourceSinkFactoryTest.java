@@ -28,6 +28,7 @@ import org.apache.flink.table.descriptors.KafkaValidator;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.types.Row;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -97,7 +98,8 @@ public class Kafka010TableSourceSinkFactoryTest extends KafkaTableSourceSinkFact
 			topic,
 			properties,
 			partitioner,
-			serializationSchema
+			serializationSchema,
+			new HashMap<>()
 		);
 	}
 }

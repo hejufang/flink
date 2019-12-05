@@ -24,6 +24,7 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartiti
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -38,13 +39,15 @@ public class Kafka010TableSink extends KafkaTableSinkBase {
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<Row>> partitioner,
-			SerializationSchema<Row> serializationSchema) {
+			SerializationSchema<Row> serializationSchema,
+			Map<String, String> configuration) {
 		super(
 			schema,
 			topic,
 			properties,
 			partitioner,
-			serializationSchema);
+			serializationSchema,
+			configuration);
 	}
 
 	@Override

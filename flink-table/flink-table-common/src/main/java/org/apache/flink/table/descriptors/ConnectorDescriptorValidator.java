@@ -53,6 +53,11 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	 */
 	public static final String CONNECTOR_PARALLELISM = "connector.parallelism";
 
+	/**
+	 * Key for describing the keyby field.
+	 */
+	public static final String CONNECTOR_KEYBY_FIELDS = "connector.keyby-fields";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateString(CONNECTOR_TYPE, false, 1);

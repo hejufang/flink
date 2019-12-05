@@ -52,13 +52,15 @@ public abstract class KafkaTableSourceSinkFactoryBase
 		Properties properties,
 		Optional<FlinkKafkaPartitioner<Row>> partitioner,
 		SerializationSchema<Row> serializationSchema,
-		String updateMode) {
+		String updateMode,
+		Map<String, String> configuration) {
 		return createKafkaTableSink(
 			schema,
 			topic,
 			properties,
 			partitioner,
-			serializationSchema);
+			serializationSchema,
+			configuration);
 	}
 
 	/**
@@ -74,5 +76,6 @@ public abstract class KafkaTableSourceSinkFactoryBase
 		String topic,
 		Properties properties,
 		Optional<FlinkKafkaPartitioner<Row>> partitioner,
-		SerializationSchema<Row> serializationSchema);
+		SerializationSchema<Row> serializationSchema,
+		Map<String, String> configuration);
 }

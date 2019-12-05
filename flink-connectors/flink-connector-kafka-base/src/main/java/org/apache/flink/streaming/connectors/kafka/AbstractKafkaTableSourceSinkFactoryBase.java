@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -119,7 +120,6 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_TEAM);
 		properties.add(CONNECTOR_OWNER);
 		properties.add(CONNECTOR_GROUP_ID);
-		properties.add(CONNECTOR_PARALLELISM);
 		properties.add(CONNECTOR_KAFKA_PROPERTIES + ".*");
 		properties.add(CONNECTOR_PROPERTIES);
 		properties.add(CONNECTOR_PROPERTIES + ".#." + CONNECTOR_PROPERTIES_KEY);
@@ -131,6 +131,10 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_SINK_PARTITIONER_CLASS);
 		properties.add(CONNECTOR_RELATIVE_OFFSET);
 		properties.add(CONNECTOR_SPECIFIC_TIMESTAMP);
+
+		// other configurations
+		properties.add(CONNECTOR_PARALLELISM);
+		properties.add(CONNECTOR_KEYBY_FIELDS);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -163,6 +167,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		final DeserializationSchema<Row> deserializationSchema = TableConnectorUtils.getDeserializationSchema(
 			descriptorProperties.asMap(), this.getClass().getClassLoader());
 		final StartupOptions startupOptions = getStartupOptions(descriptorProperties, topic);
+		Map<String, String> configurations = getOtherConfigurations(descriptorProperties);
 
 		return createKafkaTableSource(
 			descriptorProperties.getTableSchema(SCHEMA),
@@ -177,7 +182,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			startupOptions.startupMode,
 			startupOptions.specificOffsets,
 			startupOptions.relativeOffset,
-			startupOptions.timestamp);
+			startupOptions.timestamp,
+			configurations);
 	}
 
 	@Override
@@ -192,6 +198,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			SchemaValidator.deriveRowtimeAttributes(descriptorProperties);
 		String updateMode =
 			descriptorProperties.getOptionalString(UPDATE_MODE).orElse(UPDATE_MODE_VALUE_APPEND);
+		Map<String, String> configurations = getOtherConfigurations(descriptorProperties);
 
 		// see also FLINK-9870
 		if (proctime.isPresent() || !rowtimeAttributeDescriptors.isEmpty() ||
@@ -205,7 +212,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			getKafkaProperties(descriptorProperties),
 			getFlinkKafkaPartitioner(descriptorProperties),
 			TableConnectorUtils.getSerializationSchema(descriptorProperties.asMap(), this.getClass().getClassLoader()),
-			updateMode);
+			updateMode,
+			configurations);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -250,7 +258,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		StartupMode startupMode,
 		Map<KafkaTopicPartition, Long> specificStartupOffsets,
 		Long relativeOffset,
-		Long timestamp);
+		Long timestamp,
+		Map<String, String> configuration);
 
 	/**
 	 * Constructs the version-specific Kafka table sink.
@@ -266,7 +275,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		Properties properties,
 		Optional<FlinkKafkaPartitioner<Row>> partitioner,
 		SerializationSchema<Row> serializationSchema,
-		String updateMode);
+		String updateMode,
+		Map<String, String> configuration);
 
 	// --------------------------------------------------------------------------------------------
 	// Helper methods
@@ -284,6 +294,17 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		new KafkaValidator().validate(descriptorProperties);
 
 		return descriptorProperties;
+	}
+
+	private Map<String, String> getOtherConfigurations(DescriptorProperties descriptorProperties) {
+		Map<String, String> configurations = new HashMap<>();
+
+		descriptorProperties.getOptionalString(CONNECTOR_PARALLELISM)
+			.ifPresent(p -> configurations.put(CONNECTOR_PARALLELISM, p));
+		descriptorProperties.getOptionalString(CONNECTOR_KEYBY_FIELDS)
+			.ifPresent(f -> configurations.put(CONNECTOR_KEYBY_FIELDS, f));
+
+		return configurations;
 	}
 
 	private Properties getKafkaProperties(DescriptorProperties descriptorProperties, String topic) {
@@ -352,7 +373,6 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_TEAM);
 		properties.add(CONNECTOR_OWNER);
 		properties.add(CONNECTOR_GROUP_ID);
-		properties.add(CONNECTOR_PARALLELISM);
 		return properties;
 	}
 

@@ -36,11 +36,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
@@ -63,6 +64,9 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 	/** Properties for the Kafka producer. */
 	protected final Properties properties;
 
+	/** Other configurations for kafka table sink, such as parallelism. */
+	private final Map<String, String> configurations;
+
 	/** Serialization schema for encoding records to Kafka. */
 	protected final SerializationSchema<Row> serializationSchema;
 
@@ -75,11 +79,22 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<Row>> partitioner,
 			SerializationSchema<Row> serializationSchema) {
+		this(schema, topic, properties, partitioner, serializationSchema, new HashMap<>());
+	}
+
+	protected KafkaTableSinkBase(
+		TableSchema schema,
+		String topic,
+		Properties properties,
+		Optional<FlinkKafkaPartitioner<Row>> partitioner,
+		SerializationSchema<Row> serializationSchema,
+		Map<String, String> configurations) {
 		this.schema = Preconditions.checkNotNull(schema, "Schema must not be null.");
 		this.topic = Preconditions.checkNotNull(topic, "Topic must not be null.");
 		this.properties = Preconditions.checkNotNull(properties, "Properties must not be null.");
 		this.partitioner = Preconditions.checkNotNull(partitioner, "Partitioner must not be null.");
 		this.serializationSchema = Preconditions.checkNotNull(serializationSchema, "Serialization schema must not be null.");
+		this.configurations = configurations;
 	}
 
 	/**
@@ -109,8 +124,7 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 			.setParallelism(dataStream.getParallelism())
 			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), getFieldNames()));
 		// Set Kafka Sink Parallelism
-		String parallelismKey = CONNECTOR_PARALLELISM.substring((CONNECTOR + ".").length());
-		int parallelism = Integer.valueOf(properties.getProperty(parallelismKey, "-1"));
+		int parallelism = Integer.valueOf(configurations.getOrDefault(CONNECTOR_PARALLELISM, "-1"));
 		if (parallelism > 0) {
 			LOG.info("Set parallelism to {} for kafka table sink.", parallelism);
 			dataStreamSink.setParallelism(parallelism);

@@ -60,7 +60,8 @@ public class Kafka011TableSourceSinkFactory extends KafkaTableSourceSinkFactoryB
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
 			Long relativeOffset,
-			Long timestamp) {
+			Long timestamp,
+			Map<String, String> configurations) {
 
 		return new Kafka011TableSource(
 			schema,
@@ -82,7 +83,8 @@ public class Kafka011TableSourceSinkFactory extends KafkaTableSourceSinkFactoryB
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<Row>> partitioner,
-			SerializationSchema<Row> serializationSchema) {
+			SerializationSchema<Row> serializationSchema,
+			Map<String, String> configurations) {
 
 		return new Kafka011TableSink(
 			schema,

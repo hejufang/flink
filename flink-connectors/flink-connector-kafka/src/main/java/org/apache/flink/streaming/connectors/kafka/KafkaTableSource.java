@@ -26,6 +26,7 @@ import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,7 +66,8 @@ public class KafkaTableSource extends KafkaTableSourceBase {
 		StartupMode startupMode,
 		Map<KafkaTopicPartition, Long> specificStartupOffsets,
 		Long relativeOffset,
-		Long timestamp) {
+		Long timestamp,
+		Map<String, String> configuration) {
 
 		super(
 			schema,
@@ -78,7 +80,35 @@ public class KafkaTableSource extends KafkaTableSourceBase {
 			startupMode,
 			specificStartupOffsets,
 			relativeOffset,
-			timestamp);
+			timestamp,
+			configuration);
+	}
+
+	public KafkaTableSource(
+		TableSchema schema,
+		Optional<String> proctimeAttribute,
+		List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+		Optional<Map<String, String>> fieldMapping,
+		String topic,
+		Properties properties,
+		DeserializationSchema<Row> deserializationSchema,
+		StartupMode startupMode,
+		Map<KafkaTopicPartition, Long> specificStartupOffsets,
+		Long relativeOffset,
+		Long timestamp) {
+
+		this(schema,
+			proctimeAttribute,
+			rowtimeAttributeDescriptors,
+			fieldMapping,
+			topic,
+			properties,
+			deserializationSchema,
+			startupMode,
+			specificStartupOffsets,
+			relativeOffset,
+			timestamp,
+			new HashMap<>());
 	}
 
 	/**

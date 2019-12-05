@@ -38,11 +38,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
@@ -64,6 +64,9 @@ public abstract class KafkaUpsertTableSinkBase implements UpsertStreamTableSink<
 	/** Properties for the Kafka producer. */
 	protected final Properties properties;
 
+	/** Other configurations for kafka table source, such as keyby fields, parallelism and so on. */
+	private final Map<String, String> configurations;
+
 	/** Serialization schema for encoding records to Kafka. */
 	protected final SerializationSchema<Row> serializationSchema;
 
@@ -71,16 +74,18 @@ public abstract class KafkaUpsertTableSinkBase implements UpsertStreamTableSink<
 	protected final Optional<FlinkKafkaPartitioner<Row>> partitioner;
 
 	protected KafkaUpsertTableSinkBase(
-			TableSchema schema,
-			String topic,
-			Properties properties,
-			Optional<FlinkKafkaPartitioner<Row>> partitioner,
-			SerializationSchema<Row> serializationSchema) {
+		TableSchema schema,
+		String topic,
+		Properties properties,
+		Optional<FlinkKafkaPartitioner<Row>> partitioner,
+		SerializationSchema<Row> serializationSchema,
+		Map<String, String> configurations) {
 		this.schema = Preconditions.checkNotNull(schema, "Schema must not be null.");
 		this.topic = Preconditions.checkNotNull(topic, "Topic must not be null.");
 		this.properties = Preconditions.checkNotNull(properties, "Properties must not be null.");
 		this.partitioner = Preconditions.checkNotNull(partitioner, "Partitioner must not be null.");
 		this.serializationSchema = Preconditions.checkNotNull(serializationSchema, "Serialization schema must not be null.");
+		this.configurations = configurations;
 	}
 
 	@Override
@@ -121,23 +126,20 @@ public abstract class KafkaUpsertTableSinkBase implements UpsertStreamTableSink<
 			serializationSchema,
 			partitioner);
 
-		DataStream<Row> rowDataStream = dataStream.map(new MapFunction<Tuple2<Boolean, Row>, Row>() {
-			@Override
-			public Row map(Tuple2<Boolean, Row> value) throws Exception {
+		DataStream<Row> rowDataStream = dataStream
+			.map((MapFunction<Tuple2<Boolean, Row>, Row>) value -> {
 				if (value != null && value.f0) {
-					return value.f1;
-				}
-				return null;
+				return value.f1;
 			}
-		});
+			return null;
+		}).filter(Objects::nonNull);
 
 		DataStreamSink dataStreamSink = rowDataStream
 			.addSink(kafkaProducer)
 			.setParallelism(dataStream.getParallelism())
 			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), getFieldNames()));
 		// Set Kafka Sink Parallelism
-		String parallelismKey = CONNECTOR_PARALLELISM.substring((CONNECTOR + ".").length());
-		int parallelism = Integer.valueOf(properties.getProperty(parallelismKey, "-1"));
+		int parallelism = Integer.valueOf(configurations.getOrDefault(CONNECTOR_PARALLELISM, "-1"));
 		if (parallelism > 0) {
 			LOG.info("Set parallelism to {} for kafka table sink.", parallelism);
 			dataStreamSink.setParallelism(parallelism);

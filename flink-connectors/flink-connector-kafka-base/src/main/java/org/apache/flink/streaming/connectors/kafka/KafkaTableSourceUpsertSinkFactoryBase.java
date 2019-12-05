@@ -18,16 +18,10 @@
 
 package org.apache.flink.streaming.connectors.kafka;
 
-import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
-import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.types.Row;
 
 import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
 
 import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.UPDATE_MODE;
 import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.UPDATE_MODE_VALUE_UPSERT;
@@ -44,35 +38,4 @@ public abstract class KafkaTableSourceUpsertSinkFactoryBase
 		context.put(UPDATE_MODE, UPDATE_MODE_VALUE_UPSERT);
 		return context;
 	}
-
-	@Override
-	public StreamTableSink<Tuple2<Boolean, Row>> createKafkaTableSink(
-		TableSchema schema,
-		String topic,
-		Properties properties,
-		Optional<FlinkKafkaPartitioner<Row>> partitioner,
-		SerializationSchema<Row> serializationSchema,
-		String updateMode) {
-		return createKafkaTableSink(
-			schema,
-			topic,
-			properties,
-			partitioner,
-			serializationSchema);
-	}
-
-	/**
-	 * Constructs the version-specific Kafka table sink.
-	 *
-	 * @param schema      Schema of the produced table.
-	 * @param topic       Kafka topic to consume.
-	 * @param properties  Properties for the Kafka consumer.
-	 * @param partitioner Partitioner to select Kafka partition for each item.
-	 */
-	protected abstract StreamTableSink<Tuple2<Boolean, Row>> createKafkaTableSink(
-		TableSchema schema,
-		String topic,
-		Properties properties,
-		Optional<FlinkKafkaPartitioner<Row>> partitioner,
-		SerializationSchema<Row> serializationSchema);
 }

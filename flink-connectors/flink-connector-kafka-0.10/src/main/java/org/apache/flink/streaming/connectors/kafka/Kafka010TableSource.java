@@ -82,6 +82,34 @@ public class Kafka010TableSource extends KafkaTableSourceBase {
 			timestamp);
 	}
 
+	public Kafka010TableSource(
+		TableSchema schema,
+		Optional<String> proctimeAttribute,
+		List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+		Optional<Map<String, String>> fieldMapping,
+		String topic,
+		Properties properties,
+		DeserializationSchema<Row> deserializationSchema,
+		StartupMode startupMode,
+		Map<KafkaTopicPartition, Long> specificStartupOffsets,
+		Long relativeOffset,
+		Long timestamp,
+		Map<String, String> configurations) {
+
+		super(schema,
+			proctimeAttribute,
+			rowtimeAttributeDescriptors,
+			fieldMapping,
+			topic,
+			properties,
+			deserializationSchema,
+			startupMode,
+			specificStartupOffsets,
+			relativeOffset,
+			timestamp,
+			configurations);
+	}
+
 	/**
 	 * Creates a Kafka 0.10 {@link StreamTableSource}.
 	 *
