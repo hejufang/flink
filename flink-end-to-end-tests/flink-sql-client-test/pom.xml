@@ -57,7 +57,6 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-json</artifactId>
 			<version>${project.version}</version>
-			<classifier>sql-jar</classifier>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -164,7 +163,6 @@ under the License.
 									<groupId>org.apache.flink</groupId>
 									<artifactId>flink-json</artifactId>
 									<version>${project.version}</version>
-									<classifier>sql-jar</classifier>
 									<type>jar</type>
 								</artifactItem>
 								<artifactItem>

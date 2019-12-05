@@ -20,8 +20,10 @@
 rm -rf ./output/runtime_files
 mkdir -p ./output/runtime_files
 cd flink-formats
-mvn clean package -DskipTests -T 1C
+mvn clean package -DskipTests -T 1C -Psql-jars
 
 cp flink-pb/target/flink-pb-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-csv/target/flink-csv-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-json/target/flink-json-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+cp flink-bytes/target/flink-bytes-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+

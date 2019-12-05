@@ -20,13 +20,11 @@
 rm -rf output/runtime_files
 mkdir -p output/runtime_files
 cd flink-connectors
-mvn clean package -DskipTests -T 1C
+mvn clean package -DskipTests -T 1C -Psql-jars
 
 cp flink-connector-clickhouse/target/flink-connector-clickhouse-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-connector-redis/target/flink-connector-redis-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-jdbc/target/flink-jdbc_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-connector-kafka-base/target/flink-connector-kafka-base_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-connector-kafka-0.9/target/flink-connector-kafka-0.9_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-connector-kafka-0.10/target/flink-connector-kafka-0.10_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+cp flink-sql-connector-kafka-0.10/target/flink-sql-connector-kafka-0.10_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-redis/target/flink-connector-redis-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-print/target/flink-connector-print-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+
