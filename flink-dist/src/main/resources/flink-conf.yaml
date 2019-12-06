@@ -135,7 +135,7 @@ flink:
 dw:
   dc: cn
   clusterName: dw
-  high-availability.zookeeper.quorum: 10.8.41.98:2184,10.6.18.154:2184,10.6.16.79:2184,10.11.43.39:2184,10.11.43.66:2184
+  high-availability.zookeeper.quorum: 10.224.152.92:2184,10.6.18.154:2184,10.6.16.79:2184,10.11.43.39:2184,10.11.43.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
 
 lepad:
