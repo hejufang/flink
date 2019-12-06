@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -62,6 +63,10 @@ public class ClickHouseOutputFormat extends RichOutputFormat<Row> {
 	private int parallelism;
 
 	private String insertQuery;
+
+	static {
+		DriverManager.setLogWriter(new PrintWriter(System.out));
+	}
 
 	public int getParallelism() {
 		return parallelism;

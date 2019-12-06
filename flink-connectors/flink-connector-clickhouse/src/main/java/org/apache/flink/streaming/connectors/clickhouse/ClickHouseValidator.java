@@ -35,6 +35,7 @@ public class ClickHouseValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_TABLE = "connector.table";
 	public static final String CONNECTOR_TABLE_SIGN_COLUMN = "connector.table.sign.column";
 	public static final String CONNECTOR_DRIVER = "connector.driver";
+	public static final String CONNECTOR_DRIVER_DEFAULT = "ru.yandex.clickhouse.ClickHouseDriver";
 	public static final String CONNECTOR_USERNAME = "connector.username";
 	public static final String CONNECTOR_PASSWORD = "connector.password";
 	public static final String CONNECTOR_PSM = "connector.psm";

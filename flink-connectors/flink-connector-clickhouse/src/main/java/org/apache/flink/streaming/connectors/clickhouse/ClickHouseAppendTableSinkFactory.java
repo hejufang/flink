@@ -57,20 +57,30 @@ public class ClickHouseAppendTableSinkFactory implements StreamTableSinkFactory<
 		TypeInformation<?>[] fieldTypes = tableSchema.getFieldTypes();
 
 		final ClickHouseAppendTableSinkBuilder builder = ClickHouseAppendTableSink.builder()
-			.setDrivername(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_DRIVER))
+			.setDrivername(ClickHouseValidator.CONNECTOR_DRIVER_DEFAULT)
 			.setDbName(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_DB))
 			.setTableName(descriptorProperties.getString(ClickHouseValidator.CONNECTOR_TABLE))
 			.setColumnNames(fieldNames)
 			.setParameterTypes(fieldTypes)
 			.setTableScehma(tableSchema);
 
-		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN).ifPresent(builder::setSignColumn);
-		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_URL).ifPresent(builder::setDbUrl);
-		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PSM).ifPresent(builder::setPsm);
-		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_USERNAME).ifPresent(builder::setUsername);
-		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PASSWORD).ifPresent(builder::setPassword);
-		descriptorProperties.getOptionalInt(ClickHouseValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS).ifPresent(builder::setFlushMaxSize);
-		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
+		// overwrite driver if driver is resent in properties.
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_DRIVER)
+			.ifPresent(builder::setDrivername);
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_TABLE_SIGN_COLUMN)
+			.ifPresent(builder::setSignColumn);
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_URL)
+			.ifPresent(builder::setDbUrl);
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PSM)
+			.ifPresent(builder::setPsm);
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_USERNAME)
+			.ifPresent(builder::setUsername);
+		descriptorProperties.getOptionalString(ClickHouseValidator.CONNECTOR_PASSWORD)
+			.ifPresent(builder::setPassword);
+		descriptorProperties.getOptionalInt(ClickHouseValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS)
+			.ifPresent(builder::setFlushMaxSize);
+		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM)
+			.ifPresent(builder::setParallelism);
 
 		return builder.build();
 	}

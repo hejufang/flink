@@ -24,6 +24,7 @@ import com.bytedance.mysql.MysqlDriverManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -37,6 +38,10 @@ import java.sql.Statement;
 public class JDBCUtils {
 
 	private static final Logger LOG = LoggerFactory.getLogger(JDBCUtils.class);
+
+	static {
+		DriverManager.setLogWriter(new PrintWriter(System.out));
+	}
 
 	/**
 	 * Adds a record to the prepared statement.
