@@ -99,6 +99,12 @@ under the License.
 											<include>*:*</include>
 										</includes>
 									</artifactSet>
+									<relocations>
+										<relocation>
+											<pattern>com.bytedance</pattern>
+											<shadedPattern>org.apache.flink.redis.shaded.com.bytedance</shadedPattern>
+										</relocation>
+									</relocations>
 								</configuration>
 							</execution>
 						</executions>
