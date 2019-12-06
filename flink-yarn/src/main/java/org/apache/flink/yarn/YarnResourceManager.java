@@ -503,7 +503,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		super.startServicesOnLeadership();
 		log.info("start checkSlowAllocation with slowContainerCheckIntervalMs: {}, slowContainerTimeoutMs: {}.",
 			slowContainerCheckIntervalMs, slowContainerTimeoutMs);
-		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MICROSECONDS);
+		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
@@ -628,7 +628,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			log.warn("Error while calling YARN Node Manager to stop container", e);
 		}
 		resourceManagerClient.releaseAssignedContainer(container.getId());
-		workerNodeMap.remove(workerNode.getResourceID());
+		YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(workerNode.getResourceID());
+		if (yarnWorkerNode != null) {
+			startingContainers.remove(yarnWorkerNode);
+			slowContainers.remove(yarnWorkerNode);
+		}
 		return true;
 	}
 
@@ -695,6 +699,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
 
 					if (yarnWorkerNode != null) {
+						startingContainers.remove(yarnWorkerNode);
+						slowContainers.remove(yarnWorkerNode);
 						recordFailureAndStartNewWorkerIfNeeded();
 					}
 					// Eagerly close the connection with task manager.
@@ -1457,7 +1463,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			}
 		}
 
-		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MICROSECONDS);
+		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
 	}
 
 }
