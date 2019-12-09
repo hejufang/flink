@@ -172,7 +172,7 @@ wj:
   dc: cn
   clusterName: wj
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
-  hdfs.prefix: hdfs://haruna/flink_wj
+  hdfs.prefix: hdfs://haruna/flink_hl
 
 hl:
   dc: cn
