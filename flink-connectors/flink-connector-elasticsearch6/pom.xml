@@ -47,7 +47,6 @@ under the License.
 			<groupId>com.bytedance</groupId>
 			<artifactId>commons</artifactId>
 			<version>0.0.4</version>
-			<scope>provided</scope>
 		</dependency>
 
 		<dependency>
