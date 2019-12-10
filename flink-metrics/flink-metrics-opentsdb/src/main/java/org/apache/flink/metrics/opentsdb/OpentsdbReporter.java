@@ -33,6 +33,7 @@ import com.bytedance.metrics.UdpMetricsClient;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -73,7 +74,55 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final String FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
 	private static final String NUMBER_OF_CHECKPOINTS_METRIC = "totalNumberOfCheckpoints";
 
-	private Set<String> globalNeededMetrics = new HashSet<>();
+	// 全局 metric
+	private final Set<String> globalNeededMetrics = new HashSet<>(Arrays.asList(
+			FULL_RESTARTS_METRIC,
+			CURRENT_OFFSETS_RATE_METRIC,
+			FAILED_CHECKPOINTS_METRIC,
+			NUMBER_OF_CHECKPOINTS_METRIC
+	));
+
+	// dashboard metric
+	private final Set<String> neededMetrics = new HashSet<>(Arrays.asList(
+			// job info
+			"downtime",
+			"fullRestarts",
+			"restartingTime",
+			// TaskManager / Slot
+			"numRegisteredTaskManagers",
+			"taskSlotsTotal",
+			"taskSlotsAvailable",
+			// Memory
+			"Used",
+			"Committed",
+			"Max",
+			// GC
+			"Count",
+			"Time",
+			// Task In/Out Queue
+			"inputQueueLength",
+			"outputQueueLength",
+			// Task In/Out Pool Usage
+			"inPoolUsage",
+			"outPoolUsage",
+			// In/Out Record Number
+			"numRecordsInPerSecond",
+			"numRecordsOutPerSecond",
+			// latency
+			"latency",
+			// kafka offset
+			"currentOffsets",
+			"commit-rate",
+			// kafka latency
+			"fetch-latency-avg",
+			"fetch-latency-max",
+			// Network Memory
+			"TotalMemorySegments",
+			"AvailableMemorySegments",
+			// CPU
+			"Load"
+	));
+
 	private Map<String, String> globalMetricNames = new HashMap<>();
 
 	@Override
@@ -85,24 +134,24 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 		// avoid yarn dependency
 		this.region = System.getenv("_FLINK_YARN_DC");
-
-		globalNeededMetrics.add(FULL_RESTARTS_METRIC);
-		globalNeededMetrics.add(CURRENT_OFFSETS_RATE_METRIC);
-		globalNeededMetrics.add(FAILED_CHECKPOINTS_METRIC);
-		globalNeededMetrics.add(NUMBER_OF_CHECKPOINTS_METRIC);
 	}
 
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
 		final String name = group.getMetricIdentifier(metricName, this);
 
-		log.debug("Register Metric={}", name);
 		if (globalNeededMetrics.contains(metricName)) {
 			log.info("Register global metric: {}.", name);
 			globalMetricNames.put(name, metricName);
 		}
 
 		synchronized (this) {
+			if (!neededMetrics.contains(metricName)) {
+				// 去除不需要的 metrics
+				return;
+			}
+			log.info("Register Metric={}", name);
+
 			if (metric instanceof Counter) {
 				counters.put((Counter) metric, name);
 			} else if (metric instanceof Gauge) {

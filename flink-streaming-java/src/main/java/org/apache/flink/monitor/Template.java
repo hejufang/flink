@@ -1280,7 +1280,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer." +
-			"current_offsets\",\n" +
+			"currentOffsets\",\n" +
 			"							\"refId\": \"P\",\n" +
 			"							\"shouldComputeRate\": true\n" +
 			"						},\n" +
