@@ -609,6 +609,10 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, env.get(YarnConfigKeys.ENV_FLINK_YARN_DC));
 		}
 
+		if (env.containsKey(YarnConfigKeys.ENV_LOAD_SERVICE_PSM)) {
+			containerEnv.put(YarnConfigKeys.ENV_LOAD_SERVICE_PSM, env.get(YarnConfigKeys.ENV_LOAD_SERVICE_PSM));
+		}
+
 		addDefaultEnv(containerEnv);
 
 		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);

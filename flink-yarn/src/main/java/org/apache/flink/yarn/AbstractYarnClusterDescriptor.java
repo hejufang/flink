@@ -1124,6 +1124,9 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		if (enableCoreDump && jobName != null && !jobName.isEmpty()) {
 			appMasterEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
 		}
+		if (jobName != null && !jobName.isEmpty()) {
+			appMasterEnv.put(YarnConfigKeys.ENV_LOAD_SERVICE_PSM, YarnConfigKeys.ENV_PSM_PREFIX + "." + jobName);
+		}
 
 		// Add environment params to AM appMasterEnv for docker mode.
 		Utils.setDockerEnv(flinkConfiguration, appMasterEnv);
