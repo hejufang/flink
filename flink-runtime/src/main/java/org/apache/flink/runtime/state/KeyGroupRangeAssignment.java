@@ -28,7 +28,7 @@ public final class KeyGroupRangeAssignment {
 	 * The default lower bound for max parallelism if nothing was configured by the user. We have this so allow users
 	 * some degree of scale-up in case they forgot to configure maximum parallelism explicitly.
 	 */
-	public static final int DEFAULT_LOWER_BOUND_MAX_PARALLELISM = 1 << 7;
+	public static final int DEFAULT_LOWER_BOUND_MAX_PARALLELISM = 1 << 10;
 
 	/** The (inclusive) upper bound for max parallelism */
 	public static final int UPPER_BOUND_MAX_PARALLELISM = Transformation.UPPER_BOUND_MAX_PARALLELISM;
@@ -130,7 +130,7 @@ public final class KeyGroupRangeAssignment {
 
 		return Math.min(
 				Math.max(
-						MathUtils.roundUpToPowerOfTwo(operatorParallelism + (operatorParallelism / 2)),
+						MathUtils.roundUpToPowerOfTwo(operatorParallelism * 5),
 						DEFAULT_LOWER_BOUND_MAX_PARALLELISM),
 				UPPER_BOUND_MAX_PARALLELISM);
 	}
