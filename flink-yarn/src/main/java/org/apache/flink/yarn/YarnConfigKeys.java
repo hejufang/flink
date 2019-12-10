@@ -49,6 +49,8 @@ public class YarnConfigKeys {
 	public static final String ENV_FLINK_YARN_QUEUE = "_FLINK_YARN_QUEUE";
 	public static final String ENV_FLINK_YARN_CLUSTER = "_FLINK_YARN_CLUSTER";
 	public static final String ENV_FLINK_YARN_DC = "_FLINK_YARN_DC"; // Used for metrics reporter (Java Flink And PyFlink)
+	public static final String ENV_LOAD_SERVICE_PSM = "LOAD_SERVICE_PSM";
+	public static final String ENV_PSM_PREFIX = "inf.dayu";
 
 	public static final String LOCAL_RESOURCE_DESCRIPTOR_SEPARATOR = ";";
 

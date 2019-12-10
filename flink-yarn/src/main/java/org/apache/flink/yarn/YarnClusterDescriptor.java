@@ -1035,6 +1035,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			LOG.warn("Unable to parse dc.");
 		}
 
+		String jobName = getJobName();
+		if (jobName != null && !jobName.isEmpty()) {
+			appMasterEnv.put(YarnConfigKeys.ENV_LOAD_SERVICE_PSM, YarnConfigKeys.ENV_PSM_PREFIX + "." + jobName);
+		}
+
 		Utils.setHdfsBtrace(configuration, appMasterEnv);
 		BtraceUtil.attachToEnv(appMasterEnv, null);
 		amContainer.setEnvironment(appMasterEnv);
@@ -1137,6 +1142,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		final int yarnFileReplication = yarnConfiguration.getInt(DFSConfigKeys.DFS_REPLICATION_KEY, DFSConfigKeys.DFS_REPLICATION_DEFAULT);
 		final int fileReplication = flinkConfiguration.getInteger(YarnConfigOptions.FILE_REPLICATION);
 		return fileReplication > 0 ? fileReplication : yarnFileReplication;
+	}
+
+	private String getJobName() {
+		try {
+			int index = customName.lastIndexOf("_");
+			String jobName = this.customName.substring(0, index);
+			return jobName;
+		} catch (Exception e) {
+			LOG.warn("Failed to get job name from jar.");
+		}
+		return null;
 	}
 
 	/**

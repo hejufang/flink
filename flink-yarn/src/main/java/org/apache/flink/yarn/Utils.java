@@ -491,6 +491,10 @@ public final class Utils {
 		Utils.setHdfsBtrace(flinkConfig, containerEnv);
 		BtraceUtil.attachToEnv(containerEnv, null);
 
+		if (env.containsKey(YarnConfigKeys.ENV_LOAD_SERVICE_PSM)) {
+			containerEnv.put(YarnConfigKeys.ENV_LOAD_SERVICE_PSM, env.get(YarnConfigKeys.ENV_LOAD_SERVICE_PSM));
+		}
+
 		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);
 		if (partitionList != null && !partitionList.isEmpty()) {
 			containerEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
