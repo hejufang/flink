@@ -38,6 +38,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_TYPE_VALUE_ELASTICSEARCH = "elasticsearch";
 	public static final String CONNECTOR_VERSION_VALUE_6 = "6";
 	public static final String CONNECTOR_VERSION_VALUE_6_KMS = "6-kms";
+	public static final String CONNECTOR_VERSION_VALUE_6_AD = "6-ad";
 	public static final String CONNECTOR_HOSTS = "connector.hosts";
 	public static final String CONNECTOR_HOSTS_HOSTNAME = "hostname";
 	public static final String CONNECTOR_HOSTS_PORT = "port";

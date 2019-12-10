@@ -29,4 +29,5 @@ cp flink-connector-redis/target/flink-connector-redis-1.9-byted-SNAPSHOT.jar ../
 cp flink-connector-print/target/flink-connector-print-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-filesystem/target/flink-connector-filesystem_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-sql-connector-elasticsearch6/target/flink-sql-connector-elasticsearch6_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+cp flink-connector-elasticsearch6-ad/target/flink-connector-elasticsearch6-ad_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 

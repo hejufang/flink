@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<artifactId>flink-connectors</artifactId>
+		<groupId>org.apache.flink</groupId>
+		<version>1.9-byted-SNAPSHOT</version>
+		<relativePath>..</relativePath>
+	</parent>
+	<modelVersion>4.0.0</modelVersion>
+
+	<artifactId>flink-connector-elasticsearch6-ad_${scala.binary.version}</artifactId>
+	<name>flink-connector-elasticsearch6-ad</name>
+
+	<packaging>jar</packaging>
+
+	<!-- Allow users to pass custom connector versions -->
+	<properties>
+		<elasticsearch.version>6.3.1</elasticsearch.version>
+	</properties>
+
+	<dependencies>
+
+		<!-- core dependencies -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
+			<version>${project.version}</version>
+			<exclusions>
+			<exclusion>
+				<groupId>org.elasticsearch.client</groupId>
+				<artifactId>elasticsearch-rest-client</artifactId>
+			</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>org.elasticsearch.client</groupId>
+			<artifactId>elasticsearch-rest-client</artifactId>
+			<version>5.6.x-ad-0.0.2</version>
+		</dependency>
+
+		<!-- Table ecosystem -->
+		<!-- Projects depending on this project won't depend on flink-table-*. -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+			<optional>true</optional>
+		</dependency>
+		<!-- A planner dependency won't be necessary once FLIP-32 has been completed. -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-planner_${scala.binary.version}</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+			<optional>true</optional>
+		</dependency>
+
+		<!-- Elasticsearch table sink factory testing -->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-json</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>sql-jars</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-shade-plugin</artifactId>
+						<version>3.2.0</version>
+						<executions>
+							<execution>
+								<id>shade-flink</id>
+								<phase>package</phase>
+								<goals>
+									<goal>shade</goal>
+								</goals>
+								<configuration>
+									<artifactSet>
+										<includes>
+											<include>*:*</include>
+										</includes>
+										<excludes>
+											<!-- These dependencies are not required. -->
+											<exclude>com.carrotsearch:hppc</exclude>
+											<exclude>com.tdunning:t-digest</exclude>
+											<exclude>joda-time:joda-time</exclude>
+											<exclude>net.sf.jopt-simple:jopt-simple</exclude>
+											<exclude>org.elasticsearch:jna</exclude>
+											<exclude>org.hdrhistogram:HdrHistogram</exclude>
+											<exclude>org.yaml:snakeyaml</exclude>
+										</excludes>
+									</artifactSet>
+									<filters>
+										<!-- Unless otherwise noticed these filters only serve to reduce the size of the resulting
+											jar by removing unnecessary files -->
+										<filter>
+											<artifact>org.elasticsearch:elasticsearch</artifact>
+											<excludes>
+												<exclude>config/**</exclude>
+												<exclude>modules.txt</exclude>
+												<exclude>plugins.txt</exclude>
+												<exclude>org/joda/**</exclude>
+											</excludes>
+										</filter>
+										<filter>
+											<artifact>org.elasticsearch.client:elasticsearch-rest-high-level-client</artifact>
+											<excludes>
+												<exclude>forbidden/**</exclude>
+											</excludes>
+										</filter>
+										<filter>
+											<artifact>org.apache.httpcomponents:httpclient</artifact>
+											<excludes>
+												<exclude>mozilla/**</exclude>
+											</excludes>
+										</filter>
+										<filter>
+											<artifact>org.apache.lucene:lucene-analyzers-common</artifact>
+											<excludes>
+												<exclude>org/tartarus/**</exclude>
+											</excludes>
+										</filter>
+										<filter>
+											<artifact>*:*</artifact>
+											<excludes>
+												<!-- exclude Java 9 specific classes as otherwise the shade-plugin crashes -->
+												<exclude>META-INF/versions/**</exclude>
+												<exclude>META-INF/services/com.fasterxml.**</exclude>
+												<exclude>META-INF/services/org.apache.lucene.**</exclude>
+												<exclude>META-INF/services/org.elasticsearch.**</exclude>
+												<exclude>META-INF/LICENSE.txt</exclude>
+											</excludes>
+										</filter>
+									</filters>
+									<relocations>
+										<!-- Force relocation of all Elasticsearch dependencies. -->
+										<relocation>
+											<pattern>org.apache.commons</pattern>
+											<shadedPattern>org.apache.flink.elasticsearch6-ad.shaded.org.apache.commons</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.http</pattern>
+											<shadedPattern>org.apache.flink.elasticsearch6-ad.shaded.org.apache.http</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.lucene</pattern>
+											<shadedPattern>org.apache.flink.elasticsearch6-ad.shaded.org.apache.lucene</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.elasticsearch</pattern>
+											<shadedPattern>org.apache.flink.elasticsearch6-ad.shaded.org.elasticsearch</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.logging</pattern>
+											<shadedPattern>org.apache.flink.elasticsearch6-ad.shaded.org.apache.logging</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson</pattern>
+											<shadedPattern>org.apache.flink.elasticsearch6-ad.shaded.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+									</relocations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+
+	<build>
+		<plugins>
+			<!--
+				For the tests, we need to exclude the Log4j2 to slf4j adapter dependency
+				and let Elasticsearch directly use Log4j2, otherwise the embedded Elasticsearch node
+				used in tests will fail to work.
+
+				In other words, the connector jar is routing Elasticsearch 5.x's Log4j2 API's to SLF4J,
+				but for the test builds, we still stick to directly using Log4j2.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.12.2</version>
+				<configuration>
+					<systemPropertyVariables>
+						<jna.nosys>true</jna.nosys>
+					</systemPropertyVariables>
+					<classpathDependencyExcludes>
+						<classpathDependencyExclude>org.apache.logging.log4j:log4j-to-slf4j</classpathDependencyExclude>
+					</classpathDependencyExcludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
