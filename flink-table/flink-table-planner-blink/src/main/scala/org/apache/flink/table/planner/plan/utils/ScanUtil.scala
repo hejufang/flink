@@ -37,6 +37,7 @@ import org.apache.flink.table.typeutils.TimeIndicatorTypeInfo
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.TableScan
 import org.apache.calcite.rex.RexNode
+import org.apache.flink.api.common.ExecutionConfig
 
 import scala.collection.JavaConversions._
 
@@ -119,12 +120,16 @@ object ScanUtil {
 
     val substituteStreamOperator = new CodeGenOperatorFactory[BaseRow](generatedOperator)
 
+    // Change input.getParallelism() to ExecutionConfig.PARALLELISM_DEFAULT,
+    // to support source parallelism differs from following transformations.
+    // CAUTION: This is done in SourceConversion, but SourceConversion only works
+    // CAUTION: when source has time fields or produces non-internal data types.
     new OneInputTransformation(
       input,
       getOperatorName(qualifiedName, outRowType),
       substituteStreamOperator,
       BaseRowTypeInfo.of(outputRowType),
-      input.getParallelism)
+      ExecutionConfig.PARALLELISM_DEFAULT)
   }
 
   /**
