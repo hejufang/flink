@@ -298,7 +298,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String hostName = m.group(1);
 				String tmId = m.group(2);
 				tags.add(new TagKv("hostname", hostName));
-				tags.add(new TagKv("tmid", tmId));
+				tags.add(new TagKv("tmid", pruneTmId(tmId)));
 				taskManagerMetricName = "taskmanager." + m.group(3);
 				taskManagerMetricName = simplifyMetricsName(taskManagerMetricName);
 			}
@@ -369,6 +369,18 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		String longestPart = parts[indexOfLongest];
 		parts[indexOfLongest] = longestPart.substring(0, longestPart.length() - exceededLength);
 		return String.join(".", parts);
+	}
+
+	/*
+	 * container_e496_1572589496647_25097_01_000006 = container_{epoch}_{applicationId}_{applicationAttempId}_{containerId}
+	 * 为了防止这些值不能枚举，只取最后的 000006
+	 */
+	private String pruneTmId(String tmId) {
+		String[] tmIdParts = tmId.split("_");
+		if (tmIdParts.length == 6) {
+			return tmIdParts[5];
+		}
+		return tmId;
 	}
 
 	/**
