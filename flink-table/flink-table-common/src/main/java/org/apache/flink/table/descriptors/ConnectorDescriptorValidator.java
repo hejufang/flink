@@ -58,6 +58,11 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	 */
 	public static final String CONNECTOR_KEYBY_FIELDS = "connector.keyby-fields";
 
+	/**
+	 * Key for whether log failures only.
+	 * */
+	public static final String CONNECTOR_LOG_FAILURES_ONLY = "connector.log-failures-only";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateString(CONNECTOR_TYPE, false, 1);

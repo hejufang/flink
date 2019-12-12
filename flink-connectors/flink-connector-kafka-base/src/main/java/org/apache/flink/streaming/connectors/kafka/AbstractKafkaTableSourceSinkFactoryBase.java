@@ -49,6 +49,7 @@ import java.util.Properties;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -133,6 +134,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_SINK_PARTITIONER_CLASS);
 		properties.add(CONNECTOR_RELATIVE_OFFSET);
 		properties.add(CONNECTOR_SPECIFIC_TIMESTAMP);
+		properties.add(CONNECTOR_LOG_FAILURES_ONLY);
 
 		// other configurations
 		properties.add(CONNECTOR_PARALLELISM);
@@ -305,6 +307,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			.ifPresent(p -> configurations.put(CONNECTOR_PARALLELISM, p));
 		descriptorProperties.getOptionalString(CONNECTOR_KEYBY_FIELDS)
 			.ifPresent(f -> configurations.put(CONNECTOR_KEYBY_FIELDS, f));
+		descriptorProperties.getOptionalString(CONNECTOR_LOG_FAILURES_ONLY)
+			.ifPresent(l -> configurations.put(CONNECTOR_LOG_FAILURES_ONLY, l));
 
 		return configurations;
 	}

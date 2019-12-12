@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
@@ -119,6 +120,13 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 			properties,
 			serializationSchema,
 			partitioner);
+		if (kafkaProducer instanceof FlinkKafkaProducerBase
+			&& configurations.containsKey(CONNECTOR_LOG_FAILURES_ONLY)) {
+			boolean logFailuresOnly =
+				Boolean.parseBoolean(configurations.get(CONNECTOR_LOG_FAILURES_ONLY));
+			((FlinkKafkaProducerBase<Row>) kafkaProducer).setLogFailuresOnly(logFailuresOnly);
+			LOG.info("Set logFailuresOnly = {}", logFailuresOnly);
+		}
 		DataStreamSink dataStreamSink = dataStream
 			.addSink(kafkaProducer)
 			.setParallelism(dataStream.getParallelism())
