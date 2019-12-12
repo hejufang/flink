@@ -57,6 +57,8 @@ import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMA
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_CLUSTER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_GROUP_ID;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_KAFKA_PROPERTIES;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS_DEFAULT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_OWNER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_KEY;
@@ -362,6 +364,11 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		if (!properties.containsKey(CONNECTOR_TEAM)) {
 			properties.put(CONNECTOR_TEAM,
 				String.format(ConfigConstants.FLINK_TEAM_TEMPLATE, owner));
+		}
+
+		if (!properties.containsKey(CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS)) {
+			properties.put(CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS,
+				CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS_DEFAULT);
 		}
 	}
 

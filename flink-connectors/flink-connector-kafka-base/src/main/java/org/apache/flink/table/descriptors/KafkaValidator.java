@@ -57,6 +57,10 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SPECIFIC_TIMESTAMP = "connector.specific-timestamp";
 	public static final String CONNECTOR_RELATIVE_OFFSET = "connector.relative-offset";
 	public static final String CONNECTOR_KAFKA_PROPERTIES = "connector.kafka.properties";
+	public static final String CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS =
+		"connector.kafka.properties.partitioner.class";
+	public static final String CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS_DEFAULT =
+		"org.apache.flink.kafka010.shaded.org.apache.kafka.clients.producer.internals.BatchRandomPartitioner";
 	public static final String CONNECTOR_PROPERTIES = "connector.properties";
 	public static final String CONNECTOR_PROPERTIES_KEY = "key";
 	public static final String CONNECTOR_PROPERTIES_VALUE = "value";

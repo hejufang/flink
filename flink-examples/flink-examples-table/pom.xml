@@ -35,7 +35,7 @@ under the License.
 
 	<properties>
 		<codahale.metrics.version>3.0.2</codahale.metrics.version>
-		<kafka.clients.version>0.10.1.2-bd1.5-SNAPSHOT</kafka.clients.version>
+		<kafka.clients.version>0.10.1.2-bd1.6-SNAPSHOT</kafka.clients.version>
 	</properties>
 
 	<dependencies>
