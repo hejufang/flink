@@ -88,7 +88,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		properties.validateEnumValues(
 			CONNECTOR_VERSION,
 			false,
-			ImmutableList.of(CONNECTOR_VERSION_VALUE_6, CONNECTOR_VERSION_VALUE_6_KMS));
+			ImmutableList.of(CONNECTOR_VERSION_VALUE_6, CONNECTOR_VERSION_VALUE_6_KMS, CONNECTOR_VERSION_VALUE_6_AD));
 	}
 
 	private void validateHosts(DescriptorProperties properties) {

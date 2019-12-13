@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.elasticsearch6;
+package org.apache.flink.streaming.connectors.elasticsearch6ad;
+
+import org.apache.flink.streaming.connectors.elasticsearch6.Elasticsearch6UpsertTableSinkFactory;
 
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_VERSION_VALUE_6_AD;
 

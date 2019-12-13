@@ -117,8 +117,8 @@ under the License.
 							<relocations>
 								<!-- Force relocation of all Elasticsearch dependencies. -->
 								<relocation>
-									<pattern>org.apache.commons</pattern>
-									<shadedPattern>org.apache.flink.elasticsearch6.shaded.org.apache.commons</shadedPattern>
+									<pattern>org.apache.commons.codec</pattern>
+									<shadedPattern>org.apache.flink.elasticsearch6.shaded.org.apache.commons.codec</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>org.apache.http</pattern>
