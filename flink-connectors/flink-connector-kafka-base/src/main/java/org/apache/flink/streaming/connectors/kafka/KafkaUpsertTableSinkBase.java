@@ -43,6 +43,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
@@ -126,6 +127,13 @@ public abstract class KafkaUpsertTableSinkBase implements UpsertStreamTableSink<
 			serializationSchema,
 			partitioner);
 
+		if (kafkaProducer instanceof FlinkKafkaProducerBase
+			&& configurations.containsKey(CONNECTOR_LOG_FAILURES_ONLY)) {
+			boolean logFailuresOnly =
+				Boolean.parseBoolean(configurations.get(CONNECTOR_LOG_FAILURES_ONLY));
+			((FlinkKafkaProducerBase<Row>) kafkaProducer).setLogFailuresOnly(logFailuresOnly);
+			LOG.info("Set logFailuresOnly = {}", logFailuresOnly);
+		}
 		DataStream<Row> rowDataStream = dataStream
 			.map((MapFunction<Tuple2<Boolean, Row>, Row>) value -> {
 				if (value != null && value.f0) {
