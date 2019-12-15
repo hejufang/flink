@@ -126,6 +126,9 @@ common:
   flink.gc.g1: false
   yarn.taskmanager.set_token: false
 
+  # subpartition type
+  taskmanager.network.bounded-blocking-subpartition-type: file
+
 flink:
   dc: cn
   clusterName: flink
