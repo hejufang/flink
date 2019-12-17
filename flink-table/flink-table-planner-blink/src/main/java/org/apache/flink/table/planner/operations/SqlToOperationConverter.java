@@ -251,7 +251,12 @@ public class SqlToOperationConverter {
 			rowtimes,
 			tableComment);
 
-		if (sqlCreateTable.containsComputedColumn()) {
+		if (sqlCreateTable.getComputedColumnCount() > 1) {
+			throw new SqlConversionException("Cannot write more than one computed columns in a table.");
+		}
+
+		if (!procName.isPresent() && sqlCreateTable.containsComputedColumn()) {
+			// Only deal with rowtime column (not proctime) which defined by a computed column.
 			// 0. create temp table for original table.
 			String tmpTableName = PREFIX + COUNTER.getAndIncrement();
 			String[] fullPath = catalogManager.getFullTablePath(Collections.singletonList(tmpTableName));
@@ -479,15 +484,13 @@ public class SqlToOperationConverter {
 				physicalSchema = builder.build();
 			}
 			assert physicalSchema != null;
-
-			Optional<String> procName = getComputedProcField(sqlCreateTable);
-			if (procName.isPresent()) {
-				builder.field(procName.get(),  new AtomicDataType(new TimestampType(true, TimestampKind.PROCTIME, 3))
-						.bridgedTo(java.sql.Timestamp.class));
-				physicalSchema = builder.build();
-			}
 		}
-
+		Optional<String> procName = getComputedProcField(sqlCreateTable);
+		if (procName.isPresent()) {
+			builder.field(procName.get(),  new AtomicDataType(new TimestampType(true, TimestampKind.PROCTIME, 3))
+				.bridgedTo(java.sql.Timestamp.class));
+			physicalSchema = builder.build();
+		}
 		return physicalSchema;
 	}
 
