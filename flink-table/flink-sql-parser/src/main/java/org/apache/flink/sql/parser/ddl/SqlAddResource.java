@@ -38,7 +38,7 @@ import java.util.List;
  * Add Resource sql call.
  */
 public class SqlAddResource extends SqlCall implements ExtendedSqlNode {
-	public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("CREATE RESOURCE", SqlKind.OTHER_DDL);
+	public static final SqlSpecialOperator OPERATOR = new SqlSpecialOperator("ADD RESOURCES", SqlKind.OTHER_DDL);
 
 	private SqlIdentifier resourceName;
 
@@ -68,8 +68,8 @@ public class SqlAddResource extends SqlCall implements ExtendedSqlNode {
 		SqlWriter writer,
 		int leftPrec,
 		int rightPrec) {
-		writer.keyword("CREATE");
-		writer.keyword("RESOURCE");
+		writer.keyword("ADD");
+		writer.keyword("RESOURCES");
 		resourceName.unparse(writer, leftPrec, rightPrec);
 	}
 
