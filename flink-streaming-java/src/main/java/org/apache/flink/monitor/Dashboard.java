@@ -173,6 +173,23 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
+	public String renderLateRecordsDropped(List<String> operators) {
+		String lateRecordsDroppedTargetTemplate = Template.LATE_RECORDS_DROPPED_TARGET;
+		List<String> lateRecordsDroppedList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> lateRecordsDroppedTarget = new HashMap<>();
+			lateRecordsDroppedTarget.put("operator", o);
+			lateRecordsDroppedTarget.put("jobname", jobName);
+			lateRecordsDroppedList.add(renderString(lateRecordsDroppedTargetTemplate, lateRecordsDroppedTarget));
+		}
+		String targets = String.join(",", lateRecordsDroppedList);
+		Map<String, String> lateRecordsDroppedValues = new HashMap<>();
+		lateRecordsDroppedValues.put("targets", targets);
+		lateRecordsDroppedValues.put("datasource", dataSource);
+		String lateRecordsDroppedTemplate = Template.LATE_RECORDS_DROPPED;
+		return renderString(lateRecordsDroppedTemplate, lateRecordsDroppedValues);
+	}
+
 	public String renderOperatorLatencyRow(List<String> operators) {
 		String operatorLatencyTarget = Template.OPERATOR_LATENCY_TARGET;
 		List<String> recordNumList = new ArrayList<>();
@@ -240,6 +257,7 @@ public class Dashboard {
 		rows.add(renderKafkaLatencyRow(sources));
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
+		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderQueueLengthRow(tasks));
 		rows.add(renderPoolUsageRow(tasks));
