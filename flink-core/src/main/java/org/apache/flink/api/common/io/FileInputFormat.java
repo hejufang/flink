@@ -244,6 +244,8 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 	 */
 	private FilePathFilter filesFilter = new GlobFilePathFilter();
 
+	private boolean useParallelSplit = false;
+
 	// --------------------------------------------------------------------------------------------
 	//  Constructors
 	// --------------------------------------------------------------------------------------------	
@@ -469,6 +471,9 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 		if (!this.enumerateNestedFiles) {
 			this.enumerateNestedFiles = parameters.getBoolean(ENUMERATE_NESTED_FILES_FLAG, false);
 		}
+
+		// Config split mode
+		this.useParallelSplit = parameters.getBoolean(FILE_INPUT_FORMAT_PARALLEL_SPLIT_GLAG, false);
 	}
 
 	/**
@@ -579,7 +584,7 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 		if (minNumSplits < 1) {
 			throw new IllegalArgumentException("Number of input splits has to be at least 1.");
 		}
-		
+
 		// take the desired number of splits into account
 		minNumSplits = Math.max(minNumSplits, this.numSplits);
 
@@ -601,6 +606,125 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 			}
 		}
 
+		if (useParallelSplit) {
+			return createInputSplitsParallel(files, totalLength, minNumSplits);
+		} else {
+			return createInputSplitsSerial(files, totalLength, minNumSplits);
+		}
+	}
+
+	public FileInputSplit[] createInputSplitsSerial(List<FileStatus> files, long totalLength, int minNumSplits) throws IOException {
+		LOG.info("Use serial split to create splits for input.");
+
+		final List<FileInputSplit> inputSplits = new ArrayList<FileInputSplit>(minNumSplits);
+
+		// returns if unsplittable
+		if (unsplittable) {
+			AtomicInteger splitNum = new AtomicInteger(0);
+			for (final FileStatus file : files) {
+				inputSplits.add(buildSplitsForUnsplittableFile(splitNum, file));
+			}
+			return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);
+		}
+
+
+		final long maxSplitSize = totalLength / minNumSplits + (totalLength % minNumSplits == 0 ? 0 : 1);
+
+		// now that we have the files, generate the splits
+		AtomicInteger splitNum = new AtomicInteger(0);
+		for (final FileStatus file : files) {
+			buildSplitsForSplittableFile(inputSplits, maxSplitSize, splitNum, file);
+		}
+
+		return inputSplits.toArray(new FileInputSplit[inputSplits.size()]);
+	}
+
+	private void buildSplitsForSplittableFile(List<FileInputSplit> inputSplits, long maxSplitSize,
+		AtomicInteger splitNum, FileStatus file) throws IOException {
+		final FileSystem fs = file.getPath().getFileSystem();
+		final long len = file.getLen();
+		final long blockSize = file.getBlockSize();
+
+		final long minSplitSize;
+		if (this.minSplitSize <= blockSize) {
+			minSplitSize = this.minSplitSize;
+		}
+		else {
+			if (LOG.isWarnEnabled()) {
+				LOG.warn("Minimal split size of " + this.minSplitSize + " is larger than the block size of " +
+					blockSize + ". Decreasing minimal split size to block size.");
+			}
+			minSplitSize = blockSize;
+		}
+
+		final long splitSize = Math.max(minSplitSize, Math.min(maxSplitSize, blockSize));
+		final long halfSplit = splitSize >>> 1;
+
+		final long maxBytesForLastSplit = (long) (splitSize * MAX_SPLIT_SIZE_DISCREPANCY);
+
+		if (len > 0) {
+
+			// get the block locations and make sure they are in order with respect to their offset
+			final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, len);
+			Arrays.sort(blocks);
+
+			long bytesUnassigned = len;
+			long position = 0;
+
+			int blockIndex = 0;
+
+			while (bytesUnassigned > maxBytesForLastSplit) {
+				// get the block containing the majority of the data
+				blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
+				// create a new split
+				FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), position, splitSize,
+					blocks[blockIndex].getHosts());
+				inputSplits.add(fis);
+
+				// adjust the positions
+				position += splitSize;
+				bytesUnassigned -= splitSize;
+			}
+
+			// assign the last split
+			if (bytesUnassigned > 0) {
+				blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
+				final FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), position,
+					bytesUnassigned, blocks[blockIndex].getHosts());
+				inputSplits.add(fis);
+			}
+		} else {
+			// special case with a file of zero bytes size
+			final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, 0);
+			String[] hosts;
+			if (blocks.length > 0) {
+				hosts = blocks[0].getHosts();
+			} else {
+				hosts = new String[0];
+			}
+			final FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), 0, 0, hosts);
+			inputSplits.add(fis);
+		}
+	}
+
+	private FileInputSplit buildSplitsForUnsplittableFile(AtomicInteger splitNum, FileStatus file)
+		throws IOException {
+		final FileSystem fs = file.getPath().getFileSystem();
+		final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, file.getLen());
+		Set<String> hosts = new HashSet<String>();
+		for (BlockLocation block : blocks) {
+			hosts.addAll(Arrays.asList(block.getHosts()));
+		}
+		long len = file.getLen();
+		if (testForUnsplittable(file)) {
+			len = READ_WHOLE_SPLIT_FLAG;
+		}
+		return new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), 0, len,
+			hosts.toArray(new String[hosts.size()]));
+	}
+
+	public FileInputSplit[] createInputSplitsParallel(List<FileStatus> files, long totalLength, int minNumSplits) throws IOException {
+		LOG.info("Use parallel split to create splits for input.");
 		// returns if unsplittable
 		if (unsplittable) {
 			return buildSplitsForUnsplittableInput(files, minNumSplits);
@@ -618,20 +742,9 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 		for (final FileStatus file : files) {
 			fisFutures.add(CompletableFuture.supplyAsync(() -> {
 				try {
-					final FileSystem fs = file.getPath().getFileSystem();
-					final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, file.getLen());
-					Set<String> hosts = new HashSet<String>();
-					for (BlockLocation block : blocks) {
-						hosts.addAll(Arrays.asList(block.getHosts()));
-					}
-					long len = file.getLen();
-					if (testForUnsplittable(file)) {
-						len = READ_WHOLE_SPLIT_FLAG;
-					}
-					FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), 0, len,
-						hosts.toArray(new String[hosts.size()]));
-					return new Tuple2<>(fis, null);
+					return new Tuple2<>(buildSplitsForUnsplittableFile(splitNum, file), null);
 				} catch (IOException ioException) {
+					LOG.error("Split file error, " + file.getPath(), ioException);
 					return new Tuple2<>(null, ioException);
 				}
 			}));
@@ -671,71 +784,10 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 			fisFutures.add(CompletableFuture.supplyAsync(() -> {
 				try {
 					List<FileInputSplit> inputSplitsTmp = new ArrayList<>();
-					final FileSystem fs = file.getPath().getFileSystem();
-					final long len = file.getLen();
-					final long blockSize = file.getBlockSize();
-
-					final long minSplitSize;
-					if (this.minSplitSize <= blockSize) {
-						minSplitSize = this.minSplitSize;
-					}
-					else {
-						if (LOG.isWarnEnabled()) {
-							LOG.warn("Minimal split size of {} is larger than the block size of {}. Decreasing minimal split size to block size.",
-								this.minSplitSize, blockSize);
-						}
-						minSplitSize = blockSize;
-					}
-
-					final long splitSize = Math.max(minSplitSize, Math.min(maxSplitSize, blockSize));
-					final long halfSplit = splitSize >>> 1;
-
-					final long maxBytesForLastSplit = (long) (splitSize * MAX_SPLIT_SIZE_DISCREPANCY);
-
-					if (len > 0) {
-						// get the block locations and make sure they are in order with respect to their offset
-						final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, len);
-						Arrays.sort(blocks);
-
-						long bytesUnassigned = len;
-						long position = 0;
-
-						int blockIndex = 0;
-
-						while (bytesUnassigned > maxBytesForLastSplit) {
-							// get the block containing the majority of the data
-							blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
-							// create a new split
-							FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), position, splitSize,
-								blocks[blockIndex].getHosts());
-							inputSplitsTmp.add(fis);
-
-							// adjust the positions
-							position += splitSize;
-							bytesUnassigned -= splitSize;
-						}
-
-						// assign the last split
-						if (bytesUnassigned > 0) {
-							blockIndex = getBlockIndexForPosition(blocks, position, halfSplit, blockIndex);
-							final FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), position,
-								bytesUnassigned, blocks[blockIndex].getHosts());
-							inputSplitsTmp.add(fis);
-						}
-					} else {
-						// special case with a file of zero bytes size
-						final BlockLocation[] blocks = fs.getFileBlockLocations(file, 0, 0);
-						String[] hosts;
-						if (blocks.length > 0) {
-							hosts = blocks[0].getHosts();
-						} else {
-							hosts = new String[0];
-						}
-						final FileInputSplit fis = new FileInputSplit(splitNum.getAndIncrement(), file.getPath(), 0, 0, hosts);
-						inputSplitsTmp.add(fis);
-					}
+					buildSplitsForSplittableFile(inputSplitsTmp, maxSplitSize, splitNum, file);
 					return new Tuple2<>(inputSplitsTmp, null);
 				} catch (IOException ioException) {
+					LOG.error("Split file error, " + file.getPath(), ioException);
 					return new Tuple2<>(null, ioException);
 				}
 			}));
@@ -1151,4 +1203,6 @@ public abstract class FileInputFormat<OT> extends RichInputFormat<OT, FileInputS
 	 * The config parameter which defines whether input directories are recursively traversed.
 	 */
 	public static final String ENUMERATE_NESTED_FILES_FLAG = "recursive.file.enumeration";
+
+	public static final String FILE_INPUT_FORMAT_PARALLEL_SPLIT_GLAG = "file-input-format.split.parallel";
 }
