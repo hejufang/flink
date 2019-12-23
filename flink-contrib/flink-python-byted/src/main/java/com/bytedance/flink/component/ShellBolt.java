@@ -53,6 +53,7 @@ public class ShellBolt implements Bolt {
 	private String[] command;
 	private Number subPid;
 	private Integer subTaskId;
+	private String lastErrorMessage = "no error message";
 	private transient Thread readerThread;
 	private transient Thread writerThread;
 	private volatile boolean isRunning = true;
@@ -118,7 +119,8 @@ public class ShellBolt implements Bolt {
 				}
 			} catch (InterruptedException e) {
 				String processInfo = shellProcess.getProcessInfoString()
-					+ shellProcess.getProcessTerminationInfoString();
+					+ shellProcess.getProcessTerminationInfoString()
+					+ lastErrorMessage;
 				throw new RuntimeException("Error during multilang processing " + processInfo, e);
 			}
 		}
@@ -163,13 +165,15 @@ public class ShellBolt implements Bolt {
 	}
 
 	private void handleError(ShellMessage shellMsg) throws IOException {
-		String log = shellMsg.getMessage();
-		LOG.error("Get Error log from python: {}", log);
+		lastErrorMessage = shellMsg.getMessage();
+		LOG.error("Get Error log from python: {}", lastErrorMessage);
 	}
 
 	private void die(Throwable exception) {
 		this.isDead = true;
-		String processInfo = shellProcess.getProcessInfoString() + shellProcess.getProcessTerminationInfoString();
+		String processInfo = shellProcess.getProcessInfoString()
+			+ shellProcess.getProcessTerminationInfoString()
+			+ lastErrorMessage;
 		this.exception = new RuntimeException(processInfo, exception);
 		String message = String.format("Halting process: ShellBolt died. Command: %s, ProcessInfo %s",
 			Arrays.toString(command), processInfo);
@@ -223,6 +227,7 @@ public class ShellBolt implements Bolt {
 					} else if (Constants.ERROR.equals(command)) {
 						handleError(shellMsg);
 					} else {
+						handleError(shellMsg);
 						LOG.error("Unknown command {}", command);
 					}
 				} catch (IOException | IllegalArgumentException e) {

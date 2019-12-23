@@ -46,6 +46,7 @@ public class ShellSpout implements Spout {
 	private SpoutCollector spoutCollector;
 	private Number subPid;
 	private Integer subTaskId;
+	private String lastErrorMessage = "no error message";
 	private volatile boolean isRunning = true;
 	private volatile boolean isSuspended = false;
 	private volatile boolean isDead = false;
@@ -151,8 +152,8 @@ public class ShellSpout implements Spout {
 	}
 
 	private void handleError(ShellMessage shellMsg) throws IOException {
-		String log = shellMsg.getMessage();
-		LOG.error("Get Error log from python: {}", log);
+		lastErrorMessage = shellMsg.getMessage();
+		LOG.error("Get Error log from python: {}", lastErrorMessage);
 	}
 
 	public void fillPartitionInfo(RuntimeConfig runtimeConfig, Map<String, Object> conf) {
@@ -207,7 +208,8 @@ public class ShellSpout implements Spout {
 		isRunning = false;
 		isDead = true;
 		String processInfo = shellProcess.getProcessInfoString()
-			+ shellProcess.getProcessTerminationInfoString();
+			+ shellProcess.getProcessTerminationInfoString()
+			+ lastErrorMessage;
 		this.exception = new RuntimeException(processInfo, exception);
 		String message = "Halting process: ShellSpout died.";
 		LOG.error(message, exception);
@@ -252,7 +254,7 @@ public class ShellSpout implements Spout {
 					isRunning = false;
 					return;
 				} catch (Throwable e) {
-					LOG.error("Error occurred when read meg from python {}", subPid, e);
+					LOG.error("Error occurred when read msg from python {}", subPid, e);
 					die(e);
 					return;
 				}
