@@ -16,43 +16,19 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.failurerate;
-
-import org.apache.flink.metrics.Meter;
-import org.apache.flink.runtime.util.clock.Clock;
+package org.apache.flink.runtime.resourcemanager.registration;
 
 /**
- * Failure rate interface.
+ * Job information, such as minimum required slot num of job.
  */
-public interface FailureRater extends Meter {
+public class JobInfo implements java.io.Serializable {
+	private final int minSlotsNum;
 
-	/**
-	 * Check whether current failure rate exceeds maximum failure rate.
-	 *
-	 * @return whether maximum failure rate is hit
-	 */
-	boolean exceedsFailureRate();
-
-	/**
-	 * Record one time of failure.
-	 *
-	 * @param clock the clock time the failure happens
-	 */
-	void markFailure(Clock clock);
-
-	/**
-	 * Get failure rate until current timestamp .
-	 *
-	 * @return current failure rate
-	 */
-	double getCurrentFailureRate();
-
-	/**
-	 * Update Total TaskManager num.
-	 * @param num added into count
-	 * */
-	default void onRequiredSlotNumChanged(int num) {
-
+	public JobInfo(int minSlotsNum) {
+		this.minSlotsNum = minSlotsNum;
 	}
 
+	public int getMinSlotsNum() {
+		return minSlotsNum;
+	}
 }

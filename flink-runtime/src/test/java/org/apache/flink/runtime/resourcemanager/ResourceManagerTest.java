@@ -38,6 +38,7 @@ import org.apache.flink.runtime.leaderretrieval.SettableLeaderRetrievalService;
 import org.apache.flink.runtime.metrics.NoOpMetricRegistry;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.rest.messages.taskmanager.TaskManagerInfo;
@@ -189,6 +190,7 @@ public class ResourceManagerTest extends TestLogger {
 			.build();
 		rpcService.registerGateway(jobMasterGateway.getAddress(), jobMasterGateway);
 		final JobID jobId = new JobID();
+		final JobInfo jobInfo = new JobInfo(1);
 		final ResourceID jobMasterResourceId = ResourceID.generate();
 		final LeaderRetrievalService jobMasterLeaderRetrievalService = new SettableLeaderRetrievalService(jobMasterGateway.getAddress(), jobMasterGateway.getFencingToken().toUUID());
 
@@ -204,6 +206,7 @@ public class ResourceManagerTest extends TestLogger {
 					jobMasterResourceId,
 					jobMasterGateway.getAddress(),
 					jobId,
+					jobInfo,
 					TIMEOUT);
 
 				assertThat(registrationFuture.get(), instanceOf(RegistrationResponse.Success.class));

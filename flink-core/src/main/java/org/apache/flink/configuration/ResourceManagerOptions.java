@@ -71,6 +71,16 @@ public class ResourceManagerOptions {
 			" Be default, -1.0 is set to disable the feature.");
 
 	/**
+	 * Defines the maximum ratio of failed workers to effective workers in WORKERS_FAILURE_INTERVAL_MS.
+	 * Be default, -1.0 is set to disable the feature.
+	 */
+	public static final ConfigOption<Double> MAXIMUM_WORKERS_FAILURE_RATE_RATIO = ConfigOptions
+		.key("resourcemanager.maximum-workers-failure-rate-ratio")
+		.defaultValue(-1.0)
+		.withDescription("Defines the maximum ratio of failed workers to effective workers in WORKERS_FAILURE_INTERVAL_MS." +
+			"Be default, -1.0 is set to disable the feature.");
+
+	/**
 	 * Defines time duration in milliseconds for counting workers (YARN / Mesos) failure happened.
 	 */
 	public static final ConfigOption<Long> WORKERS_FAILURE_INTERVAL_MS = ConfigOptions

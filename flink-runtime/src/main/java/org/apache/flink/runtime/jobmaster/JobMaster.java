@@ -68,6 +68,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.registration.RetryingRegistration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStats;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.OperatorBackPressureStatsResponse;
@@ -134,6 +135,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	private final ResourceID resourceId;
 
 	private final JobGraph jobGraph;
+
+	private final JobInfo jobInfo;
 
 	private final Time rpcTimeout;
 
@@ -272,6 +275,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.establishedResourceManagerConnection = null;
 
 		this.accumulators = new HashMap<>();
+		this.jobInfo = new JobInfo(jobGraph.calcMinRequiredSlotsNum());
 	}
 
 	private SchedulerNG createScheduler(final JobManagerJobMetricGroup jobManagerJobMetricGroup) throws Exception {
@@ -1098,6 +1102,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 						jobManagerResourceID,
 						jobManagerRpcAddress,
 						jobID,
+						jobInfo,
 						timeout);
 				}
 			};

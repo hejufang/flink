@@ -57,6 +57,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.exceptions.MaximumFailedTaskManagerExceedingException;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorException;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistration;
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
@@ -97,7 +98,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * <p>It offers the following methods as part of its rpc interface to interact with him remotely:
  * <ul>
- *     <li>{@link #registerJobManager(JobMasterId, ResourceID, String, JobID, Time)} registers a {@link JobMaster} at the resource manager</li>
+ *     <li>{@link #registerJobManager(JobMasterId, ResourceID, String, JobID, JobInfo, Time)} registers a {@link JobMaster} at the resource manager</li>
  *     <li>{@link #requestSlot(JobMasterId, SlotRequest, Time)} requests a slot from the resource manager</li>
  * </ul>
  */
@@ -325,6 +326,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final ResourceID jobManagerResourceId,
 			final String jobManagerAddress,
 			final JobID jobId,
+			final JobInfo jobInfo,
 			final Time timeout) {
 
 		checkNotNull(jobMasterId);
@@ -373,6 +375,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					return registerJobMasterInternal(
 						jobMasterGateway,
 						jobId,
+						jobInfo,
 						jobManagerAddress,
 						jobManagerResourceId);
 				} else {
@@ -685,11 +688,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private RegistrationResponse registerJobMasterInternal(
 		final JobMasterGateway jobMasterGateway,
 		JobID jobId,
+		JobInfo jobInfo,
 		String jobManagerAddress,
 		ResourceID jobManagerResourceId) {
 		if (jobManagerRegistrations.containsKey(jobId)) {
 			JobManagerRegistration oldJobManagerRegistration = jobManagerRegistrations.get(jobId);
-
 			if (Objects.equals(oldJobManagerRegistration.getJobMasterId(), jobMasterGateway.getFencingToken())) {
 				// same registration
 				log.debug("Job manager {}@{} was already registered.", jobMasterGateway.getFencingToken(), jobManagerAddress);
@@ -702,7 +705,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				JobManagerRegistration jobManagerRegistration = new JobManagerRegistration(
 					jobId,
 					jobManagerResourceId,
-					jobMasterGateway);
+					jobMasterGateway,
+					jobInfo);
 				jobManagerRegistrations.put(jobId, jobManagerRegistration);
 				jmResourceIdRegistrations.put(jobManagerResourceId, jobManagerRegistration);
 			}
@@ -711,7 +715,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			JobManagerRegistration jobManagerRegistration = new JobManagerRegistration(
 				jobId,
 				jobManagerResourceId,
-				jobMasterGateway);
+				jobMasterGateway,
+				jobInfo);
+			failureRater.onRequiredSlotNumChanged(jobInfo.getMinSlotsNum());
 			jobManagerRegistrations.put(jobId, jobManagerRegistration);
 			jmResourceIdRegistrations.put(jobManagerResourceId, jobManagerRegistration);
 		}
@@ -842,7 +848,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				jobId);
 
 			jobManagerHeartbeatManager.unmonitorTarget(jobManagerResourceId);
-
+			failureRater.onRequiredSlotNumChanged(-jobManagerRegistration.getJobInfo().getMinSlotsNum());
 			jmResourceIdRegistrations.remove(jobManagerResourceId);
 
 			// tell the job manager about the disconnect

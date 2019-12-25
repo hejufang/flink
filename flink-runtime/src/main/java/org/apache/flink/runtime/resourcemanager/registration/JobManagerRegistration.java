@@ -34,13 +34,21 @@ public class JobManagerRegistration {
 
 	private final JobMasterGateway jobManagerGateway;
 
+	private final JobInfo jobInfo;
+
 	public JobManagerRegistration(
 			JobID jobID,
 			ResourceID jobManagerResourceID,
-			JobMasterGateway jobManagerGateway) {
+			JobMasterGateway jobManagerGateway,
+			JobInfo jobInfo) {
 		this.jobID = Preconditions.checkNotNull(jobID);
 		this.jobManagerResourceID = Preconditions.checkNotNull(jobManagerResourceID);
 		this.jobManagerGateway = Preconditions.checkNotNull(jobManagerGateway);
+		this.jobInfo = Preconditions.checkNotNull(jobInfo);
+	}
+
+	public JobInfo getJobInfo() {
+		return jobInfo;
 	}
 
 	public JobID getJobID() {

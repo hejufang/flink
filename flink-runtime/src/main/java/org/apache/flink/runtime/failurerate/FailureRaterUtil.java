@@ -21,6 +21,7 @@ package org.apache.flink.runtime.failurerate;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 
 import java.util.concurrent.TimeUnit;
 
@@ -31,13 +32,20 @@ public class FailureRaterUtil {
 
 	public static FailureRater createFailureRater(
 		Configuration configuration) {
+		double ratio = configuration.getDouble(ResourceManagerOptions.MAXIMUM_WORKERS_FAILURE_RATE_RATIO);
 		double rate = configuration.getDouble(ResourceManagerOptions.MAXIMUM_WORKERS_FAILURE_RATE);
 		long failureIntervalMs = configuration.getLong(ResourceManagerOptions.WORKERS_FAILURE_INTERVAL_MS);
-		if (rate < 0) {
+		// rate and ratio are both disabled，use NoFailureRater
+		if (rate < 0 && ratio < 0) {
 			return new NoFailureRater((int) failureIntervalMs / 1000);
-		} else {
+		}
+		// rate is enabled，but ratio is disabled，use TimestampBasedFailureRater
+		if (rate >= 0 && ratio < 0) {
 			int maximumRate = Double.valueOf(rate).intValue();
 			return new TimestampBasedFailureRater(maximumRate < rate ? maximumRate + 1 : maximumRate, Time.of(failureIntervalMs, TimeUnit.MILLISECONDS));
 		}
+		// otherwise use TimestampTMNumBasedFailureRater
+		int numTaskSlots = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+		return new TimestampTMNumBasedFailureRater(ratio, Time.of(failureIntervalMs, TimeUnit.MILLISECONDS), numTaskSlots);
 	}
 }
