@@ -16,7 +16,6 @@ import traceback
 import yaml
 import zk_util
 
-from alert import Alert
 from conf_utils import ConfUtils
 from flink_resource import FlinkResource
 from http_util import HttpUtil
@@ -56,7 +55,6 @@ class FlinkTopology(object):
     FLINK_RESOURCE_KEY = "flink_resource_args"
     START_LATENCY = 'acceleration.start.latency'
     BULDER_JAR_LATENCY = 'acceleration.build_jar.latency'
-    REGISTER_ALERT_LATENCY = 'acceleration.register_alert.latency'
     REGISTER_DASHBOARD_LATENCY = 'acceleration.register_dashboard.latency'
     SR_CPU_OPTIMIZE = 'sr.resources.optimize.start.cpu'
     SR_MEM_OPTIMIZE = 'sr.resources.optimize.start.mem'
@@ -179,9 +177,6 @@ class FlinkTopology(object):
         self.user = user
         self.batch_runner = batch_runner
         self.save_pid = save_pid
-        self.alert = Alert(self.flink_conf, self.yaml_file, self.cluster_name,
-                           self.queue_name, self.ms_base_url, self.user,
-                           self.ms_zone, self.version)
         self.dashboard = RegisterDashboard(self.yaml_file, self.cluster_name, self.version)
         self.zk_info = zk_util.get_zk_info(self.flink_conf)
         self.hdfs_info = hdfs_util.get_hdfs_info(self.flink_conf)
@@ -194,7 +189,6 @@ class FlinkTopology(object):
                           FlinkTopology.METRICS_NAMESPACE_PREFIX})
         metrics.define_store(FlinkTopology.START_LATENCY, 'us')
         metrics.define_store(FlinkTopology.BULDER_JAR_LATENCY, 'us')
-        metrics.define_store(FlinkTopology.REGISTER_ALERT_LATENCY, 'us')
         metrics.define_store(FlinkTopology.REGISTER_DASHBOARD_LATENCY, 'us')
         metrics.define_store(FlinkTopology.REGISTER_DASHBOARD_LATENCY, 'us')
         metrics.define_store(FlinkTopology.SR_CPU_OPTIMIZE, 'num')
@@ -356,10 +350,7 @@ class FlinkTopology(object):
                 KafkaUtil.get_kafka_topic_prefix(topic_meta['cluster'],
                                                  self.kafka_server_url)
             topic['metric_prefix'] = topic_related_metric_prefix
-            alert_conf = self.user_yaml_conf.get('alert', {}).get('alertConf')
             threshold = DEFAULT_TOPIC_THRESHOLD
-            if alert_conf and topic_meta.get('topic') in alert_conf:
-                threshold = alert_conf.get(topic_meta.get('topic'))
             topic['threshold'] = threshold
         self.kafka_topics = kafka_topics
 
@@ -529,16 +520,6 @@ class FlinkTopology(object):
                     print green("Start success.")
                     if run_mode == 0:
                         print("run on cluster mode")
-                        start_register_alert_time = time.time()
-                        # unregister old alerts
-                        self.alert.unregister_alert()
-                        self.alert.register_alert()
-                        metrics.emit_store(FlinkTopology.REGISTER_ALERT_LATENCY,
-                                           (time.time() - start_register_alert_time)
-                                           * 1000000,
-                                           tagkv={'job_name': self.topology_name,
-                                                  'cluster': self.cluster_name,
-                                                  'queue': self.queue_name})
                         start_register_dashboard_time = time.time()
                         self.dashboard.register_dashboard()
                         metrics.emit_store(FlinkTopology.REGISTER_DASHBOARD_LATENCY,
@@ -549,7 +530,7 @@ class FlinkTopology(object):
                                                   'queue': self.queue_name})
                     else:
                         print(
-                            "run on local mode,no need to register alert and dashboard")
+                            "run on local mode,no need to register dashboard")
                     metrics.emit_store(FlinkTopology.START_LATENCY,
                                        (time.time() - start_time) * 1000000,
                                        tagkv={'job_name': self.topology_name,
@@ -645,7 +626,6 @@ class FlinkTopology(object):
             # Reserve some time for the yarn kill application
             time.sleep(2)
             try:
-                self.alert.unregister_alert()
                 zk_util.clear_zk(self.zk_info, app_id)
                 hdfs_util.clear_hdfs(self.hdfs_info,
                                      ConfUtils.get_flink_conf_dir(self.version),

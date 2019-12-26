@@ -103,9 +103,6 @@ class YamlUtil(object):
                         batch_bolt_name_list.append(bolt["bolt_name"])
         return batch_bolt_name_list
 
-    def get_alert_conf(self):
-        return self.yaml_conf.get("alert")
-
     def get_owner(self):
         return self.yaml_conf.get("owners")
 

@@ -5,11 +5,11 @@ import sys
 sys.path.insert(0, "/opt/tiger")
 import time
 
-from alert import Alert
 from lark_util import LarkUtils
 from yarn_util import YarnUtil
 
 INF_STREAM_ALERT = "6765347458630287630"
+ROBOT_TOKEN = 'b-5f196d62-0108-4535-99e6-83071ff7ce2e'
 
 
 def get_repeated_jobs(running_jobs):
@@ -28,7 +28,7 @@ def get_repeated_jobs(running_jobs):
 
 
 if __name__ == '__main__':
-    lark = LarkUtils(Alert.ROBOT_TOKEN)
+    lark = LarkUtils(ROBOT_TOKEN)
     operator = 'check_same_job'
     region_clusters = YarnUtil.get_all_clusters(operator)
     result = {}

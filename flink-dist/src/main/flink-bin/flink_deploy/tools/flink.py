@@ -3,7 +3,6 @@
 
 import argparse
 import sys
-from alert import Alert
 from flink_topology import FlinkTopology
 from register_dashboard import RegisterDashboard
 from topology_builder import TopologyBuilder
@@ -12,8 +11,6 @@ from topology_builder import TopologyBuilder
 COMMANDS = [
     ("start", "start topology", FlinkTopology.populate_lifecycle_parser),
     ("stop", "stop topology", FlinkTopology.populate_lifecycle_parser),
-    ("register_alert", "register alert info", Alert.populate_alert_parser),
-    ("unregister_alert", "unregister alert info", Alert.populate_alert_parser),
     ("gen", "gen topology", TopologyBuilder.populate_gen_parser),
     ("register_dashboard", "register_dashboard", RegisterDashboard.populate_dashboard_parser)
 ]
@@ -38,12 +35,6 @@ def main():
             exit_code = 0 if topology.start() else -1
         else:
             exit_code = 0 if topology.stop() else -1
-    elif args.subparser_command == "register_alert" or args.subparser_command == "unregister_alert":
-        alert = Alert.from_args(args)
-        if args.subparser_command == "register_alert":
-            alert.register_alert()
-        else:
-            alert.unregister_alert()
     elif args.subparser_command == "gen":
         tb = TopologyBuilder(args)
         tb.gen()
