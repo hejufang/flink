@@ -27,9 +27,14 @@ import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStreamFactory.FsCheckpointStateOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -38,6 +43,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An implementation of durable checkpoint storage to file systems.
  */
 public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
+
+	private static final Logger LOG = LoggerFactory.getLogger(FsCheckpointStorage.class);
 
 	private final FileSystem fileSystem;
 
@@ -197,5 +204,30 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	protected CheckpointStorageLocation createSavepointLocation(FileSystem fs, Path location) {
 		final CheckpointStorageLocationReference reference = encodePathAsReference(location);
 		return new FsCheckpointStorageLocation(fs, location, location, location, reference, fileSizeThreshold, writeBufferSize);
+	}
+
+	@Override
+	public String findLatestCompletedCheckpointPointer() throws IOException {
+		return Arrays.stream(fileSystem.listStatus(checkpointsDirectory))
+				.filter(fileStatus -> {
+					try {
+						return fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX)
+								&& fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+					} catch (IOException e) {
+						LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
+						return false;
+					}
+				})
+				.max(Comparator.comparingInt(fileStatus -> {
+					try {
+						return Integer.parseInt(
+								fileStatus.getPath().getName().substring(CHECKPOINT_DIR_PREFIX.length()));
+					} catch (Exception e) {
+						LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+						return Integer.MIN_VALUE;
+					}
+				}))
+				.map(fileStatus -> fileStatus.getPath().toString())
+				.orElse(null);
 	}
 }

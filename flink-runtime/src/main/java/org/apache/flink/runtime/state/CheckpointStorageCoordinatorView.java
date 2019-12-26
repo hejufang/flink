@@ -58,6 +58,10 @@ public interface CheckpointStorageCoordinatorView {
 	 */
 	CompletedCheckpointStorageLocation resolveCheckpoint(String externalPointer) throws IOException;
 
+	default String findLatestCompletedCheckpointPointer() throws IOException {
+		return null;
+	}
+
 	/**
 	 * Initializes a storage location for new checkpoint with the given ID.
 	 *

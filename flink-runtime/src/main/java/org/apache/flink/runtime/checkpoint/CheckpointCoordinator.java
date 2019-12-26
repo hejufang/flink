@@ -1170,6 +1170,18 @@ public class CheckpointCoordinator {
 		return restoreLatestCheckpointedState(tasks, true, allowNonRestored);
 	}
 
+	public void tryRestoreFromCheckpointStorage(
+			boolean allowNonRestored,
+			Map<JobVertexID, ExecutionJobVertex> tasks,
+			ClassLoader userClassLoader) throws Exception {
+		String latestCompletedCheckpointPointer = checkpointStorage.findLatestCompletedCheckpointPointer();
+		if (latestCompletedCheckpointPointer != null) {
+			LOG.info("Find latest checkpoint {} from checkpointStorage, treat it as savepoint.",
+					latestCompletedCheckpointPointer);
+			restoreSavepoint(latestCompletedCheckpointPointer, allowNonRestored, tasks, userClassLoader);
+		}
+	}
+
 	// ------------------------------------------------------------------------
 	//  Accessors
 	// ------------------------------------------------------------------------
