@@ -76,7 +76,7 @@ public class CheckpointConfig implements java.io.Serializable {
 	private boolean forceCheckpointing;
 
 	/** Cleanup behaviour for persistent checkpoints. */
-	private ExternalizedCheckpointCleanup externalizedCheckpointCleanup;
+	private ExternalizedCheckpointCleanup externalizedCheckpointCleanup = ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION;
 
 	/**
 	 * Task would not fail if there is an error in their checkpointing.
