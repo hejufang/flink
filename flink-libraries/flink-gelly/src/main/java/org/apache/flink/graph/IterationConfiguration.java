@@ -21,6 +21,7 @@ package org.apache.flink.graph;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.aggregators.Aggregator;
 import org.apache.flink.graph.spargel.GatherFunction;
+import org.apache.flink.runtime.operators.util.TaskConfig.SolutionSetFormat;
 import org.apache.flink.util.Preconditions;
 
 import java.util.HashMap;
@@ -45,6 +46,9 @@ public abstract class IterationConfiguration {
 
 	// flag that defines whether the number of vertices option is set
 	private boolean optNumVertices = false;
+
+	// Configure how to store solutionSet.
+	private SolutionSetFormat solutionSetFormat;
 
 	public IterationConfiguration() {}
 
@@ -97,9 +101,11 @@ public abstract class IterationConfiguration {
 	 * Defines whether the solution set is kept in managed memory (Flink's internal way of keeping object
 	 * in serialized form) or as a simple object map.
 	 * By default, the solution set runs in managed memory.
+	 * Now, it is deprecated, use setSolutionSetFormat instead.
 	 *
 	 * @param unmanaged True, to keep the solution set in unmanaged memory, false otherwise.
 	 */
+	@Deprecated
 	public void setSolutionSetUnmanagedMemory(boolean unmanaged) {
 		this.unmanagedSolutionSet = unmanaged;
 	}
@@ -111,8 +117,23 @@ public abstract class IterationConfiguration {
 	 *
 	 * @return True, if the solution set is in unmanaged memory, false otherwise.
 	 */
+	@Deprecated
 	public boolean isSolutionSetUnmanagedMemory() {
 		return this.unmanagedSolutionSet;
+	}
+
+	/**
+	 * Gets how to store the solutionSet.
+	 * */
+	public SolutionSetFormat getSolutionSetFormat() {
+		return solutionSetFormat;
+	}
+
+	/**
+	 * Defines how to store the solutionSet.
+	 * */
+	public void setSolutionSetFormat(SolutionSetFormat solutionSetFormat) {
+		this.solutionSetFormat = solutionSetFormat;
 	}
 
 	/**

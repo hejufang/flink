@@ -448,6 +448,7 @@ public class VertexCentricIteration<K, VV, EV, Message>
 			iteration.name(this.configuration.getName("Vertex-centric iteration (" + computeFunction + ")"));
 			iteration.parallelism(this.configuration.getParallelism());
 			iteration.setSolutionSetUnManaged(this.configuration.isSolutionSetUnmanagedMemory());
+			iteration.setSolutionSetFormat(this.configuration.getSolutionSetFormat().getFormat());
 
 			// register all aggregators
 			for (Map.Entry<String, Aggregator<?>> entry : this.configuration.getAggregators().entrySet()) {

@@ -32,6 +32,7 @@ import org.apache.flink.graph.gsa.GatherFunction;
 import org.apache.flink.graph.gsa.GatherSumApplyIteration;
 import org.apache.flink.graph.gsa.Neighbor;
 import org.apache.flink.graph.gsa.SumFunction;
+import org.apache.flink.runtime.operators.util.TaskConfig.SolutionSetFormat;
 import org.apache.flink.test.util.MultipleProgramsTestBase;
 import org.apache.flink.types.LongValue;
 
@@ -104,12 +105,14 @@ public class GatherSumApplyConfigurationITCase extends MultipleProgramsTestBase 
 		parameters.setName("gelly iteration");
 		parameters.setParallelism(2);
 		parameters.setSolutionSetUnmanagedMemory(true);
+		parameters.setSolutionSetFormat(SolutionSetFormat.MANAGED_MEMORY);
 
 		iteration.configure(parameters);
 
 		Assert.assertEquals("gelly iteration", iteration.getIterationConfiguration().getName(""));
 		Assert.assertEquals(2, iteration.getIterationConfiguration().getParallelism());
 		Assert.assertEquals(true, iteration.getIterationConfiguration().isSolutionSetUnmanagedMemory());
+		Assert.assertEquals(SolutionSetFormat.MANAGED_MEMORY, iteration.getIterationConfiguration().getSolutionSetFormat());
 
 		DataSet<Vertex<Long, Long>> data = TestGraphUtils.getLongLongVertexData(env).runOperation(iteration);
 		List<Vertex<Long, Long>> result = data.collect();

@@ -227,6 +227,8 @@ public class TaskConfig implements Serializable {
 	
 	private static final String SOLUTION_SET_OBJECTS = "itertive.ss.obj";
 
+	private static final String SOLUTION_SET_FORMAT = "itertive.ss.format";
+
 	// ---------------------------------- Miscellaneous -------------------------------------------
 	
 	private static final char SEPARATOR = '.';
@@ -1195,13 +1197,40 @@ public class TaskConfig implements Serializable {
 		
 		return factory;
 	}
-	
+
+	@Deprecated
 	public void setSolutionSetUnmanaged(boolean unmanaged) {
 		config.setBoolean(SOLUTION_SET_OBJECTS, unmanaged);
 	}
-	
+
+	@Deprecated
 	public boolean isSolutionSetUnmanaged() {
 		return config.getBoolean(SOLUTION_SET_OBJECTS, false);
 	}
 
+	public void setSolutionSetFormat(String format) {
+		config.setString(SOLUTION_SET_FORMAT, format);
+	}
+
+	public SolutionSetFormat getSolutionSetFormat() {
+		String format = config.getString(SOLUTION_SET_FORMAT, SolutionSetFormat.UNCONFIGED.getFormat());
+		return SolutionSetFormat.valueOf(format);
+	}
+
+	public enum SolutionSetFormat {
+		MANAGED_MEMORY("MANAGED_MEMORY"),
+		UNMANAGED_MEMORY("UNMANAGED_MEMORY"),
+		ROCKSDB("ROCKSDB"),
+		UNCONFIGED("UNCONFIGED");
+
+		private String format;
+
+		SolutionSetFormat(String format) {
+			this.format = format;
+		}
+
+		public String getFormat() {
+			return format;
+		}
+	}
 }

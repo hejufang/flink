@@ -149,6 +149,7 @@ public class GatherSumApplyIteration<K, VV, EV, M> implements CustomUnaryOperati
 					"Gather-sum-apply iteration (" + gather + " | " + sum + " | " + apply + ")"));
 			iteration.parallelism(this.configuration.getParallelism());
 			iteration.setSolutionSetUnManaged(this.configuration.isSolutionSetUnmanagedMemory());
+			iteration.setSolutionSetFormat(this.configuration.getSolutionSetFormat().getFormat());
 
 			// register all aggregators
 			for (Map.Entry<String, Aggregator<?>> entry : this.configuration.getAggregators().entrySet()) {

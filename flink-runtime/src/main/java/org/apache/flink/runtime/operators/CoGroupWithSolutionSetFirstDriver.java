@@ -31,6 +31,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.iterative.concurrent.SolutionSetBroker;
 import org.apache.flink.runtime.iterative.task.AbstractIterativeTask;
 import org.apache.flink.runtime.operators.hash.CompactingHashTable;
+import org.apache.flink.runtime.operators.hash.RocksDBTable;
 import org.apache.flink.runtime.operators.util.TaskConfig;
 import org.apache.flink.runtime.util.NonReusingKeyGroupedIterator;
 import org.apache.flink.runtime.util.ReusingKeyGroupedIterator;
@@ -44,6 +45,8 @@ public class CoGroupWithSolutionSetFirstDriver<IT1, IT2, OT> implements Resettab
 	private CompactingHashTable<IT1> hashTable;
 	
 	private JoinHashMap<IT1> objectMap;
+
+	private RocksDBTable<IT1> rocksDBTable;
 	
 	private TypeSerializer<IT2> probeSideSerializer;
 	
@@ -121,6 +124,11 @@ public class CoGroupWithSolutionSetFirstDriver<IT1, IT2, OT> implements Resettab
 				solutionSetSerializer = this.objectMap.getBuildSerializer();
 				solutionSetComparator = this.objectMap.getBuildComparator().duplicate();
 			}
+			else if (table instanceof RocksDBTable) {
+				this.rocksDBTable = (RocksDBTable<IT1>) table;
+				solutionSetSerializer = this.rocksDBTable.getBuildSideSerializer();
+				solutionSetComparator = this.rocksDBTable.getBuildSideComparator().duplicate();
+			}
 			else {
 				throw new RuntimeException("Unrecognized solution set index: " + table);
 			}
@@ -183,7 +191,7 @@ public class CoGroupWithSolutionSetFirstDriver<IT1, IT2, OT> implements Resettab
 						coGroupStub.coGroup(emptySolutionSide, probeSideInput.getValues(), collector);
 					}
 				}
-			} else {
+			} else if (this.objectMap != null) {
 				final JoinHashMap<IT1> join = this.objectMap;
 				final JoinHashMap<IT1>.Prober<IT2> prober = join.createProber(this.probeSideComparator, this.pairComparator);
 				final TypeSerializer<IT1> serializer = join.getBuildSerializer();
@@ -199,6 +207,9 @@ public class CoGroupWithSolutionSetFirstDriver<IT1, IT2, OT> implements Resettab
 						coGroupStub.coGroup(emptySolutionSide, probeSideInput.getValues(), collector);
 					}
 				}
+			} else {
+				// TODO(caojianhua): RocksDB table support object reuse.
+				throw new UnsupportedOperationException("Rocksdb Table does not support object reuse");
 			}
 		} else {
 			final NonReusingKeyGroupedIterator<IT2> probeSideInput = new NonReusingKeyGroupedIterator<IT2>(taskContext.<IT2>getInput(0), probeSideComparator);
@@ -220,7 +231,7 @@ public class CoGroupWithSolutionSetFirstDriver<IT1, IT2, OT> implements Resettab
 						coGroupStub.coGroup(emptySolutionSide, probeSideInput.getValues(), collector);
 					}
 				}
-			} else {
+			} else if (this.objectMap != null) {
 				final JoinHashMap<IT1> join = this.objectMap;
 				final JoinHashMap<IT1>.Prober<IT2> prober = join.createProber(this.probeSideComparator, this.pairComparator);
 				final TypeSerializer<IT1> serializer = join.getBuildSerializer();
@@ -236,6 +247,22 @@ public class CoGroupWithSolutionSetFirstDriver<IT1, IT2, OT> implements Resettab
 						coGroupStub.coGroup(emptySolutionSide, probeSideInput.getValues(), collector);
 					}
 				}
+			} else if (this.rocksDBTable != null) {
+				IT1 buildSideRecord = null;
+				RocksDBTable<IT1>.RocksDBTableProber<IT2> prober = this.rocksDBTable.createProber();
+				final TypeSerializer<IT1> serializer = this.rocksDBTable.getBuildSideSerializer();
+				while (this.running && probeSideInput.nextKey()) {
+					IT2 current = probeSideInput.getCurrent();
+					buildSideRecord = prober.getMatchFor(current);
+					if (buildSideRecord != null) {
+						siIter.set(serializer.copy(buildSideRecord));
+						coGroupStub.coGroup(siIter, probeSideInput.getValues(), collector);
+					} else {
+						coGroupStub.coGroup(emptySolutionSide, probeSideInput.getValues(), collector);
+					}
+				}
+			} else {
+				throw new RuntimeException("Unrecognized solution set handle.");
 			}
 
 		}

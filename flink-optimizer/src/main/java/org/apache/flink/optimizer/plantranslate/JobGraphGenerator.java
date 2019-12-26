@@ -1118,6 +1118,7 @@ public class JobGraphGenerator implements Visitor<PlanNode> {
 		}
 		
 		headConfig.setSolutionSetUnmanaged(iteration.getIterationNode().getIterationContract().isSolutionSetUnManaged());
+		headConfig.setSolutionSetFormat(iteration.getIterationNode().getIterationContract().getSolutionSetFormat());
 		
 		// create the iteration descriptor and the iteration to it
 		IterationDescriptor descr = this.iterations.get(iteration);

@@ -536,6 +536,7 @@ public class ScatterGatherIteration<K, VV, Message, EV>
 			iteration.name(this.configuration.getName("Scatter-gather iteration (" + gatherFunction + " | " + scatterFunction + ")"));
 			iteration.parallelism(this.configuration.getParallelism());
 			iteration.setSolutionSetUnManaged(this.configuration.isSolutionSetUnmanagedMemory());
+			iteration.setSolutionSetFormat(this.configuration.getSolutionSetFormat().getFormat());
 
 			// register all aggregators
 			for (Map.Entry<String, Aggregator<?>> entry : this.configuration.getAggregators().entrySet()) {

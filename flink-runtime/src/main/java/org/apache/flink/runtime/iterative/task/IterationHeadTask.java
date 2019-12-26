@@ -51,7 +51,10 @@ import org.apache.flink.runtime.iterative.io.SerializedUpdateBuffer;
 import org.apache.flink.runtime.operators.BatchTask;
 import org.apache.flink.runtime.operators.Driver;
 import org.apache.flink.runtime.operators.hash.CompactingHashTable;
+import org.apache.flink.runtime.operators.hash.RocksDBTable;
+import org.apache.flink.runtime.operators.hash.RocksDBTable.RocksDBTableIterator;
 import org.apache.flink.runtime.operators.util.TaskConfig;
+import org.apache.flink.runtime.operators.util.TaskConfig.SolutionSetFormat;
 import org.apache.flink.types.Value;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.MutableObjectIterator;
@@ -224,6 +227,17 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 		return new JoinHashMap<BT>(solutionTypeSerializer, solutionTypeComparator);
 	}
 
+	private <BT> RocksDBTable<BT> initRocksDBTable() {
+		final ClassLoader userCodeClassLoader = getUserCodeClassLoader();
+
+		TypeSerializerFactory<BT> solutionTypeSerializerFactory = config.getSolutionSetSerializer(userCodeClassLoader);
+		TypeComparatorFactory<BT> solutionTypeComparatorFactory = config.getSolutionSetComparator(userCodeClassLoader);
+
+		TypeSerializer<BT> solutionTypeSerializer = solutionTypeSerializerFactory.getSerializer();
+		TypeComparator<BT> solutionTypeComparator = solutionTypeComparatorFactory.createComparator();
+		return new RocksDBTable<>(solutionTypeSerializer, solutionTypeComparator);
+	}
+
 	private void readInitialSolutionSet(CompactingHashTable<X> solutionSet, MutableObjectIterator<X> solutionSetInput) throws IOException {
 		solutionSet.open();
 		solutionSet.buildTableWithUniqueKey(solutionSetInput);
@@ -236,6 +250,12 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 		while ((next = solutionSetInput.next(serializer.createInstance())) != null) {
 			solutionSet.insertOrReplace(next);
 		}
+	}
+
+	private void readInitialSolutionSet(RocksDBTable<X> rocksDBTable, MutableObjectIterator<X> solutionSetInput)
+		throws Exception {
+		rocksDBTable.open();
+		rocksDBTable.buildTableWithUniqueKey(solutionSetInput);
 	}
 
 	private SuperstepBarrier initSuperstepBarrier() {
@@ -252,10 +272,11 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 		final String brokerKey = brokerKey();
 		final int workerIndex = getEnvironment().getTaskInfo().getIndexOfThisSubtask();
 
-		final boolean objectSolutionSet = config.isSolutionSetUnmanaged();
+		final SolutionSetFormat solutionSetFormat = calcSolutionSetFormat();
 
 		CompactingHashTable<X> solutionSet = null; // if workset iteration
 		JoinHashMap<X> solutionSetObjectMap = null; // if workset iteration with unmanaged solution set
+		RocksDBTable<X> rocksDBTable = null;
 
 		boolean waitForSolutionSetUpdate = config.getWaitForSolutionSetUpdate();
 		boolean isWorksetIteration = config.getIsWorksetIteration();
@@ -283,15 +304,27 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 				MutableObjectIterator<X> solutionSetInput = (MutableObjectIterator<X>) createInputIterator(inputReaders[initialSolutionSetInput], solutionTypeSerializer);
 
 				// read the initial solution set
-				if (objectSolutionSet) {
-					solutionSetObjectMap = initJoinHashMap();
-					readInitialSolutionSet(solutionSetObjectMap, solutionSetInput);
-					SolutionSetBroker.instance().handIn(brokerKey, solutionSetObjectMap);
-				} else {
-					solutionSet = initCompactingHashTable();
-					readInitialSolutionSet(solutionSet, solutionSetInput);
-					SolutionSetBroker.instance().handIn(brokerKey, solutionSet);
+				LOG.info(formatLogString("starting read initial solution set for [" + currentIteration() + "], solutionSetFormat: " + solutionSetFormat));
+				switch (solutionSetFormat) {
+					case MANAGED_MEMORY:
+						solutionSet = initCompactingHashTable();
+						readInitialSolutionSet(solutionSet, solutionSetInput);
+						SolutionSetBroker.instance().handIn(brokerKey, solutionSet);
+						break;
+					case UNMANAGED_MEMORY:
+						solutionSetObjectMap = initJoinHashMap();
+						readInitialSolutionSet(solutionSetObjectMap, solutionSetInput);
+						SolutionSetBroker.instance().handIn(brokerKey, solutionSetObjectMap);
+						break;
+					case ROCKSDB:
+						rocksDBTable = initRocksDBTable();
+						readInitialSolutionSet(rocksDBTable, solutionSetInput);
+						SolutionSetBroker.instance().handIn(brokerKey, rocksDBTable);
+						break;
+					default:
+						throw new UnsupportedOperationException("Unsupport SolutionSet format: " + solutionSetFormat.getFormat());
 				}
+				LOG.info(formatLogString("finished read initial solution set for [" + currentIteration() + "]"));
 
 				if (waitForSolutionSetUpdate) {
 					solutionSetUpdateBarrier = new SolutionSetUpdateBarrier();
@@ -381,10 +414,18 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 			}
 
 			if (isWorksetIteration) {
-				if (objectSolutionSet) {
-					streamSolutionSetToFinalOutput(solutionSetObjectMap);
-				} else {
-					streamSolutionSetToFinalOutput(solutionSet);
+				switch (solutionSetFormat) {
+					case MANAGED_MEMORY:
+						streamSolutionSetToFinalOutput(solutionSet);
+						break;
+					case UNMANAGED_MEMORY:
+						streamSolutionSetToFinalOutput(solutionSetObjectMap);
+						break;
+					case ROCKSDB:
+						streamSolutionSetToFinalOutput(rocksDBTable);
+						break;
+					default:
+						throw new UnsupportedOperationException("Unsupport SolutionSet format: " + solutionSetFormat.getFormat());
 				}
 			} else {
 				streamOutFinalOutputBulk(new InputViewIterator<X>(superstepResult, this.solutionTypeSerializer.getSerializer()));
@@ -406,6 +447,24 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 			if (solutionSet != null) {
 				solutionSet.close();
 			}
+
+			if (rocksDBTable != null) {
+				rocksDBTable.close();
+			}
+		}
+	}
+
+	private SolutionSetFormat calcSolutionSetFormat() {
+		SolutionSetFormat solutionSetFormat = config.getSolutionSetFormat();
+		if (solutionSetFormat != SolutionSetFormat.UNCONFIGED) {
+			return solutionSetFormat;
+		}
+
+		boolean objectSolutionSet = config.isSolutionSetUnmanaged();
+		if (objectSolutionSet) {
+			return SolutionSetFormat.UNMANAGED_MEMORY;
+		} else {
+			return solutionSetFormat.MANAGED_MEMORY;
 		}
 	}
 
@@ -434,6 +493,17 @@ public class IterationHeadTask<X, Y, S extends Function, OT> extends AbstractIte
 		for (Object e : soluionSet.values()) {
 			output.collect((X) e);
 		}
+	}
+
+	private void streamSolutionSetToFinalOutput(RocksDBTable<X> rocksDBTable)
+		throws IOException {
+		final Collector<X> output = this.finalOutputCollector;
+		RocksDBTableIterator rocksDBTableIterator = rocksDBTable.iterator();
+		X record = null;
+		while ((record = (X) rocksDBTableIterator.next()) != null) {
+			output.collect(record);
+		}
+		rocksDBTableIterator.close();
 	}
 
 	private void feedBackSuperstepResult(DataInputView superstepResult) {

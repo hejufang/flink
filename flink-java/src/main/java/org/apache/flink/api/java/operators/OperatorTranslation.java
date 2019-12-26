@@ -266,6 +266,7 @@ public class OperatorTranslation {
 		iterationOperator.getAggregators().addAll(iterationHead.getAggregators());
 
 		iterationOperator.setSolutionSetUnManaged(iterationHead.isSolutionSetUnManaged());
+		iterationOperator.setSolutionSetFormat(iterationHead.getSolutionSetFormat());
 
 		return iterationOperator;
 	}

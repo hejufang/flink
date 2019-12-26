@@ -79,6 +79,8 @@ public class DeltaIterationBase<ST, WT> extends DualInputOperator<ST, WT, ST, Ab
 	
 	private boolean solutionSetUnManaged;
 
+	private String solutionSetFormat;
+
 	// --------------------------------------------------------------------------------------------
 
 	public DeltaIterationBase(BinaryOperatorInformation<ST, WT, ST> operatorInfo, int keyPosition) {
@@ -271,7 +273,21 @@ public class DeltaIterationBase<ST, WT> extends DualInputOperator<ST, WT, ST, Ab
 	public boolean isSolutionSetUnManaged() {
 		return solutionSetUnManaged;
 	}
-	
+
+	/**
+	 * Gets how to keep the solution set.
+	 * */
+	public String getSolutionSetFormat() {
+		return solutionSetFormat;
+	}
+
+	/**
+	 * Sets how to keep the solution set.
+	 * */
+	public void setSolutionSetFormat(String solutionSetFormat) {
+		this.solutionSetFormat = solutionSetFormat;
+	}
+
 	// --------------------------------------------------------------------------------------------
 	// Place-holder Operators
 	// --------------------------------------------------------------------------------------------

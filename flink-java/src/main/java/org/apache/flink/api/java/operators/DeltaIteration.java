@@ -70,6 +70,8 @@ public class DeltaIteration<ST, WT> {
 
 	private boolean solutionSetUnManaged;
 
+	private String solutionSetFormat;
+
 	public DeltaIteration(ExecutionEnvironment context, TypeInformation<ST> type, DataSet<ST> solutionSet, DataSet<WT> workset, Keys<ST> keys, int maxIterations) {
 		initialSolutionSet = solutionSet;
 		initialWorkset = workset;
@@ -333,6 +335,20 @@ public class DeltaIteration<ST, WT> {
 	 */
 	public boolean isSolutionSetUnManaged() {
 		return solutionSetUnManaged;
+	}
+
+	/**
+	 * Gets how to keep the solution set.
+	 * */
+	public String getSolutionSetFormat() {
+		return solutionSetFormat;
+	}
+
+	/**
+	 * Sets how to keep the solution set.
+	 * */
+	public void setSolutionSetFormat(String solutionSetFormat) {
+		this.solutionSetFormat = solutionSetFormat;
 	}
 
 	// --------------------------------------------------------------------------------------------

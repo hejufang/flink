@@ -40,12 +40,14 @@ import org.apache.flink.runtime.iterative.concurrent.IterationAggregatorBroker;
 import org.apache.flink.runtime.iterative.concurrent.SolutionSetBroker;
 import org.apache.flink.runtime.iterative.convergence.WorksetEmptyConvergenceCriterion;
 import org.apache.flink.runtime.iterative.io.SolutionSetObjectsUpdateOutputCollector;
+import org.apache.flink.runtime.iterative.io.SolutionSetRocksDBUpdateOutputCollector;
 import org.apache.flink.runtime.iterative.io.SolutionSetUpdateOutputCollector;
 import org.apache.flink.runtime.iterative.io.WorksetUpdateOutputCollector;
 import org.apache.flink.runtime.operators.BatchTask;
 import org.apache.flink.runtime.operators.Driver;
 import org.apache.flink.runtime.operators.ResettableDriver;
 import org.apache.flink.runtime.operators.hash.CompactingHashTable;
+import org.apache.flink.runtime.operators.hash.RocksDBTable;
 import org.apache.flink.runtime.operators.util.DistributedRuntimeUDFContext;
 import org.apache.flink.runtime.operators.util.TaskConfig;
 import org.apache.flink.types.Value;
@@ -351,6 +353,10 @@ public abstract class AbstractIterativeTask<S extends Function, OT> extends Batc
 			@SuppressWarnings("unchecked")
 			JoinHashMap<OT> map = (JoinHashMap<OT>) ss;
 			return new SolutionSetObjectsUpdateOutputCollector<OT>(map, delegate);
+		} else if (ss instanceof RocksDBTable) {
+			@SuppressWarnings("unchecked")
+			RocksDBTable<OT> rocksDBTable = (RocksDBTable<OT>) ss;
+			return new SolutionSetRocksDBUpdateOutputCollector<OT>(rocksDBTable, delegate);
 		} else {
 			throw new RuntimeException("Unrecognized solution set handle: " + ss);
 		}
