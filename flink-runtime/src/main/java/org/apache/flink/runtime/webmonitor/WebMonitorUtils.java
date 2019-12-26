@@ -341,11 +341,13 @@ public final class WebMonitorUtils {
 		if (configuration == null) {
 			return null;
 		} else {
-			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
+			String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
 				ConfigConstants.APPLICATION_NAME_DEFAULT);
-			String dataSource = configuration.getString(ConfigConstants.DATA_SOURCE_KEY,
-				ConfigConstants.DATA_SOURCE_DEFAULT);
-			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, applicatioName, dataSource);
+			String dataSource = configuration.getString(ConfigConstants.DTOP_DATA_SOURCE_KEY,
+				ConfigConstants.DTOP_DATA_SOURCE_DEFAULT);
+			String database = configuration.getString(ConfigConstants.DTOP_DATABASE_KEY,
+				ConfigConstants.DTOP_DATABASE_DEFAULT);
+			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, applicationName, dataSource, database);
 			return dtop;
 		}
 	}

@@ -2064,11 +2064,15 @@ public final class ConfigConstants {
 		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
 	public static final String DC_KEY = "dc";
 	public static final String DC_DEFAULT = "cn";
-	public static final String DATA_SOURCE_KEY = "dataSource";
-	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String DTOP_DATA_SOURCE_KEY = "dtop.data_source";
+	public static final String DTOP_DATA_SOURCE_DEFAULT = "dtop_cn";
+	public static final String DTOP_DATABASE_KEY = "dtop.database";
+	public static final String DTOP_DATABASE_DEFAULT = "dtop";
+	public static final String DASHBOARD_DATA_SOURCE_KEY = "dashboard.data_source";
+	public static final String DASHBOARD_DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String FILES = "files";
 	public static final String DTOP_TEMPLATE =
-		"https://grafana.byted.org/dashboard/db/flink-resource-monitor?orgId=1&var-appName=%s&var-datasource=%s";
+		"https://grafana.byted.org/dashboard/db/flink-resource-monitor-new?orgId=1&refresh=1m&var-appName=%s&var-datasource=%s&var-database=%s";
 	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
 	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String JOB_NAME_KEY = "jobName";

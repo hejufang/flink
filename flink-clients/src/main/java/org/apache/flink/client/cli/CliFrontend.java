@@ -1173,9 +1173,9 @@ public class CliFrontend {
 
 	public static void putSystemProperties(Configuration configuration) {
 		// Use data source when register dashboard.
-		System.setProperty(ConfigConstants.DATA_SOURCE_KEY,
-			configuration.getString(ConfigConstants.DATA_SOURCE_KEY,
-				ConfigConstants.DATA_SOURCE_DEFAULT));
+		System.setProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+			configuration.getString(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT));
 
 		// Use dc when register dashboard
 		System.setProperty(ConfigConstants.DC_KEY,

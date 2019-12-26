@@ -1891,8 +1891,8 @@ public abstract class StreamExecutionEnvironment {
 			node.setOperatorName(operatorName);
 		}
 		JobGraph jobGraph = streamGraph.getJobGraph();
-		String dataSource = System.getProperty(ConfigConstants.DATA_SOURCE_KEY,
-			ConfigConstants.DATA_SOURCE_DEFAULT);
+		String dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+			ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
 		LOG.info("dataSource = {}", dataSource);
 		try {
 			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph);
