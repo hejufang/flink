@@ -18,9 +18,11 @@
 
 package org.apache.flink.client.program;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.Plan;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.optimizer.DataStatistics;
 import org.apache.flink.optimizer.Optimizer;
@@ -64,6 +66,10 @@ public class PackagedProgramUtils {
 			final OptimizerPlanEnvironment optimizerPlanEnvironment = new OptimizerPlanEnvironment(optimizer);
 
 			optimizerPlanEnvironment.setParallelism(defaultParallelism);
+
+			optimizerPlanEnvironment.getConfig().setDefaultPartitioner(
+					configuration.getEnum(
+							ExecutionConfig.DefaultPartitioner.class, CoreOptions.DEFAULT_STREAM_PARTITIONER));
 
 			flinkPlan = optimizerPlanEnvironment.getOptimizedPlan(packagedProgram);
 		} else {

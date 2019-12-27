@@ -285,6 +285,10 @@ public class CliFrontend {
 			RunOptions runOptions,
 			PackagedProgram program) throws ProgramInvocationException, FlinkException {
 		final ClusterDescriptor<T> clusterDescriptor = customCommandLine.createClusterDescriptor(commandLine);
+		Configuration effectiveConfiguration = clusterDescriptor.getFlinkConfiguration();
+		if (effectiveConfiguration == null) {
+			effectiveConfiguration = configuration;
+		}
 
 		ClusterClient<T> client = null;
 		try {
@@ -296,17 +300,17 @@ public class CliFrontend {
 				int parallelism = customCommandLine.adjustDefaultParallelism(defaultParallelism, commandLine, runOptions);
 				LOG.info("Set default parallelism to " + parallelism);
 
-				FlinkPlan flinkPlan = PackagedProgramUtils.createFlinkPlan(program, configuration, parallelism);
+				FlinkPlan flinkPlan = PackagedProgramUtils.createFlinkPlan(program, effectiveConfiguration, parallelism);
 
 				if (flinkPlan instanceof StreamingPlan) {
 					// enable gang scheduler when stream job
 					clusterDescriptor.setDefaultConfigurationForStream();
 				}
 
-				final boolean perJobRestSubmitEnabled = configuration.getBoolean(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED,
+				final boolean perJobRestSubmitEnabled = effectiveConfiguration.getBoolean(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED,
 					ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED_DEFAULT);
 
-				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(flinkPlan, program, configuration);
+				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(flinkPlan, program, effectiveConfiguration);
 				if (perJobRestSubmitEnabled) {
 					LOG.info("Deploy job through RestClusterClient to avoid upload jobGraph file to HDFS.");
 					try {

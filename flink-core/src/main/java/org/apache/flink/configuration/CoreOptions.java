@@ -225,6 +225,11 @@ public class CoreOptions {
 		.defaultValue(1)
 		.withDescription("Default parallelism for jobs.");
 
+	public static final ConfigOption<String> DEFAULT_STREAM_PARTITIONER = ConfigOptions
+		.key("stream-partitioner.default")
+		.defaultValue("rescale")
+		.withDescription("Default partitioner for StreamGraph.");
+
 	// ------------------------------------------------------------------------
 	//  file systems
 	// ------------------------------------------------------------------------

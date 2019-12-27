@@ -19,6 +19,7 @@
 package org.apache.flink.client.deployment;
 
 import org.apache.flink.client.program.ClusterClient;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.util.FlinkException;
 
@@ -75,4 +76,6 @@ public interface ClusterDescriptor<T> extends AutoCloseable {
 	void killCluster(T clusterId) throws FlinkException;
 
 	void setDefaultConfigurationForStream();
+
+	Configuration getFlinkConfiguration();
 }

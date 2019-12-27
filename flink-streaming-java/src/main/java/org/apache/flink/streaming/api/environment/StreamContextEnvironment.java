@@ -42,6 +42,9 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 		if (ctx.getParallelism() > 0) {
 			setParallelism(ctx.getParallelism());
 		}
+		if (ctx.getConfig().getDefaultPartitioner() != null) {
+			getConfig().setDefaultPartitioner(ctx.getConfig().getDefaultPartitioner());
+		}
 	}
 
 	@Override

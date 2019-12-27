@@ -18,9 +18,12 @@
 
 package org.apache.flink.client.program;
 
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.ExecutionEnvironmentFactory;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 
 import java.net.URL;
@@ -49,9 +52,11 @@ public class ContextEnvironmentFactory implements ExecutionEnvironmentFactory {
 
 	private SavepointRestoreSettings savepointSettings;
 
+	private Configuration configuration;
+
 	public ContextEnvironmentFactory(ClusterClient<?> client, List<URL> jarFilesToAttach,
 			List<URL> classpathsToAttach, ClassLoader userCodeClassLoader, int defaultParallelism,
-			boolean isDetached, SavepointRestoreSettings savepointSettings) {
+			boolean isDetached, SavepointRestoreSettings savepointSettings, Configuration configuration) {
 		this.client = client;
 		this.jarFilesToAttach = jarFilesToAttach;
 		this.classpathsToAttach = classpathsToAttach;
@@ -59,6 +64,7 @@ public class ContextEnvironmentFactory implements ExecutionEnvironmentFactory {
 		this.defaultParallelism = defaultParallelism;
 		this.isDetached = isDetached;
 		this.savepointSettings = savepointSettings;
+		this.configuration = configuration;
 	}
 
 	@Override
@@ -73,6 +79,8 @@ public class ContextEnvironmentFactory implements ExecutionEnvironmentFactory {
 		if (defaultParallelism > 0) {
 			lastEnvCreated.setParallelism(defaultParallelism);
 		}
+		lastEnvCreated.getConfig().setDefaultPartitioner(
+				configuration.getEnum(ExecutionConfig.DefaultPartitioner.class, CoreOptions.DEFAULT_STREAM_PARTITIONER));
 		return lastEnvCreated;
 	}
 

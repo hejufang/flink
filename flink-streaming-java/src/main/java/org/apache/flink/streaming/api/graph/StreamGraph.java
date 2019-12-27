@@ -42,6 +42,7 @@ import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.transformations.ShuffleMode;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RebalancePartitioner;
+import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.tasks.OneInputStreamTask;
 import org.apache.flink.streaming.runtime.tasks.SourceStreamTask;
@@ -479,7 +480,11 @@ public class StreamGraph extends StreamingPlan {
 			if (partitioner == null && upstreamNode.getParallelism() == downstreamNode.getParallelism()) {
 				partitioner = new ForwardPartitioner<Object>();
 			} else if (partitioner == null) {
-				partitioner = new RebalancePartitioner<Object>();
+				if (executionConfig.getDefaultPartitioner() == ExecutionConfig.DefaultPartitioner.REBALANCE) {
+					partitioner = new RebalancePartitioner<Object>();
+				} else {
+					partitioner = new RescalePartitioner<Object>();
+				}
 			}
 
 			if (partitioner instanceof ForwardPartitioner) {

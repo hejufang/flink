@@ -182,6 +182,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 
 	private LinkedHashSet<Class<?>> registeredPojoTypes = new LinkedHashSet<>();
 
+	private DefaultPartitioner defaultPartitioner;
+
 	// --------------------------------------------------------------------------------------------
 
 	/**
@@ -972,6 +974,14 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		this.failTaskOnCheckpointError = failTaskOnCheckpointError;
 	}
 
+	public DefaultPartitioner getDefaultPartitioner() {
+		return defaultPartitioner;
+	}
+
+	public void setDefaultPartitioner(DefaultPartitioner defaultPartitioner) {
+		this.defaultPartitioner = defaultPartitioner;
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof ExecutionConfig) {
@@ -1095,5 +1105,13 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		 * Clean all the fields recursively.
 		 */
 		RECURSIVE
+	}
+
+	/**
+	 * Configuration settings for default partitioner.
+	 */
+	public enum DefaultPartitioner {
+		REBALANCE,
+		RESCALE
 	}
 }

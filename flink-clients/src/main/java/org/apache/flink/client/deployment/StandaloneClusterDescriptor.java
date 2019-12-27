@@ -75,6 +75,10 @@ public class StandaloneClusterDescriptor implements ClusterDescriptor<Standalone
 		// nothing to do
 	}
 
+	public Configuration getFlinkConfiguration() {
+		return config;
+	}
+
 	@Override
 	public void close() throws Exception {
 		// nothing to do

@@ -272,7 +272,7 @@ public abstract class ClusterClient<T> {
 
 				ContextEnvironmentFactory factory = new ContextEnvironmentFactory(this, libraries,
 				prog.getClasspaths(), prog.getUserCodeClassLoader(), parallelism, isDetached(),
-				prog.getSavepointSettings());
+				prog.getSavepointSettings(), flinkConfig);
 				ContextEnvironment.setAsContext(factory);
 
 				try {

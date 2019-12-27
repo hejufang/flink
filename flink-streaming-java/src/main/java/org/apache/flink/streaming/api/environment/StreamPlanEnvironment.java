@@ -50,6 +50,10 @@ public class StreamPlanEnvironment extends StreamExecutionEnvironment {
 			// determine parallelism
 			setParallelism(GlobalConfiguration.loadConfiguration().getInteger(CoreOptions.DEFAULT_PARALLELISM));
 		}
+
+		if (env.getConfig().getDefaultPartitioner() != null) {
+			getConfig().setDefaultPartitioner(env.getConfig().getDefaultPartitioner());
+		}
 	}
 
 	@Override
