@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.ConfigGroup;
 import org.apache.flink.annotation.docs.ConfigGroups;
 import org.apache.flink.annotation.docs.Documentation;
+import org.apache.flink.api.common.ExecutionConfig.DefaultPartitioner;
 import org.apache.flink.configuration.description.Description;
 
 import org.apache.flink.shaded.guava18.com.google.common.base.Splitter;
@@ -295,6 +296,12 @@ public class CoreOptions {
 		.key("parallelism.default")
 		.defaultValue(1)
 		.withDescription("Default parallelism for jobs.");
+
+	public static final ConfigOption<DefaultPartitioner> DEFAULT_STREAM_PARTITIONER = ConfigOptions
+		.key("stream-partitioner.default")
+		.enumType(DefaultPartitioner.class)
+		.defaultValue(DefaultPartitioner.RESCALE)
+		.withDescription("Default partitioner for StreamGraph.");
 
 	// ------------------------------------------------------------------------
 	//  file systems

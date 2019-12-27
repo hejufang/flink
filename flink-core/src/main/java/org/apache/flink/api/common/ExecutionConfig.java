@@ -192,6 +192,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 
 	private LinkedHashSet<Class<?>> registeredPojoTypes = new LinkedHashSet<>();
 
+	private DefaultPartitioner defaultPartitioner = DefaultPartitioner.RESCALE;
+
 	// --------------------------------------------------------------------------------------------
 
 	/**
@@ -1001,6 +1003,14 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		this.useMaxSourceParallelismAsDefaultParallelism = useMaxSourceParallelismAsDefaultParallelism;
 	}
 
+	public DefaultPartitioner getDefaultPartitioner() {
+		return defaultPartitioner;
+	}
+
+	public void setDefaultPartitioner(DefaultPartitioner defaultPartitioner) {
+		this.defaultPartitioner = defaultPartitioner;
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof ExecutionConfig) {
@@ -1216,6 +1226,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			.ifPresent(this::setMaxParallelism);
 		configuration.getOptional(CoreOptions.DEFAULT_PARALLELISM)
 			.ifPresent(this::setParallelism);
+		configuration.getOptional(CoreOptions.DEFAULT_STREAM_PARTITIONER)
+			.ifPresent(this::setDefaultPartitioner);
 		configuration.getOptional(PipelineOptions.USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM)
 			.ifPresent(this::setUseMaxSourceParallelismAsDefaultParallelism);
 		configuration.getOptional(PipelineOptions.OBJECT_REUSE)
@@ -1325,5 +1337,13 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		public int hashCode() {
 			return Objects.hash(super.hashCode(), properties);
 		}
+	}
+
+	/**
+	 * Configuration settings for default partitioner.
+	 */
+	public enum DefaultPartitioner {
+		REBALANCE,
+		RESCALE
 	}
 }
