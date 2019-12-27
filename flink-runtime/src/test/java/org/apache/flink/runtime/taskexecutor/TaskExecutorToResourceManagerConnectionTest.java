@@ -31,6 +31,7 @@ import org.apache.flink.runtime.registration.RetryingRegistrationConfiguration;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.utils.TestingResourceManagerGateway;
 import org.apache.flink.runtime.rpc.TestingRpcService;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.After;
@@ -39,6 +40,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -66,6 +68,8 @@ public class TaskExecutorToResourceManagerConnectionTest extends TestLogger {
 	private static final int TASK_MANAGER_DATA_PORT = 12345;
 
 	private static final HardwareDescription TASK_MANAGER_HARDWARE_DESCRIPTION = HardwareDescription.extractFromSystem(Long.MAX_VALUE);
+
+	private static final TaskManagerLocation TASK_MANAGER_LOCATION = new TaskManagerLocation(TASK_MANAGER_RESOURCE_ID, InetAddress.getLoopbackAddress(), TASK_MANAGER_DATA_PORT);
 
 	private TestingRpcService rpcService;
 
@@ -107,6 +111,7 @@ public class TaskExecutorToResourceManagerConnectionTest extends TestLogger {
 			RESOURCE_MANAGER_ADDRESS,
 			RESOURCE_MANAGER_ID,
 			Executors.directExecutor(),
+			TASK_MANAGER_LOCATION,
 			new TestRegistrationConnectionListener<>());
 	}
 

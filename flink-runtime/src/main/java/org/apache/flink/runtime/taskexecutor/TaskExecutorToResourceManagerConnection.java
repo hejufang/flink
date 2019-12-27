@@ -30,6 +30,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.rpc.RpcService;
 
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.slf4j.Logger;
 
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +56,8 @@ public class TaskExecutorToResourceManagerConnection
 
 	private final HardwareDescription hardwareDescription;
 
+	private final TaskManagerLocation taskManagerLocation;
+
 	private final RegistrationConnectionListener<TaskExecutorToResourceManagerConnection, TaskExecutorRegistrationSuccess> registrationListener;
 
 	public TaskExecutorToResourceManagerConnection(
@@ -68,6 +71,7 @@ public class TaskExecutorToResourceManagerConnection
 			String resourceManagerAddress,
 			ResourceManagerId resourceManagerId,
 			Executor executor,
+			TaskManagerLocation taskManagerLocation,
 			RegistrationConnectionListener<TaskExecutorToResourceManagerConnection, TaskExecutorRegistrationSuccess> registrationListener) {
 
 		super(log, resourceManagerAddress, resourceManagerId, executor);
@@ -78,6 +82,7 @@ public class TaskExecutorToResourceManagerConnection
 		this.retryingRegistrationConfiguration = checkNotNull(retryingRegistrationConfiguration);
 		this.dataPort = dataPort;
 		this.hardwareDescription = checkNotNull(hardwareDescription);
+		this.taskManagerLocation = checkNotNull(taskManagerLocation);
 		this.registrationListener = checkNotNull(registrationListener);
 	}
 
@@ -92,7 +97,8 @@ public class TaskExecutorToResourceManagerConnection
 			taskManagerAddress,
 			taskManagerResourceId,
 			dataPort,
-			hardwareDescription);
+			hardwareDescription,
+			taskManagerLocation);
 	}
 
 	@Override
@@ -125,6 +131,8 @@ public class TaskExecutorToResourceManagerConnection
 
 		private final HardwareDescription hardwareDescription;
 
+		private final TaskManagerLocation taskManagerLocation;
+
 		ResourceManagerRegistration(
 				Logger log,
 				RpcService rpcService,
@@ -134,13 +142,15 @@ public class TaskExecutorToResourceManagerConnection
 				String taskExecutorAddress,
 				ResourceID resourceID,
 				int dataPort,
-				HardwareDescription hardwareDescription) {
+				HardwareDescription hardwareDescription,
+				TaskManagerLocation taskManagerLocation) {
 
 			super(log, rpcService, "ResourceManager", ResourceManagerGateway.class, targetAddress, resourceManagerId, retryingRegistrationConfiguration);
 			this.taskExecutorAddress = checkNotNull(taskExecutorAddress);
 			this.resourceID = checkNotNull(resourceID);
 			this.dataPort = dataPort;
 			this.hardwareDescription = checkNotNull(hardwareDescription);
+			this.taskManagerLocation = checkNotNull(taskManagerLocation);
 		}
 
 		@Override
@@ -153,6 +163,7 @@ public class TaskExecutorToResourceManagerConnection
 				resourceID,
 				dataPort,
 				hardwareDescription,
+				taskManagerLocation,
 				timeout);
 		}
 	}

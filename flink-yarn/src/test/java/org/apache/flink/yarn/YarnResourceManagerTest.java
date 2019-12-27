@@ -51,6 +51,7 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.RunnableWithException;
@@ -81,6 +82,7 @@ import org.junit.rules.TemporaryFolder;
 import javax.annotation.Nullable;
 
 import java.io.File;
+import java.net.InetAddress;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.HashMap;
@@ -395,6 +397,7 @@ public class YarnResourceManagerTest extends TestLogger {
 						taskManagerResourceId,
 						dataPort,
 						hardwareDescription,
+						new TaskManagerLocation(taskManagerResourceId, InetAddress.getLoopbackAddress(), dataPort),
 						Time.seconds(10L))
 					.thenCompose(
 						(RegistrationResponse response) -> {

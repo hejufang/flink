@@ -135,6 +135,16 @@ common:
   # subpartition type
   taskmanager.network.bounded-blocking-subpartition-type: file
 
+  # blacklist
+  blacklist.enabled: false
+  blacklist.job.max-task-failure-per-host: 2
+  blacklist.session.max-job-failure-per-host: 2
+  blacklist.session.max-taskmanager-failure-per-host: 2
+  blacklist.job-blacklist-length: 10
+  blacklist.session-blacklist-length: 10
+  blacklist.failure-timeout: "60 min"
+  blacklist.check-interval: "5 min"
+
 flink:
   dc: cn
   clusterName: flink

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.resourcemanager.registration;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
 import org.apache.flink.runtime.instance.HardwareDescription;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.Preconditions;
 
 /**
@@ -34,17 +35,21 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 
 	private final HardwareDescription hardwareDescription;
 
+	private final TaskManagerLocation taskManagerLocation;
+
 	public WorkerRegistration(
 			TaskExecutorGateway taskExecutorGateway,
 			WorkerType worker,
 			int dataPort,
-			HardwareDescription hardwareDescription) {
+			HardwareDescription hardwareDescription,
+			TaskManagerLocation taskManagerLocation) {
 
 		super(worker.getResourceID(), taskExecutorGateway);
 
 		this.worker = Preconditions.checkNotNull(worker);
 		this.dataPort = dataPort;
 		this.hardwareDescription = Preconditions.checkNotNull(hardwareDescription);
+		this.taskManagerLocation = Preconditions.checkNotNull(taskManagerLocation);
 	}
 
 	public WorkerType getWorker() {
@@ -57,5 +62,9 @@ public class WorkerRegistration<WorkerType extends ResourceIDRetrievable> extend
 
 	public HardwareDescription getHardwareDescription() {
 		return hardwareDescription;
+	}
+
+	public TaskManagerLocation getTaskManagerLocation() {
+		return taskManagerLocation;
 	}
 }

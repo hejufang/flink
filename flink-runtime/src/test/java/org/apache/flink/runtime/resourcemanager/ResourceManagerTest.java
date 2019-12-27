@@ -47,6 +47,7 @@ import org.apache.flink.runtime.rpc.TestingRpcService;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.TestLogger;
@@ -59,6 +60,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -175,6 +177,7 @@ public class ResourceManagerTest extends TestLogger {
 			taskExecutorId,
 			dataPort,
 			hardwareDescription,
+			new TaskManagerLocation(taskExecutorId, InetAddress.getLoopbackAddress(), dataPort),
 			TestingUtils.TIMEOUT());
 
 		assertThat(registrationFuture.get(), instanceOf(RegistrationResponse.Success.class));

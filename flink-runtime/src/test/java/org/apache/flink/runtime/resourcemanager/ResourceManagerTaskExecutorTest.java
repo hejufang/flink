@@ -48,6 +48,7 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutor;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
@@ -61,6 +62,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.net.InetAddress;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -240,8 +242,9 @@ public class ResourceManagerTaskExecutorTest extends TestLogger {
 					},
 					TestingUtils.defaultExecutor()));
 
+			TaskManagerLocation taskManagerLocation = new TaskManagerLocation(taskExecutorResourceID, InetAddress.getLoopbackAddress(), dataPort);
 			CompletableFuture<RegistrationResponse> firstFuture =
-				rmGateway.registerTaskExecutor(taskExecutorGateway.getAddress(), taskExecutorResourceID, dataPort, hardwareDescription, fastTimeout);
+				rmGateway.registerTaskExecutor(taskExecutorGateway.getAddress(), taskExecutorResourceID, dataPort, hardwareDescription, taskManagerLocation, fastTimeout);
 			try {
 				firstFuture.get();
 				fail("Should have failed because connection to taskmanager is delayed beyond timeout");
@@ -254,7 +257,7 @@ public class ResourceManagerTaskExecutorTest extends TestLogger {
 			// second registration after timeout is with no delay, expecting it to be succeeded
 			rpcService.resetRpcGatewayFutureFunction();
 			CompletableFuture<RegistrationResponse> secondFuture =
-				rmGateway.registerTaskExecutor(taskExecutorGateway.getAddress(), taskExecutorResourceID, dataPort, hardwareDescription, TIMEOUT);
+				rmGateway.registerTaskExecutor(taskExecutorGateway.getAddress(), taskExecutorResourceID, dataPort, hardwareDescription, taskManagerLocation, TIMEOUT);
 			RegistrationResponse response = secondFuture.get();
 			assertTrue(response instanceof TaskExecutorRegistrationSuccess);
 
@@ -344,6 +347,7 @@ public class ResourceManagerTaskExecutorTest extends TestLogger {
 			taskExecutorResourceID,
 			dataPort,
 			hardwareDescription,
+			new TaskManagerLocation(taskExecutorResourceID, InetAddress.getLoopbackAddress(), dataPort),
 			TIMEOUT);
 	}
 }

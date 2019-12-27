@@ -42,6 +42,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.runtime.taskexecutor.FileType;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutor;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import javax.annotation.Nullable;
 
@@ -106,6 +107,7 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 		ResourceID resourceId,
 		int dataPort,
 		HardwareDescription hardwareDescription,
+		TaskManagerLocation taskManagerLocation,
 		@RpcTimeout Time timeout);
 
 	/**

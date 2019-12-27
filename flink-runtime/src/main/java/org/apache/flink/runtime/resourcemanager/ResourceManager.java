@@ -26,6 +26,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.blacklisttracker.BlacklistConfiguration;
+import org.apache.flink.runtime.blacklisttracker.SessionBlacklistTracker;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -71,6 +73,7 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.clock.SystemClock;
 import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
@@ -140,6 +143,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	/** The slot manager maintains the available slots. */
 	private final SlotManager slotManager;
 
+	protected SessionBlacklistTracker sessionBlacklistTracker;
+
 	private final ClusterInformation clusterInformation;
 
 	private final JobManagerMetricGroup jobManagerMetricGroup;
@@ -193,9 +198,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			clusterInformation,
 			fatalErrorHandler,
 			jobManagerMetricGroup,
-			failureRater
-			);
+			failureRater);
 		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
+		BlacklistConfiguration blacklistConfiguration = BlacklistConfiguration.fromConfiguration(flinkConfig);
+		this.sessionBlacklistTracker = SessionBlacklistTracker.fromConfiguration(blacklistConfiguration);
 	}
 
 	public ResourceManager(
@@ -297,6 +303,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			slotManager.close();
 		} catch (Exception e) {
 			exception = ExceptionUtils.firstOrSuppressed(e, exception);
+		}
+
+		if (sessionBlacklistTracker != null) {
+			try {
+				sessionBlacklistTracker.close();
+			} catch (Exception e) {
+				exception = ExceptionUtils.firstOrSuppressed(e, exception);
+			}
 		}
 
 		try {
@@ -414,6 +428,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final ResourceID taskExecutorResourceId,
 			final int dataPort,
 			final HardwareDescription hardwareDescription,
+			final TaskManagerLocation taskManagerLocation,
 			final Time timeout) {
 
 		CompletableFuture<TaskExecutorGateway> taskExecutorGatewayFuture = getRpcService().connect(taskExecutorAddress, TaskExecutorGateway.class);
@@ -431,7 +446,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 							taskExecutorAddress,
 							taskExecutorResourceId,
 							dataPort,
-							hardwareDescription);
+							hardwareDescription,
+							taskManagerLocation);
 					}
 				} else {
 					log.info("Ignoring outdated TaskExecutorGateway connection.");
@@ -756,7 +772,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			String taskExecutorAddress,
 			ResourceID taskExecutorResourceId,
 			int dataPort,
-			HardwareDescription hardwareDescription) {
+			HardwareDescription hardwareDescription,
+			TaskManagerLocation taskManagerLocation) {
 		WorkerRegistration<WorkerType> oldRegistration = taskExecutors.remove(taskExecutorResourceId);
 		if (oldRegistration != null) {
 			// TODO :: suggest old taskExecutor to stop itself
@@ -766,7 +783,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			slotManager.unregisterTaskManager(oldRegistration.getInstanceID());
 		}
 
-		final WorkerType newWorker = workerStarted(taskExecutorResourceId);
+		final WorkerType newWorker = workerStarted(taskExecutorResourceId, taskManagerLocation);
 
 		if (newWorker == null) {
 			log.warn("Discard registration from TaskExecutor {} at ({}) because the framework did " +
@@ -774,9 +791,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			return new RegistrationResponse.Decline("unrecognized TaskExecutor");
 		} else {
 			WorkerRegistration<WorkerType> registration =
-				new WorkerRegistration<>(taskExecutorGateway, newWorker, dataPort, hardwareDescription);
+				new WorkerRegistration<>(taskExecutorGateway, newWorker, dataPort, hardwareDescription, taskManagerLocation);
 
-			log.info("Registering TaskManager with ResourceID {} ({}) at ResourceManager", taskExecutorResourceId, taskExecutorAddress);
+			log.info("Registering TaskManager with ResourceID {} ({}) at ResourceManager", taskExecutorResourceId, taskManagerLocation);
 			taskExecutors.put(taskExecutorResourceId, registration);
 
 			taskManagerHeartbeatManager.monitorTarget(taskExecutorResourceId, new HeartbeatTarget<Void>() {
@@ -1004,6 +1021,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	}
 
+	protected void recordWorkerFailure(ResourceID resourceID, String cause) {
+		recordWorkerFailure();
+		if (sessionBlacklistTracker != null) {
+			sessionBlacklistTracker.taskManagerFailure(taskExecutors.get(resourceID).getTaskManagerLocation(), cause, System.currentTimeMillis());
+		}
+	}
+
 	private void cancelAllPendingSlotRequests(Exception cause) {
 		slotManager.cancelAllPendingSlotRequests(cause);
 	}
@@ -1092,6 +1116,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		startHeartbeatServices();
 
 		slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
+		if (sessionBlacklistTracker != null) {
+			sessionBlacklistTracker.start(getMainThreadExecutor(), new ResourceActionsImpl());
+		}
 	}
 
 	/**
@@ -1108,6 +1135,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				setFencingToken(null);
 
 				slotManager.suspend();
+
+				if (sessionBlacklistTracker != null) {
+					sessionBlacklistTracker.clearAll();
+				}
 
 				stopHeartbeatServices();
 
@@ -1232,6 +1263,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 */
 	protected abstract WorkerType workerStarted(ResourceID resourceID);
 
+	protected WorkerType workerStarted(ResourceID resourceID, TaskManagerLocation taskManagerLocation) {
+		return workerStarted(resourceID);
+	}
+
 	/**
 	 * Stops the given worker.
 	 *
@@ -1246,6 +1281,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 */
 	protected void setFailUnfulfillableRequest(boolean failUnfulfillableRequest) {
 		slotManager.setFailUnfulfillableRequest(failUnfulfillableRequest);
+	}
+
+	public void onBlacklistUpdated() {
+		log.info("Received onBlacklistUpdated, but nothing can do.");
+	}
+
+	protected void validateSessionBlacklistNotNull() {
+		assert sessionBlacklistTracker != null;
 	}
 
 	// ------------------------------------------------------------------------
@@ -1286,6 +1329,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					onFatalError(exception);
 				}
 			}
+		}
+
+		@Override
+		public void notifyBlacklistUpdated() {
+			validateRunsInMainThread();
+			validateSessionBlacklistNotNull();
+			onBlacklistUpdated();
 		}
 	}
 
