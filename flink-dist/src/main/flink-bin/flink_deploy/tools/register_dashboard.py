@@ -7,6 +7,9 @@ from http_util import HttpUtil
 from yaml_util import YamlUtil
 from conf_utils import ConfUtils
 
+DASHBOARD_DATA_SOURCE_KEY_1_5 = "dataSource"
+DASHBOARD_DATA_SOURCE_KEY_1_9 = "dashboard.data_source"
+
 
 class RegisterDashboard(object):
     """ Registers dashboard for a given topology """
@@ -53,7 +56,10 @@ class RegisterDashboard(object):
         cluster_name = self.cluster_name
         if cluster_name is None or not cluster_name.strip():
             cluster_name = "flink_independent_yarn"
-        data_source = self.flink_conf.get("dataSource")
+        if self.flink_version == "1.5":
+            data_source = self.flink_conf.get(DASHBOARD_DATA_SOURCE_KEY_1_5)
+        else:
+            data_source = self.flink_conf.get(DASHBOARD_DATA_SOURCE_KEY_1_9)
         if data_source is None:
             data_source = "bytetsd"
         d = DashboardTemplate()
