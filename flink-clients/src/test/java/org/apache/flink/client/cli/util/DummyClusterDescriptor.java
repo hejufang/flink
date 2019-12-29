@@ -53,6 +53,11 @@ public class DummyClusterDescriptor<T> implements ClusterDescriptor<T> {
 	}
 
 	@Override
+	public ClusterClient<T> deploySessionCluster(ClusterSpecification clusterSpecification, boolean detached) {
+		return clusterClient;
+	}
+
+	@Override
 	public ClusterClient<T> deployJobCluster(
 			ClusterSpecification clusterSpecification,
 			JobGraph jobGraph,

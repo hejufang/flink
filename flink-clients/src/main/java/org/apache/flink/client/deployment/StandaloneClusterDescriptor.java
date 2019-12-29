@@ -58,6 +58,11 @@ public class StandaloneClusterDescriptor implements ClusterDescriptor<Standalone
 	}
 
 	@Override
+	public RestClusterClient<StandaloneClusterId> deploySessionCluster(ClusterSpecification clusterSpecification, boolean detached) {
+		throw new UnsupportedOperationException("Can't deploy a standalone cluster.");
+	}
+
+	@Override
 	public RestClusterClient<StandaloneClusterId> deployJobCluster(
 			ClusterSpecification clusterSpecification,
 			JobGraph jobGraph,

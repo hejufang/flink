@@ -321,3 +321,10 @@ swan:
   clusterName: swan
   high-availability.zookeeper.quorum: 10.230.2.2:2181,10.230.2.10:2181,10.230.2.7:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
+
+koala:
+  dc: ka2
+  clusterName: koala
+  high-availability.zookeeper.quorum: 10.230.9.118:2181,10.230.9.121:2181,10.230.9.102:2181
+  hdfs.prefix: hdfs://nestbackend/flink_swan
+

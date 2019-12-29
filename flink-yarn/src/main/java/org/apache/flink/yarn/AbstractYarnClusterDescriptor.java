@@ -421,6 +421,20 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	}
 
 	@Override
+	public ClusterClient<ApplicationId> deploySessionCluster(ClusterSpecification clusterSpecification, boolean detached) throws ClusterDeploymentException {
+		try {
+			return deployInternal(
+					clusterSpecification,
+					"Flink session cluster",
+					getYarnSessionClusterEntrypoint(),
+					null,
+					detached);
+		} catch (Exception e) {
+			throw new ClusterDeploymentException("Couldn't deploy Yarn session cluster", e);
+		}
+	}
+
+	@Override
 	public void killCluster(ApplicationId applicationId) throws FlinkException {
 		try {
 			yarnClient.killApplication(applicationId);

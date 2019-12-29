@@ -77,6 +77,11 @@ public class NonDeployingYarnClusterDescriptor extends AbstractYarnClusterDescri
 	}
 
 	@Override
+	public ClusterClient<ApplicationId> deploySessionCluster(ClusterSpecification clusterSpecification, boolean detached) {
+		return clusterClient;
+	}
+
+	@Override
 	public ClusterClient<ApplicationId> deployJobCluster(
 			ClusterSpecification clusterSpecification, JobGraph jobGraph, boolean detached) {
 		return clusterClient;

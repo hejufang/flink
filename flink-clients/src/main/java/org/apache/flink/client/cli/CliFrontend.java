@@ -314,7 +314,7 @@ public class CliFrontend {
 				if (perJobRestSubmitEnabled) {
 					LOG.info("Deploy job through RestClusterClient to avoid upload jobGraph file to HDFS.");
 					try {
-						client = clusterDescriptor.deploySessionCluster(clusterSpecification);
+						client = clusterDescriptor.deploySessionCluster(clusterSpecification, true);
 						LOG.info("Finish deploying cluster, submit job now...");
 						client.setPrintStatusDuringExecution(runOptions.getStdoutLogging());
 						client.setDetached(runOptions.getDetachedMode());

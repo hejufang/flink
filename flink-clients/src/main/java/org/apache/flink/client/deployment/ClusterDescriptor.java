@@ -53,6 +53,14 @@ public interface ClusterDescriptor<T> extends AutoCloseable {
 	ClusterClient<T> deploySessionCluster(ClusterSpecification clusterSpecification) throws ClusterDeploymentException;
 
 	/**
+	 * Triggers deployment of a cluster.
+	 * @param clusterSpecification Cluster specification defining the cluster to deploy
+	 * @return Client for the cluster
+	 * @throws ClusterDeploymentException if the cluster could not be deployed
+	 */
+	ClusterClient<T> deploySessionCluster(ClusterSpecification clusterSpecification, boolean detached) throws ClusterDeploymentException;
+
+	/**
 	 * Deploys a per-job cluster with the given job on the cluster.
 	 *
 	 * @param clusterSpecification Initial cluster specification with which the Flink cluster is launched
