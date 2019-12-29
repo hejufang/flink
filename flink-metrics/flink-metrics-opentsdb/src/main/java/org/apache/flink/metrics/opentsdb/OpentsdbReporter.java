@@ -148,7 +148,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		}
 
 		synchronized (this) {
-			if (!neededMetrics.contains(metricName)) {
+			if (!neededMetrics.contains(metricName) && !globalNeededMetrics.contains(metricName)) {
 				// 去除不需要的 metrics
 				return;
 			}
