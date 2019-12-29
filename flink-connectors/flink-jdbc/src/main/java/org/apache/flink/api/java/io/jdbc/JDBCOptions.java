@@ -44,10 +44,11 @@ public class JDBCOptions {
 	private boolean useBytedanceMysql;
 	private JDBCDialect dialect;
 	private String initSql;
+	private int connectionPoolSize;
 
 	private JDBCOptions(String dbURL, String tableName, String driverName, String username,
 			String password, JDBCDialect dialect, boolean useBytedanceMysql, String consul,
-			String psm, String dbname, String initSql) {
+			String psm, String dbname, String initSql, int connectionPoolSize) {
 		this.dbURL = dbURL;
 		this.tableName = tableName;
 		this.driverName = driverName;
@@ -59,6 +60,7 @@ public class JDBCOptions {
 		this.psm = psm;
 		this.dbname = dbname;
 		this.initSql = initSql;
+		this.connectionPoolSize = connectionPoolSize;
 	}
 
 	public String getDbURL() {
@@ -105,6 +107,10 @@ public class JDBCOptions {
 		return initSql;
 	}
 
+	public int getConnectionPoolSize() {
+		return connectionPoolSize;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -128,6 +134,24 @@ public class JDBCOptions {
 		}
 	}
 
+	@Override
+	public int hashCode() {
+		return Objects.hash(
+			dbURL,
+			tableName,
+			driverName,
+			username,
+			password,
+			dialect,
+			consul,
+			psm,
+			useBytedanceMysql,
+			dbname,
+			initSql,
+			connectionPoolSize
+		);
+	}
+
 	/**
 	 * Builder of {@link JDBCOptions}.
 	 */
@@ -143,6 +167,7 @@ public class JDBCOptions {
 		private String dbname;
 		private JDBCDialect dialect;
 		private String initSql;
+		private int connectionPoolSize = -1;
 
 		/**
 		 * required, table name.
@@ -222,6 +247,14 @@ public class JDBCOptions {
 			return this;
 		}
 
+		/**
+		 * optional, set connection pool size, default -1.
+		 */
+		public Builder setConnectionPoolSize(int connectionPoolSize) {
+			this.connectionPoolSize = connectionPoolSize;
+			return this;
+		}
+
 		public JDBCOptions build() {
 			checkNotNull(tableName, "No tableName supplied.");
 			if (this.dialect == null) {
@@ -246,7 +279,7 @@ public class JDBCOptions {
 				}
 			}
 			return new JDBCOptions(dbURL, tableName, driverName, username, password,
-				dialect, useBytedanceMysql, consul, psm, dbname, initSql);
+				dialect, useBytedanceMysql, consul, psm, dbname, initSql, connectionPoolSize);
 		}
 	}
 }

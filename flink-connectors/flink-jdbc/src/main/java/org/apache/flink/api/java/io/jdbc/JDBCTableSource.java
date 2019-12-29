@@ -56,7 +56,10 @@ public class JDBCTableSource implements
 	private final RowTypeInfo returnType;
 
 	private JDBCTableSource(
-		JDBCOptions options, JDBCReadOptions readOptions, JDBCLookupOptions lookupOptions, TableSchema schema) {
+			JDBCOptions options,
+			JDBCReadOptions readOptions,
+			JDBCLookupOptions lookupOptions,
+			TableSchema schema) {
 		this(options, readOptions, lookupOptions, schema, null);
 	}
 

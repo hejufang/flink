@@ -39,6 +39,7 @@ import java.util.Optional;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_CONNECTION_POOL_SIZE;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_CONSUL;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DBNAME;
 import static org.apache.flink.table.descriptors.JDBCValidator.CONNECTOR_DRIVER;
@@ -110,6 +111,7 @@ public class JDBCTableSourceSinkFactory implements
 		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+		properties.add(CONNECTOR_CONNECTION_POOL_SIZE);
 
 		// sink options
 		properties.add(CONNECTOR_WRITE_FLUSH_MAX_ROWS);
@@ -127,12 +129,13 @@ public class JDBCTableSourceSinkFactory implements
 	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
-		return JDBCTableSource.builder()
+		JDBCTableSource.Builder builder = JDBCTableSource.builder()
 			.setOptions(getJDBCOptions(descriptorProperties))
 			.setReadOptions(getJDBCReadOptions(descriptorProperties))
 			.setLookupOptions(getJDBCLookupOptions(descriptorProperties))
-			.setSchema(descriptorProperties.getTableSchema(SCHEMA))
-			.build();
+			.setSchema(descriptorProperties.getTableSchema(SCHEMA));
+
+		return builder.build();
 	}
 
 	@Override
@@ -202,6 +205,7 @@ public class JDBCTableSourceSinkFactory implements
 		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(CONNECTOR_DBNAME).ifPresent(builder::setDbname);
 		descriptorProperties.getOptionalString(CONNECTOR_INIT_SQL).ifPresent(builder::setInitSql);
+		descriptorProperties.getOptionalInt(CONNECTOR_CONNECTION_POOL_SIZE).ifPresent(builder::setConnectionPoolSize);
 		return builder.build();
 	}
 

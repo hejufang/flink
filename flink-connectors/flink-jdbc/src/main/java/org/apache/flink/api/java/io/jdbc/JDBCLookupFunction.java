@@ -23,6 +23,7 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
@@ -75,6 +76,9 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
+	private final JDBCOptions options;
+
+	private transient JDBCConnectionPool connectionPool;
 
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
@@ -83,6 +87,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	public JDBCLookupFunction(
 			JDBCOptions options, JDBCLookupOptions lookupOptions,
 			String[] fieldNames, TypeInformation[] fieldTypes, String[] keyNames) {
+		this.options = options;
 		this.drivername = options.getDriverName();
 		this.dbURL = options.getDbURL();
 		this.username = options.getUsername();
@@ -115,9 +120,13 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	@Override
 	public void open(FunctionContext context) throws Exception {
 		try {
-			dbConn = JDBCUtils.establishConnection(drivername, dbURL, username, password,
-				useBytedanceMysql, initSql);
-			statement = dbConn.prepareStatement(query);
+			if (options.getConnectionPoolSize() > 0) {
+				connectionPool = JDBCConnectionPool.getInstance(options);
+			} else {
+				dbConn = JDBCUtils.establishConnection(drivername, dbURL, username, password,
+					useBytedanceMysql, initSql);
+				statement = dbConn.prepareStatement(query);
+			}
 			this.cache = cacheMaxSize == -1 || cacheExpireMs == -1 ? null : CacheBuilder.newBuilder()
 					.expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)
 					.maximumSize(cacheMaxSize)
@@ -141,6 +150,21 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 			}
 		}
 
+		if (connectionPool != null) {
+			try (JDBCConnectionPool.ConnectionWrapper wrapper = connectionPool.getConnection();
+				PreparedStatement tmpStatement = wrapper.getConnection().prepareStatement(query)) {
+				doLookup(tmpStatement, keys);
+			} catch (InterruptedException | SQLException | ClassNotFoundException e) {
+				throw new FlinkRuntimeException("get connection from pool failed.", e);
+			}
+		} else {
+			doLookup(statement, keys);
+		}
+
+	}
+
+	private void doLookup(PreparedStatement statement, Object... keys) {
+		Row keyRow = Row.of(keys);
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			try {
 				statement.clearParameters();
@@ -211,6 +235,11 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 			} finally {
 				dbConn = null;
 			}
+		}
+
+		if (connectionPool != null) {
+			connectionPool.close();
+			connectionPool = null;
 		}
 	}
 
