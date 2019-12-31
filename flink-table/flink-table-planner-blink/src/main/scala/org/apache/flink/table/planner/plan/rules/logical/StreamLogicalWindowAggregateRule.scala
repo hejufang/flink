@@ -70,17 +70,11 @@ class StreamLogicalWindowAggregateRule
         // match TUMBLE_ROWTIME and TUMBLE_PROCTIME
       case c: RexCall if c.getOperands.size() == 1 &&
         FlinkTypeFactory.isTimeIndicatorType(c.getType) =>
-        val newWindowExprIdx = c.operands.get(0) match {
-          case ref: RexInputRef =>
-            ref.getIndex
-          case _ =>
-            windowExprIdx
-        }
         new FieldReferenceExpression(
-          rowType.getFieldList.get(newWindowExprIdx).getName,
+          rowType.getFieldList.get(windowExprIdx).getName,
           fromLogicalTypeToDataType(toLogicalType(c.getType)),
           0, // only one input, should always be 0
-          newWindowExprIdx)
+          windowExprIdx)
       case v: RexInputRef if FlinkTypeFactory.isTimeIndicatorType(v.getType) =>
         new FieldReferenceExpression(
           rowType.getFieldList.get(v.getIndex).getName,
