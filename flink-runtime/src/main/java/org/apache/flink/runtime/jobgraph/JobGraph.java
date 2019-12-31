@@ -544,8 +544,7 @@ public class JobGraph implements Serializable {
 		}
 
 		if (!userJarBlobKeys.contains(key)) {
-			// keep userJarBlobKeys empty to make url of FlinkUserCodeClassLoaders empty.
-			// userJarBlobKeys.add(key);
+			userJarBlobKeys.add(key);
 		}
 	}
 

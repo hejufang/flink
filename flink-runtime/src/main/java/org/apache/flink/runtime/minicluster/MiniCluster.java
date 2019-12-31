@@ -26,6 +26,7 @@ import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.BlobCacheService;
 import org.apache.flink.runtime.blob.BlobClient;
@@ -670,7 +671,9 @@ public class MiniCluster implements JobExecutorService, AutoCloseableAsync {
 	private CompletableFuture<Void> uploadAndSetJobFiles(final CompletableFuture<InetSocketAddress> blobServerAddressFuture, final JobGraph job) {
 		return blobServerAddressFuture.thenAccept(blobServerAddress -> {
 			try {
-				ClientUtils.extractAndUploadJobGraphFiles(job, () -> new BlobClient(blobServerAddress, miniClusterConfiguration.getConfiguration()));
+				boolean uploadUserJar = miniClusterConfiguration.getConfiguration().getBoolean(JobManagerOptions.UPLOAD_USER_JAR);
+				ClientUtils.extractAndUploadJobGraphFiles(
+						job, () -> new BlobClient(blobServerAddress, miniClusterConfiguration.getConfiguration()), uploadUserJar);
 			} catch (FlinkException e) {
 				throw new CompletionException(e);
 			}

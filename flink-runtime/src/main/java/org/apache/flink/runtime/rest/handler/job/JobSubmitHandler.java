@@ -21,6 +21,7 @@ package org.apache.flink.runtime.rest.handler.job;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.blob.BlobClient;
 import org.apache.flink.runtime.client.ClientUtils;
@@ -166,7 +167,8 @@ public final class JobSubmitHandler extends AbstractRestHandler<DispatcherGatewa
 		return jobGraphFuture.thenCombine(blobServerPortFuture, (JobGraph jobGraph, Integer blobServerPort) -> {
 			final InetSocketAddress address = new InetSocketAddress(gateway.getHostname(), blobServerPort);
 			try {
-				ClientUtils.uploadJobGraphFiles(jobGraph, jarFiles, artifacts, () -> new BlobClient(address, configuration));
+				boolean uploadUserJar = configuration.getBoolean(JobManagerOptions.UPLOAD_USER_JAR);
+				ClientUtils.uploadJobGraphFiles(jobGraph, jarFiles, artifacts, () -> new BlobClient(address, configuration), uploadUserJar);
 			} catch (FlinkException e) {
 				throw new CompletionException(new RestHandlerException(
 					"Could not upload job files.",

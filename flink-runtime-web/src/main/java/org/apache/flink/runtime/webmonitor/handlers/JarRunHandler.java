@@ -20,6 +20,7 @@ package org.apache.flink.runtime.webmonitor.handlers;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.blob.BlobClient;
 import org.apache.flink.runtime.client.ClientUtils;
 import org.apache.flink.runtime.dispatcher.DispatcherGateway;
@@ -90,7 +91,8 @@ public class JarRunHandler extends
 		CompletableFuture<JobGraph> jarUploadFuture = jobGraphFuture.thenCombine(blobServerPortFuture, (jobGraph, blobServerPort) -> {
 			final InetSocketAddress address = new InetSocketAddress(gateway.getHostname(), blobServerPort);
 			try {
-				ClientUtils.extractAndUploadJobGraphFiles(jobGraph, () -> new BlobClient(address, configuration));
+				boolean uploadUserJar = configuration.getBoolean(JobManagerOptions.UPLOAD_USER_JAR);
+				ClientUtils.extractAndUploadJobGraphFiles(jobGraph, () -> new BlobClient(address, configuration), uploadUserJar);
 			} catch (FlinkException e) {
 				throw new CompletionException(e);
 			}

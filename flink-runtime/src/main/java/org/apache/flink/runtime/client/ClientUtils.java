@@ -48,13 +48,13 @@ public enum ClientUtils {
 	 * @param clientSupplier supplier of blob client to upload files with
 	 * @throws FlinkException if the upload fails
 	 */
-	public static void extractAndUploadJobGraphFiles(JobGraph jobGraph, SupplierWithException<BlobClient, IOException> clientSupplier) throws FlinkException {
+	public static void extractAndUploadJobGraphFiles(JobGraph jobGraph, SupplierWithException<BlobClient, IOException> clientSupplier, boolean uploadUserJar) throws FlinkException {
 		List<Path> userJars = jobGraph.getUserJars();
 		Collection<Tuple2<String, Path>> userArtifacts = jobGraph.getUserArtifacts().entrySet().stream()
 			.map(entry -> Tuple2.of(entry.getKey(), new Path(entry.getValue().filePath)))
 			.collect(Collectors.toList());
 
-		uploadJobGraphFiles(jobGraph, userJars, userArtifacts, clientSupplier);
+		uploadJobGraphFiles(jobGraph, userJars, userArtifacts, clientSupplier, uploadUserJar);
 	}
 
 	/**
@@ -71,10 +71,13 @@ public enum ClientUtils {
 			JobGraph jobGraph,
 			Collection<Path> userJars,
 			Collection<Tuple2<String, org.apache.flink.core.fs.Path>> userArtifacts,
-			SupplierWithException<BlobClient, IOException> clientSupplier) throws FlinkException {
+			SupplierWithException<BlobClient, IOException> clientSupplier,
+			boolean uploadUserJar) throws FlinkException {
 		if (!userJars.isEmpty() || !userArtifacts.isEmpty()) {
 			try (BlobClient client = clientSupplier.get()) {
-				uploadAndSetUserJars(jobGraph, userJars, client);
+				if (uploadUserJar) {
+					uploadAndSetUserJars(jobGraph, userJars, client);
+				}
 				uploadAndSetUserArtifacts(jobGraph, userArtifacts, client);
 			} catch (IOException ioe) {
 				throw new FlinkException("Could not upload job files.", ioe);

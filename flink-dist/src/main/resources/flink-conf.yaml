@@ -146,6 +146,8 @@ common:
   blacklist.failure-timeout: "60 min"
   blacklist.check-interval: "5 min"
 
+  jobmanager.upload-user-jar: false
+
 flink:
   dc: cn
   clusterName: flink

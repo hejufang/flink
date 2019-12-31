@@ -259,6 +259,11 @@ public class JobManagerOptions {
 			.defaultValue(true)
 			.withDescription("Whether check job unique with ZK.");
 
+	public static final ConfigOption<Boolean> UPLOAD_USER_JAR =
+		key("jobmanager.upload-user-jar")
+			.defaultValue(false)
+			.withDescription("Whether upload user jars to blob.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {
