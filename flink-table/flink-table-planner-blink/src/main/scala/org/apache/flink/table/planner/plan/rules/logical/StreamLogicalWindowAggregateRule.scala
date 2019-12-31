@@ -76,11 +76,13 @@ class StreamLogicalWindowAggregateRule
           0, // only one input, should always be 0
           windowExprIdx)
       case v: RexInputRef if FlinkTypeFactory.isTimeIndicatorType(v.getType) =>
+        val fieldName = rowType.getFieldList.get(windowExprIdx).getName
+        val fieldType = rowType.getFieldList.get(windowExprIdx).getType
         new FieldReferenceExpression(
-          rowType.getFieldList.get(v.getIndex).getName,
-          fromLogicalTypeToDataType(toLogicalType(v.getType)),
+          fieldName,
+          fromLogicalTypeToDataType(toLogicalType(fieldType)),
           0, // only one input, should always be 0
-          v.getIndex)
+          windowExprIdx)
       case _ =>
         throw new ValidationException("Window can only be defined over a time attribute column.")
     }

@@ -67,13 +67,13 @@ class BatchLogicalWindowAggregateRule
           windowExprIdx)
       case ref: RexInputRef =>
         // resolve field name of window attribute
-        val fieldName = rowType.getFieldList.get(ref.getIndex).getName
-        val fieldType = rowType.getFieldList.get(ref.getIndex).getType
+        val fieldName = rowType.getFieldList.get(windowExprIdx).getName
+        val fieldType = rowType.getFieldList.get(windowExprIdx).getType
         new FieldReferenceExpression(
           fieldName,
           fromLogicalTypeToDataType(toLogicalType(fieldType)),
           0, // only one input, should always be 0
-          ref.getIndex)
+          windowExprIdx)
     }
   }
 

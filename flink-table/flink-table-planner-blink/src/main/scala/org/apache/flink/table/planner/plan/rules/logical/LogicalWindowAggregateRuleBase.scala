@@ -71,7 +71,6 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
     val project: LogicalProject = call.rel(1)
 
     val (windowExpr, windowExprIdx) = getWindowExpressions(agg).head
-    val window = translateWindow(windowExpr, windowExprIdx, project.getInput.getRowType, project)
 
     val rexBuilder = agg.getCluster.getRexBuilder
 
@@ -85,6 +84,8 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
       .push(project.getInput)
       .project(project.getChildExps.updated(windowExprIdx, inAggGroupExpression))
       .build()
+
+    val window = translateWindow(windowExpr, windowExprIdx, newProject.getRowType, project)
 
     // Currently, this rule removes the window from GROUP BY operation which may lead to changes
     // of AggCall's type which brings fails on type checks.
