@@ -21,6 +21,8 @@ package org.apache.flink.table.descriptors;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 
+import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -60,7 +62,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS =
 		"connector.kafka.properties.partitioner.class";
 	public static final String CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS_DEFAULT =
-		"org.apache.flink.kafka010.shaded.org.apache.kafka.clients.producer.internals.BatchRandomPartitioner";
+		BatchRandomPartitioner.class.getName();
 	public static final String CONNECTOR_PROPERTIES = "connector.properties";
 	public static final String CONNECTOR_PROPERTIES_KEY = "key";
 	public static final String CONNECTOR_PROPERTIES_VALUE = "value";
