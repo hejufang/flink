@@ -297,7 +297,7 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
       ctx.setSplit()
       projects.map(project => {
         val methodName = newName("split")
-        val method = s"private void $methodName() {\n $project \n}"
+        val method = s"private void $methodName() throws Exception {\n $project \n}"
         ctx.addReusableMember(method)
         s"$methodName();\n"
       }).mkString("\n")
