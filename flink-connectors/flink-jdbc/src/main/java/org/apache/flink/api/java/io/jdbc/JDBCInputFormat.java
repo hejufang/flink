@@ -111,6 +111,7 @@ public class JDBCInputFormat extends RichInputFormat<Row, InputSplit> implements
 	private int resultSetType;
 	private int resultSetConcurrency;
 	private RowTypeInfo rowTypeInfo;
+	private JDBCOptions options;
 
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
@@ -139,12 +140,8 @@ public class JDBCInputFormat extends RichInputFormat<Row, InputSplit> implements
 	public void openInputFormat() {
 		//called once per inputFormat (on open)
 		try {
-			Class.forName(drivername);
-			if (username == null) {
-				dbConn = DriverManager.getConnection(dbURL);
-			} else {
-				dbConn = DriverManager.getConnection(dbURL, username, password);
-			}
+			dbConn = JDBCUtils.establishConnection(drivername, dbURL, username, password,
+				options.getUseBytedanceMysql(), options.getInitSql());
 
 			// set autoCommit mode only if it was explicitly configured.
 			// keep connection default otherwise.
@@ -412,6 +409,11 @@ public class JDBCInputFormat extends RichInputFormat<Row, InputSplit> implements
 
 		public JDBCInputFormatBuilder setAutoCommit(Boolean autoCommit) {
 			format.autoCommit = autoCommit;
+			return this;
+		}
+
+		public JDBCInputFormatBuilder setJDBCOptions(JDBCOptions options) {
+			format.options = options;
 			return this;
 		}
 

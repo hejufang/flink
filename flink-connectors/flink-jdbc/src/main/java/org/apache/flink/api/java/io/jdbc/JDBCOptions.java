@@ -21,6 +21,7 @@ package org.apache.flink.api.java.io.jdbc;
 import org.apache.flink.api.java.io.jdbc.dialect.JDBCDialect;
 import org.apache.flink.api.java.io.jdbc.dialect.JDBCDialects;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,7 +30,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * Common options of {@link JDBCScanOptions} and {@link JDBCLookupOptions} for the JDBC connector.
  */
-public class JDBCOptions {
+public class JDBCOptions implements Serializable {
+	private static final long serialVersionUID = 7376055590583414158L;
 	private static final String BYTEDANCE_MYSQL_URL_TEMPLATE = "jdbc:mysql:///%s?db_consul=%s" +
 		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
 

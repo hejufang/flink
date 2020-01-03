@@ -164,6 +164,7 @@ public class JDBCTableSource implements
 				" BETWEEN ? AND ?";
 		}
 		builder.setQuery(query);
+		builder.setJDBCOptions(options);
 
 		return builder.finish();
 	}
