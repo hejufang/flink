@@ -26,13 +26,13 @@ import org.apache.flink.configuration.TaskManagerOptions;
  * Description of the cluster to start by the {@link ClusterDescriptor}.
  */
 public final class ClusterSpecification {
-	private final int masterVcores;
+	private final double masterVcores;
 	private final int masterMemoryMB;
 	private final int taskManagerMemoryMB;
 	private final int numberTaskManagers;
 	private int slotsPerTaskManager;
 
-	private ClusterSpecification(int masterVcores, int masterMemoryMB, int taskManagerMemoryMB,
+	private ClusterSpecification(double masterVcores, int masterMemoryMB, int taskManagerMemoryMB,
 			int numberTaskManagers, int slotsPerTaskManager) {
 		this.masterVcores = masterVcores;
 		this.masterMemoryMB = masterMemoryMB;
@@ -61,7 +61,7 @@ public final class ClusterSpecification {
 		this.slotsPerTaskManager = slotsPerTaskManager;
 	}
 
-	public int getMasterVcores() {
+	public double getMasterVcores() {
 		return masterVcores;
 	}
 
@@ -79,7 +79,7 @@ public final class ClusterSpecification {
 	public static ClusterSpecification fromConfiguration(Configuration configuration) {
 		int slots = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS, 1);
 
-		int jobManagerVcores = ConfigurationUtils.getJobManagerVcore(configuration);
+		double jobManagerVcores = ConfigurationUtils.getJobManagerVcore(configuration);
 		int jobManagerMemoryMb = ConfigurationUtils.getJobManagerHeapMemory(configuration).getMebiBytes();
 		int taskManagerMemoryMb = ConfigurationUtils.getTaskManagerHeapMemory(configuration).getMebiBytes();
 
@@ -96,7 +96,7 @@ public final class ClusterSpecification {
 	 * Builder for the {@link ClusterSpecification} instance.
 	 */
 	public static class ClusterSpecificationBuilder {
-		private int masterVcores = 1;
+		private double masterVcores = 1;
 		private int masterMemoryMB = 768;
 		private int taskManagerMemoryMB = 768;
 		private int numberTaskManagers = 1;
@@ -122,7 +122,7 @@ public final class ClusterSpecification {
 			return this;
 		}
 
-		public ClusterSpecificationBuilder setMasterVcores(int masterVcores) {
+		public ClusterSpecificationBuilder setMasterVcores(double masterVcores) {
 			this.masterVcores = masterVcores;
 			return this;
 		}

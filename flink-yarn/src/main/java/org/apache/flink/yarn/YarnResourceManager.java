@@ -164,7 +164,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private final int defaultTaskManagerMemoryMB;
 
-	private final int defaultCpus;
+	private final double defaultCpus;
 
 	/** The heartbeat interval while the resource master is waiting for containers. */
 	private final int containerRequestHeartbeatIntervalMillis;
@@ -326,8 +326,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		this.webInterfaceUrl = webInterfaceUrl;
 		this.numberOfTaskSlots = flinkConfig.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
 		this.defaultTaskManagerMemoryMB = ConfigurationUtils.getTaskManagerHeapMemory(flinkConfig).getMebiBytes();
-		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, numberOfTaskSlots);
-		this.resource = Resource.newInstance(defaultTaskManagerMemoryMB, defaultCpus);
+		this.defaultCpus = flinkConfig.getDouble(YarnConfigOptions.VCORES, numberOfTaskSlots);
+		this.resource = Resource.newInstance(defaultTaskManagerMemoryMB, 0, Utils.vCoresToMilliVcores(defaultCpus));
 
 		this.slotsPerWorker = createWorkerSlotProfiles(flinkConfig);
 
@@ -1106,8 +1106,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		workerNodeMap.put(getResourceID(updatedContainer), new YarnWorkerNode(updatedContainer));
 		waitNMUpdate.remove(containerId);
 		log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
-				containerId, oldContainer.getResource().getMemorySize(), oldContainer.getResource().getVirtualCores(),
-				updatedContainer.getResource().getMemorySize(), updatedContainer.getResource().getVirtualCores());
+				containerId, oldContainer.getResource().getMemorySize(),
+				oldContainer.getResource().getVirtualCoresDecimal(),
+				updatedContainer.getResource().getMemorySize(),
+				updatedContainer.getResource().getVirtualCoresDecimal());
 	}
 
 	@Override
@@ -1139,11 +1141,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 			try {
 				Container old = workerNodeMap.get(getResourceID(updatedContainer.getContainer())).getContainer();
+				double oldContainerVCores = old.getResource().getVirtualCoresDecimal();
+				double newContainerVCores = updatedContainer.getContainer().getResource().getVirtualCoresDecimal();
 				log.info("[RM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
 					updatedContainer.getContainer().getId(),
-					old.getResource().getMemory(), old.getResource().getVirtualCores(),
+					old.getResource().getMemory(),
+					oldContainerVCores,
 					updatedContainer.getContainer().getResource().getMemory(),
-					updatedContainer.getContainer().getResource().getVirtualCores());
+					newContainerVCores);
 				if (nmClientAsyncEnabled) {
 					nodeManagerClientAsync.updateContainerResourceAsync(updatedContainer.getContainer());
 					waitNMUpdate.put(updatedContainer.getContainer().getId(), updatedContainer.getContainer());
@@ -1152,9 +1157,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					workerNodeMap.put(getResourceID(updatedContainer.getContainer()),
 							new YarnWorkerNode(updatedContainer.getContainer()));
 					log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
-							old.getId(), old.getResource().getMemory(), old.getResource().getVirtualCores(),
+							old.getId(),
+							old.getResource().getMemory(),
+							oldContainerVCores,
 							updatedContainer.getContainer().getResource().getMemory(),
-							updatedContainer.getContainer().getResource().getVirtualCores());
+							newContainerVCores);
 				}
 			} catch (YarnException | IOException e) {
 				log.error("update container resources error, "
@@ -1243,47 +1250,51 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				continue;
 			}
 
+			long targetVCoresMilli = Utils.vCoresToMilliVcores(targetResources.getVcores());
+
 			Resource currentResource = container.getResource();
 			if (currentResource.getMemory() == targetResources.getMemoryMB()
-				&& currentResource.getVirtualCores() == targetResources.getVcores()) {
+				&& currentResource.getVirtualCoresMilli() == targetVCoresMilli) {
 				continue;
 			}
 
 			UpdateContainerRequest request = null;
 			if (targetResources.getMemoryMB() >= currentResource.getMemory() &&
-				targetResources.getVcores() >= currentResource.getVirtualCores()) {
+				// compare double with int
+				targetVCoresMilli >= currentResource.getVirtualCoresMilli()) {
 				// increase all
 				request = UpdateContainerRequest.newInstance(container.getVersion(),
 					containerId,
 					ContainerUpdateType.INCREASE_RESOURCE,
-					Resource.newInstance(targetResources.getMemoryMB(), targetResources.getVcores()));
+					Resource.newInstance(targetResources.getMemoryMB(), 0, targetVCoresMilli));
 			} else if (targetResources.getMemoryMB() <= currentResource.getMemory() &&
-				targetResources.getVcores() <= currentResource.getVirtualCores()) {
+				// compare double with int
+				targetVCoresMilli <= currentResource.getVirtualCoresMilli()) {
 				// decrease all
 				request = UpdateContainerRequest.newInstance(container.getVersion(),
 					containerId,
 					ContainerUpdateType.DECREASE_RESOURCE,
-					Resource.newInstance(targetResources.getMemoryMB(), targetResources.getVcores()));
+					Resource.newInstance(targetResources.getMemoryMB(), 0, targetVCoresMilli));
 			} else if (targetResources.getMemoryMB() != currentResource.getMemory()) {
 				// increase | decrease memory
 				request = UpdateContainerRequest.newInstance(container.getVersion(),
 					containerId,
 					targetResources.getMemoryMB() > currentResource.getMemory() ?
 						ContainerUpdateType.INCREASE_RESOURCE : ContainerUpdateType.DECREASE_RESOURCE,
-					Resource.newInstance(targetResources.getMemoryMB(), currentResource.getVirtualCores()));
-			} else if (targetResources.getVcores() != currentResource.getVirtualCores()) {
+					Resource.newInstance(targetResources.getMemoryMB(), 0, currentResource.getVirtualCoresMilli()));
+			} else if (targetVCoresMilli != currentResource.getVirtualCoresMilli()) {
 				// increase | decrease vcores
 				request = UpdateContainerRequest.newInstance(container.getVersion(),
 					containerId,
-					targetResources.getVcores() > currentResource.getVirtualCores() ?
+					targetVCoresMilli > currentResource.getVirtualCoresMilli() ?
 						ContainerUpdateType.INCREASE_RESOURCE : ContainerUpdateType.DECREASE_RESOURCE,
-					Resource.newInstance(currentResource.getMemory(), targetResources.getVcores()));
+					Resource.newInstance(currentResource.getMemory(), 0, targetVCoresMilli));
 			}
 			try {
 				resourceManagerClient.requestContainerUpdate(container, request);
 				pendingUpdating.put(containerId, System.currentTimeMillis() + resourcesUpdateTimeoutMS);
 				log.info("request update {} resources from ({} MB, {} vcores) to ({} MB, {} vcores)",
-					containerId, currentResource.getMemory(), currentResource.getVirtualCores(),
+					containerId, currentResource.getMemory(), currentResource.getVirtualCoresDecimal(),
 					targetResources.getMemoryMB(), targetResources.getVcores());
 			} catch (Throwable t) {
 				log.error("update container resources error", t);
@@ -1409,7 +1420,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		for (Container container : containers) {
 			SmartResourcesStats.Resources resources =
 				new SmartResourcesStats.Resources(
-					container.getResource().getMemory(), container.getResource().getVirtualCores());
+						container.getResource().getMemory(),
+						container.getResource().getVirtualCoresDecimal());
 			containerStats.put(resources, containerStats.getOrDefault(resources, 0) + 1);
 		}
 		List<SmartResourcesStats.ResourcesCount> resourcesCounts = containerStats.entrySet().stream()
@@ -1455,6 +1467,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					newVcores = new Double(Math.ceil(applicationTotalResources.getCpuTotalVcores()
 						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
 				}
+
 				newVcores = newVcores > 8 ? 8 : newVcores;
 				newVcores = newVcores == 0 ? 1 : newVcores;
 				final UpdateContainersResources updateContainersResources = new UpdateContainersResources(
@@ -1473,7 +1486,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private void initTargetContainerResources() {
 		int containerMemorySizeMB = this.defaultTaskManagerMemoryMB;
-		final int vcores = this.defaultCpus;
+		final double vcores = this.defaultCpus;
 
 		containerMemorySizeMB = new Double(Math.ceil(containerMemorySizeMB / 1024.0)).intValue() * 1024;
 

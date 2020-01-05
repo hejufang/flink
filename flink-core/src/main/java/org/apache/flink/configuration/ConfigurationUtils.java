@@ -56,8 +56,8 @@ public class ConfigurationUtils {
 		}
 	}
 
-	public static int getJobManagerVcore(Configuration configuration) {
-		return configuration.getInteger(JobManagerOptions.JOB_MANAGER_VCORES);
+	public static double getJobManagerVcore(Configuration configuration) {
+		return configuration.getDouble(JobManagerOptions.JOB_MANAGER_VCORES);
 	}
 
 	/**

@@ -72,9 +72,9 @@ public class YarnConfigOptions {
 	/**
 	 * The vcores exposed by YARN.
 	 */
-	public static final ConfigOption<Integer> VCORES =
+	public static final ConfigOption<Double> VCORES =
 		key("yarn.containers.vcores")
-			.defaultValue(-1)
+			.defaultValue(-1.0)
 			.withDescription(Description.builder().text(
 					"The number of virtual cores (vcores) per YARN container. By default, the number of vcores" +
 					" is set to the number of slots per TaskManager, if set, or to 1, otherwise. In order for this" +

@@ -26,10 +26,10 @@ public class UpdateContainersResources implements java.io.Serializable {
 	private static final long serialVersionUID = 9043166037948331420L;
 
 	private int memoryMB;
-	private int vcores;
+	private double vcores;
 	private int durtionMinutes;
 
-	public UpdateContainersResources(int memory, int vcores, int durtionMinutes) {
+	public UpdateContainersResources(int memory, double vcores, int durtionMinutes) {
 		this.memoryMB = memory;
 		this.vcores = vcores;
 		this.durtionMinutes = durtionMinutes;
@@ -43,7 +43,7 @@ public class UpdateContainersResources implements java.io.Serializable {
 		this.memoryMB = memoryMB;
 	}
 
-	public int getVcores() {
+	public double getVcores() {
 		return vcores;
 	}
 

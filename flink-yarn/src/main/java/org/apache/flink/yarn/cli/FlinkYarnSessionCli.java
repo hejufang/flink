@@ -431,7 +431,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		}
 
 		// JobManager Vcores
-		final int jobManagerVcores = configuration.getInteger(JobManagerOptions.JOB_MANAGER_VCORES);
+		final double jobManagerVcores = configuration.getDouble(JobManagerOptions.JOB_MANAGER_VCORES);
 
 		// JobManager Memory
 		final int jobManagerMemoryMB = ConfigurationUtils.getJobManagerHeapMemory(configuration).getMebiBytes();
@@ -549,8 +549,8 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		}
 
 		if (commandLine.hasOption(jmVcores.getOpt())) {
-			effectiveConfiguration.setInteger(JobManagerOptions.JOB_MANAGER_VCORES,
-				Integer.parseInt(commandLine.getOptionValue(jmVcores.getOpt())));
+			effectiveConfiguration.setDouble(JobManagerOptions.JOB_MANAGER_VCORES,
+				Double.parseDouble(commandLine.getOptionValue(jmVcores.getOpt())));
 		}
 
 		if (commandLine.hasOption(jmMemory.getOpt())) {

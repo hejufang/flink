@@ -820,4 +820,7 @@ public final class Utils {
 		}
 	}
 
+	public static long vCoresToMilliVcores(double vCores) {
+		return (long) (vCores * 1000);
+	}
 }

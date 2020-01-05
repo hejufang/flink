@@ -25,9 +25,9 @@ import java.util.Objects;
  * */
 public class ContainerResources {
 	private int memoryMB;
-	private int vcores;
+	private double vcores;
 
-	public ContainerResources(int memoryMB, int vcores) {
+	public ContainerResources(int memoryMB, double vcores) {
 		this.memoryMB = memoryMB;
 		this.vcores = vcores;
 	}
@@ -36,7 +36,7 @@ public class ContainerResources {
 		return memoryMB;
 	}
 
-	public int getVcores() {
+	public double getVcores() {
 		return vcores;
 	}
 
@@ -44,7 +44,7 @@ public class ContainerResources {
 		this.memoryMB = memoryMB;
 	}
 
-	public void setVcores(int vcores) {
+	public void setVcores(double vcores) {
 		this.vcores = vcores;
 	}
 

@@ -98,9 +98,9 @@ public class JobManagerOptions {
 	/**
 	 * Vcores for the JobManager.
 	 */
-	public static final ConfigOption<Integer> JOB_MANAGER_VCORES =
+	public static final ConfigOption<Double> JOB_MANAGER_VCORES =
 		key("jobmanager.vcores")
-			.defaultValue(3)
+			.defaultValue(3.0)
 			.withDescription("Vcores for the JobManager.");
 
 	/**

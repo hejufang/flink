@@ -106,10 +106,10 @@ public class SmartResourcesStats implements InfoMessage, ResponseBody {
 
 	public static class ResourcesCount {
 		@JsonProperty int memoryMB;
-		@JsonProperty int vcores;
+		@JsonProperty double vcores;
 		@JsonProperty int count;
 
-		public ResourcesCount(@JsonProperty int memoryMB, @JsonProperty int vcores, @JsonProperty int count) {
+		public ResourcesCount(@JsonProperty int memoryMB, @JsonProperty double vcores, @JsonProperty int count) {
 			this.memoryMB = memoryMB;
 			this.vcores = vcores;
 			this.count = count;
@@ -118,10 +118,10 @@ public class SmartResourcesStats implements InfoMessage, ResponseBody {
 
 	public static class ResourcesDate {
 		@JsonProperty int memoryMB;
-		@JsonProperty int vcores;
+		@JsonProperty double vcores;
 		@JsonProperty String time;
 
-		public ResourcesDate(@JsonProperty int memoryMB, @JsonProperty int vcores, @JsonProperty String time) {
+		public ResourcesDate(@JsonProperty int memoryMB, @JsonProperty double vcores, @JsonProperty String time) {
 			this.memoryMB = memoryMB;
 			this.vcores = vcores;
 			this.time = time;
@@ -130,9 +130,9 @@ public class SmartResourcesStats implements InfoMessage, ResponseBody {
 
 	public static class Resources {
 		@JsonProperty int memoryMB;
-		@JsonProperty int vcores;
+		@JsonProperty double vcores;
 
-		public Resources(@JsonProperty int memoryMB, @JsonProperty int vcores) {
+		public Resources(@JsonProperty int memoryMB, @JsonProperty double vcores) {
 			this.memoryMB = memoryMB;
 			this.vcores = vcores;
 		}
@@ -141,7 +141,7 @@ public class SmartResourcesStats implements InfoMessage, ResponseBody {
 			return memoryMB;
 		}
 
-		public int getVcores() {
+		public double getVcores() {
 			return vcores;
 		}
 

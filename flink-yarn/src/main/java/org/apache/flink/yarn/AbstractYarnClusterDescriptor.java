@@ -284,11 +284,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					configuredAmVcores, numYarnMaxVcores));
 		}
 
-		int configuredVcores = flinkConfiguration.getInteger(YarnConfigOptions.VCORES, clusterSpecification.getSlotsPerTaskManager());
+		double configuredVcores = flinkConfiguration.getDouble(YarnConfigOptions.VCORES, clusterSpecification.getSlotsPerTaskManager());
 		// don't configure more than the maximum configured number of vcores
 		if (configuredVcores > numYarnMaxVcores) {
 			throw new IllegalConfigurationException(
-				String.format("The number of requested virtual cores per node %d" +
+				String.format("The number of requested virtual cores per node %f" +
 						" exceeds the maximum number of virtual cores %d available in the Yarn Cluster." +
 						" Please note that the number of virtual cores is set to the number of task slots by default" +
 						" unless configured in the Flink config with '%s.'",
@@ -1210,7 +1210,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Set up resource type requirements for ApplicationMaster
 		Resource capability = Records.newRecord(Resource.class);
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
-		capability.setVirtualCores(clusterSpecification.getMasterVcores());
+		capability.setVirtualCoresMilli(Utils.vCoresToMilliVcores(clusterSpecification.getMasterVcores()));
 		LOG.info("jm cores = {}", clusterSpecification.getMasterVcores());
 
 		final String appType = applicationType != null ?

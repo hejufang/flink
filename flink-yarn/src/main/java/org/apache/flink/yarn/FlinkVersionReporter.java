@@ -47,7 +47,7 @@ public class FlinkVersionReporter implements Runnable {
 	private Configuration flinkConfig;
 	private UdpMetricsClient udpMetricsClient;
 	private boolean isRunning = true;
-	private int totalCores;
+	private double totalCores;
 	private long totalMemory;
 
 	public FlinkVersionReporter(Configuration flinkConfig) {
@@ -66,10 +66,10 @@ public class FlinkVersionReporter implements Runnable {
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
 
 		// calculate resources
-		int jmCore = ConfigurationUtils.getJobManagerVcore(flinkConfig);
+		double jmCore = ConfigurationUtils.getJobManagerVcore(flinkConfig);
 		long jmMemory = ConfigurationUtils.getJobManagerHeapMemory(flinkConfig).getGibiBytes();
 		long tmMemory = ConfigurationUtils.getTaskManagerHeapMemory(flinkConfig).getGibiBytes();
-		int tmCore = flinkConfig.getInteger(YarnConfigOptions.VCORES);
+		double tmCore = flinkConfig.getDouble(YarnConfigOptions.VCORES);
 		int tmCount = flinkConfig.getInteger(JobManagerOptions.TASK_MANAGER_COUNT);
 		this.totalCores = jmCore + tmCore * tmCount;
 		this.totalMemory = jmMemory + tmMemory * tmCount;
