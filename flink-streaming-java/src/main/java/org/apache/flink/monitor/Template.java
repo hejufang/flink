@@ -1400,4 +1400,114 @@ public class Template {
 		"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.fetch_latency_max\",\n" +
 		"							\"refId\": \"R\"\n" +
 		"						}";
+
+	public static final String CHECKPOINT = "{\n" +
+		"			\"collapse\": false,\n" +
+		"			\"height\": 250,\n" +
+		"			\"panels\": [\n" +
+		"				{\n" +
+		"					\"aliasColors\": {},\n" +
+		"					\"bars\": false,\n" +
+		"					\"dashLength\": 10,\n" +
+		"					\"dashes\": false,\n" +
+		"					\"datasource\": \"${datasource}\",\n" +
+		"					\"fill\": 1,\n" +
+		"					\"id\": 13,\n" +
+		"					\"legend\": {\n" +
+		"						\"alignAsTable\": true,\n" +
+		"						\"avg\": true,\n" +
+		"						\"current\": true,\n" +
+		"						\"max\": true,\n" +
+		"						\"min\": false,\n" +
+		"						\"rightSide\": true,\n" +
+		"						\"show\": true,\n" +
+		"						\"sort\": null,\n" +
+		"						\"sortDesc\": null,\n" +
+		"						\"total\": false,\n" +
+		"						\"values\": true\n" +
+		"					},\n" +
+		"					\"lines\": true,\n" +
+		"					\"linewidth\": 1,\n" +
+		"					\"links\": [],\n" +
+		"					\"nullPointMode\": \"null\",\n" +
+		"					\"percentage\": false,\n" +
+		"					\"pointradius\": 5,\n" +
+		"					\"points\": false,\n" +
+		"					\"renderer\": \"flot\",\n" +
+		"					\"seriesOverrides\": [],\n" +
+		"					\"spaceLength\": 10,\n" +
+		"					\"span\": 12,\n" +
+		"					\"stack\": false,\n" +
+		"					\"steppedLine\": false,\n" +
+		"					\"targets\": [\n" +
+		"						{\n" +
+		"							\"aggregator\": \"sum\",\n" +
+		"							\"alias\": \"totalNumberOfCheckpoints\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.jobmanager.${jobname}.totalNumberOfCheckpoints\",\n" +
+		"							\"refId\": \"A\",\n" +
+		"							\"hide\": true\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"aggregator\": \"sum\",\n" +
+		"							\"alias\": \"numberOfFailedCheckpoints\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.jobmanager.${jobname}.numberOfFailedCheckpoints\",\n" +
+		"							\"refId\": \"B\"\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"aggregator\": \"sum\",\n" +
+		"							\"alias\": \"numberOfTriggerFailedCheckpoints\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.jobmanager.${jobname}.numberOfTriggerFailedCheckpoints\",\n" +
+		"							\"refId\": \"C\"\n" +
+		"						}\n" +
+		"					],\n" +
+		"					\"thresholds\": [],\n" +
+		"					\"timeFrom\": null,\n" +
+		"					\"timeShift\": null,\n" +
+		"					\"title\": \"Checkpoints\",\n" +
+		"					\"tooltip\": {\n" +
+		"						\"shared\": true,\n" +
+		"						\"sort\": 0,\n" +
+		"						\"value_type\": \"individual\"\n" +
+		"					},\n" +
+		"					\"type\": \"graph\",\n" +
+		"					\"xaxis\": {\n" +
+		"						\"buckets\": null,\n" +
+		"						\"mode\": \"time\",\n" +
+		"						\"name\": null,\n" +
+		"						\"show\": true,\n" +
+		"						\"values\": []\n" +
+		"					},\n" +
+		"					\"yaxes\": [\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						}\n" +
+		"					]\n" +
+		"				}\n" +
+		"			],\n" +
+		"			\"repeat\": null,\n" +
+		"			\"repeatIteration\": null,\n" +
+		"			\"repeatRowId\": null,\n" +
+		"			\"showTitle\": false,\n" +
+		"			\"title\": \"Dashboard Row\",\n" +
+		"			\"titleSize\": \"h6\"\n" +
+		"		}";
 }
