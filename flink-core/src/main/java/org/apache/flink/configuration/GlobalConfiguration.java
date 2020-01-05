@@ -62,7 +62,10 @@ public final class GlobalConfiguration {
 	private static final String ORIGIN_KEY_POSTFIX = "#ORIGIN#";
 
 	private static final String[] DYNAMIC_PARAM_KEYS = {
-		ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.HDFS_PREFIX_KEY, ConfigConstants.DC_KEY};
+			ConfigConstants.CLUSTER_NAME_KEY,
+			ConfigConstants.HDFS_PREFIX_KEY,
+			ConfigConstants.DC_KEY,
+			ConfigConstants.CHECKPOINT_HDFS_PREFIX_KEY};
 
 	// --------------------------------------------------------------------------------------------
 

@@ -23,7 +23,7 @@ common:
 #  io.tmp.dirs: /opt/tmp/flink
 #  taskmanager.tmp.dirs: /opt/tmp/flink
   state.backend: rocksdb
-  state.checkpoints.dir: ${hdfs.prefix}/${dc}/${clusterName}/1.9/flink/fs_checkpoint_dir
+  state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.9/flink/fs_checkpoint_dir
 #  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
   taskmanager.network.memory.fraction: 0.3
   taskmanager.network.memory.max: 2147483648
@@ -155,120 +155,140 @@ flink:
   clusterName: flink
   high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 dw:
   dc: cn
   clusterName: dw
   high-availability.zookeeper.quorum: 10.224.152.92:2184,10.6.18.154:2184,10.6.16.79:2184,10.11.43.39:2184,10.11.43.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 lepad:
   dc: cn
   clusterName: lepad
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 oryx:
   dc: cn
   clusterName: oryx
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 default:
   dc: cn
   clusterName: default
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 leser:
   dc: cn
   clusterName: leser
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 lobst:
   dc: cn
   clusterName: lobst
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
 wj:
   dc: cn
   clusterName: wj
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 hl:
   dc: cn
   clusterName: hl
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 hyrax:
   dc: cn
   clusterName: hyrax
   high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 horse:
   dc: cn
   clusterName: horse
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 hibis:
   dc: cn
   clusterName: hibis
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 topi:
   dc: cn
   clusterName: topi
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 hippo:
   dc: cn
   clusterName: hippo
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 heron:
   dc: cn
   clusterName: heron
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 hamer:
   dc: cn
   clusterName: hamer
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 hyena:
   dc: cn
   clusterName: hyena
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
 quail:
   dc: cn
   clusterName: quail
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
 
 quoka:
   dc: cn
   clusterName: quoka
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
 
 maliva:
   dc: va
   clusterName: maliva
   high-availability.zookeeper.quorum: 10.110.150.57:2181,10.110.150.58:2181,10.110.150.59:2181,10.110.150.60:2181,10.110.150.61:2181
   hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
   dashboard.data_source: bytetsd_maliva
   dtop.data_source: dtop_maliva
   dtop.database: dtop_maliva
@@ -285,6 +305,7 @@ alisg:
   clusterName: alisg
   high-availability.zookeeper.quorum: 10.115.61.129:2181,10.115.61.130:2181,10.115.61.131:2181,10.115.61.132:2181,10.115.61.133:2181
   hdfs.prefix: hdfs://harunasg/flink_alisg
+  checkpoint.hdfs.prefix: hdfs://harunasg/flink_alisg
   dashboard.data_source: bytetsd_alisg
   dtop.data_source: dtop_alisg
   dtop.database: dtop_alisg
@@ -301,6 +322,7 @@ boe:
   clusterName: boe
   high-availability.zookeeper.quorum: 10.225.33.2:2181,10.225.28.3:2181,10.225.33.6:2181,10.225.125.22:2181,10.225.125.29:2181
   hdfs.prefix: hdfs://westeros/flink_boe
+  checkpoint.hdfs.prefix: hdfs://westeros/flink_boe
   dashboard.data_source: bytetsd_boe
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log
@@ -313,6 +335,7 @@ cof:
   clusterName: cof
   high-availability.zookeeper.quorum: 10.225.125.22:2181,10.225.125.29:2181,10.225.28.3:2181,10.225.33.2:2181,10.225.33.6:2181
   hdfs.prefix: hdfs://westeros/flink_cof
+  checkpoint.hdfs.prefix: hdfs://westeros/flink_cof
   dashboard.data_source: bytetsd_cof
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log
@@ -325,10 +348,12 @@ swan:
   clusterName: swan
   high-availability.zookeeper.quorum: 10.230.2.2:2181,10.230.2.10:2181,10.230.2.7:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
+  checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
 
 koala:
   dc: ka2
   clusterName: koala
   high-availability.zookeeper.quorum: 10.230.9.118:2181,10.230.9.121:2181,10.230.9.102:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
+  checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
 

@@ -2078,6 +2078,7 @@ public final class ConfigConstants {
 	public static final String JOB_NAME_KEY = "jobName";
 	public static final String JOB_NAME_DEFAULT = "unknown";
 	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
+	public static final String CHECKPOINT_HDFS_PREFIX_KEY = "checkpoint.hdfs.prefix";
 	public static final String METRIC_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
 
