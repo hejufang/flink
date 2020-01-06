@@ -538,7 +538,7 @@ class FlinkTopology(object):
                                               'queue': self.queue_name})
                     print red(
                         "=================================================================\n"
-                        "强烈建议将线上作业迁移到 Dayu 平台 https://dayu.bytedance.net\n"
+                        "强烈建议将线上作业迁移到 Dorado 平台 https://data.bytedance.net/dorado/development\n"
                         "（1）脚本提交方式，不保障作业挂了，自动拉起来，需要用户自己手动拉起来\n"
                         "（2）脚本提交方式，出现平台级故障时，平台不能帮助你运维，需要用户自己手动拉起来\n"
                         "（3）脚本提交方式，可能将未 merge 到 master 的本地代码提交到线上运行，留坑\n"
