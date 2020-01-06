@@ -246,6 +246,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	 * Only be true when first allocate after YarnResourceManager started.
 	 */
 	private boolean fatalOnGangFailed;
+	private int gangMaxRetryTimes;
+	private int gangCurrentRetryTimes;
+	private long gangLastDowngradeTimestamp;
+	private int gangDowngradeTimeoutMilli;
+	private boolean gangSchedulerEnabled;
 
 	public YarnResourceManager(
 		RpcService rpcService,
@@ -333,10 +338,17 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 		this.nmClientAsyncEnabled = flinkConfig.getBoolean(YarnConfigOptions.NMCLINETASYNC_ENABLED);
 
+		this.gangSchedulerEnabled = flinkConfig.getBoolean(YarnConfigOptions.GANG_SCHEDULER);
+
 		this.fatalOnGangFailed = true;
 
 		this.flinkHostnameToYarnHostname = new HashMap<>();
 		this.yarnBlackedHosts = new HashSet<>();
+
+		this.gangCurrentRetryTimes = 0;
+		this.gangLastDowngradeTimestamp = -1;
+		this.gangMaxRetryTimes = flinkConfig.getInteger(YarnConfigOptions.GANG_MAX_RETRY_TIMES);
+		this.gangDowngradeTimeoutMilli = flinkConfig.getInteger(YarnConfigOptions.GANG_DOWNGRADE_TIMEOUT_MS);
 
 		// smart resources
 		smartResourcesStats = new SmartResourcesStats();
@@ -706,17 +718,20 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 							final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
 							final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
 							for (int i = 0; i < gangSchedulerNotifyContent.getRequestedContainerNum(); i++) {
-								removeContainerRequest(pendingRequestsIterator.next());
+								removeContainerRequest(pendingRequestsIterator.next(), false);
 							}
-							try {
-								Thread.sleep(flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS));
-							} catch (InterruptedException e) {
-								log.error("InterruptedException when waiting to retry Request by GangScheduler.", e);
+
+							if (++gangCurrentRetryTimes > gangMaxRetryTimes) {
+								// gang scheduler failed too many times, downgrade to fair scheduler.
+								gangLastDowngradeTimestamp = System.currentTimeMillis();
 							}
 							if (sessionBlacklistTracker != null) {
 								sessionBlacklistTracker.clearAll();
 							}
-							recordFailureAndStartNewWorkerIfNeeded();
+							scheduleRunAsync(
+								this::recordFailureAndStartNewWorkerIfNeeded,
+								flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS),
+								TimeUnit.MILLISECONDS);
 						}
 					);
 				} else {
@@ -832,9 +847,15 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	private void removeContainerRequest(AMRMClient.ContainerRequest pendingContainerRequest) {
+		removeContainerRequest(pendingContainerRequest, true);
+	}
+
+	private void removeContainerRequest(AMRMClient.ContainerRequest pendingContainerRequest, boolean enableLog) {
 		numPendingContainerRequests--;
 
-		log.info("Removing container request {}. Pending container requests {}.", pendingContainerRequest, numPendingContainerRequests);
+		if (enableLog) {
+			log.info("Removing container request {}. Pending container requests {}.", pendingContainerRequest, numPendingContainerRequests);
+		}
 
 		resourceManagerClient.removeContainerRequest(pendingContainerRequest);
 	}
@@ -958,7 +979,15 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	private void requestYarnContainers(int containerNumber) {
-		boolean useGang = flinkConfig.getBoolean(YarnConfigOptions.GANG_SCHEDULER);
+		boolean useGang = gangSchedulerEnabled;
+		if (gangSchedulerEnabled) {
+			if (System.currentTimeMillis() - gangLastDowngradeTimestamp < gangDowngradeTimeoutMilli) {
+				useGang = false;
+			} else if (gangLastDowngradeTimestamp > 0) {
+				gangCurrentRetryTimes = 0;
+				gangLastDowngradeTimestamp = -1;
+			}
+		}
 		log.info("Allocate {} containers, Using gang scheduler: {}", containerNumber, useGang);
 		ArrayList<AMRMClient.ContainerRequest> containerRequests = new ArrayList<>();
 		for (int i = 0; i < containerNumber; i++) {

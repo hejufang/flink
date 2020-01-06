@@ -273,6 +273,22 @@ public class YarnConfigOptions {
 			.defaultValue(1000)
 			.withDescription("Wait time before retry by GangScheduler.");
 
+	/**
+	 * Max retry times by GangScheduler, downgrade to fairScheduler in DOWNGRADE_TIMEOUT when retry times exceeds it.
+	 */
+	public static final ConfigOption<Integer> GANG_MAX_RETRY_TIMES =
+		key("yarn.gang-scheduler.max-retry-times")
+			.defaultValue(5)
+			.withDescription("Max retry times by GangScheduler, downgrade to fairScheduler if exceeds");
+
+	/**
+	 * Back to GangScheduler after downgrade timeout. Only work when gang scheduler enabled.
+	 */
+	public static final ConfigOption<Integer> GANG_DOWNGRADE_TIMEOUT_MS =
+		key("yarn.gang-scheduler.downgrade-timeout-ms")
+			.defaultValue(1800000)
+			.withDescription("Back to GangScheduler after downgrade timeout.");
+
 	// ------------------------------------------------------------------------
 
 	/**

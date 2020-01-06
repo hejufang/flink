@@ -127,6 +127,8 @@ common:
   yarn.gang-scheduler.node-quota-usage-average-weight: 1
   yarn.gang-scheduler.wait-time-before-fatal-ms: 300000
   yarn.gang-scheduler.wait-time-before-retry-ms: 1000
+  yarn.gang-scheduler.max-retry-times: 5
+  yarn.gang-scheduler.downgrade-timeout-ms: 1800000
 
   # GC log options
   flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
