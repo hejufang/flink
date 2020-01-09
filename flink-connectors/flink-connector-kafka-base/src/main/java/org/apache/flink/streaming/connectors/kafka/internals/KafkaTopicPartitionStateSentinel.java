@@ -55,6 +55,15 @@ public class KafkaTopicPartitionStateSentinel {
 	 */
 	public static final long GROUP_OFFSET = -915623761773L;
 
+	/**
+	 * Magic number that defines the partition should start from its committed group offset in Kafka.
+	 * For partitions which have no valid offset in Kafka, should start from earliest offset.
+	 *
+	 * <p>This is used as a placeholder so that the actual committed group offset can be evaluated lazily
+	 * when the partition will actually start to be read by the consumer.
+	 */
+	public static final long RESET_TO_EARLIEST_FOR_NEW_PARTITION = -915623761772L;
+
 	public static boolean isSentinel(long offset) {
 		return offset < 0;
 	}

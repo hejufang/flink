@@ -173,6 +173,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Timestamp to determine startup offsets; only relevant when startup mode is {@link StartupMode#TIMESTAMP}. */
 	private Long startupOffsetsTimestamp;
 
+	/** Whether reset to earliest for new partition at startup.*/
+	private boolean resetEarliestForNewPartition = false;
+
 	/** Relative offset for {@link StartupMode#LATEST} or {@link StartupMode#GROUP_OFFSETS} or
 	 * {@link StartupMode#EARLIEST}, can be negative and positive. */
 	private Long relativeOffset;
@@ -523,6 +526,20 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	}
 
 	/**
+	 * Set {@link FlinkKafkaConsumerBase#resetEarliestForNewPartition} to true.
+	 *
+	 * @return The consumer object, to allow function chaining.
+	 */
+	public FlinkKafkaConsumerBase<T> resetToEarliestForNewPartition() {
+		if (startupMode != StartupMode.GROUP_OFFSETS) {
+			throw new FlinkRuntimeException("resetToEarliestForNewPartition() must be called after " +
+				"setting start from group offsets.");
+		}
+		this.resetEarliestForNewPartition = true;
+		return this;
+	}
+
+	/**
 	 * By default, when restoring from a checkpoint / savepoint, the consumer always
 	 * ignores restored partitions that are no longer associated with the current specified topics or
 	 * topic pattern to subscribe to.
@@ -652,7 +669,13 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				default:
 					if (relativeOffset == null) {
 						for (KafkaTopicPartition seedPartition : allPartitions) {
-							subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+							if (resetEarliestForNewPartition && startupMode == StartupMode.GROUP_OFFSETS) {
+								subscribedPartitionsToStartOffsets.put(seedPartition,
+									KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+
+							} else {
+								subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+							}
 						}
 					} else {
 						if (startupMode == StartupMode.EARLIEST && relativeOffset < 0) {
@@ -660,6 +683,10 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 						}
 						if (startupMode == StartupMode.LATEST && relativeOffset > 0) {
 							throw new FlinkRuntimeException("RelativeOffset should not > 0 when StartupMode is LATEST");
+						}
+						if (resetEarliestForNewPartition) {
+							throw new FlinkRuntimeException("resetEarliestForNewPartition and relativeOffset cannot " +
+								"work together.");
 						}
 
 						Map<KafkaTopicPartition, Long> offsets = fetchOffsetsWithStartupMode(allPartitions, startupMode);
