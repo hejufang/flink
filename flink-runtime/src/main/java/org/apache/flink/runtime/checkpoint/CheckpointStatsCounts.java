@@ -48,11 +48,14 @@ public class CheckpointStatsCounts implements Serializable {
 	/** Number of failed checkpoints. */
 	private long numFailedCheckpoints;
 
+	/** Number of trigger failed checkpoints. */
+	private long numberTriggerFailedCheckpoints;
+
 	/**
 	 * Creates the initial zero checkpoint counts.
 	 */
 	CheckpointStatsCounts() {
-		this(0, 0, 0, 0, 0);
+		this(0, 0, 0, 0, 0, 0);
 	}
 
 	/**
@@ -69,19 +72,22 @@ public class CheckpointStatsCounts implements Serializable {
 			long numTotalCheckpoints,
 			int numInProgressCheckpoints,
 			long numCompletedCheckpoints,
-			long numFailedCheckpoints) {
+			long numFailedCheckpoints,
+			long numberTriggerFailedCheckpoints) {
 
 		checkArgument(numRestoredCheckpoints >= 0, "Negative number of restored checkpoints");
 		checkArgument(numTotalCheckpoints >= 0, "Negative total number of checkpoints");
 		checkArgument(numInProgressCheckpoints >= 0, "Negative number of in progress checkpoints");
 		checkArgument(numCompletedCheckpoints >= 0, "Negative number of completed checkpoints");
 		checkArgument(numFailedCheckpoints >= 0, "Negative number of failed checkpoints");
+		checkArgument(numberTriggerFailedCheckpoints >= 0, "Negative number of trigger failed checkpoints");
 
 		this.numRestoredCheckpoints = numRestoredCheckpoints;
 		this.numTotalCheckpoints = numTotalCheckpoints;
 		this.numInProgressCheckpoints = numInProgressCheckpoints;
 		this.numCompletedCheckpoints = numCompletedCheckpoints;
 		this.numFailedCheckpoints = numFailedCheckpoints;
+		this.numberTriggerFailedCheckpoints = numberTriggerFailedCheckpoints;
 	}
 
 	/**
@@ -129,6 +135,10 @@ public class CheckpointStatsCounts implements Serializable {
 		return numFailedCheckpoints;
 	}
 
+	public long getNumberOfTriggerFailedCheckpoints() {
+		return numberTriggerFailedCheckpoints;
+	}
+
 	/**
 	 * Increments the number of restored checkpoints.
 	 */
@@ -141,6 +151,9 @@ public class CheckpointStatsCounts implements Serializable {
 	 */
 	void incrementInProgressCheckpoints() {
 		numInProgressCheckpoints++;
+	}
+
+	void incrementTriggeredCheckpoints() {
 		numTotalCheckpoints++;
 	}
 
@@ -170,6 +183,10 @@ public class CheckpointStatsCounts implements Serializable {
 		numFailedCheckpoints++;
 	}
 
+	void incrementTriggerFailedCheckpoints() {
+		numberTriggerFailedCheckpoints++;
+	}
+
 	/**
 	 * Creates a snapshot of the current state.
 	 *
@@ -181,7 +198,8 @@ public class CheckpointStatsCounts implements Serializable {
 			numTotalCheckpoints,
 			numInProgressCheckpoints,
 			numCompletedCheckpoints,
-			numFailedCheckpoints);
+			numFailedCheckpoints,
+			numberTriggerFailedCheckpoints);
 	}
 
 	private boolean canDecrementOfInProgressCheckpointsNumber() {

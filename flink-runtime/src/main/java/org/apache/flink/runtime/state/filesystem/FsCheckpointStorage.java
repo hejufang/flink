@@ -145,6 +145,9 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		// prepare all the paths needed for the checkpoints
 		final Path checkpointDir = createCheckpointDirectory(checkpointsDirectory, checkpointId);
 
+		if (fileSystem.exists(checkpointDir)) {
+			throw new IOException("checkpoint dir " +  checkpointDir + " already exists.");
+		}
 		// create the checkpoint exclusive directory
 		fileSystem.mkdirs(checkpointDir);
 

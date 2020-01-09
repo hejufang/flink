@@ -122,7 +122,11 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"TotalMemorySegments",
 			"AvailableMemorySegments",
 			// CPU
-			"Load"
+			"Load",
+			// Checkpoints
+			"numberOfTriggerFailedCheckpoints",
+			"numberOfFailedCheckpoints",
+			"totalNumberOfCheckpoints"
 	));
 
 	private Map<String, String> globalMetricNames = new HashMap<>();

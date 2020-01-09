@@ -123,6 +123,8 @@ public class CheckpointingStatistics implements ResponseBody {
 
 		public static final String FIELD_NAME_FAILED_CHECKPOINTS = "failed";
 
+		public static final String FIELD_NAME_TRIGGER_FAILED_CHECKPOINTS = "trigger_failed";
+
 		@JsonProperty(FIELD_NAME_RESTORED_CHECKPOINTS)
 		private final long numberRestoredCheckpoints;
 
@@ -138,18 +140,23 @@ public class CheckpointingStatistics implements ResponseBody {
 		@JsonProperty(FIELD_NAME_FAILED_CHECKPOINTS)
 		private final long numberFailedCheckpoints;
 
+		@JsonProperty(FIELD_NAME_TRIGGER_FAILED_CHECKPOINTS)
+		private final long numberTriggerFailedCheckpoints;
+
 		@JsonCreator
 		public Counts(
 				@JsonProperty(FIELD_NAME_RESTORED_CHECKPOINTS) long numberRestoredCheckpoints,
 				@JsonProperty(FIELD_NAME_TOTAL_CHECKPOINTS) long totalNumberCheckpoints,
 				@JsonProperty(FIELD_NAME_IN_PROGRESS_CHECKPOINTS) int numberInProgressCheckpoints,
 				@JsonProperty(FIELD_NAME_COMPLETED_CHECKPOINTS) long numberCompletedCheckpoints,
-				@JsonProperty(FIELD_NAME_FAILED_CHECKPOINTS) long numberFailedCheckpoints) {
+				@JsonProperty(FIELD_NAME_FAILED_CHECKPOINTS) long numberFailedCheckpoints,
+				@JsonProperty(FIELD_NAME_TRIGGER_FAILED_CHECKPOINTS) long numberTriggerFailedCheckpoints) {
 			this.numberRestoredCheckpoints = numberRestoredCheckpoints;
 			this.totalNumberCheckpoints = totalNumberCheckpoints;
 			this.numberInProgressCheckpoints = numberInProgressCheckpoints;
 			this.numberCompletedCheckpoints = numberCompletedCheckpoints;
 			this.numberFailedCheckpoints = numberFailedCheckpoints;
+			this.numberTriggerFailedCheckpoints = numberTriggerFailedCheckpoints;
 		}
 
 		public long getNumberRestoredCheckpoints() {
@@ -172,6 +179,10 @@ public class CheckpointingStatistics implements ResponseBody {
 			return numberFailedCheckpoints;
 		}
 
+		public long getNumberTriggerFailedCheckpoints() {
+			return numberTriggerFailedCheckpoints;
+		}
+
 		@Override
 		public boolean equals(Object o) {
 			if (this == o) {
@@ -185,12 +196,13 @@ public class CheckpointingStatistics implements ResponseBody {
 				totalNumberCheckpoints == counts.totalNumberCheckpoints &&
 				numberInProgressCheckpoints == counts.numberInProgressCheckpoints &&
 				numberCompletedCheckpoints == counts.numberCompletedCheckpoints &&
-				numberFailedCheckpoints == counts.numberFailedCheckpoints;
+				numberFailedCheckpoints == counts.numberFailedCheckpoints &&
+				numberTriggerFailedCheckpoints == counts.numberTriggerFailedCheckpoints;
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(numberRestoredCheckpoints, totalNumberCheckpoints, numberInProgressCheckpoints, numberCompletedCheckpoints, numberFailedCheckpoints);
+			return Objects.hash(numberRestoredCheckpoints, totalNumberCheckpoints, numberInProgressCheckpoints, numberCompletedCheckpoints, numberFailedCheckpoints, numberTriggerFailedCheckpoints);
 		}
 	}
 

@@ -219,6 +219,14 @@ public class CheckpointStatsTracker {
 		return pending;
 	}
 
+	void reportTriggerCheckpoint() {
+		counts.incrementTriggeredCheckpoints();
+	}
+
+	void reportTriggerFailedCheckpoint() {
+		counts.incrementTriggerFailedCheckpoints();
+	}
+
 	/**
 	 * Callback when a checkpoint is restored.
 	 *
@@ -333,6 +341,9 @@ public class CheckpointStatsTracker {
 	static final String NUMBER_OF_FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
 
 	@VisibleForTesting
+	static final String NUMBER_OF_TRIGGER_FAILED_CHECKPOINTS_METRIC = "numberOfTriggerFailedCheckpoints";
+
+	@VisibleForTesting
 	static final String LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC = "lastCheckpointRestoreTimestamp";
 
 	@VisibleForTesting
@@ -357,6 +368,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_IN_PROGRESS_CHECKPOINTS_METRIC, new InProgressCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_COMPLETED_CHECKPOINTS_METRIC, new CompletedCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, new FailedCheckpointsCounter());
+		metricGroup.gauge(NUMBER_OF_TRIGGER_FAILED_CHECKPOINTS_METRIC, new TriggerFailedCheckpointsCounter());
 		metricGroup.gauge(LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC, new LatestRestoredCheckpointTimestampGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC, new LatestCompletedCheckpointSizeGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC, new LatestCompletedCheckpointDurationGauge());
@@ -389,6 +401,13 @@ public class CheckpointStatsTracker {
 		@Override
 		public Long getValue() {
 			return counts.getNumberOfFailedCheckpoints();
+		}
+	}
+
+	private class TriggerFailedCheckpointsCounter implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			return counts.getNumberOfTriggerFailedCheckpoints();
 		}
 	}
 

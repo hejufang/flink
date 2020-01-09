@@ -39,7 +39,7 @@ public class CheckpointingStatisticsTest extends RestResponseMarshallingTestBase
 	@Override
 	protected CheckpointingStatistics getTestResponseInstance() throws Exception {
 
-		final CheckpointingStatistics.Counts counts = new CheckpointingStatistics.Counts(1, 2, 3, 4, 5);
+		final CheckpointingStatistics.Counts counts = new CheckpointingStatistics.Counts(1, 2, 3, 4, 5, 6);
 		final CheckpointingStatistics.Summary summary = new CheckpointingStatistics.Summary(
 			new MinMaxAvgStatistics(1L, 1L, 1L),
 			new MinMaxAvgStatistics(2L, 2L, 2L),

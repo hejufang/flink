@@ -566,6 +566,10 @@ public class CheckpointCoordinator {
 		// we avoid blocking the processing of 'acknowledge/decline' messages during that time.
 		synchronized (triggerLock) {
 
+			if (statsTracker != null) {
+				statsTracker.reportTriggerCheckpoint();
+			}
+
 			final CheckpointStorageLocation checkpointStorageLocation;
 			final long checkpointID;
 
@@ -579,6 +583,9 @@ public class CheckpointCoordinator {
 						checkpointStorage.initializeLocationForCheckpoint(checkpointID);
 			}
 			catch (Throwable t) {
+				if (statsTracker != null) {
+					statsTracker.reportTriggerFailedCheckpoint();
+				}
 				int numUnsuccessful = numUnsuccessfulCheckpointsTriggers.incrementAndGet();
 				LOG.warn("Failed to trigger checkpoint for job {} ({} consecutive failed attempts so far).",
 						job,
@@ -685,6 +692,9 @@ public class CheckpointCoordinator {
 					pendingCheckpoints.remove(checkpointID);
 				}
 
+				if (statsTracker != null) {
+					statsTracker.reportTriggerFailedCheckpoint();
+				}
 				int numUnsuccessful = numUnsuccessfulCheckpointsTriggers.incrementAndGet();
 				LOG.warn("Failed to trigger checkpoint {} for job {}. ({} consecutive failed attempts so far)",
 						checkpointID, job, numUnsuccessful, t);

@@ -101,7 +101,8 @@ public class CheckpointingStatisticsHandler extends AbstractExecutionGraphHandle
 				checkpointStatsCounts.getTotalNumberOfCheckpoints(),
 				checkpointStatsCounts.getNumberOfInProgressCheckpoints(),
 				checkpointStatsCounts.getNumberOfCompletedCheckpoints(),
-				checkpointStatsCounts.getNumberOfFailedCheckpoints());
+				checkpointStatsCounts.getNumberOfFailedCheckpoints(),
+				checkpointStatsCounts.getNumberOfTriggerFailedCheckpoints());
 
 			final CompletedCheckpointStatsSummary checkpointStatsSummary = checkpointStatsSnapshot.getSummaryStats();
 			final MinMaxAvgStats stateSize = checkpointStatsSummary.getStateSizeStats();
