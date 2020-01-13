@@ -34,7 +34,7 @@ common:
   high-availability.zookeeper.client.max-retry-attempts: 20 # default 3
   high-availability.zookeeper.client.connection-timeout: 60000 # default 15000ms
   high-availability.zookeeper.client.retry-wait: 20000 # default 5000ms
-  high-availability.zookeeper.client.session-timeout: 120000 # default 60000ms
+  high-availability.zookeeper.client.session-timeout: 60000 # default 60000ms, be careful to change this.
 
   yarn.application-attempts: 5
   yarn.application-attempt-failures-validity-interval: 3600000
