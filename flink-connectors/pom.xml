@@ -62,6 +62,7 @@ under the License.
 		<module>flink-connector-clickhouse</module>
 		<module>flink-connector-print</module>
 		<module>flink-connector-elasticsearch6-ad</module>
+		<module>flink-connector-rocketmq</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
