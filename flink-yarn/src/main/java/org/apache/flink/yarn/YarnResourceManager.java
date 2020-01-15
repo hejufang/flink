@@ -752,15 +752,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		runAsync(() -> {
 				log.warn("YARN ResourceManager reported {} containers completed.", statuses.size());
 				for (final ContainerStatus containerStatus : statuses) {
-					log.warn("Container {} on {} completed, {}",
-							containerStatus.getContainerId(),
-							containerStatus.getHost(),
-							containerStatus.getDiagnostics());
-
 					final ResourceID resourceId = new ResourceID(containerStatus.getContainerId().toString());
 					final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
 
 					if (yarnWorkerNode != null) {
+						log.warn("Container {} on {} completed, {}",
+								containerStatus.getContainerId(),
+								yarnWorkerNode.getContainer().getNodeId().getHost(),
+								containerStatus.getDiagnostics());
 						startingContainers.remove(yarnWorkerNode);
 						slowContainers.remove(yarnWorkerNode);
 						recordFailureAndStartNewWorkerIfNeeded(
