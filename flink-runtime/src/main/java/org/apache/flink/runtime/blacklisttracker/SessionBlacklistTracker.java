@@ -21,7 +21,6 @@ package org.apache.flink.runtime.blacklisttracker;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,15 +97,13 @@ public class SessionBlacklistTracker implements AutoCloseable {
 		}
 	}
 
-	public void taskManagerFailure(TaskManagerLocation taskManagerLocation, String cause, Long timestamp) {
-		ResourceID resourceID = taskManagerLocation.getResourceID();
-		String hostname = taskManagerLocation.getFQDNHostname();
+	public void taskManagerFailure(String hostname, ResourceID resourceID, String cause, long timestamp) {
+		TaskManagerFailure taskManagerFailure = new TaskManagerFailure(hostname, resourceID, cause, timestamp);
 		if (hostFailures.containsKey(hostname)) {
 			LinkedList<TaskManagerFailure> taskManagerFailures = hostFailures.get(hostname);
 			// TODO: filter Exception
-			taskManagerFailures.add(new TaskManagerFailure(taskManagerLocation, cause, timestamp));
-			LOG.info("Add taskManagerFailures, TaskManagerLocation: {}, cause: {}, timestamp: {}.",
-					taskManagerLocation, cause, timestamp);
+			taskManagerFailures.add(taskManagerFailure);
+			LOG.info("Add taskManagerFailures, {}.", taskManagerFailure);
 
 			boolean updated = false;
 			if (taskManagerFailures.size() > blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost()) {
@@ -127,10 +124,10 @@ public class SessionBlacklistTracker implements AutoCloseable {
 
 				// remove earliest exception.
 				if (taskManagerFailures.size() > blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost() + 1) {
-					TaskManagerFailure taskManagerFailure = taskManagerFailures.removeFirst();
-					if (taskManagerFailure != null) {
+					TaskManagerFailure firstTaskManagerFailure = taskManagerFailures.removeFirst();
+					if (firstTaskManagerFailure != null) {
 						LOG.info("Blacklist Exceptions for host {} too long, remove {}",
-								hostname, taskManagerFailure);
+								hostname, firstTaskManagerFailure);
 					}
 				}
 				if (updated) {
@@ -139,7 +136,7 @@ public class SessionBlacklistTracker implements AutoCloseable {
 			}
 		} else {
 			LinkedList<TaskManagerFailure> taskManagerFailures = new LinkedList<>();
-			taskManagerFailures.add(new TaskManagerFailure(taskManagerLocation, cause, timestamp));
+			taskManagerFailures.add(taskManagerFailure);
 			hostFailures.put(hostname, taskManagerFailures);
 			LOG.info("Add host {} TaskManager {} to hostToFailureTaskManager.", hostname, resourceID);
 		}

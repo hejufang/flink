@@ -18,24 +18,30 @@
 
 package org.apache.flink.runtime.blacklisttracker;
 
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 
 /**
  * TaskManager Failure, only the last Exception.
  */
 public class TaskManagerFailure {
-	private TaskManagerLocation taskManagerLocation;
+	private String hostname;
+	private ResourceID resourceID;
 	private String exception;
 	private long timestamp;
 
-	public TaskManagerFailure(TaskManagerLocation taskManagerLocation, String exception, Long timestamp) {
-		this.taskManagerLocation = taskManagerLocation;
+	public TaskManagerFailure(String hostname, ResourceID resourceID, String exception, long timestamp) {
+		this.hostname = hostname;
+		this.resourceID = resourceID;
 		this.exception = exception;
 		this.timestamp = timestamp;
 	}
 
-	public TaskManagerLocation getTaskManagerLocation() {
-		return taskManagerLocation;
+	public String getHostname() {
+		return hostname;
+	}
+
+	public ResourceID getResourceID() {
+		return resourceID;
 	}
 
 	public String getException() {
@@ -49,7 +55,8 @@ public class TaskManagerFailure {
 	@Override
 	public String toString() {
 		return "TaskManagerFailure{" +
-				"taskManagerLocation='" + taskManagerLocation + '\'' +
+				"hostname='" + hostname + '\'' +
+				", resourceID='" + resourceID + '\'' +
 				", exception=" + exception +
 				", timestamp=" + timestamp +
 				'}';

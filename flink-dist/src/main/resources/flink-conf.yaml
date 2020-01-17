@@ -282,6 +282,7 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
+  blacklist.enabled: true
 
 quoka:
   dc: cn
@@ -289,6 +290,7 @@ quoka:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
+  blacklist.enabled: true
 
 maliva:
   dc: va
@@ -336,6 +338,7 @@ boe:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.131.41:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  blacklist.enabled: true
 
 cof:
   dc: vm
@@ -349,6 +352,7 @@ cof:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  blacklist.enabled: true
 
 swan:
   dc: ka

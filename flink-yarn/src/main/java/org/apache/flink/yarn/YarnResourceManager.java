@@ -661,7 +661,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		validateSessionBlacklistNotNull();
 		Set<String> newBlackedHosts = sessionBlacklistTracker.getBlackedHosts();
 		Set<String> newYarnBlackedHosts = newBlackedHosts.stream()
-				.map(host -> flinkHostnameToYarnHostname.get(host))
+				.map(host -> flinkHostnameToYarnHostname.getOrDefault(host, host))
 				.collect(Collectors.toSet());
 
 		Set<String> blacklistAddition = new HashSet<>(newYarnBlackedHosts);
@@ -763,7 +763,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					if (yarnWorkerNode != null) {
 						startingContainers.remove(yarnWorkerNode);
 						slowContainers.remove(yarnWorkerNode);
-						recordFailureAndStartNewWorkerIfNeeded(resourceId, containerStatus.getDiagnostics());
+						recordFailureAndStartNewWorkerIfNeeded(
+								yarnWorkerNode.getContainer().getNodeId().getHost(),
+								resourceId,
+								containerStatus.getDiagnostics());
 					}
 					// Eagerly close the connection with task manager.
 					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
@@ -827,7 +830,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								slowContainers.remove(yarnWorkerNode);
 								workerNodeMap.remove(resourceId);
 								resourceManagerClient.releaseAssignedContainer(container.getId());
-								recordFailureAndStartNewWorkerIfNeeded(resourceId, t.toString());
+								recordFailureAndStartNewWorkerIfNeeded(
+										yarnWorkerNode.getContainer().getNodeId().getHost(),
+										resourceId,
+										t.toString());
 							}
 						}
 					});
@@ -958,8 +964,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		startNewWorkerIfNeeded();
 	}
 
-	private void recordFailureAndStartNewWorkerIfNeeded(ResourceID resourceID, String cause) {
-		recordWorkerFailure(resourceID, cause);
+	private void recordFailureAndStartNewWorkerIfNeeded(String hostname, ResourceID resourceID, String cause) {
+		recordWorkerFailure(hostname, resourceID, cause);
 		// and ask for new workers.
 		startNewWorkerIfNeeded();
 	}
@@ -1122,7 +1128,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				startingContainers.remove(yarnWorkerNode);
 				slowContainers.remove(yarnWorkerNode);
 				resourceManagerClient.releaseAssignedContainer(containerId);
-				recordFailureAndStartNewWorkerIfNeeded(resourceID, throwable.toString());
+				recordFailureAndStartNewWorkerIfNeeded(
+						yarnWorkerNode.getContainer().getNodeId().getHost(),
+						resourceID,
+						throwable.toString());
 			}
 		});
 	}

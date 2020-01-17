@@ -1021,10 +1021,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	}
 
-	protected void recordWorkerFailure(ResourceID resourceID, String cause) {
+	protected void recordWorkerFailure(String hostname, ResourceID resourceID, String cause) {
 		recordWorkerFailure();
 		if (sessionBlacklistTracker != null) {
-			sessionBlacklistTracker.taskManagerFailure(taskExecutors.get(resourceID).getTaskManagerLocation(), cause, System.currentTimeMillis());
+			try {
+				sessionBlacklistTracker.taskManagerFailure(hostname, resourceID, cause, System.currentTimeMillis());
+			} catch (Exception e) {
+				log.warn("Report failure to blacklist error.", e);
+			}
 		}
 	}
 
