@@ -59,6 +59,7 @@ import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONS
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_TIMESTAMP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getInteger;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getLong;
+import static org.apache.rocketmq.client.log.ClientLogger.CLIENT_LOG_USESLF4J;
 
 /**
  * The RocketMQSource is based on RocketMQ pull consumer mode, and provides exactly once reliability guarantees when
@@ -123,6 +124,12 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		}
 		if (pendingOffsetsToCommit == null) {
 			pendingOffsetsToCommit = new LinkedMap();
+		}
+
+		// rocketmq client log setting
+		if (props.containsKey(CLIENT_LOG_USESLF4J)) {
+			System.setProperty(CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
+			LOG.info("set {}={}", CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
 		}
 
 		runningChecker = new RunningChecker();

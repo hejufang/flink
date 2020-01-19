@@ -41,6 +41,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
+import static org.apache.rocketmq.client.log.ClientLogger.CLIENT_LOG_USESLF4J;
+
 /**
  * The RocketMQSink provides at-least-once reliability guarantees when
  * checkpoints are enabled and batchFlushOnCheckpoint(true) is set.
@@ -99,6 +101,12 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		if (batchFlushOnCheckpoint && !((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled()) {
 			LOG.warn("Flushing on checkpoint is enabled, but checkpointing is not enabled. Disabling flushing.");
 			batchFlushOnCheckpoint = false;
+		}
+
+		// rocketmq client log setting
+		if (props.containsKey(CLIENT_LOG_USESLF4J)) {
+			System.setProperty(CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
+			LOG.info("set {}={}", CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
 		}
 
 		try {
