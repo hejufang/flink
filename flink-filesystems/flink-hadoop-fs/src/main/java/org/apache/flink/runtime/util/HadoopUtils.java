@@ -128,6 +128,15 @@ public class HadoopUtils {
 			}
 		}
 
+		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT)) {
+			int timeout = flinkConfiguration.getInteger(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT);
+			if (timeout > 0) {
+				result.setInt(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT.key(), timeout);
+				LOG.info("using hdfs param {}={}",
+						HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT.key(), timeout);
+			}
+		}
+
 		return result;
 	}
 

@@ -38,4 +38,9 @@ public class HdfsConfigOptions {
 			key("fs.defaultFS")
 			.defaultValue("")
 			.withDescription("HDFS defaultFS");
+
+	public static final ConfigOption<Integer> HDFS_SOCKET_WRITE_TIMEOUT =
+		key("dfs.datanode.socket.write.timeout")
+			.defaultValue(15000)
+			.withDescription("HDFS socket write timeout");
 }
