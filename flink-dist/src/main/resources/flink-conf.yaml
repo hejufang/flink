@@ -368,3 +368,18 @@ koala:
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
 
+boei18n:
+  dc: vm
+  clusterName: boei18n
+  high-availability.zookeeper.quorum: 10.231.8.12:2181,10.231.8.51:2181,10.231.8.25:2181,10.231.8.21:2181,10.231.8.29:2181
+  hdfs.prefix: hdfs://essos/flink_boei18n
+  checkpoint.hdfs.prefix: hdfs://essos/flink_boei18n
+  dashboard.data_source: bytetsd_boei18n
+  kafka_server_url: http://kafka-config.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log
+  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
+  yaop_url: http://10.231.17.57:8092
+  yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  docker.hub: aliyun-va-hub.byted.org
+  docker.namespace: yarn
+  docker.region: Aliyun_VA
