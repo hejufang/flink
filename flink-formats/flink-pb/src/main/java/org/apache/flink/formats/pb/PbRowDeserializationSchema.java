@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.table.descriptors.PbValidator;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -48,10 +49,14 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 
 	private static final long serialVersionUID = -4040917522067315718L;
 
-	/** Type information describing the result type. */
+	/**
+	 * Type information describing the result type.
+	 */
 	private final RowTypeInfo typeInfo;
 
-	/** Type information describing the pb class. When there is no wrapper, it is the same as typeInfo. */
+	/**
+	 * Type information describing the pb class. When there is no wrapper, it is the same as typeInfo.
+	 */
 	private final RowTypeInfo pbTypeInfo;
 
 	private final int columnCount;
@@ -59,25 +64,24 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 	private final String pbDescriptorClass;
 
 	private final DeserializationRuntimeConverter runtimeConverter;
-
-	private Descriptors.Descriptor pbDescriptor = null;
-
 	private final int skipBytes;
-
 	private final boolean withWrapper;
+	private Descriptors.Descriptor pbDescriptor = null;
+	private boolean isAdInstanceFormat = false;
 
 	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
 		int skipBytes) {
-		this(typeInfo, pbDescriptorClass, skipBytes, false);
+		this(typeInfo, pbDescriptorClass, skipBytes, false, false);
 	}
 
 	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
-		int skipBytes, boolean withWrapper) {
+		int skipBytes, boolean withWrapper, boolean isAdInstanceFormat) {
 		checkNotNull(typeInfo, "Type information");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.skipBytes = skipBytes;
 		this.withWrapper = withWrapper;
+		this.isAdInstanceFormat = isAdInstanceFormat;
 		if (this.withWrapper) {
 			TypeInformation ti = this.typeInfo.getTypeAt(PbConstant.FORMAT_PB_WRAPPER_NAME);
 			pbTypeInfo = (RowTypeInfo) ti;
@@ -90,13 +94,23 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 
 	@Override
 	public Row deserialize(byte[] message) throws IOException {
-		if (skipBytes > 0) {
-			if (message.length < skipBytes) {
-				throw new RuntimeException(String.format("The message length is %s, " +
-					"which is less than the skip bytes %s", message.length, skipBytes));
-			} else {
-				message = Arrays.copyOfRange(message, skipBytes, message.length);
+		if (isAdInstanceFormat) {
+			//ad instance format: {sort_id_size(8 byte)} {sort_id} {data_size(8 byte)} {data}
+			byte[] sortIdSizeBytes = Arrays.copyOfRange(message, 0, 8);
+			int sortIdSize = (int) bytesToLong(sortIdSizeBytes);
+			int totalHeaderSize = 8 + sortIdSize + 8;
+			if (message.length <= totalHeaderSize) {
+				throw new FlinkRuntimeException(String.format("The message length is %s, " +
+						"which is less than or equal to totalHeaderSize %s",
+					message.length, totalHeaderSize));
 			}
+			message = Arrays.copyOfRange(message, totalHeaderSize, message.length);
+		} else if (skipBytes > 0) {
+			if (message.length < skipBytes) {
+				throw new FlinkRuntimeException(String.format("The message length is %s, " +
+					"which is less than the skip bytes %s", message.length, skipBytes));
+			}
+			message = Arrays.copyOfRange(message, skipBytes, message.length);
 		}
 
 		// lazy initial pbDescriptor
@@ -119,6 +133,21 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		} catch (Throwable t) {
 			throw new IOException("Failed to deserialize PB object.", t);
 		}
+	}
+
+	/**
+	 * The first byte is the least significant byte.
+	 * For example, new byte[] {4, 0, 0, 0, 0, 0, 0, 0} => 4L.
+	 * */
+	private static long bytesToLong(byte[] bytes) {
+		if (bytes.length > 8) {
+			throw new FlinkRuntimeException("byte[] size cannot be greater than 8.");
+		}
+		long value = 0;
+		for (int i = 0; i < bytes.length; i++) {
+			value += ((long) bytes[i] & 0xffL) << (8 * i);
+		}
+		return value;
 	}
 
 	@Override
@@ -158,6 +187,7 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		private String pbDescriptorClass;
 		private int skipBytes;
 		private boolean withWrapper;
+		private boolean isAdInstanceFormat = false;
 
 		public static Builder newBuilder() {
 			return new Builder();
@@ -183,9 +213,13 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 			return this;
 		}
 
+		public void setAdInstanceFormat(boolean isAdInstanceFormat) {
+			this.isAdInstanceFormat = isAdInstanceFormat;
+		}
+
 		public PbRowDeserializationSchema build() {
 			return new PbRowDeserializationSchema(this.typeInfo, this.pbDescriptorClass,
-				this.skipBytes, this.withWrapper);
+				this.skipBytes, this.withWrapper, this.isAdInstanceFormat);
 		}
 	}
 }

@@ -33,6 +33,7 @@ public class PbConstant {
 	public static final String FORMAT_PB_WITH_WRAPPER = "format.pb-with-wrapper";
 	public static final String FORMAT_PB_WRAPPER_NAME = "root";
 	public static final String FORMAT_PB_SKIP_BYTES = "format.pb-skip-bytes";
+	public static final String FORMAT_PB_IS_AD_INSTANCE_FORMAT = "format.pb-is-ad-instance-format";
 	public static final String FORMAT_PB_SINK_WITH_SIZE_HEADER = "format.pb-sink-with-size-header";
 	public static final String FORMAT_PB_MESSAGE = "format.pb-message";
 	public static final String FORMAT_PB_FAIL_ON_DESERIALIZED = "format.fail-on-deserialized";
