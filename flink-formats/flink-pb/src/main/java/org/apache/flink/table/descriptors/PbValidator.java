@@ -30,7 +30,7 @@ public class PbValidator extends FormatDescriptorValidator {
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
-		properties.validateString(PbConstant.FORMAT_PB_CLASS, false);
+		properties.validateString(PbConstant.FORMAT_PB_CLASS, true);
 		properties.validateBoolean(PbConstant.FORMAT_PB_WITH_WRAPPER, true);
 		properties.validateString(PbConstant.FORMAT_PB_WRAPPER_NAME, true);
 		properties.validateInt(PbConstant.FORMAT_PB_SKIP_BYTES, true, 0);
