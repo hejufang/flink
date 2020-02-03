@@ -121,7 +121,8 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			SerializationSchema<Row> serializationSchema,
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
-			Map<SinkOption, String> sinkOptions) {
+			Map<SinkOption, String> sinkOptions,
+			int[] keyFieldIndices) {
 		return new Elasticsearch7UpsertTableSink(
 			isAppendOnly,
 			schema,
@@ -132,7 +133,8 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			serializationSchema,
 			contentType,
 			failureHandler,
-			sinkOptions);
+			sinkOptions,
+			keyFieldIndices);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -167,7 +169,8 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				serializationSchema,
 				contentType,
 				failureHandler,
-				sinkOptions);
+				sinkOptions,
+				new int[0]);
 		}
 
 		@Override

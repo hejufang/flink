@@ -75,7 +75,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			SerializationSchema<Row> serializationSchema,
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
-			Map<SinkOption, String> sinkOptions) {
+			Map<SinkOption, String> sinkOptions,
+			int[] keyFieldIndices) {
 
 		super(
 			isAppendOnly,
@@ -89,7 +90,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			contentType,
 			failureHandler,
 			sinkOptions,
-			UPDATE_REQUEST_FACTORY);
+			UPDATE_REQUEST_FACTORY,
+			keyFieldIndices);
 	}
 
 	@VisibleForTesting
@@ -104,7 +106,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		SerializationSchema<Row> serializationSchema,
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
-		Map<SinkOption, String> sinkOptions) {
+		Map<SinkOption, String> sinkOptions,
+		int[] keyFieldIndices) {
 
 		super(
 			isAppendOnly,
@@ -118,7 +121,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			contentType,
 			failureHandler,
 			sinkOptions,
-			UPDATE_REQUEST_FACTORY);
+			UPDATE_REQUEST_FACTORY,
+			keyFieldIndices);
 	}
 
 	@Override
@@ -134,7 +138,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
-			RequestFactory requestFactory) {
+			RequestFactory requestFactory,
+			int[] keyFieldIndices) {
 
 		return new Elasticsearch7UpsertTableSink(
 			isAppendOnly,
@@ -146,7 +151,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			serializationSchema,
 			contentType,
 			failureHandler,
-			sinkOptions);
+			sinkOptions,
+			keyFieldIndices);
 	}
 
 	@Override
