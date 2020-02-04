@@ -60,7 +60,8 @@ public class Elasticsearch6UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
-			int[] keyFieldIndices) {
+			int[] keyFieldIndices,
+			long globalRateLimit) {
 
 		return new Elasticsearch6UpsertTableSink(
 			isAppendOnly,
@@ -74,6 +75,7 @@ public class Elasticsearch6UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			contentType,
 			failureHandler,
 			sinkOptions,
-			keyFieldIndices);
+			keyFieldIndices,
+			globalRateLimit);
 	}
 }

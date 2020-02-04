@@ -18,6 +18,8 @@
 package org.apache.flink.streaming.connectors.elasticsearch7;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
@@ -72,6 +74,22 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 		super(new Elasticsearch7ApiCallBridge(httpHosts, restClientFactory),  bulkRequestsConfig, elasticsearchSinkFunction, failureHandler);
 	}
 
+	private ElasticsearchSink(
+		Map<String, String> bulkRequestsConfig,
+		List<HttpHost> httpHosts,
+		ElasticsearchSinkFunction<T> elasticsearchSinkFunction,
+		ActionRequestFailureHandler failureHandler,
+		RestClientFactory restClientFactory,
+		FlinkConnectorRateLimiter rateLimiter) {
+
+		super(
+			new Elasticsearch7ApiCallBridge(httpHosts, restClientFactory),
+			bulkRequestsConfig,
+			elasticsearchSinkFunction,
+			failureHandler,
+			rateLimiter);
+	}
+
 	/**
 	 * A builder for creating an {@link ElasticsearchSink}.
 	 *
@@ -86,6 +104,7 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 		private Map<String, String> bulkRequestsConfig = new HashMap<>();
 		private ActionRequestFailureHandler failureHandler = new NoOpFailureHandler();
 		private RestClientFactory restClientFactory = restClientBuilder -> {};
+		private long globalRateLimit = -1;
 
 		/**
 		 * Creates a new {@code ElasticsearchSink} that connects to the cluster using a {@link RestHighLevelClient}.
@@ -201,11 +220,29 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 		}
 
 		/**
+		 * Sets global rate limit.
+		 * @param globalRateLimit global rate, records per second globally.
+		 */
+		public void setGlobalRateLimit(long globalRateLimit) {
+			this.globalRateLimit = globalRateLimit;
+		}
+
+		/**
 		 * Creates the Elasticsearch sink.
 		 *
 		 * @return the created Elasticsearch sink.
 		 */
 		public ElasticsearchSink<T> build() {
+			if (globalRateLimit > 0) {
+				FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+				rateLimiter.setRate(globalRateLimit);
+				return new ElasticsearchSink<>(bulkRequestsConfig,
+					httpHosts,
+					elasticsearchSinkFunction,
+					failureHandler,
+					restClientFactory,
+					rateLimiter);
+			}
 			return new ElasticsearchSink<>(bulkRequestsConfig, httpHosts, elasticsearchSinkFunction, failureHandler, restClientFactory);
 		}
 

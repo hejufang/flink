@@ -75,6 +75,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_RETRY;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FLUSH_ON_CHECKPOINT;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_GLOBAL_RATE_LIMIT;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_HOSTNAME;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_PORT;
@@ -147,6 +148,9 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		properties.add(CONNECTOR_CONNECTION_PASSWORD);
 		properties.add(CONNECTOR_KEY_FIELD_INDICES);
 
+		// rate limit
+		properties.add(CONNECTOR_GLOBAL_RATE_LIMIT);
+
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
@@ -173,7 +177,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			SUPPORTED_CONTENT_TYPE,
 			getFailureHandler(descriptorProperties),
 			getSinkOptions(descriptorProperties),
-			getKeyFieldIndices(descriptorProperties));
+			getKeyFieldIndices(descriptorProperties),
+			descriptorProperties.getOptionalLong(CONNECTOR_GLOBAL_RATE_LIMIT).orElse(-1L));
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -194,7 +199,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
-		int[] keyFieldIndices);
+		int[] keyFieldIndices,
+		long globalRateLimit);
 
 	// --------------------------------------------------------------------------------------------
 	// Helper methods

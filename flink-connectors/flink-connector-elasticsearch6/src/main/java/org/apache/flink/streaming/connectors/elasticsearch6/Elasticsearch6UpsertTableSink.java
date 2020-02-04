@@ -81,6 +81,39 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 	static final RequestFactory UPDATE_REQUEST_FACTORY =
 		new Elasticsearch6RequestFactory();
 
+	private long globalRateLimit = -1;
+
+	public Elasticsearch6UpsertTableSink(
+			boolean isAppendOnly,
+			TableSchema schema,
+			List<Host> hosts,
+			String index,
+			String docType,
+			String keyDelimiter,
+			String keyNullLiteral,
+			SerializationSchema<Row> serializationSchema,
+			XContentType contentType,
+			ActionRequestFailureHandler failureHandler,
+			Map<SinkOption, String> sinkOptions,
+			int[] keyFieldIndices,
+			long globalRateLimit) {
+		this(
+			isAppendOnly,
+			schema,
+			hosts,
+			index,
+			docType,
+			keyDelimiter,
+			keyNullLiteral,
+			serializationSchema,
+			contentType,
+			failureHandler,
+			sinkOptions,
+			keyFieldIndices
+		);
+		this.globalRateLimit = globalRateLimit;
+	}
+
 	public Elasticsearch6UpsertTableSink(
 		boolean isAppendOnly,
 		TableSchema schema,
@@ -139,7 +172,8 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			contentType,
 			failureHandler,
 			sinkOptions,
-			keyFieldIndices);
+			keyFieldIndices,
+			globalRateLimit);
 	}
 
 	@Override
@@ -215,6 +249,10 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			});
 
 		builder.setRestClientFactory(restClientFactory);
+
+		if (globalRateLimit > 0) {
+			builder.setGlobalRateLimit(globalRateLimit);
+		}
 
 		final ElasticsearchSink<Tuple2<Boolean, Row>> sink = builder.build();
 

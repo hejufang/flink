@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.elasticsearch;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
@@ -202,6 +203,25 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 	 */
 	private final AtomicReference<Throwable> failureThrowable = new AtomicReference<>();
 
+	/**
+	 * RateLimiter for sending records to ElasticSearch.
+	 * Will be configured globally, and global rate will be divided into subtasks.
+	 *
+	 * <P>NOTE: {@link org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter} uses bytes for
+	 * rate limiting, however we use record's number here.
+	 */
+	private FlinkConnectorRateLimiter rateLimiter;
+
+	public ElasticsearchSinkBase(
+		ElasticsearchApiCallBridge<C> callBridge,
+		Map<String, String> userConfig,
+		ElasticsearchSinkFunction<T> elasticsearchSinkFunction,
+		ActionRequestFailureHandler failureHandler,
+		FlinkConnectorRateLimiter rateLimiter) {
+		this(callBridge, userConfig, elasticsearchSinkFunction, failureHandler);
+		this.rateLimiter = rateLimiter;
+	}
+
 	public ElasticsearchSinkBase(
 		ElasticsearchApiCallBridge<C> callBridge,
 		Map<String, String> userConfig,
@@ -300,10 +320,14 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 		bulkProcessor = buildBulkProcessor(new BulkProcessorListener());
 		requestIndexer = callBridge.createBulkProcessorIndexer(bulkProcessor, flushOnCheckpoint, numPendingRequests);
 		failureRequestIndexer = new BufferingNoOpRequestIndexer();
+		rateLimiter.open(getRuntimeContext());
 	}
 
 	@Override
 	public void invoke(T value, Context context) throws Exception {
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 		checkAsyncErrorsAndRequests();
 		elasticsearchSinkFunction.process(value, getRuntimeContext(), requestIndexer);
 	}
@@ -338,6 +362,8 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 		}
 
 		callBridge.cleanup();
+
+		rateLimiter.close();
 
 		// make sure any errors from callbacks are rethrown
 		checkErrorAndRethrow();
