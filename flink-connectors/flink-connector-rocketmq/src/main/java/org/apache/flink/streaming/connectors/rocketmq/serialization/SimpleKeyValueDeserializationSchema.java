@@ -20,10 +20,12 @@ package org.apache.flink.streaming.connectors.rocketmq.serialization;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 
 import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.message.MessageQueue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * SimpleKeyValueDeserializationSchema.
@@ -41,8 +43,9 @@ public class SimpleKeyValueDeserializationSchema implements RocketMQDeserializat
 
 	/**
 	 * SimpleKeyValueDeserializationSchema Constructor.
-	 * @param keyField tuple field for selecting the key
-	 * @param valueField  tuple field for selecting the value
+	 *
+	 * @param keyField   tuple field for selecting the key
+	 * @param valueField tuple field for selecting the value
 	 */
 	public SimpleKeyValueDeserializationSchema(String keyField, String valueField) {
 		this.keyField = keyField;
@@ -50,7 +53,12 @@ public class SimpleKeyValueDeserializationSchema implements RocketMQDeserializat
 	}
 
 	@Override
-	public Map deserialize(MessageExt record) {
+	public boolean isEndOfStream(Set<MessageQueue> balanceMQSet, Map nextElement) {
+		return false;
+	}
+
+	@Override
+	public Map deserialize(MessageQueue messageQueue, MessageExt record) throws Exception {
 		byte[] key = record.getKeys() != null ? record.getKeys().getBytes(StandardCharsets.UTF_8) : null;
 		byte[] value = record.getBody();
 
@@ -64,11 +72,6 @@ public class SimpleKeyValueDeserializationSchema implements RocketMQDeserializat
 			map.put(valueField, v);
 		}
 		return map;
-	}
-
-	@Override
-	public boolean isEndOfStream(Map nextElement) {
-		return false;
 	}
 
 	@Override

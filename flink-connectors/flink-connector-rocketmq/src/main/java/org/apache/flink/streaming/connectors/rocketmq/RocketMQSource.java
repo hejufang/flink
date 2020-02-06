@@ -31,6 +31,7 @@ import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.RocketMQDeserializationSchema;
+import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQueueStrategyParallelism;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.commons.collections.map.LinkedMap;
@@ -96,6 +97,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private transient volatile boolean restored;
 	private transient boolean enableCheckpoint;
 
+	private transient int parallelism;
+	private transient int subTaskId;
+
 	public RocketMQSource(RocketMQDeserializationSchema<OUT> schema, Properties props) {
 		this.schema = schema;
 		this.props = props;
@@ -114,6 +118,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		Preconditions.checkArgument(!topic.isEmpty(), "Consumer topic can not be empty");
 		Preconditions.checkArgument(!group.isEmpty(), "Consumer group can not be empty");
 
+		this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
+		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
+
 		this.enableCheckpoint = ((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled();
 
 		if (offsetTable == null) {
@@ -129,7 +136,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		// rocketmq client log setting
 		if (props.containsKey(CLIENT_LOG_USESLF4J)) {
 			System.setProperty(CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
-			LOG.info("set {}={}", CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
+			LOG.info("set {}={}.", CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
 		}
 
 		runningChecker = new RunningChecker();
@@ -140,6 +147,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		defaultMQPullConsumer.setMessageModel(MessageModel.CLUSTERING);
 		pullConsumerScheduleService.setDefaultMQPullConsumer(defaultMQPullConsumer);
 		consumer = pullConsumerScheduleService.getDefaultMQPullConsumer();
+		consumer.setAllocateMessageQueueStrategy(new AllocateMessageQueueStrategyParallelism(parallelism, subTaskId));
 
 		consumer.setInstanceName(String.valueOf(getRuntimeContext().getIndexOfThisSubtask()) + "_" + UUID.randomUUID());
 		RocketMQConfig.buildConsumerConfigs(props, consumer);
@@ -174,18 +182,23 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 						return;
 					}
 
+					/*
+					 * current task assign message queues
+					 */
+					Set<MessageQueue> balancedMQ = consumer.fetchMessageQueuesInBalance(topic);
+
 					PullResult pullResult = consumer.pull(mq, tag, offset, pullBatchSize);
 					boolean found = false;
 					switch (pullResult.getPullStatus()) {
 						case FOUND:
 							List<MessageExt> messages = pullResult.getMsgFoundList();
 							for (MessageExt msg : messages) {
-								OUT data = schema.deserialize(msg);
-								if (schema.isEndOfStream(data)){
+								OUT data = schema.deserialize(mq, msg);
+								if (schema.isEndOfStream(balancedMQ, data)) {
+									LOG.info("Sub task: {} received all assign message queue end message.", subTaskId);
 									runningChecker.setRunning(false);
 									break;
 								}
-
 								// output and state update are atomic
 								synchronized (lock) {
 									context.collectWithTimestamp(data, msg.getBornTimestamp());

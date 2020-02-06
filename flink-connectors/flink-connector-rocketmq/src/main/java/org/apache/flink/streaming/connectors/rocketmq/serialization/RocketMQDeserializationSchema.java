@@ -21,8 +21,10 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 
 import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.message.MessageQueue;
 
 import java.io.Serializable;
+import java.util.Set;
 
 /**
  * The deserialization schema describes how to turn the rocketmq MessageExt
@@ -41,7 +43,7 @@ public interface RocketMQDeserializationSchema<T> extends Serializable, ResultTy
 	 *
 	 * @return True, if the element signals end of stream, false otherwise.
 	 */
-	boolean isEndOfStream(T nextElement);
+	boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement);
 
 	/**
 	 * Deserializes the rocketmq record.
@@ -50,5 +52,5 @@ public interface RocketMQDeserializationSchema<T> extends Serializable, ResultTy
 	 *
 	 * @return The deserialized message as an object (null if the message cannot be deserialized).
 	 */
-	T deserialize(MessageExt record) throws Exception;
+	T deserialize(MessageQueue messageQueue, MessageExt record) throws Exception;
 }
