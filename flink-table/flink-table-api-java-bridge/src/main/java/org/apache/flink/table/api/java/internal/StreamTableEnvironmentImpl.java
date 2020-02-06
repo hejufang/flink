@@ -332,7 +332,7 @@ public final class StreamTableEnvironmentImpl extends TableEnvironmentImpl imple
 
 	@Override
 	protected boolean isEagerOperationTranslation() {
-		return true;
+		return false;
 	}
 
 	private <T> TypeInformation<T> extractTypeInformation(Table table, Class<T> clazz) {
