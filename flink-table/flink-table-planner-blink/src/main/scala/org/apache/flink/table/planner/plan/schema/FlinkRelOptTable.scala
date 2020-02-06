@@ -120,7 +120,18 @@ class FlinkRelOptTable(
       case tsst: TableSourceSinkTable[_, _] if tsst.tableSourceTable.nonEmpty =>
         explainSourceAsString(tsst.tableSourceTable.get.tableSource)
       case tst: TableSourceTable[_] =>
-        explainSourceAsString(tst.tableSource)
+        // a huge hack here:
+        // HepPlanner uses digest to deduplicate RelNodes, when we have a computed column table,
+        // ComputedColumnRule will translate LogicalTableScan to LogicalWatermarkAssigner->
+        // LogicalProject->LogicalTableScan. If the two LogicalTableScan has the same digest,
+        // will incur optimization loop. We know only computed column table has catalogTable
+        // property, so it's safe to add this hack.
+        var tableNames = explainSourceAsString(tst.tableSource)
+        if (tst.catalogTable != null) {
+          tableNames = new java.util.ArrayList[String](tableNames)
+          tableNames.add("hasCatalogTable")
+        }
+        tableNames
       case view: QueryOperationCatalogViewTable =>
         view.getCatalogView.getQueryOperation match {
           case tsqo: TableSourceQueryOperation[_] => explainSourceAsString(tsqo.getTableSource)

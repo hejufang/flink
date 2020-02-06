@@ -24,7 +24,7 @@ import org.apache.calcite.rel.logical.LogicalTableScan
 import org.apache.calcite.rex.RexNode
 import org.apache.flink.table.planner.catalog.ComputedColumnCatalogTableImpl
 import org.apache.flink.table.planner.plan.nodes.calcite.LogicalWatermarkAssigner
-import org.apache.flink.table.planner.plan.schema.TableSourceTable
+import org.apache.flink.table.planner.plan.schema.{FlinkRelOptTable, TableSourceTable}
 import org.apache.flink.types.Row
 
 /**
@@ -52,9 +52,10 @@ class ComputedColumnRule extends RelOptRule(
     val tableSourceTable = oldRel.getTable.unwrap(classOf[TableSourceTable[Row]])
     val catalogTable = tableSourceTable.catalogTable.asInstanceOf[ComputedColumnCatalogTableImpl]
 
-    // null catalogTable to prevent optimization loop.
-    tableSourceTable.catalogTable = null
-    val logicalTableScan = LogicalTableScan.create(oldRel.getCluster, oldRel.getTable)
+    val newTableSource = tableSourceTable.copy(tableSourceTable.getStatistic)
+    val flinkRelOptTable = oldRel.getTable.asInstanceOf[FlinkRelOptTable]
+    val newOptTable = flinkRelOptTable.copy(newTableSource, flinkRelOptTable.rowType)
+    val logicalTableScan = LogicalTableScan.create(oldRel.getCluster, newOptTable)
 
     val relBuilder = call.builder()
     relBuilder.push(logicalTableScan)
@@ -69,7 +70,7 @@ class ComputedColumnRule extends RelOptRule(
     val project = relBuilder.build()
 
     if (catalogTable.hasWatermark) {
-      tableSourceTable.isWatermarkAssigned = true
+      newTableSource.isWatermarkAssigned = true
       val newRel = new LogicalWatermarkAssigner(
         oldRel.getCluster,
         oldRel.getTraitSet,
