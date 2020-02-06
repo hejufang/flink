@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.rest.handler.job.checkpoints;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.AbstractCheckpointStats;
 import org.apache.flink.runtime.checkpoint.CheckpointStatsHistory;
@@ -31,6 +32,8 @@ import org.apache.flink.runtime.rest.NotFoundException;
 import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.RestHandlerException;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
+import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
+import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricStore;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.JobIDPathParameter;
 import org.apache.flink.runtime.rest.messages.JobVertexIdPathParameter;
@@ -61,6 +64,8 @@ public class TaskCheckpointStatisticDetailsHandler
 	extends AbstractCheckpointHandler<TaskCheckpointStatisticsWithSubtaskDetails, TaskCheckpointMessageParameters>
 	implements JsonArchivist {
 
+	private final MetricFetcher metricFetcher;
+
 	public TaskCheckpointStatisticDetailsHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
 			Time timeout,
@@ -68,7 +73,8 @@ public class TaskCheckpointStatisticDetailsHandler
 			MessageHeaders<EmptyRequestBody, TaskCheckpointStatisticsWithSubtaskDetails, TaskCheckpointMessageParameters> messageHeaders,
 			ExecutionGraphCache executionGraphCache,
 			Executor executor,
-			CheckpointStatsCache checkpointStatsCache) {
+			CheckpointStatsCache checkpointStatsCache,
+			MetricFetcher metricFetcher) {
 		super(
 			leaderRetriever,
 			timeout,
@@ -77,6 +83,7 @@ public class TaskCheckpointStatisticDetailsHandler
 			executionGraphCache,
 			executor,
 			checkpointStatsCache);
+		this.metricFetcher = metricFetcher;
 	}
 
 	@Override
@@ -85,6 +92,7 @@ public class TaskCheckpointStatisticDetailsHandler
 			AbstractCheckpointStats checkpointStats) throws RestHandlerException {
 
 		final JobVertexID jobVertexId = request.getPathParameter(JobVertexIdPathParameter.class);
+		final JobID jobID = request.getPathParameter(JobIDPathParameter.class);
 
 		final TaskStateStats taskStatistics = checkpointStats.getTaskStateStats(jobVertexId);
 
@@ -92,7 +100,7 @@ public class TaskCheckpointStatisticDetailsHandler
 			throw new NotFoundException("There is no checkpoint statistics for task " + jobVertexId + '.');
 		}
 
-		return createCheckpointDetails(checkpointStats, taskStatistics);
+		return createCheckpointDetails(checkpointStats, taskStatistics, jobID, jobVertexId, metricFetcher);
 	}
 
 	@Override
@@ -105,7 +113,7 @@ public class TaskCheckpointStatisticDetailsHandler
 		List<ArchivedJson> archive = new ArrayList<>(history.getCheckpoints().size());
 		for (AbstractCheckpointStats checkpoint : history.getCheckpoints()) {
 			for (TaskStateStats subtaskStats : checkpoint.getAllTaskStateStats()) {
-				ResponseBody json = createCheckpointDetails(checkpoint, subtaskStats);
+				ResponseBody json = createCheckpointDetails(checkpoint, subtaskStats, graph.getJobID(), subtaskStats.getJobVertexId(), metricFetcher);
 				String path = getMessageHeaders().getTargetRestEndpointURL()
 					.replace(':' + JobIDPathParameter.KEY, graph.getJobID().toString())
 					.replace(':' + CheckpointIdPathParameter.KEY, String.valueOf(checkpoint.getCheckpointId()))
@@ -116,14 +124,21 @@ public class TaskCheckpointStatisticDetailsHandler
 		return archive;
 	}
 
-	private static TaskCheckpointStatisticsWithSubtaskDetails createCheckpointDetails(AbstractCheckpointStats checkpointStats, TaskStateStats taskStatistics) {
+	private static TaskCheckpointStatisticsWithSubtaskDetails createCheckpointDetails(AbstractCheckpointStats checkpointStats,
+			TaskStateStats taskStatistics,
+			JobID jobID,
+			JobVertexID jobVertexID,
+			MetricFetcher metricFetcher) {
 		final TaskCheckpointStatisticsWithSubtaskDetails.Summary summary = createSummary(
 			taskStatistics.getSummaryStats(),
 			checkpointStats.getTriggerTimestamp());
 
 		final List<SubtaskCheckpointStatistics> subtaskCheckpointStatistics = createSubtaskCheckpointStatistics(
 			taskStatistics.getSubtaskStats(),
-			checkpointStats.getTriggerTimestamp());
+			checkpointStats.getTriggerTimestamp(),
+			jobID,
+			jobVertexID,
+			metricFetcher);
 
 		return new TaskCheckpointStatisticsWithSubtaskDetails(
 			checkpointStats.getCheckpointId(),
@@ -165,14 +180,25 @@ public class TaskCheckpointStatisticDetailsHandler
 			checkpointAlignment);
 	}
 
-	private static List<SubtaskCheckpointStatistics> createSubtaskCheckpointStatistics(SubtaskStateStats[] subtaskStateStats, long triggerTimestamp) {
+	private static List<SubtaskCheckpointStatistics> createSubtaskCheckpointStatistics(SubtaskStateStats[] subtaskStateStats,
+			long triggerTimestamp,
+			JobID jobID,
+			JobVertexID jobVertexID,
+			MetricFetcher metricFetcher) {
 		final List<SubtaskCheckpointStatistics> result = new ArrayList<>(subtaskStateStats.length);
+
+		metricFetcher.update();
 
 		for (int i = 0; i < subtaskStateStats.length; i++) {
 			final SubtaskStateStats subtask = subtaskStateStats[i];
 
 			if (subtask == null) {
-				result.add(new SubtaskCheckpointStatistics.PendingSubtaskCheckpointStatistics(i));
+				final MetricStore.ComponentMetricStore metricStore = metricFetcher.getMetricStore().getSubtaskMetricStore(jobID.toString(), jobVertexID.toString(), i);
+				long barriersReceived = -1;
+				if (metricStore.getMetric("checkpointBarrierReceived") != null) {
+					barriersReceived = Long.parseLong(metricStore.getMetric("checkpointBarrierReceived"));
+				}
+				result.add(new SubtaskCheckpointStatistics.PendingSubtaskCheckpointStatistics(i, barriersReceived));
 			} else {
 				result.add(new SubtaskCheckpointStatistics.CompletedSubtaskCheckpointStatistics(
 					i,

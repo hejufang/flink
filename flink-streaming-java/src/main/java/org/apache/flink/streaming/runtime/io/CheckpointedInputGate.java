@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.runtime.io;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.AsyncDataInput;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
@@ -62,6 +63,7 @@ public class CheckpointedInputGate implements AsyncDataInput<BufferOrEvent> {
 	 * {@link #bufferStorage}. */
 	private boolean isFinished;
 
+	@VisibleForTesting
 	public CheckpointedInputGate(
 			InputGate inputGate,
 			BufferStorage bufferStorage,
@@ -238,6 +240,10 @@ public class CheckpointedInputGate implements AsyncDataInput<BufferOrEvent> {
 	 */
 	public long getAlignmentDurationNanos() {
 		return barrierHandler.getAlignmentDurationNanos();
+	}
+
+	public long getBarrierReceived() {
+		return barrierHandler.getBarrierReceived();
 	}
 
 	/**

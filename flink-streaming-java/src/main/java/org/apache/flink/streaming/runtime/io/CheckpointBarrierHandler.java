@@ -74,6 +74,8 @@ public abstract class CheckpointBarrierHandler {
 
 	public abstract long getAlignmentDurationNanos();
 
+	public abstract long getBarrierReceived();
+
 	public abstract void checkpointSizeLimitExceeded(long maxBufferedBytes) throws Exception;
 
 	protected void notifyCheckpoint(CheckpointBarrier checkpointBarrier, long bufferedBytes, long alignmentDurationNanos) throws Exception {

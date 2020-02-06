@@ -60,6 +60,8 @@ public class SubtaskStateStats implements Serializable {
 	/** Alignment duration in . */
 	private final long alignmentDuration;
 
+	private final long barriersReceived;
+
 	/**
 	 * Creates the stats for a single subtask.
 	 *
@@ -79,6 +81,18 @@ public class SubtaskStateStats implements Serializable {
 			long asyncCheckpointDuration,
 			long alignmentBuffered,
 			long alignmentDuration) {
+		this(subtaskIndex, ackTimestamp, stateSize, syncCheckpointDuration, asyncCheckpointDuration, alignmentBuffered, alignmentDuration, -1);
+	}
+
+	SubtaskStateStats(
+			int subtaskIndex,
+			long ackTimestamp,
+			long stateSize,
+			long syncCheckpointDuration,
+			long asyncCheckpointDuration,
+			long alignmentBuffered,
+			long alignmentDuration,
+			long barriersReceived) {
 
 		checkArgument(subtaskIndex >= 0, "Negative subtask index");
 		this.subtaskIndex = subtaskIndex;
@@ -89,6 +103,7 @@ public class SubtaskStateStats implements Serializable {
 		this.asyncCheckpointDuration = asyncCheckpointDuration;
 		this.alignmentBuffered = alignmentBuffered;
 		this.alignmentDuration = alignmentDuration;
+		this.barriersReceived = barriersReceived;
 	}
 
 	/**
@@ -177,4 +192,7 @@ public class SubtaskStateStats implements Serializable {
 		return alignmentDuration;
 	}
 
+	public long getBarriersReceived() {
+		return barriersReceived;
+	}
 }

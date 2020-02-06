@@ -79,6 +79,7 @@
     <thead (nzSortChange)="sort($event)" nzSingleSort>
       <tr>
         <th><strong>ID</strong></th>
+        <th><strong>Barriers Received</strong></th>
         <th nzSortKey="ack_timestamp" nzShowSort><strong>Acknowledgement Time</strong></th>
         <th nzSortKey="end_to_end_duration" nzShowSort><strong>E2E Duration</strong></th>
         <th nzSortKey="state_size" nzShowSort><strong>State Size</strong></th>
@@ -92,13 +93,17 @@
       <tr *ngFor="let subTask of listOfSubTaskCheckPoint">
         <td>{{ subTask['index'] + 1 }}</td>
         <ng-container *ngIf="subTask['status'] == 'completed'">
-          <td >{{ subTask['ack_timestamp'] | date:'HH:mm:ss' }}</td>
+          <td>all</td>
+          <td>{{ subTask['ack_timestamp'] | date:'HH:mm:ss' }}</td>
           <td>{{ subTask['end_to_end_duration'] | humanizeDuration}}</td>
           <td>{{ subTask['state_size'] | humanizeBytes }}</td>
           <td>{{ subTask['checkpoint']['sync'] | humanizeDuration}}</td>
           <td>{{ subTask['checkpoint']['async'] | humanizeDuration}}</td>
           <td>{{ subTask['alignment']['buffered'] | humanizeBytes}}</td>
           <td>{{ subTask['alignment']['duration'] | humanizeDuration}}</td>
+        </ng-container>
+        <ng-container *ngIf="subTask['status'] == 'pending_or_failed'">
+          <td colspan="7">{{ subTask['barriers_received']}}</td>
         </ng-container>
         <ng-container *ngIf="subTask['status'] == 'pending_or_failed'">
           <td colspan="7">n/a</td>

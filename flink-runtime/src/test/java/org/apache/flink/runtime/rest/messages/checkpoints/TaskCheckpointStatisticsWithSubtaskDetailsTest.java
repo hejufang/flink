@@ -48,7 +48,7 @@ public class TaskCheckpointStatisticsWithSubtaskDetailsTest extends RestResponse
 
 		List<SubtaskCheckpointStatistics> subtaskCheckpointStatistics = new ArrayList<>(2);
 
-		subtaskCheckpointStatistics.add(new SubtaskCheckpointStatistics.PendingSubtaskCheckpointStatistics(0));
+		subtaskCheckpointStatistics.add(new SubtaskCheckpointStatistics.PendingSubtaskCheckpointStatistics(0, -1));
 		subtaskCheckpointStatistics.add(new SubtaskCheckpointStatistics.CompletedSubtaskCheckpointStatistics(
 			1,
 			4L,

@@ -235,6 +235,11 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
 	}
 
 	@Override
+	public long getBarrierReceived() {
+		return 0;
+	}
+
+	@Override
 	public void checkpointSizeLimitExceeded(long maxBufferedBytes) throws Exception {
 		throw new UnsupportedOperationException("This should never happened as this class doesn't block any data");
 	}

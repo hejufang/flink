@@ -317,6 +317,11 @@ public class CheckpointBarrierAligner extends CheckpointBarrierHandler {
 	}
 
 	@Override
+	public long getBarrierReceived() {
+		return numBarriersReceived;
+	}
+
+	@Override
 	public String toString() {
 		return String.format("%s: last checkpoint: %d, current barriers: %d, closed channels: %d",
 			taskName,

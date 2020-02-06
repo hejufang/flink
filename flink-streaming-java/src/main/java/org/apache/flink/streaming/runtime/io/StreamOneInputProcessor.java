@@ -124,6 +124,7 @@ public final class StreamOneInputProcessor<IN> implements StreamInputProcessor {
 
 		this.watermarkGauge = watermarkGauge;
 		metrics.gauge("checkpointAlignmentTime", barrierHandler::getAlignmentDurationNanos);
+		metrics.gauge("checkpointBarrierReceived", barrierHandler::getBarrierReceived);
 
 		this.operatorChain = checkNotNull(operatorChain);
 	}

@@ -295,7 +295,7 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			TaskCheckpointStatisticsHeaders.getInstance(),
 			executionGraphCache,
 			executor,
-			checkpointStatsCache);
+			checkpointStatsCache, metricFetcher);
 
 		JobExceptionsHandler jobExceptionsHandler = new JobExceptionsHandler(
 			leaderRetriever,

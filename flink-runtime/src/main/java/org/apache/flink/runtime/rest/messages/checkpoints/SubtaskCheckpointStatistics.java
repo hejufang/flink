@@ -275,9 +275,35 @@ public class SubtaskCheckpointStatistics {
 	 */
 	public static final class PendingSubtaskCheckpointStatistics extends SubtaskCheckpointStatistics {
 
+		public static final String FIELD_NAME_BARRIERS_RECEIVED = "barriers_received";
+
+		@JsonProperty(FIELD_NAME_BARRIERS_RECEIVED)
+		private final long barriersReceived;
+
 		@JsonCreator
-		public PendingSubtaskCheckpointStatistics(@JsonProperty(FIELD_NAME_INDEX) int index) {
+		public PendingSubtaskCheckpointStatistics(@JsonProperty(FIELD_NAME_INDEX) int index, long barriersReceived) {
 			super(index, "pending_or_failed");
+			this.barriersReceived = barriersReceived;
+		}
+
+		public long getBarriersReceived() {
+			return barriersReceived;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			return super.equals(o);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(barriersReceived);
 		}
 	}
 }
