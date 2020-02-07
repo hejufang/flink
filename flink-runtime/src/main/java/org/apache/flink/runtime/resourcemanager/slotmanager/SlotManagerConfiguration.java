@@ -48,6 +48,7 @@ public class SlotManagerConfiguration {
 	private final boolean initialTaskManager;
 	private final int extraInitialTaskManagerNumbers;
 	private final float extraInitialTaskManagerFraction;
+	private final boolean shufflePendingSlots;
 
 	public SlotManagerConfiguration(
 		Time taskManagerRequestTimeout,
@@ -74,6 +75,28 @@ public class SlotManagerConfiguration {
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction) {
 
+		this(taskManagerRequestTimeout,
+				slotRequestTimeout,
+				taskManagerTimeout,
+				waitResultConsumedBeforeRelease,
+				numInitialTaskManagers,
+				initialTaskManager,
+				extraInitialTaskManagerNumbers,
+				extraInitialTaskManagerFraction,
+				false);
+	}
+
+	public SlotManagerConfiguration(
+			Time taskManagerRequestTimeout,
+			Time slotRequestTimeout,
+			Time taskManagerTimeout,
+			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers,
+			boolean initialTaskManager,
+			int extraInitialTaskManagerNumbers,
+			float extraInitialTaskManagerFraction,
+			boolean shufflePendingSlots) {
+
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
@@ -82,6 +105,7 @@ public class SlotManagerConfiguration {
 		this.initialTaskManager = initialTaskManager;
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
+		this.shufflePendingSlots = shufflePendingSlots;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -116,6 +140,10 @@ public class SlotManagerConfiguration {
 		return extraInitialTaskManagerFraction;
 	}
 
+	public boolean isShufflePendingSlots() {
+		return shufflePendingSlots;
+	}
+
 	public static SlotManagerConfiguration fromConfiguration(Configuration configuration) throws ConfigurationException {
 		final String strTimeout = configuration.getString(AkkaOptions.ASK_TIMEOUT);
 		final Time rpcTimeout;
@@ -141,9 +169,12 @@ public class SlotManagerConfiguration {
 		int extraInitialTaskManagerNumbers = configuration.getInteger(TaskManagerOptions.NUM_EXTRA_INITIAL_TASK_MANAGERS);
 		float extraInitialTaskManagerFraction = configuration.getFloat(TaskManagerOptions.EXTRA_INITIAL_TASK_MANAGERS_FRACTION);
 
+		boolean shufflePendingSlots = configuration.getBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS);
+
 		return new SlotManagerConfiguration(
 			rpcTimeout, slotRequestTimeout, taskManagerTimeout, waitResultConsumedBeforeRelease,
-			numInitialTaskManagers, initialTaskManager, extraInitialTaskManagerNumbers, extraInitialTaskManagerFraction);
+			numInitialTaskManagers, initialTaskManager, extraInitialTaskManagerNumbers, extraInitialTaskManagerFraction,
+			shufflePendingSlots);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

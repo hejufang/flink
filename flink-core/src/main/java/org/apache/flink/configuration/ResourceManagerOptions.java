@@ -192,6 +192,14 @@ public class ResourceManagerOptions {
 			.build());
 
 	/**
+	 * Shuffle the pending slots when TaskManager register.
+	 */
+	public static final ConfigOption<Boolean> SHUFFLE_PENDING_SLOTS = ConfigOptions
+			.key("resourcemanager.shuffle-pending-slots")
+					.defaultValue(false)
+					.withDescription("Shuffle the pending slots when TaskManager register.");
+
+	/**
 	 * Prefix for passing custom environment variables to Flink's master process.
 	 * For example for passing LD_LIBRARY_PATH as an env variable to the AppMaster, set:
 	 * containerized.master.env.LD_LIBRARY_PATH: "/usr/lib/native"

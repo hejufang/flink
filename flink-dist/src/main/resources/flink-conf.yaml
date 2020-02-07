@@ -156,7 +156,7 @@ common:
   jobmanager.upload-user-jar: false
 
   web.submit.enable: false
-
+  resourcemanager.shuffle-pending-slots: false
 flink:
   dc: cn
   clusterName: flink

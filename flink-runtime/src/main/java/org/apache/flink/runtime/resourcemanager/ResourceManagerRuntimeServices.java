@@ -64,7 +64,8 @@ public class ResourceManagerRuntimeServices {
 			slotManagerConfiguration.getNumInitialTaskManagers(),
 			slotManagerConfiguration.isInitialTaskManager(),
 			slotManagerConfiguration.getExtraInitialTaskManagerNumbers(),
-			slotManagerConfiguration.getExtraInitialTaskManagerFraction());
+			slotManagerConfiguration.getExtraInitialTaskManagerFraction(),
+			slotManagerConfiguration.isShufflePendingSlots());
 
 		final JobLeaderIdService jobLeaderIdService = new JobLeaderIdService(
 			highAvailabilityServices,

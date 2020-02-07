@@ -200,6 +200,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
 		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
+		flinkConfiguration.setBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS, true);
 	}
 
 	public void setQueue(String queue) {

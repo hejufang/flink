@@ -49,9 +49,11 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -95,8 +97,11 @@ public class SlotManagerImpl implements SlotManager {
 	/** Number of extra task managers, avoid slow nodes. */
 	private final int extraInitialTaskManagerNumbers;
 
-	/** Fraction of extra task managers, avoid slow nodes */
+	/** Fraction of extra task managers, avoid slow nodes. */
 	private final float extraInitialTaskManagerFraction;
+
+	/** Shuffle the pending slots when TaskManager register. */
+	private final boolean shufflePendingSlots;
 
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
@@ -162,6 +167,29 @@ public class SlotManagerImpl implements SlotManager {
 			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction) {
+		this(scheduledExecutor,
+				taskManagerRequestTimeout,
+				slotRequestTimeout,
+				taskManagerTimeout,
+				waitResultConsumedBeforeRelease,
+				numInitialTaskManagers,
+				initialTaskManager,
+				extraInitialTaskManagerNumbers,
+				extraInitialTaskManagerFraction,
+				false);
+	}
+
+	public SlotManagerImpl(
+			ScheduledExecutor scheduledExecutor,
+			Time taskManagerRequestTimeout,
+			Time slotRequestTimeout,
+			Time taskManagerTimeout,
+			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers,
+			boolean initialTaskManager,
+			int extraInitialTaskManagerNumbers,
+			float extraInitialTaskManagerFraction,
+			boolean shufflePendingSlots) {
 
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
@@ -172,6 +200,7 @@ public class SlotManagerImpl implements SlotManager {
 		this.initialTaskManager = initialTaskManager;
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
+		this.shufflePendingSlots = shufflePendingSlots;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -694,7 +723,11 @@ public class SlotManagerImpl implements SlotManager {
 
 	@Nullable
 	private PendingTaskManagerSlot findExactlyMatchingPendingTaskManagerSlot(ResourceProfile resourceProfile) {
-		for (PendingTaskManagerSlot pendingTaskManagerSlot : pendingSlots.values()) {
+		List<PendingTaskManagerSlot> pendingSlotsList = new ArrayList<>(pendingSlots.values());
+		if (shufflePendingSlots) {
+			Collections.shuffle(pendingSlotsList);
+		}
+		for (PendingTaskManagerSlot pendingTaskManagerSlot : pendingSlotsList) {
 			if (pendingTaskManagerSlot.getResourceProfile().equals(resourceProfile)) {
 				return pendingTaskManagerSlot;
 			}
