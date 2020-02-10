@@ -55,6 +55,7 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(JsonValidator.FORMAT_JSON_PARSER_FEATURE + ".*");
 		properties.add(JsonValidator.FORMAT_SKIP_DIRTY);
 		properties.add(JsonValidator.FORMAT_SKIP_INTERVAL_MS);
+		properties.add(JsonValidator.FORMAT_ENFORCE_UTF8_ENCODING);
 		return properties;
 	}
 
@@ -95,7 +96,11 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
 		// create and configure
-		return new JsonRowSerializationSchema.Builder(createTypeInformation(descriptorProperties)).build();
+		JsonRowSerializationSchema.Builder builder = new JsonRowSerializationSchema.Builder(
+			createTypeInformation(descriptorProperties));
+		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_ENFORCE_UTF8_ENCODING)
+			.ifPresent(builder::setEnforceUtf8Encoding);
+		return builder.build();
 	}
 
 	private TypeInformation<Row> createTypeInformation(DescriptorProperties descriptorProperties) {

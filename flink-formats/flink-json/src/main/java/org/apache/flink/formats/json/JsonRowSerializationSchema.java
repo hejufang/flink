@@ -70,6 +70,9 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	/** Type information describing the input type. */
 	private final RowTypeInfo typeInfo;
 
+	/** Whether enforce utf-8 encoding. */
+	private final boolean enforceUtf8Encoding;
+
 	/** Object mapper that is used to create output JSON objects. */
 	private final ObjectMapper mapper = new ObjectMapper();
 
@@ -82,11 +85,12 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	 * @deprecated Use the provided {@link Builder} instead.
 	 */
 	@Deprecated
-	public JsonRowSerializationSchema(TypeInformation<Row> typeInfo) {
+	public JsonRowSerializationSchema(TypeInformation<Row> typeInfo, boolean enforceUtf8Encoding) {
 		// TODO make this constructor private in the future
 		Preconditions.checkNotNull(typeInfo, "Type information");
 		Preconditions.checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
+		this.enforceUtf8Encoding = enforceUtf8Encoding;
 		this.runtimeConverter = createConverter(typeInfo);
 	}
 
@@ -97,6 +101,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	public static class Builder {
 
 		private final RowTypeInfo typeInfo;
+		private boolean enforceUtf8Encoding = false;
 
 		/**
 		 * Creates a JSON serialization schema for the given type information.
@@ -120,8 +125,18 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 			this(JsonRowSchemaConverter.convert(checkNotNull(jsonSchema)));
 		}
 
+		/**
+		 * Set enforceUtf8Encoding for JsonRowSerializationSchema.
+		 * @param enforceUtf8Encoding whether enforce utf8 encode.
+		 * @return this for chaining of setters.
+		 */
+		public Builder setEnforceUtf8Encoding(boolean enforceUtf8Encoding) {
+			this.enforceUtf8Encoding = enforceUtf8Encoding;
+			return this;
+		}
+
 		public JsonRowSerializationSchema build() {
-			return new JsonRowSerializationSchema(typeInfo);
+			return new JsonRowSerializationSchema(typeInfo, enforceUtf8Encoding);
 		}
 	}
 
@@ -133,6 +148,9 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 
 		try {
 			runtimeConverter.convert(mapper, node, row);
+			if (enforceUtf8Encoding) {
+				return mapper.writeValueAsString(node).getBytes();
+			}
 			return mapper.writeValueAsBytes(node);
 		} catch (Throwable t) {
 			throw new RuntimeException("Could not serialize row '" + row + "'. " +

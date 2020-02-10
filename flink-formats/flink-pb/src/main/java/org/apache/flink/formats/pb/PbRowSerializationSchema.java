@@ -83,7 +83,7 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 		this.typeInfo = typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.jsonRuntimeConverter =
-			new JsonRowSerializationSchema(this.typeInfo).createConverter(this.typeInfo);
+			new JsonRowSerializationSchema(this.typeInfo, false).createConverter(this.typeInfo);
 		this.sinkWithSizeHeader = sinkWithSizeHeader;
 		this.withWrapper = withWrapper;
 	}

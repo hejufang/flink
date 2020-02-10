@@ -35,6 +35,8 @@ public class JsonValidator extends FormatDescriptorValidator {
 	public static final String FORMAT_JSON_PARSER_FEATURE = "format.json-parser-feature";
 	public static final String FORMAT_SKIP_DIRTY = "format.skip-dirty";
 	public static final String FORMAT_SKIP_INTERVAL_MS = "format.skip-interval-ms";
+	// Flink will replace all integer to #, which means not allowing format.enforce-utf8-encoding.
+	public static final String FORMAT_ENFORCE_UTF8_ENCODING = "format.enforce-utf-encoding";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -60,5 +62,6 @@ public class JsonValidator extends FormatDescriptorValidator {
 		properties.validateBoolean(FORMAT_DEFAULT_ON_MISSING_DIELD, true);
 		properties.validateBoolean(FORMAT_SKIP_DIRTY, true);
 		properties.validateInt(FORMAT_SKIP_INTERVAL_MS, true);
+		properties.validateBoolean(FORMAT_ENFORCE_UTF8_ENCODING, true);
 	}
 }
