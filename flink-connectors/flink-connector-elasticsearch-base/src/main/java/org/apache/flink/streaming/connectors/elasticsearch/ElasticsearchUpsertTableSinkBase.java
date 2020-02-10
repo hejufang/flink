@@ -27,14 +27,20 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sinks.UpsertStreamTableSink;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalTypeFamily;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.typeutils.TypeCheckUtils;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
+
+import org.apache.flink.shaded.guava18.com.google.common.base.Strings;
 
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
@@ -43,16 +49,25 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import static org.apache.flink.table.types.logical.LogicalTypeRoot.DECIMAL;
 
 /**
  * A version-agnostic Elasticsearch {@link UpsertStreamTableSink}.
  */
 @Internal
 public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTableSink<Row> {
+
+	/** The property name for version of a record. */
+	public static final String VERSION = "_version";
+
+	/** The property name for routing of a record. */
+	public static final String ROUTING = "_routing";
 
 	/** Flag that indicates that only inserts are accepted. */
 	private final boolean isAppendOnly;
@@ -177,6 +192,32 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
+		// get _version, _routing index
+		int versionIndex = -1;
+		int routingIndex = -1;
+		for (int i = 0; i < schema.getFieldCount(); ++i) {
+			String fieldName = schema.getFieldName(i).orElseThrow(() -> new TableException("Won't get here."));
+			if (fieldName.equalsIgnoreCase(VERSION)) {
+				versionIndex = i;
+
+				// Validate version field type. Can only be INT/BIGINT/SMALLINT/TINYINT.
+				DataType dataType = schema.getFieldDataType(i).get();
+				LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+				if (typeRoot == DECIMAL || !typeRoot.getFamilies().contains(LogicalTypeFamily.EXACT_NUMERIC)) {
+					throw new TableException("_version field for ES sink should be integer types like int/bigint.");
+				}
+			} else if (fieldName.equalsIgnoreCase(ROUTING)) {
+				routingIndex = i;
+
+				// Validate routing field type. Can only be VARCHAR/CHAR.
+				DataType dataType = schema.getFieldDataType(i).get();
+				LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+					throw new TableException("_routing field for ES sink should be varchar/char type.");
+				}
+			}
+		}
+
 		final ElasticsearchUpsertSinkFunction upsertFunction =
 			new ElasticsearchUpsertSinkFunction(
 				index,
@@ -186,7 +227,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				serializationSchema,
 				contentType,
 				requestFactory,
-				keyFieldIndices);
+				keyFieldIndices,
+				versionIndex,
+				routingIndex);
 		final SinkFunction<Tuple2<Boolean, Row>> sinkFunction = createSinkFunction(
 			hosts,
 			failureHandler,
@@ -442,6 +485,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		private final XContentType contentType;
 		private final RequestFactory requestFactory;
 		private final int[] keyFieldIndices;
+		private final int versionIndex;
+		private final int routingIndex;
 
 		public ElasticsearchUpsertSinkFunction(
 				String index,
@@ -451,7 +496,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				SerializationSchema<Row> serializationSchema,
 				XContentType contentType,
 				RequestFactory requestFactory,
-				int[] keyFieldIndices) {
+				int[] keyFieldIndices,
+				int versionIndex,
+				int routingIndex) {
 
 			this.index = Preconditions.checkNotNull(index);
 			this.docType = Preconditions.checkNotNull(docType);
@@ -461,18 +508,42 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			this.keyFieldIndices = Preconditions.checkNotNull(keyFieldIndices);
 			this.requestFactory = Preconditions.checkNotNull(requestFactory);
 			this.keyNullLiteral = Preconditions.checkNotNull(keyNullLiteral);
+			this.versionIndex = versionIndex;
+			this.routingIndex = routingIndex;
 		}
 
 		@Override
 		public void process(Tuple2<Boolean, Row> element, RuntimeContext ctx, RequestIndexer indexer) {
-			if (element.f0) {
-				processUpsert(element.f1, indexer);
+			// filter _version, _routing of row.
+			List<Object> columnsWithoutReservedColumns = new ArrayList<>();
+			Row originalRow = element.f1;
+			Row rowWithoutReservedColumns;
+			long version = -1;
+			String routing = null;
+			if (versionIndex >= 0 || routingIndex >= 0) {
+				for (int i = 0; i < originalRow.getArity(); ++i) {
+					if (i == versionIndex) {
+						version = Long.parseLong(originalRow.getField(i).toString());
+					} else if (i == routingIndex) {
+						routing = (String) originalRow.getField(i);
+					} else {
+						columnsWithoutReservedColumns.add(originalRow.getField(i));
+					}
+				}
+				rowWithoutReservedColumns = Row.of(columnsWithoutReservedColumns.toArray());
 			} else {
-				processDelete(element.f1, indexer);
+				rowWithoutReservedColumns = originalRow;
+			}
+
+			final String key = createKey(originalRow);
+			if (element.f0) {
+				processUpsert(rowWithoutReservedColumns, indexer, version, routing, key);
+			} else {
+				processDelete(rowWithoutReservedColumns, indexer, version, routing, key);
 			}
 		}
 
-		private void processUpsert(Row row, RequestIndexer indexer) {
+		private void processUpsert(Row row, RequestIndexer indexer, long version, String routing, String key) {
 			final byte[] document = serializationSchema.serialize(row);
 			if (keyFieldIndices.length == 0) {
 				final IndexRequest indexRequest = requestFactory.createIndexRequest(
@@ -480,25 +551,39 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 					docType,
 					contentType,
 					document);
+				if (version >= 0) {
+					indexRequest.version(version);
+				}
+				if (!Strings.isNullOrEmpty(routing)) {
+					indexRequest.routing(routing);
+				}
 				indexer.add(indexRequest);
 			} else {
-				final String key = createKey(row);
 				final UpdateRequest updateRequest = requestFactory.createUpdateRequest(
 					index,
 					docType,
 					key,
 					contentType,
 					document);
+				// update requests do not support versioning
+				if (!Strings.isNullOrEmpty(routing)) {
+					updateRequest.routing(routing);
+				}
 				indexer.add(updateRequest);
 			}
 		}
 
-		private void processDelete(Row row, RequestIndexer indexer) {
-			final String key = createKey(row);
+		private void processDelete(Row row, RequestIndexer indexer, long version, String routing, String key) {
 			final DeleteRequest deleteRequest = requestFactory.createDeleteRequest(
 				index,
 				docType,
 				key);
+			if (version > 0) {
+				deleteRequest.version(version);
+			}
+			if (!Strings.isNullOrEmpty(routing)) {
+				deleteRequest.routing(routing);
+			}
 			indexer.add(deleteRequest);
 		}
 

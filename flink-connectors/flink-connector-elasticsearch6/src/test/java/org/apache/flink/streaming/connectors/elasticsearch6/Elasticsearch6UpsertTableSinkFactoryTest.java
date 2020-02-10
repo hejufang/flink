@@ -92,7 +92,9 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				new JsonRowSerializationSchema(schema.toRowType()),
 				XContentType.JSON,
 				Elasticsearch6UpsertTableSink.UPDATE_REQUEST_FACTORY,
-				new int[0]));
+				new int[0],
+				-1,
+				-1));
 		expectedBuilder.setFailureHandler(new DummyFailureHandler());
 		expectedBuilder.setBulkFlushBackoff(true);
 		expectedBuilder.setBulkFlushBackoffType(ElasticsearchSinkBase.FlushBackoffType.EXPONENTIAL);

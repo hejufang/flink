@@ -26,6 +26,7 @@ import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTa
 import org.apache.flink.streaming.connectors.elasticsearch.util.IgnoringFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.NoOpFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExecutionFailureHandler;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.ElasticsearchValidator;
@@ -46,11 +47,16 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.ROUTING;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_VERSION;
+import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_NAME;
+import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_TYPE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_BACKOFF_DELAY;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_BACKOFF_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_BACKOFF_TYPE;
@@ -230,6 +236,9 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 	}
 
 	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {
+		// filter _version, _routing properties.
+		properties = filterReservedProperties(properties);
+
 		//we put fixed property here to avoid user to set format schema
 		Map<String, String> extendedProperties = new HashMap<>();
 		properties.forEach(extendedProperties::put);
@@ -237,6 +246,47 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		extendedProperties.putIfAbsent(FORMAT_DERIVE_SCHEMA, "true");
 
 		return TableConnectorUtils.getSerializationSchema(extendedProperties, this.getClass().getClassLoader());
+	}
+
+	private Map<String, String> filterReservedProperties(Map<String, String> properties) {
+		Map<String, String> propertiesWithoutSchema = properties.entrySet().stream()
+			.filter(entry -> !(entry.getKey().startsWith(SCHEMA) && entry.getKey().endsWith(TABLE_SCHEMA_NAME)))
+			.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+		final int fieldCount = properties.keySet().stream()
+			.filter(key -> key.startsWith(SCHEMA) && key.endsWith(TABLE_SCHEMA_NAME))
+			.mapToInt(key -> 1)
+			.sum();
+
+		int currentFieldIndex = 0;
+		for (int i = 0; i < fieldCount; ++i) {
+			String nameKey = assembleString(SCHEMA, i, TABLE_SCHEMA_NAME);
+			String fieldName = optionalGet(properties, nameKey)
+				.orElseThrow(() -> new TableException("Could not find " + nameKey + " in table properties." +
+					" This is a bug, we should have validated this before."));
+			if (!fieldName.equalsIgnoreCase(VERSION) && !fieldName.equalsIgnoreCase(ROUTING)) {
+				String typeKey = assembleString(SCHEMA, i, TABLE_SCHEMA_TYPE);
+				String fieldType = optionalGet(properties, typeKey)
+					.orElseThrow(() -> new TableException("Count not find " + typeKey + "int table properties." +
+						" This is a bug, we should have validated this before."));
+
+				propertiesWithoutSchema.put(assembleString(SCHEMA, currentFieldIndex, TABLE_SCHEMA_NAME), fieldName);
+				propertiesWithoutSchema.put(assembleString(SCHEMA, currentFieldIndex, TABLE_SCHEMA_TYPE), fieldType);
+				currentFieldIndex += 1;
+			} else {
+				// filtered.
+			}
+		}
+
+		return propertiesWithoutSchema;
+	}
+
+	private String assembleString(String prefix, int index, String postfix) {
+		return prefix + "." + index + "." + postfix;
+	}
+
+	private Optional<String> optionalGet(Map<String, String> properties, String key) {
+		return Optional.ofNullable(properties.get(key));
 	}
 
 	private ActionRequestFailureHandler getFailureHandler(DescriptorProperties descriptorProperties) {
