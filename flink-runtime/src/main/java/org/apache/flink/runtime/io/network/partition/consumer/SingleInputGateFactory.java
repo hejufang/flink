@@ -231,8 +231,7 @@ public class SingleInputGateFactory {
 			int size,
 			ResultPartitionType type) {
 		if (isCreditBased) {
-			int maxNumberOfMemorySegments = type.isBounded() ? floatingNetworkBuffersPerGate : Integer.MAX_VALUE;
-			return () -> bufferPoolFactory.createBufferPool(0, maxNumberOfMemorySegments);
+			return () -> bufferPoolFactory.createBufferPool(0, floatingNetworkBuffersPerGate);
 		} else {
 			int maxNumberOfMemorySegments = type.isBounded() ?
 				size * networkBuffersPerChannel + floatingNetworkBuffersPerGate : Integer.MAX_VALUE;
