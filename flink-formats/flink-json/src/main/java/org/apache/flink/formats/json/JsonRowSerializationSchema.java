@@ -95,6 +95,15 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	}
 
 	/**
+	 * @deprecated Use the provided {@link Builder} instead.
+	 */
+	@Deprecated
+	public JsonRowSerializationSchema(TypeInformation<Row> typeInfo) {
+		// TODO make this constructor private in the future
+		this(typeInfo, false);
+	}
+
+	/**
 	 * Builder for {@link JsonRowSerializationSchema}.
 	 */
 	@PublicEvolving
