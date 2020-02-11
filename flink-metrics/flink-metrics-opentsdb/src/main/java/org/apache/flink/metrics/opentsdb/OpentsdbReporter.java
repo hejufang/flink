@@ -199,7 +199,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String name = counterStringEntry.getValue();
 				double value = counterStringEntry.getKey().getCount();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				this.udpMetricsClient.emitCounterWithTag(tuple.x, value, tuple.y);
+				// Counter type is for accumulating, in all metric system, including flink metric and
+				// metrics in bytedance. But once we get counter's current value, it's counter property
+				// disappears, and it is a gauge now.
+				this.udpMetricsClient.emitStoreWithTag(tuple.x, value, tuple.y);
 				reportGlobalMetrics("counter", name, tuple.x, value, tuple.y);
 			}
 
