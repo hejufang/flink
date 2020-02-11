@@ -174,7 +174,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	private Long startupOffsetsTimestamp;
 
 	/** Whether reset to earliest for new partition at startup.*/
-	private boolean resetEarliestForNewPartition = false;
+	private boolean resetEarliestForNewPartition = true;
 
 	/** Relative offset for {@link StartupMode#LATEST} or {@link StartupMode#GROUP_OFFSETS} or
 	 * {@link StartupMode#EARLIEST}, can be negative and positive. */
@@ -527,15 +527,25 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	/**
 	 * Set {@link FlinkKafkaConsumerBase#resetEarliestForNewPartition} to true.
-	 *
+	 * The default is to enable resetEarliestForNewPartition.
 	 * @return The consumer object, to allow function chaining.
 	 */
+	@Deprecated
 	public FlinkKafkaConsumerBase<T> resetToEarliestForNewPartition() {
 		if (startupMode != StartupMode.GROUP_OFFSETS) {
 			throw new FlinkRuntimeException("resetToEarliestForNewPartition() must be called after " +
 				"setting start from group offsets.");
 		}
 		this.resetEarliestForNewPartition = true;
+		return this;
+	}
+
+	/**
+	 * Set {@link FlinkKafkaConsumerBase#resetEarliestForNewPartition} to false.
+	 * @return The consumer object, to allow function chaining.
+	 */
+	public FlinkKafkaConsumerBase<T> disableResetToEarliestForNewPartition() {
+		this.resetEarliestForNewPartition = false;
 		return this;
 	}
 
