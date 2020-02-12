@@ -320,7 +320,9 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 		bulkProcessor = buildBulkProcessor(new BulkProcessorListener());
 		requestIndexer = callBridge.createBulkProcessorIndexer(bulkProcessor, flushOnCheckpoint, numPendingRequests);
 		failureRequestIndexer = new BufferingNoOpRequestIndexer();
-		rateLimiter.open(getRuntimeContext());
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
@@ -363,7 +365,9 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 
 		callBridge.cleanup();
 
-		rateLimiter.close();
+		if (rateLimiter != null) {
+			rateLimiter.close();
+		}
 
 		// make sure any errors from callbacks are rethrown
 		checkErrorAndRethrow();
