@@ -89,8 +89,10 @@ public class RocketMQConfig {
 	public static final String CONSUMER_DELAY_WHEN_MESSAGE_NOT_FOUND = "consumer.delay.when.message.not.found";
 	public static final int CONSUMER_DELAY_WHEN_MESSAGE_NOT_FOUND_DEFAULT = 10;
 
+	public static final int BATCH_SIZE_DEFAULT = 1000;
 	public static final String MSG_DELAY_LEVEL = "msg.delay.level";
 	public static final int MSG_DELAY_LEVEL00 = 0; // no delay
+	public static final int MSG_DELAY_LEVEL_DEFAULT = MSG_DELAY_LEVEL00; // no delay
 	public static final int MSG_DELAY_LEVEL01 = 1; // 1s
 	public static final int MSG_DELAY_LEVEL02 = 2; // 5s
 	public static final int MSG_DELAY_LEVEL03 = 3; // 10s

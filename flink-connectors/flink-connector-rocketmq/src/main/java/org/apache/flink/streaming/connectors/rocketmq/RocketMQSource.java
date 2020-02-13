@@ -110,6 +110,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		LOG.debug("source open....");
 		Preconditions.checkNotNull(props, "Consumer properties can not be empty");
 		Preconditions.checkNotNull(schema, "RocketMQDeserializationSchema can not be null");
+		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN));
+		System.setProperty(RocketMQConfig.PSM, props.getProperty(RocketMQConfig.ROCKETMQ_CONSUMER_PSM));
+		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP));
 
 		this.topic = props.getProperty(RocketMQConfig.CONSUMER_TOPIC);
 		this.group = props.getProperty(RocketMQConfig.CONSUMER_GROUP);
@@ -149,7 +152,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		consumer = pullConsumerScheduleService.getDefaultMQPullConsumer();
 		consumer.setAllocateMessageQueueStrategy(new AllocateMessageQueueStrategyParallelism(parallelism, subTaskId));
 
-		consumer.setInstanceName(String.valueOf(getRuntimeContext().getIndexOfThisSubtask()) + "_" + UUID.randomUUID());
+		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildConsumerConfigs(props, consumer);
 	}
 

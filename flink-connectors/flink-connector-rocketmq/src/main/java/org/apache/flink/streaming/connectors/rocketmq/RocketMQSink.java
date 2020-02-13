@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.BATCH_SIZE_DEFAULT;
 import static org.apache.rocketmq.client.log.ClientLogger.CLIENT_LOG_USESLF4J;
 
 /**
@@ -62,10 +63,27 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 	private KeyValueSerializationSchema<IN> serializationSchema;
 
 	private boolean batchFlushOnCheckpoint; // false by default
-	private int batchSize = 1000;
+	private int batchSize = BATCH_SIZE_DEFAULT;
 	private List<Message> batchList;
 
-	private int messageDeliveryDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL00;
+	private int messageDeliveryDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL_DEFAULT;
+
+	public RocketMQSink(
+		boolean async,
+		Properties props,
+		TopicSelector<IN> topicSelector,
+		KeyValueSerializationSchema<IN> serializationSchema,
+		boolean batchFlushOnCheckpoint,
+		int batchSize,
+		int messageDeliveryDelayLevel) {
+		this.async = async;
+		this.props = props;
+		this.topicSelector = topicSelector;
+		this.serializationSchema = serializationSchema;
+		this.batchFlushOnCheckpoint = batchFlushOnCheckpoint;
+		this.batchSize = batchSize;
+		this.messageDeliveryDelayLevel = messageDeliveryDelayLevel;
+	}
 
 	public RocketMQSink(KeyValueSerializationSchema<IN> schema, TopicSelector<IN> topicSelector, Properties props) {
 		this.serializationSchema = schema;
@@ -83,6 +101,14 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		}
 	}
 
+	public RocketMQSink(KeyValueSerializationSchema<IN> schema, TopicSelector<IN> topicSelector,
+						Properties props, RocketMQOptions options) {
+		this(schema, topicSelector, props);
+		this.batchSize = options.getBatchSize();
+		this.async = options.isAsync();
+		this.batchFlushOnCheckpoint = options.isBatchFlushOnCheckpoint();
+	}
+
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		Preconditions.checkArgument(!props.isEmpty(), "Producer properties can not be empty");
@@ -93,7 +119,7 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		System.setProperty(RocketMQConfig.PSM, props.getProperty(RocketMQConfig.ROCKETMQ_PRODUCER_PSM));
 		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP));
 		producer = new DefaultMQProducer(RocketMQConfig.buildAclRPCHook(props));
-		producer.setInstanceName(String.valueOf(getRuntimeContext().getIndexOfThisSubtask()) + "_" + UUID.randomUUID());
+		producer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildProducerConfigs(props, producer);
 
 		batchList = new LinkedList<>();
