@@ -110,6 +110,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"numRecordsOutPerSecond",
 			// late Records Dropped
 			"numLateRecordsDropped",
+			// hitRate for dimension tables
+			"hitRate",
 			// latency
 			"latency",
 			// kafka offset

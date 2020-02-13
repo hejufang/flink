@@ -199,6 +199,24 @@ public class Dashboard {
 		return renderString(lateRecordsDroppedTemplate, lateRecordsDroppedValues);
 	}
 
+	public String renderLookupHitRateRow(List<String> operators) {
+		String lookupJoinHitRateTarget = Template.LOOKUP_JOIN_HIT_RATE_TARGET;
+		List<String> metricRows = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> lookupJoinHitRateTargetValues = new HashMap<>(2);
+			lookupJoinHitRateTargetValues.put("operator", o);
+			lookupJoinHitRateTargetValues.put("jobname", jobName);
+			metricRows.add(renderString(lookupJoinHitRateTarget, lookupJoinHitRateTargetValues));
+		}
+		String targets = String.join(",", metricRows);
+		Map<String, String> lookupJoinHitRateValues = new HashMap<>(2);
+		lookupJoinHitRateValues.put("targets", targets);
+		lookupJoinHitRateValues.put("datasource", dataSource);
+		String operatorLatencyTemplate = Template.LOOKUP_JOIN_HIT_RATE;
+		String lookupJoinHitRateRow = renderString(operatorLatencyTemplate, lookupJoinHitRateValues);
+		return lookupJoinHitRateRow;
+	}
+
 	public String renderOperatorLatencyRow(List<String> operators) {
 		String operatorLatencyTarget = Template.OPERATOR_LATENCY_TARGET;
 		List<String> recordNumList = new ArrayList<>();
@@ -267,6 +285,7 @@ public class Dashboard {
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
 		rows.add(renderLateRecordsDropped(operators));
+		rows.add(renderLookupHitRateRow(Utils.filterLookupOperators(operators)));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderQueueLengthRow(tasks));
 		rows.add(renderPoolUsageRow(tasks));

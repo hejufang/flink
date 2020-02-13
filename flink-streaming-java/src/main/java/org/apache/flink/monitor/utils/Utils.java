@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Common utils.
@@ -64,6 +65,12 @@ public class Utils {
 			operators.add(name);
 		}
 		return operators;
+	}
+
+	public static List<String> filterLookupOperators(List<String> operators) {
+		return operators.stream()
+			.filter(s -> s.startsWith("LookupJoin"))
+			.collect(Collectors.toList());
 	}
 
 	public static List<String> getOperatersExceptSources(StreamGraph streamGraph) {
