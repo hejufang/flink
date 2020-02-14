@@ -132,19 +132,19 @@ public class BatchJobFailoverStrategyTest extends TestLogger {
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(vertex1).getState());
 
 		//fail with a normal exception, job will keep on running with failover
-		vertex1.getCurrentExecutionAttempt().fail(new Exception("test failure"));
+		vertex1.getMainExecution().fail(new Exception("test failure"));
 		manualMainThreadExecutor.triggerAll();
 		manualMainThreadExecutor.triggerScheduledTasks();
 
-		assertEquals(ExecutionState.DEPLOYING, vertex1.getCurrentExecutionAttempt().getState());
+		assertEquals(ExecutionState.DEPLOYING, vertex1.getMainExecution().getState());
 		assertEquals(JobStatus.RUNNING, graph.getState());
 
 		//failed with non-recoverable error, job will fail
-		vertex1.getCurrentExecutionAttempt().fail(new NoResourceAvailableException());
+		vertex1.getMainExecution().fail(new NoResourceAvailableException());
 		manualMainThreadExecutor.triggerAll();
 		manualMainThreadExecutor.triggerScheduledTasks();
 
-		assertEquals(ExecutionState.DEPLOYING, vertex1.getCurrentExecutionAttempt().getState());
+		assertEquals(ExecutionState.DEPLOYING, vertex1.getMainExecution().getState());
 		waitUntilJobStatus(graph, JobStatus.RUNNING, 3000);
 	}
 
@@ -164,7 +164,7 @@ public class BatchJobFailoverStrategyTest extends TestLogger {
 
 		for (int i = 0; i < failLimit; i++) {
 			//fail with a normal exception, job will keep on running with failover
-			Execution current = vertex1.getCurrentExecutionAttempt();
+			Execution current = vertex1.getMainExecution();
 			waitUntilExecutionState(current, ExecutionState.DEPLOYING, 1000);
 			current.fail(new Exception("test failure"));
 			manualMainThreadExecutor.triggerAll();
@@ -175,8 +175,8 @@ public class BatchJobFailoverStrategyTest extends TestLogger {
 		}
 
 		//exceed limit, job will fail
-		vertex1.getCurrentExecutionAttempt().fail(new Exception("test failure"));
-		assertEquals(ExecutionState.FAILED, vertex1.getCurrentExecutionAttempt().getState());
+		vertex1.getMainExecution().fail(new Exception("test failure"));
+		assertEquals(ExecutionState.FAILED, vertex1.getMainExecution().getState());
 		waitUntilJobStatus(graph, JobStatus.FAILED, 3000);
 	}
 

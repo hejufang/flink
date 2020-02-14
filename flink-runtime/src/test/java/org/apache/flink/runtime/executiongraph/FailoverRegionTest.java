@@ -117,11 +117,11 @@ public class FailoverRegionTest extends TestLogger {
 		assertEquals(1, eg.getCheckpointCoordinator().getCheckpointStore().getNumberOfRetainedCheckpoints());
 		assertEquals(checkpointId, eg.getCheckpointCoordinator().getCheckpointStore().getLatestCheckpoint(false).getCheckpointID());
 
-		ev.getCurrentExecutionAttempt().fail(new Exception("Test Exception"));
+		ev.getMainExecution().fail(new Exception("Test Exception"));
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev).getState());
 
 		for (ExecutionVertex evs : eg.getAllExecutionVertices()) {
-			evs.getCurrentExecutionAttempt().completeCancelling();
+			evs.getMainExecution().completeCancelling();
 		}
 
 		verifyCheckpointRestoredAsExpected(eg);
@@ -209,35 +209,35 @@ public class FailoverRegionTest extends TestLogger {
 		acknowledgeAllCheckpoints(eg.getCheckpointCoordinator(), Arrays.asList(ev11, ev21, ev12, ev22, ev31, ev32, ev4).iterator());
 
 		ev21.scheduleForExecution(eg.getSlotProviderStrategy(), LocationPreferenceConstraint.ALL, Collections.emptySet());
-		ev21.getCurrentExecutionAttempt().fail(new Exception("New fail"));
+		ev21.getMainExecution().fail(new Exception("New fail"));
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev11).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev22).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev31).getState());
 
-		ev11.getCurrentExecutionAttempt().completeCancelling();
+		ev11.getMainExecution().completeCancelling();
 		verifyCheckpointRestoredAsExpected(eg);
 
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev11).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev22).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev31).getState());
 
-		ev11.getCurrentExecutionAttempt().markFinished();
-		ev21.getCurrentExecutionAttempt().markFinished();
+		ev11.getMainExecution().markFinished();
+		ev21.getMainExecution().markFinished();
 		ev22.scheduleForExecution(eg.getSlotProviderStrategy(), LocationPreferenceConstraint.ALL, Collections.emptySet());
-		ev22.getCurrentExecutionAttempt().markFinished();
+		ev22.getMainExecution().markFinished();
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev11).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev22).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev31).getState());
 
-		waitUntilExecutionState(ev31.getCurrentExecutionAttempt(), ExecutionState.DEPLOYING, 2000);
-		waitUntilExecutionState(ev32.getCurrentExecutionAttempt(), ExecutionState.DEPLOYING, 2000);
+		waitUntilExecutionState(ev31.getMainExecution(), ExecutionState.DEPLOYING, 2000);
+		waitUntilExecutionState(ev32.getMainExecution(), ExecutionState.DEPLOYING, 2000);
 
-		ev31.getCurrentExecutionAttempt().fail(new Exception("New fail"));
+		ev31.getMainExecution().fail(new Exception("New fail"));
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev11).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev22).getState());
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev31).getState());
 
-		ev32.getCurrentExecutionAttempt().completeCancelling();
+		ev32.getMainExecution().completeCancelling();
 		verifyCheckpointRestoredAsExpected(eg);
 
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev11).getState());
@@ -261,7 +261,7 @@ public class FailoverRegionTest extends TestLogger {
 		ev.fail(new Exception("Test Exception"));
 
 		for (ExecutionVertex evs : eg.getAllExecutionVertices()) {
-			evs.getCurrentExecutionAttempt().completeCancelling();
+			evs.getMainExecution().completeCancelling();
 		}
 		assertEquals(JobStatus.FAILED, eg.getState());
 	}
@@ -327,15 +327,15 @@ public class FailoverRegionTest extends TestLogger {
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev11).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev31).getState());
 
-		ev11.getCurrentExecutionAttempt().fail(new Exception("new fail"));
-		ev31.getCurrentExecutionAttempt().fail(new Exception("new fail"));
+		ev11.getMainExecution().fail(new Exception("new fail"));
+		ev31.getMainExecution().fail(new Exception("new fail"));
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev11).getState());
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev31).getState());
 
-		ev32.getCurrentExecutionAttempt().completeCancelling();
+		ev32.getMainExecution().completeCancelling();
 		waitUntilFailoverRegionState(strategy.getFailoverRegion(ev31), JobStatus.RUNNING, 1000);
 
-		ev12.getCurrentExecutionAttempt().completeCancelling();
+		ev12.getMainExecution().completeCancelling();
 		waitUntilFailoverRegionState(strategy.getFailoverRegion(ev11), JobStatus.RUNNING, 1000);
 	}
 
@@ -376,7 +376,7 @@ public class FailoverRegionTest extends TestLogger {
 
 		ExecutionVertex ev11 = eg.getJobVertex(v2.getID()).getTaskVertices()[0];
 		ExecutionVertex ev21 = eg.getJobVertex(v2.getID()).getTaskVertices()[0];
-		ev21.getCurrentExecutionAttempt().fail(new Exception("Fail with v1"));
+		ev21.getMainExecution().fail(new Exception("Fail with v1"));
 
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev21).getState());
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev11).getState());
@@ -394,14 +394,14 @@ public class FailoverRegionTest extends TestLogger {
 
 		Iterator<ExecutionVertex> iter = eg.getAllExecutionVertices().iterator();
 		ExecutionVertex ev1 = iter.next();
-		ev1.getCurrentExecutionAttempt().switchToRunning();
+		ev1.getMainExecution().switchToRunning();
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev1).getState());
 
-		ev1.getCurrentExecutionAttempt().fail(new Exception("new fail"));
+		ev1.getMainExecution().fail(new Exception("new fail"));
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev1).getState());
 
 		ExecutionVertex ev2 = iter.next();
-		ev2.getCurrentExecutionAttempt().fail(new Exception("new fail"));
+		ev2.getMainExecution().fail(new Exception("new fail"));
 		assertEquals(JobStatus.RUNNING, eg.getState());
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev1).getState());
 	}
@@ -420,15 +420,15 @@ public class FailoverRegionTest extends TestLogger {
 		ExecutionVertex ev1 = iter.next();
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev1).getState());
 
-		ev1.getCurrentExecutionAttempt().fail(new Exception("new fail"));
+		ev1.getMainExecution().fail(new Exception("new fail"));
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev1).getState());
 
 		for (ExecutionVertex evs : eg.getAllExecutionVertices()) {
-			evs.getCurrentExecutionAttempt().completeCancelling();
+			evs.getMainExecution().completeCancelling();
 		}
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(ev1).getState());
 
-		ev1.getCurrentExecutionAttempt().fail(new Exception("new fail"));
+		ev1.getMainExecution().fail(new Exception("new fail"));
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(ev1).getState());
 	}
 
@@ -476,33 +476,33 @@ public class FailoverRegionTest extends TestLogger {
 		eg.scheduleForExecution();
 
 		// initial state
-		assertEquals(ExecutionState.DEPLOYING, ev11.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev12.getExecutionState());
-		assertEquals(ExecutionState.CREATED, ev21.getExecutionState());
-		assertEquals(ExecutionState.CREATED, ev22.getExecutionState());
+		assertEquals(ExecutionState.DEPLOYING, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.CREATED, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.CREATED, ev22.getMainExecution().getState());
 		assertFalse(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].areAllPartitionsFinished());
 		assertFalse(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[0].isConsumable());
 		assertFalse(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[1].isConsumable());
 
 		// partitions all finished
-		ev11.getCurrentExecutionAttempt().markFinished();
-		ev12.getCurrentExecutionAttempt().markFinished();
-		assertEquals(ExecutionState.FINISHED, ev11.getExecutionState());
-		assertEquals(ExecutionState.FINISHED, ev12.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev21.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev22.getExecutionState());
+		ev11.getMainExecution().markFinished();
+		ev12.getMainExecution().markFinished();
+		assertEquals(ExecutionState.FINISHED, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.FINISHED, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev22.getMainExecution().getState());
 		assertTrue(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].areAllPartitionsFinished());
 		assertTrue(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[0].isConsumable());
 		assertTrue(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[1].isConsumable());
 
 		// force the partition producer to restart
-		strategy.onTaskFailure(ev11.getCurrentExecutionAttempt(), new FlinkException("Fail for testing"));
+		strategy.onTaskFailure(ev11.getMainExecution(), new FlinkException("Fail for testing"));
 		assertFalse(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].areAllPartitionsFinished());
 		assertFalse(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[0].isConsumable());
 		assertFalse(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[1].isConsumable());
 
 		// failed partition finishes again
-		ev11.getCurrentExecutionAttempt().markFinished();
+		ev11.getMainExecution().markFinished();
 		assertTrue(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].areAllPartitionsFinished());
 		assertTrue(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[0].isConsumable());
 		assertTrue(eg.getJobVertex(v1.getID()).getProducedDataSets()[0].getPartitions()[1].isConsumable());
@@ -621,7 +621,7 @@ public class FailoverRegionTest extends TestLogger {
 		final Map<Long, PendingCheckpoint> pendingCheckpoints = new HashMap<>();
 		final Map<ExecutionAttemptID, ExecutionVertex> verticesToConfirm = new HashMap<>();
 		eg.getAllExecutionVertices().forEach(e -> {
-			Execution ee = e.getCurrentExecutionAttempt();
+			Execution ee = e.getMainExecution();
 			if (ee != null) {
 				verticesToConfirm.put(ee.getAttemptId(), e);
 			}
@@ -666,7 +666,7 @@ public class FailoverRegionTest extends TestLogger {
 
 				AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 					executionVertex.getJobId(),
-					executionVertex.getJobVertex().getTaskVertices()[index].getCurrentExecutionAttempt().getAttemptId(),
+					executionVertex.getJobVertex().getTaskVertices()[index].getMainExecution().getAttemptId(),
 					checkpointId,
 					new CheckpointMetrics(),
 					taskOperatorSubtaskStates);

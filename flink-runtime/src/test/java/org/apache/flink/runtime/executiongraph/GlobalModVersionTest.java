@@ -64,7 +64,7 @@ public class GlobalModVersionTest extends TestLogger {
 
 		// wait until everything is running
 		for (ExecutionVertex v : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-			final Execution exec = v.getCurrentExecutionAttempt();
+			final Execution exec = v.getMainExecution();
 			waitUntilExecutionState(exec, ExecutionState.DEPLOYING, 1000);
 			exec.switchToRunning();
 			assertEquals(ExecutionState.RUNNING, exec.getState());
@@ -76,16 +76,16 @@ public class GlobalModVersionTest extends TestLogger {
 
 		// everything should be cancelling
 		for (ExecutionVertex v : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-			final Execution exec = v.getCurrentExecutionAttempt();
+			final Execution exec = v.getMainExecution();
 			assertEquals(ExecutionState.CANCELING, exec.getState());
 		}
 
 		// let a vertex fail
-		testVertex.getCurrentExecutionAttempt().fail(new Exception("test exception"));
+		testVertex.getMainExecution().fail(new Exception("test exception"));
 
 		// all cancellations are done now
 		for (ExecutionVertex v : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-			final Execution exec = v.getCurrentExecutionAttempt();
+			final Execution exec = v.getMainExecution();
 			exec.completeCancelling();
 		}
 
@@ -112,7 +112,7 @@ public class GlobalModVersionTest extends TestLogger {
 
 		// wait until everything is running
 		for (ExecutionVertex v : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-			final Execution exec = v.getCurrentExecutionAttempt();
+			final Execution exec = v.getMainExecution();
 			waitUntilExecutionState(exec, ExecutionState.DEPLOYING, 1000);
 			exec.switchToRunning();
 			assertEquals(ExecutionState.RUNNING, exec.getState());
@@ -130,16 +130,16 @@ public class GlobalModVersionTest extends TestLogger {
 
 		// everything should be cancelling
 		for (ExecutionVertex v : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-			final Execution exec = v.getCurrentExecutionAttempt();
+			final Execution exec = v.getMainExecution();
 			assertEquals(ExecutionState.CANCELING, exec.getState());
 		}
 
 		// let a vertex fail
-		testVertex.getCurrentExecutionAttempt().fail(new Exception("test exception"));
+		testVertex.getMainExecution().fail(new Exception("test exception"));
 
 		// all cancellations are done now
 		for (ExecutionVertex v : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-			final Execution exec = v.getCurrentExecutionAttempt();
+			final Execution exec = v.getMainExecution();
 			exec.completeCancelling();
 		}
 

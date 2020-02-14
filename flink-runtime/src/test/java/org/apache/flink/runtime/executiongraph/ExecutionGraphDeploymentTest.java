@@ -201,12 +201,12 @@ public class ExecutionGraphDeploymentTest extends TestLogger {
 
 			final LogicalSlot slot = new TestingLogicalSlot(taskManagerGateway);
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 
-			vertex.getCurrentExecutionAttempt().registerProducedPartitions(slot.getTaskManagerLocation()).get();
+			vertex.getMainExecution().registerProducedPartitions(slot.getTaskManagerLocation()).get();
 			vertex.deployToSlot(slot);
 
-			assertEquals(ExecutionState.DEPLOYING, vertex.getExecutionState());
+			assertEquals(ExecutionState.DEPLOYING, vertex.getMainExecution().getState());
 			checkTaskOffloaded(eg, vertex.getJobvertexId());
 
 			TaskDeploymentDescriptor descr = tdd.get();
@@ -463,7 +463,7 @@ public class ExecutionGraphDeploymentTest extends TestLogger {
 		// schedule, this triggers mock deployment
 		eg.scheduleForExecution();
 
-		ExecutionAttemptID attemptID = eg.getJobVertex(v1.getID()).getTaskVertices()[0].getCurrentExecutionAttempt().getAttemptId();
+		ExecutionAttemptID attemptID = eg.getJobVertex(v1.getID()).getTaskVertices()[0].getMainExecution().getAttemptId();
 		eg.updateState(new TaskExecutionState(jobId, attemptID, ExecutionState.RUNNING));
 		eg.updateState(new TaskExecutionState(jobId, attemptID, ExecutionState.FINISHED, null));
 
@@ -616,7 +616,7 @@ public class ExecutionGraphDeploymentTest extends TestLogger {
 
 		// all tasks should be in state SCHEDULED
 		for (ExecutionVertex executionVertex : executionGraph.getAllExecutionVertices()) {
-			assertEquals(ExecutionState.SCHEDULED, executionVertex.getCurrentExecutionAttempt().getState());
+			assertEquals(ExecutionState.SCHEDULED, executionVertex.getMainExecution().getState());
 		}
 
 		// wait until the source vertex slots have been requested
@@ -649,7 +649,7 @@ public class ExecutionGraphDeploymentTest extends TestLogger {
 		slotFutures.get(sinkVertexId)[1].complete(sinkSlot2);
 
 		for (ExecutionVertex executionVertex : executionGraph.getAllExecutionVertices()) {
-			ExecutionGraphTestUtils.waitUntilExecutionState(executionVertex.getCurrentExecutionAttempt(), ExecutionState.DEPLOYING, 5000L);
+			ExecutionGraphTestUtils.waitUntilExecutionState(executionVertex.getMainExecution(), ExecutionState.DEPLOYING, 5000L);
 		}
 	}
 
@@ -717,12 +717,12 @@ public class ExecutionGraphDeploymentTest extends TestLogger {
 
 		final Collection<ExecutionAttemptID> firstStage = new ArrayList<>(sourceParallelism);
 		for (ExecutionVertex taskVertex : executionGraph.getJobVertex(sourceVertex.getID()).getTaskVertices()) {
-			firstStage.add(taskVertex.getCurrentExecutionAttempt().getAttemptId());
+			firstStage.add(taskVertex.getMainExecution().getAttemptId());
 		}
 
 		final Collection<ExecutionAttemptID> secondStage = new ArrayList<>(sinkParallelism);
 		for (ExecutionVertex taskVertex : executionGraph.getJobVertex(sinkVertex.getID()).getTaskVertices()) {
-			secondStage.add(taskVertex.getCurrentExecutionAttempt().getAttemptId());
+			secondStage.add(taskVertex.getMainExecution().getAttemptId());
 		}
 
 		assertThat(submittedTasks, new ExecutionStageMatcher(Arrays.asList(firstStage, secondStage)));

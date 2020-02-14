@@ -109,20 +109,20 @@ public class AdaptedRestartPipelinedRegionStrategyNGConcurrentFailoverTest exten
 		manualMainThreadExecutor.triggerAll();
 
 		// fail ev11 to trigger region failover of {ev11}, {ev21}, {ev22}
-		ev11.getCurrentExecutionAttempt().fail(new Exception("task failure 1"));
+		ev11.getMainExecution().fail(new Exception("task failure 1"));
 		manualMainThreadExecutor.triggerAll();
-		assertEquals(ExecutionState.FAILED, ev11.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev12.getExecutionState());
-		assertEquals(ExecutionState.CANCELED, ev21.getExecutionState());
-		assertEquals(ExecutionState.CANCELED, ev22.getExecutionState());
+		assertEquals(ExecutionState.FAILED, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELED, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELED, ev22.getMainExecution().getState());
 
 		// fail ev12 to trigger region failover of {ev12}, {ev21}, {ev22}
-		ev12.getCurrentExecutionAttempt().fail(new Exception("task failure 2"));
+		ev12.getMainExecution().fail(new Exception("task failure 2"));
 		manualMainThreadExecutor.triggerAll();
-		assertEquals(ExecutionState.FAILED, ev11.getExecutionState());
-		assertEquals(ExecutionState.FAILED, ev12.getExecutionState());
-		assertEquals(ExecutionState.CANCELED, ev21.getExecutionState());
-		assertEquals(ExecutionState.CANCELED, ev22.getExecutionState());
+		assertEquals(ExecutionState.FAILED, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.FAILED, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELED, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELED, ev22.getMainExecution().getState());
 
 		// complete region failover blocker to trigger region failover recovery
 		failoverStrategy.getBlockerFuture().complete(null);
@@ -131,14 +131,14 @@ public class AdaptedRestartPipelinedRegionStrategyNGConcurrentFailoverTest exten
 		manualMainThreadExecutor.triggerAll();
 
 		// verify that all tasks are recovered and no task is restarted more than once
-		assertEquals(ExecutionState.DEPLOYING, ev11.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev12.getExecutionState());
-		assertEquals(ExecutionState.CREATED, ev21.getExecutionState());
-		assertEquals(ExecutionState.CREATED, ev22.getExecutionState());
-		assertEquals(1, ev11.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev12.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev21.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev22.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(ExecutionState.DEPLOYING, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.CREATED, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.CREATED, ev22.getMainExecution().getState());
+		assertEquals(1, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev22.getMainExecution().getAttemptNumber());
 	}
 
 	/**
@@ -180,40 +180,40 @@ public class AdaptedRestartPipelinedRegionStrategyNGConcurrentFailoverTest exten
 		manualMainThreadExecutor.triggerAll();
 
 		// fail ev11 to trigger region failover of {ev11}, {ev21}, {ev22}
-		ev11.getCurrentExecutionAttempt().fail(new Exception("task failure"));
+		ev11.getMainExecution().fail(new Exception("task failure"));
 		manualMainThreadExecutor.triggerAll();
 		assertEquals(JobStatus.RUNNING, eg.getState());
-		assertEquals(ExecutionState.FAILED, ev11.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev12.getExecutionState());
-		assertEquals(ExecutionState.CANCELED, ev21.getExecutionState());
-		assertEquals(ExecutionState.CANCELED, ev22.getExecutionState());
+		assertEquals(ExecutionState.FAILED, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELED, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELED, ev22.getMainExecution().getState());
 
 		// trigger global failover cancelling and immediately recovery
 		eg.failGlobal(new Exception("Test global failure"));
-		ev12.getCurrentExecutionAttempt().completeCancelling();
+		ev12.getMainExecution().completeCancelling();
 		manuallyTriggeredRestartStrategy.triggerNextAction();
 		manualMainThreadExecutor.triggerAll();
 
 		// verify the job state and vertex attempt number
 		assertEquals(2, eg.getGlobalModVersion());
-		assertEquals(1, ev11.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev12.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev21.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev22.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(1, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev22.getMainExecution().getAttemptNumber());
 
 		// complete region failover blocker to trigger region failover
 		failoverStrategy.getBlockerFuture().complete(null);
 		manualMainThreadExecutor.triggerAll();
 
 		// verify that no task is restarted by region failover
-		assertEquals(ExecutionState.DEPLOYING, ev11.getExecutionState());
-		assertEquals(ExecutionState.DEPLOYING, ev12.getExecutionState());
-		assertEquals(ExecutionState.CREATED, ev21.getExecutionState());
-		assertEquals(ExecutionState.CREATED, ev22.getExecutionState());
-		assertEquals(1, ev11.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev12.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev21.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev22.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(ExecutionState.DEPLOYING, ev11.getMainExecution().getState());
+		assertEquals(ExecutionState.DEPLOYING, ev12.getMainExecution().getState());
+		assertEquals(ExecutionState.CREATED, ev21.getMainExecution().getState());
+		assertEquals(ExecutionState.CREATED, ev22.getMainExecution().getState());
+		assertEquals(1, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev22.getMainExecution().getAttemptNumber());
 	}
 
 	@Test
@@ -226,10 +226,10 @@ public class AdaptedRestartPipelinedRegionStrategyNGConcurrentFailoverTest exten
 		executionGraph.cancel();
 
 		final FailoverStrategy failoverStrategy = executionGraph.getFailoverStrategy();
-		failoverStrategy.onTaskFailure(firstVertex.getCurrentExecutionAttempt(), new Exception("Test Exception"));
+		failoverStrategy.onTaskFailure(firstVertex.getMainExecution(), new Exception("Test Exception"));
 		manualMainThreadExecutor.triggerAll();
 
-		assertEquals(ExecutionState.CANCELED, firstVertex.getExecutionState());
+		assertEquals(ExecutionState.CANCELED, firstVertex.getMainExecution().getState());
 	}
 
 	// ------------------------------------------------------------------------

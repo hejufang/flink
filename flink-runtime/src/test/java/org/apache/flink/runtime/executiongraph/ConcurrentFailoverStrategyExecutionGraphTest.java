@@ -132,8 +132,8 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		assertEquals(JobStatus.RUNNING, graph.getState());
 
 		// let one of the vertices fail - that triggers a local recovery action
-		vertex1.getCurrentExecutionAttempt().fail(new Exception("test failure"));
-		assertEquals(ExecutionState.FAILED, vertex1.getCurrentExecutionAttempt().getState());
+		vertex1.getMainExecution().fail(new Exception("test failure"));
+		assertEquals(ExecutionState.FAILED, vertex1.getMainExecution().getState());
 
 		// graph should still be running and the failover recovery action should be queued
 		assertEquals(JobStatus.RUNNING, graph.getState());
@@ -142,18 +142,18 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		graph.cancel();
 
 		assertEquals(JobStatus.CANCELLING, graph.getState());
-		assertEquals(ExecutionState.FAILED, vertex1.getCurrentExecutionAttempt().getState());
-		assertEquals(ExecutionState.CANCELING, vertex2.getCurrentExecutionAttempt().getState());
+		assertEquals(ExecutionState.FAILED, vertex1.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELING, vertex2.getMainExecution().getState());
 
 		// let the recovery action continue
 		blocker.complete(null);
 
 		// now report that cancelling is complete for the other vertex
-		vertex2.getCurrentExecutionAttempt().completeCancelling();
+		vertex2.getMainExecution().completeCancelling();
 
 		assertEquals(JobStatus.CANCELED, graph.getTerminationFuture().get());
-		assertTrue(vertex1.getCurrentExecutionAttempt().getState().isTerminal());
-		assertTrue(vertex2.getCurrentExecutionAttempt().getState().isTerminal());
+		assertTrue(vertex1.getMainExecution().getState().isTerminal());
+		assertTrue(vertex2.getMainExecution().getState().isTerminal());
 
 		// make sure all slots are recycled
 		assertEquals(parallelism, slotProvider.getNumberOfAvailableSlots());
@@ -201,8 +201,8 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		assertEquals(JobStatus.RUNNING, graph.getState());
 
 		// let one of the vertices fail - that triggers a local recovery action
-		vertex1.getCurrentExecutionAttempt().fail(new Exception("test failure"));
-		assertEquals(ExecutionState.FAILED, vertex1.getCurrentExecutionAttempt().getState());
+		vertex1.getMainExecution().fail(new Exception("test failure"));
+		assertEquals(ExecutionState.FAILED, vertex1.getMainExecution().getState());
 
 		// graph should still be running and the failover recovery action should be queued
 		assertEquals(JobStatus.RUNNING, graph.getState());
@@ -211,18 +211,18 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		graph.failGlobal(new SuppressRestartsException(new Exception("test exception")));
 
 		assertEquals(JobStatus.FAILING, graph.getState());
-		assertEquals(ExecutionState.FAILED, vertex1.getCurrentExecutionAttempt().getState());
-		assertEquals(ExecutionState.CANCELING, vertex2.getCurrentExecutionAttempt().getState());
+		assertEquals(ExecutionState.FAILED, vertex1.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELING, vertex2.getMainExecution().getState());
 
 		// let the recovery action continue
 		blocker.complete(null);
 
 		// now report that cancelling is complete for the other vertex
-		vertex2.getCurrentExecutionAttempt().completeCancelling();
+		vertex2.getMainExecution().completeCancelling();
 
 		assertEquals(JobStatus.FAILED, graph.getState());
-		assertTrue(vertex1.getCurrentExecutionAttempt().getState().isTerminal());
-		assertTrue(vertex2.getCurrentExecutionAttempt().getState().isTerminal());
+		assertTrue(vertex1.getMainExecution().getState().isTerminal());
+		assertTrue(vertex2.getMainExecution().getState().isTerminal());
 
 		// make sure all slots are recycled
 		assertEquals(parallelism, slotProvider.getNumberOfAvailableSlots());
@@ -271,8 +271,8 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(vertex1).getState());
 
 		// let one of the vertices fail - that triggers a local recovery action
-		vertex2.getCurrentExecutionAttempt().fail(new Exception("test failure"));
-		assertEquals(ExecutionState.FAILED, vertex2.getCurrentExecutionAttempt().getState());
+		vertex2.getMainExecution().fail(new Exception("test failure"));
+		assertEquals(ExecutionState.FAILED, vertex2.getMainExecution().getState());
 		assertEquals(JobStatus.CANCELLING, strategy.getFailoverRegion(vertex2).getState());
 
 		// graph should still be running and the failover recovery action should be queued
@@ -282,21 +282,21 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		graph.failGlobal(new Exception("test exception"));
 
 		assertEquals(JobStatus.FAILING, graph.getState());
-		assertEquals(ExecutionState.FAILED, vertex2.getCurrentExecutionAttempt().getState());
-		assertEquals(ExecutionState.CANCELING, vertex1.getCurrentExecutionAttempt().getState());
+		assertEquals(ExecutionState.FAILED, vertex2.getMainExecution().getState());
+		assertEquals(ExecutionState.CANCELING, vertex1.getMainExecution().getState());
 
 		// now report that cancelling is complete for the other vertex
-		vertex1.getCurrentExecutionAttempt().completeCancelling();
+		vertex1.getMainExecution().completeCancelling();
 
 		waitUntilJobStatus(graph, JobStatus.RUNNING, 1000);
 		assertEquals(JobStatus.RUNNING, graph.getState());
 
-		waitUntilExecutionState(vertex1.getCurrentExecutionAttempt(), ExecutionState.DEPLOYING, 1000);
-		waitUntilExecutionState(vertex2.getCurrentExecutionAttempt(), ExecutionState.DEPLOYING, 1000);
-		vertex1.getCurrentExecutionAttempt().switchToRunning();
-		vertex2.getCurrentExecutionAttempt().switchToRunning();
-		assertEquals(ExecutionState.RUNNING, vertex1.getCurrentExecutionAttempt().getState());
-		assertEquals(ExecutionState.RUNNING, vertex2.getCurrentExecutionAttempt().getState());
+		waitUntilExecutionState(vertex1.getMainExecution(), ExecutionState.DEPLOYING, 1000);
+		waitUntilExecutionState(vertex2.getMainExecution(), ExecutionState.DEPLOYING, 1000);
+		vertex1.getMainExecution().switchToRunning();
+		vertex2.getMainExecution().switchToRunning();
+		assertEquals(ExecutionState.RUNNING, vertex1.getMainExecution().getState());
+		assertEquals(ExecutionState.RUNNING, vertex2.getMainExecution().getState());
 
 		// let the recovery action continue - this should do nothing any more
 		blocker.complete(null);
@@ -305,10 +305,10 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		assertEquals(JobStatus.RUNNING, graph.getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(vertex1).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(vertex2).getState());
-		assertEquals(ExecutionState.RUNNING, vertex1.getCurrentExecutionAttempt().getState());
-		assertEquals(ExecutionState.RUNNING, vertex2.getCurrentExecutionAttempt().getState());
-		assertEquals(1, vertex1.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, vertex2.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(ExecutionState.RUNNING, vertex1.getMainExecution().getState());
+		assertEquals(ExecutionState.RUNNING, vertex2.getMainExecution().getState());
+		assertEquals(1, vertex1.getMainExecution().getAttemptNumber());
+		assertEquals(1, vertex2.getMainExecution().getAttemptNumber());
 		assertEquals(1, vertex1.getCopyOfPriorExecutionsList().size());
 		assertEquals(1, vertex2.getCopyOfPriorExecutionsList().size());
 
@@ -319,22 +319,22 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		strategy.setBlockerFuture(blocker);
 
 		// validate that a task failure then can be handled by the local recovery
-		vertex2.getCurrentExecutionAttempt().fail(new Exception("test failure"));
+		vertex2.getMainExecution().fail(new Exception("test failure"));
 
 		// let the local recovery action continue - this should recover the vertex2
 		blocker.complete(null);
 
-		waitUntilExecutionState(vertex2.getCurrentExecutionAttempt(), ExecutionState.DEPLOYING, 1000);
-		vertex2.getCurrentExecutionAttempt().switchToRunning();
+		waitUntilExecutionState(vertex2.getMainExecution(), ExecutionState.DEPLOYING, 1000);
+		vertex2.getMainExecution().switchToRunning();
 
 		// validate that the local recovery result
 		assertEquals(JobStatus.RUNNING, graph.getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(vertex1).getState());
 		assertEquals(JobStatus.RUNNING, strategy.getFailoverRegion(vertex2).getState());
-		assertEquals(ExecutionState.RUNNING, vertex1.getCurrentExecutionAttempt().getState());
-		assertEquals(ExecutionState.RUNNING, vertex2.getCurrentExecutionAttempt().getState());
-		assertEquals(1, vertex1.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(2, vertex2.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(ExecutionState.RUNNING, vertex1.getMainExecution().getState());
+		assertEquals(ExecutionState.RUNNING, vertex2.getMainExecution().getState());
+		assertEquals(1, vertex1.getMainExecution().getAttemptNumber());
+		assertEquals(2, vertex2.getMainExecution().getAttemptNumber());
 		assertEquals(1, vertex1.getCopyOfPriorExecutionsList().size());
 		assertEquals(2, vertex2.getCopyOfPriorExecutionsList().size());
 
@@ -416,12 +416,12 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 
 		// switch all executions to running
 		for (ExecutionVertex executionVertex : graph.getAllExecutionVertices()) {
-			executionVertex.getCurrentExecutionAttempt().switchToRunning();
+			executionVertex.getMainExecution().switchToRunning();
 		}
 
 		// wait for a first checkpoint to be triggered
 		verify(taskManagerGateway, timeout(verifyTimeout).times(3)).triggerCheckpoint(
-			eq(vertex1.getCurrentExecutionAttempt().getAttemptId()),
+			eq(vertex1.getMainExecution().getAttemptId()),
 			any(JobID.class),
 			anyLong(),
 			anyLong(),
@@ -429,7 +429,7 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 			any(Boolean.class));
 
 		verify(taskManagerGateway, timeout(verifyTimeout).times(3)).triggerCheckpoint(
-			eq(vertex2.getCurrentExecutionAttempt().getAttemptId()),
+			eq(vertex2.getMainExecution().getAttemptId()),
 			any(JobID.class),
 			anyLong(),
 			anyLong(),
@@ -443,7 +443,7 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		checkpointCoordinator.receiveAcknowledgeMessage(
 			new AcknowledgeCheckpoint(
 				graph.getJobID(),
-				vertex1.getCurrentExecutionAttempt().getAttemptId(),
+				vertex1.getMainExecution().getAttemptId(),
 				checkpointToAcknowledge),
 				"Unknown location");
 
@@ -455,7 +455,7 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 		}
 
 		// let one of the vertices fail - this should trigger the failing of not acknowledged pending checkpoints
-		vertex1.getCurrentExecutionAttempt().fail(new Exception("test failure"));
+		vertex1.getMainExecution().fail(new Exception("test failure"));
 
 		for (PendingCheckpoint pendingCheckpoint : oldPendingCheckpoints.values()) {
 			if (pendingCheckpoint.getCheckpointId() == checkpointToAcknowledge) {

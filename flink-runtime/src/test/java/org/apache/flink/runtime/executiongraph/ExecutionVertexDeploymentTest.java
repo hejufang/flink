@@ -69,9 +69,9 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 			final ExecutionVertex vertex = new ExecutionVertex(ejv, 0, new IntermediateResult[0],
 				AkkaUtils.getDefaultTimeout());
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 			vertex.deployToSlot(slot);
-			assertEquals(ExecutionState.DEPLOYING, vertex.getExecutionState());
+			assertEquals(ExecutionState.DEPLOYING, vertex.getMainExecution().getState());
 
 			// no repeated scheduling
 			try {
@@ -81,10 +81,10 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 				// as expected
 			}
 
-			assertNull(vertex.getFailureCause());
+			assertNull(vertex.getMainExecution().getFailureCause());
 
-			assertTrue(vertex.getStateTimestamp(ExecutionState.CREATED) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.DEPLOYING) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING) > 0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -103,11 +103,11 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 			final ExecutionVertex vertex = new ExecutionVertex(ejv, 0, new IntermediateResult[0],
 				AkkaUtils.getDefaultTimeout());
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 
 			vertex.deployToSlot(slot);
 
-			assertEquals(ExecutionState.DEPLOYING, vertex.getExecutionState());
+			assertEquals(ExecutionState.DEPLOYING, vertex.getMainExecution().getState());
 
 			// no repeated scheduling
 			try {
@@ -117,11 +117,11 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 				// as expected
 			}
 
-			assertNull(vertex.getFailureCause());
+			assertNull(vertex.getMainExecution().getFailureCause());
 
-			assertTrue(vertex.getStateTimestamp(ExecutionState.CREATED) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.DEPLOYING) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.RUNNING) == 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.RUNNING) == 0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -139,7 +139,7 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 
 			final LogicalSlot slot = new TestingLogicalSlot();
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 
 			vertex.deployToSlot(slot);
 
@@ -151,7 +151,7 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 				// as expected
 			}
 
-			assertEquals(ExecutionState.DEPLOYING, vertex.getExecutionState());
+			assertEquals(ExecutionState.DEPLOYING, vertex.getMainExecution().getState());
 
 			// no repeated scheduling
 			try {
@@ -161,9 +161,9 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 				// as expected
 			}
 
-			assertTrue(vertex.getStateTimestamp(ExecutionState.CREATED) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.DEPLOYING) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.RUNNING) == 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.RUNNING) == 0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -181,17 +181,17 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 
 			final LogicalSlot slot = new TestingLogicalSlot(new SubmitFailingSimpleAckingTaskManagerGateway());
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 
 			vertex.deployToSlot(slot);
 
-			assertEquals(ExecutionState.FAILED, vertex.getExecutionState());
-			assertNotNull(vertex.getFailureCause());
-			assertTrue(vertex.getFailureCause().getMessage().contains(ERROR_MESSAGE));
+			assertEquals(ExecutionState.FAILED, vertex.getMainExecution().getState());
+			assertNotNull(vertex.getMainExecution().getFailureCause());
+			assertTrue(vertex.getMainExecution().getFailureCause().getMessage().contains(ERROR_MESSAGE));
 
-			assertTrue(vertex.getStateTimestamp(ExecutionState.CREATED) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.DEPLOYING) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.FAILED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.FAILED) > 0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -208,26 +208,26 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 
 			final LogicalSlot slot = new TestingLogicalSlot(new SubmitFailingSimpleAckingTaskManagerGateway());
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 
 			vertex.deployToSlot(slot);
 
 			// wait until the state transition must be done
 			for (int i = 0; i < 100; i++) {
-				if (vertex.getExecutionState() == ExecutionState.FAILED && vertex.getFailureCause() != null) {
+				if (vertex.getMainExecution().getState() == ExecutionState.FAILED && vertex.getMainExecution().getFailureCause() != null) {
 					break;
 				} else {
 					Thread.sleep(10);
 				}
 			}
 
-			assertEquals(ExecutionState.FAILED, vertex.getExecutionState());
-			assertNotNull(vertex.getFailureCause());
-			assertTrue(vertex.getFailureCause().getMessage().contains(ERROR_MESSAGE));
+			assertEquals(ExecutionState.FAILED, vertex.getMainExecution().getState());
+			assertNotNull(vertex.getMainExecution().getFailureCause());
+			assertTrue(vertex.getMainExecution().getFailureCause().getMessage().contains(ERROR_MESSAGE));
 
-			assertTrue(vertex.getStateTimestamp(ExecutionState.CREATED) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.DEPLOYING) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.FAILED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.FAILED) > 0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());
@@ -246,19 +246,19 @@ public class ExecutionVertexDeploymentTest extends TestLogger {
 
 			TestingLogicalSlot testingLogicalSlot = new TestingLogicalSlot(new SubmitBlockingSimpleAckingTaskManagerGateway());
 
-			assertEquals(ExecutionState.CREATED, vertex.getExecutionState());
+			assertEquals(ExecutionState.CREATED, vertex.getMainExecution().getState());
 			vertex.deployToSlot(testingLogicalSlot);
-			assertEquals(ExecutionState.DEPLOYING, vertex.getExecutionState());
+			assertEquals(ExecutionState.DEPLOYING, vertex.getMainExecution().getState());
 
 			Exception testError = new Exception("test error");
 			vertex.fail(testError);
 
-			assertEquals(ExecutionState.FAILED, vertex.getExecutionState());
-			assertEquals(testError, vertex.getFailureCause());
+			assertEquals(ExecutionState.FAILED, vertex.getMainExecution().getState());
+			assertEquals(testError, vertex.getMainExecution().getFailureCause());
 
-			assertTrue(vertex.getStateTimestamp(ExecutionState.CREATED) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.DEPLOYING) > 0);
-			assertTrue(vertex.getStateTimestamp(ExecutionState.FAILED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING) > 0);
+			assertTrue(vertex.getMainExecution().getStateTimestamp(ExecutionState.FAILED) > 0);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(e.getMessage());

@@ -122,7 +122,7 @@ public class StackTraceSampleCoordinator {
 		// Check that all tasks are RUNNING before triggering anything. The
 		// triggering can still fail.
 		for (int i = 0; i < triggerIds.length; i++) {
-			Execution execution = tasksToSample[i].getCurrentExecutionAttempt();
+			Execution execution = tasksToSample[i].getMainExecution();
 			if (execution != null && execution.getState() == ExecutionState.RUNNING) {
 				executions[i] = execution;
 				triggerIds[i] = execution.getAttemptId();

@@ -173,7 +173,7 @@ public class ExecutionGraphPartitionReleaseTest extends TestLogger {
 	}
 
 	private static Execution getCurrentExecution(final JobVertex jobVertex, final ExecutionGraph executionGraph) {
-		return executionGraph.getJobVertex(jobVertex.getID()).getTaskVertices()[0].getCurrentExecutionAttempt();
+		return executionGraph.getJobVertex(jobVertex.getID()).getTaskVertices()[0].getMainExecution();
 	}
 
 	private ExecutionGraph createExecutionGraph(final PartitionTracker partitionTracker, final JobVertex... vertices) throws Exception {

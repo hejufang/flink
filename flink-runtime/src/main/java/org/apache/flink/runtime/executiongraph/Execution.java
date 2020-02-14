@@ -878,7 +878,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 		for (ExecutionEdge edge : allConsumers.get(0)) {
 			final ExecutionVertex consumerVertex = edge.getTarget();
-			final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
+			final Execution consumer = consumerVertex.getMainExecution();
 			final ExecutionState consumerState = consumer.getState();
 
 			// ----------------------------------------------------------------
@@ -1496,7 +1496,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		if (STATE_UPDATER.compareAndSet(this, currentState, targetState)) {
 			markTimestamp(targetState);
 
-			TaskManagerLocation location = getVertex().getCurrentAssignedResourceLocation();
+			TaskManagerLocation location = getAssignedResourceLocation();
 			String resourceId = null;
 			String hostname = null;
 			if (location != null && location.getResourceID() != null) {

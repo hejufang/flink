@@ -120,7 +120,7 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 				taskTraces.add(createStackTrace(i <= vertex.getParallelSubtaskIndex()));
 			}
 
-			traces.put(vertex.getCurrentExecutionAttempt().getAttemptId(), taskTraces);
+			traces.put(vertex.getMainExecution().getAttemptId(), taskTraces);
 		}
 
 		int sampleId = 1231;
@@ -174,7 +174,7 @@ public class BackPressureStatsTrackerImplTest extends TestLogger {
 
 		ExecutionVertex vertex = Mockito.mock(ExecutionVertex.class);
 		Mockito.when(vertex.getJobvertexId()).thenReturn(id);
-		Mockito.when(vertex.getCurrentExecutionAttempt()).thenReturn(exec);
+		Mockito.when(vertex.getMainExecution()).thenReturn(exec);
 		Mockito.when(vertex.getParallelSubtaskIndex()).thenReturn(subTaskIndex);
 
 		return vertex;

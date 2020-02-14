@@ -95,17 +95,17 @@ public class JobExceptionsHandler extends AbstractExecutionGraphHandler<JobExcep
 		List<JobExceptionsInfo.ExecutionExceptionInfo> taskExceptionList = new ArrayList<>();
 		boolean truncated = false;
 		for (AccessExecutionVertex task : executionGraph.getAllExecutionVertices()) {
-			String t = task.getFailureCauseAsString();
+			String t = task.getMainExecution().getFailureCauseAsString();
 			if (t != null && !t.equals(ExceptionUtils.STRINGIFIED_NULL_EXCEPTION)) {
 				if (taskExceptionList.size() >= MAX_NUMBER_EXCEPTION_TO_REPORT) {
 					truncated = true;
 					break;
 				}
 
-				TaskManagerLocation location = task.getCurrentAssignedResourceLocation();
+				TaskManagerLocation location = task.getMainExecution().getAssignedResourceLocation();
 				String locationString = location != null ?
 					location.getFQDNHostname() + ':' + location.dataPort() : "(unassigned)";
-				long timestamp = task.getStateTimestamp(ExecutionState.FAILED);
+				long timestamp = task.getMainExecution().getStateTimestamp(ExecutionState.FAILED);
 				taskExceptionList.add(new JobExceptionsInfo.ExecutionExceptionInfo(
 					t,
 					task.getTaskNameWithSubtaskIndex(),

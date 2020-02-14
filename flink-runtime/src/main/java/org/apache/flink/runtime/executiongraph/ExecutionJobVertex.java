@@ -411,7 +411,7 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 	public ExecutionState getAggregateState() {
 		int[] num = new int[ExecutionState.values().length];
 		for (ExecutionVertex vertex : this.taskVertices) {
-			num[vertex.getExecutionState().ordinal()]++;
+			num[vertex.getMainExecution().getState().ordinal()]++;
 		}
 
 		return getAggregateJobVertexState(num, parallelism);
@@ -546,7 +546,7 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 		Map<String, OptionalFailure<Accumulator<?, ?>>> userAccumulators = new HashMap<>();
 
 		for (ExecutionVertex vertex : taskVertices) {
-			Map<String, Accumulator<?, ?>> next = vertex.getCurrentExecutionAttempt().getUserAccumulators();
+			Map<String, Accumulator<?, ?>> next = vertex.getMainExecution().getUserAccumulators();
 			if (next != null) {
 				AccumulatorHelper.mergeInto(userAccumulators, next);
 			}

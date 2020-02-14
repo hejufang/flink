@@ -130,7 +130,7 @@ public class SchedulingUtils {
 		// allocate the slots (obtain all their futures)
 		for (ExecutionVertex ev : vertices) {
 			// these calls are not blocking, they only return futures
-			CompletableFuture<Execution> allocationFuture = ev.getCurrentExecutionAttempt().allocateResourcesForExecution(
+			CompletableFuture<Execution> allocationFuture = ev.getMainExecution().allocateResourcesForExecution(
 				slotProviderStrategy,
 				LocationPreferenceConstraint.ALL,
 				allPreviousAllocationIds);

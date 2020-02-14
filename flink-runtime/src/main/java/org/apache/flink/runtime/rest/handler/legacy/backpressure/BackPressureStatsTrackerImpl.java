@@ -313,7 +313,7 @@ public class BackPressureStatsTrackerImpl implements BackPressureStatsTracker {
 			Set<ExecutionAttemptID> sampledTasks = sample.getStackTraces().keySet();
 
 			for (ExecutionVertex task : vertex.getTaskVertices()) {
-				ExecutionAttemptID taskId = task.getCurrentExecutionAttempt().getAttemptId();
+				ExecutionAttemptID taskId = task.getMainExecution().getAttemptId();
 				if (sampledTasks.contains(taskId)) {
 					subtaskIndexMap.put(taskId, task.getParallelSubtaskIndex());
 				} else {

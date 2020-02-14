@@ -134,12 +134,12 @@ public class FailoverStrategyCheckpointCoordinatorTest extends TestLogger {
 		ExecutionVertex executionVertex = mock(ExecutionVertex.class);
 		Execution execution = Mockito.mock(Execution.class);
 		when(execution.getAttemptId()).thenReturn(executionAttemptID);
-		when(executionVertex.getCurrentExecutionAttempt()).thenReturn(execution);
+		when(executionVertex.getMainExecution()).thenReturn(execution);
 		return executionVertex;
 	}
 
 	private void mockExecutionRunning(ExecutionVertex executionVertex) {
-		when(executionVertex.getCurrentExecutionAttempt().getState()).thenReturn(ExecutionState.RUNNING);
+		when(executionVertex.getMainExecution().getState()).thenReturn(ExecutionState.RUNNING);
 	}
 
 	public static class ManualCheckpointTimer extends ScheduledThreadPoolExecutor {

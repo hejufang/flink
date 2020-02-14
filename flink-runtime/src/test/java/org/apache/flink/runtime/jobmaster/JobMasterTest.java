@@ -1161,7 +1161,7 @@ public class JobMasterTest extends TestLogger {
 		return archivedExecutionGraph.getAllVertices().values()
 			.stream()
 			.flatMap(vertex -> Arrays.stream(vertex.getTaskVertices()))
-			.map(AccessExecutionVertex::getCurrentExecutionAttempt)
+			.map(AccessExecutionVertex::getMainExecution)
 			.collect(Collectors.toList());
 	}
 
@@ -1172,7 +1172,7 @@ public class JobMasterTest extends TestLogger {
 			.map(accessExecutionJobVertex -> Arrays.asList(accessExecutionJobVertex.getTaskVertices()))
 			.orElse(Collections.emptyList())
 			.stream()
-			.map(AccessExecutionVertex::getCurrentExecutionAttempt)
+			.map(AccessExecutionVertex::getMainExecution)
 			.collect(Collectors.toList());
 	}
 

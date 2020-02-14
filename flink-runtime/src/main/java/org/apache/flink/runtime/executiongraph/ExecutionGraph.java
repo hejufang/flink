@@ -901,7 +901,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		Map<String, OptionalFailure<Accumulator<?, ?>>> userAccumulators = new HashMap<>();
 
 		for (ExecutionVertex vertex : getAllExecutionVertices()) {
-			Map<String, Accumulator<?, ?>> next = vertex.getCurrentExecutionAttempt().getUserAccumulators();
+			Map<String, Accumulator<?, ?>> next = vertex.getMainExecution().getUserAccumulators();
 			if (next != null) {
 				AccumulatorHelper.mergeInto(userAccumulators, next);
 			}
@@ -1695,7 +1695,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		checkState(subtaskIndex < taskVertices.length, "Invalid subtask index %d for job vertex %s", subtaskIndex, jobVertexId);
 
 		final ExecutionVertex taskVertex = taskVertices[subtaskIndex];
-		final Execution execution = taskVertex.getCurrentExecutionAttempt();
+		final Execution execution = taskVertex.getMainExecution();
 		return new ResultPartitionID(resultPartitionId, execution.getAttemptId());
 	}
 

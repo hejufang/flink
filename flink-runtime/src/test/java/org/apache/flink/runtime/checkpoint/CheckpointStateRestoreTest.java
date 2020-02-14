@@ -356,7 +356,7 @@ public class CheckpointStateRestoreTest {
 		ExecutionVertex mock = mock(ExecutionVertex.class);
 		when(mock.getJobvertexId()).thenReturn(vertexId);
 		when(mock.getParallelSubtaskIndex()).thenReturn(subtask);
-		when(mock.getCurrentExecutionAttempt()).thenReturn(execution);
+		when(mock.getMainExecution()).thenReturn(execution);
 		when(mock.getTotalNumberOfParallelSubtasks()).thenReturn(parallelism);
 		when(mock.getMaxParallelism()).thenReturn(parallelism);
 		return mock;

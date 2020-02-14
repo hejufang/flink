@@ -265,7 +265,7 @@ public class ExecutionGraphSuspendTest extends TestLogger {
 		validateNoInteractions(gateway);
 
 		for (ExecutionVertex ev : eg.getAllExecutionVertices()) {
-			assertEquals(0, ev.getCurrentExecutionAttempt().getAttemptNumber());
+			assertEquals(0, ev.getMainExecution().getAttemptNumber());
 		}
 	}
 
@@ -275,7 +275,7 @@ public class ExecutionGraphSuspendTest extends TestLogger {
 
 	private static void validateAllVerticesInState(ExecutionGraph eg, ExecutionState expected) {
 		for (ExecutionVertex ev : eg.getAllExecutionVertices()) {
-			assertEquals(expected, ev.getCurrentExecutionAttempt().getState());
+			assertEquals(expected, ev.getMainExecution().getState());
 		}
 	}
 

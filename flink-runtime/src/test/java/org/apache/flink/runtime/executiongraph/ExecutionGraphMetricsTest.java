@@ -106,7 +106,7 @@ public class ExecutionGraphMetricsTest extends TestLogger {
 			List<ExecutionAttemptID> executionIDs = new ArrayList<>();
 
 			for (ExecutionVertex executionVertex : executionGraph.getAllExecutionVertices()) {
-				executionIDs.add(executionVertex.getCurrentExecutionAttempt().getAttemptId());
+				executionIDs.add(executionVertex.getMainExecution().getAttemptId());
 			}
 
 			// tell execution graph that the tasks are in state running --> job status switches to state running
@@ -151,7 +151,7 @@ public class ExecutionGraphMetricsTest extends TestLogger {
 			executionIDs.clear();
 
 			for (ExecutionVertex executionVertex : executionGraph.getAllExecutionVertices()) {
-				executionIDs.add(executionVertex.getCurrentExecutionAttempt().getAttemptId());
+				executionIDs.add(executionVertex.getMainExecution().getAttemptId());
 			}
 
 			for (ExecutionAttemptID executionID : executionIDs) {

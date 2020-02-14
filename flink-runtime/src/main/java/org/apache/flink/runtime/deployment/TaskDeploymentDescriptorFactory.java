@@ -141,7 +141,7 @@ public class TaskDeploymentDescriptorFactory {
 			int attemptNumber) throws IOException {
 		ExecutionGraph executionGraph = executionVertex.getExecutionGraph();
 		return new TaskDeploymentDescriptorFactory(
-			executionVertex.getCurrentExecutionAttempt().getAttemptId(),
+			executionVertex.getMainExecution().getAttemptId(),
 			attemptNumber,
 			getSerializedJobInformation(executionGraph),
 			getSerializedTaskInformation(executionVertex.getJobVertex().getTaskInformationOrBlobKey()),
@@ -173,7 +173,7 @@ public class TaskDeploymentDescriptorFactory {
 			ExecutionEdge edge,
 			boolean allowUnknownPartitions) {
 		IntermediateResultPartition consumedPartition = edge.getSource();
-		Execution producer = consumedPartition.getProducer().getCurrentExecutionAttempt();
+		Execution producer = consumedPartition.getProducer().getMainExecution();
 
 		ExecutionState producerState = producer.getState();
 		Optional<ResultPartitionDeploymentDescriptor> consumedPartitionDescriptor =

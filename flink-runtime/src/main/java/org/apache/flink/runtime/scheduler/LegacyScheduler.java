@@ -358,7 +358,7 @@ public class LegacyScheduler implements SchedulerNG {
 				Execution producerExecution = intermediateResult
 					.getPartitionById(resultPartitionId.getPartitionId())
 					.getProducer()
-					.getCurrentExecutionAttempt();
+					.getMainExecution();
 
 				if (producerExecution.getAttemptId().equals(resultPartitionId.getProducerId())) {
 					return producerExecution.getState();

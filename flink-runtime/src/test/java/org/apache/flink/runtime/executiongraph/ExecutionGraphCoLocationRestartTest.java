@@ -95,7 +95,7 @@ public class ExecutionGraphCoLocationRestartTest extends SchedulerTestBase {
 		assertEquals(JobStatus.FAILING, eg.getState());
 
 		for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-			vertex.getCurrentExecutionAttempt().completeCancelling();
+			vertex.getMainExecution().completeCancelling();
 		}
 
 		// wait until we have restarted

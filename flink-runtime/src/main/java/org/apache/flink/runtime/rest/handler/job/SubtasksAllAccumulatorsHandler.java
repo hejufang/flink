@@ -57,10 +57,10 @@ public class SubtasksAllAccumulatorsHandler extends AbstractJobVertexHandler<Sub
 		final List<SubtasksAllAccumulatorsInfo.SubtaskAccumulatorsInfo> subtaskAccumulatorsInfos = new ArrayList<>();
 
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
-			TaskManagerLocation location = vertex.getCurrentAssignedResourceLocation();
+			TaskManagerLocation location = vertex.getMainExecution().getAssignedResourceLocation();
 			String locationString = location == null ? "(unassigned)" : location.getHostname();
 
-			StringifiedAccumulatorResult[] accs = vertex.getCurrentExecutionAttempt().getUserAccumulatorsStringified();
+			StringifiedAccumulatorResult[] accs = vertex.getMainExecution().getUserAccumulatorsStringified();
 			List<UserAccumulator> userAccumulators = new ArrayList<>(accs.length);
 			for (StringifiedAccumulatorResult acc : accs) {
 				userAccumulators.add(new UserAccumulator(acc.getName(), acc.getType(), acc.getValue()));
@@ -68,8 +68,8 @@ public class SubtasksAllAccumulatorsHandler extends AbstractJobVertexHandler<Sub
 
 			subtaskAccumulatorsInfos.add(
 				new SubtasksAllAccumulatorsInfo.SubtaskAccumulatorsInfo(
-					vertex.getCurrentExecutionAttempt().getParallelSubtaskIndex(),
-					vertex.getCurrentExecutionAttempt().getAttemptNumber(),
+					vertex.getMainExecution().getParallelSubtaskIndex(),
+					vertex.getMainExecution().getAttemptNumber(),
 					locationString,
 					userAccumulators
 				));

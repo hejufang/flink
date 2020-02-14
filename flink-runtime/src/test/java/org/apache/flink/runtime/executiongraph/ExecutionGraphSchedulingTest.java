@@ -496,8 +496,8 @@ public class ExecutionGraphSchedulingTest extends TestLogger {
 
 		final ExecutionJobVertex executionJobVertex = executionGraph.getJobVertex(jobVertex.getID());
 		final ExecutionVertex[] taskVertices = executionJobVertex.getTaskVertices();
-		assertThat(taskVertices[0].getExecutionState(), is(ExecutionState.SCHEDULED));
-		assertThat(taskVertices[1].getExecutionState(), is(ExecutionState.SCHEDULED));
+		assertThat(taskVertices[0].getMainExecution().getState(), is(ExecutionState.SCHEDULED));
+		assertThat(taskVertices[1].getMainExecution().getState(), is(ExecutionState.SCHEDULED));
 
 		// fail the single allocated slot --> this should fail the scheduling operation
 		slot.releaseSlot(new FlinkException("Test failure"));

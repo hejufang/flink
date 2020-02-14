@@ -111,28 +111,28 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 		final long now = System.currentTimeMillis();
 		int num = 0;
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
-			final ExecutionState status = vertex.getExecutionState();
+			final ExecutionState status = vertex.getMainExecution().getState();
 
-			TaskManagerLocation location = vertex.getCurrentAssignedResourceLocation();
+			TaskManagerLocation location = vertex.getMainExecution().getAssignedResourceLocation();
 			String locationString = location == null ? "(unassigned)" : location.getHostname() + ":" + location.dataPort();
 
-			long startTime = vertex.getStateTimestamp(ExecutionState.DEPLOYING);
+			long startTime = vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING);
 			if (startTime == 0) {
 				startTime = -1;
 			}
-			long endTime = status.isTerminal() ? vertex.getStateTimestamp(status) : -1;
+			long endTime = status.isTerminal() ? vertex.getMainExecution().getStateTimestamp(status) : -1;
 			long duration = startTime > 0 ? ((endTime > 0 ? endTime : now) - startTime) : -1;
 
 			MutableIOMetrics counts = new MutableIOMetrics();
 			counts.addIOMetrics(
-				vertex.getCurrentExecutionAttempt(),
+				vertex.getMainExecution(),
 				metricFetcher,
 				jobID.toString(),
 				jobVertex.getJobVertexId().toString());
 			subtasks.add(new JobVertexDetailsInfo.VertexTaskDetail(
 				num,
 				status,
-				vertex.getCurrentExecutionAttempt().getAttemptNumber(),
+				vertex.getMainExecution().getAttemptNumber(),
 				locationString,
 				startTime,
 				endTime,

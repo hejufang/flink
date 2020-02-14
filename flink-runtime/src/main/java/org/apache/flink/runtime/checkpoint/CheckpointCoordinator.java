@@ -524,7 +524,7 @@ public class CheckpointCoordinator {
 		// if not, abort the checkpoint
 		Execution[] executions = new Execution[tasksToTrigger.length];
 		for (int i = 0; i < tasksToTrigger.length; i++) {
-			Execution ee = tasksToTrigger[i].getCurrentExecutionAttempt();
+			Execution ee = tasksToTrigger[i].getMainExecution();
 			if (ee == null) {
 				LOG.info("Checkpoint triggering task {} of job {} is not being executed at the moment. Aborting checkpoint.",
 						tasksToTrigger[i].getTaskNameWithSubtaskIndex(),
@@ -547,7 +547,7 @@ public class CheckpointCoordinator {
 		Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>(tasksToWaitFor.length);
 
 		for (ExecutionVertex ev : tasksToWaitFor) {
-			Execution ee = ev.getCurrentExecutionAttempt();
+			Execution ee = ev.getMainExecution();
 			if (ee != null) {
 				ackTasks.put(ee.getAttemptId(), ev);
 			} else {
@@ -960,7 +960,7 @@ public class CheckpointCoordinator {
 		final long timestamp = completedCheckpoint.getTimestamp();
 
 		for (ExecutionVertex ev : tasksToCommitTo) {
-			Execution ee = ev.getCurrentExecutionAttempt();
+			Execution ee = ev.getMainExecution();
 			if (ee != null) {
 				ee.notifyCheckpointComplete(checkpointId, timestamp);
 			}

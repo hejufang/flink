@@ -145,7 +145,7 @@ public class ExecutionGraphToSchedulingTopologyAdapter implements SchedulingTopo
 
 		@Override
 		public ExecutionState get() {
-			return executionVertex.getExecutionState();
+			return executionVertex.getMainExecution().getState();
 		}
 	}
 }

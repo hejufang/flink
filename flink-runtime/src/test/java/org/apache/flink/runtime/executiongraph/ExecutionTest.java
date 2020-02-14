@@ -102,7 +102,7 @@ public class ExecutionTest extends TestLogger {
 
 		ExecutionJobVertex executionJobVertex = executionGraph.getJobVertex(jobVertexId);
 
-		final Execution execution = executionJobVertex.getTaskVertices()[0].getCurrentExecutionAttempt();
+		final Execution execution = executionJobVertex.getTaskVertices()[0].getMainExecution();
 
 		final SingleSlotTestingSlotOwner slotOwner = new SingleSlotTestingSlotOwner();
 
@@ -162,7 +162,7 @@ public class ExecutionTest extends TestLogger {
 
 		ExecutionJobVertex executionJobVertex = executionGraph.getJobVertex(jobVertexId);
 
-		final Execution execution = executionJobVertex.getTaskVertices()[0].getCurrentExecutionAttempt();
+		final Execution execution = executionJobVertex.getTaskVertices()[0].getMainExecution();
 
 		CompletableFuture<Execution> allocationFuture = execution.allocateResourcesForExecution(
 			executionGraph.getSlotProviderStrategy(),
@@ -210,7 +210,7 @@ public class ExecutionTest extends TestLogger {
 
 		ExecutionJobVertex executionJobVertex = executionGraph.getJobVertex(jobVertexId);
 
-		final Execution execution = executionJobVertex.getTaskVertices()[0].getCurrentExecutionAttempt();
+		final Execution execution = executionJobVertex.getTaskVertices()[0].getMainExecution();
 
 		CompletableFuture<Execution> allocationFuture = execution.allocateResourcesForExecution(
 			executionGraph.getSlotProviderStrategy(),
@@ -260,7 +260,7 @@ public class ExecutionTest extends TestLogger {
 
 		final ExecutionJobVertex executionJobVertex = executionGraph.getJobVertex(jobVertexId);
 
-		final Execution currentExecutionAttempt = executionJobVertex.getTaskVertices()[0].getCurrentExecutionAttempt();
+		final Execution currentExecutionAttempt = executionJobVertex.getTaskVertices()[0].getMainExecution();
 
 		final CompletableFuture<Execution> allocationFuture = currentExecutionAttempt.allocateResourcesForExecution(
 			executionGraph.getSlotProviderStrategy(),
@@ -375,7 +375,7 @@ public class ExecutionTest extends TestLogger {
 			LocationPreferenceConstraint.ANY,
 			Collections.emptySet()).get();
 
-		Execution currentExecutionAttempt = executionVertex.getCurrentExecutionAttempt();
+		Execution currentExecutionAttempt = executionVertex.getMainExecution();
 
 		CompletableFuture<LogicalSlot> returnedSlotFuture = slotOwner.getReturnedSlotFuture();
 		CompletableFuture<?> terminationFuture = executionVertex.cancel();
@@ -417,7 +417,7 @@ public class ExecutionTest extends TestLogger {
 
 		ExecutionVertex executionVertex = executionJobVertex.getTaskVertices()[0];
 
-		final Execution execution = executionVertex.getCurrentExecutionAttempt();
+		final Execution execution = executionVertex.getMainExecution();
 
 		final JobManagerTaskRestore taskRestoreState = new JobManagerTaskRestore(1L, new TaskStateSnapshot());
 		execution.setInitialState(taskRestoreState);
@@ -468,7 +468,7 @@ public class ExecutionTest extends TestLogger {
 
 		ExecutionVertex executionVertex = executionJobVertex.getTaskVertices()[0];
 
-		final Execution execution = executionVertex.getCurrentExecutionAttempt();
+		final Execution execution = executionVertex.getMainExecution();
 
 		taskManagerGateway.setCancelConsumer(
 			executionAttemptID -> {
@@ -529,7 +529,7 @@ public class ExecutionTest extends TestLogger {
 			new NoRestartStrategy(),
 			jobVertex);
 
-		final Execution execution = executionGraph.getJobVertex(jobVertex.getID()).getTaskVertices()[0].getCurrentExecutionAttempt();
+		final Execution execution = executionGraph.getJobVertex(jobVertex.getID()).getTaskVertices()[0].getMainExecution();
 
 		executionGraph.start(testMainThreadUtil.getMainThreadExecutor());
 		testMainThreadUtil.execute(executionGraph::scheduleForExecution);

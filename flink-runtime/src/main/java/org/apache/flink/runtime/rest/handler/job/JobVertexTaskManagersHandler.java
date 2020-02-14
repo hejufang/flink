@@ -109,7 +109,7 @@ public class JobVertexTaskManagersHandler extends AbstractExecutionGraphHandler<
 		// Build a map that groups tasks by TaskManager
 		Map<String, List<AccessExecutionVertex>> taskManagerVertices = new HashMap<>();
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
-			TaskManagerLocation location = vertex.getCurrentAssignedResourceLocation();
+			TaskManagerLocation location = vertex.getMainExecution().getAssignedResourceLocation();
 			String taskManager = location == null ? "(unassigned)" : location.getHostname() + ':' + location.dataPort();
 			List<AccessExecutionVertex> vertices = taskManagerVertices.computeIfAbsent(
 				taskManager,
@@ -133,20 +133,20 @@ public class JobVertexTaskManagersHandler extends AbstractExecutionGraphHandler<
 			MutableIOMetrics counts = new MutableIOMetrics();
 
 			for (AccessExecutionVertex vertex : taskVertices) {
-				final ExecutionState state = vertex.getExecutionState();
+				final ExecutionState state = vertex.getMainExecution().getState();
 				tasksPerState[state.ordinal()]++;
 
 				// take the earliest start time
-				long started = vertex.getStateTimestamp(ExecutionState.DEPLOYING);
+				long started = vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING);
 				if (started > 0) {
 					startTime = Math.min(startTime, started);
 				}
 
 				allFinished &= state.isTerminal();
-				endTime = Math.max(endTime, vertex.getStateTimestamp(state));
+				endTime = Math.max(endTime, vertex.getMainExecution().getStateTimestamp(state));
 
 				counts.addIOMetrics(
-					vertex.getCurrentExecutionAttempt(),
+					vertex.getMainExecution(),
 					metricFetcher,
 					jobID.toString(),
 					jobVertex.getJobVertexId().toString());

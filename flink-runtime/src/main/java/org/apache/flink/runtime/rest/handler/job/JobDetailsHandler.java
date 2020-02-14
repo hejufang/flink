@@ -170,17 +170,17 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 		boolean allFinished = true;
 
 		for (AccessExecutionVertex vertex : ejv.getTaskVertices()) {
-			final ExecutionState state = vertex.getExecutionState();
+			final ExecutionState state = vertex.getMainExecution().getState();
 			tasksPerState[state.ordinal()]++;
 
 			// take the earliest start time
-			long started = vertex.getStateTimestamp(ExecutionState.DEPLOYING);
+			long started = vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING);
 			if (started > 0L) {
 				startTime = Math.min(startTime, started);
 			}
 
 			allFinished &= state.isTerminal();
-			endTime = Math.max(endTime, vertex.getStateTimestamp(state));
+			endTime = Math.max(endTime, vertex.getMainExecution().getStateTimestamp(state));
 		}
 
 		long duration;
@@ -212,7 +212,7 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 
 		for (AccessExecutionVertex vertex : ejv.getTaskVertices()) {
 			counts.addIOMetrics(
-				vertex.getCurrentExecutionAttempt(),
+				vertex.getMainExecution(),
 				metricFetcher,
 				jobId.toString(),
 				ejv.getJobVertexId().toString());

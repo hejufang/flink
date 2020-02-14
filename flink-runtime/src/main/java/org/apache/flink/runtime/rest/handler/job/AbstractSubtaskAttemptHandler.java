@@ -76,7 +76,7 @@ public abstract class AbstractSubtaskAttemptHandler<R extends ResponseBody, M ex
 	protected R handleRequest(HandlerRequest<EmptyRequestBody, M> request, AccessExecutionVertex executionVertex) throws RestHandlerException {
 		final Integer attemptNumber = request.getPathParameter(SubtaskAttemptPathParameter.class);
 
-		final AccessExecution currentAttempt = executionVertex.getCurrentExecutionAttempt();
+		final AccessExecution currentAttempt = executionVertex.getMainExecution();
 		if (attemptNumber == currentAttempt.getAttemptNumber()) {
 			return handleRequest(request, currentAttempt);
 		} else if (attemptNumber >= 0 && attemptNumber < currentAttempt.getAttemptNumber()) {

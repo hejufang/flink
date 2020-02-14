@@ -246,9 +246,9 @@ public final class WebMonitorUtils {
 			numTotalTasks += vertices.length;
 
 			for (AccessExecutionVertex vertex : vertices) {
-				ExecutionState state = vertex.getExecutionState();
+				ExecutionState state = vertex.getMainExecution().getState();
 				countsPerStatus[state.ordinal()]++;
-				lastChanged = Math.max(lastChanged, vertex.getStateTimestamp(state));
+				lastChanged = Math.max(lastChanged, vertex.getMainExecution().getStateTimestamp(state));
 			}
 		}
 

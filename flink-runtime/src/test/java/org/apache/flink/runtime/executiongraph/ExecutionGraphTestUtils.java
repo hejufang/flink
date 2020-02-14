@@ -157,7 +157,7 @@ public class ExecutionGraphTestUtils {
 		final long deadline = maxWaitMillis == 0 ? Long.MAX_VALUE : System.nanoTime() + (maxWaitMillis * 1_000_000);
 
 		while (true) {
-			Execution execution = executionVertex.getCurrentExecutionAttempt();
+			Execution execution = executionVertex.getMainExecution();
 
 			if (execution == null || (execution.getState() != state && System.nanoTime() < deadline)) {
 				try {
@@ -218,7 +218,7 @@ public class ExecutionGraphTestUtils {
 			final Iterable<? extends AccessExecutionVertex> allExecutionVertices = accessExecutionGraph.getAllExecutionVertices();
 
 			for (AccessExecutionVertex executionVertex : allExecutionVertices) {
-				final AccessExecution currentExecutionAttempt = executionVertex.getCurrentExecutionAttempt();
+				final AccessExecution currentExecutionAttempt = executionVertex.getMainExecution();
 
 				if (currentExecutionAttempt == null || !executionPredicate.test(currentExecutionAttempt)) {
 					return false;
@@ -259,7 +259,7 @@ public class ExecutionGraphTestUtils {
 	 */
 	public static void switchAllVerticesToRunning(ExecutionGraph eg) {
 		for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-			vertex.getCurrentExecutionAttempt().switchToRunning();
+			vertex.getMainExecution().switchToRunning();
 		}
 	}
 
@@ -269,7 +269,7 @@ public class ExecutionGraphTestUtils {
 	 */
 	public static void completeCancellingForAllVertices(ExecutionGraph eg) {
 		for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-			vertex.getCurrentExecutionAttempt().completeCancelling();
+			vertex.getMainExecution().completeCancelling();
 		}
 	}
 
@@ -279,7 +279,7 @@ public class ExecutionGraphTestUtils {
 	 */
 	public static void finishAllVertices(ExecutionGraph eg) {
 		for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-			vertex.getCurrentExecutionAttempt().markFinished();
+			vertex.getMainExecution().markFinished();
 		}
 	}
 
@@ -290,14 +290,14 @@ public class ExecutionGraphTestUtils {
 	public static void switchToRunning(ExecutionGraph eg) {
 		// check that all execution are in state DEPLOYING
 		for (ExecutionVertex ev : eg.getAllExecutionVertices()) {
-			final Execution exec = ev.getCurrentExecutionAttempt();
+			final Execution exec = ev.getMainExecution();
 			final ExecutionState executionState = exec.getState();
 			assert executionState == ExecutionState.DEPLOYING : "Expected executionState to be DEPLOYING, was: " + executionState;
 		}
 
 		// switch executions to RUNNING
 		for (ExecutionVertex ev : eg.getAllExecutionVertices()) {
-			final Execution exec = ev.getCurrentExecutionAttempt();
+			final Execution exec = ev.getMainExecution();
 			exec.switchToRunning();
 		}
 	}
@@ -308,7 +308,7 @@ public class ExecutionGraphTestUtils {
 	
 	public static void setVertexState(ExecutionVertex vertex, ExecutionState state) {
 		try {
-			Execution exec = vertex.getCurrentExecutionAttempt();
+			Execution exec = vertex.getMainExecution();
 			
 			Field f = Execution.class.getDeclaredField("state");
 			f.setAccessible(true);
@@ -320,7 +320,7 @@ public class ExecutionGraphTestUtils {
 	}
 	
 	public static void setVertexResource(ExecutionVertex vertex, LogicalSlot slot) {
-		Execution exec = vertex.getCurrentExecutionAttempt();
+		Execution exec = vertex.getMainExecution();
 
 		if(!exec.tryAssignResource(slot)) {
 			throw new RuntimeException("Could not assign resource.");

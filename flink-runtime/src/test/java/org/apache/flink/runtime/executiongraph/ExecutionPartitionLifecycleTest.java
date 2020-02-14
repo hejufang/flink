@@ -267,7 +267,7 @@ public class ExecutionPartitionLifecycleTest extends TestLogger {
 
 		final ExecutionJobVertex executionJobVertex = executionGraph.getJobVertex(producerVertex.getID());
 		final ExecutionVertex executionVertex = executionJobVertex.getTaskVertices()[0];
-		execution = executionVertex.getCurrentExecutionAttempt();
+		execution = executionVertex.getMainExecution();
 
 		execution.allocateResourcesForExecution(
 			executionGraph.getSlotProviderStrategy(),

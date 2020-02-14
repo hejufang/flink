@@ -151,7 +151,7 @@ public class ArchivedExecutionGraphTest extends TestLogger {
 
 		runtimeGraph.setJsonPlan("{}");
 
-		runtimeGraph.getJobVertex(v2ID).getTaskVertices()[0].getCurrentExecutionAttempt().fail(new RuntimeException("This exception was thrown on purpose."));
+		runtimeGraph.getJobVertex(v2ID).getTaskVertices()[0].getMainExecution().fail(new RuntimeException("This exception was thrown on purpose."));
 	}
 
 	@Test
@@ -276,19 +276,19 @@ public class ArchivedExecutionGraphTest extends TestLogger {
 	private static void compareExecutionVertex(AccessExecutionVertex runtimeVertex, AccessExecutionVertex archivedVertex) {
 		assertEquals(runtimeVertex.getTaskNameWithSubtaskIndex(), archivedVertex.getTaskNameWithSubtaskIndex());
 		assertEquals(runtimeVertex.getParallelSubtaskIndex(), archivedVertex.getParallelSubtaskIndex());
-		assertEquals(runtimeVertex.getExecutionState(), archivedVertex.getExecutionState());
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.CREATED), archivedVertex.getStateTimestamp(ExecutionState.CREATED));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.SCHEDULED), archivedVertex.getStateTimestamp(ExecutionState.SCHEDULED));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.DEPLOYING), archivedVertex.getStateTimestamp(ExecutionState.DEPLOYING));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.RUNNING), archivedVertex.getStateTimestamp(ExecutionState.RUNNING));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.FINISHED), archivedVertex.getStateTimestamp(ExecutionState.FINISHED));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.CANCELING), archivedVertex.getStateTimestamp(ExecutionState.CANCELING));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.CANCELED), archivedVertex.getStateTimestamp(ExecutionState.CANCELED));
-		assertEquals(runtimeVertex.getStateTimestamp(ExecutionState.FAILED), archivedVertex.getStateTimestamp(ExecutionState.FAILED));
-		assertEquals(runtimeVertex.getFailureCauseAsString(), archivedVertex.getFailureCauseAsString());
-		assertEquals(runtimeVertex.getCurrentAssignedResourceLocation(), archivedVertex.getCurrentAssignedResourceLocation());
+		assertEquals(runtimeVertex.getMainExecution().getState(), archivedVertex.getMainExecution().getState());
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.CREATED));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.SCHEDULED), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.SCHEDULED));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.RUNNING), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.RUNNING));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.FINISHED), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.FINISHED));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.CANCELING), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.CANCELING));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.CANCELED), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.CANCELED));
+		assertEquals(runtimeVertex.getMainExecution().getStateTimestamp(ExecutionState.FAILED), archivedVertex.getMainExecution().getStateTimestamp(ExecutionState.FAILED));
+		assertEquals(runtimeVertex.getMainExecution().getFailureCauseAsString(), archivedVertex.getMainExecution().getFailureCauseAsString());
+		assertEquals(runtimeVertex.getMainExecution().getAssignedResourceLocation(), archivedVertex.getMainExecution().getAssignedResourceLocation());
 
-		compareExecution(runtimeVertex.getCurrentExecutionAttempt(), archivedVertex.getCurrentExecutionAttempt());
+		compareExecution(runtimeVertex.getMainExecution(), archivedVertex.getMainExecution());
 	}
 
 	private static void compareExecution(AccessExecution runtimeExecution, AccessExecution archivedExecution) {

@@ -113,7 +113,7 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 	public ExecutionState getAggregateState() {
 		int[] num = new int[ExecutionState.values().length];
 		for (ArchivedExecutionVertex vertex : this.taskVertices) {
-			num[vertex.getExecutionState().ordinal()]++;
+			num[vertex.getMainExecution().getState().ordinal()]++;
 		}
 
 		return getAggregateJobVertexState(num, parallelism);

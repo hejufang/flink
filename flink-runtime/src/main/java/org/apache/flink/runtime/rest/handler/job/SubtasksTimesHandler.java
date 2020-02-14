@@ -94,8 +94,8 @@ public class SubtasksTimesHandler extends AbstractJobVertexHandler<SubtasksTimes
 		int num = 0;
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
 
-			long[] timestamps = vertex.getCurrentExecutionAttempt().getStateTimestamps();
-			ExecutionState status = vertex.getExecutionState();
+			long[] timestamps = vertex.getMainExecution().getStateTimestamps();
+			ExecutionState status = vertex.getMainExecution().getState();
 
 			long scheduledTime = timestamps[ExecutionState.SCHEDULED.ordinal()];
 
@@ -103,7 +103,7 @@ public class SubtasksTimesHandler extends AbstractJobVertexHandler<SubtasksTimes
 			long end = status.isTerminal() ? timestamps[status.ordinal()] : now;
 			long duration = start >= 0 ? end - start : -1L;
 
-			TaskManagerLocation location = vertex.getCurrentAssignedResourceLocation();
+			TaskManagerLocation location = vertex.getMainExecution().getAssignedResourceLocation();
 			String locationString = location == null ? "(unassigned)" : location.getHostname();
 
 			Map<ExecutionState, Long> timestampMap = new HashMap<>(ExecutionState.values().length);

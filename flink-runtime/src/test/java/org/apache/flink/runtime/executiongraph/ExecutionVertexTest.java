@@ -61,7 +61,7 @@ public class ExecutionVertexTest extends TestLogger {
 
 		Execution execution = producerExecutionJobVertex
 			.getTaskVertices()[0]
-			.getCurrentExecutionAttempt();
+			.getMainExecution();
 
 		assertFalse(releasePartitionsFuture.isDone());
 

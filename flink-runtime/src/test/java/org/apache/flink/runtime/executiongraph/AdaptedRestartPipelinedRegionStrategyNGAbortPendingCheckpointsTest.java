@@ -90,7 +90,7 @@ public class AdaptedRestartPipelinedRegionStrategyNGAbortPendingCheckpointsTest 
 
 		AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
 			jobGraph.getJobID(),
-			firstExecutionVertex.getCurrentExecutionAttempt().getAttemptId(),
+			firstExecutionVertex.getMainExecution().getAttemptId(),
 			checkpointId);
 
 		// let the first vertex acknowledge the checkpoint, and fail it afterwards
@@ -109,13 +109,13 @@ public class AdaptedRestartPipelinedRegionStrategyNGAbortPendingCheckpointsTest 
 		for (ExecutionVertex executionVertex : executionVertices) {
 			executionGraph.updateState(
 				new TaskExecutionState(executionGraph.getJobID(),
-					executionVertex.getCurrentExecutionAttempt().getAttemptId(),
+					executionVertex.getMainExecution().getAttemptId(),
 					ExecutionState.RUNNING));
 		}
 	}
 
 	private void failVertex(final ExecutionVertex onlyExecutionVertex) {
-		onlyExecutionVertex.getCurrentExecutionAttempt().fail(new Exception("Test Exception"));
+		onlyExecutionVertex.getMainExecution().fail(new Exception("Test Exception"));
 		manualMainThreadExecutor.triggerAll();
 	}
 

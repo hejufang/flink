@@ -76,17 +76,17 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 		// One pipelined input consumable on data produced
 		IntermediateResultPartition partition11 = ev11.getProducedPartitions().values().iterator().next();
 		ev11.scheduleOrUpdateConsumers(new ResultPartitionID(partition11.getPartitionId(),
-			ev11.getCurrentExecutionAttempt().getAttemptId()));
+			ev11.getMainExecution().getAttemptId()));
 		assertTrue(ev31.isInputConsumable(0));
 		// Input0 of ev32 is not consumable. It consumes the same PIPELINED result with ev31 but not the same partition
 		assertFalse(ev32.isInputConsumable(0));
 
 		// The blocking input not consumable if only one partition is FINISHED
-		ev21.getCurrentExecutionAttempt().markFinished();
+		ev21.getMainExecution().markFinished();
 		assertFalse(ev31.isInputConsumable(1));
 
 		// The blocking input consumable if all partitions are FINISHED
-		ev22.getCurrentExecutionAttempt().markFinished();
+		ev22.getMainExecution().markFinished();
 		assertTrue(ev31.isInputConsumable(1));
 
 		// Inputs not consumable after failover
@@ -116,7 +116,7 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 		// Input1 consumable satisfies the constraint
 		IntermediateResultPartition partition11 = ev11.getProducedPartitions().values().iterator().next();
 		ev11.scheduleOrUpdateConsumers(new ResultPartitionID(partition11.getPartitionId(),
-			ev11.getCurrentExecutionAttempt().getAttemptId()));
+			ev11.getMainExecution().getAttemptId()));
 		assertTrue(ev31.checkInputDependencyConstraints());
 
 		// Inputs constraint not satisfied after failover
@@ -131,8 +131,8 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 		// Input2 consumable satisfies the constraint
 		waitUntilExecutionVertexState(ev21, ExecutionState.DEPLOYING, 2000L);
 		waitUntilExecutionVertexState(ev22, ExecutionState.DEPLOYING, 2000L);
-		ev21.getCurrentExecutionAttempt().markFinished();
-		ev22.getCurrentExecutionAttempt().markFinished();
+		ev21.getMainExecution().markFinished();
+		ev22.getMainExecution().markFinished();
 		assertTrue(ev31.checkInputDependencyConstraints());
 
 	}
@@ -156,12 +156,12 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 		// Input1 consumable does not satisfy the constraint
 		IntermediateResultPartition partition11 = ev11.getProducedPartitions().values().iterator().next();
 		ev11.scheduleOrUpdateConsumers(new ResultPartitionID(partition11.getPartitionId(),
-			ev11.getCurrentExecutionAttempt().getAttemptId()));
+			ev11.getMainExecution().getAttemptId()));
 		assertFalse(ev31.checkInputDependencyConstraints());
 
 		// Input2 consumable satisfies the constraint
-		ev21.getCurrentExecutionAttempt().markFinished();
-		ev22.getCurrentExecutionAttempt().markFinished();
+		ev21.getMainExecution().markFinished();
+		ev22.getMainExecution().markFinished();
 		assertTrue(ev31.checkInputDependencyConstraints());
 
 		// Inputs constraint not satisfied after failover
@@ -224,8 +224,8 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 			2000L);
 
 		for (ExecutionVertex ev : eg.getAllExecutionVertices()) {
-			if (ev.getCurrentExecutionAttempt().getState() == ExecutionState.CANCELING) {
-				ev.getCurrentExecutionAttempt().completeCancelling();
+			if (ev.getMainExecution().getState() == ExecutionState.CANCELING) {
+				ev.getMainExecution().completeCancelling();
 			}
 		}
 

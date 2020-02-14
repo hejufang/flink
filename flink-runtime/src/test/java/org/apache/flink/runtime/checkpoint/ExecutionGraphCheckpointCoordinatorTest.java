@@ -119,7 +119,7 @@ public class ExecutionGraphCheckpointCoordinatorTest extends TestLogger {
 		graph.scheduleForExecution();
 
 		for (ExecutionVertex executionVertex : graph.getAllExecutionVertices()) {
-			final Execution currentExecutionAttempt = executionVertex.getCurrentExecutionAttempt();
+			final Execution currentExecutionAttempt = executionVertex.getMainExecution();
 			graph.updateState(new TaskExecutionState(graph.getJobID(), currentExecutionAttempt.getAttemptId(), ExecutionState.FINISHED));
 		}
 

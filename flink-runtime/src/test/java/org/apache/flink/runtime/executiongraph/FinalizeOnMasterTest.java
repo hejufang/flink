@@ -87,7 +87,7 @@ public class FinalizeOnMasterTest extends TestLogger {
 		ExecutionGraphTestUtils.switchAllVerticesToRunning(eg);
 
 		// fail the execution
-		final Execution exec = eg.getJobVertex(vertex.getID()).getTaskVertices()[0].getCurrentExecutionAttempt();
+		final Execution exec = eg.getJobVertex(vertex.getID()).getTaskVertices()[0].getMainExecution();
 		exec.fail(new Exception("test"));
 
 		assertEquals(JobStatus.FAILED, eg.waitUntilTerminal());

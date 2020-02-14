@@ -67,7 +67,7 @@ public class SubtaskCurrentAttemptDetailsHandler extends AbstractSubtaskHandler<
 			HandlerRequest<EmptyRequestBody, SubtaskMessageParameters> request,
 			AccessExecutionVertex executionVertex) throws RestHandlerException {
 
-		final AccessExecution execution = executionVertex.getCurrentExecutionAttempt();
+		final AccessExecution execution = executionVertex.getMainExecution();
 
 		final MutableIOMetrics ioMetrics = new MutableIOMetrics();
 

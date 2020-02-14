@@ -142,7 +142,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 	private void executeOperationForAllExecutions(ExecutionGraph eg, Consumer<Execution> operation) {
 		for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-			operation.accept(vertex.getCurrentExecutionAttempt());
+			operation.accept(vertex.getMainExecution());
 		}
 	}
 
@@ -234,7 +234,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 			// switch all tasks to running
 			for (ExecutionVertex vertex : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-				vertex.getCurrentExecutionAttempt().switchToRunning();
+				vertex.getMainExecution().switchToRunning();
 			}
 
 			graph.failGlobal(new Exception("test"));
@@ -288,7 +288,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 			// switch all tasks to running
 			for (ExecutionVertex vertex : graph.getVerticesTopologically().iterator().next().getTaskVertices()) {
-				vertex.getCurrentExecutionAttempt().switchToRunning();
+				vertex.getMainExecution().switchToRunning();
 			}
 
 			graph.failGlobal(new Exception("test"));
@@ -351,8 +351,8 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 			Iterator<ExecutionVertex> executionVertices = eg.getAllExecutionVertices().iterator();
 
-			Execution finishedExecution = executionVertices.next().getCurrentExecutionAttempt();
-			Execution failedExecution = executionVertices.next().getCurrentExecutionAttempt();
+			Execution finishedExecution = executionVertices.next().getMainExecution();
+			Execution failedExecution = executionVertices.next().getMainExecution();
 
 			finishedExecution.markFinished();
 
@@ -363,15 +363,15 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 			// At this point all resources have been assigned
 			for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-				assertNotNull("No assigned resource (test instability).", vertex.getCurrentAssignedResource());
-				vertex.getCurrentExecutionAttempt().switchToRunning();
+				assertNotNull("No assigned resource (test instability).", vertex.getMainExecution().getAssignedResource());
+				vertex.getMainExecution().switchToRunning();
 			}
 
 			// fail old finished execution, this should not affect the execution
 			finishedExecution.fail(new Exception("This should have no effect"));
 
 			for (ExecutionVertex vertex: eg.getAllExecutionVertices()) {
-				vertex.getCurrentExecutionAttempt().markFinished();
+				vertex.getMainExecution().markFinished();
 			}
 
 			// the state of the finished execution should have not changed since it is terminal
@@ -399,12 +399,12 @@ public class ExecutionGraphRestartTest extends TestLogger {
 			eg.cancel();
 
 			for (ExecutionVertex v : eg.getAllExecutionVertices()) {
-				v.getCurrentExecutionAttempt().fail(new Exception("Test Exception"));
+				v.getMainExecution().fail(new Exception("Test Exception"));
 			}
 
 			assertEquals(JobStatus.CANCELED, eg.getTerminationFuture().get());
 
-			Execution execution = eg.getAllExecutionVertices().iterator().next().getCurrentExecutionAttempt();
+			Execution execution = eg.getAllExecutionVertices().iterator().next().getMainExecution();
 
 			execution.completeCancelling();
 			assertEquals(JobStatus.CANCELED, eg.getState());
@@ -431,7 +431,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 			eg.failGlobal(new Exception("Test Exception"));
 			assertEquals(JobStatus.FAILING, eg.getState());
 
-			Execution execution = eg.getAllExecutionVertices().iterator().next().getCurrentExecutionAttempt();
+			Execution execution = eg.getAllExecutionVertices().iterator().next().getMainExecution();
 
 			execution.completeCancelling();
 			assertEquals(JobStatus.RESTARTING, eg.getState());
@@ -484,8 +484,8 @@ public class ExecutionGraphRestartTest extends TestLogger {
 		switchToRunning(eg);
 
 		final ExecutionJobVertex vertex = eg.getVerticesTopologically().iterator().next();
-		final Execution first = vertex.getTaskVertices()[0].getCurrentExecutionAttempt();
-		final Execution last = vertex.getTaskVertices()[vertex.getParallelism() - 1].getCurrentExecutionAttempt();
+		final Execution first = vertex.getTaskVertices()[0].getMainExecution();
+		final Execution last = vertex.getTaskVertices()[vertex.getParallelism() - 1].getMainExecution();
 
 		// Have two executions fail
 		first.fail(new Exception("intended test failure 1"));
@@ -631,7 +631,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 			switchToRunning(eg);
 
 			// fail into 'RESTARTING'
-			eg.getAllExecutionVertices().iterator().next().getCurrentExecutionAttempt().fail(
+			eg.getAllExecutionVertices().iterator().next().getMainExecution().fail(
 				new Exception("intended test failure"));
 
 			assertEquals(JobStatus.FAILING, eg.getState());
@@ -744,8 +744,8 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 			Iterator<ExecutionVertex> executionVertices = eg.getAllExecutionVertices().iterator();
 
-			Execution finishedExecution = executionVertices.next().getCurrentExecutionAttempt();
-			Execution failedExecution = executionVertices.next().getCurrentExecutionAttempt();
+			Execution finishedExecution = executionVertices.next().getMainExecution();
+			Execution failedExecution = executionVertices.next().getMainExecution();
 
 			finishedExecution.markFinished();
 
@@ -756,8 +756,8 @@ public class ExecutionGraphRestartTest extends TestLogger {
 
 			// At this point all resources have been assigned
 			for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-				assertNotNull("No assigned resource (test instability).", vertex.getCurrentAssignedResource());
-				vertex.getCurrentExecutionAttempt().switchToRunning();
+				assertNotNull("No assigned resource (test instability).", vertex.getMainExecution().getAssignedResource());
+				vertex.getMainExecution().switchToRunning();
 			}
 
 			// fail global with old finished execution, this should not affect the execution
@@ -912,7 +912,7 @@ public class ExecutionGraphRestartTest extends TestLogger {
 		assertEquals(JobStatus.FAILING, eg.getState());
 
 		for (ExecutionVertex vertex : eg.getAllExecutionVertices()) {
-			vertex.getCurrentExecutionAttempt().completeCancelling();
+			vertex.getMainExecution().completeCancelling();
 		}
 
 		assertEquals(JobStatus.RUNNING, eg.getState());

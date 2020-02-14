@@ -17,8 +17,6 @@
  */
 package org.apache.flink.runtime.executiongraph;
 
-import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.EvictingBoundedList;
 
 import javax.annotation.Nullable;
@@ -44,7 +42,7 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		this.subTaskIndex = vertex.getParallelSubtaskIndex();
 		this.priorExecutions = vertex.getCopyOfPriorExecutionsList();
 		this.taskNameWithSubtask = vertex.getTaskNameWithSubtaskIndex();
-		this.currentExecution = vertex.getCurrentExecutionAttempt().archive();
+		this.currentExecution = vertex.getMainExecution().archive();
 	}
 
 	public ArchivedExecutionVertex(
@@ -71,28 +69,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 	}
 
 	@Override
-	public ArchivedExecution getCurrentExecutionAttempt() {
+	public ArchivedExecution getMainExecution() {
 		return currentExecution;
-	}
-
-	@Override
-	public ExecutionState getExecutionState() {
-		return currentExecution.getState();
-	}
-
-	@Override
-	public long getStateTimestamp(ExecutionState state) {
-		return currentExecution.getStateTimestamp(state);
-	}
-
-	@Override
-	public String getFailureCauseAsString() {
-		return currentExecution.getFailureCauseAsString();
-	}
-
-	@Override
-	public TaskManagerLocation getCurrentAssignedResourceLocation() {
-		return currentExecution.getAssignedResourceLocation();
 	}
 
 	@Nullable

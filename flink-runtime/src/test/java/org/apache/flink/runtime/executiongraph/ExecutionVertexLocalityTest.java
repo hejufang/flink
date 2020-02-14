@@ -156,8 +156,8 @@ public class ExecutionVertexLocalityTest extends TestLogger {
 			initializeLocation(source, randomLocation);
 			initializeLocation(target, location);
 
-			setState(source.getCurrentExecutionAttempt(), ExecutionState.CANCELED);
-			setState(target.getCurrentExecutionAttempt(), ExecutionState.CANCELED);
+			setState(source.getMainExecution(), ExecutionState.CANCELED);
+			setState(target.getMainExecution(), ExecutionState.CANCELED);
 		}
 
 		// mimic a restart: all vertices get re-initialized without actually being executed
@@ -175,7 +175,7 @@ public class ExecutionVertexLocalityTest extends TestLogger {
 
 			// target state
 			ExecutionVertex target = graph.getAllVertices().get(targetVertexId).getTaskVertices()[i];
-			target.getCurrentExecutionAttempt().setInitialState(mock(JobManagerTaskRestore.class));
+			target.getMainExecution().setInitialState(mock(JobManagerTaskRestore.class));
 		}
 
 		// validate that the target vertices have the state's location as the location preference
@@ -245,7 +245,7 @@ public class ExecutionVertexLocalityTest extends TestLogger {
 
 		SimpleSlot simpleSlot = new SimpleSlot(slot, mock(SlotOwner.class), 0);
 
-		if (!vertex.getCurrentExecutionAttempt().tryAssignResource(simpleSlot)) {
+		if (!vertex.getMainExecution().tryAssignResource(simpleSlot)) {
 			throw new FlinkException("Could not assign resource.");
 		}
 	}

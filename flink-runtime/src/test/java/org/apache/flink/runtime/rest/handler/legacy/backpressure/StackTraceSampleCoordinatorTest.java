@@ -93,7 +93,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 
 		// Verify messages have been sent
 		for (ExecutionVertex vertex : vertices) {
-			Mockito.verify(vertex.getCurrentExecutionAttempt())
+			Mockito.verify(vertex.getMainExecution())
 				.requestStackTraceSample(Matchers.eq(0), Matchers.eq(numSamples), Matchers.eq(delayBetweenSamples), Matchers.eq(maxStackTraceDepth), Matchers.any(Time.class));
 		}
 
@@ -107,7 +107,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 
 		// Collect stack traces
 		for (int i = 0; i < vertices.length; i++) {
-			ExecutionAttemptID executionId = vertices[i].getCurrentExecutionAttempt().getAttemptId();
+			ExecutionAttemptID executionId = vertices[i].getMainExecution().getAttemptId();
 			coord.collectStackTraces(0, executionId, traces);
 
 			if (i == vertices.length - 1) {
@@ -126,7 +126,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 		Map<ExecutionAttemptID, List<StackTraceElement[]>> tracesByTask = sample.getStackTraces();
 
 		for (ExecutionVertex vertex : vertices) {
-			ExecutionAttemptID executionId = vertex.getCurrentExecutionAttempt().getAttemptId();
+			ExecutionAttemptID executionId = vertex.getMainExecution().getAttemptId();
 			List<StackTraceElement[]> sampleTraces = tracesByTask.get(executionId);
 
 			Assert.assertNotNull("Task not found", sampleTraces);
@@ -137,7 +137,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 		Assert.assertEquals(0, coord.getNumberOfPendingSamples());
 
 		// Verify no error on late collect
-		coord.collectStackTraces(0, vertices[0].getCurrentExecutionAttempt().getAttemptId(), traces);
+		coord.collectStackTraces(0, vertices[0].getMainExecution().getAttemptId(), traces);
 	}
 
 	/** Tests triggering for non-running tasks fails the future. */
@@ -232,7 +232,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 			}
 
 			// Collect after the timeout (should be ignored)
-			ExecutionAttemptID executionId = vertices[0].getCurrentExecutionAttempt().getAttemptId();
+			ExecutionAttemptID executionId = vertices[0].getMainExecution().getAttemptId();
 			coord.collectStackTraces(0, executionId, new ArrayList<StackTraceElement[]>());
 		} finally {
 			scheduledExecutorService.shutdownNow();
@@ -284,7 +284,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 		Assert.assertTrue(sampleFuture.isDone());
 
 		// Verify no error on late collect
-		ExecutionAttemptID executionId = vertices[0].getCurrentExecutionAttempt().getAttemptId();
+		ExecutionAttemptID executionId = vertices[0].getMainExecution().getAttemptId();
 		coord.collectStackTraces(0, executionId, new ArrayList<StackTraceElement[]>());
 	}
 
@@ -305,7 +305,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 		Assert.assertTrue(sampleFuture.isDone());
 
 		// Verify no error on late collect
-		ExecutionAttemptID executionId = vertices[0].getCurrentExecutionAttempt().getAttemptId();
+		ExecutionAttemptID executionId = vertices[0].getMainExecution().getAttemptId();
 		coord.collectStackTraces(0, executionId, new ArrayList<StackTraceElement[]>());
 	}
 
@@ -386,7 +386,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 
 		ExecutionVertex vertex = Mockito.mock(ExecutionVertex.class);
 		Mockito.when(vertex.getJobvertexId()).thenReturn(new JobVertexID());
-		Mockito.when(vertex.getCurrentExecutionAttempt()).thenReturn(exec);
+		Mockito.when(vertex.getMainExecution()).thenReturn(exec);
 
 		return vertex;
 	}
@@ -414,7 +414,7 @@ public class StackTraceSampleCoordinatorTest extends TestLogger {
 
 		ExecutionVertex vertex = Mockito.mock(ExecutionVertex.class);
 		Mockito.when(vertex.getJobvertexId()).thenReturn(new JobVertexID());
-		Mockito.when(vertex.getCurrentExecutionAttempt()).thenReturn(exec);
+		Mockito.when(vertex.getMainExecution()).thenReturn(exec);
 
 		return vertex;
 	}

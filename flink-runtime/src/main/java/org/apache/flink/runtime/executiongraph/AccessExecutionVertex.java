@@ -17,9 +17,6 @@
  */
 package org.apache.flink.runtime.executiongraph;
 
-import org.apache.flink.runtime.execution.ExecutionState;
-import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
-
 import javax.annotation.Nullable;
 
 /**
@@ -45,37 +42,7 @@ public interface AccessExecutionVertex {
 	 *
 	 * @return current execution
 	 */
-	AccessExecution getCurrentExecutionAttempt();
-
-	/**
-	 * Returns the current {@link ExecutionState} for this execution vertex.
-	 *
-	 * @return execution state for this execution vertex
-	 */
-	ExecutionState getExecutionState();
-
-	/**
-	 * Returns the timestamp for the given {@link ExecutionState}.
-	 *
-	 * @param state state for which the timestamp should be returned
-	 * @return timestamp for the given state
-	 */
-	long getStateTimestamp(ExecutionState state);
-
-	/**
-	 * Returns the exception that caused the job to fail. This is the first root exception
-	 * that was not recoverable and triggered job failure.
-	 *
-	 * @return failure exception as a string, or {@code "(null)"}
-	 */
-	String getFailureCauseAsString();
-
-	/**
-	 * Returns the {@link TaskManagerLocation} for this execution vertex.
-	 *
-	 * @return taskmanager location for this execution vertex.
-	 */
-	TaskManagerLocation getCurrentAssignedResourceLocation();
+	AccessExecution getMainExecution();
 
 	/**
 	 * Returns the execution for the given attempt number.

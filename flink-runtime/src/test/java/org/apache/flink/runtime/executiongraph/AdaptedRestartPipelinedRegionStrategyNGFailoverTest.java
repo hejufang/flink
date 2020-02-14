@@ -104,7 +104,7 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 
 		// trigger task failure of ev11
 		// vertices { ev11, ev21 } should be affected
-		ev11.getCurrentExecutionAttempt().fail(new Exception("Test Exception"));
+		ev11.getMainExecution().fail(new Exception("Test Exception"));
 		manualMainThreadExecutor.triggerAll();
 		manualMainThreadExecutor.triggerScheduledTasks();
 
@@ -113,7 +113,7 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		assertVertexInState(ExecutionState.DEPLOYING, ev12);
 		assertVertexInState(ExecutionState.CANCELING, ev21);
 		assertVertexInState(ExecutionState.DEPLOYING, ev22);
-		ev21.getCurrentExecutionAttempt().completeCancelling();
+		ev21.getMainExecution().completeCancelling();
 		manualMainThreadExecutor.triggerAll();
 		manualMainThreadExecutor.triggerScheduledTasks();
 
@@ -125,10 +125,10 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		assertVertexInState(ExecutionState.DEPLOYING, ev22);
 
 		// verify attempt number
-		assertEquals(1, ev11.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(0, ev12.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev21.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(0, ev22.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(1, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev22.getMainExecution().getAttemptNumber());
 	}
 
 	/**
@@ -157,7 +157,7 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 
 		// trigger task failure of ev11
 		// regions {ev11}, {ev21}, {ev22} should be affected
-		ev11.getCurrentExecutionAttempt().fail(new Exception("Test Exception"));
+		ev11.getMainExecution().fail(new Exception("Test Exception"));
 		manualMainThreadExecutor.triggerAll();
 		manualMainThreadExecutor.triggerScheduledTasks();
 
@@ -169,10 +169,10 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		assertVertexInState(ExecutionState.CREATED, ev22);
 
 		// verify attempt number
-		assertEquals(1, ev11.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(0, ev12.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev21.getCurrentExecutionAttempt().getAttemptNumber());
-		assertEquals(1, ev22.getCurrentExecutionAttempt().getAttemptNumber());
+		assertEquals(1, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev22.getMainExecution().getAttemptNumber());
 	}
 
 	/**
@@ -203,16 +203,16 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		final ExecutionVertex ev22 = vertexIterator.next();
 
 		// finish upstream regions to trigger scheduling of downstream regions
-		ev11.getCurrentExecutionAttempt().markFinished();
-		ev12.getCurrentExecutionAttempt().markFinished();
+		ev11.getMainExecution().markFinished();
+		ev12.getMainExecution().markFinished();
 
 		// trigger task failure of ev21 on consuming data from ev11
 		Exception taskFailureCause = new PartitionConnectionException(
 			new ResultPartitionID(
 				ev11.getProducedPartitions().keySet().iterator().next(),
-				ev11.getCurrentExecutionAttempt().getAttemptId()),
+				ev11.getMainExecution().getAttemptId()),
 			new Exception("Test failure"));
-		ev21.getCurrentExecutionAttempt().fail(taskFailureCause);
+		ev21.getMainExecution().fail(taskFailureCause);
 		manualMainThreadExecutor.triggerAll();
 
 		assertThat(failoverStrategy.getLastTasksToCancel(),
@@ -233,7 +233,7 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		ev.fail(new Exception("Test Exception"));
 
 		for (ExecutionVertex evs : eg.getAllExecutionVertices()) {
-			evs.getCurrentExecutionAttempt().completeCancelling();
+			evs.getMainExecution().completeCancelling();
 		}
 
 		manualMainThreadExecutor.triggerAll();
@@ -303,7 +303,7 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		final ExecutionVertex ev11 = vertexIterator.next();
 
 		// trigger task failure for fine grained recovery
-		ev11.getCurrentExecutionAttempt().fail(new Exception("Test Exception"));
+		ev11.getMainExecution().fail(new Exception("Test Exception"));
 		assertEquals(1, eg.getNumberOfRestarts());
 
 		// trigger global failover
@@ -404,12 +404,12 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 	}
 
 	private static void assertVertexInState(final ExecutionState state, final ExecutionVertex vertex) {
-		assertEquals(state, vertex.getExecutionState());
+		assertEquals(state, vertex.getMainExecution().getState());
 	}
 
 	private static void completeCancelling(ExecutionVertex... executionVertices) {
 		for (final ExecutionVertex executionVertex : executionVertices) {
-			executionVertex.getCurrentExecutionAttempt().completeCancelling();
+			executionVertex.getMainExecution().completeCancelling();
 		}
 	}
 

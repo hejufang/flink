@@ -42,7 +42,6 @@ import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.EvictingBoundedList;
-import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
 
@@ -96,7 +95,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	private volatile CoLocationConstraint locationConstraint;
 
 	/** The current or latest execution attempt of this vertex's task. */
-	private volatile Execution currentExecution;	// this field must never be null
+	private volatile Execution mainExecution;	// this field must never be null
 
 	private final ArrayList<InputSplit> inputSplits;
 
@@ -162,7 +161,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 
 		this.priorExecutions = new EvictingBoundedList<>(maxPriorExecutionHistoryLength);
 
-		this.currentExecution = new Execution(
+		this.mainExecution = new Execution(
 			getExecutionGraph().getFutureExecutor(),
 			this,
 			0,
@@ -179,7 +178,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 			this.locationConstraint = null;
 		}
 
-		getExecutionGraph().registerExecution(currentExecution);
+		getExecutionGraph().registerExecution(mainExecution);
 
 		this.timeout = timeout;
 		this.inputSplits = new ArrayList<>();
@@ -271,40 +270,8 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	}
 
 	@Override
-	public Execution getCurrentExecutionAttempt() {
-		return currentExecution;
-	}
-
-	@Override
-	public ExecutionState getExecutionState() {
-		return currentExecution.getState();
-	}
-
-	@Override
-	public long getStateTimestamp(ExecutionState state) {
-		return currentExecution.getStateTimestamp(state);
-	}
-
-	@Override
-	public String getFailureCauseAsString() {
-		return ExceptionUtils.stringifyException(getFailureCause());
-	}
-
-	public Throwable getFailureCause() {
-		return currentExecution.getFailureCause();
-	}
-
-	public CompletableFuture<TaskManagerLocation> getCurrentTaskManagerLocationFuture() {
-		return currentExecution.getTaskManagerLocationFuture();
-	}
-
-	public LogicalSlot getCurrentAssignedResource() {
-		return currentExecution.getAssignedResource();
-	}
-
-	@Override
-	public TaskManagerLocation getCurrentAssignedResourceLocation() {
-		return currentExecution.getAssignedResourceLocation();
+	public Execution getMainExecution() {
+		return mainExecution;
 	}
 
 	@Nullable
@@ -506,7 +473,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 */
 	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocationsBasedOnState() {
 		TaskManagerLocation priorLocation;
-		if (currentExecution.getTaskRestore() != null && (priorLocation = getLatestPriorLocation()) != null) {
+		if (mainExecution.getTaskRestore() != null && (priorLocation = getLatestPriorLocation()) != null) {
 			return Collections.singleton(CompletableFuture.completedFuture(priorLocation));
 		}
 		else {
@@ -540,7 +507,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 					// go over all input sources
 					for (int k = 0; k < sources.length; k++) {
 						// look-up assigned slot of input source
-						CompletableFuture<TaskManagerLocation> locationFuture = sources[k].getSource().getProducer().getCurrentTaskManagerLocationFuture();
+						CompletableFuture<TaskManagerLocation> locationFuture = sources[k].getSource().getProducer().getMainExecution().getTaskManagerLocationFuture();
 						// add input location
 						inputLocations.add(locationFuture);
 						// inputs which have too many distinct sources are not considered
@@ -599,7 +566,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 				throw new GlobalModVersionMismatch(originatingGlobalModVersion, actualModVersion);
 			}
 
-			final Execution oldExecution = currentExecution;
+			final Execution oldExecution = mainExecution;
 			final ExecutionState oldState = oldExecution.getState();
 
 			if (oldState.isTerminal()) {
@@ -620,7 +587,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 					timestamp,
 					timeout);
 
-				currentExecution = newExecution;
+				mainExecution = newExecution;
 
 				synchronized (inputSplits) {
 					InputSplitAssigner assigner = jobVertex.getSplitAssigner();
@@ -671,7 +638,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 			SlotProviderStrategy slotProviderStrategy,
 			LocationPreferenceConstraint locationPreferenceConstraint,
 			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
-		return this.currentExecution.scheduleForExecution(
+		return this.mainExecution.scheduleForExecution(
 			slotProviderStrategy,
 			locationPreferenceConstraint,
 			allPreviousExecutionGraphAllocationIds);
@@ -679,11 +646,11 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 
 	@VisibleForTesting
 	public void deployToSlot(LogicalSlot slot) throws JobException {
-		if (currentExecution.tryAssignResource(slot)) {
-			currentExecution.deploy();
+		if (mainExecution.tryAssignResource(slot)) {
+			mainExecution.deploy();
 		} else {
 			throw new IllegalStateException("Could not assign resource " + slot + " to current execution " +
-				currentExecution + '.');
+					mainExecution + '.');
 		}
 	}
 
@@ -695,17 +662,17 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	public CompletableFuture<?> cancel() {
 		// to avoid any case of mixup in the presence of concurrent calls,
 		// we copy a reference to the stack to make sure both calls go to the same Execution
-		final Execution exec = currentExecution;
+		final Execution exec = mainExecution;
 		exec.cancel();
 		return exec.getReleaseFuture();
 	}
 
 	public CompletableFuture<?> suspend() {
-		return currentExecution.suspend();
+		return mainExecution.suspend();
 	}
 
 	public void fail(Throwable t) {
-		currentExecution.fail(t);
+		mainExecution.fail(t);
 	}
 
 	/**
@@ -713,7 +680,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 */
 	void scheduleOrUpdateConsumers(ResultPartitionID partitionId) {
 
-		final Execution execution = currentExecution;
+		final Execution execution = mainExecution;
 
 		// Abort this request if there was a concurrent reset
 		if (!partitionId.getProducerId().equals(execution.getAttemptId())) {
@@ -739,7 +706,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	}
 
 	void cachePartitionInfo(PartitionInfo partitionInfo){
-		getCurrentExecutionAttempt().cachePartitionInfo(partitionInfo);
+		getMainExecution().cachePartitionInfo(partitionInfo);
 	}
 
 	/**
@@ -812,7 +779,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	void notifyStateTransition(Execution execution, ExecutionState newState, Throwable error) {
 		// only forward this notification if the execution is still the current execution
 		// otherwise we have an outdated execution
-		if (currentExecution == execution) {
+		if (mainExecution == execution) {
 			getExecutionGraph().notifyExecutionChange(execution, newState, error);
 		}
 	}

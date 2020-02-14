@@ -202,7 +202,7 @@ public class StateAssignmentOperation {
 		for (int subTaskIndex = 0; subTaskIndex < newParallelism; subTaskIndex++) {
 
 			Execution currentExecutionAttempt = executionJobVertex.getTaskVertices()[subTaskIndex]
-				.getCurrentExecutionAttempt();
+				.getMainExecution();
 
 			TaskStateSnapshot taskState = new TaskStateSnapshot(operatorIDs.size());
 			boolean statelessTask = true;
