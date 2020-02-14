@@ -95,7 +95,7 @@ public class RestartPipelinedRegionStrategy implements FailoverStrategy {
 	// ------------------------------------------------------------------------
 
 	private void buildFailoverRegions() {
-		final Set<Set<FailoverVertex>> distinctRegions = PipelinedRegionComputeUtil.computePipelinedRegions(topology);
+		final Set<Set<FailoverVertex>> distinctRegions = topology.getDistinctRegions();
 
 		// creating all the failover regions and register them
 		for (Set<FailoverVertex> regionVertices : distinctRegions) {

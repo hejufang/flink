@@ -25,6 +25,7 @@ import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -43,6 +44,11 @@ public class TestFailoverTopology implements FailoverTopology {
 	@Override
 	public Iterable<? extends FailoverVertex> getFailoverVertices() {
 		return vertices::iterator;
+	}
+
+	@Override
+	public Set<Set<FailoverVertex>> getDistinctRegions() {
+		return null;
 	}
 
 	@Override

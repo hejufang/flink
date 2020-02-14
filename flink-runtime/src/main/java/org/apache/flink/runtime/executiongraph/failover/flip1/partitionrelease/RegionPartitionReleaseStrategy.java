@@ -181,7 +181,7 @@ public class RegionPartitionReleaseStrategy implements PartitionReleaseStrategy 
 				final SchedulingTopology schedulingStrategy,
 				final FailoverTopology failoverTopology) {
 
-			final Set<Set<FailoverVertex>> distinctRegions = PipelinedRegionComputeUtil.computePipelinedRegions(failoverTopology);
+			final Set<Set<FailoverVertex>> distinctRegions = failoverTopology.getDistinctRegions();
 			return new RegionPartitionReleaseStrategy(
 				schedulingStrategy,
 				PipelinedRegionComputeUtil.toPipelinedRegionsSet(distinctRegions));

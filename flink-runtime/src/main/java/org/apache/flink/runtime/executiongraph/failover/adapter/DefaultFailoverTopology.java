@@ -24,6 +24,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.IntermediateResultPartition;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverTopology;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverVertex;
+import org.apache.flink.runtime.executiongraph.failover.flip1.PipelinedRegionComputeUtil;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -43,6 +45,8 @@ public class DefaultFailoverTopology implements FailoverTopology {
 	private final boolean containsCoLocationConstraints;
 
 	private final List<DefaultFailoverVertex> failoverVertices;
+
+	private final Set<Set<FailoverVertex>> distinctRegions;
 
 	public DefaultFailoverTopology(ExecutionGraph executionGraph) {
 		checkNotNull(executionGraph);
@@ -64,6 +68,8 @@ public class DefaultFailoverTopology implements FailoverTopology {
 
 		// generate edges
 		connectVerticesWithEdges(failoverVertexMap);
+
+		distinctRegions = PipelinedRegionComputeUtil.computePipelinedRegions(this);
 	}
 
 	private void connectVerticesWithEdges(Map<ExecutionVertex, DefaultFailoverVertex> failoverVertexMap) {
@@ -89,6 +95,11 @@ public class DefaultFailoverTopology implements FailoverTopology {
 	@Override
 	public Iterable<? extends FailoverVertex> getFailoverVertices() {
 		return failoverVertices;
+	}
+
+	@Override
+	public Set<Set<FailoverVertex>> getDistinctRegions() {
+		return distinctRegions;
 	}
 
 	@Override

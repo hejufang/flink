@@ -17,6 +17,8 @@
 
 package org.apache.flink.runtime.executiongraph.failover.flip1;
 
+import java.util.Set;
+
 /**
  * Represents a topology.
  */
@@ -28,6 +30,8 @@ public interface FailoverTopology {
 	 * @return topologically sorted iterable over all vertices
 	 */
 	Iterable<? extends FailoverVertex> getFailoverVertices();
+
+	Set<Set<FailoverVertex>> getDistinctRegions();
 
 	/**
 	 * Returns whether the topology contains co-location constraints.

@@ -50,6 +50,7 @@ import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.adapter.DefaultFailoverTopology;
+import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverTopology;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.NotReleasingPartitionReleaseStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.PartitionReleaseStrategy;
@@ -329,6 +330,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	/** Schedule task to slot fairly. */
 	private final boolean scheduleTaskFairly;
+
+	private FailoverTopology failoverTopology;
 
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
@@ -1001,12 +1004,14 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			newExecJobVertices.add(ejv);
 		}
 
+		failoverTopology = new DefaultFailoverTopology(this);
+
 		failoverStrategy.notifyNewVertices(newExecJobVertices);
 
 		schedulingTopology = new ExecutionGraphToSchedulingTopologyAdapter(this);
+
 		partitionReleaseStrategy = partitionReleaseStrategyFactory.createInstance(
-			schedulingTopology,
-			new DefaultFailoverTopology(this));
+			schedulingTopology, failoverTopology);
 	}
 
 	public void scheduleForExecution() throws JobException {
@@ -1860,4 +1865,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	PartitionReleaseStrategy getPartitionReleaseStrategy() {
 		return partitionReleaseStrategy;
 	}
+
+	public FailoverTopology getFailoverTopology() {
+		return failoverTopology;
+	}
+
 }

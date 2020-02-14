@@ -37,6 +37,7 @@ import org.apache.flink.util.SerializedValue;
 import org.junit.Test;
 import org.mockito.Matchers;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,11 +59,53 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationConstraint;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
+import org.apache.flink.util.TestLogger;
 
 /**
  * This class contains test concerning the correct conversion from {@link JobGraph} to {@link ExecutionGraph} objects.
  */
-public class ExecutionGraphConstructionTest {
+public class ExecutionGraphConstructionTest extends TestLogger {
+
+	@Test
+	public void testExecutionGraphPerformance() throws IOException {
+		final JobID jobId = new JobID();
+		final String jobName = "Test Job Sample Name";
+		final Configuration cfg = new Configuration();
+
+		JobVertex v1 = new JobVertex("vertex1");
+		JobVertex v2 = new JobVertex("vertex2");
+
+		v1.setParallelism(4000);
+		v2.setParallelism(4000);
+
+		v1.setInvokableClass(AbstractInvokable.class);
+		v2.setInvokableClass(AbstractInvokable.class);
+
+		v2.connectNewDataSetAsInput(v1, DistributionPattern.ALL_TO_ALL, ResultPartitionType.PIPELINED);
+
+		List<JobVertex> ordered = new ArrayList<>(Arrays.asList(v1, v2));
+
+		ExecutionGraph eg = new ExecutionGraph(
+				TestingUtils.defaultExecutor(),
+				TestingUtils.defaultExecutor(),
+				jobId,
+				jobName,
+				cfg,
+				new SerializedValue<>(new ExecutionConfig()),
+				AkkaUtils.getDefaultTimeout(),
+				new NoRestartStrategy(),
+				new TestingSlotProvider(ignored -> new CompletableFuture<>()));
+		try {
+			long t1 = System.currentTimeMillis();
+			eg.attachJobGraph(ordered);
+			System.out.println("total->" + (System.currentTimeMillis() - t1));
+		}
+		catch (JobException e) {
+			e.printStackTrace();
+			fail("Job failed with exception: " + e.getMessage());
+		}
+
+	}
 
 	/**
 	 * Creates a JobGraph of the following form:
