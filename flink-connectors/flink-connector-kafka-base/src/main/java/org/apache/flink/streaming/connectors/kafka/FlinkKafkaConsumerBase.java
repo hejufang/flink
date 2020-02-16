@@ -881,6 +881,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 					final List<KafkaTopicPartition> discoveredPartitions;
 					try {
 						discoveredPartitions = partitionDiscoverer.discoverPartitions();
+						// filter partitions which in the white list.
+						filterPartitions(discoveredPartitions);
 					} catch (AbstractPartitionDiscoverer.WakeupException | AbstractPartitionDiscoverer.ClosedException e) {
 						// the partition discoverer may have been closed or woken up before or during the discovery;
 						// this would only happen if the consumer was canceled; simply escape the loop
