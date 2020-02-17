@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.fs;
 
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.formats.csv.CsvRowSerializationSchema;
 import org.apache.flink.formats.json.JsonRowSerializationSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -57,13 +58,15 @@ public class NewLineDelimitedTableSinkITCase {
 	private static final TableSchema TABLE_SCHEMA = new TableSchema(FIELD_NAMES, FIELD_TYPES);
 
 	private void execute(String filePath, SerializationSchema serSchema, String codec, String fieldDelimiter) throws Exception {
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
-		Row row1 = Row.of("this is", 1, 2.0);
-		Row row2 = Row.of("a test", 3, 4.0);
-		List<Row> list = new ArrayList<>();
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment().setParallelism(1);
+		Tuple2<Boolean, Row> row1 = new Tuple2<>(true, Row.of("this is", 1, 2.0));
+		Tuple2<Boolean, Row> row2 =  new Tuple2<>(true, Row.of("a test", 3, 4.0));
+		Tuple2<Boolean, Row> row3 =  new Tuple2<>(false, Row.of("for upsert", 5, 6.0));
+		List<Tuple2<Boolean, Row>> list = new ArrayList<>();
 		list.add(row1);
 		list.add(row2);
-		DataStream<Row> rows = env.fromCollection(list);
+		list.add(row3);
+		DataStream<Tuple2<Boolean, Row>> rows = env.fromCollection(list);
 
 		NewLineDelimitedTableSink newLineDelimitedTableSink = new NewLineDelimitedTableSink(filePath, TABLE_SCHEMA, 1, null, serSchema, codec, fieldDelimiter);
 		newLineDelimitedTableSink.emitDataStream(rows);
@@ -101,6 +104,7 @@ public class NewLineDelimitedTableSinkITCase {
 		execute(tempFilePath, serSchema, null, null);
 
 		List<String> results = Files.lines(Paths.get(tempFilePath)).collect(Collectors.toList());
+		Assert.assertEquals(2, results.size());
 		Assert.assertEquals("\"this is\",1,2.0", results.get(0));
 		Assert.assertEquals("\"a test\",3,4.0", results.get(1));
 
@@ -115,9 +119,9 @@ public class NewLineDelimitedTableSinkITCase {
 		execute(tempFilePath, serSchema, null, null);
 
 		List<String> results = Files.lines(Paths.get(tempFilePath)).collect(Collectors.toList());
+		Assert.assertEquals(2, results.size());
 		Assert.assertEquals("{\"header1\":\"this is\",\"header2\":1,\"header3\":2.0}", results.get(0));
 
 		deleteFile(tempFilePath);
 	}
-
 }

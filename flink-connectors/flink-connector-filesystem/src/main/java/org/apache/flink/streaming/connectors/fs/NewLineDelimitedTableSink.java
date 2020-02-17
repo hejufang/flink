@@ -22,15 +22,15 @@ import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.io.FileOutputFormat;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.table.api.TableSchema;
-import org.apache.flink.table.sinks.AppendStreamTableSink;
 import org.apache.flink.table.sinks.TableSink;
+import org.apache.flink.table.sinks.UpsertStreamTableSink;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 
@@ -40,12 +40,13 @@ import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.UnsupportedCharsetException;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
  * newline delimited table sink.
  */
-public class NewLineDelimitedTableSink implements AppendStreamTableSink<Row> {
+public class NewLineDelimitedTableSink implements UpsertStreamTableSink<Row> {
 
 	public static final String BASE64_CODEC = "base64";
 
@@ -105,9 +106,29 @@ public class NewLineDelimitedTableSink implements AppendStreamTableSink<Row> {
 	}
 
 	@Override
-	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
+	public void setKeyFields(String[] keys) {
+		// ignore key fields.
+	}
+
+	@Override
+	public void setIsAppendOnly(Boolean isAppendOnly) {
+		// ignore the append only flag.
+	}
+
+	@Override
+	public TypeInformation<Row> getRecordType() {
+		return schema.toRowType();
+	}
+
+	@Override
+	public void emitDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
+		consumeDataStream(dataStream);
+	}
+
+	@Override
+	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
 		SingleOutputStreamOperator<String> lineRows =
-			dataStream.map(new LineFormatter(serializationSchema, codec));
+			dataStream.map(new LineFormatter(serializationSchema, codec)).filter(Objects::nonNull);
 
 		DataStreamSink<String> sink;
 		TextWithHeaderOutputFormat textWithHeaderOutputFormat = new TextWithHeaderOutputFormat(new Path(path), schema.getFieldNames(), fieldDelimiter);
@@ -128,21 +149,11 @@ public class NewLineDelimitedTableSink implements AppendStreamTableSink<Row> {
 	}
 
 	@Override
-	public void emitDataStream(DataStream<Row> dataStream) {
-		consumeDataStream(dataStream);
-	}
-
-	@Override
-	public TableSink<Row> configure(String[] fieldNames, TypeInformation<?>[] fieldTypes) {
+	public TableSink<Tuple2<Boolean, Row>> configure(String[] fieldNames, TypeInformation<?>[] fieldTypes) {
 		NewLineDelimitedTableSink configuredSink = new NewLineDelimitedTableSink(path, schema, numFiles, writeMode, serializationSchema, null, fieldDelimiter);
 		configuredSink.fieldNames = fieldNames;
 		configuredSink.fieldTypes = fieldTypes;
 		return configuredSink;
-	}
-
-	@Override
-	public TypeInformation<Row> getOutputType() {
-		return new RowTypeInfo(getFieldTypes(), getFieldNames());
 	}
 
 	@Override
@@ -158,7 +169,7 @@ public class NewLineDelimitedTableSink implements AppendStreamTableSink<Row> {
 	/**
 	 * Format a Row into a String by serializationSchema and codec.
 	 */
-	public static class LineFormatter implements MapFunction<Row, String> {
+	public static class LineFormatter implements MapFunction<Tuple2<Boolean, Row>, String> {
 		private static final long serialVersionUID = 1L;
 
 		private SerializationSchema<Row> serializationSchema;
@@ -171,12 +182,15 @@ public class NewLineDelimitedTableSink implements AppendStreamTableSink<Row> {
 		}
 
 		@Override
-		public String map(Row row) {
+		public String map(Tuple2<Boolean, Row> row) {
 			if (null == serializationSchema) {
 				throw new RuntimeException("serializationSchema can not be null");
 			}
 
-			byte[] bytes = serializationSchema.serialize(row);
+			if (row == null || !row.f0) {
+				return null;
+			}
+			byte[] bytes = serializationSchema.serialize(row.f1);
 
 			if (null == codec) {
 				// CsvRowSerializationSchema序列化的结果自带换行符，需要去掉

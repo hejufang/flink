@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.fs;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.CsvValidator;
@@ -66,7 +67,7 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
  */
 public class NewLineDelimitedTableSourceSinkFactory implements
 	StreamTableSourceFactory<Row>,
-	StreamTableSinkFactory<Row> {
+	StreamTableSinkFactory<Tuple2<Boolean, Row>> {
 
 	private static final String CONF_OUTPUT_FORMAT_COMPRESS_CODEC = "file_output_format.compress.codec";
 
@@ -152,11 +153,11 @@ public class NewLineDelimitedTableSourceSinkFactory implements
 	}
 
 	@Override
-	public StreamTableSink<Row> createStreamTableSink(Map<String, String> properties) {
+	public StreamTableSink<Tuple2<Boolean, Row>> createStreamTableSink(Map<String, String> properties) {
 		return createTableSink(true, properties);
 	}
 
-	private StreamTableSink<Row> createTableSink(boolean isStreaming, Map<String, String> properties) {
+	private StreamTableSink<Tuple2<Boolean, Row>> createTableSink(boolean isStreaming, Map<String, String> properties) {
 		DescriptorProperties params = new DescriptorProperties();
 		params.putProperties(properties);
 
