@@ -45,6 +45,8 @@ public class HadoopUtils {
 
 	private static final Text HDFS_DELEGATION_TOKEN_KIND = new Text("HDFS_DELEGATION_TOKEN");
 
+	private static final String HDFS_KEY_PREFIX = "flink.hdfs.";
+
 	@SuppressWarnings("deprecation")
 	public static Configuration getHadoopConfiguration(org.apache.flink.configuration.Configuration flinkConfiguration) {
 
@@ -110,6 +112,8 @@ public class HadoopUtils {
 				"(Flink configuration, environment variables).");
 		}
 
+		// ===================== Below deprecated, use flink.hdfs.xx instead ================================
+
 		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES)) {
 			int retries = flinkConfiguration.getInteger(
 				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES);
@@ -134,6 +138,17 @@ public class HadoopUtils {
 				result.setInt(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT.key(), timeout);
 				LOG.info("using hdfs param {}={}",
 						HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT.key(), timeout);
+			}
+		}
+
+		// ===================== Above deprecated, use flink.hdfs.xx instead ================================
+
+		for (String key : flinkConfiguration.keySet()) {
+			if (key.startsWith(HDFS_KEY_PREFIX) && key.length() > HDFS_KEY_PREFIX.length()) {
+				final String value = flinkConfiguration.getString(key, null);
+				if (value != null && value.length() > 0) {
+					result.set(key.substring(HDFS_KEY_PREFIX.length()), value);
+				}
 			}
 		}
 

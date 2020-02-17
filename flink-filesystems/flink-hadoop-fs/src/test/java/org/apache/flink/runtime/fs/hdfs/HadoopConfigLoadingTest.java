@@ -51,6 +51,17 @@ public class HadoopConfigLoadingTest {
 	public final TemporaryFolder tempFolder = new TemporaryFolder();
 
 	@Test
+	public void loadDynamicHdfsParams() {
+		Configuration flinkConfiguration = new Configuration();
+		flinkConfiguration.setString("flink.hdfs.fs.defaultFS", "123");
+		flinkConfiguration.setString("flink.hdfs.dfs.client.block.write.retries", "88");
+		org.apache.hadoop.conf.Configuration hadoopConf =
+				HadoopUtils.getHadoopConfiguration(flinkConfiguration);
+		assertEquals("123", hadoopConf.get("fs.defaultFS"));
+		assertEquals(88, hadoopConf.getInt("dfs.client.block.write.retries", 0));
+	}
+
+	@Test
 	public void loadFromClasspathByDefault() {
 		org.apache.hadoop.conf.Configuration hadoopConf =
 				HadoopUtils.getHadoopConfiguration(new Configuration());
