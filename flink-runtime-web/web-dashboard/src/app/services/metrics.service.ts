@@ -68,7 +68,7 @@ export class MetricsService {
         map(arr => {
           const result: { [id: string]: number } = {};
           arr.forEach(item => {
-            result[item.id] = parseInt(item.value, 10);
+            result[item.id] = parseFloat(item.value);
           });
           return {
             timestamp: Date.now(),
