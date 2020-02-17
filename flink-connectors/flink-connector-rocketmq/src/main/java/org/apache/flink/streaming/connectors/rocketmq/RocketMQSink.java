@@ -91,12 +91,12 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		this.props = props;
 
 		if (this.props != null) {
-			this.messageDeliveryDelayLevel  = RocketMQUtils.getInteger(this.props, RocketMQConfig.MSG_DELAY_LEVEL,
+			this.messageDeliveryDelayLevel = RocketMQUtils.getInteger(this.props, RocketMQConfig.MSG_DELAY_LEVEL,
 				RocketMQConfig.MSG_DELAY_LEVEL00);
-			if (this.messageDeliveryDelayLevel  < RocketMQConfig.MSG_DELAY_LEVEL00) {
-				this.messageDeliveryDelayLevel  = RocketMQConfig.MSG_DELAY_LEVEL00;
-			} else if (this.messageDeliveryDelayLevel  > RocketMQConfig.MSG_DELAY_LEVEL18) {
-				this.messageDeliveryDelayLevel  = RocketMQConfig.MSG_DELAY_LEVEL18;
+			if (this.messageDeliveryDelayLevel < RocketMQConfig.MSG_DELAY_LEVEL00) {
+				this.messageDeliveryDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL00;
+			} else if (this.messageDeliveryDelayLevel > RocketMQConfig.MSG_DELAY_LEVEL18) {
+				this.messageDeliveryDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL18;
 			}
 		}
 	}
@@ -115,9 +115,16 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		Preconditions.checkNotNull(topicSelector, "TopicSelector can not be null");
 		Preconditions.checkNotNull(serializationSchema, "KeyValueSerializationSchema can not be null");
 
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN));
-		System.setProperty(RocketMQConfig.PSM, props.getProperty(RocketMQConfig.ROCKETMQ_PRODUCER_PSM));
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP));
+		String cluster = props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
+		Preconditions.checkNotNull(cluster, "Cluster can not be null");
+		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, cluster);
+		System.setProperty(RocketMQConfig.PSM,
+			props.getProperty(RocketMQConfig.ROCKETMQ_PRODUCER_PSM, "inf.flink.unknown"));
+		String domainSubgroup =
+			props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, null);
+		if (domainSubgroup != null && !domainSubgroup.isEmpty()) {
+			System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, domainSubgroup);
+		}
 		producer = new DefaultMQProducer(RocketMQConfig.buildAclRPCHook(props));
 		producer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildProducerConfigs(props, producer);

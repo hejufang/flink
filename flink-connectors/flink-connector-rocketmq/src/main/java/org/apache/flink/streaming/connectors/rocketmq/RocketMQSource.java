@@ -72,14 +72,11 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSource.class);
-
+	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
 	private DefaultMQPullConsumer consumer;
-
 	private RocketMQDeserializationSchema<OUT> schema;
-
 	private RunningChecker runningChecker;
-
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
 	private Map<MessageQueue, Long> offsetTable;
 	private Map<MessageQueue, Long> restoredOffsets;
@@ -87,13 +84,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	 * Data for pending but uncommitted offsets.
 	 */
 	private LinkedMap pendingOffsetsToCommit;
-
 	private Properties props;
 	private String topic;
 	private String group;
-
-	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
-
 	private transient volatile boolean restored;
 	private transient boolean enableCheckpoint;
 
@@ -110,9 +103,16 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		LOG.debug("source open....");
 		Preconditions.checkNotNull(props, "Consumer properties can not be empty");
 		Preconditions.checkNotNull(schema, "RocketMQDeserializationSchema can not be null");
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN));
-		System.setProperty(RocketMQConfig.PSM, props.getProperty(RocketMQConfig.ROCKETMQ_CONSUMER_PSM));
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP));
+		String cluster = props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
+		Preconditions.checkNotNull(cluster, "Cluster can not be null");
+		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, cluster);
+		System.setProperty(RocketMQConfig.PSM,
+			props.getProperty(RocketMQConfig.ROCKETMQ_CONSUMER_PSM, "inf.flink.unknown"));
+		String domainSubgroup =
+			props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, null);
+		if (domainSubgroup != null && !domainSubgroup.isEmpty()) {
+			System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, domainSubgroup);
+		}
 
 		this.topic = props.getProperty(RocketMQConfig.CONSUMER_TOPIC);
 		this.group = props.getProperty(RocketMQConfig.CONSUMER_GROUP);
