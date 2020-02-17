@@ -1290,7 +1290,7 @@ public class Template {
 		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
-		"latency.mean\",\n" +
+		"hitRate\",\n" +
 		"							\"refId\": \"K\"\n" +
 		"						}";
 
