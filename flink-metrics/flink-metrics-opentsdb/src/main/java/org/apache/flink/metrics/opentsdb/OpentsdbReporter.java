@@ -135,7 +135,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			// Checkpoints
 			"numberOfTriggerFailedCheckpoints",
 			"numberOfFailedCheckpoints",
-			"totalNumberOfCheckpoints"
+			"totalNumberOfCheckpoints",
+			// Blacklist
+			"numTaskManagersInBlacklist"
 	));
 
 	private Map<String, String> globalMetricNames = new HashMap<>();

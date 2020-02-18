@@ -687,12 +687,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		// Yarn use container.getNodeId.getHost to identify Host,
 		// save the hostname map in case of hostname in Flink different with hostname in Yarn.
 		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
-		String hostnameInFlink = taskManagerLocation.getFQDNHostname();
-		String hostnameInYarn = workerNode.getContainer().getNodeId().getHost();
-		if (!flinkHostnameToYarnHostname.containsKey(hostnameInFlink)) {
-			flinkHostnameToYarnHostname.put(hostnameInFlink, hostnameInYarn);
-			log.debug("put {} {} to flinkHostnameToYarnHostname, current size: {}",
-					hostnameInFlink, hostnameInYarn, flinkHostnameToYarnHostname.size());
+		if (workerNode != null) {
+			String hostnameInFlink = taskManagerLocation.getFQDNHostname();
+			String hostnameInYarn = workerNode.getContainer().getNodeId().getHost();
+			if (!flinkHostnameToYarnHostname.containsKey(hostnameInFlink)) {
+				flinkHostnameToYarnHostname.put(hostnameInFlink, hostnameInYarn);
+				log.debug("put {} {} to flinkHostnameToYarnHostname, current size: {}",
+						hostnameInFlink, hostnameInYarn, flinkHostnameToYarnHostname.size());
+			}
 		}
 		return workerNode;
 	}

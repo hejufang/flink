@@ -314,6 +314,7 @@ maliva:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
+  blacklist.enabled: true
 
 alisg:
   dc: sg
@@ -331,6 +332,7 @@ alisg:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
+  blacklist.enabled: true
 
 boe:
   dc: vm

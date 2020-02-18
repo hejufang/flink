@@ -829,6 +829,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		jobManagerMetricGroup.meter(
 			MetricNames.WORKER_FAILURE_RATE,
 			failureRater);
+		if (sessionBlacklistTracker != null) {
+			jobManagerMetricGroup.gauge(
+				MetricNames.NUM_BLACKLIST_TASK_MANAGERS,
+				() -> (long) sessionBlacklistTracker.getBlackedHosts().size());
+		}
 	}
 
 	private void clearStateInternal() {

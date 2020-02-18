@@ -52,6 +52,8 @@ public class MetricNames {
 	public static final String NUM_REGISTERED_TASK_MANAGERS = "numRegisteredTaskManagers";
 	public static final String WORKER_FAILURE_RATE = "workFailureRate";
 
+	public static final String NUM_BLACKLIST_TASK_MANAGERS = "numTaskManagersInBlacklist";
+
 	public static final String MEMORY_USED = "Used";
 	public static final String MEMORY_COMMITTED = "Committed";
 	public static final String MEMORY_MAX = "Max";
