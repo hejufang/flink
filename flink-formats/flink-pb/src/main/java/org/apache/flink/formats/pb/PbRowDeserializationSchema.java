@@ -69,19 +69,23 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 	private Descriptors.Descriptor pbDescriptor = null;
 	private boolean isAdInstanceFormat = false;
 
+	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
+	private final boolean ignoreParseErrors;
+
 	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
 		int skipBytes) {
-		this(typeInfo, pbDescriptorClass, skipBytes, false, false);
+		this(typeInfo, pbDescriptorClass, skipBytes, false, false, false);
 	}
 
 	private PbRowDeserializationSchema(TypeInformation<Row> typeInfo, String pbDescriptorClass,
-		int skipBytes, boolean withWrapper, boolean isAdInstanceFormat) {
+		int skipBytes, boolean withWrapper, boolean isAdInstanceFormat, boolean ignoreParseErrors) {
 		checkNotNull(typeInfo, "Type information");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.skipBytes = skipBytes;
 		this.withWrapper = withWrapper;
 		this.isAdInstanceFormat = isAdInstanceFormat;
+		this.ignoreParseErrors = ignoreParseErrors;
 		if (this.withWrapper) {
 			TypeInformation ti = this.typeInfo.getTypeAt(PbConstant.FORMAT_PB_WRAPPER_NAME);
 			pbTypeInfo = (RowTypeInfo) ti;
@@ -131,6 +135,9 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 			}
 			return pbRow;
 		} catch (Throwable t) {
+			if (ignoreParseErrors) {
+				return null;
+			}
 			throw new IOException("Failed to deserialize PB object.", t);
 		}
 	}
@@ -168,9 +175,16 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		final PbRowDeserializationSchema that = (PbRowDeserializationSchema) o;
-		return Objects.equals(typeInfo, that.typeInfo) &&
-			Objects.equals(skipBytes, that.skipBytes) &&
+		PbRowDeserializationSchema that = (PbRowDeserializationSchema) o;
+		return columnCount == that.columnCount &&
+			skipBytes == that.skipBytes &&
+			withWrapper == that.withWrapper &&
+			isAdInstanceFormat == that.isAdInstanceFormat &&
+			ignoreParseErrors == that.ignoreParseErrors &&
+			Objects.equals(typeInfo, that.typeInfo) &&
+			Objects.equals(pbTypeInfo, that.pbTypeInfo) &&
+			Objects.equals(pbDescriptorClass, that.pbDescriptorClass) &&
+			Objects.equals(runtimeConverter, that.runtimeConverter) &&
 			Objects.equals(pbDescriptor, that.pbDescriptor);
 	}
 
@@ -188,6 +202,7 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 		private int skipBytes;
 		private boolean withWrapper;
 		private boolean isAdInstanceFormat = false;
+		private boolean ignoreParseErrors = false;
 
 		public static Builder newBuilder() {
 			return new Builder();
@@ -213,13 +228,19 @@ public class PbRowDeserializationSchema implements DeserializationSchema<Row> {
 			return this;
 		}
 
-		public void setAdInstanceFormat(boolean isAdInstanceFormat) {
+		public Builder setAdInstanceFormat(boolean isAdInstanceFormat) {
 			this.isAdInstanceFormat = isAdInstanceFormat;
+			return this;
+		}
+
+		public Builder setIgnoreParseErrors(boolean ignoreParseErrors) {
+			this.ignoreParseErrors = ignoreParseErrors;
+			return this;
 		}
 
 		public PbRowDeserializationSchema build() {
 			return new PbRowDeserializationSchema(this.typeInfo, this.pbDescriptorClass,
-				this.skipBytes, this.withWrapper, this.isAdInstanceFormat);
+				this.skipBytes, this.withWrapper, this.isAdInstanceFormat, this.ignoreParseErrors);
 		}
 	}
 }

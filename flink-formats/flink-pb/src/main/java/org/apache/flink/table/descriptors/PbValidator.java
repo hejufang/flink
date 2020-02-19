@@ -36,6 +36,7 @@ public class PbValidator extends FormatDescriptorValidator {
 		properties.validateInt(PbConstant.FORMAT_PB_SKIP_BYTES, true, 0);
 		properties.validateBoolean(PbConstant.FORMAT_PB_IS_AD_INSTANCE_FORMAT, true);
 		properties.validateBoolean(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER, true);
+		properties.validateBoolean(PbConstant.FORMAT_IGNORE_PARSE_ERRORS, true);
 	}
 
 	public static Descriptors.Descriptor validateAndReturnDescriptor(String className) {

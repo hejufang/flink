@@ -30,7 +30,7 @@ import org.apache.flink.types.Row;
 
 import com.alibaba.otter.canal.protocol.CanalEntry;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -46,7 +46,9 @@ public class PbBinlogRowFormatFactory extends TableFormatFactoryBase<Row>
 
 	@Override
 	protected List<String> supportedFormatProperties() {
-		return Collections.emptyList();
+		final List<String> properties = new ArrayList<>();
+		properties.add(PbConstant.FORMAT_IGNORE_PARSE_ERRORS);
+		return properties;
 	}
 
 	public TypeInformation<Row> getBinlogRowTypeInformation(Map<String, String> properties) {
@@ -83,7 +85,7 @@ public class PbBinlogRowFormatFactory extends TableFormatFactoryBase<Row>
 
 	@Override
 	public DeserializationSchema<Row> createDeserializationSchema(Map<String, String> properties) {
-		getValidatedProperties(properties);
+		DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
 		TypeInformation[] types = getBinlogRowTypeInformationsArray();
 
@@ -95,15 +97,18 @@ public class PbBinlogRowFormatFactory extends TableFormatFactoryBase<Row>
 			.setTransactionBeginTypeInfo(types[2])
 			.setRowChangeTypeInfo(types[3])
 			.setTransactionEndTypeInfo(types[4]);
+		descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_IGNORE_PARSE_ERRORS)
+			.ifPresent(schemaBuilder::setIgnoreParseErrors);
 
 		return schemaBuilder.build();
 	}
 
-	private void getValidatedProperties(Map<String, String> propertiesMap) {
+	private DescriptorProperties getValidatedProperties(Map<String, String> propertiesMap) {
 		final DescriptorProperties descriptorProperties = new DescriptorProperties();
 		descriptorProperties.putProperties(propertiesMap);
 
 		// validate
 		new PbValidator().validate(descriptorProperties);
+		return descriptorProperties;
 	}
 }

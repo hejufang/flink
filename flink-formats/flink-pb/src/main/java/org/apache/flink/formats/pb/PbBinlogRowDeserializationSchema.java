@@ -53,13 +53,17 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 	private final DeserializationRuntimeConverter rowChangeRuntimeConverter;
 	private final DeserializationRuntimeConverter transactionEndRuntimeConverter;
 
+	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
+	private final boolean ignoreParseErrors;
+
 	private PbBinlogRowDeserializationSchema(
 		RowTypeInfo typeInfo,
 		TypeInformation<Row> headerTypeInfo,
 		TypeInformation entryTypeTypeInfo,
 		TypeInformation<Row> transactionBeginTypeInfo,
 		TypeInformation<Row> rowChangeTypeInfo,
-		TypeInformation<Row> transactionEndTypeInfo) {
+		TypeInformation<Row> transactionEndTypeInfo,
+		boolean ignoreParseErrors) {
 		this.typeInfo = typeInfo;
 		this.headerTypeInfo = headerTypeInfo;
 		this.headerRuntimeConverter = DeserializationRuntimeConverterFactory.createConverter(headerTypeInfo);
@@ -71,6 +75,7 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 		this.rowChangeRuntimeConverter = DeserializationRuntimeConverterFactory.createConverter(rowChangeTypeInfo);
 		this.transactionEndTypeInfo = transactionEndTypeInfo;
 		this.transactionEndRuntimeConverter = DeserializationRuntimeConverterFactory.createConverter(transactionEndTypeInfo);
+		this.ignoreParseErrors = ignoreParseErrors;
 	}
 
 	@Override
@@ -170,6 +175,9 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 
 			return row;
 		} catch (Throwable t) {
+			if (ignoreParseErrors) {
+				return null;
+			}
 			throw new IOException("Failed to deserialize PB Binlog object.", t);
 		}
 	}
@@ -213,12 +221,13 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 	 * Builder for {@link PbBinlogRowDeserializationSchema}.
 	 */
 	public static class Builder {
+		private final RowTypeInfo typeInfo;
 		private TypeInformation<Row> headerTypeInfo;
 		private TypeInformation entryTypeTypeInfo;
 		private TypeInformation<Row> transactionBeginTypeInfo;
 		private TypeInformation<Row> rowChangeTypeInfo;
 		private TypeInformation<Row> transactionEndTypeInfo;
-		private final RowTypeInfo typeInfo;
+		private boolean ignoreParseErrors;
 
 		public static Builder newBuilder(RowTypeInfo typeInfo) {
 			return new Builder(typeInfo);
@@ -253,6 +262,11 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 			return this;
 		}
 
+		public Builder setIgnoreParseErrors(boolean ignoreParseErrors) {
+			this.ignoreParseErrors = ignoreParseErrors;
+			return this;
+		}
+
 		public PbBinlogRowDeserializationSchema build() {
 			return new PbBinlogRowDeserializationSchema(
 				this.typeInfo,
@@ -260,7 +274,8 @@ public class PbBinlogRowDeserializationSchema implements DeserializationSchema<R
 				this.entryTypeTypeInfo,
 				this.transactionBeginTypeInfo,
 				this.rowChangeTypeInfo,
-				this.transactionEndTypeInfo);
+				this.transactionEndTypeInfo,
+				this.ignoreParseErrors);
 		}
 	}
 }

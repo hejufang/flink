@@ -56,6 +56,7 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER);
 		properties.add(PbConstant.FORMAT_PB_WITH_WRAPPER);
 		properties.add(PbConstant.FORMAT_PB_IS_AD_INSTANCE_FORMAT);
+		properties.add(PbConstant.FORMAT_IGNORE_PARSE_ERRORS);
 		return properties;
 	}
 
@@ -76,6 +77,8 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 			.ifPresent(schemaBuilder::setWithWrapper);
 		descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_IS_AD_INSTANCE_FORMAT)
 			.ifPresent(schemaBuilder::setAdInstanceFormat);
+		descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_IGNORE_PARSE_ERRORS)
+			.ifPresent(schemaBuilder::setIgnoreParseErrors);
 		return schemaBuilder.build();
 	}
 
