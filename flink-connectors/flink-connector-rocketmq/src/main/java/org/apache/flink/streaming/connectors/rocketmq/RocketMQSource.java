@@ -32,6 +32,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQueueStrategyParallelism;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.commons.collections.map.LinkedMap;
@@ -60,7 +61,6 @@ import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONS
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_TIMESTAMP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getInteger;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getLong;
-import static org.apache.rocketmq.client.log.ClientLogger.CLIENT_LOG_USESLF4J;
 
 /**
  * The RocketMQSource is based on RocketMQ pull consumer mode, and provides exactly once reliability guarantees when
@@ -92,6 +92,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 	private transient int parallelism;
 	private transient int subTaskId;
+	private transient Throwable error;
 
 	public RocketMQSource(RocketMQDeserializationSchema<OUT> schema, Properties props) {
 		this.schema = schema;
@@ -100,6 +101,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
+		RocketMQUtils.setLog(props);
 		LOG.debug("source open....");
 		Preconditions.checkNotNull(props, "Consumer properties can not be empty");
 		Preconditions.checkNotNull(schema, "RocketMQDeserializationSchema can not be null");
@@ -134,12 +136,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		}
 		if (pendingOffsetsToCommit == null) {
 			pendingOffsetsToCommit = new LinkedMap();
-		}
-
-		// rocketmq client log setting
-		if (props.containsKey(CLIENT_LOG_USESLF4J)) {
-			System.setProperty(CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
-			LOG.info("set {}={}.", CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
 		}
 
 		runningChecker = new RunningChecker();
@@ -194,20 +190,31 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 					boolean found = false;
 					switch (pullResult.getPullStatus()) {
 						case FOUND:
-							List<MessageExt> messages = pullResult.getMsgFoundList();
-							for (MessageExt msg : messages) {
-								OUT data = schema.deserialize(mq, msg);
-								if (schema.isEndOfStream(balancedMQ, data)) {
-									LOG.info("Sub task: {} received all assign message queue end message.", subTaskId);
-									runningChecker.setRunning(false);
-									break;
+							try {
+								List<MessageExt> messages = pullResult.getMsgFoundList();
+								for (MessageExt msg : messages) {
+									OUT data = schema.deserialize(mq, msg);
+									if (schema.isEndOfStream(balancedMQ, data)) {
+										LOG.info("Sub task: {} received all assign message queue end message.", subTaskId);
+										runningChecker.setRunning(false);
+										break;
+									}
+									// output and state update are atomic
+									synchronized (lock) {
+										if (data != null) {
+											context.collectWithTimestamp(data, msg.getBornTimestamp());
+										}
+									}
 								}
-								// output and state update are atomic
-								synchronized (lock) {
-									context.collectWithTimestamp(data, msg.getBornTimestamp());
-								}
+								found = true;
+							} catch (Throwable t) {
+								// We catch all error here and close the source.
+								// Otherwise, MQPullConsumerScheduleService will catch all error
+								// and we cannot get the error and fail the job.
+								LOG.error("Failed to process data from source.", t);
+								error = t;
+								close();
 							}
-							found = true;
 							break;
 						case NO_MATCHED_MSG:
 							LOG.debug("No matched message after offset {} for queue {}", offset, mq);
@@ -317,6 +324,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		// pretty much the same logic as cancelling
 		try {
 			cancel();
+			if (error != null) {
+				throw new FlinkRuntimeException("Error occurs while consuming data from RocketMQ.", error);
+			}
 		} finally {
 			super.close();
 		}

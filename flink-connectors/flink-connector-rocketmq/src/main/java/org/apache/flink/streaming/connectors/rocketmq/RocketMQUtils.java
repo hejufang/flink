@@ -17,12 +17,18 @@
 
 package org.apache.flink.streaming.connectors.rocketmq;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Properties;
+
+import static org.apache.rocketmq.client.log.ClientLogger.CLIENT_LOG_USESLF4J;
 
 /**
  * RocketMQUtils.
  */
 public final class RocketMQUtils {
+	private static final Logger LOG = LoggerFactory.getLogger(RocketMQUtils.class);
 
 	public static int getInteger(Properties props, String key, int defaultValue) {
 		return Integer.parseInt(props.getProperty(key, String.valueOf(defaultValue)));
@@ -34,5 +40,11 @@ public final class RocketMQUtils {
 
 	public static boolean getBoolean(Properties props, String key, boolean defaultValue) {
 		return Boolean.parseBoolean(props.getProperty(key, String.valueOf(defaultValue)));
+	}
+
+	public static void setLog(Properties props) {
+		String logUseSlf4j = props.getProperty(CLIENT_LOG_USESLF4J, "true");
+		System.setProperty(CLIENT_LOG_USESLF4J, logUseSlf4j);
+		LOG.info("set {}={}", CLIENT_LOG_USESLF4J, logUseSlf4j);
 	}
 }

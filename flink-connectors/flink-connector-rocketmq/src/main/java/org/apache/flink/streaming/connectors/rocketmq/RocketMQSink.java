@@ -42,7 +42,6 @@ import java.util.Properties;
 import java.util.UUID;
 
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.BATCH_SIZE_DEFAULT;
-import static org.apache.rocketmq.client.log.ClientLogger.CLIENT_LOG_USESLF4J;
 
 /**
  * The RocketMQSink provides at-least-once reliability guarantees when
@@ -111,6 +110,7 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
+		RocketMQUtils.setLog(props);
 		Preconditions.checkArgument(!props.isEmpty(), "Producer properties can not be empty");
 		Preconditions.checkNotNull(topicSelector, "TopicSelector can not be null");
 		Preconditions.checkNotNull(serializationSchema, "KeyValueSerializationSchema can not be null");
@@ -134,12 +134,6 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		if (batchFlushOnCheckpoint && !((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled()) {
 			LOG.warn("Flushing on checkpoint is enabled, but checkpointing is not enabled. Disabling flushing.");
 			batchFlushOnCheckpoint = false;
-		}
-
-		// rocketmq client log setting
-		if (props.containsKey(CLIENT_LOG_USESLF4J)) {
-			System.setProperty(CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
-			LOG.info("set {}={}", CLIENT_LOG_USESLF4J, props.getProperty(CLIENT_LOG_USESLF4J));
 		}
 
 		try {
