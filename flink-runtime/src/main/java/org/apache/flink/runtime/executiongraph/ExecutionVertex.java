@@ -97,6 +97,8 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	/** The current or latest execution attempt of this vertex's task. */
 	private volatile Execution mainExecution;	// this field must never be null
 
+	private List<Execution> copyExecutions;
+
 	private final ArrayList<InputSplit> inputSplits;
 
 	// --------------------------------------------------------------------------------------------
@@ -272,6 +274,11 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	@Override
 	public Execution getMainExecution() {
 		return mainExecution;
+	}
+
+	@Override
+	public List<Execution> getCopyExecutions() {
+		return copyExecutions;
 	}
 
 	@Nullable
@@ -796,5 +803,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	@Override
 	public ArchivedExecutionVertex archive() {
 		return new ArchivedExecutionVertex(this);
+	}
+
+	public CompletableFuture<Void> scheduleCopyExecution() {
+		// not include in this commit
+		return CompletableFuture.completedFuture(null);
 	}
 }

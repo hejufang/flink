@@ -91,4 +91,6 @@ public interface AccessExecution {
 	int getParallelSubtaskIndex();
 
 	IOMetrics getIOMetrics();
+
+	boolean isCopy();
 }

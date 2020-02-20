@@ -57,6 +57,8 @@ import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.P
 import org.apache.flink.runtime.executiongraph.restart.ExecutionGraphRestartCallback;
 import org.apache.flink.runtime.executiongraph.restart.RestartCallback;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.NoOpSpeculationStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
 import org.apache.flink.runtime.io.network.partition.PartitionTracker;
 import org.apache.flink.runtime.io.network.partition.PartitionTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -227,6 +229,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** The implementation that decides how to recover the failures of tasks. */
 	private final FailoverStrategy failoverStrategy;
 
+	/** The implementation that decides how to speculate the slow tasks. */
+	private final SpeculationStrategy speculationStrategy;
+
 	/** Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when
 	 * the execution graph transitioned into a certain state. The index into this array is the
 	 * ordinal of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is
@@ -385,6 +390,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			timeout,
 			restartStrategy,
 			new RestartAllStrategy.Factory(),
+			new NoOpSpeculationStrategy.Factory(),
 			slotProvider);
 	}
 
@@ -396,6 +402,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			Time timeout,
 			RestartStrategy restartStrategy,
 			FailoverStrategy.Factory failoverStrategy,
+			SpeculationStrategy.Factory speculationStrategy,
 			SlotProvider slotProvider) throws IOException {
 		this(
 			jobInformation,
@@ -404,10 +411,35 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			timeout,
 			restartStrategy,
 			failoverStrategy,
+			speculationStrategy,
 			slotProvider,
 			ExecutionGraph.class.getClassLoader(),
 			VoidBlobWriter.getInstance(),
 			timeout);
+	}
+
+	@VisibleForTesting
+	public ExecutionGraph(JobInformation jobInformation,
+						  ScheduledExecutorService futureExecutor,
+						  Executor ioExecutor,
+						  Time timeout,
+						  RestartStrategy restartStrategy,
+						  FailoverStrategy.Factory failoverStrategy,
+						  SlotProvider slotProvider,
+						  ClassLoader classLoader,
+						  BlobWriter blobWriter,
+						  Time allocationTimeout) throws IOException {
+		this(jobInformation,
+			futureExecutor,
+			ioExecutor,
+			timeout,
+			restartStrategy,
+			failoverStrategy,
+			new NoOpSpeculationStrategy.Factory(),
+			slotProvider,
+			classLoader,
+			blobWriter,
+			allocationTimeout);
 	}
 
 	@VisibleForTesting
@@ -418,6 +450,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			Time timeout,
 			RestartStrategy restartStrategy,
 			FailoverStrategy.Factory failoverStrategy,
+			SpeculationStrategy.Factory speculationStrategy,
 			SlotProvider slotProvider,
 			ClassLoader userClassLoader,
 			BlobWriter blobWriter,
@@ -430,6 +463,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			restartStrategy,
 			JobManagerOptions.MAX_ATTEMPTS_HISTORY_SIZE.defaultValue(),
 			failoverStrategy,
+			speculationStrategy,
 			slotProvider,
 			userClassLoader,
 			blobWriter,
@@ -444,6 +478,24 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			false);
 	}
 
+	@VisibleForTesting
+	public ExecutionGraph(JobInformation jobInformation,
+						  ScheduledExecutorService futureExecutor,
+						  Executor ioExecutor,
+						  Time timeout,
+						  RestartStrategy restartStrategy,
+						  FailoverStrategy.Factory failoverStrategyFactory,
+						  SlotProvider slotProvider) throws IOException {
+		this(jobInformation,
+			futureExecutor,
+			ioExecutor,
+			timeout,
+			restartStrategy,
+			failoverStrategyFactory,
+			new NoOpSpeculationStrategy.Factory(),
+			slotProvider);
+	}
+
 	public ExecutionGraph(
 		JobInformation jobInformation,
 		ScheduledExecutorService futureExecutor,
@@ -452,6 +504,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		RestartStrategy restartStrategy,
 		int maxPriorAttemptsHistoryLength,
 		FailoverStrategy.Factory failoverStrategyFactory,
+		SpeculationStrategy.Factory speculationStrategyFactory,
 		SlotProvider slotProvider,
 		ClassLoader userClassLoader,
 		BlobWriter blobWriter,
@@ -469,6 +522,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			restartStrategy,
 			maxPriorAttemptsHistoryLength,
 			failoverStrategyFactory,
+			speculationStrategyFactory,
 			slotProvider,
 			userClassLoader,
 			blobWriter,
@@ -489,6 +543,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			RestartStrategy restartStrategy,
 			int maxPriorAttemptsHistoryLength,
 			FailoverStrategy.Factory failoverStrategyFactory,
+			SpeculationStrategy.Factory speculationStrategyFactory,
 			SlotProvider slotProvider,
 			ClassLoader userClassLoader,
 			BlobWriter blobWriter,
@@ -547,6 +602,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		// the failover strategy must be instantiated last, so that the execution graph
 		// is ready by the time the failover strategy sees it
 		this.failoverStrategy = checkNotNull(failoverStrategyFactory.create(this), "null failover strategy");
+		this.speculationStrategy = checkNotNull(speculationStrategyFactory.create(this), "null speculation strategy");
 
 		this.maxPriorAttemptsHistoryLength = maxPriorAttemptsHistoryLength;
 
@@ -571,6 +627,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public void start(@Nonnull ComponentMainThreadExecutor jobMasterMainThreadExecutor) {
 		this.jobMasterMainThreadExecutor = jobMasterMainThreadExecutor;
+		this.speculationStrategy.start(jobMasterMainThreadExecutor);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -686,6 +743,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public RestartStrategy getRestartStrategy() {
 		return restartStrategy;
+	}
+
+	public SpeculationStrategy getSpeculationStrategy() {
+		return speculationStrategy;
 	}
 
 	@Override
@@ -1007,6 +1068,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		failoverTopology = new DefaultFailoverTopology(this);
 
 		failoverStrategy.notifyNewVertices(newExecJobVertices);
+		speculationStrategy.notifyNewVertices(newExecJobVertices);
 
 		schedulingTopology = new ExecutionGraphToSchedulingTopologyAdapter(this);
 
@@ -1639,6 +1701,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				// this deserialization is exception-free
 				accumulators = deserializeAccumulators(state);
 				attempt.markFinished(accumulators, state.getIOMetrics());
+				speculationStrategy.onTaskSuccess(attempt);
 				return true;
 
 			case CANCELED:
@@ -1754,6 +1817,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	void registerExecution(Execution exec) {
 		assertRunningInJobMasterMainThread();
 		Execution previous = currentExecutions.putIfAbsent(exec.getAttemptId(), exec);
+
+		speculationStrategy.registerExecution(exec);
+
 		if (previous != null) {
 			failGlobal(new Exception("Trying to register execution " + exec + " for already used ID " + exec.getAttemptId()));
 		}
@@ -1762,6 +1828,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	void deregisterExecution(Execution exec) {
 		assertRunningInJobMasterMainThread();
 		Execution contained = currentExecutions.remove(exec.getAttemptId());
+
+		speculationStrategy.deregisterExecution(exec);
 
 		if (contained != null && contained != exec) {
 			failGlobal(new Exception("De-registering execution " + exec + " failed. Found for same ID execution " + contained));

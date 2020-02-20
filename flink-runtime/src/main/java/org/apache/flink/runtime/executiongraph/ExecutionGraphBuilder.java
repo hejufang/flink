@@ -45,6 +45,8 @@ import org.apache.flink.runtime.executiongraph.metrics.NumberOfFullRestartsGauge
 import org.apache.flink.runtime.executiongraph.metrics.RestartTimeGauge;
 import org.apache.flink.runtime.executiongraph.metrics.UpTimeGauge;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategyLoader;
 import org.apache.flink.runtime.io.network.partition.PartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
@@ -164,6 +166,9 @@ public class ExecutionGraphBuilder {
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
 			PartitionReleaseStrategyFactoryLoader.loadPartitionReleaseStrategyFactory(jobManagerConfig);
 
+		final SpeculationStrategy.Factory speculationStrategyFactory =
+				SpeculationStrategyLoader.loadSpeculationStrategy(jobManagerConfig);
+
 		// create a new execution graph, if none exists so far
 		final ExecutionGraph executionGraph;
 		try {
@@ -176,6 +181,7 @@ public class ExecutionGraphBuilder {
 					restartStrategy,
 					maxPriorAttemptsHistoryLength,
 					failoverStrategyFactory,
+					speculationStrategyFactory,
 					slotProvider,
 					classLoader,
 					blobWriter,
@@ -361,6 +367,7 @@ public class ExecutionGraphBuilder {
 		metrics.gauge(NumberOfFullRestartsGauge.METRIC_NAME, new NumberOfFullRestartsGauge(executionGraph));
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
+		executionGraph.getSpeculationStrategy().registerMetrics(metrics);
 
 		return executionGraph;
 	}

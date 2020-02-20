@@ -191,6 +191,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private Map<IntermediateResultPartitionID, ResultPartitionDeploymentDescriptor> producedPartitions;
 
+	private final boolean isCopy;
+
 	// --------------------------------------------------------------------------------------------
 
 	/**
@@ -216,7 +218,17 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			long globalModVersion,
 			long startTimestamp,
 			Time rpcTimeout) {
+		this(executor, vertex, attemptNumber, globalModVersion, startTimestamp, rpcTimeout, false);
+	}
 
+	public Execution(
+			Executor executor,
+			ExecutionVertex vertex,
+			int attemptNumber,
+			long globalModVersion,
+			long startTimestamp,
+			Time rpcTimeout,
+			boolean isCopy) {
 		this.executor = checkNotNull(executor);
 		this.vertex = checkNotNull(vertex);
 		this.attemptId = new ExecutionAttemptID();
@@ -235,6 +247,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		this.taskManagerLocationFuture = new CompletableFuture<>();
 
 		this.assignedResource = null;
+		this.isCopy = isCopy;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -1585,6 +1598,11 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	@Override
 	public IOMetrics getIOMetrics() {
 		return ioMetrics;
+	}
+
+	@Override
+	public boolean isCopy() {
+		return isCopy;
 	}
 
 	private void updateAccumulatorsAndMetrics(Map<String, Accumulator<?, ?>> userAccumulators, IOMetrics metrics) {

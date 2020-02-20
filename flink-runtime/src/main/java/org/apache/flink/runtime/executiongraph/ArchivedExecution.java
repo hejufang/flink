@@ -50,6 +50,8 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 
 	private final IOMetrics ioMetrics;
 
+	private final boolean isCopy;
+
 	public ArchivedExecution(Execution execution) {
 		this(
 			execution.getUserAccumulatorsStringified(),
@@ -61,7 +63,7 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 			execution.getAssignedResourceLocation(),
 			execution.getAssignedAllocationID(),
 			execution.getVertex().getParallelSubtaskIndex(),
-			execution.getStateTimestamps());
+			execution.getStateTimestamps(), execution.isCopy());
 	}
 
 	public ArchivedExecution(
@@ -69,6 +71,14 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 			ExecutionAttemptID attemptId, int attemptNumber, ExecutionState state, String failureCause,
 			TaskManagerLocation assignedResourceLocation, AllocationID assignedAllocationID,  int parallelSubtaskIndex,
 			long[] stateTimestamps) {
+		this(userAccumulators, ioMetrics, attemptId, attemptNumber, state, failureCause, assignedResourceLocation,
+				assignedAllocationID, parallelSubtaskIndex, stateTimestamps, false);
+	}
+	public ArchivedExecution(
+			StringifiedAccumulatorResult[] userAccumulators, IOMetrics ioMetrics,
+			ExecutionAttemptID attemptId, int attemptNumber, ExecutionState state, String failureCause,
+			TaskManagerLocation assignedResourceLocation, AllocationID assignedAllocationID,  int parallelSubtaskIndex,
+			long[] stateTimestamps, boolean isCopy) {
 		this.userAccumulators = userAccumulators;
 		this.ioMetrics = ioMetrics;
 		this.failureCause = failureCause;
@@ -79,6 +89,7 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 		this.stateTimestamps = stateTimestamps;
 		this.parallelSubtaskIndex = parallelSubtaskIndex;
 		this.assignedAllocationID = assignedAllocationID;
+		this.isCopy = isCopy;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -138,5 +149,10 @@ public class ArchivedExecution implements AccessExecution, Serializable {
 	@Override
 	public IOMetrics getIOMetrics() {
 		return ioMetrics;
+	}
+
+	@Override
+	public boolean isCopy() {
+		return this.isCopy;
 	}
 }
