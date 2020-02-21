@@ -346,7 +346,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 		return (mapper, reuse, object) -> {
 			ObjectNode node;
 
-			if (reuse == null) {
+			if (reuse == null || !(reuse instanceof ObjectNode)) {
 				node = mapper.createObjectNode();
 			} else {
 				node = (ObjectNode) reuse;
@@ -368,7 +368,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 		return (mapper, reuse, object) -> {
 			ArrayNode node;
 
-			if (reuse == null) {
+			if (reuse == null || !(reuse instanceof ArrayNode)) {
 				node = mapper.createArrayNode();
 			} else {
 				node = (ArrayNode) reuse;
