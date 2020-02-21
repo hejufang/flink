@@ -46,7 +46,8 @@ public class DefaultFailoverTopology implements FailoverTopology {
 
 	private final List<DefaultFailoverVertex> failoverVertices;
 
-	private final Set<Set<FailoverVertex>> distinctRegions;
+	// lazy initialized
+	private Set<Set<FailoverVertex>> distinctRegions = null;
 
 	public DefaultFailoverTopology(ExecutionGraph executionGraph) {
 		checkNotNull(executionGraph);
@@ -68,8 +69,6 @@ public class DefaultFailoverTopology implements FailoverTopology {
 
 		// generate edges
 		connectVerticesWithEdges(failoverVertexMap);
-
-		distinctRegions = PipelinedRegionComputeUtil.computePipelinedRegions(this);
 	}
 
 	private void connectVerticesWithEdges(Map<ExecutionVertex, DefaultFailoverVertex> failoverVertexMap) {
@@ -99,6 +98,10 @@ public class DefaultFailoverTopology implements FailoverTopology {
 
 	@Override
 	public Set<Set<FailoverVertex>> getDistinctRegions() {
+		// lazy initialized
+		if (distinctRegions == null) {
+			distinctRegions = PipelinedRegionComputeUtil.computePipelinedRegions(this);
+		}
 		return distinctRegions;
 	}
 
