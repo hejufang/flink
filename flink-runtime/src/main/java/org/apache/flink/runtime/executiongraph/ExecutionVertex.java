@@ -170,6 +170,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 			initialGlobalModVersion,
 			createTimestamp,
 			timeout);
+		this.copyExecutions = new ArrayList<>();
 
 		// create a co-location scheduling hint, if necessary
 		CoLocationGroup clg = jobVertex.getCoLocationGroup();
