@@ -1503,36 +1503,6 @@ public class SlotManagerTest extends TestLogger {
 	}
 
 	/**
-	 * Tests that the unregister cause is being forwarded when failing allocations.
-	 */
-	@Test
-	public void unregisterTaskManager_withAllocatedSlot_failsAllocationsWithCause() throws Exception {
-		CompletableFuture<Exception> allocationFailureCause = new CompletableFuture<>();
-		TestingResourceActions resourceActions = new TestingResourceActionsBuilder()
-			.setNotifyAllocationFailureConsumer(jobIDAllocationIDExceptionTuple3 -> allocationFailureCause.complete(jobIDAllocationIDExceptionTuple3.f2))
-			.build();
-
-		FlinkException failureCause = new FlinkException("unregisterTaskManager test exception.");
-
-		try (SlotManagerImpl slotManager = createSlotManager(ResourceManagerId.generate(), resourceActions)) {
-			TaskExecutorConnection taskExecutorConnection = createTaskExecutorConnection();
-			SlotReport slotReport = createSingleAllocatedSlotReport(taskExecutorConnection.getResourceID(), new JobID());
-			slotManager.registerTaskManager(taskExecutorConnection, slotReport);
-			slotManager.unregisterTaskManager(taskExecutorConnection.getInstanceID(), failureCause);
-
-			assertThat(allocationFailureCause.get(), CoreMatchers.containsCause(failureCause));
-		}
-	}
-
-	private SlotReport createSingleAllocatedSlotReport(ResourceID resourceID, JobID jobId) {
-		return createSlotReport(
-			resourceID,
-			1,
-			ResourceProfile.UNKNOWN,
-			(slotId, resourceProfile) -> new SlotStatus(slotId, resourceProfile, jobId, new AllocationID()));
-	}
-
-	/**
 	 * The spread out slot allocation strategy should spread out the allocated
 	 * slots across all available TaskExecutors. See FLINK-12122.
 	 */
