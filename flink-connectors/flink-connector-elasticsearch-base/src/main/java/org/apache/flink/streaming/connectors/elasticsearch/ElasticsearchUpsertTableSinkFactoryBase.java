@@ -39,7 +39,6 @@ import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
-import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import java.util.ArrayList;
@@ -91,6 +90,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_FIELD_INDICES;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_NULL_LITERAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_TYPE_VALUE_ELASTICSEARCH;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_URI;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_DERIVE_SCHEMA;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_TYPE;
@@ -156,6 +156,9 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 
 		// rate limit
 		properties.add(CONNECTOR_GLOBAL_RATE_LIMIT);
+
+		// connector psm
+		properties.add(CONNECTOR_URI);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -349,13 +352,14 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG, SinkOption.ENABLE_PASSWORD_CONFIG);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_USERNAME, SinkOption.USERNAME);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_PASSWORD, SinkOption.PASSWORD);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_URI, SinkOption.URI);
 
 		return options;
 	}
 
 	private int[] getKeyFieldIndices(DescriptorProperties descriptorProperties) {
 		String indicesString = descriptorProperties.getOptionalString(CONNECTOR_KEY_FIELD_INDICES).orElse(null);
-		if (StringUtils.isEmpty(indicesString)) {
+		if (indicesString == null || indicesString.length() == 0) {
 			return new int[0];
 		}
 		return Arrays.stream(indicesString.split(",")).mapToInt(Integer::parseInt).toArray();

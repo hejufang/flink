@@ -395,8 +395,12 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		 */
 		ENABLE_PASSWORD_CONFIG,
 		USERNAME,
-		PASSWORD
+		PASSWORD,
 
+		/**
+		 * support to lookup es hosts via psm.
+		 */
+		URI
 	}
 
 	/**
@@ -523,7 +527,10 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			if (versionIndex >= 0 || routingIndex >= 0) {
 				for (int i = 0; i < originalRow.getArity(); ++i) {
 					if (i == versionIndex) {
-						version = Long.parseLong(originalRow.getField(i).toString());
+						Object versionColumn = originalRow.getField(i);
+						if (versionColumn != null) {
+							version = Long.parseLong(versionColumn.toString());
+						}
 					} else if (i == routingIndex) {
 						routing = (String) originalRow.getField(i);
 					} else {

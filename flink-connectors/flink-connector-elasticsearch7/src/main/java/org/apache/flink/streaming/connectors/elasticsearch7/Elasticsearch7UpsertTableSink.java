@@ -27,6 +27,8 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase;
+import org.apache.flink.streaming.connectors.elasticsearch7.util.ESHttpRoutePlanner;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
 
@@ -39,6 +41,9 @@ import org.elasticsearch.common.xcontent.XContentType;
 
 import javax.annotation.Nullable;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +59,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchU
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_SIZE;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.DISABLE_FLUSH_ON_CHECKPOINT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.REST_PATH_PREFIX;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.URI;
 
 /**
  * Version-specific upsert table sink for Elasticsearch 7.
@@ -194,11 +200,31 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			Map<SinkOption, String> sinkOptions,
 			ElasticsearchUpsertSinkFunction upsertSinkFunction) {
 
-		final List<HttpHost> httpHosts = hosts.stream()
-			.map((host) -> new HttpHost(host.hostname, host.port, host.protocol))
-			.collect(Collectors.toList());
+		Optional<String> psm = Optional.ofNullable(sinkOptions.get(URI));
 
-		final ElasticsearchSink.Builder<Tuple2<Boolean, Row>> builder = createBuilder(upsertSinkFunction, httpHosts);
+		ElasticsearchSink.Builder<Tuple2<Boolean, Row>> builder;
+		// if we support psm to lookup hosts, we need to fake a schema://host:port
+		// to ensure underlying RestHighLevelClient not to complain about it.
+		// psm example: psm://byte.es.flink_connector_test.service.lq$data
+		if (psm.isPresent()) {
+			try {
+				URI uri = new URI(psm.get());
+				String host = uri.getAuthority();
+				if (uri.getHost() != null) {
+					host = uri.getHost();
+				}
+				final List<HttpHost> httpHosts = Collections.singletonList(
+					new HttpHost(host, uri.getPort(), uri.getScheme()));
+				builder = createBuilder(upsertSinkFunction, httpHosts);
+			} catch (URISyntaxException e) {
+				throw new TableException(e.getMessage());
+			}
+		} else {
+			final List<HttpHost> httpHosts = hosts.stream()
+				.map((host) -> new HttpHost(host.hostname, host.port, host.protocol))
+				.collect(Collectors.toList());
+			builder = createBuilder(upsertSinkFunction, httpHosts);
+		}
 
 		builder.setFailureHandler(failureHandler);
 
@@ -223,8 +249,11 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		Optional.ofNullable(sinkOptions.get(BULK_FLUSH_BACKOFF_DELAY))
 			.ifPresent(v -> builder.setBulkFlushBackoffDelay(Long.valueOf(v)));
 
-		builder.setRestClientFactory(
-			new DefaultRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
+		if (psm.isPresent()) {
+			builder.setRestClientFactory(new RoutedRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
+		} else {
+			builder.setRestClientFactory(new DefaultRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
+		}
 
 		if (globalRateLimit > 0) {
 			builder.setGlobalRateLimit(globalRateLimit);
@@ -281,6 +310,46 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 				return false;
 			}
 			DefaultRestClientFactory that = (DefaultRestClientFactory) o;
+			return Objects.equals(pathPrefix, that.pathPrefix);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(pathPrefix);
+		}
+	}
+
+	/**
+	 * A routed RestClientFactory.
+	 */
+	static class RoutedRestClientFactory implements RestClientFactory {
+
+		private static final long serialVersionUID = 1L;
+
+		private final String pathPrefix;
+
+		public RoutedRestClientFactory(@Nullable String pathPrefix) {
+			this.pathPrefix = pathPrefix;
+		}
+
+		@Override
+		public void configureRestClientBuilder(RestClientBuilder restClientBuilder) {
+			if (pathPrefix != null) {
+				restClientBuilder.setPathPrefix(pathPrefix);
+			}
+			restClientBuilder.setHttpClientConfigCallback(httpAsyncClientBuilder ->
+				httpAsyncClientBuilder.setRoutePlanner(new ESHttpRoutePlanner()));
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			RoutedRestClientFactory that = (RoutedRestClientFactory) o;
 			return Objects.equals(pathPrefix, that.pathPrefix);
 		}
 
