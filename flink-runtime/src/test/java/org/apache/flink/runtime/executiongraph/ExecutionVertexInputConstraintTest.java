@@ -75,7 +75,7 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 
 		// One pipelined input consumable on data produced
 		IntermediateResultPartition partition11 = ev11.getProducedPartitions().values().iterator().next();
-		ev11.scheduleOrUpdateConsumers(new ResultPartitionID(partition11.getPartitionId(),
+		ev11.scheduleOrUpdateConsumers(ev11.getMainExecution(), new ResultPartitionID(partition11.getPartitionId(),
 			ev11.getMainExecution().getAttemptId()));
 		assertTrue(ev31.isInputConsumable(0));
 		// Input0 of ev32 is not consumable. It consumes the same PIPELINED result with ev31 but not the same partition
@@ -115,7 +115,7 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 
 		// Input1 consumable satisfies the constraint
 		IntermediateResultPartition partition11 = ev11.getProducedPartitions().values().iterator().next();
-		ev11.scheduleOrUpdateConsumers(new ResultPartitionID(partition11.getPartitionId(),
+		ev11.scheduleOrUpdateConsumers(ev11.getMainExecution(), new ResultPartitionID(partition11.getPartitionId(),
 			ev11.getMainExecution().getAttemptId()));
 		assertTrue(ev31.checkInputDependencyConstraints());
 
@@ -155,7 +155,7 @@ public class ExecutionVertexInputConstraintTest extends TestLogger {
 
 		// Input1 consumable does not satisfy the constraint
 		IntermediateResultPartition partition11 = ev11.getProducedPartitions().values().iterator().next();
-		ev11.scheduleOrUpdateConsumers(new ResultPartitionID(partition11.getPartitionId(),
+		ev11.scheduleOrUpdateConsumers(ev11.getMainExecution(), new ResultPartitionID(partition11.getPartitionId(),
 			ev11.getMainExecution().getAttemptId()));
 		assertFalse(ev31.checkInputDependencyConstraints());
 

@@ -546,7 +546,7 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 		Map<String, OptionalFailure<Accumulator<?, ?>>> userAccumulators = new HashMap<>();
 
 		for (ExecutionVertex vertex : taskVertices) {
-			Map<String, Accumulator<?, ?>> next = vertex.getMainExecution().getUserAccumulators();
+			Map<String, Accumulator<?, ?>> next = vertex.getAccumulatorExecution().getUserAccumulators();
 			if (next != null) {
 				AccumulatorHelper.mergeInto(userAccumulators, next);
 			}

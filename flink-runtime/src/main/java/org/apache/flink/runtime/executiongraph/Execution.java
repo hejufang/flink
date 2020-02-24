@@ -191,6 +191,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private Map<IntermediateResultPartitionID, ResultPartitionDeploymentDescriptor> producedPartitions;
 
+	private ArrayList<InputSplit> inputSplits;
+
 	private final boolean isCopy;
 
 	// --------------------------------------------------------------------------------------------
@@ -247,6 +249,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		this.taskManagerLocationFuture = new CompletableFuture<>();
 
 		this.assignedResource = null;
+		this.inputSplits = new ArrayList<>();
 		this.isCopy = isCopy;
 	}
 
@@ -347,7 +350,30 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	public InputSplit getNextInputSplit() {
 		final LogicalSlot slot = this.getAssignedResource();
 		final String host = slot != null ? slot.getTaskManagerLocation().getHostname() : null;
-		return this.vertex.getNextInputSplit(host);
+		final ArrayList<InputSplit> totalInputSplits = this.vertex.getTotalInputSplits();
+		final int inputSplitsSize = this.inputSplits.size();
+
+		InputSplit nextInputSplit;
+		if (this.inputSplits.hashCode() == totalInputSplits.hashCode()) {
+			nextInputSplit = this.vertex.getNextInputSplit(host);
+		} else {
+			if (inputSplitsSize > totalInputSplits.size()) {
+				throw new RuntimeException("Bug in Execution's inputSplits. Execution size: " + inputSplitsSize +
+						"ExecutionVertex size: " + this.vertex.getTotalInputSplits().size());
+			} else {
+				// check whether last input split is the same
+				if (inputSplitsSize > 0) {
+					final InputSplit lastInputSplit = this.inputSplits.get(inputSplitsSize - 1);
+					if (!lastInputSplit.equals(totalInputSplits.get(inputSplitsSize - 1))) {
+						throw new RuntimeException("Bug in comparing last inputSplit in Execution. Execution size: " + inputSplitsSize +
+								"ExecutionVertex size: " + this.vertex.getTotalInputSplits().size());
+					}
+				}
+				nextInputSplit = totalInputSplits.get(inputSplitsSize);
+			}
+		}
+		this.inputSplits.add(nextInputSplit);
+		return nextInputSplit;
 	}
 
 	@Override
@@ -558,8 +584,12 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				lastAllocation != null ? Collections.singletonList(lastAllocation) : Collections.emptyList();
 
 			// calculate the preferred locations
-			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture =
-				calculatePreferredLocations(locationPreferenceConstraint);
+			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture;
+			if (!isCopy) {
+				preferredLocationsFuture = calculatePreferredLocations(locationPreferenceConstraint);
+			} else {
+				preferredLocationsFuture = CompletableFuture.completedFuture(Collections.emptyList());
+			}
 
 			final SlotRequestId slotRequestId = new SlotRequestId();
 
@@ -731,8 +761,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			}
 
 			final TaskDeploymentDescriptorFactory deploymentDescriptorFactory = TaskDeploymentDescriptorFactory
-					.fromExecutionVertex(vertex, attemptNumber);
-
+					.fromExecution(this, attemptNumber);
 
 			final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
 
@@ -872,14 +901,14 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			consumerVertex.scheduleForExecution(
 				executionGraph.getSlotProviderStrategy(),
 				LocationPreferenceConstraint.ANY, // there must be at least one known location
-				Collections.emptySet());
+				Collections.emptySet(), isCopy);
 		} catch (Throwable t) {
-			consumerVertex.fail(new IllegalStateException("Could not schedule consumer " +
-				"vertex " + consumerVertex, t));
+			fail(new IllegalStateException("Could not schedule consumer " +
+					"vertex " + consumerVertex, t));
 		}
 	}
 
-	void scheduleOrUpdateConsumers(List<List<ExecutionEdge>> allConsumers) {
+	void scheduleOrUpdateConsumers(List<List<ExecutionEdge>> allConsumers, boolean isPipeline) {
 		assertRunningInJobMasterMainThread();
 
 		final int numConsumers = allConsumers.size();
@@ -898,7 +927,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			// Consumer is created => try to schedule it and the partition info
 			// is known during deployment
 			// ----------------------------------------------------------------
-			if (consumerState == CREATED) {
+			if (consumerState == CREATED || (isPipeline && isCopy)) {
 				// Schedule the consumer vertex if its inputs constraint is satisfied, otherwise skip the scheduling.
 				// A shortcut of input constraint check is added for InputDependencyConstraint.ANY since
 				// at least one of the consumer vertex's inputs is consumable here. This is to avoid the
@@ -918,7 +947,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				final PartitionInfo partitionInfo = createPartitionInfo(edge);
 
 				if (consumerState == DEPLOYING) {
-					consumerVertex.cachePartitionInfo(partitionInfo);
+					cachePartitionInfo(partitionInfo);
 				} else {
 					consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
 				}
@@ -1082,8 +1111,9 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 							IntermediateResultPartition[] allPartitions = finishedPartition
 									.getIntermediateResult().getPartitions();
 
+							// isPipeline = false we're dealing with blocking partitions
 							for (IntermediateResultPartition partition : allPartitions) {
-								scheduleOrUpdateConsumers(partition.getConsumers());
+								scheduleOrUpdateConsumers(partition.getConsumers(), false);
 							}
 						}
 
@@ -1170,7 +1200,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				// failing in the meantime may happen and is no problem.
 				// anything else is a serious problem !!!
 				if (current != FAILED) {
-					String message = String.format("Asynchronous race: Found %s in state %s after successful cancel call.", vertex.getTaskNameWithSubtaskIndex(), state);
+					String message = String.format("Asynchronous race: Found %s in state %s after successful cancel call.", getVertexWithAttempt(), state);
 					LOG.error(message);
 					vertex.getExecutionGraph().failGlobal(new Exception(message));
 				}
@@ -1254,7 +1284,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 						}
 					} catch (Throwable tt) {
 						// no reason this should ever happen, but log it to be safe
-						LOG.error("Error triggering cancel call while marking task {} as failed.", getVertex().getTaskNameWithSubtaskIndex(), tt);
+						LOG.error("Error triggering cancel call while marking task {} as failed.", getVertexWithAttempt(), tt);
 					}
 				}
 
@@ -1457,6 +1487,52 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	// --------------------------------------------------------------------------------------------
 
 	/**
+	 * Gets the overall preferred execution location for this vertex's current execution.
+	 * The preference is determined as follows:
+	 *
+	 * <ol>
+	 *     <li>If the task execution has state to load (from a checkpoint), then the location preference
+	 *         is the location of the previous execution (if there is a previous execution attempt).
+	 *     <li>If the task execution has no state or no previous location, then the location preference
+	 *         is based on the task's inputs.
+	 * </ol>
+	 *
+	 * <p>These rules should result in the following behavior:
+	 *
+	 * <ul>
+	 *     <li>Stateless tasks are always scheduled based on co-location with inputs.
+	 *     <li>Stateful tasks are on their initial attempt executed based on co-location with inputs.
+	 *     <li>Repeated executions of stateful tasks try to co-locate the execution with its state.
+	 * </ul>
+	 *
+	 * @see #getPreferredLocationsBasedOnState()
+	 *
+	 * @return The preferred execution locations for the execution attempt.
+	 */
+	@VisibleForTesting
+	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocations() {
+		Collection<CompletableFuture<TaskManagerLocation>> basedOnState = getPreferredLocationsBasedOnState();
+		return basedOnState != null ? basedOnState : vertex.getPreferredLocationsBasedOnInputs();
+	}
+
+	/**
+	 * Gets the preferred location to execute the current task execution attempt, based on the state
+	 * that the execution attempt will resume.
+	 *
+	 * @return A size-one collection with the location preference, or null, if there is no
+	 *         location preference based on the state.
+	 */
+	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocationsBasedOnState() {
+		TaskManagerLocation priorLocation;
+		if (getTaskRestore() != null && (priorLocation = vertex.getLatestPriorLocation()) != null) {
+			return Collections.singleton(CompletableFuture.completedFuture(priorLocation));
+		}
+		else {
+			return null;
+		}
+	}
+
+	/**
 	 * Calculates the preferred locations based on the location preference constraint.
 	 *
 	 * @param locationPreferenceConstraint constraint for the location preference
@@ -1465,7 +1541,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 */
 	@VisibleForTesting
 	public CompletableFuture<Collection<TaskManagerLocation>> calculatePreferredLocations(LocationPreferenceConstraint locationPreferenceConstraint) {
-		final Collection<CompletableFuture<TaskManagerLocation>> preferredLocationFutures = getVertex().getPreferredLocations();
+		final Collection<CompletableFuture<TaskManagerLocation>> preferredLocationFutures = getPreferredLocations();
 		final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture;
 
 		switch(locationPreferenceConstraint) {
@@ -1520,11 +1596,11 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			}
 
 			if (error == null) {
-				LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.", getVertex().getTaskNameWithSubtaskIndex(),
+				LOG.info("{} ({}) switched from {} to {}, host {} resource id {}.", getVertexWithAttempt(),
 					getAttemptId(), currentState, targetState, hostname, resourceId);
 			} else {
 				LOG.warn("{} ({}) switched from {} to {}, host {} resource id {}.",
-					getVertex().getTaskNameWithSubtaskIndex(), getAttemptId(), currentState, targetState,
+					getVertexWithAttempt(), getAttemptId(), currentState, targetState,
 					hostname, resourceId, error);
 			}
 

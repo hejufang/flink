@@ -45,6 +45,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionGraphBuilder;
 import org.apache.flink.runtime.executiongraph.ExecutionGraphException;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.IntermediateResult;
 import org.apache.flink.runtime.executiongraph.JobStatusListener;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
@@ -355,13 +356,14 @@ public class LegacyScheduler implements SchedulerNG {
 
 			if (intermediateResult != null) {
 				// Try to find the producing execution
-				Execution producerExecution = intermediateResult
+				ExecutionVertex producerEv = intermediateResult
 					.getPartitionById(resultPartitionId.getPartitionId())
-					.getProducer()
-					.getMainExecution();
+					.getProducer();
 
-				if (producerExecution.getAttemptId().equals(resultPartitionId.getProducerId())) {
-					return producerExecution.getState();
+				if (producerEv.getMainExecution().getAttemptId().equals(resultPartitionId.getProducerId())) {
+					return producerEv.getMainExecution().getState();
+				} else if (producerEv.getCopyExecutions().size() > 0 && producerEv.getCopyExecution().getAttemptId().equals(resultPartitionId.getProducerId())) {
+					return producerEv.getCopyExecution().getState();
 				} else {
 					throw new PartitionProducerDisposedException(resultPartitionId);
 				}

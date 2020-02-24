@@ -962,7 +962,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		Map<String, OptionalFailure<Accumulator<?, ?>>> userAccumulators = new HashMap<>();
 
 		for (ExecutionVertex vertex : getAllExecutionVertices()) {
-			Map<String, Accumulator<?, ?>> next = vertex.getMainExecution().getUserAccumulators();
+			Map<String, Accumulator<?, ?>> next = vertex.getAccumulatorExecution().getUserAccumulators();
 			if (next != null) {
 				AccumulatorHelper.mergeInto(userAccumulators, next);
 			}
@@ -1351,7 +1351,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 					throw new IllegalStateException("Can only restart job from state restarting.");
 				}
 
+				// clear states
 				this.currentExecutions.clear();
+				this.speculationStrategy.reset();
 
 				final Collection<CoLocationGroup> colGroups = new HashSet<>();
 				final long resetTimestamp = System.currentTimeMillis();
@@ -1806,7 +1808,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			throw new ExecutionGraphException("Execution with execution Id " +
 				partitionId.getPartitionId() + " has no vertex assigned.");
 		} else {
-			execution.getVertex().scheduleOrUpdateConsumers(partitionId);
+			execution.getVertex().scheduleOrUpdateConsumers(execution, partitionId);
 		}
 	}
 

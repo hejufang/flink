@@ -62,6 +62,7 @@ public class TaskDeploymentDescriptorFactory {
 	private final boolean allowUnknownPartitions;
 	private final int subtaskIndex;
 	private final ExecutionEdge[][] inputEdges;
+	private static boolean isCopy;
 
 	private TaskDeploymentDescriptorFactory(
 			ExecutionAttemptID executionId,
@@ -71,7 +72,8 @@ public class TaskDeploymentDescriptorFactory {
 			JobID jobID,
 			boolean allowUnknownPartitions,
 			int subtaskIndex,
-			ExecutionEdge[][] inputEdges) {
+			ExecutionEdge[][] inputEdges,
+			boolean isCopy) {
 		this.executionId = executionId;
 		this.attemptNumber = attemptNumber;
 		this.serializedJobInformation = serializedJobInformation;
@@ -80,6 +82,8 @@ public class TaskDeploymentDescriptorFactory {
 		this.allowUnknownPartitions = allowUnknownPartitions;
 		this.subtaskIndex = subtaskIndex;
 		this.inputEdges = inputEdges;
+
+		TaskDeploymentDescriptorFactory.isCopy = isCopy;
 	}
 
 	public TaskDeploymentDescriptor createDeploymentDescriptor(
@@ -136,6 +140,7 @@ public class TaskDeploymentDescriptorFactory {
 		return shuffleDescriptors;
 	}
 
+	@VisibleForTesting
 	public static TaskDeploymentDescriptorFactory fromExecutionVertex(
 			ExecutionVertex executionVertex,
 			int attemptNumber) throws IOException {
@@ -148,7 +153,24 @@ public class TaskDeploymentDescriptorFactory {
 			executionGraph.getJobID(),
 			executionGraph.getScheduleMode().allowLazyDeployment(),
 			executionVertex.getParallelSubtaskIndex(),
-			executionVertex.getAllInputEdges());
+			executionVertex.getAllInputEdges(), false);
+	}
+
+	public static TaskDeploymentDescriptorFactory fromExecution(
+			Execution execution,
+			int attemptNumber) throws IOException {
+		final ExecutionVertex executionVertex = execution.getVertex();
+		final ExecutionGraph executionGraph = executionVertex.getExecutionGraph();
+		return new TaskDeploymentDescriptorFactory(
+			execution.getAttemptId(),
+			attemptNumber,
+			getSerializedJobInformation(executionGraph),
+			getSerializedTaskInformation(executionVertex.getJobVertex().getTaskInformationOrBlobKey()),
+			executionGraph.getJobID(),
+			executionGraph.getScheduleMode().allowLazyDeployment(),
+			execution.getParallelSubtaskIndex(),
+			executionVertex.getAllInputEdges(),
+			execution.isCopy());
 	}
 
 	private static MaybeOffloaded<JobInformation> getSerializedJobInformation(ExecutionGraph executionGraph) {
@@ -173,7 +195,7 @@ public class TaskDeploymentDescriptorFactory {
 			ExecutionEdge edge,
 			boolean allowUnknownPartitions) {
 		IntermediateResultPartition consumedPartition = edge.getSource();
-		Execution producer = consumedPartition.getProducer().getMainExecution();
+		Execution producer = consumedPartition.getProducer().getConsumableExecution(consumedPartition.getResultType().isPipelined(), isCopy);
 
 		ExecutionState producerState = producer.getState();
 		Optional<ResultPartitionDeploymentDescriptor> consumedPartitionDescriptor =
