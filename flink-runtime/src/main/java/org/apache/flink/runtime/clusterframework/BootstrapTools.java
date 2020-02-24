@@ -475,6 +475,8 @@ public class BootstrapTools {
 			ConfigConstants.FLINK_GC_LOG_OPTS_DEFAULT);
 		javaOpts += " " + "-Xloggc:" + flinkConfig.getString(ConfigConstants.FLINK_GC_LOG_FILE_KEY,
 			logDirectory + "/gc.log");
+		javaOpts += " " + "-XX:ErrorFile=" + flinkConfig.getString(ConfigConstants.FLINK_JVM_ERROR_FILE_KEY,
+				logDirectory + "/hs_err_pid%p.log");
 
 		// Use G1GC
 		if (flinkConfig.getBoolean(ConfigConstants.FLINK_GC_G1_KEY, ConfigConstants.FLINK_GC_G1_DEFAULT)) {

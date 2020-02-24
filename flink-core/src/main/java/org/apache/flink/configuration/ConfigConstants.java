@@ -2094,6 +2094,7 @@ public final class ConfigConstants {
 	public static final boolean FLINK_GC_G1_DEFAULT = true;
 	public static final String FLINK_MAX_GC_PAUSE_MILLIS_KEY = "flink.gc.MaxGCPauseMillis";
 	public static final int FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT = 50;
+	public static final String FLINK_JVM_ERROR_FILE_KEY = "flink.jvm.error.file";
 	public static final String FLINK_DUMP_ON_OOM_KEY = "flink.dump.on.oom";
 	public static final boolean FLINK_DUMP_ON_OOM_DEFAULT = false;
 
