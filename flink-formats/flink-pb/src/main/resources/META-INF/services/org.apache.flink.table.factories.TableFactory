@@ -15,3 +15,4 @@
 
 org.apache.flink.formats.pb.PbRowFormatFactory
 org.apache.flink.formats.pb.PbBinlogRowFormatFactory
+org.apache.flink.formats.pb.PbBinlogDRCRowFormatFactory

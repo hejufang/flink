@@ -1,0 +1,117 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// If you modify this file, please use protoc to rebuild the java file.
+// It cannot be built automatic because we do not find a proper maven plugin.
+syntax = "proto2";
+
+package com.bytedance.dbus;
+
+option java_package = "com.bytedance.dbus";
+option java_outer_classname = "DRCEntry";
+option optimize_for = SPEED;
+
+enum EventType {
+    UNKNOWN = 1;
+    INSERT = 2;
+    UPDATE = 3;
+    DELETE = 4;
+    RENAME = 5;
+    ALTER = 6;
+    CINDEX = 7;
+    DINDEX = 8;
+    CTABLE = 9;
+    DTABLE = 10;
+    // begin/commit
+    QUERY = 11;
+    CDATABASE = 12;
+    DDATABASE = 13;
+    TRUNCATE = 14;
+}
+
+enum EntryType {
+    BEGIN = 1;
+    COMMIT = 2;
+    DML = 3;
+    DDL = 4;
+}
+
+message EntryHeader {
+    optional int64 tpipe_message_offset = 1;
+    optional uint64 drc_message_id = 2;
+    // generate time
+    required int64 timestamp = 3;
+    required uint64 source_cluster_id = 5;
+    required uint32 server_id = 6;
+    required uint32 dc_id = 7;
+    optional uint32 start_execute_time = 8;
+    optional string database = 9;
+    optional string table = 10;
+    required EntryType entry_type = 11;
+    repeated Index indexes = 12;
+}
+
+message Index {
+    required string name = 1;
+    repeated int32 column_index = 2;
+}
+
+message Entry {
+    required EntryHeader header = 1;
+    required EntryBody body = 2;
+}
+
+message EntryBody {
+    repeated RowData rowdatas = 1;
+    required EventType event_type = 2;
+    // begin or commit or ddl
+    optional string sql = 3;
+}
+
+message RowData {
+    repeated Column before_image = 1;
+    repeated Column after_image = 2;
+}
+
+message Column {
+    required int32 index = 1;
+    required string name = 2;
+    optional bool is_pk = 3;
+    optional bool updated = 4;
+    // is nullable, not actually value
+    optional bool is_nullable = 5;
+    // whether value is null
+    required bool null = 6;
+    optional string sql_type = 7;
+    optional string value = 8;
+}
+
+enum MessageType {
+    FULL = 1;
+    FIRST = 2;
+    MIDDLE = 3;
+    LAST = 4;
+}
+
+message Message {
+    // filled by importer
+    optional int64 tpipe_message_offset = 1;
+    // filled by dumper
+    required uint64 drc_message_id = 2;
+    required MessageType type = 3;
+    required bytes payload = 4;
+}

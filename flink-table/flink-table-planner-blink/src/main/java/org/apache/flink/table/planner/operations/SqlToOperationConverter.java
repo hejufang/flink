@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.operations;
 
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.formats.pb.PbBinlogDRCRowFormatFactory;
 import org.apache.flink.formats.pb.PbBinlogRowFormatFactory;
 import org.apache.flink.formats.pb.PbConstant;
 import org.apache.flink.formats.pb.PbRowFormatFactory;
@@ -275,7 +276,9 @@ public class SqlToOperationConverter {
 			// pb and pb_binlog has no schema definition in DDL, so we add columns from TableSchema
 			String columns;
 			String formatType = properties.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "");
-			if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE) || formatType.equals(PbConstant.FORMAT_TYPE_VALUE)) {
+			if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)
+				|| formatType.equals(PbConstant.FORMAT_BINLOG_DRC_TYPE_VALUE)
+				|| formatType.equals(PbConstant.FORMAT_TYPE_VALUE)) {
 				columns = String.join("`, `", tableSchema.getFieldNames());
 				if (tableSchema.getFieldNames().length > 0) {
 					columns = "`" + columns + "`";
@@ -445,23 +448,33 @@ public class SqlToOperationConverter {
 		Map<String, String> propertiesMap = propertiesToMap(sqlCreateTable.getPropertyList());
 
 		String formatType = propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "");
-		if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE) ||
-				formatType.equals(PbConstant.FORMAT_TYPE_VALUE) ||
-				sqlCreateTable.getColumnList().size() == 0) {
+		if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)
+			|| formatType.equals(PbConstant.FORMAT_TYPE_VALUE)
+			|| formatType.equals(PbConstant.FORMAT_BINLOG_DRC_TYPE_VALUE)
+			|| sqlCreateTable.getColumnList().size() == 0) {
 			RowTypeInfo rowTypeInfo;
 
-			if (propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "")
-					.equals(PbConstant.FORMAT_TYPE_VALUE)) {
-				PbRowFormatFactory pbFactory = new PbRowFormatFactory();
-				rowTypeInfo = (RowTypeInfo) pbFactory.getRowTypeInformation(
-					propertiesToMap(sqlCreateTable.getPropertyList()));
-			} else if (propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "")
-					.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)) {
-				PbBinlogRowFormatFactory binlogFactory = new PbBinlogRowFormatFactory();
-				rowTypeInfo = (RowTypeInfo) binlogFactory.getBinlogRowTypeInformation(
-					propertiesToMap(sqlCreateTable.getPropertyList()));
-			} else {
-				throw new SqlConversionException("Table columns should not be empty except pb or pb_binlog!");
+			switch (formatType) {
+				case PbConstant.FORMAT_TYPE_VALUE:
+					PbRowFormatFactory pbFactory = new PbRowFormatFactory();
+					rowTypeInfo = (RowTypeInfo) pbFactory.getRowTypeInformation(
+						propertiesToMap(sqlCreateTable.getPropertyList()));
+					break;
+				case PbConstant.FORMAT_BINLOG_TYPE_VALUE: {
+					PbBinlogRowFormatFactory binlogFactory = new PbBinlogRowFormatFactory();
+					rowTypeInfo = (RowTypeInfo) binlogFactory.getBinlogRowTypeInformation(
+						propertiesToMap(sqlCreateTable.getPropertyList()));
+					break;
+				}
+				case PbConstant.FORMAT_BINLOG_DRC_TYPE_VALUE: {
+					PbBinlogDRCRowFormatFactory binlogFactory = new PbBinlogDRCRowFormatFactory();
+					rowTypeInfo = (RowTypeInfo) binlogFactory.getBinlogRowTypeInformation(
+						propertiesToMap(sqlCreateTable.getPropertyList()));
+					break;
+				}
+				default:
+					throw new SqlConversionException("Table columns should not be empty except " +
+						"pb, pb_binlog and pb_binlog_drc!");
 			}
 
 			for (int index = 0; index < rowTypeInfo.getArity(); index++) {

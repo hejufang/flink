@@ -44,4 +44,10 @@ public class PbConstant {
 	public static final String FORMAT_BINLOG_TYPE_TRANSACTION_END = "TransactionEnd";
 	public static final String FORMAT_BINLOG_TYPE_ROW_CHANGE = "RowChange";
 	public static final String FORMAT_BINLOG_TYPE_STORE_VALUE = "storeValue";
+
+	public static final String FORMAT_BINLOG_DRC_TYPE_VALUE = "pb_binlog_drc";
+	public static final String FORMAT_BINLOG_DRC_TYPE_PAYLOAD = "payload";
+	public static final String FORMAT_BINLOG_DRC_TYPE_HEADER = "header";
+	public static final String FORMAT_BINLOG_DRC_TYPE_BODY = "body";
+
 }

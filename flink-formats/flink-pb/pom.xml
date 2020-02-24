@@ -126,7 +126,7 @@ under the License.
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-checkstyle-plugin</artifactId>
 				<configuration>
-					<excludes>**/PbDeserializeTest**,**/CanalEntry**, com/google/protobuf/util/JsonFormat.java</excludes>
+					<excludes>**/PbDeserializeTest**,**/CanalEntry**, **/DRCEntry**, com/google/protobuf/util/JsonFormat.java</excludes>
 				</configuration>
 			</plugin>
 		</plugins>
