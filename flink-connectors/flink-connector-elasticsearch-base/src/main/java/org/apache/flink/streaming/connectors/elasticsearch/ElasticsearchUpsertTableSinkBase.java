@@ -69,6 +69,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	/** The property name for routing of a record. */
 	public static final String ROUTING = "_routing";
 
+	/** The property name for index of a record. */
+	public static final String INDEX = "_index";
+
 	/** Flag that indicates that only inserts are accepted. */
 	private final boolean isAppendOnly;
 
@@ -192,7 +195,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
-		// get _version, _routing index
+		// get _index, _version, _routing index
+		int indexIndex = -1;
 		int versionIndex = -1;
 		int routingIndex = -1;
 		for (int i = 0; i < schema.getFieldCount(); ++i) {
@@ -215,6 +219,15 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
 					throw new TableException("_routing field for ES sink should be varchar/char type.");
 				}
+			} else if (fieldName.equalsIgnoreCase(INDEX)) {
+				indexIndex = i;
+
+				// Validate index field type Can only be VARCHAR/CHAR.
+				DataType dataType = schema.getFieldDataType(i).get();
+				LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+					throw new TableException("_index field for ES sink should be varchar/char type.");
+				}
 			}
 		}
 
@@ -229,7 +242,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				requestFactory,
 				keyFieldIndices,
 				versionIndex,
-				routingIndex);
+				routingIndex,
+				indexIndex);
 		final SinkFunction<Tuple2<Boolean, Row>> sinkFunction = createSinkFunction(
 			hosts,
 			failureHandler,
@@ -481,6 +495,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	 */
 	public static class ElasticsearchUpsertSinkFunction implements ElasticsearchSinkFunction<Tuple2<Boolean, Row>> {
 
+		private static final long serialVersionUID = 1L;
+
 		private final String index;
 		private final String docType;
 		private final String keyDelimiter;
@@ -491,6 +507,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		private final int[] keyFieldIndices;
 		private final int versionIndex;
 		private final int routingIndex;
+		private final int indexIndex;
 
 		public ElasticsearchUpsertSinkFunction(
 				String index,
@@ -502,7 +519,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				RequestFactory requestFactory,
 				int[] keyFieldIndices,
 				int versionIndex,
-				int routingIndex) {
+				int routingIndex,
+				int indexIndex) {
 
 			this.index = Preconditions.checkNotNull(index);
 			this.docType = Preconditions.checkNotNull(docType);
@@ -514,6 +532,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			this.keyNullLiteral = Preconditions.checkNotNull(keyNullLiteral);
 			this.versionIndex = versionIndex;
 			this.routingIndex = routingIndex;
+			this.indexIndex = indexIndex;
 		}
 
 		@Override
@@ -524,7 +543,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			Row rowWithoutReservedColumns;
 			long version = -1;
 			String routing = null;
-			if (versionIndex >= 0 || routingIndex >= 0) {
+			String dynamicIndex = null;
+			if (versionIndex >= 0 || routingIndex >= 0 || indexIndex >= 0) {
 				for (int i = 0; i < originalRow.getArity(); ++i) {
 					if (i == versionIndex) {
 						Object versionColumn = originalRow.getField(i);
@@ -533,6 +553,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 						}
 					} else if (i == routingIndex) {
 						routing = (String) originalRow.getField(i);
+					} else if (i == indexIndex) {
+						dynamicIndex = (String) originalRow.getField(i);
 					} else {
 						columnsWithoutReservedColumns.add(originalRow.getField(i));
 					}
@@ -544,17 +566,24 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 			final String key = createKey(originalRow);
 			if (element.f0) {
-				processUpsert(rowWithoutReservedColumns, indexer, version, routing, key);
+				processUpsert(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex);
 			} else {
-				processDelete(rowWithoutReservedColumns, indexer, version, routing, key);
+				processDelete(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex);
 			}
 		}
 
-		private void processUpsert(Row row, RequestIndexer indexer, long version, String routing, String key) {
+		private void processUpsert(
+				Row row,
+				RequestIndexer indexer,
+				long version,
+				String routing,
+				String key,
+				String dynamicIndex) {
 			final byte[] document = serializationSchema.serialize(row);
+			String realIndex = Strings.isNullOrEmpty(dynamicIndex) ? index : dynamicIndex;
 			if (keyFieldIndices.length == 0) {
 				final IndexRequest indexRequest = requestFactory.createIndexRequest(
-					index,
+					realIndex,
 					docType,
 					contentType,
 					document);
@@ -567,7 +596,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				indexer.add(indexRequest);
 			} else {
 				final UpdateRequest updateRequest = requestFactory.createUpdateRequest(
-					index,
+					realIndex,
 					docType,
 					key,
 					contentType,
@@ -580,9 +609,16 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			}
 		}
 
-		private void processDelete(Row row, RequestIndexer indexer, long version, String routing, String key) {
+		private void processDelete(
+				Row row,
+				RequestIndexer indexer,
+				long version,
+				String routing,
+				String key,
+				String dynamicIndex) {
+			String realIndex = Strings.isNullOrEmpty(dynamicIndex) ? index : dynamicIndex;
 			final DeleteRequest deleteRequest = requestFactory.createDeleteRequest(
-				index,
+				realIndex,
 				docType,
 				key);
 			if (version > 0) {

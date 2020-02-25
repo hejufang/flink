@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.INDEX;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.ROUTING;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
@@ -267,7 +268,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			String fieldName = optionalGet(properties, nameKey)
 				.orElseThrow(() -> new TableException("Could not find " + nameKey + " in table properties." +
 					" This is a bug, we should have validated this before."));
-			if (!fieldName.equalsIgnoreCase(VERSION) && !fieldName.equalsIgnoreCase(ROUTING)) {
+			if (!fieldName.equalsIgnoreCase(VERSION) && !fieldName.equalsIgnoreCase(ROUTING)
+					&& !fieldName.equalsIgnoreCase(INDEX)) {
 				String typeKey = assembleString(SCHEMA, i, TABLE_SCHEMA_TYPE);
 				String fieldType = optionalGet(properties, typeKey)
 					.orElseThrow(() -> new TableException("Count not find " + typeKey + "int table properties." +
