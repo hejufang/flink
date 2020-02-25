@@ -998,7 +998,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		log.info("Allocate {} containers, Using gang scheduler: {}", containerNumber, useGang);
 		ArrayList<AMRMClient.ContainerRequest> containerRequests = new ArrayList<>();
 		for (int i = 0; i < containerNumber; i++) {
-			containerRequests.add(getContainerRequest(useGang));
+			AMRMClient.ContainerRequest containerRequest = getContainerRequest(useGang);
+			log.debug("Add container request: {}", containerRequest);
+			containerRequests.add(containerRequest);
 		}
 		resourceManagerClient.addContainerRequestList(containerRequests);
 		numPendingContainerRequests += containerNumber;
