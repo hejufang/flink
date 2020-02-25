@@ -73,13 +73,17 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final String CURRENT_OFFSETS_RATE_METRIC = "currentOffsetsRate";
 	private static final String FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
 	private static final String NUMBER_OF_CHECKPOINTS_METRIC = "totalNumberOfCheckpoints";
+	private static final String NUMBER_OF_SPECULATION = "numberOfSpeculation";
+	private static final String NUMBER_OF_SUCCESSFUL_SPECULATION = "numberOfSuccessfulSpeculation";
 
 	// 全局 metric
 	private final Set<String> globalNeededMetrics = new HashSet<>(Arrays.asList(
 			FULL_RESTARTS_METRIC,
 			CURRENT_OFFSETS_RATE_METRIC,
 			FAILED_CHECKPOINTS_METRIC,
-			NUMBER_OF_CHECKPOINTS_METRIC
+			NUMBER_OF_CHECKPOINTS_METRIC,
+			NUMBER_OF_SPECULATION,
+			NUMBER_OF_SUCCESSFUL_SPECULATION
 	));
 
 	// dashboard metric
@@ -123,6 +127,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			// Network Memory
 			"TotalMemorySegments",
 			"AvailableMemorySegments",
+			// speuclation
+			"numberOfSpeculation",
+			"numberOfSuccessfulSpeculation",
 			// CPU
 			"Load",
 			// Checkpoints

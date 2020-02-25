@@ -127,7 +127,8 @@ public class TaskMetricGroup extends ComponentMetricGroup<TaskManagerJobMetricGr
 		return new QueryScopeInfo.TaskQueryScopeInfo(
 			this.parent.jobId.toString(),
 			String.valueOf(this.vertexId),
-			this.subtaskIndex);
+			this.subtaskIndex,
+			this.attemptNumber);
 	}
 
 	// ------------------------------------------------------------------------

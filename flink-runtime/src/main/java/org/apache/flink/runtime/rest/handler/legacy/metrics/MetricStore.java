@@ -142,7 +142,7 @@ public class MetricStore {
 	 * @param subtaskIndex subtask index
 	 * @return SubtaskMetricStore for the given IDs and index, or null if no store for the given arguments exists
 	 */
-	public synchronized ComponentMetricStore getSubtaskMetricStore(String jobID, String taskID, int subtaskIndex) {
+	public synchronized SubtaskMetricStore getSubtaskMetricStore(String jobID, String taskID, int subtaskIndex) {
 		JobMetricStore job = jobID == null ? null : jobs.get(jobID);
 		if (job == null) {
 			return null;
@@ -151,7 +151,15 @@ public class MetricStore {
 		if (task == null) {
 			return null;
 		}
-		return ComponentMetricStore.unmodifiable(task.getSubtaskMetricStore(subtaskIndex));
+		return SubtaskMetricStore.unmodifiable(task.getSubtaskMetricStore(subtaskIndex));
+	}
+
+	public synchronized ComponentMetricStore getAttemptMetricStore(String jobID, String taskID, int subtaskIndex, int attemptNumber) {
+		final SubtaskMetricStore subtask = getSubtaskMetricStore(jobID, taskID, subtaskIndex);
+		if (subtask == null) {
+			return null;
+		}
+		return ComponentMetricStore.unmodifiable(subtask.getAttemptMetricStore(attemptNumber));
 	}
 
 	public synchronized Map<String, JobMetricStore> getJobs() {
@@ -177,7 +185,8 @@ public class MetricStore {
 			TaskManagerMetricStore tm;
 			JobMetricStore job;
 			TaskMetricStore task;
-			ComponentMetricStore subtask;
+			SubtaskMetricStore subtask;
+			ComponentMetricStore attempt;
 
 			String name = info.scope.isEmpty()
 				? metric.name
@@ -209,13 +218,16 @@ public class MetricStore {
 					QueryScopeInfo.TaskQueryScopeInfo taskInfo = (QueryScopeInfo.TaskQueryScopeInfo) info;
 					job = jobs.computeIfAbsent(taskInfo.jobID, k -> new JobMetricStore());
 					task = job.tasks.computeIfAbsent(taskInfo.vertexID, k -> new TaskMetricStore());
-					subtask = task.subtasks.computeIfAbsent(taskInfo.subtaskIndex, k -> new ComponentMetricStore());
+					subtask = task.subtasks.computeIfAbsent(taskInfo.subtaskIndex, k -> new SubtaskMetricStore());
+					attempt = subtask.attempts.computeIfAbsent(taskInfo.attemptNumber, k -> new ComponentMetricStore());
+
 					/**
 					 * The duplication is intended. Metrics scoped by subtask are useful for several job/task handlers,
 					 * while the WebInterface task metric queries currently do not account for subtasks, so we don't
 					 * divide by subtask and instead use the concatenation of subtask index and metric name as the name
 					 * for those.
 					 */
+					addMetric(attempt.metrics, name, metric);
 					addMetric(subtask.metrics, name, metric);
 					addMetric(task.metrics, taskInfo.subtaskIndex + "." + name, metric);
 					break;
@@ -223,7 +235,7 @@ public class MetricStore {
 					QueryScopeInfo.OperatorQueryScopeInfo operatorInfo = (QueryScopeInfo.OperatorQueryScopeInfo) info;
 					job = jobs.computeIfAbsent(operatorInfo.jobID, k -> new JobMetricStore());
 					task = job.tasks.computeIfAbsent(operatorInfo.vertexID, k -> new TaskMetricStore());
-					subtask = task.subtasks.computeIfAbsent(operatorInfo.subtaskIndex, k -> new ComponentMetricStore());
+					subtask = task.subtasks.computeIfAbsent(operatorInfo.subtaskIndex, k -> new SubtaskMetricStore());
 					/**
 					 * As the WebInterface does not account for operators (because it can't) we don't
 					 * divide by operator and instead use the concatenation of subtask index, operator name and metric name
@@ -356,22 +368,22 @@ public class MetricStore {
 	 */
 	@ThreadSafe
 	public static class TaskMetricStore extends ComponentMetricStore {
-		private final Map<Integer, ComponentMetricStore> subtasks;
+		private final Map<Integer, SubtaskMetricStore> subtasks;
 
 		private TaskMetricStore() {
 			this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
 		}
 
-		private TaskMetricStore(Map<String, String> metrics, Map<Integer, ComponentMetricStore> subtasks) {
+		private TaskMetricStore(Map<String, String> metrics, Map<Integer, SubtaskMetricStore> subtasks) {
 			super(metrics);
 			this.subtasks = checkNotNull(subtasks);
 		}
 
-		public ComponentMetricStore getSubtaskMetricStore(int subtaskIndex) {
+		public SubtaskMetricStore getSubtaskMetricStore(int subtaskIndex) {
 			return subtasks.get(subtaskIndex);
 		}
 
-		public Collection<ComponentMetricStore> getAllSubtaskMetricStores() {
+		public Collection<SubtaskMetricStore> getAllSubtaskMetricStores() {
 			return subtasks.values();
 		}
 
@@ -382,6 +394,33 @@ public class MetricStore {
 			return new TaskMetricStore(
 				unmodifiableMap(source.metrics),
 				unmodifiableMap(source.subtasks));
+		}
+	}
+
+	/**
+	 * Sub-structure containing metrics of a single Attempt.
+	 */
+	public static class SubtaskMetricStore extends ComponentMetricStore {
+		private final Map<Integer, ComponentMetricStore> attempts;
+
+		private SubtaskMetricStore() {
+			this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+		}
+
+		private SubtaskMetricStore(Map<String, String> metrics, Map<Integer, ComponentMetricStore> attemps) {
+			super(metrics);
+			this.attempts = attemps;
+		}
+
+		public ComponentMetricStore getAttemptMetricStore(int attempt) {
+			return attempts.get(attempt);
+		}
+
+		private static SubtaskMetricStore unmodifiable(SubtaskMetricStore source) {
+			if (source == null) {
+				return null;
+			}
+			return new SubtaskMetricStore(unmodifiableMap(source.metrics), unmodifiableMap(source.attempts));
 		}
 	}
 }

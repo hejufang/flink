@@ -173,8 +173,8 @@ public class JobDetailsInfo implements ResponseBody {
 			Objects.equals(jobVertexInfos, that.jobVertexInfos) &&
 			Objects.equals(jobVerticesPerState, that.jobVerticesPerState) &&
 			Objects.equals(jsonPlan, that.jsonPlan) &&
-			metric == that.metric &&
-			dtop == that.dtop;
+			metric.equals(that.metric) &&
+			dtop.equals(that.dtop);
 	}
 
 	@Override
@@ -280,6 +280,8 @@ public class JobDetailsInfo implements ResponseBody {
 
 		public static final String FIELD_NAME_JOB_VERTEX_METRICS = "metrics";
 
+		public static final String FIELD_NAME_ISCOPY = "isCopy";
+
 		@JsonProperty(FIELD_NAME_JOB_VERTEX_ID)
 		@JsonSerialize(using = JobVertexIDSerializer.class)
 		private final JobVertexID jobVertexID;
@@ -308,6 +310,9 @@ public class JobDetailsInfo implements ResponseBody {
 		@JsonProperty(FIELD_NAME_JOB_VERTEX_METRICS)
 		private final IOMetricsInfo jobVertexMetrics;
 
+		@JsonProperty(FIELD_NAME_ISCOPY)
+		private final boolean isCopy;
+
 		@JsonCreator
 		public JobVertexDetailsInfo(
 				@JsonDeserialize(using = JobVertexIDDeserializer.class) @JsonProperty(FIELD_NAME_JOB_VERTEX_ID) JobVertexID jobVertexID,
@@ -318,7 +323,8 @@ public class JobDetailsInfo implements ResponseBody {
 				@JsonProperty(FIELD_NAME_JOB_VERTEX_END_TIME) long endTime,
 				@JsonProperty(FIELD_NAME_JOB_VERTEX_DURATION) long duration,
 				@JsonProperty(FIELD_NAME_TASKS_PER_STATE) Map<ExecutionState, Integer> tasksPerState,
-				@JsonProperty(FIELD_NAME_JOB_VERTEX_METRICS) IOMetricsInfo jobVertexMetrics) {
+				@JsonProperty(FIELD_NAME_JOB_VERTEX_METRICS) IOMetricsInfo jobVertexMetrics,
+				@JsonProperty(FIELD_NAME_ISCOPY) boolean isCopy) {
 			this.jobVertexID = Preconditions.checkNotNull(jobVertexID);
 			this.name = Preconditions.checkNotNull(name);
 			this.parallelism = parallelism;
@@ -328,6 +334,7 @@ public class JobDetailsInfo implements ResponseBody {
 			this.duration = duration;
 			this.tasksPerState = Preconditions.checkNotNull(tasksPerState);
 			this.jobVertexMetrics = Preconditions.checkNotNull(jobVertexMetrics);
+			this.isCopy = isCopy;
 		}
 
 		@JsonIgnore
@@ -375,6 +382,11 @@ public class JobDetailsInfo implements ResponseBody {
 			return jobVertexMetrics;
 		}
 
+		@JsonIgnore
+		public boolean isCopy() {
+			return isCopy;
+		}
+
 		@Override
 		public boolean equals(Object o) {
 			if (this == o) {
@@ -392,12 +404,13 @@ public class JobDetailsInfo implements ResponseBody {
 				Objects.equals(name, that.name) &&
 				executionState == that.executionState &&
 				Objects.equals(tasksPerState, that.tasksPerState) &&
-				Objects.equals(jobVertexMetrics, that.jobVertexMetrics);
+				Objects.equals(jobVertexMetrics, that.jobVertexMetrics) &&
+				isCopy == that.isCopy;
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(jobVertexID, name, parallelism, executionState, startTime, endTime, duration, tasksPerState, jobVertexMetrics);
+			return Objects.hash(jobVertexID, name, parallelism, executionState, startTime, endTime, duration, tasksPerState, jobVertexMetrics, isCopy);
 		}
 	}
 

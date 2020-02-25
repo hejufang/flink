@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.executiongraph.AccessExecution;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
@@ -170,7 +171,14 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 		boolean allFinished = true;
 
 		for (AccessExecutionVertex vertex : ejv.getTaskVertices()) {
-			final ExecutionState state = vertex.getMainExecution().getState();
+			ExecutionState state = vertex.getMainExecution().getState();
+			for (final AccessExecution exec : vertex.getCopyExecutions()) {
+				if (exec.getState().isFinished()) {
+					// 任意一个 Execution FINISHED 就算 FINISHED
+					state = ExecutionState.FINISHED;
+					break;
+				}
+			}
 			tasksPerState[state.ordinal()]++;
 
 			// take the earliest start time
@@ -210,12 +218,24 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 
 		MutableIOMetrics counts = new MutableIOMetrics();
 
+		boolean isCopy = false;
 		for (AccessExecutionVertex vertex : ejv.getTaskVertices()) {
 			counts.addIOMetrics(
-				vertex.getMainExecution(),
-				metricFetcher,
-				jobId.toString(),
-				ejv.getJobVertexId().toString());
+					vertex.getMainExecution(),
+					metricFetcher,
+					jobId.toString(),
+					ejv.getJobVertexId().toString());
+
+			if (vertex.getCopyExecutions().size() > 0) {
+				isCopy = true;
+				for (AccessExecution ae : vertex.getCopyExecutions()) {
+					counts.addIOMetrics(
+							ae,
+							metricFetcher,
+							jobId.toString(),
+							ejv.getJobVertexId().toString());
+				}
+			}
 		}
 
 		final IOMetricsInfo jobVertexMetrics = new IOMetricsInfo(
@@ -237,6 +257,7 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			endTime,
 			duration,
 			tasksPerStateMap,
-			jobVertexMetrics);
+			jobVertexMetrics,
+			isCopy);
 	}
 }

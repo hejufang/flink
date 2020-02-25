@@ -98,7 +98,6 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		@JsonProperty(FIELD_NAME_HARDWARE) HardwareDescription hardwareDescription) {
 		this(resourceId, address, dataPort, lastHeartbeat, numberSlots, numberAvailableSlots,
 			hardwareDescription, null, null);
-
 	}
 
 	@JsonCreator
@@ -175,8 +174,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			Objects.equals(resourceId, that.resourceId) &&
 			Objects.equals(address, that.address) &&
 			Objects.equals(hardwareDescription, that.hardwareDescription) &&
-			webShell == that.webShell &&
-			tmLog == that.tmLog;
+			webShell.equals(that.webShell) &&
+			tmLog.equals(that.tmLog);
 	}
 
 	@Override

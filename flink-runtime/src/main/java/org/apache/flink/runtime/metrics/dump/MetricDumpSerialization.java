@@ -230,6 +230,7 @@ public class MetricDumpSerialization {
 				out.writeUTF(taskInfo.jobID);
 				out.writeUTF(taskInfo.vertexID);
 				out.writeInt(taskInfo.subtaskIndex);
+				out.writeInt(taskInfo.attemptNumber);
 				break;
 			case INFO_CATEGORY_OPERATOR:
 				QueryScopeInfo.OperatorQueryScopeInfo operatorInfo = (QueryScopeInfo.OperatorQueryScopeInfo) info;
@@ -401,6 +402,7 @@ public class MetricDumpSerialization {
 		String jobID;
 		String vertexID;
 		int subtaskIndex;
+		int attemptNumber;
 
 		String scope = dis.readUTF();
 		byte cat = dis.readByte();
@@ -417,7 +419,8 @@ public class MetricDumpSerialization {
 				jobID = dis.readUTF();
 				vertexID = dis.readUTF();
 				subtaskIndex = dis.readInt();
-				return new QueryScopeInfo.TaskQueryScopeInfo(jobID, vertexID, subtaskIndex, scope);
+				attemptNumber = dis.readInt();
+				return new QueryScopeInfo.TaskQueryScopeInfo(jobID, vertexID, subtaskIndex, scope, attemptNumber);
 			case INFO_CATEGORY_OPERATOR:
 				jobID = dis.readUTF();
 				vertexID = dis.readUTF();

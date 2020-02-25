@@ -21,6 +21,7 @@ package org.apache.flink.runtime.rest.handler.job;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.executiongraph.AccessExecution;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
 import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
@@ -111,33 +112,45 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 		final long now = System.currentTimeMillis();
 		int num = 0;
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
-			final ExecutionState status = vertex.getMainExecution().getState();
+			// add main execution first
+			subtasks.add(generateVertexTaskDetail(vertex.getMainExecution(), now, jobID, jobVertex.getJobVertexId(), num, metricFetcher));
 
-			TaskManagerLocation location = vertex.getMainExecution().getAssignedResourceLocation();
-			String locationString = location == null ? "(unassigned)" : location.getHostname() + ":" + location.dataPort();
-
-			long startTime = vertex.getMainExecution().getStateTimestamp(ExecutionState.DEPLOYING);
-			if (startTime == 0) {
-				startTime = -1;
+			// add copy executions
+			for (AccessExecution exec : vertex.getCopyExecutions()) {
+				subtasks.add(generateVertexTaskDetail(exec, now, jobID, jobVertex.getJobVertexId(), num, metricFetcher));
 			}
-			long endTime = status.isTerminal() ? vertex.getMainExecution().getStateTimestamp(status) : -1;
-			long duration = startTime > 0 ? ((endTime > 0 ? endTime : now) - startTime) : -1;
+			num++;
+		}
 
-			MutableIOMetrics counts = new MutableIOMetrics();
-			counts.addIOMetrics(
-				vertex.getMainExecution(),
+		return new JobVertexDetailsInfo(
+				jobVertex.getJobVertexId(),
+				jobVertex.getName(),
+				jobVertex.getParallelism(),
+				now,
+				subtasks);
+	}
+
+	private static JobVertexDetailsInfo.VertexTaskDetail generateVertexTaskDetail(AccessExecution exec, long now, JobID jobID, JobVertexID jobVertex, int num, MetricFetcher metricFetcher) {
+		final ExecutionState status = exec.getState();
+
+		TaskManagerLocation location = exec.getAssignedResourceLocation();
+		String locationString = location == null ? "(unassigned)" : location.getHostname() + ":" + location.dataPort();
+
+		long startTime = exec.getStateTimestamp(ExecutionState.DEPLOYING);
+		if (startTime == 0) {
+			startTime = -1;
+		}
+		long endTime = status.isTerminal() ? exec.getStateTimestamp(status) : -1;
+		long duration = startTime > 0 ? ((endTime > 0 ? endTime : now) - startTime) : -1;
+
+		MutableIOMetrics counts = new MutableIOMetrics();
+		counts.addIOMetrics(
+				exec,
 				metricFetcher,
 				jobID.toString(),
-				jobVertex.getJobVertexId().toString());
-			subtasks.add(new JobVertexDetailsInfo.VertexTaskDetail(
-				num,
-				status,
-				vertex.getMainExecution().getAttemptNumber(),
-				locationString,
-				startTime,
-				endTime,
-				duration,
-				new IOMetricsInfo(
+				jobVertex.toString());
+
+		IOMetricsInfo ioMetricsInfo = new IOMetricsInfo(
 					counts.getNumBytesIn(),
 					counts.isNumBytesInComplete(),
 					counts.getNumBytesOut(),
@@ -145,16 +158,16 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 					counts.getNumRecordsIn(),
 					counts.isNumRecordsInComplete(),
 					counts.getNumRecordsOut(),
-					counts.isNumRecordsOutComplete())));
+					counts.isNumRecordsOutComplete());
 
-			num++;
-		}
-
-		return new JobVertexDetailsInfo(
-			jobVertex.getJobVertexId(),
-			jobVertex.getName(),
-			jobVertex.getParallelism(),
-			now,
-			subtasks);
+		return new JobVertexDetailsInfo.VertexTaskDetail(
+				num,
+				status,
+				exec.getAttemptNumber(),
+				locationString,
+				startTime,
+				endTime,
+				duration,
+				ioMetricsInfo);
 	}
 }
