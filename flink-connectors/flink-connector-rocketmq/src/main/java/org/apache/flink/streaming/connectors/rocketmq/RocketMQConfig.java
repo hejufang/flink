@@ -17,21 +17,14 @@
 
 package org.apache.flink.streaming.connectors.rocketmq;
 
-import com.alibaba.fastjson.JSONArray;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.rocketmq.acl.common.AclClientRPCHook;
 import org.apache.rocketmq.acl.common.SessionCredentials;
 import org.apache.rocketmq.client.ClientConfig;
 import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
-import org.apache.rocketmq.common.MixAll;
-import org.apache.rocketmq.common.namesrv.Consul;
-import org.apache.rocketmq.common.namesrv.TopAddressing;
 import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -150,27 +143,6 @@ public class RocketMQConfig {
 			CONSUMER_OFFSET_PERSIST_INTERVAL, CONSUMER_OFFSET_PERSIST_INTERVAL_DEFAULT));
 	}
 
-	public static String fetchNameServerAddr(TopAddressing topAddressing) {
-		try {
-			String respBody = topAddressing.fetchNSAddr();
-			List<Consul> consulList = JSONArray.parseArray(respBody, Consul.class);
-			List<String> consulIpPortList = new ArrayList<>();
-			Iterator<Consul> consulIterator = consulList.iterator();
-			while (consulIterator.hasNext()) {
-				Consul consul = consulIterator.next();
-				consulIpPortList.add(String.format("%s:%d", consul.getHost(), consul.getPort()));
-			}
-			String addrs = String.join(";", consulIpPortList);
-			if (!addrs.equals("")) {
-				return addrs;
-			} else {
-				throw new RuntimeException("fetchNameServerAddr Exception, addrs is null");
-			}
-		} catch (Exception e) {
-			throw new RuntimeException("fetchNameServerAddr Exception", e);
-		}
-	}
-
 	/**
 	 * Build Common Configs.
 	 *
@@ -178,14 +150,6 @@ public class RocketMQConfig {
 	 * @param client ClientConfig
 	 */
 	public static void buildCommonConfigs(Properties props, ClientConfig client) {
-		String nameServers = props.getProperty(NAME_SERVER_ADDR);
-		if (nameServers != null) {
-			client.setNamesrvAddr(nameServers);
-		} else {
-			final TopAddressing topAddressing = new TopAddressing(MixAll.getWSAddr());
-			nameServers = fetchNameServerAddr(topAddressing);
-			client.setNamesrvAddr(nameServers);
-		}
 		client.setPollNameServerInterval(getInteger(props,
 			NAME_SERVER_POLL_INTERVAL, NAME_SERVER_POLL_INTERVAL_DEFAULT));
 		client.setHeartbeatBrokerInterval(getInteger(props,

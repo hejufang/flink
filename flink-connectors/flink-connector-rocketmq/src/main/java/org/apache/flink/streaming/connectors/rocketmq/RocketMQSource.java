@@ -100,24 +100,15 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	}
 
 	@Override
-	public void open(Configuration parameters) throws Exception {
+	public void open(Configuration parameters) {
 		RocketMQUtils.setLog(props);
 		LOG.debug("source open....");
 		Preconditions.checkNotNull(props, "Consumer properties can not be empty");
 		Preconditions.checkNotNull(schema, "RocketMQDeserializationSchema can not be null");
 		String cluster = props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
-		Preconditions.checkNotNull(cluster, "Cluster can not be null");
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, cluster);
-		System.setProperty(RocketMQConfig.PSM,
-			props.getProperty(RocketMQConfig.ROCKETMQ_CONSUMER_PSM, "inf.flink.unknown"));
-		String domainSubgroup =
-			props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, null);
-		if (domainSubgroup != null && !domainSubgroup.isEmpty()) {
-			System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, domainSubgroup);
-		}
-
 		this.topic = props.getProperty(RocketMQConfig.CONSUMER_TOPIC);
 		this.group = props.getProperty(RocketMQConfig.CONSUMER_GROUP);
+		Preconditions.checkNotNull(cluster, "Cluster can not be null");
 		Preconditions.checkNotNull(topic, "Consumer topic can not be null");
 		Preconditions.checkNotNull(group, "Consumer group can not be empty");
 		Preconditions.checkArgument(!topic.isEmpty(), "Consumer topic can not be empty");
@@ -142,7 +133,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		//Wait for lite pull consumer
 		pullConsumerScheduleService = new MQPullConsumerScheduleService(group);
-		DefaultMQPullConsumer defaultMQPullConsumer = new DefaultMQPullConsumer(group, RocketMQConfig.buildAclRPCHook(props));
+		DefaultMQPullConsumer defaultMQPullConsumer =
+			new DefaultMQPullConsumer(group, RocketMQConfig.buildAclRPCHook(props));
+		defaultMQPullConsumer.setCluster(cluster);
 		defaultMQPullConsumer.setMessageModel(MessageModel.CLUSTERING);
 		pullConsumerScheduleService.setDefaultMQPullConsumer(defaultMQPullConsumer);
 		consumer = pullConsumerScheduleService.getDefaultMQPullConsumer();

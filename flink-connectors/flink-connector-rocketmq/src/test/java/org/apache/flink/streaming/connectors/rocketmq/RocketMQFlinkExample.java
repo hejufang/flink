@@ -33,9 +33,7 @@ import java.util.Properties;
  */
 public class RocketMQFlinkExample {
 	public static void main(String[] args) {
-		final String rocketMQCluster = "dts";
-		final String psm = "data.dp.dts_rocketmq_test";
-		final String subGroup = "lq";
+		final String rocketMQCluster = "dts.service.lq";
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -43,15 +41,11 @@ public class RocketMQFlinkExample {
 
 		Properties consumerProps = new Properties();
 		consumerProps.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, rocketMQCluster);
-		consumerProps.setProperty(RocketMQConfig.ROCKETMQ_CONSUMER_PSM, psm);
-		consumerProps.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, subGroup);
 		consumerProps.setProperty(RocketMQConfig.CONSUMER_GROUP, "c002");
 		consumerProps.setProperty(RocketMQConfig.CONSUMER_TOPIC, "to_hive_topic_2");
 
 		Properties producerProps = new Properties();
 		producerProps.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, rocketMQCluster);
-		producerProps.setProperty(RocketMQConfig.ROCKETMQ_PRODUCER_PSM, psm);
-		producerProps.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, subGroup);
 		int msgDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL05;
 		producerProps.setProperty(RocketMQConfig.MSG_DELAY_LEVEL, String.valueOf(msgDelayLevel));
 		// TimeDelayLevel is not supported for batching

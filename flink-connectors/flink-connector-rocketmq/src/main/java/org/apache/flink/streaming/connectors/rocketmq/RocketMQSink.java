@@ -109,7 +109,7 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 	}
 
 	@Override
-	public void open(Configuration parameters) throws Exception {
+	public void open(Configuration parameters) {
 		RocketMQUtils.setLog(props);
 		Preconditions.checkArgument(!props.isEmpty(), "Producer properties can not be empty");
 		Preconditions.checkNotNull(topicSelector, "TopicSelector can not be null");
@@ -117,15 +117,9 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 
 		String cluster = props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
 		Preconditions.checkNotNull(cluster, "Cluster can not be null");
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, cluster);
-		System.setProperty(RocketMQConfig.PSM,
-			props.getProperty(RocketMQConfig.ROCKETMQ_PRODUCER_PSM, "inf.flink.unknown"));
-		String domainSubgroup =
-			props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, null);
-		if (domainSubgroup != null && !domainSubgroup.isEmpty()) {
-			System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP, domainSubgroup);
-		}
+
 		producer = new DefaultMQProducer(RocketMQConfig.buildAclRPCHook(props));
+		producer.setCluster(cluster);
 		producer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildProducerConfigs(props, producer);
 
