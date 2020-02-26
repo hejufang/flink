@@ -219,7 +219,7 @@ public class NettyShuffleEnvironmentOptions {
 
 	public static final ConfigOption<Boolean> CLIENT_READ_TIMEOUT_ENABLED = ConfigOptions
 		.key("taskmanager.network.netty.client.readTimeout.enabled")
-		.defaultValue(Boolean.TRUE)
+		.defaultValue(Boolean.FALSE)
 		.withDescription("Enable netty client read timeout");
 
 	// ------------------------------------------------------------------------

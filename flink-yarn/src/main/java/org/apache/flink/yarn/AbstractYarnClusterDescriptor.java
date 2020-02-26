@@ -31,6 +31,7 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SecurityOptions;
@@ -201,6 +202,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
 		flinkConfiguration.setBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS, true);
+		flinkConfiguration.setBoolean(NettyShuffleEnvironmentOptions.CLIENT_READ_TIMEOUT_ENABLED, true);
 	}
 
 	public void setQueue(String queue) {

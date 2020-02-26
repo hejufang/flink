@@ -123,7 +123,6 @@ common:
 
   nmclientasync.enabled: true
   taskmanager.initial-on-start: false
-  taskmanager.network.netty.client.readTimeout.enabled: true
   resourcemanager.taskmanager-timeout: 900000
   slot.request.timeout: 900000
 
