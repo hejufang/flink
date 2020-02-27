@@ -134,6 +134,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"Load",
 			// Checkpoints
 			"numberOfTriggerFailedCheckpoints",
+			"lastCheckpointDuration",
 			"numberOfFailedCheckpoints",
 			"totalNumberOfCheckpoints",
 			// Blacklist

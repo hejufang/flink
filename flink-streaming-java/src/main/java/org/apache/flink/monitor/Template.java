@@ -1602,4 +1602,97 @@ public class Template {
 		"			\"title\": \"Dashboard Row\",\n" +
 		"			\"titleSize\": \"h6\"\n" +
 		"		}";
+
+	public static final String CHECKPOINT_DURATION = "{\n" +
+			"			\"collapse\": false,\n" +
+			"			\"height\": 250,\n" +
+			"			\"panels\": [\n" +
+			"				{\n" +
+			"					\"aliasColors\": {},\n" +
+			"					\"bars\": false,\n" +
+			"					\"dashLength\": 10,\n" +
+			"					\"dashes\": false,\n" +
+			"					\"datasource\": \"${datasource}\",\n" +
+			"					\"fill\": 1,\n" +
+			"					\"id\": 15,\n" +
+			"					\"legend\": {\n" +
+			"						\"alignAsTable\": true,\n" +
+			"						\"avg\": true,\n" +
+			"						\"current\": true,\n" +
+			"						\"max\": true,\n" +
+			"						\"min\": false,\n" +
+			"						\"rightSide\": true,\n" +
+			"						\"show\": true,\n" +
+			"						\"sort\": null,\n" +
+			"						\"sortDesc\": null,\n" +
+			"						\"total\": false,\n" +
+			"						\"values\": true\n" +
+			"					},\n" +
+			"					\"lines\": true,\n" +
+			"					\"linewidth\": 1,\n" +
+			"					\"links\": [],\n" +
+			"					\"nullPointMode\": \"null\",\n" +
+			"					\"percentage\": false,\n" +
+			"					\"pointradius\": 5,\n" +
+			"					\"points\": false,\n" +
+			"					\"renderer\": \"flot\",\n" +
+			"					\"seriesOverrides\": [],\n" +
+			"					\"spaceLength\": 10,\n" +
+			"					\"span\": 12,\n" +
+			"					\"stack\": false,\n" +
+			"					\"steppedLine\": false,\n" +
+			"					\"targets\": [\n" +
+			"						{\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"alias\": \"lastCheckpointDuration\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.jobmanager.${jobname}.lastCheckpointDuration\",\n" +
+			"							\"refId\": \"A\"\n" +
+			"						}\n" +
+			"					],\n" +
+			"					\"thresholds\": [],\n" +
+			"					\"timeFrom\": null,\n" +
+			"					\"timeShift\": null,\n" +
+			"					\"title\": \"Checkpoint Duration\",\n" +
+			"					\"tooltip\": {\n" +
+			"						\"shared\": true,\n" +
+			"						\"sort\": 0,\n" +
+			"						\"value_type\": \"individual\"\n" +
+			"					},\n" +
+			"					\"type\": \"graph\",\n" +
+			"					\"xaxis\": {\n" +
+			"						\"buckets\": null,\n" +
+			"						\"mode\": \"time\",\n" +
+			"						\"name\": null,\n" +
+			"						\"show\": true,\n" +
+			"						\"values\": []\n" +
+			"					},\n" +
+			"					\"yaxes\": [\n" +
+			"						{\n" +
+			"							\"format\": \"ms\",\n" +
+			"							\"label\": null,\n" +
+			"							\"logBase\": 1,\n" +
+			"							\"max\": null,\n" +
+			"							\"min\": null,\n" +
+			"							\"show\": true\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"format\": \"short\",\n" +
+			"							\"label\": null,\n" +
+			"							\"logBase\": 1,\n" +
+			"							\"max\": null,\n" +
+			"							\"min\": null,\n" +
+			"							\"show\": true\n" +
+			"						}\n" +
+			"					]\n" +
+			"				}\n" +
+			"			],\n" +
+			"			\"repeat\": null,\n" +
+			"			\"repeatIteration\": null,\n" +
+			"			\"repeatRowId\": null,\n" +
+			"			\"showTitle\": false,\n" +
+			"			\"title\": \"Dashboard Row\",\n" +
+			"			\"titleSize\": \"h6\"\n" +
+			"		}";
 }

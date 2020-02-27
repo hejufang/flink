@@ -128,6 +128,15 @@ public class Dashboard {
 		return checkpointRow;
 	}
 
+	public String renderCheckpointDurationRow() {
+		String checkpointDurationTemplate = Template.CHECKPOINT_DURATION;
+		Map<String, String> checkpointValues = new HashMap<>();
+		checkpointValues.put("jobname", jobName);
+		checkpointValues.put("datasource", dataSource);
+		String checkpointDurationRow = renderString(checkpointDurationTemplate, checkpointValues);
+		return checkpointDurationRow;
+	}
+
 	public String renderQueueLengthRow(List<String> operators) {
 		String queueLengthTargetTemplate = Template.QUEUE_LENGTH_TARGET;
 		List<String> queueLengthList = new ArrayList<>();
@@ -293,6 +302,7 @@ public class Dashboard {
 		rows.add(renderJobInfoRow());
 		rows.add(renderTmSlotRow());
 		rows.add(renderCheckpointRow());
+		rows.add(renderCheckpointDurationRow());
 
 		String template = Template.TEMPLATE;
 		String rowsStr = String.join(",", rows);

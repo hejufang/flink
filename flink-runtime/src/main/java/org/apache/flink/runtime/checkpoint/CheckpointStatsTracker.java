@@ -436,11 +436,20 @@ public class CheckpointStatsTracker {
 	}
 
 	private class LatestCompletedCheckpointDurationGauge implements Gauge<Long> {
+
+		private long lastCheckpointId = -1L;
+
 		@Override
 		public Long getValue() {
 			CompletedCheckpointStats completed = latestCompletedCheckpoint;
 			if (completed != null) {
-				return completed.getEndToEndDuration();
+				// 防止同一个 checkpoint 重复上报
+				if (completed.checkpointId > lastCheckpointId) {
+					lastCheckpointId = completed.checkpointId;
+					return completed.getEndToEndDuration();
+				} else {
+					return -1L;
+				}
 			} else {
 				return -1L;
 			}
