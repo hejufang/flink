@@ -59,6 +59,8 @@ import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.R
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_ROCKETMQ_NAMESRV_DOMAIN_SUBGROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_ROCKETMQ_PRODUCER_PSM;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_ROCKETMQ_PROPERTIES;
+import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_STARTUP_MODE;
+import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_STARTUP_MODE_FROM_TIMESTAMP;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_TOPIC_SELECTOR;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_TYPE_VALUE_ROCKETMQ;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONSUMER;
@@ -109,6 +111,8 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		properties.add(CONNECTOR_CONSUMER_TOPIC);
 		properties.add(CONNECTOR_CONSUMER_TAG);
 		properties.add(CONNECTOR_CONSUMER_OFFSET_RESET_TO);
+		properties.add(CONNECTOR_STARTUP_MODE);
+		properties.add(CONNECTOR_STARTUP_MODE_FROM_TIMESTAMP);
 		properties.add(CONNECTOR_CONSUMER_OFFSET_FROM_TIMESTAMP);
 		properties.add(CONNECTOR_PRODUCER_GROUP);
 		properties.add(CONNECTOR_PRODUCER_TOPIC);
@@ -254,6 +258,8 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		properties.add(CONNECTOR_PRODUCER_GROUP);
 		properties.add(CONNECTOR_CONSUMER_TAG);
 		properties.add(CONNECTOR_CONSUMER_OFFSET_RESET_TO);
+		properties.add(CONNECTOR_STARTUP_MODE);
+		properties.add(CONNECTOR_STARTUP_MODE_FROM_TIMESTAMP);
 		properties.add(CONNECTOR_CONSUMER_OFFSET_FROM_TIMESTAMP);
 		return properties;
 	}

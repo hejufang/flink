@@ -59,6 +59,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_EARLIEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_LATEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_TIMESTAMP;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_EARLIST;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_GROUP;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_LATEST;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_TIMESTAMP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getInteger;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getLong;
 
@@ -261,24 +266,43 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		if (restored && offset == null) {
 			offset = restoredOffsets.get(mq);
 		}
+
 		if (offset == null) {
-			offset = consumer.fetchConsumeOffset(mq, false);
-			if (offset < 0) {
-				String initialOffset = props.getProperty(RocketMQConfig.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_LATEST);
-				switch (initialOffset) {
-					case CONSUMER_OFFSET_EARLIEST:
-						offset = consumer.minOffset(mq);
-						break;
-					case CONSUMER_OFFSET_LATEST:
-						offset = consumer.maxOffset(mq);
-						break;
-					case CONSUMER_OFFSET_TIMESTAMP:
-						offset = consumer.searchOffset(mq, getLong(props,
-							RocketMQConfig.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis()));
-						break;
-					default:
-						throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
-				}
+			String startupMode = props.getProperty(STARTUP_MODE, STARTUP_MODE_GROUP);
+			switch (startupMode) {
+				case STARTUP_MODE_GROUP:
+					offset = consumer.fetchConsumeOffset(mq, false);
+					if (offset < 0) {
+						// We cannot get normal offset from RMQ.
+						String initialOffset = props.getProperty(RocketMQConfig.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_LATEST);
+						switch (initialOffset) {
+							case CONSUMER_OFFSET_EARLIEST:
+								offset = consumer.minOffset(mq);
+								break;
+							case CONSUMER_OFFSET_LATEST:
+								offset = consumer.maxOffset(mq);
+								break;
+							case CONSUMER_OFFSET_TIMESTAMP:
+								offset = consumer.searchOffset(mq, getLong(props,
+									RocketMQConfig.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis()));
+								break;
+							default:
+								throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
+						}
+					}
+					break;
+				case STARTUP_MODE_EARLIST:
+					offset = consumer.minOffset(mq);
+					break;
+				case STARTUP_MODE_LATEST:
+					offset = consumer.maxOffset(mq);
+					break;
+				case STARTUP_MODE_TIMESTAMP:
+					offset = consumer.searchOffset(mq, getLong(props,
+						RocketMQConfig.STARTUP_MODE_FROM_TIMESTAMP, System.currentTimeMillis()));
+					break;
+				default:
+					throw new IllegalArgumentException("Unknown value for startup-mode: " + startupMode);
 			}
 		}
 		offsetTable.put(mq, offset);

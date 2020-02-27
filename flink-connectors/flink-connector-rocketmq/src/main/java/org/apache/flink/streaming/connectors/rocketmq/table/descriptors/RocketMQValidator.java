@@ -40,6 +40,8 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_CONSUMER_OFFSET_RESET_TO = "connector.consumer.offset.reset.to";
 	public static final String CONNECTOR_CONSUMER_OFFSET_FROM_TIMESTAMP =
 		"connector.consumer.offset.from.timestamp";
+	public static final String CONNECTOR_STARTUP_MODE = "connector.startup-mode";
+	public static final String CONNECTOR_STARTUP_MODE_FROM_TIMESTAMP = "connector.startup-mode.from.timestamp";
 
 	// Producer config
 	public static final String CONNECTOR_ROCKETMQ_PRODUCER_PSM = "connector.rocketmq.producer.psm";
@@ -72,6 +74,8 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_CONSUMER_TOPIC, true, 1);
 		properties.validateString(CONNECTOR_CONSUMER_TAG, true, 1);
 		properties.validateString(CONNECTOR_CONSUMER_OFFSET_RESET_TO, true, 1);
+		properties.validateString(CONNECTOR_STARTUP_MODE, true, 1);
+		properties.validateLong(CONNECTOR_STARTUP_MODE_FROM_TIMESTAMP, true, 1);
 		properties.validateLong(CONNECTOR_CONSUMER_OFFSET_FROM_TIMESTAMP, true);
 
 		properties.validateString(CONNECTOR_ROCKETMQ_PRODUCER_PSM, true, 1);
