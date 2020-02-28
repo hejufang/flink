@@ -133,20 +133,37 @@ public class SlotPoolImpl implements SlotPool {
 
 	private ComponentMainThreadExecutor componentMainThreadExecutor;
 
-	// ------------------------------------------------------------------------
+	private final boolean enableAvailableSlots;
 
+	// ------------------------------------------------------------------------
 	public SlotPoolImpl(
 			JobID jobId,
 			Clock clock,
 			Time rpcTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout) {
+		this(jobId,
+			clock,
+			rpcTimeout,
+			idleSlotTimeout,
+			batchSlotTimeout,
+			true);
+	}
+
+	public SlotPoolImpl(
+			JobID jobId,
+			Clock clock,
+			Time rpcTimeout,
+			Time idleSlotTimeout,
+			Time batchSlotTimeout,
+			boolean enableAvailableSlots) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
 		this.idleSlotTimeout = checkNotNull(idleSlotTimeout);
 		this.batchSlotTimeout = checkNotNull(batchSlotTimeout);
+		this.enableAvailableSlots = enableAvailableSlots;
 
 		this.registeredTaskManagers = new HashSet<>(16);
 		this.allocatedSlots = new AllocatedSlots();
@@ -533,8 +550,13 @@ public class SlotPoolImpl implements SlotPool {
 			allocatedSlots.add(pendingRequest.getSlotRequestId(), allocatedSlot);
 			pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot);
 		} else {
-			log.debug("Adding returned slot [{}] to available slots", allocatedSlot.getAllocationId());
-			availableSlots.add(allocatedSlot, clock.relativeTimeMillis());
+			if (enableAvailableSlots) {
+				log.debug("Adding returned slot [{}] to available slots", allocatedSlot.getAllocationId());
+				availableSlots.add(allocatedSlot, clock.relativeTimeMillis());
+			} else {
+				log.debug("Available slot not enable, returned slot [{}] to TaskManager.", allocatedSlot.getAllocationId());
+				allocatedSlot.getTaskManagerGateway().freeSlot(allocatedSlot.getAllocationId(), new Exception(), rpcTimeout);
+			}
 		}
 	}
 

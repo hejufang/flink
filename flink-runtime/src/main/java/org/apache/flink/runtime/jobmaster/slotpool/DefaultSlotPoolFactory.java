@@ -45,15 +45,19 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 	@Nonnull
 	private final Time batchSlotTimeout;
 
+	private final boolean enableAvailableSlots;
+
 	public DefaultSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
 			@Nonnull Time slotIdleTimeout,
-			@Nonnull Time batchSlotTimeout) {
+			@Nonnull Time batchSlotTimeout,
+			boolean enableAvailableSlots) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
+		this.enableAvailableSlots = enableAvailableSlots;
 	}
 
 	@Override
@@ -64,7 +68,8 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			clock,
 			rpcTimeout,
 			slotIdleTimeout,
-			batchSlotTimeout);
+			batchSlotTimeout,
+			enableAvailableSlots);
 	}
 
 	public static DefaultSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {
@@ -72,11 +77,13 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 		final Time rpcTimeout = AkkaUtils.getTimeoutAsTime(configuration);
 		final Time slotIdleTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_IDLE_TIMEOUT));
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
+		final boolean enableAvailableSlots = configuration.getBoolean(JobManagerOptions.ENABLE_AVAILABLE_SLOTS);
 
 		return new DefaultSlotPoolFactory(
 			SystemClock.getInstance(),
 			rpcTimeout,
 			slotIdleTimeout,
-			batchSlotTimeout);
+			batchSlotTimeout,
+			enableAvailableSlots);
 	}
 }

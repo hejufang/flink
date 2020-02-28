@@ -188,6 +188,16 @@ public class JobManagerOptions {
 			// default matches heartbeat.timeout so that sticky allocation is not lost on timeouts for local recovery
 			.defaultValue(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT.defaultValue())
 			.withDescription("The timeout in milliseconds for a idle slot in Slot Pool.");
+
+	/**
+	 * Whether use SlotPool cache available slots.
+	 * If not, return to TaskManager.
+	 */
+	public static final ConfigOption<Boolean> ENABLE_AVAILABLE_SLOTS =
+		key("slotpool.available-slots.enabled")
+			.defaultValue(true)
+			.withDescription("Whether use SlotPool cache available slots. If not, return to TaskManager.");
+
 	/**
 	 * Config parameter determining the scheduler implementation.
 	 */

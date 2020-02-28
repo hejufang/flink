@@ -63,6 +63,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Implementation of {@link SlotManager}.
@@ -106,11 +107,17 @@ public class SlotManagerImpl implements SlotManager {
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
 
+	/** Number of Pending TaskManagers.*/
+	private AtomicInteger pendingTaskManagers;
+
+	/** Number of Current Active TaskManagers.*/
+	private AtomicInteger activeTaskManagers;
+
 	/** Map of fulfilled and active allocations for request deduplication purposes. */
 	private final HashMap<AllocationID, SlotID> fulfilledSlotRequests;
 
 	/** Map of pending/unfulfilled slot allocation requests. */
-	private final HashMap<AllocationID, PendingSlotRequest> pendingSlotRequests;
+	private final LinkedHashMap<AllocationID, PendingSlotRequest> pendingSlotRequests;
 
 	private final HashMap<TaskManagerSlotId, PendingTaskManagerSlot> pendingSlots;
 
@@ -128,6 +135,14 @@ public class SlotManagerImpl implements SlotManager {
 	private ScheduledFuture<?> taskManagerTimeoutCheck;
 
 	private ScheduledFuture<?> slotRequestTimeoutCheck;
+
+	/** Check number of TaskManagers exceeds the minimal number. */
+	private ScheduledFuture<?> fullFillInitialTaskManagerCheck;
+
+	/** Interval of check taskmanager number. */
+	private final Time initialTaskManagerCheckIntervalMs;
+
+	private final boolean waitForInitialized;
 
 	/** True iff the component has been started. */
 	private boolean started;
@@ -182,6 +197,8 @@ public class SlotManagerImpl implements SlotManager {
 				initialTaskManager,
 				extraInitialTaskManagerNumbers,
 				extraInitialTaskManagerFraction,
+				false,
+				Time.milliseconds(0),
 				false);
 	}
 
@@ -196,7 +213,9 @@ public class SlotManagerImpl implements SlotManager {
 			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction,
-			boolean shufflePendingSlots) {
+			boolean shufflePendingSlots,
+			Time initialTaskManagerCheckIntervalMs,
+			boolean waitForInitialized) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
@@ -209,13 +228,17 @@ public class SlotManagerImpl implements SlotManager {
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 		this.shufflePendingSlots = shufflePendingSlots;
+		this.initialTaskManagerCheckIntervalMs = Preconditions.checkNotNull(initialTaskManagerCheckIntervalMs);
+		this.waitForInitialized = waitForInitialized;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
 		taskManagerRegistrations = new HashMap<>(4);
 		fulfilledSlotRequests = new HashMap<>(16);
-		pendingSlotRequests = new HashMap<>(16);
+		pendingSlotRequests = new LinkedHashMap<>(16);
 		pendingSlots = new HashMap<>(16);
+		pendingTaskManagers = new AtomicInteger(0);
+		activeTaskManagers = new AtomicInteger(0);
 
 		resourceManagerId = null;
 		resourceActions = null;
@@ -319,6 +342,14 @@ public class SlotManagerImpl implements SlotManager {
 			0L,
 			slotRequestTimeout.toMilliseconds(),
 			TimeUnit.MILLISECONDS);
+
+		if (waitForInitialized) {
+			fullFillInitialTaskManagerCheck = scheduledExecutor.scheduleWithFixedDelay(
+					() -> mainThreadExecutor.execute(this::tryFullFillInitialTaskManagers),
+					initialTaskManagerCheckIntervalMs.toMilliseconds(),
+					initialTaskManagerCheckIntervalMs.toMilliseconds(),
+					TimeUnit.MILLISECONDS);
+		}
 	}
 
 	/**
@@ -337,6 +368,11 @@ public class SlotManagerImpl implements SlotManager {
 		if (slotRequestTimeoutCheck != null) {
 			slotRequestTimeoutCheck.cancel(false);
 			slotRequestTimeoutCheck = null;
+		}
+
+		if (fullFillInitialTaskManagerCheck != null) {
+			fullFillInitialTaskManagerCheck.cancel(false);
+			fullFillInitialTaskManagerCheck = null;
 		}
 
 		for (PendingSlotRequest pendingSlotRequest : pendingSlotRequests.values()) {
@@ -391,14 +427,19 @@ public class SlotManagerImpl implements SlotManager {
 			PendingSlotRequest pendingSlotRequest = new PendingSlotRequest(slotRequest);
 
 			pendingSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
+			if (waitForInitialized && activeTaskManagers.get() < numInitialTaskManagers) {
+				pendingSlotRequest.setWaitSlotManagerInitialized();
+				LOG.info("Add pendingSlotRequest to wait SlotManager initialized.");
+				tryFullFillInitialTaskManagers();
+			} else {
+				try {
+					internalRequestSlot(pendingSlotRequest);
+				} catch (ResourceManagerException e) {
+					// requesting the slot failed --> remove pending slot request
+					pendingSlotRequests.remove(slotRequest.getAllocationId());
 
-			try {
-				internalRequestSlot(pendingSlotRequest);
-			} catch (ResourceManagerException e) {
-				// requesting the slot failed --> remove pending slot request
-				pendingSlotRequests.remove(slotRequest.getAllocationId());
-
-				throw new ResourceManagerException("Could not fulfill slot request " + slotRequest.getAllocationId() + '.', e);
+					throw new ResourceManagerException("Could not fulfill slot request " + slotRequest.getAllocationId() + '.', e);
+				}
 			}
 
 			return true;
@@ -490,8 +531,44 @@ public class SlotManagerImpl implements SlotManager {
 					slotStatus.getResourceProfile(),
 					taskExecutorConnection);
 			}
+			pendingTaskManagers.getAndDecrement();
+			activeTaskManagers.getAndIncrement();
+
+			if (waitForInitialized && activeTaskManagers.get() >= numInitialTaskManagers) {
+				mainThreadExecutor.execute(this::allocateSlotsForPending);
+			}
 		}
 
+	}
+
+	private void allocateSlotsForPending() {
+		List<AllocationID> pendingAllocations = new ArrayList<>();
+		for (PendingSlotRequest pendingSlotRequest : pendingSlotRequests.values()) {
+			if (pendingSlotRequest.isWaitSlotManagerInitialized()) {
+				pendingAllocations.add(pendingSlotRequest.getAllocationId());
+			} else {
+				LOG.info("pendingSlotRequest {} is not waiting slotManager initialized.", pendingSlotRequest.getAllocationId());
+			}
+		}
+
+		for (AllocationID allocationID : pendingAllocations) {
+			PendingSlotRequest pendingSlotRequest = pendingSlotRequests.get(allocationID);
+			if (pendingSlotRequest != null) {
+				try {
+					internalRequestSlot(pendingSlotRequest);
+				} catch (ResourceManagerException e) {
+					// requesting the slot failed --> remove pending slot request
+					pendingSlotRequests.remove(pendingSlotRequest.getAllocationId());
+					resourceActions.notifyAllocationFailure(
+							pendingSlotRequest.getJobId(),
+							pendingSlotRequest.getAllocationId(),
+							new ResourceManagerException(
+									"Could not fulfill slot request "
+											+ pendingSlotRequest.getAllocationId()
+											+ '.', e));
+				}
+			}
+		}
 	}
 
 	/**
@@ -510,6 +587,8 @@ public class SlotManagerImpl implements SlotManager {
 		TaskManagerRegistration taskManagerRegistration = taskManagerRegistrations.remove(instanceId);
 
 		if (null != taskManagerRegistration) {
+			activeTaskManagers.getAndDecrement();
+			tryFullFillInitialTaskManagers();
 			internalUnregisterTaskManager(taskManagerRegistration);
 
 			return true;
@@ -627,7 +706,9 @@ public class SlotManagerImpl implements SlotManager {
 	private PendingSlotRequest findMatchingRequest(ResourceProfile slotResourceProfile) {
 
 		for (PendingSlotRequest pendingSlotRequest : pendingSlotRequests.values()) {
-			if (!pendingSlotRequest.isAssigned() && slotResourceProfile.isMatching(pendingSlotRequest.getResourceProfile())) {
+			if (!pendingSlotRequest.isAssigned()
+					&& slotResourceProfile.isMatching(pendingSlotRequest.getResourceProfile())
+					&& !pendingSlotRequest.isWaitSlotManagerInitialized()) {
 				return pendingSlotRequest;
 			}
 		}
@@ -915,8 +996,19 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(slotIterator.next());
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
+			pendingTaskManagers.getAndIncrement();
 
 			return Optional.of(pendingTaskManagerSlot);
+		}
+	}
+
+	private void tryFullFillInitialTaskManagers() {
+		while (waitForInitialized && (activeTaskManagers.get() + pendingTaskManagers.get() < numInitialTaskManagers)) {
+			try {
+				allocateResource(ResourceProfile.UNKNOWN);
+			} catch (ResourceManagerException e) {
+				LOG.warn("Error while fullFillInitialResources: ", e);
+			}
 		}
 	}
 
@@ -928,6 +1020,7 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
+			pendingTaskManagers.getAndAdd(resourceNumber);
 		} catch (ResourceManagerException e) {
 			LOG.error("AllocateResource {} {} error, ", resourceProfile, resourceNumber, e);
 		}

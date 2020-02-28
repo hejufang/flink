@@ -43,6 +43,8 @@ public class PendingSlotRequest {
 	@Nullable
 	private PendingTaskManagerSlot pendingTaskManagerSlot;
 
+	private boolean waitSlotManagerInitialized;
+
 	/** Timestamp when this pending slot request has been created. */
 	private final long creationTimestamp;
 
@@ -50,6 +52,7 @@ public class PendingSlotRequest {
 		this.slotRequest = Preconditions.checkNotNull(slotRequest);
 		this.requestFuture = null;
 		this.pendingTaskManagerSlot = null;
+		this.waitSlotManagerInitialized = false;
 		creationTimestamp = System.currentTimeMillis();
 	}
 
@@ -73,6 +76,14 @@ public class PendingSlotRequest {
 
 	public long getCreationTimestamp() {
 		return creationTimestamp;
+	}
+
+	public void setWaitSlotManagerInitialized() {
+		this.waitSlotManagerInitialized = true;
+	}
+
+	public boolean isWaitSlotManagerInitialized() {
+		return waitSlotManagerInitialized;
 	}
 
 	public boolean isAssigned() {

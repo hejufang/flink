@@ -76,6 +76,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final RetryingRegistrationConfiguration retryingRegistrationConfiguration;
 
+	private final boolean inactiveSlotsWhenLostJobManager;
+
 	public TaskManagerConfiguration(
 			int numberSlots,
 			String[] tmpDirectories,
@@ -90,7 +92,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			String[] alwaysParentFirstLoaderPatterns,
 			@Nullable String taskManagerLogPath,
 			@Nullable String taskManagerStdoutPath,
-			RetryingRegistrationConfiguration retryingRegistrationConfiguration) {
+			RetryingRegistrationConfiguration retryingRegistrationConfiguration,
+			boolean inactiveSlotsWhenLostJobManager) {
 
 		this.numberSlots = numberSlots;
 		this.tmpDirectories = Preconditions.checkNotNull(tmpDirectories);
@@ -106,6 +109,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.taskManagerLogPath = taskManagerLogPath;
 		this.taskManagerStdoutPath = taskManagerStdoutPath;
 		this.retryingRegistrationConfiguration = retryingRegistrationConfiguration;
+		this.inactiveSlotsWhenLostJobManager = inactiveSlotsWhenLostJobManager;
 	}
 
 	public int getNumberSlots() {
@@ -169,6 +173,10 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	public RetryingRegistrationConfiguration getRetryingRegistrationConfiguration() {
 		return retryingRegistrationConfiguration;
+	}
+
+	public boolean inactiveSlotsWhenLostJobManager() {
+		return inactiveSlotsWhenLostJobManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -274,6 +282,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 		final RetryingRegistrationConfiguration retryingRegistrationConfiguration = RetryingRegistrationConfiguration.fromConfiguration(configuration);
 
+		final boolean inactiveSlotsWhenLostJobManager = configuration.getBoolean(TaskManagerOptions.INACTIVE_SLOTS_WHEN_LOST_JOB_MANAGER);
+
 		return new TaskManagerConfiguration(
 			numberSlots,
 			tmpDirPaths,
@@ -288,6 +298,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			alwaysParentFirstLoaderPatterns,
 			taskManagerLogPath,
 			taskManagerStdoutPath,
-			retryingRegistrationConfiguration);
+			retryingRegistrationConfiguration,
+			inactiveSlotsWhenLostJobManager);
 	}
 }

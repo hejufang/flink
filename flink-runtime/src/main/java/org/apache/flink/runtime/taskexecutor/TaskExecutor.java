@@ -1300,7 +1300,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			AllocationID activeSlot = activeSlots.next();
 
 			try {
-				if (!taskSlotTable.markSlotInactive(activeSlot, taskManagerConfiguration.getTimeout())) {
+				if (!taskManagerConfiguration.inactiveSlotsWhenLostJobManager()
+						|| !taskSlotTable.markSlotInactive(activeSlot, taskManagerConfiguration.getTimeout())) {
 					freeSlotInternal(activeSlot, freeingCause);
 				}
 			} catch (SlotNotFoundException e) {

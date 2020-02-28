@@ -24,6 +24,7 @@ import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterRetrieveException;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClient;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
@@ -201,7 +202,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
 		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
-		flinkConfiguration.setBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS, true);
+		if (flinkConfiguration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY)) {
+			flinkConfiguration.setBoolean(JobManagerOptions.ENABLE_AVAILABLE_SLOTS, false);
+			flinkConfiguration.setBoolean(TaskManagerOptions.INACTIVE_SLOTS_WHEN_LOST_JOB_MANAGER, false);
+			flinkConfiguration.setBoolean(ResourceManagerOptions.WAIT_FOR_INITIALIZED, true);
+		}
 		flinkConfiguration.setBoolean(NettyShuffleEnvironmentOptions.CLIENT_READ_TIMEOUT_ENABLED, true);
 	}
 

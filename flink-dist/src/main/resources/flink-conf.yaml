@@ -296,6 +296,7 @@ quoka:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
   blacklist.enabled: true
+  cluster.evenly-spread-out-slots: true
 
 maliva:
   dc: va
@@ -346,6 +347,7 @@ boe:
   yaop_url: http://10.225.131.41:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   blacklist.enabled: true
+  cluster.evenly-spread-out-slots: true
 
 cof:
   dc: vm
@@ -360,6 +362,7 @@ cof:
   yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   blacklist.enabled: true
+  cluster.evenly-spread-out-slots: true
 
 swan:
   dc: ka
