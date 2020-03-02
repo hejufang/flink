@@ -93,6 +93,7 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				new int[0],
 				-1,
 				-1,
+				-1,
 				-1));
 		expectedBuilder.setFailureHandler(new DummyFailureHandler());
 		expectedBuilder.setBulkFlushBackoff(true);

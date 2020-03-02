@@ -72,6 +72,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	/** The property name for index of a record. */
 	public static final String INDEX = "_index";
 
+	/** The property name for id of a record. */
+	public static final String ID = "_id";
+
 	/** Flag that indicates that only inserts are accepted. */
 	private final boolean isAppendOnly;
 
@@ -199,6 +202,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		int indexIndex = -1;
 		int versionIndex = -1;
 		int routingIndex = -1;
+		int idIndex = -1;
 		for (int i = 0; i < schema.getFieldCount(); ++i) {
 			String fieldName = schema.getFieldName(i).orElseThrow(() -> new TableException("Won't get here."));
 			if (fieldName.equalsIgnoreCase(VERSION)) {
@@ -228,6 +232,15 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
 					throw new TableException("_index field for ES sink should be varchar/char type.");
 				}
+			} else if (fieldName.equalsIgnoreCase(ID)) {
+				idIndex = i;
+
+				// Validate index field type Can only be VARCHAR/CHAR.
+				DataType dataType = schema.getFieldDataType(i).get();
+				LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+					throw new TableException("_id field for ES sink should be varchar/char type.");
+				}
 			}
 		}
 
@@ -243,7 +256,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				keyFieldIndices,
 				versionIndex,
 				routingIndex,
-				indexIndex);
+				indexIndex,
+				idIndex);
 		final SinkFunction<Tuple2<Boolean, Row>> sinkFunction = createSinkFunction(
 			hosts,
 			failureHandler,
@@ -508,6 +522,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		private final int versionIndex;
 		private final int routingIndex;
 		private final int indexIndex;
+		private final int idIndex;
 
 		public ElasticsearchUpsertSinkFunction(
 				String index,
@@ -520,7 +535,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				int[] keyFieldIndices,
 				int versionIndex,
 				int routingIndex,
-				int indexIndex) {
+				int indexIndex,
+				int idIndex) {
 
 			this.index = Preconditions.checkNotNull(index);
 			this.docType = Preconditions.checkNotNull(docType);
@@ -533,6 +549,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			this.versionIndex = versionIndex;
 			this.routingIndex = routingIndex;
 			this.indexIndex = indexIndex;
+			this.idIndex = idIndex;
 		}
 
 		@Override
@@ -544,7 +561,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			long version = -1;
 			String routing = null;
 			String dynamicIndex = null;
-			if (versionIndex >= 0 || routingIndex >= 0 || indexIndex >= 0) {
+			String dynamicId = null;
+			if (versionIndex >= 0 || routingIndex >= 0 || indexIndex >= 0 || idIndex >= 0) {
 				for (int i = 0; i < originalRow.getArity(); ++i) {
 					if (i == versionIndex) {
 						Object versionColumn = originalRow.getField(i);
@@ -555,6 +573,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 						routing = (String) originalRow.getField(i);
 					} else if (i == indexIndex) {
 						dynamicIndex = (String) originalRow.getField(i);
+					} else if (i == idIndex) {
+						dynamicId = (String) originalRow.getField(i);
 					} else {
 						columnsWithoutReservedColumns.add(originalRow.getField(i));
 					}
@@ -566,9 +586,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 			final String key = createKey(originalRow);
 			if (element.f0) {
-				processUpsert(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex);
+				processUpsert(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex, dynamicId);
 			} else {
-				processDelete(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex);
+				processDelete(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex, dynamicId);
 			}
 		}
 
@@ -578,10 +598,11 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				long version,
 				String routing,
 				String key,
-				String dynamicIndex) {
+				String dynamicIndex,
+				String dynamicId) {
 			final byte[] document = serializationSchema.serialize(row);
 			String realIndex = Strings.isNullOrEmpty(dynamicIndex) ? index : dynamicIndex;
-			if (keyFieldIndices.length == 0) {
+			if (keyFieldIndices.length == 0 && Strings.isNullOrEmpty(dynamicId)) {
 				final IndexRequest indexRequest = requestFactory.createIndexRequest(
 					realIndex,
 					docType,
@@ -595,6 +616,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				}
 				indexer.add(indexRequest);
 			} else {
+				if (!Strings.isNullOrEmpty(dynamicId)) {
+					key = dynamicId;
+				}
 				final UpdateRequest updateRequest = requestFactory.createUpdateRequest(
 					realIndex,
 					docType,
@@ -615,8 +639,12 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				long version,
 				String routing,
 				String key,
-				String dynamicIndex) {
+				String dynamicIndex,
+				String dynamicId) {
 			String realIndex = Strings.isNullOrEmpty(dynamicIndex) ? index : dynamicIndex;
+			if (!Strings.isNullOrEmpty(dynamicId)) {
+				key = dynamicId;
+			}
 			final DeleteRequest deleteRequest = requestFactory.createDeleteRequest(
 				realIndex,
 				docType,
