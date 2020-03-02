@@ -23,6 +23,8 @@ import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +55,7 @@ public class Dashboard {
 		this.dataSource = dataSource;
 	}
 
-	public String renderString(String content, Map<String, String> map) {
+	private String renderString(String content, Map<String, String> map) {
 		Set<Map.Entry<String, String>> sets = map.entrySet();
 		try {
 			for (Map.Entry<String, String> entry : sets) {
@@ -66,7 +68,7 @@ public class Dashboard {
 		return content;
 	}
 
-	public String renderJobInfoRow() {
+	private String renderJobInfoRow() {
 		String jobInfoTemplate = Template.JOB_INFO;
 		Map<String, String> jobInfoValues = new HashMap<>();
 		jobInfoValues.put("jobname", jobName);
@@ -75,8 +77,8 @@ public class Dashboard {
 		return jobInfoRow;
 	}
 
-	public String renderLagSizeRow(List<String> lags) {
-		String lagSizeTargetTemplate = Template.LAG_SIZE_TARGET;
+	private String renderKafkaLagSizeRow(List<String> lags) {
+		String lagSizeTargetTemplate = Template.KAFKA_LAG_SIZE_TARGET;
 		List<String> lagsList = new ArrayList<>();
 		for (String l : lags) {
 			Map<String, String> lagSizeTargetValues = new HashMap<>();
@@ -87,12 +89,34 @@ public class Dashboard {
 		Map<String, String> lagSizeValues = new HashMap<>();
 		lagSizeValues.put("targets", targets);
 		lagSizeValues.put("datasource", dataSource);
-		String lagSizeTemplate = Template.LAG_SIZE;
+		String lagSizeTemplate = Template.KAFKA_LAG_SIZE;
 		String lagSizeRow = renderString(lagSizeTemplate, lagSizeValues);
 		return lagSizeRow;
 	}
 
-	public String renderTmSlotRow() {
+	private String renderRocketMQLagSizeRow(JSONArray rocketMQConfArray) {
+		String lagSizeTargetTemplate = Template.ROCKETMQ_LAG_SIZE_TARGET;
+		List<String> lagsList = new ArrayList<>();
+		for (Object o : rocketMQConfArray) {
+			JSONObject json = (JSONObject) o;
+			Map<String, String> lagSizeTargetValues = new HashMap<>();
+			lagSizeTargetValues.put("metric_name", "rocketmq.consumer_group.depth");
+			lagSizeTargetValues.put("cluster", json.get("cluster").toString());
+			lagSizeTargetValues.put("topic", json.get("topic").toString());
+			lagSizeTargetValues.put("dc", "*");
+			lagSizeTargetValues.put("consumer_group", json.get("consumer_group").toString());
+			lagsList.add(renderString(lagSizeTargetTemplate, lagSizeTargetValues));
+		}
+		String targets = String.join(",", lagsList);
+		Map<String, String> lagSizeValues = new HashMap<>();
+		lagSizeValues.put("targets", targets);
+		lagSizeValues.put("datasource", dataSource);
+		String lagSizeTemplate = Template.ROCKETMQ_LAG_SIZE;
+		String lagSizeRow = renderString(lagSizeTemplate, lagSizeValues);
+		return lagSizeRow;
+	}
+
+	private String renderTmSlotRow() {
 		String tmSlotTemplate = Template.TM_SLOT;
 		Map<String, String> tmSlotValues = new HashMap<>();
 		tmSlotValues.put("jobname", jobName);
@@ -101,7 +125,7 @@ public class Dashboard {
 		return tmSlotRow;
 	}
 
-	public String renderMemoryRow() {
+	private String renderMemoryRow() {
 		String memoryTemplate = Template.MEMORY;
 		Map<String, String> memoryValues = new HashMap<>();
 		memoryValues.put("jobname", jobName);
@@ -110,7 +134,7 @@ public class Dashboard {
 		return memoryRow;
 	}
 
-	public String renderGcRow() {
+	private String renderGcRow() {
 		String gcTemplate = Template.GC;
 		Map<String, String> gcValues = new HashMap<>();
 		gcValues.put("jobname", jobName);
@@ -119,7 +143,7 @@ public class Dashboard {
 		return gcRow;
 	}
 
-	public String renderCheckpointRow() {
+	private String renderCheckpointRow() {
 		String checkpointTemplate = Template.CHECKPOINT;
 		Map<String, String> checkpointValues = new HashMap<>();
 		checkpointValues.put("jobname", jobName);
@@ -128,7 +152,7 @@ public class Dashboard {
 		return checkpointRow;
 	}
 
-	public String renderCheckpointDurationRow() {
+	private String renderCheckpointDurationRow() {
 		String checkpointDurationTemplate = Template.CHECKPOINT_DURATION;
 		Map<String, String> checkpointValues = new HashMap<>();
 		checkpointValues.put("jobname", jobName);
@@ -137,7 +161,7 @@ public class Dashboard {
 		return checkpointDurationRow;
 	}
 
-	public String renderQueueLengthRow(List<String> operators) {
+	private String renderQueueLengthRow(List<String> operators) {
 		String queueLengthTargetTemplate = Template.QUEUE_LENGTH_TARGET;
 		List<String> queueLengthList = new ArrayList<>();
 		for (String o : operators) {
@@ -155,7 +179,7 @@ public class Dashboard {
 		return queueLengthRow;
 	}
 
-	public String renderPoolUsageRow(List<String> operators) {
+	private String renderPoolUsageRow(List<String> operators) {
 		String poolUsageTargetTemplate = Template.POOL_USAGE_TARGET;
 		List<String> poolUsageList = new ArrayList<>();
 		for (String o : operators) {
@@ -173,7 +197,7 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
-	public String renderRecordNumRow(List<String> operators) {
+	private String renderRecordNumRow(List<String> operators) {
 		String recordNumTargetTemplate = Template.RECORD_NUM_TARGET;
 		List<String> recordNumList = new ArrayList<>();
 		for (String o : operators) {
@@ -191,7 +215,7 @@ public class Dashboard {
 		return poolUsageRow;
 	}
 
-	public String renderLateRecordsDropped(List<String> operators) {
+	private String renderLateRecordsDropped(List<String> operators) {
 		String lateRecordsDroppedTargetTemplate = Template.LATE_RECORDS_DROPPED_TARGET;
 		List<String> lateRecordsDroppedList = new ArrayList<>();
 		for (String o : operators) {
@@ -208,7 +232,7 @@ public class Dashboard {
 		return renderString(lateRecordsDroppedTemplate, lateRecordsDroppedValues);
 	}
 
-	public String renderLookupHitRateRow(List<String> operators) {
+	private String renderLookupHitRateRow(List<String> operators) {
 		String lookupJoinHitRateTarget = Template.LOOKUP_JOIN_HIT_RATE_TARGET;
 		List<String> metricRows = new ArrayList<>();
 		for (String o : operators) {
@@ -226,7 +250,7 @@ public class Dashboard {
 		return lookupJoinHitRateRow;
 	}
 
-	public String renderOperatorLatencyRow(List<String> operators) {
+	private String renderOperatorLatencyRow(List<String> operators) {
 		String operatorLatencyTarget = Template.OPERATOR_LATENCY_TARGET;
 		List<String> recordNumList = new ArrayList<>();
 		for (String o : operators) {
@@ -244,7 +268,7 @@ public class Dashboard {
 		return operatorLatencyRow;
 	}
 
-	public String renderKafkaOffsetRow(List<String> sources) {
+	private String renderKafkaOffsetRow(List<String> sources) {
 		String kafkaOffsetTargetTemplate = Template.KAFKA_OFFSET_TARGET;
 		List<String> kafkaOffsetList = new ArrayList<>();
 		for (String s : sources) {
@@ -262,7 +286,7 @@ public class Dashboard {
 		return kafkaOffsetRow;
 	}
 
-	public String renderKafkaLatencyRow(List<String> sources) {
+	private String renderKafkaLatencyRow(List<String> sources) {
 		String kafkaLatencyTargetTemplate = Template.KAFKA_LATENCY_TARGET;
 		List<String> kafkaLatencyList = new ArrayList<>();
 		for (String s : sources) {
@@ -280,7 +304,7 @@ public class Dashboard {
 		return kafkaLatencyRow;
 	}
 
-	public String renderDashboard() {
+	private String renderDashboard() {
 		List<String> rows = new ArrayList<>();
 		List <String> operators = Utils.getOperaters(streamGraph);
 		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
@@ -288,9 +312,16 @@ public class Dashboard {
 		List <String> tasks = Utils.getTasks(jobGraph);
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
-		rows.add(renderLagSizeRow(Utils.getLagSizeMetrics(kafkaServerUrl)));
-		rows.add(renderKafkaOffsetRow(sources));
-		rows.add(renderKafkaLatencyRow(sources));
+		JSONArray rocketmqConfigArray = Utils.getRocketMQConfigurations();
+		List<String> kafkaMetricsList = Utils.getKafkaLagSizeMetrics(kafkaServerUrl);
+		if (!kafkaMetricsList.isEmpty()) {
+			rows.add(renderKafkaLagSizeRow(kafkaMetricsList));
+			rows.add(renderKafkaOffsetRow(sources));
+			rows.add(renderKafkaLatencyRow(sources));
+		}
+		if (!rocketmqConfigArray.isEmpty()) {
+			rows.add(renderRocketMQLagSizeRow(rocketmqConfigArray));
+		}
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
 		rows.add(renderLateRecordsDropped(operators));

@@ -105,8 +105,8 @@ public class Utils {
 		return Utils.replaceSpecialCharacter(name);
 	}
 
-	public static List<String> getLagSizeMetrics(String kafkaServerUrl) {
-		List<String> metricsList = new ArrayList<>();
+	public static List<String> getKafkaLagSizeMetrics(String kafkaServerUrl) {
+		List<String> kafkaMetricsList = new ArrayList<>();
 		JSONArray jsonArray = getKafkaTopics();
 		for (Object object : jsonArray) {
 			JSONObject jsonObject = (JSONObject) object;
@@ -115,10 +115,9 @@ public class Utils {
 			String topic = (String) jsonObject.get("topic");
 			String consumer = (String) jsonObject.get("consumer");
 			String metric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, consumer);
-			metricsList.add(metric);
-
+			kafkaMetricsList.add(metric);
 		}
-		return metricsList;
+		return kafkaMetricsList;
 	}
 
 	public static JSONArray getKafkaTopics() {
@@ -129,6 +128,21 @@ public class Utils {
 			return jsonArray;
 		} catch (ParseException e) {
 			LOG.error("Failed to render lag size metrics", e);
+		}
+		return new JSONArray();
+	}
+
+	/**
+	 * Get RocketMQ configurations which we have saved in org.apache.flink.streaming.connectors.rocketmq.RocketMQSource.
+	 * */
+	public static JSONArray getRocketMQConfigurations() {
+		String kafkaMetricsStr = System.getProperty("flink_rocketmq_metrics", "[]");
+		JSONParser parser = new JSONParser();
+		try {
+			JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
+			return jsonArray;
+		} catch (ParseException e) {
+			LOG.error("Failed to parse RocketMQ configurations.", e);
 		}
 		return new JSONArray();
 	}

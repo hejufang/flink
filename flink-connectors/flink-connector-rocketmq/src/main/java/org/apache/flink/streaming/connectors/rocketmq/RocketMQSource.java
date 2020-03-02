@@ -45,6 +45,9 @@ import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.heartbeat.MessageModel;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +81,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSource.class);
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
+	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
 	private DefaultMQPullConsumer consumer;
 	private RocketMQDeserializationSchema<OUT> schema;
@@ -102,6 +106,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	public RocketMQSource(RocketMQDeserializationSchema<OUT> schema, Properties props) {
 		this.schema = schema;
 		this.props = props;
+		saveConfigurationToSystemProperties(props);
 	}
 
 	@Override
@@ -448,5 +453,29 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			consumer.updateConsumeOffset(entry.getKey(), entry.getValue());
 		}
 
+	}
+
+	/**
+	 * Save rocketmq config to system properties, so we can use it when register the dashboard.
+	 * See {@link org.apache.flink.monitor.Dashboard}.
+	 */
+	private void saveConfigurationToSystemProperties(Properties properties) {
+		try {
+			String cluster = properties.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
+			String topic = properties.getProperty(RocketMQConfig.CONSUMER_TOPIC);
+			String consumerGroup = properties.getProperty(RocketMQConfig.CONSUMER_GROUP);
+			String kafkaMetricsStr = System.getProperty(FLINK_ROCKETMQ_METRICS, "[]");
+			JSONParser parser = new JSONParser();
+			JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
+			JSONObject jsonObject = new JSONObject();
+			jsonObject.put("cluster", cluster);
+			jsonObject.put("topic", topic);
+			jsonObject.put("consumer_group", consumerGroup);
+			jsonArray.add(jsonObject);
+			System.setProperty(FLINK_ROCKETMQ_METRICS, jsonArray.toJSONString());
+		} catch (Throwable t) {
+			// We catch all Throwable as it is not critical path.
+			LOG.warn("Parse rocketmq metrics failed.", t);
+		}
 	}
 }
