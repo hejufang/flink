@@ -212,6 +212,19 @@ class YarnUtil(object):
         return apps
 
     @staticmethod
+    def get_running_apps_in_queue(operator, region, cluster, queue, state=None):
+        return YarnUtil.get_apps_in_queue(operator, region, cluster, queue, YarnUtil.APP_RUNNING)
+
+    @staticmethod
+    def get_flink_running_apps_in_queue(operator, region, cluster, queue):
+        all_apps = YarnUtil.get_running_apps_in_queue(operator, region, cluster, queue)
+        result = []
+        for app in all_apps:
+            if app.get(YarnUtil.APP_TYPE) == YarnUtil.FLINK:
+                result.append(app)
+        return result
+
+    @staticmethod
     def get_apps_in_cluster(operator, region, cluster, state=None):
         url = YarnUtil.GET_CLUSTER_APP_URL % (operator, region, cluster)
         if state:
