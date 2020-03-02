@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.codegen.calls
 
 import org.apache.flink.table.planner.codegen.CodeGenUtils.primitiveTypeTermForType
+import org.apache.flink.table.planner.codegen.CodeGenUtils.primitiveDefaultValue
 import org.apache.flink.table.planner.codegen.{CodeGenUtils, CodeGeneratorContext, GeneratedExpression}
 import org.apache.flink.table.types.logical.LogicalType
 
@@ -48,16 +49,23 @@ class IfCallGen() extends CallGenerator {
       (resultTypeTerm, "result"),
       ("boolean", "isNull"))
 
+    val defaultResult = primitiveDefaultValue(returnType)
+
     val resultCode =
       s"""
          |${operands.head.code}
+         |$resultTerm = ${defaultResult};
          |if (${operands.head.resultTerm}) {
          |  ${operands(1).code}
-         |  $resultTerm = $castedResultTerm1;
+         |  if (!${operands(1).nullTerm}) {
+         |    $resultTerm = $castedResultTerm1;
+         |  }
          |  $nullTerm = ${operands(1).nullTerm};
          |} else {
          |  ${operands(2).code}
-         |  $resultTerm = $castedResultTerm2;
+         |  if (!${operands(2).nullTerm}) {
+         |    $resultTerm = $castedResultTerm2;
+         |  }
          |  $nullTerm = ${operands(2).nullTerm};
          |}
        """.stripMargin
