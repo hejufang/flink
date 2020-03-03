@@ -1261,16 +1261,38 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			if (!StringUtils.isNullOrWhitespaceOnly(srAdjustCheckApi)) {
 				if (System.currentTimeMillis() < srNextCheckTimeMS) {
 					log.info("Resources update check was limited, need later then: {}", srNextCheckTimeMS);
-				} else if (!checkIfCouldUpdateResources(newResources)) {
-					srNextCheckTimeMS = System.currentTimeMillis() + srAdjustCheckBackoffMS;
-					log.warn("Resources update was rejected by sr check api, original: {}, target: {}",
-						targetResources, newResources);
 				} else {
-					log.info("Container resources updated from {} to {}", targetResources,
-						newResources);
-					targetResources = newResources;
-					smartResourcesStats.updateCurrentResources(
-						new SmartResourcesStats.Resources(targetResources.getMemoryMB(), targetResources.getVcores()));
+					boolean updated = false;
+					// Check memory
+					if (newResources.getMemoryMB() != targetResources.getMemoryMB()) {
+						if (!checkIfCouldUpdateResources(new ContainerResources(newResources.getMemoryMB(), targetResources.getVcores()))) {
+							log.warn("Container memory update was rejected by sr check api, original: {} MB, target: {} MB",
+								targetResources.getMemoryMB(), newResources.getMemoryMB());
+						} else {
+							log.info("Container memory updated from {} MB to {} MB", targetResources.getMemoryMB(), newResources.getMemoryMB());
+							targetResources.setMemoryMB(newResources.getMemoryMB());
+							updated = true;
+						}
+					}
+
+					// Check vcores
+					if (newResources.getVcores() != targetResources.getVcores()) {
+						if (!checkIfCouldUpdateResources(new ContainerResources(targetResources.getMemoryMB(), newResources.getVcores()))) {
+							log.warn("Container vcores update was rejected by sr check api, original: {} vcore, target: {} vcore",
+								targetResources.getVcores(), newResources.getVcores());
+						} else {
+							log.info("Container vcores updated from {} vcore to {} vcore", targetResources.getVcores(), newResources.getVcores());
+							targetResources.setVcores(newResources.getVcores());
+							updated = true;
+						}
+					}
+
+					if (updated) {
+						smartResourcesStats.updateCurrentResources(
+							new SmartResourcesStats.Resources(targetResources.getMemoryMB(), targetResources.getVcores()));
+					} else {
+						srNextCheckTimeMS = System.currentTimeMillis() + srAdjustCheckBackoffMS;
+					}
 				}
 			} else {
 				log.info("Container resources updated from {} to {}", targetResources,
