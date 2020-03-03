@@ -279,7 +279,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 					offset = consumer.fetchConsumeOffset(mq, false);
 					if (offset < 0) {
 						// We cannot get normal offset from RMQ.
-						String initialOffset = props.getProperty(RocketMQConfig.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_LATEST);
+						// Default setting is earliest, in case of data loss.
+						String initialOffset = props.getProperty(RocketMQConfig.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
 						switch (initialOffset) {
 							case CONSUMER_OFFSET_EARLIEST:
 								offset = consumer.minOffset(mq);
