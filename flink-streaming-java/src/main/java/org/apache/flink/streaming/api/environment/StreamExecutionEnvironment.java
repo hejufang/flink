@@ -81,6 +81,7 @@ import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SplittableIterator;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.UniqueNameGenerator;
 
 import com.esotericsoftware.kryo.Serializer;
 import org.slf4j.Logger;
@@ -1888,7 +1889,7 @@ public abstract class StreamExecutionEnvironment {
 			if (operatorName.length() > OPERATOR_NAME_MAX_LENGTH) {
 				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
 			}
-			node.setOperatorName(operatorName);
+			node.setOperatorName(UniqueNameGenerator.appendSuffixIfNotUnique(operatorName));
 		}
 		JobGraph jobGraph = streamGraph.getJobGraph();
 		String dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
