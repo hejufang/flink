@@ -316,6 +316,42 @@ maliva:
   docker.region: Aliyun_VA
   blacklist.enabled: true
 
+marmt:
+  dc: va
+  clusterName: marmt
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_maliva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  blacklist.enabled: true
+
+macaw:
+  dc: va
+  clusterName: macaw
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_maliva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+  blacklist.enabled: true
+
 alisg:
   dc: sg
   clusterName: alisg
