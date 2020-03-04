@@ -799,6 +799,11 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 		}
 
 		@Override
+		public K getCurrentKey() {
+			return key;
+		}
+
+		@Override
 		public MetricGroup getMetricGroup() {
 			return WindowOperator.this.getMetricGroup();
 		}

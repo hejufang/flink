@@ -124,6 +124,10 @@ public abstract class Trigger<T, W extends Window> implements Serializable {
 	 */
 	public interface TriggerContext {
 
+		default Object getCurrentKey() {
+			throw new UnsupportedOperationException("Unsupported operation getCurrentKey() in Class " + this.getClass().getName());
+		}
+
 		/**
 		 * Returns the current processing time.
 		 */
