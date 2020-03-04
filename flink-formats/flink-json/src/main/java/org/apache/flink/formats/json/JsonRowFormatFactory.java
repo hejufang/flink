@@ -56,6 +56,7 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(JsonValidator.FORMAT_SKIP_DIRTY);
 		properties.add(JsonValidator.FORMAT_SKIP_INTERVAL_MS);
 		properties.add(JsonValidator.FORMAT_ENFORCE_UTF8_ENCODING);
+		properties.add(JsonValidator.FORMAT_FILTER_NULL_VALUES);
 		return properties;
 	}
 
@@ -100,6 +101,8 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 			createTypeInformation(descriptorProperties));
 		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_ENFORCE_UTF8_ENCODING)
 			.ifPresent(builder::setEnforceUtf8Encoding);
+		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_FILTER_NULL_VALUES)
+			.ifPresent(builder::setFilterNullValues);
 		return builder.build();
 	}
 

@@ -73,6 +73,9 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	/** Whether enforce utf-8 encoding. */
 	private final boolean enforceUtf8Encoding;
 
+	/** Whether filter null values. Currently we only filter row's null columns. */
+	private final boolean filterNullValues;
+
 	/** Object mapper that is used to create output JSON objects. */
 	private final ObjectMapper mapper = new ObjectMapper();
 
@@ -85,12 +88,27 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	 * @deprecated Use the provided {@link Builder} instead.
 	 */
 	@Deprecated
-	public JsonRowSerializationSchema(TypeInformation<Row> typeInfo, boolean enforceUtf8Encoding) {
+	public JsonRowSerializationSchema(
+			TypeInformation<Row> typeInfo,
+			boolean enforceUtf8Encoding) {
+		// TODO make this constructor private in the future
+		this(typeInfo, enforceUtf8Encoding, false);
+	}
+
+	/**
+	 * @deprecated Use the provided {@link Builder} instead.
+	 */
+	@Deprecated
+	public JsonRowSerializationSchema(
+		TypeInformation<Row> typeInfo,
+		boolean enforceUtf8Encoding,
+		boolean filterNullValues) {
 		// TODO make this constructor private in the future
 		Preconditions.checkNotNull(typeInfo, "Type information");
 		Preconditions.checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.enforceUtf8Encoding = enforceUtf8Encoding;
+		this.filterNullValues = filterNullValues;
 		this.runtimeConverter = createConverter(typeInfo);
 	}
 
@@ -100,7 +118,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	@Deprecated
 	public JsonRowSerializationSchema(TypeInformation<Row> typeInfo) {
 		// TODO make this constructor private in the future
-		this(typeInfo, false);
+		this(typeInfo, false, false);
 	}
 
 	/**
@@ -111,6 +129,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 
 		private final RowTypeInfo typeInfo;
 		private boolean enforceUtf8Encoding = false;
+		private boolean filterNullValues = false;
 
 		/**
 		 * Creates a JSON serialization schema for the given type information.
@@ -144,14 +163,24 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 			return this;
 		}
 
+		/**
+		 * Set {@link JsonRowSerializationSchema#filterNullValues}.
+		 * @param filterNullValues whether filter null values.
+		 * @return this for chaining of setters.
+		 */
+		public Builder setFilterNullValues(boolean filterNullValues) {
+			this.filterNullValues = filterNullValues;
+			return this;
+		}
+
 		public JsonRowSerializationSchema build() {
-			return new JsonRowSerializationSchema(typeInfo, enforceUtf8Encoding);
+			return new JsonRowSerializationSchema(typeInfo, enforceUtf8Encoding, filterNullValues);
 		}
 	}
 
 	@Override
 	public byte[] serialize(Row row) {
-		if (node == null) {
+		if (node == null || filterNullValues) {
 			node = mapper.createObjectNode();
 		}
 
@@ -356,8 +385,11 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 
 			for (int i = 0; i < fieldNames.length; i++) {
 				String fieldName = fieldNames[i];
-				node.set(fieldName,
-					fieldConverters.get(i).convert(mapper, node.get(fieldNames[i]), row.getField(i)));
+				Object col = row.getField(i);
+				if (col != null || !filterNullValues) {
+					node.set(fieldName,
+						fieldConverters.get(i).convert(mapper, node.get(fieldNames[i]), row.getField(i)));
+				}
 			}
 
 			return node;
