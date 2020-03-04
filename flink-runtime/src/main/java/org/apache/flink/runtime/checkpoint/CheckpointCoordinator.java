@@ -683,6 +683,7 @@ public class CheckpointCoordinator {
 					}
 				}
 
+				LOG.info("Successfully trigger checkpoint {} @ {} for job {}.", checkpointID, timestamp, job);
 				numUnsuccessfulCheckpointsTriggers.set(0);
 				return checkpoint;
 			}
