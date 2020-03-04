@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase;
+import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
 import org.apache.flink.streaming.connectors.elasticsearch7.util.ESHttpRoutePlanner;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
@@ -38,6 +39,9 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.VersionType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -85,7 +89,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
-			long globalRateLimit) {
+			long globalRateLimit,
+			boolean byteEsMode) {
 		this(
 			isAppendOnly,
 			schema,
@@ -97,7 +102,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			contentType,
 			failureHandler,
 			sinkOptions,
-			keyFieldIndices
+			keyFieldIndices,
+			byteEsMode
 		);
 		this.globalRateLimit = globalRateLimit;
 	}
@@ -113,7 +119,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			XContentType contentType,
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
-			int[] keyFieldIndices) {
+			int[] keyFieldIndices,
+			boolean byteEsMode) {
 
 		super(
 			isAppendOnly,
@@ -128,7 +135,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			UPDATE_REQUEST_FACTORY,
-			keyFieldIndices);
+			keyFieldIndices,
+			byteEsMode);
 	}
 
 	@VisibleForTesting
@@ -176,7 +184,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			RequestFactory requestFactory,
-			int[] keyFieldIndices) {
+			int[] keyFieldIndices,
+			boolean byteEsMode) {
 
 		return new Elasticsearch7UpsertTableSink(
 			isAppendOnly,
@@ -190,7 +199,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
-			globalRateLimit);
+			globalRateLimit,
+			byteEsMode);
 	}
 
 	@Override
@@ -364,6 +374,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 	 */
 	private static class Elasticsearch7RequestFactory implements RequestFactory {
 
+		private static final Logger LOG = LoggerFactory.getLogger(Elasticsearch7RequestFactory.class);
+
 		@Override
 		public UpdateRequest createUpdateRequest(
 				String index,
@@ -389,6 +401,89 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		@Override
 		public DeleteRequest createDeleteRequest(String index, String docType, String key) {
 			return new DeleteRequest(index, key);
+		}
+
+		@Override
+		public void addCustomRequestToIndexer(
+				byte[] doc,
+				RequestIndexer indexer,
+				long version,
+				String routing,
+				String index,
+				String id,
+				String opType) {
+			switch (opType.toLowerCase()) {
+				case "delete":
+					DeleteRequest deleteRequest = new DeleteRequest().index(index).id(id);
+					if (version > 0) {
+						deleteRequest.version(version).versionType(VersionType.EXTERNAL_GTE);
+					}
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						deleteRequest.routing(routing);
+					}
+					if (deleteRequest.validate() != null) {
+						LOG.error("Construct DeleteRequest error for value: {}", new String(doc));
+						return;
+					}
+					indexer.add(deleteRequest);
+					break;
+				case "index":
+					IndexRequest indexRequest = new IndexRequest().index(index).id(id);
+					indexRequest.source(doc, XContentType.JSON);
+					if (version > 0) {
+						indexRequest.version(version).versionType(VersionType.EXTERNAL_GTE);
+					}
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						indexRequest.routing(routing);
+					}
+					if (indexRequest.validate() != null) {
+						LOG.error("Construct IndexRequest error for value: {}", new String(doc));
+						return;
+					}
+					indexer.add(indexRequest);
+					break;
+				case "create":
+					IndexRequest createRequest = new IndexRequest().index(index).id(id);
+					createRequest.create(true);
+					createRequest.source(doc, XContentType.JSON);
+					if (version > 0) {
+						createRequest.version(version).versionType(VersionType.EXTERNAL_GTE);
+					}
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						createRequest.routing(routing);
+					}
+					if (createRequest.validate() != null) {
+						LOG.error("Construct CreateRequest error for value: {}", new String(doc));
+						return;
+					}
+					indexer.add(createRequest);
+					break;
+				case "update":
+					UpdateRequest updateRequest = new UpdateRequest().index(index).id(id);
+					updateRequest.doc(doc, XContentType.JSON);
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						updateRequest.routing(routing);
+					}
+					if (updateRequest.validate() != null) {
+						LOG.error("Construct UpdateRequest error for value: {}", new String(doc));
+						return;
+					}
+					indexer.add(updateRequest);
+					break;
+				case "upsert":
+					UpdateRequest upsertRequest = new UpdateRequest().index(index).id(id);
+					upsertRequest.doc(doc, XContentType.JSON);
+					upsertRequest.docAsUpsert(true);
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						upsertRequest.routing(routing);
+					}
+					if (upsertRequest.validate() != null) {
+						LOG.error("Construct UpsertRequest error for value: {}", new String(doc));
+						return;
+					}
+					indexer.add(upsertRequest);
+					break;
+			}
 		}
 	}
 }

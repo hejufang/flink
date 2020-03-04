@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.ID;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.INDEX;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.OP_TYPE;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.ROUTING;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
@@ -67,6 +68,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_SIZE;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BYTE_ES_MODE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_CONSUL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_HTTP_SCHEMA;
@@ -162,6 +164,9 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		// connector psm
 		properties.add(CONNECTOR_URI);
 
+		// ByteES mode
+		properties.add(CONNECTOR_BYTE_ES_MODE);
+
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
@@ -176,6 +181,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 	public StreamTableSink<Tuple2<Boolean, Row>> createStreamTableSink(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
+		final boolean byteEsMode = descriptorProperties.getOptionalBoolean(CONNECTOR_BYTE_ES_MODE).orElse(false);
+
 		return createElasticsearchUpsertTableSink(
 			descriptorProperties.isValue(UPDATE_MODE, UPDATE_MODE_VALUE_APPEND),
 			descriptorProperties.getTableSchema(SCHEMA),
@@ -184,12 +191,13 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			descriptorProperties.getString(CONNECTOR_DOCUMENT_TYPE),
 			descriptorProperties.getOptionalString(CONNECTOR_KEY_DELIMITER).orElse(DEFAULT_KEY_DELIMITER),
 			descriptorProperties.getOptionalString(CONNECTOR_KEY_NULL_LITERAL).orElse(DEFAULT_KEY_NULL_LITERAL),
-			getSerializationSchema(properties),
+			getSerializationSchema(properties, byteEsMode),
 			SUPPORTED_CONTENT_TYPE,
 			getFailureHandler(descriptorProperties),
 			getSinkOptions(descriptorProperties),
 			getKeyFieldIndices(descriptorProperties),
-			descriptorProperties.getOptionalLong(CONNECTOR_GLOBAL_RATE_LIMIT).orElse(-1L));
+			descriptorProperties.getOptionalLong(CONNECTOR_GLOBAL_RATE_LIMIT).orElse(-1L),
+			byteEsMode);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -211,7 +219,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
 		int[] keyFieldIndices,
-		long globalRateLimit);
+		long globalRateLimit,
+		boolean byteEsMode);
 
 	// --------------------------------------------------------------------------------------------
 	// Helper methods
@@ -240,9 +249,11 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			.collect(Collectors.toList());
 	}
 
-	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties) {
-		// filter _version, _routing properties.
-		properties = filterReservedProperties(properties);
+	private SerializationSchema<Row> getSerializationSchema(Map<String, String> properties, boolean byteEsMode) {
+		if (byteEsMode) {
+			// filter _version, _routing, _id, _opType, _index properties.
+			properties = filterReservedProperties(properties);
+		}
 
 		//we put fixed property here to avoid user to set format schema
 		Map<String, String> extendedProperties = new HashMap<>();
@@ -270,7 +281,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 				.orElseThrow(() -> new TableException("Could not find " + nameKey + " in table properties." +
 					" This is a bug, we should have validated this before."));
 			if (!fieldName.equalsIgnoreCase(VERSION) && !fieldName.equalsIgnoreCase(ROUTING)
-					&& !fieldName.equalsIgnoreCase(INDEX) && !fieldName.equalsIgnoreCase(ID)) {
+					&& !fieldName.equalsIgnoreCase(INDEX) && !fieldName.equalsIgnoreCase(ID)
+					&& !fieldName.equalsIgnoreCase(OP_TYPE)) {
 				String typeKey = assembleString(SCHEMA, i, TABLE_SCHEMA_TYPE);
 				String fieldType = optionalGet(properties, typeKey)
 					.orElseThrow(() -> new TableException("Count not find " + typeKey + "int table properties." +

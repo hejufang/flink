@@ -94,7 +94,9 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				-1,
 				-1,
 				-1,
-				-1));
+				-1,
+				-1,
+				false));
 		expectedBuilder.setFailureHandler(new DummyFailureHandler());
 		expectedBuilder.setBulkFlushBackoff(true);
 		expectedBuilder.setBulkFlushBackoffType(ElasticsearchSinkBase.FlushBackoffType.EXPONENTIAL);
@@ -138,7 +140,8 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			contentType,
 			failureHandler,
 			sinkOptions,
-			keyFieldIndices);
+			keyFieldIndices,
+			false);
 	}
 
 	// --------------------------------------------------------------------------------------------

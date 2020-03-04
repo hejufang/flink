@@ -61,7 +61,8 @@ public class Elasticsearch7UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
-			long globalRateLimit) {
+			long globalRateLimit,
+			boolean byteEsMode) {
 
 		return new Elasticsearch7UpsertTableSink(
 			isAppendOnly,
@@ -75,6 +76,7 @@ public class Elasticsearch7UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
-			globalRateLimit);
+			globalRateLimit,
+			byteEsMode);
 	}
 }

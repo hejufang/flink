@@ -40,8 +40,6 @@ import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.flink.shaded.guava18.com.google.common.base.Strings;
-
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
@@ -74,6 +72,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 	/** The property name for id of a record. */
 	public static final String ID = "_id";
+
+	/** The property name for opType of a record. */
+	public static final String OP_TYPE = "_opType";
 
 	/** Flag that indicates that only inserts are accepted. */
 	private final boolean isAppendOnly;
@@ -119,6 +120,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	/** Key field indices determined by the query. */
 	private int[] keyFieldIndices;
 
+	/** Whether to use ByteEs mode. */
+	private final boolean byteEsMode;
+
 	public ElasticsearchUpsertTableSinkBase(
 			boolean isAppendOnly,
 			TableSchema schema,
@@ -132,7 +136,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			RequestFactory requestFactory,
-			int[] keyFieldIndices) {
+			int[] keyFieldIndices,
+			boolean byteEsMode) {
 
 		this.isAppendOnly = isAppendOnly;
 		this.schema = Preconditions.checkNotNull(schema);
@@ -147,6 +152,39 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		this.sinkOptions = Preconditions.checkNotNull(sinkOptions);
 		this.requestFactory = Preconditions.checkNotNull(requestFactory);
 		this.keyFieldIndices = keyFieldIndices;
+		this.byteEsMode = byteEsMode;
+	}
+
+	public ElasticsearchUpsertTableSinkBase(
+			boolean isAppendOnly,
+			TableSchema schema,
+			List<Host> hosts,
+			String index,
+			String docType,
+			String keyDelimiter,
+			String keyNullLiteral,
+			SerializationSchema<Row> serializationSchema,
+			XContentType contentType,
+			ActionRequestFailureHandler failureHandler,
+			Map<SinkOption, String> sinkOptions,
+			RequestFactory requestFactory,
+			int[] keyFieldIndices) {
+		this(
+			isAppendOnly,
+			schema,
+			hosts,
+			index,
+			docType,
+			keyDelimiter,
+			keyNullLiteral,
+			serializationSchema,
+			contentType,
+			failureHandler,
+			sinkOptions,
+			requestFactory,
+			keyFieldIndices,
+			false
+		);
 	}
 
 	@Override
@@ -203,6 +241,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		int versionIndex = -1;
 		int routingIndex = -1;
 		int idIndex = -1;
+		int opTypeIndex = -1;
 		for (int i = 0; i < schema.getFieldCount(); ++i) {
 			String fieldName = schema.getFieldName(i).orElseThrow(() -> new TableException("Won't get here."));
 			if (fieldName.equalsIgnoreCase(VERSION)) {
@@ -241,6 +280,15 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
 					throw new TableException("_id field for ES sink should be varchar/char type.");
 				}
+			} else if (fieldName.equalsIgnoreCase(OP_TYPE)) {
+				opTypeIndex = i;
+
+				// Validate index field type Can only be VARCHAR/CHAR.
+				DataType dataType = schema.getFieldDataType(i).get();
+				LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+					throw new TableException("_opType field for ES sink should be varchar/char type.");
+				}
 			}
 		}
 
@@ -257,7 +305,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				versionIndex,
 				routingIndex,
 				indexIndex,
-				idIndex);
+				idIndex,
+				opTypeIndex,
+				byteEsMode);
 		final SinkFunction<Tuple2<Boolean, Row>> sinkFunction = createSinkFunction(
 			hosts,
 			failureHandler,
@@ -308,7 +358,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			failureHandler,
 			sinkOptions,
 			requestFactory,
-			keyFieldIndices);
+			keyFieldIndices,
+			byteEsMode);
 	}
 
 	@Override
@@ -366,7 +417,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
 		RequestFactory requestFactory,
-		int[] keyFieldIndices);
+		int[] keyFieldIndices,
+		boolean byteEsMode);
 
 	protected abstract SinkFunction<Tuple2<Boolean, Row>> createSinkFunction(
 		List<Host> hosts,
@@ -502,6 +554,20 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			String index,
 			String docType,
 			String key);
+
+		/**
+		 * Custom request, used for ByteES.
+		 */
+		default void addCustomRequestToIndexer(
+				byte[] doc,
+				RequestIndexer indexer,
+				long version,
+				String routing,
+				String index,
+				String id,
+				String opType) {
+			throw new UnsupportedOperationException("Need to be implemented.");
+		}
 	}
 
 	/**
@@ -523,6 +589,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		private final int routingIndex;
 		private final int indexIndex;
 		private final int idIndex;
+		private final int opTypeIndex;
+		private final boolean byteEsMode;
 
 		public ElasticsearchUpsertSinkFunction(
 				String index,
@@ -536,7 +604,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				int versionIndex,
 				int routingIndex,
 				int indexIndex,
-				int idIndex) {
+				int idIndex,
+				int opTypeIndex,
+				boolean byteEsMode) {
 
 			this.index = Preconditions.checkNotNull(index);
 			this.docType = Preconditions.checkNotNull(docType);
@@ -550,19 +620,23 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			this.routingIndex = routingIndex;
 			this.indexIndex = indexIndex;
 			this.idIndex = idIndex;
+			this.opTypeIndex = opTypeIndex;
+			this.byteEsMode = byteEsMode;
 		}
 
 		@Override
 		public void process(Tuple2<Boolean, Row> element, RuntimeContext ctx, RequestIndexer indexer) {
-			// filter _version, _routing of row.
-			List<Object> columnsWithoutReservedColumns = new ArrayList<>();
-			Row originalRow = element.f1;
-			Row rowWithoutReservedColumns;
-			long version = -1;
-			String routing = null;
-			String dynamicIndex = null;
-			String dynamicId = null;
-			if (versionIndex >= 0 || routingIndex >= 0 || indexIndex >= 0 || idIndex >= 0) {
+			if (byteEsMode) {
+				// filter _version, _routing of row.
+				List<Object> columnsWithoutReservedColumns = new ArrayList<>();
+				Row originalRow = element.f1;
+				Row rowWithoutReservedColumns;
+				long version = -1;
+				String routing = null;
+				String index = null;
+				String id = null;
+				String opType = null;
+
 				for (int i = 0; i < originalRow.getArity(); ++i) {
 					if (i == versionIndex) {
 						Object versionColumn = originalRow.getField(i);
@@ -572,89 +646,55 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 					} else if (i == routingIndex) {
 						routing = (String) originalRow.getField(i);
 					} else if (i == indexIndex) {
-						dynamicIndex = (String) originalRow.getField(i);
+						index = (String) originalRow.getField(i);
 					} else if (i == idIndex) {
-						dynamicId = (String) originalRow.getField(i);
+						id = (String) originalRow.getField(i);
+					} else if (i == opTypeIndex) {
+						opType = (String) originalRow.getField(i);
 					} else {
 						columnsWithoutReservedColumns.add(originalRow.getField(i));
 					}
 				}
 				rowWithoutReservedColumns = Row.of(columnsWithoutReservedColumns.toArray());
-			} else {
-				rowWithoutReservedColumns = originalRow;
-			}
 
-			final String key = createKey(originalRow);
-			if (element.f0) {
-				processUpsert(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex, dynamicId);
+				final byte[] document = serializationSchema.serialize(rowWithoutReservedColumns);
+				requestFactory.addCustomRequestToIndexer(document, indexer, version, routing, index, id, opType);
 			} else {
-				processDelete(rowWithoutReservedColumns, indexer, version, routing, key, dynamicIndex, dynamicId);
+				if (element.f0) {
+					processUpsert(element.f1, indexer);
+				} else {
+					processDelete(element.f1, indexer);
+				}
 			}
 		}
 
-		private void processUpsert(
-				Row row,
-				RequestIndexer indexer,
-				long version,
-				String routing,
-				String key,
-				String dynamicIndex,
-				String dynamicId) {
+		private void processUpsert(Row row, RequestIndexer indexer) {
 			final byte[] document = serializationSchema.serialize(row);
-			String realIndex = Strings.isNullOrEmpty(dynamicIndex) ? index : dynamicIndex;
-			if (keyFieldIndices.length == 0 && Strings.isNullOrEmpty(dynamicId)) {
+			if (keyFieldIndices.length == 0) {
 				final IndexRequest indexRequest = requestFactory.createIndexRequest(
-					realIndex,
+					index,
 					docType,
 					contentType,
 					document);
-				if (version >= 0) {
-					indexRequest.version(version);
-				}
-				if (!Strings.isNullOrEmpty(routing)) {
-					indexRequest.routing(routing);
-				}
 				indexer.add(indexRequest);
 			} else {
-				if (!Strings.isNullOrEmpty(dynamicId)) {
-					key = dynamicId;
-				}
+				final String key = createKey(row);
 				final UpdateRequest updateRequest = requestFactory.createUpdateRequest(
-					realIndex,
+					index,
 					docType,
 					key,
 					contentType,
 					document);
-				// update requests do not support versioning
-				if (!Strings.isNullOrEmpty(routing)) {
-					updateRequest.routing(routing);
-				}
 				indexer.add(updateRequest);
 			}
 		}
 
-		private void processDelete(
-				Row row,
-				RequestIndexer indexer,
-				long version,
-				String routing,
-				String key,
-				String dynamicIndex,
-				String dynamicId) {
-			String realIndex = Strings.isNullOrEmpty(dynamicIndex) ? index : dynamicIndex;
-			if (!Strings.isNullOrEmpty(dynamicId)) {
-				key = dynamicId;
-			}
+		private void processDelete(Row row, RequestIndexer indexer) {
+			final String key = createKey(row);
 			final DeleteRequest deleteRequest = requestFactory.createDeleteRequest(
-				realIndex,
+				index,
 				docType,
 				key);
-			if (version > 0) {
-				deleteRequest.version(version);
-			}
-			if (!Strings.isNullOrEmpty(routing)) {
-				deleteRequest.routing(routing);
-			}
 			indexer.add(deleteRequest);
 		}
 

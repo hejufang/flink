@@ -158,7 +158,8 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
 		RequestFactory requestFactory,
-		int[] keyFieldIndices) {
+		int[] keyFieldIndices,
+		boolean byteEsMode) {
 
 		return new Elasticsearch6UpsertTableSink(
 			isAppendOnly,
