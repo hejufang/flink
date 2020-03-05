@@ -51,7 +51,6 @@ public class SlotManagerConfiguration {
 	private final int extraInitialTaskManagerNumbers;
 	private final float extraInitialTaskManagerFraction;
 	private final boolean shufflePendingSlots;
-	private final Time initialTaskManagerCheckIntervalMs;
 	private final boolean waitForInitialized;
 
 	public SlotManagerConfiguration(
@@ -92,7 +91,6 @@ public class SlotManagerConfiguration {
 				extraInitialTaskManagerFraction,
 				false,
 				evenlySpreadOutSlots,
-				Time.milliseconds(0),
 				false);
 	}
 
@@ -107,7 +105,6 @@ public class SlotManagerConfiguration {
 			float extraInitialTaskManagerFraction,
 			boolean shufflePendingSlots,
 			boolean evenlySpreadOutSlots,
-			Time initialTaskManagerCheckIntervalMs,
 			boolean waitForInitialized) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
@@ -120,7 +117,6 @@ public class SlotManagerConfiguration {
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 		this.shufflePendingSlots = shufflePendingSlots;
 		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
-		this.initialTaskManagerCheckIntervalMs = initialTaskManagerCheckIntervalMs;
 		this.waitForInitialized = waitForInitialized;
 	}
 
@@ -164,10 +160,6 @@ public class SlotManagerConfiguration {
 		return evenlySpreadOutSlots;
 	}
 
-	public Time getInitialTaskManagerCheckIntervalMs() {
-		return initialTaskManagerCheckIntervalMs;
-	}
-
 	public boolean isWaitForInitialized() {
 		return waitForInitialized;
 	}
@@ -200,9 +192,6 @@ public class SlotManagerConfiguration {
 		boolean shufflePendingSlots = configuration.getBoolean(ResourceManagerOptions.SHUFFLE_PENDING_SLOTS);
 		boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
 
-		final Time initialTaskManagerCheckIntervalMs = Time.milliseconds(
-				configuration.getLong(ResourceManagerOptions.INITIAL_TASK_MANAGER_CHECK_INTERVAL_MS));
-
 		final boolean waitForInitialized = configuration.getBoolean(
 				ResourceManagerOptions.WAIT_FOR_INITIALIZED);
 
@@ -217,7 +206,6 @@ public class SlotManagerConfiguration {
 			extraInitialTaskManagerFraction,
 			shufflePendingSlots,
 			evenlySpreadOutSlots,
-			initialTaskManagerCheckIntervalMs,
 			waitForInitialized);
 	}
 

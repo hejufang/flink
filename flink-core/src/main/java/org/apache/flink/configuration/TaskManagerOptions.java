@@ -162,7 +162,7 @@ public class TaskManagerOptions {
 	 */
 	public static final ConfigOption<Integer> NUM_EXTRA_INITIAL_TASK_MANAGERS =
 			key("taskmanager.number-extra-initial")
-					.defaultValue(1)
+					.defaultValue(0)
 					.withDescription("The number of extra task managers, avoid yarn slow nodes.");
 
 	/**
@@ -170,7 +170,7 @@ public class TaskManagerOptions {
 	 */
 	public static final ConfigOption<Float> EXTRA_INITIAL_TASK_MANAGERS_FRACTION =
 			key("taskmanager.extra-initial-fraction")
-					.defaultValue(0.01F)
+					.defaultValue(0.0F)
 					.withDescription("The fraction of extra task managers, avoid yarn slow nodes.");
 
 	/**

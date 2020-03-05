@@ -167,6 +167,9 @@ common:
   # The Netty send and receive buffer size.
   taskmanager.network.netty.sendReceiveBufferSize: 4194304
 
+  taskmanager.number-extra-initial: 0
+  taskmanager.extra-initial-fraction: 0
+
 flink:
   dc: cn
   clusterName: flink
