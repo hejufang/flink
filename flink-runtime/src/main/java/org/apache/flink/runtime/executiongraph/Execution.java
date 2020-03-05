@@ -585,7 +585,9 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 			// calculate the preferred locations
 			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture;
-			if (!isCopy) {
+			if (!isCopy && !getVertex().getExecutionGraph().isScheduleTaskFairly()) {
+				// Preferred locations will break the fairly task schedule.
+				// todo(huweihua): support schedule task fairly with preferred locations.
 				preferredLocationsFuture = calculatePreferredLocations(locationPreferenceConstraint);
 			} else {
 				preferredLocationsFuture = CompletableFuture.completedFuture(Collections.emptyList());

@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskexecutor;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
@@ -76,7 +77,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 	private final RetryingRegistrationConfiguration retryingRegistrationConfiguration;
 
-	private final boolean inactiveSlotsWhenLostJobManager;
+	private final boolean evenlySpreadOutSlots;
 
 	public TaskManagerConfiguration(
 			int numberSlots,
@@ -93,7 +94,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			@Nullable String taskManagerLogPath,
 			@Nullable String taskManagerStdoutPath,
 			RetryingRegistrationConfiguration retryingRegistrationConfiguration,
-			boolean inactiveSlotsWhenLostJobManager) {
+			boolean evenlySpreadOutSlots) {
 
 		this.numberSlots = numberSlots;
 		this.tmpDirectories = Preconditions.checkNotNull(tmpDirectories);
@@ -109,7 +110,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		this.taskManagerLogPath = taskManagerLogPath;
 		this.taskManagerStdoutPath = taskManagerStdoutPath;
 		this.retryingRegistrationConfiguration = retryingRegistrationConfiguration;
-		this.inactiveSlotsWhenLostJobManager = inactiveSlotsWhenLostJobManager;
+		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 	}
 
 	public int getNumberSlots() {
@@ -175,8 +176,8 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 		return retryingRegistrationConfiguration;
 	}
 
-	public boolean inactiveSlotsWhenLostJobManager() {
-		return inactiveSlotsWhenLostJobManager;
+	public boolean evenlySpreadOutSlots() {
+		return evenlySpreadOutSlots;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -282,7 +283,7 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 
 		final RetryingRegistrationConfiguration retryingRegistrationConfiguration = RetryingRegistrationConfiguration.fromConfiguration(configuration);
 
-		final boolean inactiveSlotsWhenLostJobManager = configuration.getBoolean(TaskManagerOptions.INACTIVE_SLOTS_WHEN_LOST_JOB_MANAGER);
+		final boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
 
 		return new TaskManagerConfiguration(
 			numberSlots,
@@ -299,6 +300,6 @@ public class TaskManagerConfiguration implements TaskManagerRuntimeInfo {
 			taskManagerLogPath,
 			taskManagerStdoutPath,
 			retryingRegistrationConfiguration,
-			inactiveSlotsWhenLostJobManager);
+			evenlySpreadOutSlots);
 	}
 }

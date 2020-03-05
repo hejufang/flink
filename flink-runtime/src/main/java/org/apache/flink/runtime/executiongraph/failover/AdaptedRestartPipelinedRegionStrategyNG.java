@@ -208,10 +208,15 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 
 	private void rescheduleTasks(final Set<ExecutionVertex> vertices, final long globalModVersion) throws Exception {
 
-		// sort vertices topologically
-		// this is to reduce the possibility that downstream tasks get launched earlier,
-		// which may cause lots of partition state checks in EAGER mode
-		final List<ExecutionVertex> sortedVertices = sortVerticesTopologically(vertices);
+		final List<ExecutionVertex> sortedVertices;
+		if (executionGraph.isScheduleTaskFairly()) {
+			sortedVertices = sortVerticesByParallelism(vertices);
+		} else {
+			// sort vertices topologically
+			// this is to reduce the possibility that downstream tasks get launched earlier,
+			// which may cause lots of partition state checks in EAGER mode
+			sortedVertices = sortVerticesTopologically(vertices);
+		}
 
 		final CompletableFuture<Void> newSchedulingFuture = SchedulingUtils.schedule(
 			executionGraph.getScheduleMode(),
@@ -283,6 +288,23 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 		final List<ExecutionVertex> sortedVertices = new ArrayList<>(vertices.size());
 		for (ExecutionJobVertex jobVertex : executionGraph.getVerticesTopologically()) {
 			sortedVertices.addAll(verticesMap.getOrDefault(jobVertex.getJobVertexId(), Collections.emptyList()));
+		}
+		return sortedVertices;
+	}
+
+	private List<ExecutionVertex> sortVerticesByParallelism(final Set<ExecutionVertex> vertices) {
+		// org execution vertex by jobVertexId
+		final Map<JobVertexID, List<ExecutionVertex>> verticesMap = new HashMap<>();
+		for (ExecutionVertex vertex : vertices) {
+			verticesMap.computeIfAbsent(vertex.getJobvertexId(), id -> new ArrayList<>()).add(vertex);
+		}
+
+		List<JobVertexID> sortedIds = new ArrayList<>(verticesMap.keySet());
+		sortedIds.sort((a, b) -> verticesMap.get(b).size() - verticesMap.get(a).size());
+
+		final List<ExecutionVertex> sortedVertices = new ArrayList<>(vertices.size());
+		for (JobVertexID jobVertexID : sortedIds) {
+			sortedVertices.addAll(verticesMap.get(jobVertexID));
 		}
 		return sortedVertices;
 	}

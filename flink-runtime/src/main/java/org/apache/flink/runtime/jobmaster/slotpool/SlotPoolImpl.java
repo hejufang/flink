@@ -133,7 +133,7 @@ public class SlotPoolImpl implements SlotPool {
 
 	private ComponentMainThreadExecutor componentMainThreadExecutor;
 
-	private final boolean enableAvailableSlots;
+	private final boolean evenlySpreadOutSlots;
 
 	// ------------------------------------------------------------------------
 	public SlotPoolImpl(
@@ -147,7 +147,7 @@ public class SlotPoolImpl implements SlotPool {
 			rpcTimeout,
 			idleSlotTimeout,
 			batchSlotTimeout,
-			true);
+			false);
 	}
 
 	public SlotPoolImpl(
@@ -156,14 +156,14 @@ public class SlotPoolImpl implements SlotPool {
 			Time rpcTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout,
-			boolean enableAvailableSlots) {
+			boolean evenlySpreadOutSlots) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
 		this.idleSlotTimeout = checkNotNull(idleSlotTimeout);
 		this.batchSlotTimeout = checkNotNull(batchSlotTimeout);
-		this.enableAvailableSlots = enableAvailableSlots;
+		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 
 		this.registeredTaskManagers = new HashSet<>(16);
 		this.allocatedSlots = new AllocatedSlots();
@@ -226,7 +226,11 @@ public class SlotPoolImpl implements SlotPool {
 		this.jobManagerAddress = newJobManagerAddress;
 		this.componentMainThreadExecutor = componentMainThreadExecutor;
 
-		scheduleRunAsync(this::checkIdleSlot, idleSlotTimeout);
+		if (!evenlySpreadOutSlots) {
+			// Always keep available slots when enable evenlySpreadOutSlots.
+			// For task to find the prior slot.
+			scheduleRunAsync(this::checkIdleSlot, idleSlotTimeout);
+		}
 		scheduleRunAsync(this::checkBatchSlotTimeout, batchSlotTimeout);
 
 		if (log.isDebugEnabled()) {
@@ -333,9 +337,10 @@ public class SlotPoolImpl implements SlotPool {
 		checkNotNull(resourceManagerGateway);
 		checkNotNull(pendingRequest);
 
-		log.info("Requesting new slot [{}] and profile {} from resource manager.", pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile());
-
 		final AllocationID allocationId = new AllocationID();
+
+		log.info("Requesting new slot [{}] and profile {} with allocation id {} from resource manager.",
+				pendingRequest.getSlotRequestId(), pendingRequest.getResourceProfile(), allocationId);
 
 		pendingRequests.put(pendingRequest.getSlotRequestId(), allocationId, pendingRequest);
 
@@ -550,13 +555,8 @@ public class SlotPoolImpl implements SlotPool {
 			allocatedSlots.add(pendingRequest.getSlotRequestId(), allocatedSlot);
 			pendingRequest.getAllocatedSlotFuture().complete(allocatedSlot);
 		} else {
-			if (enableAvailableSlots) {
-				log.debug("Adding returned slot [{}] to available slots", allocatedSlot.getAllocationId());
-				availableSlots.add(allocatedSlot, clock.relativeTimeMillis());
-			} else {
-				log.debug("Available slot not enable, returned slot [{}] to TaskManager.", allocatedSlot.getAllocationId());
-				allocatedSlot.getTaskManagerGateway().freeSlot(allocatedSlot.getAllocationId(), new Exception(), rpcTimeout);
-			}
+			log.debug("Adding returned slot [{}] to available slots", allocatedSlot.getAllocationId());
+			availableSlots.add(allocatedSlot, clock.relativeTimeMillis());
 		}
 	}
 

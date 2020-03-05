@@ -37,9 +37,15 @@ import java.util.Set;
 public class PreviousAllocationSlotSelectionStrategy implements SlotSelectionStrategy {
 
 	private final SlotSelectionStrategy fallbackSlotSelectionStrategy;
+	private final boolean strictMode;
 
 	private PreviousAllocationSlotSelectionStrategy(SlotSelectionStrategy fallbackSlotSelectionStrategy) {
+		this(fallbackSlotSelectionStrategy, false);
+	}
+
+	private PreviousAllocationSlotSelectionStrategy(SlotSelectionStrategy fallbackSlotSelectionStrategy, boolean strictMode) {
 		this.fallbackSlotSelectionStrategy = fallbackSlotSelectionStrategy;
+		this.strictMode = strictMode;
 	}
 
 	@Override
@@ -56,6 +62,10 @@ public class PreviousAllocationSlotSelectionStrategy implements SlotSelectionStr
 					return Optional.of(
 						SlotInfoAndLocality.of(availableSlot.getSlotInfo(), Locality.LOCAL));
 				}
+			}
+			if (strictMode) {
+				// Prior Allocations not available.
+				return Optional.empty();
 			}
 		}
 
@@ -90,5 +100,9 @@ public class PreviousAllocationSlotSelectionStrategy implements SlotSelectionStr
 
 	public static PreviousAllocationSlotSelectionStrategy create(SlotSelectionStrategy fallbackSlotSelectionStrategy) {
 		return new PreviousAllocationSlotSelectionStrategy(fallbackSlotSelectionStrategy);
+	}
+
+	public static PreviousAllocationSlotSelectionStrategy create(SlotSelectionStrategy fallbackSlotSelectionStrategy, boolean strictMode) {
+		return new PreviousAllocationSlotSelectionStrategy(fallbackSlotSelectionStrategy, strictMode);
 	}
 }

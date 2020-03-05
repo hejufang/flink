@@ -47,6 +47,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -100,7 +101,7 @@ public class SlotSharingManager {
 	private final Map<SlotRequestId, TaskSlot> allTaskSlots;
 
 	/** Root nodes which have not been completed because the allocated slot is still pending. */
-	private final Map<SlotRequestId, MultiTaskSlot> unresolvedRootSlots;
+	private final LinkedHashMap<SlotRequestId, MultiTaskSlot> unresolvedRootSlots;
 
 	/** Root nodes which have been completed (the underlying allocated slot has been assigned). */
 	private final Map<TaskManagerLocation, Map<AllocationID, MultiTaskSlot>> resolvedRootSlots;
@@ -124,7 +125,7 @@ public class SlotSharingManager {
 		this.slotOwner = Preconditions.checkNotNull(slotOwner);
 
 		allTaskSlots = new HashMap<>(16);
-		unresolvedRootSlots = new HashMap<>(16);
+		unresolvedRootSlots = new LinkedHashMap<>(16);
 		resolvedRootSlots = new HashMap<>(16);
 		this.scheduleTaskFairly = scheduleTaskFairly;
 	}

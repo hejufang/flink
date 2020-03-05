@@ -20,6 +20,7 @@ package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
@@ -45,19 +46,19 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 	@Nonnull
 	private final Time batchSlotTimeout;
 
-	private final boolean enableAvailableSlots;
+	private final boolean evenlySpreadOutSlots;
 
 	public DefaultSlotPoolFactory(
 			@Nonnull Clock clock,
 			@Nonnull Time rpcTimeout,
 			@Nonnull Time slotIdleTimeout,
 			@Nonnull Time batchSlotTimeout,
-			boolean enableAvailableSlots) {
+			boolean evenlySpreadOutSlots) {
 		this.clock = clock;
 		this.rpcTimeout = rpcTimeout;
 		this.slotIdleTimeout = slotIdleTimeout;
 		this.batchSlotTimeout = batchSlotTimeout;
-		this.enableAvailableSlots = enableAvailableSlots;
+		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 	}
 
 	@Override
@@ -69,7 +70,7 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 			rpcTimeout,
 			slotIdleTimeout,
 			batchSlotTimeout,
-			enableAvailableSlots);
+			evenlySpreadOutSlots);
 	}
 
 	public static DefaultSlotPoolFactory fromConfiguration(@Nonnull Configuration configuration) {
@@ -77,13 +78,13 @@ public class DefaultSlotPoolFactory implements SlotPoolFactory {
 		final Time rpcTimeout = AkkaUtils.getTimeoutAsTime(configuration);
 		final Time slotIdleTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_IDLE_TIMEOUT));
 		final Time batchSlotTimeout = Time.milliseconds(configuration.getLong(JobManagerOptions.SLOT_REQUEST_TIMEOUT));
-		final boolean enableAvailableSlots = configuration.getBoolean(JobManagerOptions.ENABLE_AVAILABLE_SLOTS);
+		final boolean evenlySpreadOutSlots = configuration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY);
 
 		return new DefaultSlotPoolFactory(
 			SystemClock.getInstance(),
 			rpcTimeout,
 			slotIdleTimeout,
 			batchSlotTimeout,
-			enableAvailableSlots);
+			evenlySpreadOutSlots);
 	}
 }

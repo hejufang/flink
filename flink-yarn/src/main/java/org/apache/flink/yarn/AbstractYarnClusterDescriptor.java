@@ -24,7 +24,6 @@ import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterRetrieveException;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.program.ClusterClient;
-import org.apache.flink.configuration.ClusterOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
@@ -204,11 +203,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
 		// todo(huweihua): determined by shuffle mode.
 		flinkConfiguration.setString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY, "full");
-		if (flinkConfiguration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY)) {
-			flinkConfiguration.setBoolean(JobManagerOptions.ENABLE_AVAILABLE_SLOTS, false);
-			flinkConfiguration.setBoolean(TaskManagerOptions.INACTIVE_SLOTS_WHEN_LOST_JOB_MANAGER, false);
-			flinkConfiguration.setBoolean(ResourceManagerOptions.WAIT_FOR_INITIALIZED, true);
-		}
 	}
 
 	public void setQueue(String queue) {

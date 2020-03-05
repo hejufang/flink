@@ -654,6 +654,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return allocationTimeout;
 	}
 
+	public boolean isScheduleTaskFairly() {
+		return scheduleTaskFairly;
+	}
+
 	@Nonnull
 	public ComponentMainThreadExecutor getJobMasterMainThreadExecutor() {
 		return jobMasterMainThreadExecutor;

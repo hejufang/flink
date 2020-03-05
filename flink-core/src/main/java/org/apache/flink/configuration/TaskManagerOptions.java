@@ -207,15 +207,6 @@ public class TaskManagerOptions {
 			.withDeprecatedKeys("taskmanager.debug.memory.logIntervalMs")
 			.withDescription("The interval (in ms) for the log thread to log the current memory usage.");
 
-	/**
-	 * Whether inactive slots state to ALLOCATED when JobManager lost connection.
-	 */
-	public static final ConfigOption<Boolean> INACTIVE_SLOTS_WHEN_LOST_JOB_MANAGER =
-			key("taskmanager.inactive-slots-when-lost-job-manager")
-					.defaultValue(true)
-					.withDescription("Whether inactive slots state to ALLOCATED when JobManager lost connection.");
-
-
 	// ------------------------------------------------------------------------
 	//  Managed Memory Options
 	// ------------------------------------------------------------------------

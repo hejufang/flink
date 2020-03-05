@@ -62,11 +62,12 @@ public class DefaultSchedulerFactory implements SchedulerFactory {
 			locationPreferenceSlotSelectionStrategy = LocationPreferenceSlotSelectionStrategy.createDefault();
 		}
 
-		if (configuration.getBoolean(JobManagerOptions.FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS) ||
+		if (evenlySpreadOutSlots ||
+			configuration.getBoolean(JobManagerOptions.FAILOVER_PREVIOUS_LOCATION_FIRST_ALWAYS) ||
 			configuration.getBoolean(CheckpointingOptions.LOCAL_RECOVERY) ||
 			configuration.getString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY)
 				.toLowerCase().equals(FailoverStrategyLoader.LOCAL_RESTART_STRATEGY_NAME)) {
-			return PreviousAllocationSlotSelectionStrategy.create(locationPreferenceSlotSelectionStrategy);
+			return PreviousAllocationSlotSelectionStrategy.create(locationPreferenceSlotSelectionStrategy, evenlySpreadOutSlots);
 		} else {
 			return locationPreferenceSlotSelectionStrategy;
 		}

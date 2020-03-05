@@ -142,7 +142,7 @@ public class SlotManagerImpl implements SlotManager {
 	/** Check number of TaskManagers exceeds the minimal number. */
 	private ScheduledFuture<?> fullFillInitialTaskManagerCheck;
 
-	private final boolean waitForInitialized;
+	private final boolean evenlySpreadOutSlots;
 
 	/** True iff the component has been started. */
 	private boolean started;
@@ -213,7 +213,7 @@ public class SlotManagerImpl implements SlotManager {
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction,
 			boolean shufflePendingSlots,
-			boolean waitForInitialized) {
+			boolean evenlySpreadOutSlots) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
@@ -226,7 +226,7 @@ public class SlotManagerImpl implements SlotManager {
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 		this.shufflePendingSlots = shufflePendingSlots;
-		this.waitForInitialized = waitForInitialized;
+		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -417,7 +417,7 @@ public class SlotManagerImpl implements SlotManager {
 		} else {
 			PendingSlotRequest pendingSlotRequest = new PendingSlotRequest(slotRequest);
 
-			if (waitForInitialized && activeTaskManagers.get() < numInitialTaskManagers) {
+			if (evenlySpreadOutSlots && activeTaskManagers.get() < numInitialTaskManagers) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
 				if (activeTaskManagers.get() + pendingTaskManagers.get() < numInitialTaskManagers) {
@@ -527,13 +527,12 @@ public class SlotManagerImpl implements SlotManager {
 			pendingTaskManagers.getAndDecrement();
 			activeTaskManagers.getAndIncrement();
 
-			if (waitForInitialized
+			if (evenlySpreadOutSlots
 					&& activeTaskManagers.get() >= numInitialTaskManagers
 					&& !waitingTaskManagerSlotRequests.isEmpty()) {
 				allocateSlotsForPending();
 			}
 		}
-
 	}
 
 	private void allocateSlotsForPending() {

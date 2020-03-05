@@ -200,14 +200,6 @@ public class ResourceManagerOptions {
 					.withDescription("Shuffle the pending slots when TaskManager register.");
 
 	/**
-	 * Whether wait for slotManager initialized before allocate slots.
-	 */
-	public static final ConfigOption<Boolean> WAIT_FOR_INITIALIZED = ConfigOptions
-			.key("resourcemanager.wait-for-initialized")
-			.defaultValue(false)
-			.withDescription("Whether wait for slotManager initialized before allocate slots.");
-
-	/**
 	 * Prefix for passing custom environment variables to Flink's master process.
 	 * For example for passing LD_LIBRARY_PATH as an env variable to the AppMaster, set:
 	 * containerized.master.env.LD_LIBRARY_PATH: "/usr/lib/native"

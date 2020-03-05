@@ -25,6 +25,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.runtime.taskmanager.Task;
@@ -46,6 +47,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Container for multiple {@link TaskSlot} instances. Additionally, it maintains multiple indices
@@ -81,6 +83,8 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 	/** Whether the table has been started. */
 	private boolean started;
 
+	private Map<Integer, CompletableFuture<Acknowledge>> taskSlotReleasingFutures;
+
 	public TaskSlotTable(
 		final Collection<ResourceProfile> resourceProfiles,
 		final TimerService<AllocationID> timerService) {
@@ -106,6 +110,7 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 		taskSlotMappings = new HashMap<>(4 * numberSlots);
 
 		slotsPerJob = new HashMap<>(4);
+		taskSlotReleasingFutures = new HashMap<>(4);
 
 		slotActions = null;
 		started = false;
@@ -147,6 +152,10 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 		} else {
 			return Collections.unmodifiableSet(allocationIds);
 		}
+	}
+
+	public Collection<CompletableFuture<Acknowledge>> getSlotReleaseFuture() {
+		return taskSlotReleasingFutures.values();
 	}
 
 	// ---------------------------------------------------------------------
@@ -216,6 +225,17 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 		}
 
 		return result;
+	}
+
+	/**
+	 * Renew slots allocation timeout.
+	 * @param jobID to renew slots allocation for
+	 * @param slotTimeout until the slot times out
+	 */
+	public void renewSlotTimeoutForJob(JobID jobID, Time slotTimeout) {
+		for (AllocationID allocationID : getAllocationIdsPerJob(jobID)) {
+			timerService.registerTimeout(allocationID, slotTimeout.getSize(), slotTimeout.getUnit());
+		}
 	}
 
 	/**
@@ -332,11 +352,19 @@ public class TaskSlotTable implements TimeoutListener<AllocationID> {
 					slotsPerJob.remove(jobId);
 				}
 
+				CompletableFuture<Acknowledge> taskSlotReleasingFuture = taskSlotReleasingFutures.remove(taskSlot.getIndex());
+				if (taskSlotReleasingFuture != null) {
+					LOG.info("Releasing taskSlot {} complete.", taskSlot.getIndex());
+					taskSlotReleasingFuture.complete(Acknowledge.get());
+				}
+
 				return taskSlot.getIndex();
 			} else {
 				// we couldn't free the task slot because it still contains task, fail the tasks
 				// and set the slot state to releasing so that it gets eventually freed
 				taskSlot.markReleasing();
+				LOG.info("Could not free slot {} now, releasing in future.", taskSlot.getIndex());
+				taskSlotReleasingFutures.putIfAbsent(taskSlot.getIndex(), new CompletableFuture<>());
 
 				Iterator<Task> taskIterator = taskSlot.getTasks();
 

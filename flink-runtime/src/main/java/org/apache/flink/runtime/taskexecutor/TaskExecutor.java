@@ -1031,11 +1031,26 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			InstanceID taskExecutorRegistrationId,
 			ClusterInformation clusterInformation) {
 
-		final CompletableFuture<Acknowledge> slotReportResponseFuture = resourceManagerGateway.sendSlotReport(
-			getResourceID(),
-			taskExecutorRegistrationId,
-			taskSlotTable.createSlotReport(getResourceID()),
-			taskManagerConfiguration.getTimeout());
+		final CompletableFuture<Acknowledge> slotReportResponseFuture;
+		if (taskManagerConfiguration.evenlySpreadOutSlots()) {
+			// Slots will be freed when use evenlySpreadOutSlots, these slot may be in releasing.
+			// Wait the releasing slot to be free, otherwise SlotManager can not provide it to SlotPool.
+			slotReportResponseFuture = FutureUtils.combineAll(taskSlotTable.getSlotReleaseFuture())
+					.thenComposeAsync(
+							ack -> resourceManagerGateway.sendSlotReport(
+									getResourceID(),
+									taskExecutorRegistrationId,
+									taskSlotTable.createSlotReport(getResourceID()),
+									taskManagerConfiguration.getTimeout()),
+							getMainThreadExecutor()
+					);
+		} else {
+			slotReportResponseFuture = resourceManagerGateway.sendSlotReport(
+					getResourceID(),
+					taskExecutorRegistrationId,
+					taskSlotTable.createSlotReport(getResourceID()),
+					taskManagerConfiguration.getTimeout());
+		}
 
 		slotReportResponseFuture.whenCompleteAsync(
 			(acknowledge, throwable) -> {
@@ -1300,8 +1315,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			AllocationID activeSlot = activeSlots.next();
 
 			try {
-				if (!taskManagerConfiguration.inactiveSlotsWhenLostJobManager()
+				if (taskManagerConfiguration.evenlySpreadOutSlots()
 						|| !taskSlotTable.markSlotInactive(activeSlot, taskManagerConfiguration.getTimeout())) {
+					// Free slot directly when evenlySpreadOutSlots.
+					// prevent TaskExecutor offer slots to JobManager without ResourceManager allocate.
 					freeSlotInternal(activeSlot, freeingCause);
 				}
 			} catch (SlotNotFoundException e) {
