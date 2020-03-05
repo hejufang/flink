@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -63,7 +64,7 @@ import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONS
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_LATEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_TIMESTAMP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE;
-import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_EARLIST;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_EARLIEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_GROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_LATEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_TIMESTAMP;
@@ -82,6 +83,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSource.class);
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
+	private transient Counter skipDirty;
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
 	private DefaultMQPullConsumer consumer;
 	private RocketMQDeserializationSchema<OUT> schema;
@@ -153,6 +155,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildConsumerConfigs(props, consumer);
+		this.skipDirty = getRuntimeContext().getMetricGroup().counter("skipDirty");
 	}
 
 	@Override
@@ -204,7 +207,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 									}
 									// output and state update are atomic
 									synchronized (lock) {
-										if (data != null) {
+										if (data == null) {
+											skipDirty.inc();
+										} else {
 											context.collectWithTimestamp(data, msg.getBornTimestamp());
 										}
 									}
@@ -297,7 +302,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 						}
 					}
 					break;
-				case STARTUP_MODE_EARLIST:
+				case STARTUP_MODE_EARLIEST:
 					offset = consumer.minOffset(mq);
 					break;
 				case STARTUP_MODE_LATEST:

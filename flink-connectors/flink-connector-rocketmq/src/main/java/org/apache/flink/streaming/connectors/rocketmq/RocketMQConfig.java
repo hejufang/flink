@@ -71,7 +71,7 @@ public class RocketMQConfig {
 	public static final String STARTUP_MODE = "startup-mode";
 	public static final String STARTUP_MODE_GROUP = "group";
 	public static final String STARTUP_MODE_LATEST = "latest";
-	public static final String STARTUP_MODE_EARLIST = "earliest";
+	public static final String STARTUP_MODE_EARLIEST = "earliest";
 	public static final String STARTUP_MODE_TIMESTAMP = "timestamp";
 	public static final String STARTUP_MODE_FROM_TIMESTAMP = "startup-mode.from.timestamp";
 	public static final String CONSUMER_OFFSET_RESET_TO = "consumer.offset.reset.to";

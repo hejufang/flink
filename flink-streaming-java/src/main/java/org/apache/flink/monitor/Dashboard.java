@@ -232,6 +232,25 @@ public class Dashboard {
 		return renderString(lateRecordsDroppedTemplate, lateRecordsDroppedValues);
 	}
 
+	private String renderDirtyRecordsSkippedRow(List<String> sources) {
+		String dirtyRecordsSkippedTargetTemplate = Template.DIRTY_RECORDS_SKIPPED_TARGET;
+		List<String> dirtyRecordsSkippedList = new ArrayList<>();
+		for (String source : sources) {
+			Map<String, String> dirtyRecordsSkippedTarget = new HashMap<>();
+			dirtyRecordsSkippedTarget.put("source", source);
+			dirtyRecordsSkippedTarget.put("jobname", jobName);
+			dirtyRecordsSkippedList.add(
+				renderString(dirtyRecordsSkippedTargetTemplate, dirtyRecordsSkippedTarget));
+		}
+
+		String targets = String.join(",", dirtyRecordsSkippedList);
+		Map<String, String> dirtyRecordsSkippedValues = new HashMap<>();
+		dirtyRecordsSkippedValues.put("targets", targets);
+		dirtyRecordsSkippedValues.put("datasource", dataSource);
+		String dirtyRecordsSkippedTemplate = Template.DIRTY_RECORDS_SKIPPED;
+		return renderString(dirtyRecordsSkippedTemplate, dirtyRecordsSkippedValues);
+	}
+
 	private String renderLookupHitRateRow(List<String> operators) {
 		String lookupJoinHitRateTarget = Template.LOOKUP_JOIN_HIT_RATE_TARGET;
 		List<String> metricRows = new ArrayList<>();
@@ -325,6 +344,7 @@ public class Dashboard {
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
 		rows.add(renderLateRecordsDropped(operators));
+		rows.add(renderDirtyRecordsSkippedRow(sources));
 		rows.add(renderLookupHitRateRow(Utils.filterLookupOperators(operators)));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderQueueLengthRow(tasks));
