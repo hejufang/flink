@@ -198,9 +198,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	@Override
 	public void setDefaultConfigurationForStream() {
+		// todo(huweihua): put these to config file.
 		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
 		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
+		// todo(huweihua): determined by shuffle mode.
+		flinkConfiguration.setString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY, "full");
 		if (flinkConfiguration.getBoolean(ClusterOptions.EVENLY_SPREAD_OUT_SLOTS_STRATEGY)) {
 			flinkConfiguration.setBoolean(JobManagerOptions.ENABLE_AVAILABLE_SLOTS, false);
 			flinkConfiguration.setBoolean(TaskManagerOptions.INACTIVE_SLOTS_WHEN_LOST_JOB_MANAGER, false);
