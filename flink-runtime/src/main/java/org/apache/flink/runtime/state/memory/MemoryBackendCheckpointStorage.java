@@ -83,7 +83,12 @@ public class MemoryBackendCheckpointStorage extends AbstractFsCheckpointStorage 
 		else {
 			this.fileSystem = checkpointsBaseDirectory.getFileSystem();
 			this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointsBaseDirectory, jobId);
+		}
+	}
 
+	@Override
+	public void initializeLocation() throws IOException {
+		if (checkpointsDirectory != null && fileSystem != null) {
 			fileSystem.mkdirs(checkpointsDirectory);
 		}
 	}

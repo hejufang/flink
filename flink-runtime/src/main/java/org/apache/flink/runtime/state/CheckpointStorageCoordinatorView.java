@@ -30,6 +30,8 @@ import java.io.IOException;
  */
 public interface CheckpointStorageCoordinatorView {
 
+	default void initializeLocation() throws IOException {};
+
 	/**
 	 * Checks whether this backend supports highly available storage of data.
 	 *

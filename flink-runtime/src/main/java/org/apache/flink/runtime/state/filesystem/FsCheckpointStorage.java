@@ -116,7 +116,10 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		this.taskOwnedStateDirectory = new Path(checkpointsDirectory, CHECKPOINT_TASK_OWNED_STATE_DIR);
 		this.fileSizeThreshold = fileSizeThreshold;
 		this.writeBufferSize = writeBufferSize;
+	}
 
+	@Override
+	public void initializeLocation() throws IOException {
 		// initialize the dedicated directories
 		fileSystem.mkdirs(checkpointsDirectory);
 		fileSystem.mkdirs(sharedStateDirectory);
