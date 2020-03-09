@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
+import org.apache.flink.runtime.io.network.partition.ExternalBlockSubpartitionView;
 
 import java.io.IOException;
 
@@ -87,6 +88,11 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 					resultPartitionId,
 					subPartitionIndex,
 					this);
+
+				// This is tricky to avoid add interface.
+				if (this.subpartitionView instanceof ExternalBlockSubpartitionView) {
+					((ExternalBlockSubpartitionView) subpartitionView).addCredit(numCreditsAvailable);
+				}
 			} else {
 				throw new IllegalStateException("Subpartition already requested");
 			}
@@ -96,6 +102,10 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	@Override
 	public void addCredit(int creditDeltas) {
 		numCreditsAvailable += creditDeltas;
+		// This is tricky to avoid add interface.
+		if (this.subpartitionView instanceof ExternalBlockSubpartitionView) {
+			((ExternalBlockSubpartitionView) subpartitionView).addCredit(creditDeltas);
+		}
 	}
 
 	@Override

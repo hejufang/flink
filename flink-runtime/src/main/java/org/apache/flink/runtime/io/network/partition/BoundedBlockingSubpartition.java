@@ -22,6 +22,7 @@ import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
+import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import javax.annotation.Nullable;
@@ -29,6 +30,9 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -293,4 +297,28 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 		final FileChannelMemoryMappedBoundedData bd = FileChannelMemoryMappedBoundedData.create(tempFile.toPath());
 		return new BoundedBlockingSubpartition(index, parent, bd);
 	}
+
+	/**
+	 * Creates a BoundedBlockingSubpartition that simply stores the partition data in a file.
+	 * Data is eagerly spilled (written to disk) and then yarn shuffle service will manage the reading.
+	 */
+	public static BoundedBlockingSubpartition createWithYarnFileChannel(
+			int index, ResultPartition parent, File tempFile, int readBufferSize) throws IOException {
+		// This is a tricky here to change the file to the working directory.
+		String partitionDir = ExternalBlockShuffleUtils.generatePartitionRootPath(
+				new File(System.getProperty("user.dir")).getParent(),
+				parent.getPartitionId());
+		Path partitionDirPath = new File(partitionDir).toPath();
+		if (!Files.exists(partitionDirPath)) {
+			try {
+				Files.createDirectory(partitionDirPath);
+			} catch (FileAlreadyExistsException ignored) {
+			}
+		}
+		final YarnFileChannelBoundedData bd = YarnFileChannelBoundedData.create(
+				tempFile.toPath().getFileSystem().getPath(partitionDir + tempFile.getName()),
+				ExternalBlockShuffleUtils.generateSubPartitionFile(partitionDir, index));
+		return new BoundedBlockingSubpartition(index, parent, bd);
+	}
+
 }

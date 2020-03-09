@@ -77,6 +77,18 @@ public enum BoundedBlockingSubpartitionType {
 		public BoundedBlockingSubpartition create(int index, ResultPartition parent, File tempFile, int readBufferSize) throws IOException {
 			return ResultPartitionFactory.getBoundedBlockingType().create(index, parent, tempFile, readBufferSize);
 		}
+	},
+
+	/**
+	 * A BoundedBlockingSubpartition type that simply stores the partition data in a file.
+	 * Data is eagerly spilled (written to disk) and yarn shuffle service will manager the reading.
+	 */
+	YARN {
+
+		@Override
+		public BoundedBlockingSubpartition create(int index, ResultPartition parent, File tempFile, int readBufferSize) throws IOException {
+			return BoundedBlockingSubpartition.createWithYarnFileChannel(index, parent, tempFile, readBufferSize);
+		}
 	};
 
 	// ------------------------------------------------------------------------

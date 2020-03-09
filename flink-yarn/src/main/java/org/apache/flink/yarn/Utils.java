@@ -97,6 +97,21 @@ public final class Utils {
 	public static final int REMOTE_RESOURCES_FETCH_WAIT_IN_MILLI = 100;
 
 	/**
+	 * Define the name of flink shuffle service, it has the following usages:
+	 * (1) Configure shuffle service in NodeManger in yarn-site.xml
+	 * (2) Suggest the auxiliary service name of shuffle service in NodeManger
+	 * (3) Yarn(Session)ResourceManager need to configure its serviceData in
+	 * 		ContainerLaunchContext so that flink shuffle service will get method
+	 * 		initializeApplication() being invoked. Furthermore we can add more
+	 * 		information through service data if we want to add authentication
+	 * 		mechanism.
+	 */
+	public static final String YARN_SHUFFLE_SERVICE_NAME = "yarn_shuffle_service_for_flink";
+
+	/** Initialize this variable at the first time containFlinkShuffleService() method been called. */
+	private static Boolean containFlinkShuffleService = null;
+
+	/**
 	 * See documentation.
 	 */
 	public static int calculateHeapSize(int memory, org.apache.flink.configuration.Configuration conf) {
@@ -594,6 +609,10 @@ public final class Utils {
 		ctx.setCommands(Collections.singletonList(launchCommand));
 		ctx.setLocalResources(taskManagerLocalResources);
 
+		if (containFlinkShuffleService()) {
+			ctx.setServiceData(Collections.singletonMap(YARN_SHUFFLE_SERVICE_NAME, ByteBuffer.allocate(0)));
+		}
+
 		containerEnv.putAll(tmParams.taskManagerEnv());
 
 		// add YARN classpath, etc to the container environment
@@ -822,5 +841,32 @@ public final class Utils {
 
 	public static long vCoresToMilliVcores(double vCores) {
 		return (long) (vCores * 1000);
+	}
+
+	/**
+	 * check yarn startup flink yarn shuffle service or not.
+	 */
+	private static Boolean containFlinkShuffleServiceInternal() {
+		String services = new YarnConfiguration(new org.apache.hadoop.conf.Configuration()).get(
+				"yarn.nodemanager.aux-services", "");
+		Boolean ret = false;
+		if (services.contains(YARN_SHUFFLE_SERVICE_NAME)) {
+			ret = true;
+		}
+		return ret;
+	}
+
+	public static boolean containFlinkShuffleService() {
+		if (containFlinkShuffleService != null) {
+			return containFlinkShuffleService;
+		}
+		synchronized (Utils.class) {
+			if (containFlinkShuffleService != null) {
+				return containFlinkShuffleService;
+			}
+			// initialize for only once
+			containFlinkShuffleService = containFlinkShuffleServiceInternal();
+			return containFlinkShuffleService;
+		}
 	}
 }
