@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
+import redis.clients.jedis.exceptions.JedisException;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -90,19 +91,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	@Override
 	public void open(int taskNumber, int numTasks) throws IOException {
 		recordDeque = new ArrayDeque<>();
-		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
-			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
-			springDbPool = RedisUtils.getAbaseClientPool(cluster, psm, table, serverUpdatePeriod, timeout, forceConnectionsSetting,
-					maxTotalConnections, maxIdleConnections, minIdleConnections);
-			clientPool = springDbPool;
-		} else {
-			// Use redis by default
-			LOG.info("Storage is {}, init redis client pool.", STORAGE_REDIS);
-			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
-					maxTotalConnections, maxIdleConnections, minIdleConnections);
-		}
-
-		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
 
 		if (flushMaxRetries == null) {
 			flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
@@ -115,6 +103,27 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		if (batchSize == null) {
 			batchSize = BATCH_SIZE_DEFAULT;
 		}
+
+		initJedisClient();
+	}
+
+	/**
+	 * Init client pool and get jedis client from it.
+	 * */
+	private void initJedisClient() {
+		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
+			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
+			springDbPool = RedisUtils.getAbaseClientPool(cluster, psm, table, serverUpdatePeriod, timeout, forceConnectionsSetting,
+				maxTotalConnections, maxIdleConnections, minIdleConnections);
+			clientPool = springDbPool;
+		} else {
+			// Use redis by default
+			LOG.info("Storage is {}, init redis client pool.", STORAGE_REDIS);
+			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
+				maxTotalConnections, maxIdleConnections, minIdleConnections);
+		}
+
+		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
 	}
 
 	@Override
@@ -242,6 +251,10 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					LOG.warn("Exception occurred while writing records with pipeline." +
 							" Automatically retry, retry times: {}, max retry times: {}",
 						flushRetryIndex, flushMaxRetries);
+					if (e instanceof JedisException) {
+						LOG.warn("Reset jedis client in case of broken connections.", e);
+						initJedisClient();
+					}
 					flushRetryIndex++;
 				} else {
 					LOG.error("Exception occurred while writing " +
