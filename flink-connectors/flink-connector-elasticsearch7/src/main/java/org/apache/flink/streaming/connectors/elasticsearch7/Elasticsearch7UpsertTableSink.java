@@ -405,7 +405,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 
 		@Override
 		public void addCustomRequestToIndexer(
-				byte[] doc,
+				String doc,
 				RequestIndexer indexer,
 				long version,
 				String routing,
@@ -422,7 +422,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 						deleteRequest.routing(routing);
 					}
 					if (deleteRequest.validate() != null) {
-						LOG.error("Construct DeleteRequest error for value: {}", new String(doc));
+						LOG.error("Construct DeleteRequest error for value: {}", doc);
 						return;
 					}
 					indexer.add(deleteRequest);
@@ -437,7 +437,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 						indexRequest.routing(routing);
 					}
 					if (indexRequest.validate() != null) {
-						LOG.error("Construct IndexRequest error for value: {}", new String(doc));
+						LOG.error("Construct IndexRequest error for value: {}", doc);
 						return;
 					}
 					indexer.add(indexRequest);
@@ -453,7 +453,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 						createRequest.routing(routing);
 					}
 					if (createRequest.validate() != null) {
-						LOG.error("Construct CreateRequest error for value: {}", new String(doc));
+						LOG.error("Construct CreateRequest error for value: {}", doc);
 						return;
 					}
 					indexer.add(createRequest);
@@ -465,7 +465,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 						updateRequest.routing(routing);
 					}
 					if (updateRequest.validate() != null) {
-						LOG.error("Construct UpdateRequest error for value: {}", new String(doc));
+						LOG.error("Construct UpdateRequest error for value: {}", doc);
 						return;
 					}
 					indexer.add(updateRequest);
@@ -478,7 +478,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 						upsertRequest.routing(routing);
 					}
 					if (upsertRequest.validate() != null) {
-						LOG.error("Construct UpsertRequest error for value: {}", new String(doc));
+						LOG.error("Construct UpsertRequest error for value: {}", doc);
 						return;
 					}
 					indexer.add(upsertRequest);

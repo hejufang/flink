@@ -47,7 +47,6 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +74,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 	/** The property name for opType of a record. */
 	public static final String OP_TYPE = "_opType";
+
+	/** The property name for source of a record. */
+	public static final String SOURCE = "_source";
 
 	/** Flag that indicates that only inserts are accepted. */
 	private final boolean isAppendOnly;
@@ -236,12 +238,13 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
-		// get _index, _version, _routing index
+		// get _index, _version, _routing, _id, _opType, _source index
 		int indexIndex = -1;
 		int versionIndex = -1;
 		int routingIndex = -1;
 		int idIndex = -1;
 		int opTypeIndex = -1;
+		int sourceIndex = -1;
 		for (int i = 0; i < schema.getFieldCount(); ++i) {
 			String fieldName = schema.getFieldName(i).orElseThrow(() -> new TableException("Won't get here."));
 			if (fieldName.equalsIgnoreCase(VERSION)) {
@@ -289,6 +292,15 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
 					throw new TableException("_opType field for ES sink should be varchar/char type.");
 				}
+			} else if (fieldName.equalsIgnoreCase(SOURCE)) {
+				sourceIndex = i;
+
+				// Validate index field type Can only be VARCHAR/CHAR.
+				DataType dataType = schema.getFieldDataType(i).get();
+				LogicalTypeRoot typeRoot = dataType.getLogicalType().getTypeRoot();
+				if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+					throw new TableException("_source field for ES sink should be varchar/char type.");
+				}
 			}
 		}
 
@@ -307,6 +319,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				indexIndex,
 				idIndex,
 				opTypeIndex,
+				sourceIndex,
 				byteEsMode);
 		final SinkFunction<Tuple2<Boolean, Row>> sinkFunction = createSinkFunction(
 			hosts,
@@ -559,7 +572,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		 * Custom request, used for ByteES.
 		 */
 		default void addCustomRequestToIndexer(
-				byte[] doc,
+				String doc,
 				RequestIndexer indexer,
 				long version,
 				String routing,
@@ -590,6 +603,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		private final int indexIndex;
 		private final int idIndex;
 		private final int opTypeIndex;
+		private final int sourceIndex;
 		private final boolean byteEsMode;
 
 		public ElasticsearchUpsertSinkFunction(
@@ -606,6 +620,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				int indexIndex,
 				int idIndex,
 				int opTypeIndex,
+				int sourceIndex,
 				boolean byteEsMode) {
 
 			this.index = Preconditions.checkNotNull(index);
@@ -621,44 +636,41 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			this.indexIndex = indexIndex;
 			this.idIndex = idIndex;
 			this.opTypeIndex = opTypeIndex;
+			this.sourceIndex = sourceIndex;
 			this.byteEsMode = byteEsMode;
 		}
 
 		@Override
 		public void process(Tuple2<Boolean, Row> element, RuntimeContext ctx, RequestIndexer indexer) {
 			if (byteEsMode) {
-				// filter _version, _routing of row.
-				List<Object> columnsWithoutReservedColumns = new ArrayList<>();
-				Row originalRow = element.f1;
-				Row rowWithoutReservedColumns;
+				final Row record = element.f1;
 				long version = -1;
 				String routing = null;
 				String index = null;
 				String id = null;
 				String opType = null;
+				String source = null;
 
-				for (int i = 0; i < originalRow.getArity(); ++i) {
+				for (int i = 0; i < record.getArity(); ++i) {
 					if (i == versionIndex) {
-						Object versionColumn = originalRow.getField(i);
+						Object versionColumn = record.getField(i);
 						if (versionColumn != null) {
 							version = Long.parseLong(versionColumn.toString());
 						}
 					} else if (i == routingIndex) {
-						routing = (String) originalRow.getField(i);
+						routing = (String) record.getField(i);
 					} else if (i == indexIndex) {
-						index = (String) originalRow.getField(i);
+						index = (String) record.getField(i);
 					} else if (i == idIndex) {
-						id = (String) originalRow.getField(i);
+						id = (String) record.getField(i);
 					} else if (i == opTypeIndex) {
-						opType = (String) originalRow.getField(i);
-					} else {
-						columnsWithoutReservedColumns.add(originalRow.getField(i));
+						opType = (String) record.getField(i);
+					} else if (i == sourceIndex) {
+						source = (String) record.getField(i);
 					}
 				}
-				rowWithoutReservedColumns = Row.of(columnsWithoutReservedColumns.toArray());
 
-				final byte[] document = serializationSchema.serialize(rowWithoutReservedColumns);
-				requestFactory.addCustomRequestToIndexer(document, indexer, version, routing, index, id, opType);
+				requestFactory.addCustomRequestToIndexer(source, indexer, version, routing, index, id, opType);
 			} else {
 				if (element.f0) {
 					processUpsert(element.f1, indexer);
