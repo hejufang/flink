@@ -242,7 +242,8 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 				runtimeContext.getMetricGroup(),
 				consumerMetricGroup,
 				useMetrics,
-				rateLimiter);
+				rateLimiter,
+				rateLimitingUnit);
 	}
 
 	@Override

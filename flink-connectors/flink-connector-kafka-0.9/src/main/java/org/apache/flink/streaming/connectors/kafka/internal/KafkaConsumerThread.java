@@ -21,6 +21,7 @@ package org.apache.flink.streaming.connectors.kafka.internal;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.connectors.kafka.internals.ClosableBlockingQueue;
@@ -28,6 +29,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaCommitCallback
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionState;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionStateSentinel;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -125,6 +127,9 @@ public class KafkaConsumerThread extends Thread {
 	/** Ratelimiter. */
 	private FlinkConnectorRateLimiter rateLimiter;
 
+	/** Rate limiter unit, supported unit: BYTE(default), RECORD. */
+	private RateLimitingUnit rateLimitingUnit = RateLimitingUnit.BYTE;
+
 	public KafkaConsumerThread(
 			Logger log,
 			Handover handover,
@@ -136,7 +141,8 @@ public class KafkaConsumerThread extends Thread {
 			boolean useMetrics,
 			MetricGroup consumerMetricGroup,
 			MetricGroup subtaskMetricGroup,
-			FlinkConnectorRateLimiter rateLimiter) {
+			FlinkConnectorRateLimiter rateLimiter,
+			RateLimitingUnit rateLimitingUnit) {
 
 		super(threadName);
 		setDaemon(true);
@@ -159,7 +165,13 @@ public class KafkaConsumerThread extends Thread {
 
 		if (rateLimiter != null) {
 			this.rateLimiter = rateLimiter;
+			log.info("limiting rate: {}", this.rateLimiter.getRate());
 		}
+
+		if (rateLimitingUnit != null) {
+			this.rateLimitingUnit = rateLimitingUnit;
+		}
+		log.info("rateLimitingUnit: {}", this.rateLimitingUnit);
 	}
 
 	// ------------------------------------------------------------------------
@@ -548,8 +560,22 @@ public class KafkaConsumerThread extends Thread {
 	protected ConsumerRecords<byte[], byte[]> getRecordsFromKafka() {
 		ConsumerRecords<byte[], byte[]> records = consumer.poll(pollTimeout);
 		if (rateLimiter != null) {
-			int bytesRead = getRecordBatchSize(records);
-			rateLimiter.acquire(bytesRead);
+			int requiredNum;
+			switch (rateLimitingUnit) {
+				case BYTE:
+					// limit byte number
+					requiredNum = getRecordBatchSize(records);
+					break;
+				case RECORD:
+					// limit record number
+					requiredNum = records.count();
+					break;
+				default:
+					throw new FlinkRuntimeException(
+						String.format("Unsupported RateLimitingUnit: %s.", rateLimitingUnit));
+
+			}
+			rateLimiter.acquire(requiredNum);
 		}
 		return records;
 	}

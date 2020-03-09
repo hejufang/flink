@@ -20,6 +20,8 @@ package org.apache.flink.streaming.connectors.kafka;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.OperatorStateStore;
@@ -217,6 +219,15 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	/** Flag indicating whether the consumer is still running. */
 	private volatile boolean running = true;
+
+	/**
+	 * RateLimiter to throttle bytes read from Kafka. The rateLimiter is set via
+	 * {@link #setRateLimiter(FlinkConnectorRateLimiter)}.
+	 */
+	protected FlinkConnectorRateLimiter rateLimiter;
+
+	/** Rate limiter unit, supported unit: BYTE, RECORD. */
+	protected RateLimitingUnit rateLimitingUnit;
 
 	// ------------------------------------------------------------------------
 	//  internal metrics
@@ -564,6 +575,29 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	public FlinkKafkaConsumerBase<T> disableFilterRestoredPartitionsWithSubscribedTopics() {
 		this.filterRestoredPartitionsWithCurrentTopicsDescriptor = false;
 		return this;
+	}
+
+	/**
+	 * Set a rate limiter to ratelimit bytes read from Kafka.
+	 * @param kafkaRateLimiter
+	 */
+	public void setRateLimiter(FlinkConnectorRateLimiter kafkaRateLimiter) {
+		this.rateLimiter = kafkaRateLimiter;
+	}
+
+	public FlinkConnectorRateLimiter getRateLimiter() {
+		return rateLimiter;
+	}
+
+	/**
+	 * Set rate limiting unit.
+	 * */
+	public RateLimitingUnit getRateLimitingUnit() {
+		return rateLimitingUnit;
+	}
+
+	public void setRateLimitingUnit(RateLimitingUnit rateLimitingUnit) {
+		this.rateLimitingUnit = rateLimitingUnit;
 	}
 
 	// ------------------------------------------------------------------------
