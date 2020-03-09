@@ -99,6 +99,10 @@ public interface CompletedCheckpointStore {
 	 */
 	List<CompletedCheckpoint> getAllCheckpoints() throws Exception;
 
+	default void clearAllCheckpoints() throws Exception { }
+
+	default void clearCheckpoints(int checkpointID) throws Exception { }
+
 	/**
 	 * Returns the current number of retained checkpoints.
 	 */

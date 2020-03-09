@@ -496,6 +496,11 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 	}
 
 	@Override
+	public Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException{
+		return applyCommandLineOptionsToConfiguration(commandLine);
+	}
+
+	@Override
 	public AbstractYarnClusterDescriptor createClusterDescriptor(CommandLine commandLine) throws FlinkException {
 		final Configuration effectiveConfiguration = applyCommandLineOptionsToConfiguration(commandLine);
 

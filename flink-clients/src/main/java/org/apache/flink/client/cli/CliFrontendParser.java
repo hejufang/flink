@@ -93,6 +93,9 @@ public class CliFrontendParser {
 	static final Option SAVEPOINT_DISPOSE_OPTION = new Option("d", "dispose", true,
 			"Path of savepoint to dispose.");
 
+	static final Option CHECKPOINT_ID = new Option("cid", "checkpointID", true,
+			"Checkpoint ID.");
+
 	// list specific options
 	static final Option RUNNING_OPTION = new Option("r", "running", false,
 			"Show only running programs and their JobIDs");
@@ -277,6 +280,13 @@ public class CliFrontendParser {
 		return options.addOption(JAR_OPTION);
 	}
 
+	static Options getCheckpointCommandOptions() {
+		Options options = buildGeneralOptions(new Options());
+		options.addOption(CHECKPOINT_ID);
+		return options.addOption(CLUSTER_NAME_OPTION);
+	}
+
+
 	// --------------------------------------------------------------------------------------------
 	//  Help
 	// --------------------------------------------------------------------------------------------
@@ -311,6 +321,11 @@ public class CliFrontendParser {
 	private static Options getSavepointOptionsWithoutDeprecatedOptions(Options options) {
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(JAR_OPTION);
+		return options;
+	}
+
+	private static Options getCheckpointOptionsWithoutDeprecatedOptions(Options options) {
+		options.addOption(CHECKPOINT_ID);
 		return options;
 	}
 
@@ -418,6 +433,22 @@ public class CliFrontendParser {
 		System.out.println("\n  Syntax: savepoint [OPTIONS] <Job ID> [<target directory>]");
 		formatter.setSyntaxPrefix("  \"savepoint\" action options:");
 		formatter.printHelp(" ", getSavepointOptionsWithoutDeprecatedOptions(new Options()));
+
+		printCustomCliOptions(customCommandLines, formatter, false);
+
+		System.out.println();
+	}
+
+	public static void printHelpForCheckpoint(Collection<CustomCommandLine<?>> customCommandLines) {
+		HelpFormatter formatter = new HelpFormatter();
+		formatter.setLeftPadding(5);
+		formatter.setWidth(80);
+
+		System.out.println("\nAction \"checkpoint\" dispose the specified checkpoint or all checkpoints.");
+		System.out.println("\n  Syntax: checkpoint [OPTIONS] [<Job ID>]");
+		System.out.println("\n  Sample: checkpoint -m yarn-cluster -cn flink -ynm wordcount");
+		formatter.setSyntaxPrefix("  \"checkpoint\" action options:");
+		formatter.printHelp(" ", getCheckpointOptionsWithoutDeprecatedOptions(new Options()));
 
 		printCustomCliOptions(customCommandLines, formatter, false);
 

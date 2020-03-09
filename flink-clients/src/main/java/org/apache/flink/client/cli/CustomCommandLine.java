@@ -20,6 +20,7 @@ package org.apache.flink.client.cli;
 
 import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.ClusterSpecification;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.FlinkException;
 
 import org.apache.commons.cli.CommandLine;
@@ -67,6 +68,10 @@ public interface CustomCommandLine<T> {
 	 * @throws FlinkException if the ClusterDescriptor could not be created
 	 */
 	ClusterDescriptor<T> createClusterDescriptor(CommandLine commandLine) throws FlinkException;
+
+	default Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException {
+		return null;
+	}
 
 	/**
 	 * Returns the cluster id if a cluster id was specified on the command line, otherwise it

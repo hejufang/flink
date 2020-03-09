@@ -64,6 +64,10 @@ public interface CheckpointStorageCoordinatorView {
 		return null;
 	}
 
+	default void clearAllCheckpointPointers() throws IOException { }
+
+	default void clearCheckpointPointers(int checkpointID) throws IOException { }
+
 	/**
 	 * Initializes a storage location for new checkpoint with the given ID.
 	 *

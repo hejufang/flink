@@ -250,6 +250,31 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 	}
 
 	@Override
+	public void clearAllCheckpoints() throws Exception {
+		checkpointsInZooKeeper.deleteChildren();
+	}
+
+	@Override
+	public void clearCheckpoints(int checkpointID) throws Exception {
+		recover();
+		boolean deleted = false;
+		for (CompletedCheckpoint checkpoint : completedCheckpoints) {
+			if (checkpointID == checkpoint.getCheckpointID()) {
+				LOG.info("Trying to remove checkpoint {}.", checkpoint.getCheckpointID());
+				checkpointsInZooKeeper.delete(checkpointIdToPath(checkpointID));
+				deleted = true;
+				break;
+			} else {
+				LOG.debug("Current checkpoint {} does not match {}.", checkpoint.getCheckpointID(), checkpointID);
+			}
+		}
+		if (!deleted) {
+			LOG.info("Checkpoint {} not found.", checkpointID);
+		}
+		checkpointsInZooKeeper.releaseAll();
+	}
+
+	@Override
 	public int getNumberOfRetainedCheckpoints() {
 		return completedCheckpoints.size();
 	}

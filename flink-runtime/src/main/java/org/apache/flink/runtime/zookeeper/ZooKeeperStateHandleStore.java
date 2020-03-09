@@ -364,6 +364,24 @@ public class ZooKeeperStateHandleStore<T extends Serializable> {
 	}
 
 	/**
+	 * Delete the node from ZooKeeper.
+	 * @param pathInZooKeeper Path of state handle to remove
+	 * @return True if the state handle could be released
+	 * @throws Exception If the ZooKeeper operation fails
+	 */
+	public boolean delete(String pathInZooKeeper) throws Exception {
+		checkNotNull(pathInZooKeeper, "Path in ZooKeeper");
+		final String path = normalizePath(pathInZooKeeper);
+		try {
+			client.delete().forPath(path);
+		} catch (KeeperException.NotEmptyException ignored) {
+			LOG.debug("Could not delete znode {} because it is still locked.", path);
+			return false;
+		}
+		return true;
+	}
+
+	/**
 	 * Releases all lock nodes of this ZooKeeperStateHandleStores and tries to remove all state nodes which
 	 * are not locked anymore.
 	 *

@@ -55,6 +55,11 @@ public class DefaultCLI extends AbstractCustomCommandLine<StandaloneClusterId> {
 	}
 
 	@Override
+	public Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException {
+		return applyCommandLineOptionsToConfiguration(commandLine);
+	}
+
+	@Override
 	public StandaloneClusterDescriptor createClusterDescriptor(
 			CommandLine commandLine) throws FlinkException {
 		final Configuration effectiveConfiguration = applyCommandLineOptionsToConfiguration(commandLine);
