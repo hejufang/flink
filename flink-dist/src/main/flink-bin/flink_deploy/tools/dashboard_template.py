@@ -228,7 +228,7 @@ class DashboardTemplate(object):
                                 },
                                 "yaxes": [
                                   {
-                                    "format": "µs",
+                                    "format": "short",
                                     "label": null,
                                     "logBase": 1,
                                     "max": null,
@@ -471,7 +471,7 @@ class DashboardTemplate(object):
                                     },
                                     "yaxes": [
                                         {
-                                            "format": "µs",
+                                            "format": "short",
                                             "label": null,
                                             "logBase": 1,
                                             "max": null,
