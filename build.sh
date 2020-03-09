@@ -20,12 +20,7 @@
 rm -rf output
 
 # compile current branch
-if [ "$BUILD_TYPE" == "online" ] && [ "$BUILD_REPO_BRANCH" == "flink-1.9" ] ; then
-	mvn clean deploy -U -DskipTests -Pinclude-hadoop -Pdocs-and-source
-else
-	mvn clean install -U -DskipTests -Pinclude-hadoop
-fi
-
+mvn clean install -U -DskipTests -Pinclude-hadoop
 # copy flink-1.9 to output
 mkdir -p output/deploy/flink-1.9
 rm -rf flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/opt

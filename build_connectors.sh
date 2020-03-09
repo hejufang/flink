@@ -20,7 +20,7 @@
 rm -rf output/runtime_files
 mkdir -p output/runtime_files
 cd flink-connectors
-mvn clean package -DskipTests -T 1C -Psql-jars
+mvn clean package -U -DskipTests -T 1C -Psql-jars
 
 cp flink-connector-clickhouse/target/flink-connector-clickhouse-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-jdbc/target/flink-jdbc_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
