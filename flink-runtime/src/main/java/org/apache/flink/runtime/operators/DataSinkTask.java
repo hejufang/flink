@@ -297,10 +297,6 @@ public class DataSinkTask<IT> extends AbstractInvokable {
 		this.taskCanceled = true;
 		OutputFormat<IT> format = this.format;
 		if (format != null) {
-			try {
-				this.format.close();
-			} catch (Throwable t) {}
-			
 			// make a best effort to clean up
 			try {
 				if (!cleanupCalled && format instanceof CleanupWhenUnsuccessful) {
@@ -311,6 +307,13 @@ public class DataSinkTask<IT> extends AbstractInvokable {
 			catch (Throwable t) {
 				LOG.error("Cleanup on error failed.", t);
 			}
+
+			try {
+				this.format.close();
+			} catch (Throwable t) {
+				LOG.error("Close error.", t);
+			}
+
 		}
 		
 		LOG.debug(getLogString("Cancelling data sink operator"));
