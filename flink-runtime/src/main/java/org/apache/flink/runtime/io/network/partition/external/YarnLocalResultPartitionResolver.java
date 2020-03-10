@@ -222,6 +222,7 @@ public class YarnLocalResultPartitionResolver extends LocalResultPartitionResolv
 				generateRelativeLocalAppDir(user, appId),
 				resultPartitionID);
 
+			LOG.info("Searching file for subpartition {} in {}", resultPartitionID.toString(), relativePartitionDir);
 			for (String rootDir : shuffleServiceConfiguration.getDirToDiskType().keySet()) {
 				String partitionDir = rootDir + relativePartitionDir;
 				String subPartitionFile = ExternalBlockShuffleUtils.generateSubPartitionFile(partitionDir, subPartitionIndex);
@@ -244,7 +245,7 @@ public class YarnLocalResultPartitionResolver extends LocalResultPartitionResolv
 						return fileInfo;
 					}
 				} catch (IOException e) {
-					LOG.warn("Error in searching files in subpartition {}, index {}.",
+					LOG.warn("Error in searching files for subpartition {}, index {}.",
 							resultPartitionID.toString(), subPartitionIndex.toString(), e);
 				}
 			}
