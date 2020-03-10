@@ -20,7 +20,6 @@ package org.apache.flink.streaming.connectors.kafka.internal;
 
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.core.testutils.MultiShotLatch;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.metrics.MetricGroup;
@@ -829,8 +828,7 @@ public class KafkaConsumerThreadTest {
 					false,
 					new UnregisteredMetricsGroup(),
 					new UnregisteredMetricsGroup(),
-					null,
-					RateLimitingUnit.BYTE);
+					null);
 
 			this.mockConsumer = mockConsumer;
 		}
@@ -1000,8 +998,9 @@ public class KafkaConsumerThreadTest {
 				KafkaConsumer mockConsumer,
 				FlinkConnectorRateLimiter rateLimiter) {
 			super(log, handover, kafkaProperties, unassignedPartitionsQueue, consumerCallBridge,
-				threadName, pollTimeout, useMetrics, consumerMetricGroup, subtaskMetricGroup,
-				rateLimiter, RateLimitingUnit.BYTE);
+					threadName,
+					pollTimeout, useMetrics, consumerMetricGroup, subtaskMetricGroup,
+				rateLimiter);
 			this.mockConsumer = mockConsumer;
 		}
 

@@ -65,8 +65,6 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPER
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_KEY;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PROPERTIES_VALUE;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PSM;
-import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_NUM;
-import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RELATIVE_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_CLASS;
@@ -141,8 +139,6 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		// other configurations
 		properties.add(CONNECTOR_PARALLELISM);
 		properties.add(CONNECTOR_KEYBY_FIELDS);
-		properties.add(CONNECTOR_RATE_LIMITING_NUM);
-		properties.add(CONNECTOR_RATE_LIMITING_UNIT);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -313,10 +309,6 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			.ifPresent(f -> configurations.put(CONNECTOR_KEYBY_FIELDS, f));
 		descriptorProperties.getOptionalString(CONNECTOR_LOG_FAILURES_ONLY)
 			.ifPresent(l -> configurations.put(CONNECTOR_LOG_FAILURES_ONLY, l));
-		descriptorProperties.getOptionalString(CONNECTOR_RATE_LIMITING_NUM)
-			.ifPresent(n -> configurations.put(CONNECTOR_RATE_LIMITING_NUM, n));
-		descriptorProperties.getOptionalString(CONNECTOR_RATE_LIMITING_UNIT)
-			.ifPresent(u -> configurations.put(CONNECTOR_RATE_LIMITING_UNIT, u));
 
 		return configurations;
 	}

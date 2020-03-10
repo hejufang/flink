@@ -19,7 +19,6 @@
 package org.apache.flink.table.descriptors;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 
 import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
@@ -73,10 +72,6 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM = "custom";
 	public static final String CONNECTOR_SINK_PARTITIONER_CLASS = "connector.sink-partitioner-class";
 
-	// Rate limiting configurations
-	public static final String CONNECTOR_RATE_LIMITING_NUM = "connector.rate-limiting-num";
-	public static final String CONNECTOR_RATE_LIMITING_UNIT = "connector.rate-limiting-unit";
-
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -88,19 +83,11 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_PSM, false, 1, Integer.MAX_VALUE);
 		properties.validateString(CONNECTOR_OWNER, false, 1, Integer.MAX_VALUE);
 
-		validateRateLimiting(properties);
-
 		validateStartupMode(properties);
 
 		validateKafkaProperties(properties);
 
 		validateSinkPartitioner(properties);
-	}
-
-	private void validateRateLimiting (DescriptorProperties properties) {
-		properties.validateLong(CONNECTOR_RATE_LIMITING_NUM, true, 1);
-
-		properties.validateEnumValues(CONNECTOR_RATE_LIMITING_UNIT, true, RateLimitingUnit.valueList());
 	}
 
 	private void validateStartupMode(DescriptorProperties properties) {

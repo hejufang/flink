@@ -18,7 +18,6 @@
 
 package org.apache.flink.streaming.connectors.kafka.internal;
 
-import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.core.testutils.MultiShotLatch;
 import org.apache.flink.core.testutils.OneShotLatch;
@@ -132,7 +131,7 @@ public class Kafka09FetcherTest {
 				0L,
 				new UnregisteredMetricsGroup(),
 				new UnregisteredMetricsGroup(),
-				false, null, RateLimitingUnit.BYTE);
+				false, null);
 
 		// ----- run the fetcher -----
 
@@ -268,7 +267,7 @@ public class Kafka09FetcherTest {
 				0L,
 				new UnregisteredMetricsGroup(),
 				new UnregisteredMetricsGroup(),
-				false, null, RateLimitingUnit.BYTE);
+				false, null);
 
 		// ----- run the fetcher -----
 
@@ -383,7 +382,7 @@ public class Kafka09FetcherTest {
 				0L,
 				new UnregisteredMetricsGroup(),
 				new UnregisteredMetricsGroup(),
-				false, null, RateLimitingUnit.BYTE);
+				false, null);
 
 		// ----- run the fetcher -----
 
