@@ -19,9 +19,9 @@
 # build connector libraries.
 rm -rf output/runtime_files
 mkdir -p output/runtime_files
-cd flink-connectors
-mvn clean package -U -DskipTests -T 1C -Psql-jars
+mvn clean install -DskipTests -T 1C -Psql-jars
 
+cd flink-connectors
 cp flink-connector-clickhouse/target/flink-connector-clickhouse-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-jdbc/target/flink-jdbc_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-sql-connector-kafka-0.10/target/flink-sql-connector-kafka-0.10_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files

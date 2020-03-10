@@ -16,14 +16,17 @@
 #  See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
-# build format libraries.
-rm -rf ./output/runtime_files
-mkdir -p ./output/runtime_files
-mvn clean package -DskipTests -T 1C -Psql-jars
+# deploy current branch
+mvn clean deploy -U -DskipTests -Pinclude-hadoop -Pdocs-and-source
 
-cd flink-formats
-cp flink-pb/target/flink-pb-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-csv/target/flink-csv-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-json/target/flink-json-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-bytes/target/flink-bytes-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+# checkout flink-1.5
+git checkout -b flink-1.5-deploy origin/flink-1.5
+git clean -xdf  flink-end-to-end-tests/
+git clean -xdf flink-formats/flink-parquet/
+git clean -xdf flink-python/
+git clean -xdf flink-runtime-web/
+git clean -xdf tools/japicmp-output/
+
+# deploy flink-1.5
+mvn clean deploy -U -DskipTests
 
