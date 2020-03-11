@@ -31,6 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 public class Utils {
 	private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
 	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
+	private static final Pattern CLUSTER_WITH_DC_PATTERN = Pattern.compile("(.*)\\.service\\.(\\w+)");
 
 	public static String replaceSpecialCharacter(String name) {
 		String result = name.replaceAll("[^\\w.]", "_")
@@ -145,6 +148,24 @@ public class Utils {
 			LOG.error("Failed to parse RocketMQ configurations.", e);
 		}
 		return new JSONArray();
+	}
+
+	/**
+	 * Parse cluster and dc from domain.
+	 * Parse "{cluster}.service.{dc}" to [{cluster}, {dc}].
+	 * */
+	public static String[] parseClusterAndDc(String clusterWithDc) {
+		String clusterName = clusterWithDc;
+		String dc = "";
+		if (clusterWithDc == null) {
+			return new String[] {"", ""};
+		}
+		Matcher matcher = CLUSTER_WITH_DC_PATTERN.matcher(clusterWithDc);
+		if (matcher.matches()) {
+			clusterName = matcher.group(1);
+			dc = matcher.group(2);
+		}
+		return new String[] {clusterName, dc};
 	}
 
 	public static JSONArray list2JSONArray(List list) {

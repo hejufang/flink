@@ -100,8 +100,9 @@ public class Dashboard {
 		for (Object o : rocketMQConfArray) {
 			JSONObject json = (JSONObject) o;
 			Map<String, String> lagSizeTargetValues = new HashMap<>();
+			String[] clusterAndDcArray = Utils.parseClusterAndDc(json.get("cluster").toString());
 			lagSizeTargetValues.put("metric_name", "rocketmq.consumer_group.depth");
-			lagSizeTargetValues.put("cluster", json.get("cluster").toString());
+			lagSizeTargetValues.put("cluster", clusterAndDcArray[0]);
 			lagSizeTargetValues.put("topic", json.get("topic").toString());
 			lagSizeTargetValues.put("dc", "*");
 			lagSizeTargetValues.put("consumer_group", json.get("consumer_group").toString());
