@@ -18,7 +18,6 @@
 package org.apache.flink.streaming.connectors.kafka;
 
 import org.apache.flink.annotation.PublicEvolving;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
@@ -91,11 +90,6 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 	 * available. If 0, returns immediately with any records that are available now */
 	protected final long pollTimeout;
 
-	/**
-	 * RateLimiter to throttle bytes read from Kafka. The rateLimiter is set via
-	 * {@link #setRateLimiter(FlinkConnectorRateLimiter)}.
-	 */
-	private FlinkConnectorRateLimiter rateLimiter;
 	// ------------------------------------------------------------------------
 
 	/**
@@ -271,7 +265,8 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 				runtimeContext.getMetricGroup(),
 				consumerMetricGroup,
 				useMetrics,
-				rateLimiter);
+				rateLimiter,
+				rateLimitingUnit);
 	}
 
 	@Override
@@ -324,17 +319,5 @@ public class FlinkKafkaConsumer09<T> extends FlinkKafkaConsumerBase<T> {
 
 		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, deSerName);
 		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deSerName);
-	}
-
-	/**
-	 * Set a rate limiter to ratelimit bytes read from Kafka.
-	 * @param kafkaRateLimiter
-	 */
-	public void setRateLimiter(FlinkConnectorRateLimiter kafkaRateLimiter) {
-		this.rateLimiter = kafkaRateLimiter;
-	}
-
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
 	}
 }

@@ -19,6 +19,9 @@
 package org.apache.flink.streaming.connectors.kafka;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -50,6 +53,8 @@ import java.util.Properties;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_NUM;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
 
 /**
  * A version-agnostic Kafka {@link StreamTableSource}.
@@ -213,6 +218,21 @@ public abstract class KafkaTableSourceBase implements
 		DeserializationSchema<Row> deserializationSchema = getDeserializationSchema();
 		// Version-specific Kafka consumer
 		FlinkKafkaConsumerBase<Row> kafkaConsumer = getKafkaConsumer(topic, properties, deserializationSchema);
+
+		// Set kafka rate limiting strategy.
+		long rateLimitingNum =
+			Long.valueOf(configurations.getOrDefault(CONNECTOR_RATE_LIMITING_NUM, "-1"));
+		String rateLimitingUnitStr = configurations.get(CONNECTOR_RATE_LIMITING_UNIT);
+		if (rateLimitingNum > 0) {
+			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rateLimitingNum);
+			kafkaConsumer.setRateLimiter(rateLimiter);
+		}
+
+		if (rateLimitingUnitStr != null
+			&& RateLimitingUnit.valueList().contains(rateLimitingUnitStr)) {
+			kafkaConsumer.setRateLimitingUnit(RateLimitingUnit.valueOf(rateLimitingUnitStr));
+		}
 
 		// Set Kafka Source Parallelism
 		int parallelism = Integer.valueOf(configurations.getOrDefault(CONNECTOR_PARALLELISM, "-1"));
