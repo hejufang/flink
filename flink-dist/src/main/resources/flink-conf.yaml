@@ -150,7 +150,7 @@ common:
   taskmanager.network.bounded-blocking-subpartition-type: file
 
   # blacklist
-  blacklist.enabled: false
+  blacklist.enabled: true
   blacklist.job.max-task-failure-per-host: 2
   blacklist.session.max-job-failure-per-host: 2
   blacklist.session.max-taskmanager-failure-per-host: 2
@@ -292,7 +292,6 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
-  blacklist.enabled: true
 
 quoka:
   dc: cn
@@ -300,7 +299,6 @@ quoka:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
-  blacklist.enabled: true
   cluster.evenly-spread-out-slots: true
 
 maliva:
@@ -319,7 +317,6 @@ maliva:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
-  blacklist.enabled: true
 
 marmt:
   dc: va
@@ -337,7 +334,6 @@ marmt:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
-  blacklist.enabled: true
 
 macaw:
   dc: va
@@ -355,7 +351,6 @@ macaw:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
-  blacklist.enabled: true
 
 alisg:
   dc: sg
@@ -373,7 +368,6 @@ alisg:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
-  blacklist.enabled: true
 
 boe:
   dc: vm
@@ -387,7 +381,6 @@ boe:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.131.41:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
-  blacklist.enabled: true
   cluster.evenly-spread-out-slots: true
 
 cof:
@@ -402,7 +395,6 @@ cof:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
-  blacklist.enabled: true
   cluster.evenly-spread-out-slots: true
 
 swan:
