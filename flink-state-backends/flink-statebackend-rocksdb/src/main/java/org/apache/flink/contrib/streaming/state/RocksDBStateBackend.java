@@ -46,6 +46,7 @@ import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.AbstractID;
+import org.apache.flink.util.DiskUtils;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
@@ -329,14 +330,33 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			String rocksdbLocalPaths = null;
 			final String localDirs = config.getString(ConfigConstants.CONTAINER_LOCAL_DIRS, null);
 			if (localDirs != null) {
+				// parse config flink.rocksdb.disk
 				final String disk = config.getString(ConfigConstants.FLINK_ROCKSDB_DISK, null);
 				final String containerId = config.getString(ConfigConstants.CONTAINER_ID, null);
+				final String[] localDirsArray = localDirs.split(",|" + File.pathSeparator);
 				if (disk != null && containerId != null) {
-					String[] localDirsArray = localDirs.split(",|" + File.pathSeparator);
 					for (String localDir : localDirsArray) {
 						if (localDir.startsWith("/" + disk)) {
 							rocksdbLocalPaths = localDir + "/" + containerId;
 							break;
+						}
+					}
+				}
+
+				// parse config flink.rocksdb.ssd
+				final boolean useSsd = config.getBoolean(ConfigConstants.FLINK_ROCKSDB_SSD, true);
+				if (useSsd) {
+					final List<String> ssdMounts = DiskUtils.ssdMounts();
+					// m * n loop
+					for (final String mount : ssdMounts) {
+						if (rocksdbLocalPaths == null) {
+							for (final String localDir : localDirsArray) {
+								// a bit hardcode here
+								if (localDir.startsWith(mount) || localDir.startsWith(DiskUtils.REMOTE_SSD_PREFIX)) {
+									rocksdbLocalPaths = localDir + "/" + containerId;
+									break;
+								}
+							}
 						}
 					}
 				}

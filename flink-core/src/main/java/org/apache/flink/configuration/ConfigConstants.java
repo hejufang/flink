@@ -2145,6 +2145,7 @@ public final class ConfigConstants {
 	public static final String CONTAINER_ID = "flink.yarn.container.id";
 
 	public static final String FLINK_ROCKSDB_DISK = "flink.rocksdb.disk";
+	public static final String FLINK_ROCKSDB_SSD = "flink.rocksdb.ssd";
 
 	// ---------------------------- Kafka Configurations ---------------------------
 	/** Configuration key for subset of subscribed partition list. */
