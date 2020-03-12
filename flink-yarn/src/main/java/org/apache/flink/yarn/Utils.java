@@ -71,6 +71,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.NETWORK_BOUNDED_BLOCKING_SUBPARTITION_TYPE;
 import static org.apache.flink.yarn.YarnConfigKeys.ENV_FLINK_CLASSPATH;
 import static org.apache.flink.yarn.YarnConfigKeys.LD_LIBRARY_PATH_DEFAULT;
 
@@ -609,7 +610,8 @@ public final class Utils {
 		ctx.setCommands(Collections.singletonList(launchCommand));
 		ctx.setLocalResources(taskManagerLocalResources);
 
-		if (containFlinkShuffleService()) {
+		final String subpartitionType = flinkConfig.getString(NETWORK_BOUNDED_BLOCKING_SUBPARTITION_TYPE);
+		if (subpartitionType.equals("yarn")) {
 			ctx.setServiceData(Collections.singletonMap(YARN_SHUFFLE_SERVICE_NAME, ByteBuffer.allocate(0)));
 		}
 
