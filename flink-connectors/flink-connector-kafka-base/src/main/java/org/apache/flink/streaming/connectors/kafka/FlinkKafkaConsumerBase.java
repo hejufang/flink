@@ -81,6 +81,7 @@ import static org.apache.flink.streaming.connectors.kafka.internals.metrics.Kafk
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.KAFKA_CONSUMER_METRICS_GROUP;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.kafka.clients.consumer.ConsumerConfig.IGNORE_DC_CHECK_CONFIG;
 
 /**
  * Base class of all Flink Kafka Consumer data sources.
@@ -296,7 +297,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			long discoveryIntervalMillis,
 			boolean useMetrics,
 			Properties props) {
-		this.properties = props;
+		this.properties = addDefaultKafkaConfigurations(props);
 		this.topicsDescriptor = new KafkaTopicsDescriptor(topics, topicPattern);
 		this.deserializer = checkNotNull(deserializer, "valueDeserializer");
 
@@ -1347,5 +1348,23 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			throw new RuntimeException(errorMsg, t);
 		}
 		return result;
+	}
+
+	/**
+	 * Add default kafka configurations.
+	 *
+	 * @param properties origin kafka properties.
+	 * @return properties appended with default configurations.
+	 * */
+	private Properties addDefaultKafkaConfigurations(Properties properties) {
+		if (properties == null) {
+			properties = new Properties();
+		}
+		if (!properties.containsKey(IGNORE_DC_CHECK_CONFIG)) {
+			// set default ignore dc check to 'true'
+			LOG.info("Add default configuration: {} = {}", IGNORE_DC_CHECK_CONFIG, true);
+			properties.put(IGNORE_DC_CHECK_CONFIG, true);
+		}
+		return properties;
 	}
 }
