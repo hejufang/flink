@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.connectors.kafka.internal;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.metrics.MetricGroup;
@@ -48,6 +49,7 @@ import java.util.Properties;
 @Internal
 public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 
+	@VisibleForTesting
 	public Kafka010Fetcher(
 			SourceContext<T> sourceContext,
 			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
@@ -81,7 +83,46 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 				consumerMetricGroup,
 				useMetrics,
 				rateLimiter,
-				rateLimitingUnit);
+				rateLimitingUnit,
+				-1);
+	}
+
+	public Kafka010Fetcher(
+			SourceContext<T> sourceContext,
+			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
+			SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic,
+			SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated,
+			ProcessingTimeService processingTimeProvider,
+			long autoWatermarkInterval,
+			ClassLoader userCodeClassLoader,
+			String taskNameWithSubtasks,
+			KafkaDeserializationSchema<T> deserializer,
+			Properties kafkaProperties,
+			long pollTimeout,
+			MetricGroup subtaskMetricGroup,
+			MetricGroup consumerMetricGroup,
+			boolean useMetrics,
+			FlinkConnectorRateLimiter rateLimiter,
+			RateLimitingUnit rateLimitingUnit,
+			long manualCommitInterval) throws Exception {
+		super(
+				sourceContext,
+				assignedPartitionsWithInitialOffsets,
+				watermarksPeriodic,
+				watermarksPunctuated,
+				processingTimeProvider,
+				autoWatermarkInterval,
+				userCodeClassLoader,
+				taskNameWithSubtasks,
+				deserializer,
+				kafkaProperties,
+				pollTimeout,
+				subtaskMetricGroup,
+				consumerMetricGroup,
+				useMetrics,
+				rateLimiter,
+				rateLimitingUnit,
+				manualCommitInterval);
 	}
 
 	@Override

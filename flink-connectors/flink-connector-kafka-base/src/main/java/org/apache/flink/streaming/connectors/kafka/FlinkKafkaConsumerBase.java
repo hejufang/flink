@@ -116,6 +116,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Configuration key to define the consumer's partition discovery interval, in milliseconds. */
 	public static final String KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = "flink.partition-discovery.interval-millis";
 
+	public static final String KEY_MANUAL_COMMIT_OFFSETS_INTERVAL_MILLIS = "flink.manually-commit-offsets.interval-millis";
+
 	/** State name of the consumer's partition offset states. */
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
 
@@ -1132,6 +1134,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				}
 
 				fetcher.commitInternalOffsetsToKafka(offsets, offsetCommitCallback);
+				fetcher.hasSuccessfulCheckpoint().compareAndSet(false, true);
 			} catch (Exception e) {
 				if (running) {
 					throw e;

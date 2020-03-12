@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITTED_OFFSETS_METRICS_GAUGE;
@@ -71,6 +72,8 @@ public abstract class AbstractFetcher<T, KPH> {
 	private static final int PUNCTUATED_WATERMARKS = 2;
 
 	// ------------------------------------------------------------------------
+
+	private final AtomicBoolean hasSuccessfulCheckpoint;
 
 	/** The source context to emit records and watermarks to. */
 	protected final SourceContext<T> sourceContext;
@@ -218,6 +221,7 @@ public abstract class AbstractFetcher<T, KPH> {
 
 			periodicEmitter.start();
 		}
+		hasSuccessfulCheckpoint = new AtomicBoolean(false);
 	}
 
 	/**
@@ -643,6 +647,10 @@ public abstract class AbstractFetcher<T, KPH> {
 
 	private static String getLegacyOffsetsMetricsGaugeName(KafkaTopicPartitionState<?> ktp) {
 		return ktp.getTopic() + "-" + ktp.getPartition();
+	}
+
+	public AtomicBoolean hasSuccessfulCheckpoint () {
+		return hasSuccessfulCheckpoint;
 	}
 
 	/**

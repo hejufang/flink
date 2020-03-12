@@ -32,6 +32,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDi
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
+import org.apache.flink.util.PropertiesUtil;
 import org.apache.flink.util.SerializedValue;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -73,6 +74,9 @@ import java.util.regex.Pattern;
 public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaConsumer010.class);
 	private static final long serialVersionUID = 2324564345203409112L;
+
+	private final long manualCommitInterval;
+
 
 	// ------------------------------------------------------------------------
 
@@ -161,6 +165,9 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 				LOG.error("Parse kafka metrics failed", e);
 			}
 		}
+
+		manualCommitInterval = PropertiesUtil.getLong(props,
+				KEY_MANUAL_COMMIT_OFFSETS_INTERVAL_MILLIS, -1);
 	}
 
 	/**
@@ -204,6 +211,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	@PublicEvolving
 	public FlinkKafkaConsumer010(Pattern subscriptionPattern, KafkaDeserializationSchema<T> deserializer, Properties props) {
 		super(subscriptionPattern, deserializer, props);
+		manualCommitInterval = -1;
 	}
 
 	@Override
@@ -243,7 +251,8 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 				consumerMetricGroup,
 				useMetrics,
 				rateLimiter,
-				rateLimitingUnit);
+				rateLimitingUnit,
+				manualCommitInterval);
 	}
 
 	@Override

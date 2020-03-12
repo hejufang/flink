@@ -529,6 +529,10 @@ public class KafkaConsumerThread extends Thread {
 		return rateLimiter;
 	}
 
+	boolean isCommitInProgress() {
+		return commitInProgress;
+	}
+
 	// -----------------------------------------------------------------------
 	// Rate limiting methods
 	// -----------------------------------------------------------------------
