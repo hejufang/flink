@@ -33,9 +33,9 @@ with open("commits.txt", "rb") as f:
 
 with open("./migrate_commits.csv", "wb") as f:
     writer = csv.writer(f)
-    num = 0
+    num = len(bytedanceCommits) + 1
     for commit in bytedanceCommits:
-        num+=1
+        num-=1
         row = []
         row.append(num)
 
