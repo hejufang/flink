@@ -66,6 +66,7 @@ under the License.
 		<module>flink-connector-rocketmq</module>
 		<module>flink-connector-metrics</module>
 		<module>flink-sql-connector-elasticsearch7</module>
+		<module>flink-connector-loghouse</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

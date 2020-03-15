@@ -33,4 +33,5 @@ cp flink-sql-connector-elasticsearch7/target/flink-sql-connector-elasticsearch7_
 cp flink-connector-elasticsearch6-ad/target/flink-connector-elasticsearch6-ad_2.11-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-metrics/target/flink-connector-metrics-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-rocketmq/target/flink-connector-rocketmq-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+cp flink-connector-loghouse/target/flink-connector-loghouse-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 
