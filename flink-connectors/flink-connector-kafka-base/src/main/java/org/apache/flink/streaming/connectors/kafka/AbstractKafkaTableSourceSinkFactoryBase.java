@@ -68,6 +68,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_PSM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_NUM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RELATIVE_OFFSET;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_CLASS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM;
@@ -136,6 +137,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_SINK_PARTITIONER_CLASS);
 		properties.add(CONNECTOR_RELATIVE_OFFSET);
 		properties.add(CONNECTOR_SPECIFIC_TIMESTAMP);
+		properties.add(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION);
 		properties.add(CONNECTOR_LOG_FAILURES_ONLY);
 
 		// other configurations
@@ -317,7 +319,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			.ifPresent(n -> configurations.put(CONNECTOR_RATE_LIMITING_NUM, n));
 		descriptorProperties.getOptionalString(CONNECTOR_RATE_LIMITING_UNIT)
 			.ifPresent(u -> configurations.put(CONNECTOR_RATE_LIMITING_UNIT, u));
-
+		descriptorProperties.getOptionalBoolean(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(value ->
+			configurations.put(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION, String.valueOf(value)));
 		return configurations;
 	}
 

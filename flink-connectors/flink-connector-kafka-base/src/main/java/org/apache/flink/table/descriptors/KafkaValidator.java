@@ -59,6 +59,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SPECIFIC_OFFSETS_OFFSET = "offset";
 	public static final String CONNECTOR_SPECIFIC_TIMESTAMP = "connector.specific-timestamp";
 	public static final String CONNECTOR_RELATIVE_OFFSET = "connector.relative-offset";
+	public static final String CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION =
+		"connector.reset-to-earliest-for-new-partition";
 	public static final String CONNECTOR_KAFKA_PROPERTIES = "connector.kafka.properties";
 	public static final String CONNECTOR_KAFKA_PROPERTIES_PARTITIONER_CLASS =
 		"connector.kafka.properties.partitioner.class";
@@ -133,6 +135,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		properties.validateEnum(CONNECTOR_STARTUP_MODE, true, startupModeValidation);
 		properties.validateLong(CONNECTOR_RELATIVE_OFFSET, true);
 		properties.validateLong(CONNECTOR_SPECIFIC_TIMESTAMP, true);
+		properties.validateBoolean(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION, true);
 	}
 
 	private void validateKafkaProperties(DescriptorProperties properties) {

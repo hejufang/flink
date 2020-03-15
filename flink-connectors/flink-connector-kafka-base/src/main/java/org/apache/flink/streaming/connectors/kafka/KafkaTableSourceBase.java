@@ -55,6 +55,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_NUM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
 
 /**
  * A version-agnostic Kafka {@link StreamTableSource}.
@@ -359,6 +360,14 @@ public abstract class KafkaTableSourceBase implements
 			DeserializationSchema<Row> deserializationSchema) {
 		FlinkKafkaConsumerBase<Row> kafkaConsumer =
 				createKafkaConsumer(topic, properties, deserializationSchema);
+		if (configurations.containsKey(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION)) {
+			boolean value = Boolean.parseBoolean(configurations.get(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION));
+			if (value) {
+				kafkaConsumer.resetToEarliestForNewPartition();
+			} else {
+				kafkaConsumer.disableResetToEarliestForNewPartition();
+			}
+		}
 		switch (startupMode) {
 			case EARLIEST:
 				kafkaConsumer.setStartFromEarliest();
