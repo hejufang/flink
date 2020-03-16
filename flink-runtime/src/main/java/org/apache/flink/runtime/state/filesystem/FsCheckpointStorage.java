@@ -238,6 +238,15 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	}
 
 	@Override
+	public long getCheckpointIDFromExternalPointer(String externalPointer) {
+		Path externalPath = new Path(externalPointer);
+		if (externalPath.getName().startsWith(CHECKPOINT_DIR_PREFIX)) {
+			return Long.parseLong(externalPath.getName().substring(CHECKPOINT_DIR_PREFIX.length()));
+		}
+		return -1;
+	}
+
+	@Override
 	public void clearAllCheckpointPointers() throws IOException {
 		fileSystem.delete(checkpointsDirectory, true);
 		LOG.info("Checkpoints Directory {} deleted.", checkpointsDirectory);

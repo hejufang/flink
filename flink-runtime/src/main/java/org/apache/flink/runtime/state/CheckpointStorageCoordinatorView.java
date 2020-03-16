@@ -64,6 +64,10 @@ public interface CheckpointStorageCoordinatorView {
 		return null;
 	}
 
+	default long getCheckpointIDFromExternalPointer(String externalPointer) {
+		return -1;
+	}
+
 	default void clearAllCheckpointPointers() throws IOException { }
 
 	default void clearCheckpointPointers(int checkpointID) throws IOException { }

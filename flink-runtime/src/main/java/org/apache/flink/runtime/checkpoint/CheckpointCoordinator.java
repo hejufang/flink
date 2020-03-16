@@ -1109,6 +1109,17 @@ public class CheckpointCoordinator {
 				}
 			}
 
+			// Try to find latest from checkpoint Storage.
+			String latestCompletedCheckpointPointer = checkpointStorage.findLatestCompletedCheckpointPointer();
+			if (latestCompletedCheckpointPointer != null) {
+				long latestCheckpointIDInStorage = checkpointStorage.getCheckpointIDFromExternalPointer(latestCompletedCheckpointPointer);
+				if (latestCheckpointIDInStorage > latest.getCheckpointID()) {
+					LOG.info("Latest checkpoint id in completedCheckpointStore({}) is smaller than checkpoint id in completedCheckpointStore({}), " +
+							"Try to recover from completedCheckpointStore.", latestCheckpointIDInStorage, latest.getCheckpointID());
+					return false;
+				}
+			}
+
 			LOG.info("Restoring job {} from latest valid checkpoint: {}.", job, latest);
 
 			// re-assign the task states
