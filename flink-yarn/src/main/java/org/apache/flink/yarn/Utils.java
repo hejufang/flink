@@ -754,6 +754,8 @@ public final class Utils {
 				}
 				LOG.info("Docker mounts: {}", dockerMounts);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY,
+						YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT);
 			} else {
 				LOG.info("No docker image configured, run on physical machines.");
 			}

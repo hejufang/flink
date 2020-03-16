@@ -73,6 +73,10 @@ public class YarnConfigKeys {
 		"YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT =
 		"/opt/tiger/ss_conf:/opt/tiger/ss_conf;/opt/tiger/ss_lib:/opt/tiger/ss_lib";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY =
+		"ENV_DOCKER_CONTAINER_CAP_ADD";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT =
+		"SYS_ADMIN;NET_ADMIN;SYS_PTRACE";
 
 	public static final String DOCKER_IMAGE_KEY = "docker.image";
 	public static final String DOCKER_DEFAULT_IMAGE_KEY = "docker.default_image";
