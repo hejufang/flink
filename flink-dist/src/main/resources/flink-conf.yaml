@@ -46,6 +46,7 @@ common:
 
   metrics.reporters: opentsdb_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
+  metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
 
   prune.buffer.threshold: 262144
 

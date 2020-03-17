@@ -29,8 +29,6 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 
-import com.bytedance.metrics.UdpMetricsClient;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,7 +57,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final Pattern TASK_MANAGER_PATTERN_2 = Pattern.compile(
 			"taskmanager\\.(\\S+)\\.(\\d+)\\.(\\S+)");
 	private static final int METRICS_NAME_MAX_LENGTH = 255;
-	private UdpMetricsClient udpMetricsClient;
+	private RateLimitedMetricsClient client;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
 	private String region;
@@ -148,7 +146,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	@Override
 	public void open(MetricConfig config) {
 		this.prefix = config.getString("prefix", "flink");
-		this.udpMetricsClient = new UdpMetricsClient(this.prefix);
+		this.client = new RateLimitedMetricsClient(this.prefix, config);
 		this.jobName = config.getString("jobname", "flink");
 		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
 
@@ -170,6 +168,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				// 去除不需要的 metrics
 				return;
 			}
+
+			client.addMetric();
 			log.info("Register Metric={}", name);
 
 			if (metric instanceof Counter) {
@@ -189,6 +189,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	@Override
 	public void close() {
+
 	}
 
 	private void reportGlobalMetrics(String type, String name, String metricName,
@@ -198,9 +199,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			if (!emitMetricName.equals(metricName)) {
 				String prefixEmitMetricName = GLOBAL_PREFIX + "." + emitMetricName;
 				if (type.equals("counter")) {
-					this.udpMetricsClient.emitCounterWithTag(prefixEmitMetricName, value, tags);
+					this.client.emitCounterWithTag(prefixEmitMetricName, value, tags);
 				} else {
-					this.udpMetricsClient.emitStoreWithTag(prefixEmitMetricName, value, tags);
+					this.client.emitStoreWithTag(prefixEmitMetricName, value, tags);
 				}
 			}
 		}
@@ -216,7 +217,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				// Counter type is for accumulating, in all metric system, including flink metric and
 				// metrics in bytedance. But once we get counter's current value, it's counter property
 				// disappears, and it is a gauge now.
-				this.udpMetricsClient.emitStoreWithTag(tuple.x, value, tuple.y);
+				this.client.emitStoreWithTag(tuple.x, value, tuple.y);
 				reportGlobalMetrics("counter", name, tuple.x, value, tuple.y);
 			}
 
@@ -226,12 +227,12 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				Object value = gaugeStringEntry.getKey().getValue();
 				if (value instanceof Number) {
 					double d = ((Number) value).doubleValue();
-					this.udpMetricsClient.emitStoreWithTag(tuple.x, d, tuple.y);
+					this.client.emitStoreWithTag(tuple.x, d, tuple.y);
 					reportGlobalMetrics("gauge", name, tuple.x, d, tuple.y);
 				} else if (value instanceof String){
 					try {
 						double d = Double.parseDouble((String) value);
-						this.udpMetricsClient.emitStoreWithTag(tuple.x, d, tuple.y);
+						this.client.emitStoreWithTag(tuple.x, d, tuple.y);
 						reportGlobalMetrics("gauge", name, tuple.x, d, tuple.y);
 					} catch (NumberFormatException nf) {
 //						LOG.warn("can't change to Number {}", value);
@@ -246,8 +247,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				String name = meterStringEntry.getValue();
 				Meter meter = meterStringEntry.getKey();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "rate"), meter.getRate(), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "count"), meter.getCount(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "rate"), meter.getRate(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "count"), meter.getCount(), tuple.y);
 				reportGlobalMetrics("meter", name, tuple.x, meter.getRate(), tuple.y);
 			}
 
@@ -256,14 +257,14 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 				Histogram histogram = histogramStringEntry.getKey();
 				HistogramStatistics statistics = histogram.getStatistics();
 				Tuple<String, String> tuple = getMetricNameAndTags(name);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "count"), histogram.getCount(), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "max"), statistics.getMax(), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "min"), statistics.getMin(), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "mean"), statistics.getMean(), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "stddev"), statistics.getStdDev(), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "p99"), statistics.getQuantile(0.99), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "p75"), statistics.getQuantile(0.75), tuple.y);
-				this.udpMetricsClient.emitStoreWithTag(prefix(tuple.x, "p50"), statistics.getQuantile(0.50), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "count"), histogram.getCount(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "max"), statistics.getMax(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "min"), statistics.getMin(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "mean"), statistics.getMean(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "stddev"), statistics.getStdDev(), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "p99"), statistics.getQuantile(0.99), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "p75"), statistics.getQuantile(0.75), tuple.y);
+				this.client.emitStoreWithTag(prefix(tuple.x, "p50"), statistics.getQuantile(0.50), tuple.y);
 				reportGlobalMetrics("histogram", name, tuple.x, histogram.getCount(), tuple.y);
 			}
 		} catch (IOException ie) {

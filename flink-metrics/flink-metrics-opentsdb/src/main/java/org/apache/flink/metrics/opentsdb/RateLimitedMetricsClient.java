@@ -1,0 +1,100 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.metrics.opentsdb;
+
+import org.apache.flink.metrics.MetricConfig;
+
+import org.apache.flink.shaded.guava18.com.google.common.annotations.VisibleForTesting;
+import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.RateLimiter;
+
+import com.bytedance.metrics.UdpMetricsClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Rate limited metrics client.
+ */
+public class RateLimitedMetricsClient {
+	private static final Logger LOG = LoggerFactory.getLogger(RateLimitedMetricsClient.class);
+
+	// metrics reporter config constants
+	public static final String METRICS_REPORTER_INTERVAL_SUFFIX = "interval";
+	public static final String METRICS_REPORTER_INTERVAL_DEFAULT = "20 SECONDS";
+
+	private static final Double METRICS_INTERVAL_QUANTILE = 0.7;
+
+	private final UdpMetricsClient udpMetricsClient;
+
+	private final long interval;
+
+	private RateLimiter rateLimiter = null;
+
+	private int metricCount;
+
+	public RateLimitedMetricsClient(String prefix, MetricConfig config) {
+		this.udpMetricsClient = new UdpMetricsClient(prefix);
+		this.interval = parseIntervalToSeconds(config.getString(METRICS_REPORTER_INTERVAL_SUFFIX, METRICS_REPORTER_INTERVAL_DEFAULT));
+		this.metricCount = 0;
+	}
+
+	/**
+	 * example.
+	 * input: 2 MINUTES
+	 * output: 120
+	 */
+	@VisibleForTesting
+	public long parseIntervalToSeconds(String interval) {
+		try {
+			String[] data = interval.split(" ");
+			final long period = Long.parseLong(data[0]);
+			final TimeUnit timeunit = TimeUnit.valueOf(data[1]);
+			return TimeUnit.SECONDS.convert(period, timeunit);
+		}
+		catch (Exception e) {
+			LOG.error("Cannot parse report interval from config: {}" +
+					" - please use values like '10 SECONDS' or '500 MILLISECONDS'. " +
+					"Using default reporting interval {}.", interval, METRICS_REPORTER_INTERVAL_DEFAULT);
+		}
+		return parseIntervalToSeconds(METRICS_REPORTER_INTERVAL_DEFAULT);
+	}
+
+	public void aquirePermit() {
+		if (this.rateLimiter == null) {
+			rateLimiter = RateLimiter.create(metricCount * 1.0 / (interval * METRICS_INTERVAL_QUANTILE));
+		}
+		rateLimiter.acquire();
+	}
+
+	public void emitCounterWithTag(String name, double value, String tags) throws IOException {
+		aquirePermit();
+		udpMetricsClient.emitCounterWithTag(name, value, tags);
+	}
+
+	public void emitStoreWithTag(String name, double value, String tags) throws IOException {
+		aquirePermit();
+		udpMetricsClient.emitStoreWithTag(name, value, tags);
+	}
+
+	public void addMetric() {
+		metricCount += 1;
+	}
+}
