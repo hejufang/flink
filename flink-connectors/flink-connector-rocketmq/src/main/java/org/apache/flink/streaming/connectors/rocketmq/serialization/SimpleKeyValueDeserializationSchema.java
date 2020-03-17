@@ -75,6 +75,11 @@ public class SimpleKeyValueDeserializationSchema implements RocketMQDeserializat
 	}
 
 	@Override
+	public boolean isStreamingMode() {
+		return true;
+	}
+
+	@Override
 	public TypeInformation<Map> getProducedType() {
 		return TypeInformation.of(Map.class);
 	}

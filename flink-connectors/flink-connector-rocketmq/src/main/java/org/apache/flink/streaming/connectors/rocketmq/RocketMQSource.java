@@ -36,6 +36,7 @@ import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQu
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
 import org.apache.rocketmq.client.consumer.MQPullConsumerScheduleService;
@@ -52,6 +53,7 @@ import org.json.simple.parser.JSONParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +87,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private transient Counter skipDirty;
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
+	private AllocateMessageQueueStrategyParallelism parallelismStrategy;
 	private DefaultMQPullConsumer consumer;
 	private RocketMQDeserializationSchema<OUT> schema;
 	private RunningChecker runningChecker;
@@ -155,7 +158,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		defaultMQPullConsumer.setMessageModel(MessageModel.CLUSTERING);
 		pullConsumerScheduleService.setDefaultMQPullConsumer(defaultMQPullConsumer);
 		consumer = pullConsumerScheduleService.getDefaultMQPullConsumer();
-		consumer.setAllocateMessageQueueStrategy(new AllocateMessageQueueStrategyParallelism(parallelism, subTaskId));
+		parallelismStrategy = new AllocateMessageQueueStrategyParallelism(parallelism, subTaskId);
+		consumer.setAllocateMessageQueueStrategy(parallelismStrategy);
 
 		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildConsumerConfigs(props, consumer);
@@ -261,10 +265,20 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			throw new RuntimeException(e);
 		}
 
-		runningChecker.setRunning(true);
+		runningChecker.setRunning(checkRunnable());
 
 		awaitTermination();
 
+	}
+
+	private boolean checkRunnable() {
+		try {
+			List<MessageQueue> messageQueues = parallelismStrategy.allocate(consumer.getConsumerGroup(),
+				null, new ArrayList<>(consumer.fetchSubscribeMessageQueues(topic)), null);
+			return CollectionUtils.isNotEmpty(messageQueues) || schema.isStreamingMode();
+		} catch (Exception e) {
+			throw new IllegalStateException(String.format("%d check balance mq failed.", subTaskId), e);
+		}
 	}
 
 	private void awaitTermination() throws InterruptedException {

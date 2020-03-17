@@ -50,6 +50,11 @@ public class RocketMQDeserializationSchemaWrapper<T> implements RocketMQDeserial
 	}
 
 	@Override
+	public boolean isStreamingMode() {
+		return true;
+	}
+
+	@Override
 	public TypeInformation<T> getProducedType() {
 		return deserializationSchema.getProducedType();
 	}

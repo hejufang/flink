@@ -63,7 +63,7 @@ public class AllocateMessageQueueStrategyParallelism implements AllocateMessageQ
 	}
 
 	private static String getUniqKey(MessageQueue queue) {
-		return queue.getTopic() + "." + queue.getBrokerName();
+		return queue.toString();
 	}
 
 	@Override

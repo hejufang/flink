@@ -40,7 +40,6 @@ public interface RocketMQDeserializationSchema<T> extends Serializable, ResultTy
 	 * true is returned the element won't be emitted.
 	 *
 	 * @param nextElement The element to test for the end-of-stream signal.
-	 *
 	 * @return True, if the element signals end of stream, false otherwise.
 	 */
 	boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement);
@@ -49,8 +48,14 @@ public interface RocketMQDeserializationSchema<T> extends Serializable, ResultTy
 	 * Deserializes the rocketmq record.
 	 *
 	 * @param record rocketmq record to be deserialized.
-	 *
 	 * @return The deserialized message as an object (null if the message cannot be deserialized).
 	 */
 	T deserialize(MessageQueue messageQueue, MessageExt record) throws Exception;
+
+	/**
+	 * Check current task run in streaming mode or batch mode.
+	 *
+	 * @return True is run in streaming mode.
+	 */
+	boolean isStreamingMode();
 }
