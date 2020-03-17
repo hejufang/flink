@@ -51,6 +51,7 @@ import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.R
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_CONSUMER_OFFSET_RESET_TO;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_CONSUMER_TAG;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_CONSUMER_TOPIC;
+import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_FORCE_AUTO_COMMIT_ENABLED;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_PRODUCER_GROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_PRODUCER_TAG;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_PRODUCER_TOPIC;
@@ -122,6 +123,7 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		properties.add(CONNECTOR_BATCH_FLUSH_ENABLED);
 		properties.add(CONNECTOR_BATCH_SIZE);
 		properties.add(CONNECTOR_ASYNC_MODE_ENABLED);
+		properties.add(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -290,6 +292,8 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 			.ifPresent(f -> configurations.put(CONNECTOR_KEYBY_FIELDS, f));
 		descriptorProperties.getOptionalString(CONNECTOR_LOG_FAILURES_ONLY)
 			.ifPresent(l -> configurations.put(CONNECTOR_LOG_FAILURES_ONLY, l));
+		descriptorProperties.getOptionalBoolean(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED)
+			.ifPresent(v -> configurations.put(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED, String.valueOf(v)));
 		return configurations;
 	}
 

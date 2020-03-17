@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_FORCE_AUTO_COMMIT_ENABLED;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
@@ -109,7 +110,14 @@ public class RocketMQTableSource implements
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment execEnv) {
 		RocketMQSource<Row> rowRocketMQSource = new RocketMQSource<>(
 			new RocketMQDeserializationSchemaWrapper<>(deserializationSchema), properties);
-		// Set Kafka Source Parallelism
+
+		// Set force auto commit.
+		if (configurations.containsKey(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED)) {
+			boolean forceAutoCommitEnabled =
+				Boolean.parseBoolean(configurations.get(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED));
+			rowRocketMQSource.setForceAutoCommitEnabled(forceAutoCommitEnabled);
+		}
+		// Set source parallelism
 		int parallelism = Integer.valueOf(configurations.getOrDefault(CONNECTOR_PARALLELISM, "-1"));
 
 		DataStreamSource<Row> dataStreamSource = execEnv.addSource(rowRocketMQSource);

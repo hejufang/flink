@@ -98,6 +98,10 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private Properties props;
 	private String topic;
 	private String group;
+	/** If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled. */
+	private boolean forceAutoCommitEnabled;
+	/** Weather there is an successful checkpoint. */
+	private transient volatile boolean hasSuccessfulCheckpoint;
 	private transient volatile boolean restored;
 	private transient boolean enableCheckpoint;
 
@@ -320,9 +324,15 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		return offsetTable.get(mq);
 	}
 
+	public void setForceAutoCommitEnabled(boolean forceAutoCommitEnabled) {
+		this.forceAutoCommitEnabled = forceAutoCommitEnabled;
+	}
+
 	private void putMessageQueueOffset(MessageQueue mq, long offset) throws MQClientException {
 		offsetTable.put(mq, offset);
-		if (!enableCheckpoint) {
+		boolean needCommitOffset =
+			(!enableCheckpoint) || (forceAutoCommitEnabled && hasSuccessfulCheckpoint);
+		if (needCommitOffset) {
 			consumer.updateConsumeOffset(mq, offset);
 		}
 	}
@@ -410,6 +420,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		this.restored = context.isRestored();
 
 		if (restored) {
+			hasSuccessfulCheckpoint = true;
 			if (restoredOffsets == null) {
 				restoredOffsets = new ConcurrentHashMap<>();
 			}
@@ -436,6 +447,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			LOG.debug("notifyCheckpointComplete() called on closed source; returning null.");
 			return;
 		}
+
+		hasSuccessfulCheckpoint = true;
 
 		final int posInMap = pendingOffsetsToCommit.indexOf(checkpointId);
 		if (posInMap == -1) {

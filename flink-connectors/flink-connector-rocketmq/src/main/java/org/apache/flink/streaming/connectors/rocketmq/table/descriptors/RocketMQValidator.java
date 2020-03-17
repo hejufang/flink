@@ -60,6 +60,7 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_BATCH_SIZE = "connector.batch-size";
 	public static final String CONNECTOR_ASYNC_MODE_ENABLED = "connector.async-mode-enabled";
 
+	public static final String CONNECTOR_FORCE_AUTO_COMMIT_ENABLED = "connector.force-auto-commit-enabled";
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -86,5 +87,6 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_BATCH_FLUSH_ENABLED, true);
 		properties.validateInt(CONNECTOR_BATCH_SIZE, true, 1);
 		properties.validateBoolean(CONNECTOR_ASYNC_MODE_ENABLED, true);
+		properties.validateBoolean(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED, true);
 	}
 }
