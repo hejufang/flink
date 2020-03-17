@@ -26,6 +26,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 
 /**
@@ -36,6 +39,7 @@ import java.io.IOException;
  * @param <T> The type of the record that can be read with this record reader.
  */
 abstract class AbstractRecordReader<T extends IOReadableWritable> extends AbstractReader implements ReaderBase {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractRecordReader.class);
 
 	private final RecordDeserializer<T>[] recordDeserializers;
 
@@ -102,6 +106,7 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
 
 				if (handleEvent(bufferOrEvent.getEvent())) {
 					if (inputGate.isFinished()) {
+						LOG.info("InputGate is finished because all channels are released.");
 						isFinished = true;
 						return false;
 					}
