@@ -170,6 +170,8 @@ common:
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
 
+  jobmanager.execution.schedule-task-fairly: false
+
 flink:
   dc: cn
   clusterName: flink

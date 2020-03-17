@@ -247,7 +247,7 @@ public class JobManagerOptions {
 	 * */
 	public static final ConfigOption<Boolean> SCHEDULE_TASK_FAIRLY =
 		key("jobmanager.execution.schedule-task-fairly")
-			.defaultValue(true)
+			.defaultValue(false)
 			.withDescription("Whether schedule task fairly.");
 
 	public static final ConfigOption<Integer> TASK_MANAGER_COUNT =

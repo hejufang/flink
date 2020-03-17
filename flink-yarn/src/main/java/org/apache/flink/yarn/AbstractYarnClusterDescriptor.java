@@ -203,6 +203,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
 		// todo(huweihua): determined by shuffle mode.
 		flinkConfiguration.setString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY, "full");
+		flinkConfiguration.setBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY, true);
 	}
 
 	public void setQueue(String queue) {
