@@ -62,18 +62,3 @@ class KafkaUtil(object):
         client_metric_prefix = \
             kafka_cluster_info.get('client_related_metric_prefix', "")
         return client_metric_prefix
-
-    @staticmethod
-    def get_kafka_value(cluster, topic, partition_num,
-                        kafka_server_url=KAFKA_SERVER_URL_DEFAULT):
-        metric_prefix = KafkaUtil.get_kafka_server_prefix(cluster, kafka_server_url)
-        metric_name = KAFKA_SPEED_TEMPLATE % (metric_prefix, topic)
-        dps = MetricUtil.get_metric_data('24h-ago', '', 'sum:1h-max:rate', metric_name)
-        if dps is None or len(dps) == 0:
-            return 0
-        max_speed = max(dps.values())
-        return max_speed * 1.0 / (1 << 10) / partition_num
-
-    @staticmethod
-    def is_aws(cluster):
-        return 'aws' in cluster

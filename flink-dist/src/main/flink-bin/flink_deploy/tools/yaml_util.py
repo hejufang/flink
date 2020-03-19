@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 # -*-coding:utf-8 -*-
 
-import copy
-import os
-import yaml
+from __future__ import print_function
 from collections import namedtuple
 from kafka_util import KafkaUtil
 from util import red
 
+import copy
+import os
+import yaml
 
-SpoutItem = namedtuple("SpoutItem", ['name', 'parallelism', 'partition_value'])
+
+SpoutItem = namedtuple("SpoutItem", ['name', 'parallelism'])
 BoltItem = namedtuple('BoltItem', ['name', 'parallelism', 'is_batch', 'stream_from'])
 
 
@@ -34,7 +36,7 @@ class YamlUtil(object):
     def __init__(self, yaml_file):
         if not os.path.isfile(yaml_file):
             error_msg = "%s don't exits" % yaml_file
-            print red(error_msg)
+            print(red(error_msg))
             raise Exception(error_msg)
 
         with open(yaml_file) as yaml_file_stream:
@@ -118,13 +120,13 @@ class YamlUtil(object):
             metric_namespace_prefix = "storm." + self.get_topology_name()
         return metric_namespace_prefix
 
-    def get_job_info(self, kafka_server_url):
+    def get_job_info(self):
         job_info = PyFlinkJobInfo()
-        job_info.spouts = self.get_spout_info(kafka_server_url)
+        job_info.spouts = self.get_spout_info()
         job_info.bolts = self.get_bolt_info()
         return job_info
 
-    def get_spout_info(self, kafka_server_url):
+    def get_spout_info(self):
         result = []
         spouts_conf = self.yaml_conf.get('spout')
         spout_common_conf = spouts_conf.get('common_args')
@@ -166,12 +168,10 @@ class YamlUtil(object):
                     parallelism = min(parallelism, total_partition_num)
                 if not parallelism:
                     raise Exception("thread_num needed")
-                partition_value = parallelism
             else:
                 if is_test == 1:
                     partition_num = sp_conf['partition']
                     parallelism = partition_num
-                    partition_value = parallelism
                 else:
                     if "partition_range" in sp_conf and \
                                     sp_conf['partition_range'] > 1:
@@ -179,22 +179,11 @@ class YamlUtil(object):
                         partition_list = self.parse_kafka_partition_list(
                             partition_range_list)
                         parallelism = len(partition_list)
-                        total_partition_num = KafkaUtil.get_kafka_partition(
-                            cluster,
-                            topic)
-                        partition_value = \
-                            KafkaUtil.get_kafka_value(cluster, topic,
-                                                      total_partition_num,
-                                                      kafka_server_url)
                     else:
-                        parallelism = KafkaUtil.get_kafka_partition(cluster,
-                                                                    topic)
-                        partition_value = \
-                            KafkaUtil.get_kafka_value(cluster, topic,
-                                                      parallelism,
-                                                      kafka_server_url)
-            result.append(SpoutItem(sp_name, parallelism, partition_value))
-        return sorted(result, key=lambda x: x.partition_value)
+                        parallelism = KafkaUtil.get_kafka_partition(cluster, topic)
+            result.append(SpoutItem(sp_name, parallelism))
+        return result
+
 
     def parse_kafka_partition_list(self, partition_range_list):
         result = []
@@ -226,7 +215,5 @@ class YamlUtil(object):
             stream_from = []
             for upstream in bolt.get('group_list'):
                 stream_from = stream_from + upstream.get('stream_from')
-            result.append(BoltItem(name, bolt.get('thread_num'), is_batch_bolt,
-                                   stream_from))
+            result.append(BoltItem(name, bolt.get('thread_num'), is_batch_bolt, stream_from))
         return result
-

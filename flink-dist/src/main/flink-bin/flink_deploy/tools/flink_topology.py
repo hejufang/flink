@@ -244,7 +244,7 @@ class FlinkTopology(object):
     def update_resource_args(self, resource_args):
         print green("update resource config by sr")
         try:
-            job_info = self.yaml_util.get_job_info(self.kafka_server_url)
+            job_info = self.yaml_util.get_job_info()
             new_resources_config = SmartResourcesUtils.generate_config(
                 self.region,
                 self.cluster_name,
@@ -793,7 +793,7 @@ class FlinkTopology(object):
             print red("#######################################################")
             return False
 
-        job_info = self.yaml_util.get_job_info(self.kafka_server_url)
+        job_info = self.yaml_util.get_job_info()
         max_parallelism = max([bolt.parallelism for bolt in job_info.bolts] +
                               [spout.parallelism for spout in job_info.spouts])
         total_solts = flink_resource.tm_num * flink_resource.tm_slot

@@ -237,7 +237,7 @@ class SmartResourcesUtils(object):
         """
         flink_conf = ConfUtils.get_flink_conf(cluster, "1.5")
         yaml_util = YamlUtil(yaml_file)
-        job_info = yaml_util.get_job_info(flink_conf.get("kafka_server_url"))
+        job_info = yaml_util.get_job_info()
         user_yaml_conf = YamlUtil.get_yaml_info(yaml_file)
         sr_args = user_yaml_conf.get('sr_args', {})
         return SmartResourcesUtils.generate_config(
