@@ -17,12 +17,15 @@
  */
 package org.apache.flink.table.planner.plan.rules.physical.stream
 
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
+import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
 import org.apache.flink.table.planner.plan.nodes.common.CommonLookupJoin
 import org.apache.flink.table.planner.plan.nodes.logical._
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamExecLookupJoin
 import org.apache.flink.table.planner.plan.rules.physical.common.{BaseSnapshotOnCalcTableScanRule, BaseSnapshotOnTableScanRule}
+import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.sources.TableSource
 
@@ -83,6 +86,15 @@ object StreamExecLookupJoinRule {
 
     val providedTrait = join.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL)
     var requiredTrait = input.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL)
+
+    val tableConfig = FlinkRelOptUtil.getTableConfigFromContext(join)
+    val enableKeyBy = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN)
+
+    if (enableKeyBy && joinInfo.leftKeys.size() > 0) {
+      val requiredDistribution = FlinkRelDistribution.hash(joinInfo.leftKeys)
+      requiredTrait = requiredTrait.replace(requiredDistribution)
+    }
 
     val convInput = RelOptRule.convert(input, requiredTrait)
     new StreamExecLookupJoin(

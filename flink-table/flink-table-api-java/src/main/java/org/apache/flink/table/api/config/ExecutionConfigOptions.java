@@ -205,4 +205,12 @@ public class ExecutionConfigOptions {
 				"batch: the job will run stage by stage. \n" +
 				"pipeline: the job will run in streaming mode, but it may cause resource deadlock that receiver waits for resource to start when " +
 				"the sender holds resource to wait to send data to the receiver.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN =
+		key("table.exec.keyby-before-lookup-join")
+			.defaultValue(false)
+			.withDescription("Sets whether to do a keyby before LookupJoin using looup keys.\n" +
+				"It's useful when LookupJoin's input is huge, and keyby will reduce the size of " +
+				"cache for each subtask of LookupJoin.");
 }
