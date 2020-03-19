@@ -126,7 +126,7 @@ class BlobServerConnection extends Thread {
 			LOG.debug("Socket connection closed", e);
 		}
 		catch (Throwable t) {
-			LOG.error("Error while executing BLOB connection.", t);
+			LOG.error("Error while executing BLOB connection from {}.", clientSocket.getInetAddress(), t);
 		}
 		finally {
 			closeSilently(clientSocket, LOG);
@@ -359,7 +359,7 @@ class BlobServerConnection extends Thread {
 			LOG.debug("Socket connection closed", e);
 		}
 		catch (Throwable t) {
-			LOG.error("PUT operation failed", t);
+			LOG.error("PUT operation from {} failed.", clientSocket.getInetAddress(), t);
 			try {
 				writeErrorToStream(outputStream, t);
 			}
