@@ -39,13 +39,13 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CLUSTERING;
-import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTORS_KEYS_INDEX;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_BATCH_SIZE;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_CONNECTION_POOL_SIZE;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_CONSUL;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_CONSUL_INTERVAL;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_FLUSH_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_FLUSH_TIMEOUT_MS;
+import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_KEYS_INDEX;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_NAMESPACE;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_TIMEOUT_MS;
 import static org.apache.flink.table.descriptors.LogHouseValidator.LOG_HOUSE;
@@ -75,9 +75,11 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 
 		// consul
 		supportedProperties.add(CONNECTOR_CONSUL);
+		supportedProperties.add(CONNECTOR_CONSUL_INTERVAL);
 
-		// connect timeout
+		// connect
 		supportedProperties.add(CONNECTOR_TIMEOUT_MS);
+		supportedProperties.add(CONNECTOR_CONNECTION_POOL_SIZE);
 
 		// flush
 		supportedProperties.add(CONNECTOR_FLUSH_MAX_RETRIES);
@@ -85,8 +87,8 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 		supportedProperties.add(CONNECTOR_BATCH_SIZE);
 
 		// index
-		supportedProperties.add(CONNECTORS_KEYS_INDEX + ".#." + PARTITION);
-		supportedProperties.add(CONNECTORS_KEYS_INDEX + ".#." + CLUSTERING);
+		supportedProperties.add(CONNECTOR_KEYS_INDEX + ".#." + PARTITION);
+		supportedProperties.add(CONNECTOR_KEYS_INDEX + ".#." + CLUSTERING);
 
 		// parallelism
 		supportedProperties.add(CONNECTOR_PARALLELISM);
@@ -127,7 +129,7 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 	}
 
 	private List<Tuple2<Integer, Integer>> getKeysIndex(DescriptorProperties descriptorProperties) {
-		return descriptorProperties.getFixedIndexedProperties(CONNECTORS_KEYS_INDEX,
+		return descriptorProperties.getFixedIndexedProperties(CONNECTOR_KEYS_INDEX,
 			Arrays.asList(PARTITION, CLUSTERING)).stream()
 			.map(property -> Tuple2.of(
 				descriptorProperties.getInt(property.get(PARTITION)),

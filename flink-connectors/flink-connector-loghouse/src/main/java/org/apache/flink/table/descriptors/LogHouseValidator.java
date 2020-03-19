@@ -40,7 +40,7 @@ public class LogHouseValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_CONNECTION_POOL_SIZE = "connector.connection-pool-size";
 
 	// e.g. connectors.keys-index.0.clustering = 1, connector.keys-index.0.partition = 2
-	public static final String CONNECTORS_KEYS_INDEX = "connector.keys-index";
+	public static final String CONNECTOR_KEYS_INDEX = "connector.keys-index";
 	public static final String CLUSTERING = "clustering";
 	public static final String PARTITION = "partition";
 
@@ -69,6 +69,6 @@ public class LogHouseValidator extends ConnectorDescriptorValidator {
 		final Map<String, Consumer<String>> keysIndexValidators = new HashMap<>();
 		keysIndexValidators.put(PARTITION, (key) -> properties.validateInt(key, true, 0));
 		keysIndexValidators.put(CLUSTERING, (key) -> properties.validateInt(key, true, 0));
-		properties.validateFixedIndexedProperties(CONNECTORS_KEYS_INDEX, false, keysIndexValidators);
+		properties.validateFixedIndexedProperties(CONNECTOR_KEYS_INDEX, false, keysIndexValidators);
 	}
 }
