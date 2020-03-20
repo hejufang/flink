@@ -50,10 +50,13 @@ public class RateLimitedMetricsClient {
 
 	private int metricCount;
 
+	private int countInRateLimiter;
+
 	public RateLimitedMetricsClient(String prefix, MetricConfig config) {
 		this.udpMetricsClient = new UdpMetricsClient(prefix);
 		this.interval = parseIntervalToSeconds(config.getString(METRICS_REPORTER_INTERVAL_SUFFIX, METRICS_REPORTER_INTERVAL_DEFAULT));
 		this.metricCount = 0;
+		this.countInRateLimiter = 0;
 	}
 
 	/**
@@ -79,7 +82,13 @@ public class RateLimitedMetricsClient {
 
 	public void aquirePermit() {
 		if (this.rateLimiter == null) {
-			rateLimiter = RateLimiter.create(metricCount * 1.0 / (interval * METRICS_INTERVAL_QUANTILE));
+			countInRateLimiter = metricCount;
+			rateLimiter = RateLimiter.create(countInRateLimiter * 1.0 / (interval * METRICS_INTERVAL_QUANTILE));
+		} else {
+			if (countInRateLimiter != metricCount) {
+				countInRateLimiter = metricCount;
+				rateLimiter.setRate(countInRateLimiter * 1.0 / (interval * METRICS_INTERVAL_QUANTILE));
+			}
 		}
 		rateLimiter.acquire();
 	}
