@@ -1668,209 +1668,266 @@ class DashboardTemplate(object):
                 }
             ]
         ''')
-        self.gc_template_1_3_2 = Template('''
-            [
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PSMarkSweep.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PSMarkSweep.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PSScavenge.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PSScavenge.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                }
-            ]
-        ''')
-        self.gc_template_1_5 = Template('''
-            [
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                }
-            ]
-        ''')
-        self.gc_template_1_9 = Template('''
-            [
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                },
-                {
-                    "aggregator": "max",
-                    "currentTagKey": "",
-                    "currentTagValue": "",
-                    "downsampleAggregator": "avg",
-                    "downsampleFillPolicy": "none",
-                    "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time",
-                    "shouldComputeRate": true,
-                    "tags": {
-                        "jobname": "${jobname}"
-                    }
-                }
-            ]
+
+        self.gc_template = Template('''
+        [
+            {
+              "aggregator": "max",
+              "alias": "TM PS_Scavenge.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "hide": false,
+              "isCounter": true,
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count",
+              "refId": "C",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM PS_Scavenge.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "hide": false,
+              "isCounter": false,
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time",
+              "refId": "D",
+              "shouldComputeDelta": false,
+              "shouldComputeRate": true,
+              "shouldComputeTopK": false,
+              "tags": {
+                "jobname": "${jobname}"
+              },
+              "topKOption": "max",
+              "topKType": "top",
+              "topKValue": "10"
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM PS_MarkSweep.Count",
+              "currentTagKey": "tmid",
+              "currentTagValue": "000006",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "hide": false,
+              "isCounter": true,
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count",
+              "refId": "A",
+              "shouldComputeDelta": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM PS_MarkSweep.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "hide": false,
+              "isCounter": true,
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time",
+              "refId": "B",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM PS_Scavenge.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "hide": false,
+              "isCounter": true,
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count",
+              "refId": "H",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM PS_Scavenge.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": false,
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time",
+              "refId": "E",
+              "shouldComputeDelta": false,
+              "shouldComputeRate": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM PS_MarkSweep.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": true,
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count",
+              "refId": "F",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM PS_MarkSweep.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": true,
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time",
+              "refId": "G",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM G1_Young_Generation.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count",
+              "refId": "G",
+              "shouldComputeRate": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM  G1_Young_Generation.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time",
+              "refId": "B",
+              "shouldComputeRate": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM G1_Old_Generation.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": true,
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count",
+              "refId": "E",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "TM G1_Old_Generation.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": true,
+              "metric": "flink.taskmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time",
+              "refId": "F",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM G1_Young_Generation.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count",
+              "refId": "D",
+              "shouldComputeRate": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM G1_Young_Generation.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time",
+              "refId": "H",
+              "shouldComputeRate": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM G1_Old_Generation.Count",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": false,
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count",
+              "refId": "A",
+              "shouldComputeDelta": false,
+              "shouldComputeRate": true,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            },
+            {
+              "aggregator": "max",
+              "alias": "JM G1_Old_Generation.Time",
+              "currentTagKey": "",
+              "currentTagValue": "",
+              "downsampleAggregator": "avg",
+              "downsampleFillPolicy": "none",
+              "isCounter": true,
+              "metric": "flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time",
+              "refId": "C",
+              "shouldComputeDelta": true,
+              "shouldComputeRate": false,
+              "tags": {
+                "jobname": "${jobname}"
+              }
+            }
+          ]
         ''')
         self.threads_template = Template('''
             [
@@ -2130,21 +2187,10 @@ class DashboardTemplate(object):
             "jobname": topology_name
         })
 
-        if flink_version == '1.5':
-            gc_targets = self.gc_template_1_5.substitute({
-                "datasource": data_source,
-                "jobname": topology_name
-            })
-        elif flink_version == '1.9':
-            gc_targets = self.gc_template_1_9.substitute({
-                "datasource": data_source,
-                "jobname": topology_name
-            })
-        else:
-            gc_targets = self.gc_template_1_3_2.substitute({
-                "datasource": data_source,
-                "jobname": topology_name
-            })
+        gc_targets = self.gc_template.substitute({
+            "datasource": data_source,
+            "jobname": topology_name
+        })
 
         threads_target = self.threads_template.substitute({
             "datasource": data_source,

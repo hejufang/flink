@@ -571,110 +571,259 @@ public class Template {
 			"					\"stack\": false,\n" +
 			"					\"steppedLine\": false,\n" +
 			"					\"targets\": [\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count\",\n" +
-			"							\"refId\": \"A\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time\",\n" +
-			"							\"refId\": \"B\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count\",\n" +
-			"							\"refId\": \"C\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time\",\n" +
-			"							\"refId\": \"D\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count\",\n" +
-			"							\"refId\": \"E\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time\",\n" +
-			"							\"refId\": \"F\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count\",\n" +
-			"							\"refId\": \"G\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"currentTagKey\": \"\",\n" +
-			"							\"currentTagValue\": \"\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time\",\n" +
-			"							\"refId\": \"H\",\n" +
-			"							\"shouldComputeRate\": true,\n" +
-			"							\"tags\": {\n" +
-			"								\"jobname\": \"${jobname}\"\n" +
-			"							}\n" +
-			"						}\n" +
+			"{\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM PS_Scavenge.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"hide\": false,\n" +
+		"          \"isCounter\": false,\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count\",\n" +
+		"          \"refId\": \"A\",\n" +
+		"          \"shouldComputeDelta\": false,\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM PS_Scavenge.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"hide\": false,\n" +
+		"          \"isCounter\": false,\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time\",\n" +
+		"          \"refId\": \"B\",\n" +
+		"          \"shouldComputeDelta\": false,\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"shouldComputeTopK\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM PS_MarkSweep.Count\",\n" +
+		"          \"currentTagKey\": \"tmid\",\n" +
+		"          \"currentTagValue\": \"000006\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"hide\": false,\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count\",\n" +
+		"          \"refId\": \"C\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM PS_MarkSweep.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"hide\": false,\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time\",\n" +
+		"          \"refId\": \"D\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM PS_Scavenge.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"hide\": false,\n" +
+		"          \"isCounter\": false,\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_Scavenge.Count\",\n" +
+		"          \"refId\": \"E\",\n" +
+		"          \"shouldComputeDelta\": false,\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM PS_Scavenge.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": false,\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_Scavenge.Time\",\n" +
+		"          \"refId\": \"F\",\n" +
+		"          \"shouldComputeDelta\": false,\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM PS_MarkSweep.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Count\",\n" +
+		"          \"refId\": \"G\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM PS_MarkSweep.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.PS_MarkSweep.Time\",\n" +
+		"          \"refId\": \"H\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM G1_Young_Generation.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count\",\n" +
+		"          \"refId\": \"I\",\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM  G1_Young_Generation.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time\",\n" +
+		"          \"refId\": \"J\",\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM G1_Old_Generation.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count\",\n" +
+		"          \"refId\": \"K\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"TM G1_Old_Generation.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.taskmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time\",\n" +
+		"          \"refId\": \"L\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM G1_Young_Generation.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Count\",\n" +
+		"          \"refId\": \"M\",\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM G1_Young_Generation.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Young_Generation.Time\",\n" +
+		"          \"refId\": \"N\",\n" +
+		"          \"shouldComputeRate\": true,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM G1_Old_Generation.Count\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Count\",\n" +
+		"          \"refId\": \"O\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        },\n" +
+		"        {\n" +
+		"          \"aggregator\": \"max\",\n" +
+		"          \"alias\": \"JM G1_Old_Generation.Time\",\n" +
+		"          \"currentTagKey\": \"\",\n" +
+		"          \"currentTagValue\": \"\",\n" +
+		"          \"downsampleAggregator\": \"avg\",\n" +
+		"          \"downsampleFillPolicy\": \"none\",\n" +
+		"          \"isCounter\": true,\n" +
+		"          \"metric\": \"flink.jobmanager.Status.JVM.GarbageCollector.G1_Old_Generation.Time\",\n" +
+		"          \"refId\": \"P\",\n" +
+		"          \"shouldComputeDelta\": true,\n" +
+		"          \"shouldComputeRate\": false,\n" +
+		"          \"tags\": {\n" +
+		"            \"jobname\": \"${jobname}\"\n" +
+		"          }\n" +
+		"        }\n" +
 			"					],\n" +
 			"					\"thresholds\": [],\n" +
 			"					\"timeFrom\": null,\n" +
