@@ -214,9 +214,16 @@ class FlinkTopology(object):
         return FlinkResource.create_by_dict(resource_args)
 
     def update_resources_if_sr_enabled(self):
-        if not self.sr_args.get("enable_on_startup") and \
-            not self.sr_args.get("enable_smart_resources", False):
-            return self.flink_resource
+        if self.sr_args.has_key("enable_on_startup") and \
+            self.sr_args.has_key("enable_smart_resources"):
+            print red("The old sr config enable_smart_resources will be ignored, see http://flink.bytedance.net/1645/15429/ for more details.")
+
+        if self.sr_args.has_key("enable_on_startup"):
+            if not self.sr_args.get("enable_on_startup"):
+                return self.flink_resource
+        else:
+            if not self.sr_args.get("enable_smart_resources", False):
+                return self.flink_resource
 
         resource_args = self.user_yaml_conf.get(self.FLINK_RESOURCE_KEY)
         resource_args = self.update_resource_args(resource_args)

@@ -268,6 +268,7 @@ class SmartResourcesUtils(object):
                                                                              cluster,
                                                                              app_name,
                                                                              durtion_min=durtion_min)
+            print "resources from estimater server : " + str(usage)
         except:
             usage = None
 
