@@ -95,6 +95,10 @@ public class LogHouseClient {
 					i);
 			} catch (Exception e) {
 				LOG.warn("Failed to send a PutRequest, will retry after {} seconds.", i, e);
+			} finally {
+				if (thriftClient != null) {
+					clientPool.returnObject(hostPort, thriftClient);
+				}
 			}
 
 			try {
