@@ -207,7 +207,7 @@ public class DashboardConfiguration implements ResponseBody {
 		final String jmContainerId = WebMonitorUtils.getJMContainerId();
 		final String jmIp = WebMonitorUtils.getIp();
 		final String jmLog = WebMonitorUtils.getContainerLog(jmContainerId, jmIp);
-		final String jmWebShell = WebMonitorUtils.getContainerWebShell(jmContainerId, jmIp);
+		final String jmWebShell = "";
 
 		return new DashboardConfiguration(
 			refreshInterval,
@@ -218,6 +218,18 @@ public class DashboardConfiguration implements ResponseBody {
 			flinkRevision,
 			new Features(webSubmitEnabled),
 			jmLog,
+			jmWebShell);
+	}
+
+	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmWebShell) {
+		return new DashboardConfiguration(
+			dashboardConfiguration.getRefreshInterval(),
+			dashboardConfiguration.getTimeZoneName(),
+			dashboardConfiguration.getTimeZoneOffset(),
+			dashboardConfiguration.getFlinkVersion(),
+			dashboardConfiguration.getFlinkRevision(),
+			dashboardConfiguration.getFeatures(),
+			dashboardConfiguration.getJmLog(),
 			jmWebShell);
 	}
 }

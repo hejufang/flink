@@ -29,6 +29,8 @@ export interface TaskManagerDetailInterface {
   freeSlots: number;
   hardware: Hardware;
   metrics: Metrics;
+  tmLog: string;
+  webShell: string;
 }
 
 export interface TaskManagerLogInterface {

@@ -2062,9 +2062,7 @@ public final class ConfigConstants {
 	public static final String CHECKPOINT_HDFS_PREFIX_KEY = "checkpoint.hdfs.prefix";
 
 	public static final String CONTAINER_LOG_TEMPLATE =
-		"http://%s:8042/node/containerlogs/%s";
-	public static final String CONTAINER_WEB_SHELL_TEMPLATE =
-		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
+		"http://%s:8042/node/containerlogs/%s/%s";
 	public static final String DTOP_DATA_SOURCE_KEY = "dtop.data_source";
 	public static final String DTOP_DATA_SOURCE_DEFAULT = "dtop_cn";
 	public static final String DTOP_DATABASE_KEY = "dtop.database";

@@ -19,6 +19,7 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
@@ -42,6 +43,7 @@ import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerExcept
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -63,6 +65,7 @@ import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -694,5 +697,31 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		taskExecutorLaunchContext.getEnvironment()
 				.put(ENV_FLINK_NODE_ID, host);
 		return taskExecutorLaunchContext;
+	}
+
+	@Override
+	public CompletableFuture<String> requestJMWebShell(Time timeout) {
+		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
+		try {
+			jmWebShell.complete(
+				NMWebshellUtil.getWeshellRelayFullUrl(
+					Utils.getYarnHostname(),
+					Utils.getCurrentContainerID(),
+					EnvironmentInformation.getHadoopUser())
+			);
+		} catch (Exception e) {
+			jmWebShell.completeExceptionally(e);
+		}
+		return jmWebShell;
+	}
+
+	@Override
+	public String getTaskManagerWebShell(ResourceID resourceID, String host) {
+		try {
+			return NMWebshellUtil.getWeshellRelayFullUrl(host, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser());
+		} catch (Exception e) {
+			log.error("Error while get relay webshell, fallback to default webshell.", e);
+			return super.getTaskManagerWebShell(resourceID, host);
+		}
 	}
 }

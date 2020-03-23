@@ -52,6 +52,8 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -584,5 +586,27 @@ public final class Utils {
 			containFlinkShuffleService = containFlinkShuffleServiceInternal();
 			return containFlinkShuffleService;
 		}
+	}
+
+	public static String getYarnHostname() {
+		String hostname =  System.getenv(ApplicationConstants.Environment.NM_HOST.key());
+		if (hostname == null) {
+			try {
+				LOG.info("Get hostname from yarn env failed try to get local.");
+				hostname = InetAddress.getLocalHost().getCanonicalHostName();
+			} catch (UnknownHostException e) {
+				hostname = "noHostName";
+			}
+		}
+		return hostname;
+	}
+
+	public static String getCurrentContainerID() {
+		String containerID = System.getenv(Environment.CONTAINER_ID.key());
+		if (containerID == null) {
+			LOG.info("Get container id from yarn env failed.");
+			containerID = "noContainerID";
+		}
+		return containerID;
 	}
 }
