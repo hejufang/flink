@@ -31,6 +31,7 @@ import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.rest.handler.legacy.files.StaticFileServerHandler;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.FlinkException;
 
@@ -406,7 +407,7 @@ public final class WebMonitorUtils {
 
 	public static String getContainerLog(String resouceId, String host) {
 		String ip = convertHostToIp(host);
-		return String.format(ConfigConstants.CONTAINER_LOG_TEMPLATE, ip, resouceId);
+		return String.format(ConfigConstants.CONTAINER_LOG_TEMPLATE, ip, resouceId, EnvironmentInformation.getHadoopUser());
 	}
 
 	/**

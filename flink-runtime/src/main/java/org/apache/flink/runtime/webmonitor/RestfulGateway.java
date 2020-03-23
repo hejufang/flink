@@ -93,6 +93,12 @@ public interface RestfulGateway extends RpcGateway {
 	 */
 	CompletableFuture<ClusterOverview> requestClusterOverview(@RpcTimeout Time timeout);
 
+	default CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
+		CompletableFuture<String> jmWebShellFuture = new CompletableFuture<>();
+		jmWebShellFuture.completeExceptionally(new Exception("noJmWebShell"));
+		return jmWebShellFuture;
+	}
+
 	/**
 	 * Requests the smart resources stats from the JobManager.
 	 *

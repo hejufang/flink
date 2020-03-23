@@ -39,7 +39,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, EmptyRequestBody, DashboardConfiguration, EmptyMessageParameters> {
 
-	private final DashboardConfiguration dashboardConfiguration;
+	private DashboardConfiguration dashboardConfiguration;
+	private CompletableFuture<String> jobManagerWebShellFuture;
 
 	public DashboardConfigHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -54,6 +55,21 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 
 	@Override
 	public CompletableFuture<DashboardConfiguration> handleRequest(@Nonnull HandlerRequest<EmptyRequestBody, EmptyMessageParameters> request, @Nonnull RestfulGateway gateway) {
-		return CompletableFuture.completedFuture(dashboardConfiguration);
+		if (jobManagerWebShellFuture == null) {
+			jobManagerWebShellFuture = gateway.requestJMWebShell(timeout);
+			return jobManagerWebShellFuture
+				.thenApply(
+					jmWebShell -> {
+						dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmWebShell);
+						return dashboardConfiguration;
+					})
+				.exceptionally(
+					e -> {
+						jobManagerWebShellFuture = null;
+						return dashboardConfiguration;
+					});
+		} else {
+			return CompletableFuture.completedFuture(dashboardConfiguration);
+		}
 	}
 }

@@ -2059,7 +2059,7 @@ public final class ConfigConstants {
 	public static final String CLUSTER_NAME_KEY = "clusterName";
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
 	public static final String CONTAINER_LOG_TEMPLATE =
-		"http://%s:8042/node/containerlogs/%s";
+		"http://%s:8042/node/containerlogs/%s/%s";
 	public static final String CONTAINER_WEB_SHELL_TEMPLATE =
 		"http://%s:8043/webshell?container_id=%s&user=%s&token=1";
 	public static final String DC_KEY = "dc";

@@ -208,6 +208,12 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	 */
 	CompletableFuture<ResourceOverview> requestResourceOverview(@RpcTimeout Time timeout);
 
+	default CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
+		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
+		jmWebShell.completeExceptionally(new Exception("no JobManager WebShell"));
+		return jmWebShell;
+	}
+
 	/**
 	 * Requests the paths for the TaskManager's {@link MetricQueryService} to query.
 	 *

@@ -47,6 +47,7 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.smartresources.ContainerResources;
 import org.apache.flink.smartresources.UpdateContainersResources;
@@ -95,6 +96,7 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -1626,4 +1628,29 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		}
 	}
 
+	@Override
+	public CompletableFuture<String> requestJMWebShell(Time timeout) {
+		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
+		try {
+			jmWebShell.complete(
+				NMWebshellUtil.getWeshellRelayFullUrl(
+					Utils.getYarnHostname(),
+					Utils.getCurrentContainerID(),
+					EnvironmentInformation.getHadoopUser())
+			);
+		} catch (Exception e) {
+			jmWebShell.completeExceptionally(e);
+		}
+		return jmWebShell;
+	}
+
+	@Override
+	public String getTaskManagerWebShell(ResourceID resourceID, String host) {
+		try {
+			return NMWebshellUtil.getWeshellRelayFullUrl(host, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser());
+		} catch (Exception e) {
+			log.error("Error while get relay webshell, fallback to default webshell.", e);
+			return super.getTaskManagerWebShell(resourceID, host);
+		}
+	}
 }
