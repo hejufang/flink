@@ -25,6 +25,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -65,6 +68,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * thread-safe vis-a-vis each other.
  */
 final class BoundedBlockingSubpartition extends ResultSubpartition {
+
+	private static final Logger LOG = LoggerFactory.getLogger(BoundedBlockingSubpartition.class);
 
 	/** This lock guards the creation of readers and disposal of the memory mapped file. */
 	private final Object lock = new Object();
@@ -178,6 +183,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 		flushCurrentBuffer();
 		writeAndCloseBufferConsumer(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE));
 		data.finishWrite();
+		LOG.info("{}: Finished subpartition {}.", parent.getOwningTaskName(), index);
 	}
 
 	@Override
