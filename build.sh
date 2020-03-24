@@ -20,7 +20,7 @@
 rm -rf output
 
 # compile current branch
-mvn clean install -U -DskipTests -Pinclude-hadoop
+mvn clean install -DskipTests -Pinclude-hadoop
 # copy flink-1.9 to output
 mkdir -p output/deploy/flink-1.9
 rm -rf flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/opt
@@ -36,7 +36,7 @@ git clean -xdf flink-formats/flink-parquet/
 git clean -xdf flink-python/
 git clean -xdf flink-runtime-web/
 git clean -xdf tools/japicmp-output/
-mvn clean install -U -DskipTests
+mvn clean install -DskipTests
 
 # copy flink-1.5 to output
 mkdir -p output/deploy/flink-1.5
