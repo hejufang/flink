@@ -122,7 +122,7 @@ public class LogHouseSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>>
 	}
 
 	@Override
-	public void invoke(Tuple2<Boolean, Row> value, Context context) throws Exception {
+	public synchronized void invoke(Tuple2<Boolean, Row> value, Context context) throws Exception {
 		checkFlushException();
 
 		if (!value.f0) {
