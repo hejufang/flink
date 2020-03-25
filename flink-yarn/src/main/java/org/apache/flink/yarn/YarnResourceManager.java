@@ -195,6 +195,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	/** Timeout in milliseconds of determine if the container is slow. */
 	private long slowContainerTimeoutMs;
 
+	/** Timeout in milliseconds of determine whether release slow containers. */
+	private final long releaseSlowContainerTimoutMs;
+
 	/** Interval in milliseconds of check if the container is slow. */
 	private long slowContainerCheckIntervalMs;
 
@@ -317,15 +320,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		startingContainers = new HashMap<>();
 		slowContainers = new HashSet<>();
 		slowContainerTimeoutMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS);
-		Preconditions.checkArgument(slowContainerTimeoutMs >= 180000,
-			"yarn.slow-container.timeout-ms must be greater than 180000.");
+		releaseSlowContainerTimoutMs = flinkConfig.getLong(YarnConfigOptions.RELEASE_SLOW_CONTAINER_TIMEOUT_MS);
+		Preconditions.checkArgument(
+				releaseSlowContainerTimoutMs > slowContainerTimeoutMs,
+				"{} must lager than {}.",
+				YarnConfigOptions.RELEASE_SLOW_CONTAINER_TIMEOUT_MS.key(),
+				YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS.key());
 		slowContainerCheckIntervalMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS);
-		Preconditions.checkArgument(slowContainerCheckIntervalMs >= 60000,
-			"yarn.slow-container.check-interval-ms must be greater than 60000.");
-
 		slowContainerAllocationMaxFraction = flinkConfig.getDouble(YarnConfigOptions.SLOW_CONTAINER_ALLOCATION_MAX_FRACTION);
-		Preconditions.checkArgument(slowContainerAllocationMaxFraction < 1.0,
-			"yarn.slow-container.allocation-fraction must be less than 1.");
 
 		this.executor = Executors.newScheduledThreadPool(
 			flinkConfig.getInteger(YarnConfigOptions.CONTAINER_LAUNCHER_NUMBER));
@@ -1564,7 +1566,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		return new ResourceID(container.getId().toString());
 	}
 
-	private void checkSlowContainers() {
+	private void checkSlowContainersInternal() {
 		if (!startingContainers.isEmpty()) {
 			final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
 			final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
@@ -1583,27 +1585,45 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				}
 			}
 
-			boolean hasNewSlowContainer = false;
+			boolean needStartNewContainers = false;
+			List<YarnWorkerNode> releaseContainers = new ArrayList<>();
 			for (Map.Entry<YarnWorkerNode, Long> startingContainer : startingContainers.entrySet()) {
 				YarnWorkerNode yarnWorkerNode = startingContainer.getKey();
 				long waitedTimeMillis = System.currentTimeMillis() - startingContainer.getValue();
 				if (waitedTimeMillis > slowContainerTimeoutMs) {
-					String msg = "{} not started in {} milliseconds.";
 					if (!slowContainers.contains(yarnWorkerNode) &&
-						slowContainers.size() < workerNodeMap.size() * slowContainerAllocationMaxFraction) {
-						hasNewSlowContainer = true;
+							slowContainers.size() < workerNodeMap.size() * slowContainerAllocationMaxFraction) {
+						needStartNewContainers = true;
 						slowContainers.add(yarnWorkerNode);
-						msg += "try to allocate new container.";
+						log.info("{} not started in {} milliseconds, try to allocate new container.",
+								yarnWorkerNode.getResourceID(), waitedTimeMillis);
+					} else if (waitedTimeMillis > releaseSlowContainerTimoutMs) {
+						needStartNewContainers = true;
+						releaseContainers.add(yarnWorkerNode);
+						log.warn("{} not started in {} milliseconds, stop it and allocate new container.",
+								yarnWorkerNode.getResourceID(), waitedTimeMillis);
+					} else {
+						log.info("{} not started in {} milliseconds.", yarnWorkerNode.getContainer(), waitedTimeMillis);
 					}
-					log.info(msg, yarnWorkerNode.getContainer(), waitedTimeMillis);
 				}
 			}
-			if (hasNewSlowContainer) {
+			for (YarnWorkerNode yarnWorkerNode : releaseContainers) {
+				stopWorker(yarnWorkerNode);
+			}
+			if (needStartNewContainers) {
 				startNewWorkerIfNeeded();
 			}
 		}
+	}
 
-		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+	private void checkSlowContainers() {
+		try {
+			checkSlowContainersInternal();
+		} catch (Exception e) {
+			log.warn("Error while checkSlowContainers.", e);
+		} finally {
+			scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		}
 	}
 
 }

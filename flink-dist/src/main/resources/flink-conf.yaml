@@ -171,6 +171,12 @@ common:
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
 
+  # yarn slow container detection
+  yarn.slow-container.timeout-ms: 120000
+  yarn.slow-container.check-interval-ms: 60000
+  yarn.release-slow-container.timeout-ms: 600000
+  yarn.slow-container.allocation-max-fraction: 0.3
+
   jobmanager.execution.schedule-task-fairly: false
 
   bytedance.streaming.yarn.gang-scheduler.enable: true
