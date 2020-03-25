@@ -199,7 +199,7 @@ lepad:
   clusterName: lepad
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
 
 oryx:
   dc: cn
@@ -220,7 +220,7 @@ leser:
   clusterName: leser
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
 
 lobst:
   dc: cn
@@ -255,7 +255,7 @@ horse:
   clusterName: horse
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
 
 hibis:
   dc: cn
