@@ -179,13 +179,6 @@ common:
 
   jobmanager.execution.schedule-task-fairly: false
 
-  bytedance.streaming.yarn.gang-scheduler.enable: true
-  bytedance.streaming.taskmanager.initial-on-start: true
-  bytedance.streaming.flink.job_api: DataStream
-  bytedance.streaming.jobmanager.execution.failover-strategy: "full"
-  bytedance.streaming.jobmanager.execution.schedule-task-fairly: true
-  bytedance.streaming.cluster.evenly-spread-out-slots: false
-
 flink:
   dc: cn
   clusterName: flink
@@ -318,7 +311,7 @@ quoka:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
-  bytedance.streaming.cluster.evenly-spread-out-slots: true
+  cluster.evenly-spread-out-slots: true
 
 maliva:
   dc: va
@@ -387,7 +380,6 @@ alisg:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
-  bytedance.streaming.cluster.evenly-spread-out-slots: true
 
 boe:
   dc: vm
@@ -401,7 +393,7 @@ boe:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.131.41:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
-  bytedance.streaming.cluster.evenly-spread-out-slots: true
+  cluster.evenly-spread-out-slots: true
 
 cof:
   dc: vm
@@ -415,7 +407,7 @@ cof:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
-  bytedance.streaming.cluster.evenly-spread-out-slots: true
+  cluster.evenly-spread-out-slots: true
 
 swan:
   dc: ka
