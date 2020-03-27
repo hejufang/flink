@@ -130,10 +130,10 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 
 	private List<Tuple2<Integer, Integer>> getKeysIndex(DescriptorProperties descriptorProperties) {
 		return descriptorProperties.getFixedIndexedProperties(CONNECTOR_KEYS_INDEX,
-			Arrays.asList(PARTITION, CLUSTERING)).stream()
+			Arrays.asList(CLUSTERING, PARTITION)).stream()
 			.map(property -> Tuple2.of(
-				descriptorProperties.getInt(property.get(PARTITION)),
-				descriptorProperties.getInt(property.get(CLUSTERING))))
+				descriptorProperties.getInt(property.get(CLUSTERING)),
+				descriptorProperties.getInt(property.get(PARTITION))))
 			.collect(Collectors.toList());
 	}
 
