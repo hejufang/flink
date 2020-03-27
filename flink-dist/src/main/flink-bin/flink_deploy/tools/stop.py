@@ -54,7 +54,7 @@ class YarnApplication:
             self.user = args.user
         else:
             self.user = os.getlogin()
-        if 'tiger' in self.user:
+        if 'tiger' == self.user:
             print red("If you login as tiger, please use -u to specific your name")
             return
         self.config_dir = ConfUtils.get_flink_conf_dir(self.flink_version)

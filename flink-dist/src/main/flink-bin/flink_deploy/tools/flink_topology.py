@@ -106,7 +106,7 @@ class FlinkTopology(object):
                 user = pwd.getpwuid(os.getuid()).pw_name
             except Exception as e:
                 user = 'tiger'
-        if 'tiger' in user:
+        if 'tiger' == user:
             print red("If you login as tiger, please use -u to specific your name")
             return
         if user:
@@ -864,7 +864,7 @@ def main():
         user = args.user
     else:
         user = os.getlogin()
-    if 'tiger' in user:
+    if 'tiger' == user:
         print red("If you login as tiger, please use -u to specific your name")
         return
 
