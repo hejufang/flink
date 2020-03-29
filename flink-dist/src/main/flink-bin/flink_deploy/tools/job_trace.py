@@ -128,9 +128,7 @@ def build_redis_client():
     #                             socket_timeout=3.0, socket_connect_timeout=1.0,
     #                             strict_redis=False)
 
-    addrs = "10.6.16.160:3704,10.6.16.162:3706,10.6.17.48:3706,10.6.17.49:3702," \
-            "10.6.17.50:3704,10.6.18.15:3705,10.6.18.223:3708,10.6.18.84:3702," \
-            "10.6.27.146:3707,10.6.27.147:3706".split(",")
+    addrs = "10.6.27.147:3706,10.6.16.162:3706,10.6.17.48:3706".split(",")
     return make_redis_proxy_cli(addrs, socket_timeout=3.0,
                                 socket_connect_timeout=1.0, strict_redis=False)
 
