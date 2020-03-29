@@ -1047,6 +1047,19 @@ public class CheckpointCoordinator {
 	//  Checkpoint State Restoring
 	// --------------------------------------------------------------------------------------------
 
+	public boolean restoreLatestCheckpointedState(
+		Map<JobVertexID, ExecutionJobVertex> tasks,
+		boolean errorIfNoCheckpoint,
+		boolean allowNonRestoredState) throws Exception {
+
+		return restoreLatestCheckpointedState(
+			tasks,
+			errorIfNoCheckpoint,
+			allowNonRestoredState,
+			false,
+			null);
+	}
+
 	/**
 	 * Restores the latest checkpointed state.
 	 *
@@ -1056,6 +1069,8 @@ public class CheckpointCoordinator {
 	 * restore from.
 	 * @param allowNonRestoredState Allow checkpoint state that cannot be mapped
 	 * to any job vertex in tasks.
+	 * @param findCheckpointInCheckpointStore whether find checkpoint in checkpointStore.
+	 * @param userClassLoader The class loader to resolve serialized classes in legacy savepoint versions.
 	 * @return <code>true</code> if state was restored, <code>false</code> otherwise.
 	 * @throws IllegalStateException If the CheckpointCoordinator is shut down.
 	 * @throws IllegalStateException If no completed checkpoint is available and
@@ -1072,7 +1087,9 @@ public class CheckpointCoordinator {
 	public boolean restoreLatestCheckpointedState(
 			Map<JobVertexID, ExecutionJobVertex> tasks,
 			boolean errorIfNoCheckpoint,
-			boolean allowNonRestoredState) throws Exception {
+			boolean allowNonRestoredState,
+			boolean findCheckpointInCheckpointStore,
+			ClassLoader userClassLoader) throws Exception {
 
 		synchronized (lock) {
 			if (shutdown) {
@@ -1096,7 +1113,8 @@ public class CheckpointCoordinator {
 			LOG.debug("Status of the shared state registry of job {} after restore: {}.", job, sharedStateRegistry);
 
 			// Restore from the latest checkpoint
-			CompletedCheckpoint latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
+			CompletedCheckpoint latest = findLatestCompletedCheckpoint(
+				tasks, allowNonRestoredState, findCheckpointInCheckpointStore, userClassLoader);
 
 			if (latest == null) {
 				if (errorIfNoCheckpoint) {
@@ -1105,17 +1123,6 @@ public class CheckpointCoordinator {
 					LOG.debug("Resetting the master hooks.");
 					MasterHooks.reset(masterHooks.values(), LOG);
 
-					return false;
-				}
-			}
-
-			// Try to find latest from checkpoint Storage.
-			String latestCompletedCheckpointPointer = checkpointStorage.findLatestCompletedCheckpointPointer();
-			if (latestCompletedCheckpointPointer != null) {
-				long latestCheckpointIDInStorage = checkpointStorage.getCheckpointIDFromExternalPointer(latestCompletedCheckpointPointer);
-				if (latestCheckpointIDInStorage > latest.getCheckpointID()) {
-					LOG.info("Latest checkpoint id in completedCheckpointStore({}) is smaller than checkpoint id in completedCheckpointStore({}), " +
-							"Try to recover from completedCheckpointStore.", latestCheckpointIDInStorage, latest.getCheckpointID());
 					return false;
 				}
 			}
@@ -1156,6 +1163,41 @@ public class CheckpointCoordinator {
 		}
 	}
 
+	public CompletedCheckpoint findLatestCompletedCheckpoint(
+		Map<JobVertexID, ExecutionJobVertex> tasks,
+		boolean allowNonRestoredState,
+		boolean findCheckpointInCheckpointStore,
+		ClassLoader userClassLoader) throws Exception {
+
+		CompletedCheckpoint latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
+
+		if (findCheckpointInCheckpointStore && userClassLoader != null) {
+			// Try to find checkpoints in checkpoint Storage.
+			for (String completedCheckpointPointer : checkpointStorage.findCompletedCheckpointPointer()) {
+				if (latest == null || latest.getCheckpointID() < checkpointStorage.getCheckpointIDFromExternalPointer(completedCheckpointPointer)) {
+					try {
+						final CompletedCheckpointStorageLocation checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer);
+						CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
+							job, tasks, checkpointStorageLocation, userClassLoader, allowNonRestoredState);
+						completedCheckpointStore.addCheckpoint(completedCheckpoint);
+						// Reset the checkpoint ID counter
+						long nextCheckpointId = completedCheckpoint.getCheckpointID() + 1;
+						checkpointIdCounter.setCount(nextCheckpointId);
+						LOG.info("Try to recover from completedCheckpointStore {}.", completedCheckpointPointer);
+						latest = completedCheckpoint;
+						break;
+					} catch (Exception e) {
+						LOG.info("Try to restore state from {} error.", completedCheckpointPointer, e);
+					}
+				} else {
+					break;
+				}
+			}
+		}
+
+		return latest;
+	}
+
 	/**
 	 * Restore the state with given savepoint.
 	 *
@@ -1194,18 +1236,6 @@ public class CheckpointCoordinator {
 		LOG.info("Reset the checkpoint ID of job {} to {}.", job, nextCheckpointId);
 
 		return restoreLatestCheckpointedState(tasks, true, allowNonRestored);
-	}
-
-	public void tryRestoreFromCheckpointStorage(
-			boolean allowNonRestored,
-			Map<JobVertexID, ExecutionJobVertex> tasks,
-			ClassLoader userClassLoader) throws Exception {
-		String latestCompletedCheckpointPointer = checkpointStorage.findLatestCompletedCheckpointPointer();
-		if (latestCompletedCheckpointPointer != null) {
-			LOG.info("Find latest checkpoint {} from checkpointStorage, treat it as savepoint.",
-					latestCompletedCheckpointPointer);
-			restoreSavepoint(latestCompletedCheckpointPointer, allowNonRestored, tasks, userClassLoader);
-		}
 	}
 
 	// ------------------------------------------------------------------------

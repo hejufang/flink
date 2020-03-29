@@ -191,16 +191,12 @@ public class LegacyScheduler implements SchedulerNG {
 			if (!checkpointCoordinator.restoreLatestCheckpointedState(
 				newExecutionGraph.getAllVertices(),
 				false,
-				false)) {
+				false,
+				true,
+				userCodeLoader)) {
 
 				// check whether we can restore from a savepoint
-				if (!tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings())) {
-					// check whether we can restore from auto path
-					checkpointCoordinator.tryRestoreFromCheckpointStorage(
-							false,
-							newExecutionGraph.getAllVertices(),
-							userCodeLoader);
-				}
+				tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings());
 			}
 		}
 
@@ -237,7 +233,7 @@ public class LegacyScheduler implements SchedulerNG {
 	 * @param savepointRestoreSettings {@link SavepointRestoreSettings} containing information about the savepoint to restore from
 	 * @throws Exception if the {@link ExecutionGraph} could not be restored
 	 */
-	private boolean tryRestoreExecutionGraphFromSavepoint(ExecutionGraph executionGraphToRestore, SavepointRestoreSettings savepointRestoreSettings) throws Exception {
+	private void tryRestoreExecutionGraphFromSavepoint(ExecutionGraph executionGraphToRestore, SavepointRestoreSettings savepointRestoreSettings) throws Exception {
 		if (savepointRestoreSettings.restoreSavepoint()) {
 			final CheckpointCoordinator checkpointCoordinator = executionGraphToRestore.getCheckpointCoordinator();
 			if (checkpointCoordinator != null) {
@@ -246,10 +242,8 @@ public class LegacyScheduler implements SchedulerNG {
 					savepointRestoreSettings.allowNonRestoredState(),
 					executionGraphToRestore.getAllVertices(),
 					userCodeLoader);
-				return true;
 			}
 		}
-		return false;
 	}
 
 	@Override

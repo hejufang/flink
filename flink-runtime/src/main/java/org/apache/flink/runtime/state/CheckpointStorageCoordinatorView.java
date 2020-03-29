@@ -21,6 +21,8 @@ package org.apache.flink.runtime.state;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * This interface creates a {@link CheckpointStorageLocation} to which
@@ -60,8 +62,8 @@ public interface CheckpointStorageCoordinatorView {
 	 */
 	CompletedCheckpointStorageLocation resolveCheckpoint(String externalPointer) throws IOException;
 
-	default String findLatestCompletedCheckpointPointer() throws IOException {
-		return null;
+	default List<String> findCompletedCheckpointPointer() throws IOException {
+		return Collections.emptyList();
 	}
 
 	default long getCheckpointIDFromExternalPointer(String externalPointer) {
