@@ -18,7 +18,7 @@ TODO(zhangguanghui): Provided by yaop api in the future.
 FLINK_CLUSTERS= {
     'cn': ['flink', 'dw', 'lepad', 'hyrax', 'horse'],
     'sg': ['alisg'],
-    'va': ['maliva', 'marmt'],
+    'va': ['marmt'],
 }
 
 
