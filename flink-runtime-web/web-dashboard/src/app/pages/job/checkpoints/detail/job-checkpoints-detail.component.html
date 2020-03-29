@@ -27,6 +27,11 @@
     </ng-container>
   </div>
 </div>
+<ng-container *ngIf="checkPointDetail?.failure_message">
+  <div class="exception-detail">
+    <strong>Failure Detail Message:</strong> {{checkPointDetail?.failure_detail_message || '-' }}
+  </div>
+</ng-container>
 <div class="operators">
   <strong>Operators:</strong>
   <nz-table

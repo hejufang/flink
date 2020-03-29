@@ -273,7 +273,8 @@ public class CheckpointStatistics implements ResponseBody {
 				failedCheckpointStats.getNumberOfAcknowledgedSubtasks(),
 				checkpointStatisticsPerTask,
 				failedCheckpointStats.getFailureTimestamp(),
-				failedCheckpointStats.getFailureMessage());
+				failedCheckpointStats.getFailureMessage(),
+				failedCheckpointStats.getFailureDetailMsg());
 		} else if (checkpointStats instanceof PendingCheckpointStats) {
 			final PendingCheckpointStats pendingCheckpointStats = ((PendingCheckpointStats) checkpointStats);
 
@@ -388,12 +389,18 @@ public class CheckpointStatistics implements ResponseBody {
 
 		public static final String FIELD_NAME_FAILURE_MESSAGE = "failure_message";
 
+		public static final String FIELD_NAME_FAILURE_DETAIL_MESSAGE = "failure_detail_message";
+
 		@JsonProperty(FIELD_NAME_FAILURE_TIMESTAMP)
 		private final long failureTimestamp;
 
 		@JsonProperty(FIELD_NAME_FAILURE_MESSAGE)
 		@Nullable
 		private final String failureMessage;
+
+		@JsonProperty(FIELD_NAME_FAILURE_DETAIL_MESSAGE)
+		@Nullable
+		private final String failureDetailMessage;
 
 		@JsonCreator
 		public FailedCheckpointStatistics(
@@ -409,7 +416,8 @@ public class CheckpointStatistics implements ResponseBody {
 			@JsonProperty(FIELD_NAME_NUM_ACK_SUBTASKS) int numAckSubtasks,
 			@JsonDeserialize(keyUsing = JobVertexIDKeyDeserializer.class) @JsonProperty(FIELD_NAME_TASKS) Map<JobVertexID, TaskCheckpointStatistics> checkpointingStatisticsPerTask,
 			@JsonProperty(FIELD_NAME_FAILURE_TIMESTAMP) long failureTimestamp,
-			@JsonProperty(FIELD_NAME_FAILURE_MESSAGE) @Nullable String failureMessage) {
+			@JsonProperty(FIELD_NAME_FAILURE_MESSAGE) @Nullable String failureMessage,
+			@JsonProperty(FIELD_NAME_FAILURE_DETAIL_MESSAGE) @Nullable String failureDetailMessage) {
 			super(
 				id,
 				status,
@@ -425,6 +433,7 @@ public class CheckpointStatistics implements ResponseBody {
 
 			this.failureTimestamp = failureTimestamp;
 			this.failureMessage = failureMessage;
+			this.failureDetailMessage = failureDetailMessage;
 		}
 
 		public long getFailureTimestamp() {

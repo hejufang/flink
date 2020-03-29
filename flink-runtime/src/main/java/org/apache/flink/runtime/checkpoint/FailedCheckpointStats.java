@@ -19,8 +19,13 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.util.ExceptionUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
 import java.util.Map;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -31,6 +36,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * <p>The reported statistics are immutable.
  */
 public class FailedCheckpointStats extends AbstractCheckpointStats {
+	private static final Logger LOG = LoggerFactory.getLogger(FailedCheckpointStats.class);
 
 	private static final long serialVersionUID = 8000748529515900106L;
 
@@ -56,6 +62,9 @@ public class FailedCheckpointStats extends AbstractCheckpointStats {
 	/** Optional failure message. */
 	@Nullable
 	private final String failureMsg;
+
+	@Nullable
+	private final String failureDetailMsg;
 
 	/**
 	 * Creates a tracker for a failed checkpoint.
@@ -94,6 +103,7 @@ public class FailedCheckpointStats extends AbstractCheckpointStats {
 		this.failureTimestamp = failureTimestamp;
 		this.latestAcknowledgedSubtask = latestAcknowledgedSubtask;
 		this.failureMsg = cause != null ? cause.getMessage() : null;
+		this.failureDetailMsg = cause != null ? ExceptionUtils.stringifyException(cause) : null;
 	}
 
 	@Override
@@ -151,5 +161,10 @@ public class FailedCheckpointStats extends AbstractCheckpointStats {
 	@Nullable
 	public String getFailureMessage() {
 		return failureMsg;
+	}
+
+	@Nullable
+	public String getFailureDetailMsg() {
+		return failureDetailMsg;
 	}
 }

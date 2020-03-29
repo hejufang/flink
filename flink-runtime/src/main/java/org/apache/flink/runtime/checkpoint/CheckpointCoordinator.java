@@ -1503,11 +1503,19 @@ public class CheckpointCoordinator {
 			@Nullable final Throwable cause,
 			final ExecutionAttemptID executionAttemptID) {
 
-		CheckpointException exception = new CheckpointException(reason, cause);
+		CheckpointException exception = wrapWithCheckpointException(reason, cause);
 		pendingCheckpoint.abort(reason, cause);
 		failureManager.handleTaskLevelCheckpointException(exception, pendingCheckpoint.getCheckpointId(), executionAttemptID);
 
 		checkAndResetCheckpointScheduler();
+	}
+
+	private CheckpointException wrapWithCheckpointException(CheckpointFailureReason reason, Throwable cause) {
+		if (cause instanceof CheckpointException) {
+			return (CheckpointException) cause;
+		} else {
+			return new CheckpointException(reason, cause);
+		}
 	}
 
 	private void checkAndResetCheckpointScheduler() {

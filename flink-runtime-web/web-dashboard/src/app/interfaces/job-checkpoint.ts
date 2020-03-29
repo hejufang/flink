@@ -128,6 +128,7 @@ export interface CheckPointDetailInterface {
   discarded: boolean;
   alignment_buffered: number;
   failure_message?: string;
+  failure_detail_message?: string;
   num_subtasks: number;
   num_acknowledged_subtasks: number;
   tasks: Array<{
