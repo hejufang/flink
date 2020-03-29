@@ -43,8 +43,7 @@ class SmartResourcesUtils(object):
             "default": "data.inf.sr_estimater.service.alisg"
         },
         "va": {
-            "awsva": "data.inf.sr_estimater.service.va",
-            "maliva": "data.inf.sr_estimater.service.maliva",
+            "marmt": "data.inf.sr_estimater.service.maliva",
             "default": "data.inf.sr_estimater.service.maliva"
         }
     }
