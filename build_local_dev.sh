@@ -16,29 +16,9 @@
 #  See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
-# clean output
 rm -rf output
-
-# compile current branch
-mvn clean -U package -DskipTests -Pinclude-hadoop
-# copy flink-1.9 to output
 mkdir -p output/deploy/flink-1.9
-rm -rf flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/opt
+mvn clean -U install -DskipTests -Pinclude-hadoop
+
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/* output/deploy/flink-1.9/
-
-# copy flink-tools to output
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output/
-
-# compile flink-1.5
-git checkout -b flink-1.5-deploy origin/flink-1.5
-git clean -xdf  flink-end-to-end-tests/
-git clean -xdf flink-formats/flink-parquet/
-git clean -xdf flink-python/
-git clean -xdf flink-runtime-web/
-git clean -xdf tools/japicmp-output/
-mvn clean -U package -DskipTests
-
-# copy flink-1.5 to output
-mkdir -p output/deploy/flink-1.5
-rm -rf flink-dist/target/flink-1.5-byted-SNAPSHOT-bin/flink-1.5-byted-SNAPSHOT/opt
-cp -r flink-dist/target/flink-1.5-byted-SNAPSHOT-bin/flink-1.5-byted-SNAPSHOT/* output/deploy/flink-1.5/
