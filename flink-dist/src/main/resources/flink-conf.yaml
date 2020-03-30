@@ -179,6 +179,9 @@ common:
 
   jobmanager.execution.schedule-task-fairly: false
 
+  heartbeat.timeout: 120000
+  heartbeat.interval: 40000
+
 flink:
   dc: cn
   clusterName: flink
