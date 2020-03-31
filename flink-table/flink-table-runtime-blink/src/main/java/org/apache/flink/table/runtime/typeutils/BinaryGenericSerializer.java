@@ -55,7 +55,7 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public BinaryGeneric<T> createInstance() {
-		return new BinaryGeneric<>(serializer.createInstance(), serializer.duplicate());
+		return new BinaryGeneric<>(serializer.createInstance(), serializer);
 	}
 
 	@Override
@@ -86,7 +86,7 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 		source.readFully(bytes);
 		return new BinaryGeneric<>(
 				new MemorySegment[] {MemorySegmentFactory.wrap(bytes)},
-				0, bytes.length, serializer.duplicate());
+				0, bytes.length, serializer);
 	}
 
 	@Override
@@ -103,7 +103,7 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public BinaryGenericSerializer<T> duplicate() {
-		return new BinaryGenericSerializer<>(serializer.duplicate());
+		return this;
 	}
 
 	@Override
@@ -127,7 +127,7 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public TypeSerializerSnapshot<BinaryGeneric<T>> snapshotConfiguration() {
-		return new BinaryGenericSerializerSnapshot<>(serializer.duplicate());
+		return new BinaryGenericSerializerSnapshot<>(serializer);
 	}
 
 	/**

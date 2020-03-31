@@ -67,11 +67,10 @@ public final class BinaryGeneric<T> extends LazyBinaryFormat<T> {
 	public BinaryGeneric<T> copy() {
 		ensureMaterialized();
 		byte[] bytes = SegmentsUtil.copyToBytes(segments, offset, sizeInBytes);
-
 		T newJavaObject = javaObject == null ? null : javaObjectSer.copy(javaObject);
 		return new BinaryGeneric<>(new MemorySegment[] {MemorySegmentFactory.wrap(bytes)}, 0, sizeInBytes,
 				newJavaObject,
-				javaObjectSer.duplicate());
+				javaObjectSer);
 	}
 
 	static <T> BinaryGeneric<T> readBinaryGenericFieldFromSegments(
