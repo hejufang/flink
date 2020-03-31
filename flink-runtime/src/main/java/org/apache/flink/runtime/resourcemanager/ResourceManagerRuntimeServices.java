@@ -85,10 +85,8 @@ public class ResourceManagerRuntimeServices {
 			slotManagerConfiguration.getTaskManagerTimeout(),
 			slotManagerConfiguration.isWaitResultConsumedBeforeRelease(),
 			slotManagerConfiguration.getNumInitialTaskManagers(),
-			slotManagerConfiguration.isInitialTaskManager(),
 			slotManagerConfiguration.getExtraInitialTaskManagerNumbers(),
 			slotManagerConfiguration.getExtraInitialTaskManagerFraction(),
-			slotManagerConfiguration.isShufflePendingSlots(),
-			slotManagerConfiguration.evenlySpreadOutSlots());
+			slotManagerConfiguration.isShufflePendingSlots());
 	}
 }

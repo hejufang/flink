@@ -157,6 +157,11 @@ public class TaskManagerOptions {
 			.defaultValue(0)
 			.withDescription("The number of task managers. 0 for not initial task managers on RM start.");
 
+	public static final ConfigOption<Double> NUM_INITIAL_TASK_MANAGERS_PERCENTAGE =
+			key("taskmanager.number-initial-percentage")
+					.defaultValue(0.0)
+					.withDescription("The percentage of number of task managers for initializing on RM start.");
+
 	/**
 	 * The config parameter defining the number of extra task managers, avoid yarn slow nodes.
 	 */

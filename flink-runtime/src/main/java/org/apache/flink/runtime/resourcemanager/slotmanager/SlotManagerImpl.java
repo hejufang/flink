@@ -92,9 +92,6 @@ public class SlotManagerImpl implements SlotManager {
 	/** Number of task managers. */
 	private final int numInitialTaskManagers;
 
-	/** Initial task managers on slot manager start. */
-	private final boolean initialTaskManager;
-
 	/** Number of extra task managers, avoid slow nodes. */
 	private final int extraInitialTaskManagerNumbers;
 
@@ -142,8 +139,6 @@ public class SlotManagerImpl implements SlotManager {
 	/** Check number of TaskManagers exceeds the minimal number. */
 	private ScheduledFuture<?> fullFillInitialTaskManagerCheck;
 
-	private final boolean evenlySpreadOutSlots;
-
 	/** True iff the component has been started. */
 	private boolean started;
 
@@ -171,7 +166,6 @@ public class SlotManagerImpl implements SlotManager {
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			0,
-			false,
 			0,
 			0);
 	}
@@ -184,7 +178,6 @@ public class SlotManagerImpl implements SlotManager {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction) {
 		this(slotMatchingStrategy,
@@ -194,10 +187,8 @@ public class SlotManagerImpl implements SlotManager {
 				taskManagerTimeout,
 				waitResultConsumedBeforeRelease,
 				numInitialTaskManagers,
-				initialTaskManager,
 				extraInitialTaskManagerNumbers,
 				extraInitialTaskManagerFraction,
-				false,
 				false);
 	}
 
@@ -209,11 +200,9 @@ public class SlotManagerImpl implements SlotManager {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction,
-			boolean shufflePendingSlots,
-			boolean evenlySpreadOutSlots) {
+			boolean shufflePendingSlots) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
 		this.scheduledExecutor = Preconditions.checkNotNull(scheduledExecutor);
@@ -222,11 +211,9 @@ public class SlotManagerImpl implements SlotManager {
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
-		this.initialTaskManager = initialTaskManager;
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 		this.shufflePendingSlots = shufflePendingSlots;
-		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -318,7 +305,7 @@ public class SlotManagerImpl implements SlotManager {
 		mainThreadExecutor = Preconditions.checkNotNull(newMainThreadExecutor);
 		resourceActions = Preconditions.checkNotNull(newResourceActions);
 
-		if (initialTaskManager && numInitialTaskManagers > 0) {
+		if (numInitialTaskManagers > 0) {
 			// initial slot manager with enough task managers.
 			int extraTaskManagerNumber = Math.max(
 					(int) (numInitialTaskManagers * extraInitialTaskManagerFraction), extraInitialTaskManagerNumbers);
@@ -417,7 +404,7 @@ public class SlotManagerImpl implements SlotManager {
 		} else {
 			PendingSlotRequest pendingSlotRequest = new PendingSlotRequest(slotRequest);
 
-			if (evenlySpreadOutSlots && activeTaskManagers.get() < numInitialTaskManagers) {
+			if (activeTaskManagers.get() < numInitialTaskManagers) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
 				if (activeTaskManagers.get() + pendingTaskManagers.get() < numInitialTaskManagers) {
@@ -527,9 +514,7 @@ public class SlotManagerImpl implements SlotManager {
 			pendingTaskManagers.getAndDecrement();
 			activeTaskManagers.getAndIncrement();
 
-			if (evenlySpreadOutSlots
-					&& activeTaskManagers.get() >= numInitialTaskManagers
-					&& !waitingTaskManagerSlotRequests.isEmpty()) {
+			if (activeTaskManagers.get() >= numInitialTaskManagers && !waitingTaskManagerSlotRequests.isEmpty()) {
 				allocateSlotsForPending();
 			}
 		}

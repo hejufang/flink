@@ -47,7 +47,6 @@ public class SlotManagerConfiguration {
 	private final boolean evenlySpreadOutSlots;
 
 	private final int numInitialTaskManagers;
-	private final boolean initialTaskManager;
 	private final int extraInitialTaskManagerNumbers;
 	private final float extraInitialTaskManagerFraction;
 	private final boolean shufflePendingSlots;
@@ -63,7 +62,6 @@ public class SlotManagerConfiguration {
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			0,
-			false,
 			0,
 			0,
 			evenlySpreadOutSlots);
@@ -75,7 +73,6 @@ public class SlotManagerConfiguration {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction,
 			boolean evenlySpreadOutSlots) {
@@ -85,7 +82,6 @@ public class SlotManagerConfiguration {
 				taskManagerTimeout,
 				waitResultConsumedBeforeRelease,
 				numInitialTaskManagers,
-				initialTaskManager,
 				extraInitialTaskManagerNumbers,
 				extraInitialTaskManagerFraction,
 				false,
@@ -98,7 +94,6 @@ public class SlotManagerConfiguration {
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
 			int numInitialTaskManagers,
-			boolean initialTaskManager,
 			int extraInitialTaskManagerNumbers,
 			float extraInitialTaskManagerFraction,
 			boolean shufflePendingSlots,
@@ -109,7 +104,6 @@ public class SlotManagerConfiguration {
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
-		this.initialTaskManager = initialTaskManager;
 		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
 		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
 		this.shufflePendingSlots = shufflePendingSlots;
@@ -134,10 +128,6 @@ public class SlotManagerConfiguration {
 
 	public int getNumInitialTaskManagers() {
 		return numInitialTaskManagers;
-	}
-
-	public boolean isInitialTaskManager() {
-		return initialTaskManager;
 	}
 
 	public int getExtraInitialTaskManagerNumbers() {
@@ -176,8 +166,6 @@ public class SlotManagerConfiguration {
 
 		int numInitialTaskManagers = configuration.getInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS);
 
-		boolean initialTaskManager = configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START);
-
 		int extraInitialTaskManagerNumbers = configuration.getInteger(TaskManagerOptions.NUM_EXTRA_INITIAL_TASK_MANAGERS);
 		float extraInitialTaskManagerFraction = configuration.getFloat(TaskManagerOptions.EXTRA_INITIAL_TASK_MANAGERS_FRACTION);
 
@@ -190,7 +178,6 @@ public class SlotManagerConfiguration {
 			taskManagerTimeout,
 			waitResultConsumedBeforeRelease,
 			numInitialTaskManagers,
-			initialTaskManager,
 			extraInitialTaskManagerNumbers,
 			extraInitialTaskManagerFraction,
 			shufflePendingSlots,

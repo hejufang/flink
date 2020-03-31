@@ -200,6 +200,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// todo(huweihua): put these to config file.
 		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
 		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
+		flinkConfiguration.setDouble(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS_PERCENTAGE, 1.0);
 		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
 		// todo(huweihua): determined by shuffle mode.
 		flinkConfiguration.setString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY, "full");
@@ -935,9 +936,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPreTaskManager - 1) / slotsPreTaskManager;
 		}
 
-		configuration.setInteger(
-			TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS,
-			numTaskManagers);
+		final double percentage = configuration.getDouble(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS_PERCENTAGE);
+		configuration.setInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS, (int) (numTaskManagers * percentage));
 
 		Path remotePathJar = null;
 		if (isInDockerMode && isDockerImageIncludeLib) {
