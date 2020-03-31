@@ -253,7 +253,6 @@ public final class GlobalConfiguration {
 					// OriginKey can not be replaced.
 					continue;
 				}
-
 				String value = entry.getValue().toString();
 				String valueOld = value;
 				for (String param : DYNAMIC_PARAM_KEYS) {
@@ -313,6 +312,24 @@ public final class GlobalConfiguration {
 				}
 				if (!value.equals(valueOld)) {
 					config.setString(trimOriginPostfixFrom(key), value);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Reload config with specific encoded properties.
+	 * @param config old Configuration.
+	 * @param configKeyPrefix key of the specific properties.
+	 */
+	public static void reloadConfigWithSpecificProperties(Configuration config, String configKeyPrefix) {
+		for (String key : config.keySet()) {
+			if (key.startsWith(configKeyPrefix) && key.length() > configKeyPrefix.length()) {
+				String value = config.getString(key, null);
+				if (value != null) {
+					// remove prefix
+					String realKey = key.substring(configKeyPrefix.length());
+					config.setString(realKey, value);
 				}
 			}
 		}

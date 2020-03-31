@@ -28,6 +28,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
+import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -107,6 +108,7 @@ import java.util.Set;
 
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_PLUGINS_DIR;
+import static org.apache.flink.configuration.ConfigConstants.STREAMING_JOB_KEY_PREFIX;
 import static org.apache.flink.configuration.ConfigConstants.YARN_APPLICATION_TYPE;
 import static org.apache.flink.configuration.ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT;
 import static org.apache.flink.configuration.JobManagerOptions.CHECK_JOB_UNIQUE;
@@ -197,14 +199,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	@Override
 	public void setDefaultConfigurationForStream() {
-		// todo(huweihua): put these to config file.
-		flinkConfiguration.setBoolean(YarnConfigOptions.GANG_SCHEDULER, true);
-		flinkConfiguration.setBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START, true);
-		flinkConfiguration.setDouble(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS_PERCENTAGE, 1.0);
-		flinkConfiguration.setString(ConfigConstants.FLINK_JOB_API_KEY, "DataStream");
-		// todo(huweihua): determined by shuffle mode.
-		flinkConfiguration.setString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY, "full");
-		flinkConfiguration.setBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY, true);
+		GlobalConfiguration.reloadConfigWithSpecificProperties(flinkConfiguration, STREAMING_JOB_KEY_PREFIX);
 	}
 
 	public void setQueue(String queue) {
