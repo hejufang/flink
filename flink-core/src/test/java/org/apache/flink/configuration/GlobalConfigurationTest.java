@@ -29,11 +29,14 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Properties;
 import java.util.UUID;
 
-import static org.apache.flink.configuration.PipelineOptions.JARS;
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithSpecificProperties;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -68,9 +71,17 @@ public class GlobalConfigurationTest extends TestLogger {
 				pw.println("mykey7: "); // SKIP, no value provided
 				pw.println(": myvalue8"); // SKIP, no key provided
 
-				pw.println("mykey9: myvalue9"); // OK
-				pw.println("mykey9: myvalue10"); // OK, overwrite last value
-				pw.println("mykey111: [file:/data01/a]"); // OK
+				pw.println("  mykey6: myvalue6"); // OK
+				pw.println("  mykey6: myvalue7"); // OK, overwrite last value
+				pw.println("  mykey8: myvalue8"); // OK
+				pw.println("  # mykey9: myvalue9"); // SKIP
+				pw.println("  subkey1: parentvalue1");
+				pw.println("  prefix1.subkey1: subvalue1");
+				pw.println("  prefix1.subkey2: subvalue2");
+				pw.println("flink:");
+				pw.println("  mykey8: myvalue9"); // OK, overwrite last value
+				pw.println("  prefix1.subkey2: subvalue3");
+				pw.println("  prefix2.subkey4: subvalue4");
 
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
@@ -79,7 +90,7 @@ public class GlobalConfigurationTest extends TestLogger {
 			Configuration conf = GlobalConfiguration.loadConfiguration(tmpDir.getAbsolutePath());
 
 			// all distinct keys from confFile1 + confFile2 key
-			assertEquals(6, conf.keySet().size());
+			assertEquals(11, conf.keySet().size());
 
 			// keys 1, 2, 4, 5, 6, 7, 8 should be OK and match the expected values
 			assertEquals("myvalue1", conf.getString("mykey1", null));
@@ -87,10 +98,15 @@ public class GlobalConfigurationTest extends TestLogger {
 			assertEquals("null", conf.getString("mykey3", "null"));
 			assertEquals("myvalue4", conf.getString("mykey4", null));
 			assertEquals("myvalue5", conf.getString("mykey5", null));
-			assertEquals("my: value6", conf.getString("mykey6", null));
-			assertEquals("null", conf.getString("mykey7", "null"));
-			assertEquals("null", conf.getString("mykey8", "null"));
-			assertEquals("myvalue10", conf.getString("mykey9", null));
+			assertEquals("myvalue7", conf.getString("mykey6", null));
+			assertEquals("myvalue9", conf.getString("mykey8", null));
+			assertNull(conf.getString("mykey9", null));
+			assertEquals("parentvalue1", conf.getString("subkey1", null));
+			reloadConfigWithSpecificProperties(conf, "prefix1.");
+			assertEquals("subvalue1", conf.getString("subkey1", null));
+			assertEquals("subvalue3", conf.getString("subkey2", null));
+			reloadConfigWithSpecificProperties(conf, "prefix2.");
+			assertEquals("subvalue4", conf.getString("subkey4", null));
 		} finally {
 			confFile.delete();
 			tmpDir.delete();
@@ -102,7 +118,7 @@ public class GlobalConfigurationTest extends TestLogger {
 		final File confFile = tempFolder.newFile(GlobalConfiguration.FLINK_CONF_FILENAME);
 		try (PrintWriter pw = new PrintWriter(confFile)) {
 			pw.println("common:\n" +
-					"  pipeline.jars: \"file:/tmp1;file:/tmp2\"");
+				"  state.checkpoints.dir: ${hdfs.prefix}/${dc}/${clusterName}/1.9/flink/fs_checkpoint_dir");
 			pw.println("flink:\n" +
 					"  dc: cn\n" +
 					"  clusterName: flink\n" +
@@ -110,8 +126,16 @@ public class GlobalConfigurationTest extends TestLogger {
 		}
 		Configuration config = GlobalConfiguration.loadConfiguration(tempFolder.getRoot().getAbsolutePath());
 		assertEquals(
-				config.get(JARS).get(0),
-				"file:/tmp1");
+			config.getString("state.checkpoints.dir", null),
+			"hdfs://haruna/flink_lf/cn/flink/1.9/flink/fs_checkpoint_dir");
+
+		Properties properties = new Properties();
+		properties.setProperty("dc", "test");
+
+		reloadConfigWithDynamicProperties(config, properties);
+		assertEquals(
+			config.getString("state.checkpoints.dir", null),
+			"hdfs://haruna/flink_lf/test/flink/1.9/flink/fs_checkpoint_dir");
 	}
 
 	@Test(expected = IllegalArgumentException.class)

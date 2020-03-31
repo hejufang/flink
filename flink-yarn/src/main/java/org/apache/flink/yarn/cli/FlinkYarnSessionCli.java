@@ -88,6 +88,7 @@ import java.util.stream.Stream;
 import static org.apache.flink.client.cli.CliFrontendParser.DETACHED_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.YARN_DETACHED_OPTION;
 import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithSpecificProperties;
 import static org.apache.flink.configuration.HighAvailabilityOptions.HA_CLUSTER_ID;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -389,11 +390,9 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
 		// set check yarn app unique default for stream job
-		if (properties.getProperty(YarnConfigOptions.YARN_CHECK_APP_NAME_UNIQUE.key()) == null) {
-			final String appType = effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE);
-			if (appType == null || appType.equals(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
-				effectiveConfiguration.setBoolean(YarnConfigOptions.YARN_CHECK_APP_NAME_UNIQUE, true);
-			}
+		final String appType = effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE);
+		if (appType.equals(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
+			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
 		}
 
 		if (isYarnPropertiesFileMode(commandLine)) {

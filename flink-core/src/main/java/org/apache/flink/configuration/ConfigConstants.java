@@ -2116,6 +2116,8 @@ public final class ConfigConstants {
 
 	public static final String WRITE_FAILED_COUNTER = "writeFailed";
 
+	public static final String STREAMING_JOB_KEY_PREFIX = "bytedance.streaming.";
+
 	/**
 	 * Not instantiable.
 	 */

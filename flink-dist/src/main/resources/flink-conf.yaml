@@ -177,6 +177,19 @@ common:
   # smart-resource
   taskmanager.network.memory.lazy-allocate: true
 
+  # bytedance streaming default config
+  bytedance.streaming.yarn.check.application.name.unique: true
+  bytedance.streaming.yarn.gang-scheduler.enable: true
+  bytedance.streaming.yarn.gang-scheduler.jobmanager.enable: true
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: false
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.disk-type-enable: true
+  bytedance.streaming.taskmanager.initial-on-start: true
+  bytedance.streaming.taskmanager.number-initial-percentage: 1.0
+  bytedance.streaming.flink.job_api: DataStream
+  bytedance.streaming.jobmanager.execution.schedule-task-fairly: true
+  bytedance.streaming.jobmanager.partition.release-during-job-execution: false
+  bytedance.streaming.cluster.evenly-spread-out-slots: true
+
 flink:
   dc: cn
   clusterName: flink
