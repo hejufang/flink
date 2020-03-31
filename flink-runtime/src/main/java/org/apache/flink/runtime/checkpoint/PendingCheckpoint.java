@@ -260,11 +260,12 @@ public class PendingCheckpoint {
 					finalizedLocation = out.closeAndFinalizeCheckpoint();
 				}
 
+				final long finishTimestamp = System.currentTimeMillis();
 				CompletedCheckpoint completed = new CompletedCheckpoint(
 						jobId,
 						checkpointId,
 						checkpointTimestamp,
-						System.currentTimeMillis(),
+						finishTimestamp,
 						operatorStates,
 						masterState,
 						props,
@@ -278,7 +279,7 @@ public class PendingCheckpoint {
 					// Finalize the statsCallback and give the completed checkpoint a
 					// callback for discards.
 					CompletedCheckpointStats.DiscardCallback discardCallback =
-							statsCallback.reportCompletedCheckpoint(finalizedLocation.getExternalPointer());
+							statsCallback.reportCompletedCheckpoint(finalizedLocation.getExternalPointer(), finishTimestamp);
 					completed.setDiscardCallback(discardCallback);
 				}
 

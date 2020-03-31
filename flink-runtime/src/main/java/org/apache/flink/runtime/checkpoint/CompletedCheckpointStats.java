@@ -53,6 +53,8 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	/** Flag indicating whether the checkpoint was discarded. */
 	private volatile boolean discarded;
 
+	private final long finishTimestamp;
+
 	/**
 	 * Creates a tracker for a {@link CompletedCheckpoint}.
 	 *
@@ -70,6 +72,7 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	CompletedCheckpointStats(
 			long checkpointId,
 			long triggerTimestamp,
+			long finishTimestamp,
 			CheckpointProperties props,
 			int totalSubtaskCount,
 			Map<JobVertexID, TaskStateStats> taskStats,
@@ -86,6 +89,12 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 		this.alignmentBuffered = alignmentBuffered;
 		this.latestAcknowledgedSubtask = checkNotNull(latestAcknowledgedSubtask);
 		this.externalPointer = externalPointer;
+		this.finishTimestamp = finishTimestamp;
+	}
+
+	@Override
+	public long getEndToEndDuration() {
+		return Math.max(0, finishTimestamp - triggerTimestamp);
 	}
 
 	@Override

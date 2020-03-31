@@ -93,6 +93,7 @@ public class CompletedCheckpointStatsSummaryTest {
 		return new CompletedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
+			System.currentTimeMillis(),
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
 			1,
 			taskStats,

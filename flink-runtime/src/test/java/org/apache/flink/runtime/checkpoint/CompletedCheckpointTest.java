@@ -316,6 +316,7 @@ public class CompletedCheckpointTest {
 		CompletedCheckpointStats completed = new CompletedCheckpointStats(
 			123123123L,
 			10123L,
+			10124L,
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
 			1337,
 			taskStats,
