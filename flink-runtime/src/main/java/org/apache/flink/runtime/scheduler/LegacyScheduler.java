@@ -127,6 +127,8 @@ public class LegacyScheduler implements SchedulerNG {
 
 	private final Time slotRequestTimeout;
 
+	private final boolean allowNonRestoredState;
+
 	private ComponentMainThreadExecutor mainThreadExecutor = new ComponentMainThreadExecutor.DummyComponentMainThreadExecutor(
 		"LegacyScheduler is not initialized with proper main thread executor. " +
 			"Call to LegacyScheduler.setMainThreadExecutor(...) required.");
@@ -174,6 +176,8 @@ public class LegacyScheduler implements SchedulerNG {
 		this.blobWriter = checkNotNull(blobWriter);
 		this.slotRequestTimeout = checkNotNull(slotRequestTimeout);
 
+		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
+
 		this.executionGraph = createAndRestoreExecutionGraph(jobManagerJobMetricGroup, checkNotNull(shuffleMaster), checkNotNull(partitionTracker));
 	}
 
@@ -191,7 +195,7 @@ public class LegacyScheduler implements SchedulerNG {
 			if (!checkpointCoordinator.restoreLatestCheckpointedState(
 				newExecutionGraph.getAllVertices(),
 				false,
-				false,
+				allowNonRestoredState,
 				true,
 				userCodeLoader)) {
 
