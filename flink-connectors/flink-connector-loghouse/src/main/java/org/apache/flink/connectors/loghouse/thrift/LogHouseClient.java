@@ -75,6 +75,7 @@ public class LogHouseClient {
 	public void sendPut(PutRequest request) {
 		discoverIfNecessary();
 
+		String lastErrorMessage = "";
 		for (int i = 1; i <= options.getFlushMaxRetries(); ++i) {
 			final LogHouseDiscovery.HostPort hostPort = hostPorts.get(currentIndex);
 			currentIndex = currentIndex == hostPorts.size() - 1 ? 0 : currentIndex + 1;
@@ -93,8 +94,10 @@ public class LogHouseClient {
 					response.getStatus().getErrorCode(),
 					response.getStatus().getErrorMessage(),
 					i);
+				lastErrorMessage = response.getStatus().getErrorMessage();
 			} catch (Exception e) {
 				LOG.warn("Failed to send a PutRequest, will retry after {} seconds.", i, e);
+				lastErrorMessage = e.getMessage();
 			} finally {
 				if (thriftClient != null) {
 					clientPool.returnObject(hostPort, thriftClient);
@@ -118,7 +121,8 @@ public class LogHouseClient {
 		}
 
 		// failed finally.
-		throw new FlinkRuntimeException("Sending PutRequest failed " + options.getFlushMaxRetries() + " times.");
+		throw new FlinkRuntimeException("Sending PutRequest failed " + options.getFlushMaxRetries() + " times. " +
+			"Last error messsage is: " + lastErrorMessage);
 	}
 
 	private void discoverIfNecessary() {
