@@ -28,7 +28,6 @@ fi
 
 # copy flink-1.10 to output
 mkdir -p output/deploy/flink-1.10
-rm -rf flink-dist/target/flink-1.10-byted-SNAPSHOT-bin/flink-1.10-byted-SNAPSHOT/opt
 cp -r flink-dist/target/flink-1.10-byted-SNAPSHOT-bin/flink-1.10-byted-SNAPSHOT/* output/deploy/flink-1.10/
 
 # copy flink-tools to output
