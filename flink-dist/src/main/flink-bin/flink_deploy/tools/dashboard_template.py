@@ -1673,7 +1673,7 @@ class DashboardTemplate(object):
         [
             {
               "aggregator": "max",
-              "alias": "TM PS_Scavenge.Count",
+              "alias": "TM PS_YOUNG_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1690,7 +1690,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM PS_Scavenge.Time",
+              "alias": "TM PS_YOUNG_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1711,7 +1711,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM PS_MarkSweep.Count",
+              "alias": "TM PS_FULL_GC.Count",
               "currentTagKey": "tmid",
               "currentTagValue": "000006",
               "downsampleAggregator": "avg",
@@ -1727,7 +1727,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM PS_MarkSweep.Time",
+              "alias": "TM PS_FULL_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1744,7 +1744,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM PS_Scavenge.Count",
+              "alias": "JM PS_YOUNG_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1761,7 +1761,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM PS_Scavenge.Time",
+              "alias": "JM PS_YOUNG_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1777,7 +1777,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM PS_MarkSweep.Count",
+              "alias": "JM PS_FULL_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1793,7 +1793,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM PS_MarkSweep.Time",
+              "alias": "JM PS_FULL_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1809,7 +1809,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM G1_Young_Generation.Count",
+              "alias": "TM G1_YOUNG_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1823,7 +1823,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM  G1_Young_Generation.Time",
+              "alias": "TM  G1_YOUNG_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1837,7 +1837,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM G1_Old_Generation.Count",
+              "alias": "TM G1_FULL_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1853,7 +1853,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "TM G1_Old_Generation.Time",
+              "alias": "TM G1_FULL_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1869,7 +1869,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM G1_Young_Generation.Count",
+              "alias": "JM G1_YOUNG_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1883,7 +1883,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM G1_Young_Generation.Time",
+              "alias": "JM G1_YOUNG_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1897,7 +1897,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM G1_Old_Generation.Count",
+              "alias": "JM G1_FULL_GC.Count",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",
@@ -1913,7 +1913,7 @@ class DashboardTemplate(object):
             },
             {
               "aggregator": "max",
-              "alias": "JM G1_Old_Generation.Time",
+              "alias": "JM G1_FULL_GC.Time",
               "currentTagKey": "",
               "currentTagValue": "",
               "downsampleAggregator": "avg",

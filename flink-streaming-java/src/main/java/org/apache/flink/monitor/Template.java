@@ -573,7 +573,7 @@ public class Template {
 			"					\"targets\": [\n" +
 			"{\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM PS_Scavenge.Count\",\n" +
+		"          \"alias\": \"TM PS_YOUNG_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -590,7 +590,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM PS_Scavenge.Time\",\n" +
+		"          \"alias\": \"TM PS_YOUNG_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -608,7 +608,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM PS_MarkSweep.Count\",\n" +
+		"          \"alias\": \"TM PS_FULL_GC.Count\",\n" +
 		"          \"currentTagKey\": \"tmid\",\n" +
 		"          \"currentTagValue\": \"000006\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -624,7 +624,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM PS_MarkSweep.Time\",\n" +
+		"          \"alias\": \"TM PS_FULL_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -641,7 +641,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM PS_Scavenge.Count\",\n" +
+		"          \"alias\": \"JM PS_YOUNG_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -658,7 +658,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM PS_Scavenge.Time\",\n" +
+		"          \"alias\": \"JM PS_YOUNG_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -674,7 +674,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM PS_MarkSweep.Count\",\n" +
+		"          \"alias\": \"JM PS_FULL_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -690,7 +690,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM PS_MarkSweep.Time\",\n" +
+		"          \"alias\": \"JM PS_FULL_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -706,7 +706,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM G1_Young_Generation.Count\",\n" +
+		"          \"alias\": \"TM G1_YOUNG_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -720,7 +720,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM  G1_Young_Generation.Time\",\n" +
+		"          \"alias\": \"TM  G1_YOUNG_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -734,7 +734,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM G1_Old_Generation.Count\",\n" +
+		"          \"alias\": \"TM G1_FULL_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -750,7 +750,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"TM G1_Old_Generation.Time\",\n" +
+		"          \"alias\": \"TM G1_FULL_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -766,7 +766,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM G1_Young_Generation.Count\",\n" +
+		"          \"alias\": \"JM G1_YOUNG_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -780,7 +780,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM G1_Young_Generation.Time\",\n" +
+		"          \"alias\": \"JM G1_YOUNG_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -794,7 +794,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM G1_Old_Generation.Count\",\n" +
+		"          \"alias\": \"JM G1_FULL_GC.Count\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
@@ -810,7 +810,7 @@ public class Template {
 		"        },\n" +
 		"        {\n" +
 		"          \"aggregator\": \"max\",\n" +
-		"          \"alias\": \"JM G1_Old_Generation.Time\",\n" +
+		"          \"alias\": \"JM G1_FULL_GC.Time\",\n" +
 		"          \"currentTagKey\": \"\",\n" +
 		"          \"currentTagValue\": \"\",\n" +
 		"          \"downsampleAggregator\": \"avg\",\n" +
