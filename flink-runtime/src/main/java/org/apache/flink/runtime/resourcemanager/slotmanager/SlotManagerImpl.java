@@ -1251,12 +1251,16 @@ public class SlotManagerImpl implements SlotManager {
 
 			ArrayList<TaskManagerRegistration> timedOutTaskManagers = new ArrayList<>(taskManagerRegistrations.size());
 
+			// Keep numInitialTaskManagers taskExecutors.
+			int canReleaseNum = Math.max(0, taskManagerRegistrations.size() - numInitialTaskManagers);
 			// first retrieve the timed out TaskManagers
 			for (TaskManagerRegistration taskManagerRegistration : taskManagerRegistrations.values()) {
-				if (currentTime - taskManagerRegistration.getIdleSince() >= taskManagerTimeout.toMilliseconds()) {
+				if (currentTime - taskManagerRegistration.getIdleSince() >= taskManagerTimeout.toMilliseconds()
+						&& canReleaseNum > 0) {
 					// we collect the instance ids first in order to avoid concurrent modifications by the
 					// ResourceActions.releaseResource call
 					timedOutTaskManagers.add(taskManagerRegistration);
+					canReleaseNum--;
 				}
 			}
 
