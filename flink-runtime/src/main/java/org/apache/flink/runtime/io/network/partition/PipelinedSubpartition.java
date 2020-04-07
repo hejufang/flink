@@ -149,7 +149,7 @@ class PipelinedSubpartition extends ResultSubpartition {
 			isReleased = true;
 		}
 
-		LOG.debug("{}: Released {}.", parent.getOwningTaskName(), this);
+		LOG.info("{}: Released {}.", parent.getOwningTaskName(), this);
 
 		if (view != null) {
 			view.releaseAllResources();
