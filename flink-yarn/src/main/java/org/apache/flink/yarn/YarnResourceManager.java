@@ -131,6 +131,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	private WorkerSpecContainerResourceAdapter.MatchingStrategy matchingStrategy;
 
+	private final boolean cleanupRunningContainersOnStop;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -199,6 +201,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.matchingStrategy = flinkConfig.getBoolean(YarnConfigOptionsInternal.MATCH_CONTAINER_VCORES) ?
 			WorkerSpecContainerResourceAdapter.MatchingStrategy.MATCH_VCORE :
 			WorkerSpecContainerResourceAdapter.MatchingStrategy.IGNORE_VCORE;
+
+		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -271,6 +275,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		NMClientAsync nodeManagerClient = NMClientAsync.createNMClientAsync(this);
 		nodeManagerClient.init(yarnConfiguration);
 		nodeManagerClient.start();
+		nodeManagerClient.getClient().cleanupRunningContainersOnStop(cleanupRunningContainersOnStop);
 		return nodeManagerClient;
 	}
 

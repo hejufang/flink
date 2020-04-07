@@ -291,6 +291,12 @@ public class YarnConfigOptions {
 
 	// ------------------------------------------------------------------------
 
+	public static final ConfigOption<Boolean> CLEANUP_RUNNING_CONTAINERS_ON_STOP =
+		key("yarn.nmclient.cleanup-running-containers-on-stop")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Cleanup running containers on NMClient stop.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 
