@@ -259,6 +259,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private int gangDowngradeTimeoutMilli;
 	private boolean gangSchedulerEnabled;
 
+	private final boolean cleanupRunningContainersOnStop;
+
 	public YarnResourceManager(
 		RpcService rpcService,
 		String resourceManagerEndpointId,
@@ -355,6 +357,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		this.gangLastDowngradeTimestamp = -1;
 		this.gangMaxRetryTimes = flinkConfig.getInteger(YarnConfigOptions.GANG_MAX_RETRY_TIMES);
 		this.gangDowngradeTimeoutMilli = flinkConfig.getInteger(YarnConfigOptions.GANG_DOWNGRADE_TIMEOUT_MS);
+
+		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
 
 		// smart resources
 		smartResourcesStats = new SmartResourcesStats();
@@ -492,7 +496,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		NMClient nodeManagerClient = NMClient.createNMClient();
 		nodeManagerClient.init(yarnConfiguration);
 		nodeManagerClient.start();
-		nodeManagerClient.cleanupRunningContainersOnStop(true);
+		nodeManagerClient.cleanupRunningContainersOnStop(cleanupRunningContainersOnStop);
 		return nodeManagerClient;
 	}
 
@@ -502,7 +506,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		NMClientAsync nodeManagerClientAsync = NMClientAsync.createNMClientAsync(this);
 		nodeManagerClientAsync.init(yarnConfiguration);
 		nodeManagerClientAsync.start();
-		nodeManagerClientAsync.getClient().cleanupRunningContainersOnStop(true);
+		nodeManagerClientAsync.getClient().cleanupRunningContainersOnStop(cleanupRunningContainersOnStop);
 		return nodeManagerClientAsync;
 	}
 
