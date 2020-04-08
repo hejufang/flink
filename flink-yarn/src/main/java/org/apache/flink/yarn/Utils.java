@@ -743,6 +743,9 @@ public final class Utils {
 				LOG.info("Docker image: {} has been configured, set docker environment params.",
 					dockerImage);
 				dockerImage = getDockerImage(dockerImage, flinkConfiguration);
+				if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
+					throw new RuntimeException("The real docker image is empty, please check config " + YarnConfigKeys.DOCKER_IMAGE_KEY);
+				}
 				flinkConfiguration.setString(YarnConfigKeys.DOCKER_IMAGE_KEY, dockerImage);
 				LOG.info("The real docker image id is: {}", dockerImage);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
