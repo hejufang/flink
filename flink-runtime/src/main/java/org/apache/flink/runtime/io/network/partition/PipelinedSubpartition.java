@@ -140,6 +140,9 @@ class PipelinedSubpartition extends ResultSubpartition {
 			for (BufferConsumer buffer : buffers) {
 				buffer.close();
 			}
+
+			LOG.info("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
+
 			buffers.clear();
 
 			view = readView;
@@ -148,8 +151,6 @@ class PipelinedSubpartition extends ResultSubpartition {
 			// Make sure that no further buffers are added to the subpartition
 			isReleased = true;
 		}
-
-		LOG.info("{}: Released {}.", parent.getOwningTaskName(), this);
 
 		if (view != null) {
 			view.releaseAllResources();
