@@ -372,6 +372,10 @@ class StreamExecGroupWindowAggregate(
         .triggering(emitStrategy.getTrigger)
     }
 
+    if (emitStrategy.enableEmitUnchanged) {
+      newBuilder.enableEmitUnchanged()
+    }
+
     newBuilder
       .aggregate(aggsHandler, recordEqualiser, accTypes, aggValueTypes, windowPropertyTypes)
       .withAllowedLateness(Duration.ofMillis(emitStrategy.getAllowLateness))

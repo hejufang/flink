@@ -70,9 +70,15 @@ public class WindowOperatorBuilder {
 	private long allowedLateness = 0L;
 	private boolean sendRetraction = false;
 	private int rowtimeIndex = -1;
+	private boolean emitUnchanged = false;
 
 	public static WindowOperatorBuilder builder() {
 		return new WindowOperatorBuilder();
+	}
+
+	public WindowOperatorBuilder enableEmitUnchanged() {
+		this.emitUnchanged = true;
+		return this;
 	}
 
 	public WindowOperatorBuilder withInputFields(LogicalType[] inputFieldTypes) {
@@ -210,7 +216,8 @@ public class WindowOperatorBuilder {
 					windowPropertyTypes,
 					rowtimeIndex,
 					sendRetraction,
-					allowedLateness);
+					allowedLateness,
+					emitUnchanged);
 		} else {
 			//noinspection unchecked
 			return new WindowOperator(
@@ -225,7 +232,8 @@ public class WindowOperatorBuilder {
 					windowPropertyTypes,
 					rowtimeIndex,
 					sendRetraction,
-					allowedLateness);
+					allowedLateness,
+					emitUnchanged);
 		}
 	}
 }

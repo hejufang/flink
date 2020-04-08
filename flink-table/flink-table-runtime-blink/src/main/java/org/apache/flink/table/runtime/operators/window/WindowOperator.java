@@ -125,6 +125,8 @@ public class WindowOperator<K, W extends Window>
 
 	private final boolean sendRetraction;
 
+	private final boolean emitUnchanged;
+
 	private final int rowtimeIndex;
 
 	/**
@@ -189,7 +191,8 @@ public class WindowOperator<K, W extends Window>
 			LogicalType[] windowPropertyTypes,
 			int rowtimeIndex,
 			boolean sendRetraction,
-			long allowedLateness) {
+			long allowedLateness,
+			boolean emitUnchanged) {
 		checkArgument(allowedLateness >= 0);
 		this.windowAggregator = checkNotNull(windowAggregator);
 		this.equaliser = checkNotNull(equaliser);
@@ -202,6 +205,7 @@ public class WindowOperator<K, W extends Window>
 		this.windowPropertyTypes = checkNotNull(windowPropertyTypes);
 		this.allowedLateness = allowedLateness;
 		this.sendRetraction = sendRetraction;
+		this.emitUnchanged = emitUnchanged;
 
 		// rowtime index should >= 0 when in event time mode
 		checkArgument(!windowAssigner.isEventTime() || rowtimeIndex >= 0);
@@ -222,7 +226,8 @@ public class WindowOperator<K, W extends Window>
 			LogicalType[] windowPropertyTypes,
 			int rowtimeIndex,
 			boolean sendRetraction,
-			long allowedLateness) {
+			long allowedLateness,
+			boolean emitUnchanged) {
 		checkArgument(allowedLateness >= 0);
 		this.generatedWindowAggregator = checkNotNull(generatedWindowAggregator);
 		this.generatedEqualiser = checkNotNull(generatedEqualiser);
@@ -235,6 +240,7 @@ public class WindowOperator<K, W extends Window>
 		this.windowPropertyTypes = checkNotNull(windowPropertyTypes);
 		this.allowedLateness = allowedLateness;
 		this.sendRetraction = sendRetraction;
+		this.emitUnchanged = emitUnchanged;
 
 		// rowtime index should >= 0 when in event time mode
 		checkArgument(!windowAssigner.isEventTime() || rowtimeIndex >= 0);
@@ -433,7 +439,7 @@ public class WindowOperator<K, W extends Window>
 			// has emitted result for the window
 			if (previousAggResult != null) {
 				// current agg is not equal to the previous emitted, should emit retract
-				if (!equaliser.equalsWithoutHeader(aggResult, previousAggResult)) {
+				if (emitUnchanged || !equaliser.equalsWithoutHeader(aggResult, previousAggResult)) {
 					reuseOutput.replace((BaseRow) getCurrentKey(), previousAggResult);
 					BaseRowUtil.setRetract(reuseOutput);
 					// send retraction
