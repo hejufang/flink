@@ -40,18 +40,6 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-connector-kafka-0.10_${scala.binary.version}</artifactId>
 			<version>${project.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.xerial.snappy</groupId>
-					<artifactId>snappy-java</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>org.xerial.snappy</groupId>
-			<artifactId>snappy-java</artifactId>
-			<version>1.1.2.6</version>
-			<scope>compile</scope>
 		</dependency>
 	</dependencies>
 
@@ -70,7 +58,6 @@ under the License.
 						<configuration>
 							<artifactSet>
 								<includes>
-									<include>org.xerial.snappy:*</include>
 									<include>org.apache.kafka:*</include>
 									<include>org.apache.flink:flink-connector-kafka-base_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-connector-kafka-0.9_${scala.binary.version}</include>
@@ -79,7 +66,6 @@ under the License.
 							</artifactSet>
 							<filters>
 								<filter>
-									<artifact>org.xerial.snappy:*</artifact>
 									<artifact>org.apache.kafka:*</artifact>
 									<excludes>
 										<exclude>kafka/kafka-version.properties</exclude>
@@ -95,10 +81,6 @@ under the License.
 								<relocation>
 									<pattern>org.apache.kafka</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.kafka</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>org.xerial.snappy</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.org.xerial.snappy</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>
