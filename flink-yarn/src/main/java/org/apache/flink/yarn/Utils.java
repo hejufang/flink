@@ -761,6 +761,14 @@ public final class Utils {
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY,
 						YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT);
+				String dockerLogMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT;
+				String otherDockerLogMounts = flinkConfiguration.getString(
+					YarnConfigKeys.DOCKER_LOG_MOUNTS_KEY, null);
+				if (otherDockerLogMounts != null && !otherDockerLogMounts.isEmpty()) {
+					dockerLogMounts = otherDockerLogMounts + "," + dockerLogMounts;
+				}
+				LOG.info("Docker log mounts: {}", dockerLogMounts);
+				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_KEY, dockerLogMounts);
 			} else {
 				LOG.info("No docker image configured, run on physical machines.");
 			}

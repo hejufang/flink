@@ -73,6 +73,10 @@ public class YarnConfigKeys {
 		"YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT =
 		"/opt/tiger/ss_conf:/opt/tiger/ss_conf;/opt/tiger/ss_lib:/opt/tiger/ss_lib";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_KEY =
+		"ENV_DOCKER_CONTAINER_LOG_DIR_MOUNT";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT =
+		"/var/log/tiger";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY =
 		"ENV_DOCKER_CONTAINER_CAP_ADD";
 	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT =
@@ -82,6 +86,7 @@ public class YarnConfigKeys {
 	public static final String DOCKER_DEFAULT_IMAGE_KEY = "docker.default_image";
 	public static final String DOCKER_IMAGE_DEFAULT = "yarn_runtime_flink:latest";
 	public static final String DOCKER_MOUNTS_KEY = "docker.mount";
+	public static final String DOCKER_LOG_MOUNTS_KEY = "docker.log.mount";
 	public static final String DOCKER_VERSION_LATEST = "latest";
 	public static final String DOCKER_SERVER_KEY = "docker.server";
 	public static final String DOCKER_SERVER_DEFAULT = "image-manager.byted.org";
