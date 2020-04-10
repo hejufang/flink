@@ -1832,6 +1832,9 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		String logLayout = flinkConfiguration.getString(ConfigConstants.FLINK_LOG_LAYOUT_KEY,
 			ConfigConstants.FLINK_LOG_LAYOUT_DEFAULT);
+		if (logLayout.length() > 1 && logLayout.charAt(0) == '\'' && logLayout.charAt(logLayout.length() - 1) == '\'') {
+			logLayout = logLayout.substring(1, logLayout.length() - 1);
+		}
 		javaOpts += " -Dlog.layout=\\\"" + logLayout + "\\\"";
 
 		// set databus channel
