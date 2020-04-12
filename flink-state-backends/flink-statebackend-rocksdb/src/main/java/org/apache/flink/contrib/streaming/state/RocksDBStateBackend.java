@@ -74,6 +74,7 @@ import java.util.Random;
 import java.util.UUID;
 
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
+import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TTL_COMPACT_FILTER_ENABLED;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -112,6 +113,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private static boolean rocksDbInitialized = false;
 
 	private static final int UNDEFINED_NUMBER_OF_TRANSFERING_THREADS = -1;
+	private static final int UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES = -1;
 
 	// ------------------------------------------------------------------------
 
@@ -139,6 +141,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	/** Thread number used to transfer (download and upload) state, default value: 1. */
 	private int numberOfTransferingThreads;
+
+	private int maxRetryTimes;
 
 	/**
 	 * This determines if compaction filter to cleanup state with TTL is enabled.
@@ -267,6 +271,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.checkpointStreamBackend = checkNotNull(checkpointStreamBackend);
 		this.enableIncrementalCheckpointing = enableIncrementalCheckpointing;
 		this.numberOfTransferingThreads = UNDEFINED_NUMBER_OF_TRANSFERING_THREADS;
+		this.maxRetryTimes = UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES;
 		// for now, we use still the heap-based implementation as default
 		this.priorityQueueStateType = PriorityQueueStateType.HEAP;
 		this.defaultMetricOptions = new RocksDBNativeMetricOptions();
@@ -312,6 +317,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		} else {
 			this.numberOfTransferingThreads = original.numberOfTransferingThreads;
 		}
+
+		this.maxRetryTimes = config.getInteger(DATA_TRANSFER_MAX_RETRY_TIMES);
 
 		this.enableTtlCompactionFilter = original.enableTtlCompactionFilter
 			.resolveUndefined(config.getBoolean(TTL_COMPACT_FILTER_ENABLED));
@@ -568,6 +575,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		).setEnableIncrementalCheckpointing(isIncrementalCheckpointsEnabled())
 			.setEnableTtlCompactionFilter(isTtlCompactionFilterEnabled())
 			.setNumberOfTransferingThreads(getNumberOfTransferingThreads())
+			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
 			.setNativeMetricOptions(getMemoryWatcherOptions());
 		return builder.build();
 	}
@@ -878,6 +886,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	public int getNumberOfTransferingThreads() {
 		return numberOfTransferingThreads == UNDEFINED_NUMBER_OF_TRANSFERING_THREADS ?
 			CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue() : numberOfTransferingThreads;
+	}
+
+	public int getDataTransferMaxRetryTimes() {
+		return maxRetryTimes == UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES ?
+			DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue() : maxRetryTimes;
 	}
 
 	/**

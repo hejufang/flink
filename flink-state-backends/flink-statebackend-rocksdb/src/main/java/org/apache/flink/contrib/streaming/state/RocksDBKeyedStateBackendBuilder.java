@@ -110,6 +110,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private boolean enableTtlCompactionFilter;
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
+	private int maxRetryTimes;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
@@ -157,6 +158,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.enableIncrementalCheckpointing = false;
 		this.nativeMetricOptions = new RocksDBNativeMetricOptions();
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
+		this.maxRetryTimes = RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue();
 	}
 
 	@VisibleForTesting
@@ -220,6 +222,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	RocksDBKeyedStateBackendBuilder<K> setNumberOfTransferingThreads(int numberOfTransferingThreads) {
 		this.numberOfTransferingThreads = numberOfTransferingThreads;
+		return this;
+	}
+
+	RocksDBKeyedStateBackendBuilder<K> setDataTransferMaxRetryTimes(int maxRetryTimes) {
+		this.maxRetryTimes = maxRetryTimes;
 		return this;
 	}
 
@@ -453,7 +460,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				backendUID,
 				materializedSstFiles,
 				lastCompletedCheckpointId,
-				numberOfTransferingThreads);
+				numberOfTransferingThreads,
+				maxRetryTimes);
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;
 		}

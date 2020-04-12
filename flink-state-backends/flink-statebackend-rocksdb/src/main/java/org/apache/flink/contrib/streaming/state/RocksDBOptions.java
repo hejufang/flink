@@ -58,6 +58,11 @@ public class RocksDBOptions {
 		.defaultValue(1)
 		.withDescription("The number of threads used to transfer (download and upload) files in RocksDBStateBackend.");
 
+	public static final ConfigOption<Integer> DATA_TRANSFER_MAX_RETRY_TIMES = ConfigOptions
+		.key("state.backend.rocksdb.transfer.max-retry-times")
+		.defaultValue(3)
+		.withDescription("Max times of retry transfering data to HDFS.");
+
 	/** This determines if compaction filter to cleanup state with TTL is enabled. */
 	public static final ConfigOption<Boolean> TTL_COMPACT_FILTER_ENABLED = ConfigOptions
 		.key("state.backend.rocksdb.ttl.compaction.filter.enabled")
