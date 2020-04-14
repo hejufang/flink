@@ -39,7 +39,11 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.InstantiationUtil;
 
 import org.elasticsearch.common.xcontent.XContentType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -86,6 +90,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_NULL_LITERAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_TYPE_VALUE_ELASTICSEARCH;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_URI;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_USER_DEFINED_PARAMS;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_DERIVE_SCHEMA;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_TYPE;
@@ -100,6 +105,8 @@ import static org.apache.flink.table.descriptors.StreamTableDescriptorValidator.
  */
 @Internal
 public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUpsertTableSinkBase.class);
 
 	private static final String SUPPORTED_FORMAT_TYPE = "json";
 	private static final XContentType SUPPORTED_CONTENT_TYPE = XContentType.JSON;
@@ -157,6 +164,9 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 
 		// ByteES mode
 		properties.add(CONNECTOR_BYTE_ES_MODE);
+
+		// user defined params, used in custom ActionRequestFailureHandler
+		properties.add(CONNECTOR_USER_DEFINED_PARAMS);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -264,7 +274,22 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			case CONNECTOR_FAILURE_HANDLER_VALUE_CUSTOM:
 				final Class<? extends ActionRequestFailureHandler> clazz = descriptorProperties
 					.getClass(CONNECTOR_FAILURE_HANDLER_CLASS, ActionRequestFailureHandler.class);
-				return InstantiationUtil.instantiate(clazz);
+
+				try {
+					// user can define a custom ActionRequestFailureHandler with a constructor like:
+					// public MyFailureHandler(Map<String, String> params) {
+					//     ...
+					// }
+					Constructor<?> constructor = clazz.getDeclaredConstructor(Map.class);
+					return (ActionRequestFailureHandler) constructor.newInstance(descriptorProperties.asMap());
+				} catch (NoSuchMethodException e) {
+					return InstantiationUtil.instantiate(clazz);
+				} catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {
+					LOG.warn("Found custom ActionRequestFailureHandler " + clazz.getCanonicalName() + " with single " +
+						"param of Map type, however cannot instantiate, trying default no parameter constructor.", e);
+					return InstantiationUtil.instantiate(clazz);
+				}
+
 			default:
 				throw new IllegalArgumentException("Unknown failure handler.");
 		}
