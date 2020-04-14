@@ -425,10 +425,11 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
     * Adds a reusable timestamp to the beginning of the SAM of the generated class.
     */
   def addReusableTimestamp(): String = {
-    val fieldTerm = s"timestamp"
+    val fieldTerm = newName(s"timestamp")
+    reusableMemberStatements.add(s"private long $fieldTerm;")
     val field =
       s"""
-         |final long $fieldTerm = java.lang.System.currentTimeMillis();
+         |$fieldTerm = java.lang.System.currentTimeMillis();
          |""".stripMargin
     reusablePerRecordStatements.add(field)
     fieldTerm
