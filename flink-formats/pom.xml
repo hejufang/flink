@@ -44,6 +44,7 @@ under the License.
 		<module>flink-csv</module>
 		<module>flink-pb</module>
 		<module>flink-bytes</module>
+		<module>flink-binlog</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

@@ -18,7 +18,9 @@
 
 package org.apache.flink.table.planner.operations;
 
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.format.binlog.BinlogRowFormatFactory;
 import org.apache.flink.formats.pb.PbBinlogDRCRowFormatFactory;
 import org.apache.flink.formats.pb.PbBinlogRowFormatFactory;
 import org.apache.flink.formats.pb.PbConstant;
@@ -43,6 +45,7 @@ import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.catalog.QueryOperationCatalogView;
 import org.apache.flink.table.catalog.exceptions.DatabaseNotExistException;
 import org.apache.flink.table.catalog.exceptions.TableAlreadyExistException;
+import org.apache.flink.table.descripters.BinlogValidator;
 import org.apache.flink.table.descriptors.FormatDescriptorValidator;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
@@ -56,6 +59,7 @@ import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.planner.calcite.FlinkTypeSystem;
 import org.apache.flink.table.planner.catalog.ComputedColumnCatalogTableImpl;
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter;
+import org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter;
 import org.apache.flink.table.sources.wmstrategies.WatermarkStrategy;
 import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.DataType;
@@ -284,6 +288,19 @@ public class SqlToOperationConverter {
 					columns = "`" + columns + "`";
 				}
 				columns += "," + sqlCreateTable.getColumnSqlString();
+			} else if (BinlogValidator.FORMAT_TYPE_VALUE.equals(formatType)) {
+				String[] allColumnsButComputedOne = tableSchema.getFieldNames();
+				List<String> allConlumns = Arrays.asList(allColumnsButComputedOne);
+				List<String> computedColumns = sqlCreateTable.getComputedColumnSqlStringList();
+				columns = String.join("`, `", allConlumns);
+				if (tableSchema.getFieldNames().length > 0) {
+					columns = "`" + columns + "`";
+				}
+				if (computedColumns.size() == 1) {
+					columns += "," + computedColumns.get(0);
+				} else if (computedColumns.size() > 1) {
+					throw new IllegalStateException("Cannot write more than one computed columns in a table.");
+				}
 			} else {
 				columns = sqlCreateTable.getColumnSqlString();
 			}
@@ -451,6 +468,7 @@ public class SqlToOperationConverter {
 		if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)
 			|| formatType.equals(PbConstant.FORMAT_TYPE_VALUE)
 			|| formatType.equals(PbConstant.FORMAT_BINLOG_DRC_TYPE_VALUE)
+			|| formatType.equals(BinlogValidator.FORMAT_TYPE_VALUE)
 			|| sqlCreateTable.getColumnList().size() == 0) {
 			RowTypeInfo rowTypeInfo;
 
@@ -470,6 +488,25 @@ public class SqlToOperationConverter {
 					PbBinlogDRCRowFormatFactory binlogFactory = new PbBinlogDRCRowFormatFactory();
 					rowTypeInfo = (RowTypeInfo) binlogFactory.getBinlogRowTypeInformation(
 						propertiesToMap(sqlCreateTable.getPropertyList()));
+					break;
+				}
+				case BinlogValidator.FORMAT_TYPE_VALUE: {
+					SqlNodeList columnList = sqlCreateTable.getColumnList();
+					// collect the physical table schema first.
+					final List<SqlNode> physicalColumns = columnList.getList().stream()
+						.filter(n -> n instanceof SqlTableColumn).collect(Collectors.toList());
+					List<String> columnNames = new ArrayList<>();
+					List<TypeInformation> types = new ArrayList<>();
+					for (SqlNode node : physicalColumns) {
+						SqlTableColumn column = (SqlTableColumn) node;
+						final RelDataType relType = column.getType().deriveType(factory,
+							column.getType().getNullable());
+						columnNames.add(column.getName().getSimple());
+						types.add(TypeInfoLogicalTypeConverter.fromLogicalTypeToTypeInfo(
+							FlinkTypeFactory.toLogicalType(relType)));
+					}
+					rowTypeInfo =
+						new BinlogRowFormatFactory().getBinlogRowTypeInformation(columnNames, types);
 					break;
 				}
 				default:

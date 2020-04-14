@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Base class for {@link TableFormatFactory}s.
@@ -163,5 +164,35 @@ public abstract class TableFormatFactoryBase<T> implements TableFormatFactory<T>
 		}
 
 		return builder.build();
+	}
+
+	/**
+	 * Get proctime column name.
+	 *
+	 * @return return the proctime column name. Return null if not exist.
+	 * */
+	public Optional<String> getProctimeColumn(DescriptorProperties descriptorProperties, TableSchema tableSchema) {
+		for (int i = 0; i < tableSchema.getFieldCount(); i++) {
+			final String timestampKey = SCHEMA + '.' + i + '.' + SCHEMA_PROCTIME;
+			if (descriptorProperties.containsKey(timestampKey)) {
+				return tableSchema.getFieldName(i);
+			}
+		}
+		return Optional.empty();
+	}
+
+	/**
+	 * Get rowtime column name.
+	 *
+	 * @return return the rowtime column name. Return null if not exist.
+	 * */
+	public Optional<String> getRowtimeColumn(DescriptorProperties descriptorProperties, TableSchema tableSchema) {
+		for (int i = 0; i < tableSchema.getFieldCount(); i++) {
+			final String timestampKey = SCHEMA + '.' + i + '.' + ROWTIME_TIMESTAMPS_TYPE;
+			if (descriptorProperties.containsKey(timestampKey)) {
+				return tableSchema.getFieldName(i);
+			}
+		}
+		return Optional.empty();
 	}
 }

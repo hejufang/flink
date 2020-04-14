@@ -215,6 +215,16 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 		return (int) columnList.getList().stream().filter(c -> c instanceof SqlBasicCall).count();
 	}
 
+	public List<String> getComputedColumnSqlStringList () {
+		List<String> computedColumnsSqlStringList = new ArrayList<>();
+		for (SqlNode column : columnList) {
+			if (column instanceof SqlBasicCall) {
+				computedColumnsSqlStringList.add(column.toString());
+			}
+		}
+		return computedColumnsSqlStringList;
+	}
+
 	/**
 	 * Returns the projection format of the DDL columns(including computed columns).
 	 * e.g. If we got a DDL:
