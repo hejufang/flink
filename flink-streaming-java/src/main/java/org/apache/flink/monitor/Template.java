@@ -273,7 +273,7 @@ public class Template {
 			"}";
 
 	public static final String KAFKA_LAG_SIZE_TARGET = "{\n" +
-			"							\"aggregator\": \"max\",\n" +
+			"							\"aggregator\": \"sum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"${lag}\",\n" +
@@ -870,104 +870,6 @@ public class Template {
 			"			\"titleSize\": \"h6\"\n" +
 			"		}";
 
-	public static final String QUEUE_LENGTH = "{\n" +
-			"			\"collapse\": false,\n" +
-			"			\"height\": 250,\n" +
-			"			\"panels\": [\n" +
-			"				{\n" +
-			"					\"aliasColors\": {},\n" +
-			"					\"bars\": false,\n" +
-			"					\"dashLength\": 10,\n" +
-			"					\"dashes\": false,\n" +
-			"					\"datasource\": \"${datasource}\",\n" +
-			"					\"fill\": 1,\n" +
-			"					\"id\": 6,\n" +
-			"					\"legend\": {\n" +
-			"						\"alignAsTable\": true,\n" +
-			"						\"avg\": true,\n" +
-			"						\"current\": true,\n" +
-			"						\"max\": true,\n" +
-			"						\"min\": false,\n" +
-			"						\"rightSide\": true,\n" +
-			"						\"show\": true,\n" +
-			"						\"total\": false,\n" +
-			"						\"values\": true\n" +
-			"					},\n" +
-			"					\"lines\": true,\n" +
-			"					\"linewidth\": 1,\n" +
-			"					\"links\": [],\n" +
-			"					\"nullPointMode\": \"null\",\n" +
-			"					\"percentage\": false,\n" +
-			"					\"pointradius\": 5,\n" +
-			"					\"points\": false,\n" +
-			"					\"renderer\": \"flot\",\n" +
-			"					\"seriesOverrides\": [],\n" +
-			"					\"spaceLength\": 10,\n" +
-			"					\"span\": 12,\n" +
-			"					\"stack\": false,\n" +
-			"					\"steppedLine\": false,\n" +
-			"					\"targets\": [\n" + "${targets}" +
-			"					],\n" +
-			"					\"thresholds\": [],\n" +
-			"					\"timeFrom\": null,\n" +
-			"					\"timeShift\": null,\n" +
-			"					\"title\": \"Task In/Out Queue\",\n" +
-			"					\"tooltip\": {\n" +
-			"						\"shared\": true,\n" +
-			"						\"sort\": 0,\n" +
-			"						\"value_type\": \"individual\"\n" +
-			"					},\n" +
-			"					\"type\": \"graph\",\n" +
-			"					\"xaxis\": {\n" +
-			"						\"buckets\": null,\n" +
-			"						\"mode\": \"time\",\n" +
-			"						\"name\": null,\n" +
-			"						\"show\": true,\n" +
-			"						\"values\": []\n" +
-			"					},\n" +
-			"					\"yaxes\": [\n" +
-			"						{\n" +
-			"							\"format\": \"short\",\n" +
-			"							\"label\": null,\n" +
-			"							\"logBase\": 1,\n" +
-			"							\"max\": null,\n" +
-			"							\"min\": null,\n" +
-			"							\"show\": true\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"format\": \"short\",\n" +
-			"							\"label\": null,\n" +
-			"							\"logBase\": 1,\n" +
-			"							\"max\": null,\n" +
-			"							\"min\": null,\n" +
-			"							\"show\": true\n" +
-			"						}\n" +
-			"					]\n" +
-			"				}\n" +
-			"			],\n" +
-			"			\"repeat\": null,\n" +
-			"			\"repeatIteration\": null,\n" +
-			"			\"repeatRowId\": null,\n" +
-			"			\"showTitle\": false,\n" +
-			"			\"title\": \"Dashboard Row\",\n" +
-			"			\"titleSize\": \"h6\"\n" +
-			"		}";
-
-	public static final String QUEUE_LENGTH_TARGET = "{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.${jobname}.${operator}.buffers.inputQueueLength\",\n" +
-			"							\"refId\": \"I\"\n" +
-			"						},\n" +
-			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"downsampleAggregator\": \"avg\",\n" +
-			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.taskmanager.${jobname}.${operator}.buffers.outputQueueLength\",\n" +
-			"							\"refId\": \"N\"\n" +
-			"						}";
-
 	public static final String POOL_USAGE = "{\n" +
 			"			\"collapse\": false,\n" +
 			"			\"height\": 250,\n" +
@@ -1150,7 +1052,7 @@ public class Template {
 			"		}";
 
 	public static final String RECORD_NUM_TARGET = "{\n" +
-		"							\"aggregator\": \"max\",\n" +
+		"							\"aggregator\": \"sum\",\n" +
 		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
@@ -1158,7 +1060,7 @@ public class Template {
 		"							\"refId\": \"K\"\n" +
 		"						},\n" +
 		"						{\n" +
-		"							\"aggregator\": \"max\",\n" +
+		"							\"aggregator\": \"sum\",\n" +
 		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
@@ -1167,7 +1069,7 @@ public class Template {
 		"						}";
 
 	public static final String LATE_RECORDS_DROPPED_TARGET = "{\n" +
-		"							\"aggregator\": \"max\",\n" +
+		"							\"aggregator\": \"sum\",\n" +
 		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
@@ -1610,7 +1512,7 @@ public class Template {
 		"		}";
 
 	public static final String KAFKA_OFFSET_TARGET = "{\n" +
-			"							\"aggregator\": \"max\",\n" +
+			"							\"aggregator\": \"sum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.KafkaConsumer." +
@@ -1931,7 +1833,7 @@ public class Template {
 
 	public static final String ROCKETMQ_LAG_SIZE_TARGET =
 		"{\n" +
-		"	\"aggregator\": \"max\",\n" +
+		"	\"aggregator\": \"sum\",\n" +
 		"	\"currentTagKey\": \"\",\n" +
 		"	\"currentTagValue\": \"\",\n" +
 		"	\"downsampleAggregator\": \"avg\",\n" +
@@ -2031,7 +1933,7 @@ public class Template {
 
 	public static final String DIRTY_RECORDS_SKIPPED_TARGET =
 		"{\n" +
-		"	\"aggregator\": \"max\",\n" +
+		"	\"aggregator\": \"sum\",\n" +
 		"	\"downsampleAggregator\": \"avg\",\n" +
 		"	\"downsampleFillPolicy\": \"none\",\n" +
 		"	\"metric\": \"flink.taskmanager.${jobname}.${source}.skipDirty\",\n" +

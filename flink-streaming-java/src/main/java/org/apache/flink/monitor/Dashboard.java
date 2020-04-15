@@ -162,24 +162,6 @@ public class Dashboard {
 		return checkpointDurationRow;
 	}
 
-	private String renderQueueLengthRow(List<String> operators) {
-		String queueLengthTargetTemplate = Template.QUEUE_LENGTH_TARGET;
-		List<String> queueLengthList = new ArrayList<>();
-		for (String o : operators) {
-			Map<String, String> queueLengthTargetValues = new HashMap<>();
-			queueLengthTargetValues.put("operator", o);
-			queueLengthTargetValues.put("jobname", jobName);
-			queueLengthList.add(renderString(queueLengthTargetTemplate, queueLengthTargetValues));
-		}
-		String targets = String.join(",", queueLengthList);
-		Map<String, String> queueLengthValues = new HashMap<>();
-		queueLengthValues.put("targets", targets);
-		queueLengthValues.put("datasource", dataSource);
-		String queueLengthTemplate = Template.QUEUE_LENGTH;
-		String queueLengthRow = renderString(queueLengthTemplate, queueLengthValues);
-		return queueLengthRow;
-	}
-
 	private String renderPoolUsageRow(List<String> operators) {
 		String poolUsageTargetTemplate = Template.POOL_USAGE_TARGET;
 		List<String> poolUsageList = new ArrayList<>();
@@ -348,7 +330,6 @@ public class Dashboard {
 		rows.add(renderDirtyRecordsSkippedRow(sources));
 		rows.add(renderLookupHitRateRow(Utils.filterLookupOperators(operators)));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
-		rows.add(renderQueueLengthRow(tasks));
 		rows.add(renderPoolUsageRow(tasks));
 		rows.add(renderGcRow());
 		rows.add(renderJobInfoRow());

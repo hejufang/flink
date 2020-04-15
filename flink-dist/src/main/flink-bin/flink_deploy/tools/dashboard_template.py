@@ -1501,7 +1501,7 @@ class DashboardTemplate(object):
         ''')
         self.spout_qps_template = Template('''
             {
-                "aggregator": "max",
+                "aggregator": "sum",
                 "downsampleAggregator": "avg",
                 "downsampleFillPolicy": "none",
                 "metric": "${metrics_namespace_prefix}._${spout_name}.emit",
@@ -1509,7 +1509,7 @@ class DashboardTemplate(object):
                 "tags": ${tags}
             },
             {
-                "aggregator": "max",
+                "aggregator": "sum",
                 "downsampleAggregator": "avg",
                 "downsampleFillPolicy": "none",
                 "metric": "${metrics_namespace_prefix}._${spout_name}.throughput",
@@ -2032,20 +2032,20 @@ class DashboardTemplate(object):
             }''')
         self.task_record_template = Template('''
             {
-                "aggregator": "max",
+                "aggregator": "sum",
                 "downsampleAggregator": "avg",
                 "downsampleFillPolicy": "none",
                 "metric": "flink.taskmanager.${jobname}.${component}.numRecordsInPerSecond.rate"
             },
             {
-                "aggregator": "max",
+                "aggregator": "sum",
                 "downsampleAggregator": "avg",
                 "downsampleFillPolicy": "none",
                 "metric": "flink.taskmanager.${jobname}.${component}.numRecordsOutPerSecond.rate"
             }''')
         self.row_lagsize_template = Template('''
                     {
-                      "aggregator": "max",
+                      "aggregator": "sum",
                       "downsampleAggregator": "avg",
                       "downsampleFillPolicy": "none",
                       "metric": "${topic_related_metric_prefix}.${topic}.${consumer_group}.lag.size"
