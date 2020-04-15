@@ -34,7 +34,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  *
  * <p>{@code BinaryMap} are influenced by Apache Spark UnsafeMapData.
  */
-public final class BinaryMap extends BinarySection implements BaseMap {
+public final class BinaryMap extends BinaryFormat implements BaseMap {
 
 	private final BinaryArray keys;
 	private final BinaryArray values;
@@ -102,13 +102,13 @@ public final class BinaryMap extends BinarySection implements BaseMap {
 	}
 
 	public static BinaryMap valueOf(BinaryArray key, BinaryArray value) {
-		checkArgument(key.segments.length == 1 && value.getSegments().length == 1);
-		byte[] bytes = new byte[4 + key.sizeInBytes + value.sizeInBytes];
+		checkArgument(key.getSegments().length == 1 && value.getSegments().length == 1);
+		byte[] bytes = new byte[4 + key.getSizeInBytes() + value.getSizeInBytes()];
 		MemorySegment segment = MemorySegmentFactory.wrap(bytes);
-		segment.putInt(0, key.sizeInBytes);
-		key.getSegments()[0].copyTo(key.getOffset(), segment, 4, key.sizeInBytes);
+		segment.putInt(0, key.getSizeInBytes());
+		key.getSegments()[0].copyTo(key.getOffset(), segment, 4, key.getSizeInBytes());
 		value.getSegments()[0].copyTo(
-				value.getOffset(), segment, 4 + key.sizeInBytes, value.sizeInBytes);
+				value.getOffset(), segment, 4 + key.getSizeInBytes(), value.getSizeInBytes());
 		BinaryMap map = new BinaryMap();
 		map.pointTo(segment, 0, bytes.length);
 		return map;

@@ -25,7 +25,6 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.runtime.typeutils.BaseArraySerializer;
 import org.apache.flink.table.runtime.typeutils.BaseMapSerializer;
 import org.apache.flink.table.runtime.typeutils.BaseRowSerializer;
-import org.apache.flink.table.runtime.typeutils.BinaryGenericSerializer;
 import org.apache.flink.table.runtime.util.SegmentsUtil;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.RowType;
@@ -37,9 +36,7 @@ import org.junit.Test;
 import java.math.BigDecimal;
 
 import static org.apache.flink.table.dataformat.BinaryString.fromString;
-import static org.apache.flink.table.utils.BinaryGenericAsserter.equivalent;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -463,14 +460,13 @@ public class BinaryArrayTest {
 	public void testGeneric() {
 		BinaryArray array = new BinaryArray();
 		BinaryArrayWriter writer = new BinaryArrayWriter(array, 2, 8);
-		BinaryGeneric<String> generic = new BinaryGeneric<>("hahah");
-		BinaryGenericSerializer<String> serializer = new BinaryGenericSerializer<>(StringSerializer.INSTANCE);
-		writer.writeGeneric(0, generic, serializer);
+		BinaryGeneric<String> generic = new BinaryGeneric<>("hahah", StringSerializer.INSTANCE);
+		writer.writeGeneric(0, generic);
 		writer.setNullAt(1);
 		writer.complete();
 
 		BinaryGeneric newGeneric = array.getGeneric(0);
-		assertThat(newGeneric, equivalent(generic, serializer));
+		assertEquals(generic, newGeneric);
 		assertTrue(array.isNullAt(1));
 	}
 

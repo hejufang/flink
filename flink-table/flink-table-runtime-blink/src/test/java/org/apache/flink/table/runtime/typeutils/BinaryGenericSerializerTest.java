@@ -21,22 +21,11 @@ package org.apache.flink.table.runtime.typeutils;
 import org.apache.flink.api.common.typeutils.SerializerTestBase;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.table.dataformat.BinaryGeneric;
-import org.apache.flink.table.utils.BinaryGenericAsserter;
-import org.apache.flink.testutils.DeeplyEqualsChecker;
 
 /**
  * A test for the {@link BinaryGenericSerializer}.
  */
 public class BinaryGenericSerializerTest extends SerializerTestBase<BinaryGeneric<String>> {
-	public BinaryGenericSerializerTest() {
-		super(new DeeplyEqualsChecker()
-			.withCustomCheck(
-				(o, o2) -> o instanceof BinaryGeneric && o2 instanceof BinaryGeneric,
-				(o, o2, checker) -> BinaryGenericAsserter.equivalent(
-					(BinaryGeneric) o2,
-					new BinaryGenericSerializer<>(StringSerializer.INSTANCE)).matches(o)
-			));
-	}
 
 	@Override
 	protected BinaryGenericSerializer<String> createSerializer() {
@@ -56,11 +45,11 @@ public class BinaryGenericSerializerTest extends SerializerTestBase<BinaryGeneri
 	@Override
 	protected BinaryGeneric[] getTestData() {
 		return new BinaryGeneric[] {
-				new BinaryGeneric<>("1"),
-				new BinaryGeneric<>("2"),
-				new BinaryGeneric<>("3"),
-				new BinaryGeneric<>("4"),
-				new BinaryGeneric<>("5")
+				new BinaryGeneric<>("1", StringSerializer.INSTANCE),
+				new BinaryGeneric<>("2", StringSerializer.INSTANCE),
+				new BinaryGeneric<>("3", StringSerializer.INSTANCE),
+				new BinaryGeneric<>("4", StringSerializer.INSTANCE),
+				new BinaryGeneric<>("5", StringSerializer.INSTANCE)
 		};
 	}
 }

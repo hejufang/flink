@@ -35,7 +35,7 @@ import static org.apache.flink.core.memory.MemoryUtils.UNSAFE;
  *
  * <p>{@code BinaryArray} are influenced by Apache Spark UnsafeArrayData.
  */
-public final class BinaryArray extends BinarySection implements BaseArray {
+public final class BinaryArray extends BinaryFormat implements BaseArray {
 
 	/**
 	 * Offset for Arrays.
@@ -174,7 +174,7 @@ public final class BinaryArray extends BinarySection implements BaseArray {
 		assertIndexIsValid(pos);
 		int fieldOffset = getElementOffset(pos, 8);
 		final long offsetAndSize = SegmentsUtil.getLong(segments, fieldOffset);
-		return BinaryFormat.readBinaryStringFieldFromSegments(
+		return BinaryString.readBinaryStringFieldFromSegments(
 				segments, offset, fieldOffset, offsetAndSize);
 	}
 
@@ -205,7 +205,7 @@ public final class BinaryArray extends BinarySection implements BaseArray {
 		assertIndexIsValid(pos);
 		int fieldOffset = getElementOffset(pos, 8);
 		final long offsetAndSize = SegmentsUtil.getLong(segments, fieldOffset);
-		return BinaryFormat.readBinaryFieldFromSegments(
+		return readBinaryFieldFromSegments(
 				segments, offset, fieldOffset, offsetAndSize);
 	}
 

@@ -82,7 +82,7 @@ public class BaseMapSerializerTest extends SerializerTestBase<BaseMap> {
 		int inputKey = 998244353;
 		MyObj inputObj = new MyObj(114514, 1919810);
 		Map<Object, Object> javaMap = new HashMap<>();
-		javaMap.put(inputKey, new BinaryGeneric<>(inputObj));
+		javaMap.put(inputKey, new BinaryGeneric<>(inputObj, new KryoSerializer<>(MyObj.class, config)));
 		BaseMap inputMap = new GenericMap(javaMap);
 
 		byte[] serialized;

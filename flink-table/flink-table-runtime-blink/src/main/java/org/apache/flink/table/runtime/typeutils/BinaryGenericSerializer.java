@@ -19,15 +19,18 @@
 package org.apache.flink.table.runtime.typeutils;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.typeutils.CompositeTypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
+import org.apache.flink.api.java.typeutils.runtime.DataOutputViewStream;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.table.dataformat.BinaryGeneric;
 import org.apache.flink.table.runtime.util.SegmentsUtil;
+import org.apache.flink.util.InstantiationUtil;
 
 import java.io.IOException;
 
@@ -52,19 +55,12 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public BinaryGeneric<T> createInstance() {
-		return new BinaryGeneric<>(serializer.createInstance());
+		return new BinaryGeneric<>(serializer.createInstance(), serializer);
 	}
 
 	@Override
 	public BinaryGeneric<T> copy(BinaryGeneric<T> from) {
-		from.ensureMaterialized(serializer);
-		byte[] bytes = SegmentsUtil.copyToBytes(from.getSegments(), from.getOffset(), from.getSizeInBytes());
-		T newJavaObject = from.getJavaObject() == null ? null : serializer.copy(from.getJavaObject());
-		return new BinaryGeneric<>(
-			new MemorySegment[]{MemorySegmentFactory.wrap(bytes)},
-			0,
-			bytes.length,
-			newJavaObject);
+		return from.copy();
 	}
 
 	@Override
@@ -79,7 +75,6 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public void serialize(BinaryGeneric<T> record, DataOutputView target) throws IOException {
-		record.ensureMaterialized(serializer);
 		target.writeInt(record.getSizeInBytes());
 		SegmentsUtil.copyToView(record.getSegments(), record.getOffset(), record.getSizeInBytes(), target);
 	}
@@ -91,8 +86,7 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 		source.readFully(bytes);
 		return new BinaryGeneric<>(
 				new MemorySegment[] {MemorySegmentFactory.wrap(bytes)},
-				0,
-				bytes.length);
+				0, bytes.length, serializer);
 	}
 
 	@Override
@@ -109,7 +103,7 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public BinaryGenericSerializer<T> duplicate() {
-		return new BinaryGenericSerializer<>(serializer.duplicate());
+		return this;
 	}
 
 	@Override
@@ -133,41 +127,63 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 
 	@Override
 	public TypeSerializerSnapshot<BinaryGeneric<T>> snapshotConfiguration() {
-		return new BinaryGenericSerializerSnapshot<>(this);
-	}
-
-	public TypeSerializer<T> getInnerSerializer() {
-		return serializer;
+		return new BinaryGenericSerializerSnapshot<>(serializer);
 	}
 
 	/**
 	 * {@link TypeSerializerSnapshot} for {@link BinaryGenericSerializer}.
 	 */
-	public static final class BinaryGenericSerializerSnapshot<T> extends CompositeTypeSerializerSnapshot<BinaryGeneric<T>, BinaryGenericSerializer<T>> {
+	public static final class BinaryGenericSerializerSnapshot<T> implements TypeSerializerSnapshot<BinaryGeneric<T>> {
+		private static final int CURRENT_VERSION = 3;
+
+		private TypeSerializer<T> previousSerializer;
 
 		@SuppressWarnings("unused")
 		public BinaryGenericSerializerSnapshot() {
-			super(BinaryGenericSerializer.class);
+			// this constructor is used when restoring from a checkpoint/savepoint.
 		}
 
-		public BinaryGenericSerializerSnapshot(BinaryGenericSerializer<T> serializerInstance) {
-			super(serializerInstance);
-		}
-
-		@Override
-		protected int getCurrentOuterSnapshotVersion() {
-			return 0;
+		BinaryGenericSerializerSnapshot(TypeSerializer<T> serializer) {
+			this.previousSerializer = serializer;
 		}
 
 		@Override
-		protected TypeSerializer<?>[] getNestedSerializers(BinaryGenericSerializer<T> outerSerializer) {
-			return new TypeSerializer[]{outerSerializer.serializer};
+		public int getCurrentVersion() {
+			return CURRENT_VERSION;
 		}
 
 		@Override
-		@SuppressWarnings("unchecked")
-		protected BinaryGenericSerializer<T> createOuterSerializerWithNestedSerializers(TypeSerializer<?>[] nestedSerializers) {
-			return new BinaryGenericSerializer<>((TypeSerializer<T>) nestedSerializers[0]);
+		public void writeSnapshot(DataOutputView out) throws IOException {
+			InstantiationUtil.serializeObject(new DataOutputViewStream(out), previousSerializer);
+		}
+
+		@Override
+		public void readSnapshot(int readVersion, DataInputView in, ClassLoader userCodeClassLoader) throws IOException {
+			try {
+				this.previousSerializer = InstantiationUtil.deserializeObject(
+						new DataInputViewStream(in), userCodeClassLoader);
+			} catch (ClassNotFoundException e) {
+				throw new IOException(e);
+			}
+		}
+
+		@Override
+		public TypeSerializer<BinaryGeneric<T>> restoreSerializer() {
+			return new BinaryGenericSerializer<>(previousSerializer);
+		}
+
+		@Override
+		public TypeSerializerSchemaCompatibility<BinaryGeneric<T>> resolveSchemaCompatibility(TypeSerializer<BinaryGeneric<T>> newSerializer) {
+			if (!(newSerializer instanceof BinaryGenericSerializer)) {
+				return TypeSerializerSchemaCompatibility.incompatible();
+			}
+
+			BinaryGenericSerializer newBinaryGenericSerializer = (BinaryGenericSerializer) newSerializer;
+			if (!previousSerializer.equals(newBinaryGenericSerializer.serializer)) {
+				return TypeSerializerSchemaCompatibility.incompatible();
+			} else {
+				return TypeSerializerSchemaCompatibility.compatibleAsIs();
+			}
 		}
 	}
 }

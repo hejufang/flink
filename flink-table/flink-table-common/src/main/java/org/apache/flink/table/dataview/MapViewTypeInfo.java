@@ -114,7 +114,7 @@ public class MapViewTypeInfo<K, V> extends TypeInformation<MapView<K, V>> {
 	@Override
 	public TypeSerializer<MapView<K, V>> createSerializer(ExecutionConfig config) {
 		if (nullSerializer) {
-			return (TypeSerializer<MapView<K, V>>) (TypeSerializer<?>) NullSerializer.INSTANCE;
+			return (TypeSerializer<MapView<K, V>>) (TypeSerializer<?>) new NullSerializer();
 		} else {
 			TypeSerializer<K> keySer = keyType.createSerializer(config);
 			TypeSerializer<V> valueSer = valueType.createSerializer(config);

@@ -54,7 +54,6 @@ import static org.apache.flink.table.dataformat.BinaryStringUtil.trimRight;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -597,25 +596,25 @@ public class BinaryStringTest {
 	@Test
 	public void testEmptyString() {
 		BinaryString str2 = fromString("hahahahah");
-		BinaryString str3;
+		BinaryString str3 = new BinaryString();
 		{
 			MemorySegment[] segments = new MemorySegment[2];
 			segments[0] = MemorySegmentFactory.wrap(new byte[10]);
 			segments[1] = MemorySegmentFactory.wrap(new byte[10]);
-			str3 = BinaryString.fromAddress(segments, 15, 0);
+			str3.pointTo(segments, 15, 0);
 		}
 
 		assertTrue(BinaryString.EMPTY_UTF8.compareTo(str2) < 0);
 		assertTrue(str2.compareTo(BinaryString.EMPTY_UTF8) > 0);
 
-		assertEquals(0, BinaryString.EMPTY_UTF8.compareTo(str3));
-		assertEquals(0, str3.compareTo(BinaryString.EMPTY_UTF8));
+		assertTrue(BinaryString.EMPTY_UTF8.compareTo(str3) == 0);
+		assertTrue(str3.compareTo(BinaryString.EMPTY_UTF8) == 0);
 
-		assertNotEquals(BinaryString.EMPTY_UTF8, str2);
-		assertNotEquals(str2, BinaryString.EMPTY_UTF8);
+		assertFalse(BinaryString.EMPTY_UTF8.equals(str2));
+		assertFalse(str2.equals(BinaryString.EMPTY_UTF8));
 
-		assertEquals(BinaryString.EMPTY_UTF8, str3);
-		assertEquals(str3, BinaryString.EMPTY_UTF8);
+		assertTrue(BinaryString.EMPTY_UTF8.equals(str3));
+		assertTrue(str3.equals(BinaryString.EMPTY_UTF8));
 	}
 
 	@Test
