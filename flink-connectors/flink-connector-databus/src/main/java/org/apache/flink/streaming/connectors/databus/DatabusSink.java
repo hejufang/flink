@@ -26,7 +26,9 @@ import com.bytedance.data.databus.DatabusClient;
 /**
  * The databus connector used to sink data to Databus.
  * typically used in addSink() function.
+ * This class is deprecated, please use {@link DatabusSinkFunction}
  */
+@Deprecated
 public class DatabusSink<T> extends RichSinkFunction<T> {
 
 	private DatabusClient databusClient;
