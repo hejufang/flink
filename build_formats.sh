@@ -26,4 +26,5 @@ cp flink-pb/target/flink-pb-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-csv/target/flink-csv-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-json/target/flink-json-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-bytes/target/flink-bytes-1.9-byted-SNAPSHOT.jar ../output/runtime_files
+cp flink-binlog/target/flink-binlog-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 
