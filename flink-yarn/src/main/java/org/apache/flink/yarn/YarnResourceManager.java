@@ -25,6 +25,8 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -194,6 +196,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	/** The slow containers. */
 	private Set<YarnWorkerNode> slowContainers;
 
+	private final Counter slowContainerCounter;
+	private final Counter releasedSlowContainerCounter;
+	private long containerStartDurationMaxMs;
+
 	/** Timeout in milliseconds of determine if the container is slow. */
 	private long slowContainerTimeoutMs;
 
@@ -323,6 +329,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 		startingContainers = new HashMap<>();
 		slowContainers = new HashSet<>();
+		containerStartDurationMaxMs = -1;
+		slowContainerCounter = new SimpleCounter();
+		releasedSlowContainerCounter = new SimpleCounter();
 		slowContainerTimeoutMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS);
 		releaseSlowContainerTimoutMs = flinkConfig.getLong(YarnConfigOptions.RELEASE_SLOW_CONTAINER_TIMEOUT_MS);
 		Preconditions.checkArgument(
@@ -583,6 +592,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	public void onStart() throws Exception {
 		super.onStart();
 		initTargetContainerResources();
+		registerMetrics();
 	}
 
 	@Override
@@ -696,7 +706,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		// blacklistTracker use taskManagerLocation.getFQDNHostname to identify Host,
 		// Yarn use container.getNodeId.getHost to identify Host,
 		// save the hostname map in case of hostname in Flink different with hostname in Yarn.
-		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
+		YarnWorkerNode workerNode = workerStarted(resourceID);
 		if (workerNode != null) {
 			String hostnameInFlink = taskManagerLocation.getFQDNHostname();
 			String hostnameInYarn = workerNode.getContainer().getNodeId().getHost();
@@ -704,6 +714,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				flinkHostnameToYarnHostname.put(hostnameInFlink, hostnameInYarn);
 				log.debug("put {} {} to flinkHostnameToYarnHostname, current size: {}",
 						hostnameInFlink, hostnameInYarn, flinkHostnameToYarnHostname.size());
+			}
+			if (startingContainers.containsKey(workerNode)) {
+				containerStartDurationMaxMs = Math.max(
+						containerStartDurationMaxMs,
+						System.currentTimeMillis() - startingContainers.get(workerNode));
 			}
 		}
 		return workerNode;
@@ -1572,8 +1587,15 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		return new ResourceID(container.getId().toString());
 	}
 
+	private void registerMetrics() {
+		jobManagerMetricGroup.counter("releasedSlowContainers", releasedSlowContainerCounter);
+		jobManagerMetricGroup.counter("slowContainers", slowContainerCounter);
+		jobManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
+	}
+
 	private void checkSlowContainersInternal() {
 		if (!startingContainers.isEmpty()) {
+			log.info("Start to check slow containers.");
 			final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
 			final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
 
@@ -1597,16 +1619,19 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				YarnWorkerNode yarnWorkerNode = startingContainer.getKey();
 				long waitedTimeMillis = System.currentTimeMillis() - startingContainer.getValue();
 				if (waitedTimeMillis > slowContainerTimeoutMs) {
-					if (!slowContainers.contains(yarnWorkerNode) &&
-							slowContainers.size() < workerNodeMap.size() * slowContainerAllocationMaxFraction) {
-						needStartNewContainers = true;
-						slowContainers.add(yarnWorkerNode);
-						log.info("{} not started in {} milliseconds, try to allocate new container.",
-								yarnWorkerNode.getResourceID(), waitedTimeMillis);
+					if (!slowContainers.contains(yarnWorkerNode)) {
+						slowContainerCounter.inc();
+						if (slowContainers.size() < workerNodeMap.size() * slowContainerAllocationMaxFraction) {
+							needStartNewContainers = true;
+							slowContainers.add(yarnWorkerNode);
+							log.info("{} not started in {} milliseconds, try to allocate new container.",
+									yarnWorkerNode.getResourceID(), waitedTimeMillis);
+						}
 					} else if (waitedTimeMillis > releaseSlowContainerTimoutMs) {
 						needStartNewContainers = true;
+						releasedSlowContainerCounter.inc();
 						releaseContainers.add(yarnWorkerNode);
-						log.warn("{} not started in {} milliseconds, stop it and allocate new container.",
+						log.warn("{} not started in {} milliseconds, stop it and try to allocate new container.",
 								yarnWorkerNode.getResourceID(), waitedTimeMillis);
 					} else {
 						log.info("{} not started in {} milliseconds.", yarnWorkerNode.getContainer(), waitedTimeMillis);

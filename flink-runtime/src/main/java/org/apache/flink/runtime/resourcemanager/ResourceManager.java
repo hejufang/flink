@@ -147,7 +147,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final ClusterInformation clusterInformation;
 
-	private final JobManagerMetricGroup jobManagerMetricGroup;
+	protected final JobManagerMetricGroup jobManagerMetricGroup;
 
 	private final FailureRater failureRater;
 

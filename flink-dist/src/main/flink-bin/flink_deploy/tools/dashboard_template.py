@@ -1388,6 +1388,93 @@ class DashboardTemplate(object):
                             "showTitle": false,
                             "title": "Dashboard Row",
                             "titleSize": "h6"
+                        },
+                        {
+                            "collapse": false,
+                            "height": 250,
+                            "panels": [
+                                {
+                                    "aliasColors": {},
+                                    "bars": false,
+                                    "dashLength": 10,
+                                    "dashes": false,
+                                    "datasource": "${datasource}",
+                                    "fill": 1,
+                                    "id": 20,
+                                    "legend": {
+                                        "alignAsTable": true,
+                                        "avg": true,
+                                        "current": true,
+                                        "max": true,
+                                        "min": false,
+                                        "rightSide": true,
+                                        "show": true,
+                                        "total": false,
+                                        "values": true
+                                    },
+                                    "lines": true,
+                                    "linewidth": 1,
+                                    "links": [],
+                                    "nullPointMode": "null",
+                                    "percentage": false,
+                                    "pointradius": 5,
+                                    "points": false,
+                                    "renderer": "flot",
+                                    "seriesOverrides": [],
+                                    "spaceLength": 10,
+                                    "span": 12,
+                                    "stack": false,
+                                    "steppedLine": false,
+                                    "targets": ${slow_container_targets},
+                                    "thresholds": [],
+                                    "timeFrom": null,
+                                    "timeShift": null,
+                                    "title": "Slow containers",
+                                    "tooltip": {
+                                        "shared": true,
+                                        "sort": 0,
+                                        "value_type": "individual"
+                                    },
+                                    "type": "graph",
+                                    "xaxis": {
+                                        "buckets": null,
+                                        "mode": "time",
+                                        "name": null,
+                                        "show": true,
+                                        "values": []
+                                    },
+                                    "yaxes": [
+                                        {
+                                            "format": "short",
+                                            "label": null,
+                                            "logBase": 1,
+                                            "max": null,
+                                            "min": null,
+                                            "show": true
+                                        },
+                                        {
+                                            "format": "ms",
+                                            "label": null,
+                                            "logBase": 1,
+                                            "max": null,
+                                            "min": null,
+                                            "show": true
+                                        }
+                                    ],
+                                    "seriesOverrides": [
+                                        {
+                                            "alias": "containerStartDurationMaxMs",
+                                            "yaxis": 2
+                                        }
+                                    ]
+                                }
+                            ],
+                            "repeat": null,
+                            "repeatIteration": null,
+                            "repeatRowId": null,
+                            "showTitle": false,
+                            "title": "Dashboard Row",
+                            "titleSize": "h6"
                         }
                     ],
                     "schemaVersion": 14,
@@ -1989,6 +2076,56 @@ class DashboardTemplate(object):
                 }
             ]
         ''')
+        self.slow_container_template = Template('''
+            [
+                {
+                    "refId": "A",
+                    "aggregator": "max",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.containerStartDurationMaxMs",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "tags": {
+                        "jobname": "${jobname}"
+                    },
+                    "hide": false,
+                    "shouldComputeRate": false,
+                    "downsampleInterval": "",
+                    "alias": "containerStartDurationMaxMs"
+                },
+                {
+                    "refId": "B",
+                    "aggregator": "max",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.slowContainers",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "tags": {
+                        "jobname": "${jobname}"
+                    },
+                    "hide": false,
+                    "shouldComputeRate": false,
+                    "alias": "slowContainers"
+                },
+                {
+                    "refId": "C",
+                    "aggregator": "max",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.jobmanager.releasedSlowContainers",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "tags": {
+                        "jobname": "${jobname}"
+                    },
+                    "hide": false,
+                    "shouldComputeRate": false,
+                    "alias": "releasedSlowContainers"
+                }
+            ]
+        ''')
         self.network_template = Template('''
             [
                 {
@@ -2207,6 +2344,11 @@ class DashboardTemplate(object):
             "jobname": topology_name
         })
 
+        slow_container_targets = self.slow_container_template.substitute({
+            "datasource": data_source,
+            "jobname": topology_name
+        })
+
         components = []
         for spout in spouts:
             components.append("Source_" + spout)
@@ -2242,7 +2384,8 @@ class DashboardTemplate(object):
             "spout_qps_targets": spout_qps_targets,
             "bolt_qps_targets": bolt_qps_targets,
             "bolt_latency_targets": bolt_latency_targets,
-            "batch_bolt_key_size_targets": batch_bolt_key_size_targets
+            "batch_bolt_key_size_targets": batch_bolt_key_size_targets,
+            "slow_container_targets": slow_container_targets
         })
 
         return dashboard
