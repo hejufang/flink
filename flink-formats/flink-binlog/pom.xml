@@ -122,6 +122,13 @@ under the License.
 					<showWarnings>true</showWarnings>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<configuration>
+					<excludes>**/DRCEntry**</excludes>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
