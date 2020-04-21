@@ -37,6 +37,7 @@ import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTa
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.Host;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkFactoryTestBase;
+import org.apache.flink.streaming.connectors.elasticsearch.index.IndexGeneratorBase;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.types.Row;
 
@@ -83,7 +84,12 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 		final ElasticsearchSink.Builder<Tuple2<Boolean, Row>> expectedBuilder = new ElasticsearchSink.Builder<>(
 			Collections.singletonList(new HttpHost(ElasticsearchUpsertTableSinkFactoryTestBase.HOSTNAME, ElasticsearchUpsertTableSinkFactoryTestBase.PORT, ElasticsearchUpsertTableSinkFactoryTestBase.SCHEMA)),
 			new ElasticsearchUpsertSinkFunction(
-				ElasticsearchUpsertTableSinkFactoryTestBase.INDEX,
+				new IndexGeneratorBase(INDEX) {
+					@Override
+					public String generate(Row row) {
+						return index;
+					}
+				},
 				ElasticsearchUpsertTableSinkFactoryTestBase.DOC_TYPE,
 				ElasticsearchUpsertTableSinkFactoryTestBase.KEY_DELIMITER,
 				ElasticsearchUpsertTableSinkFactoryTestBase.KEY_NULL_LITERAL,
