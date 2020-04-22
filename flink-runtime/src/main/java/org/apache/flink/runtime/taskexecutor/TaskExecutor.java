@@ -1310,6 +1310,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		Iterator<AllocationID> activeSlots = taskSlotTable.getActiveSlots(jobId);
 
 		final FlinkException freeingCause = new FlinkException("Slot could not be marked inactive.");
+		final List<AllocationID> freeSlots = new ArrayList<>();
 
 		while (activeSlots.hasNext()) {
 			AllocationID activeSlot = activeSlots.next();
@@ -1319,11 +1320,15 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 						|| !taskSlotTable.markSlotInactive(activeSlot, taskManagerConfiguration.getTimeout())) {
 					// Free slot directly when evenlySpreadOutSlots.
 					// prevent TaskExecutor offer slots to JobManager without ResourceManager allocate.
-					freeSlotInternal(activeSlot, freeingCause);
+					freeSlots.add(activeSlot);
 				}
 			} catch (SlotNotFoundException e) {
 				log.debug("Could not mark the slot {} inactive.", jobId, e);
 			}
+		}
+
+		for (AllocationID activeSlot : freeSlots) {
+			freeSlotInternal(activeSlot, freeingCause);
 		}
 
 		// 3. Disassociate from the JobManager
