@@ -195,7 +195,7 @@ public class TaskCheckpointStatisticDetailsHandler
 			if (subtask == null) {
 				final MetricStore.ComponentMetricStore metricStore = metricFetcher.getMetricStore().getSubtaskMetricStore(jobID.toString(), jobVertexID.toString(), i);
 				long barriersReceived = -1;
-				if (metricStore.getMetric("checkpointBarrierReceived") != null) {
+				if (metricStore != null && metricStore.getMetric("checkpointBarrierReceived") != null) {
 					barriersReceived = Long.parseLong(metricStore.getMetric("checkpointBarrierReceived"));
 				}
 				result.add(new SubtaskCheckpointStatistics.PendingSubtaskCheckpointStatistics(i, barriersReceived));
