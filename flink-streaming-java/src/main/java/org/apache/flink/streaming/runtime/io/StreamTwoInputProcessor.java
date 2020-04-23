@@ -391,6 +391,8 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 				synchronized (lock) {
 					firstStatus = streamStatus;
 
+					operator.processStreamStatus1(streamStatus);
+
 					// check if we need to toggle the task's stream status
 					if (!streamStatus.equals(streamStatusMaintainer.getStreamStatus())) {
 						if (streamStatus.isActive()) {
@@ -434,6 +436,8 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 			try {
 				synchronized (lock) {
 					secondStatus = streamStatus;
+
+					operator.processStreamStatus2(streamStatus);
 
 					// check if we need to toggle the task's stream status
 					if (!streamStatus.equals(streamStatusMaintainer.getStreamStatus())) {

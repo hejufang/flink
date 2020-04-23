@@ -60,6 +60,7 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.util.LatencyStats;
@@ -164,6 +165,11 @@ public abstract class AbstractStreamOperator<OUT>
 	private long combinedWatermark = Long.MIN_VALUE;
 	private long input1Watermark = Long.MIN_VALUE;
 	private long input2Watermark = Long.MIN_VALUE;
+
+	private boolean input1IsActive = true;
+	private boolean input2IsActive = true;
+
+	private boolean ignoreIdleInput = false;
 
 	// ------------------------------------------------------------------------
 	//  Life Cycle
@@ -796,7 +802,12 @@ public abstract class AbstractStreamOperator<OUT>
 
 	public void processWatermark1(Watermark mark) throws Exception {
 		input1Watermark = mark.getTimestamp();
-		long newMin = Math.min(input1Watermark, input2Watermark);
+		long newMin;
+		if (ignoreIdleInput && !input2IsActive) {
+			newMin = input1Watermark;
+		} else {
+			newMin = Math.min(input1Watermark, input2Watermark);
+		}
 		if (newMin > combinedWatermark) {
 			combinedWatermark = newMin;
 			processWatermark(new Watermark(combinedWatermark));
@@ -805,11 +816,28 @@ public abstract class AbstractStreamOperator<OUT>
 
 	public void processWatermark2(Watermark mark) throws Exception {
 		input2Watermark = mark.getTimestamp();
-		long newMin = Math.min(input1Watermark, input2Watermark);
+		long newMin;
+		if (ignoreIdleInput && !input1IsActive) {
+			newMin = input2Watermark;
+		} else {
+			newMin = Math.min(input1Watermark, input2Watermark);
+		}
 		if (newMin > combinedWatermark) {
 			combinedWatermark = newMin;
 			processWatermark(new Watermark(combinedWatermark));
 		}
+	}
+
+	public void processStreamStatus1(StreamStatus status) throws Exception {
+		this.input1IsActive = status.isActive();
+	}
+
+	public void processStreamStatus2(StreamStatus status) throws Exception {
+		this.input2IsActive = status.isActive();
+	}
+
+	public void enableIgnoreIdleInput() throws Exception {
+		this.ignoreIdleInput = true;
 	}
 
 	@Override

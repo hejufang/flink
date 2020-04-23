@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 
 /**
  * Interface for stream operators with two inputs. Use
@@ -62,6 +63,23 @@ public interface TwoInputStreamOperator<IN1, IN2, OUT> extends StreamOperator<OU
 	 * @see org.apache.flink.streaming.api.watermark.Watermark
 	 */
 	void processWatermark2(Watermark mark) throws Exception;
+
+	/**
+	 * Set {@link StreamStatus} for the first input.
+	 * @param status current status for the first input.
+	 */
+	void processStreamStatus1(StreamStatus status) throws Exception;
+
+	/**
+	 * Set {@link StreamStatus} for the second input.
+	 * @param status current status for the second input.
+	 */
+	void processStreamStatus2(StreamStatus status) throws Exception;
+
+	/**
+	 * Enables ignore idle input when calculating watermark.
+	 */
+	void enableIgnoreIdleInput() throws Exception;
 
 	/**
 	 * Processes a {@link LatencyMarker} that arrived on the first input of this two-input operator.

@@ -18,8 +18,11 @@
 
 package org.apache.flink.table.planner.plan.nodes.physical.stream
 
+import org.apache.flink.annotation.Experimental
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable
+import org.apache.flink.configuration.ConfigOption
+import org.apache.flink.configuration.ConfigOptions.key
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator
 import org.apache.flink.streaming.api.transformations.TwoInputTransformation
 import org.apache.flink.table.api.{TableConfig, TableException, ValidationException}
@@ -44,6 +47,7 @@ import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.core.{Join, JoinInfo, JoinRelType}
 import org.apache.calcite.rex._
 
+import java.lang.{Boolean => JBoolean}
 import java.util
 
 import scala.collection.JavaConversions._
@@ -178,6 +182,17 @@ class StreamExecTemporalJoin(
   }
 }
 
+object StreamExecTemporalJoin {
+
+  @Experimental
+  val TABLE_EXEC_TEMPORAL_JOIN_IGNORE_IDLE_INPUT: ConfigOption[JBoolean] =
+    key("table.exec.temporal-join.ignore-idle-input-watermark")
+      .defaultValue(JBoolean.valueOf(false))
+      .withDescription("This config controls whether to ignore the idle input.\n" +
+        "If true, we will ignore the idle input's watermark, and use current active input's watermark.\n" +
+        "If false, it's default behavior, the watermark won't advance until all the inputs are active.\n" +
+        "It's useful especially for a rarely updated temporal table function.")
+}
 
 /**
   * @param rightTimeAttributeInputReference is defined only for event time joins.
@@ -251,7 +266,7 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
     joinType match {
       case JoinRelType.INNER =>
         if (rightTimeAttributeInputReference.isDefined) {
-          new TemporalRowTimeJoinOperator(
+          val operator = new TemporalRowTimeJoinOperator(
             BaseRowTypeInfo.of(leftInputType),
             BaseRowTypeInfo.of(rightInputType),
             generatedJoinCondition,
@@ -259,6 +274,10 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
             rightTimeAttributeInputReference.get,
             minRetentionTime,
             maxRetentionTime)
+          if (config.getConfiguration.getBoolean(StreamExecTemporalJoin.TABLE_EXEC_TEMPORAL_JOIN_IGNORE_IDLE_INPUT)) {
+            operator.enableIgnoreIdleInput()
+          }
+          operator
         } else {
           new TemporalProcessTimeJoinOperator(
             BaseRowTypeInfo.of(rightInputType),
