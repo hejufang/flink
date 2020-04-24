@@ -157,7 +157,14 @@ public class UniqueJobChecker extends Thread implements ConnectionStateListener 
 		this.interrupt();
 		synchronized (lock) {
 			if (client != null) {
-				client.close();
+				try {
+					LOG.info("Try to delete job uniqueness node: {}.", zkPath);
+					client.delete().forPath(zkPath);
+				} catch (Exception e) {
+					LOG.warn("Failed to delete job uniqueness node: {}.", zkPath, e);
+				} finally {
+					client.close();
+				}
 			}
 		}
 	}
