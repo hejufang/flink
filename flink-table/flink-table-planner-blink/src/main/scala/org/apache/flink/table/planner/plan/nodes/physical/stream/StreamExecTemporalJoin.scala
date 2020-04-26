@@ -189,9 +189,10 @@ object StreamExecTemporalJoin {
     key("table.exec.temporal-join.ignore-idle-input-watermark")
       .defaultValue(JBoolean.valueOf(false))
       .withDescription("This config controls whether to ignore the idle input.\n" +
-        "If true, we will ignore the idle input's watermark, and use current active input's watermark.\n" +
-        "If false, it's default behavior, the watermark won't advance until all the inputs are active.\n" +
-        "It's useful especially for a rarely updated temporal table function.")
+        "If true, we will ignore the idle input's watermark, and use current active input's\n" +
+        "watermark. If false, it's default behavior, the watermark won't advance until all\n" +
+        "the inputs are active. It's useful especially for a rarely updated temporal table\n" +
+        "function.")
 }
 
 /**
@@ -274,7 +275,8 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
             rightTimeAttributeInputReference.get,
             minRetentionTime,
             maxRetentionTime)
-          if (config.getConfiguration.getBoolean(StreamExecTemporalJoin.TABLE_EXEC_TEMPORAL_JOIN_IGNORE_IDLE_INPUT)) {
+          if (config.getConfiguration.getBoolean(
+            StreamExecTemporalJoin.TABLE_EXEC_TEMPORAL_JOIN_IGNORE_IDLE_INPUT)) {
             operator.enableIgnoreIdleInput()
           }
           operator
