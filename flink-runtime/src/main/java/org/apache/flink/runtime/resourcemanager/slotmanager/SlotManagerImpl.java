@@ -458,6 +458,9 @@ public class SlotManagerImpl implements SlotManager {
 		checkInit();
 
 		PendingSlotRequest pendingSlotRequest = pendingSlotRequests.remove(allocationId);
+		if (null == pendingSlotRequest) {
+			pendingSlotRequest = waitingTaskManagerSlotRequests.remove(allocationId);
+		}
 
 		if (null != pendingSlotRequest) {
 			LOG.info("Cancel slot request {}.", allocationId);
@@ -1303,9 +1306,15 @@ public class SlotManagerImpl implements SlotManager {
 			long currentTime = System.currentTimeMillis();
 
 			Iterator<Map.Entry<AllocationID, PendingSlotRequest>> slotRequestIterator = pendingSlotRequests.entrySet().iterator();
+			Iterator<Map.Entry<AllocationID, PendingSlotRequest>> waitingTaskManagerSlotRequestIterator = waitingTaskManagerSlotRequests.entrySet().iterator();
 
-			while (slotRequestIterator.hasNext()) {
-				PendingSlotRequest slotRequest = slotRequestIterator.next().getValue();
+			while (slotRequestIterator.hasNext() || waitingTaskManagerSlotRequestIterator.hasNext()) {
+				PendingSlotRequest slotRequest;
+				if (slotRequestIterator.hasNext()) {
+					slotRequest = slotRequestIterator.next().getValue();
+				} else {
+					slotRequest = waitingTaskManagerSlotRequestIterator.next().getValue();
+				}
 
 				if (currentTime - slotRequest.getCreationTimestamp() >= slotRequestTimeout.toMilliseconds()) {
 					slotRequestIterator.remove();
