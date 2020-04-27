@@ -29,7 +29,9 @@ import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
-import com.alibaba.fastjson.JSONObject;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -836,8 +838,8 @@ public final class Utils {
 		headers.put(YarnConfigKeys.DOCKER_HTTP_HEADER_AUTHORIZATION_KEY, dockerAuthorization);
 		HttpUtil.HttpResponsePojo response = HttpUtil.sendGet(dockerUrl, headers);
 		String content = response.getContent();
-		JSONObject respJson = JSONObject.parseObject(content);
-		String image = (String) respJson.getOrDefault(dockerRegion, null);
+		JsonNode respJson = new ObjectMapper().readTree(content);
+		String image = respJson.hasNonNull(dockerRegion) ? respJson.get(dockerRegion).asText() : null;
 		LOG.info("Get image from {}, image is: {}", dockerUrl, image);
 		return image;
 	}

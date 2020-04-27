@@ -17,7 +17,10 @@
 
 package com.bytedance.flink.utils;
 
-import com.alibaba.fastjson.JSONObject;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonInclude;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.pojo.RuntimeConfig;
 import org.apache.commons.io.FileUtils;
@@ -160,8 +163,13 @@ public class EnvironmentInitUtils {
 		command[0] = "bash";
 		command[1] = "-c";
 		StringBuilder strBuf = new StringBuilder();
-		JSONObject argsJson = new JSONObject(args);
-		String argsStr = argsJson.toJSONString();
+		String argsStr = "";
+		try {
+			ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+			argsStr = objectMapper.writeValueAsString(args);
+		} catch (JsonProcessingException ex) {
+			throw new RuntimeException("cloud not build shell command with args: " + args.toString(), ex);
+		}
 		argsStr = argsStr.replace("\"", "\\\"");
 		if (dontWriteBytecode) {
 			strBuf.append(String.format("%s -B %s --args \"%s\"", interpreter, scriptName, argsStr));

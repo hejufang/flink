@@ -113,9 +113,9 @@ under the License.
 		</dependency>
 
 		<dependency>
-			<groupId>com.alibaba</groupId>
-			<artifactId>fastjson</artifactId>
-			<version>${fastjson.version}</version>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-jackson</artifactId>
+			<version>${jackson.version}-${flink.shaded.version}</version>
 		</dependency>
 
 		<dependency>
