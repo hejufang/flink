@@ -18,6 +18,8 @@
 
 package org.apache.flink.metrics.opentsdb;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 
 /**
@@ -36,7 +38,17 @@ public class TagKv {
 	}
 
 	public static String compositeTags(List<TagKv> tagKvList) {
-		StringBuilder sb = new StringBuilder();
+		return compositeTags(null, tagKvList);
+	}
+
+	public static String compositeTags(@Nullable String tagString, List<TagKv> tagKvList) {
+		StringBuilder sb;
+		if (tagString == null) {
+			sb = new StringBuilder();
+		} else {
+			sb = new StringBuilder(tagString + "|");
+		}
+
 		for (TagKv tag : tagKvList) {
 			sb.append(tag.name);
 			sb.append("=");

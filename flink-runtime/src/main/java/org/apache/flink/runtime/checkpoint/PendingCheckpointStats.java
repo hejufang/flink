@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import javax.annotation.Nullable;
@@ -165,13 +166,18 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 		return completed.getDiscardCallback();
 	}
 
+	@VisibleForTesting
+	void reportFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause) {
+		reportFailedCheckpoint(failureTimestamp, cause, null);
+	}
+
 	/**
 	 * Reports a failed pending checkpoint.
 	 *
 	 * @param failureTimestamp Timestamp of the failure.
 	 * @param cause Optional cause of the failure.
 	 */
-	void reportFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause) {
+	void reportFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause, @Nullable CheckpointFailureReason reason) {
 		FailedCheckpointStats failed = new FailedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
@@ -185,7 +191,7 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 			latestAcknowledgedSubtask,
 			cause);
 
-		trackerCallback.reportFailedCheckpoint(failed);
+		trackerCallback.reportFailedCheckpoint(failed, reason);
 	}
 
 	@Override

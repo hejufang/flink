@@ -411,7 +411,7 @@ public class PendingCheckpoint {
 		try {
 			CheckpointException exception = wrapWithCheckpointException(reason, cause);
 			onCompletionPromise.completeExceptionally(exception);
-			reportFailedCheckpoint(exception);
+			reportFailedCheckpoint(exception, reason);
 			assertAbortSubsumedForced(reason);
 		} finally {
 			dispose(true);
@@ -492,12 +492,12 @@ public class PendingCheckpoint {
 	 *
 	 * @param cause The failure cause or <code>null</code>.
 	 */
-	private void reportFailedCheckpoint(Exception cause) {
+	private void reportFailedCheckpoint(Exception cause, CheckpointFailureReason reason) {
 		// to prevent null-pointers from concurrent modification, copy reference onto stack
 		final PendingCheckpointStats statsCallback = this.statsCallback;
 		if (statsCallback != null) {
 			long failureTimestamp = System.currentTimeMillis();
-			statsCallback.reportFailedCheckpoint(failureTimestamp, cause);
+			statsCallback.reportFailedCheckpoint(failureTimestamp, cause, reason);
 		}
 	}
 

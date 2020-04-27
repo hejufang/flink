@@ -26,6 +26,7 @@ import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Created by zhangguanghui on 2017/7/25.
@@ -241,6 +243,17 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					} catch (NumberFormatException nf) {
 //						LOG.warn("can't change to Number {}", value);
 					}
+				} else if (value instanceof TagGaugeStore) {
+					List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = ((TagGaugeStore) value).getMetricValuesList();
+					for (TagGaugeStore.TagGaugeMetric tagGaugeMetric : tagGaugeMetrics) {
+						final String compositeTags = TagKv.compositeTags(tuple.y,
+								tagGaugeMetric.getTagValues().getTagValues().entrySet().stream().map(
+										entry -> new TagKv(entry.getKey(), entry.getValue())).collect(Collectors.toList()));
+						this.client.emitStoreWithTag(tuple.x, tagGaugeMetric.getMetricValue(), compositeTags);
+						reportGlobalMetrics("gauge", name, tuple.x, tagGaugeMetric.getMetricValue(), compositeTags);
+					}
+					// reset store because all values are sent
+					((TagGaugeStore) value).reset();
 				} else {
 //					LOG.warn("can't handle the type guage, the value type is {}, the gauge name is {}",
 //						value.getClass(), gaugeStringEntry.getValue());

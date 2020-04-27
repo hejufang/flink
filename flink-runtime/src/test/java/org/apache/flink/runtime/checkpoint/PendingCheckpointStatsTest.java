@@ -219,7 +219,7 @@ public class PendingCheckpointStatsTest {
 		pending.reportFailedCheckpoint(failureTimestamp, cause);
 
 		ArgumentCaptor<FailedCheckpointStats> args = ArgumentCaptor.forClass(FailedCheckpointStats.class);
-		verify(callback).reportFailedCheckpoint(args.capture());
+		verify(callback).reportFailedCheckpoint(args.capture(), null);
 
 		FailedCheckpointStats failed = args.getValue();
 

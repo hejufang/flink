@@ -22,6 +22,8 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
@@ -272,11 +274,17 @@ public class CheckpointStatsTracker {
 	 *
 	 * @param failed The failed checkpoint stats.
 	 */
-	private void reportFailedCheckpoint(FailedCheckpointStats failed) {
+	private void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
 		statsReadWriteLock.lock();
 		try {
 			counts.incrementFailedCheckpoints();
 			history.replacePendingCheckpointById(failed);
+
+			if (reason != null) {
+				final String reasonMessage =  reason.message().replaceAll(" ", "-");
+				failedCheckpointsTagGauge.addMetric(1, new TagGaugeStore.TagValuesBuilder()
+						.addTagValue("reason", reasonMessage.substring(0, Math.min(20, reasonMessage.length()))).build());
+			}
 
 			dirty = true;
 		} finally {
@@ -318,8 +326,8 @@ public class CheckpointStatsTracker {
 		 *
 		 * @param failed The failed checkpoint.
 		 */
-		void reportFailedCheckpoint(FailedCheckpointStats failed) {
-			CheckpointStatsTracker.this.reportFailedCheckpoint(failed);
+		void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
+			CheckpointStatsTracker.this.reportFailedCheckpoint(failed, reason);
 		}
 
 	}
@@ -358,6 +366,8 @@ public class CheckpointStatsTracker {
 	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC = "lastCheckpointExternalPath";
 
+	static final TagGauge failedCheckpointsTagGauge = new TagGauge();
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -367,13 +377,13 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_CHECKPOINTS_METRIC, new CheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_IN_PROGRESS_CHECKPOINTS_METRIC, new InProgressCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_COMPLETED_CHECKPOINTS_METRIC, new CompletedCheckpointsCounter());
-		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, new FailedCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_TRIGGER_FAILED_CHECKPOINTS_METRIC, new TriggerFailedCheckpointsCounter());
 		metricGroup.gauge(LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC, new LatestRestoredCheckpointTimestampGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC, new LatestCompletedCheckpointSizeGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC, new LatestCompletedCheckpointDurationGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_ALIGNMENT_BUFFERED_METRIC, new LatestCompletedCheckpointAlignmentBufferedGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
+		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, failedCheckpointsTagGauge);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
