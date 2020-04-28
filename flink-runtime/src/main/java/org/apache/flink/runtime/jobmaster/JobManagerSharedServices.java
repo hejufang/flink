@@ -22,6 +22,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.BlobServer;
@@ -34,7 +35,6 @@ import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureSta
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTrackerImpl;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.StackTraceSampleCoordinator;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
-import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nonnull;
@@ -160,7 +160,7 @@ public class JobManagerSharedServices {
 		}
 
 		final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
-				Hardware.getNumberCPUCores(),
+				config.getInteger(JobManagerOptions.JOB_MANAGER_FUTURE_EXECUTOR_THREADS_NUM),
 				new ExecutorThreadFactory("jobmanager-future"));
 
 		final StackTraceSampleCoordinator stackTraceSampleCoordinator =

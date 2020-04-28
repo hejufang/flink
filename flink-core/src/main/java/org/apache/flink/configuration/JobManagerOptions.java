@@ -265,6 +265,11 @@ public class JobManagerOptions {
 			.defaultValue(false)
 			.withDescription("Whether upload user jars to blob.");
 
+	public static final ConfigOption<Integer> JOB_MANAGER_FUTURE_EXECUTOR_THREADS_NUM =
+		key("jobmanager.future-executor.threads.num")
+			.defaultValue(4)
+			.withDescription("Number of threads used in futureExecutor in JobManager.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {
