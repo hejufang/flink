@@ -136,9 +136,6 @@ public class SlotManagerImpl implements SlotManager {
 
 	private ScheduledFuture<?> slotRequestTimeoutCheck;
 
-	/** Check number of TaskManagers exceeds the minimal number. */
-	private ScheduledFuture<?> fullFillInitialTaskManagerCheck;
-
 	/** True iff the component has been started. */
 	private boolean started;
 
@@ -348,16 +345,17 @@ public class SlotManagerImpl implements SlotManager {
 			slotRequestTimeoutCheck = null;
 		}
 
-		if (fullFillInitialTaskManagerCheck != null) {
-			fullFillInitialTaskManagerCheck.cancel(false);
-			fullFillInitialTaskManagerCheck = null;
-		}
-
 		for (PendingSlotRequest pendingSlotRequest : pendingSlotRequests.values()) {
 			cancelPendingSlotRequest(pendingSlotRequest);
 		}
 
 		pendingSlotRequests.clear();
+
+		for (PendingSlotRequest pendingSlotRequest : waitingTaskManagerSlotRequests.values()) {
+			cancelPendingSlotRequest(pendingSlotRequest);
+		}
+
+		waitingTaskManagerSlotRequests.clear();
 
 		ArrayList<InstanceID> registeredTaskManagers = new ArrayList<>(taskManagerRegistrations.keySet());
 
