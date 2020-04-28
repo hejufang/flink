@@ -105,13 +105,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			batchSize = BATCH_SIZE_DEFAULT;
 		}
 
-		initJedisClient();
-	}
-
-	/**
-	 * Init client pool and get jedis client from it.
-	 * */
-	private void initJedisClient() {
 		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
 			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
 			springDbPool = RedisUtils.getAbaseClientPool(cluster, psm, table, serverUpdatePeriod, timeout, forceConnectionsSetting,
@@ -262,7 +255,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 						flushRetryIndex, flushMaxRetries);
 					if (e instanceof JedisException) {
 						LOG.warn("Reset jedis client in case of broken connections.", e);
-						initJedisClient();
+						if (jedis != null) {
+							// jedis.close() will return the connection and check whether it is valid.
+							jedis.close();
+						}
+						jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
 					}
 					flushRetryIndex++;
 				} else {

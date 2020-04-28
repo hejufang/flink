@@ -33,6 +33,7 @@ import com.bytedance.kvclient.ClientPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Nullable;
 
@@ -186,6 +187,14 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				LOG.error(String.format("Redis executeBatch error, retry times = %d", retry), e);
 				if (retry >= maxRetryTimes) {
 					throw new RuntimeException("Execution of Redis statement failed.", e);
+				}
+				if (e instanceof JedisException) {
+					LOG.warn("Reset jedis client in case of broken connections.", e);
+					if (jedis != null) {
+						// jedis.close() will return the connection and check whether it is valid.
+						jedis.close();
+					}
+					jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
 				}
 				try {
 					Thread.sleep(1000 * retry);
