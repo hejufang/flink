@@ -29,7 +29,7 @@ import org.apache.flink.table.planner.codegen.{CodeGeneratorContext, EqualiserCo
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.logical._
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.rules.physical.stream.StreamExecRetractionRules
+import org.apache.flink.table.planner.plan.rules.physical.stream.{StreamExecGroupWindowAggregateRule, StreamExecRetractionRules}
 import org.apache.flink.table.planner.plan.utils.AggregateUtil._
 import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, KeySelectorUtil, RelExplainUtil, WindowEmitStrategy}
 import org.apache.flink.table.runtime.generated.{GeneratedNamespaceAggsHandleFunction, GeneratedRecordEqualiser}
@@ -146,7 +146,10 @@ class StreamExecGroupWindowAggregate(
 
     val inputIsAccRetract = StreamExecRetractionRules.isAccRetract(input)
 
-    if (inputIsAccRetract) {
+    val enableRetractInput = config.getConfiguration.getBoolean(
+      StreamExecGroupWindowAggregateRule.TABLE_EXEC_WINDOW_ALLOW_RETRACT_INPUT)
+
+    if (!enableRetractInput && inputIsAccRetract) {
       throw new TableException(
         "Group Window Agg: Retraction on windowed GroupBy aggregation is not supported yet. \n" +
           "please re-check sql grammar. \n" +

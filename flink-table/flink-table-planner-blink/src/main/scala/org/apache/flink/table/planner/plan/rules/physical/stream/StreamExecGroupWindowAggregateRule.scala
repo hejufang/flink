@@ -18,6 +18,9 @@
 
 package org.apache.flink.table.planner.plan.rules.physical.stream
 
+import org.apache.flink.annotation.Experimental
+import org.apache.flink.configuration.ConfigOption
+import org.apache.flink.configuration.ConfigOptions.key
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
@@ -31,6 +34,8 @@ import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
 import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.convert.ConverterRule
 import org.apache.calcite.rel.core.Aggregate.Group
+
+import java.lang.{Boolean => JBoolean}
 
 import scala.collection.JavaConversions._
 
@@ -99,4 +104,16 @@ class StreamExecGroupWindowAggregateRule
 
 object StreamExecGroupWindowAggregateRule {
   val INSTANCE: RelOptRule = new StreamExecGroupWindowAggregateRule
+
+  @Experimental
+  val TABLE_EXEC_WINDOW_ALLOW_RETRACT_INPUT: ConfigOption[JBoolean] =
+    key("table.exec.window.allow-retract-input")
+      .defaultValue(JBoolean.valueOf(false))
+      .withDescription("This option controls whether window operator allows\n" +
+        "retract input. Default is false, which means window operator only allows append\n" +
+        "input. If you enable this option, the window operator will allow retract input,\n" +
+        "which has no guarantee about correctness, e.t. session window only has merge,\n" +
+        "but has no split, then append maybe trigger merge, and retract won't trigger\n" +
+        "split. Whatever, enabling this has some scenarios such as multiple tumble window\n" +
+        "with fast emit.")
 }
