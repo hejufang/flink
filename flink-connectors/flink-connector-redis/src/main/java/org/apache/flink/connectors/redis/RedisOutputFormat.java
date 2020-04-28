@@ -22,6 +22,7 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.kvclient.ClientPool;
 import com.bytedance.springdb.SpringDbPool;
@@ -161,7 +162,10 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					record = tuple2.f1;
 					key = record.getField(0);
 					value = record.getField(1);
-
+					if (key == null) {
+						throw new FlinkRuntimeException(
+							String.format("Redis key can't be null. record: %s", record));
+					}
 					if (serializationSchema != null) {
 						byte[] valueBytes = serializationSchema.serialize(record);
 						byte[] keyBytes;
@@ -176,6 +180,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 							pipeline.set(keyBytes, valueBytes);
 						}
 					} else if (INCR_MODE.equalsIgnoreCase(mode)) {
+						if (value == null) {
+							throw new FlinkRuntimeException(
+								String.format("%s : Redis value can't be null. Key: %s " +
+										", Value: %s", INCR_MODE, key, value));
+						}
 						if (key instanceof byte[]) {
 							if (value instanceof Long) {
 								pipeline.incrBy((byte[]) key, (long) value);
