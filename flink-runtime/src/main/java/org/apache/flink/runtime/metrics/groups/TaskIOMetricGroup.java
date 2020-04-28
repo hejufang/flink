@@ -40,6 +40,8 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 	private final SumCounter numRecordsOut;
 	private final Counter numBuffersOut;
 
+	private final Counter numRecordsDropped;
+
 	private final Meter numBytesInRate;
 	private final Meter numBytesOutRate;
 	private final Meter numRecordsInRate;
@@ -61,6 +63,8 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 
 		this.numBuffersOut = counter(MetricNames.IO_NUM_BUFFERS_OUT);
 		this.numBuffersOutRate = meter(MetricNames.IO_NUM_BUFFERS_OUT_RATE, new MeterView(numBuffersOut, 60));
+
+		this.numRecordsDropped = counter(MetricNames.IO_NUM_RECORDS_DROPPED);
 	}
 
 	public IOMetrics createSnapshot() {
@@ -89,6 +93,10 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 
 	public Counter getNumBuffersOutCounter() {
 		return numBuffersOut;
+	}
+
+	public Counter getNumRecordsDropped() {
+		return numRecordsDropped;
 	}
 
 	// ============================================================================================

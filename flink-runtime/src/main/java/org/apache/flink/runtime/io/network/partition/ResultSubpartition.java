@@ -31,6 +31,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public abstract class ResultSubpartition {
 
+	/** Status used to decide whether to abandon the record. */
+	public static final int SUBPARTITION_AVAILABLE = 1;
+	public static final int SUBPARTITION_UNAVAILABLE = 2;
+
 	/** The index of the subpartition at the parent partition. */
 	protected final int index;
 
@@ -50,6 +54,10 @@ public abstract class ResultSubpartition {
 	protected abstract long getTotalNumberOfBuffers();
 
 	protected abstract long getTotalNumberOfBytes();
+
+	public boolean isSubpartitionAvailable() {
+		return true;
+	}
 
 	/**
 	 * Notifies the parent partition about a consumed {@link ResultSubpartitionView}.

@@ -251,6 +251,10 @@ public class NettyShuffleEnvironmentOptions {
 		key("taskmanager.network.partition.force-release-on-consumption")
 			.defaultValue(false);
 
+	public static final ConfigOption<Boolean> FORCE_PARTITION_RECOVERABLE =
+		key("taskmanager.network.partition.force-partition-recoverable")
+			.defaultValue(false);
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

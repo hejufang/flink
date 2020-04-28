@@ -75,6 +75,10 @@ public interface ResultPartitionWriter extends AutoCloseable {
 	 */
 	void flush(int subpartitionIndex);
 
+	default boolean isSubpartitionAvailable(int subpartitionIndex) {
+		return true;
+	}
+
 	/**
 	 * Fail the production of the partition.
 	 *

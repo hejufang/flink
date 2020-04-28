@@ -117,6 +117,7 @@ public class NettyShuffleEnvironmentBuilder {
 				nettyConfig,
 				DEFAULT_TEMP_DIRS,
 				BoundedBlockingSubpartitionType.AUTO,
+				false,
 				false),
 			taskManagerLocation,
 			new TaskEventDispatcher(),

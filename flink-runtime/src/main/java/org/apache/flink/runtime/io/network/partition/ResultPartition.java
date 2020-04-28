@@ -210,6 +210,11 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 		subpartitions[subpartitionIndex].flush();
 	}
 
+	@Override
+	public boolean isSubpartitionAvailable(int subpartitionIndex) {
+		return subpartitions[subpartitionIndex].isSubpartitionAvailable();
+	}
+
 	/**
 	 * Finishes the result partition.
 	 *

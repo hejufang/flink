@@ -112,6 +112,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			// In/Out Record Number
 			"numRecordsInPerSecond",
 			"numRecordsOutPerSecond",
+			"numRecordsDropped",
 			// late Records Dropped
 			"numLateRecordsDropped",
 			// hitRate for dimension tables

@@ -76,6 +76,8 @@ public class RecordWriter<T extends IOReadableWritable> {
 
 	private Counter numBuffersOut = new SimpleCounter();
 
+	private Counter numRecordsDropped = new SimpleCounter();
+
 	private final boolean flushAlways;
 
 	/** Default name for teh output flush thread, if no name with a task reference is given. */
@@ -149,6 +151,12 @@ public class RecordWriter<T extends IOReadableWritable> {
 	}
 
 	private void emit(T record, int targetChannel) throws IOException, InterruptedException {
+		if (!targetPartition.isSubpartitionAvailable(targetChannel)) {
+			// abandon records if the targetChannel is not available
+			numRecordsDropped.inc();
+			return;
+		}
+
 		serializer.serializeRecord(record);
 
 		if (copyFromSerializerToTargetChannel(targetChannel)) {
@@ -223,6 +231,7 @@ public class RecordWriter<T extends IOReadableWritable> {
 	public void setMetricGroup(TaskIOMetricGroup metrics) {
 		numBytesOut = metrics.getNumBytesOutCounter();
 		numBuffersOut = metrics.getNumBuffersOutCounter();
+		numRecordsDropped = metrics.getNumRecordsDropped();
 	}
 
 	/**

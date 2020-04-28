@@ -75,6 +75,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final boolean forcePartitionReleaseOnConsumption;
 
+	private final boolean isRecoverable;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -88,7 +90,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			@Nullable NettyConfig nettyConfig,
 			String[] tempDirs,
 			BoundedBlockingSubpartitionType blockingSubpartitionType,
-			boolean forcePartitionReleaseOnConsumption) {
+			boolean forcePartitionReleaseOnConsumption,
+			boolean isRecoverable) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -103,6 +106,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.tempDirs = Preconditions.checkNotNull(tempDirs);
 		this.blockingSubpartitionType = Preconditions.checkNotNull(blockingSubpartitionType);
 		this.forcePartitionReleaseOnConsumption = forcePartitionReleaseOnConsumption;
+		this.isRecoverable = isRecoverable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -159,6 +163,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return forcePartitionReleaseOnConsumption;
 	}
 
+	public boolean isRecoverable() {
+		return isRecoverable;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -205,6 +213,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean forcePartitionReleaseOnConsumption =
 			configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RELEASE_ON_CONSUMPTION);
 
+		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
+
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
 			pageSize,
@@ -218,7 +228,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			nettyConfig,
 			tempDirs,
 			blockingSubpartitionType,
-			forcePartitionReleaseOnConsumption);
+			forcePartitionReleaseOnConsumption,
+			isRecoverable);
 	}
 
 	/**
