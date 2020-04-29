@@ -119,7 +119,8 @@ public class InputChannelBuilder {
 			initialBackoff,
 			maxBackoff,
 			metrics,
-			memorySegmentProvider);
+			memorySegmentProvider,
+			false);
 		inputGate.setInputChannel(partitionId.getPartitionId(), channel);
 		return channel;
 	}
@@ -133,7 +134,24 @@ public class InputChannelBuilder {
 			taskEventPublisher,
 			initialBackoff,
 			maxBackoff,
-			metrics);
+			metrics,
+			false);
+		inputGate.setInputChannel(partitionId.getPartitionId(), channel);
+		return channel;
+	}
+
+	public RemoteInputChannel buildRemoteAndSetToGate(SingleInputGate inputGate, boolean isRecoverable) {
+		RemoteInputChannel channel = new RemoteInputChannel(
+				inputGate,
+				channelIndex,
+				partitionId,
+				connectionID,
+				connectionManager,
+				initialBackoff,
+				maxBackoff,
+				metrics,
+				memorySegmentProvider,
+				isRecoverable);
 		inputGate.setInputChannel(partitionId.getPartitionId(), channel);
 		return channel;
 	}
@@ -148,7 +166,8 @@ public class InputChannelBuilder {
 			initialBackoff,
 			maxBackoff,
 			metrics,
-			memorySegmentProvider);
+			memorySegmentProvider,
+			false);
 		inputGate.setInputChannel(partitionId.getPartitionId(), channel);
 		return channel;
 	}

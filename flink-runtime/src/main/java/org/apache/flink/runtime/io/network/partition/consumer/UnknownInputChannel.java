@@ -56,6 +56,8 @@ class UnknownInputChannel extends InputChannel {
 	@Nonnull
 	private final MemorySegmentProvider memorySegmentProvider;
 
+	private final boolean isRecoverable;
+
 	public UnknownInputChannel(
 			SingleInputGate gate,
 			int channelIndex,
@@ -66,7 +68,8 @@ class UnknownInputChannel extends InputChannel {
 			int initialBackoff,
 			int maxBackoff,
 			InputChannelMetrics metrics,
-			@Nonnull MemorySegmentProvider memorySegmentProvider) {
+			@Nonnull MemorySegmentProvider memorySegmentProvider,
+			boolean isRecoverable) {
 
 		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null);
 
@@ -77,6 +80,7 @@ class UnknownInputChannel extends InputChannel {
 		this.initialBackoff = initialBackoff;
 		this.maxBackoff = maxBackoff;
 		this.memorySegmentProvider = memorySegmentProvider;
+		this.isRecoverable = isRecoverable;
 	}
 
 	@Override
@@ -127,10 +131,11 @@ class UnknownInputChannel extends InputChannel {
 
 	public RemoteInputChannel toRemoteInputChannel(ConnectionID producerAddress) {
 		return new RemoteInputChannel(inputGate, channelIndex, partitionId, checkNotNull(producerAddress),
-			connectionManager, initialBackoff, maxBackoff, metrics, memorySegmentProvider);
+			connectionManager, initialBackoff, maxBackoff, metrics, memorySegmentProvider, isRecoverable);
 	}
 
 	public LocalInputChannel toLocalInputChannel() {
-		return new LocalInputChannel(inputGate, channelIndex, partitionId, partitionManager, taskEventPublisher, initialBackoff, maxBackoff, metrics);
+		return new LocalInputChannel(inputGate, channelIndex, partitionId, partitionManager, taskEventPublisher,
+				initialBackoff, maxBackoff, metrics, isRecoverable);
 	}
 }

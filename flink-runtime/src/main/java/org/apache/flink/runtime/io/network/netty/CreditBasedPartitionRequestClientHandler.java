@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
@@ -25,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.netty.exception.LocalTransportException;
+import org.apache.flink.runtime.io.network.netty.exception.ProducerInactiveException;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
 import org.apache.flink.runtime.io.network.netty.exception.TransportException;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
@@ -133,9 +135,11 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 		if (!inputChannels.isEmpty()) {
 			final SocketAddress remoteAddr = ctx.channel().remoteAddress();
 
+			ProducerInactiveException exception = new ProducerInactiveException();
+
 			notifyAllChannelsOfErrorAndClose(new RemoteTransportException(
-				"Connection unexpectedly closed by remote task manager '" + remoteAddr + "'. "
-					+ "This might indicate that the remote task manager was lost.", remoteAddr));
+					"Connection unexpectedly closed by remote task manager '" + remoteAddr + "'. "
+							+ "This might indicate that the remote task manager was lost.", remoteAddr, exception));
 		}
 
 		super.channelInactive(ctx);
@@ -363,6 +367,11 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 				return;
 			}
 		}
+	}
+
+	@VisibleForTesting
+	public ChannelHandlerContext getCtx() {
+		return ctx;
 	}
 
 	private class WriteAndFlushNextMessageIfPossibleListener implements ChannelFutureListener {

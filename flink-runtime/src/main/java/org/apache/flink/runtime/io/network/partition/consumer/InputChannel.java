@@ -26,9 +26,13 @@ import org.apache.flink.runtime.io.network.partition.PartitionException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -44,6 +48,13 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * </ol>
  */
 public abstract class InputChannel {
+	private static final Logger LOG = LoggerFactory.getLogger(InputChannel.class);
+
+	private static final AtomicReferenceFieldUpdater<InputChannel, Integer> CHANNEL_AVAILABLE_UPDATER =
+			AtomicReferenceFieldUpdater.newUpdater(InputChannel.class, Integer.class, "channelStatus");
+
+	private static final int CHANNEL_AVAILABLE = 1;
+	private static final int CHANNEL_UNAVAILABLE = 2;
 
 	protected final int channelIndex;
 
@@ -63,12 +74,17 @@ public abstract class InputChannel {
 	/** The maximum backoff (in ms). */
 	private final int maxBackoff;
 
+	protected final boolean isRecoverable;
+
 	protected final Counter numBytesIn;
 
 	protected final Counter numBuffersIn;
 
 	/** The current backoff (in ms). */
 	private int currentBackoff;
+
+	// channel status
+	private volatile Integer channelStatus = CHANNEL_AVAILABLE;
 
 	protected InputChannel(
 			SingleInputGate inputGate,
@@ -78,6 +94,18 @@ public abstract class InputChannel {
 			int maxBackoff,
 			Counter numBytesIn,
 			Counter numBuffersIn) {
+		this(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, numBytesIn, numBuffersIn, false);
+	}
+
+	protected InputChannel(
+			SingleInputGate inputGate,
+			int channelIndex,
+			ResultPartitionID partitionId,
+			int initialBackoff,
+			int maxBackoff,
+			Counter numBytesIn,
+			Counter numBuffersIn,
+			boolean isRecoverable) {
 
 		checkArgument(channelIndex >= 0);
 
@@ -96,6 +124,8 @@ public abstract class InputChannel {
 
 		this.numBytesIn = numBytesIn;
 		this.numBuffersIn = numBuffersIn;
+
+		this.isRecoverable = isRecoverable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -219,6 +249,14 @@ public abstract class InputChannel {
 		return currentBackoff <= 0 ? 0 : currentBackoff;
 	}
 
+	public int getInitialBackoff() {
+		return initialBackoff;
+	}
+
+	public int getMaxBackoff() {
+		return maxBackoff;
+	}
+
 	/**
 	 * Increases the current backoff and returns whether the operation was successful.
 	 *
@@ -246,6 +284,27 @@ public abstract class InputChannel {
 
 		// Reached maximum backoff
 		return false;
+	}
+
+	// ------------------------------------------------------------------------
+	// Channel availability related method
+	// ------------------------------------------------------------------------
+
+	public boolean isChannelAvailable() {
+		return channelStatus == CHANNEL_AVAILABLE;
+	}
+
+	// this should not be called because we create a new channel instead of reset this
+	public void setChannelAvailable() {
+		if (CHANNEL_AVAILABLE_UPDATER.compareAndSet(this, CHANNEL_UNAVAILABLE, CHANNEL_AVAILABLE)) {
+			LOG.info("Channel {} becomes available.", channelIndex);
+		}
+	}
+
+	public void setChannelUnavailable() {
+		if (CHANNEL_AVAILABLE_UPDATER.compareAndSet(this, CHANNEL_AVAILABLE, CHANNEL_UNAVAILABLE)) {
+			LOG.info("Channel {} becomes unavailable.", channelIndex);
+		}
 	}
 
 	// ------------------------------------------------------------------------

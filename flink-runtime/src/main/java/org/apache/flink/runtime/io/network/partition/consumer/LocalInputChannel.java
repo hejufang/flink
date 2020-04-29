@@ -21,6 +21,8 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
@@ -62,6 +64,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
 	private volatile boolean isReleased;
 
+	@Deprecated
 	public LocalInputChannel(
 		SingleInputGate inputGate,
 		int channelIndex,
@@ -71,7 +74,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 		InputChannelMetrics metrics) {
 
 		this(inputGate, channelIndex, partitionId, partitionManager, taskEventPublisher,
-			0, 0, metrics);
+			0, 0, metrics, false);
 	}
 
 	public LocalInputChannel(
@@ -82,9 +85,11 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 		TaskEventPublisher taskEventPublisher,
 		int initialBackoff,
 		int maxBackoff,
-		InputChannelMetrics metrics) {
+		InputChannelMetrics metrics,
+		boolean isRecoverable) {
 
-		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, metrics.getNumBytesInLocalCounter(), metrics.getNumBuffersInLocalCounter());
+		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, metrics.getNumBytesInLocalCounter(),
+				metrics.getNumBuffersInLocalCounter(), isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -123,6 +128,8 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 						subpartitionView.releaseAllResources();
 						this.subpartitionView = null;
 					}
+
+					LOG.debug("{}: Request subpartition {} successfully.", this, subpartitionIndex);
 				} catch (PartitionNotFoundException notFound) {
 					if (increaseBackoff()) {
 						retriggerRequest = true;
@@ -187,7 +194,15 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
 		if (next == null) {
 			if (subpartitionView.isReleased()) {
-				throw new CancelTaskException("Consumed partition " + subpartitionView + " has been released.");
+				if (!isRecoverable) {
+					throw new CancelTaskException("Consumed partition " + subpartitionView + " has been released.");
+				} else {
+					// make this channel unavailable
+					setChannelUnavailable();
+
+					return Optional.of(new BufferAndAvailability(EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE),
+							false, 0));
+				}
 			} else {
 				return Optional.empty();
 			}

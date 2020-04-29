@@ -29,6 +29,7 @@ import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestWatcher;
@@ -199,7 +200,7 @@ public class YarnLocalResultPartitionResolverTest {
 		}
 	};
 
-	@Test
+	@Ignore
 	public void testBasicProcess() {
 		int userCnt = 2;
 		int appCnt = 3;

@@ -22,15 +22,20 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferListener;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
+import org.apache.flink.runtime.io.network.netty.exception.ProducerInactiveException;
+import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.util.ExceptionUtils;
@@ -118,10 +123,11 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		int initialBackOff,
 		int maxBackoff,
 		InputChannelMetrics metrics,
-		@Nonnull MemorySegmentProvider memorySegmentProvider) {
+		@Nonnull MemorySegmentProvider memorySegmentProvider,
+		boolean isRecoverable) {
 
 		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff,
-			metrics.getNumBytesInRemoteCounter(), metrics.getNumBuffersInRemoteCounter());
+			metrics.getNumBytesInRemoteCounter(), metrics.getNumBuffersInRemoteCounter(), isRecoverable);
 
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
@@ -513,13 +519,12 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		boolean recycleBuffer = true;
 
 		try {
-
 			final boolean wasEmpty;
 			synchronized (receivedBuffers) {
 				// Similar to notifyBufferAvailable(), make sure that we never add a buffer
 				// after releaseAllResources() released all buffers from receivedBuffers
 				// (see above for details).
-				if (isReleased.get()) {
+				if (isReleased.get() || !isChannelAvailable()) {
 					return;
 				}
 
@@ -553,7 +558,7 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		boolean success = false;
 
 		synchronized (receivedBuffers) {
-			if (!isReleased.get()) {
+			if (!isReleased.get() && isChannelAvailable()) {
 				if (expectedSequenceNumber == sequenceNumber) {
 					expectedSequenceNumber++;
 					success = true;
@@ -573,6 +578,29 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 	}
 
 	public void onError(Throwable cause) {
+		if (isRecoverable) {
+			// check whether this error is recoverable
+			if (cause instanceof RemoteTransportException) {
+
+				RemoteTransportException exception = (RemoteTransportException) cause;
+				if (exception.getCause() != null && (exception.getCause() instanceof ProducerInactiveException
+						|| exception.getCause() instanceof CancelTaskException)) {
+
+					setChannelUnavailable();
+
+					// send event
+					synchronized (receivedBuffers) {
+						try {
+							receivedBuffers.add(EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE));
+						} catch (IOException e) {
+							throw new RuntimeException("Fail to serialize UnavailableChannelEvent.", e);
+						}
+					}
+
+					return;
+				}
+			}
+		}
 		setError(cause);
 	}
 

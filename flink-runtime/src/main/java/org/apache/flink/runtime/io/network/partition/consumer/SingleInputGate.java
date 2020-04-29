@@ -40,6 +40,8 @@ import org.apache.flink.util.function.SupplierWithException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -168,6 +170,9 @@ public class SingleInputGate extends InputGate {
 
 	private final CompletableFuture<Void> closeFuture;
 
+	@Nullable
+	private final ChannelProvider channelProvider;
+
 	public SingleInputGate(
 		String owningTaskName,
 		IntermediateDataSetID consumedResultId,
@@ -177,6 +182,20 @@ public class SingleInputGate extends InputGate {
 		PartitionProducerStateProvider partitionProducerStateProvider,
 		boolean isCreditBased,
 		SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
+		this(owningTaskName, consumedResultId, consumedPartitionType, consumedSubpartitionIndex, numberOfInputChannels,
+				partitionProducerStateProvider, isCreditBased, bufferPoolFactory, null);
+	}
+
+	public SingleInputGate(
+			String owningTaskName,
+			IntermediateDataSetID consumedResultId,
+			final ResultPartitionType consumedPartitionType,
+			int consumedSubpartitionIndex,
+			int numberOfInputChannels,
+			PartitionProducerStateProvider partitionProducerStateProvider,
+			boolean isCreditBased,
+			SupplierWithException<BufferPool, IOException> bufferPoolFactory,
+			@Nullable ChannelProvider channelProvider) {
 
 		this.owningTaskName = checkNotNull(owningTaskName);
 
@@ -199,6 +218,8 @@ public class SingleInputGate extends InputGate {
 		this.isCreditBased = isCreditBased;
 
 		this.closeFuture = new CompletableFuture<>();
+
+		this.channelProvider = channelProvider;
 	}
 
 	@Override
@@ -372,6 +393,27 @@ public class SingleInputGate extends InputGate {
 				if (--numberOfUninitializedChannels == 0) {
 					pendingEvents.clear();
 				}
+			} else if (channelProvider != null && !current.isChannelAvailable()) {
+				// create a new channel if it's not available
+				boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
+				InputChannel newChannel;
+				if (isLocal) {
+					newChannel = channelProvider.transformToLocalInputChannel(this, current);
+				} else {
+					RemoteInputChannel remoteInputChannel = channelProvider.transformToRemoteInputChannel(
+							this, current, shuffleDescriptor.getConnectionId());
+					if (isCreditBased) {
+						remoteInputChannel.assignExclusiveSegments();
+					}
+					newChannel = remoteInputChannel;
+				}
+
+				LOG.debug("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
+
+				inputChannels.put(partitionId, newChannel);
+				newChannel.requestSubpartition(consumedSubpartitionIndex);
+
+				// ignore pending events because upstream tasks have already been reinitialized
 			}
 		}
 	}

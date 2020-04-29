@@ -16,21 +16,28 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition;
+package org.apache.flink.runtime.io.network.api;
+
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.runtime.event.RuntimeEvent;
+
+import java.io.IOException;
 
 /**
- * Same implementation with {{@link PipelinedSubpartitionView}}, just keep this for future usage.
+ * Used to represent the channel is not available.
  */
-public class RecoverablePipelinedSubpartitionView extends PipelinedSubpartitionView {
+public class UnavailableChannelEvent extends RuntimeEvent {
 
-	RecoverablePipelinedSubpartitionView(PipelinedSubpartition parent, BufferAvailabilityListener listener) {
-		super(parent, listener);
+	public static final UnavailableChannelEvent INSTANCE = new UnavailableChannelEvent();
+
+	@Override
+	public void write(DataOutputView out) throws IOException {
+		// do nothing
 	}
 
 	@Override
-	public String toString() {
-		return String.format("RecoverablePipelinedSubpartitionView(index: %d) of ResultPartition %s",
-				parent.index,
-				parent.parent.getPartitionId());
+	public void read(DataInputView in) throws IOException {
+		// do nothing
 	}
 }

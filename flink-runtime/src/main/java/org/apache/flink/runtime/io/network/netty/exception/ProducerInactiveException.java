@@ -16,21 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition;
+package org.apache.flink.runtime.io.network.netty.exception;
 
 /**
- * Same implementation with {{@link PipelinedSubpartitionView}}, just keep this for future usage.
+ * This is a recoverable exception.
  */
-public class RecoverablePipelinedSubpartitionView extends PipelinedSubpartitionView {
+public class ProducerInactiveException extends RuntimeException {
 
-	RecoverablePipelinedSubpartitionView(PipelinedSubpartition parent, BufferAvailabilityListener listener) {
-		super(parent, listener);
-	}
+	private static final long serialVersionUID = 4373615529545893090L;
 
-	@Override
-	public String toString() {
-		return String.format("RecoverablePipelinedSubpartitionView(index: %d) of ResultPartition %s",
-				parent.index,
-				parent.parent.getPartitionId());
-	}
+	public ProducerInactiveException() {}
 }

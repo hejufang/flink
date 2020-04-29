@@ -80,13 +80,16 @@ public class SingleInputGateFactory {
 
 	private final BoundedBlockingSubpartitionType blockingSubpartitionType;
 
+	private final boolean isRecoverable;
+
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
 			@Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
 			@Nonnull ConnectionManager connectionManager,
 			@Nonnull ResultPartitionManager partitionManager,
 			@Nonnull TaskEventPublisher taskEventPublisher,
-			@Nonnull NetworkBufferPool networkBufferPool) {
+			@Nonnull NetworkBufferPool networkBufferPool,
+			boolean isRecoverable) {
 		this.taskExecutorResourceId = taskExecutorResourceId;
 		this.isCreditBased = networkConfig.isCreditBased();
 		this.partitionRequestInitialBackoff = networkConfig.partitionRequestInitialBackoff();
@@ -98,6 +101,7 @@ public class SingleInputGateFactory {
 		this.partitionManager = partitionManager;
 		this.taskEventPublisher = taskEventPublisher;
 		this.networkBufferPool = networkBufferPool;
+		this.isRecoverable = isRecoverable;
 	}
 
 	/**
@@ -116,6 +120,12 @@ public class SingleInputGateFactory {
 			igdd.getShuffleDescriptors().length,
 			igdd.getConsumedPartitionType());
 
+		ChannelProvider channelProvider = null;
+		if (isRecoverable) {
+			channelProvider = new ChannelProvider(connectionManager, metrics,
+					networkBufferPool, partitionManager, taskEventPublisher, isRecoverable);
+		}
+
 		SingleInputGate inputGate = new SingleInputGate(
 			owningTaskName,
 			igdd.getConsumedResultId(),
@@ -124,7 +134,8 @@ public class SingleInputGateFactory {
 			igdd.getShuffleDescriptors().length,
 			partitionProducerStateProvider,
 			isCreditBased,
-			bufferPoolFactory);
+			bufferPoolFactory,
+			channelProvider);
 
 		createInputChannels(owningTaskName, igdd, inputGate, metrics);
 		return inputGate;
@@ -180,7 +191,8 @@ public class SingleInputGateFactory {
 					partitionRequestInitialBackoff,
 					partitionRequestMaxBackoff,
 					metrics,
-					networkBufferPool);
+					networkBufferPool,
+					isRecoverable);
 			},
 			nettyShuffleDescriptor ->
 				createKnownInputChannel(
@@ -211,7 +223,8 @@ public class SingleInputGateFactory {
 				taskEventPublisher,
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
-				metrics);
+				metrics,
+				isRecoverable);
 		} else {
 			// Different instances => remote
 			channelStatistics.numRemoteChannels++;
@@ -224,7 +237,8 @@ public class SingleInputGateFactory {
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
 				metrics,
-				networkBufferPool);
+				networkBufferPool,
+				isRecoverable);
 		}
 	}
 

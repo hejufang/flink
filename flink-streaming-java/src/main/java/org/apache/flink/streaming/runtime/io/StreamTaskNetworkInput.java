@@ -19,10 +19,12 @@
 package org.apache.flink.streaming.runtime.io;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer.DeserializationResult;
 import org.apache.flink.runtime.io.network.api.serialization.SpillingAdaptiveSpanningRecordDeserializer;
@@ -125,7 +127,9 @@ public final class StreamTaskNetworkInput implements StreamTaskInput {
 			// Event received
 			final AbstractEvent event = bufferOrEvent.getEvent();
 			// TODO: with checkpointedInputGate.isFinished() we might not need to support any events on this level.
-			if (event.getClass() != EndOfPartitionEvent.class) {
+			if (event.getClass() == UnavailableChannelEvent.class) {
+				cleanChannel(bufferOrEvent.getChannelIndex());
+			} else if (event.getClass() != EndOfPartitionEvent.class) {
 				throw new IOException("Unexpected event: " + event);
 			}
 		}
@@ -152,6 +156,25 @@ public final class StreamTaskNetworkInput implements StreamTaskInput {
 			return AVAILABLE;
 		}
 		return checkpointedInputGate.isAvailable();
+	}
+
+	@VisibleForTesting
+	public RecordDeserializer<DeserializationDelegate<StreamElement>>[] getRecordDeserializers() {
+		return recordDeserializers;
+	}
+
+	/**
+	 * Clean buffers when receiving UnavailableChannelEvent.
+	 */
+	public void cleanChannel(int channelIndex) {
+		if (channelIndex < recordDeserializers.length) {
+			RecordDeserializer<?> deserializer = recordDeserializers[channelIndex];
+			Buffer buffer = deserializer.getCurrentBuffer();
+			if (buffer != null && !buffer.isRecycled()) {
+				buffer.recycleBuffer();
+			}
+			deserializer.clear();
+		}
 	}
 
 	@Override

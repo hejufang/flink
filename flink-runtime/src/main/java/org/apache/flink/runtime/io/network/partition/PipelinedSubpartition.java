@@ -72,7 +72,7 @@ class PipelinedSubpartition extends ResultSubpartition {
 	protected boolean isFinished;
 
 	@GuardedBy("buffers")
-	private boolean flushRequested;
+	protected boolean flushRequested;
 
 	/** Flag indicating whether the subpartition has been released. */
 	protected volatile boolean isReleased;
@@ -330,7 +330,7 @@ class PipelinedSubpartition extends ResultSubpartition {
 		return parent.getFailureCause();
 	}
 
-	protected void updateStatistics(BufferConsumer buffer) {
+	private void updateStatistics(BufferConsumer buffer) {
 		totalNumberOfBuffers++;
 	}
 

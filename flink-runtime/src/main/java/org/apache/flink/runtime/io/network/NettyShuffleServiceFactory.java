@@ -126,7 +126,8 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			connectionManager,
 			resultPartitionManager,
 			taskEventPublisher,
-			networkBufferPool);
+			networkBufferPool,
+			config.isRecoverable());
 
 		return new NettyShuffleEnvironment(
 			taskExecutorResourceId,

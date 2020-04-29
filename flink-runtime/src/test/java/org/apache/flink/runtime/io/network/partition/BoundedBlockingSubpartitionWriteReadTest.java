@@ -69,6 +69,7 @@ public class BoundedBlockingSubpartitionWriteReadTest {
 	@Parameters(name = "type = {0}")
 	public static Collection<Object[]> modes() {
 		return Arrays.stream(BoundedBlockingSubpartitionType.values())
+				.filter((type) -> !type.equals(BoundedBlockingSubpartitionType.YARN))
 				.map((type) -> new Object[] { type })
 				.collect(Collectors.toList());
 	}

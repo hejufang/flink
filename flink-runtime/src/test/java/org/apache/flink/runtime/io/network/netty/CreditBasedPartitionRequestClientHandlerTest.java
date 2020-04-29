@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferListener;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
@@ -31,6 +32,7 @@ import org.apache.flink.runtime.io.network.netty.NettyMessage.CloseRequest;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ErrorResponse;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.PartitionRequest;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.ProducerFailedException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
@@ -44,6 +46,8 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
 import org.apache.flink.shaded.netty4.io.netty.channel.embedded.EmbeddedChannel;
 
 import org.junit.Test;
+
+import java.io.IOException;
 
 import static org.apache.flink.runtime.io.network.netty.PartitionRequestClientHandlerTest.createBufferResponse;
 import static org.apache.flink.runtime.io.network.netty.PartitionRequestQueueTest.blockChannel;
@@ -165,6 +169,42 @@ public class CreditBasedPartitionRequestClientHandlerTest {
 			networkBufferPool.destroyAllBufferPools();
 			networkBufferPool.destroy();
 		}
+	}
+
+	@Test
+	public void testChannelInactive() throws Exception {
+		final SingleInputGate inputGate = createSingleInputGate(1);
+		final RemoteInputChannel inputChannel = spy(InputChannelBuilder.newBuilder().buildRemoteAndSetToGate(inputGate, true));
+
+		final CreditBasedPartitionRequestClientHandler handler = new CreditBasedPartitionRequestClientHandler();
+		handler.addInputChannel(inputChannel);
+
+		EmbeddedChannel channel = new EmbeddedChannel(handler);
+
+		handler.channelInactive(handler.getCtx());
+
+		channel.close();
+
+		assertFalse(inputChannel.isChannelAvailable());
+	}
+
+	@Test
+	public void testUpstreamTaskFailed() throws Exception {
+		final SingleInputGate inputGate = createSingleInputGate(1);
+		final RemoteInputChannel inputChannel = spy(InputChannelBuilder.newBuilder().buildRemoteAndSetToGate(inputGate, true));
+
+		final CreditBasedPartitionRequestClientHandler handler = new CreditBasedPartitionRequestClientHandler();
+		handler.addInputChannel(inputChannel);
+
+		EmbeddedChannel channel = new EmbeddedChannel(handler);
+
+		final ErrorResponse bufferResponse = new NettyMessage.ErrorResponse(new ProducerFailedException(new RuntimeException()), inputChannel.getInputChannelId());
+
+		handler.channelRead(mock(ChannelHandlerContext.class), bufferResponse);
+
+		channel.close();
+
+		assertFalse(inputChannel.isChannelAvailable());
 	}
 
 	/**

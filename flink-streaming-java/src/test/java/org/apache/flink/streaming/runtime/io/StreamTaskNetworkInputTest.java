@@ -21,6 +21,7 @@ package org.apache.flink.streaming.runtime.io;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordSerializer;
 import org.apache.flink.runtime.io.network.api.serialization.SpanningRecordSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -36,6 +37,7 @@ import org.junit.After;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -79,6 +81,37 @@ public class StreamTaskNetworkInputTest {
 
 		assertHasNextElement(input);
 		assertHasNextElement(input);
+	}
+
+	@Test
+	public void testReceiveUnavailableChannelEvent() throws Exception {
+		BufferBuilder bufferBuilder = BufferBuilderTestUtils.createEmptyBufferBuilder(PAGE_SIZE);
+
+		serializeRecord(42L, bufferBuilder);
+		serializeRecord(44L, bufferBuilder);
+
+		Buffer buffer = bufferBuilder.createBufferConsumer().build();
+
+		List<BufferOrEvent> buffers = new ArrayList<>();
+		buffers.add(new BufferOrEvent(buffer, 0, true));
+		buffers.add(new BufferOrEvent(new UnavailableChannelEvent(), 0));
+
+		MockInputGate inputGate = new MockInputGate(1, buffers, false);
+		CheckpointedInputGate checkpointedInputGate = new CheckpointedInputGate(
+				inputGate,
+				new EmptyBufferStorage(),
+				new CheckpointBarrierTracker(1));
+
+		StreamTaskNetworkInput input = new StreamTaskNetworkInput(
+				checkpointedInputGate,
+				LongSerializer.INSTANCE,
+				ioManager,
+				0);
+
+		input.pollNextNullable();
+		input.pollNextNullable();
+
+		assertFalse(input.getRecordDeserializers()[0].hasUnfinishedData());
 	}
 
 	private void serializeRecord(long value, BufferBuilder bufferBuilder) throws IOException {
