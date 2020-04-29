@@ -670,9 +670,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		resourceManagerClient.releaseAssignedContainer(container.getId());
 
 		ResourceID resourceID = workerNode.getResourceID();
-		workerNodeMap.remove(workerNode.getResourceID());
-		startingContainers.remove(resourceID);
-		slowContainers.remove(resourceID);
+		removeContainer(resourceID);
 		return true;
 	}
 
@@ -780,7 +778,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				log.warn("YARN ResourceManager reported {} containers completed.", statuses.size());
 				for (final ContainerStatus containerStatus : statuses) {
 					final ResourceID resourceId = new ResourceID(containerStatus.getContainerId().toString());
-					final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
+					final YarnWorkerNode yarnWorkerNode = removeContainer(resourceId);
 
 					if (yarnWorkerNode != null) {
 						log.warn("Container {} on {} completed, {}",
@@ -792,8 +790,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								resourceId,
 								containerStatus.getDiagnostics());
 					}
-					startingContainers.remove(resourceId);
-					slowContainers.remove(resourceId);
 					// Eagerly close the connection with task manager.
 					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
 				}
@@ -856,9 +852,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								log.error("Could not start TaskManager in container {}.", container.getId(), t);
 
 								// release the failed container
-								startingContainers.remove(resourceId);
-								slowContainers.remove(resourceId);
-								workerNodeMap.remove(resourceId);
+								removeContainer(resourceId);
 								resourceManagerClient.releaseAssignedContainer(container.getId());
 								recordFailureAndStartNewWorkerIfNeeded(
 										yarnWorkerNode.getContainer().getNodeId().getHost(),
@@ -1154,8 +1148,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		runAsync(() -> {
 			log.error("Could not start TaskManager in container {}.", containerId, throwable);
 			// release the failed container
-			ResourceID resourceID = new ResourceID((containerId.toString()));
-			final YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(new ResourceID(containerId.toString()));
+			ResourceID resourceID = new ResourceID(containerId.toString());
+			final YarnWorkerNode yarnWorkerNode = removeContainer(resourceID);
 			if (yarnWorkerNode != null) {
 				resourceManagerClient.releaseAssignedContainer(containerId);
 				recordFailureAndStartNewWorkerIfNeeded(
@@ -1163,8 +1157,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 						resourceID,
 						throwable.toString());
 			}
-			startingContainers.remove(resourceID);
-			slowContainers.remove(resourceID);
 		});
 	}
 
@@ -1690,5 +1682,17 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			log.error("Error while get relay webshell, fallback to default webshell.", e);
 			return super.getTaskManagerWebShell(resourceID, host);
 		}
+	}
+
+	@Override
+	protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause) {
+		removeContainer(resourceID);
+		super.closeTaskManagerConnection(resourceID, cause);
+	}
+
+	private YarnWorkerNode removeContainer(ResourceID resourceID) {
+		startingContainers.remove(resourceID);
+		slowContainers.remove(resourceID);
+		return workerNodeMap.remove(resourceID);
 	}
 }
