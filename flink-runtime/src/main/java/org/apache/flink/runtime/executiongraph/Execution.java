@@ -949,7 +949,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				final PartitionInfo partitionInfo = createPartitionInfo(edge);
 
 				if (consumerState == DEPLOYING) {
-					cachePartitionInfo(partitionInfo);
+					consumerVertex.cachePartitionInfo(partitionInfo);
 				} else {
 					consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
 				}

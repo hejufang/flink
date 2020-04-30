@@ -183,7 +183,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 		flushCurrentBuffer();
 		writeAndCloseBufferConsumer(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE));
 		data.finishWrite();
-		LOG.info("{}: Finished subpartition {}.", parent.getOwningTaskName(), index);
+		LOG.debug("{}: Finished subpartition {}.", parent.getOwningTaskName(), index);
 	}
 
 	@Override

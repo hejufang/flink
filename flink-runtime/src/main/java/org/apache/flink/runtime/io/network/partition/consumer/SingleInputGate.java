@@ -561,7 +561,7 @@ public class SingleInputGate extends InputGate {
 
 				currentChannel.notifySubpartitionConsumed();
 				currentChannel.releaseAllResources();
-				LOG.info("Task {} Receive EndOfPartitionEvent from channel {}, numberOfInputChannels: {}, channelsWithEndOfPartitionEvents: {}.",
+				LOG.debug("Task {} Receive EndOfPartitionEvent from channel {}, numberOfInputChannels: {}, channelsWithEndOfPartitionEvents: {}.",
 						owningTaskName, currentChannel.getChannelIndex(), numberOfInputChannels, channelsWithEndOfPartitionEvents.cardinality());
 			}
 

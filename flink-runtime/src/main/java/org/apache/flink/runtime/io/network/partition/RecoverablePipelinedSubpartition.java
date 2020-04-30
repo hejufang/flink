@@ -84,7 +84,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 			buffer.close();
 		}
 
-		LOG.info("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
+		LOG.debug("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
 		buffers.clear();
 	}
 

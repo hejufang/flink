@@ -97,7 +97,7 @@ class PipelinedSubpartition extends ResultSubpartition {
 	@Override
 	public void finish() throws IOException {
 		add(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE), true);
-		LOG.info("{}: Finished subpartition {} {}.", parent.getOwningTaskName(), index, this);
+		LOG.debug("{}: Finished subpartition {} {}.", parent.getOwningTaskName(), index, this);
 	}
 
 	protected boolean add(BufferConsumer bufferConsumer, boolean finish) {
@@ -141,7 +141,7 @@ class PipelinedSubpartition extends ResultSubpartition {
 				buffer.close();
 			}
 
-			LOG.info("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
+			LOG.debug("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
 
 			buffers.clear();
 
