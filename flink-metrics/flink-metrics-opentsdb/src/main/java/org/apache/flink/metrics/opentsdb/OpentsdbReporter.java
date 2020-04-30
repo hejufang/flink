@@ -43,6 +43,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.metrics.opentsdb.utils.Utils.formatMetricsName;
+
 /**
  * Created by zhangguanghui on 2017/7/25.
  */
@@ -302,9 +304,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	*  Extracts metric name and tags from input
 	* */
 	public Tuple<String, String> getMetricNameAndTags(String input) {
-		String key = input.replaceAll("[^\\w.]", "_")
-				.replaceAll("\\.+", ".")
-				.replaceAll("_+", "_");
+		String key = formatMetricsName(input);
 
 		/*
 		* for example

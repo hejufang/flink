@@ -168,6 +168,18 @@ public class Utils {
 		return new String[] {clusterName, dc};
 	}
 
+	/**
+	 *  Parse input to write metric. Replace the charset which didn't
+	 *  in [A-Za-z0-9_] to '_'. Because some characters metrics doesn't support.
+	 *  Example "flink-test$job" to "flink_test_job".
+	 */
+	public static String formatMetricsName(String input) {
+		String result = input.replaceAll("[^\\w.]", "_")
+				.replaceAll("\\.+", ".")
+				.replaceAll("_+", "_");
+		return result;
+	}
+
 	public static JSONArray list2JSONArray(List list) {
 		JSONArray jsonArray = new JSONArray();
 		for (Object o : list) {

@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.monitor.utils.Utils.formatMetricsName;
+
 /**
  * Provides methods for registring grafana dashboard.
  */
@@ -42,6 +44,7 @@ public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
 	private String clusterName;
 	private String jobName;
+	private String formatJobName;
 	private String dataSource;
 	private JobGraph jobGraph;
 	private StreamGraph streamGraph;
@@ -52,6 +55,7 @@ public class Dashboard {
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
 		this.jobName = jobGraph.getName();
+		this.formatJobName = formatMetricsName(jobGraph.getName());
 		this.dataSource = dataSource;
 	}
 
@@ -71,7 +75,7 @@ public class Dashboard {
 	private String renderJobInfoRow() {
 		String jobInfoTemplate = Template.JOB_INFO;
 		Map<String, String> jobInfoValues = new HashMap<>();
-		jobInfoValues.put("jobname", jobName);
+		jobInfoValues.put("jobname", formatJobName);
 		jobInfoValues.put("datasource", dataSource);
 		String jobInfoRow = renderString(jobInfoTemplate, jobInfoValues);
 		return jobInfoRow;
@@ -147,7 +151,7 @@ public class Dashboard {
 	private String renderCheckpointRow() {
 		String checkpointTemplate = Template.CHECKPOINT;
 		Map<String, String> checkpointValues = new HashMap<>();
-		checkpointValues.put("jobname", jobName);
+		checkpointValues.put("jobname", formatJobName);
 		checkpointValues.put("datasource", dataSource);
 		String checkpointRow = renderString(checkpointTemplate, checkpointValues);
 		return checkpointRow;
@@ -156,7 +160,7 @@ public class Dashboard {
 	private String renderCheckpointDurationRow() {
 		String checkpointDurationTemplate = Template.CHECKPOINT_DURATION;
 		Map<String, String> checkpointValues = new HashMap<>();
-		checkpointValues.put("jobname", jobName);
+		checkpointValues.put("jobname", formatJobName);
 		checkpointValues.put("datasource", dataSource);
 		String checkpointDurationRow = renderString(checkpointDurationTemplate, checkpointValues);
 		return checkpointDurationRow;
@@ -177,7 +181,7 @@ public class Dashboard {
 		for (String o : operators) {
 			Map<String, String> poolUsageTargetValues = new HashMap<>();
 			poolUsageTargetValues.put("operator", o);
-			poolUsageTargetValues.put("jobname", jobName);
+			poolUsageTargetValues.put("jobname", formatJobName);
 			poolUsageList.add(renderString(poolUsageTargetTemplate, poolUsageTargetValues));
 		}
 		String targets = String.join(",", poolUsageList);
@@ -195,7 +199,7 @@ public class Dashboard {
 		for (String o : operators) {
 			Map<String, String> recordNumTargetValues = new HashMap<>();
 			recordNumTargetValues.put("operator", o);
-			recordNumTargetValues.put("jobname", jobName);
+			recordNumTargetValues.put("jobname", formatJobName);
 			recordNumList.add(renderString(recordNumTargetTemplate, recordNumTargetValues));
 		}
 		String targets = String.join(",", recordNumList);
@@ -213,7 +217,7 @@ public class Dashboard {
 		for (String o : operators) {
 			Map<String, String> lateRecordsDroppedTarget = new HashMap<>();
 			lateRecordsDroppedTarget.put("operator", o);
-			lateRecordsDroppedTarget.put("jobname", jobName);
+			lateRecordsDroppedTarget.put("jobname", formatJobName);
 			lateRecordsDroppedList.add(renderString(lateRecordsDroppedTargetTemplate, lateRecordsDroppedTarget));
 		}
 		String targets = String.join(",", lateRecordsDroppedList);
@@ -230,7 +234,7 @@ public class Dashboard {
 		for (String source : sources) {
 			Map<String, String> dirtyRecordsSkippedTarget = new HashMap<>();
 			dirtyRecordsSkippedTarget.put("source", source);
-			dirtyRecordsSkippedTarget.put("jobname", jobName);
+			dirtyRecordsSkippedTarget.put("jobname", formatJobName);
 			dirtyRecordsSkippedList.add(
 				renderString(dirtyRecordsSkippedTargetTemplate, dirtyRecordsSkippedTarget));
 		}
@@ -249,7 +253,7 @@ public class Dashboard {
 		for (String o : operators) {
 			Map<String, String> lookupJoinHitRateTargetValues = new HashMap<>(2);
 			lookupJoinHitRateTargetValues.put("operator", o);
-			lookupJoinHitRateTargetValues.put("jobname", jobName);
+			lookupJoinHitRateTargetValues.put("jobname", formatJobName);
 			metricRows.add(renderString(lookupJoinHitRateTarget, lookupJoinHitRateTargetValues));
 		}
 		String targets = String.join(",", metricRows);
@@ -267,7 +271,7 @@ public class Dashboard {
 		for (String o : operators) {
 			Map<String, String> operatorLatencyTargetValues = new HashMap<>();
 			operatorLatencyTargetValues.put("operator", o);
-			operatorLatencyTargetValues.put("jobname", jobName);
+			operatorLatencyTargetValues.put("jobname", formatJobName);
 			recordNumList.add(renderString(operatorLatencyTarget, operatorLatencyTargetValues));
 		}
 		String targets = String.join(",", recordNumList);
@@ -285,7 +289,7 @@ public class Dashboard {
 		for (String s : sources) {
 			Map<String, String> kafkaOffsetTargetValues = new HashMap<>();
 			kafkaOffsetTargetValues.put("kafka_source", s);
-			kafkaOffsetTargetValues.put("jobname", jobName);
+			kafkaOffsetTargetValues.put("jobname", formatJobName);
 			kafkaOffsetList.add(renderString(kafkaOffsetTargetTemplate, kafkaOffsetTargetValues));
 		}
 		String targets = String.join(",", kafkaOffsetList);
@@ -303,7 +307,7 @@ public class Dashboard {
 		for (String s : sources) {
 			Map<String, String> kafkaLatencyTargetValues = new HashMap<>();
 			kafkaLatencyTargetValues.put("kafka_source", s);
-			kafkaLatencyTargetValues.put("jobname", jobName);
+			kafkaLatencyTargetValues.put("jobname", formatJobName);
 			kafkaLatencyList.add(renderString(kafkaLatencyTargetTemplate, kafkaLatencyTargetValues));
 		}
 		String targets = String.join(",", kafkaLatencyList);
