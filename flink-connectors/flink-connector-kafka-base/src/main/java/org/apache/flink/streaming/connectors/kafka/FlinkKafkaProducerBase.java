@@ -36,6 +36,8 @@ import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.SerializableObject;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -132,8 +134,6 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	/** Number of unacknowledged records. */
 	protected long pendingRecords;
 
-	private static final long KAFKA_LINGER_MS_DEFAULT = 1000;
-
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
 	 *
@@ -153,6 +153,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		this.schema = serializationSchema;
 		this.producerConfig = producerConfig;
 		this.flinkKafkaPartitioner = customPartitioner;
+		this.topicPartitionsMap = new HashMap<>();
 
 		// set the producer configuration properties for kafka record key value serializers.
 		if (!producerConfig.containsKey(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG)) {
@@ -173,11 +174,19 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 //			throw new IllegalArgumentException(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG + " must be supplied in the producer config properties.");
 //		}
 
-		if (!producerConfig.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
-			this.producerConfig.put(ProducerConfig.LINGER_MS_CONFIG, KAFKA_LINGER_MS_DEFAULT);
-		}
+		Map<String, Integer> defaultValueMap = ImmutableMap.of(
+			ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000,
+			ProducerConfig.RETRIES_CONFIG, 10,
+			ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000,
+			ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000,
+			ProducerConfig.LINGER_MS_CONFIG, 5000);
 
-		this.topicPartitionsMap = new HashMap<>();
+		defaultValueMap.forEach((key, value) -> {
+			if (!producerConfig.containsKey(key)) {
+				LOG.info("Add default configuration: {} = {}", key, value);
+				producerConfig.put(key, value);
+			}
+		});
 	}
 
 	// ---------------------------------- Properties --------------------------
