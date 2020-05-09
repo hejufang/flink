@@ -32,7 +32,6 @@ import com.google.protobuf.DynamicMessage;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,21 +119,13 @@ public class DeserializationRuntimeConverterFactory {
 		List<DeserializationRuntimeConverter> fieldConverters) {
 		return (message, fieldDescriptors) -> {
 			DynamicMessage dynamicMessage = (DynamicMessage) message;
-			Map<Descriptors.FieldDescriptor, Object> fieldMapInDynamicMessage =
-				dynamicMessage.getAllFields();
 			int arity = fieldConverters.size();
 			Row row = new Row(arity);
 			for (int i = 0; i < fieldDescriptors.size(); i++) {
 				Descriptors.FieldDescriptor fieldDescriptor = fieldDescriptors.get(i);
-				if (!fieldMapInDynamicMessage.containsKey(fieldDescriptor)) {
-					// handle 'oneof' fields.
-					row.setField(i, null);
-					continue;
-				}
 				Object convertField = fieldConverters.get(i).convert(
-						dynamicMessage.getField(fieldDescriptor),
-						extractFieldDescriptors(fieldDescriptor));
-
+					dynamicMessage.getField(fieldDescriptor),
+					fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE ? fieldDescriptor.getMessageType().getFields() : Arrays.asList(fieldDescriptor));
 				row.setField(i, convertField);
 			}
 
@@ -182,28 +173,15 @@ public class DeserializationRuntimeConverterFactory {
 				Object k = null, v = null;
 				for (Map.Entry<Descriptors.FieldDescriptor, Object> singleMessage : mapMessage.getAllFields().entrySet()) {
 					if (singleMessage.getKey().getJsonName().equals(PbConstant.KEY)) {
-						k = keyConverter.convert(singleMessage.getValue(), extractFieldDescriptors(singleMessage.getKey()));
+						k = keyConverter.convert(singleMessage.getValue(), Arrays.asList(singleMessage.getKey()));
 					} else if (singleMessage.getKey().getJsonName().equals(PbConstant.VALUE)) {
-						v = valueConverter.convert(singleMessage.getValue(), extractFieldDescriptors(singleMessage.getKey()));
+						v = valueConverter.convert(singleMessage.getValue(), Arrays.asList(singleMessage.getKey()));
 					}
 				}
 				map.put(k, v);
 			}
 			return map;
 		};
-	}
-
-	/**
-	 * Extract field descriptor list from the specific field descriptor:
-	 * 1. return inner field descriptor list for MESSAGE type.
-	 * 2. return a singleton list for the input field descriptor.
-	 * */
-	private static List<Descriptors.FieldDescriptor> extractFieldDescriptors(
-			Descriptors.FieldDescriptor fieldDescriptor) {
-		if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-			return fieldDescriptor.getMessageType().getFields();
-		}
-		return Collections.singletonList(fieldDescriptor);
 	}
 
 	private static boolean isPrimitiveByteArray(TypeInformation<?> typeInfo) {
