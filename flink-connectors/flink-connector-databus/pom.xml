@@ -112,6 +112,15 @@ under the License.
 										<relocation>
 											<pattern>com.bytedance</pattern>
 											<shadedPattern>org.apache.flink.databus.shaded.com.bytedance</shadedPattern>
+											<excludes>
+												<!-- We try 3 ways as listed below, behaviors of the first two is expected,
+												while behavior of the last is not. We currently choose the first one,
+												as we do not find an authoritative document for this scenario.-->
+<!--											1.	<exclude>com.bytedance.data.databus.**</exclude>-->
+<!--											2.	<exclude>com/bytedance/data/databus/**</exclude>-->
+<!--											3.	<exclude>com.bytedance.data.databus.*</exclude>-->
+												<exclude>com.bytedance.data.databus.**</exclude>
+											</excludes>
 										</relocation>
 									</relocations>
 								</configuration>

@@ -73,7 +73,9 @@ public class DatabusSinkFunction<IN> extends RichSinkFunction<IN> implements Che
 		super.open(parameters);
 		bufferedKeys = new ArrayList<>();
 		bufferedValues = new ArrayList<>();
-		retrySrategy = options.getRetryStrategy().copy();
+		if (options.getRetryStrategy() != null) {
+			retrySrategy = options.getRetryStrategy().copy();
+		}
 		databusClient = new DatabusClient(this.channel);
 		if (databusBufferSize > 0) {
 			// setCacheSize is a static method in DatabusClient, although we think it is strange.
