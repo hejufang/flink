@@ -29,6 +29,7 @@
     "org.apache.flink.sql.parser.ddl.SqlCreateView",
     "org.apache.flink.sql.parser.ddl.SqlDropView",
     "org.apache.flink.sql.parser.ddl.SqlCreateFunction",
+    "org.apache.flink.sql.parser.ddl.SqlCreateTemporalTableFunction",
     "org.apache.flink.sql.parser.ddl.SqlWatermark",
     "org.apache.flink.sql.parser.ddl.SqlTableColumn",
     "org.apache.flink.sql.parser.ddl.SqlTableOption",
@@ -67,7 +68,8 @@
     "WAIT",
     "STRING",
     "BYTES",
-    "RESOURCES"
+    "RESOURCES",
+    "TEMPORAL"
   ]
 
   # List of keywords from "keywords" section that are not reserved.
@@ -436,7 +438,8 @@
   createStatementParserMethods: [
     "SqlCreateTable",
     "SqlCreateView",
-    "SqlCreateFunction"
+    "SqlCreateFunction",
+    "SqlCreateTemporalTableFunction"
   ]
 
   # List of methods for parsing extensions to "DROP" calls.

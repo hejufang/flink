@@ -24,10 +24,10 @@ import org.apache.calcite.sql.SqlCreate;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.util.ImmutableNullableList;
 
 import java.util.List;
 
@@ -48,18 +48,8 @@ public class SqlCreateFunction extends SqlCreate implements ExtendedSqlNode {
 	}
 
 	@Override
-	public SqlKind getKind() {
-		return SqlKind.CREATE_FUNCTION;
-	}
-
-	@Override
-	public SqlOperator getOperator() {
-		return null;
-	}
-
-	@Override
 	public List<SqlNode> getOperandList() {
-		return null;
+		return ImmutableNullableList.of(functionName);
 	}
 
 	public SqlIdentifier getFunctionName() {
@@ -78,10 +68,8 @@ public class SqlCreateFunction extends SqlCreate implements ExtendedSqlNode {
 		this.className = className;
 	}
 
-	public void unparse(
-		SqlWriter writer,
-		int leftPrec,
-		int rightPrec) {
+	@Override
+	public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
 		writer.keyword("CREATE");
 		writer.keyword("FUNCTION");
 		functionName.unparse(writer, leftPrec, rightPrec);
@@ -89,6 +77,7 @@ public class SqlCreateFunction extends SqlCreate implements ExtendedSqlNode {
 		writer.print("'" + className + "'");
 	}
 
+	@Override
 	public void validate() {
 	}
 }

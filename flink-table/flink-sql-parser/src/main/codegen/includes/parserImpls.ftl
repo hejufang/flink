@@ -420,6 +420,30 @@ SqlCreate SqlCreateFunction(Span s, boolean replace) :
     }
 }
 
+SqlCreate SqlCreateTemporalTableFunction(Span s, boolean replace) :
+{
+    final SqlParserPos startPos = s.pos();
+    SqlIdentifier temporalTableName;
+    SqlIdentifier tableOrViewName;
+    SqlNodeList propertyList = SqlNodeList.EMPTY;
+    SqlParserPos pos = startPos;
+}
+{
+    <TEMPORAL> <TABLE> <FUNCTION>
+    temporalTableName = CompoundIdentifier()
+    <AS>
+    tableOrViewName = CompoundIdentifier()
+    <WITH>
+    propertyList = TableProperties()
+    {
+        return new SqlCreateTemporalTableFunction(
+            getPos(),
+            temporalTableName,
+            tableOrViewName,
+            propertyList);
+    }
+}
+
 SqlAddResource SqlAddResource() :
 {
     SqlIdentifier resourceName = null;

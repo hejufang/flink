@@ -54,6 +54,7 @@ import org.apache.flink.table.functions.AggregateFunction;
 import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.flink.table.functions.TableAggregateFunction;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.functions.TemporalTableFunction;
 import org.apache.flink.table.functions.UserFunctionsTypeHelper;
 import org.apache.flink.table.functions.WindowFunction;
 import org.apache.flink.table.operations.CatalogQueryOperation;
@@ -64,6 +65,7 @@ import org.apache.flink.table.operations.QueryOperation;
 import org.apache.flink.table.operations.TableSourceQueryOperation;
 import org.apache.flink.table.operations.ddl.CreateFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
+import org.apache.flink.table.operations.ddl.CreateTemporalTableFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropTableOperation;
 import org.apache.flink.table.operations.utils.OperationTreeBuilder;
@@ -447,6 +449,13 @@ public class TableEnvironmentImpl implements TableEnvironment {
 			} catch (Exception e) {
 				throw new TableException("Error in loading user defined function!", e);
 			}
+		} else if (operation instanceof CreateTemporalTableFunctionOperation) {
+			CreateTemporalTableFunctionOperation temporalOperation = (CreateTemporalTableFunctionOperation) operation;
+			createTemporalTableFunctionInternal(
+				temporalOperation.getTemporalTableName(),
+				temporalOperation.getViewOrTableName(),
+				temporalOperation.getTimeAttribute(),
+				temporalOperation.getPrimaryKeys());
 		} else {
 			throw new TableException(
 				"Unsupported SQL query! sqlUpdate() only accepts a single SQL statements of " +
@@ -601,6 +610,21 @@ public class TableEnvironmentImpl implements TableEnvironment {
 		} catch (Exception e) {
 			throw new TableException("Could not register table", e);
 		}
+	}
+
+	private void createTemporalTableFunctionInternal(
+			String temporalTableName,
+			String viewOrTableName,
+			String timeAttribute,
+			String primaryKeys) {
+		// Use this query to leverage Table.createTemporalTableFunction to simplify the
+		// temporal table function creating process.
+		// It will be optimized during planning, and won't affect final DAG of the job.
+		Table table = sqlQuery("SELECT * FROM " + viewOrTableName);
+
+		TemporalTableFunction function = table.createTemporalTableFunction(timeAttribute, primaryKeys);
+
+		registerFunction(temporalTableName, function);
 	}
 
 	private void replaceTableInternal(String name, CatalogBaseTable table) {
