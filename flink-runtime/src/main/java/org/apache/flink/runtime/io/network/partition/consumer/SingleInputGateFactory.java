@@ -44,6 +44,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 
@@ -82,6 +84,10 @@ public class SingleInputGateFactory {
 
 	private final boolean isRecoverable;
 
+	private final ScheduledExecutorService executor;
+
+	private final int maxDelayMinutes;
+
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
 			@Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
@@ -89,6 +95,7 @@ public class SingleInputGateFactory {
 			@Nonnull ResultPartitionManager partitionManager,
 			@Nonnull TaskEventPublisher taskEventPublisher,
 			@Nonnull NetworkBufferPool networkBufferPool,
+			int maxDelayMinutes,
 			boolean isRecoverable) {
 		this.taskExecutorResourceId = taskExecutorResourceId;
 		this.isCreditBased = networkConfig.isCreditBased();
@@ -102,6 +109,8 @@ public class SingleInputGateFactory {
 		this.taskEventPublisher = taskEventPublisher;
 		this.networkBufferPool = networkBufferPool;
 		this.isRecoverable = isRecoverable;
+		this.maxDelayMinutes = maxDelayMinutes;
+		this.executor = Executors.newSingleThreadScheduledExecutor();
 	}
 
 	/**
@@ -123,7 +132,7 @@ public class SingleInputGateFactory {
 		ChannelProvider channelProvider = null;
 		if (isRecoverable) {
 			channelProvider = new ChannelProvider(connectionManager, metrics,
-					networkBufferPool, partitionManager, taskEventPublisher, isRecoverable);
+					networkBufferPool, partitionManager, taskEventPublisher, maxDelayMinutes, executor, isRecoverable);
 		}
 
 		SingleInputGate inputGate = new SingleInputGate(
@@ -135,7 +144,8 @@ public class SingleInputGateFactory {
 			partitionProducerStateProvider,
 			isCreditBased,
 			bufferPoolFactory,
-			channelProvider);
+			channelProvider,
+			executor);
 
 		createInputChannels(owningTaskName, igdd, inputGate, metrics);
 		return inputGate;
@@ -192,6 +202,8 @@ public class SingleInputGateFactory {
 					partitionRequestMaxBackoff,
 					metrics,
 					networkBufferPool,
+					maxDelayMinutes,
+					executor,
 					isRecoverable);
 			},
 			nettyShuffleDescriptor ->
@@ -224,6 +236,8 @@ public class SingleInputGateFactory {
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
 				metrics,
+				maxDelayMinutes,
+				executor,
 				isRecoverable);
 		} else {
 			// Different instances => remote
@@ -238,6 +252,8 @@ public class SingleInputGateFactory {
 				partitionRequestMaxBackoff,
 				metrics,
 				networkBufferPool,
+				maxDelayMinutes,
+				executor,
 				isRecoverable);
 		}
 	}

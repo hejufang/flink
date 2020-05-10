@@ -39,7 +39,12 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 	private static final AtomicReferenceFieldUpdater<RecoverablePipelinedSubpartition, Integer> statusUpdater =
 			AtomicReferenceFieldUpdater.newUpdater(RecoverablePipelinedSubpartition.class, Integer.class, "status");
 
-	private volatile Integer status = SUBPARTITION_AVAILABLE;
+	private static final AtomicReferenceFieldUpdater<RecoverablePipelinedSubpartition, Boolean> needCleanBufferBuilderUpdater =
+			AtomicReferenceFieldUpdater.newUpdater(RecoverablePipelinedSubpartition.class, Boolean.class, "needCleanBufferBuilder");
+
+	private volatile Integer status = SUBPARTITION_UNAVAILABLE;
+
+	private volatile Boolean needCleanBufferBuilder = true;
 
 	RecoverablePipelinedSubpartition(int index, ResultPartition parent) {
 		super(index, parent);
@@ -50,21 +55,37 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 		return status == SUBPARTITION_AVAILABLE;
 	}
 
+	@Override
+	public boolean needToCleanBufferBuilder() {
+		return needCleanBufferBuilder;
+	}
+
+	@Override
+	public void markBufferBuilderCleaned() {
+		if (needCleanBufferBuilderUpdater.compareAndSet(this, true, false)) {
+			LOG.info("{}: BufferBuilder is cleaned.", this);
+		}
+	}
+
 	/**
 	 * This will be only called when {{@link RecoverablePipelinedSubpartitionView}} is released from netty server side.
 	 */
 	@Override
 	protected void onConsumedSubpartition() {
-		// step1. reset status
-		statusUpdater.compareAndSet(this, SUBPARTITION_AVAILABLE, SUBPARTITION_UNAVAILABLE);
 
-		// step2. clean buffers
 		final RecoverablePipelinedSubpartitionView view;
 		synchronized (buffers) {
+
+			// step1. reset status
+			if (statusUpdater.compareAndSet(this, SUBPARTITION_AVAILABLE, SUBPARTITION_UNAVAILABLE)) {
+				LOG.info("{}: Status updated to unavailable.", this);
+			}
+
 			if (isReleased) {
 				return;
 			}
 
+			// step2. clean buffers
 			cleanBuffers();
 
 			view = (RecoverablePipelinedSubpartitionView) readView;
@@ -84,8 +105,13 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 			buffer.close();
 		}
 
-		LOG.debug("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
+		LOG.info("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
 		buffers.clear();
+
+		if (needCleanBufferBuilderUpdater.compareAndSet(this, false, true)) {
+			LOG.info("{}: This subpartition needs to clean BufferBuilder.", this);
+		}
+		resetStatistics();
 	}
 
 	@Override
@@ -97,20 +123,42 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 					"Subpartition %s of is being (or already has been) consumed, " +
 							"but pipelined subpartitions can only be consumed once.", index, parent.getPartitionId());
 
-			LOG.debug("{}: Creating read view for subpartition {} of partition {}.",
+			LOG.info("{}: Creating read view for subpartition {} of partition {}.",
 					parent.getOwningTaskName(), index, parent.getPartitionId());
 
 			readView = new RecoverablePipelinedSubpartitionView(this, availabilityListener);
 			notifyDataAvailable = !buffers.isEmpty();
-		}
 
-		statusUpdater.compareAndSet(this, SUBPARTITION_UNAVAILABLE, SUBPARTITION_AVAILABLE);
+			// reset status
+			if (statusUpdater.compareAndSet(this, SUBPARTITION_UNAVAILABLE, SUBPARTITION_AVAILABLE)) {
+				LOG.info("{}: Status updated to available.", this);
+			}
+		}
 
 		if (notifyDataAvailable) {
 			notifyDataAvailable();
 		}
 
 		return (RecoverablePipelinedSubpartitionView) readView;
+	}
+
+	@Override
+	public String toString() {
+		final long numBuffers;
+		final long numBytes;
+		final boolean finished;
+		final boolean hasReadView;
+
+		synchronized (buffers) {
+			numBuffers = getTotalNumberOfBuffers();
+			numBytes = getTotalNumberOfBytes();
+			finished = isFinished;
+			hasReadView = readView != null;
+		}
+
+		return String.format(
+				"RecoverablePipelinedSubpartition#%d [number of buffers: %d (%d bytes), number of buffers in backlog: %d, finished? %s, read view? %s]",
+				index, numBuffers, numBytes, getBuffersInBacklog(), finished, hasReadView);
 	}
 
 	@VisibleForTesting

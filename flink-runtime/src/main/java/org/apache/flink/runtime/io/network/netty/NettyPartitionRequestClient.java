@@ -123,6 +123,8 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 								String.format("Sending the partition request to '%s' failed.", remoteAddr),
 								future.channel().localAddress(), future.cause()
 							));
+				} else {
+					LOG.info("Successfully request subpartition {} of partition {}.", subpartitionIndex, partitionId);
 				}
 			}
 		};

@@ -48,7 +48,7 @@ public class RemoteChannelStateChecker {
 		Either<ExecutionState, Throwable> result = responseHandle.getProducerExecutionState();
 		ExecutionState consumerExecutionState = responseHandle.getConsumerExecutionState();
 		if (!isConsumerStateValidForConsumption(consumerExecutionState)) {
-			LOG.debug(
+			LOG.info(
 				"Ignore a partition producer state notification for task {}, because it's not running.",
 				taskNameWithSubtask);
 		}
@@ -89,7 +89,7 @@ public class RemoteChannelStateChecker {
 			// don't need to re-trigger the request since it cannot
 			// succeed.
 			if (LOG.isDebugEnabled()) {
-				LOG.debug("Cancelling task {} after the producer of partition {} with attempt ID {} has entered state {}.",
+				LOG.info("Cancelling task {} after the producer of partition {} with attempt ID {} has entered state {}.",
 					taskNameWithSubtask,
 					resultPartitionId.getPartitionId(),
 					resultPartitionId.getProducerId(),

@@ -77,6 +77,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final boolean isRecoverable;
 
+	private final int maxDelayMinutes;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -91,6 +93,7 @@ public class NettyShuffleEnvironmentConfiguration {
 			String[] tempDirs,
 			BoundedBlockingSubpartitionType blockingSubpartitionType,
 			boolean forcePartitionReleaseOnConsumption,
+			int maxDelayMinutes,
 			boolean isRecoverable) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
@@ -106,6 +109,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.tempDirs = Preconditions.checkNotNull(tempDirs);
 		this.blockingSubpartitionType = Preconditions.checkNotNull(blockingSubpartitionType);
 		this.forcePartitionReleaseOnConsumption = forcePartitionReleaseOnConsumption;
+
+		this.maxDelayMinutes = maxDelayMinutes;
 		this.isRecoverable = isRecoverable;
 	}
 
@@ -167,6 +172,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return isRecoverable;
 	}
 
+	public int getMaxDelayMinutes() {
+		return maxDelayMinutes;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -213,6 +222,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean forcePartitionReleaseOnConsumption =
 			configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RELEASE_ON_CONSUMPTION);
 
+		int maxDelayMinutes = configuration.getInteger(NettyShuffleEnvironmentOptions.MAX_DELAY_MINUTES);
+
 		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
 
 		return new NettyShuffleEnvironmentConfiguration(
@@ -229,6 +240,7 @@ public class NettyShuffleEnvironmentConfiguration {
 			tempDirs,
 			blockingSubpartitionType,
 			forcePartitionReleaseOnConsumption,
+			maxDelayMinutes,
 			isRecoverable);
 	}
 

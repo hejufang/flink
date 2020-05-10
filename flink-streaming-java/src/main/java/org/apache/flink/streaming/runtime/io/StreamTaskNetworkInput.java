@@ -35,6 +35,9 @@ import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -48,6 +51,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @Internal
 public final class StreamTaskNetworkInput implements StreamTaskInput {
+	private static final Logger LOG = LoggerFactory.getLogger(StreamTaskNetworkInput.class);
 
 	private final CheckpointedInputGate checkpointedInputGate;
 
@@ -128,6 +132,7 @@ public final class StreamTaskNetworkInput implements StreamTaskInput {
 			final AbstractEvent event = bufferOrEvent.getEvent();
 			// TODO: with checkpointedInputGate.isFinished() we might not need to support any events on this level.
 			if (event.getClass() == UnavailableChannelEvent.class) {
+				LOG.info("Receive UnavailableChannelEvent, clean channel {}.", bufferOrEvent.getChannelIndex());
 				cleanChannel(bufferOrEvent.getChannelIndex());
 			} else if (event.getClass() != EndOfPartitionEvent.class) {
 				throw new IOException("Unexpected event: " + event);

@@ -31,6 +31,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
@@ -52,6 +54,9 @@ public abstract class InputChannel {
 
 	private static final AtomicReferenceFieldUpdater<InputChannel, Integer> CHANNEL_AVAILABLE_UPDATER =
 			AtomicReferenceFieldUpdater.newUpdater(InputChannel.class, Integer.class, "channelStatus");
+
+	private static final AtomicReferenceFieldUpdater<InputChannel, Boolean> READY_TO_UPDATE_UPDATER =
+			AtomicReferenceFieldUpdater.newUpdater(InputChannel.class, Boolean.class, "readyToUpdate");
 
 	private static final int CHANNEL_AVAILABLE = 1;
 	private static final int CHANNEL_UNAVAILABLE = 2;
@@ -83,19 +88,13 @@ public abstract class InputChannel {
 	/** The current backoff (in ms). */
 	private int currentBackoff;
 
+	protected final ScheduledExecutorService executor;
+
+	private int maxDelayMinutes;
+
 	// channel status
 	private volatile Integer channelStatus = CHANNEL_AVAILABLE;
-
-	protected InputChannel(
-			SingleInputGate inputGate,
-			int channelIndex,
-			ResultPartitionID partitionId,
-			int initialBackoff,
-			int maxBackoff,
-			Counter numBytesIn,
-			Counter numBuffersIn) {
-		this(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, numBytesIn, numBuffersIn, false);
-	}
+	private volatile Boolean readyToUpdate = false;
 
 	protected InputChannel(
 			SingleInputGate inputGate,
@@ -105,6 +104,8 @@ public abstract class InputChannel {
 			int maxBackoff,
 			Counter numBytesIn,
 			Counter numBuffersIn,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
 			boolean isRecoverable) {
 
 		checkArgument(channelIndex >= 0);
@@ -125,7 +126,9 @@ public abstract class InputChannel {
 		this.numBytesIn = numBytesIn;
 		this.numBuffersIn = numBuffersIn;
 
+		this.executor = executor;
 		this.isRecoverable = isRecoverable;
+		this.maxDelayMinutes = maxDelayMinutes;
 	}
 
 	// ------------------------------------------------------------------------
@@ -290,21 +293,31 @@ public abstract class InputChannel {
 	// Channel availability related method
 	// ------------------------------------------------------------------------
 
+	public boolean isReadyToUpdate() {
+		return readyToUpdate;
+	}
+
+	public void setReadyToUpdate() {
+		if (READY_TO_UPDATE_UPDATER.compareAndSet(this, false, true)) {
+			LOG.info("{} : This is channel is ready to be updated.", this);
+		}
+	}
+
 	public boolean isChannelAvailable() {
 		return channelStatus == CHANNEL_AVAILABLE;
 	}
 
-	// this should not be called because we create a new channel instead of reset this
-	public void setChannelAvailable() {
-		if (CHANNEL_AVAILABLE_UPDATER.compareAndSet(this, CHANNEL_UNAVAILABLE, CHANNEL_AVAILABLE)) {
-			LOG.info("Channel {} becomes available.", channelIndex);
-		}
-	}
-
-	public void setChannelUnavailable() {
+	public void setChannelUnavailable(Throwable cause) {
+		LOG.warn("Channel " + this + " get exception", cause);
 		if (CHANNEL_AVAILABLE_UPDATER.compareAndSet(this, CHANNEL_AVAILABLE, CHANNEL_UNAVAILABLE)) {
 			LOG.info("Channel {} becomes unavailable.", channelIndex);
 		}
+
+		executor.schedule(() -> {
+			if (!isReleased() && isReadyToUpdate()) {
+				this.setError(cause);
+			}
+		}, maxDelayMinutes, TimeUnit.MINUTES);
 	}
 
 	// ------------------------------------------------------------------------

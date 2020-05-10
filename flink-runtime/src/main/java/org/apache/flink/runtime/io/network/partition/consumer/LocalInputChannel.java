@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -64,19 +65,6 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
 	private volatile boolean isReleased;
 
-	@Deprecated
-	public LocalInputChannel(
-		SingleInputGate inputGate,
-		int channelIndex,
-		ResultPartitionID partitionId,
-		ResultPartitionManager partitionManager,
-		TaskEventPublisher taskEventPublisher,
-		InputChannelMetrics metrics) {
-
-		this(inputGate, channelIndex, partitionId, partitionManager, taskEventPublisher,
-			0, 0, metrics, false);
-	}
-
 	public LocalInputChannel(
 		SingleInputGate inputGate,
 		int channelIndex,
@@ -86,10 +74,12 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 		int initialBackoff,
 		int maxBackoff,
 		InputChannelMetrics metrics,
+		int maxDelayMinutes,
+		ScheduledExecutorService executor,
 		boolean isRecoverable) {
 
 		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, metrics.getNumBytesInLocalCounter(),
-				metrics.getNumBuffersInLocalCounter(), isRecoverable);
+				metrics.getNumBuffersInLocalCounter(), maxDelayMinutes, executor, isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -129,7 +119,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 						this.subpartitionView = null;
 					}
 
-					LOG.debug("{}: Request subpartition {} successfully.", this, subpartitionIndex);
+					LOG.info("{}: Request subpartition {} successfully.", this, subpartitionIndex);
 				} catch (PartitionNotFoundException notFound) {
 					if (increaseBackoff()) {
 						retriggerRequest = true;
@@ -197,9 +187,11 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 				if (!isRecoverable) {
 					throw new CancelTaskException("Consumed partition " + subpartitionView + " has been released.");
 				} else {
-					// make this channel unavailable
-					setChannelUnavailable();
+					LOG.info("{} Send UnavailableChannelEvent", this);
 
+					setChannelUnavailable(null);
+					setReadyToUpdate();
+					inputGate.tryUpdateInputChannelFromChannelProviderCache(this);
 					return Optional.of(new BufferAndAvailability(EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE),
 							false, 0));
 				}
@@ -215,6 +207,12 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
 	@Override
 	public void notifyDataAvailable() {
+		notifyChannelNonEmpty();
+	}
+
+	@Override
+	public void notifyDataUnavailable() {
+		// let inputGate call getNextBuffer
 		notifyChannelNonEmpty();
 	}
 

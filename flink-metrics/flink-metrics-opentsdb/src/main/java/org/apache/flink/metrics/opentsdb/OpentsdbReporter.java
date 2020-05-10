@@ -77,6 +77,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final String NUMBER_OF_CHECKPOINTS_METRIC = "totalNumberOfCheckpoints";
 	private static final String NUMBER_OF_SPECULATION = "numberOfSpeculation";
 	private static final String NUMBER_OF_SUCCESSFUL_SPECULATION = "numberOfSuccessfulSpeculation";
+	private static final String NUMBER_OF_RECOVERABLE_JOBS = "numberOfRecoverableJobs";
+	private static final String NUMBER_OF_RECOVERABLE_TASKS = "numberOfTaskRecoveries";
+	private static final String NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES = "numberOfGlobalFailures";
 
 	// 全局 metric
 	private final Set<String> globalNeededMetrics = new HashSet<>(Arrays.asList(
@@ -85,8 +88,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			FAILED_CHECKPOINTS_METRIC,
 			NUMBER_OF_CHECKPOINTS_METRIC,
 			NUMBER_OF_SPECULATION,
-			NUMBER_OF_SUCCESSFUL_SPECULATION
-	));
+			NUMBER_OF_SUCCESSFUL_SPECULATION,
+			NUMBER_OF_RECOVERABLE_JOBS,
+			NUMBER_OF_RECOVERABLE_TASKS,
+			NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES));
 
 	// dashboard metric
 	private final Set<String> neededMetrics = new HashSet<>(Arrays.asList(
@@ -147,7 +152,11 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			// slow containers
 			"releasedSlowContainers",
 			"slowContainers",
-			"containerStartDurationMaxMs"
+			"containerStartDurationMaxMs",
+			// recoverable individual failover
+			"numberOfTaskRecoveries",
+			"numberOfGlobalFailures",
+			"numberOfRecoverableJobs"
 	));
 
 	private Map<String, String> globalMetricNames = new HashMap<>();

@@ -155,6 +155,7 @@ public class StreamNetworkBenchmarkEnvironment<T extends IOReadableWritable> {
 			receiverEnv.getResultPartitionManager(),
 			new TaskEventDispatcher(),
 			receiverEnv.getNetworkBufferPool(),
+			5,
 			false);
 
 		generatePartitionIds();

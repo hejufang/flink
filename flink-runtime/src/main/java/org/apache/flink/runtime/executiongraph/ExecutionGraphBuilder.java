@@ -72,6 +72,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -163,6 +164,9 @@ public class ExecutionGraphBuilder {
 		final boolean scheduleTaskFairly =
 				jobManagerConfig.getBoolean(JobManagerOptions.SCHEDULE_TASK_FAIRLY);
 
+		final boolean isRecoverable =
+				jobManagerConfig.getBoolean(FORCE_PARTITION_RECOVERABLE);
+
 		final PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory =
 			PartitionReleaseStrategyFactoryLoader.loadPartitionReleaseStrategyFactory(jobManagerConfig);
 
@@ -191,7 +195,8 @@ public class ExecutionGraphBuilder {
 					partitionTracker,
 					jobGraph.getScheduleMode(),
 					jobGraph.getAllowQueuedScheduling(),
-					scheduleTaskFairly);
+					scheduleTaskFairly,
+					isRecoverable);
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}

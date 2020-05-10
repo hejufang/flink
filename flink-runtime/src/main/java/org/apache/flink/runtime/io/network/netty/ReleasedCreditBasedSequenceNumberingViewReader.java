@@ -16,18 +16,20 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition;
+package org.apache.flink.runtime.io.network.netty;
 
 /**
- * Listener interface implemented by consumers of {@link ResultSubpartitionView}
- * that want to be notified of availability of further buffers.
+ * Message used in {@link PartitionRequestQueue} to notify the reader is released.
  */
-public interface BufferAvailabilityListener {
+public class ReleasedCreditBasedSequenceNumberingViewReader {
 
-	/**
-	 * Called whenever there might be new data available.
-	 */
-	void notifyDataAvailable();
+	private final CreditBasedSequenceNumberingViewReader reader;
 
-	default void notifyDataUnavailable() {}
+	public ReleasedCreditBasedSequenceNumberingViewReader(CreditBasedSequenceNumberingViewReader reader) {
+		this.reader = reader;
+	}
+
+	public CreditBasedSequenceNumberingViewReader getReader() {
+		return reader;
+	}
 }

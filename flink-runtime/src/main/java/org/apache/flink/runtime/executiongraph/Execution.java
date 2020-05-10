@@ -130,8 +130,6 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 	private static final int NUM_CANCEL_CALL_TRIES = 3;
 
-	private static final int NUM_STOP_CALL_TRIES = 3;
-
 	// --------------------------------------------------------------------------------------------
 
 	/** The executor which is used to execute futures. */
@@ -712,6 +710,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	 * @throws JobException if the execution cannot be deployed to the assigned resource
 	 */
 	public void deploy() throws JobException {
+		deploy(false);
+	}
+
+	public void deploy(boolean updateConsumers) throws JobException {
 		assertRunningInJobMasterMainThread();
 
 		final LogicalSlot slot  = assignedResource;
@@ -798,6 +800,24 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 										+ ") not responding after a rpcTimeout of " + rpcTimeout, failure));
 							} else {
 								markFailed(failure);
+							}
+						} else {
+							if (updateConsumers) {
+								for (List<ExecutionEdge> edges : getVertex().getAllConsumers()) {
+									for (ExecutionEdge edge : edges) {
+										final ExecutionVertex consumerVertex = edge.getTarget();
+										final Execution consumer = consumerVertex.getMainExecution();
+										final ExecutionState consumerState = consumer.getState();
+
+										final PartitionInfo partitionInfo = createPartitionInfo(edge);
+
+										if (consumerState == RUNNING) {
+											consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
+										} else {
+											consumerVertex.cachePartitionInfo(partitionInfo);
+										}
+									}
+								}
 							}
 						}
 					},

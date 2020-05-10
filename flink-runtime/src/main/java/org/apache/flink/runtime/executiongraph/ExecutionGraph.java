@@ -336,6 +336,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** Schedule task to slot fairly. */
 	private final boolean scheduleTaskFairly;
 
+	private final boolean isRecoverable;
+
 	private FailoverTopology failoverTopology;
 
 	// --------------------------------------------------------------------------------------------
@@ -532,6 +534,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			partitionTracker,
 			scheduleMode,
 			allowQueuedScheduling,
+			false,
 			false);
 	}
 
@@ -553,7 +556,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			PartitionTracker partitionTracker,
 			ScheduleMode scheduleMode,
 			boolean allowQueuedScheduling,
-			boolean scheduleTaskFairly) throws IOException {
+			boolean scheduleTaskFairly,
+			boolean isRecoverable) throws IOException {
 
 		checkNotNull(futureExecutor);
 
@@ -621,6 +625,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			partitionTracker);
 
 		this.scheduleTaskFairly = scheduleTaskFairly;
+		this.isRecoverable = isRecoverable;
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
@@ -656,6 +661,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public boolean isScheduleTaskFairly() {
 		return scheduleTaskFairly;
+	}
+
+	public boolean isRecoverable() {
+		return isRecoverable;
 	}
 
 	@Nonnull

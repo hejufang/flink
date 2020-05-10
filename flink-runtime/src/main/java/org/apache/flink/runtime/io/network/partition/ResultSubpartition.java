@@ -59,6 +59,12 @@ public abstract class ResultSubpartition {
 		return true;
 	}
 
+	public boolean needToCleanBufferBuilder() {
+		return false;
+	}
+
+	public void markBufferBuilderCleaned() {}
+
 	/**
 	 * Notifies the parent partition about a consumed {@link ResultSubpartitionView}.
 	 */

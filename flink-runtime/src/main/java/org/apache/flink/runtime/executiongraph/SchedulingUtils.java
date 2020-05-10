@@ -101,6 +101,25 @@ public class SchedulingUtils {
 		return FutureUtils.waitForAll(schedulingFutures);
 	}
 
+	public static void scheduleRecoverableExecution(
+			Execution execution,
+			ExecutionGraph executionGraph) {
+
+		executionGraph.assertRunningInJobMasterMainThread();
+
+		final CompletableFuture<Execution> allocateFuture = execution.allocateResourcesForExecution(
+				executionGraph.getSlotProviderStrategy(), LocationPreferenceConstraint.ALL, Collections.emptySet());
+		allocateFuture.thenAccept(executionToDeploy -> {
+			try {
+				executionToDeploy.deploy(true);
+			} catch (Throwable t) {
+				// fall back to fail global
+				throw new CompletionException(new FlinkException(
+						String.format("Could not deploy execution %s.", executionToDeploy), t));
+			}
+		});
+	}
+
 	/**
 	 * Schedule vertices eagerly. That means all vertices will be scheduled at once.
 	 *

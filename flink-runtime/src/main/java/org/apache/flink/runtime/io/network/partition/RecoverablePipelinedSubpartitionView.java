@@ -23,8 +23,32 @@ package org.apache.flink.runtime.io.network.partition;
  */
 public class RecoverablePipelinedSubpartitionView extends PipelinedSubpartitionView {
 
+	private volatile boolean channelShutDown = false;
+
 	RecoverablePipelinedSubpartitionView(PipelinedSubpartition parent, BufferAvailabilityListener listener) {
 		super(parent, listener);
+	}
+
+	/**
+	 * Only called from netty server side.
+	 */
+	@Override
+	public void notifySubpartitionConsumed() {
+		channelShutDown = true;
+		releaseAllResources();
+	}
+
+	@Override
+	public void releaseAllResources() {
+		if (isReleased.compareAndSet(false, true)) {
+			// The view doesn't hold any resources and the parent cannot be restarted. Therefore,
+			// it's OK to notify about consumption as well.
+			parent.onConsumedSubpartition();
+		}
+
+		if (!channelShutDown) {
+			availabilityListener.notifyDataUnavailable();
+		}
 	}
 
 	@Override

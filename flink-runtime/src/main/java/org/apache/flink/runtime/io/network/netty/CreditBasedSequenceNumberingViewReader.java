@@ -208,6 +208,11 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	}
 
 	@Override
+	public void notifyDataUnavailable() {
+		requestQueue.notifyReaderReleased(new ReleasedCreditBasedSequenceNumberingViewReader(this));
+	}
+
+	@Override
 	public String toString() {
 		return "CreditBasedSequenceNumberingViewReader{" +
 			"requestLock=" + requestLock +

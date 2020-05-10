@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -173,6 +174,9 @@ public class SingleInputGate extends InputGate {
 	@Nullable
 	private final ChannelProvider channelProvider;
 
+	@Nullable
+	private final ScheduledExecutorService executor;
+
 	public SingleInputGate(
 		String owningTaskName,
 		IntermediateDataSetID consumedResultId,
@@ -183,7 +187,7 @@ public class SingleInputGate extends InputGate {
 		boolean isCreditBased,
 		SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
 		this(owningTaskName, consumedResultId, consumedPartitionType, consumedSubpartitionIndex, numberOfInputChannels,
-				partitionProducerStateProvider, isCreditBased, bufferPoolFactory, null);
+				partitionProducerStateProvider, isCreditBased, bufferPoolFactory, null, null);
 	}
 
 	public SingleInputGate(
@@ -195,7 +199,8 @@ public class SingleInputGate extends InputGate {
 			PartitionProducerStateProvider partitionProducerStateProvider,
 			boolean isCreditBased,
 			SupplierWithException<BufferPool, IOException> bufferPoolFactory,
-			@Nullable ChannelProvider channelProvider) {
+			@Nullable ChannelProvider channelProvider,
+			@Nullable ScheduledExecutorService executor) {
 
 		this.owningTaskName = checkNotNull(owningTaskName);
 
@@ -220,6 +225,7 @@ public class SingleInputGate extends InputGate {
 		this.closeFuture = new CompletableFuture<>();
 
 		this.channelProvider = channelProvider;
+		this.executor = executor;
 	}
 
 	@Override
@@ -378,7 +384,7 @@ public class SingleInputGate extends InputGate {
 					}
 					newChannel = remoteInputChannel;
 				}
-				LOG.debug("{}: Updated unknown input channel to {}.", owningTaskName, newChannel);
+				LOG.info("{}: Updated unknown input channel to {}.", owningTaskName, newChannel);
 
 				inputChannels.put(partitionId, newChannel);
 
@@ -393,27 +399,68 @@ public class SingleInputGate extends InputGate {
 				if (--numberOfUninitializedChannels == 0) {
 					pendingEvents.clear();
 				}
-			} else if (channelProvider != null && !current.isChannelAvailable()) {
+			} else if (channelProvider != null && !current.isChannelAvailable() && current.isReadyToUpdate()) {
 				// create a new channel if it's not available
 				boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
 				InputChannel newChannel;
 				if (isLocal) {
-					newChannel = channelProvider.transformToLocalInputChannel(this, current);
+					newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
 				} else {
 					RemoteInputChannel remoteInputChannel = channelProvider.transformToRemoteInputChannel(
-							this, current, shuffleDescriptor.getConnectionId());
+							this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
 					if (isCreditBased) {
 						remoteInputChannel.assignExclusiveSegments();
 					}
 					newChannel = remoteInputChannel;
 				}
 
-				LOG.debug("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
+				LOG.info("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
 
 				inputChannels.put(partitionId, newChannel);
 				newChannel.requestSubpartition(consumedSubpartitionIndex);
 
 				// ignore pending events because upstream tasks have already been reinitialized
+			} else {
+				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
+				if (channelProvider != null) {
+					channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
+				}
+			}
+		}
+	}
+
+	public void tryUpdateInputChannelFromChannelProviderCache(InputChannel current) throws IOException, InterruptedException {
+		synchronized (requestLock) {
+			checkState(current.isReadyToUpdate());
+			if (channelProvider != null) {
+				final ChannelProvider.PartitionInfo partitionInfo = channelProvider.getPartitionInfoAndRemove(current.channelIndex);
+				if (partitionInfo == null) {
+					LOG.info("Unable to find PartitionInfo from cache. (index={})", current.channelIndex);
+					return;
+				}
+
+				LOG.info("Find PartitionInfo from cache. (index={}, timestamp={})", current.channelIndex, partitionInfo.timestamp);
+
+				final NettyShuffleDescriptor shuffleDescriptor = partitionInfo.shuffleDescriptor;
+				final ResourceID resourceID = partitionInfo.localLocation;
+				// create a new channel if it's not available
+				boolean isLocal = shuffleDescriptor.isLocalTo(resourceID);
+				InputChannel newChannel;
+				if (isLocal) {
+					newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
+				} else {
+					RemoteInputChannel remoteInputChannel = channelProvider.transformToRemoteInputChannel(
+							this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
+					if (isCreditBased) {
+						remoteInputChannel.assignExclusiveSegments();
+					}
+					newChannel = remoteInputChannel;
+				}
+
+				LOG.info("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
+
+				inputChannels.put(shuffleDescriptor.getResultPartitionID().getPartitionId(), newChannel);
+				newChannel.requestSubpartition(consumedSubpartitionIndex);
 			}
 		}
 	}
@@ -428,7 +475,7 @@ public class SingleInputGate extends InputGate {
 
 				checkNotNull(ch, "Unknown input channel with ID " + partitionId);
 
-				LOG.debug("{}: Retriggering partition request {}:{}.", owningTaskName, ch.partitionId, consumedSubpartitionIndex);
+				LOG.info("{}: Retriggering partition request {}:{}.", owningTaskName, ch.partitionId, consumedSubpartitionIndex);
 
 				if (ch.getClass() == RemoteInputChannel.class) {
 					final RemoteInputChannel rch = (RemoteInputChannel) ch;
@@ -495,6 +542,10 @@ public class SingleInputGate extends InputGate {
 			synchronized (inputChannelsWithData) {
 				inputChannelsWithData.notifyAll();
 			}
+		}
+
+		if (executor != null) {
+			executor.shutdown();
 		}
 	}
 

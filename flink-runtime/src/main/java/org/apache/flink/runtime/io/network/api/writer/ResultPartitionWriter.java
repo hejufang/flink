@@ -79,6 +79,12 @@ public interface ResultPartitionWriter extends AutoCloseable {
 		return true;
 	}
 
+	default boolean needToCleanBufferBuilder(int subpartitionIndex) {
+		return false;
+	}
+
+	default void markBufferBuilderCleaned(int subpartitionIndex) {}
+
 	/**
 	 * Fail the production of the partition.
 	 *

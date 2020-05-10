@@ -32,6 +32,7 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -53,7 +54,8 @@ public class TestInputChannel extends InputChannel {
 	private boolean isReleased = false;
 
 	TestInputChannel(SingleInputGate inputGate, int channelIndex) {
-		super(inputGate, channelIndex, new ResultPartitionID(), 0, 0, new SimpleCounter(), new SimpleCounter());
+		super(inputGate, channelIndex, new ResultPartitionID(), 0, 0, new SimpleCounter(),
+				new SimpleCounter(), 5, Executors.newSingleThreadScheduledExecutor(), false);
 	}
 
 	public TestInputChannel read(Buffer buffer) throws IOException, InterruptedException {

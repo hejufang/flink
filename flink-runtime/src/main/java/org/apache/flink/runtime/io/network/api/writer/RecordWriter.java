@@ -151,6 +151,18 @@ public class RecordWriter<T extends IOReadableWritable> {
 	}
 
 	private void emit(T record, int targetChannel) throws IOException, InterruptedException {
+		// check whether need to clean the buffer builder
+		if (targetPartition.needToCleanBufferBuilder(targetChannel)) {
+
+			// clean bufferbuilders
+			if (bufferBuilders[targetChannel].isPresent()) {
+				bufferBuilders[targetChannel].get().finish();
+				bufferBuilders[targetChannel] = Optional.empty();
+			}
+			targetPartition.markBufferBuilderCleaned(targetChannel);
+		}
+
+		// check whether to drop records
 		if (!targetPartition.isSubpartitionAvailable(targetChannel)) {
 			// abandon records if the targetChannel is not available
 			numRecordsDropped.inc();

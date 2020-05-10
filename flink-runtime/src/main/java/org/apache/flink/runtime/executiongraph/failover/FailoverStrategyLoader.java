@@ -27,6 +27,8 @@ import org.slf4j.Logger;
 
 import javax.annotation.Nullable;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
+
 /**
  * A utility class to load failover strategies from the configuration.
  */
@@ -71,6 +73,8 @@ public class FailoverStrategyLoader {
 			}
 
 			return new RestartAllStrategy.Factory();
+		} else if (config.getBoolean(FORCE_PARTITION_RECOVERABLE)) {
+			return new RecoverableTaskIndividualStrategy.Factory();
 		}
 		else {
 			switch (strategyParam.toLowerCase()) {

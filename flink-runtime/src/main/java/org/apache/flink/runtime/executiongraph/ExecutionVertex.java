@@ -792,6 +792,17 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		}
 	}
 
+	List<List<ExecutionEdge>> getAllConsumers() {
+		final List<List<ExecutionEdge>> result = new ArrayList<>();
+		for (IntermediateResultPartition partition : resultPartitions.values()) {
+			if (partition.getIntermediateResult().getResultType().isPipelined()) {
+				result.add(partition.getConsumers().get(0));
+			}
+		}
+
+		return result;
+	}
+
 	/**
 	 * Schedules or updates the consumer tasks of the result partition with the given ID.
 	 */

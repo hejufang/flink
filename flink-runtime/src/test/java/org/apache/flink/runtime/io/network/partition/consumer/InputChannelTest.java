@@ -26,6 +26,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.Executors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -124,7 +125,8 @@ public class InputChannelTest {
 			int initialBackoff,
 			int maxBackoff) {
 
-			super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, new SimpleCounter(), new SimpleCounter());
+			super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, new SimpleCounter(),
+					new SimpleCounter(), 5, Executors.newSingleThreadScheduledExecutor(), false);
 		}
 
 		@Override

@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -58,6 +59,8 @@ class UnknownInputChannel extends InputChannel {
 
 	private final boolean isRecoverable;
 
+	private int maxDelayMinutes;
+
 	public UnknownInputChannel(
 			SingleInputGate gate,
 			int channelIndex,
@@ -69,9 +72,11 @@ class UnknownInputChannel extends InputChannel {
 			int maxBackoff,
 			InputChannelMetrics metrics,
 			@Nonnull MemorySegmentProvider memorySegmentProvider,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
 			boolean isRecoverable) {
 
-		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null);
+		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null, maxDelayMinutes, executor, isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -81,6 +86,7 @@ class UnknownInputChannel extends InputChannel {
 		this.maxBackoff = maxBackoff;
 		this.memorySegmentProvider = memorySegmentProvider;
 		this.isRecoverable = isRecoverable;
+		this.maxDelayMinutes = maxDelayMinutes;
 	}
 
 	@Override
@@ -131,11 +137,11 @@ class UnknownInputChannel extends InputChannel {
 
 	public RemoteInputChannel toRemoteInputChannel(ConnectionID producerAddress) {
 		return new RemoteInputChannel(inputGate, channelIndex, partitionId, checkNotNull(producerAddress),
-			connectionManager, initialBackoff, maxBackoff, metrics, memorySegmentProvider, isRecoverable);
+			connectionManager, initialBackoff, maxBackoff, metrics, memorySegmentProvider, maxDelayMinutes, executor, isRecoverable);
 	}
 
 	public LocalInputChannel toLocalInputChannel() {
 		return new LocalInputChannel(inputGate, channelIndex, partitionId, partitionManager, taskEventPublisher,
-				initialBackoff, maxBackoff, metrics, isRecoverable);
+				initialBackoff, maxBackoff, metrics, maxDelayMinutes, executor, isRecoverable);
 	}
 }

@@ -150,11 +150,20 @@ class PipelinedSubpartition extends ResultSubpartition {
 
 			// Make sure that no further buffers are added to the subpartition
 			isReleased = true;
+
+			resetStatistics();
 		}
 
 		if (view != null) {
 			view.releaseAllResources();
 		}
+	}
+
+	protected void resetStatistics() {
+		assert Thread.holdsLock(buffers);
+
+		buffersInBacklog = 0;
+		flushRequested = false;
 	}
 
 	@Nullable
