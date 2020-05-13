@@ -564,10 +564,12 @@ public class StateAssignmentOperation {
 				if (allowNonRestoredState) {
 					LOG.info("Skipped checkpoint state for operator {}.", operatorState.getOperatorID());
 				} else {
-					throw new IllegalStateException("There is no operator for the state " + operatorState.getOperatorID() +
+					final String message = "There is no operator for the state " + operatorState.getOperatorID() +
 							". If you see this, usually it means that the job's topology is changed. And " +
 							" the state in previous checkpoint cannot be used in current job !!! \n" +
-							" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.");
+							" You need to revert your changes or change state.checkpoints.namespace to start a new checkpoint.";
+					LOG.error(message);
+					throw new IllegalStateException(message);
 				}
 			}
 		}
