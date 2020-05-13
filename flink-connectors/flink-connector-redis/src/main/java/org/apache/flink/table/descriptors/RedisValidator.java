@@ -29,6 +29,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_PSM = "connector.psm";
 	public static final String CONNECTOR_STORAGE = "connector.storage";
 	public static final String CONNECTOR_MODE = "connector.mode";
+	public static final String CONNECTOR_DATA_TYPE = "connector.redis-data-type";
 	public static final String CONNECTOR_GET_RESOURCE_MAX_RETRIES = "connector.get-resource-max-retries";
 	public static final String CONNECTOR_FLUSH_MAX_RETRIES = "connector.flush-max-retries";
 	public static final String CONNECTOR_BATCH_SIZE = "connector.batch-size";

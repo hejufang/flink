@@ -38,7 +38,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance</groupId>
 			<artifactId>java-redis-client</artifactId>
-			<version>2.1.9-SNAPSHOT</version>
+			<version>2.2.2-SNAPSHOT</version>
 			<exclusions>
 				<exclusion>
 					<artifactId>logback-classic</artifactId>

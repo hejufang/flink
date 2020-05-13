@@ -21,6 +21,8 @@ import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.connectors.util.RedisDataType;
+import org.apache.flink.connectors.util.RedisMode;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FormatDescriptorValidator;
@@ -31,17 +33,27 @@ import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.connectors.util.Constant.INCR_MODE;
+import static org.apache.flink.connectors.util.Constant.INSERT_MODE;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_HASH;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_LIST;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_SET;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
+import static org.apache.flink.table.descriptors.RedisValidator.ABASE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BATCH_SIZE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_CLUSTER;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_DATA_TYPE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FLUSH_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FORCE_CONNECTION_SETTINGS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_GET_RESOURCE_MAX_RETRIES;
@@ -86,6 +98,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_PSM);
 		properties.add(CONNECTOR_STORAGE);
 		properties.add(CONNECTOR_MODE);
+		properties.add(CONNECTOR_DATA_TYPE);
 		properties.add(CONNECTOR_GET_RESOURCE_MAX_RETRIES);
 		properties.add(CONNECTOR_FLUSH_MAX_RETRIES);
 		properties.add(CONNECTOR_BATCH_SIZE);
@@ -181,8 +194,12 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		RedisOptions.RedisOptionsBuilder builder =
 				RedisOptions.builder();
 
+		RedisMode mode = getRedisMode(descriptorProperties);
+		builder.setMode(mode);
+		RedisDataType redisDataType = getRedisDataType(descriptorProperties);
+		builder.setRedisDataType(redisDataType);
+
 		descriptorProperties.getOptionalString(CONNECTOR_CLUSTER).ifPresent(builder::setCluster);
-		descriptorProperties.getOptionalString(CONNECTOR_MODE).ifPresent(builder::setMode);
 		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(CONNECTOR_TYPE).ifPresent(builder::setStorage);
 		descriptorProperties.getOptionalString(CONNECTOR_TABLE).ifPresent(builder::setTable);
@@ -205,7 +222,51 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 				.ifPresent(builder::setLogFailuresOnly);
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
 
+		// TODO: 2020/5/13 Because part of online Abase cluster doesn't support complex data type. So doesn't support now.
+		if (descriptorProperties.getOptionalString(CONNECTOR_TYPE).get().equals(ABASE) &&
+		!redisDataType.getType().equals(REDIS_DATATYPE_STRING)) {
+			throw new FlinkRuntimeException("Abase only support String data type now." +
+				" Please don't configure connector.data-type.");
+		}
+
 		return builder.build();
+	}
+
+	private RedisMode getRedisMode(DescriptorProperties descriptorProperties) {
+		String tmpMode = descriptorProperties.getOptionalString(CONNECTOR_MODE)
+			.orElse(INSERT_MODE);
+		RedisMode mode;
+		if (tmpMode.equalsIgnoreCase(INSERT_MODE)) {
+			mode = RedisMode.INSERT;
+		} else if (tmpMode.equalsIgnoreCase(INCR_MODE)) {
+			mode = RedisMode.INCR;
+		} else {
+			throw new FlinkRuntimeException(String.format("Unsupported mode: %s, " +
+				"currently supported modes: %s, %s", tmpMode, INCR_MODE, INSERT_MODE));
+		}
+		return mode;
+	}
+
+	private RedisDataType getRedisDataType(DescriptorProperties descriptorProperties) {
+		String tmpDataType = descriptorProperties.getOptionalString(CONNECTOR_DATA_TYPE)
+			.orElse(REDIS_DATATYPE_STRING);
+		RedisDataType dataType;
+		if (tmpDataType.equalsIgnoreCase(REDIS_DATATYPE_STRING)) {
+			dataType = RedisDataType.STRING;
+		} else if (tmpDataType.equalsIgnoreCase(REDIS_DATATYPE_HASH)) {
+			dataType = RedisDataType.HASH;
+		} else if (tmpDataType.equalsIgnoreCase(REDIS_DATATYPE_LIST)) {
+			dataType = RedisDataType.LIST;
+		} else if (tmpDataType.equalsIgnoreCase(REDIS_DATATYPE_SET)) {
+			dataType = RedisDataType.SET;
+		} else if (tmpDataType.equalsIgnoreCase(REDIS_DATATYPE_ZSET)) {
+			dataType = RedisDataType.ZSET;
+		} else {
+			throw new FlinkRuntimeException(String.format("Unsupported data type: %s, " +
+				"currently supported type: %s, %s, %s, %s, %s", tmpDataType, REDIS_DATATYPE_STRING,
+				REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
+		}
+		return dataType;
 	}
 
 	private RedisLookupOptions getRedisLookupOptions(DescriptorProperties descriptorProperties) {

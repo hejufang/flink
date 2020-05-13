@@ -21,6 +21,7 @@ package org.apache.flink.connectors.redis;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connectors.util.RedisUtils;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
@@ -42,8 +43,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.connectors.redis.RedisUtils.STORAGE_ABASE;
-import static org.apache.flink.connectors.redis.RedisUtils.STORAGE_REDIS;
+import static org.apache.flink.connectors.util.Constant.STORAGE_ABASE;
+import static org.apache.flink.connectors.util.Constant.STORAGE_REDIS;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 

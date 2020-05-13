@@ -18,11 +18,14 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.connectors.util.RedisDataType;
+import org.apache.flink.connectors.util.RedisMode;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.flink.connectors.redis.RedisUtils.FLUSH_MAX_RETRIES_DEFAULT;
-import static org.apache.flink.connectors.redis.RedisUtils.GET_RESOURCE_MAX_RETRIES_DEFAULT;
+import static org.apache.flink.connectors.util.Constant.FLUSH_MAX_RETRIES_DEFAULT;
+import static org.apache.flink.connectors.util.Constant.GET_RESOURCE_MAX_RETRIES_DEFAULT;
 
 /**
  * redis options.
@@ -42,7 +45,8 @@ public class RedisOptions {
 	private Boolean forceConnectionsSetting;
 	private Integer getResourceMaxRetries;
 	private Integer flushMaxRetries;
-	private String mode;
+	private RedisMode mode;
+	private RedisDataType redisDataType;
 	private Integer batchSize;
 	private Integer ttlSeconds;
 	private int parallelism;
@@ -95,8 +99,12 @@ public class RedisOptions {
 		return flushMaxRetries;
 	}
 
-	public String getMode() {
+	public RedisMode getMode() {
 		return mode;
+	}
+
+	public RedisDataType getRedisDataType() {
+		return redisDataType;
 	}
 
 	public Integer getBatchSize() {
@@ -133,7 +141,8 @@ public class RedisOptions {
 		Boolean forceConnectionsSetting,
 		Integer getResourceMaxRetries,
 		Integer flushMaxRetries,
-		String mode,
+		RedisMode mode,
+		RedisDataType redisDataType,
 		Integer batchSize,
 		Integer ttlSeconds,
 		boolean logFailuresOnly,
@@ -151,6 +160,7 @@ public class RedisOptions {
 		this.getResourceMaxRetries = getResourceMaxRetries;
 		this.flushMaxRetries = flushMaxRetries;
 		this.mode = mode;
+		this.redisDataType = redisDataType;
 		this.batchSize = batchSize;
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
@@ -177,7 +187,8 @@ public class RedisOptions {
 		private Boolean forceConnectionsSetting;
 		private Integer getResourceMaxRetries;
 		private Integer flushMaxRetries;
-		private String mode;
+		private RedisMode mode;
+		private RedisDataType redisDataType;
 		private Integer batchSize;
 		private Integer ttlSeconds;
 		private boolean logFailuresOnly;
@@ -259,8 +270,13 @@ public class RedisOptions {
 			return this;
 		}
 
-		public RedisOptionsBuilder setMode(String mode) {
+		public RedisOptionsBuilder setMode(RedisMode mode) {
 			this.mode = mode;
+			return this;
+		}
+
+		public RedisOptionsBuilder setRedisDataType(RedisDataType redisDataType) {
+			this.redisDataType = redisDataType;
 			return this;
 		}
 
@@ -305,6 +321,7 @@ public class RedisOptions {
 				getResourceMaxRetries,
 				flushMaxRetries,
 				mode,
+				redisDataType,
 				batchSize,
 				ttlSeconds,
 				logFailuresOnly,

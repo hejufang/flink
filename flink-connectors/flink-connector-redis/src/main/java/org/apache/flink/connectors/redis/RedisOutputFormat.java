@@ -21,6 +21,9 @@ import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connectors.util.RedisDataType;
+import org.apache.flink.connectors.util.RedisMode;
+import org.apache.flink.connectors.util.RedisUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -37,19 +40,23 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.flink.connectors.redis.RedisUtils.BATCH_SIZE_DEFAULT;
-import static org.apache.flink.connectors.redis.RedisUtils.FLUSH_MAX_RETRIES_DEFAULT;
-import static org.apache.flink.connectors.redis.RedisUtils.STORAGE_ABASE;
-import static org.apache.flink.connectors.redis.RedisUtils.STORAGE_REDIS;
+import static org.apache.flink.connectors.util.Constant.BATCH_SIZE_DEFAULT;
+import static org.apache.flink.connectors.util.Constant.FLUSH_MAX_RETRIES_DEFAULT;
+import static org.apache.flink.connectors.util.Constant.INCR_MODE;
+import static org.apache.flink.connectors.util.Constant.INSERT_MODE;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_HASH;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_LIST;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_SET;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
+import static org.apache.flink.connectors.util.Constant.STORAGE_ABASE;
+import static org.apache.flink.connectors.util.Constant.STORAGE_REDIS;
 
 /**
  * Redis output format.
  */
 public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisOutputFormat.class);
-
-	public static final String INCR_MODE = "incr";
-	public static final String INSERT_MODE = "insert";
 
 	private transient ArrayDeque<Tuple2<Boolean, Row>> recordDeque;
 	private SpringDbPool springDbPool;
@@ -73,7 +80,8 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private Boolean forceConnectionsSetting;
 	private Integer getResourceMaxRetries;
 	private Integer flushMaxRetries;
-	private String mode;
+	private RedisMode mode;
+	private RedisDataType redisDataType;
 	private int parallelism;
 
 	public int getParallelism() {
@@ -95,10 +103,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 
 		if (flushMaxRetries == null) {
 			flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
-		}
-
-		if (mode == null) {
-			mode = INSERT_MODE;
 		}
 
 		if (batchSize == null) {
@@ -146,91 +150,20 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 				} else {
 					pipeline = jedis.pipelined();
 				}
-				Object key;
-				Object value;
 				Tuple2<Boolean, Row>  tuple2;
-				Row record;
 				ArrayDeque<Tuple2<Boolean, Row>> tempQueue = recordDeque.clone();
 				while ((tuple2 = tempQueue.poll()) != null) {
-					record = tuple2.f1;
-					key = record.getField(0);
-					value = record.getField(1);
-					if (key == null) {
+					Row record = tuple2.f1;
+					if (record.getField(0) == null) {
 						throw new FlinkRuntimeException(
 							String.format("Redis key can't be null. record: %s", record));
 					}
 					if (serializationSchema != null) {
-						byte[] valueBytes = serializationSchema.serialize(record);
-						byte[] keyBytes;
-						if (key instanceof byte[]) {
-							keyBytes = (byte[]) key;
-						} else {
-							keyBytes = key.toString().getBytes();
-						}
-						if (ttlSeconds != null && ttlSeconds > 0) {
-							pipeline.setex(keyBytes, ttlSeconds, valueBytes);
-						} else {
-							pipeline.set(keyBytes, valueBytes);
-						}
-					} else if (INCR_MODE.equalsIgnoreCase(mode)) {
-						if (value == null) {
-							throw new FlinkRuntimeException(
-								String.format("%s : Redis value can't be null. Key: %s " +
-										", Value: %s", INCR_MODE, key, value));
-						}
-						if (key instanceof byte[]) {
-							if (value instanceof Long) {
-								pipeline.incrBy((byte[]) key, (long) value);
-							} else if (value instanceof Integer) {
-								pipeline.incrBy((byte[]) key, ((Integer) value).longValue());
-							} else if (value instanceof Double) {
-								pipeline.incrByFloat((byte[]) key, ((Double) value).floatValue());
-							} else if (value instanceof Float) {
-								pipeline.incrByFloat((byte[]) key, (float) value);
-							} else {
-								throw new RuntimeException("Wrong value type in incr mode, " +
-									"supported types: Long, Integer, Double, Float.");
-							}
-						} else {
-							if (value instanceof Long) {
-								pipeline.incrBy(key.toString(), (long) value);
-							} else if (value instanceof Integer) {
-								pipeline.incrBy(key.toString(), ((Integer) value).longValue());
-							} else if (value instanceof Double) {
-								pipeline.incrByFloat(key.toString(), ((Double) value).floatValue());
-							} else if (value instanceof Float) {
-								pipeline.incrByFloat(key.toString(), (float) value);
-							} else {
-								throw new RuntimeException("Unsupported value type in incr mode, " +
-									"supported types: Long, Integer, Double, Float.");
-							}
-						}
-					} else if (INSERT_MODE.equalsIgnoreCase(mode)) {
-						if (value == null) {
-							if (key instanceof byte[]) {
-								pipeline.del((byte[]) key);
-							} else {
-								pipeline.del(key.toString());
-							}
-							continue;
-						}
-						if (ttlSeconds != null && ttlSeconds > 0) {
-							if (key instanceof byte[] && value instanceof byte[]) {
-								pipeline.setex((byte[]) key, ttlSeconds, (byte[]) value);
-							} else {
-								pipeline.setex(key.toString(), ttlSeconds, value.toString());
-							}
-						} else {
-							if (key instanceof byte[] && value instanceof byte[]) {
-								pipeline.set((byte[]) key, (byte[]) value);
-							} else {
-								pipeline.set(key.toString(), value.toString());
-							}
-
-						}
-					} else {
-						throw new RuntimeException(String.format("Unsupported mode: %s, " +
-							"currently supported modes: %s, %s", mode, INCR_MODE, INSERT_MODE));
+						writeWithSchema(pipeline, record);
+					} else if (INCR_MODE.equalsIgnoreCase(mode.getMode())) {
+						incr(pipeline, record);
+					} else if (INSERT_MODE.equalsIgnoreCase(mode.getMode())) {
+						insert(pipeline, record);
 					}
 				}
 				List resultList = pipeline.syncAndReturnAll();
@@ -268,6 +201,186 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					throw new RuntimeException(e);
 				}
 			}
+		}
+	}
+
+	private void writeWithSchema(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		byte[] valueBytes = serializationSchema.serialize(record);
+		byte[] keyBytes;
+		if (key instanceof byte[]) {
+			keyBytes = (byte[]) key;
+		} else {
+			keyBytes = key.toString().getBytes();
+		}
+		if (ttlSeconds != null && ttlSeconds > 0) {
+			pipeline.setex(keyBytes, ttlSeconds, valueBytes);
+		} else {
+			pipeline.set(keyBytes, valueBytes);
+		}
+	}
+
+	private void incr(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		Object value = record.getField(1);
+		if (value == null) {
+			throw new FlinkRuntimeException(
+				String.format("%s : Redis value can't be null. Key: %s " +
+					", Value: %s", INCR_MODE, key, value));
+		}
+		if (key instanceof byte[]) {
+			if (value instanceof Long) {
+				pipeline.incrBy((byte[]) key, (long) value);
+			} else if (value instanceof Integer) {
+				pipeline.incrBy((byte[]) key, ((Integer) value).longValue());
+			} else if (value instanceof Double) {
+				pipeline.incrByFloat((byte[]) key, ((Double) value).floatValue());
+			} else if (value instanceof Float) {
+				pipeline.incrByFloat((byte[]) key, (float) value);
+			} else {
+				throw new RuntimeException("Wrong value type in incr mode, " +
+					"supported types: Long, Integer, Double, Float.");
+			}
+		} else {
+			if (value instanceof Long) {
+				pipeline.incrBy(key.toString(), (long) value);
+			} else if (value instanceof Integer) {
+				pipeline.incrBy(key.toString(), ((Integer) value).longValue());
+			} else if (value instanceof Double) {
+				pipeline.incrByFloat(key.toString(), ((Double) value).floatValue());
+			} else if (value instanceof Float) {
+				pipeline.incrByFloat(key.toString(), (float) value);
+			} else {
+				throw new RuntimeException("Unsupported value type in incr mode, " +
+					"supported types: Long, Integer, Double, Float.");
+			}
+		}
+	}
+
+	private void insert(Pipeline pipeline, Row record) {
+		switch (redisDataType.getType()) {
+			case REDIS_DATATYPE_STRING:
+				writeString(pipeline, record);
+				break;
+			case REDIS_DATATYPE_HASH:
+				writeHash(pipeline, record);
+				break;
+			case REDIS_DATATYPE_LIST:
+				writeList(pipeline, record);
+				break;
+			case REDIS_DATATYPE_SET:
+				writeSet(pipeline, record);
+				break;
+			case REDIS_DATATYPE_ZSET:
+				writeZSet(pipeline, record);
+				break;
+
+			default:
+				throw new FlinkRuntimeException(String.format("Unsupported data type, " +
+						"currently supported type: %s, %s, %s, %s, %s", REDIS_DATATYPE_STRING,
+					REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
+		}
+	}
+
+	private void writeString(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		Object value = record.getField(1);
+		if (value == null) {
+			deleteKey(pipeline, key);
+			return;
+		}
+		if (ttlSeconds != null && ttlSeconds > 0) {
+			if (key instanceof byte[] && value instanceof byte[]) {
+				pipeline.setex((byte[]) key, ttlSeconds, (byte[]) value);
+			} else {
+				pipeline.setex(key.toString(), ttlSeconds, value.toString());
+			}
+		} else {
+			if (key instanceof byte[] && value instanceof byte[]) {
+				pipeline.set((byte[]) key, (byte[]) value);
+			} else {
+				pipeline.set(key.toString(), value.toString());
+			}
+
+		}
+	}
+
+	private void writeHash(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		Object hashKey = record.getField(1);
+		Object hashValue = record.getField(2);
+		if (key instanceof byte[] && hashKey instanceof byte[] && hashValue instanceof byte[]) {
+			pipeline.hset((byte[]) key, (byte[]) hashKey, (byte[]) hashValue);
+		} else {
+			pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
+		}
+		setExpire(pipeline, key);
+	}
+
+	private void writeList(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		Object value = record.getField(1);
+		if (value == null) {
+			deleteKey(pipeline, key);
+			return;
+		}
+		if (key instanceof byte[] && value instanceof byte[]){
+			pipeline.lpush((byte[]) key, (byte[]) value);
+		} else {
+			pipeline.lpush(key.toString(), value.toString());
+		}
+		setExpire(pipeline, key);
+	}
+
+	private void writeSet(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		Object value = record.getField(1);
+		if (value == null) {
+			deleteKey(pipeline, key);
+			return;
+		}
+		if (key instanceof byte[] && value instanceof byte[]){
+			pipeline.sadd((byte[]) key, (byte[]) value);
+		} else {
+			pipeline.sadd(key.toString(), value.toString());
+		}
+		setExpire(pipeline, key);
+	}
+
+	private void writeZSet(Pipeline pipeline, Row record) {
+		Object key = record.getField(0);
+		Object score = record.getField(1);
+		Object value = record.getField(2);
+		if (value == null) {
+			deleteKey(pipeline, key);
+			return;
+		}
+		if (!(score instanceof Double)) {
+			throw new FlinkRuntimeException("WRONG TYPE: zset need second column type is DOUBLE.");
+		}
+		if (key instanceof byte[] && value instanceof byte[]){
+			pipeline.zadd((byte[]) key, (Double) score, (byte[]) value);
+		} else {
+			pipeline.zadd(key.toString(), (Double) score, value.toString());
+		}
+		setExpire(pipeline, key);
+	}
+
+	private void setExpire(Pipeline pipeline, Object key) {
+		if (ttlSeconds != null && ttlSeconds > 0) {
+			if (key instanceof byte[]) {
+				pipeline.expire((byte[]) key, ttlSeconds);
+			} else {
+				pipeline.expire(key.toString(), ttlSeconds);
+			}
+		}
+	}
+
+	private void deleteKey(Pipeline pipeline, Object key) {
+		if (key instanceof byte[]) {
+			pipeline.del((byte[]) key);
+		} else {
+			pipeline.del(key.toString());
 		}
 	}
 
@@ -333,6 +446,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			format.flushMaxRetries = options.getFlushMaxRetries();
 			format.logFailuresOnly = options.isLogFailuresOnly();
 			format.mode = options.getMode();
+			format.redisDataType = options.getRedisDataType();
 			format.batchSize = options.getBatchSize();
 			format.ttlSeconds = options.getTtlSeconds();
 			format.parallelism = options.getParallelism();

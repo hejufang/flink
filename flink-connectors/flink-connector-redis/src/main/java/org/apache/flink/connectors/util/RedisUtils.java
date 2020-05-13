@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connectors.redis;
+package org.apache.flink.connectors.util;
 
 import com.bytedance.kvclient.ClientPool;
 import com.bytedance.redis.RedisConfig;
@@ -25,16 +25,12 @@ import com.bytedance.springdb.SpringDbConfig;
 import com.bytedance.springdb.SpringDbPool;
 import redis.clients.jedis.Jedis;
 
+import static org.apache.flink.connectors.util.Constant.GET_RESOURCE_MAX_RETRIES_DEFAULT;
+
 /**
  * RedisUtil Function.
  */
 public class RedisUtils {
-	public static final int GET_RESOURCE_MAX_RETRIES_DEFAULT = 5;
-	public static final int FLUSH_MAX_RETRIES_DEFAULT = 5;
-	public static final int BATCH_SIZE_DEFAULT = 10;
-
-	public static final String STORAGE_REDIS = "redis";
-	public static final String STORAGE_ABASE = "abase";
 
 	public static ClientPool getRedisClientPool
 			(String cluster, String psm, Long serverUpdatePeriod, Integer timeout, Boolean forceConnectionsSetting,
@@ -102,7 +98,7 @@ public class RedisUtils {
 		int retryCount = 0;
 
 		if (getResourceMaxRetries == null) {
-			getResourceMaxRetries = RedisUtils.GET_RESOURCE_MAX_RETRIES_DEFAULT;
+			getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
 		}
 
 		while (jedis == null && retryCount < getResourceMaxRetries) {
