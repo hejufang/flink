@@ -353,7 +353,7 @@ marmt:
   high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
   hdfs.prefix: hdfs://harunavaali/flink_maliva
   checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
-  dashboard.data_source: bytetsd_maliva
+  dashboard.data_source: bytetsd_gva
   dtop.data_source: dtop_maliva
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
@@ -369,7 +369,7 @@ macaw:
   high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
   hdfs.prefix: hdfs://harunavaali/flink_maliva
   checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
-  dashboard.data_source: bytetsd_maliva
+  dashboard.data_source: bytetsd_gva
   dtop.data_source: dtop_maliva
   dtop.database: dtop_maliva
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
