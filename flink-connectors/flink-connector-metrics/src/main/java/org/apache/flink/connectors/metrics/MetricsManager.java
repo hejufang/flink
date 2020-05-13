@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.metrics;
 
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 
 import com.bytedance.metrics.simple.SimpleByteTSDMetrics;
 
@@ -67,8 +68,16 @@ public class MetricsManager {
 	}
 
 	public void writeMetrics(String type, String metricsName, Double value, String tags) {
+		Preconditions.checkNotNull(type, "metrics type cannot be null!");
+		MetricsType metricsType;
 		try {
-			switch (MetricsType.valueOf(type.toUpperCase())) {
+			metricsType = MetricsType.valueOf(type.toUpperCase());
+		} catch (IllegalArgumentException e) {
+			throw new FlinkRuntimeException("Unsupported metrics type: '" + type
+				+ "'. Supported types: " + Arrays.asList(MetricsType.values()), e);
+		}
+		try {
+			switch (metricsType) {
 				case STORE:
 					client.emitStore(metricsName, value, tags);
 					break;
@@ -87,9 +96,10 @@ public class MetricsManager {
 				default:
 					throw new FlinkRuntimeException("Unsupported metrics type: " + type);
 			}
-		} catch (IllegalArgumentException e) {
-			throw new FlinkRuntimeException("Unsupported metrics type: '" + type
-				+ "'. Supported types: " + Arrays.asList(MetricsType.values()));
+		} catch (RuntimeException e) {
+			throw new FlinkRuntimeException(
+				String.format("Failed to write metrics. type: %s, metricsName: %s, value: %s, tags: %s.",
+					type, metricsName, value, tags), e);
 		}
 	}
 
