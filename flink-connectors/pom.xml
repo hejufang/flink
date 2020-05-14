@@ -68,6 +68,7 @@ under the License.
 		<module>flink-sql-connector-elasticsearch7</module>
 		<module>flink-connector-loghouse</module>
 		<module>flink-connector-databus</module>
+		<module>flink-connector-bytable</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
