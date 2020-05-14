@@ -32,6 +32,8 @@ import java.lang.reflect.Method;
 
 import scala.concurrent.duration.Duration;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
+
 /**
  * Factory for {@link RestartStrategy}.
  */
@@ -87,6 +89,11 @@ public abstract class RestartStrategyFactory implements Serializable {
 	 * @throws Exception which indicates that the RestartStrategy could not be instantiated.
 	 */
 	public static RestartStrategyFactory createRestartStrategyFactory(Configuration configuration) throws Exception {
+		// special case for recoverable feature
+		if (configuration.getBoolean(FORCE_PARTITION_RECOVERABLE)) {
+			return RecoverableRestartStrategy.createFactory(configuration);
+		}
+
 		String restartStrategyName = configuration.getString(ConfigConstants.RESTART_STRATEGY, null);
 
 		if (restartStrategyName == null) {
