@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.nodes.physical.stream
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.transformations.OneInputTransformation
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.dataformat.BaseRow
 import org.apache.flink.table.planner.calcite.FlinkRelBuilder.PlannerNamedWindowProperty
@@ -31,7 +32,7 @@ import org.apache.flink.table.planner.plan.logical._
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.rules.physical.stream.{StreamExecGroupWindowAggregateRule, StreamExecRetractionRules}
 import org.apache.flink.table.planner.plan.utils.AggregateUtil._
-import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, KeySelectorUtil, RelExplainUtil, WindowEmitStrategy}
+import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, AggregateUtil, KeySelectorUtil, RelExplainUtil, WindowEmitStrategy}
 import org.apache.flink.table.runtime.generated.{GeneratedNamespaceAggsHandleFunction, GeneratedRecordEqualiser}
 import org.apache.flink.table.runtime.operators.window.assigners.{UserDefinedMergingWindowAssigner, UserDefinedWindowAssigner, WindowAssigner}
 import org.apache.flink.table.runtime.operators.window.{CountWindow, TimeWindow, WindowOperator, WindowOperatorBuilder}
@@ -377,6 +378,11 @@ class StreamExecGroupWindowAggregate(
 
     if (emitStrategy.enableEmitUnchanged) {
       newBuilder.enableEmitUnchanged()
+    }
+
+    if (config.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)) {
+      newBuilder.enableMiniBatch()
+        .withBundleTrigger(AggregateUtil.createMiniBatchTrigger(config))
     }
 
     newBuilder

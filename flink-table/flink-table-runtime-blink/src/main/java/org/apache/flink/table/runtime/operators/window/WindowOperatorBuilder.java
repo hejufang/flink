@@ -20,10 +20,12 @@ package org.apache.flink.table.runtime.operators.window;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.java.ClosureCleaner;
+import org.apache.flink.table.dataformat.BaseRow;
 import org.apache.flink.table.runtime.generated.GeneratedNamespaceAggsHandleFunction;
 import org.apache.flink.table.runtime.generated.GeneratedRecordEqualiser;
 import org.apache.flink.table.runtime.generated.NamespaceAggsHandleFunction;
 import org.apache.flink.table.runtime.generated.RecordEqualiser;
+import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTrigger;
 import org.apache.flink.table.runtime.operators.window.assigners.CountSlidingWindowAssigner;
 import org.apache.flink.table.runtime.operators.window.assigners.CountTumblingWindowAssigner;
 import org.apache.flink.table.runtime.operators.window.assigners.InternalTimeWindowAssigner;
@@ -71,6 +73,8 @@ public class WindowOperatorBuilder {
 	private boolean sendRetraction = false;
 	private int rowtimeIndex = -1;
 	private boolean emitUnchanged = false;
+	private boolean enableMiniBatch = false;
+	private BundleTrigger<BaseRow> bundleTrigger = null;
 
 	public static WindowOperatorBuilder builder() {
 		return new WindowOperatorBuilder();
@@ -78,6 +82,16 @@ public class WindowOperatorBuilder {
 
 	public WindowOperatorBuilder enableEmitUnchanged() {
 		this.emitUnchanged = true;
+		return this;
+	}
+
+	public WindowOperatorBuilder enableMiniBatch() {
+		this.enableMiniBatch = true;
+		return this;
+	}
+
+	public WindowOperatorBuilder withBundleTrigger(BundleTrigger<BaseRow> bundleTrigger) {
+		this.bundleTrigger = bundleTrigger;
 		return this;
 	}
 
@@ -202,6 +216,8 @@ public class WindowOperatorBuilder {
 
 	public WindowOperator build() {
 		checkNotNull(trigger, "trigger is not set");
+		checkArgument(!enableMiniBatch || bundleTrigger != null, "BundleTrigger must be set " +
+			"when mini batch is enabled.");
 		if (generatedAggregateFunction != null && generatedEqualiser != null) {
 			//noinspection unchecked
 			return new WindowOperator(
@@ -217,7 +233,9 @@ public class WindowOperatorBuilder {
 					rowtimeIndex,
 					sendRetraction,
 					allowedLateness,
-					emitUnchanged);
+					emitUnchanged,
+					enableMiniBatch,
+					bundleTrigger);
 		} else {
 			//noinspection unchecked
 			return new WindowOperator(
@@ -233,7 +251,9 @@ public class WindowOperatorBuilder {
 					rowtimeIndex,
 					sendRetraction,
 					allowedLateness,
-					emitUnchanged);
+					emitUnchanged,
+					enableMiniBatch,
+					bundleTrigger);
 		}
 	}
 }

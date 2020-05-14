@@ -25,6 +25,7 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Meter;
@@ -39,6 +40,7 @@ import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.operators.Triggerable;
+import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.table.dataformat.BaseRow;
 import org.apache.flink.table.dataformat.JoinedRow;
@@ -48,6 +50,8 @@ import org.apache.flink.table.runtime.generated.GeneratedNamespaceAggsHandleFunc
 import org.apache.flink.table.runtime.generated.GeneratedRecordEqualiser;
 import org.apache.flink.table.runtime.generated.NamespaceAggsHandleFunction;
 import org.apache.flink.table.runtime.generated.RecordEqualiser;
+import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTrigger;
+import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTriggerCallback;
 import org.apache.flink.table.runtime.operators.window.assigners.MergingWindowAssigner;
 import org.apache.flink.table.runtime.operators.window.assigners.PanedWindowAssigner;
 import org.apache.flink.table.runtime.operators.window.assigners.WindowAssigner;
@@ -61,7 +65,13 @@ import org.apache.flink.table.types.logical.LogicalType;
 
 import org.apache.commons.lang3.ArrayUtils;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -96,7 +106,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class WindowOperator<K, W extends Window>
 		extends AbstractStreamOperator<BaseRow>
-		implements OneInputStreamOperator<BaseRow, BaseRow>, Triggerable<K, W> {
+		implements OneInputStreamOperator<BaseRow, BaseRow>, Triggerable<K, W>, BundleTriggerCallback {
 
 	private static final long serialVersionUID = 1L;
 
@@ -126,6 +136,12 @@ public class WindowOperator<K, W extends Window>
 	private final boolean sendRetraction;
 
 	private final boolean emitUnchanged;
+
+	private final boolean enableMiniBatch;
+
+	private final BundleTrigger<BaseRow> bundleTrigger;
+
+	private transient Map<K, List<Tuple2<Long, BaseRow>>> bundle;
 
 	private final int rowtimeIndex;
 
@@ -192,7 +208,9 @@ public class WindowOperator<K, W extends Window>
 			int rowtimeIndex,
 			boolean sendRetraction,
 			long allowedLateness,
-			boolean emitUnchanged) {
+			boolean emitUnchanged,
+			boolean enableMiniBatch,
+			BundleTrigger<BaseRow> bundleTrigger) {
 		checkArgument(allowedLateness >= 0);
 		this.windowAggregator = checkNotNull(windowAggregator);
 		this.equaliser = checkNotNull(equaliser);
@@ -206,6 +224,8 @@ public class WindowOperator<K, W extends Window>
 		this.allowedLateness = allowedLateness;
 		this.sendRetraction = sendRetraction;
 		this.emitUnchanged = emitUnchanged;
+		this.enableMiniBatch = enableMiniBatch;
+		this.bundleTrigger = bundleTrigger;
 
 		// rowtime index should >= 0 when in event time mode
 		checkArgument(!windowAssigner.isEventTime() || rowtimeIndex >= 0);
@@ -227,7 +247,9 @@ public class WindowOperator<K, W extends Window>
 			int rowtimeIndex,
 			boolean sendRetraction,
 			long allowedLateness,
-			boolean emitUnchanged) {
+			boolean emitUnchanged,
+			boolean enableMiniBatch,
+			BundleTrigger<BaseRow> bundleTrigger) {
 		checkArgument(allowedLateness >= 0);
 		this.generatedWindowAggregator = checkNotNull(generatedWindowAggregator);
 		this.generatedEqualiser = checkNotNull(generatedEqualiser);
@@ -241,6 +263,8 @@ public class WindowOperator<K, W extends Window>
 		this.allowedLateness = allowedLateness;
 		this.sendRetraction = sendRetraction;
 		this.emitUnchanged = emitUnchanged;
+		this.enableMiniBatch = enableMiniBatch;
+		this.bundleTrigger = bundleTrigger;
 
 		// rowtime index should >= 0 when in event time mode
 		checkArgument(!windowAssigner.isEventTime() || rowtimeIndex >= 0);
@@ -324,10 +348,18 @@ public class WindowOperator<K, W extends Window>
 				return internalTimerService.currentProcessingTime() - watermark;
 			}
 		});
+
+		if (enableMiniBatch) {
+			bundle = new HashMap<>();
+			bundleTrigger.registerCallback(this);
+		}
 	}
 
 	@Override
 	public void close() throws Exception {
+		if (enableMiniBatch) {
+			finishBundle();
+		}
 		super.close();
 		collector = null;
 		triggerContext = null;
@@ -347,6 +379,102 @@ public class WindowOperator<K, W extends Window>
 	}
 
 	@Override
+	public void finishBundle() throws Exception {
+		for (K key : bundle.keySet()) {
+			setCurrentKey(key);
+			processForKey(key);
+		}
+	}
+
+	@Override
+	public void prepareSnapshotPreBarrier(long checkpointId) throws Exception {
+		if (enableMiniBatch) {
+			finishBundle();
+		}
+		super.prepareSnapshotPreBarrier(checkpointId);
+	}
+
+	@Override
+	public void processWatermark(Watermark mark) throws Exception {
+		if (enableMiniBatch) {
+			finishBundle();
+		}
+		super.processWatermark(mark);
+	}
+
+	private void processForKey(K key) throws Exception {
+		List<Tuple2<Long, BaseRow>> datas = bundle.get(key);
+		if (datas == null) {
+			return;
+		}
+
+		Map<W, BaseRow> tempState = new HashMap<>();
+		for (Tuple2<Long, BaseRow> recordWithTimestamp : datas) {
+			long timestamp = recordWithTimestamp.f0;
+			BaseRow record = recordWithTimestamp.f1;
+
+			Collection<W> affectedWindows = windowFunction.assignStateNamespace(record, timestamp);
+			boolean isElementDropped = true;
+			for (W window : affectedWindows) {
+				isElementDropped = false;
+
+				BaseRow acc;
+				if (tempState.containsKey(window)) {
+					acc = tempState.get(window);
+				} else {
+					windowState.setCurrentNamespace(window);
+					acc = windowState.value();
+				}
+				if (acc == null) {
+					acc = windowAggregator.createAccumulators();
+				}
+				windowAggregator.setAccumulators(window, acc);
+
+				if (BaseRowUtil.isAccumulateMsg(record)) {
+					windowAggregator.accumulate(record);
+				} else {
+					windowAggregator.retract(record);
+				}
+				acc = windowAggregator.getAccumulators();
+				tempState.put(window, acc);
+			}
+			if (isElementDropped) {
+				// markEvent will increase numLateRecordsDropped
+				lateRecordsDroppedRate.markEvent();
+			}
+		}
+
+		// update state
+		for (Map.Entry<W, BaseRow> entry : tempState.entrySet()) {
+			windowState.setCurrentNamespace(entry.getKey());
+			windowState.update(entry.getValue());
+		}
+
+		Set<W> triggeredWindows = new HashSet<>();
+		for (Tuple2<Long, BaseRow> recordWithTimestamp : datas) {
+			long timestamp = recordWithTimestamp.f0;
+			BaseRow record = recordWithTimestamp.f1;
+
+			Collection<W> actualWindows = windowFunction.assignActualWindows(record, timestamp);
+			for (W window : actualWindows) {
+				triggerContext.window = window;
+				boolean triggerResult = triggerContext.onElement(record, timestamp);
+				if (triggerResult) {
+					triggeredWindows.add(window);
+				}
+				// register a clean up timer for the window
+				registerCleanupTimer(window);
+			}
+		}
+
+		for (W window : triggeredWindows) {
+			emitWindowResult(window);
+		}
+
+		bundle.remove(key);
+	}
+
+	@Override
 	public void processElement(StreamRecord<BaseRow> record) throws Exception {
 		BaseRow inputRow = record.getValue();
 		long timestamp;
@@ -356,6 +484,20 @@ public class WindowOperator<K, W extends Window>
 			timestamp = internalTimerService.currentProcessingTime();
 		}
 
+		if (!enableMiniBatch) {
+			processElementInternal(inputRow, timestamp);
+			return;
+		}
+
+		// mini batch enabled.
+		K key = currentKey();
+		List<Tuple2<Long, BaseRow>> data = bundle.computeIfAbsent(key, k -> new ArrayList<>());
+		data.add(Tuple2.of(timestamp, inputRow));
+
+		bundleTrigger.onElement(inputRow);
+	}
+
+	private void processElementInternal(BaseRow inputRow, long timestamp) throws Exception {
 		// the windows which the input row should be placed into
 		Collection<W> affectedWindows = windowFunction.assignStateNamespace(inputRow, timestamp);
 		boolean isElementDropped = true;
