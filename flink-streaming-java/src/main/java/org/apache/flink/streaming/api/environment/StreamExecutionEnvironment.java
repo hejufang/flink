@@ -137,6 +137,8 @@ public abstract class StreamExecutionEnvironment {
 
 	// ------------------------------------------------------------------------
 
+	private final Configuration configuration;
+
 	/** The execution configuration for this environment. */
 	private final ExecutionConfig config = new ExecutionConfig();
 
@@ -161,6 +163,18 @@ public abstract class StreamExecutionEnvironment {
 	// --------------------------------------------------------------------------------------------
 	// Constructor and Properties
 	// --------------------------------------------------------------------------------------------
+
+	public StreamExecutionEnvironment() {
+		this.configuration = new Configuration();
+	}
+
+	public StreamExecutionEnvironment(Configuration configuration) {
+		this.configuration = configuration;
+	}
+
+	public Configuration getConfiguration() {
+		return this.configuration;
+	}
 
 	/**
 	 * Gets the config object.
@@ -1632,7 +1646,7 @@ public abstract class StreamExecutionEnvironment {
 		if (env instanceof ContextEnvironment) {
 			return new StreamContextEnvironment((ContextEnvironment) env);
 		} else if (env instanceof OptimizerPlanEnvironment || env instanceof PreviewPlanEnvironment) {
-			return new StreamPlanEnvironment(env);
+			return new StreamPlanEnvironment(env, env.getConfiguration());
 		} else {
 			return createLocalEnvironment();
 		}

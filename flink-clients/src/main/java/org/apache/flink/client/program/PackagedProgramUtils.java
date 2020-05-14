@@ -63,7 +63,7 @@ public class PackagedProgramUtils {
 
 			flinkPlan = optimizer.compile(jobWithJars.getPlan());
 		} else if (packagedProgram.isUsingInteractiveMode()) {
-			final OptimizerPlanEnvironment optimizerPlanEnvironment = new OptimizerPlanEnvironment(optimizer);
+			final OptimizerPlanEnvironment optimizerPlanEnvironment = new OptimizerPlanEnvironment(optimizer, configuration);
 
 			optimizerPlanEnvironment.setParallelism(defaultParallelism);
 

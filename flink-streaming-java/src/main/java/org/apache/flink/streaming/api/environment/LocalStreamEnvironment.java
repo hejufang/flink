@@ -71,7 +71,8 @@ public class LocalStreamEnvironment extends StreamExecutionEnvironment {
 		setParallelism(1);
 	}
 
-	protected Configuration getConfiguration() {
+	@Override
+	public Configuration getConfiguration() {
 		return configuration;
 	}
 

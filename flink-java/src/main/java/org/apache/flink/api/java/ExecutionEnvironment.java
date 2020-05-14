@@ -118,6 +118,8 @@ public abstract class ExecutionEnvironment {
 
 	private final ExecutionConfig config = new ExecutionConfig();
 
+	private final Configuration configuration;
+
 	/** Result from the latest execution, to make it retrievable when using eager execution methods. */
 	protected JobExecutionResult lastJobExecutionResult;
 
@@ -135,12 +137,21 @@ public abstract class ExecutionEnvironment {
 	 * Creates a new Execution Environment.
 	 */
 	protected ExecutionEnvironment() {
+		this(new Configuration());
+	}
+
+	protected ExecutionEnvironment(Configuration configuration) {
+		this.configuration = configuration;
 		jobID = JobID.generate();
 	}
 
 	// --------------------------------------------------------------------------------------------
 	//  Properties
 	// --------------------------------------------------------------------------------------------
+
+	public Configuration getConfiguration() {
+		return configuration;
+	}
 
 	/**
 	 * Gets the config object that defines execution parameters.

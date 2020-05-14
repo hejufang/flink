@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.Plan;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.ExecutionEnvironmentFactory;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.optimizer.Optimizer;
 import org.apache.flink.optimizer.plan.FlinkPlan;
 
@@ -38,6 +39,11 @@ public class OptimizerPlanEnvironment extends ExecutionEnvironment {
 	private FlinkPlan optimizerPlan;
 
 	public OptimizerPlanEnvironment(Optimizer compiler) {
+		this(compiler, new Configuration());
+	}
+
+	public OptimizerPlanEnvironment(Optimizer compiler, Configuration configuration) {
+		super(configuration);
 		this.compiler = compiler;
 	}
 
