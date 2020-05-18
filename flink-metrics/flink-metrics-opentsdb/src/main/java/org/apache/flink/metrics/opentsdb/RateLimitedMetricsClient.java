@@ -93,11 +93,6 @@ public class RateLimitedMetricsClient {
 		rateLimiter.acquire();
 	}
 
-	public void emitCounterWithTag(String name, double value, String tags) throws IOException {
-		aquirePermit();
-		udpMetricsClient.emitCounterWithTag(name, value, tags);
-	}
-
 	public void emitStoreWithTag(String name, double value, String tags) throws IOException {
 		aquirePermit();
 		udpMetricsClient.emitStoreWithTag(name, value, tags);

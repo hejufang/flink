@@ -216,11 +216,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			String emitMetricName = globalMetricNames.get(name);
 			if (!emitMetricName.equals(metricName)) {
 				String prefixEmitMetricName = GLOBAL_PREFIX + "." + emitMetricName;
-				if (type.equals("counter")) {
-					this.client.emitCounterWithTag(prefixEmitMetricName, value, tags);
-				} else {
-					this.client.emitStoreWithTag(prefixEmitMetricName, value, tags);
-				}
+				this.client.emitStoreWithTag(prefixEmitMetricName, value, tags);
 			}
 		}
 	}
