@@ -58,6 +58,8 @@ public class TaskManagerMetricsInfo {
 
 	public static final String FIELD_NAME_NETWORK_MEMORY_SEGMENTS_AVAILABLE = "memorySegmentsAvailable";
 
+	public static final String FIELD_NAME_NETWORK_MEMORY_SEGMENTS_ALLOCATED = "memorySegmentsAllocated";
+
 	public static final String FIELD_NAME_NETWORK_MEMROY_SEGMENTS_TOTAL = "memorySegmentsTotal";
 
 	public static final String FIELD_NAME_GARBAGE_COLLECTORS = "garbageCollectors";
@@ -111,6 +113,9 @@ public class TaskManagerMetricsInfo {
 	@JsonProperty(FIELD_NAME_NETWORK_MEMORY_SEGMENTS_AVAILABLE)
 	private final long memorySegmentsAvailable;
 
+	@JsonProperty(FIELD_NAME_NETWORK_MEMORY_SEGMENTS_ALLOCATED)
+	private final long memorySegmentsAllocated;
+
 	@JsonProperty(FIELD_NAME_NETWORK_MEMROY_SEGMENTS_TOTAL)
 	private final long memorySegmentsTotal;
 
@@ -135,7 +140,8 @@ public class TaskManagerMetricsInfo {
 			@JsonProperty(FIELD_NAME_MAPPED_MAX) long mappedMax,
 			@JsonProperty(FIELD_NAME_NETWORK_MEMORY_SEGMENTS_AVAILABLE) long memorySegmentsAvailable,
 			@JsonProperty(FIELD_NAME_NETWORK_MEMROY_SEGMENTS_TOTAL) long memorySegmentsTotal,
-			@JsonProperty(FIELD_NAME_GARBAGE_COLLECTORS) List<GarbageCollectorInfo> garbageCollectorsInfo) {
+			@JsonProperty(FIELD_NAME_GARBAGE_COLLECTORS) List<GarbageCollectorInfo> garbageCollectorsInfo,
+			@JsonProperty(FIELD_NAME_NETWORK_MEMORY_SEGMENTS_ALLOCATED) long memorySegmentsAllocated) {
 		this.heapUsed = heapUsed;
 		this.heapCommitted = heapCommitted;
 		this.heapMax = heapMax;
@@ -149,6 +155,7 @@ public class TaskManagerMetricsInfo {
 		this.mappedUsed = mappedUsed;
 		this.mappedMax = mappedMax;
 		this.memorySegmentsAvailable = memorySegmentsAvailable;
+		this.memorySegmentsAllocated = memorySegmentsAllocated;
 		this.memorySegmentsTotal = memorySegmentsTotal;
 		this.garbageCollectorsInfo = Preconditions.checkNotNull(garbageCollectorsInfo);
 	}
@@ -250,6 +257,7 @@ public class TaskManagerMetricsInfo {
 			0L,
 			0L,
 			0L,
-			Collections.emptyList());
+			Collections.emptyList(),
+			0L);
 	}
 }

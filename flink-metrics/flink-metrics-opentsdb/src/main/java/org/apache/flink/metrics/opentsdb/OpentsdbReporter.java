@@ -135,6 +135,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			// Network Memory
 			"TotalMemorySegments",
 			"AvailableMemorySegments",
+			"AllocatedMemorySegments",
 			// speuclation
 			"numberOfSpeculation",
 			"numberOfSuccessfulSpeculation",

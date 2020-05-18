@@ -79,6 +79,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final int maxDelayMinutes;
 
+	private final boolean lazyAllocate;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -94,7 +96,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			BoundedBlockingSubpartitionType blockingSubpartitionType,
 			boolean forcePartitionReleaseOnConsumption,
 			int maxDelayMinutes,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean lazyAllocate) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -112,6 +115,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 		this.maxDelayMinutes = maxDelayMinutes;
 		this.isRecoverable = isRecoverable;
+
+		this.lazyAllocate = lazyAllocate;
 	}
 
 	// ------------------------------------------------------------------------
@@ -176,6 +181,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return maxDelayMinutes;
 	}
 
+	public boolean isLazyAllocate() {
+		return lazyAllocate;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -226,6 +235,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
 
+		boolean lazyAllocate = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFERS_MEMORY_LAZY_ALLOCATE);
+
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
 			pageSize,
@@ -241,7 +252,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			blockingSubpartitionType,
 			forcePartitionReleaseOnConsumption,
 			maxDelayMinutes,
-			isRecoverable);
+			isRecoverable,
+			lazyAllocate);
 	}
 
 	/**

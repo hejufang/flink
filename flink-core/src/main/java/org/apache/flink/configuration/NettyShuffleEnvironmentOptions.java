@@ -259,6 +259,11 @@ public class NettyShuffleEnvironmentOptions {
 		key("taskmanager.network.partition.force-partition-recoverable")
 			.defaultValue(false);
 
+	public static final ConfigOption<Boolean> NETWORK_BUFFERS_MEMORY_LAZY_ALLOCATE =
+		key("taskmanager.network.memory.lazy-allocate")
+			.defaultValue(false)
+			.withDescription("Whether to allocate all memory segments at startup or allocate when task request buffers.");
+
 	/** Not intended to be instantiated. */
 	private NettyShuffleEnvironmentOptions() {}
 }

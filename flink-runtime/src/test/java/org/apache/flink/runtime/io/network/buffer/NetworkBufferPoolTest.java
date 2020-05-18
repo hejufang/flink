@@ -519,4 +519,68 @@ public class NetworkBufferPoolTest extends TestLogger {
 			globalPool.destroy();
 		}
 	}
+
+	/**
+	 * Test create lazy mode NetworkBufferPool.
+	 * */
+	@Test
+	public void testCreateLazyAllocateModeNetworkBufferPool() {
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 2;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+		final boolean lazyAllocate = true;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(
+			numBuffers,
+			128,
+			numberOfSegmentsToRequest,
+			requestSegmentsTimeout,
+			lazyAllocate);
+
+		assertEquals(0, globalPool.getNumberOfAvailableMemorySegments());
+		assertEquals(0, globalPool.getNumberOfAllocatedMemorySegments());
+	}
+
+	/**
+	 * Tests request and recycle memory segment in lazy allocate mode.
+	 * */
+	@Test
+	public void testRequestRecycleMemorySegmentInLazyAllocateMode() throws Exception {
+		final int numBuffers = 3;
+		final int numberOfSegmentsToRequest = 2;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+		final boolean lazyAllocate = true;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(
+			numBuffers,
+			128,
+			numberOfSegmentsToRequest,
+			requestSegmentsTimeout,
+			lazyAllocate);
+
+		MemorySegment memorySegment = globalPool.requestMemorySegment();
+		assertNotNull(memorySegment);
+		assertEquals(1, globalPool.getNumberOfAllocatedMemorySegments());
+		assertEquals(0, globalPool.getNumberOfAvailableMemorySegments());
+
+		List<MemorySegment> memorySegments = globalPool.requestMemorySegments();
+		assertEquals(2, memorySegments.size());
+		assertEquals(3, globalPool.getNumberOfAllocatedMemorySegments());
+		assertEquals(0, globalPool.getNumberOfAvailableMemorySegments());
+
+		assertNull(globalPool.requestMemorySegment());
+
+		globalPool.recycle(memorySegment);
+		assertEquals(3, globalPool.getNumberOfAllocatedMemorySegments());
+		assertEquals(1, globalPool.getNumberOfAvailableMemorySegments());
+
+		globalPool.recycleMemorySegments(memorySegments);
+		assertEquals(3, globalPool.getNumberOfAllocatedMemorySegments());
+		assertEquals(3, globalPool.getNumberOfAvailableMemorySegments());
+
+		memorySegment = globalPool.requestMemorySegment();
+		assertNotNull(memorySegment);
+		assertEquals(3, globalPool.getNumberOfAllocatedMemorySegments());
+		assertEquals(2, globalPool.getNumberOfAvailableMemorySegments());
+	}
 }
