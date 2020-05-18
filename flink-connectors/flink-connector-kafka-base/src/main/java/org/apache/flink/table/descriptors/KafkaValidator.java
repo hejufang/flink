@@ -72,6 +72,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SINK_PARTITIONER = "connector.sink-partitioner";
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_FIXED = "fixed";
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN = "round-robin";
+	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH = "row-fields-hash";
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM = "custom";
 	public static final String CONNECTOR_SINK_PARTITIONER_CLASS = "connector.sink-partitioner-class";
 
@@ -156,6 +157,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		sinkPartitionerValidators.put(
 			CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM,
 			key -> properties.validateString(CONNECTOR_SINK_PARTITIONER_CLASS, false, 1));
+		sinkPartitionerValidators.put(CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH,
+			key -> properties.validateString(CONNECTOR_KEYBY_FIELDS, false, 1));
 		properties.validateEnum(CONNECTOR_SINK_PARTITIONER, true, sinkPartitionerValidators);
 	}
 

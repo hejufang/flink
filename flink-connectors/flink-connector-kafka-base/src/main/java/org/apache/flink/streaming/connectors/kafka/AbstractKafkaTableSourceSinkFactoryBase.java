@@ -25,6 +25,7 @@ import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
+import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkRowFieldHashPartitioner;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
@@ -74,6 +75,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_P
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_FIXED;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_PARTITION;
@@ -461,6 +463,11 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 						return Optional.of(new FlinkFixedPartitioner<>());
 					case CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN:
 						return Optional.empty();
+					case CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH:
+						TableSchema schema = descriptorProperties.getTableSchema(SCHEMA);
+						String keybyFiledNames = descriptorProperties.getString(CONNECTOR_KEYBY_FIELDS);
+						return Optional.of(new FlinkRowFieldHashPartitioner(
+							getKeybyFieldIndexArray(schema, keybyFiledNames)));
 					case CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM:
 						final Class<? extends FlinkKafkaPartitioner> partitionerClass =
 							descriptorProperties.getClass(CONNECTOR_SINK_PARTITIONER_CLASS, FlinkKafkaPartitioner.class);
@@ -470,6 +477,23 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 							"Validator should have checked that.");
 				}
 			});
+	}
+
+	private static int[] getKeybyFieldIndexArray(TableSchema schema, String keybyFiledNames) {
+		String[] keybyFiledNameArray = keybyFiledNames.split(",");
+		int [] keybyFieldIndexArray = new int[keybyFiledNameArray.length];
+
+		for (int i = 0; i < keybyFiledNameArray.length; i++) {
+			String keybyFieldName = keybyFiledNameArray[i].trim();
+			int fieldIndex = schema.getFieldNameIndex(keybyFieldName)
+				.orElseThrow(() -> new IllegalArgumentException(
+					String.format("keyby field '%s' not found in table. All field names are : %s.",
+						keybyFieldName,
+						Arrays.asList(schema.getFieldNames()))));
+			keybyFieldIndexArray[i] = fieldIndex;
+		}
+
+		return keybyFieldIndexArray;
 	}
 
 	private boolean checkForCustomFieldMapping(DescriptorProperties descriptorProperties,
