@@ -20,7 +20,6 @@ package org.apache.flink.runtime.executiongraph.failover;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
-import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -34,8 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 /**
  * Simple failover strategy that restarts each task individually forever.
@@ -48,15 +45,11 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 	/** The execution graph to recover. */
 	private final ExecutionGraph executionGraph;
 
-	/** The executor that executes restart callbacks. */
-	private final Executor jobMasterMainThread;
-
 	/** If task failed cause is has no enough resource, sleep tmLaunchWaitingTimeMs waiting new tm launched. */
 	private final long tmLaunchWaitingTimeMs;
 
 	private RestartIndividualForeverStrategy(ExecutionGraph executionGraph, Configuration config) {
 		this.executionGraph = executionGraph;
-		this.jobMasterMainThread = executionGraph.getJobMasterMainThreadExecutor();
 		this.tmLaunchWaitingTimeMs = config.getInteger(JobManagerOptions.INDIVIDUAL_FOREVER_TM_LAUNCH_WAITING_TIME_MS);
 	}
 
@@ -77,17 +70,11 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 		LOG.info("Recovering task failure for {} (#{}) via individual-forever restart.",
 			taskExecution.getVertex().getTaskNameWithSubtaskIndex(), taskExecution.getAttemptNumber());
 
-		// trigger the restart once the task has reached its terminal state
-		// Note: currently all tasks passed here are already in their terminal state,
-		//       so we could actually avoid the future. We use it anyways because it is cheap and
-		//       it helps to support better testing
-		final CompletableFuture<ExecutionState> terminationFuture = taskExecution.getTerminalStateFuture();
-
 		final ExecutionVertex vertexToRecover = taskExecution.getVertex();
 		final long globalModVersion = taskExecution.getGlobalModVersion();
 
-		terminationFuture.thenAcceptAsync(
-			(ExecutionState value) -> {
+		taskExecution.getReleaseFuture().thenRun(
+			() -> {
 				try {
 					long createTimestamp = System.currentTimeMillis();
 					Execution newExecution = vertexToRecover.resetForNewExecution(createTimestamp, globalModVersion);
@@ -101,7 +88,7 @@ public class RestartIndividualForeverStrategy extends FailoverStrategy {
 					executionGraph.failGlobal(
 						new Exception("Error during fine grained recovery - triggering full recovery", e));
 				}
-			}, jobMasterMainThread);
+			});
 	}
 
 	@Override

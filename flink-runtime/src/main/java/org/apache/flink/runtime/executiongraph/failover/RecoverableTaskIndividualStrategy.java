@@ -20,7 +20,6 @@ package org.apache.flink.runtime.executiongraph.failover;
 
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
-import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -33,7 +32,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -91,8 +89,7 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 
 		numTaskRecoveries.inc();
 
-		final CompletableFuture<ExecutionState> terminationFuture = taskExecution.getTerminalStateFuture();
-		terminationFuture.thenRun(
+		taskExecution.getReleaseFuture().thenRun(
 				() -> performExecutionVertexRestart(taskExecution.getVertex(), taskExecution.getGlobalModVersion()));
 	}
 

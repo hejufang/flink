@@ -20,7 +20,6 @@ package org.apache.flink.runtime.executiongraph.failover;
 
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
-import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -34,7 +33,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -86,12 +84,7 @@ public class RestartIndividualStrategy extends FailoverStrategy {
 
 		numTaskFailures.inc();
 
-		// trigger the restart once the task has reached its terminal state
-		// Note: currently all tasks passed here are already in their terminal state,
-		//       so we could actually avoid the future. We use it anyways because it is cheap and
-		//       it helps to support better testing
-		final CompletableFuture<ExecutionState> terminationFuture = taskExecution.getTerminalStateFuture();
-		terminationFuture.thenRun(
+		taskExecution.getReleaseFuture().thenRun(
 			() -> performExecutionVertexRestart(taskExecution.getVertex(), taskExecution.getGlobalModVersion()));
 	}
 
