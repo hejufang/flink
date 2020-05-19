@@ -76,6 +76,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_P
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_FIXED;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_PARTITION_RANGE;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SPECIFIC_OFFSETS_PARTITION;
@@ -147,6 +148,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_KEYBY_FIELDS);
 		properties.add(CONNECTOR_RATE_LIMITING_NUM);
 		properties.add(CONNECTOR_RATE_LIMITING_UNIT);
+		properties.add(CONNECTOR_SOURCE_PARTITION_RANGE);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -323,6 +325,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			.ifPresent(u -> configurations.put(CONNECTOR_RATE_LIMITING_UNIT, u));
 		descriptorProperties.getOptionalBoolean(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(value ->
 			configurations.put(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION, String.valueOf(value)));
+		descriptorProperties.getOptionalString(CONNECTOR_SOURCE_PARTITION_RANGE).ifPresent(value ->
+			configurations.put(CONNECTOR_SOURCE_PARTITION_RANGE, value));
 		return configurations;
 	}
 

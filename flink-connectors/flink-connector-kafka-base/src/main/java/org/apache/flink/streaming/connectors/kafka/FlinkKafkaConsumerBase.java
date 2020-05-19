@@ -67,7 +67,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -258,6 +257,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	private transient KafkaCommitCallback offsetCommitCallback;
 
 	// ------------------------------------------------------------------------
+
+	private String whiteTopicPartitionList;
 
 	/**
 	 * Base constructor.
@@ -623,9 +624,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		this.partitionDiscoverer.open();
 
 		subscribedPartitionsToStartOffsets = new HashMap<>();
-		List<KafkaTopicPartition> allPartitions = partitionDiscoverer.discoverPartitions();
-		// filter partitions which in the white list.
-		filterPartitions(allPartitions);
+		// Filter partitions which in the white list.
+		List<KafkaTopicPartition> allPartitions = filterPartitions(
+			partitionDiscoverer.discoverPartitions());
 
 		if (restoredState != null) {
 			for (KafkaTopicPartition partition : allPartitions) {
@@ -917,9 +918,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 					final List<KafkaTopicPartition> discoveredPartitions;
 					try {
-						discoveredPartitions = partitionDiscoverer.discoverPartitions();
-						// filter partitions which in the white list.
-						filterPartitions(discoveredPartitions);
+						// Filter partitions which in the white list.
+						discoveredPartitions = filterPartitions(partitionDiscoverer.discoverPartitions());
 					} catch (AbstractPartitionDiscoverer.WakeupException | AbstractPartitionDiscoverer.ClosedException e) {
 						// the partition discoverer may have been closed or woken up before or during the discovery;
 						// this would only happen if the consumer was canceled; simply escape the loop
@@ -1259,66 +1259,74 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		return pendingOffsetsToCommit;
 	}
 
-	public void filterPartitions(List<KafkaTopicPartition> topicPartitionList) {
+	private List<KafkaTopicPartition> filterPartitions(List<KafkaTopicPartition> topicPartitionList) {
+		List<KafkaTopicPartition> result = new ArrayList<>();
 		if (topicPartitionList == null || topicPartitionList.isEmpty()) {
-			return;
+			return result;
 		}
 		String kafkaCluster = this.properties.getProperty("cluster");
 		if (kafkaCluster == null || kafkaCluster.isEmpty()) {
-			return;
+			return result;
 		}
 
-		String topic = topicPartitionList.get(0).getTopic();
-		Iterator<KafkaTopicPartition> iter = topicPartitionList.iterator();
-		String topicPartitionListStr = System.getenv(ConfigConstants.PARTITION_LIST_KEY);
-		if (topicPartitionListStr == null || topicPartitionListStr.isEmpty()) {
-			LOG.info("topicPartitionListStr is null or empty, return");
-			return;
+		// The kafka partition_list property overrides the same system environment.
+		if (whiteTopicPartitionList == null || whiteTopicPartitionList.isEmpty()) {
+			whiteTopicPartitionList = System.getenv(ConfigConstants.PARTITION_LIST_KEY);
 		}
+		LOG.info("topicPartitionListStr = {}", whiteTopicPartitionList);
+		List<KafkaTopicPartition> whiteTopicPartitions =
+			parseTopicPartitionList(whiteTopicPartitionList, kafkaCluster);
+		LOG.info("The white partition info = {}", whiteTopicPartitions);
+		if (!whiteTopicPartitions.isEmpty()) {
+			for (KafkaTopicPartition kafkaTopicPartition : topicPartitionList) {
+				if (whiteTopicPartitions.contains(kafkaTopicPartition)) {
+					result.add(kafkaTopicPartition);
+				}
+			}
+		} else {
+			result = topicPartitionList;
+		}
+		return result;
+	}
 
-		LOG.info("topicPartitionListStr = {}", topicPartitionListStr);
-		String partitionListStr = null;
-		LOG.info("kafkaCluster = {}", kafkaCluster);
-		LOG.info("topic = {}", topic);
-		if (topicPartitionListStr != null) {
-			// Example: partitionListStr="cluster1||topic1||1,3-5;cluster1||topic1||1,3-5"
+	/**
+	 * Get topic partition list of the kafka cluster from topicPartitionListStr.
+	 *
+	 * @param topicPartitionListStr for example: partitionListStr="cluster1||topic1||1,3-5;cluster2||topic2||1,2,3"
+	 * @param kafkaCluster which cluster we will get
+	 * @return The kafka topic partitions on kafkaCluster
+	 */
+	private List<KafkaTopicPartition> parseTopicPartitionList(
+			String topicPartitionListStr,
+			String kafkaCluster) {
+		List<KafkaTopicPartition> topicPartitions = new ArrayList<>();
+		if (topicPartitionListStr != null && !topicPartitionListStr.isEmpty()) {
 			topicPartitionListStr = topicPartitionListStr.replace(" ", "");
 			String[] topicItems = topicPartitionListStr.split(";");
-			for (String topicItem: topicItems) {
-				// Example: topicItem="cluster1||topic1||1,3-5"
+			for (String topicItem : topicItems) {
 				if (topicItem != null) {
 					String[] items = topicItem.split("\\|\\|", 3);
 					if (items.length == 3) {
-						if (kafkaCluster.equals(items[0]) && topic.equals(items[1])) {
-							partitionListStr = items[2];
-							LOG.info("Set partition white list from dynamic configurations " +
-								"for {} {}: {}", kafkaCluster, topic, partitionListStr);
-							break;
+						if (kafkaCluster.equals(items[0])) {
+							List<Integer> whitePartitions = parsePartitionList(items[2]);
+							for (Integer whitePartition : whitePartitions) {
+								topicPartitions.add(new KafkaTopicPartition(items[1], whitePartition));
+							}
 						}
 					}
 				}
 			}
 		}
-		if (partitionListStr == null) {
-			partitionListStr = properties.getProperty(ConfigConstants.PARTITION_LIST_KEY);
-		}
-		List<Integer> partitionWhiteList = parsePartitionList(partitionListStr);
-		if (partitionWhiteList == null || partitionWhiteList.isEmpty()) {
-			LOG.info("partitionWhiteList is null or empty, return");
-			return;
-		}
-
-		LOG.info("Kafka partition white list for topic {}: {}", topic, partitionWhiteList);
-		while (iter.hasNext()) {
-			KafkaTopicPartition kafkaTopicPartition = iter.next();
-			boolean inWhiteList = partitionWhiteList.contains(kafkaTopicPartition.getPartition());
-			if (!inWhiteList) {
-				iter.remove();
-			}
-		}
+		return topicPartitions;
 	}
 
-	public List<Integer> parsePartitionList(String partitionListStr) {
+	/**
+	 * Convert partition range str to list.
+	 *
+	 * @param partitionListStr for example: 1-3,5
+	 * @return the list of partition
+	 */
+	private List<Integer> parsePartitionList(String partitionListStr) {
 		List<Integer> result = new ArrayList<>();
 		if (partitionListStr == null) {
 			return null;
@@ -1366,5 +1374,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			properties.put(IGNORE_DC_CHECK_CONFIG, true);
 		}
 		return properties;
+	}
+
+	/**
+	 * Set the topic partition list, for example: "cluster1||topic1||1,3-5;cluster2||topic2||1,2,3".
+	 *
+	 * @param whiteTopicPartitionList the partition list which want to consume
+	 */
+	public void setWhiteTopicPartitionList(String whiteTopicPartitionList) {
+		this.whiteTopicPartitionList = whiteTopicPartitionList;
 	}
 }

@@ -56,6 +56,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_NUM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_PARTITION_RANGE;
 
 /**
  * A version-agnostic Kafka {@link StreamTableSource}.
@@ -217,8 +218,15 @@ public abstract class KafkaTableSourceBase implements
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment env) {
 
 		DeserializationSchema<Row> deserializationSchema = getDeserializationSchema();
+
 		// Version-specific Kafka consumer
 		FlinkKafkaConsumerBase<Row> kafkaConsumer = getKafkaConsumer(topic, properties, deserializationSchema);
+
+		// Set partition ranger to consume
+		String partitionRange = configurations.get(CONNECTOR_SOURCE_PARTITION_RANGE);
+		if (partitionRange != null) {
+			kafkaConsumer.setWhiteTopicPartitionList(properties.getProperty("cluster") + "||" + topic + "||" + partitionRange);
+		}
 
 		// Set kafka rate limiting strategy.
 		long rateLimitingNum =

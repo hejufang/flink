@@ -80,6 +80,9 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_RATE_LIMITING_NUM = "connector.rate-limiting-num";
 	public static final String CONNECTOR_RATE_LIMITING_UNIT = "connector.rate-limiting-unit";
 
+	// Partition range to consume
+	public static final String CONNECTOR_SOURCE_PARTITION_RANGE = "connector.source-partition-range";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -98,6 +101,12 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		validateKafkaProperties(properties);
 
 		validateSinkPartitioner(properties);
+
+		validatePartitionRange(properties);
+	}
+
+	private void validatePartitionRange(DescriptorProperties properties) {
+		properties.validateString(CONNECTOR_SOURCE_PARTITION_RANGE, true, 1);
 	}
 
 	private void validateRateLimiting (DescriptorProperties properties) {
