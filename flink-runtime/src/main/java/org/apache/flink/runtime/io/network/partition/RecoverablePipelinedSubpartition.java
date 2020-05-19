@@ -19,12 +19,14 @@
 package org.apache.flink.runtime.io.network.partition;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -117,6 +119,22 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 	@Override
 	public RecoverablePipelinedSubpartitionView createReadView(BufferAvailabilityListener availabilityListener) throws IOException {
 		final boolean notifyDataAvailable;
+
+		// loop to prevent task not releasing the view yet
+		final Deadline deadline = Deadline.fromNow(Duration.ofMinutes(10));
+		while (status == SUBPARTITION_AVAILABLE && deadline.hasTimeLeft()) {
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+		}
+
+		if (status == SUBPARTITION_AVAILABLE) {
+			LOG.error("{}: {} This is unexpected.", this, parent.getOwningTaskName());
+			throw new RuntimeException("This is an unexpected exception.");
+		}
+
 		synchronized (buffers) {
 			checkState(!isReleased);
 			checkState(readView == null,
