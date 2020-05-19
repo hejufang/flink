@@ -767,7 +767,7 @@ public final class Utils {
 				String otherDockerLogMounts = flinkConfiguration.getString(
 					YarnConfigKeys.DOCKER_LOG_MOUNTS_KEY, null);
 				if (otherDockerLogMounts != null && !otherDockerLogMounts.isEmpty()) {
-					dockerLogMounts = otherDockerLogMounts + "," + dockerLogMounts;
+					dockerLogMounts = otherDockerLogMounts + ";" + dockerLogMounts;
 				}
 				LOG.info("Docker log mounts: {}", dockerLogMounts);
 				envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_KEY, dockerLogMounts);
