@@ -133,8 +133,6 @@ public class SlotPoolImpl implements SlotPool {
 
 	private ComponentMainThreadExecutor componentMainThreadExecutor;
 
-	private final boolean evenlySpreadOutSlots;
-
 	// ------------------------------------------------------------------------
 	public SlotPoolImpl(
 			JobID jobId,
@@ -142,28 +140,12 @@ public class SlotPoolImpl implements SlotPool {
 			Time rpcTimeout,
 			Time idleSlotTimeout,
 			Time batchSlotTimeout) {
-		this(jobId,
-			clock,
-			rpcTimeout,
-			idleSlotTimeout,
-			batchSlotTimeout,
-			false);
-	}
-
-	public SlotPoolImpl(
-			JobID jobId,
-			Clock clock,
-			Time rpcTimeout,
-			Time idleSlotTimeout,
-			Time batchSlotTimeout,
-			boolean evenlySpreadOutSlots) {
 
 		this.jobId = checkNotNull(jobId);
 		this.clock = checkNotNull(clock);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
 		this.idleSlotTimeout = checkNotNull(idleSlotTimeout);
 		this.batchSlotTimeout = checkNotNull(batchSlotTimeout);
-		this.evenlySpreadOutSlots = evenlySpreadOutSlots;
 
 		this.registeredTaskManagers = new HashSet<>(16);
 		this.allocatedSlots = new AllocatedSlots();
@@ -226,11 +208,7 @@ public class SlotPoolImpl implements SlotPool {
 		this.jobManagerAddress = newJobManagerAddress;
 		this.componentMainThreadExecutor = componentMainThreadExecutor;
 
-		if (!evenlySpreadOutSlots) {
-			// Always keep available slots when enable evenlySpreadOutSlots.
-			// For task to find the prior slot.
-			scheduleRunAsync(this::checkIdleSlot, idleSlotTimeout);
-		}
+		scheduleRunAsync(this::checkIdleSlot, idleSlotTimeout);
 		scheduleRunAsync(this::checkBatchSlotTimeout, batchSlotTimeout);
 
 		if (log.isDebugEnabled()) {

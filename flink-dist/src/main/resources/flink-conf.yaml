@@ -63,7 +63,7 @@ common:
 
   restart-strategy: failure-rate
   restart-strategy.failure-rate.max-failures-per-interval: 5
-  restart-strategy.failure-rate.failure-rate-interval: 30 min
+  restart-strategy.failure-rate.failure-rate-interval: 40 min
   restart-strategy.failure-rate.delay: 20 s
 
   flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
@@ -126,6 +126,7 @@ common:
   taskmanager.initial-on-start: false
   resourcemanager.taskmanager-timeout: 600000
   slot.request.timeout: 300000
+  slot.idle.timeout: 900000
 
   # client configs
   rest.await-leader-timeout: 300000
