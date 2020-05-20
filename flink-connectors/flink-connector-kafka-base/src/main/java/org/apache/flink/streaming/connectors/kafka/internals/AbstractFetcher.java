@@ -34,12 +34,19 @@ import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.util.SerializedValue;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -51,6 +58,7 @@ import static org.apache.flink.streaming.connectors.kafka.internals.metrics.Kafk
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.LEGACY_CURRENT_OFFSETS_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.OFFSETS_BY_PARTITION_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.OFFSETS_BY_TOPIC_METRICS_GROUP;
+import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.TOPIC_PARTITIONS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -138,6 +146,8 @@ public abstract class AbstractFetcher<T, KPH> {
 
 	private final Counter skipDirty;
 
+	private final TopicAndPartitionsGauge topicAndPartitions;
+
 	@Deprecated
 	private final MetricGroup legacyCurrentOffsetsMetricGroup;
 
@@ -153,7 +163,8 @@ public abstract class AbstractFetcher<T, KPH> {
 			long autoWatermarkInterval,
 			ClassLoader userCodeClassLoader,
 			MetricGroup consumerMetricGroup,
-			boolean useMetrics) throws Exception {
+			boolean useMetrics,
+			Properties properties) throws Exception {
 		this.sourceContext = checkNotNull(sourceContext);
 		this.checkpointLock = sourceContext.getCheckpointLock();
 		this.userCodeClassLoader = checkNotNull(userCodeClassLoader);
@@ -163,6 +174,9 @@ public abstract class AbstractFetcher<T, KPH> {
 		this.legacyCurrentOffsetsMetricGroup = consumerMetricGroup.addGroup(LEGACY_CURRENT_OFFSETS_METRICS_GROUP);
 		this.legacyCommittedOffsetsMetricGroup = consumerMetricGroup.addGroup(LEGACY_COMMITTED_OFFSETS_METRICS_GROUP);
 		this.skipDirty = consumerMetricGroup.counter("skipDirty");
+		this.topicAndPartitions = consumerMetricGroup.gauge(TOPIC_PARTITIONS, new TopicAndPartitionsGauge(
+				properties.getProperty(ConsumerConfig.CLUSTER_NAME_CONFIG),
+				properties.getProperty(ConsumerConfig.GROUP_ID_CONFIG)));
 
 		// figure out what we watermark mode we will be using
 		this.watermarksPeriodic = watermarksPeriodic;
@@ -630,6 +644,9 @@ public abstract class AbstractFetcher<T, KPH> {
 			List<KafkaTopicPartitionState<KPH>> partitionOffsetStates) {
 
 		for (KafkaTopicPartitionState<KPH> ktp : partitionOffsetStates) {
+
+			topicAndPartitions.addTopicAndPartition(ktp.getTopic(), ktp.getPartition());
+
 			MetricGroup topicPartitionGroup = consumerMetricGroup
 				.addGroup(OFFSETS_BY_TOPIC_METRICS_GROUP, ktp.getTopic())
 				.addGroup(OFFSETS_BY_PARTITION_METRICS_GROUP, Integer.toString(ktp.getPartition()));
@@ -659,6 +676,61 @@ public abstract class AbstractFetcher<T, KPH> {
 	private enum OffsetGaugeType {
 		CURRENT_OFFSET,
 		COMMITTED_OFFSET
+	}
+
+	/**
+	 * Gauge for getting topic and partitions.
+	 */
+	private static class TopicAndPartitionsGauge implements Gauge<String> {
+
+		private final ConsumerMetaInfo consumerMetaInfo;
+		private final ObjectMapper objectMapper;
+
+		TopicAndPartitionsGauge(String cluster, String consumerGroup) {
+			this.consumerMetaInfo = new ConsumerMetaInfo(cluster, consumerGroup);
+			this.objectMapper = new ObjectMapper();
+		}
+
+		void addTopicAndPartition(String topic, int partition) {
+			if (!consumerMetaInfo.getTopicAndPartitions().containsKey(topic)) {
+				consumerMetaInfo.getTopicAndPartitions().put(topic, new ArrayList<>());
+			}
+			consumerMetaInfo.getTopicAndPartitions().get(topic).add(partition);
+		}
+
+		@Override
+		public String getValue() {
+			try {
+				return objectMapper.writeValueAsString(consumerMetaInfo);
+			} catch (JsonProcessingException e) {
+				return "";
+			}
+		}
+	}
+
+	private static class ConsumerMetaInfo {
+
+		private final String cluster;
+		private final String consumerGroup;
+		private final Map<String, List<Integer>> topicAndPartitions;
+
+		ConsumerMetaInfo(String cluster, String consumerGroup) {
+			this.cluster = cluster;
+			this.consumerGroup = consumerGroup;
+			this.topicAndPartitions = new HashMap<>();
+		}
+
+		public String getCluster() {
+			return cluster;
+		}
+
+		public String getConsumerGroup() {
+			return consumerGroup;
+		}
+
+		public Map<String, List<Integer>> getTopicAndPartitions() {
+			return topicAndPartitions;
+		}
 	}
 
 	/**

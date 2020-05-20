@@ -42,6 +42,7 @@ public class SpoutInfo implements Serializable {
 	private boolean isAutoPartition;
 	private Map<String, Object> args;
 	private String slotShareGroup;
+	private String consumerGroup;
 
 	public SpoutInfo() {
 	}
@@ -182,6 +183,14 @@ public class SpoutInfo implements Serializable {
 		this.args = args;
 	}
 
+	public String getConsumerGroup() {
+		return consumerGroup;
+	}
+
+	public void setConsumerGroup(String consumerGroup) {
+		this.consumerGroup = consumerGroup;
+	}
+
 	@Override
 	public String toString() {
 		return "SpoutInfo{" +
@@ -202,6 +211,7 @@ public class SpoutInfo implements Serializable {
 			", isAutoPartition=" + isAutoPartition +
 			", slotShareGroup=" + slotShareGroup +
 			", args=" + args +
+			", consumerGroup=" + consumerGroup +
 			'}';
 	}
 }

@@ -21,6 +21,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.pyflink.PYFlinkProgressCache;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.bytedance.flink.collector.SpoutCollector;
 import com.bytedance.flink.configuration.Constants;
 import com.bytedance.flink.pojo.RuntimeConfig;
@@ -28,7 +31,12 @@ import com.bytedance.flink.utils.EnvironmentInitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.bytedance.flink.configuration.Constants.CONSUMER_GROUP;
 
 /**
  * A spout wrapper is a RichParallelSourceFunction and it wraps a ShellSpout.
@@ -49,6 +57,10 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 	private Integer subTaskId;
 	private volatile boolean localFailover;
 	private volatile PySpoutProcess spoutProgress;
+
+	private ConsumerMetaInfo consumerMetaInfo;
+
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	public SpoutWrapper(Spout spout, String name, Integer numberOfAttributes) {
 		this.spout = spout;
@@ -96,6 +108,25 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 
 		if (!attached) {
 			spout.open(runtimeConfig, spoutCollector);
+
+			// register topic and partitions
+			if (spout instanceof ShellSpout) {
+				final ShellSpout shellSpout = (ShellSpout) spout;
+				final List<Integer> partitions = shellSpout.getSpoutInfo().getPartitionList();
+				final String topic = shellSpout.getSpoutInfo().getKafkaTopic();
+
+				consumerMetaInfo = new ConsumerMetaInfo(shellSpout.getSpoutInfo().getKafkaCluster(),
+						shellSpout.getSpoutInfo().getArgs().get(CONSUMER_GROUP).toString());
+				consumerMetaInfo.getTopicAndPartitions().put(topic, partitions);
+				LOG.info("Register metrics for topic and partitions {}.", consumerMetaInfo);
+				getRuntimeContext().getMetricGroup().gauge(Constants.TOPIC_PARTITIONS, () -> {
+					try {
+						return objectMapper.writeValueAsString(consumerMetaInfo);
+					} catch (JsonProcessingException e) {
+						return "";
+					}
+				});
+			}
 			if (localFailover) {
 				spoutProgress = new PySpoutProcess(runtimeConfig, name, subTaskId, spout);
 				PYFlinkProgressCache.getInstance().put(spoutProgressKey, spoutProgress);
@@ -133,6 +164,40 @@ public class SpoutWrapper<OUT> extends RichParallelSourceFunction<OUT> {
 		} else {
 			LOG.info("Close spout progress");
 			this.spout.close();
+		}
+	}
+
+	private static class ConsumerMetaInfo {
+
+		private final String cluster;
+		private final String consumerGroup;
+		private final Map<String, List<Integer>> topicAndPartitions;
+
+		ConsumerMetaInfo(String cluster, String consumerGroup) {
+			this.cluster = cluster;
+			this.consumerGroup = consumerGroup;
+			this.topicAndPartitions = new HashMap<>();
+		}
+
+		public String getCluster() {
+			return cluster;
+		}
+
+		public String getConsumerGroup() {
+			return consumerGroup;
+		}
+
+		public Map<String, List<Integer>> getTopicAndPartitions() {
+			return topicAndPartitions;
+		}
+
+		@Override
+		public String toString() {
+			return "ConsumerMetaInfo{" +
+					"cluster='" + cluster + '\'' +
+					", consumerGroup='" + consumerGroup + '\'' +
+					", topicAndPartitions=" + topicAndPartitions +
+					'}';
 		}
 	}
 }

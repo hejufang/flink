@@ -149,7 +149,8 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				autoWatermarkInterval,
 				userCodeClassLoader,
 				consumerMetricGroup,
-				useMetrics);
+				useMetrics,
+				kafkaProperties);
 
 		this.checkpointLock = sourceContext.getCheckpointLock();
 		this.deserializer = deserializer;

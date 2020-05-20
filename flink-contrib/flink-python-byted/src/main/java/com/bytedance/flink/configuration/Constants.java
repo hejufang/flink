@@ -167,4 +167,6 @@ public class Constants {
 	public static final String FIELDS = "fields";
 
 	public static final int FLINK_TUPLE_MAX_FIELD_SIZE = 25;
+
+	public static final String TOPIC_PARTITIONS = "sourceTopicPartitions";
 }

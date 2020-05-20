@@ -56,7 +56,7 @@ public class JobVertexDetailsInfoTest extends RestResponseMarshallingTestBase<Jo
 			System.currentTimeMillis(),
 			System.currentTimeMillis(),
 			1L,
-			jobVertexMetrics));
+			jobVertexMetrics, null));
 		vertexTaskDetailList.add(new JobVertexDetailsInfo.VertexTaskDetail(
 			1,
 			ExecutionState.FAILED,
@@ -65,7 +65,7 @@ public class JobVertexDetailsInfoTest extends RestResponseMarshallingTestBase<Jo
 			System.currentTimeMillis(),
 			System.currentTimeMillis(),
 			1L,
-			jobVertexMetrics));
+			jobVertexMetrics, null));
 		vertexTaskDetailList.add(new JobVertexDetailsInfo.VertexTaskDetail(
 			2,
 			ExecutionState.FINISHED,
@@ -74,7 +74,7 @@ public class JobVertexDetailsInfoTest extends RestResponseMarshallingTestBase<Jo
 			System.currentTimeMillis(),
 			System.currentTimeMillis(),
 			1L,
-			jobVertexMetrics));
+			jobVertexMetrics, null));
 
 		return new JobVertexDetailsInfo(
 			new JobVertexID(),

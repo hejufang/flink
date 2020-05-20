@@ -31,6 +31,7 @@ import org.apache.flink.runtime.rest.handler.HandlerRequest;
 import org.apache.flink.runtime.rest.handler.legacy.ExecutionGraphCache;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
 import org.apache.flink.runtime.rest.handler.util.MutableIOMetrics;
+import org.apache.flink.runtime.rest.handler.util.SourceMetaMetrics;
 import org.apache.flink.runtime.rest.messages.EmptyRequestBody;
 import org.apache.flink.runtime.rest.messages.JobIDPathParameter;
 import org.apache.flink.runtime.rest.messages.JobVertexDetailsInfo;
@@ -160,6 +161,9 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 					counts.getNumRecordsOut(),
 					counts.isNumRecordsOutComplete());
 
+		final SourceMetaMetrics sourceMeta = new SourceMetaMetrics();
+		sourceMeta.addMeta(exec, metricFetcher, jobID.toString(), jobVertex.toString());
+
 		return new JobVertexDetailsInfo.VertexTaskDetail(
 				num,
 				status,
@@ -168,6 +172,7 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 				startTime,
 				endTime,
 				duration,
-				ioMetricsInfo);
+				ioMetricsInfo,
+				sourceMeta.getMetaInfo().calculatePartitions());
 	}
 }

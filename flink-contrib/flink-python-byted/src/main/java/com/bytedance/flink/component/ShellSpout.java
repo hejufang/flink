@@ -182,6 +182,12 @@ public class ShellSpout implements Spout {
 		LOG.info("Set consumedPartitionNum = {}", consumedPartitionNum);
 		conf.put(Constants.CONSUMED_PARTITION, consumedPartitionNum);
 		runtimeConfig.put(Constants.CONSUMED_PARTITION, consumedPartitionNum);
+
+		List<Integer> partitionsList = new ArrayList<>();
+		for (int i = newIndex; i < newIndex + consumedPartitionNum; i++) {
+			partitionsList.add(i);
+		}
+		spoutInfo.setPartitionList(partitionsList);
 	}
 
 	private int calcStartIndex(int idx, int perThread, int modNum) {

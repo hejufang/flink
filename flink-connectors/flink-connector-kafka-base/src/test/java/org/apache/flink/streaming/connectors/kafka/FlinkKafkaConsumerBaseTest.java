@@ -937,7 +937,7 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 		private volatile boolean isRunning = true;
 
 		protected TestingFetcher(SourceFunction.SourceContext<T> sourceContext, Map<KafkaTopicPartition, Long> seedPartitionsWithInitialOffsets, SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic, SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated, ProcessingTimeService processingTimeProvider, long autoWatermarkInterval, ClassLoader userCodeClassLoader, MetricGroup consumerMetricGroup, boolean useMetrics) throws Exception {
-			super(sourceContext, seedPartitionsWithInitialOffsets, watermarksPeriodic, watermarksPunctuated, processingTimeProvider, autoWatermarkInterval, userCodeClassLoader, consumerMetricGroup, useMetrics);
+			super(sourceContext, seedPartitionsWithInitialOffsets, watermarksPeriodic, watermarksPunctuated, processingTimeProvider, autoWatermarkInterval, userCodeClassLoader, consumerMetricGroup, useMetrics, new java.util.Properties());
 		}
 
 		@Override
@@ -1220,7 +1220,8 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 					0,
 					MockFetcher.class.getClassLoader(),
 					new UnregisteredMetricsGroup(),
-					false);
+					false,
+					new java.util.Properties());
 
 			this.stateSnapshotsToReturn.addAll(Arrays.asList(stateSnapshotsToReturn));
 		}
