@@ -136,6 +136,10 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)) {
 			deserializationSchema = TableConnectorUtils.getDeserializationSchema(properties,
 				this.getClass().getClassLoader());
+		} else if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)
+			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
+			throw new FlinkRuntimeException("Can't configure the format.type and " +
+				"connector.redis-data-type at the same time.");
 		}
 
 		return RedisTableSource.builder()
@@ -156,6 +160,13 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 			final SerializationSchema<Row> serializationSchema = TableConnectorUtils
 				.getSerializationSchema(properties, this.getClass().getClassLoader());
 			builder.setSerializationSchema(serializationSchema);
+		} else if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)
+			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
+			throw new FlinkRuntimeException("Can't configure the format.type and " +
+				"connector.redis-data-type at the same time.");
+		} else if (properties.get(CONNECTOR_MODE).equalsIgnoreCase(INCR_MODE)
+			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
+			throw new FlinkRuntimeException("Can not configure connector.redis-data-type in incr mode.");
 		}
 
 		builder.setOptions(getRedisOptions(descriptorProperties));

@@ -92,7 +92,7 @@ public class RedisUpsertTableSinkITCase extends AbstractTestBase {
 			") with (" +
 			"'connector.type' = 'redis'," +
 			"'connector.cluster' = 'toutiao.redis.data_inf_dtop.service.lf'," +
-			"'connector.data-type' = 'list'," +
+			"'connector.redis-data-type' = 'list'," +
 			"'connector.ttl-seconds' = '20'," +
 			"'connector.batch-size' = '1'" +
 			")");
@@ -131,7 +131,7 @@ public class RedisUpsertTableSinkITCase extends AbstractTestBase {
 			") with (" +
 			"'connector.type' = 'redis'," +
 			"'connector.cluster' = 'toutiao.redis.data_inf_dtop.service.lf'," +
-			"'connector.data-type' = 'hash'," +
+			"'connector.redis-data-type' = 'hash'," +
 			"'connector.ttl-seconds' = '20'," +
 			"'connector.batch-size' = '1'" +
 			")");
@@ -170,7 +170,7 @@ public class RedisUpsertTableSinkITCase extends AbstractTestBase {
 			") with (" +
 			"'connector.type' = 'redis'," +
 			"'connector.cluster' = 'toutiao.redis.data_inf_dtop.service.lf'," +
-			"'connector.data-type' = 'set'," +
+			"'connector.redis-data-type' = 'set'," +
 			"'connector.ttl-seconds' = '20'," +
 			"'connector.batch-size' = '1'" +
 			")");
@@ -209,7 +209,7 @@ public class RedisUpsertTableSinkITCase extends AbstractTestBase {
 			") with (" +
 			"'connector.type' = 'redis'," +
 			"'connector.cluster' = 'toutiao.redis.data_inf_dtop.service.lf'," +
-			"'connector.data-type' = 'zset'," +
+			"'connector.redis-data-type' = 'zset'," +
 			"'connector.ttl-seconds' = '20'," +
 			"'connector.batch-size' = '1'" +
 			")");

@@ -21,11 +21,13 @@ package org.apache.flink.connectors.redis;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisUtils;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
@@ -34,6 +36,7 @@ import com.bytedance.kvclient.ClientPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisDataException;
 import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Nullable;
@@ -41,8 +44,15 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_HASH;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_LIST;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_SET;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
+import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.connectors.util.Constant.STORAGE_ABASE;
 import static org.apache.flink.connectors.util.Constant.STORAGE_REDIS;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -83,6 +93,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final Integer minIdleConnections;
 	private final Boolean forceConnectionsSetting;
 	private final Integer getResourceMaxRetries;
+	private final RedisDataType redisDataType;
 
 	// <------------------------- lookup options --------------------------->
 	private final long cacheMaxSize;
@@ -117,6 +128,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		this.maxIdleConnections = options.getMaxIdleConnections();
 		this.minIdleConnections = options.getMinIdleConnections();
 		this.getResourceMaxRetries = options.getGetResourceMaxRetries();
+		this.redisDataType = options.getRedisDataType();
 
 		this.cacheMaxSize = lookupOptions.getCacheMaxSize();
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
@@ -169,19 +181,37 @@ public class RedisLookupFunction extends TableFunction<Row> {
 
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			try {
-				byte[] key = String.valueOf(keys[0]).getBytes();
-				byte[] value = jedis.get(key);
-				if (value != null) {
-					Row row;
-					if (deserializationSchema != null) {
-						row = deserializationSchema.deserialize(value);
-					} else {
-						row = convertToRowFromResult(key, value, fieldTypes);
+				Row row;
+				String key = String.valueOf(keys[0]);
+				if (deserializationSchema != null) {
+					row = lookupWithSchema(key);
+				} else {
+					switch (redisDataType.getType()) {
+						case REDIS_DATATYPE_STRING:
+							row = readString(key);
+							break;
+						case REDIS_DATATYPE_HASH:
+							row = readHash(key);
+							break;
+						case REDIS_DATATYPE_LIST:
+							row = readList(key);
+							break;
+						case REDIS_DATATYPE_SET:
+							row = readSet(key);
+							break;
+						case REDIS_DATATYPE_ZSET:
+							row = readZSet(key);
+							break;
+
+						default:
+							throw new FlinkRuntimeException(String.format("Unsupported data type, " +
+									"currently supported type: %s, %s, %s, %s, %s", REDIS_DATATYPE_STRING,
+								REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
 					}
-					collect(row);
-					if (cache != null) {
-						cache.put(keyRow, row);
-					}
+				}
+				collect(row);
+				if (cache != null) {
+					cache.put(keyRow, row);
 				}
 				break;
 			} catch (Exception e) {
@@ -204,6 +234,87 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				}
 			}
 		}
+	}
+
+	private Row lookupWithSchema(String keyTmp) throws IOException {
+		byte[] key = keyTmp.getBytes();
+		byte[] value;
+		try {
+			value = jedis.get(key);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+				"Related command: 'get key'.", keyTmp), e);
+		}
+		Row row = null;
+		if (value != null) {
+			row = deserializationSchema.deserialize(value);
+		}
+		return row;
+	}
+
+	private Row readString(String keyTmp) {
+		Row row;
+		try {
+			byte[] value = jedis.get(keyTmp.getBytes());
+			row = convertToRowFromResult(keyTmp.getBytes(), value, fieldTypes);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+				"Related command: 'get key'.", keyTmp), e);
+		}
+		return row;
+	}
+
+	private Row readHash(String key) {
+		Row row;
+		try {
+			Map<String, String> value = jedis.hgetAll(key);
+			row = convertToRowFromResult(key.getBytes(), value, fieldTypes);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+				"Related command: 'HGETALL key'.", key), e);
+		}
+		return row;
+	}
+
+	private Row readList(String key) {
+		Row row;
+		try {
+			long length = jedis.llen(key);
+			List<String> resultTmp = jedis.lrange(key, 0, length);
+			String[] result = resultTmp.toArray(new String[0]);
+			row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+				"Related command: 'llen key' and 'lrange key 0 list.size'.", key), e);
+		}
+		return row;
+	}
+
+	private Row readSet(String key) {
+		Row row;
+		try {
+			Set<String> resultTmp = jedis.smembers(key);
+			String[] result = resultTmp.toArray(new String[0]);
+			row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+				"Related command: 'smembers key'.", key), e);
+		}
+		return row;
+	}
+
+	private Row readZSet(String key) {
+		Row row;
+		try {
+			long length = jedis.zcard(key);
+			Set<String> resultTmp = jedis.zrange(key, 0, length);
+			String[] result = resultTmp.toArray(new String[0]);
+			row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+				"Related command: 'zcard key' and 'zrange key 0 set.size'.", key), e);
+		}
+		return row;
 	}
 
 	@Override
@@ -230,6 +341,20 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		Row row = new Row(2);
 		row.setField(0, convertByteArrayToFieldType(key, fieldTypes[0]));
 		row.setField(1, convertByteArrayToFieldType(value, fieldTypes[1]));
+		return row;
+	}
+
+	public Row convertToRowFromResult(byte[] key, Map<String, String> value, TypeInformation[] fieldTypes) {
+		Row row = new Row(2);
+		row.setField(0, convertByteArrayToFieldType(key, fieldTypes[0]));
+		row.setField(1, value);
+		return row;
+	}
+
+	public Row convertToRowFromResult(byte[] key, String[] value, TypeInformation[] fieldTypes) {
+		Row row = new Row(2);
+		row.setField(0, convertByteArrayToFieldType(key, fieldTypes[0]));
+		row.setField(1, value);
 		return row;
 	}
 
