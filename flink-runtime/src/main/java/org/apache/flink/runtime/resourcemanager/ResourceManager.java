@@ -1030,7 +1030,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	}
 
-	protected void recordWorkerFailure(String hostname, ResourceID resourceID, String cause) {
+	protected void recordWorkerFailure(String hostname, ResourceID resourceID, Throwable cause) {
 		recordWorkerFailure();
 		if (sessionBlacklistTracker != null) {
 			try {

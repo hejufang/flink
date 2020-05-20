@@ -25,12 +25,12 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -43,11 +43,13 @@ public class SessionBlacklistTracker implements AutoCloseable {
 	/**
 	 * Host already added to blacklist. key: host, value: latest failure timestamp.
 	 */
-	private Map<String, Long> blackedHosts;
+	private final Map<String, TaskManagerFailure> blackedHosts;
 	/**
 	 * All host with failed TaskManagers.
 	 */
-	private Map<String, LinkedList<TaskManagerFailure>> hostFailures;
+	private final Map<String, LinkedList<TaskManagerFailure>> hostFailures;
+
+	private final List<Class<? extends Throwable>> ignoreExceptionClasses;
 
 	private ComponentMainThreadExecutor mainThreadExecutor;
 	private ResourceActions resourceActions;
@@ -57,6 +59,7 @@ public class SessionBlacklistTracker implements AutoCloseable {
 		this.blackedHosts = new HashMap<>();
 		this.hostFailures = new HashMap<>();
 		this.blacklistConfiguration = blacklistConfiguration;
+		this.ignoreExceptionClasses = new ArrayList<>();
 	}
 
 	public void start(ComponentMainThreadExecutor mainThreadExecutor, ResourceActions newResourceActions) {
@@ -78,8 +81,13 @@ public class SessionBlacklistTracker implements AutoCloseable {
 		return hostFailures;
 	}
 
-	public Set<String> getBlackedHosts() {
-		return blackedHosts.keySet();
+	public Map<String, TaskManagerFailure> getBlackedHosts() {
+		return blackedHosts;
+	}
+
+	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) {
+		this.ignoreExceptionClasses.add(exceptionClass);
+		LOG.info("Add ignore Exception class {}.", exceptionClass);
 	}
 
 	public void clearAll() {
@@ -90,10 +98,20 @@ public class SessionBlacklistTracker implements AutoCloseable {
 
 	private void removeEarliestHost() {
 		if (blackedHosts.size() > 0) {
-			String earliestHost = Collections.min(blackedHosts.entrySet(), Map.Entry.comparingByValue()).getKey();
+			String earliestHost = Collections.min(
+					blackedHosts.entrySet(),
+					Map.Entry.comparingByValue(
+							(o1, o2) -> (int) (o1.getTimestamp() - o2.getTimestamp()))
+			).getKey();
 			hostFailures.remove(earliestHost);
 			blackedHosts.remove(earliestHost);
 			LOG.info("Remove the earliest host {}", earliestHost);
+		}
+	}
+
+	public void taskManagerFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
+		if (!ignoreExceptionClasses.contains(t.getClass())) {
+			taskManagerFailure(hostname, resourceID, t.getMessage(), timestamp);
 		}
 	}
 
@@ -112,7 +130,7 @@ public class SessionBlacklistTracker implements AutoCloseable {
 							taskManagerFailures.size(), hostname, blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost());
 					updated = true;
 				}
-				blackedHosts.put(hostname, timestamp);
+				blackedHosts.put(hostname, taskManagerFailure);
 
 				// remove earliest blacked host.
 				if (blackedHosts.size() > blacklistConfiguration.getSessionBlacklistLength()) {
@@ -143,29 +161,33 @@ public class SessionBlacklistTracker implements AutoCloseable {
 	}
 
 	public void checkFailureExceedTimeout() {
-		long currentTimestampMs = System.currentTimeMillis();
-		LOG.debug("Start to check failures exceeds timeout, current timestamp: {}.", currentTimestampMs);
-		AtomicBoolean updated = new AtomicBoolean(false);
+		try {
+			long currentTimestampMs = System.currentTimeMillis();
+			LOG.debug("Start to check failures exceeds timeout, current timestamp: {}.", currentTimestampMs);
+			AtomicBoolean updated = new AtomicBoolean(false);
 
-		// remove host which failures is empty.
-		hostFailures.entrySet().removeIf(stringListEntry -> {
-			String host = stringListEntry.getKey();
-			List<TaskManagerFailure> taskManagerFailures = stringListEntry.getValue();
-			// remove failures which out of date.
-			taskManagerFailures.removeIf(
-					value -> (currentTimestampMs - value.getTimestamp()) > blacklistConfiguration.getFailureTimeout().toMilliseconds());
+			// remove host which failures is empty.
+			hostFailures.entrySet().removeIf(stringListEntry -> {
+				String host = stringListEntry.getKey();
+				List<TaskManagerFailure> taskManagerFailures = stringListEntry.getValue();
+				// remove failures which out of date.
+				taskManagerFailures.removeIf(
+						value -> (currentTimestampMs - value.getTimestamp()) > blacklistConfiguration.getFailureTimeout().toMilliseconds());
 
-			if (blackedHosts.containsKey(host) && taskManagerFailures.size() <= blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost()) {
-				LOG.info("Number of failure TaskManager on host {} small than threshold {}, remove from blacklist.",
-						host, blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost());
-				blackedHosts.remove(host);
-				updated.set(true);
+				if (blackedHosts.containsKey(host) && taskManagerFailures.size() <= blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost()) {
+					LOG.info("Number of failure TaskManager on host {} small than threshold {}, remove from blacklist.",
+							host, blacklistConfiguration.getSessionMaxTaskmanagerFailurePerHost());
+					blackedHosts.remove(host);
+					updated.set(true);
+				}
+				return taskManagerFailures.isEmpty();
+			});
+
+			if (updated.get()) {
+				resourceActions.notifyBlacklistUpdated();
 			}
-			return taskManagerFailures.isEmpty();
-		});
-
-		if (updated.get()) {
-			resourceActions.notifyBlacklistUpdated();
+		} catch (Exception e) {
+			LOG.error("checkFailureExceedTimeout error", e);
 		}
 
 		this.mainThreadExecutor.schedule(

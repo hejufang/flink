@@ -56,6 +56,10 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 		}
 	}
 
+	public void reset() {
+		store.reset();
+	}
+
 	@Override
 	public TagGaugeStore getValue() {
 		return store;
