@@ -28,6 +28,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ListTypeInfo;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.api.functions.co.CoProcessFunction;
 import org.apache.flink.table.dataformat.BaseRow;
 import org.apache.flink.table.runtime.generated.GeneratedFunction;
@@ -51,6 +53,8 @@ import java.util.Map;
  */
 abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow, BaseRow> {
 	private static final Logger LOGGER = LoggerFactory.getLogger(TimeBoundedStreamJoin.class);
+	private static final String LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME = "numLeftSideRecordsDropped";
+	private static final String LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME = "numRightSideRecordsDropped";
 	private final FlinkJoinType joinType;
 	protected final long leftRelativeSize;
 	protected final long rightRelativeSize;
@@ -81,6 +85,12 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 	// Points in time until which the respective cache has been cleaned.
 	private long leftExpirationTime = 0L;
 	private long rightExpirationTime = 0L;
+
+	// ------------------------------------------------------------------------
+	// Metrics
+	// ------------------------------------------------------------------------
+	private transient Counter lateLeftRecordsDropped;
+	private transient Counter lateRightRecordsDropped;
 
 	// Current time on the respective input stream.
 	protected long leftOperatorTime = 0L;
@@ -145,6 +155,10 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 		rightTimerState = getRuntimeContext().getState(rightValueStateDescriptor);
 
 		paddingUtil = new OuterJoinPaddingUtil(leftType.getArity(), rightType.getArity());
+		// metrics
+		MetricGroup metrics = getRuntimeContext().getMetricGroup();
+		lateLeftRecordsDropped = metrics.counter(LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME);
+		lateRightRecordsDropped = metrics.counter(LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME);
 	}
 
 	@Override
@@ -224,6 +238,8 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 		} else if (!emitted && joinType.isLeftOuter()) {
 			// Emit a null padding result if the left row is not cached and successfully joined.
 			joinCollector.collect(paddingUtil.padLeft(leftRow));
+		} else if (!emitted) {
+			lateLeftRecordsDropped.inc();
 		}
 	}
 
@@ -301,6 +317,8 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 		} else if (!emitted && joinType.isRightOuter()) {
 			// Emit a null padding result if the right row is not cached and successfully joined.
 			joinCollector.collect(paddingUtil.padRight(rightRow));
+		} else if (!emitted) {
+			lateRightRecordsDropped.inc();
 		}
 	}
 

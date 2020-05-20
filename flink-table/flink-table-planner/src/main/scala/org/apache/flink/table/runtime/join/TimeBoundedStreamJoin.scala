@@ -26,9 +26,10 @@ import org.apache.flink.api.common.functions.util.FunctionUtils
 import org.apache.flink.api.common.state._
 import org.apache.flink.api.common.typeinfo.{BasicTypeInfo, TypeInformation}
 import org.apache.flink.api.java.operators.join.JoinType
-import org.apache.flink.api.java.typeutils.{ListTypeInfo, TupleTypeInfo}
 import org.apache.flink.api.java.tuple.{Tuple2 => JTuple2}
+import org.apache.flink.api.java.typeutils.{ListTypeInfo, TupleTypeInfo}
 import org.apache.flink.configuration.Configuration
+import org.apache.flink.metrics.Counter
 import org.apache.flink.streaming.api.functions.co.CoProcessFunction
 import org.apache.flink.table.api.Types
 import org.apache.flink.table.codegen.Compiler
@@ -65,6 +66,8 @@ abstract class TimeBoundedStreamJoin(
   extends CoProcessFunction[CRow, CRow, CRow]
   with Compiler[FlatJoinFunction[Row, Row, Row]]
   with Logging {
+  private val LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME = "numLeftSideRecordsDropped"
+  private val LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME = "numRightSideRecordsDropped"
 
   private val paddingUtil: OuterJoinPaddingUtil =
     new OuterJoinPaddingUtil(leftType.getArity, rightType.getArity)
@@ -97,6 +100,14 @@ abstract class TimeBoundedStreamJoin(
 
   // Minimum interval by which state is cleaned up
   private val minCleanUpInterval = (leftRelativeSize + rightRelativeSize) / 2
+
+  // ------------------------------------------------------------------------
+  // Metrics
+  // ------------------------------------------------------------------------
+  @transient
+  private var leftSideRecordsDropped: Counter = _
+  @transient
+  private var rightSideRecordsDropped: Counter = _
 
   if (allowedLateness < 0) {
     throw new IllegalArgumentException("The allowed lateness must be non-negative.")
@@ -148,6 +159,10 @@ abstract class TimeBoundedStreamJoin(
     val rightTimerStateDesc: ValueStateDescriptor[Long] =
       new ValueStateDescriptor[Long]("WindowJoinRightTimerState", classOf[Long])
     rightTimerState = getRuntimeContext.getState(rightTimerStateDesc)
+
+    val metricGroup = getRuntimeContext.getMetricGroup
+    leftSideRecordsDropped = metricGroup.counter(LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME)
+    rightSideRecordsDropped = metricGroup.counter(LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME)
   }
 
   /**
@@ -242,6 +257,8 @@ abstract class TimeBoundedStreamJoin(
         // Emit a null padding result if the left row is not cached and successfully joined.
         joinCollector.collect(paddingUtil.padLeft(leftRow))
       }
+    } else if (!emitted) {
+      leftSideRecordsDropped.inc()
     }
   }
 
@@ -334,6 +351,8 @@ abstract class TimeBoundedStreamJoin(
         // Emit a null padding result if the right row is not cached and successfully joined.
         joinCollector.collect(paddingUtil.padRight(rightRow))
       }
+    } else if (!emitted) {
+      rightSideRecordsDropped.inc()
     }
   }
 
