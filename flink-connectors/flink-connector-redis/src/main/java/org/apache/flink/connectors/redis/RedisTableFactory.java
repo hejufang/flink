@@ -164,7 +164,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
 			throw new FlinkRuntimeException("Can't configure the format.type and " +
 				"connector.redis-data-type at the same time.");
-		} else if (properties.get(CONNECTOR_MODE).equalsIgnoreCase(INCR_MODE)
+		} else if (INCR_MODE.equalsIgnoreCase(properties.get(CONNECTOR_MODE))
 			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
 			throw new FlinkRuntimeException("Can not configure connector.redis-data-type in incr mode.");
 		}
