@@ -123,6 +123,8 @@ public class StreamGraphGenerator {
 
 	private String jobName = DEFAULT_JOB_NAME;
 
+	private boolean isBatchJob = false;
+
 	/**
 	 * If there are some stream edges that can not be chained and the shuffle mode of edge is not
 	 * specified, translate these edges into {@code BLOCKING} result partition type.
@@ -188,6 +190,11 @@ public class StreamGraphGenerator {
 		return this;
 	}
 
+	public StreamGraphGenerator setIsBatchJob(boolean isBatchJob) {
+		this.isBatchJob = isBatchJob;
+		return this;
+	}
+
 	public StreamGraphGenerator setBlockingConnectionsBetweenChains(boolean blockingConnectionsBetweenChains) {
 		this.blockingConnectionsBetweenChains = blockingConnectionsBetweenChains;
 		return this;
@@ -201,6 +208,7 @@ public class StreamGraphGenerator {
 		streamGraph.setUserArtifacts(userArtifacts);
 		streamGraph.setTimeCharacteristic(timeCharacteristic);
 		streamGraph.setJobName(jobName);
+		streamGraph.setIsBatchJob(isBatchJob);
 		streamGraph.setBlockingConnectionsBetweenChains(blockingConnectionsBetweenChains);
 
 		alreadyTransformed = new HashMap<>();

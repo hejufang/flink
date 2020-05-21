@@ -49,4 +49,5 @@ public abstract class StreamingPlan implements FlinkPlan {
 
 	public abstract void dumpStreamingPlanAsJSON(File file) throws IOException;
 
+	public abstract boolean isBatchJob();
 }

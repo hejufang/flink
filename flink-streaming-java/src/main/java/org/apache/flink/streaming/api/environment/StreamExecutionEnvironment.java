@@ -21,6 +21,8 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.Public;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.ExecutionMode;
+import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.InvalidProgramException;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.cache.DistributedCache;
@@ -53,6 +55,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.monitor.Dashboard;
 import org.apache.flink.monitor.JobMeta;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.StateBackend;
@@ -159,6 +162,7 @@ public abstract class StreamExecutionEnvironment {
 
 	protected final List<Tuple2<String, DistributedCache.DistributedCacheEntry>> cacheFile = new ArrayList<>();
 
+	private boolean isBatchJob = false;
 
 	// --------------------------------------------------------------------------------------------
 	// Constructor and Properties
@@ -188,6 +192,10 @@ public abstract class StreamExecutionEnvironment {
 	*/
 	public List<Tuple2<String, DistributedCache.DistributedCacheEntry>> getCachedFiles() {
 		return cacheFile;
+	}
+
+	public void useBatchMode() {
+		this.isBatchJob = true;
 	}
 
 	/**
@@ -1528,7 +1536,6 @@ public abstract class StreamExecutionEnvironment {
 	 */
 	public JobExecutionResult execute(String jobName) throws Exception {
 		Preconditions.checkNotNull(jobName, "Streaming Job name should not be null.");
-
 		return execute(getStreamGraph(jobName));
 	}
 
@@ -1562,7 +1569,42 @@ public abstract class StreamExecutionEnvironment {
 	 */
 	@Internal
 	public StreamGraph getStreamGraph(String jobName) {
-		return getStreamGraphGenerator().setJobName(jobName).generate();
+		if (isBatchJob) {
+			setBatchProperties();
+		}
+
+		final StreamGraph streamGraph = getStreamGraphGenerator().setJobName(jobName).generate();
+
+		if (isBatchJob) {
+			streamGraph.setChaining(true);
+			streamGraph.setScheduleMode(ScheduleMode.LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST);
+			streamGraph.setStateBackend(null);
+			if (streamGraph.getCheckpointConfig().isCheckpointingEnabled()) {
+				throw new IllegalArgumentException("Checkpoint is not supported for batch jobs.");
+			}
+			if (isShuffleModeAllBatch()) {
+				streamGraph.setBlockingConnectionsBetweenChains(true);
+			}
+		}
+
+		return streamGraph;
+	}
+
+	/**
+	 * Sets batch configs.
+	 */
+	private void setBatchProperties() {
+		config.enableObjectReuse();
+		config.setLatencyTrackingInterval(-1);
+		this.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime);
+		this.setBufferTimeout(-1);
+		if (isShuffleModeAllBatch()) {
+			config.setDefaultInputDependencyConstraint(InputDependencyConstraint.ALL);
+		}
+	}
+
+	private boolean isShuffleModeAllBatch() {
+		return config.getExecutionMode().equals(ExecutionMode.BATCH_FORCED);
 	}
 
 	private StreamGraphGenerator getStreamGraphGenerator() {
@@ -1574,7 +1616,8 @@ public abstract class StreamExecutionEnvironment {
 			.setChaining(isChainingEnabled)
 			.setUserArtifacts(cacheFile)
 			.setTimeCharacteristic(timeCharacteristic)
-			.setDefaultBufferTimeout(bufferTimeout);
+			.setDefaultBufferTimeout(bufferTimeout)
+			.setIsBatchJob(isBatchJob);
 	}
 
 	/**

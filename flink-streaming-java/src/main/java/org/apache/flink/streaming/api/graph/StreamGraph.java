@@ -104,6 +104,8 @@ public class StreamGraph extends StreamingPlan {
 	 */
 	private boolean blockingConnectionsBetweenChains;
 
+	private boolean isBatchJob = false;
+
 	private Map<Integer, StreamNode> streamNodes;
 	private Set<Integer> sources;
 	private Set<Integer> sinks;
@@ -157,6 +159,10 @@ public class StreamGraph extends StreamingPlan {
 
 	public void setChaining(boolean chaining) {
 		this.chaining = chaining;
+	}
+
+	public void setIsBatchJob(boolean isBatchJob) {
+		this.isBatchJob = isBatchJob;
 	}
 
 	public void setStateBackend(StateBackend backend) {
@@ -765,5 +771,10 @@ public class StreamGraph extends StreamingPlan {
 				pw.close();
 			}
 		}
+	}
+
+	@Override
+	public boolean isBatchJob() {
+		return isBatchJob;
 	}
 }

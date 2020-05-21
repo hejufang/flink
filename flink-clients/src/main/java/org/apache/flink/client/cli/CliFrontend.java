@@ -307,7 +307,7 @@ public class CliFrontend {
 
 				FlinkPlan flinkPlan = PackagedProgramUtils.createFlinkPlan(program, effectiveConfiguration, parallelism);
 
-				if (flinkPlan instanceof StreamingPlan) {
+				if (flinkPlan instanceof StreamingPlan && !((StreamingPlan) flinkPlan).isBatchJob()) {
 					// enable gang scheduler when stream job
 					clusterDescriptor.setDefaultConfigurationForStream();
 				}
