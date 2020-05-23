@@ -209,9 +209,11 @@ public class RedisLookupFunction extends TableFunction<Row> {
 								REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
 					}
 				}
-				collect(row);
-				if (cache != null) {
-					cache.put(keyRow, row);
+				if (row != null) {
+					collect(row);
+					if (cache != null) {
+						cache.put(keyRow, row);
+					}
 				}
 				break;
 			} catch (Exception e) {
@@ -253,10 +255,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	}
 
 	private Row readString(String keyTmp) {
-		Row row;
+		Row row = null;
 		try {
 			byte[] value = jedis.get(keyTmp.getBytes());
-			row = convertToRowFromResult(keyTmp.getBytes(), value, fieldTypes);
+			if (value != null) {
+				row = convertToRowFromResult(keyTmp.getBytes(), value, fieldTypes);
+			}
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
 				"Related command: 'get key'.", keyTmp), e);
@@ -265,10 +269,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	}
 
 	private Row readHash(String key) {
-		Row row;
+		Row row = null;
 		try {
 			Map<String, String> value = jedis.hgetAll(key);
-			row = convertToRowFromResult(key.getBytes(), value, fieldTypes);
+			if (value != null) {
+				row = convertToRowFromResult(key.getBytes(), value, fieldTypes);
+			}
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
 				"Related command: 'HGETALL key'.", key), e);
@@ -277,12 +283,14 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	}
 
 	private Row readList(String key) {
-		Row row;
+		Row row = null;
 		try {
 			long length = jedis.llen(key);
-			List<String> resultTmp = jedis.lrange(key, 0, length);
-			String[] result = resultTmp.toArray(new String[0]);
-			row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+			if (length > 0) {
+				List<String> resultTmp = jedis.lrange(key, 0, length);
+				String[] result = resultTmp.toArray(new String[0]);
+				row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+			}
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
 				"Related command: 'llen key' and 'lrange key 0 list.size'.", key), e);
@@ -291,11 +299,13 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	}
 
 	private Row readSet(String key) {
-		Row row;
+		Row row = null;
 		try {
 			Set<String> resultTmp = jedis.smembers(key);
-			String[] result = resultTmp.toArray(new String[0]);
-			row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+			if (resultTmp.size() > 0) {
+				String[] result = resultTmp.toArray(new String[0]);
+				row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+			}
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
 				"Related command: 'smembers key'.", key), e);
@@ -304,12 +314,14 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	}
 
 	private Row readZSet(String key) {
-		Row row;
+		Row row = null;
 		try {
 			long length = jedis.zcard(key);
-			Set<String> resultTmp = jedis.zrange(key, 0, length);
-			String[] result = resultTmp.toArray(new String[0]);
-			row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+			if (length > 0) {
+				Set<String> resultTmp = jedis.zrange(key, 0, length);
+				String[] result = resultTmp.toArray(new String[0]);
+				row = convertToRowFromResult(key.getBytes(), result, fieldTypes);
+			}
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
 				"Related command: 'zcard key' and 'zrange key 0 set.size'.", key), e);
