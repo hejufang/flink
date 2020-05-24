@@ -26,8 +26,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
-import org.apache.flink.runtime.blacklisttracker.BlacklistConfiguration;
-import org.apache.flink.runtime.blacklisttracker.SessionBlacklistTracker;
+import org.apache.flink.runtime.blacklisttracker.BlacklistTracker;
+import org.apache.flink.runtime.blacklisttracker.BlacklistTrackerFactory;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -143,7 +143,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	/** The slot manager maintains the available slots. */
 	private final SlotManager slotManager;
 
-	protected SessionBlacklistTracker sessionBlacklistTracker;
+	protected BlacklistTracker sessionBlacklistTracker;
 
 	private final ClusterInformation clusterInformation;
 
@@ -200,8 +200,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			jobManagerMetricGroup,
 			failureRater);
 		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
-		BlacklistConfiguration blacklistConfiguration = BlacklistConfiguration.fromConfiguration(flinkConfig);
-		this.sessionBlacklistTracker = SessionBlacklistTracker.fromConfiguration(blacklistConfiguration);
+		this.sessionBlacklistTracker = BlacklistTrackerFactory.createBlacklistTracker(flinkConfig);
 	}
 
 	public ResourceManager(
@@ -305,12 +304,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			exception = ExceptionUtils.firstOrSuppressed(e, exception);
 		}
 
-		if (sessionBlacklistTracker != null) {
-			try {
-				sessionBlacklistTracker.close();
-			} catch (Exception e) {
-				exception = ExceptionUtils.firstOrSuppressed(e, exception);
-			}
+		try {
+			sessionBlacklistTracker.close();
+		} catch (Exception e) {
+			exception = ExceptionUtils.firstOrSuppressed(e, exception);
 		}
 
 		try {
@@ -833,11 +830,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		jobManagerMetricGroup.meter(
 			MetricNames.WORKER_FAILURE_RATE,
 			failureRater);
-		if (sessionBlacklistTracker != null) {
-			jobManagerMetricGroup.gauge(
-				MetricNames.NUM_BLACKLIST_TASK_MANAGERS,
-				() -> (long) sessionBlacklistTracker.getBlackedHosts().size());
-		}
 	}
 
 	private void clearStateInternal() {
@@ -1032,12 +1024,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	protected void recordWorkerFailure(String hostname, ResourceID resourceID, Throwable cause) {
 		recordWorkerFailure();
-		if (sessionBlacklistTracker != null) {
-			try {
-				sessionBlacklistTracker.taskManagerFailure(hostname, resourceID, cause, System.currentTimeMillis());
-			} catch (Exception e) {
-				log.warn("Report failure to blacklist error.", e);
-			}
+		try {
+			sessionBlacklistTracker.taskManagerFailure(hostname, resourceID, cause, System.currentTimeMillis());
+		} catch (Exception e) {
+			log.warn("Report failure to blacklist error.", e);
 		}
 	}
 
@@ -1129,9 +1119,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		startHeartbeatServices();
 
 		slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
-		if (sessionBlacklistTracker != null) {
-			sessionBlacklistTracker.start(getMainThreadExecutor(), new ResourceActionsImpl());
-		}
+		sessionBlacklistTracker.start(getMainThreadExecutor(), new ResourceActionsImpl());
 	}
 
 	/**
@@ -1149,9 +1137,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 				slotManager.suspend();
 
-				if (sessionBlacklistTracker != null) {
-					sessionBlacklistTracker.clearAll();
-				}
+				sessionBlacklistTracker.clearAll();
 
 				stopHeartbeatServices();
 
@@ -1300,10 +1286,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		log.info("Received onBlacklistUpdated, but nothing can do.");
 	}
 
-	protected void validateSessionBlacklistNotNull() {
-		assert sessionBlacklistTracker != null;
-	}
-
 	// ------------------------------------------------------------------------
 	//  Static utility classes
 	// ------------------------------------------------------------------------
@@ -1347,7 +1329,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		@Override
 		public void notifyBlacklistUpdated() {
 			validateRunsInMainThread();
-			validateSessionBlacklistNotNull();
 			onBlacklistUpdated();
 		}
 	}

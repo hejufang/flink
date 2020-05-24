@@ -682,7 +682,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onBlacklistUpdated() {
-		validateSessionBlacklistNotNull();
 		Map<String, TaskManagerFailure> newBlackedHosts = sessionBlacklistTracker.getBlackedHosts();
 
 		Set<String> blacklistAddition = new HashSet<>(newBlackedHosts.keySet());
@@ -762,9 +761,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								// gang scheduler failed too many times, downgrade to fair scheduler.
 								gangLastDowngradeTimestamp = System.currentTimeMillis();
 							}
-							if (sessionBlacklistTracker != null) {
-								sessionBlacklistTracker.clearAll();
-							}
+							sessionBlacklistTracker.clearAll();
 							scheduleRunAsync(
 								this::recordFailureAndStartNewWorkerIfNeeded,
 								flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS),

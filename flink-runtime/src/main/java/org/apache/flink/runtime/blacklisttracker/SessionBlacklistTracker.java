@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Blacklist tracker for session.
  * Always run in mainThread.
  */
-public class SessionBlacklistTracker implements AutoCloseable {
+public class SessionBlacklistTracker implements BlacklistTracker{
 	private static final Logger LOG = LoggerFactory.getLogger(SessionBlacklistTracker.class);
 	/**
 	 * Host already added to blacklist. key: host, value: latest failure timestamp.
@@ -62,6 +62,7 @@ public class SessionBlacklistTracker implements AutoCloseable {
 		this.ignoreExceptionClasses = new ArrayList<>();
 	}
 
+	@Override
 	public void start(ComponentMainThreadExecutor mainThreadExecutor, ResourceActions newResourceActions) {
 		this.resourceActions = newResourceActions;
 		this.mainThreadExecutor = mainThreadExecutor;
@@ -85,11 +86,13 @@ public class SessionBlacklistTracker implements AutoCloseable {
 		return blackedHosts;
 	}
 
+	@Override
 	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) {
 		this.ignoreExceptionClasses.add(exceptionClass);
 		LOG.info("Add ignore Exception class {}.", exceptionClass);
 	}
 
+	@Override
 	public void clearAll() {
 		this.hostFailures.clear();
 		this.blackedHosts.clear();
@@ -109,6 +112,7 @@ public class SessionBlacklistTracker implements AutoCloseable {
 		}
 	}
 
+	@Override
 	public void taskManagerFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
 		if (!ignoreExceptionClasses.contains(t.getClass())) {
 			taskManagerFailure(hostname, resourceID, t.getMessage(), timestamp);
@@ -194,15 +198,5 @@ public class SessionBlacklistTracker implements AutoCloseable {
 				this::checkFailureExceedTimeout,
 				blacklistConfiguration.getCheckInterval().toMilliseconds(),
 				TimeUnit.MILLISECONDS);
-	}
-
-	public static SessionBlacklistTracker fromConfiguration(BlacklistConfiguration blacklistConfiguration) {
-		if (!blacklistConfiguration.isBlacklistEnabled()) {
-			LOG.info("Blacklist not enabled.");
-			return null;
-		} else {
-			LOG.info("create new SessionBlacklist with config: {}", blacklistConfiguration);
-			return new SessionBlacklistTracker(blacklistConfiguration);
-		}
 	}
 }

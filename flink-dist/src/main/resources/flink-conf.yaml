@@ -157,7 +157,7 @@ common:
   blacklist.session.max-job-failure-per-host: 2
   blacklist.session.max-taskmanager-failure-per-host: 2
   blacklist.job-blacklist-length: 10
-  blacklist.session-blacklist-length: 10
+  blacklist.session-blacklist-length: 100
   blacklist.failure-timeout: "60 min"
   blacklist.check-interval: "5 min"
 
