@@ -23,6 +23,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.Plan;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.optimizer.plan.FlinkPlan;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 
@@ -48,8 +49,9 @@ public class DetachedEnvironment extends ContextEnvironment {
 			List<URL> jarFiles,
 			List<URL> classpaths,
 			ClassLoader userCodeClassLoader,
-			SavepointRestoreSettings savepointSettings) {
-		super(remoteConnection, jarFiles, classpaths, userCodeClassLoader, savepointSettings);
+			SavepointRestoreSettings savepointSettings,
+			Configuration configuration) {
+		super(remoteConnection, jarFiles, classpaths, userCodeClassLoader, savepointSettings, configuration);
 	}
 
 	@Override

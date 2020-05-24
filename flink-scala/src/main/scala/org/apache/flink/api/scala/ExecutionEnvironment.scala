@@ -71,6 +71,10 @@ class ExecutionEnvironment(javaEnv: JavaEnv) {
     javaEnv.getConfig
   }
 
+  def getConfiguration: Configuration = {
+    javaEnv.getConfiguration
+  }
+
   /**
    * Sets the parallelism (parallelism) for operations executed through this environment.
    * Setting a parallelism of x here will cause all operators (such as join, map, reduce) to run

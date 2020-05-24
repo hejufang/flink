@@ -23,6 +23,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.Plan;
 import org.apache.flink.api.java.ExecutionEnvironment;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.optimizer.plan.OptimizedPlan;
 import org.apache.flink.optimizer.plandump.PlanJSONDumpGenerator;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
@@ -46,7 +47,8 @@ public class ContextEnvironment extends ExecutionEnvironment {
 	protected final SavepointRestoreSettings savepointSettings;
 
 	public ContextEnvironment(ClusterClient<?> remoteConnection, List<URL> jarFiles, List<URL> classpaths,
-				ClassLoader userCodeClassLoader, SavepointRestoreSettings savepointSettings) {
+			ClassLoader userCodeClassLoader, SavepointRestoreSettings savepointSettings, Configuration configuration) {
+		super(configuration);
 		this.client = remoteConnection;
 		this.jarFilesToAttach = jarFiles;
 		this.classpathsToAttach = classpaths;
