@@ -96,6 +96,28 @@ public class InputFormatSourceFunctionTest {
 		}
 	}
 
+	@Test
+	public void testNullableInputFormat() throws Exception {
+		// InputFormatSourceFunction's behavior must be compatible with DataSourceTask which can handle null value.
+		final int noOfSplits = 5;
+		final NullableInputFormat format = new NullableInputFormat(6);
+		final InputFormatSourceFunction<Integer> reader = new InputFormatSourceFunction<>(format, TypeInformation.of(Integer.class));
+		try (MockEnvironment environment =
+				new MockEnvironmentBuilder()
+					.setTaskName("no")
+					.setMemorySize(4 * MemoryManager.DEFAULT_PAGE_SIZE)
+					.build()) {
+
+			reader.setRuntimeContext(new MockRuntimeContext(format, noOfSplits, environment));
+
+			reader.open(new Configuration());
+
+			NullableTestSourceContext ctx = new NullableTestSourceContext(reader, format);
+			reader.run(ctx);
+			Assert.assertEquals(15, ctx.getRecordsSeen());
+		}
+	}
+
 	private static class LifeCycleTestInputFormat extends RichInputFormat<Integer, InputSplit> {
 
 		private static final long serialVersionUID = 7408902249499583273L;
@@ -201,6 +223,41 @@ public class InputFormatSourceFunctionTest {
 		}
 	}
 
+	private static class NullableInputFormat extends LifeCycleTestInputFormat {
+
+		private static final long serialVersionUID = 7408902249499583273L;
+		private int splitCounter = 0;
+		private final int recordsNumPerSplit;
+
+		public NullableInputFormat(int recordsNumPerSplit) {
+			this.recordsNumPerSplit = recordsNumPerSplit;
+		}
+
+		@Override
+		public void open(InputSplit split) throws IOException {
+			super.open(split);
+			this.splitCounter = 0;
+		}
+
+		@Override
+		public boolean reachedEnd() throws IOException {
+			return this.splitCounter == this.recordsNumPerSplit;
+		}
+
+		@Override
+		public Integer nextRecord(Integer reuse) throws IOException {
+			Assert.assertNotNull(reuse);
+			Integer ret = splitCounter % 2 == 0 ? null : splitCounter;
+			splitCounter++;
+			return ret;
+		}
+
+		@Override
+		public void close() throws IOException {
+			super.close();
+		}
+	}
+
 	private static class TestSourceContext implements SourceFunction.SourceContext<Integer> {
 
 		private final InputFormatSourceFunction<Integer> reader;
@@ -255,6 +312,24 @@ public class InputFormatSourceFunctionTest {
 
 		public int getSplitsSeen() {
 			return this.splitIdx;
+		}
+	}
+
+	private static class NullableTestSourceContext extends TestSourceContext {
+
+		int recordIdx = 0;
+
+		private NullableTestSourceContext(InputFormatSourceFunction<Integer> reader, LifeCycleTestInputFormat format) {
+			super(reader, format, false, -1);
+		}
+
+		@Override
+		public void collect(Integer element) {
+			recordIdx++;
+		}
+
+		public int getRecordsSeen() {
+			return this.recordIdx;
 		}
 	}
 

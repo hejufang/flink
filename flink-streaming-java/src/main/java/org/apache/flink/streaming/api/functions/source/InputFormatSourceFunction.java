@@ -92,8 +92,6 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 					returned = format.nextRecord(nextElement);
 					if (returned != null) {
 						ctx.collect(returned);
-					} else {
-						break;
 					}
 				}
 				format.close();
