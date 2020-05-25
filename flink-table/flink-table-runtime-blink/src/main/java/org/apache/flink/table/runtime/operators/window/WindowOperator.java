@@ -380,7 +380,8 @@ public class WindowOperator<K, W extends Window>
 
 	@Override
 	public void finishBundle() throws Exception {
-		for (K key : bundle.keySet()) {
+		List<K> keys = new ArrayList<>(bundle.keySet());
+		for (K key : keys) {
 			setCurrentKey(key);
 			processForKey(key);
 		}
