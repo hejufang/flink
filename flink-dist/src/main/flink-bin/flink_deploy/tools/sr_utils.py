@@ -13,7 +13,7 @@ from yaml_util import YamlUtil
 class SmartResourcesUtils(object):
     """ SmartResources Client wrapper """
 
-    JM_JVM_MEMORY_DEFAULT = 1024
+    JM_JVM_MEMORY_DEFAULT = 2048
     TM_JVM_MEMORY_DEFAULT = 1024
     TM_JVM_NETWORK_DEFAULT = 10485760
     TM_MEMORY_MAX = 30 * 1024
