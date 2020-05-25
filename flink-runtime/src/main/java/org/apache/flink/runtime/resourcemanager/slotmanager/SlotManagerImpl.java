@@ -104,11 +104,8 @@ public class SlotManagerImpl implements SlotManager {
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
 
-	/** Number of Pending TaskManagers.*/
-	private AtomicInteger pendingTaskManagers;
-
 	/** Number of Current Active TaskManagers.*/
-	private AtomicInteger activeTaskManagers;
+	private final AtomicInteger activeTaskManagers;
 
 	/** Map of fulfilled and active allocations for request deduplication purposes. */
 	private final HashMap<AllocationID, SlotID> fulfilledSlotRequests;
@@ -219,7 +216,6 @@ public class SlotManagerImpl implements SlotManager {
 		pendingSlotRequests = new LinkedHashMap<>(16);
 		waitingTaskManagerSlotRequests = new LinkedHashMap<>(16);
 		pendingSlots = new HashMap<>(16);
-		pendingTaskManagers = new AtomicInteger(0);
 		activeTaskManagers = new AtomicInteger(0);
 
 		resourceManagerId = null;
@@ -405,7 +401,7 @@ public class SlotManagerImpl implements SlotManager {
 			if (activeTaskManagers.get() < numInitialTaskManagers) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
-				if (activeTaskManagers.get() + pendingTaskManagers.get() < numInitialTaskManagers) {
+				if (freeSlots.size() + pendingSlots.size() < waitingTaskManagerSlotRequests.size()) {
 					allocateResource(pendingSlotRequest.getResourceProfile());
 				}
 			} else {
@@ -512,7 +508,6 @@ public class SlotManagerImpl implements SlotManager {
 					slotStatus.getResourceProfile(),
 					taskExecutorConnection);
 			}
-			pendingTaskManagers.getAndDecrement();
 			activeTaskManagers.getAndIncrement();
 
 			if (activeTaskManagers.get() >= numInitialTaskManagers && !waitingTaskManagerSlotRequests.isEmpty()) {
@@ -972,7 +967,6 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(slotIterator.next());
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
-			pendingTaskManagers.getAndIncrement();
 
 			return Optional.of(pendingTaskManagerSlot);
 		}
@@ -986,7 +980,6 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
-			pendingTaskManagers.getAndAdd(resourceNumber);
 		} catch (ResourceManagerException e) {
 			LOG.error("AllocateResource {} {} error, ", resourceProfile, resourceNumber, e);
 		}

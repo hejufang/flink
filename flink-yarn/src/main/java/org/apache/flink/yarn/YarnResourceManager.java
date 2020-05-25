@@ -502,8 +502,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 		fatalOnGangFailed = containersFromPreviousAttempts.isEmpty();
 
+		long ts = System.currentTimeMillis();
 		for (final Container container : containersFromPreviousAttempts) {
-			workerNodeMap.put(new ResourceID(container.getId().toString()), new YarnWorkerNode(container));
+			ResourceID resourceID = new ResourceID(container.getId().toString());
+			workerNodeMap.put(resourceID, new YarnWorkerNode(container));
+			startingContainers.put(resourceID, ts);
 		}
 	}
 
@@ -649,12 +652,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		if (workerNumber > (currentWorkers + numPendingContainerRequests)) {
 			log.info("Initialize {} workers, we have {} workers from YARN, so request {} new workers",
 				workerNumber, currentWorkers, workerNumber - currentWorkers - numPendingContainerRequests);
-			return startNewWorkers(resourceProfile, workerNumber - currentWorkers - numPendingContainerRequests);
+			startNewWorkers(resourceProfile, workerNumber - currentWorkers - numPendingContainerRequests);
 		} else {
 			log.info("Initialize {} workers, but we found {} workers by getContainersFromPreviousAttempts, and pending {} requests.",
 				workerNumber, currentWorkers, numPendingContainerRequests);
-			return Collections.emptyList();
 		}
+		return createWorkerSlotProfiles(flinkConfig, workerNumber);
 	}
 
 	@VisibleForTesting
