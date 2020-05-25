@@ -160,7 +160,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	/** The heartbeat manager with job managers. */
 	private HeartbeatManager<Void, Void> jobManagerHeartbeatManager;
 
-	private boolean exitProcessOnJobManagerTimedout = false;
+	private final boolean exitProcessOnJobManagerTimedout;
 
 	/**
 	 * Represents asynchronous state clearing work.
@@ -177,7 +177,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		RpcService rpcService,
 		String resourceManagerEndpointId,
 		ResourceID resourceId,
-		Configuration flinkConfig,
 		HighAvailabilityServices highAvailabilityServices,
 		HeartbeatServices heartbeatServices,
 		SlotManager slotManager,
@@ -190,6 +189,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this(rpcService,
 			resourceManagerEndpointId,
 			resourceId,
+			new Configuration(),
 			highAvailabilityServices,
 			heartbeatServices,
 			slotManager,
@@ -199,14 +199,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			fatalErrorHandler,
 			jobManagerMetricGroup,
 			failureRater);
-		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
-		this.sessionBlacklistTracker = BlacklistTrackerFactory.createBlacklistTracker(flinkConfig);
 	}
 
 	public ResourceManager(
 		RpcService rpcService,
 		String resourceManagerEndpointId,
 		ResourceID resourceId,
+		Configuration flinkConfig,
 		HighAvailabilityServices highAvailabilityServices,
 		HeartbeatServices heartbeatServices,
 		SlotManager slotManager,
@@ -235,6 +234,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.jmResourceIdRegistrations = new HashMap<>(4);
 		this.taskExecutors = new HashMap<>(8);
 		this.taskExecutorGatewayFutures = new HashMap<>(8);
+		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
+		this.sessionBlacklistTracker = BlacklistTrackerFactory.createBlacklistTracker(flinkConfig);
 	}
 
 	public Map<ResourceID, WorkerRegistration<WorkerType>> getTaskExecutors() {
