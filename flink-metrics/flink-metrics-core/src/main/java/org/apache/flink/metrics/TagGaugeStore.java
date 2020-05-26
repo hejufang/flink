@@ -37,9 +37,16 @@ public class TagGaugeStore {
 
 	private List<TagGaugeMetric> metricValuesList;
 
+	private final boolean clearAfterReport;
+
 	public TagGaugeStore(int maxSize) {
+		this(maxSize, false);
+	}
+
+	public TagGaugeStore(int maxSize, boolean clearAfterReport) {
 		this.maxSize = maxSize;
 		this.metricValuesList = new ArrayList<>();
+		this.clearAfterReport = clearAfterReport;
 	}
 
 	public void addMetric(double metricValue, TagValues tagValues) {
@@ -50,6 +57,10 @@ public class TagGaugeStore {
 		}
 
 		metricValuesList.add(new TagGaugeMetric(metricValue, tagValues));
+	}
+
+	public boolean isClearAfterReport() {
+		return clearAfterReport;
 	}
 
 	public void reset() {

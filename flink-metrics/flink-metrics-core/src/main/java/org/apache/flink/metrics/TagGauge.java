@@ -38,8 +38,16 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 		this(1024);
 	}
 
+	public TagGauge(boolean clearAfterReport) {
+		this(1024, clearAfterReport);
+	}
+
 	public TagGauge(int maxSize) {
-		this.store = new TagGaugeStore(maxSize);
+		this(maxSize, false);
+	}
+
+	public TagGauge(int maxSize, boolean clearAfterReport) {
+		this.store = new TagGaugeStore(maxSize, clearAfterReport);
 	}
 
 	public void addMetric(Object metricValue, TagGaugeStore.TagValues tagValues) {

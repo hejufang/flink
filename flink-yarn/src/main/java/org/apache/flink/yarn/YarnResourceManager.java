@@ -221,6 +221,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private final TagGauge blacklistGauge = new TagGauge();
 
+	private final TagGauge completedContainerGauge = new TagGauge(true);
+
 	/**
 	 * executor for start yarn container.
 	 */
@@ -804,6 +806,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								yarnWorkerNode.getContainer().getNodeId().getHost(),
 								resourceId,
 								containerCompletedException);
+
+						completedContainerGauge.addMetric(
+								1,
+								new TagGaugeStore.TagValuesBuilder()
+										.addTagValue("container_host", yarnWorkerNode.getContainer().getNodeId().getHost())
+										.addTagValue("exit_code", String.valueOf(containerStatus.getExitStatus()))
+										.build());
 					}
 					// Eagerly close the connection with task manager.
 					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
@@ -1603,6 +1612,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.counter("slowContainers", slowContainerCounter);
 		jobManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
 		jobManagerMetricGroup.gauge("blackedHost", blacklistGauge);
+		jobManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
 	}
 
 	private void checkSlowContainersInternal() {

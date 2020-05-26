@@ -158,7 +158,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"numberOfTaskRecoveries",
 			"numberOfGlobalFailures",
 			"numberOfRecoverableJobs",
-			"blackedHost"
+			"blackedHost",
+			"completedContainer"
 	));
 
 	private Map<String, String> globalMetricNames = new HashMap<>();
@@ -261,6 +262,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 										entry -> new TagKv(entry.getKey(), entry.getValue())).collect(Collectors.toList()));
 						this.client.emitStoreWithTag(tuple.x, tagGaugeMetric.getMetricValue(), compositeTags);
 						reportGlobalMetrics("gauge", name, tuple.x, tagGaugeMetric.getMetricValue(), compositeTags);
+					}
+					if (((TagGaugeStore) value).isClearAfterReport()) {
+						((TagGaugeStore) value).reset();
 					}
 				} else {
 //					LOG.warn("can't handle the type guage, the value type is {}, the gauge name is {}",
