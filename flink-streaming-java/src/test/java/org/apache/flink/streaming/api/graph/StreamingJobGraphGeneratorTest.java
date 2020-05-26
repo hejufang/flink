@@ -17,6 +17,7 @@
 
 package org.apache.flink.streaming.api.graph;
 
+import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -77,6 +78,34 @@ import static org.junit.Assert.assertTrue;
 @SuppressWarnings("serial")
 public class StreamingJobGraphGeneratorTest extends TestLogger {
 
+	protected void addOperator(StreamExecutionEnvironment env) {
+		DataStream<Tuple2<String, String>> input = env
+			.fromElements("a", "b", "c", "d", "e", "f")
+			.map(new MapFunction<String, Tuple2<String, String>>() {
+
+				@Override
+				public Tuple2<String, String> map(String value) {
+					return new Tuple2<>(value, value);
+				}
+			});
+
+		DataStream<Tuple2<String, String>> result = input
+			.keyBy(0)
+			.map(new MapFunction<Tuple2<String, String>, Tuple2<String, String>>() {
+
+				@Override
+				public Tuple2<String, String> map(Tuple2<String, String> value) {
+					return value;
+				}
+			});
+
+		result.addSink(new SinkFunction<Tuple2<String, String>>() {
+
+			@Override
+			public void invoke(Tuple2<String, String> value) {}
+		});
+	}
+
 	@Test
 	public void testParallelismOneNotChained() {
 
@@ -84,32 +113,7 @@ public class StreamingJobGraphGeneratorTest extends TestLogger {
 
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(1);
-
-		DataStream<Tuple2<String, String>> input = env
-				.fromElements("a", "b", "c", "d", "e", "f")
-				.map(new MapFunction<String, Tuple2<String, String>>() {
-
-					@Override
-					public Tuple2<String, String> map(String value) {
-						return new Tuple2<>(value, value);
-					}
-				});
-
-		DataStream<Tuple2<String, String>> result = input
-				.keyBy(0)
-				.map(new MapFunction<Tuple2<String, String>, Tuple2<String, String>>() {
-
-					@Override
-					public Tuple2<String, String> map(Tuple2<String, String> value) {
-						return value;
-					}
-				});
-
-		result.addSink(new SinkFunction<Tuple2<String, String>>() {
-
-			@Override
-			public void invoke(Tuple2<String, String> value) {}
-		});
+		addOperator(env);
 
 		// --------- the job graph ---------
 
@@ -126,6 +130,24 @@ public class StreamingJobGraphGeneratorTest extends TestLogger {
 
 		assertEquals(ResultPartitionType.PIPELINED_BOUNDED, sourceVertex.getProducedDataSets().get(0).getResultType());
 		assertEquals(ResultPartitionType.PIPELINED_BOUNDED, mapSinkVertex.getInputs().get(0).getSource().getResultType());
+	}
+
+	@Test
+	public void testBlocking() {
+		List<Tuple2<ExecutionMode, Boolean>> blockings = new ArrayList<>();
+		blockings.add(new Tuple2<>(ExecutionMode.BATCH, true));
+		blockings.add(new Tuple2<>(ExecutionMode.BATCH_FORCED, true));
+		blockings.add(new Tuple2<>(ExecutionMode.PIPELINED, false));
+		blockings.add(new Tuple2<>(ExecutionMode.PIPELINED_FORCED, false));
+
+		for (Tuple2<ExecutionMode, Boolean> blocking : blockings) {
+			StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+			env.useBatchMode();
+			env.getConfig().setExecutionMode(blocking.f0);
+			addOperator(env);
+			StreamGraph streamGraph = env.getStreamGraph("test job");
+			assertEquals(blocking.f1, streamGraph.isBlockingConnectionsBetweenChains());
+		}
 	}
 
 	/**

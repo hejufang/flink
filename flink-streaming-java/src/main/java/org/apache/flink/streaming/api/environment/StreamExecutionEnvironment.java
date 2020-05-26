@@ -1604,7 +1604,7 @@ public abstract class StreamExecutionEnvironment {
 	}
 
 	private boolean isShuffleModeAllBatch() {
-		return config.getExecutionMode().equals(ExecutionMode.BATCH_FORCED);
+		return config.getExecutionMode().equals(ExecutionMode.BATCH) || config.getExecutionMode().equals(ExecutionMode.BATCH_FORCED);
 	}
 
 	private StreamGraphGenerator getStreamGraphGenerator() {
