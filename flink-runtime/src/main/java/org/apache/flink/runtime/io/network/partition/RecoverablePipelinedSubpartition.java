@@ -80,7 +80,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 
 			// step1. reset status
 			if (statusUpdater.compareAndSet(this, SUBPARTITION_AVAILABLE, SUBPARTITION_UNAVAILABLE)) {
-				LOG.info("{}: Status updated to unavailable.", this);
+				LOG.info("{} {}: Status updated to unavailable.", parent.getOwningTaskName(), this);
 			}
 
 			if (isReleased) {
@@ -149,7 +149,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 
 			// reset status
 			if (statusUpdater.compareAndSet(this, SUBPARTITION_UNAVAILABLE, SUBPARTITION_AVAILABLE)) {
-				LOG.info("{}: Status updated to available.", this);
+				LOG.info("{} {}: Status updated to available.", parent.getOwningTaskName(), this);
 			}
 		}
 

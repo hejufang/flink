@@ -124,7 +124,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 								future.channel().localAddress(), future.cause()
 							));
 				} else {
-					LOG.info("Successfully request subpartition {} of partition {}.", subpartitionIndex, partitionId);
+					LOG.debug("Successfully request subpartition {} of partition {}.", subpartitionIndex, partitionId);
 				}
 			}
 		};
