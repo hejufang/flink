@@ -89,8 +89,14 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 
 		numTaskRecoveries.inc();
 
-		taskExecution.getReleaseFuture().thenRun(
-				() -> performExecutionVertexRestart(taskExecution.getVertex(), taskExecution.getGlobalModVersion()));
+		taskExecution.getReleaseFuture().whenCompleteAsync((ignore, error) -> {
+			if (error != null) {
+				executionGraph.failGlobal(error);
+			}
+
+			executionGraph.getRestartStrategy().restart(() -> performExecutionVertexRestart(
+					taskExecution.getVertex(),taskExecution.getGlobalModVersion()), executionGraph.getJobMasterMainThreadExecutor());
+		}, executionGraph.getJobMasterMainThreadExecutor());
 	}
 
 	protected void performExecutionVertexRestart(

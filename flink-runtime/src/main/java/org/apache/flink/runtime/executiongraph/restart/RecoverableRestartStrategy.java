@@ -22,6 +22,7 @@ package org.apache.flink.runtime.executiongraph.restart;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.util.Preconditions;
 
@@ -52,7 +53,6 @@ public class RecoverableRestartStrategy implements RestartStrategy {
 
 	@Override
 	public boolean canRestart() {
-		restartTimestampsDeque.add(System.currentTimeMillis());
 		if (isRestartTimestampsQueueFull()) {
 			Long now = System.currentTimeMillis();
 			Long earliestFailure = restartTimestampsDeque.peek();
@@ -65,7 +65,11 @@ public class RecoverableRestartStrategy implements RestartStrategy {
 
 	@Override
 	public CompletableFuture<Void> restart(final RestartCallback restarter, ScheduledExecutor executor) {
-		throw new UnsupportedOperationException();
+		if (isRestartTimestampsQueueFull()) {
+			restartTimestampsDeque.remove();
+		}
+		restartTimestampsDeque.add(System.currentTimeMillis());
+		return FutureUtils.scheduleWithDelay(restarter::triggerFullRecovery, Time.seconds(10), executor);
 	}
 
 	private boolean isRestartTimestampsQueueFull() {

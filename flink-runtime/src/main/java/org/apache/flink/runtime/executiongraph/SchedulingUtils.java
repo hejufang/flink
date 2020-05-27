@@ -117,6 +117,8 @@ public class SchedulingUtils {
 				throw new CompletionException(new FlinkException(
 						String.format("Could not deploy execution %s.", executionToDeploy), t));
 			}
+		}).exceptionally(throwable -> {
+			throw new CompletionException(throwable);
 		});
 	}
 
