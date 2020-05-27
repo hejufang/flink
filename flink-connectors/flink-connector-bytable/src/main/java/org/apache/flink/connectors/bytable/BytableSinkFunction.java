@@ -134,7 +134,7 @@ public class BytableSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> 
 		try {
 			List<RowMutation> mutates = new ArrayList<>();
 			for (Row record : recordList) {
-				RowMutation rowMutation = helper.createPutMutation(record);
+				RowMutation rowMutation = helper.createPutMutation(record, bytableOption);
 				mutates.add(rowMutation);
 			}
 			table.mutateMultiRow(mutates);

@@ -19,10 +19,8 @@
 package org.apache.flink.connectors.bytable;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.connectors.bytable.util.BytableTypeUtils;
-import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
@@ -46,6 +44,9 @@ public class BytableTableSchema implements Serializable {
 
 	// charset to parse Bytable keys and strings. UTF-8 by default.
 	private String charset = "UTF-8";
+
+	// The flag to judge whether set the cell version by user.
+	private int cellVersionIndex = -1;
 
 	/**
 	 * Adds a column defined by family, qualifier, and type to the table schema.
@@ -99,6 +100,15 @@ public class BytableTableSchema implements Serializable {
 	 */
 	public void setCharset(String charset) {
 		this.charset = charset;
+	}
+
+	/**
+	 * Sets the index of the cell version.
+	 *
+	 * @param cellVersionIndex the index of cell version.
+	 */
+	public void setCellVersionIndex(int cellVersionIndex) {
+		this.cellVersionIndex = cellVersionIndex;
 	}
 
 	/**
@@ -219,6 +229,13 @@ public class BytableTableSchema implements Serializable {
 	}
 
 	/**
+	 * Returns field index of cell version in the table schema. Returns -1 if it is not set.
+	 */
+	public int getCellVersionIndex() {
+		return cellVersionIndex;
+	}
+
+	/**
 	 * Returns the optional type information of row key. Returns null if row key is not set.
 	 */
 	public Optional<TypeInformation<?>> getRowKeyTypeInfo() {
@@ -231,43 +248,6 @@ public class BytableTableSchema implements Serializable {
 	 */
 	Optional<String> getRowKeyName() {
 		return rowKeyInfo == null ? Optional.empty() : Optional.of(rowKeyInfo.rowKeyName);
-	}
-
-	/**
-	 * Converts this {@link BytableTableSchema} to {@link TableSchema}, the fields are consisted
-	 * of families and rowkey, the order is in the definition order
-	 * (i.e. calling {@link #addColumn(String, String, Class)} and {@link #setRowKey(String, Class)}).
-	 * The family field is a composite type which is consisted of qualifiers.
-	 *
-	 * @return the {@link TableSchema} derived from the {@link BytableTableSchema}.
-	 */
-	TableSchema convertsToTableSchema() {
-		String[] familyNames = getFamilyNames();
-		if (rowKeyInfo != null) {
-			String[] fieldNames = new String[familyNames.length + 1];
-			TypeInformation<?>[] fieldTypes = new TypeInformation[familyNames.length + 1];
-			for (int i = 0; i < fieldNames.length; i++) {
-				if (i == rowKeyInfo.rowKeyIndex) {
-					fieldNames[i] = rowKeyInfo.rowKeyName;
-					fieldTypes[i] = rowKeyInfo.rowKeyType;
-				} else {
-					int familyIndex = i < rowKeyInfo.rowKeyIndex ? i : i - 1;
-					String family = familyNames[familyIndex];
-					fieldNames[i] = family;
-					fieldTypes[i] = new RowTypeInfo(getQualifierTypes(family), getQualifierNames(family));
-				}
-			}
-			return new TableSchema(fieldNames, fieldTypes);
-		} else {
-			String[] fieldNames = new String[familyNames.length];
-			TypeInformation<?>[] fieldTypes = new TypeInformation[familyNames.length];
-			for (int i = 0; i < fieldNames.length; i++) {
-				String family = familyNames[i];
-				fieldNames[i] = family;
-				fieldTypes[i] = new RowTypeInfo(getQualifierTypes(family), getQualifierNames(family));
-			}
-			return new TableSchema(fieldNames, fieldTypes);
-		}
 	}
 
 	// ------------------------------------------------------------------------------------

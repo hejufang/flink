@@ -30,7 +30,7 @@ import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_STRATEGY;
 public class BytableValidator extends ConnectorDescriptorValidator {
 	public static final String BYTABLE = "bytable";
 	public static final String CONNECTOR_MASTER_URLS = "connector.master-urls";
-	public static final String CONNECTOR_CLUSTER = "connector.cluster";
+	public static final String CONNECTOR_BYTABLE_CLIENT_METRIC = "connector.bytable-client-metric";
 	public static final String CONNECTOR_TABLE = "connector.table";
 	public static final String CONNECTOR_THREAD_POOL_SIZE = "connector.thread-pool-size";
 	public static final String CONNECTOR_MASTER_TIMEOUT_MS = "connector.master-timeout-ms";
@@ -43,13 +43,14 @@ public class BytableValidator extends ConnectorDescriptorValidator {
 	public static final String FIXED_DELAY = "fixed-delay";
 	public static final String ON_DEMAND = "OnDemand";
 	public static final String FULL_INFO = "FullInfo";
+	public static final String CONNECTOR_TTL_SECONDS = "connector.ttl-seconds";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateValue(CONNECTOR_TYPE, BYTABLE, false);
 		properties.validateString(CONNECTOR_MASTER_URLS, false, 1);
-		properties.validateString(CONNECTOR_CLUSTER, false, 1);
 		properties.validateString(CONNECTOR_TABLE, false, 1);
+		properties.validateString(CONNECTOR_BYTABLE_CLIENT_METRIC, true);
 		properties.validateInt(CONNECTOR_THREAD_POOL_SIZE, true, 1);
 		properties.validateInt(CONNECTOR_MASTER_TIMEOUT_MS, true, 1);
 		properties.validateInt(CONNECTOR_TABLE_SERVER_CONNECT_TIMEOUT_MS, true, 1);
@@ -62,5 +63,6 @@ public class BytableValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_RETRY_MAX_TIMES, true, 1);
 		properties.validateInt(CONNECTOR_RETRY_DELAY_MS, true, 1);
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
+		properties.validateLong(CONNECTOR_TTL_SECONDS, true, 1);
 	}
 }

@@ -43,9 +43,10 @@ public class BytableUpsertTableSink implements UpsertStreamTableSink<Row> {
 	private final TableSchema tableSchema;
 	private final BytableOption bytableOption;
 
-	public BytableUpsertTableSink(BytableTableSchema bytableTableSchema, BytableOption bytableOption) {
+	public BytableUpsertTableSink(BytableTableSchema bytableTableSchema, TableSchema tableSchema,
+	BytableOption bytableOption) {
 		this.bytableTableSchema = bytableTableSchema;
-		this.tableSchema = bytableTableSchema.convertsToTableSchema();
+		this.tableSchema = tableSchema;
 		this.bytableOption = bytableOption;
 	}
 
@@ -105,6 +106,6 @@ public class BytableUpsertTableSink implements UpsertStreamTableSink<Row> {
 				"Expected: " + Arrays.toString(getFieldNames()) + " / " + Arrays.toString(getFieldTypes()) + ". " +
 				"But was: " + Arrays.toString(fieldNames) + " / " + Arrays.toString(fieldTypes));
 		}
-		return new BytableUpsertTableSink(bytableTableSchema, bytableOption);
+		return new BytableUpsertTableSink(bytableTableSchema, tableSchema, bytableOption);
 	}
 }

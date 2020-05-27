@@ -38,7 +38,7 @@ import static org.apache.flink.connectors.bytable.util.BytableConnectorUtils.THR
 public class BytableOption implements Serializable {
 	private static final long serialVersionUID = 1L;
 
-	private final String clusterName;
+	private final String metricName;
 	private final String masterUrls;
 	private final String tableName;
 	private final int threadPoolSize;
@@ -50,9 +50,10 @@ public class BytableOption implements Serializable {
 	private final RetryManager.Strategy retryStrategy;
 	private final int batchSize;
 	private final int parallelism;
+	private final long ttlSeconds;
 
-	public String getClusterName() {
-		return clusterName;
+	public String getMetricName() {
+		return metricName;
 	}
 
 	public String getMasterUrls() {
@@ -99,8 +100,12 @@ public class BytableOption implements Serializable {
 		return parallelism;
 	}
 
+	public long getTtlSeconds() {
+		return ttlSeconds;
+	}
+
 	private BytableOption(
-			String clusterName,
+			String metricName,
 			String masterUrls,
 			String tableName,
 			int threadPoolSize,
@@ -111,8 +116,9 @@ public class BytableOption implements Serializable {
 			Client.ClientMetaCacheType clientMetaCacheType,
 			RetryManager.Strategy retryStrategy,
 			int batchSize,
-			int parallelism) {
-		this.clusterName = clusterName;
+			int parallelism,
+			long ttlSeconds) {
+		this.metricName = metricName;
 		this.masterUrls = masterUrls;
 		this.tableName = tableName;
 		this.threadPoolSize = threadPoolSize;
@@ -124,6 +130,7 @@ public class BytableOption implements Serializable {
 		this.retryStrategy = retryStrategy;
 		this.batchSize = batchSize;
 		this.parallelism = parallelism;
+		this.ttlSeconds = ttlSeconds;
 	}
 
 	public static BytableOptionBuilder builder() {
@@ -134,7 +141,7 @@ public class BytableOption implements Serializable {
 	 * Builder for {@link BytableOption}.
 	 */
 	public static class BytableOptionBuilder {
-		private String clusterName;
+		private String metricName;
 		private String masterUrls;
 		private String tableName;
 		private int threadPoolSize = THREAD_POOL_SIZE_DEFAULT;
@@ -146,12 +153,13 @@ public class BytableOption implements Serializable {
 		private RetryManager.Strategy retryStrategy;
 		private int batchSize = BATCH_SIZE_DEFAULT;
 		private int parallelism;
+		private long ttlSeconds = 0;
 
 		private BytableOptionBuilder() {
 		}
 
-		public BytableOptionBuilder setClusterName(String clusterName) {
-			this.clusterName = clusterName;
+		public BytableOptionBuilder setMetricName(String metricName) {
+			this.metricName = metricName;
 			return this;
 		}
 
@@ -210,12 +218,32 @@ public class BytableOption implements Serializable {
 			return this;
 		}
 
+		public BytableOptionBuilder setTtlSeconds(long ttlSeconds) {
+			this.ttlSeconds = ttlSeconds;
+			return this;
+		}
+
 		public BytableOption buid() {
-			Preconditions.checkNotNull(clusterName, "clusterName can not be null");
 			Preconditions.checkNotNull(masterUrls, "masterIp can not be null");
 			Preconditions.checkNotNull(tableName, "tableName can not be null");
+			Preconditions.checkArgument(threadPoolSize > 0,
+				"connector.thread-pool-size must be positive.");
+			Preconditions.checkArgument(masterTimeoutMs > 0,
+				"connector.master-timeout-ms must be positive.");
+			Preconditions.checkArgument(tableServerConnectTimeoutMs > 0,
+				"connector.table-server-connect-timeout-ms must be positive.");
+			Preconditions.checkArgument(tableServerReadTimeoutMs > 0,
+				"connector.table-server-read-timeout-ms must be positive.");
+			Preconditions.checkArgument(tableServerWriteTimeoutMs > 0,
+				"connector.table-server-write-timeout-ms must be positive.");
+			Preconditions.checkArgument(batchSize > 0,
+				"BatchSize must be positive.");
+			Preconditions.checkArgument(parallelism > 0,
+				"Parallelism must be positive.");
+			Preconditions.checkArgument(ttlSeconds > 0,
+				"TTL must be positive.");
 			return new BytableOption(
-					clusterName,
+					metricName,
 					masterUrls,
 					tableName,
 					threadPoolSize,
@@ -226,13 +254,14 @@ public class BytableOption implements Serializable {
 					clientMetaCacheType,
 					retryStrategy,
 					batchSize,
-					parallelism);
+					parallelism,
+					ttlSeconds);
 		}
 
 		@Override
 		public String toString() {
 			return "BytableOptionBuilder{" +
-				"clusterName='" + clusterName + '\'' +
+				"clusterName='" + metricName + '\'' +
 				", masterIp='" + masterUrls + '\'' +
 				", tableName='" + tableName + '\'' +
 				", threadPoolSize=" + threadPoolSize +
@@ -244,6 +273,7 @@ public class BytableOption implements Serializable {
 				", retryStrategy=" + retryStrategy +
 				", batchSize=" + batchSize +
 				", parallelism=" + parallelism +
+				", ttlMs=" + ttlSeconds +
 				'}';
 		}
 

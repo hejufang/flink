@@ -62,7 +62,7 @@ public class BytableConnectorUtils {
 			}
 		}
 		referenceCount++;
-		String clusterName = bytableOption.getClusterName();
+		String metricName = bytableOption.getMetricName();
 		String masterUrls = bytableOption.getMasterUrls();
 		int threadPoolSize = bytableOption.getThreadPoolSize();
 		int masterTimeoutMs = bytableOption.getMasterTimeOutMs();
@@ -70,11 +70,11 @@ public class BytableConnectorUtils {
 		int tableServerReadTimeoutMs = bytableOption.getTableServerReadTimeoutMs();
 		int tableServerWriteTimeoutMs = bytableOption.getTableServerWriteTimeoutMs();
 		Client.ClientMetaCacheType clientMetaCacheType = bytableOption.getClientMetaCacheType();
-		Preconditions.checkNotNull(clusterName, "clusterName can not be null");
+		Preconditions.checkNotNull(metricName, "metricName can not be null");
 		Preconditions.checkNotNull(masterUrls, "masterUrls can not be null");
 		Client client = null;
 		try {
-			client = new Client(clusterName, masterUrls, threadPoolSize, masterTimeoutMs,
+			client = new Client(metricName, masterUrls, threadPoolSize, masterTimeoutMs,
 				tableServerConnectTimeoutMs, tableServerReadTimeoutMs, tableServerWriteTimeoutMs, clientMetaCacheType);
 		} catch (IOException e) {
 			throw new FlinkRuntimeException(e);

@@ -19,6 +19,7 @@
 package org.apache.flink.connectors.bytable.util;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.connectors.bytable.BytableOption;
 import org.apache.flink.connectors.bytable.BytableTableSchema;
 import org.apache.flink.types.Row;
 
@@ -26,13 +27,13 @@ import com.bytedance.bytable.RowMutation;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.sql.Timestamp;
 
 /**
  * A read and write helper for Bytable. The helper can used to create a {@link RowMutation} for writing
  * to Bytable table, and supports delete the data in Bytable.
  */
 public class BytableReadWriteHelper {
-
 	// family keys
 	private final byte[][] families;
 	// qualifier keys
@@ -44,6 +45,8 @@ public class BytableReadWriteHelper {
 	private final int rowKeyIndex;
 	// type of row key
 	private final int rowKeyType;
+
+	private final int cellVersionIndex;
 
 	private final int fieldLength;
 	private final Charset charset;
@@ -58,6 +61,7 @@ public class BytableReadWriteHelper {
 		this.qualifiers = new byte[this.families.length][][];
 		this.qualifierTypes = new int[this.families.length][];
 		this.familyRows = new Row[this.families.length];
+		this.cellVersionIndex = bytableTableSchema.getCellVersionIndex();
 		String[] familyNames = bytableTableSchema.getFamilyNames();
 		for (int f = 0; f < families.length; f++) {
 			this.qualifiers[f] = bytableTableSchema.getQualifierKeys(familyNames[f]);
@@ -87,9 +91,19 @@ public class BytableReadWriteHelper {
 	 *
 	 * @return The appropriate instance of RowMutation for this use case.
 	 */
-	public RowMutation createPutMutation(Row row) throws IOException {
+	public RowMutation createPutMutation(Row row, BytableOption bytableOption) throws IOException {
 		assert rowKeyIndex != -1;
 		byte[] rowkey = BytableTypeUtils.serializeFromObject(row.getField(rowKeyIndex), rowKeyType, charset);
+		// Bytable use timestamp to control version. The unit of cellVersion is us.
+		long cellVersion = 0;
+		if (cellVersionIndex != -1) {
+			Timestamp timestamp = (Timestamp) row.getField(cellVersionIndex);
+			cellVersion = timestamp.getTime() * 1000;
+		}
+		long expireUs = 0;
+		if (bytableOption.getTtlSeconds() != 0) {
+			expireUs = (System.currentTimeMillis() + bytableOption.getTtlSeconds() * 1000) * 1000;
+		}
 		// upsert
 		RowMutation m = new RowMutation(rowkey);
 		for (int i = 0; i < fieldLength; i++) {
@@ -105,7 +119,12 @@ public class BytableReadWriteHelper {
 					int typeIdx = qualifierTypes[f][q];
 					// read value
 					byte[] value = BytableTypeUtils.serializeFromObject(familyRow.getField(q), typeIdx, charset);
-					m.put(familyKey, qualifier, value);
+					/**
+					 * The default value of cellVersion and expireUs is 0.
+					 * When cellVersion equals 0, the current time is written as the cell version.
+					 * When expiresUs equals 0, data does not expire.
+					 */
+					m.putWithTimestampAndExpires(familyKey, qualifier, cellVersion, expireUs, value);
 				}
 			}
 		}

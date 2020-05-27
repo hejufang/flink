@@ -77,11 +77,11 @@ public class BytableAppendTableSinkExample {
 
 		String sinkDDL = "create table bytable_test(\n" +
 			"rowkey INT,\n" +
-			"msg ROW<col1 INT>\n" +
+			"msg ROW<col1 INT,col2 VARCHAR>,\n" +
+			"cellVersion TIMESTAMP(3)\n" +
 			") with (\n" +
 			"'connector.type' = 'bytable', \n" +
 			"'connector.master-urls' = '10.31.204.16:2001,10.31.204.17:2001,10.31.204.18:2001', \n" +
-			"'connector.cluster' = 'flinkTest', \n" +
 			"'connector.table' = 'flink-test', \n" +
 			"'connector.cache-type' = 'OnDemand', \n" +
 			"'connector.batch-size' = '1' \n" +
@@ -89,7 +89,7 @@ public class BytableAppendTableSinkExample {
 		tEnv.sqlUpdate(sinkDDL);
 
 		String query = "INSERT INTO bytable_test " +
-			"SELECT rowkey, ROW(f1c1) " +
+			"SELECT rowkey, ROW(f1c1,f2c1),f4c1 " +
 			"FROM src";
 		tEnv.sqlUpdate(query);
 		tEnv.execute("bytable upsert sink test");
