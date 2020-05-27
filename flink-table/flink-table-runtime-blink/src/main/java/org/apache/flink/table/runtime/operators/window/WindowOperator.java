@@ -699,6 +699,7 @@ public class WindowOperator<K, W extends Window>
 		public void clearWindowState(W window) throws Exception {
 			windowState.setCurrentNamespace(window);
 			windowState.clear();
+			windowAggregator.cleanup(window);
 		}
 
 		@Override
