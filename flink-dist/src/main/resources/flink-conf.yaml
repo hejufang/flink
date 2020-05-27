@@ -324,6 +324,13 @@ quoka:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
 
+camel:
+  dc: cn
+  clusterName: camel
+  high-availability.zookeeper.quorum: 10.148.16.172:2181,10.148.16.37:2181,10.148.16.90:2181,10.148.20.100:2181,10.148.20.98:2181
+  hdfs.prefix: hdfs://haruna/flink_cr
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_cr
+
 marmt:
   dc: va
   clusterName: marmt
