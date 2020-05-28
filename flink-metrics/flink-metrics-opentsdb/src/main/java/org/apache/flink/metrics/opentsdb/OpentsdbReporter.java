@@ -255,13 +255,19 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 //						LOG.warn("can't change to Number {}", value);
 					}
 				} else if (value instanceof TagGaugeStore) {
-					List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = ((TagGaugeStore) value).getMetricValuesList();
+					final List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = ((TagGaugeStore) value).getMetricValuesList();
+					final Map<String, Double> mergedMetrics = new HashMap<>();
 					for (TagGaugeStore.TagGaugeMetric tagGaugeMetric : tagGaugeMetrics) {
 						final String compositeTags = TagKv.compositeTags(tuple.y,
 								tagGaugeMetric.getTagValues().getTagValues().entrySet().stream().map(
 										entry -> new TagKv(entry.getKey(), entry.getValue())).collect(Collectors.toList()));
-						this.client.emitStoreWithTag(tuple.x, tagGaugeMetric.getMetricValue(), compositeTags);
-						reportGlobalMetrics("gauge", name, tuple.x, tagGaugeMetric.getMetricValue(), compositeTags);
+						mergedMetrics.put(compositeTags, mergedMetrics.getOrDefault(compositeTags, 0.0) + tagGaugeMetric.getMetricValue());
+					}
+
+					// send merged metrics
+					for (Map.Entry<String, Double> entry : mergedMetrics.entrySet()) {
+						this.client.emitStoreWithTag(tuple.x, entry.getValue(), entry.getKey());
+						reportGlobalMetrics("gauge", name, tuple.x, entry.getValue(), entry.getKey());
 					}
 					if (((TagGaugeStore) value).isClearAfterReport()) {
 						((TagGaugeStore) value).reset();
