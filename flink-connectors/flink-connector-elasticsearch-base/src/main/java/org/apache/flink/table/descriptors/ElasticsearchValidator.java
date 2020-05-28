@@ -75,6 +75,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_GLOBAL_RATE_LIMIT = "connector.global-rate-limit";
 	public static final String CONNECTOR_URI = "connector.uri";
 	public static final String CONNECTOR_BYTE_ES_MODE = "connector.byte-es-mode";
+	public static final String CONNECTOR_BYTE_ES_ENABLE_GDPR = "connector.byte-es.enable-gdpr";
 	public static final String CONNECTOR_USER_DEFINED_PARAMS = "connector.user-defined-params";
 
 	@Override
@@ -84,6 +85,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		properties.validateLong(CONNECTOR_GLOBAL_RATE_LIMIT, true, 1);
 		properties.validateString(CONNECTOR_URI, true, 1);
 		properties.validateBoolean(CONNECTOR_BYTE_ES_MODE, true);
+		properties.validateBoolean(CONNECTOR_BYTE_ES_ENABLE_GDPR, true);
 		validateVersion(properties);
 		validateHosts(properties);
 		validateGeneralProperties(properties);

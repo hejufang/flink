@@ -142,6 +142,10 @@ under the License.
 									<shadedPattern>org.apache.flink.elasticsearch7.shaded.com.fasterxml.jackson</shadedPattern>
 								</relocation>
 								<relocation>
+									<pattern>org.byted.infsec</pattern>
+									<shadedPattern>org.apache.flink.elasticsearch7.shaded.org.byted.infsec</shadedPattern>
+								</relocation>
+								<relocation>
 									<pattern>org.apache.flink.streaming.connectors.elasticsearch.</pattern>
 									<shadedPattern>org.apache.flink.streaming.connectors.elasticsearch7.base.</shadedPattern>
 								</relocation>

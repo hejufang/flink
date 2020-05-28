@@ -18,6 +18,11 @@
 
 package org.apache.flink.streaming.connectors.elasticsearch7.util;
 
+import org.apache.flink.util.FlinkRuntimeException;
+
+import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
+import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
+
 import com.bytedance.search.consul.Discovery;
 import com.bytedance.search.consul.EndPoint;
 import org.apache.commons.codec.binary.Base64;
@@ -40,7 +45,13 @@ import java.util.Objects;
  */
 public class ESHttpRoutePlanner implements HttpRoutePlanner {
 
-	private static Discovery consul = new Discovery();
+	private static final Discovery CONSUL = new Discovery();
+
+	private final boolean enableGdpr;
+
+	public ESHttpRoutePlanner(boolean enableGdpr) {
+		this.enableGdpr = enableGdpr;
+	}
 
 	@Override
 	public HttpRoute determineRoute(HttpHost host, HttpRequest request, HttpContext context) throws HttpException {
@@ -68,13 +79,18 @@ public class ESHttpRoutePlanner implements HttpRoutePlanner {
 				request.addHeader(new BasicHeader("Authorization", "Basic ".concat(authInfo)));
 			}
 
+			if (enableGdpr) {
+				String gdprToken = getGDPRToken();
+				request.addHeader(new BasicHeader("Gdpr-Token", gdprToken));
+			}
+
 			String psm = hostName, cluster = "default";
 			int clusterIdx = hostName.indexOf('$');
 			if (clusterIdx > 0) {
 				psm = hostName.substring(0, clusterIdx);
 				cluster = hostName.substring(clusterIdx + 1);
 			}
-			EndPoint endPoint = consul.lookup(psm).FilterCluster(cluster).GetOne();
+			EndPoint endPoint = CONSUL.lookup(psm).FilterCluster(cluster).GetOne();
 			if (endPoint == null) {
 				throw new HttpException("No available nodes");
 			}
@@ -83,5 +99,19 @@ public class ESHttpRoutePlanner implements HttpRoutePlanner {
 
 		boolean secure = target.getSchemeName().equalsIgnoreCase("https");
 		return proxy == null ? new HttpRoute(target, local, secure) : new HttpRoute(target, local, proxy, secure);
+	}
+
+	private String getGDPRToken() {
+		try {
+			String token = SecTokenC.getToken(false);
+			if (token != null && !token.isEmpty()) {
+				return token;
+			} else {
+				throw new FlinkRuntimeException("Enabled ByteES GDPR, however getting blank token from the container.");
+			}
+		} catch (InfSecException e) {
+			throw new FlinkRuntimeException("Enabled ByteES GDPR, however exception occurred while getting token " +
+				"from the container.", e);
+		}
 	}
 }

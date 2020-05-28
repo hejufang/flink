@@ -63,6 +63,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BULK_FLUSH_MAX_SIZE;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BYTE_ES_ENABLE_GDPR;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_BYTE_ES_MODE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_CONSUL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_ENABLE_PASSWORD_CONFIG;
@@ -164,6 +165,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 
 		// ByteES mode
 		properties.add(CONNECTOR_BYTE_ES_MODE);
+		properties.add(CONNECTOR_BYTE_ES_ENABLE_GDPR);
 
 		// user defined params, used in custom ActionRequestFailureHandler
 		properties.add(CONNECTOR_USER_DEFINED_PARAMS);
@@ -336,6 +338,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_USERNAME, SinkOption.USERNAME);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_PASSWORD, SinkOption.PASSWORD);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_URI, SinkOption.URI);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_BYTE_ES_ENABLE_GDPR, SinkOption.ENABLE_BYTE_ES_GDPR);
 
 		return options;
 	}

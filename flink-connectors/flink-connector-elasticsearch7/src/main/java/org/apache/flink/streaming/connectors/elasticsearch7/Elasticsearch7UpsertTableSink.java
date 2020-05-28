@@ -62,6 +62,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchU
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_SIZE;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.DISABLE_FLUSH_ON_CHECKPOINT;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.ENABLE_BYTE_ES_GDPR;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.REST_PATH_PREFIX;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.URI;
 
@@ -260,7 +261,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			.ifPresent(v -> builder.setBulkFlushBackoffDelay(Long.valueOf(v)));
 
 		if (psm.isPresent()) {
-			builder.setRestClientFactory(new RoutedRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
+			boolean enableGdpr = Boolean.parseBoolean(sinkOptions.getOrDefault(ENABLE_BYTE_ES_GDPR, "false"));
+			builder.setRestClientFactory(new RoutedRestClientFactory(sinkOptions.get(REST_PATH_PREFIX), enableGdpr));
 		} else {
 			builder.setRestClientFactory(new DefaultRestClientFactory(sinkOptions.get(REST_PATH_PREFIX)));
 		}
@@ -337,9 +339,11 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		private static final long serialVersionUID = 1L;
 
 		private final String pathPrefix;
+		private final boolean enableGdpr;
 
-		public RoutedRestClientFactory(@Nullable String pathPrefix) {
+		public RoutedRestClientFactory(@Nullable String pathPrefix, boolean enableGdpr) {
 			this.pathPrefix = pathPrefix;
+			this.enableGdpr = enableGdpr;
 		}
 
 		@Override
@@ -348,7 +352,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 				restClientBuilder.setPathPrefix(pathPrefix);
 			}
 			restClientBuilder.setHttpClientConfigCallback(httpAsyncClientBuilder ->
-				httpAsyncClientBuilder.setRoutePlanner(new ESHttpRoutePlanner()));
+				httpAsyncClientBuilder.setRoutePlanner(new ESHttpRoutePlanner(enableGdpr)));
 		}
 
 		@Override

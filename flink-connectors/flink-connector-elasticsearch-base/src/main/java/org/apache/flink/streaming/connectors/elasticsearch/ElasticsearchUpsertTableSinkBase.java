@@ -479,23 +479,20 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		REST_MAX_RETRY_TIMEOUT,
 		REST_PATH_PREFIX,
 
-		/**
-		 * support bytedance consul.
-		 */
+		/** support bytedance consul. */
 		CONSUL,
 		HTTP_SCHEMA,
 
-		/**
-		 * support password config.
-		 */
+		/** support password config. */
 		ENABLE_PASSWORD_CONFIG,
 		USERNAME,
 		PASSWORD,
 
-		/**
-		 * support to lookup es hosts via psm.
-		 */
-		URI
+		/** support to lookup es hosts via psm. */
+		URI,
+
+		/** support to use GDPR for ByteES. */
+		ENABLE_BYTE_ES_GDPR
 	}
 
 	/**
