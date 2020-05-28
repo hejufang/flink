@@ -2840,7 +2840,8 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 				VoidNamespaceSerializer.INSTANCE, kvId);
 
 		backend.setCurrentKey(1);
-		assertNull(state.entries());
+		assertNotNull(state.entries());
+		assertFalse(state.entries().iterator().hasNext());
 
 		state.put("Ciao", "Hello");
 		state.put("Bello", "Nice");
@@ -2850,7 +2851,8 @@ public abstract class StateBackendTestBase<B extends AbstractStateBackend> exten
 		assertEquals(state.get("Bello"), "Nice");
 
 		state.clear();
-		assertNull(state.entries());
+		assertNotNull(state.entries());
+		assertFalse(state.entries().iterator().hasNext());
 
 		backend.dispose();
 	}
