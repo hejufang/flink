@@ -40,11 +40,14 @@ public class RateLimitedMetricsClient {
 	public static final String METRICS_REPORTER_INTERVAL_SUFFIX = "interval";
 	public static final String METRICS_REPORTER_INTERVAL_DEFAULT = "20 SECONDS";
 
-	private static final Double METRICS_INTERVAL_QUANTILE = 0.7;
+	private static final String METRICS_REPORTER_QUANTILE_SUFFIX = "quantile";
+	private static final Double METRICS_REPORTER_QUANTILE_DEFAULT = 0.4;
 
 	private final UdpMetricsClient udpMetricsClient;
 
 	private final long interval;
+
+	private final double quantile;
 
 	private RateLimiter rateLimiter = null;
 
@@ -55,6 +58,7 @@ public class RateLimitedMetricsClient {
 	public RateLimitedMetricsClient(String prefix, MetricConfig config) {
 		this.udpMetricsClient = new UdpMetricsClient(prefix);
 		this.interval = parseIntervalToSeconds(config.getString(METRICS_REPORTER_INTERVAL_SUFFIX, METRICS_REPORTER_INTERVAL_DEFAULT));
+		this.quantile = config.getDouble(METRICS_REPORTER_QUANTILE_SUFFIX, METRICS_REPORTER_QUANTILE_DEFAULT);
 		this.metricCount = 0;
 		this.countInRateLimiter = 0;
 	}
@@ -83,11 +87,11 @@ public class RateLimitedMetricsClient {
 	public void aquirePermit() {
 		if (this.rateLimiter == null) {
 			countInRateLimiter = metricCount;
-			rateLimiter = RateLimiter.create(countInRateLimiter * 1.0 / (interval * METRICS_INTERVAL_QUANTILE));
+			rateLimiter = RateLimiter.create(countInRateLimiter * 1.0 / (interval * quantile));
 		} else {
 			if (countInRateLimiter != metricCount) {
 				countInRateLimiter = metricCount;
-				rateLimiter.setRate(countInRateLimiter * 1.0 / (interval * METRICS_INTERVAL_QUANTILE));
+				rateLimiter.setRate(countInRateLimiter * 1.0 / (interval * quantile));
 			}
 		}
 		rateLimiter.acquire();
