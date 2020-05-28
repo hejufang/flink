@@ -189,7 +189,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 				} else {
 					LOG.info("{} Send UnavailableChannelEvent", this);
 
-					setChannelUnavailable(null);
+					setChannelUnavailable(new Exception("Producer is released."));
 					setReadyToUpdate();
 					inputGate.tryUpdateInputChannelFromChannelProviderCache(this);
 					return Optional.of(new BufferAndAvailability(EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE),

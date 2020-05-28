@@ -178,9 +178,16 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 			Throwable cause = reader.getReader().getFailureCause();
 
 			// cause may be null here, but we need to notify downstream task no matter what happened
-			ErrorResponse response = new ErrorResponse(
-					new ProducerFailedException(cause),
-					reader.getReader().getReceiverId());
+			ErrorResponse response;
+			if (cause != null) {
+				response = new ErrorResponse(
+						new ProducerFailedException(cause),
+						reader.getReader().getReceiverId());
+			} else {
+				response = new ErrorResponse(
+						new ProducerFailedException(new Exception("Unknown exception.")),
+						reader.getReader().getReceiverId());
+			}
 
 			ctx.writeAndFlush(response);
 		} else if (msg.getClass() == InputChannelID.class) {

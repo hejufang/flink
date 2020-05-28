@@ -46,6 +46,8 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 
@@ -110,7 +112,8 @@ public class SingleInputGateFactory {
 		this.networkBufferPool = networkBufferPool;
 		this.isRecoverable = isRecoverable;
 		this.maxDelayMinutes = maxDelayMinutes;
-		this.executor = Executors.newSingleThreadScheduledExecutor();
+		this.executor = Executors.unconfigurableScheduledExecutorService(
+				new ScheduledThreadPoolExecutor(1, new ThreadPoolExecutor.DiscardPolicy()));
 	}
 
 	/**
