@@ -22,11 +22,10 @@ import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.Closeab
 import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpGet;
 import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpPost;
 import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpUriRequest;
+import org.apache.flink.shaded.httpclient.org.apache.http.entity.StringEntity;
 import org.apache.flink.shaded.httpclient.org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.flink.shaded.httpclient.org.apache.http.impl.client.HttpClients;
-
-import org.apache.http.entity.StringEntity;
-import org.apache.http.util.EntityUtils;
+import org.apache.flink.shaded.httpclient.org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.util.Map;

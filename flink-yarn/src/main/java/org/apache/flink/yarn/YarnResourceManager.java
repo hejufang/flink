@@ -70,6 +70,7 @@ import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpGet
 import org.apache.flink.shaded.httpclient.org.apache.http.client.utils.URIBuilder;
 import org.apache.flink.shaded.httpclient.org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.flink.shaded.httpclient.org.apache.http.impl.client.HttpClients;
+import org.apache.flink.shaded.httpclient.org.apache.http.util.EntityUtils;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -110,7 +111,6 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
-import org.apache.http.util.EntityUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
