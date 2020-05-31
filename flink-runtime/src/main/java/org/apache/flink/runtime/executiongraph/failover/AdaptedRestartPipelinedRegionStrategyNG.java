@@ -89,6 +89,12 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 			return;
 		}
 
+		if (executionGraph.getSchedulingFuture() == null || !executionGraph.getSchedulingFuture().isDone()) {
+			LOG.info("Scheduling for ExecutionGraph not finished. Fallback to fail global.");
+			failGlobal(cause);
+			return;
+		}
+
 		if (!isLocalFailoverValid(executionGraph.getGlobalModVersion())) {
 			LOG.info("Skip current region failover as a global failover is ongoing.");
 			return;

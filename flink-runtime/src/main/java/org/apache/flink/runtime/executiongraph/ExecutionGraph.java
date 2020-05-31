@@ -667,6 +667,11 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return isRecoverable;
 	}
 
+	@Nullable
+	public CompletableFuture<Void> getSchedulingFuture() {
+		return schedulingFuture;
+	}
+
 	@Nonnull
 	public ComponentMainThreadExecutor getJobMasterMainThreadExecutor() {
 		return jobMasterMainThreadExecutor;
