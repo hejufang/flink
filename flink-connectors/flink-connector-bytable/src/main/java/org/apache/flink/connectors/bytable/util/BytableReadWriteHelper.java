@@ -22,8 +22,13 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connectors.bytable.BytableOption;
 import org.apache.flink.connectors.bytable.BytableTableSchema;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
+import com.bytedance.bytable.Cell;
+import com.bytedance.bytable.CellIterator;
+import com.bytedance.bytable.LookupOptions;
 import com.bytedance.bytable.RowMutation;
+import com.bytedance.bytable.Table;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -129,6 +134,56 @@ public class BytableReadWriteHelper {
 			}
 		}
 		return m;
+	}
+
+	public Row getReadResult(Table table, Object rowKeyOriginal) {
+		byte[] rowKey = BytableTypeUtils.serializeFromObject(
+			rowKeyOriginal,
+			rowKeyType,
+			charset);
+		for (int i = 0; i < fieldLength; i++) {
+			if (rowKeyIndex == i) {
+				resultRow.setField(rowKeyIndex, rowKeyOriginal);
+			} else {
+				int f = (rowKeyIndex != -1 && i > rowKeyIndex) ? i - 1 : i;
+				// get family key
+				byte[] familyKey = families[f];
+				Row familyRow = familyRows[f];
+				for (int q = 0; q < this.qualifiers[f].length; q++) {
+					// get quantifier key
+					byte[] qualifier = qualifiers[f][q];
+					// get quantifier type idx
+					int typeIdx = qualifierTypes[f][q];
+					// read value
+					byte[] value = getValue(table, rowKey, familyKey, qualifier);
+					if (value != null) {
+						familyRow.setField(q, BytableTypeUtils.deserializeToObject(value, typeIdx, charset));
+					} else {
+						familyRow.setField(q, null);
+					}
+				}
+				resultRow.setField(i, familyRow);
+			}
+		}
+		return resultRow;
+	}
+
+	private byte[] getValue(Table table, byte[] rowKey, byte[] familyKey, byte[] qualifier) {
+		byte[] result = null;
+		try {
+			LookupOptions opts = new LookupOptions();
+			opts.addColumn(familyKey, qualifier);
+			CellIterator iter = table.lookup(rowKey, opts, null);
+			iter.next();
+			Cell c = iter.getCell();
+			if (c != null) {
+				result = c.getValue();
+			}
+		} catch (Exception e) {
+			throw new FlinkRuntimeException(String.format("Read the rowKey : %s familyKey : %s " +
+				"column : %s failed.", new String(rowKey), new String(familyKey), new String(qualifier)), e);
+		}
+		return result;
 	}
 
 }

@@ -45,6 +45,10 @@ public class BytableValidator extends ConnectorDescriptorValidator {
 	public static final String FULL_INFO = "FullInfo";
 	public static final String CONNECTOR_TTL_SECONDS = "connector.ttl-seconds";
 
+	public static final String CONNECTOR_LOOKUP_CACHE_MAX_ROWS = "connector.lookup.cache.max-rows";
+	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
+	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateValue(CONNECTOR_TYPE, BYTABLE, false);
@@ -64,5 +68,8 @@ public class BytableValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_RETRY_DELAY_MS, true, 1);
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 		properties.validateLong(CONNECTOR_TTL_SECONDS, true, 1);
+		properties.validateLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS, true, 1);
+		properties.validateLong(CONNECTOR_LOOKUP_CACHE_TTL, true, 1);
+		properties.validateInt(CONNECTOR_LOOKUP_MAX_RETRIES, true, 1);
 	}
 }

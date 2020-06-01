@@ -35,6 +35,42 @@ public class BytableTypeUtils {
 	private static final byte[] EMPTY_BYTES = new byte[]{};
 
 	/**
+	 * Deserialize byte array to Java Object with the given type.
+	 */
+	public static Object deserializeToObject(byte[] value, int typeIdx, Charset stringCharset) {
+		String valueTmp = new String(value, stringCharset);
+		switch (typeIdx) {
+			case 0: // byte[]
+				return value;
+			case 1: // String
+				return valueTmp;
+			case 2: // byte
+				return value[0];
+			case 3: // short
+				return Short.parseShort(valueTmp);
+			case 4: // int
+				return Integer.parseInt(valueTmp);
+			case 5: // long
+				return Long.parseLong(valueTmp);
+			case 6: // Float
+				return Float.parseFloat(valueTmp);
+			case 7: // Double
+				return Double.parseDouble(valueTmp);
+			case 8: // Boolean
+				return valueTmp.equalsIgnoreCase("true");
+			case 9: // sql.Timestamp encoded as long
+				return new Timestamp(Long.parseLong(valueTmp));
+			case 10: // sql.Date encoded as long
+				return new Date(Long.parseLong(valueTmp));
+			case 11: // sql.Time encoded as long
+				return new Time(Long.parseLong(valueTmp));
+
+			default:
+				throw new IllegalArgumentException("unsupported type index:" + typeIdx);
+		}
+	}
+
+	/**
 	 * Serialize the Java Object to byte array with the given type.
 	 */
 	public static byte[] serializeFromObject(Object value, int typeIdx, Charset stringCharset) {

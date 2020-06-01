@@ -25,7 +25,9 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.BytableValidator;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
+import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.sinks.StreamTableSink;
+import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.RetryManager;
@@ -43,6 +45,9 @@ import static org.apache.flink.table.descriptors.BytableValidator.BYTABLE;
 import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_BATCH_SIZE;
 import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_BYTABLE_CLIENT_METRIC;
 import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_CACHE_TYPE;
+import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
+import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_LOOKUP_CACHE_TTL;
+import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_MASTER_TIMEOUT_MS;
 import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_MASTER_URLS;
 import static org.apache.flink.table.descriptors.BytableValidator.CONNECTOR_TABLE;
@@ -66,7 +71,8 @@ import static org.apache.flink.table.utils.RetryUtils.getRetryStrategy;
 /**
  * Factory for creating configured instances of {@link BytableUpsertTableSink }.
  */
-public class BytableTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+public class BytableTableFactory implements StreamTableSourceFactory<Row>,
+		StreamTableSinkFactory<Tuple2<Boolean, Row>> {
 
 	@Override
 	public Map<String, String> requiredContext() {
@@ -96,11 +102,26 @@ public class BytableTableFactory implements StreamTableSinkFactory<Tuple2<Boolea
 		properties.add(CONNECTOR_RETRY_DELAY_MS);
 		properties.add(CONNECTOR_BATCH_SIZE);
 
+		//lookup option
+		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
+		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
+		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
 
 		return properties;
+	}
+
+	@Override
+	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
+		BytableTableSchema bytableTableSchema = constructTableSchema(tableSchema);
+		BytableOption bytableOption = getBytableOptions(descriptorProperties);
+		BytableLookupOptions bytableLookupOptions = getBytableLookupOptions(descriptorProperties);
+		return new BytableTableSource(bytableTableSchema, tableSchema, bytableOption, bytableLookupOptions);
 	}
 
 	@Override
@@ -151,6 +172,17 @@ public class BytableTableFactory implements StreamTableSinkFactory<Tuple2<Boolea
 		descriptorProperties.getOptionalLong(CONNECTOR_TTL_SECONDS).ifPresent(builder::setTtlSeconds);
 
 		return builder.buid();
+	}
+
+	private BytableLookupOptions getBytableLookupOptions(DescriptorProperties descriptorProperties) {
+		final BytableLookupOptions.Builder builder = BytableLookupOptions.builder();
+
+		descriptorProperties.getOptionalLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS).ifPresent(builder::setCacheMaxSize);
+		descriptorProperties.getOptionalDuration(CONNECTOR_LOOKUP_CACHE_TTL).ifPresent(
+			s -> builder.setCacheExpireMs(s.toMillis()));
+		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
+
+		return builder.build();
 	}
 
 	/**

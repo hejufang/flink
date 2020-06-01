@@ -153,7 +153,7 @@ public class BytableOption implements Serializable {
 		private RetryManager.Strategy retryStrategy;
 		private int batchSize = BATCH_SIZE_DEFAULT;
 		private int parallelism;
-		private long ttlSeconds = 0;
+		private long ttlSeconds;
 
 		private BytableOptionBuilder() {
 		}
@@ -238,10 +238,10 @@ public class BytableOption implements Serializable {
 				"connector.table-server-write-timeout-ms must be positive.");
 			Preconditions.checkArgument(batchSize > 0,
 				"BatchSize must be positive.");
-			Preconditions.checkArgument(parallelism > 0,
-				"Parallelism must be positive.");
-			Preconditions.checkArgument(ttlSeconds > 0,
-				"TTL must be positive.");
+			Preconditions.checkArgument(parallelism >= 0,
+				"Parallelism must be greater than or equal to 0(Default property).");
+			Preconditions.checkArgument(ttlSeconds >= 0,
+				"TTL must be greater than or equal to 0(Don't expire).");
 			return new BytableOption(
 					metricName,
 					masterUrls,
