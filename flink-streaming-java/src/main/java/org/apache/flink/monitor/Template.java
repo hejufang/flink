@@ -2108,7 +2108,7 @@ public class Template {
 			"					\"steppedLine\": false,\n" +
 			"					\"targets\": [\n" +
 			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
+			"							\"aggregator\": \"sum\",\n" +
 			"							\"alias\": \"$tag_exit_code\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
@@ -2148,7 +2148,7 @@ public class Template {
 			"							\"show\": true\n" +
 			"						},\n" +
 			"						{\n" +
-			"							\"format\": \"ms\",\n" +
+			"							\"format\": \"short\",\n" +
 			"							\"label\": null,\n" +
 			"							\"logBase\": 1,\n" +
 			"							\"max\": null,\n" +
