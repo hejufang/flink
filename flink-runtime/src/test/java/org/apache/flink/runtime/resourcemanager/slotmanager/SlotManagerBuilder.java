@@ -30,6 +30,9 @@ public class SlotManagerBuilder {
 	private Time slotRequestTimeout;
 	private Time taskManagerTimeout;
 	private boolean waitResultConsumedBeforeRelease;
+	private int numInitialTaskManagers;
+	private int extraInitialTaskManagerNumbers;
+	private float extraInitialTaskManagerFraction;
 
 	private SlotManagerBuilder() {
 		this.slotMatchingStrategy = AnyMatchingSlotMatchingStrategy.INSTANCE;
@@ -38,6 +41,9 @@ public class SlotManagerBuilder {
 		this.slotRequestTimeout = TestingUtils.infiniteTime();
 		this.taskManagerTimeout = TestingUtils.infiniteTime();
 		this.waitResultConsumedBeforeRelease = true;
+		this.numInitialTaskManagers = 0;
+		this.extraInitialTaskManagerFraction = 0;
+		this.extraInitialTaskManagerNumbers = 0;
 	}
 
 	public static SlotManagerBuilder newBuilder() {
@@ -74,6 +80,21 @@ public class SlotManagerBuilder {
 		return this;
 	}
 
+	public SlotManagerBuilder setNumInitialTaskManagers(int numInitialTaskManagers) {
+		this.numInitialTaskManagers = numInitialTaskManagers;
+		return this;
+	}
+
+	public SlotManagerBuilder setExtraInitialTaskManagerNumbers(int extraInitialTaskManagerNumbers) {
+		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
+		return this;
+	}
+
+	public SlotManagerBuilder setExtraInitialTaskManagerFraction(float extraInitialTaskManagerFraction) {
+		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
+		return this;
+	}
+
 	public SlotManagerImpl build() {
 		return new SlotManagerImpl(
 			slotMatchingStrategy,
@@ -81,6 +102,9 @@ public class SlotManagerBuilder {
 			taskManagerRequestTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,
-			waitResultConsumedBeforeRelease);
+			waitResultConsumedBeforeRelease,
+			numInitialTaskManagers,
+			extraInitialTaskManagerNumbers,
+			extraInitialTaskManagerFraction);
 	}
 }

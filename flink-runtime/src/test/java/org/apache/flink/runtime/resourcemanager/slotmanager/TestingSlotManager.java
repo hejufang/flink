@@ -76,6 +76,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public int getNumberWaitingTaskManagerSlotRequests() {
+		return 0;
+	}
+
+	@Override
 	public int getNumberAssignedPendingTaskManagerSlots() { return 0; }
 
 	@Override

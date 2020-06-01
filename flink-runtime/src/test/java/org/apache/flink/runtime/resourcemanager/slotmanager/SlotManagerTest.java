@@ -1552,4 +1552,126 @@ public class SlotManagerTest extends TestLogger {
 		final SlotReport firstSlotReport = createSlotReport(firstTaskExecutorConnection.getResourceID(), 2);
 		slotManager.registerTaskManager(firstTaskExecutorConnection, firstSlotReport);
 	}
+
+	/**
+	 * Tests slot request with initialed SlotManager.
+	 */
+	@Test
+	public void testSlotRequestWithSlotManagerInitial() throws Exception {
+		final SlotManagerImpl slotManager = SlotManagerBuilder.newBuilder().setNumInitialTaskManagers(1).build();
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceID resourceID = ResourceID.generate();
+		final JobID jobId = new JobID();
+		final SlotID slotId = new SlotID(resourceID, 0);
+		final String targetAddress = "localhost";
+		final AllocationID allocationId = new AllocationID();
+
+		final SlotRequest slotRequest = new SlotRequest(
+			jobId,
+			allocationId,
+			ResourceProfile.UNKNOWN,
+			targetAddress);
+
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder().build();
+
+		// pending one taskSlot when slotManager started.
+		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		assertEquals(1, slotManager.getNumberPendingTaskManagerSlots());
+
+		// slot request will save to waitingTaskManagerSlotRequest before slotManager Initialized.
+		slotManager.registerSlotRequest(slotRequest);
+		assertEquals(1, slotManager.getNumberWaitingTaskManagerSlotRequests());
+
+		final CompletableFuture<Tuple5<SlotID, JobID, AllocationID, String, ResourceManagerId>> requestFuture = new CompletableFuture<>();
+		final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
+						.setRequestSlotFunction(tuple5 -> {
+							requestFuture.complete(Tuple5.of(tuple5.f0, tuple5.f1, tuple5.f2, tuple5.f3, tuple5.f4));
+							return CompletableFuture.completedFuture(Acknowledge.get());
+						})
+				.createTestingTaskExecutorGateway();
+		final TaskExecutorConnection taskExecutorConnection = new TaskExecutorConnection(resourceID, taskExecutorGateway);
+		final SlotStatus slotStatus = new SlotStatus(slotId, ResourceProfile.UNKNOWN);
+		final SlotReport slotReport = new SlotReport(slotStatus);
+		slotManager.registerTaskManager(
+				taskExecutorConnection,
+				slotReport);
+
+		// slot will allocate to slotRequest when taskmanager registered.
+		assertThat(requestFuture.get(), is(equalTo(Tuple5.of(slotId, jobId, allocationId, targetAddress, resourceManagerId))));
+		TaskManagerSlot slot = slotManager.getSlot(slotId);
+		assertEquals("The slot has not been allocated to the expected allocation id.", allocationId, slot.getAllocationId());
+
+		// slot request will save to pendingSlotRequest after slotManager Initialized.
+		slotManager.registerSlotRequest(new SlotRequest(
+			jobId,
+			new AllocationID(),
+			ResourceProfile.UNKNOWN,
+			targetAddress));
+		assertEquals(1, slotManager.getNumberPendingSlotRequests());
+	}
+
+	/**
+	 * Tests slot request with task manager failed.
+	 */
+	@Test
+	public void testSlotRequestWithTaskManagerFailed() throws Exception {
+		final SlotManagerImpl slotManager = SlotManagerBuilder.newBuilder().setNumInitialTaskManagers(2).build();
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final JobID jobId = new JobID();
+		final String targetAddress = "localhost";
+
+		final AtomicInteger resourceRequests = new AtomicInteger(0);
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+				.setAllocateResourceFunction(
+						convert(ignored -> {
+							resourceRequests.incrementAndGet();
+							return 1;
+						})
+				).build();
+
+		// pending taskSlots when slotManager started.
+		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		assertEquals(2, resourceRequests.get());
+
+		// register slot request does not allocate new resource.
+		slotManager.registerSlotRequest(new SlotRequest(
+				jobId,
+				new AllocationID(),
+				ResourceProfile.UNKNOWN,
+				targetAddress));
+		slotManager.registerSlotRequest(new SlotRequest(
+				jobId,
+				new AllocationID(),
+				ResourceProfile.UNKNOWN,
+				targetAddress));
+		assertEquals(2, resourceRequests.get());
+
+		TaskExecutorConnection tc1 = new TaskExecutorConnection(ResourceID.generate(), new TestingTaskExecutorGatewayBuilder().createTestingTaskExecutorGateway());
+		TaskExecutorConnection tc2 = new TaskExecutorConnection(ResourceID.generate(), new TestingTaskExecutorGatewayBuilder().createTestingTaskExecutorGateway());
+		slotManager.registerTaskManager(
+				tc1,
+				new SlotReport(new SlotStatus(new SlotID(ResourceID.generate(), 0), ResourceProfile.UNKNOWN)));
+		slotManager.registerTaskManager(
+				tc2,
+				new SlotReport(new SlotStatus(new SlotID(ResourceID.generate(), 0), ResourceProfile.UNKNOWN)));
+
+		// request after initial allocate new resource.
+		slotManager.registerSlotRequest(new SlotRequest(
+				jobId,
+				new AllocationID(),
+				ResourceProfile.UNKNOWN,
+				targetAddress));
+		assertEquals(3, resourceRequests.get());
+
+		slotManager.unregisterTaskManager(tc1.getInstanceID());
+		slotManager.registerSlotRequest(new SlotRequest(
+				jobId,
+				new AllocationID(),
+				ResourceProfile.UNKNOWN,
+				targetAddress));
+		assertEquals(3, resourceRequests.get());
+
+		slotManager.unregisterTaskManager(tc2.getInstanceID());
+		assertEquals(4, resourceRequests.get());
+	}
 }

@@ -104,6 +104,9 @@ public class SlotManagerImpl implements SlotManager {
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
 
+	/** Number of Pending TaskManagers.*/
+	private final AtomicInteger pendingTaskManagers;
+
 	/** Number of Current Active TaskManagers.*/
 	private final AtomicInteger activeTaskManagers;
 
@@ -216,6 +219,7 @@ public class SlotManagerImpl implements SlotManager {
 		pendingSlotRequests = new LinkedHashMap<>(16);
 		waitingTaskManagerSlotRequests = new LinkedHashMap<>(16);
 		pendingSlots = new HashMap<>(16);
+		pendingTaskManagers = new AtomicInteger(0);
 		activeTaskManagers = new AtomicInteger(0);
 
 		resourceManagerId = null;
@@ -271,6 +275,10 @@ public class SlotManagerImpl implements SlotManager {
 	@Override
 	public int getNumberPendingSlotRequests() {
 		return pendingSlotRequests.size();
+	}
+
+	public int getNumberWaitingTaskManagerSlotRequests() {
+		return waitingTaskManagerSlotRequests.size();
 	}
 
 	@VisibleForTesting
@@ -356,8 +364,11 @@ public class SlotManagerImpl implements SlotManager {
 		ArrayList<InstanceID> registeredTaskManagers = new ArrayList<>(taskManagerRegistrations.keySet());
 
 		for (InstanceID registeredTaskManager : registeredTaskManagers) {
-			unregisterTaskManager(registeredTaskManager);
+			unregisterTaskManager(registeredTaskManager, false);
 		}
+
+		activeTaskManagers.set(0);
+		pendingTaskManagers.set(0);
 
 		resourceManagerId = null;
 		resourceActions = null;
@@ -401,7 +412,7 @@ public class SlotManagerImpl implements SlotManager {
 			if (activeTaskManagers.get() < numInitialTaskManagers) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
-				if (freeSlots.size() + pendingSlots.size() < waitingTaskManagerSlotRequests.size()) {
+				if (activeTaskManagers.get() + pendingTaskManagers.get() < numInitialTaskManagers) {
 					allocateResource(pendingSlotRequest.getResourceProfile());
 				}
 			} else {
@@ -508,6 +519,9 @@ public class SlotManagerImpl implements SlotManager {
 					slotStatus.getResourceProfile(),
 					taskExecutorConnection);
 			}
+			if (pendingTaskManagers.get() > 0) {
+				pendingTaskManagers.getAndDecrement();
+			}
 			activeTaskManagers.getAndIncrement();
 
 			if (activeTaskManagers.get() >= numInitialTaskManagers && !waitingTaskManagerSlotRequests.isEmpty()) {
@@ -524,12 +538,12 @@ public class SlotManagerImpl implements SlotManager {
 			PendingSlotRequest pendingSlotRequest = waitingTaskManagerSlotRequest.getValue();
 			iterator.remove();
 			if (pendingSlotRequest != null) {
-				LOG.info("Start to internal Request Slot for {}.", allocationID);
-				pendingSlotRequests.put(allocationID, pendingSlotRequest);
 				mainThreadExecutor.execute(() -> {
+					LOG.info("Start to internal Request Slot for {}.", allocationID);
+					pendingSlotRequests.put(allocationID, pendingSlotRequest);
 					try {
 						internalRequestSlot(pendingSlotRequest);
-					} catch (ResourceManagerException e) {
+					} catch (Exception e) {
 						// requesting the slot failed --> remove pending slot request
 						pendingSlotRequests.remove(pendingSlotRequest.getAllocationId());
 						resourceActions.notifyAllocationFailure(
@@ -545,15 +559,20 @@ public class SlotManagerImpl implements SlotManager {
 		}
 	}
 
+	@Override
+	public boolean unregisterTaskManager(InstanceID instanceId) {
+		return unregisterTaskManager(instanceId, true);
+	}
+
 	/**
 	 * Unregisters the task manager identified by the given instance id and its associated slots
 	 * from the slot manager.
 	 *
 	 * @param instanceId identifying the task manager to unregister
+	 * @param tryAllocateNewResource whether try to allocate resource
 	 * @return True if there existed a registered task manager with the given instance id
 	 */
-	@Override
-	public boolean unregisterTaskManager(InstanceID instanceId) {
+	public boolean unregisterTaskManager(InstanceID instanceId, boolean tryAllocateNewResource) {
 		checkInit();
 
 		LOG.debug("Unregister TaskManager {} from the SlotManager.", instanceId);
@@ -561,9 +580,16 @@ public class SlotManagerImpl implements SlotManager {
 		TaskManagerRegistration taskManagerRegistration = taskManagerRegistrations.remove(instanceId);
 
 		if (null != taskManagerRegistration) {
-			activeTaskManagers.getAndDecrement();
 			internalUnregisterTaskManager(taskManagerRegistration);
-
+			LOG.info("Unregister TaskManager, current activeTaskManager {}, pendingTaskManager {}.",
+					activeTaskManagers.get(), pendingTaskManagers.get());
+			if (tryAllocateNewResource && activeTaskManagers.decrementAndGet() + pendingTaskManagers.get() < numInitialTaskManagers) {
+				try {
+					allocateResource(ResourceProfile.UNKNOWN);
+				} catch (ResourceManagerException e) {
+					LOG.warn("Allocate Resource Error.", e);
+				}
+			}
 			return true;
 		} else {
 			LOG.debug("There is no task manager registered with instance ID {}. Ignoring this message.", instanceId);
@@ -967,6 +993,7 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(slotIterator.next());
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
+			pendingTaskManagers.getAndIncrement();
 
 			return Optional.of(pendingTaskManagerSlot);
 		}
@@ -980,6 +1007,7 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
+			pendingTaskManagers.getAndAdd(resourceNumber);
 		} catch (ResourceManagerException e) {
 			LOG.error("AllocateResource {} {} error, ", resourceProfile, resourceNumber, e);
 		}
@@ -1086,6 +1114,7 @@ public class SlotManagerImpl implements SlotManager {
 		PendingSlotRequest pendingSlotRequest = findMatchingRequest(freeSlot.getResourceProfile());
 
 		if (null != pendingSlotRequest) {
+			freeSlots.remove(freeSlot.getSlotId());
 			allocateSlot(freeSlot, pendingSlotRequest);
 		} else {
 			freeSlots.put(freeSlot.getSlotId(), freeSlot);
