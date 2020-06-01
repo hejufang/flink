@@ -111,6 +111,15 @@ public class CliOptionsParser {
 				"functions, table sources, or sinks. Can be used multiple times.")
 			.build();
 
+	public static final Option OPTION_CLUSTERNAME = Option
+			.builder("cn")
+			.required(false)
+			.longOpt("clusterName")
+			.numberOfArgs(1)
+			.argName("cluster name")
+			.desc("Cluster name.")
+			.build();
+
 	public static final Option OPTION_UPDATE = Option
 			.builder("u")
 			.required(false)
@@ -150,6 +159,7 @@ public class CliOptionsParser {
 		options.addOption(OPTION_ENVIRONMENT);
 		options.addOption(OPTION_DEFAULTS);
 		options.addOption(OPTION_JAR);
+		options.addOption(OPTION_CLUSTERNAME);
 		options.addOption(OPTION_LIBRARY);
 		options.addOption(OPTION_UPDATE);
 		options.addOption(OPTION_HISTORY);

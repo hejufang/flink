@@ -21,6 +21,8 @@ package org.apache.flink.table.client;
 import org.apache.flink.client.cli.CliFrontend;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.client.cli.CliFrontend;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.table.client.cli.CliClient;
 import org.apache.flink.table.client.cli.CliOptions;
 import org.apache.flink.table.client.cli.CliOptionsParser;
@@ -188,6 +190,10 @@ public class SqlClient {
 			CliOptionsParser.printHelpClient();
 			return;
 		}
+
+		String clusterName = CliFrontend.parseArgs(args, "-cn", ConfigConstants.CLUSTER_NAME_DEFAULT);
+		LOG.info("clusterName = {}", clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
 
 		switch (args[0]) {
 

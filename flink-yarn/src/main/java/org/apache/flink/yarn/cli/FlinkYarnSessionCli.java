@@ -27,6 +27,7 @@ import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.client.program.ClusterClientProvider;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
@@ -126,6 +127,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 	private final Option slots;
 	private final Option zookeeperNamespace;
 	private final Option nodeLabel;
+	private final Option clusterName;
 	private final Option help;
 	private final Option name;
 	private final Option applicationType;
@@ -202,6 +204,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		applicationType = new Option(shortPrefix + "at", longPrefix + "applicationType", true, "Set a custom application type for the application on YARN");
 		zookeeperNamespace = new Option(shortPrefix + "z", longPrefix + "zookeeperNamespace", true, "Namespace to create the Zookeeper sub-paths for high availability mode");
 		nodeLabel = new Option(shortPrefix + "nl", longPrefix + "nodeLabel", true, "Specify YARN node label for the YARN application");
+		clusterName = new Option(shortPrefix + "cn", longPrefix + "clusterName", true, "Specify YARN cluster name");
 		help = new Option(shortPrefix + "h", longPrefix + "help", false, "Help for the Yarn session CLI.");
 
 		allOptions = new Options();
@@ -220,6 +223,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		allOptions.addOption(applicationType);
 		allOptions.addOption(zookeeperNamespace);
 		allOptions.addOption(nodeLabel);
+		allOptions.addOption(clusterName);
 		allOptions.addOption(help);
 
 		// try loading a potential yarn properties file
@@ -737,6 +741,10 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 
 	public static void main(final String[] args) {
 		final String configurationDirectory = CliFrontend.getConfigurationDirectoryFromEnv();
+
+		String clusterName = CliFrontend.parseArgs(args, "-cn", ConfigConstants.CLUSTER_NAME_DEFAULT);
+		LOG.info("clusterName = {}", clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
 
 		final Configuration flinkConfiguration = GlobalConfiguration.loadConfiguration();
 

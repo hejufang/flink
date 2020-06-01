@@ -974,6 +974,10 @@ public class CliFrontend {
 		// 1. find the configuration directory
 		final String configurationDirectory = getConfigurationDirectoryFromEnv();
 
+		String clusterName = parseArgs(args, "-cn", ConfigConstants.CLUSTER_NAME_DEFAULT);
+		LOG.info("clusterName = {}", clusterName);
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+
 		// 2. load the global configuration
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configurationDirectory);
 
@@ -1093,6 +1097,16 @@ public class CliFrontend {
 			}
 		}
 		throw new IllegalStateException("No valid command-line found.");
+	}
+
+	public static String parseArgs(String[] args, String propertyFlag, String defaultValue) {
+		for (int i = 0; i < args.length; i++) {
+			if (propertyFlag.equals(args[i]) && (i + 1 < args.length)) {
+				String value = args[i + 1];
+				return value;
+			}
+		}
+		return defaultValue;
 	}
 
 	/**
