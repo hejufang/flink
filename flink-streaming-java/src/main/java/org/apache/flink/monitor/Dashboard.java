@@ -175,6 +175,14 @@ public class Dashboard {
 		return slowContainerRow;
 	}
 
+	private String renderCompletedContainerRow() {
+		String completedContainerTemplate = Template.COMPLETED_CONTAINER;
+		Map<String, String> completedContainerValues = new HashMap<>();
+		completedContainerValues.put("jobname", jobName);
+		completedContainerValues.put("datasource", dataSource);
+		return renderString(completedContainerTemplate, completedContainerValues);
+	}
+
 	private String renderPoolUsageRow(List<String> operators) {
 		String poolUsageTargetTemplate = Template.POOL_USAGE_TARGET;
 		List<String> poolUsageList = new ArrayList<>();
@@ -350,6 +358,7 @@ public class Dashboard {
 		rows.add(renderCheckpointRow());
 		rows.add(renderCheckpointDurationRow());
 		rows.add(renderSlowContainerRow());
+		rows.add(renderCompletedContainerRow());
 
 		String template = Template.TEMPLATE;
 		String rowsStr = String.join(",", rows);
