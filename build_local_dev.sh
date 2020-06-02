@@ -21,4 +21,3 @@ mkdir -p output/deploy/flink-1.9
 mvn clean -U install -DskipTests -Pinclude-hadoop
 
 cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/* output/deploy/flink-1.9/
-cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output/

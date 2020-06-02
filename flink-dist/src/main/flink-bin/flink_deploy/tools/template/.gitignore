@@ -1,3 +1,0 @@
-target/*
-!target/*.jar
-topology_op.log*
