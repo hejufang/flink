@@ -43,8 +43,7 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
 public class PrintTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
 	@Override
 	public StreamTableSink<Tuple2<Boolean, Row>> createStreamTableSink(Map<String, String> properties) {
-		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(properties);
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		double sampleRatio = descriptorProperties.getOptionalDouble(CONNECTOR_PRINT_SAMPLE_RATIO)
 			.orElse(CONNECTOR_PRINT_SAMPLE_RATIO_DEFAULT);
 		int parallelism = descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).orElse(-1);
@@ -69,5 +68,12 @@ public class PrintTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
 		return properties;
+	}
+
+	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+		DescriptorProperties descriptorProperties = new DescriptorProperties(true);
+		descriptorProperties.putProperties(properties);
+		new PrintValidator().validate(descriptorProperties);
+		return descriptorProperties;
 	}
 }
