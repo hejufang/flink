@@ -29,15 +29,21 @@ import java.util.ArrayDeque;
 public class TimestampTMNumBasedFailureRater extends AbstractFailureRater {
 
 	private final double maximumFailureRateRatio;
+	private final double maximumFailureRateLowerBound;
 	private int totalSlotNum = 0;
 	private final int numTaskSlots;
 	private final ArrayDeque<Tuple2<Long, Integer>> requiredSlots; // left is timestamp, right is required slot num at current timestamp
 
-	public TimestampTMNumBasedFailureRater(double maximumFailureRateRatio, Time failureInterval, int numTaskSlots) {
+	public TimestampTMNumBasedFailureRater(double maximumFailureRateRatio, Time failureInterval, int numTaskSlots, double maximumFailureRateLowerBound) {
 		super(failureInterval);
 		this.maximumFailureRateRatio = maximumFailureRateRatio;
 		this.numTaskSlots = numTaskSlots;
 		this.requiredSlots = new ArrayDeque<>();
+		this.maximumFailureRateLowerBound = maximumFailureRateLowerBound;
+	}
+
+	public TimestampTMNumBasedFailureRater(double maximumFailureRateRatio, Time failureInterval, int numTaskSlots) {
+		this(maximumFailureRateRatio, failureInterval, numTaskSlots, 0);
 	}
 
 	@Override
@@ -66,7 +72,7 @@ public class TimestampTMNumBasedFailureRater extends AbstractFailureRater {
 		// because if there're a lot of failures in the interval in session mode,
 		// after a job finished, exceedsFailureRate may return true immediately.
 		double taskManagerNum = Math.ceil((double) getMaxSlotNumInInterval(currentTimeStamp) / numTaskSlots);
-		return getCurrentFailureRate(currentTimeStamp) > maximumFailureRateRatio * taskManagerNum;
+		return getCurrentFailureRate(currentTimeStamp) > Math.max(maximumFailureRateRatio * taskManagerNum, maximumFailureRateLowerBound);
 	}
 
 	protected int getMaxSlotNumInInterval(Long currentTimeStamp) {

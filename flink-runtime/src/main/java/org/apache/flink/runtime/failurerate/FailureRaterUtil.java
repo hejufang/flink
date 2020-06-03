@@ -46,6 +46,6 @@ public class FailureRaterUtil {
 		}
 		// otherwise use TimestampTMNumBasedFailureRater
 		int numTaskSlots = configuration.getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
-		return new TimestampTMNumBasedFailureRater(ratio, Time.of(failureIntervalMs, TimeUnit.MILLISECONDS), numTaskSlots);
+		return new TimestampTMNumBasedFailureRater(ratio, Time.of(failureIntervalMs, TimeUnit.MILLISECONDS), numTaskSlots, rate);
 	}
 }
