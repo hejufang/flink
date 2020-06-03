@@ -170,7 +170,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	 * String for redis to query.
 	 */
 	public void eval(Object... keys) {
-		Row keyRow = Row.of(keys);
+		Row keyRow = Row.of(keys[0]);
 		if (cache != null) {
 			Row cachedRow = cache.getIfPresent(keyRow);
 			if (cachedRow != null) {
