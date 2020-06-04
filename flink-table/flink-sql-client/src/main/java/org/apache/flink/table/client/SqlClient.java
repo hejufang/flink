@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.client;
 
+import org.apache.flink.client.cli.CliFrontend;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.client.cli.CliClient;
 import org.apache.flink.table.client.cli.CliOptions;

@@ -958,18 +958,18 @@ public class Configuration extends ExecutionConfig.GlobalJobParameters
 			Duration duration = (Duration) o;
 			return String.format("%d ns", duration.toNanos());
 		} else if (o instanceof List) {
-			return ((List<?>) o).stream()
-				.map(e -> escapeWithSingleQuote(convertToString(e), ";"))
-				.collect(Collectors.joining(";"));
+			return "\"" + ((List<?>) o).stream()
+					.map(e -> escapeWithSingleQuote(convertToString(e), ";"))
+					.collect(Collectors.joining(";")) + "\"";
 		} else if (o instanceof Map) {
-			return ((Map<?, ?>) o).entrySet().stream()
-				.map(e -> {
-					String escapedKey = escapeWithSingleQuote(e.getKey().toString(), ":");
-					String escapedValue = escapeWithSingleQuote(e.getValue().toString(), ":");
+			return "\"" + ((Map<?, ?>) o).entrySet().stream()
+					.map(e -> {
+						String escapedKey = escapeWithSingleQuote(e.getKey().toString(), ":");
+						String escapedValue = escapeWithSingleQuote(e.getValue().toString(), ":");
 
-					return escapeWithSingleQuote(escapedKey + ":" + escapedValue, ",");
-				})
-				.collect(Collectors.joining(","));
+						return escapeWithSingleQuote(escapedKey + ":" + escapedValue, ",");
+					})
+					.collect(Collectors.joining(",")) + "\"";
 		}
 
 		return o.toString();

@@ -26,7 +26,7 @@ under the License.
 	<parent>
 		<groupId>org.apache.flink</groupId>
 		<artifactId>flink-connectors</artifactId>
-		<version>1.11-SNAPSHOT</version>
+		<version>1.11-byted-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
@@ -131,6 +131,11 @@ under the License.
 			<type>test-jar</type>
 			<version>${hadoop.version}</version><!--$NO-MVN-MAN-VER$-->
 			<exclusions>
+				<exclusion>
+					<!-- TODO(zoudan): remove this when update to an normal hadoop version -->
+					<groupId>com.sun</groupId>
+					<artifactId>tools</artifactId>
+				</exclusion>
 				<exclusion>
 					<groupId>log4j</groupId>
 					<artifactId>log4j</artifactId>

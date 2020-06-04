@@ -84,6 +84,7 @@ import java.util.stream.Stream;
 
 import static org.apache.flink.client.cli.CliFrontendParser.DETACHED_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.YARN_DETACHED_OPTION;
+import static org.apache.flink.configuration.GlobalConfiguration.reloadConfigWithDynamicProperties;
 import static org.apache.flink.configuration.HighAvailabilityOptions.HA_CLUSTER_ID;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -372,6 +373,10 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 				effectiveConfiguration.setString(dynProperty.getKey(), dynProperty.getValue());
 			}
 		}
+
+		// reload config by dynamic properties.
+		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
+		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
 		if (isYarnPropertiesFileMode(commandLine)) {
 			return applyYarnProperties(effectiveConfiguration);

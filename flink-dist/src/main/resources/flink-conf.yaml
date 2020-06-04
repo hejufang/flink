@@ -16,241 +16,419 @@
 # limitations under the License.
 ################################################################################
 
+common:
+  taskmanager.memory.preallocate: false
+  parallelism.default: 1
+  stream-partitioner.default: rescale
+  #  io.tmp.dirs: /opt/tmp/flink
+  #  taskmanager.tmp.dirs: /opt/tmp/flink
+  state.backend: rocksdb
+  state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.11/flink/fs_checkpoint_dir
+  #  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
+  taskmanager.network.memory.fraction: 0.3
+  taskmanager.network.memory.max: 2147483648
 
-#==============================================================================
-# Common
-#==============================================================================
+  high-availability: zookeeper
+  high-availability.storageDir: ${hdfs.prefix}/${clusterName}/1.11/ha/
+  high-availability.zookeeper.path.root: /${dc}/${clusterName}/flink
+  high-availability.zookeeper.client.max-retry-attempts: 20 # default 3
+  high-availability.zookeeper.client.connection-timeout: 60000 # default 15000ms
+  high-availability.zookeeper.client.retry-wait: 20000 # default 5000ms
+  high-availability.zookeeper.client.session-timeout: 60000 # default 60000ms, be careful to change this.
+  zookeeper.sasl.disable: true
 
-# The external address of the host on which the JobManager runs and can be
-# reached by the TaskManagers and any clients which want to connect. This setting
-# is only used in Standalone mode and may be overwritten on the JobManager side
-# by specifying the --host <hostname> parameter of the bin/jobmanager.sh executable.
-# In high availability mode, if you use the bin/start-cluster.sh script and setup
-# the conf/masters file, this will be taken care of automatically. Yarn/Mesos
-# automatically configure the host name based on the hostname of the node where the
-# JobManager runs.
+  yarn.application-attempts: 5
+  yarn.application-attempt-failures-validity-interval: 3600000
 
-jobmanager.rpc.address: localhost
+  job.work.dir: ${hdfs.prefix}/${clusterName}/1.11/
 
-# The RPC port where the JobManager is reachable.
+  # fs.hdfs.hdfssite: /opt/tiger/yarn_deploy/hadoop/conf/hdfs-site.xml
 
-jobmanager.rpc.port: 6123
+#  metrics.reporters: opentsdb_reporter
+#  metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
+#  metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
 
+  prune.buffer.threshold: 262144
 
-# The total process memory size for the JobManager.
-#
-# Note this accounts for all memory usage within the JobManager process, including JVM metaspace and other overhead.
+  jobmanager.archive.fs.dir: ${hdfs.prefix}/${clusterName}/1.11/completed-jobs
+  historyserver.archive.fs.dir: ${hdfs.prefix}/${clusterName}/1.11/completed-jobs
+  historyserver.web.tmpdir: /opt/tmp/flink/historyserver/tmpdir
 
-jobmanager.memory.process.size: 1600m
+  akka.ask.timeout: 60 s
 
+  containerized.jobmanager.heap-cutoff-ratio: 0.1
 
-# The total process memory size for the TaskManager.
-#
-# Note this accounts for all memory usage within the TaskManager process, including JVM metaspace and other overhead.
-
-taskmanager.memory.process.size: 1728m
-
-# To exclude JVM metaspace and overhead, please, use total Flink memory size instead of 'taskmanager.memory.process.size'.
-# It is not recommended to set both 'taskmanager.memory.process.size' and Flink memory.
-#
-# taskmanager.memory.flink.size: 1280m
-
-# The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
-
-taskmanager.numberOfTaskSlots: 1
-
-# The parallelism used for programs that did not specify and other parallelism.
-
-parallelism.default: 1
-
-# The default file system scheme and authority.
-# 
-# By default file paths without scheme are interpreted relative to the local
-# root file system 'file:///'. Use this to override the default and interpret
-# relative paths relative to a different file system,
-# for example 'hdfs://mynamenode:12345'
-#
-# fs.default-scheme
-
-#==============================================================================
-# High Availability
-#==============================================================================
-
-# The high-availability mode. Possible options are 'NONE' or 'zookeeper'.
-#
-# high-availability: zookeeper
-
-# The path where metadata for master recovery is persisted. While ZooKeeper stores
-# the small ground truth for checkpoint and leader election, this location stores
-# the larger objects, like persisted dataflow graphs.
-# 
-# Must be a durable file system that is accessible from all nodes
-# (like HDFS, S3, Ceph, nfs, ...) 
-#
-# high-availability.storageDir: hdfs:///flink/ha/
-
-# The list of ZooKeeper quorum peers that coordinate the high-availability
-# setup. This must be a list of the form:
-# "host1:clientPort,host2:clientPort,..." (default clientPort: 2181)
-#
-# high-availability.zookeeper.quorum: localhost:2181
+  flink.lib.path: lib_new_conf
 
 
-# ACL options are based on https://zookeeper.apache.org/doc/r3.1.2/zookeeperProgrammers.html#sc_BuiltinACLSchemes
-# It can be either "creator" (ZOO_CREATE_ALL_ACL) or "open" (ZOO_OPEN_ACL_UNSAFE)
-# The default value is "open" and it can be changed to "creator" if ZK security is enabled
-#
-# high-availability.zookeeper.client.acl: open
+  restart-strategy: failure-rate
+  restart-strategy.failure-rate.max-failures-per-interval: 5
+  restart-strategy.failure-rate.failure-rate-interval: 30 min
+  restart-strategy.failure-rate.delay: 20 s
 
-#==============================================================================
-# Fault tolerance and checkpointing
-#==============================================================================
+  flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
 
-# The backend that will be used to store operator state checkpoints if
-# checkpointing is enabled.
-#
-# Supported backends are 'jobmanager', 'filesystem', 'rocksdb', or the
-# <class-name-of-factory>.
-#
-# state.backend: filesystem
+  # restart-strategy: fixed-delay
+  # restart-strategy.fixed-delay.attempts: 100
+  # restart-strategy.fixed-delay.delay: 20 s
+  # The failover strategy, i.e., how the job computation recovers from task failures.
+  # Only restart tasks that may have been affected by the task failure, which typically includes
+  # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
 
-# Directory for checkpoints filesystem, when using any of the default bundled
-# state backends.
-#
-# state.checkpoints.dir: hdfs://namenode-host:port/flink-checkpoints
+  # TODO(zoudan):add region restart monitor
+  jobmanager.execution.failover-strategy: region
 
-# Default target directory for savepoints, optional.
-#
-# state.savepoints.dir: hdfs://namenode-host:port/flink-checkpoints
+  #==============================================================================
+  # Rest & web frontend
+  #==============================================================================
 
-# Flag to enable/disable incremental checkpoints for backends that
-# support incremental checkpoints (like the RocksDB state backend). 
-#
-# state.backend.incremental: false
+  dc: cn
+  check.job.unique: true
 
-# The failover strategy, i.e., how the job computation recovers from task failures.
-# Only restart tasks that may have been affected by the task failure, which typically includes
-# downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
+  job.unique.zookeeper.client.session-timeout: 5000
+  job.unique.zookeeper.client.connection-timeout: 10000
 
-jobmanager.execution.failover-strategy: region
+  taskmanager.network.credit-model: true
+  yarn.per-job-cluster.include-user-jar: FIRST
 
-#==============================================================================
-# Rest & web frontend
-#==============================================================================
+  base_jar: deploy/flink-1.11/basejar/flink-python-byted.jar
+  bin: deploy/flink-1.11/bin/flink
+  vcores: 4
+  ms_url: http://ms.byted.org
+  ms_zone: CN
+  HADOOP_CONF_DIR: /opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/conf/
+  kafka_server_url: http://kafka-config.byted.org
 
-# The port to which the REST client connects to. If rest.bind-port has
-# not been specified, then the server will bind to this port as well.
-#
-#rest.port: 8081
+  # Configurations for dashboard
+  dashboard.data_source: bytetsd
 
-# The address to which the REST client will connect to
-#
-#rest.address: 0.0.0.0
+  # Configurations for dtop
+  dtop.data_source: dtop_cn
+  dtop.database: dtop
 
-# Port range for the REST and web server to bind to.
-#
-#rest.bind-port: 8080-8090
+  # Configurations for smart resources
+  smart-resources.service-name: data.inf.sr_estimater.service.lf
+  log4j.appender.databus.channel: yarn_container_level_log
 
-# The address that the REST & web server binds to
-#
-#rest.bind-address: 0.0.0.0
+  # Configurations for docker mode
+  runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.11/lib
+  runtime.conf.dir: /opt/tiger/flink_deploy/deploy/flink-1.11/conf
 
-# Flag to specify whether job submission is enabled from the web-based
-# runtime monitor. Uncomment to disable.
+  docker.default_image: yarn_runtime_flink:latest
+  docker.image.include_lib: false
+  docker.authorization: "Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q="
+  docker.version_template_url: http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s
+  docker.server: image-manager.byted.org
+  docker.hub: hub.byted.org
+  docker.region: China-North-LF
 
-#web.submit.enable: false
+  nmclientasync.enabled: true
+  taskmanager.initial-on-start: false
+  resourcemanager.taskmanager-timeout: 600000
+  slot.request.timeout: 300000
 
-#==============================================================================
-# Advanced
-#==============================================================================
+  # client configs
+  rest.await-leader-timeout: 300000
+  rest.retry.max-attempts: 30
+  rest.retry.delay: 10000
 
-# Override the directories for temporary files. If not specified, the
-# system-specific Java temporary directory (java.io.tmpdir property) is taken.
-#
-# For framework setups on Yarn or Mesos, Flink will automatically pick up the
-# containers' temp directories without any need for configuration.
-#
-# Add a delimited list for multiple directories, using the system directory
-# delimiter (colon ':' on unix) or a comma, e.g.:
-#     /data1/tmp:/data2/tmp:/data3/tmp
-#
-# Note: Each directory entry is read from and written to by a different I/O
-# thread. You can include the same directory multiple times in order to create
-# multiple I/O threads against that directory. This is for example relevant for
-# high-throughput RAIDs.
-#
-# io.tmp.dirs: /tmp
+  # Gang scheduler
+  yarn.gang-scheduler.enable: false
+  yarn.gang-scheduler.node-skip-high-load: 2.5
+  yarn.gang-scheduler.container-decentralized-average-weight: 10
+  yarn.gang-scheduler.node-quota-usage-average-weight: 1
+  yarn.gang-scheduler.wait-time-before-fatal-ms: 300000
+  yarn.gang-scheduler.wait-time-before-retry-ms: 1000
+  yarn.gang-scheduler.max-retry-times: 5
+  yarn.gang-scheduler.downgrade-timeout-ms: 1800000
 
-# The classloading resolve order. Possible values are 'child-first' (Flink's default)
-# and 'parent-first' (Java's default).
-#
-# Child first classloading allows users to use different dependency/library
-# versions in their application than those in the classpath. Switching back
-# to 'parent-first' may help with debugging dependency issues.
-#
-# classloader.resolve-order: child-first
+  # GC log options
+  flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
+  flink.gc.g1: false
+  yarn.taskmanager.set_token: false
 
-# The amount of memory going to the network stack. These numbers usually need 
-# no tuning. Adjusting them may be necessary in case of an "Insufficient number
-# of network buffers" error. The default min is 64MB, the default max is 1GB.
-# 
-# taskmanager.memory.network.fraction: 0.1
-# taskmanager.memory.network.min: 64mb
-# taskmanager.memory.network.max: 1gb
+  # subpartition type
+  taskmanager.network.bounded-blocking-subpartition-type: file
 
-#==============================================================================
-# Flink Cluster Security Configuration
-#==============================================================================
+  # blacklist
+  blacklist.enabled: true
+  blacklist.job.max-task-failure-per-host: 2
+  blacklist.session.max-job-failure-per-host: 2
+  blacklist.session.max-taskmanager-failure-per-host: 2
+  blacklist.job-blacklist-length: 10
+  blacklist.session-blacklist-length: 10
+  blacklist.failure-timeout: "60 min"
+  blacklist.check-interval: "5 min"
 
-# Kerberos authentication for various components - Hadoop, ZooKeeper, and connectors -
-# may be enabled in four steps:
-# 1. configure the local krb5.conf file
-# 2. provide Kerberos credentials (either a keytab or a ticket cache w/ kinit)
-# 3. make the credentials available to various JAAS login contexts
-# 4. configure the connector to use JAAS/SASL
+  jobmanager.upload-user-jar: false
 
-# The below configure how Kerberos credentials are provided. A keytab will be used instead of
-# a ticket cache if the keytab path and principal are set.
+  web.submit.enable: false
+  resourcemanager.shuffle-pending-slots: false
 
-# security.kerberos.login.use-ticket-cache: true
-# security.kerberos.login.keytab: /path/to/kerberos/keytab
-# security.kerberos.login.principal: flink-user
+  # The Netty send and receive buffer size.
+  taskmanager.network.netty.sendReceiveBufferSize: 4194304
 
-# The configuration below defines which JAAS login contexts
+  taskmanager.number-extra-initial: 0
+  taskmanager.extra-initial-fraction: 0
 
-# security.kerberos.login.contexts: Client,KafkaClient
+  jobmanager.execution.schedule-task-fairly: false
 
-#==============================================================================
-# ZK Security Configuration
-#==============================================================================
+flink:
+  dc: cn
+  clusterName: flink
+  high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-# Below configurations are applicable if ZK ensemble is configured for security
+dw:
+  dc: cn
+  clusterName: dw
+  high-availability.zookeeper.quorum: 10.224.152.92:2184,10.6.18.154:2184,10.6.16.79:2184,10.11.43.39:2184,10.11.43.66:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-# Override below configuration to provide custom ZK service name if configured
-# zookeeper.sasl.service-name: zookeeper
+lepad:
+  dc: cn
+  clusterName: lepad
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-# The configuration below must match one of the values set in "security.kerberos.login.contexts"
-# zookeeper.sasl.login-context-name: Client
+oryx:
+  dc: cn
+  clusterName: oryx
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-#==============================================================================
-# HistoryServer
-#==============================================================================
+default:
+  dc: cn
+  clusterName: default
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-# The HistoryServer is started and stopped via bin/historyserver.sh (start|stop)
+leser:
+  dc: cn
+  clusterName: leser
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-# Directory to upload completed jobs to. Add this directory to the list of
-# monitored directories of the HistoryServer as well (see below).
-#jobmanager.archive.fs.dir: hdfs:///completed-jobs/
+lobst:
+  dc: cn
+  clusterName: lobst
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf
 
-# The address under which the web-based HistoryServer listens.
-#historyserver.web.address: 0.0.0.0
+wj:
+  dc: cn
+  clusterName: wj
+  high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
-# The port under which the web-based HistoryServer listens.
-#historyserver.web.port: 8082
+hl:
+  dc: cn
+  clusterName: hl
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
-# Comma separated list of directories to monitor for completed jobs.
-#historyserver.archive.fs.dir: hdfs:///completed-jobs/
+hyrax:
+  dc: cn
+  clusterName: hyrax
+  high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
-# Interval in milliseconds for refreshing the monitored directories.
-#historyserver.archive.fs.refresh-interval: 10000
+horse:
+  dc: cn
+  clusterName: horse
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
 
+hibis:
+  dc: cn
+  clusterName: hibis
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+
+topi:
+  dc: cn
+  clusterName: topi
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+
+hippo:
+  dc: cn
+  clusterName: hippo
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+
+heron:
+  dc: cn
+  clusterName: heron
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+
+hamer:
+  dc: cn
+  clusterName: hamer
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+
+hyena:
+  dc: cn
+  clusterName: hyena
+  high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
+  hdfs.prefix: hdfs://haruna/flink_hl
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_hl
+
+quail:
+  dc: cn
+  clusterName: quail
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
+
+quoka:
+  dc: cn
+  clusterName: quoka
+  high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
+  cluster.evenly-spread-out-slots: true
+
+maliva:
+  dc: va
+  clusterName: maliva
+  high-availability.zookeeper.quorum: 10.110.150.57:2181,10.110.150.58:2181,10.110.150.59:2181,10.110.150.60:2181,10.110.150.61:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_maliva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+
+marmt:
+  dc: va
+  clusterName: marmt
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_maliva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+
+macaw:
+  dc: va
+  clusterName: macaw
+  high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
+  hdfs.prefix: hdfs://harunavaali/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  dashboard.data_source: bytetsd_maliva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+
+alisg:
+  dc: sg
+  clusterName: alisg
+  high-availability.zookeeper.quorum: 10.115.61.129:2181,10.115.61.130:2181,10.115.61.131:2181,10.115.61.132:2181,10.115.61.133:2181
+  hdfs.prefix: hdfs://harunasg/flink_alisg
+  checkpoint.hdfs.prefix: hdfs://harunasg/flink_alisg
+  dashboard.data_source: bytetsd_alisg
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+
+boe:
+  dc: vm
+  clusterName: boe
+  high-availability.zookeeper.quorum: 10.225.33.2:2181,10.225.28.3:2181,10.225.33.6:2181,10.225.125.22:2181,10.225.125.29:2181
+  hdfs.prefix: hdfs://westeros/flink_boe
+  checkpoint.hdfs.prefix: hdfs://westeros/flink_boe
+  dashboard.data_source: bytetsd_boe
+  kafka_server_url: http://kafka-config.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log
+  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
+  yaop_url: http://10.225.131.41:8092
+  yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  cluster.evenly-spread-out-slots: true
+
+cof:
+  dc: vm
+  clusterName: cof
+  high-availability.zookeeper.quorum: 10.225.125.22:2181,10.225.125.29:2181,10.225.28.3:2181,10.225.33.2:2181,10.225.33.6:2181
+  hdfs.prefix: hdfs://westeros/flink_cof
+  checkpoint.hdfs.prefix: hdfs://westeros/flink_cof
+  dashboard.data_source: bytetsd_cof
+  kafka_server_url: http://kafka-config.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log
+  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
+  yaop_url: http://10.225.162.46:8092
+  yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  cluster.evenly-spread-out-slots: true
+
+swan:
+  dc: ka
+  clusterName: swan
+  high-availability.zookeeper.quorum: 10.230.2.2:2181,10.230.2.10:2181,10.230.2.7:2181
+  hdfs.prefix: hdfs://nestbackend/flink_swan
+  checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
+
+koala:
+  dc: ka2
+  clusterName: koala
+  high-availability.zookeeper.quorum: 10.230.9.118:2181,10.230.9.121:2181,10.230.9.102:2181
+  hdfs.prefix: hdfs://nestbackend/flink_swan
+  checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
+
+boei18n:
+  dc: vm
+  clusterName: boei18n
+  high-availability.zookeeper.quorum: 10.231.8.12:2181,10.231.8.51:2181,10.231.8.25:2181,10.231.8.21:2181,10.231.8.29:2181
+  hdfs.prefix: hdfs://essos/flink_boei18n
+  checkpoint.hdfs.prefix: hdfs://essos/flink_boei18n
+  dashboard.data_source: bytetsd_boei18n
+  kafka_server_url: http://kafka-config.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log
+  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
+  yaop_url: http://10.231.17.57:8092
+  yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  docker.hub: aliyun-va-hub.byted.org
+  docker.namespace: yarn
+  docker.region: Aliyun_VA

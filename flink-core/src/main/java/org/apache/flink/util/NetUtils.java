@@ -105,7 +105,7 @@ public class NetUtils {
 				throw new IllegalArgumentException("The given host:port ('" + hostPort + "') doesn't contain a valid host");
 			}
 			if (u.getPort() == -1) {
-				throw new IllegalArgumentException("The given host:port ('" + hostPort + "') doesn't contain a valid port");
+				throw new IllegalArgumentException("The given host:port ('" + hostPort + "')  doesn't contain a valid port");
 			}
 			return u;
 		} catch (MalformedURLException e) {

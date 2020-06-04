@@ -57,6 +57,8 @@ public class CliFrontendParser {
 			"The parallelism with which to run the program. Optional flag to override the default value " +
 			"specified in the configuration.");
 
+	static final Option CLUSTER_NAME_OPTION = new Option("cn", "clusterName", true,
+			"Yarn cluster name");
 	/**
 	 * @deprecated This has no effect anymore, we're keeping it to not break existing bash scripts.
 	 */
@@ -277,6 +279,7 @@ public class CliFrontendParser {
 		Options options = buildGeneralOptions(new Options());
 		options = getProgramSpecificOptions(options);
 		options.addOption(SAVEPOINT_PATH_OPTION);
+		options.addOption(CLUSTER_NAME_OPTION);
 		return options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
 	}
 

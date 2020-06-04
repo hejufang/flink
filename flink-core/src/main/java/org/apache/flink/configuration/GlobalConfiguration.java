@@ -23,14 +23,19 @@ import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import javax.annotation.Nullable;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * Global configuration object for Flink. Similar to Java properties configuration
@@ -48,6 +53,18 @@ public final class GlobalConfiguration {
 
 	// the hidden content to be displayed
 	public static final String HIDDEN_CONTENT = "******";
+
+	// the key of common configuration in yaml file.
+	public static final String COMMON = "common";
+
+	// the key of flexible origin value in yaml file.
+	private static final String ORIGIN_KEY_POSTFIX = "#ORIGIN#";
+
+	private static final String[] DYNAMIC_PARAM_KEYS = {
+			ConfigConstants.CLUSTER_NAME_KEY,
+			ConfigConstants.HDFS_PREFIX_KEY,
+			ConfigConstants.DC_KEY,
+			ConfigConstants.CHECKPOINT_HDFS_PREFIX_KEY};
 
 	// --------------------------------------------------------------------------------------------
 
@@ -154,46 +171,88 @@ public final class GlobalConfiguration {
 	 * @see <a href="http://www.yaml.org/spec/1.2/spec.html">YAML 1.2 specification</a>
 	 */
 	private static Configuration loadYAMLResource(File file) {
-		final Configuration config = new Configuration();
+		Configuration config = new Configuration();
+		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+				ConfigConstants.CLUSTER_NAME_DEFAULT);
+		try {
+			InputStream input = new FileInputStream(file);
+			Yaml yaml = new Yaml();
+			Map<String, Object> allYamlConf = (Map<String, Object>) yaml.load(input);
+			Map<String, Object> commonConf = (Map<String, Object>) allYamlConf.get(COMMON);
+			Map<String, Object> clusterConf = (Map<String, Object>) allYamlConf.get(clusterName);
+			if (commonConf != null && clusterConf != null) {
+				commonConf.putAll(clusterConf);
+				allYamlConf = commonConf;
+			}
+			for (Map.Entry<String, Object> entry : allYamlConf.entrySet()) {
+				String key = entry.getKey();
+				if (isWithOriginPostfix(key)) {
+					// OriginKey can not be replaced.
+					continue;
+				}
 
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)))){
-
-			String line;
-			int lineNo = 0;
-			while ((line = reader.readLine()) != null) {
-				lineNo++;
-				// 1. check for comments
-				String[] comments = line.split("#", 2);
-				String conf = comments[0].trim();
-
-				// 2. get key and value
-				if (conf.length() > 0) {
-					String[] kv = conf.split(": ", 2);
-
-					// skip line with no valid key-value pair
-					if (kv.length == 1) {
-						LOG.warn("Error while trying to split key and value in configuration file " + file + ":" + lineNo + ": \"" + line + "\"");
-						continue;
+				String value = entry.getValue().toString();
+				String valueOld = value;
+				for (String param : DYNAMIC_PARAM_KEYS) {
+					String paramKey = String.format("${%s}", param);
+					if (value.contains(paramKey)) {
+						value = value.replace(paramKey, (String) allYamlConf.get(param));
 					}
+				}
+				config.setString(key, value);
 
-					String key = kv[0].trim();
-					String value = kv[1].trim();
-
-					// sanity check
-					if (key.length() == 0 || value.length() == 0) {
-						LOG.warn("Error after splitting key and value in configuration file " + file + ":" + lineNo + ": \"" + line + "\"");
-						continue;
-					}
-
-					LOG.info("Loading configuration property: {}, {}", key, isSensitive(key) ? HIDDEN_CONTENT : value);
-					config.setString(key, value);
+				// save OriginKey with value.
+				if (!value.equals(valueOld)) {
+					config.setString(appendOriginPostfixTo(key), valueOld);
 				}
 			}
-		} catch (IOException e) {
+		} catch (FileNotFoundException e) {
 			throw new RuntimeException("Error parsing YAML configuration.", e);
 		}
 
 		return config;
+	}
+
+	private static String appendOriginPostfixTo(String key) {
+		return key + ORIGIN_KEY_POSTFIX;
+	}
+
+	private static String trimOriginPostfixFrom(String key) {
+		return key.substring(0, key.length() - ORIGIN_KEY_POSTFIX.length());
+	}
+
+	private static boolean isWithOriginPostfix(String key) {
+		return key.endsWith(ORIGIN_KEY_POSTFIX);
+	}
+
+	/**
+	 * Reload config with dynamic properties.
+	 * @param config old Configuration.
+	 * @param properties dynamic properties.
+	 */
+	public static void reloadConfigWithDynamicProperties(Configuration config, Properties properties) {
+		List<String> dynamicParamKeys = new ArrayList<>(Arrays.asList(DYNAMIC_PARAM_KEYS));
+		for (String key : config.keySet()) {
+			if (isWithOriginPostfix(key)) {
+				String value = config.getString(key, null);
+				String valueOld = value;
+				for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+					String propertyKey = entry.getKey().toString();
+					String propertyValue = entry.getValue().toString();
+					dynamicParamKeys.remove(propertyKey);
+					value = value.replace(String.format("${%s}", propertyKey), propertyValue);
+				}
+				for (String param : dynamicParamKeys) {
+					String paramKey = String.format("${%s}", param);
+					if (value.contains(paramKey)) {
+						value = value.replace(paramKey, config.getString(param, null));
+					}
+				}
+				if (!value.equals(valueOld)) {
+					config.setString(trimOriginPostfixFrom(key), value);
+				}
+			}
+		}
 	}
 
 	/**

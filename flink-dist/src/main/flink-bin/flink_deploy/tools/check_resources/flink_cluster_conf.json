@@ -1,0 +1,78 @@
+{
+  "va": [
+    {
+      "cluster_id": "maliva",
+      "rms": [
+        "10.110.42.187:8060",
+        "10.110.42.188:8060"
+      ],
+      "yarn_cluster_name": "maliva",
+      "metrics_region": "maliva",
+      "flink_dtop_region": "maliva"
+    }
+  ],
+   "sg": [
+    {
+      "cluster_id": "alisg",
+      "rms": [
+        "10.115.83.129:8060",
+        "10.115.83.130:8060"
+      ],
+      "yarn_cluster_name": "alisg",
+      "metrics_region": "alisg",
+      "flink_dtop_region": "alisg"
+    }
+  ],
+  "cn": [
+    {
+      "cluster_id": "flink",
+      "rms": [
+        "10.11.43.31:8060",
+        "10.10.45.140:8060"
+      ],
+      "yarn_cluster_name": "flink",
+      "metrics_region": "cn",
+      "flink_dtop_region": "cn"
+    },
+    {
+      "cluster_id": "dw",
+      "rms": [
+        "10.10.45.147:8060",
+        "10.10.45.39:8060"
+      ],
+      "yarn_cluster_name": "dw",
+      "metrics_region": "cn",
+      "flink_dtop_region": "cn"
+    },
+    {
+      "cluster_id": "lepad",
+      "rms": [
+        "10.12.214.146:8060",
+        "10.12.214.148:8060"
+      ],
+      "yarn_cluster_name": "lepad",
+      "metrics_region": "cn",
+      "flink_dtop_region": "cn"
+    },
+    {
+      "cluster_id": "hyrax",
+      "rms": [
+        "10.20.156.219:8060",
+        "10.25.31.198:8060"
+      ],
+      "yarn_cluster_name": "hyrax",
+      "metrics_region": "cn",
+      "flink_dtop_region": "cn"
+    },
+    {
+      "cluster_id": "horse",
+      "rms": [
+        "10.23.50.161:8060",
+        "10.23.69.209:8060"
+      ],
+      "yarn_cluster_name": "horsse",
+      "metrics_region": "cn",
+      "flink_dtop_region": "cn"
+    }
+  ]
+}

@@ -658,6 +658,16 @@ public final class ConfigConstants {
 	@Deprecated
 	public static final String PATH_HADOOP_CONFIG = "fs.hdfs.hadoopconf";
 
+	/**
+	 * Store lib and configuration file.
+	 */
+	public static final String PATH_JOB_WORK_FILE = "hdfs://haruna/flink/";
+
+	/**
+	 * Key of the config dir in hdfs.
+	 */
+	public static final String JOB_WORK_DIR_KEY = "job.work.dir";
+
 	// ------------------------ File System Behavior ------------------------
 
 	/**
@@ -2020,6 +2030,18 @@ public final class ConfigConstants {
 	// ---------------------------- Encoding ------------------------------
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+
+	public static final String DC_KEY = "dc";
+	public static final String CLUSTER_NAME_KEY = "clusterName";
+	public static final String CLUSTER_NAME_DEFAULT = "flink";
+	public static final String JOB_NAME_KEY = "jobName";
+	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
+	public static final String DATA_SOURCE_KEY = "dataSource";
+	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String CHECKPOINT_HDFS_PREFIX_KEY = "checkpoint.hdfs.prefix";
+
+	/** Configuration key of yarn cluster name. */
+	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 
 	/**
 	 * Not instantiable.

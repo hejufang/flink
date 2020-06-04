@@ -172,6 +172,12 @@ under the License.
 			<fileMode>0644</fileMode>
 		</fileSet>
 
+		<fileSet>
+			<directory>src/main/flink-bin/flink_deploy</directory>
+			<outputDirectory>flink_deploy</outputDirectory>
+			<fileMode>0755</fileMode>
+		</fileSet>
+
 		<!-- create an empty log directory -->
 		<fileSet>
 			<directory>src/main/flink-bin/</directory>

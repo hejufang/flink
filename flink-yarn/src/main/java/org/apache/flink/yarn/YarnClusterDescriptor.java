@@ -668,6 +668,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				PluginUtils.createPluginManagerFromRootFolder(configuration));
 
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
+		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,
+				ConfigConstants.PATH_JOB_WORK_FILE);
+		final Path homeDir = new Path(jobWorkDir);
+		LOG.info("Home directory: {}.", homeDir);
 
 		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
 		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
@@ -1059,6 +1063,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		final int yarnFileReplication = yarnConfiguration.getInt(DFSConfigKeys.DFS_REPLICATION_KEY, DFSConfigKeys.DFS_REPLICATION_DEFAULT);
 		final int fileReplication = flinkConfiguration.getInteger(YarnConfigOptions.FILE_REPLICATION);
 		return fileReplication > 0 ? fileReplication : yarnFileReplication;
+	}
+
+	/**
+	 * Returns the Path where the YARN application files should be uploaded to.
+	 *
+	 * @param appId YARN application id
+	 */
+	private Path getYarnFilesDir(final ApplicationId appId) throws IOException {
+		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY, ConfigConstants.PATH_JOB_WORK_FILE);
+		Path yarnFilesDir = new Path(jobWorkDir, ".flink/" + appId + '/');
+		return yarnFilesDir;
 	}
 
 	private List<Path> getRemoteSharedPaths(Configuration configuration) throws IOException, FlinkException {

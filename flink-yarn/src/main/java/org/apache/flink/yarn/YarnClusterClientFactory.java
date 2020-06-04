@@ -21,6 +21,7 @@ package org.apache.flink.yarn;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.client.deployment.AbstractContainerizedClusterClientFactory;
 import org.apache.flink.client.deployment.ClusterClientFactory;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
@@ -30,6 +31,8 @@ import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -40,6 +43,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public class YarnClusterClientFactory extends AbstractContainerizedClusterClientFactory<ApplicationId> {
+	private static final Logger LOG = LoggerFactory.getLogger(YarnClusterClientFactory.class);
 
 	@Override
 	public boolean isCompatibleWith(Configuration configuration) {
@@ -63,8 +67,19 @@ public class YarnClusterClientFactory extends AbstractContainerizedClusterClient
 	}
 
 	private YarnClusterDescriptor getClusterDescriptor(Configuration configuration) {
+		final YarnConfiguration yarnConfiguration;
+		String shortClusterName =
+				configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, "");
+		if (shortClusterName == null || shortClusterName.isEmpty()) {
+			yarnConfiguration = new YarnConfiguration();
+		} else {
+			org.apache.hadoop.conf.Configuration conf = new org.apache.hadoop.conf.Configuration();
+			conf.set(ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
+			yarnConfiguration = new YarnConfiguration(conf);
+			LOG.info("Set {} to {}", ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
+		}
+
 		final YarnClient yarnClient = YarnClient.createYarnClient();
-		final YarnConfiguration yarnConfiguration = new YarnConfiguration();
 
 		yarnClient.init(yarnConfiguration);
 		yarnClient.start();

@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.UUID;
 
+import static org.apache.flink.configuration.PipelineOptions.JARS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -69,6 +70,7 @@ public class GlobalConfigurationTest extends TestLogger {
 
 				pw.println("mykey9: myvalue9"); // OK
 				pw.println("mykey9: myvalue10"); // OK, overwrite last value
+				pw.println("mykey111: [file:/data01/a]"); // OK
 
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
@@ -93,6 +95,23 @@ public class GlobalConfigurationTest extends TestLogger {
 			confFile.delete();
 			tmpDir.delete();
 		}
+	}
+
+	@Test
+	public void testReloadConfigWithDynamicProperties() throws IOException {
+		final File confFile = tempFolder.newFile(GlobalConfiguration.FLINK_CONF_FILENAME);
+		try (PrintWriter pw = new PrintWriter(confFile)) {
+			pw.println("common:\n" +
+					"  pipeline.jars: \"file:/tmp1;file:/tmp2\"");
+			pw.println("flink:\n" +
+					"  dc: cn\n" +
+					"  clusterName: flink\n" +
+					"  hdfs.prefix: hdfs://haruna/flink_lf");
+		}
+		Configuration config = GlobalConfiguration.loadConfiguration(tempFolder.getRoot().getAbsolutePath());
+		assertEquals(
+				config.get(JARS).get(0),
+				"file:/tmp1");
 	}
 
 	@Test(expected = IllegalArgumentException.class)
