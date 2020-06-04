@@ -21,6 +21,8 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import com.bytedance.metrics.simple.SimpleByteTSDMetrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
@@ -28,6 +30,8 @@ import java.util.Arrays;
  * Metrics manager.
  */
 public class MetricsManager {
+	private static final Logger LOG = LoggerFactory.getLogger(MetricsManager.class);
+
 	private static volatile MetricsManager instance;
 	private SimpleByteTSDMetrics client;
 	private MetricsOptions metricsOptions;
@@ -67,7 +71,7 @@ public class MetricsManager {
 		return instance;
 	}
 
-	public void writeMetrics(String type, String metricsName, Double value, String tags) {
+	public void writeMetrics(String type, String metricsName, Double value, String tags, boolean logFailuresOnly) {
 		Preconditions.checkNotNull(type, "metrics type cannot be null!");
 		MetricsType metricsType;
 		try {
@@ -97,9 +101,13 @@ public class MetricsManager {
 					throw new FlinkRuntimeException("Unsupported metrics type: " + type);
 			}
 		} catch (RuntimeException e) {
-			throw new FlinkRuntimeException(
-				String.format("Failed to write metrics. type: %s, metricsName: %s, value: %s, tags: %s.",
-					type, metricsName, value, tags), e);
+			String errorMsg = String.format("Failed to write metrics. type: %s, metricsName: %s, value: %s, tags: %s.",
+				type, metricsName, value, tags);
+			if (logFailuresOnly) {
+				LOG.warn(errorMsg, e);
+			} else {
+				throw new FlinkRuntimeException(errorMsg, e);
+			}
 		}
 	}
 

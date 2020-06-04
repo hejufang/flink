@@ -25,6 +25,7 @@ public class MetricsValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_METRICS_PREFIX = "connector.metrics-prefix";
 	public static final String CONNECTOR_WRITE_FLUSH_MAX_ROWS = "connector.write.flush.max-rows";
 	public static final String CONNECTOR_WRITE_FLUSH_INTERVAL = "connector.write.flush.interval";
+	public static final String CONNECTOR_LOG_FAILURES_ONLY = "connector.log-failures-only";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -33,5 +34,6 @@ public class MetricsValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 		properties.validateInt(CONNECTOR_WRITE_FLUSH_MAX_ROWS, true, 1);
 		properties.validateInt(CONNECTOR_WRITE_FLUSH_INTERVAL, true, 1);
+		properties.validateBoolean(CONNECTOR_LOG_FAILURES_ONLY, true);
 	}
 }

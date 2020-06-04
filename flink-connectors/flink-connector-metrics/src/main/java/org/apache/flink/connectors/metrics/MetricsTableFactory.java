@@ -31,6 +31,7 @@ import java.util.Map;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.MetricsValidator.CONNECTOR_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.descriptors.MetricsValidator.CONNECTOR_METRICS_PREFIX;
 import static org.apache.flink.table.descriptors.MetricsValidator.CONNECTOR_WRITE_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.MetricsValidator.CONNECTOR_WRITE_FLUSH_MAX_ROWS;
@@ -58,6 +59,7 @@ public class MetricsTableFactory implements StreamTableSinkFactory<Tuple2<Boolea
 		supportedProperties.add(CONNECTOR_METRICS_PREFIX);
 		supportedProperties.add(CONNECTOR_WRITE_FLUSH_MAX_ROWS);
 		supportedProperties.add(CONNECTOR_WRITE_FLUSH_INTERVAL);
+		supportedProperties.add(CONNECTOR_LOG_FAILURES_ONLY);
 		// schema
 		supportedProperties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		supportedProperties.add(SCHEMA + ".#." + SCHEMA_NAME);
@@ -73,6 +75,8 @@ public class MetricsTableFactory implements StreamTableSinkFactory<Tuple2<Boolea
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(optionBuilder::setParallelism);
 		descriptorProperties.getOptionalInt(CONNECTOR_WRITE_FLUSH_MAX_ROWS).ifPresent(optionBuilder::setBatchSize);
 		descriptorProperties.getOptionalInt(CONNECTOR_WRITE_FLUSH_INTERVAL).ifPresent(optionBuilder::setFlushIntervalMs);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOG_FAILURES_ONLY)
+			.ifPresent(optionBuilder::setLogFailuresOnly);
 		return new MetricsUpsertTableSink(optionBuilder.build());
 	}
 

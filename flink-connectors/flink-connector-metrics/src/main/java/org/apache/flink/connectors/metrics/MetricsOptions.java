@@ -23,16 +23,23 @@ import java.io.Serializable;
  * Metrics options.
  */
 public class MetricsOptions implements Serializable {
-	private String metricsPrefix;
-	private int parallelism;
-	private int batchSize;
-	private int flushIntervalMs;
+	private final String metricsPrefix;
+	private final int parallelism;
+	private final int batchSize;
+	private final int flushIntervalMs;
+	private final boolean logFailuresOnly;
 
-	private MetricsOptions(String metricsPrefix, int parallelism, int batchSize, int flushIntervalMs) {
+	private MetricsOptions(
+			String metricsPrefix,
+			int parallelism,
+			int batchSize,
+			int flushIntervalMs,
+			boolean logFailuresOnly) {
 		this.metricsPrefix = metricsPrefix;
 		this.parallelism = parallelism;
 		this.batchSize = batchSize;
 		this.flushIntervalMs = flushIntervalMs;
+		this.logFailuresOnly = logFailuresOnly;
 	}
 
 	public static MetricsOptionsBuilder builder() {
@@ -55,6 +62,10 @@ public class MetricsOptions implements Serializable {
 		return flushIntervalMs;
 	}
 
+	public boolean isLogFailuresOnly() {
+		return logFailuresOnly;
+	}
+
 	@Override
 	public String toString() {
 		return "MetricsOptions{" +
@@ -70,6 +81,7 @@ public class MetricsOptions implements Serializable {
 		private int parallelism;
 		private int batchSize;
 		private int flushIntervalMs;
+		private boolean logFailuresOnly;
 
 		public MetricsOptionsBuilder setMetricsPrefix(String metricsPrefix) {
 			this.metricsPrefix = metricsPrefix;
@@ -91,8 +103,13 @@ public class MetricsOptions implements Serializable {
 			return this;
 		}
 
+		public MetricsOptionsBuilder setLogFailuresOnly(boolean logFailuresOnly) {
+			this.logFailuresOnly = logFailuresOnly;
+			return this;
+		}
+
 		public MetricsOptions build() {
-			return new MetricsOptions(metricsPrefix, parallelism, batchSize, flushIntervalMs);
+			return new MetricsOptions(metricsPrefix, parallelism, batchSize, flushIntervalMs, logFailuresOnly);
 		}
 	}
 }

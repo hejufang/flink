@@ -53,7 +53,7 @@ public class MetricsUpsertSinkFunction extends RichSinkFunction<Tuple2<Boolean, 
 		String metricsName = (String) row.getField(1);
 		Double value = (Double) row.getField(2);
 		String tags = (String) row.getField(3);
-		metricsManager.writeMetrics(metricsType, metricsName, value, tags);
+		metricsManager.writeMetrics(metricsType, metricsName, value, tags, metricsOptions.isLogFailuresOnly());
 	}
 
 	@Override
