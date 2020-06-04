@@ -47,9 +47,11 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
+import org.apache.flink.runtime.executiongraph.failover.AdaptedRestartPipelinedRegionStrategyNG;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.failover.adapter.DefaultFailoverTopology;
+import org.apache.flink.runtime.executiongraph.failover.adapter.NoFailoverTopology;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverTopology;
 import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAvailabilityChecker;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.NotReleasingPartitionReleaseStrategy;
@@ -1083,7 +1085,13 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			newExecJobVertices.add(ejv);
 		}
 
-		failoverTopology = new DefaultFailoverTopology(this);
+		if (partitionReleaseStrategyFactory instanceof NotReleasingPartitionReleaseStrategy.Factory &&
+				!(failoverStrategy instanceof AdaptedRestartPipelinedRegionStrategyNG) &&
+				speculationStrategy instanceof NoOpSpeculationStrategy) {
+			failoverTopology = new NoFailoverTopology();
+		} else {
+			failoverTopology = new DefaultFailoverTopology(this);
+		}
 
 		failoverStrategy.notifyNewVertices(newExecJobVertices);
 		speculationStrategy.notifyNewVertices(newExecJobVertices);
