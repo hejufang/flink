@@ -122,8 +122,8 @@ class WorkerSpecContainerResourceAdapter {
 		final TaskExecutorProcessSpec taskExecutorProcessSpec =
 			TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec);
 		final InternalContainerResource internalContainerResource = new InternalContainerResource(
-			normalize(taskExecutorProcessSpec.getTotalProcessMemorySize().getMebiBytes(), minMemMB),
-			normalize(taskExecutorProcessSpec.getCpuCores().getValue().intValue(), minVcore),
+			taskExecutorProcessSpec.getTotalProcessMemorySize().getMebiBytes(),
+			taskExecutorProcessSpec.getCpuCores().getValue().intValue(),
 			externalResourceConfigs);
 
 		if (resourceWithinMaxAllocation(internalContainerResource)) {
@@ -202,7 +202,9 @@ class WorkerSpecContainerResourceAdapter {
 				return true;
 			} else if (obj instanceof InternalContainerResource) {
 				final InternalContainerResource other = (InternalContainerResource) obj;
-				return this.memory == other.memory && this.vcores == other.vcores && this.externalResources.equals(other.externalResources);
+				// remove this before supporting vcore-millis
+//				return this.memory == other.memory && this.vcores == other.vcores && this.externalResources.equals(other.externalResources);
+				return this.memory == other.memory && this.vcores == other.vcores;
 			}
 			return false;
 		}
@@ -212,7 +214,7 @@ class WorkerSpecContainerResourceAdapter {
 			final int prime = 31;
 			int result = Integer.hashCode(memory);
 			result = prime * result + Integer.hashCode(vcores);
-			result = prime * result + externalResources.hashCode();
+//			result = prime * result + externalResources.hashCode();
 			return result;
 		}
 

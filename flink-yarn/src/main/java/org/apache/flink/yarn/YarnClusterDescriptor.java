@@ -610,6 +610,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			String componentName,
 			int componentMemoryMB,
 			int yarnMinAllocationMB) {
+		if (yarnMinAllocationMB == 0) {
+			return;
+		}
+
 		int normalizedMemMB = (componentMemoryMB + (yarnMinAllocationMB - 1)) / yarnMinAllocationMB * yarnMinAllocationMB;
 		if (normalizedMemMB <= 0) {
 			normalizedMemMB = yarnMinAllocationMB;
