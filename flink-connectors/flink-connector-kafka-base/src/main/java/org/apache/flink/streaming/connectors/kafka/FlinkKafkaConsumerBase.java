@@ -862,6 +862,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
 				useMetrics);
 
+		if (restoredState != null) {
+			LOG.info("Consumer subtask {} has already recovered from a successful checkpoint.",
+					getRuntimeContext().getIndexOfThisSubtask());
+			kafkaFetcher.setHasSuccessfulCheckpoint();
+		}
+
 		if (!running) {
 			return;
 		}
@@ -1135,7 +1141,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				}
 
 				fetcher.commitInternalOffsetsToKafka(offsets, offsetCommitCallback);
-				fetcher.hasSuccessfulCheckpoint().compareAndSet(false, true);
+				fetcher.setHasSuccessfulCheckpoint();
 			} catch (Exception e) {
 				if (running) {
 					throw e;

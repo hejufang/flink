@@ -670,6 +670,10 @@ public abstract class AbstractFetcher<T, KPH> {
 		return hasSuccessfulCheckpoint;
 	}
 
+	public void setHasSuccessfulCheckpoint() {
+		hasSuccessfulCheckpoint.compareAndSet(false, true);
+	}
+
 	/**
 	 * Gauge types.
 	 */
