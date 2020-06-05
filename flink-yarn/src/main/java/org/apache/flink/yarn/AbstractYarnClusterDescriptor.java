@@ -1164,6 +1164,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		LOG.info("Waiting for the cluster to be allocated");
 		final long startTime = System.currentTimeMillis();
+		long preTime = startTime;
 		ApplicationReport report;
 		YarnApplicationState lastAppState = YarnApplicationState.NEW;
 		loop: while (true) {
@@ -1191,8 +1192,10 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					if (appState != lastAppState) {
 						LOG.info("Deploying cluster, current state " + appState);
 					}
-					if (System.currentTimeMillis() - startTime > 60000) {
-						LOG.info("Deployment took more than 60 seconds. Please check if the requested resources are available in the YARN cluster");
+					if (System.currentTimeMillis() - preTime > 60000) {
+						preTime = System.currentTimeMillis();
+						LOG.info("Deployment took more than {} seconds. Please check if the requested resources are available in the YARN cluster",
+								(preTime - startTime) / 1000);
 					}
 
 			}

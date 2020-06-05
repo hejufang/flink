@@ -560,10 +560,19 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	public CompletableFuture<Acknowledge> deregisterApplication(
 			final ApplicationStatus finalStatus,
 			@Nullable final String diagnostics) {
-		log.info("Shut down cluster because application is in {}, diagnostics {}.", finalStatus, diagnostics);
+		ApplicationStatus applicationStatus = finalStatus;
+		String errMsg = diagnostics;
+
+		if (finalStatus != ApplicationStatus.FAILED && waitingFatal) {
+			applicationStatus = ApplicationStatus.FAILED;
+			errMsg = fatalMessage;
+			log.info("ResourceManager is waiting fatal, transform appStatus from {} to {}", finalStatus, applicationStatus);
+		} else {
+			log.info("Shut down cluster because application is in {}, diagnostics {}.", applicationStatus, errMsg);
+		}
 
 		try {
-			internalDeregisterApplication(finalStatus, diagnostics);
+			internalDeregisterApplication(applicationStatus, errMsg);
 		} catch (ResourceManagerException e) {
 			log.warn("Could not properly shutdown the application.", e);
 		}
