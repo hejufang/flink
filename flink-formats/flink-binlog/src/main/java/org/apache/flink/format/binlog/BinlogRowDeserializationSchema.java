@@ -35,6 +35,7 @@ import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static org.apache.flink.format.binlog.RuntimeConverterFactory.DESCRIPTORS;
 import static org.apache.flink.format.binlog.RuntimeConverterFactory.FIELD_DESCRIPTORS;
@@ -73,7 +74,7 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 	private final boolean ignoreParseErrors;
 	private final String rowtimeColumn;
 	private final String proctimeColumn;
-	private final String targetTable;
+	private final Pattern targetTablePattern;
 
 	public BinlogRowDeserializationSchema(
 			RowTypeInfo typeInfo,
@@ -81,9 +82,13 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 			String rowtimeColumn,
 			String proctimeColumn,
 			boolean ignoreParseErrors) {
+		checkArgument(targetTable != null && !targetTable.isEmpty(),
+			"targetTable cannot be null or empty.");
+		checkArgument(rowtimeColumn == null || proctimeColumn == null,
+			"rowtimeColumn and proctimeColumn cannot be set to non-null at the same time.");
 		this.typeInfo = typeInfo;
 		this.ignoreParseErrors = ignoreParseErrors;
-		this.targetTable = targetTable;
+		this.targetTablePattern = Pattern.compile(targetTable);
 		this.rowtimeColumn = rowtimeColumn;
 		this.proctimeColumn = proctimeColumn;
 		this.headerRuntimeConverter = DeserializationRuntimeConverterFactory.createConverter(
@@ -91,10 +96,6 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 		this.bodyRuntimeConverter = DeserializationRuntimeConverterFactory.createConverter(
 			typeInfo.getTypeAt(typeInfo.getFieldIndex(BINLOG_BODY)));
 		this.runtimeConverterMap = RuntimeConverterFactory.createConverter(typeInfo);
-		checkArgument(targetTable != null && !targetTable.isEmpty(),
-			"targetTable cannot be null or empty.");
-		checkArgument(rowtimeColumn == null || proctimeColumn == null,
-			"rowtimeColumn and proctimeColumn cannot be set to non-null at the same time.");
 		checkTypes();
 	}
 
@@ -116,7 +117,8 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 			DynamicMessage header = (DynamicMessage) entryMessage.getField(FIELD_DESCRIPTORS.get(HEADER));
 
 			// filter the target data.
-			if (!targetTable.equals(header.getField(FIELD_DESCRIPTORS.get(TABLE)))) {
+			String tableName = (String) header.getField(FIELD_DESCRIPTORS.get(TABLE));
+			if (!targetTablePattern.matcher(tableName).matches()) {
 				// return null if the data are not from the target table.
 				return null;
 			}
