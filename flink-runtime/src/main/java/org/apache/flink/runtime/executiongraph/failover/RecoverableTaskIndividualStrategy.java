@@ -20,6 +20,7 @@ package org.apache.flink.runtime.executiongraph.failover;
 
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -74,13 +75,13 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 		// make failures due to missing resources global failures
 		if (cause instanceof NoResourceAvailableException) {
 			LOG.info("Not enough resources to schedule {} - triggering full recovery.", taskExecution);
-			executionGraph.failGlobal(cause);
+			executionGraph.failGlobal(new SuppressRestartsException(cause));
 			return;
 		}
 
 		if (!executionGraph.getRestartStrategy().canRestart()) {
 			LOG.info("Fail to pass the restart strategy validation in individual failover. Fallback to fail global.");
-			executionGraph.failGlobal(cause);
+			executionGraph.failGlobal(new SuppressRestartsException(cause));
 			return;
 		}
 
@@ -91,7 +92,7 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 
 		taskExecution.getReleaseFuture().whenCompleteAsync((ignore, error) -> {
 			if (error != null) {
-				executionGraph.failGlobal(error);
+				executionGraph.failGlobal(new SuppressRestartsException(error));
 			}
 
 			executionGraph.getRestartStrategy().restart(() -> performExecutionVertexRestart(
