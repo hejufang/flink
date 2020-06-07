@@ -1016,6 +1016,7 @@ public class DataFormatConverters {
 		private final TypeSerializer<T> eleSer;
 		private final boolean isEleIndentity;
 
+		// We add reuseArray here for ease of reusing reuseWriter.
 		private transient BinaryArray reuseArray;
 		private transient BinaryArrayWriter reuseWriter;
 
@@ -1051,7 +1052,7 @@ public class DataFormatConverters {
 				}
 			}
 			reuseWriter.complete();
-			return reuseArray;
+			return reuseArray.copy();
 		}
 
 		@Override
