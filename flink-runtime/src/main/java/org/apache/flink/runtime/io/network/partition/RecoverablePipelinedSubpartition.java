@@ -19,14 +19,12 @@
 package org.apache.flink.runtime.io.network.partition;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -111,7 +109,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 		buffers.clear();
 
 		if (needCleanBufferBuilderUpdater.compareAndSet(this, false, true)) {
-			LOG.info("{}: This subpartition needs to clean BufferBuilder.", this);
+			LOG.debug("{}: This subpartition needs to clean BufferBuilder.", this);
 		}
 		resetStatistics();
 	}
@@ -121,14 +119,14 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 		final boolean notifyDataAvailable;
 
 		// loop to prevent task not releasing the view yet (usually we don't wait too long here)
-		final Deadline deadline = Deadline.fromNow(Duration.ofMinutes(5));
-		while (status == SUBPARTITION_AVAILABLE && deadline.hasTimeLeft()) {
-			try {
-				Thread.sleep(200);
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
-			}
-		}
+//		final Deadline deadline = Deadline.fromNow(Duration.ofMinutes(5));
+//		while (status == SUBPARTITION_AVAILABLE && deadline.hasTimeLeft()) {
+//			try {
+//				Thread.sleep(200);
+//			} catch (InterruptedException e) {
+//				throw new RuntimeException(e);
+//			}
+//		}
 
 		if (status == SUBPARTITION_AVAILABLE) {
 			LOG.warn("{}: {} This is unexpected usually.", this, parent.getOwningTaskName());

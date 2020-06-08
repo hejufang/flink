@@ -28,6 +28,8 @@ import java.io.IOException;
  */
 public class TcpConnectionLostException extends IOException {
 
+	private static final long serialVersionUID = 1L;
+
 	public TcpConnectionLostException() {
 		super("The downstream task manager is dead but this task manager knows nothing about it.");
 	}

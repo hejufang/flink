@@ -50,6 +50,11 @@ public final class RestartStrategyResolving {
 
 		checkNotNull(serverStrategyFactory);
 
+		// a bit hardcode here
+		if (serverStrategyFactory instanceof RecoverableRestartStrategy.RecoverableRestartStrategyFactory) {
+			return serverStrategyFactory.createRestartStrategy();
+		}
+
 		final RestartStrategy clientSideRestartStrategy =
 			RestartStrategyFactory.createRestartStrategy(clientConfiguration);
 

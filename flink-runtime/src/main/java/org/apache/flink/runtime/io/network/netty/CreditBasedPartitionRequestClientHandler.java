@@ -31,6 +31,7 @@ import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportExcept
 import org.apache.flink.runtime.io.network.netty.exception.TransportException;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.TcpConnectionLostException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
@@ -279,6 +280,8 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 
 				if (inputChannel != null) {
 					if (error.cause.getClass() == PartitionNotFoundException.class) {
+						inputChannel.onFailedPartitionRequest();
+					} else if (error.cause.getClass() == TcpConnectionLostException.class) {
 						inputChannel.onFailedPartitionRequest();
 					} else {
 						inputChannel.onError(new RemoteTransportException(
