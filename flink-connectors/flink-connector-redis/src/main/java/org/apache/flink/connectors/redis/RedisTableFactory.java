@@ -49,6 +49,8 @@ import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_NAME;
+import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_TYPE;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.RedisValidator.ABASE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BATCH_SIZE;
@@ -66,7 +68,7 @@ import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MAX_TO
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MIN_IDLE_CONNECTIONS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MODE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_PSM;
-import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_STORAGE;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_SKIP_FORMAT_KEY;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_TABLE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_TIMEOUT_MS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_TTL_SECONDS;
@@ -96,7 +98,6 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_CLUSTER);
 		properties.add(CONNECTOR_TABLE);
 		properties.add(CONNECTOR_PSM);
-		properties.add(CONNECTOR_STORAGE);
 		properties.add(CONNECTOR_MODE);
 		properties.add(CONNECTOR_DATA_TYPE);
 		properties.add(CONNECTOR_GET_RESOURCE_MAX_RETRIES);
@@ -109,6 +110,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_MAX_IDLE_CONNECTIONS);
 		properties.add(CONNECTOR_MIN_IDLE_CONNECTIONS);
 		properties.add(CONNECTOR_LOG_FAILURES_ONLY);
+		properties.add(CONNECTOR_SKIP_FORMAT_KEY);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -155,10 +157,10 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		RedisOutputFormat.RedisOutputFormatBuilder builder =
 			RedisOutputFormat.buildRedisOutputFormat();
-
 		if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)) {
+			Map<String, String> serializationProperties = getSerializationProperties(properties);
 			final SerializationSchema<Row> serializationSchema = TableConnectorUtils
-				.getSerializationSchema(properties, this.getClass().getClassLoader());
+				.getSerializationSchema(serializationProperties, this.getClass().getClassLoader());
 			builder.setSerializationSchema(serializationSchema);
 		} else if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)
 			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
@@ -175,7 +177,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		return new RedisUpsertTableSink(tableSchema, outputFormat);
 	}
 
-	public DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
 		// The origin properties is an UnmodifiableMap, so we create a new one.
 		Map<String, String> newProperties = new HashMap<>(properties);
 		addDefaultProperties(newProperties);
@@ -232,6 +234,8 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOG_FAILURES_ONLY)
 				.ifPresent(builder::setLogFailuresOnly);
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_SKIP_FORMAT_KEY)
+				.ifPresent(builder::setSkipFormatKey);
 
 		// TODO: 2020/5/13 Because part of online Abase cluster doesn't support complex data type. So doesn't support now.
 		if (descriptorProperties.getOptionalString(CONNECTOR_TYPE).get().equals(ABASE) &&
@@ -241,6 +245,41 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		}
 
 		return builder.build();
+	}
+
+	/**
+	 * When user set connector.skip-format-key true, it means that cut off first column
+	 * which is regarded as redis/abase key. At this case, it should remove the schema.0.name
+	 * and schema.0.type. At the same time, schema.i.name and schema.i.type need change to
+	 * schema.i-1.name and schema.i-1.type.
+	 * @param oldProperties origin properties
+	 * @return transformed properties
+	 */
+	private Map<String, String> getSerializationProperties(Map<String, String> oldProperties) {
+		if ("true".equalsIgnoreCase(oldProperties.get(CONNECTOR_SKIP_FORMAT_KEY))) {
+			Map<String, String> newProperties = new HashMap<>();
+			newProperties.putAll(oldProperties);
+			newProperties.remove("schema.0.name");
+			newProperties.remove("schema.0.type");
+			String nameKey, typeKey, nameValue, typeValue, newNameKey, newTypeKey;
+			for (int i = 1; i < oldProperties.size(); i++) {
+				nameKey = "schema" + '.' + i + '.' + TABLE_SCHEMA_NAME;
+				typeKey = "schema" + '.' + i + '.' + TABLE_SCHEMA_TYPE;
+				newNameKey = "schema" + '.' + (i - 1) + '.' + TABLE_SCHEMA_NAME;
+				newTypeKey = "schema" + '.' + (i - 1) + '.' + TABLE_SCHEMA_TYPE;
+				nameValue = newProperties.get(nameKey);
+				typeValue = newProperties.get(typeKey);
+				if (newProperties.containsKey(nameKey)) {
+					newProperties.remove(nameKey);
+					newProperties.remove(typeKey);
+					newProperties.put(newNameKey, nameValue);
+					newProperties.put(newTypeKey, typeValue);
+				}
+			}
+			return newProperties;
+		} else {
+			return oldProperties;
+		}
 	}
 
 	private RedisMode getRedisMode(DescriptorProperties descriptorProperties) {

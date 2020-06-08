@@ -25,67 +25,79 @@ import com.bytedance.springdb.SpringDbConfig;
 import com.bytedance.springdb.SpringDbPool;
 import redis.clients.jedis.Jedis;
 
-import static org.apache.flink.connectors.util.Constant.GET_RESOURCE_MAX_RETRIES_DEFAULT;
-
 /**
  * RedisUtil Function.
  */
 public class RedisUtils {
 
-	public static ClientPool getRedisClientPool
-			(String cluster, String psm, Long serverUpdatePeriod, Integer timeout, Boolean forceConnectionsSetting,
-			Integer maxTotalConnections, Integer maxIdleConnections, Integer minIdleConnections) {
+	public static ClientPool getRedisClientPool(
+			String cluster,
+			String psm,
+			long serverUpdatePeriod,
+			int timeout,
+			boolean forceConnectionsSetting,
+			int maxTotalConnections,
+			int maxIdleConnections,
+			int minIdleConnections) {
 		RedisConfig config;
 		config = new RedisConfig(cluster, psm);
-		if (serverUpdatePeriod != null) {
+		if (serverUpdatePeriod != 0) {
 			config.setServerUpdatePeriod(serverUpdatePeriod);
 		}
-		if (timeout != null) {
+		if (timeout != 0) {
 			config.setTimeout(timeout);
 		}
 
-		if (forceConnectionsSetting == null || !forceConnectionsSetting) {
+		if (!forceConnectionsSetting) {
 			// Set connection num to 1 to avoid too many connections.
 			config.setMaxTotalConnections(1);
 			config.setMaxIdleConnections(1);
 			config.setMinIdleConnections(1);
 		} else {
-			if (maxTotalConnections != null) {
+			if (maxTotalConnections != 0) {
 				config.setMaxTotalConnections(maxTotalConnections);
 			}
-			if (maxIdleConnections != null) {
+			if (maxIdleConnections != 0) {
 				config.setMaxIdleConnections(maxIdleConnections);
 			}
-			if (minIdleConnections != null) {
+			if (minIdleConnections != 0) {
 				config.setMinIdleConnections(minIdleConnections);
 			}
 		}
 		return new RedisPool(config);
 	}
 
-	public static SpringDbPool getAbaseClientPool(String cluster, String psm, String table, Long serverUpdatePeriod, Integer timeout, Boolean forceConnectionsSetting,
-											Integer maxTotalConnections, Integer maxIdleConnections, Integer minIdleConnections) {
+	public static SpringDbPool getAbaseClientPool(
+			String cluster,
+			String psm,
+			String table,
+			long serverUpdatePeriod,
+			int timeout,
+			boolean forceConnectionsSetting,
+			int maxTotalConnections,
+			int maxIdleConnections,
+			int minIdleConnections) {
 		SpringDbConfig config = new SpringDbConfig(cluster, psm, table);
-		if (serverUpdatePeriod != null) {
+		if (serverUpdatePeriod != 0) {
 			config.setServerUpdatePeriod(serverUpdatePeriod);
 		}
-		if (timeout != null) {
+		if (timeout != 0) {
 			config.setTimeout(timeout);
 		}
 
-		if (forceConnectionsSetting == null || !forceConnectionsSetting) {
+		if (!forceConnectionsSetting) {
 			// Set connection num to 1 to avoid too many connections.
 			config.setMaxTotalConnections(1);
 			config.setMaxIdleConnections(1);
 			config.setMinIdleConnections(1);
 		} else {
-			if (maxTotalConnections != null) {
+			if (maxTotalConnections != 0) {
 				config.setMaxTotalConnections(maxTotalConnections);
 			}
-			if (maxIdleConnections != null) {
+			if (maxIdleConnections != 0) {
 				config.setMaxIdleConnections(maxIdleConnections);
 			}
-			if (minIdleConnections != null) {
+			if (minIdleConnections != 0) {
 				config.setMinIdleConnections(minIdleConnections);
 			}
 		}
@@ -93,13 +105,9 @@ public class RedisUtils {
 		return new SpringDbPool(config);
 	}
 
-	public static Jedis getJedisFromClientPool(ClientPool clientPool, Integer getResourceMaxRetries) {
+	public static Jedis getJedisFromClientPool(ClientPool clientPool, int getResourceMaxRetries) {
 		Jedis jedis = clientPool.getResource();
 		int retryCount = 0;
-
-		if (getResourceMaxRetries == null) {
-			getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
-		}
 
 		while (jedis == null && retryCount < getResourceMaxRetries) {
 			jedis = clientPool.getResource();

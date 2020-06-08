@@ -18,6 +18,12 @@
 
 package org.apache.flink.table.descriptors;
 
+import org.apache.flink.connectors.util.RedisDataType;
+import org.apache.flink.connectors.util.RedisMode;
+
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 /**
  * The validator for redis.
  */
@@ -27,7 +33,6 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_CLUSTER = "connector.cluster";
 	public static final String CONNECTOR_TABLE = "connector.table";
 	public static final String CONNECTOR_PSM = "connector.psm";
-	public static final String CONNECTOR_STORAGE = "connector.storage";
 	public static final String CONNECTOR_MODE = "connector.mode";
 	public static final String CONNECTOR_DATA_TYPE = "connector.redis-data-type";
 	public static final String CONNECTOR_GET_RESOURCE_MAX_RETRIES = "connector.get-resource-max-retries";
@@ -40,6 +45,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_MAX_IDLE_CONNECTIONS = "connector.max-idle-connections";
 	public static final String CONNECTOR_MIN_IDLE_CONNECTIONS = "connector.min-idle-connections";
 	public static final String CONNECTOR_FORCE_CONNECTION_SETTINGS = "connector.force-connection-settings";
+	public static final String CONNECTOR_SKIP_FORMAT_KEY = "connector.skip-format-key";
 
 	public static final String CONNECTOR_LOOKUP_CACHE_MAX_ROWS = "connector.lookup.cache.max-rows";
 	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
@@ -51,5 +57,16 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_CLUSTER, false, 1);
 		properties.validateString(CONNECTOR_PSM, false, 1);
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
+		properties.validateEnumValues(CONNECTOR_MODE, true,
+			Arrays.stream(RedisMode.values()).map(Enum::name).map(String::toLowerCase).collect(Collectors.toList()));
+		properties.validateEnumValues(CONNECTOR_DATA_TYPE, true,
+			Arrays.stream(RedisDataType.values()).map(Enum::name).map(String::toLowerCase).collect(Collectors.toList()));
+		properties.validateInt(CONNECTOR_GET_RESOURCE_MAX_RETRIES, true, 1);
+		properties.validateInt(CONNECTOR_FLUSH_MAX_RETRIES, true, 1);
+		properties.validateInt(CONNECTOR_BATCH_SIZE, true, 1);
+		properties.validateInt(CONNECTOR_TTL_SECONDS, true, 1);
+		properties.validateInt(CONNECTOR_TIMEOUT_MS, true, 1);
+		properties.validateBoolean(CONNECTOR_LOG_FAILURES_ONLY, true);
+		properties.validateBoolean(CONNECTOR_SKIP_FORMAT_KEY, true);
 	}
 }

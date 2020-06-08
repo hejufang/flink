@@ -26,6 +26,7 @@ public class Constant {
 	public static final int GET_RESOURCE_MAX_RETRIES_DEFAULT = 5;
 	public static final int FLUSH_MAX_RETRIES_DEFAULT = 5;
 	public static final int BATCH_SIZE_DEFAULT = 10;
+	public static final int TTL_DEFAULT = -1;
 
 	public static final String STORAGE_REDIS = "redis";
 	public static final String STORAGE_ABASE = "abase";

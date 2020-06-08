@@ -20,12 +20,15 @@ package org.apache.flink.connectors.redis;
 
 import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisMode;
+import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.flink.connectors.util.Constant.BATCH_SIZE_DEFAULT;
 import static org.apache.flink.connectors.util.Constant.FLUSH_MAX_RETRIES_DEFAULT;
 import static org.apache.flink.connectors.util.Constant.GET_RESOURCE_MAX_RETRIES_DEFAULT;
+import static org.apache.flink.connectors.util.Constant.TTL_DEFAULT;
 
 /**
  * redis options.
@@ -33,23 +36,31 @@ import static org.apache.flink.connectors.util.Constant.GET_RESOURCE_MAX_RETRIES
 public class RedisOptions {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisOptions.class);
 
-	private String cluster;
-	private String table;
-	private String storage;
-	private String psm;
-	private Long serverUpdatePeriod;
-	private Integer timeout;
-	private Integer maxTotalConnections;
-	private Integer maxIdleConnections;
-	private Integer minIdleConnections;
-	private Boolean forceConnectionsSetting;
-	private Integer getResourceMaxRetries;
-	private Integer flushMaxRetries;
-	private RedisMode mode;
-	private RedisDataType redisDataType;
-	private Integer batchSize;
-	private Integer ttlSeconds;
-	private int parallelism;
+	private final String cluster;
+	private final String table;
+	private final String storage;
+	private final String psm;
+	private final long serverUpdatePeriod;
+	private final int timeout;
+	private final int maxTotalConnections;
+	private final int maxIdleConnections;
+	private final int minIdleConnections;
+	private final boolean forceConnectionsSetting;
+	private final int getResourceMaxRetries;
+	private final int flushMaxRetries;
+	private final RedisMode mode;
+	private final RedisDataType redisDataType;
+	private final int batchSize;
+	private final int ttlSeconds;
+	private final int parallelism;
+	/**
+	 * Flag indicating whether to ignore failures (and log them), or to fail on failures.
+	 */
+	private final boolean logFailuresOnly;
+	/**
+	 * Flag indicating whether to only serialization without key.
+	 */
+	private final boolean skipFormatKey;
 
 	public String getCluster() {
 		return cluster;
@@ -71,19 +82,19 @@ public class RedisOptions {
 		return serverUpdatePeriod;
 	}
 
-	public Integer getTimeout() {
+	public int getTimeout() {
 		return timeout;
 	}
 
-	public Integer getMaxTotalConnections() {
+	public int getMaxTotalConnections() {
 		return maxTotalConnections;
 	}
 
-	public Integer getMaxIdleConnections() {
+	public int getMaxIdleConnections() {
 		return maxIdleConnections;
 	}
 
-	public Integer getMinIdleConnections() {
+	public int getMinIdleConnections() {
 		return minIdleConnections;
 	}
 
@@ -91,11 +102,11 @@ public class RedisOptions {
 		return forceConnectionsSetting;
 	}
 
-	public Integer getGetResourceMaxRetries() {
+	public int getGetResourceMaxRetries() {
 		return getResourceMaxRetries;
 	}
 
-	public Integer getFlushMaxRetries() {
+	public int getFlushMaxRetries() {
 		return flushMaxRetries;
 	}
 
@@ -107,11 +118,11 @@ public class RedisOptions {
 		return redisDataType;
 	}
 
-	public Integer getBatchSize() {
+	public int getBatchSize() {
 		return batchSize;
 	}
 
-	public Integer getTtlSeconds() {
+	public int getTtlSeconds() {
 		return ttlSeconds;
 	}
 
@@ -123,30 +134,30 @@ public class RedisOptions {
 		return parallelism;
 	}
 
-	/**
-	 * Flag indicating whether to accept failures (and log them), or to fail on failures.
-	 */
-	private boolean logFailuresOnly;
+	public boolean isSkipFormatKey() {
+		return skipFormatKey;
+	}
 
 	RedisOptions(
-		String cluster,
-		String table,
-		String storage,
-		String psm,
-		Long serverUpdatePeriod,
-		Integer timeout,
-		Integer maxTotalConnections,
-		Integer maxIdleConnections,
-		Integer minIdleConnections,
-		Boolean forceConnectionsSetting,
-		Integer getResourceMaxRetries,
-		Integer flushMaxRetries,
-		RedisMode mode,
-		RedisDataType redisDataType,
-		Integer batchSize,
-		Integer ttlSeconds,
-		boolean logFailuresOnly,
-		int parallelism) {
+			String cluster,
+			String table,
+			String storage,
+			String psm,
+			long serverUpdatePeriod,
+			int timeout,
+			int maxTotalConnections,
+			int maxIdleConnections,
+			int minIdleConnections,
+			Boolean forceConnectionsSetting,
+			int getResourceMaxRetries,
+			int flushMaxRetries,
+			RedisMode mode,
+			RedisDataType redisDataType,
+			int batchSize,
+			int ttlSeconds,
+			boolean logFailuresOnly,
+			boolean skipFormatKey,
+			int parallelism) {
 		this.cluster = cluster;
 		this.table = table;
 		this.storage = storage;
@@ -164,6 +175,7 @@ public class RedisOptions {
 		this.batchSize = batchSize;
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
+		this.skipFormatKey = skipFormatKey;
 		this.parallelism = parallelism;
 	}
 
@@ -179,19 +191,20 @@ public class RedisOptions {
 		private String table;
 		private String storage;
 		private String psm;
-		private Long serverUpdatePeriod;
-		private Integer timeout;
-		private Integer maxTotalConnections;
-		private Integer maxIdleConnections;
-		private Integer minIdleConnections;
-		private Boolean forceConnectionsSetting;
-		private Integer getResourceMaxRetries;
-		private Integer flushMaxRetries;
+		private long serverUpdatePeriod;
+		private int timeout;
+		private int maxTotalConnections;
+		private int maxIdleConnections;
+		private int minIdleConnections;
+		private boolean forceConnectionsSetting;
+		private int getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
+		private int flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
 		private RedisMode mode;
 		private RedisDataType redisDataType;
-		private Integer batchSize;
-		private Integer ttlSeconds;
+		private int batchSize = BATCH_SIZE_DEFAULT;
+		private int ttlSeconds = TTL_DEFAULT;
 		private boolean logFailuresOnly;
+		private boolean skipFormatKey;
 		private int parallelism;
 
 		RedisOptionsBuilder() {
@@ -217,55 +230,42 @@ public class RedisOptions {
 			return this;
 		}
 
-		public RedisOptionsBuilder setServerUpdatePeriod(Long serverUpdatePeriod) {
+		public RedisOptionsBuilder setServerUpdatePeriod(long serverUpdatePeriod) {
 			this.serverUpdatePeriod = serverUpdatePeriod;
 			return this;
 		}
 
-		public RedisOptionsBuilder setTimeout(Integer timeout) {
+		public RedisOptionsBuilder setTimeout(int timeout) {
 			this.timeout = timeout;
 			return this;
 		}
 
-		public RedisOptionsBuilder setMaxTotalConnections(Integer maxTotalConnections) {
+		public RedisOptionsBuilder setMaxTotalConnections(int maxTotalConnections) {
 			this.maxTotalConnections = maxTotalConnections;
 			return this;
 		}
 
-		public RedisOptionsBuilder setMaxIdleConnections(Integer maxIdleConnections) {
+		public RedisOptionsBuilder setMaxIdleConnections(int maxIdleConnections) {
 			this.maxIdleConnections = maxIdleConnections;
 			return this;
 		}
 
-		public RedisOptionsBuilder setMinIdleConnections(Integer minIdleConnections) {
+		public RedisOptionsBuilder setMinIdleConnections(int minIdleConnections) {
 			this.minIdleConnections = minIdleConnections;
 			return this;
 		}
 
-		public RedisOptionsBuilder setForceConnectionsSetting(Boolean forceConnectionsSetting) {
-			if (forceConnectionsSetting == null) {
-				forceConnectionsSetting = false;
-			}
+		public RedisOptionsBuilder setForceConnectionsSetting(boolean forceConnectionsSetting) {
 			this.forceConnectionsSetting = forceConnectionsSetting;
 			return this;
 		}
 
-		public RedisOptionsBuilder setGetResourceMaxRetries(Integer getResourceMaxRetries) {
-			if (getResourceMaxRetries == null) {
-				getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
-			}
-			if (getResourceMaxRetries < 1) {
-				LOG.info("getResourceMaxRetries must be greater than or equal to 1, reset to 1");
-				getResourceMaxRetries = 1;
-			}
+		public RedisOptionsBuilder setGetResourceMaxRetries(int getResourceMaxRetries) {
 			this.getResourceMaxRetries = getResourceMaxRetries;
 			return this;
 		}
 
-		public RedisOptionsBuilder setFlushMaxRetries(Integer flushMaxRetries) {
-			if (flushMaxRetries == null || flushMaxRetries <= 0) {
-				flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
-			}
+		public RedisOptionsBuilder setFlushMaxRetries(int flushMaxRetries) {
 			this.flushMaxRetries = flushMaxRetries;
 			return this;
 		}
@@ -280,13 +280,18 @@ public class RedisOptions {
 			return this;
 		}
 
-		public RedisOptionsBuilder setBatchSize(Integer batchSize) {
+		public RedisOptionsBuilder setBatchSize(int batchSize) {
 			this.batchSize = batchSize;
 			return this;
 		}
 
-		public RedisOptionsBuilder setTtlSeconds(Integer ttlSeconds) {
+		public RedisOptionsBuilder setTtlSeconds(int ttlSeconds) {
 			this.ttlSeconds = ttlSeconds;
+			return this;
+		}
+
+		public RedisOptionsBuilder setSkipFormatKey(boolean skipFormatKey) {
+			this.skipFormatKey = skipFormatKey;
 			return this;
 		}
 
@@ -301,12 +306,16 @@ public class RedisOptions {
 		}
 
 		public RedisOptions build() {
-			if (cluster == null) {
-				LOG.info("cluster was not supplied.");
-			}
-			if (psm == null) {
-				LOG.info("psm was not supplied.");
-			}
+			Preconditions.checkNotNull(cluster, "cluster was not supplied.");
+			Preconditions.checkNotNull(psm, "psm was not supplied.");
+			Preconditions.checkArgument(getResourceMaxRetries > 0,
+				"getResourceMaxRetries must be greater than 0");
+			Preconditions.checkArgument(flushMaxRetries > 0,
+				"flushMaxRetries must be greater than 0");
+			Preconditions.checkArgument(batchSize > 0,
+				"batchSize must be greater than 0");
+			Preconditions.checkArgument(parallelism >= 0,
+				"Parallelism must be greater than or equal to 0(Default property).");
 			return new RedisOptions(
 				cluster,
 				table,
@@ -325,6 +334,7 @@ public class RedisOptions {
 				batchSize,
 				ttlSeconds,
 				logFailuresOnly,
+				skipFormatKey,
 				parallelism);
 		}
 
@@ -347,6 +357,7 @@ public class RedisOptions {
 				", batchSize=" + batchSize +
 				", ttlSeconds=" + ttlSeconds +
 				", logFailuresOnly=" + logFailuresOnly +
+				", skipFormatKey=" + skipFormatKey +
 				", parallelism=" + parallelism +
 				'}';
 		}

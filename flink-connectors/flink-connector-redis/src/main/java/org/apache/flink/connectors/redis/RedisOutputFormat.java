@@ -40,8 +40,6 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.flink.connectors.util.Constant.BATCH_SIZE_DEFAULT;
-import static org.apache.flink.connectors.util.Constant.FLUSH_MAX_RETRIES_DEFAULT;
 import static org.apache.flink.connectors.util.Constant.INCR_MODE;
 import static org.apache.flink.connectors.util.Constant.INSERT_MODE;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_HASH;
@@ -65,21 +63,22 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private SerializationSchema<Row> serializationSchema;
 
 	// <------------------------- connection configurations --------------------------->
-	private Integer batchSize;
-	private Integer ttlSeconds;
+	private int batchSize;
+	private int ttlSeconds;
 	private Jedis jedis;
 	private String cluster;
 	private String table;
 	private String storage;
 	private String psm;
-	private Long serverUpdatePeriod;
-	private Integer timeout;
-	private Integer maxTotalConnections;
-	private Integer maxIdleConnections;
-	private Integer minIdleConnections;
-	private Boolean forceConnectionsSetting;
-	private Integer getResourceMaxRetries;
-	private Integer flushMaxRetries;
+	private long serverUpdatePeriod;
+	private int timeout;
+	private int maxTotalConnections;
+	private int maxIdleConnections;
+	private int minIdleConnections;
+	private boolean forceConnectionsSetting;
+	private int getResourceMaxRetries;
+	private int flushMaxRetries;
+	private boolean skipFormatKey;
 	private RedisMode mode;
 	private RedisDataType redisDataType;
 	private int parallelism;
@@ -100,14 +99,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	@Override
 	public void open(int taskNumber, int numTasks) throws IOException {
 		recordDeque = new ArrayDeque<>();
-
-		if (flushMaxRetries == null) {
-			flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
-		}
-
-		if (batchSize == null) {
-			batchSize = BATCH_SIZE_DEFAULT;
-		}
 
 		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
 			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
@@ -134,7 +125,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		}
 
 		recordDeque.add(tuple2);
-		if (batchSize == null || recordCursor.incrementAndGet() == batchSize) {
+		if (recordCursor.incrementAndGet() == batchSize) {
 			flush();
 		}
 	}
@@ -206,6 +197,13 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 
 	private void writeWithSchema(Pipeline pipeline, Row record) {
 		Object key = record.getField(0);
+		if (skipFormatKey) {
+			int[] fields = new int[record.getArity() - 1];
+			for (int i = 0; i < fields.length; i++) {
+				fields[i] = i + 1;
+			}
+			record = Row.project(record, fields);
+		}
 		byte[] valueBytes = serializationSchema.serialize(record);
 		byte[] keyBytes;
 		if (key instanceof byte[]) {
@@ -213,7 +211,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		} else {
 			keyBytes = key.toString().getBytes();
 		}
-		if (ttlSeconds != null && ttlSeconds > 0) {
+		if (ttlSeconds > 0) {
 			pipeline.setex(keyBytes, ttlSeconds, valueBytes);
 		} else {
 			pipeline.set(keyBytes, valueBytes);
@@ -289,7 +287,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			deleteKey(pipeline, key);
 			return;
 		}
-		if (ttlSeconds != null && ttlSeconds > 0) {
+		if (ttlSeconds > 0) {
 			if (key instanceof byte[] && value instanceof byte[]) {
 				pipeline.setex((byte[]) key, ttlSeconds, (byte[]) value);
 			} else {
@@ -367,7 +365,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	}
 
 	private void setExpire(Pipeline pipeline, Object key) {
-		if (ttlSeconds != null && ttlSeconds > 0) {
+		if (ttlSeconds > 0) {
 			if (key instanceof byte[]) {
 				pipeline.expire((byte[]) key, ttlSeconds);
 			} else {
@@ -451,6 +449,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			format.ttlSeconds = options.getTtlSeconds();
 			format.parallelism = options.getParallelism();
 			format.serializationSchema = this.serializationSchema;
+			format.skipFormatKey = options.isSkipFormatKey();
 
 			if (format.cluster == null) {
 				LOG.info("cluster was not supplied.");
