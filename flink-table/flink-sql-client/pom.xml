@@ -179,6 +179,14 @@ under the License.
 			<scope>test</scope>
 			<exclusions>
 				<exclusion>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+				<exclusion>
 					<groupId>org.apache.hive</groupId>
 					<artifactId>hive-shims</artifactId>
 				</exclusion>
@@ -331,6 +339,14 @@ under the License.
 			<version>${hive.version}</version>
 			<scope>test</scope>
 			<exclusions>
+				<exclusion>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
 				<exclusion>
 					<groupId>org.apache.hive</groupId>
 					<artifactId>hive-vector-code-gen</artifactId>
