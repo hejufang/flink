@@ -68,7 +68,7 @@ public class BytableLookupFunction extends TableFunction<Row> {
 
 	@Override
 	public void open(FunctionContext context) {
-		if (bytableLookupOptions.getCacheMaxSize() == -1 || bytableLookupOptions.getCacheExpireMs() == -1) {
+		if (bytableLookupOptions.getCacheMaxSize() != -1 && bytableLookupOptions.getCacheExpireMs() != -1) {
 			this.cache = CacheBuilder.newBuilder()
 				.expireAfterWrite(bytableLookupOptions.getCacheExpireMs(), TimeUnit.MILLISECONDS)
 				.maximumSize(bytableLookupOptions.getCacheMaxSize())
