@@ -162,7 +162,7 @@ public class StreamingJobGraphGeneratorTest extends TestLogger {
 		JobGraph jobGraph = StreamingJobGraphGenerator.createJobGraph(streamGraph);
 
 		JobCheckpointingSettings snapshottingSettings = jobGraph.getCheckpointingSettings();
-		assertEquals(Long.MAX_VALUE, snapshottingSettings.getCheckpointCoordinatorConfiguration().getCheckpointInterval());
+		assertNull(snapshottingSettings);
 	}
 
 	/**

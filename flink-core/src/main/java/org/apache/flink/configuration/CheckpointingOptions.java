@@ -171,4 +171,31 @@ public class CheckpointingOptions {
 		.withDescription(String.format("The default size of the write buffer for the checkpoint streams that write to file systems. " +
 			"The actual write buffer size is determined to be the maximum of the value of this option and option '%s'.", FS_SMALL_FILE_THRESHOLD.key()));
 
+	// ------------------------------------------------------------------------
+	//  checkpoint scheduling options
+	// ------------------------------------------------------------------------
+
+	/** The scheduling strategy to be used to trigger checkpoint. */
+	public static final ConfigOption<String> CHECKPOINT_SCHEDULING_STRATEGY = ConfigOptions
+		.key("checkpoint.scheduler.strategy")
+		.noDefaultValue()
+		.withDescription("The scheduling strategy to be used to trigger checkpoint.");
+
+	/** The interval between two consecutive checkpoints under the default fixed rate strategy. */
+	public static final ConfigOption<Integer> CHECKPOINT_SCHEDULING_DEFAULT_INTERVAL = ConfigOptions
+		.key("checkpoint.scheduler.default.interval")
+		.defaultValue(-1)
+		.withDescription("The interval between two consecutive checkpoints under the default fixed rate strategy.");
+
+	/** The interval between two consecutive checkpoints under the hourly checkpoint strategy. */
+	public static final ConfigOption<Integer> CHECKPOINT_SCHEDULING_HOURLY_INTERVAL = ConfigOptions
+		.key("checkpoint.scheduler.hourly.interval")
+		.defaultValue(-1)
+		.withDescription("The interval between two consecutive checkpoints under the hourly checkpoint strategy.");
+
+	/** The offset of whole hour alignment. */
+	public static final ConfigOption<Integer> CHECKPOINT_SCHEDULING_HOURLY_OFFSET = ConfigOptions
+		.key("checkpoint.scheduler.hourly.offset")
+		.defaultValue(0)
+		.withDescription("The offset of whole hour alignment. E. g. 4 means align with 00:04 hourly.");
 }

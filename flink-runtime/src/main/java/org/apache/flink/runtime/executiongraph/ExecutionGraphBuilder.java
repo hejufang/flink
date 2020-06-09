@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.executiongraph;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
@@ -350,7 +351,30 @@ public class ExecutionGraphBuilder {
 				}
 			}
 
-			final CheckpointCoordinatorConfiguration chkConfig = snapshotSettings.getCheckpointCoordinatorConfiguration();
+			// Override configuration if CLI specified otherwise.
+			final String checkpointSchedulingStrategy = jobManagerConfig.getString(CheckpointingOptions.CHECKPOINT_SCHEDULING_STRATEGY);
+			final CheckpointCoordinatorConfiguration chkConfig;
+
+			if (checkpointSchedulingStrategy == null) {
+				chkConfig = snapshotSettings.getCheckpointCoordinatorConfiguration();
+			} else {
+				log.info("Checkpoint-scheduler-related options found. CLI configuration will take priority.");
+				final CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration overrideSchedulingConfig;
+				overrideSchedulingConfig = CheckpointSchedulingStrategies.resolveCliConfig(checkpointSchedulingStrategy, jobManagerConfig);
+
+				final CheckpointCoordinatorConfiguration origin = snapshotSettings.getCheckpointCoordinatorConfiguration();
+
+				chkConfig = new CheckpointCoordinatorConfiguration(
+					origin.getCheckpointInterval(),
+					origin.getCheckpointTimeout(),
+					origin.getMinPauseBetweenCheckpoints(),
+					origin.getMaxConcurrentCheckpoints(),
+					origin.getCheckpointRetentionPolicy(),
+					origin.isExactlyOnce(),
+					origin.isPreferCheckpointForRecovery(),
+					overrideSchedulingConfig,
+					origin.getTolerableCheckpointFailureNumber());
+			}
 
 			executionGraph.enableCheckpointing(
 				chkConfig,

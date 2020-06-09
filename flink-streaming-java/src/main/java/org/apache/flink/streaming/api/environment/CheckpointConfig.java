@@ -20,8 +20,10 @@ package org.apache.flink.streaming.api.environment;
 
 import org.apache.flink.annotation.Public;
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.streaming.api.CheckpointingMode;
+import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +46,10 @@ public class CheckpointConfig implements java.io.Serializable {
 	/** The default checkpoint mode: exactly once. */
 	public static final CheckpointingMode DEFAULT_MODE = CheckpointingMode.EXACTLY_ONCE;
 
+	/** The default checkpoint scheduler. */
+	public static final CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration DEFAULT_SCHEDULER =
+		CheckpointSchedulingStrategies.defaultStrategy();
+
 	/** The default timeout of a checkpoint attempt: 10 minutes. */
 	public static final long DEFAULT_TIMEOUT = 10 * 60 * 1000;
 
@@ -59,6 +65,9 @@ public class CheckpointConfig implements java.io.Serializable {
 
 	/** Checkpointing mode (exactly-once vs. at-least-once). */
 	private CheckpointingMode checkpointingMode = DEFAULT_MODE;
+
+	/** Checkpointing scheduling strategy. */
+	private CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration = DEFAULT_SCHEDULER;
 
 	/** Periodic checkpoint triggering interval. */
 	private long checkpointInterval = -1; // disabled
@@ -124,6 +133,33 @@ public class CheckpointConfig implements java.io.Serializable {
 	 */
 	public void setCheckpointingMode(CheckpointingMode checkpointingMode) {
 		this.checkpointingMode = requireNonNull(checkpointingMode);
+	}
+
+	/**
+	 * Sets the scheduling strategy to be used for checkpoint.
+	 *
+	 * <pre>{@code
+	 * ExecutionConfig config = env.getConfig();
+	 *
+	 * // Align checkpoints to hour, with an offset of 3 seconds
+	 * config.setRestartStrategy(CheckpointSchedulingStrategies.hourlyCheckpoint(3_000L));
+	 * }</pre>
+	 *
+	 * @param checkpointSchedulerConfiguration Configuration defining the checkpoint scheduling strategy to use
+	 */
+	@PublicEvolving
+	public void setCheckpointSchedulingStrategy(CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration) {
+		this.checkpointSchedulerConfiguration = Preconditions.checkNotNull(checkpointSchedulerConfiguration);
+	}
+
+	/**
+	 * Returns the checkpoint scheduling strategy which has been set for the current job.
+	 *
+	 * @return The specified checkpoint scheduling configuration
+	 */
+	@PublicEvolving
+	public CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration getCheckpointSchedulerConfiguration() {
+		return checkpointSchedulerConfiguration;
 	}
 
 	/**
