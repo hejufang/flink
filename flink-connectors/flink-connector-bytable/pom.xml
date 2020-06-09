@@ -29,12 +29,6 @@ under the License.
 
 	<artifactId>flink-connector-bytable</artifactId>
 
-	<!-- Allow users to pass custom connector versions -->
-	<properties>
-		<bytable.version>1.0.0-SNAPSHOT</bytable.version>
-		<hbase.version>1.4.3</hbase.version>
-	</properties>
-
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.flink</groupId>

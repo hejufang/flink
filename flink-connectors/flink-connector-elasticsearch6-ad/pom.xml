@@ -33,11 +33,6 @@ under the License.
 
 	<packaging>jar</packaging>
 
-	<!-- Allow users to pass custom connector versions -->
-	<properties>
-		<elasticsearch.version>6.3.1</elasticsearch.version>
-	</properties>
-
 	<dependencies>
 
 		<!-- core dependencies -->
@@ -56,7 +51,7 @@ under the License.
 		<dependency>
 			<groupId>org.elasticsearch.client</groupId>
 			<artifactId>elasticsearch-rest-client</artifactId>
-			<version>5.6.x-ad-0.0.2</version>
+			<version>${elasticsearch6ad.version}</version>
 		</dependency>
 
 		<!-- Table ecosystem -->

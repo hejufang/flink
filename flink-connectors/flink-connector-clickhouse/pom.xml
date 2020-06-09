@@ -57,7 +57,7 @@ under the License.
 		<dependency>
 			<groupId>ru.yandex.clickhouse</groupId>
 			<artifactId>clickhouse-jdbc</artifactId>
-			<version>0.1.54</version>
+			<version>${clickhouse.version}</version>
 		</dependency>
 
 		<!-- Table ecosystem -->

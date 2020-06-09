@@ -27,10 +27,6 @@ under the License.
 	</parent>
 	<modelVersion>4.0.0</modelVersion>
 
-	<properties>
-		<metrics4j.version>1.0.27</metrics4j.version>
-	</properties>
-
 	<artifactId>flink-connector-metrics</artifactId>
 	<dependencies>
 		<dependency>

@@ -29,10 +29,6 @@ under the License.
 
 	<artifactId>flink-connector-rocketmq</artifactId>
 
-	<properties>
-		<rocketmq.version>4.6.2</rocketmq.version>
-	</properties>
-
 	<dependencies>
 
 		<dependency>

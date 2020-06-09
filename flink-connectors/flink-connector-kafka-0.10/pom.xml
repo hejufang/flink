@@ -35,14 +35,6 @@ under the License.
 
 	<packaging>jar</packaging>
 
-	<!-- Allow users to pass custom connector versions -->
-	<properties>
-		<!-- TODO(zhangguanghui): modify kafka.version to 0.10.1.2,
-			because kafka no 0.10.1.2 release -->
-		<kafka.version>0.10.1.1</kafka.version>
-		<kafka.byted.version>0.10.1.2-bd1.6.8</kafka.byted.version>
-	</properties>
-
 	<distributionManagement>
 		<repository>
 			<id>bytedance-releases</id>
@@ -88,7 +80,7 @@ under the License.
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
-			<version>${kafka.byted.version}</version>
+			<version>${kafka010.byted.version}</version>
 		</dependency>
 
 		<!-- Table ecosystem -->
@@ -159,7 +151,7 @@ under the License.
 			<!-- include 0.10 server for tests  -->
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka_${scala.binary.version}</artifactId>
-			<version>${kafka.version}</version>
+			<version>${kafka010.version}</version>
 			<scope>test</scope>
 		</dependency>
 
