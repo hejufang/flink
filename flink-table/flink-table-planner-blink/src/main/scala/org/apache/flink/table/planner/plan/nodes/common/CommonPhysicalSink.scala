@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.transformations.SinkTransformation
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.catalog.{CatalogTable, ObjectIdentifier}
+import org.apache.flink.table.connector.SpecificParallelism
 import org.apache.flink.table.connector.sink.{DynamicTableSink, OutputFormatProvider, SinkFunctionProvider}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
@@ -67,10 +68,22 @@ class CommonPhysicalSink (
     val inputTypeInfo = new RowDataTypeInfo(FlinkTypeFactory.toLogicalRowType(getInput.getRowType))
     val runtimeProvider = tableSink.getSinkRuntimeProvider(
       new SinkRuntimeProviderContext(isBounded))
+
+    var parallelism = -1
+
     val sinkFunction = runtimeProvider match {
-      case provider: SinkFunctionProvider => provider.createSinkFunction()
+      case provider: SinkFunctionProvider => {
+        val sinkfunction = provider.createSinkFunction()
+        if (sinkfunction.isInstanceOf[SpecificParallelism]) {
+          parallelism = sinkfunction.asInstanceOf[SpecificParallelism].getParallelism
+        }
+        sinkfunction
+      }
       case provider: OutputFormatProvider =>
         val outputFormat = provider.createOutputFormat()
+        if (outputFormat.isInstanceOf[SpecificParallelism]) {
+          parallelism = outputFormat.asInstanceOf[SpecificParallelism].getParallelism
+        }
         new OutputFormatSinkFunction(outputFormat)
     }
 
@@ -96,11 +109,15 @@ class CommonPhysicalSink (
       fieldNames
     )
 
-    new SinkTransformation(
+    val result = new SinkTransformation(
       inputTransformation,
       getRelDetailedDescription,
       SimpleOperatorFactory.of(operator),
       inputTransformation.getParallelism).asInstanceOf[Transformation[Any]]
+    if (parallelism > 0) {
+      result.setParallelism(parallelism)
+    }
+    result
   }
 
 }

@@ -32,6 +32,7 @@ import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelWriter
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.TableScan
+import org.apache.flink.table.connector.SpecificParallelism
 
 import scala.collection.JavaConverters._
 
@@ -73,12 +74,29 @@ abstract class CommonPhysicalTableSourceScan(
     runtimeProvider match {
       case provider: SourceFunctionProvider =>
         val sourceFunction = provider.createSourceFunction()
-        env
+        val result = env
           .addSource(sourceFunction, name, outTypeInfo)
           .getTransformation
+        if (sourceFunction.isInstanceOf[SpecificParallelism]) {
+          setParallelism(result, sourceFunction.asInstanceOf[SpecificParallelism])
+        }
+        result
       case provider: InputFormatProvider =>
         val inputFormat = provider.createInputFormat()
-        createInputFormatTransformation(env, inputFormat, name, outTypeInfo)
+        val result = createInputFormatTransformation(env, inputFormat, name, outTypeInfo)
+        if (inputFormat.isInstanceOf[SpecificParallelism]) {
+          setParallelism(result, inputFormat.asInstanceOf[SpecificParallelism])
+        }
+        result
+    }
+  }
+
+  private def setParallelism(
+      transformation: Transformation[RowData],
+      specificParallelism: SpecificParallelism) = {
+    val parallelism = specificParallelism.getParallelism
+    if (parallelism > 0) {
+      transformation.setParallelism(parallelism)
     }
   }
 
