@@ -332,6 +332,20 @@ camel:
   hdfs.prefix: hdfs://haruna/flink_cr
   checkpoint.hdfs.prefix: hdfs://haruna/flink_cr
 
+stork:
+  dc: sg
+  clusterName: stork
+  high-availability.zookeeper.quorum: 10.105.4.10:2181,10.105.4.21:2181,10.105.4.35:2181,10.105.4.91:2181,10.105.4.254:2181
+  hdfs.prefix: hdfs://harunasgee/flink_sgee
+  checkpoint.hdfs.prefix: hdfs://harunasgee/flink_sgee
+
+shark:
+  dc: sg
+  clusterName: shark
+  high-availability.zookeeper.quorum: 10.126.35.119:2181,10.126.35.162:2181,10.126.35.163:2181,10.126.35.186:2181,10.126.35.189:2181
+  hdfs.prefix: hdfs://harunasglark/flink_sglark
+  checkpoint.hdfs.prefix:  hdfs://harunasglark/flink_sglark
+
 marmt:
   dc: va
   clusterName: marmt
