@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.disk.FileChannelManager;
@@ -32,10 +33,13 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
+import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleServiceOptions;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
+import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleServiceFactory;
+import org.apache.flink.runtime.shuffle.YarnShuffleMaster;
 import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration;
 
 import java.util.concurrent.Executor;
@@ -51,7 +55,15 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 	private static final String DIR_NAME_PREFIX = "netty-shuffle";
 
 	@Override
-	public NettyShuffleMaster createShuffleMaster(Configuration configuration) {
+	public ShuffleMaster createShuffleMaster(Configuration configuration) {
+
+		//TODO: temporarily reuse netty shuffle instead of a custom one.
+		String transport = configuration.getString(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE);
+		if (transport.equals("yarn")) {
+			YarnShuffleMaster shuffleMaster = YarnShuffleMaster.INSTANCE;
+			shuffleMaster.setPort(configuration.getInteger(ExternalBlockShuffleServiceOptions.FLINK_SHUFFLE_SERVICE_PORT_KEY));
+			return shuffleMaster;
+		}
 		return NettyShuffleMaster.INSTANCE;
 	}
 

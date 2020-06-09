@@ -57,7 +57,7 @@ public class IntermediateDataSetID extends AbstractID implements ResultID {
 		super(from.getLeastSignificantBits(), from.getMostSignificantBits());
 	}
 
-	private IntermediateDataSetID(long lower, long upper) {
+	public IntermediateDataSetID(long lower, long upper) {
 		super(lower, upper);
 	}
 

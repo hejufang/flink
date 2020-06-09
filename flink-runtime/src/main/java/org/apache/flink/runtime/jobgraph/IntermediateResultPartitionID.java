@@ -62,6 +62,18 @@ public class IntermediateResultPartitionID implements ResultID {
 		return new IntermediateResultPartitionID(intermediateDataSetID, partitionNum);
 	}
 
+	public long getLowerPart() {
+		return intermediateDataSetID.getLowerPart();
+	}
+
+	public long getUpperPart() {
+		return intermediateDataSetID.getUpperPart();
+	}
+
+	public int getPartitionNum() {
+		return partitionNum;
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj == this) {

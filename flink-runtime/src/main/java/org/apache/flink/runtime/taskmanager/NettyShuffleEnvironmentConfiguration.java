@@ -340,6 +340,8 @@ public class NettyShuffleEnvironmentConfiguration {
 				return BoundedBlockingSubpartitionType.FILE_MMAP;
 			case "file":
 				return BoundedBlockingSubpartitionType.FILE;
+			case "yarn":
+				return BoundedBlockingSubpartitionType.YARN;
 			default:
 				return BoundedBlockingSubpartitionType.AUTO;
 		}

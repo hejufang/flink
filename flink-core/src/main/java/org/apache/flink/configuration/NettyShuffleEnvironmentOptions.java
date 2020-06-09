@@ -73,7 +73,7 @@ public class NettyShuffleEnvironmentOptions {
 	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
 	public static final ConfigOption<Boolean> BLOCKING_SHUFFLE_COMPRESSION_ENABLED =
 		key("taskmanager.network.blocking-shuffle.compression.enabled")
-			.defaultValue(false)
+			.defaultValue(true)
 			.withDescription("Boolean flag indicating whether the shuffle data will be compressed for blocking shuffle" +
 				" mode. Note that data is compressed per buffer and compression can incur extra CPU overhead, so it is" +
 				" more effective for IO bounded scenario when data compression ratio is high. Currently, shuffle data " +

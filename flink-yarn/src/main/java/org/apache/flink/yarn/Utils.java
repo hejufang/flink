@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE;
 import static org.apache.flink.yarn.YarnConfigKeys.ENV_FLINK_CLASSPATH;
 import static org.apache.flink.yarn.YarnConfigKeys.LOCAL_RESOURCE_DESCRIPTOR_SEPARATOR;
 
@@ -78,6 +79,27 @@ public final class Utils {
 
 	/** Yarn site xml file name populated in YARN container for secure IT run. */
 	public static final String YARN_SITE_FILE_NAME = "yarn-site.xml";
+
+	/** Number of total retries to fetch the remote resources after uploaded in case of FileNotFoundException. */
+	public static final int REMOTE_RESOURCES_FETCH_NUM_RETRY = 3;
+
+	/** Time to wait in milliseconds between each remote resources fetch in case of FileNotFoundException. */
+	public static final int REMOTE_RESOURCES_FETCH_WAIT_IN_MILLI = 100;
+
+	/**
+	 * Define the name of flink shuffle service, it has the following usages:
+	 * (1) Configure shuffle service in NodeManger in yarn-site.xml
+	 * (2) Suggest the auxiliary service name of shuffle service in NodeManger
+	 * (3) Yarn(Session)ResourceManager need to configure its serviceData in
+	 * 		ContainerLaunchContext so that flink shuffle service will get method
+	 * 		initializeApplication() being invoked. Furthermore we can add more
+	 * 		information through service data if we want to add authentication
+	 * 		mechanism.
+	 */
+	public static final String YARN_SHUFFLE_SERVICE_NAME = "yarn_shuffle_service_for_flink";
+
+	/** Initialize this variable at the first time containFlinkShuffleService() method been called. */
+	private static Boolean containFlinkShuffleService = null;
 
 	public static void setupYarnClassPath(Configuration conf, Map<String, String> appMasterEnv) {
 		addToEnvironment(
@@ -432,6 +454,11 @@ public final class Utils {
 		ctx.setLocalResources(taskManagerLocalResources);
 
 		Map<String, String> containerEnv = new HashMap<>();
+		final String subpartitionType = flinkConfig.getString(NETWORK_BLOCKING_SHUFFLE_TYPE);
+		if (subpartitionType.equals("yarn")) {
+			ctx.setServiceData(Collections.singletonMap(YARN_SHUFFLE_SERVICE_NAME, ByteBuffer.allocate(0)));
+		}
+
 		containerEnv.putAll(tmParams.taskManagerEnv());
 
 		// add YARN classpath, etc to the container environment
@@ -518,6 +545,37 @@ public final class Utils {
 	static void require(boolean condition, String message, Object... values) {
 		if (!condition) {
 			throw new RuntimeException(String.format(message, values));
+		}
+	}
+
+	public static long vCoresToMilliVcores(double vCores) {
+		return (long) (vCores * 1000);
+	}
+
+	/**
+	 * check yarn startup flink yarn shuffle service or not.
+	 */
+	private static Boolean containFlinkShuffleServiceInternal() {
+		String services = new YarnConfiguration(new org.apache.hadoop.conf.Configuration()).get(
+				"yarn.nodemanager.aux-services", "");
+		Boolean ret = false;
+		if (services.contains(YARN_SHUFFLE_SERVICE_NAME)) {
+			ret = true;
+		}
+		return ret;
+	}
+
+	public static boolean containFlinkShuffleService() {
+		if (containFlinkShuffleService != null) {
+			return containFlinkShuffleService;
+		}
+		synchronized (Utils.class) {
+			if (containFlinkShuffleService != null) {
+				return containFlinkShuffleService;
+			}
+			// initialize for only once
+			containFlinkShuffleService = containFlinkShuffleServiceInternal();
+			return containFlinkShuffleService;
 		}
 	}
 }

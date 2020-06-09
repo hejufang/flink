@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
+import org.apache.flink.runtime.io.network.partition.BoundedBlockingSubpartitionType;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
@@ -82,6 +83,8 @@ public class SingleInputGateFactory {
 
 	private final int networkBufferSize;
 
+	private final BoundedBlockingSubpartitionType blockingSubpartitionType;
+
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
 			@Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
@@ -97,6 +100,7 @@ public class SingleInputGateFactory {
 		this.blockingShuffleCompressionEnabled = networkConfig.isBlockingShuffleCompressionEnabled();
 		this.compressionCodec = networkConfig.getCompressionCodec();
 		this.networkBufferSize = networkConfig.networkBufferSize();
+		this.blockingSubpartitionType = networkConfig.getBlockingSubpartitionType();
 		this.connectionManager = connectionManager;
 		this.partitionManager = partitionManager;
 		this.taskEventPublisher = taskEventPublisher;
@@ -207,7 +211,9 @@ public class SingleInputGateFactory {
 			ChannelStatistics channelStatistics,
 			InputChannelMetrics metrics) {
 		ResultPartitionID partitionId = inputChannelDescriptor.getResultPartitionID();
-		if (inputChannelDescriptor.isLocalTo(taskExecutorResourceId)) {
+		if (inputChannelDescriptor.isLocalTo(taskExecutorResourceId) &&
+				!(inputGate.getConsumedPartitionType().isBlocking() &&
+					blockingSubpartitionType == BoundedBlockingSubpartitionType.YARN)) {
 			// Consuming task is deployed to the same TaskManager as the partition => local
 			channelStatistics.numLocalChannels++;
 			return new LocalRecoveredInputChannel(
