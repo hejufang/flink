@@ -54,6 +54,7 @@ import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.P
 import org.apache.flink.runtime.executiongraph.restart.ExecutionGraphRestartCallback;
 import org.apache.flink.runtime.executiongraph.restart.RestartCallback;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -203,6 +204,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** The implementation that decides how to recover the failures of tasks. */
 	private final FailoverStrategy failoverStrategy;
 
+	/** The implementation that decides how to speculate the slow tasks. */
+	private final SpeculationStrategy speculationStrategy;
+
 	/** Timestamps (in milliseconds as returned by {@code System.currentTimeMillis()} when
 	 * the execution graph transitioned into a certain state. The index into this array is the
 	 * ordinal of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is
@@ -332,7 +336,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			PartitionReleaseStrategy.Factory partitionReleaseStrategyFactory,
 			ShuffleMaster<?> shuffleMaster,
 			JobMasterPartitionTracker partitionTracker,
-			ScheduleMode scheduleMode) throws IOException {
+			ScheduleMode scheduleMode,
+			SpeculationStrategy speculationStrategy) throws IOException {
 
 		this.jobInformation = Preconditions.checkNotNull(jobInformation);
 
@@ -374,6 +379,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		// the failover strategy must be instantiated last, so that the execution graph
 		// is ready by the time the failover strategy sees it
 		this.failoverStrategy = checkNotNull(failoverStrategyFactory.create(this), "null failover strategy");
+		this.speculationStrategy = speculationStrategy;
 
 		this.maxPriorAttemptsHistoryLength = maxPriorAttemptsHistoryLength;
 
@@ -394,6 +400,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public void start(@Nonnull ComponentMainThreadExecutor jobMasterMainThreadExecutor) {
 		this.jobMasterMainThreadExecutor = jobMasterMainThreadExecutor;
+		this.speculationStrategy.start(jobMasterMainThreadExecutor);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -525,6 +532,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public RestartStrategy getRestartStrategy() {
 		return restartStrategy;
+	}
+
+	public SpeculationStrategy getSpeculationStrategy() {
+		return speculationStrategy;
 	}
 
 	@Override
@@ -731,7 +742,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		Map<String, OptionalFailure<Accumulator<?, ?>>> userAccumulators = new HashMap<>();
 
 		for (ExecutionVertex vertex : getAllExecutionVertices()) {
-			Map<String, Accumulator<?, ?>> next = vertex.getCurrentExecutionAttempt().getUserAccumulators();
+			Map<String, Accumulator<?, ?>> next = vertex.getAccumulatorExecution().getUserAccumulators();
 			if (next != null) {
 				AccumulatorHelper.mergeInto(userAccumulators, next);
 			}
@@ -847,6 +858,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		failoverStrategy.notifyNewVertices(newExecJobVertices);
 
 		partitionReleaseStrategy = partitionReleaseStrategyFactory.createInstance(getSchedulingTopology());
+
+		speculationStrategy.setExecutionGraph(this);
+		speculationStrategy.notifyNewVertices(newExecJobVertices);
 	}
 
 	public boolean isLegacyScheduling() {
@@ -1112,6 +1126,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			} else if (current != JobStatus.RESTARTING) {
 				throw new IllegalStateException("Can only restart job from state restarting.");
 			}
+
+			// clear states
+			this.currentExecutions.clear();
+			this.speculationStrategy.reset();
 
 			this.currentExecutions.clear();
 
@@ -1489,6 +1507,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				// this deserialization is exception-free
 				accumulators = deserializeAccumulators(state);
 				attempt.markFinished(accumulators, state.getIOMetrics());
+				speculationStrategy.onTaskSuccess(attempt);
 				return true;
 
 			case CANCELED:
@@ -1580,6 +1599,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	 * @param partitionId specifying the result partition whose consumer shall be scheduled or updated
 	 * @throws ExecutionGraphException if the schedule or update consumers operation could not be executed
 	 */
+	@Deprecated
 	public void scheduleOrUpdateConsumers(ResultPartitionID partitionId) throws ExecutionGraphException {
 
 		assertRunningInJobMasterMainThread();
@@ -1594,7 +1614,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			throw new ExecutionGraphException("Execution with execution Id " +
 				partitionId.getPartitionId() + " has no vertex assigned.");
 		} else {
-			execution.getVertex().scheduleOrUpdateConsumers(partitionId);
+			execution.getVertex().scheduleOrUpdateConsumers(execution, partitionId);
 		}
 	}
 
@@ -1605,6 +1625,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	void registerExecution(Execution exec) {
 		assertRunningInJobMasterMainThread();
 		Execution previous = currentExecutions.putIfAbsent(exec.getAttemptId(), exec);
+
+		speculationStrategy.registerExecution(exec);
+
 		if (previous != null) {
 			failGlobal(new Exception("Trying to register execution " + exec + " for already used ID " + exec.getAttemptId()));
 		}
@@ -1613,6 +1636,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	void deregisterExecution(Execution exec) {
 		assertRunningInJobMasterMainThread();
 		Execution contained = currentExecutions.remove(exec.getAttemptId());
+
+		speculationStrategy.deregisterExecution(exec);
 
 		if (contained != null && contained != exec) {
 			failGlobal(new Exception("De-registering execution " + exec + " failed. Found for same ID execution " + contained));
@@ -1666,6 +1691,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		}
 	}
 
+	@Deprecated
 	void notifyExecutionChange(
 			final Execution execution,
 			final ExecutionState newExecutionState,

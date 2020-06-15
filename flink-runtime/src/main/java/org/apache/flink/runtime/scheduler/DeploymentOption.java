@@ -25,11 +25,22 @@ public class DeploymentOption {
 
 	private final boolean sendScheduleOrUpdateConsumerMessage;
 
+	private final boolean deployCopy;
+
 	public DeploymentOption(boolean sendScheduleOrUpdateConsumerMessage) {
+		this(sendScheduleOrUpdateConsumerMessage, false);
+	}
+
+	public DeploymentOption(boolean sendScheduleOrUpdateConsumerMessage, boolean deployCopy) {
 		this.sendScheduleOrUpdateConsumerMessage = sendScheduleOrUpdateConsumerMessage;
+		this.deployCopy = deployCopy;
 	}
 
 	public boolean sendScheduleOrUpdateConsumerMessage() {
 		return sendScheduleOrUpdateConsumerMessage;
+	}
+
+	public boolean isDeployCopy() {
+		return deployCopy;
 	}
 }

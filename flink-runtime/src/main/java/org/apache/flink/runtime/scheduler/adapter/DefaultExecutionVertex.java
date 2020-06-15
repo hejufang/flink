@@ -32,7 +32,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * Default implementation of {@link SchedulingExecutionVertex}.
  */
-class DefaultExecutionVertex implements SchedulingExecutionVertex {
+public class DefaultExecutionVertex implements SchedulingExecutionVertex {
 
 	private final ExecutionVertexID executionVertexId;
 

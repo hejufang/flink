@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.metrics.dump;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
 /**
  * Container for scope related information as required by the MetricQueryService.
  */
@@ -147,21 +149,33 @@ public abstract class QueryScopeInfo {
 		public final String jobID;
 		public final String vertexID;
 		public final int subtaskIndex;
+		public final int attemptNumber;
 
+		@VisibleForTesting
 		public TaskQueryScopeInfo(String jobID, String vertexid, int subtaskIndex) {
 			this(jobID, vertexid, subtaskIndex, "");
 		}
 
+		@VisibleForTesting
 		public TaskQueryScopeInfo(String jobID, String vertexid, int subtaskIndex, String scope) {
+			this(jobID, vertexid, subtaskIndex, scope, 0);
+		}
+
+		public TaskQueryScopeInfo(String jobID, String vertexid, int subtaskIndex, int attemptNumber) {
+			this(jobID, vertexid, subtaskIndex, "", attemptNumber);
+		}
+
+		public TaskQueryScopeInfo(String jobID, String vertexid, int subtaskIndex, String scope, int attemptNumber) {
 			super(scope);
 			this.jobID = jobID;
 			this.vertexID = vertexid;
 			this.subtaskIndex = subtaskIndex;
+			this.attemptNumber = attemptNumber;
 		}
 
 		@Override
 		public TaskQueryScopeInfo copy(String additionalScope) {
-			return new TaskQueryScopeInfo(this.jobID, this.vertexID, this.subtaskIndex, concatScopes(additionalScope));
+			return new TaskQueryScopeInfo(this.jobID, this.vertexID, this.subtaskIndex, concatScopes(additionalScope), this.attemptNumber);
 		}
 
 		@Override

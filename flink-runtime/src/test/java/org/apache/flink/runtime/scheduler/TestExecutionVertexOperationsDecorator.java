@@ -47,14 +47,14 @@ public class TestExecutionVertexOperationsDecorator implements ExecutionVertexOp
 	}
 
 	@Override
-	public void deploy(final ExecutionVertex executionVertex) throws JobException {
+	public void deploy(final ExecutionVertex executionVertex, DeploymentOption deploymentOption) throws JobException {
 		deployedVertices.add(executionVertex.getID());
 
 		if (failDeploy) {
 			throw new RuntimeException("Expected");
 		}
 
-		delegate.deploy(executionVertex);
+		delegate.deploy(executionVertex, deploymentOption);
 	}
 
 	@Override

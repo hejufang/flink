@@ -33,6 +33,7 @@ import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.RestartAllStrategy;
 import org.apache.flink.runtime.executiongraph.restart.NoRestartStrategy;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.NoOpSpeculationStrategy;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.NoOpJobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -173,7 +174,8 @@ public class TestingExecutionGraphBuilder {
 			LOG,
 			shuffleMaster,
 			partitionTracker,
-			failoverStrategyFactory);
+			failoverStrategyFactory,
+			new NoOpSpeculationStrategy());
 	}
 
 }

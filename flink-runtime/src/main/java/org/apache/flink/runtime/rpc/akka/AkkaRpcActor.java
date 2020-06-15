@@ -402,7 +402,8 @@ class AkkaRpcActor<T extends RpcEndpoint & RpcGateway> extends AbstractActor {
 				runAsync.getRunnable().run();
 			} catch (Throwable t) {
 				log.error("Caught exception while executing runnable in main thread.", t);
-				ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
+				ExceptionUtils.rethrow(t);
+//				ExceptionUtils.rethrowIfFatalErrorOrOOM(t);
 			}
 		}
 		else {

@@ -111,6 +111,28 @@ public class LazyFromSourcesSchedulingStrategy implements SchedulingStrategy {
 	}
 
 	@Override
+	public void onPartitionConsumable(IntermediateResultPartitionID resultPartitionId, boolean isCopy) {
+		final SchedulingResultPartition resultPartition = schedulingTopology
+				.getResultPartition(resultPartitionId);
+
+		if (!resultPartition.getResultType().isPipelined()) {
+			throw new UnsupportedOperationException("Speculation is not supposed to be enabled.");
+		}
+
+		final List<ExecutionVertexID> consumers = IterableUtils.toStream(resultPartition.getConsumers())
+				.map(SchedulingExecutionVertex::getId).collect(Collectors.toList());
+		if (consumers.size() != 1) {
+			throw new UnsupportedOperationException("Speculation is not supposed to " +
+					"be enabled because consumers size equlas to " + consumers.size());
+		}
+
+		final ExecutionVertexDeploymentOption deploymentOption = new ExecutionVertexDeploymentOption(
+				consumers.get(0),
+				new DeploymentOption(true, true));
+		schedulerOperations.allocateSlotsAndDeploy(Collections.singletonList(deploymentOption));
+	}
+
+	@Override
 	public void onPartitionConsumable(IntermediateResultPartitionID resultPartitionId) {
 		final SchedulingResultPartition resultPartition = schedulingTopology
 			.getResultPartition(resultPartitionId);

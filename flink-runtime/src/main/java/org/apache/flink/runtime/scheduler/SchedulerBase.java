@@ -59,6 +59,7 @@ import org.apache.flink.runtime.executiongraph.failover.flip1.ResultPartitionAva
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategyFactory;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategyResolving;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -176,25 +177,29 @@ public abstract class SchedulerBase implements SchedulerNG {
 		"SchedulerBase is not initialized with proper main thread executor. " +
 			"Call to SchedulerBase.setMainThreadExecutor(...) required.");
 
+	/** The implementation that decides how to speculate the slow tasks. */
+	private final SpeculationStrategy speculationStrategy;
+
 	public SchedulerBase(
-		final Logger log,
-		final JobGraph jobGraph,
-		final BackPressureStatsTracker backPressureStatsTracker,
-		final Executor ioExecutor,
-		final Configuration jobMasterConfiguration,
-		final SlotProvider slotProvider,
-		final ScheduledExecutorService futureExecutor,
-		final ClassLoader userCodeLoader,
-		final CheckpointRecoveryFactory checkpointRecoveryFactory,
-		final Time rpcTimeout,
-		final RestartStrategyFactory restartStrategyFactory,
-		final BlobWriter blobWriter,
-		final JobManagerJobMetricGroup jobManagerJobMetricGroup,
-		final Time slotRequestTimeout,
-		final ShuffleMaster<?> shuffleMaster,
-		final JobMasterPartitionTracker partitionTracker,
-		final ExecutionVertexVersioner executionVertexVersioner,
-		final boolean legacyScheduling) throws Exception {
+			final Logger log,
+			final JobGraph jobGraph,
+			final BackPressureStatsTracker backPressureStatsTracker,
+			final Executor ioExecutor,
+			final Configuration jobMasterConfiguration,
+			final SlotProvider slotProvider,
+			final ScheduledExecutorService futureExecutor,
+			final ClassLoader userCodeLoader,
+			final CheckpointRecoveryFactory checkpointRecoveryFactory,
+			final Time rpcTimeout,
+			final RestartStrategyFactory restartStrategyFactory,
+			final BlobWriter blobWriter,
+			final JobManagerJobMetricGroup jobManagerJobMetricGroup,
+			final Time slotRequestTimeout,
+			final ShuffleMaster<?> shuffleMaster,
+			final JobMasterPartitionTracker partitionTracker,
+			final ExecutionVertexVersioner executionVertexVersioner,
+			final boolean legacyScheduling,
+			final SpeculationStrategy.Factory speculationStrategyFactory) throws Exception {
 
 		this.log = checkNotNull(log);
 		this.jobGraph = checkNotNull(jobGraph);
@@ -225,6 +230,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.slotRequestTimeout = checkNotNull(slotRequestTimeout);
 		this.executionVertexVersioner = checkNotNull(executionVertexVersioner);
 		this.legacyScheduling = legacyScheduling;
+
+		this.speculationStrategy = checkNotNull(speculationStrategyFactory.create(this), "null speculation strategy");
 
 		this.executionGraph = createAndRestoreExecutionGraph(jobManagerJobMetricGroup, checkNotNull(shuffleMaster), checkNotNull(partitionTracker));
 		this.schedulingTopology = executionGraph.getSchedulingTopology();
@@ -283,7 +290,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 			log,
 			shuffleMaster,
 			partitionTracker,
-			failoverStrategy);
+			failoverStrategy,
+			speculationStrategy);
 	}
 
 	/**
@@ -355,10 +363,11 @@ public abstract class SchedulerBase implements SchedulerNG {
 		return tasks;
 	}
 
-	protected void transitionToScheduled(final List<ExecutionVertexID> verticesToDeploy) {
-		verticesToDeploy.forEach(executionVertexId -> getExecutionVertex(executionVertexId)
-			.getCurrentExecutionAttempt()
-			.transitionState(ExecutionState.SCHEDULED));
+	protected void transitionToScheduled(final List<ExecutionVertexDeploymentOption> executionVertexDeploymentOptions) {
+		executionVertexDeploymentOptions.forEach(deploymentOption -> {
+			ExecutionVertex vertex = getExecutionVertex(deploymentOption.getExecutionVertexId());
+			vertex.getExecution(deploymentOption.getDeploymentOption().isDeployCopy()).transitionState(ExecutionState.SCHEDULED);
+		});
 	}
 
 	protected void setGlobalFailureCause(@Nullable final Throwable cause) {
@@ -396,6 +405,11 @@ public abstract class SchedulerBase implements SchedulerNG {
 	protected Optional<ExecutionVertexID> getExecutionVertexId(final ExecutionAttemptID executionAttemptId) {
 		return Optional.ofNullable(executionGraph.getRegisteredExecutions().get(executionAttemptId))
 			.map(this::getExecutionVertexId);
+	}
+
+	protected Boolean isCopyExecution(final ExecutionAttemptID executionAttemptId) {
+		return Optional.ofNullable(executionGraph.getRegisteredExecutions().get(executionAttemptId))
+				.map(Execution::isCopy).orElse(false);
 	}
 
 	protected ExecutionVertexID getExecutionVertexIdOrThrow(final ExecutionAttemptID executionAttemptId) {
@@ -493,13 +507,14 @@ public abstract class SchedulerBase implements SchedulerNG {
 	@Override
 	public final boolean updateTaskExecutionState(final TaskExecutionState taskExecutionState) {
 		final Optional<ExecutionVertexID> executionVertexId = getExecutionVertexId(taskExecutionState.getID());
+		final boolean isCopyExecution = isCopyExecution(taskExecutionState.getID());
 
 		boolean updateSuccess = executionGraph.updateState(taskExecutionState);
 
 		if (updateSuccess) {
 			checkState(executionVertexId.isPresent());
 
-			if (isNotifiable(executionVertexId.get(), taskExecutionState)) {
+			if (isNotifiable(executionVertexId.get(), taskExecutionState, isCopyExecution)) {
 				updateTaskExecutionStateInternal(executionVertexId.get(), taskExecutionState);
 			}
 			return true;
@@ -511,6 +526,13 @@ public abstract class SchedulerBase implements SchedulerNG {
 	private boolean isNotifiable(
 			final ExecutionVertexID executionVertexId,
 			final TaskExecutionState taskExecutionState) {
+		return isNotifiable(executionVertexId, taskExecutionState, false);
+	}
+
+	private boolean isNotifiable(
+			final ExecutionVertexID executionVertexId,
+			final TaskExecutionState taskExecutionState,
+			final boolean isCopyExecution) {
 
 		final ExecutionVertex executionVertex = getExecutionVertex(executionVertexId);
 
@@ -522,8 +544,12 @@ public abstract class SchedulerBase implements SchedulerNG {
 			case FAILED:
 				// only notifies a state update if it's effective, namely it successfully
 				// turns the execution state to the expected value.
-				if (executionVertex.getExecutionState() == taskExecutionState.getExecutionState()) {
+				if (executionVertex.getExecution(isCopyExecution)
+						.getState() == taskExecutionState.getExecutionState()) {
 					return true;
+				} else {
+					log.warn("The state is not compatible in {}", executionVertex
+							.getExecution(isCopyExecution(taskExecutionState.getID())).getVertexWithAttempt());
 				}
 				break;
 			default:
@@ -621,7 +647,14 @@ public abstract class SchedulerBase implements SchedulerNG {
 			throw new RuntimeException(e);
 		}
 
-		scheduleOrUpdateConsumersInternal(partitionId.getPartitionId());
+		if (executionGraph.getRegisteredExecutions().get(partitionId.getProducerId()).isCopy()) {
+			scheduleCopyConsumersInternal(partitionId.getPartitionId());
+		} else {
+			scheduleOrUpdateConsumersInternal(partitionId.getPartitionId());
+		}
+	}
+
+	protected void scheduleCopyConsumersInternal(IntermediateResultPartitionID resultPartitionId) {
 	}
 
 	protected void scheduleOrUpdateConsumersInternal(IntermediateResultPartitionID resultPartitionId) {

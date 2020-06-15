@@ -27,8 +27,8 @@ import java.util.concurrent.CompletableFuture;
 class DefaultExecutionVertexOperations implements ExecutionVertexOperations {
 
 	@Override
-	public void deploy(final ExecutionVertex executionVertex) throws JobException {
-		executionVertex.deploy();
+	public void deploy(final ExecutionVertex executionVertex, final DeploymentOption deploymentOption) throws JobException {
+		executionVertex.getExecution(deploymentOption.isDeployCopy()).deploy();
 	}
 
 	@Override

@@ -34,6 +34,7 @@ import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailureHandlingResult;
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.restart.ThrowingRestartStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -114,7 +115,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		final RestartBackoffTimeStrategy restartBackoffTimeStrategy,
 		final ExecutionVertexOperations executionVertexOperations,
 		final ExecutionVertexVersioner executionVertexVersioner,
-		final ExecutionSlotAllocatorFactory executionSlotAllocatorFactory) throws Exception {
+		final ExecutionSlotAllocatorFactory executionSlotAllocatorFactory,
+		final SpeculationStrategy.Factory speculationStrategyFactory) throws Exception {
 
 		super(
 			log,
@@ -134,7 +136,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			shuffleMaster,
 			partitionTracker,
 			executionVertexVersioner,
-			false);
+			false,
+			speculationStrategyFactory);
 
 		this.log = log;
 
@@ -288,13 +291,18 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		schedulingStrategy.onPartitionConsumable(partitionId);
 	}
 
+	@Override
+	protected void scheduleCopyConsumersInternal(final IntermediateResultPartitionID partitionId) {
+		schedulingStrategy.onPartitionConsumable(partitionId, true);
+	}
+
 	// ------------------------------------------------------------------------
 	// SchedulerOperations
 	// ------------------------------------------------------------------------
 
 	@Override
 	public void allocateSlotsAndDeploy(final List<ExecutionVertexDeploymentOption> executionVertexDeploymentOptions) {
-		validateDeploymentOptions(executionVertexDeploymentOptions);
+//		validateDeploymentOptions(executionVertexDeploymentOptions);
 
 		final Map<ExecutionVertexID, ExecutionVertexDeploymentOption> deploymentOptionsByVertex =
 			groupDeploymentOptionsByVertexId(executionVertexDeploymentOptions);
@@ -306,7 +314,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		final Map<ExecutionVertexID, ExecutionVertexVersion> requiredVersionByVertex =
 			executionVertexVersioner.recordVertexModifications(verticesToDeploy);
 
-		transitionToScheduled(verticesToDeploy);
+		transitionToScheduled(executionVertexDeploymentOptions);
 
 		final List<SlotExecutionVertexAssignment> slotExecutionVertexAssignments =
 			allocateSlots(executionVertexDeploymentOptions);
@@ -338,9 +346,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	private List<SlotExecutionVertexAssignment> allocateSlots(final List<ExecutionVertexDeploymentOption> executionVertexDeploymentOptions) {
 		return executionSlotAllocator.allocateSlotsFor(executionVertexDeploymentOptions
 			.stream()
-			.map(ExecutionVertexDeploymentOption::getExecutionVertexId)
-			.map(this::getExecutionVertex)
-			.map(ExecutionVertexSchedulingRequirementsMapper::from)
+			.map(option -> ExecutionVertexSchedulingRequirementsMapper.from(getExecutionVertex(option.getExecutionVertexId()), option.getDeploymentOption()))
 			.collect(Collectors.toList()));
 	}
 
@@ -415,9 +421,10 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 				final ExecutionVertex executionVertex = getExecutionVertex(executionVertexId);
 				final boolean sendScheduleOrUpdateConsumerMessage = deploymentHandle.getDeploymentOption().sendScheduleOrUpdateConsumerMessage();
 				executionVertex
-					.getCurrentExecutionAttempt()
+					.getExecution(deploymentHandle.getDeploymentOption().isDeployCopy())
 					.registerProducedPartitions(logicalSlot.getTaskManagerLocation(), sendScheduleOrUpdateConsumerMessage);
-				executionVertex.tryAssignResource(logicalSlot);
+				executionVertex.getExecution(deploymentHandle.getDeploymentOption().isDeployCopy())
+						.tryAssignResource(logicalSlot);
 			} else {
 				handleTaskDeploymentFailure(executionVertexId, maybeWrapWithNoResourceAvailableException(throwable));
 			}
@@ -457,7 +464,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			}
 
 			if (throwable == null) {
-				deployTaskSafe(executionVertexId);
+				deployTaskSafe(executionVertexId, deploymentHandle.getDeploymentOption());
 			} else {
 				handleTaskDeploymentFailure(executionVertexId, throwable);
 			}
@@ -465,10 +472,10 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		};
 	}
 
-	private void deployTaskSafe(final ExecutionVertexID executionVertexId) {
+	private void deployTaskSafe(final ExecutionVertexID executionVertexId, final DeploymentOption deploymentOption) {
 		try {
 			final ExecutionVertex executionVertex = getExecutionVertex(executionVertexId);
-			executionVertexOperations.deploy(executionVertex);
+			executionVertexOperations.deploy(executionVertex, deploymentOption);
 		} catch (Throwable e) {
 			handleTaskDeploymentFailure(executionVertexId, e);
 		}

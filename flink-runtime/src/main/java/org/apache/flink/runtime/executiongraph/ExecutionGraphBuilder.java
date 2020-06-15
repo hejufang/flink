@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.CheckpointingOptions;
@@ -44,7 +45,9 @@ import org.apache.flink.runtime.executiongraph.metrics.DownTimeGauge;
 import org.apache.flink.runtime.executiongraph.metrics.RestartTimeGauge;
 import org.apache.flink.runtime.executiongraph.metrics.UpTimeGauge;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.NoOpSpeculationStrategy;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -81,6 +84,7 @@ public class ExecutionGraphBuilder {
 	 * If a prior execution graph exists, the JobGraph will be attached. If no prior execution
 	 * graph exists, then the JobGraph will become attach to a new empty execution graph.
 	 */
+	@VisibleForTesting
 	public static ExecutionGraph buildGraph(
 			@Nullable ExecutionGraph prior,
 			JobGraph jobGraph,
@@ -119,7 +123,8 @@ public class ExecutionGraphBuilder {
 			log,
 			shuffleMaster,
 			partitionTracker,
-			failoverStrategy);
+			failoverStrategy,
+			new NoOpSpeculationStrategy());
 	}
 
 	public static ExecutionGraph buildGraph(
@@ -139,7 +144,8 @@ public class ExecutionGraphBuilder {
 		Logger log,
 		ShuffleMaster<?> shuffleMaster,
 		JobMasterPartitionTracker partitionTracker,
-		FailoverStrategy.Factory failoverStrategyFactory) throws JobExecutionException, JobException {
+		FailoverStrategy.Factory failoverStrategyFactory,
+		SpeculationStrategy speculationStrategy) throws JobExecutionException, JobException {
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
@@ -179,7 +185,8 @@ public class ExecutionGraphBuilder {
 					partitionReleaseStrategyFactory,
 					shuffleMaster,
 					partitionTracker,
-					jobGraph.getScheduleMode());
+					jobGraph.getScheduleMode(),
+					speculationStrategy);
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}
@@ -354,6 +361,7 @@ public class ExecutionGraphBuilder {
 		metrics.gauge(UpTimeGauge.METRIC_NAME, new UpTimeGauge(executionGraph));
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
+		executionGraph.getSpeculationStrategy().registerMetrics(metrics);
 
 		return executionGraph;
 	}

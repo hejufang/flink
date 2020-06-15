@@ -24,6 +24,8 @@ import org.apache.flink.runtime.util.EvictingBoundedList;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializable {
 
@@ -38,6 +40,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 
 	private final ArchivedExecution currentExecution;    // this field must never be null
 
+	private final List<ArchivedExecution> copyExecutions;
+
 	// ------------------------------------------------------------------------
 
 	public ArchivedExecutionVertex(ExecutionVertex vertex) {
@@ -45,15 +49,29 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		this.priorExecutions = vertex.getCopyOfPriorExecutionsList();
 		this.taskNameWithSubtask = vertex.getTaskNameWithSubtaskIndex();
 		this.currentExecution = vertex.getCurrentExecutionAttempt().archive();
+
+		this.copyExecutions = new ArrayList<>();
+		for (Execution exec : vertex.getCopyExecutions()) {
+			copyExecutions.add(exec.archive());
+		}
 	}
 
 	public ArchivedExecutionVertex(
 			int subTaskIndex, String taskNameWithSubtask,
 			ArchivedExecution currentExecution, EvictingBoundedList<ArchivedExecution> priorExecutions) {
+		this(subTaskIndex, taskNameWithSubtask, currentExecution, priorExecutions, null);
+	}
+
+	public ArchivedExecutionVertex(
+			int subTaskIndex, String taskNameWithSubtask,
+			ArchivedExecution currentExecution,
+			EvictingBoundedList<ArchivedExecution> priorExecutions,
+			List<ArchivedExecution> copyExecutions) {
 		this.subTaskIndex = subTaskIndex;
 		this.taskNameWithSubtask = taskNameWithSubtask;
 		this.currentExecution = currentExecution;
 		this.priorExecutions = priorExecutions;
+		this.copyExecutions = copyExecutions;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -93,6 +111,11 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 	@Override
 	public TaskManagerLocation getCurrentAssignedResourceLocation() {
 		return currentExecution.getAssignedResourceLocation();
+	}
+
+	@Override
+	public List<ArchivedExecution> getCopyExecutions() {
+		return copyExecutions;
 	}
 
 	@Nullable

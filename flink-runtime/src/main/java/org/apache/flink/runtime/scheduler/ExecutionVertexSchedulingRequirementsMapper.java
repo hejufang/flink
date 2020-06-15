@@ -35,7 +35,7 @@ import java.util.Collections;
  */
 public final class ExecutionVertexSchedulingRequirementsMapper {
 
-	public static ExecutionVertexSchedulingRequirements from(final ExecutionVertex executionVertex) {
+	public static ExecutionVertexSchedulingRequirements from(final ExecutionVertex executionVertex, final DeploymentOption deploymentOption) {
 
 		final ExecutionVertexID executionVertexId = executionVertex.getID();
 
@@ -49,7 +49,8 @@ public final class ExecutionVertexSchedulingRequirementsMapper {
 			.withPhysicalSlotResourceProfile(getPhysicalSlotResourceProfile(executionVertex))
 			.withSlotSharingGroupId(slotSharingGroup == null ? null : slotSharingGroup.getSlotSharingGroupId())
 			.withCoLocationConstraint(executionVertex.getLocationConstraint())
-			.withPreferredLocations(getPreferredLocationBasedOnState(executionVertex)).build();
+			.withPreferredLocations(deploymentOption.isDeployCopy() ? Collections.emptyList() : getPreferredLocationBasedOnState(executionVertex))
+			.build();
 	}
 
 	/**

@@ -77,4 +77,8 @@ public enum ExecutionState {
 	public boolean isTerminal() {
 		return this == FINISHED || this == CANCELED || this == FAILED;
 	}
+
+	public boolean isFinished() {
+		return this == FINISHED;
+	}
 }

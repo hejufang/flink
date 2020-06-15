@@ -43,6 +43,7 @@ import org.apache.flink.runtime.executiongraph.failover.flip1.NoRestartBackoffTi
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartPipelinedRegionFailoverStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.TestRestartBackoffTimeStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.NoOpSpeculationStrategy;
 import org.apache.flink.runtime.executiongraph.utils.SimpleAckingTaskManagerGateway;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.io.network.partition.NoOpJobMasterPartitionTracker;
@@ -511,7 +512,8 @@ public class SchedulerTestingUtils {
 				restartBackoffTimeStrategy,
 				executionVertexOperations,
 				executionVertexVersioner,
-				executionSlotAllocatorFactory);
+				executionSlotAllocatorFactory,
+				new NoOpSpeculationStrategy.Factory());
 		}
 	}
 }

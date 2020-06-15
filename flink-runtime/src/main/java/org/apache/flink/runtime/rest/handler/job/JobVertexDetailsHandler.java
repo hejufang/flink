@@ -111,6 +111,11 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 			final AccessExecution execution = vertex.getCurrentExecutionAttempt();
 			final JobVertexID jobVertexID = jobVertex.getJobVertexId();
 			subtasks.add(SubtaskExecutionAttemptDetailsInfo.create(execution, metricFetcher, jobID, jobVertexID));
+
+			// add copy executions
+			for (AccessExecution exec : vertex.getCopyExecutions()) {
+				subtasks.add(SubtaskExecutionAttemptDetailsInfo.create(exec, metricFetcher, jobID, jobVertex.getJobVertexId()));
+			}
 		}
 
 		return new JobVertexDetailsInfo(

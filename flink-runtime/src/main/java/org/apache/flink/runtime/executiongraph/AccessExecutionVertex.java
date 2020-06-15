@@ -22,6 +22,8 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import javax.annotation.Nullable;
 
+import java.util.List;
+
 /**
  * Common interface for the runtime {@link ExecutionVertex} and {@link ArchivedExecutionVertex}.
  */
@@ -76,6 +78,8 @@ public interface AccessExecutionVertex {
 	 * @return taskmanager location for this execution vertex.
 	 */
 	TaskManagerLocation getCurrentAssignedResourceLocation();
+
+	List<? extends AccessExecution> getCopyExecutions();
 
 	/**
 	 * Returns the execution for the given attempt number.

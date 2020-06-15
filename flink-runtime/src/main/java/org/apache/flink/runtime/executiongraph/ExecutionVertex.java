@@ -29,6 +29,7 @@ import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
@@ -60,8 +61,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
-import static org.apache.flink.runtime.execution.ExecutionState.FINISHED;
 
 /**
  * The ExecutionVertex is a parallel subtask of the execution. It may be executed once, or several times, each of
@@ -97,7 +96,11 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	/** The current or latest execution attempt of this vertex's task. */
 	private Execution currentExecution;	// this field must never be null
 
-	private final ArrayList<InputSplit> inputSplits;
+	private List<Execution> copyExecutions;
+
+	private final ArrayList<InputSplit> totalInputSplits;
+
+	private int attempt;
 
 	// --------------------------------------------------------------------------------------------
 
@@ -161,13 +164,15 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 
 		this.priorExecutions = new EvictingBoundedList<>(maxPriorExecutionHistoryLength);
 
+		this.attempt = 0;
 		this.currentExecution = new Execution(
 			getExecutionGraph().getFutureExecutor(),
 			this,
-			0,
+			attempt,
 			initialGlobalModVersion,
 			createTimestamp,
 			timeout);
+		this.copyExecutions = new ArrayList<>();
 
 		// create a co-location scheduling hint, if necessary
 		CoLocationGroup clg = jobVertex.getCoLocationGroup();
@@ -181,7 +186,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		getExecutionGraph().registerExecution(currentExecution);
 
 		this.timeout = timeout;
-		this.inputSplits = new ArrayList<>();
+		this.totalInputSplits = new ArrayList<>();
 	}
 
 
@@ -260,10 +265,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 
 	public InputSplit getNextInputSplit(String host) {
 		final int taskId = getParallelSubtaskIndex();
-		synchronized (inputSplits) {
+		synchronized (totalInputSplits) {
 			final InputSplit nextInputSplit = jobVertex.getSplitAssigner().getNextInputSplit(host, taskId);
 			if (nextInputSplit != null) {
-				inputSplits.add(nextInputSplit);
+				totalInputSplits.add(nextInputSplit);
 			}
 			return nextInputSplit;
 		}
@@ -306,6 +311,34 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		return currentExecution.getAssignedResourceLocation();
 	}
 
+	@Override
+	public List<Execution> getCopyExecutions() {
+		return copyExecutions;
+	}
+
+	public Execution getCopyExecution() {
+		if (copyExecutions.size() == 0) {
+			createCopyExecution();
+		}
+		return copyExecutions.get(0);
+	}
+
+	/**
+	 * Called when initializing InputGateDeploymentDescriptor of downstream exeuutions.
+	 */
+	public Execution getConsumableExecution(boolean isPipelined, boolean isCopy) {
+		if (!isPipelined) {
+			for (Execution exec : copyExecutions) {
+				if (exec.getState().isFinished()) {
+					return exec;
+				}
+			}
+			return currentExecution;
+		} else {
+			return isCopy ? getCopyExecution() : currentExecution;
+		}
+	}
+
 	@Nullable
 	@Override
 	public ArchivedExecution getPriorExecutionAttempt(int attemptNumber) {
@@ -328,6 +361,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 				return null;
 			}
 		}
+	}
+
+	public ArrayList<InputSplit> getTotalInputSplits() {
+		return totalInputSplits;
 	}
 
 	/**
@@ -619,61 +656,83 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	}
 
 	private Execution resetForNewExecutionInternal(final long timestamp, final long originatingGlobalModVersion) {
-		final Execution oldExecution = currentExecution;
-		final ExecutionState oldState = oldExecution.getState();
+		final List<Execution> unTerminalExecutions = new ArrayList<>();
+		final List<Execution> terminalExecutions = new ArrayList<>();
 
-		if (oldState.isTerminal()) {
-			if (oldState == FINISHED) {
-				// pipelined partitions are released in Execution#cancel(), covering both job failures and vertex resets
-				// do not release pipelined partitions here to save RPC calls
-				oldExecution.handlePartitionCleanup(false, true);
+		(currentExecution.getState().isTerminal()? terminalExecutions : unTerminalExecutions).add(currentExecution);
+		for (Execution exec : copyExecutions) {
+			(exec.getState().isTerminal()? terminalExecutions : unTerminalExecutions).add(exec);
+		}
+
+		if (terminalExecutions.size() == 0) {
+			throw new IllegalStateException("Cannot reset a vertex that is in non-terminal state.");
+		}
+
+		// cancel unterminal execution
+		for (Execution execution : unTerminalExecutions) {
+			execution.cancel();
+			execution.getReleaseFuture().whenComplete((ignore, throwable) -> {
+				if (throwable != null) {
+					LOG.error("Fail to cancel unterminal execution", throwable);
+				} else {
+					LOG.info("Successfully cancel unterminal execution.");
+				}
+				priorExecutions.add(execution.archive());
+			});
+		}
+
+		// deal with terminal execution
+		for (Execution execution : terminalExecutions) {
+			if (execution.getState().isFinished()) {
+				execution.handlePartitionCleanup(false, true);
 				getExecutionGraph().getPartitionReleaseStrategy().vertexUnfinished(executionVertexId);
 			}
+			priorExecutions.add(execution.archive());
+		}
 
-			priorExecutions.add(oldExecution.archive());
-
-			final Execution newExecution = new Execution(
+		this.attempt += 1;
+		final Execution newExecution = new Execution(
 				getExecutionGraph().getFutureExecutor(),
 				this,
-				oldExecution.getAttemptNumber() + 1,
+				this.attempt,
 				originatingGlobalModVersion,
 				timestamp,
 				timeout);
 
-			currentExecution = newExecution;
+		currentExecution = newExecution;
+		copyExecutions = new ArrayList<>();
 
-			synchronized (inputSplits) {
-				InputSplitAssigner assigner = jobVertex.getSplitAssigner();
-				if (assigner != null) {
-					assigner.returnInputSplit(inputSplits, getParallelSubtaskIndex());
-					inputSplits.clear();
-				}
+		// reset vertex in SpeculationStrategy
+		getExecutionGraph().getSpeculationStrategy().resetVertex(executionVertexId);
+
+		synchronized (totalInputSplits) {
+			InputSplitAssigner assigner = jobVertex.getSplitAssigner();
+			if (assigner != null) {
+				assigner.returnInputSplit(totalInputSplits, getParallelSubtaskIndex());
+				totalInputSplits.clear();
 			}
-
-			CoLocationGroup grp = jobVertex.getCoLocationGroup();
-			if (grp != null) {
-				locationConstraint = grp.getLocationConstraint(subTaskIndex);
-			}
-
-			// register this execution at the execution graph, to receive call backs
-			getExecutionGraph().registerExecution(newExecution);
-
-			// if the execution was 'FINISHED' before, tell the ExecutionGraph that
-			// we take one step back on the road to reaching global FINISHED
-			if (oldState == FINISHED) {
-				getExecutionGraph().vertexUnFinished();
-			}
-
-			// reset the intermediate results
-			for (IntermediateResultPartition resultPartition : resultPartitions.values()) {
-				resultPartition.resetForNewExecution();
-			}
-
-			return newExecution;
 		}
-		else {
-			throw new IllegalStateException("Cannot reset a vertex that is in non-terminal state " + oldState);
+
+		CoLocationGroup grp = jobVertex.getCoLocationGroup();
+		if (grp != null) {
+			locationConstraint = grp.getLocationConstraint(subTaskIndex);
 		}
+
+		// register this execution at the execution graph, to receive call backs
+		getExecutionGraph().registerExecution(newExecution);
+
+		// if the execution was 'FINISHED' before, tell the ExecutionGraph that
+		// we take one step back on the road to reaching global FINISHED
+		if (terminalExecutions.stream().anyMatch(x -> x.getState().isFinished())) {
+			getExecutionGraph().vertexUnFinished();
+		}
+
+		// reset the intermediate results
+		for (IntermediateResultPartition resultPartition : resultPartitions.values()) {
+			resultPartition.resetForNewExecution();
+		}
+
+		return currentExecution;
 	}
 
 	/**
@@ -683,17 +742,31 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 * @param locationPreferenceConstraint constraint for the location preferences
 	 * @param allPreviousExecutionGraphAllocationIds set with all previous allocation ids in the job graph.
 	 *                                                 Can be empty if the allocation ids are not required for scheduling.
+	 * @param isCopy whether schedule a copy execution.
 	 * @return Future which is completed once the execution is deployed. The future
 	 * can also completed exceptionally.
 	 */
 	public CompletableFuture<Void> scheduleForExecution(
 			SlotProviderStrategy slotProviderStrategy,
 			LocationPreferenceConstraint locationPreferenceConstraint,
-			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
-		return this.currentExecution.scheduleForExecution(
+			@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds,
+			boolean isCopy) {
+		if (isCopy) {
+			throw new UnsupportedOperationException("This should not be called again!!!!!!");
+		} else {
+			return currentExecution.scheduleForExecution(slotProviderStrategy, locationPreferenceConstraint, allPreviousExecutionGraphAllocationIds);
+		}
+	}
+
+	public CompletableFuture<Void> scheduleForExecution(
+		SlotProviderStrategy slotProviderStrategy,
+		LocationPreferenceConstraint locationPreferenceConstraint,
+		@Nonnull Set<AllocationID> allPreviousExecutionGraphAllocationIds) {
+		return scheduleForExecution(
 			slotProviderStrategy,
 			locationPreferenceConstraint,
-			allPreviousExecutionGraphAllocationIds);
+			allPreviousExecutionGraphAllocationIds,
+			false);
 	}
 
 	public void tryAssignResource(LogicalSlot slot) {
@@ -707,6 +780,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		currentExecution.deploy();
 	}
 
+	public Execution getExecution(boolean copy) {
+		return copy ? getCopyExecution() : currentExecution;
+	}
+
 	@VisibleForTesting
 	public void deployToSlot(LogicalSlot slot) throws JobException {
 		if (currentExecution.tryAssignResource(slot)) {
@@ -714,6 +791,38 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		} else {
 			throw new IllegalStateException("Could not assign resource " + slot + " to current execution " +
 				currentExecution + '.');
+		}
+	}
+
+	public Execution getAccumulatorExecution() {
+		if (copyExecutions.size() > 0) {
+			if (getCopyExecution().getState().isFinished()) {
+				return getCopyExecution();
+			} else {
+				return currentExecution;
+			}
+		} else {
+			return currentExecution;
+		}
+	}
+
+	private void cancelMainExecution() {
+		currentExecution.cancel();
+		currentExecution.getReleaseFuture().whenComplete((ignore, throwable) -> {
+			LOG.info("Successfully cancel main execution in {}.", currentExecution.getVertexWithAttempt());
+		});
+	}
+
+	private void cancelCopyExecutions() {
+		if (copyExecutions.size() > 0) {
+			List<CompletableFuture<?>> cancelFutures = new ArrayList<>();
+			for (Execution exec : copyExecutions) {
+				exec.cancel();
+				cancelFutures.add(exec.getReleaseFuture());
+			}
+			FutureUtils.combineAll(cancelFutures).whenComplete((ignore, throwable) -> {
+				LOG.info("Successfully cancel copy executions in {}.", getTaskNameWithSubtaskIndex());
+			});
 		}
 	}
 
@@ -725,17 +834,32 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	public CompletableFuture<?> cancel() {
 		// to avoid any case of mixup in the presence of concurrent calls,
 		// we copy a reference to the stack to make sure both calls go to the same Execution
-		final Execution exec = currentExecution;
-		exec.cancel();
-		return exec.getReleaseFuture();
+		List<CompletableFuture<?>> cancelFutures = new ArrayList<>();
+		currentExecution.cancel();
+		cancelFutures.add(currentExecution.getReleaseFuture());
+
+		for (Execution exec : copyExecutions) {
+			exec.cancel();
+			cancelFutures.add(exec.getReleaseFuture());
+		}
+		return FutureUtils.combineAll(cancelFutures);
 	}
 
 	public CompletableFuture<?> suspend() {
-		return currentExecution.suspend();
+		List<CompletableFuture<?>> suspendFutures = new ArrayList<>();
+		suspendFutures.add(currentExecution.suspend());
+
+		for (Execution exec : copyExecutions) {
+			suspendFutures.add(exec.suspend());
+		}
+		return FutureUtils.combineAll(suspendFutures);
 	}
 
 	public void fail(Throwable t) {
 		currentExecution.fail(t);
+		for (Execution exec : copyExecutions) {
+			exec.fail(t);
+		}
 	}
 
 	/**
@@ -746,14 +870,15 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 */
 	public void markFailed(Throwable t) {
 		currentExecution.markFailed(t);
+		for (Execution exec : copyExecutions) {
+			exec.markFailed(t);
+		}
 	}
 
 	/**
 	 * Schedules or updates the consumer tasks of the result partition with the given ID.
 	 */
-	void scheduleOrUpdateConsumers(ResultPartitionID partitionId) {
-
-		final Execution execution = currentExecution;
+	void scheduleOrUpdateConsumers(Execution execution, ResultPartitionID partitionId) {
 
 		// Abort this request if there was a concurrent reset
 		if (!partitionId.getProducerId().equals(execution.getAttemptId())) {
@@ -867,6 +992,11 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	// --------------------------------------------------------------------------------------------
 
 	void executionFinished(Execution execution) {
+		if (execution.isCopy()) {
+			cancelMainExecution();
+		} else {
+			cancelCopyExecutions();
+		}
 		getExecutionGraph().vertexFinished();
 	}
 
@@ -877,10 +1007,11 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	/**
 	 * Simply forward this notification.
 	 */
+	@Deprecated
 	void notifyStateTransition(Execution execution, ExecutionState newState, Throwable error) {
 		// only forward this notification if the execution is still the current execution
 		// otherwise we have an outdated execution
-		if (currentExecution == execution) {
+		if (currentExecution == execution || getCopyExecution() == execution) {
 			getExecutionGraph().notifyExecutionChange(execution, newState, error);
 		}
 	}
@@ -901,5 +1032,22 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 
 	public boolean isLegacyScheduling() {
 		return getExecutionGraph().isLegacyScheduling();
+	}
+
+	public void createCopyExecution() {
+		final long timestamp = System.currentTimeMillis();
+		this.attempt += 1;
+		final Execution copyExecution = new Execution(
+				getExecutionGraph().getFutureExecutor(),
+				this,
+				this.attempt,
+				getExecutionGraph().getGlobalModVersion(),
+				timestamp,
+				timeout, true);
+
+		this.copyExecutions.add(copyExecution);
+		getExecutionGraph().registerExecution(copyExecution);
+
+		LOG.info("Create copy execution {} attempt = {}", taskNameWithSubtask, attempt);
 	}
 }

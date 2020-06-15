@@ -28,6 +28,8 @@ import org.apache.flink.runtime.executiongraph.SlotProviderStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.FailoverStrategyFactoryLoader;
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.RestartBackoffTimeStrategyFactoryLoader;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
+import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategyLoader;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
@@ -84,6 +86,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			slotProvider,
 			slotRequestTimeout);
 
+		final SpeculationStrategy.Factory speculationStrategyFactory = SpeculationStrategyLoader.loadSpeculationStrategy(jobMasterConfiguration);
+
 		return new DefaultScheduler(
 			log,
 			jobGraph,
@@ -104,7 +108,8 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			restartBackoffTimeStrategy,
 			new DefaultExecutionVertexOperations(),
 			new ExecutionVertexVersioner(),
-			new DefaultExecutionSlotAllocatorFactory(slotProviderStrategy));
+			new DefaultExecutionSlotAllocatorFactory(slotProviderStrategy),
+			speculationStrategyFactory);
 	}
 
 	static SchedulingStrategyFactory createSchedulingStrategyFactory(final ScheduleMode scheduleMode) {
