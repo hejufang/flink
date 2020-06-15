@@ -94,7 +94,11 @@ public class RemoteChannelStateChecker {
 					resultPartitionId.getProducerId(),
 					producerState);
 
-			responseHandle.cancelConsumption();
+			final String msg = String.format("Producer with attempt ID %s of partition %s is in state %s.",
+					resultPartitionId.getProducerId(),
+					resultPartitionId.getPartitionId(),
+					producerState);
+			responseHandle.failConsumption(new Exception(msg));
 		} else {
 			// Any other execution state is unexpected. Currently, only
 			// state CREATED is left out of the checked states. If we
