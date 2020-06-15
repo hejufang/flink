@@ -30,7 +30,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
-import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.RestOptions;
@@ -261,38 +260,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		}
 		if (this.flinkConfiguration == null) {
 			throw new YarnDeploymentException("Flink configuration object has not been set");
-		}
-
-		// Check if we don't exceed YARN's maximum virtual cores.
-		// Fetch numYarnMaxVcores from all the RUNNING nodes via yarnClient
-		final int numYarnMaxVcores;
-		try {
-			numYarnMaxVcores = yarnClient.getNodeReports(NodeState.RUNNING)
-				.stream()
-				.mapToInt(report -> report.getCapability().getVirtualCores())
-				.max()
-				.orElse(0);
-		} catch (Exception e) {
-			throw new YarnDeploymentException("Couldn't get cluster description, please check on the YarnConfiguration", e);
-		}
-
-		int configuredAmVcores = flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES);
-		if (configuredAmVcores > numYarnMaxVcores) {
-			throw new IllegalConfigurationException(
-				String.format("The number of requested virtual cores for application master %d" +
-						" exceeds the maximum number of virtual cores %d available in the Yarn Cluster.",
-					configuredAmVcores, numYarnMaxVcores));
-		}
-
-		double configuredVcores = flinkConfiguration.getDouble(YarnConfigOptions.VCORES, clusterSpecification.getSlotsPerTaskManager());
-		// don't configure more than the maximum configured number of vcores
-		if (configuredVcores > numYarnMaxVcores) {
-			throw new IllegalConfigurationException(
-				String.format("The number of requested virtual cores per node %f" +
-						" exceeds the maximum number of virtual cores %d available in the Yarn Cluster." +
-						" Please note that the number of virtual cores is set to the number of task slots by default" +
-						" unless configured in the Flink config with '%s.'",
-					configuredVcores, numYarnMaxVcores, YarnConfigOptions.VCORES.key()));
 		}
 
 		// check if required Hadoop environment variables are set. If not, warn user
@@ -531,14 +498,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		Resource maxRes = appResponse.getMaximumResourceCapability();
 
-		final ClusterResourceDescription freeClusterMem;
-		try {
-			freeClusterMem = getCurrentFreeClusterResources(yarnClient);
-		} catch (YarnException | IOException e) {
-			failSessionDuringDeployment(yarnClient, yarnApplication);
-			throw new YarnDeploymentException("Could not retrieve information about free cluster resources.", e);
-		}
-
 		final int yarnMinAllocationMB = yarnConfiguration.getInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 0);
 
 		final ClusterSpecification validClusterSpecification;
@@ -546,8 +505,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			validClusterSpecification = validateClusterResources(
 				clusterSpecification,
 				yarnMinAllocationMB,
-				maxRes,
-				freeClusterMem);
+				maxRes);
 		} catch (YarnDeploymentException yde) {
 			failSessionDuringDeployment(yarnClient, yarnApplication);
 			throw yde;
@@ -593,8 +551,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	protected ClusterSpecification validateClusterResources(
 		ClusterSpecification clusterSpecification,
 		int yarnMinAllocationMB,
-		Resource maximumResourceCapability,
-		ClusterResourceDescription freeClusterResources) throws YarnDeploymentException {
+		Resource maximumResourceCapability) throws YarnDeploymentException {
 
 		int taskManagerCount = clusterSpecification.getNumberTaskManagers();
 		int jobManagerMemoryMb = clusterSpecification.getMasterMemoryMB();
@@ -624,46 +581,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		if (taskManagerMemoryMb > maximumResourceCapability.getMemory()) {
 			throw new YarnDeploymentException("The cluster does not have the requested resources for the TaskManagers available!\n"
 				+ "Maximum Memory: " + maximumResourceCapability.getMemory() + " Requested: " + taskManagerMemoryMb + "MB. " + note);
-		}
-
-		final String noteRsc = "\nThe Flink YARN client will try to allocate the YARN session, but maybe not all TaskManagers are " +
-			"connecting from the beginning because the resources are currently not available in the cluster. " +
-			"The allocation might take more time than usual because the Flink YARN client needs to wait until " +
-			"the resources become available.";
-		int totalMemoryRequired = jobManagerMemoryMb + taskManagerMemoryMb * taskManagerCount;
-
-		if (freeClusterResources.totalFreeMemory < totalMemoryRequired) {
-			LOG.warn("This YARN session requires " + totalMemoryRequired + "MB of memory in the cluster. "
-				+ "There are currently only " + freeClusterResources.totalFreeMemory + "MB available." + noteRsc);
-
-		}
-		if (taskManagerMemoryMb > freeClusterResources.containerLimit) {
-			LOG.warn("The requested amount of memory for the TaskManagers (" + taskManagerMemoryMb + "MB) is more than "
-				+ "the largest possible YARN container: " + freeClusterResources.containerLimit + noteRsc);
-		}
-		if (jobManagerMemoryMb > freeClusterResources.containerLimit) {
-			LOG.warn("The requested amount of memory for the JobManager (" + jobManagerMemoryMb + "MB) is more than "
-				+ "the largest possible YARN container: " + freeClusterResources.containerLimit + noteRsc);
-		}
-
-		// ----------------- check if the requested containers fit into the cluster.
-
-		int[] nmFree = Arrays.copyOf(freeClusterResources.nodeManagersFree, freeClusterResources.nodeManagersFree.length);
-		// first, allocate the jobManager somewhere.
-		if (!allocateResource(nmFree, jobManagerMemoryMb)) {
-			LOG.warn("Unable to find a NodeManager that can fit the JobManager/Application master. " +
-				"The JobManager requires " + jobManagerMemoryMb + "MB. NodeManagers available: " +
-				Arrays.toString(freeClusterResources.nodeManagersFree) + noteRsc);
-		}
-		// allocate TaskManagers
-		for (int i = 0; i < taskManagerCount; i++) {
-			if (!allocateResource(nmFree, taskManagerMemoryMb)) {
-				LOG.warn("There is not enough memory available in the YARN cluster. " +
-					"The TaskManager(s) require " + taskManagerMemoryMb + "MB each. " +
-					"NodeManagers available: " + Arrays.toString(freeClusterResources.nodeManagersFree) + "\n" +
-					"After allocating the JobManager (" + jobManagerMemoryMb + "MB) and (" + i + "/" + taskManagerCount + ") TaskManagers, " +
-					"the following NodeManagers are available: " + Arrays.toString(nmFree)  + noteRsc);
-			}
 		}
 
 		return new ClusterSpecification.ClusterSpecificationBuilder()
@@ -1478,25 +1395,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			this.containerLimit = containerLimit;
 			this.nodeManagersFree = nodeManagersFree;
 		}
-	}
-
-	private ClusterResourceDescription getCurrentFreeClusterResources(YarnClient yarnClient) throws YarnException, IOException {
-		List<NodeReport> nodes = yarnClient.getNodeReports(NodeState.RUNNING);
-
-		int totalFreeMemory = 0;
-		int containerLimit = 0;
-		int[] nodeManagersFree = new int[nodes.size()];
-
-		for (int i = 0; i < nodes.size(); i++) {
-			NodeReport rep = nodes.get(i);
-			int free = rep.getCapability().getMemory() - (rep.getUsed() != null ? rep.getUsed().getMemory() : 0);
-			nodeManagersFree[i] = free;
-			totalFreeMemory += free;
-			if (free > containerLimit) {
-				containerLimit = free;
-			}
-		}
-		return new ClusterResourceDescription(totalFreeMemory, containerLimit, nodeManagersFree);
 	}
 
 	@Override
