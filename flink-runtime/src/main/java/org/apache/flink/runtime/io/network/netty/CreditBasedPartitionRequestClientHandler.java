@@ -280,8 +280,10 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 
 				if (inputChannel != null) {
 					if (error.cause.getClass() == PartitionNotFoundException.class) {
+						LOG.info("Receive PartitionNotFoundException, try to retrigger the partition request if possible.");
 						inputChannel.onFailedPartitionRequest();
 					} else if (error.cause.getClass() == TcpConnectionLostException.class) {
+						LOG.info("Receive TcpConnectionLostException, try to retrigger the partition request if possible.");
 						inputChannel.onFailedPartitionRequest();
 					} else {
 						inputChannel.onError(new RemoteTransportException(

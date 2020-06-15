@@ -107,7 +107,6 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 
 					outboundQueue.notifyReaderCreated(reader);
 				} catch (TcpConnectionLostException tcpLost) {
-					LOG.warn("This is not expected usually.", tcpLost);
 					// release the reader and view
 					outboundQueue.cancel(request.receiverId);
 					// respond with error and let receiver request again

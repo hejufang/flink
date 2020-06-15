@@ -30,4 +30,6 @@ public interface BufferAvailabilityListener {
 	void notifyDataAvailable();
 
 	default void notifyDataUnavailable() {}
+
+	default void notifyListenerReleased() {}
 }

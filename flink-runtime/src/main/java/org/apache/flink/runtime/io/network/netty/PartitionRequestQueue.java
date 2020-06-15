@@ -124,6 +124,12 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		return availableReaders;
 	}
 
+	// this is called from netty thread
+	public void removeReader(final NetworkSequenceViewReader reader) {
+		availableReaders.remove(reader);
+		allReaders.remove(reader.getReceiverId());
+	}
+
 	public void notifyReaderCreated(final NetworkSequenceViewReader reader) {
 		allReaders.put(reader.getReceiverId(), reader);
 	}
@@ -177,6 +183,9 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 			ReleasedCreditBasedSequenceNumberingViewReader reader = (ReleasedCreditBasedSequenceNumberingViewReader) msg;
 			Throwable cause = reader.getReader().getFailureCause();
 
+			availableReaders.remove(reader.getReader());
+			allReaders.remove(reader.getReader().getReceiverId());
+
 			// cause may be null here, but we need to notify downstream task no matter what happened
 			ErrorResponse response;
 			if (cause != null) {
@@ -201,6 +210,8 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 			final NetworkSequenceViewReader toRelease = allReaders.remove(toCancel);
 			if (toRelease != null) {
 				releaseViewReader(toRelease);
+			} else {
+				LOG.info("The server does not find the reader for InputChannel({}).", toCancel);
 			}
 		} else {
 			ctx.fireUserEventTriggered(msg);

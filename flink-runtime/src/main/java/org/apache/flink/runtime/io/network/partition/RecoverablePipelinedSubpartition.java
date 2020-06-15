@@ -118,19 +118,18 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 	public RecoverablePipelinedSubpartitionView createReadView(BufferAvailabilityListener availabilityListener) throws IOException {
 		final boolean notifyDataAvailable;
 
-		// loop to prevent task not releasing the view yet (usually we don't wait too long here)
-//		final Deadline deadline = Deadline.fromNow(Duration.ofMinutes(5));
-//		while (status == SUBPARTITION_AVAILABLE && deadline.hasTimeLeft()) {
-//			try {
-//				Thread.sleep(200);
-//			} catch (InterruptedException e) {
-//				throw new RuntimeException(e);
-//			}
-//		}
-
 		if (status == SUBPARTITION_AVAILABLE) {
-			LOG.warn("{}: {} This is unexpected usually.", this, parent.getOwningTaskName());
-			throw new TcpConnectionLostException();
+			LOG.warn("{}: {} This is because the partition request arrives before releasing the view.", this, parent.getOwningTaskName());
+
+			final RecoverablePipelinedSubpartitionView view = (RecoverablePipelinedSubpartitionView) readView;
+			if (view != null) {
+				view.releaseAndNotifyListenerReleased();
+			}
+
+			if (status == SUBPARTITION_AVAILABLE) {
+				LOG.warn("{}: {} The view is still not released.", this, parent.getOwningTaskName());
+				throw new TcpConnectionLostException();
+			}
 		}
 
 		synchronized (buffers) {

@@ -88,13 +88,11 @@ public class RemoteChannelStateChecker {
 			// The producing execution has been canceled or failed. We
 			// don't need to re-trigger the request since it cannot
 			// succeed.
-			if (LOG.isDebugEnabled()) {
-				LOG.info("Cancelling task {} after the producer of partition {} with attempt ID {} has entered state {}.",
+			LOG.info("Cancelling task {} after the producer of partition {} with attempt ID {} has entered state {}.",
 					taskNameWithSubtask,
 					resultPartitionId.getPartitionId(),
 					resultPartitionId.getProducerId(),
 					producerState);
-			}
 
 			responseHandle.cancelConsumption();
 		} else {

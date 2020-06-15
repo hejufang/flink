@@ -51,6 +51,19 @@ public class RecoverablePipelinedSubpartitionView extends PipelinedSubpartitionV
 		}
 	}
 
+	/**
+	 * Only called from netty server side when requesting view.
+	 */
+	public void releaseAndNotifyListenerReleased() {
+		if (isReleased.compareAndSet(false, true)) {
+			// The view doesn't hold any resources and the parent cannot be restarted. Therefore,
+			// it's OK to notify about consumption as well.
+			parent.onConsumedSubpartition();
+		}
+
+		availabilityListener.notifyListenerReleased();
+	}
+
 	@Override
 	public String toString() {
 		return String.format("RecoverablePipelinedSubpartitionView(index: %d) of ResultPartition %s",
