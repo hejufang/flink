@@ -24,6 +24,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisMode;
 import org.apache.flink.connectors.util.RedisUtils;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -49,6 +50,7 @@ import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.connectors.util.Constant.STORAGE_ABASE;
 import static org.apache.flink.connectors.util.Constant.STORAGE_REDIS;
+import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
 
 /**
  * Redis output format.
@@ -56,6 +58,7 @@ import static org.apache.flink.connectors.util.Constant.STORAGE_REDIS;
 public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisOutputFormat.class);
 
+	private transient Counter writeFailed;
 	private transient ArrayDeque<Tuple2<Boolean, Row>> recordDeque;
 	private SpringDbPool springDbPool;
 	private ClientPool clientPool;
@@ -111,8 +114,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
 				maxTotalConnections, maxIdleConnections, minIdleConnections);
 		}
-
 		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
+
+		if (logFailuresOnly) {
+			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
+		}
 	}
 
 	@Override
@@ -164,6 +170,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 							"data to %s cluster: %s table: %s", storage, cluster, table);
 						if (logFailuresOnly) {
 							LOG.warn(errorMsg, ((Throwable) o).getMessage());
+							writeFailed.inc();
 						} else {
 							throw new RuntimeException(errorMsg, (Throwable) o);
 						}

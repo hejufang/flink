@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.rabbitmq;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.connectors.rabbitmq.common.RMQConnectionConfig;
 import org.apache.flink.util.Preconditions;
@@ -34,6 +35,8 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
+
+import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
 
 /**
  * A Sink for publishing data into RabbitMQ.
@@ -52,6 +55,7 @@ public class RMQSink<IN> extends RichSinkFunction<IN> {
 	protected transient Channel channel;
 	protected SerializationSchema<IN> schema;
 	private boolean logFailuresOnly = false;
+	private transient Counter writeFailed;
 
 	@Nullable
 	private final RMQSinkPublishOptions<IN> publishOptions;
@@ -153,6 +157,9 @@ public class RMQSink<IN> extends RichSinkFunction<IN> {
 		} catch (IOException e) {
 			throw new RuntimeException("Error while creating the channel", e);
 		}
+		if (logFailuresOnly) {
+			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
+		}
 	}
 
 	/**
@@ -184,6 +191,7 @@ public class RMQSink<IN> extends RichSinkFunction<IN> {
 		} catch (IOException e) {
 			if (logFailuresOnly) {
 				LOG.error("Cannot send RMQ message {} at {}", queueName, rmqConnectionConfig.getHost(), e);
+				writeFailed.inc();
 			} else {
 				throw new RuntimeException("Cannot send RMQ message " + queueName + " at " + rmqConnectionConfig.getHost(), e);
 			}

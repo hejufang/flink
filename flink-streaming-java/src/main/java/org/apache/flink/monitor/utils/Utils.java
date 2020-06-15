@@ -99,6 +99,17 @@ public class Utils {
 		return sourceList;
 	}
 
+	public static List<String> getSinks(StreamGraph streamGraph) {
+		List<String> sinkList = new ArrayList<>();
+		for (int sinkId : streamGraph.getSinkIDs()) {
+			StreamNode sinkNode = streamGraph.getStreamNode(sinkId);
+			String sinkName = sinkNode.getOperatorName();
+			sinkName = Utils.replaceSpecialCharacter(sinkName);
+			sinkList.add(sinkName);
+		}
+		return sinkList;
+	}
+
 	public static String formatOperater(String name) {
 		if (name != null && name.length() > METRICS_OPERATOR_NAME_MAX_LENGTH) {
 			LOG.warn("The operator name {} exceeded the {} characters length limit and was truncated.",

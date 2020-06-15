@@ -23,6 +23,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -59,6 +60,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
 
 /**
  * Flink Sink to produce data into a Kafka topic.
@@ -111,6 +113,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	 * Flag indicating whether to accept failures (and log them), or to fail on failures.
 	 */
 	protected boolean logFailuresOnly;
+
+	/**
+	 * Metrics to save the number of write failed.
+	 */
+	protected transient Counter writeFailed;
 
 	/**
 	 * If true, the producer will wait until all outstanding records have been send to the broker.
@@ -263,13 +270,14 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 			LOG.warn("Flushing on checkpoint is enabled, but checkpointing is not enabled. Disabling flushing.");
 			flushOnCheckpoint = false;
 		}
-
 		if (logFailuresOnly) {
+			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
 			callback = new Callback() {
 				@Override
 				public void onCompletion(RecordMetadata metadata, Exception e) {
 					if (e != null) {
 						LOG.error("Error while sending record to Kafka: " + e.getMessage(), e);
+						writeFailed.inc();
 					}
 					acknowledgeMessage();
 				}

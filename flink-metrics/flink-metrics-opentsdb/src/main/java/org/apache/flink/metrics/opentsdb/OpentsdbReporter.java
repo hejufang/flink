@@ -150,6 +150,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"numTaskManagersInBlacklist",
 			// number of skipped records in source
 			"skipDirty",
+			// number of write failed in sink
+			"writeFailed",
 			// slow containers
 			"releasedSlowContainers",
 			"slowContainers",

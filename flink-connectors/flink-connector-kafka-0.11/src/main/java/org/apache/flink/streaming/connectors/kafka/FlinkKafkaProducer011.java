@@ -34,6 +34,7 @@ import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -86,6 +87,7 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -245,6 +247,11 @@ public class FlinkKafkaProducer011<IN>
 	 * Flag indicating whether to accept failures (and log them), or to fail on failures.
 	 */
 	private boolean logFailuresOnly;
+
+	/**
+	 * Metrics to save the number of write failed.
+	 */
+	private transient Counter writeFailed;
 
 	/**
 	 * Semantic chosen for this instance.
@@ -594,11 +601,13 @@ public class FlinkKafkaProducer011<IN>
 	@Override
 	public void open(Configuration configuration) throws Exception {
 		if (logFailuresOnly) {
+			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
 			callback = new Callback() {
 				@Override
 				public void onCompletion(RecordMetadata metadata, Exception e) {
 					if (e != null) {
 						LOG.error("Error while sending record to Kafka: " + e.getMessage(), e);
+						writeFailed.inc();
 					}
 					acknowledgeMessage();
 				}

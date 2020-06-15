@@ -236,8 +236,8 @@ public class Dashboard {
 		return renderString(lateRecordsDroppedTemplate, lateRecordsDroppedValues);
 	}
 
-	private String renderDirtyRecordsSkippedRow(List<String> sources) {
-		String dirtyRecordsSkippedTargetTemplate = Template.DIRTY_RECORDS_SKIPPED_TARGET;
+	private String renderDirtyRecordsSourceSkippedRow(List<String> sources) {
+		String dirtyRecordsSkippedTargetTemplate = Template.DIRTY_RECORDS_SOURCE_SKIPPED_TARGET;
 		List<String> dirtyRecordsSkippedList = new ArrayList<>();
 		for (String source : sources) {
 			Map<String, String> dirtyRecordsSkippedTarget = new HashMap<>();
@@ -251,8 +251,27 @@ public class Dashboard {
 		Map<String, String> dirtyRecordsSkippedValues = new HashMap<>();
 		dirtyRecordsSkippedValues.put("targets", targets);
 		dirtyRecordsSkippedValues.put("datasource", dataSource);
-		String dirtyRecordsSkippedTemplate = Template.DIRTY_RECORDS_SKIPPED;
+		String dirtyRecordsSkippedTemplate = Template.DIRTY_RECORDS_SOURCE_SKIPPED;
 		return renderString(dirtyRecordsSkippedTemplate, dirtyRecordsSkippedValues);
+	}
+
+	private String renderRecordsSinkSkippedRow(List<String> sinks) {
+		String recordsSkippedTargetTemplate = Template.RECORDS_SINK_SKIPPED_TARGET;
+		List<String> recordsWriteSkippedList = new ArrayList<>();
+		for (String sink : sinks) {
+			Map<String, String> recordsWriteSkippedTarget = new HashMap<>();
+			recordsWriteSkippedTarget.put("sink", sink);
+			recordsWriteSkippedTarget.put("jobname", formatJobName);
+			recordsWriteSkippedList.add(
+				renderString(recordsSkippedTargetTemplate, recordsWriteSkippedTarget));
+		}
+
+		String targets = String.join(",", recordsWriteSkippedList);
+		Map<String, String> recordsWriteSkippedValues = new HashMap<>();
+		recordsWriteSkippedValues.put("targets", targets);
+		recordsWriteSkippedValues.put("datasource", dataSource);
+		String recordsWriteSkippedTemplate = Template.RECORDS_SINK_SKIPPED;
+		return renderString(recordsWriteSkippedTemplate, recordsWriteSkippedValues);
 	}
 
 	private String renderLookupHitRateRow(List<String> operators) {
@@ -332,6 +351,7 @@ public class Dashboard {
 		List <String> operators = Utils.getOperaters(streamGraph);
 		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
 		List <String> sources = Utils.getSources(streamGraph);
+		List <String> sinks = Utils.getSinks(streamGraph);
 		List <String> tasks = Utils.getTasks(jobGraph);
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
@@ -348,7 +368,8 @@ public class Dashboard {
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
 		rows.add(renderLateRecordsDropped(operators));
-		rows.add(renderDirtyRecordsSkippedRow(sources));
+		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
+		rows.add(renderRecordsSinkSkippedRow(sinks));
 		rows.add(renderLookupHitRateRow(Utils.filterLookupOperators(operators)));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderPoolUsageRow(tasks));

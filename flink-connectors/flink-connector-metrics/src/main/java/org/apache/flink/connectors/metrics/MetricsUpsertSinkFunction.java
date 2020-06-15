@@ -19,11 +19,14 @@ package org.apache.flink.connectors.metrics;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.types.Row;
+
+import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
 
 /**
  * Metrics upsert sink funciton.
@@ -31,6 +34,7 @@ import org.apache.flink.types.Row;
 public class MetricsUpsertSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> implements CheckpointedFunction {
 	private MetricsManager metricsManager;
 	private MetricsOptions metricsOptions;
+	private transient Counter writeFailed;
 
 	public MetricsUpsertSinkFunction(MetricsOptions metricsOptions) {
 		this.metricsOptions = metricsOptions;
@@ -39,6 +43,9 @@ public class MetricsUpsertSinkFunction extends RichSinkFunction<Tuple2<Boolean, 
 	@Override
 	public void open(Configuration parameters) {
 		metricsManager = MetricsManager.getInstance(metricsOptions);
+		if (metricsOptions.isLogFailuresOnly()) {
+			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
+		}
 	}
 
 	@Override
@@ -53,7 +60,8 @@ public class MetricsUpsertSinkFunction extends RichSinkFunction<Tuple2<Boolean, 
 		String metricsName = (String) row.getField(1);
 		Double value = (Double) row.getField(2);
 		String tags = (String) row.getField(3);
-		metricsManager.writeMetrics(metricsType, metricsName, value, tags, metricsOptions.isLogFailuresOnly());
+		metricsManager.writeMetrics(metricsType, metricsName, value, tags,
+			metricsOptions.isLogFailuresOnly(), writeFailed);
 	}
 
 	@Override

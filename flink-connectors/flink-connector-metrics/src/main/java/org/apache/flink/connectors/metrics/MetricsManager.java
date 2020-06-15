@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.metrics;
 
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -71,7 +72,13 @@ public class MetricsManager {
 		return instance;
 	}
 
-	public void writeMetrics(String type, String metricsName, Double value, String tags, boolean logFailuresOnly) {
+	public void writeMetrics(
+			String type,
+			String metricsName,
+			Double value,
+			String tags,
+			boolean logFailuresOnly,
+			Counter writeFailed) {
 		Preconditions.checkNotNull(type, "metrics type cannot be null!");
 		MetricsType metricsType;
 		try {
@@ -105,6 +112,7 @@ public class MetricsManager {
 				type, metricsName, value, tags);
 			if (logFailuresOnly) {
 				LOG.warn(errorMsg, e);
+				writeFailed.inc();
 			} else {
 				throw new FlinkRuntimeException(errorMsg, e);
 			}
