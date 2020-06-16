@@ -48,6 +48,8 @@ import org.apache.calcite.rex.RexNode
 import java.util.function.{Function => JFunction}
 import java.{lang, util}
 
+import org.apache.flink.table.validate.Validatable
+
 import scala.collection.JavaConversions._
 
 /**
@@ -181,5 +183,17 @@ class BatchExecLegacyTableSourceScan(
         override def apply(t: String): String = mapping.getFieldMapping.get(t)
       }
     case _ => JFunction.identity()
+  }
+
+
+  /**
+   * Validate the table source if it is Validatable
+   **/
+  override def validateBeforeExecution(): Unit = {
+    tableSource match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
+    }
   }
 }

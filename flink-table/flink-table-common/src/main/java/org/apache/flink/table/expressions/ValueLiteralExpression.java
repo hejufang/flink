@@ -85,6 +85,16 @@ public final class ValueLiteralExpression implements ResolvedExpression {
 	}
 
 	/**
+	 * Get value as string. Return null for null value.
+	 * */
+	public String getValueAsString() {
+		if (isNull()) {
+			return null;
+		}
+		return value.toString();
+	}
+
+	/**
 	 * Returns the value (excluding null) as an instance of the given class.
 	 *
 	 * <p>It supports conversions to default conversion classes of {@link LogicalType LogicalTypes} and

@@ -110,6 +110,7 @@ class BatchPlanner(
     val optimizedRelNodes = optimize(sinkRelNodes)
     val execNodes = translateToExecNodePlan(optimizedRelNodes)
 
+    validateExecNodes(execNodes)
     val transformations = translateToPlan(execNodes)
 
     val execEnv = getExecEnv

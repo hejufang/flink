@@ -34,6 +34,7 @@ import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.flink.table.sinks.{RetractStreamTableSink, StreamTableSink, TableSink, UpsertStreamTableSink}
 import org.apache.flink.table.types.DataType
+import org.apache.flink.table.validate.Validatable
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelNode
@@ -169,6 +170,17 @@ class BatchExecLegacySink[T](
       throw new TableException(
         s"Class '$clazz' described in type information '$dataType' must be " +
           s"static and globally accessible.")
+    }
+  }
+
+  /**
+   * Validate the table source if it is Validatable
+   **/
+  override def validateBeforeExecution(): Unit = {
+    sink match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
     }
   }
 }

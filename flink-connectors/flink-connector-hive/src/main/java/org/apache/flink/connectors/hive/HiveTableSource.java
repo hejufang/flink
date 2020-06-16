@@ -44,14 +44,22 @@ import org.apache.flink.table.catalog.hive.client.HiveMetastoreClientWrapper;
 import org.apache.flink.table.catalog.hive.client.HiveShim;
 import org.apache.flink.table.catalog.hive.client.HiveShimLoader;
 import org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator;
+import org.apache.flink.table.catalog.hive.util.HivePermissionUtils;
 import org.apache.flink.table.catalog.hive.util.HiveReflectionUtils;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.expressions.CallExpression;
+import org.apache.flink.table.expressions.Expression;
+import org.apache.flink.table.expressions.FieldReferenceExpression;
+import org.apache.flink.table.expressions.ResolvedExpression;
+import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.filesystem.FileSystemLookupFunction;
 import org.apache.flink.table.filesystem.FileSystemOptions;
 import org.apache.flink.table.functions.AsyncTableFunction;
+import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.hive.conversion.HiveInspectors;
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
+import org.apache.flink.table.sources.FilterableTableSource;
 import org.apache.flink.table.sources.LimitableTableSource;
 import org.apache.flink.table.sources.LookupableTableSource;
 import org.apache.flink.table.sources.PartitionableTableSource;
@@ -61,8 +69,11 @@ import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableConnectorUtils;
+import org.apache.flink.table.validate.Validatable;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TimeUtils;
+
+import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
 
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -81,12 +92,15 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.table.catalog.hive.util.HivePermissionUtils.PermissionType.SELECT;
 import static org.apache.flink.table.filesystem.DefaultPartTimeExtractor.toMills;
 import static org.apache.flink.table.filesystem.FileSystemOptions.PARTITION_TIME_EXTRACTOR_CLASS;
 import static org.apache.flink.table.filesystem.FileSystemOptions.PARTITION_TIME_EXTRACTOR_KIND;
@@ -104,9 +118,12 @@ public class HiveTableSource implements
 		PartitionableTableSource,
 		ProjectableTableSource<RowData>,
 		LimitableTableSource<RowData>,
-		LookupableTableSource<RowData> {
+		LookupableTableSource<RowData>,
+		FilterableTableSource<RowData>,
+		Validatable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveTableSource.class);
+	private static final String KEY_VALUE_DELIMITER = ":";
 
 	private final JobConf jobConf;
 	private final ReadableConfig flinkConf;
@@ -122,6 +139,7 @@ public class HiveTableSource implements
 	private boolean isLimitPushDown = false;
 	private long limit = -1L;
 	private Duration hiveTableCacheTTL;
+	private List<Expression> predicates;
 
 	public HiveTableSource(
 			JobConf jobConf, ReadableConfig flinkConf, ObjectPath tablePath, CatalogTable catalogTable) {
@@ -146,7 +164,8 @@ public class HiveTableSource implements
 			boolean partitionPruned,
 			int[] projectedFields,
 			boolean isLimitPushDown,
-			long limit) {
+			long limit,
+			List<Expression> predicates) {
 		this.jobConf = Preconditions.checkNotNull(jobConf);
 		this.flinkConf = Preconditions.checkNotNull(flinkConf);
 		this.tablePath = Preconditions.checkNotNull(tablePath);
@@ -158,6 +177,7 @@ public class HiveTableSource implements
 		this.projectedFields = projectedFields;
 		this.isLimitPushDown = isLimitPushDown;
 		this.limit = limit;
+		this.predicates = predicates;
 	}
 
 	@Override
@@ -357,7 +377,8 @@ public class HiveTableSource implements
 				partitionPruned,
 				projectedFields,
 				true,
-				limit);
+				limit,
+				predicates);
 	}
 
 	@Override
@@ -381,7 +402,8 @@ public class HiveTableSource implements
 					true,
 					projectedFields,
 					isLimitPushDown,
-					limit);
+					limit,
+					predicates);
 		}
 	}
 
@@ -397,7 +419,8 @@ public class HiveTableSource implements
 				partitionPruned,
 				fields,
 				isLimitPushDown,
-				limit);
+				limit,
+				predicates);
 	}
 
 	private List<HiveTablePartition> initAllPartitions() {
@@ -528,6 +551,9 @@ public class HiveTableSource implements
 		if (isLimitPushDown) {
 			explain += String.format(", LimitPushDown %s, Limit %d", isLimitPushDown, limit);
 		}
+		if (predicates != null) {
+			explain += ", " + predicates;
+		}
 		return TableConnectorUtils.generateRuntimeName(getClass(), getTableSchema().getFieldNames()) + explain;
 	}
 
@@ -552,5 +578,175 @@ public class HiveTableSource implements
 	@Override
 	public boolean isAsyncEnabled() {
 		return false;
+	}
+
+	@Override
+	public TableSource<RowData> applyPredicate(List<Expression> predicates) {
+		return new HiveTableSource(
+			jobConf,
+			flinkConf,
+			tablePath,
+			catalogTable,
+			remainingPartitions,
+			hiveVersion,
+			partitionPruned,
+			projectedFields,
+			isLimitPushDown,
+			limit,
+			predicates);
+	}
+
+	@Override
+	public boolean isFilterPushedDown() {
+		return predicates != null;
+	}
+
+	@Override
+	public void validate() {
+		Identity identity = HivePermissionUtils.getIdentityFromToken();
+		String user = identity.User;
+		String psm = identity.PSM;
+		String database = tablePath.getDatabaseName();
+		String table = tablePath.getObjectName();
+		List<String> projectedFieldNames =
+			Arrays.asList(getTableSchema().getPrunedColumnList(projectedFields));
+		if (projectedFieldNames.isEmpty()) {
+			projectedFieldNames = Arrays.asList(getTableSchema().getFieldNames());
+		}
+		// columns for row permission check, format: '{column_name}:{column_value}'
+		List<String> columnValues = getColumnValueListFromPredicates();
+		List<String> allColumnsNeedToCheckPermission = new ArrayList<>(columnValues);
+		allColumnsNeedToCheckPermission.addAll(projectedFieldNames);
+		HivePermissionUtils.checkPermission(user, psm, database, table, allColumnsNeedToCheckPermission, SELECT);
+	}
+
+	/**
+	 * Get column value list from equal expressions.
+	 * */
+	private List<String> getColumnValueListFromPredicates() {
+		if (predicates == null) {
+			return Collections.emptyList();
+		}
+
+		List<String> columnValueListFromEqualExpressions = parseEqualExpressionColumnValues();
+		List<String> columnValueListFromOrExpressions = parseOrExpressionColumnValues();
+		List<String> columnValueListFromInExpressions = parseInExpressionColumnValues();
+		List<String> allColumnValueList = new ArrayList<>();
+		allColumnValueList.addAll(columnValueListFromEqualExpressions);
+		allColumnValueList.addAll(columnValueListFromOrExpressions);
+		allColumnValueList.addAll(columnValueListFromInExpressions);
+
+		return allColumnValueList;
+	}
+
+	/**
+	 * Parse column value list of 'EQUALS' expressions. (e.g. where a = 1 and b = 2)
+	 *
+	 * @return return the list of column value list in form '{column_name}:{column_value}'.
+	 * */
+	private List<String> parseEqualExpressionColumnValues() {
+		List<String> columnValueList = predicates.stream()
+			.map(HiveTableSource::parseColumnValueFromEqualsExpression)
+			.filter(Optional::isPresent)
+			.map(Optional::get)
+			.collect(Collectors.toList());
+		return columnValueList;
+	}
+
+
+	/**
+	 * Parse column value list of 'IN' expressions. (e.g. where id in (1,2,3,4))
+	 *
+	 * @return return the list of column value list in form '{column_name}:{column_value}'.
+	 * */
+	private List<String> parseInExpressionColumnValues() {
+		List<String> columnValueList = new ArrayList<>();
+		for (Expression expression : predicates) {
+			if (expression instanceof CallExpression) {
+				CallExpression callExpression = (CallExpression) expression;
+				List<ResolvedExpression> args = callExpression.getResolvedChildren();
+				String fieldName = "";
+				List<String> valueLiteralList = new ArrayList<>();
+				for (ResolvedExpression resolvedExpression : args) {
+					if (resolvedExpression instanceof FieldReferenceExpression) {
+						fieldName = ((FieldReferenceExpression) resolvedExpression).getName();
+					} else if (resolvedExpression instanceof ValueLiteralExpression) {
+						valueLiteralList.add(
+							((ValueLiteralExpression) resolvedExpression).getValueAsString());
+					}
+				}
+
+				if (isInExpression(expression) && !fieldName.isEmpty()) {
+					final String finalFieldName = fieldName;
+					List<String> columnValueTempList = valueLiteralList.stream()
+						.map(value -> finalFieldName + KEY_VALUE_DELIMITER + value)
+						.collect(Collectors.toList());
+					columnValueList.addAll(columnValueTempList);
+				}
+			}
+		}
+		return columnValueList;
+	}
+
+	/**
+	 * Parse column value list of 'OR' expressions. As 'IN' expression of 2
+	 * values (e.g. "id in (1,2)") will be transferred to 'OR' expressions.
+	 *
+	 * @return return the list of column value list in form '{column_name}:{column_value}'.
+	 * */
+	private List<String> parseOrExpressionColumnValues() {
+		List<String> columnValueList = new ArrayList<>();
+		for (Expression expression : predicates) {
+			if (isOrExpression(expression)) {
+				CallExpression callExpression = (CallExpression) expression;
+				List<ResolvedExpression> args = callExpression.getResolvedChildren();
+				Optional<String> leftEquals = parseColumnValueFromEqualsExpression(args.get(0));
+				Optional<String> rightEquals = parseColumnValueFromEqualsExpression(args.get(1));
+				if (leftEquals.isPresent() && rightEquals.isPresent()) {
+					columnValueList.add(leftEquals.get());
+					columnValueList.add(rightEquals.get());
+				}
+			}
+		}
+		return columnValueList;
+	}
+
+	private static Optional<String> parseColumnValueFromEqualsExpression(Expression expression) {
+		if (expression instanceof CallExpression) {
+			CallExpression callExpression = (CallExpression) expression;
+			List<ResolvedExpression> args = callExpression.getResolvedChildren();
+			boolean argsAreFieldAndValueLiteral = args.size() == 2
+				&& ((args.get(0) instanceof FieldReferenceExpression && args.get(1) instanceof ValueLiteralExpression)
+				|| (args.get(0) instanceof ValueLiteralExpression && args.get(1) instanceof FieldReferenceExpression));
+			boolean isFieldEqualExpression = isEqualsExpression(expression) && argsAreFieldAndValueLiteral;
+			if (isFieldEqualExpression) {
+				String fieldName;
+				String value;
+				if (args.get(0) instanceof FieldReferenceExpression) {
+					fieldName = ((FieldReferenceExpression) args.get(0)).getName();
+					value = ((ValueLiteralExpression) args.get(1)).getValueAsString();
+				} else {
+					fieldName = ((FieldReferenceExpression) args.get(1)).getName();
+					value = ((ValueLiteralExpression) args.get(0)).getValueAsString();
+				}
+				return Optional.of(fieldName + KEY_VALUE_DELIMITER + value);
+			}
+		}
+		return Optional.empty();
+	}
+
+	private static boolean isEqualsExpression(Expression expression) {
+		return expression instanceof CallExpression
+			&& ((CallExpression) expression).getFunctionDefinition() == BuiltInFunctionDefinitions.EQUALS;
+	}
+
+	private static boolean isInExpression(Expression expression) {
+		return expression instanceof CallExpression
+			&& ((CallExpression) expression).getFunctionDefinition() == BuiltInFunctionDefinitions.IN;
+	}
+
+	private static boolean isOrExpression(Expression expression) {
+		return expression instanceof CallExpression
+			&& ((CallExpression) expression).getFunctionDefinition() == BuiltInFunctionDefinitions.OR;
 	}
 }

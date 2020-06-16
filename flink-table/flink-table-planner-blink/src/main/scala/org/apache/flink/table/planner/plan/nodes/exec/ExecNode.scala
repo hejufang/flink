@@ -102,6 +102,11 @@ trait ExecNode[E <: Planner, T] {
           node.asInstanceOf[Exchange].getDistribution.getType == RelDistribution.Type.SINGLETON
     }
   }
+
+  /**
+   * Validate before execution.
+   * */
+  def validateBeforeExecution(): Unit = {}
 }
 
 object ExecNode {

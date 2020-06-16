@@ -40,6 +40,7 @@ import org.apache.flink.table.catalog.hive.client.HiveMetastoreClientWrapper;
 import org.apache.flink.table.catalog.hive.client.HiveShim;
 import org.apache.flink.table.catalog.hive.client.HiveShimLoader;
 import org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator;
+import org.apache.flink.table.catalog.hive.util.HivePermissionUtils;
 import org.apache.flink.table.catalog.hive.util.HiveReflectionUtils;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.filesystem.FileSystemOutputFormat;
@@ -54,9 +55,12 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.TableSchemaUtils;
+import org.apache.flink.table.validate.Validatable;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
+
+import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -73,18 +77,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.table.catalog.hive.util.HivePermissionUtils.PermissionType.ALL;
 import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_FILE_SIZE;
 import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_TIME_INTERVAL;
 
 /**
  * Table sink to write to Hive tables.
  */
-public class HiveTableSink implements AppendStreamTableSink, PartitionableTableSink, OverwritableTableSink {
+public class HiveTableSink implements
+		AppendStreamTableSink,
+		PartitionableTableSink,
+		OverwritableTableSink,
+		Validatable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveTableSink.class);
 
@@ -304,5 +314,17 @@ public class HiveTableSink implements AppendStreamTableSink, PartitionableTableS
 	@Override
 	public void setOverwrite(boolean overwrite) {
 		this.overwrite = overwrite;
+	}
+
+	@Override
+	public void validate() {
+		Identity identity = HivePermissionUtils.getIdentityFromToken();
+		String user = identity.User;
+		String psm = identity.PSM;
+		String dbName = identifier.getDatabaseName();
+		String tableName = identifier.getObjectName();
+		List<String> projectedFieldNames = Arrays.asList(getTableSchema().getFieldNames());
+
+		HivePermissionUtils.checkPermission(user, psm, dbName, tableName, projectedFieldNames, ALL);
 	}
 }

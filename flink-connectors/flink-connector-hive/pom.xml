@@ -501,6 +501,23 @@ under the License.
 			</exclusions>
 		</dependency>
 
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-httpclient</artifactId>
+			<version>${http.client.version}-${flink.shaded.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-bytedance</artifactId>
+			<version>${flink.shaded.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-jackson</artifactId>
+			<version>${jackson.version}-${flink.shaded.version}</version>
+		</dependency>
 		<!-- test dependencies -->
 
 		<dependency>

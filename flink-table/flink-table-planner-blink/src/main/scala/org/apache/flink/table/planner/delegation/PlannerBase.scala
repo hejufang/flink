@@ -159,7 +159,16 @@ abstract class PlannerBase(
     val relNodes = modifyOperations.map(translateToRel)
     val optimizedRelNodes = optimize(relNodes)
     val execNodes = translateToExecNodePlan(optimizedRelNodes)
+    validateExecNodes(execNodes)
     translateToPlan(execNodes)
+  }
+
+  // validate exec node, e.g. hive privilege check.
+  protected def validateExecNodes(execNodes: util.List[_ <: ExecNode[_, _]]): Unit = {
+    for (execNode <- execNodes) {
+      execNode.validateBeforeExecution()
+      validateExecNodes(execNode.getInputNodes)
+    }
   }
 
   protected def overrideEnvParallelism(): Unit = {
