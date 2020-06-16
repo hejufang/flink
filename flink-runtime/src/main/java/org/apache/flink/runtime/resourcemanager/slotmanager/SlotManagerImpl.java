@@ -92,11 +92,8 @@ public class SlotManagerImpl implements SlotManager {
 	/** Number of task managers. */
 	private final int numInitialTaskManagers;
 
-	/** Number of extra task managers, avoid slow nodes. */
-	private final int extraInitialTaskManagerNumbers;
-
-	/** Fraction of extra task managers, avoid slow nodes. */
-	private final float extraInitialTaskManagerFraction;
+	/** Number of extra task managers. */
+	private final int numberExtraTaskManagers;
 
 	/** Shuffle the pending slots when TaskManager register. */
 	private final boolean shufflePendingSlots;
@@ -208,8 +205,10 @@ public class SlotManagerImpl implements SlotManager {
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
-		this.extraInitialTaskManagerNumbers = extraInitialTaskManagerNumbers;
-		this.extraInitialTaskManagerFraction = extraInitialTaskManagerFraction;
+		this.numberExtraTaskManagers = Math.max(
+				(int) (numInitialTaskManagers * extraInitialTaskManagerFraction),
+				extraInitialTaskManagerNumbers);
+
 		this.shufflePendingSlots = shufflePendingSlots;
 
 		slots = new HashMap<>(16);
@@ -308,9 +307,7 @@ public class SlotManagerImpl implements SlotManager {
 
 		if (numInitialTaskManagers > 0) {
 			// initial slot manager with enough task managers.
-			int extraTaskManagerNumber = Math.max(
-					(int) (numInitialTaskManagers * extraInitialTaskManagerFraction), extraInitialTaskManagerNumbers);
-			initialResources(ResourceProfile.UNKNOWN, numInitialTaskManagers + extraTaskManagerNumber);
+			initialResources(ResourceProfile.UNKNOWN, getMinimalTaskManagerNumber());
 		}
 
 		started = true;
@@ -412,7 +409,7 @@ public class SlotManagerImpl implements SlotManager {
 			if (activeTaskManagers.get() < numInitialTaskManagers) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
-				if (activeTaskManagers.get() + pendingTaskManagers.get() < numInitialTaskManagers) {
+				if (taskManagerNotEnough()) {
 					allocateResource(pendingSlotRequest.getResourceProfile());
 				}
 			} else {
@@ -583,7 +580,8 @@ public class SlotManagerImpl implements SlotManager {
 			internalUnregisterTaskManager(taskManagerRegistration);
 			LOG.info("Unregister TaskManager, current activeTaskManager {}, pendingTaskManager {}.",
 					activeTaskManagers.get(), pendingTaskManagers.get());
-			if (tryAllocateNewResource && activeTaskManagers.decrementAndGet() + pendingTaskManagers.get() < numInitialTaskManagers) {
+			activeTaskManagers.decrementAndGet();
+			if (tryAllocateNewResource && taskManagerNotEnough()) {
 				try {
 					allocateResource(ResourceProfile.UNKNOWN);
 				} catch (ResourceManagerException e) {
@@ -1275,7 +1273,7 @@ public class SlotManagerImpl implements SlotManager {
 			ArrayList<TaskManagerRegistration> timedOutTaskManagers = new ArrayList<>(taskManagerRegistrations.size());
 
 			// Keep numInitialTaskManagers taskExecutors.
-			int canReleaseNum = Math.max(0, taskManagerRegistrations.size() - numInitialTaskManagers);
+			int canReleaseNum = Math.max(0, taskManagerRegistrations.size() - getMinimalTaskManagerNumber());
 			// first retrieve the timed out TaskManagers
 			for (TaskManagerRegistration taskManagerRegistration : taskManagerRegistrations.values()) {
 				if (currentTime - taskManagerRegistration.getIdleSince() >= taskManagerTimeout.toMilliseconds()
@@ -1368,6 +1366,14 @@ public class SlotManagerImpl implements SlotManager {
 
 	private void checkInit() {
 		Preconditions.checkState(started, "The slot manager has not been started.");
+	}
+
+	private int getMinimalTaskManagerNumber() {
+		return numInitialTaskManagers + numberExtraTaskManagers;
+	}
+
+	private boolean taskManagerNotEnough() {
+		return activeTaskManagers.get() + pendingTaskManagers.get() < getMinimalTaskManagerNumber();
 	}
 
 	// ---------------------------------------------------------------------------------------------
