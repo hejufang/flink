@@ -283,7 +283,9 @@ public class CheckpointStatsTracker {
 			if (reason != null) {
 				final String reasonMessage =  reason.message().replaceAll(" ", "-");
 				failedCheckpointsTagGauge.addMetric(1, new TagGaugeStore.TagValuesBuilder()
-						.addTagValue("reason", reasonMessage.substring(0, Math.min(20, reasonMessage.length()))).build());
+						.addTagValue("reason", reasonMessage.substring(0, Math.min(20, reasonMessage.length())))
+						.addTagValue("chk_id", String.valueOf(failed.getCheckpointId()))
+						.build());
 			}
 
 			dirty = true;
