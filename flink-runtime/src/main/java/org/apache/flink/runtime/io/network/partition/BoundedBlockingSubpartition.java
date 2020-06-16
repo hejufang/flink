@@ -25,6 +25,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -66,6 +69,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * thread-safe vis-a-vis each other.
  */
 final class BoundedBlockingSubpartition extends ResultSubpartition {
+	private static final Logger LOG = LoggerFactory.getLogger(BoundedBlockingSubpartition.class);
 
 	/** This lock guards the creation of readers and disposal of the memory mapped file. */
 	private final Object lock = new Object();
@@ -331,9 +335,12 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 			} catch (FileAlreadyExistsException ignored) {
 			}
 		}
+		final Path temporaryPath = tempFile.toPath().getFileSystem().getPath(partitionDir + tempFile.getName());
+		final String finalPath = ExternalBlockShuffleUtils.generateSubPartitionFile(partitionDir, index);
 		final YarnFileChannelBoundedData bd = YarnFileChannelBoundedData.create(
-				tempFile.toPath().getFileSystem().getPath(partitionDir + tempFile.getName()),
-				ExternalBlockShuffleUtils.generateSubPartitionFile(partitionDir, index));
+				temporaryPath, finalPath);
+
+		LOG.info("Write data, temp path={}, final path={}.", temporaryPath, finalPath);
 		return new BoundedBlockingSubpartition(index, parent, bd);
 	}
 

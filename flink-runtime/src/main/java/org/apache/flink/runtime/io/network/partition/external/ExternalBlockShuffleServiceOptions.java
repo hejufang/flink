@@ -30,10 +30,9 @@ public class ExternalBlockShuffleServiceOptions {
 	/**
 	 * (Compulsory) A fixed port for flink shuffle service on each node.
 	 */
-	public static final ConfigOption<Integer> FLINK_SHUFFLE_SERVICE_PORT_KEY =
-		key("flink.shuffle-service.port")
-			.defaultValue(14572)
-			.withDescription("The port of the shuffle service.");
+	public static final ConfigOption<Integer> YARN_SHUFFLE_SERVICE_PORT =
+			key("flink.shuffle.service.port")
+					.defaultValue(8592);
 
 	/**
 	 * Direct memory limit for flink shuffle service, in MB.

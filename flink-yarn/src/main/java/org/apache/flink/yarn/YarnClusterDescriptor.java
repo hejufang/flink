@@ -45,6 +45,7 @@ import org.apache.flink.core.plugin.PluginConfig;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
+import org.apache.flink.runtime.io.network.partition.external.ExternalBlockShuffleServiceOptions;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessSpec;
@@ -487,6 +488,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		isReadyForDeployment(clusterSpecification);
+
+		// ------------------ Set Yarn Shuffle Service port ----------------
+		final int port = yarnConfiguration.getInt(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
+				ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.defaultValue());
+		flinkConfiguration.set(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT, port);
 
 		// ------------------ Check if the specified queue exists --------------------
 

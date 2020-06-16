@@ -157,6 +157,10 @@ public class YarnShuffleService extends AuxiliaryService {
 		flinkConf.setString(ExternalBlockShuffleServiceOptions.LOCAL_RESULT_PARTITION_RESOLVER_CLASS.key(),
 			"org.apache.flink.runtime.io.network.partition.external.YarnLocalResultPartitionResolver");
 
+		flinkConf.setInteger(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
+				hadoopConf.getInt(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
+						ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.defaultValue()));
+
 		return flinkConf;
 	}
 }

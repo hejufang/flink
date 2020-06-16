@@ -229,8 +229,8 @@ public class ExternalBlockShuffleServiceConfiguration {
 	}
 
 	private static NettyConfig createNettyConfig(Configuration configuration) {
-		final Integer port = configuration.getInteger(ExternalBlockShuffleServiceOptions.FLINK_SHUFFLE_SERVICE_PORT_KEY);
-		checkArgument(port != null && port > 0 && port < 65536,
+		final int port = configuration.getInteger(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT);
+		checkArgument(port > 0 && port < 65536,
 			"Invalid port number for ExternalBlockShuffleService: " + port);
 		final InetSocketAddress shuffleServiceInetSocketAddress = new InetSocketAddress(port);
 
@@ -310,7 +310,7 @@ public class ExternalBlockShuffleServiceConfiguration {
 		// 3.2 Configure the number of send buffers.
 		final int memorySizePerBufferInBytes = configuration.getInteger(
 			ExternalBlockShuffleServiceOptions.MEMORY_SIZE_PER_BUFFER_IN_BYTES);
-		System.out.println(String.format("direct %d, netty %d, max %d, per %d", directMemoryLimitInBytes, nettyMemorySizeInBytes, maxNettyMemorySizeInBytes, memorySizePerBufferInBytes));
+		LOG.info(String.format("direct %d, netty %d, max %d, per %d", directMemoryLimitInBytes, nettyMemorySizeInBytes, maxNettyMemorySizeInBytes, memorySizePerBufferInBytes));
 		final int bufferNum = (int) ((directMemoryLimitInBytes - nettyMemorySizeInBytes) / memorySizePerBufferInBytes);
 		checkArgument(bufferNum >= MIN_BUFFER_NUMBER,
 			"Direct memory left for the send buffer pool is less than the minimal value (" + MIN_BUFFER_NUMBER + "), " +
@@ -405,7 +405,7 @@ public class ExternalBlockShuffleServiceConfiguration {
 		StringBuilder stringBuilder = new StringBuilder();
 
 		stringBuilder.append("Configurations for ExternalBlockShuffleService: { ShuffleServicePort: ")
-			.append(configuration.getInteger(ExternalBlockShuffleServiceOptions.FLINK_SHUFFLE_SERVICE_PORT_KEY))
+			.append(configuration.getInteger(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT))
 			.append(", BufferNumber: ").append(bufferNumber).append(", ")
 			.append("MemorySizePerBufferInBytes: ").append(memorySizePerBufferInBytes).append(", ")
 			.append("NettyThreadNum: ").append(configuration.getInteger(NettyShuffleEnvironmentOptions.NUM_THREADS_SERVER)).append(", ")

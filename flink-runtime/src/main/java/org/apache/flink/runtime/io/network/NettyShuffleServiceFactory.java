@@ -61,7 +61,7 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 		String transport = configuration.getString(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE);
 		if (transport.equals("yarn")) {
 			YarnShuffleMaster shuffleMaster = YarnShuffleMaster.INSTANCE;
-			shuffleMaster.setPort(configuration.getInteger(ExternalBlockShuffleServiceOptions.FLINK_SHUFFLE_SERVICE_PORT_KEY));
+			shuffleMaster.setPort(configuration.getInteger(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT));
 			return shuffleMaster;
 		}
 		return NettyShuffleMaster.INSTANCE;
