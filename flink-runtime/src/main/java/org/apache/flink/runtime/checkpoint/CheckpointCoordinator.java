@@ -854,14 +854,19 @@ public class CheckpointCoordinator {
 		final long checkpointId = pendingCheckpoint.getCheckpointId();
 		final CompletedCheckpoint completedCheckpoint;
 
+		LOG.info("All acknowledgements of checkpoint {} received. Metadata persistence started.", checkpointId);
+
 		// As a first step to complete the checkpoint, we register its state with the registry
 		Map<OperatorID, OperatorState> operatorStates = pendingCheckpoint.getOperatorStates();
 		sharedStateRegistry.registerAll(operatorStates.values());
+
+		LOG.info("Metadata persistence of checkpoint {}: shared state metadata registered.", checkpointId);
 
 		try {
 			try {
 				completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
 				failureManager.handleCheckpointSuccess(pendingCheckpoint.getCheckpointId());
+				LOG.info("Metadata persistence of checkpoint {}: checkpoint metadata registered.", checkpointId);
 			}
 			catch (Exception e1) {
 				// abort the current pending checkpoint if we fails to finalize the pending checkpoint.
@@ -904,6 +909,7 @@ public class CheckpointCoordinator {
 
 		// drop those pending checkpoints that are at prior to the completed one
 		dropSubsumedCheckpoints(checkpointId);
+		LOG.info("Metadata persistence of checkpoint {}: outdated pending checkpoints' metadata dropped.", checkpointId);
 
 		// record the time when this was completed, to calculate
 		// the 'min delay between checkpoints'
