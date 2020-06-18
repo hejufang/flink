@@ -146,6 +146,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"lastCheckpointDuration",
 			"numberOfFailedCheckpoints",
 			"totalNumberOfCheckpoints",
+			"syncDuration",
+			"asyncDuration",
 			// Blacklist
 			"numTaskManagersInBlacklist",
 			// number of skipped records in source

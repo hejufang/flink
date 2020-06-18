@@ -24,6 +24,8 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FileSystemSafetyNet;
+import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
@@ -140,6 +142,15 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	/** Special value, letter that "wakes up" a waiting mailbox loop. */
 	private static final Runnable DEFAULT_ACTION_AVAILABLE = () -> {};
 
+	/** Checkpoint group name under task metrics level. */
+	private static final String METRIC_GROUP_CHECKPOINT = "checkpoint";
+
+	/** Checkpoint metric name for the duration of checkpoint, synchronous stage. */
+	private static final String METRIC_CHECKPOINT_SYNC_DURATION = "syncDuration";
+
+	/** Checkpoint metric name for the duration of checkpoint, asynchronous stage. */
+	private static final String METRIC_CHECKPOINT_ASYNC_DURATION = "asyncDuration";
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -207,6 +218,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	protected final Mailbox mailbox;
 
+	/** Metrics variables. */
+	private final MetricGroup checkpointMetricGroup;
+	private final DurationGauge latestSyncDurationMillisGauge;
+	private final DurationGauge latestAsyncDurationMillisGauge;
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -254,6 +270,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.syncSavepointLatch = new SynchronousSavepointLatch();
 		this.mailbox = new MailboxImpl();
 		this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
+		this.checkpointMetricGroup = getEnvironment().getMetricGroup().addGroup(METRIC_GROUP_CHECKPOINT);
+		this.latestSyncDurationMillisGauge = new DurationGauge();
+		this.latestAsyncDurationMillisGauge = new DurationGauge();
+
+		checkpointMetricGroup.gauge(METRIC_CHECKPOINT_SYNC_DURATION, latestSyncDurationMillisGauge);
+		checkpointMetricGroup.gauge(METRIC_CHECKPOINT_ASYNC_DURATION, latestAsyncDurationMillisGauge);
 	}
 
 	// ------------------------------------------------------------------------
@@ -876,7 +898,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			checkpointMetaData,
 			checkpointOptions,
 			storage,
-			checkpointMetrics);
+			checkpointMetrics,
+			latestSyncDurationMillisGauge,
+			latestAsyncDurationMillisGauge);
 
 		checkpointingOperation.executeCheckpointing();
 	}
@@ -982,21 +1006,40 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		private final CheckpointMetrics checkpointMetrics;
 
 		private final long asyncStartNanos;
+		private final DurationGauge latestAsyncDurationMillisGauge;
 
 		private final AtomicReference<CheckpointingOperation.AsyncCheckpointState> asyncCheckpointState = new AtomicReference<>(
 			CheckpointingOperation.AsyncCheckpointState.RUNNING);
 
+		@VisibleForTesting
 		AsyncCheckpointRunnable(
 			StreamTask<?, ?> owner,
 			Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress,
 			CheckpointMetaData checkpointMetaData,
 			CheckpointMetrics checkpointMetrics,
 			long asyncStartNanos) {
+			// should only be called in testing!
+			this(owner,
+				operatorSnapshotsInProgress,
+				checkpointMetaData,
+				checkpointMetrics,
+				new DurationGauge(),
+				asyncStartNanos);
+		}
+
+		AsyncCheckpointRunnable(
+			StreamTask<?, ?> owner,
+			Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress,
+			CheckpointMetaData checkpointMetaData,
+			CheckpointMetrics checkpointMetrics,
+			DurationGauge latestAsyncDurationMillisGauge,
+			long asyncStartNanos) {
 
 			this.owner = Preconditions.checkNotNull(owner);
 			this.operatorSnapshotsInProgress = Preconditions.checkNotNull(operatorSnapshotsInProgress);
 			this.checkpointMetaData = Preconditions.checkNotNull(checkpointMetaData);
 			this.checkpointMetrics = Preconditions.checkNotNull(checkpointMetrics);
+			this.latestAsyncDurationMillisGauge = latestAsyncDurationMillisGauge;
 			this.asyncStartNanos = asyncStartNanos;
 		}
 
@@ -1033,6 +1076,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				final long asyncDurationMillis = (asyncEndNanos - asyncStartNanos) / 1_000_000L;
 
 				checkpointMetrics.setAsyncDurationMillis(asyncDurationMillis);
+				latestAsyncDurationMillisGauge.setDuration(asyncDurationMillis);
 
 				if (asyncCheckpointState.compareAndSet(CheckpointingOperation.AsyncCheckpointState.RUNNING,
 					CheckpointingOperation.AsyncCheckpointState.COMPLETED)) {
@@ -1198,6 +1242,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		private long startSyncPartNano;
 		private long startAsyncPartNano;
 
+		private final DurationGauge latestSyncDurationMillisGauge;
+		private final DurationGauge latestAsyncDurationMillisGauge;
+
 		// ------------------------
 
 		private final Map<OperatorID, OperatorSnapshotFutures> operatorSnapshotsInProgress;
@@ -1207,7 +1254,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				CheckpointMetaData checkpointMetaData,
 				CheckpointOptions checkpointOptions,
 				CheckpointStreamFactory checkpointStorageLocation,
-				CheckpointMetrics checkpointMetrics) {
+				CheckpointMetrics checkpointMetrics,
+				DurationGauge latestSyncDurationMillisGauge,
+				DurationGauge latestAsyncDurationMillisGauge) {
 
 			this.owner = Preconditions.checkNotNull(owner);
 			this.checkpointMetaData = Preconditions.checkNotNull(checkpointMetaData);
@@ -1216,6 +1265,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			this.storageLocation = Preconditions.checkNotNull(checkpointStorageLocation);
 			this.allOperators = owner.operatorChain.getAllOperators();
 			this.operatorSnapshotsInProgress = new HashMap<>(allOperators.length);
+			this.latestSyncDurationMillisGauge = latestSyncDurationMillisGauge;
+			this.latestAsyncDurationMillisGauge = latestAsyncDurationMillisGauge;
 		}
 
 		public void executeCheckpointing() throws Exception {
@@ -1232,8 +1283,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				}
 
 				startAsyncPartNano = System.nanoTime();
+				final long syncDurationMillis = (startAsyncPartNano - startSyncPartNano) / 1_000_000L;
 
-				checkpointMetrics.setSyncDurationMillis((startAsyncPartNano - startSyncPartNano) / 1_000_000);
+				checkpointMetrics.setSyncDurationMillis(syncDurationMillis);
+				latestSyncDurationMillisGauge.setDuration(syncDurationMillis);
 
 				// we are transferring ownership over snapshotInProgressList for cleanup to the thread, active on submit
 				AsyncCheckpointRunnable asyncCheckpointRunnable = new AsyncCheckpointRunnable(
@@ -1241,6 +1294,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					operatorSnapshotsInProgress,
 					checkpointMetaData,
 					checkpointMetrics,
+					latestAsyncDurationMillisGauge,
 					startAsyncPartNano);
 
 				owner.cancelables.registerCloseable(asyncCheckpointRunnable);
@@ -1389,6 +1443,21 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		 */
 		public void actionsUnavailable() throws InterruptedException {
 			mailbox.putMail(actionUnavailableLetter);
+		}
+	}
+
+	// Metrics Gauge
+	private static class DurationGauge implements Gauge<Long> {
+
+		private long duration = -1L;
+
+		public void setDuration(long duration) {
+			this.duration = duration;
+		}
+
+		@Override
+		public Long getValue() {
+			return this.duration;
 		}
 	}
 }

@@ -157,12 +157,24 @@ public class Dashboard {
 		return checkpointRow;
 	}
 
-	private String renderCheckpointDurationRow() {
+	private String renderCheckpointDurationRow(List<String> operators) {
+		// Render target
+		String targetTemplate = Template.CHECKPOINT_DURATION_TASK_TARGET;
+		List<String> targetList = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> targetValues = new HashMap<>();
+			targetValues.put("operator", o);
+			targetValues.put("jobname", formatJobName);
+			targetList.add(renderString(targetTemplate, targetValues));
+		}
+		String taskTargets = String.join(",", targetList);
+
+		// Render complete configuration
+		Map<String, String> checkpointDurationValues = new HashMap<>();
+		checkpointDurationValues.put("taskTargets", taskTargets);
+		checkpointDurationValues.put("datasource", dataSource);
 		String checkpointDurationTemplate = Template.CHECKPOINT_DURATION;
-		Map<String, String> checkpointValues = new HashMap<>();
-		checkpointValues.put("jobname", formatJobName);
-		checkpointValues.put("datasource", dataSource);
-		String checkpointDurationRow = renderString(checkpointDurationTemplate, checkpointValues);
+		String checkpointDurationRow = renderString(checkpointDurationTemplate, checkpointDurationValues);
 		return checkpointDurationRow;
 	}
 
@@ -377,7 +389,7 @@ public class Dashboard {
 		rows.add(renderJobInfoRow());
 		rows.add(renderTmSlotRow());
 		rows.add(renderCheckpointRow());
-		rows.add(renderCheckpointDurationRow());
+		rows.add(renderCheckpointDurationRow(operators));
 		rows.add(renderSlowContainerRow());
 		rows.add(renderCompletedContainerRow());
 

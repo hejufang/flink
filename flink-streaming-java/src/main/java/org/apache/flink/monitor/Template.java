@@ -1692,14 +1692,14 @@ public class Template {
 			"					\"span\": 12,\n" +
 			"					\"stack\": false,\n" +
 			"					\"steppedLine\": false,\n" +
-			"					\"targets\": [\n" +
+			"					\"targets\": [\n" + "${taskTargets},\n" +
 			"						{\n" +
 			"							\"aggregator\": \"sum\",\n" +
 			"							\"alias\": \"lastCheckpointDuration\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.${jobname}.lastCheckpointDuration\",\n" +
-			"							\"refId\": \"A\"\n" +
+			"							\"refId\": \"GLOBAL_TOTAL\"\n" +
 			"						}\n" +
 			"					],\n" +
 			"					\"thresholds\": [],\n" +
@@ -1747,6 +1747,20 @@ public class Template {
 			"			\"titleSize\": \"h6\"\n" +
 			"		}";
 
+	public static final String CHECKPOINT_DURATION_TASK_TARGET = "{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}.checkpoint.syncDuration\",\n" +
+		"							\"refId\": \"SYNC\"\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}.checkpoint.asyncDuration\",\n" +
+		"							\"refId\": \"ASYNC\"\n" +
+		"						}";
 
 	public static final String ROCKETMQ_LAG_SIZE = "{\n" +
 		"			\"collapse\": false,\n" +
