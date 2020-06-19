@@ -1157,7 +1157,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					// Otherwise this followup exception could race the original exception in failing the task.
 					try {
 						owner.checkpointExceptionHandler.tryHandleCheckpointException(checkpointMetaData,
-								new CheckpointException(CheckpointFailureReason.EXCEPTION, checkpointException));
+								new CheckpointException(CheckpointFailureReason.CHECKPOINT_ASYNC_EXCEPTION, checkpointException));
 					} catch (Exception unhandled) {
 						AsynchronousException asyncException = new AsynchronousException(unhandled);
 						owner.handleAsyncException("Failure in asynchronous checkpoint materialization", asyncException);
@@ -1334,7 +1334,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 					// operation, and without the failure, the task would go back to normal execution.
 					throw ex;
 				} else {
-					owner.checkpointExceptionHandler.tryHandleCheckpointException(checkpointMetaData, ex);
+					owner.checkpointExceptionHandler.tryHandleCheckpointException(checkpointMetaData,
+						new CheckpointException(CheckpointFailureReason.CHECKPOINT_SYNC_EXCEPTION, ex));
 				}
 			}
 		}

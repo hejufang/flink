@@ -36,6 +36,10 @@ public enum CheckpointFailureReason {
 
 	EXCEPTION(true, "An Exception occurred while triggering the checkpoint."),
 
+	CHECKPOINT_ASYNC_EXCEPTION(false, "Asynchronous task checkpoint failed."),
+
+	CHECKPOINT_SYNC_EXCEPTION(false, "Synchronous task checkpoint failed."),
+
 	CHECKPOINT_EXPIRED(false, "Checkpoint expired before completing."),
 
 	CHECKPOINT_SUBSUMED(false, "Checkpoint has been subsumed."),
