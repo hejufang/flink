@@ -1772,7 +1772,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		int heapSize = Utils.calculateHeapSize(jobManagerMemoryMb, flinkConfiguration);
 		String jvmHeapMem = String.format("-Xms%sm -Xmx%sm", heapSize, heapSize);
-		startCommandValues.put("jvmmem", jvmHeapMem);
+
+		int directSize = jobManagerMemoryMb - heapSize;
+		String jvmDirectMem = String.format("-XX:MaxDirectMemorySize=%dm", directSize);
+
+		startCommandValues.put("jvmmem", jvmHeapMem + " " + jvmDirectMem);
 
 		startCommandValues.put("jvmopts", javaOpts);
 		String logging = "";
