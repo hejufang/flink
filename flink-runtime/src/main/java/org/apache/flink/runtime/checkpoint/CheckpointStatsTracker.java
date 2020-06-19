@@ -368,7 +368,7 @@ public class CheckpointStatsTracker {
 	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC = "lastCheckpointExternalPath";
 
-	static final TagGauge failedCheckpointsTagGauge = new TagGauge();
+	static final TagGauge failedCheckpointsTagGauge = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
 
 	/**
 	 * Register the exposed metrics.

@@ -34,20 +34,8 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 
 	private final TagGaugeStore store;
 
-	public TagGauge() {
-		this(1024);
-	}
-
-	public TagGauge(boolean clearAfterReport) {
-		this(1024, clearAfterReport);
-	}
-
-	public TagGauge(int maxSize) {
-		this(maxSize, false);
-	}
-
-	public TagGauge(int maxSize, boolean clearAfterReport) {
-		this.store = new TagGaugeStore(maxSize, clearAfterReport);
+	TagGauge(int maxSize, boolean clearAfterReport, boolean clearWhenFull) {
+		this.store = new TagGaugeStore(maxSize, clearAfterReport, clearWhenFull);
 	}
 
 	public void addMetric(Object metricValue, TagGaugeStore.TagValues tagValues) {
@@ -71,5 +59,36 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 	@Override
 	public TagGaugeStore getValue() {
 		return store;
+	}
+
+	/**
+	 * Build for {@link TagGauge}.
+	 */
+	public static class TagGaugeBuilder {
+
+		private int size = 1024;
+		private boolean clearAfterReport = false;
+		private boolean clearWhenFull = false;
+
+		public TagGaugeBuilder() {}
+
+		public TagGaugeBuilder setMaxSize(int maxSize) {
+			this.size = maxSize;
+			return this;
+		}
+
+		public TagGaugeBuilder setClearAfterReport(boolean clearAfterReport) {
+			this.clearAfterReport = clearAfterReport;
+			return this;
+		}
+
+		public TagGaugeBuilder setClearWhenFull(boolean clearWhenFull) {
+			this.clearWhenFull = clearWhenFull;
+			return this;
+		}
+
+		public TagGauge build() {
+			return new TagGauge(size, clearAfterReport, clearWhenFull);
+		}
 	}
 }

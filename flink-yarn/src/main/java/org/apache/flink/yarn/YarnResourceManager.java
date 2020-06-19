@@ -219,9 +219,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private Set<String> yarnBlackedHosts;
 
-	private final TagGauge blacklistGauge = new TagGauge();
+	private final TagGauge blacklistGauge = new TagGauge.TagGaugeBuilder().build();
 
-	private final TagGauge completedContainerGauge = new TagGauge(true);
+	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
 
 	/**
 	 * executor for start yarn container.

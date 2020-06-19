@@ -39,20 +39,23 @@ public class TagGaugeStore {
 
 	private final boolean clearAfterReport;
 
-	public TagGaugeStore(int maxSize) {
-		this(maxSize, false);
-	}
+	private final boolean clearWhenFull;
 
-	public TagGaugeStore(int maxSize, boolean clearAfterReport) {
+	public TagGaugeStore(int maxSize, boolean clearAfterReport, boolean clearWhenFull) {
 		this.maxSize = maxSize;
 		this.metricValuesList = new ArrayList<>();
 		this.clearAfterReport = clearAfterReport;
+		this.clearWhenFull = clearWhenFull;
 	}
 
 	public void addMetric(double metricValue, TagValues tagValues) {
 		if (metricValuesList.size() == maxSize) {
-			if (metricValuesList.size() > 0) {
-				metricValuesList.remove(0);
+			if (clearWhenFull) {
+				metricValuesList.clear();
+			} else {
+				if (metricValuesList.size() > 0) {
+					metricValuesList.remove(0);
+				}
 			}
 		}
 
