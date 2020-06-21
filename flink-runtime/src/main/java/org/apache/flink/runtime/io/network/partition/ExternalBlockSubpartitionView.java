@@ -221,6 +221,9 @@ public class ExternalBlockSubpartitionView implements ResultSubpartitionView, Ru
 		if (buffer == null) {
 			bufferPool.recycle(segment);
 			reachFileEnd = true;
+			if (filePath != null) {
+				LOG.info("File {} is consumed.", filePath.toFile().getAbsolutePath());
+			}
 		}
 		return buffer;
 	}

@@ -191,14 +191,14 @@ public class ExternalBlockResultPartitionManager implements ResultPartitionProvi
 	 * This method is called only in constructor to construct thread pools for disk IO threads.
 	 */
 	private void constructThreadPools() {
-		ThreadGroup threadGroup = new ThreadGroup("Disk IO Thread Group");
+		ThreadGroup threadGroup = new ThreadGroup("Flink Disk IO Thread Group");
 		shuffleServiceConfiguration.getDirToDiskType().forEach((dir, diskType) -> {
 			Integer threadNum = shuffleServiceConfiguration.getDiskTypeToIOThreadNum().get(diskType);
 			BlockingQueue<Runnable> blockingQueue = new ExternalBlockSubpartitionViewSchedulerDelegate(
 				shuffleServiceConfiguration.newSubpartitionViewScheduler());
 			ThreadPoolExecutor threadPool = new ThreadPoolExecutor(
 				threadNum, threadNum, 0L, TimeUnit.MILLISECONDS, blockingQueue,
-				new DispatcherThreadFactory(threadGroup, "IO thread [" + diskType + "] [" + dir + "]"));
+				new DispatcherThreadFactory(threadGroup, "Flink IO thread [" + diskType + "] [" + dir + "]"));
 			dirToThreadPool.put(dir, threadPool);
 		});
 	}

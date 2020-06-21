@@ -37,6 +37,7 @@ import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.RestOptions;
@@ -490,9 +491,15 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		isReadyForDeployment(clusterSpecification);
 
 		// ------------------ Set Yarn Shuffle Service port ----------------
-		final int port = yarnConfiguration.getInt(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
-				ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.defaultValue());
-		flinkConfiguration.set(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT, port);
+		if (!flinkConfiguration.containsKey(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE.key())) {
+			// check whether yarn supports shuffle service
+			if (yarnConfiguration.get(Utils.YARN_SHUFFLE_SERVICE_NAME) != null) {
+				flinkConfiguration.set(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE, "yarn");
+				final int port = yarnConfiguration.getInt(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.key(),
+						ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT.defaultValue());
+				flinkConfiguration.set(ExternalBlockShuffleServiceOptions.YARN_SHUFFLE_SERVICE_PORT, port);
+			}
+		}
 
 		// ------------------ Check if the specified queue exists --------------------
 

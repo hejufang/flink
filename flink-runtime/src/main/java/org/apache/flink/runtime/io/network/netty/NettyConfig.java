@@ -158,7 +158,7 @@ public class NettyConfig {
 
 	@Override
 	public String toString() {
-		String format = "NettyConfig [" +
+		String format = "Flink NettyConfig [" +
 				"server address: %s, " +
 				"server port: %d, " +
 				"ssl enabled: %s, " +
