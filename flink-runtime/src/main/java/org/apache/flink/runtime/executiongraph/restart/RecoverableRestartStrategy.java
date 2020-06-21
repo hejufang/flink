@@ -85,7 +85,7 @@ public class RecoverableRestartStrategy implements RestartStrategy {
 	}
 
 	public static RecoverableRestartStrategyFactory createFactory(Configuration configuration) throws Exception {
-		int maxFailuresPerInterval = configuration.getInteger(ConfigConstants.RESTART_STRATEGY_RECOVERABLE_FAILURE_RATE_MAX_FAILURES_PER_INTERVAL, 50);
+		int maxFailuresPerInterval = configuration.getInteger(ConfigConstants.RESTART_STRATEGY_RECOVERABLE_FAILURE_RATE_MAX_FAILURES_PER_INTERVAL, 150);
 		String failuresIntervalString = configuration.getString(
 				ConfigConstants.RESTART_STRATEGY_RECOVERABLE_FAILURE_RATE_FAILURE_RATE_INTERVAL, Duration.apply(10, TimeUnit.MINUTES).toString()
 		);
