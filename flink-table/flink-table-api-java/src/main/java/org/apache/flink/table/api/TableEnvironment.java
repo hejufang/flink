@@ -829,6 +829,17 @@ public interface TableEnvironment {
 	String[] getCompletionHints(String statement, int position);
 
 	/**
+	 * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE, DELETE or DDL statements.
+	 *
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @return An optional table with value if the last statement is a query statement,
+	 *         otherwise returns Optional.EMPTY.
+	 * */
+	default Optional<Table> sql(String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Evaluates a SQL query on registered tables and retrieves the result as a {@link Table}.
 	 *
 	 * <p>All tables referenced by the query must be registered in the TableEnvironment.

@@ -128,10 +128,14 @@ import org.apache.flink.table.types.AbstractDataType;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.utils.PrintUtils;
+import org.apache.flink.table.utils.SqlSplitUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -152,6 +156,7 @@ import java.util.stream.StreamSupport;
 public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	// Flag that tells if the TableSource/TableSink used in this environment is stream table source/sink,
 	// and this should always be true. This avoids too many hard code.
+	private static final Logger LOG = LoggerFactory.getLogger(TableEnvironmentImpl.class);
 	private static final boolean IS_STREAM_TABLE = true;
 	private final CatalogManager catalogManager;
 	private final ModuleManager moduleManager;
@@ -635,6 +640,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
 		Operation operation = operations.get(0);
 
+		return sqlQueryInternal(operation);
+	}
+
+	private Table sqlQueryInternal(Operation operation) {
 		if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
 			return createTable((QueryOperation) operation);
 		} else {
@@ -653,6 +662,43 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		}
 
 		return executeOperation(operations.get(0));
+	}
+
+	@Override
+	public Optional<Table> sql(String stmt) {
+		List<String> statementList = SqlSplitUtils.getSqlList(stmt);
+		StatementSet statementSet = createStatementSet();
+		boolean hasModifyOperation = false;
+		for (int i = 0; i < statementList.size(); i++) {
+			String statement = statementList.get(i);
+			Preconditions.checkNotNull(statement, "statement must not be null!");
+			List<Operation> operations = parser.parse(statement);
+			if (operations.size() == 0) {
+				LOG.info("operation of statement: '{}' is empty, continue.", statement.trim());
+				continue;
+			}
+			if (operations.size() != 1) {
+				throw new ValidationException("Unexpected sql: '" + statement + "', " +
+					"each splitted statement is supposed to be a single SQL statement");
+			}
+
+			Operation operation = operations.get(0);
+			if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
+				Table table = sqlQueryInternal(operation);
+				if (i == statementList.size() - 1) {
+					return Optional.of(table);
+				}
+			} else if (operation instanceof ModifyOperation) {
+				statementSet.addInsertSql(statement);
+				hasModifyOperation = true;
+			} else {
+				executeOperation(operation);
+			}
+		}
+		if (hasModifyOperation) {
+			statementSet.execute();
+		}
+		return Optional.empty();
 	}
 
 	@Override
