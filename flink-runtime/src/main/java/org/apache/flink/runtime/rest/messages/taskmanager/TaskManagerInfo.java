@@ -59,6 +59,10 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 
 	public static final String FIELD_NAME_HARDWARE = "hardware";
 
+	public static final String FIELD_NAME_WEB_SHELL = "webShell";
+
+	public static final String FIELD_NAME_TM_LOG = "tmLog";
+
 	private static final long serialVersionUID = 1L;
 
 	@JsonProperty(FIELD_NAME_RESOURCE_ID)
@@ -89,6 +93,12 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 	@JsonProperty(FIELD_NAME_HARDWARE)
 	private final HardwareDescription hardwareDescription;
 
+	@JsonProperty(FIELD_NAME_WEB_SHELL)
+	private final String webShell;
+
+	@JsonProperty(FIELD_NAME_TM_LOG)
+	private final String tmLog;
+
 	@JsonCreator
 	public TaskManagerInfo(
 			@JsonDeserialize(using = ResourceIDDeserializer.class) @JsonProperty(FIELD_NAME_RESOURCE_ID) ResourceID resourceId,
@@ -99,7 +109,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			@JsonProperty(FIELD_NAME_NUMBER_AVAILABLE_SLOTS) int numberAvailableSlots,
 			@JsonProperty(FIELD_NAME_TOTAL_RESOURCE) ResourceProfileInfo totalResource,
 			@JsonProperty(FIELD_NAME_AVAILABLE_RESOURCE) ResourceProfileInfo freeResource,
-			@JsonProperty(FIELD_NAME_HARDWARE) HardwareDescription hardwareDescription) {
+			@JsonProperty(FIELD_NAME_HARDWARE) HardwareDescription hardwareDescription,
+			@JsonProperty(FIELD_NAME_WEB_SHELL) String webShell,
+			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog) {
 		this.resourceId = Preconditions.checkNotNull(resourceId);
 		this.address = Preconditions.checkNotNull(address);
 		this.dataPort = dataPort;
@@ -109,6 +121,33 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		this.totalResource = totalResource;
 		this.freeResource = freeResource;
 		this.hardwareDescription = Preconditions.checkNotNull(hardwareDescription);
+		this.webShell = (webShell == null) ? "NoWebShell" : webShell;
+		this.tmLog = (tmLog == null) ? "TmLog" : tmLog;
+	}
+
+	public TaskManagerInfo(
+			ResourceID resourceId,
+			String address,
+			int dataPort,
+			long lastHeartbeat,
+			int numberSlots,
+			int numberAvailableSlots,
+			ResourceProfile totalResource,
+			ResourceProfile freeResource,
+			HardwareDescription hardwareDescription,
+			String webShell,
+			String tmLog) {
+		this(resourceId,
+				address,
+				dataPort,
+				lastHeartbeat,
+				numberSlots,
+				numberAvailableSlots,
+				ResourceProfileInfo.fromResrouceProfile(totalResource),
+				ResourceProfileInfo.fromResrouceProfile(freeResource),
+				hardwareDescription,
+				webShell,
+				tmLog);
 	}
 
 	public TaskManagerInfo(
@@ -129,7 +168,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			numberAvailableSlots,
 			ResourceProfileInfo.fromResrouceProfile(totalResource),
 			ResourceProfileInfo.fromResrouceProfile(freeResource),
-			hardwareDescription);
+			hardwareDescription,
+			null,
+			null);
 	}
 
 	public ResourceID getResourceId() {
@@ -168,6 +209,14 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		return hardwareDescription;
 	}
 
+	public String getWebShell() {
+		return webShell;
+	}
+
+	public String getTmLog() {
+		return tmLog;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -185,7 +234,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			Objects.equals(freeResource, that.freeResource) &&
 			Objects.equals(resourceId, that.resourceId) &&
 			Objects.equals(address, that.address) &&
-			Objects.equals(hardwareDescription, that.hardwareDescription);
+			Objects.equals(hardwareDescription, that.hardwareDescription) &&
+			webShell == that.webShell &&
+			tmLog == that.tmLog;
 	}
 
 	@Override
@@ -199,6 +250,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			numberAvailableSlots,
 			totalResource,
 			freeResource,
-			hardwareDescription);
+			hardwareDescription,
+			webShell,
+			tmLog);
 	}
 }

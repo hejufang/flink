@@ -25,4 +25,6 @@ export interface ConfigurationInterface {
   features: {
     'web-submit': boolean;
   };
+  jmLog: string;
+  jmWebShell: string;
 }

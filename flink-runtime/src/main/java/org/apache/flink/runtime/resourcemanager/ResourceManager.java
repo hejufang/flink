@@ -70,6 +70,7 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
+import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
@@ -529,6 +530,11 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final ResourceID resourceId = taskExecutorEntry.getKey();
 			final WorkerRegistration<WorkerType> taskExecutor = taskExecutorEntry.getValue();
 
+			String host = taskExecutor.getTaskExecutorGateway().getHostname();
+			String webShell = WebMonitorUtils.getContainerWebShell(resourceId.getResourceIdString(), host);
+			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
+
 			taskManagerInfos.add(
 				new TaskManagerInfo(
 					resourceId,
@@ -539,7 +545,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					slotManager.getNumberFreeSlotsOf(taskExecutor.getInstanceID()),
 					slotManager.getRegisteredResourceOf(taskExecutor.getInstanceID()),
 					slotManager.getFreeResourceOf(taskExecutor.getInstanceID()),
-					taskExecutor.getHardwareDescription()));
+					taskExecutor.getHardwareDescription(),
+					webShell,
+					tmLog));
 		}
 
 		return CompletableFuture.completedFuture(taskManagerInfos);
@@ -554,6 +562,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			return FutureUtils.completedExceptionally(new UnknownTaskExecutorException(resourceId));
 		} else {
 			final InstanceID instanceId = taskExecutor.getInstanceID();
+			String host = taskExecutor.getTaskExecutorGateway().getHostname();
+			String webShell = WebMonitorUtils.getContainerWebShell(resourceId.getResourceIdString(), host);
+			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 			final TaskManagerInfo taskManagerInfo = new TaskManagerInfo(
 				resourceId,
 				taskExecutor.getTaskExecutorGateway().getAddress(),
@@ -563,7 +575,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				slotManager.getNumberFreeSlotsOf(instanceId),
 				slotManager.getRegisteredResourceOf(instanceId),
 				slotManager.getFreeResourceOf(instanceId),
-				taskExecutor.getHardwareDescription());
+				taskExecutor.getHardwareDescription(),
+				webShell,
+				tmLog);
 
 			return CompletableFuture.completedFuture(taskManagerInfo);
 		}

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.rest.handler.job;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecution;
 import org.apache.flink.runtime.executiongraph.AccessExecutionGraph;
@@ -61,6 +62,7 @@ import java.util.concurrent.Executor;
 public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsInfo, JobMessageParameters> implements JsonArchivist {
 
 	private final MetricFetcher metricFetcher;
+	private final Configuration configuration;
 
 	public JobDetailsHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -69,7 +71,8 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			MessageHeaders<EmptyRequestBody, JobDetailsInfo, JobMessageParameters> messageHeaders,
 			ExecutionGraphCache executionGraphCache,
 			Executor executor,
-			MetricFetcher metricFetcher) {
+			MetricFetcher metricFetcher,
+			Configuration configuration) {
 		super(
 			leaderRetriever,
 			timeout,
@@ -79,24 +82,26 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			executor);
 
 		this.metricFetcher = Preconditions.checkNotNull(metricFetcher);
+		this.configuration = Preconditions.checkNotNull(configuration);
 	}
 
 	@Override
 	protected JobDetailsInfo handleRequest(
 			HandlerRequest<EmptyRequestBody, JobMessageParameters> request,
 			AccessExecutionGraph executionGraph) throws RestHandlerException {
-		return createJobDetailsInfo(executionGraph, metricFetcher);
+		return createJobDetailsInfo(executionGraph, metricFetcher, configuration);
 	}
 
 	@Override
 	public Collection<ArchivedJson> archiveJsonWithPath(AccessExecutionGraph graph) throws IOException {
-		ResponseBody json = createJobDetailsInfo(graph, null);
+		ResponseBody json = createJobDetailsInfo(graph, null, null);
 		String path = getMessageHeaders().getTargetRestEndpointURL()
 			.replace(':' + JobIDPathParameter.KEY, graph.getJobID().toString());
 		return Collections.singleton(new ArchivedJson(path, json));
 	}
 
-	private static JobDetailsInfo createJobDetailsInfo(AccessExecutionGraph executionGraph, @Nullable MetricFetcher metricFetcher) {
+	private static JobDetailsInfo createJobDetailsInfo(AccessExecutionGraph executionGraph,
+			@Nullable MetricFetcher metricFetcher, @Nullable Configuration configuration) {
 		final long now = System.currentTimeMillis();
 		final long startTime = executionGraph.getStatusTimestamp(JobStatus.CREATED);
 		final long endTime = executionGraph.getState().isGloballyTerminalState() ?
