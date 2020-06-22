@@ -1200,7 +1200,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 			}
 			lastAppState = appState;
-			Thread.sleep(250);
+			Thread.sleep(1000);
 		}
 		// print the application id for user to cancel themselves.
 		if (isDetachedMode()) {
