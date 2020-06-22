@@ -220,6 +220,11 @@ public class YarnConfigOptions {
 			.defaultValue(10)
 			.withDescription("The number of threads to start yarn containers in yarn resource manager.");
 
+	public static final ConfigOption<String> NODE_SATISFY_ATTRIBUTES_EXPRESSION =
+			key("yarn.node-satisfy-attributes-expression")
+					.noDefaultValue()
+					.withDescription("The expression of node attributes, such as has_gpu,is_gemini,pod...");
+
 	// ------------------------------------------------------------------------
 	/**
 	 * Use GangScheduler when allocate containers from Yarn.
@@ -280,6 +285,13 @@ public class YarnConfigOptions {
 		key("yarn.gang-scheduler.max-retry-times")
 			.defaultValue(5)
 			.withDescription("Max retry times by GangScheduler, downgrade to fairScheduler if exceeds");
+
+	public static final ConfigOption<Boolean> GANG_DOWNGRADE_ON_FAILED =
+			key("yarn.gang-scheduler.gang-downgrade-on-failed")
+					.defaultValue(true)
+					.withDescription("Whether downgrade to FairScheduler when Gang Failed too many times." +
+							"true downgrade to FairScheduler." +
+							"false exit application.");
 
 	/**
 	 * Back to GangScheduler after downgrade timeout. Only work when gang scheduler enabled.

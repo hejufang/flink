@@ -83,6 +83,7 @@ import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.ConstraintContent;
 import org.apache.hadoop.yarn.api.protocolrecords.GlobalConstraint;
 import org.apache.hadoop.yarn.api.protocolrecords.GlobalConstraints;
+import org.apache.hadoop.yarn.api.protocolrecords.NodeSatisfyAttributesContent;
 import org.apache.hadoop.yarn.api.protocolrecords.NodeSkipHighLoadContent;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ConstraintType;
@@ -266,11 +267,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	 * Only be true when first allocate after YarnResourceManager started.
 	 */
 	private boolean fatalOnGangFailed;
-	private int gangMaxRetryTimes;
+	private final int gangMaxRetryTimes;
 	private int gangCurrentRetryTimes;
 	private long gangLastDowngradeTimestamp;
-	private int gangDowngradeTimeoutMilli;
-	private boolean gangSchedulerEnabled;
+	private final int gangDowngradeTimeoutMilli;
+	private final boolean gangDowngradeOnFailed;
+	private final boolean gangSchedulerEnabled;
+	private final String nodeAttributesExpression;
 
 	private final boolean cleanupRunningContainersOnStop;
 
@@ -374,6 +377,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		this.gangLastDowngradeTimestamp = -1;
 		this.gangMaxRetryTimes = flinkConfig.getInteger(YarnConfigOptions.GANG_MAX_RETRY_TIMES);
 		this.gangDowngradeTimeoutMilli = flinkConfig.getInteger(YarnConfigOptions.GANG_DOWNGRADE_TIMEOUT_MS);
+		this.gangDowngradeOnFailed = flinkConfig.getBoolean(YarnConfigOptions.GANG_DOWNGRADE_ON_FAILED);
+		this.nodeAttributesExpression = flinkConfig.getString(YarnConfigOptions.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
 
 		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
 
@@ -763,8 +768,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 							}
 
 							if (++gangCurrentRetryTimes > gangMaxRetryTimes) {
-								// gang scheduler failed too many times, downgrade to fair scheduler.
-								gangLastDowngradeTimestamp = System.currentTimeMillis();
+								if (gangDowngradeOnFailed) {
+									// gang scheduler failed too many times, downgrade to fair scheduler.
+									gangLastDowngradeTimestamp = System.currentTimeMillis();
+								} else {
+									String fatalMessage = "Request container by GangScheduler failed more than "
+											+ gangCurrentRetryTimes + " times, " + gangSchedulerNotifyContent;
+									onFatalError(new RuntimeException(fatalMessage));
+								}
 							}
 							sessionBlacklistTracker.clearAll();
 							scheduleRunAsync(
@@ -1084,6 +1095,16 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				hardConstraints.add(load);
 			}
 
+			if (!StringUtils.isNullOrWhitespaceOnly(nodeAttributesExpression)) {
+				// ----select node with attributes----
+				GlobalConstraint attributes = GlobalConstraint.newInstance(ConstraintType.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
+				NodeSatisfyAttributesContent attributesContent = NodeSatisfyAttributesContent.newInstance(nodeAttributesExpression);
+				ConstraintContent cc1 = ConstraintContent.newInstance();
+				cc1.setNodeSatisfyAttributesContent(attributesContent);
+				attributes.setConstraintContent(cc1);
+				hardConstraints.add(attributes);
+			}
+
 			// ----set soft constraints----
 			List<GlobalConstraint> softConstraints = new ArrayList<>();
 			if (flinkConfig.getInteger(YarnConfigOptions.GANG_CONTAINER_DECENTRALIZED_AVERAGE_WEIGHT) > 0) {
@@ -1113,7 +1134,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				getContainerResource(),
 				null,
 				null,
-				RM_REQUEST_PRIORITY);
+				RM_REQUEST_PRIORITY,
+				true,
+				null,
+				nodeAttributesExpression);
 		}
 		return containerRequest;
 	}
