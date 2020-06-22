@@ -20,6 +20,7 @@ package org.apache.flink.table.catalog.hive.client;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.api.constraints.UniqueConstraint;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
@@ -60,6 +61,7 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveMetastoreClientWrapper.class);
 
+	private boolean isAllowedToModifyHiveMeta;
 	private final IMetaStoreClient client;
 	private final HiveConf hiveConf;
 	private final HiveShim hiveShim;
@@ -76,6 +78,10 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 		client.close();
 	}
 
+	public void setAllowedToModifyHiveMeta(boolean allowedToModifyHiveMeta) {
+		isAllowedToModifyHiveMeta = allowedToModifyHiveMeta;
+	}
+
 	public List<String> getDatabases(String pattern) throws MetaException, TException {
 		return client.getDatabases(pattern);
 	}
@@ -90,11 +96,13 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public void dropTable(String databaseName, String tableName)
 			throws MetaException, TException, NoSuchObjectException {
+		checkPermissionsOfHiveMetaModifications();
 		client.dropTable(databaseName, tableName);
 	}
 
 	public void dropTable(String dbName, String tableName, boolean deleteData, boolean ignoreUnknownTable)
 			throws MetaException, NoSuchObjectException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.dropTable(dbName, tableName, deleteData, ignoreUnknownTable);
 	}
 
@@ -139,49 +147,59 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public void createTable(Table table)
 			throws AlreadyExistsException, InvalidObjectException, MetaException, NoSuchObjectException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.createTable(table);
 	}
 
 	public void createDatabase(Database database)
 			throws InvalidObjectException, AlreadyExistsException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.createDatabase(database);
 	}
 
 	public void dropDatabase(String name, boolean deleteData, boolean ignoreIfNotExists)
 			throws NoSuchObjectException, InvalidOperationException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.dropDatabase(name, deleteData, ignoreIfNotExists);
 	}
 
 	public void dropDatabase(String name, boolean deleteData, boolean ignoreIfNotExists, boolean cascade)
 			throws NoSuchObjectException, InvalidOperationException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.dropDatabase(name, deleteData, ignoreIfNotExists, cascade);
 	}
 
 	public void alterDatabase(String name, Database database) throws NoSuchObjectException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.alterDatabase(name, database);
 	}
 
 	public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
 			throws NoSuchObjectException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		return client.dropPartition(databaseName, tableName, partitionValues, deleteData);
 	}
 
 	public void renamePartition(String databaseName, String tableName, List<String> partitionValues, Partition partition)
 			throws InvalidOperationException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.renamePartition(databaseName, tableName, partitionValues, partition);
 	}
 
 	public void createFunction(Function function) throws InvalidObjectException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.createFunction(function);
 	}
 
 	public void alterFunction(String databaseName, String functionName, Function function)
 			throws InvalidObjectException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.alterFunction(databaseName, functionName, function);
 	}
 
 	public void dropFunction(String databaseName, String functionName)
 			throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		client.dropFunction(databaseName, functionName);
 	}
 
@@ -202,11 +220,13 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public boolean updateTableColumnStatistics(ColumnStatistics columnStatistics)
 			throws NoSuchObjectException, InvalidObjectException, MetaException, TException, InvalidInputException {
+		checkPermissionsOfHiveMetaModifications();
 		return client.updateTableColumnStatistics(columnStatistics);
 	}
 
 	public boolean updatePartitionColumnStatistics(ColumnStatistics columnStatistics)
 			throws NoSuchObjectException, InvalidObjectException, MetaException, TException, InvalidInputException {
+		checkPermissionsOfHiveMetaModifications();
 		return client.updatePartitionColumnStatistics(columnStatistics);
 	}
 
@@ -258,11 +278,13 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public void alter_table(String databaseName, String tableName, Table table)
 			throws InvalidOperationException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		hiveShim.alterTable(client, databaseName, tableName, table);
 	}
 
 	public void alter_partition(String databaseName, String tableName, Partition partition)
 			throws InvalidOperationException, MetaException, TException {
+		checkPermissionsOfHiveMetaModifications();
 		hiveShim.alterPartition(client, databaseName, tableName, partition);
 	}
 
@@ -283,4 +305,9 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 				nnTraits);
 	}
 
+	private void checkPermissionsOfHiveMetaModifications() {
+		if (!isAllowedToModifyHiveMeta) {
+			throw new FlinkRuntimeException("Modifications of hive meta are not allowed!");
+		}
+	}
 }
