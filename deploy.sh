@@ -17,12 +17,4 @@
 # limitations under the License.
 ################################################################################
 
-rm -rf output
-
-# compile current branch
-mvn clean package -U -DskipTests -Pinclude-hadoop
-
-# copy flink-1.11 to output
-mkdir -p output
-rm -rf flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/opt
-cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/* output/
+mvn clean deploy -U -DskipTests -Pinclude-hadoop
