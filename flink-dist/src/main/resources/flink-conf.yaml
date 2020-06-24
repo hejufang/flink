@@ -349,6 +349,23 @@ marmt:
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
 
+giraf:
+  dc: va
+  clusterName: giraf
+  high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
+  hdfs.prefix: hdfs://harunava/home/byte_inf_compute_gcp/flink_vagcp
+  checkpoint.hdfs.prefix: hdfs://harunava/home/byte_inf_compute_gcp/flink_vagcp
+  dashboard.data_source: bytetsd_gva
+  dtop.data_source: dtop_maliva
+  dtop.database: dtop_maliva
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva
+  kafka_server_url: http://kafka-config-va.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  # TODO(zoudan): replace docker server with domain url
+  docker.server: 10.8.27.231:8002
+  docker.hub: aliyun-va-hub.byted.org
+  docker.region: Aliyun_VA
+
 macaw:
   dc: va
   clusterName: macaw
