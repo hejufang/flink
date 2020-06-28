@@ -22,6 +22,17 @@ under the License.
 
 	<modelVersion>4.0.0</modelVersion>
 
+	<distributionManagement>
+		<repository>
+			<id>bytedance-releases</id>
+			<url>https://maven.byted.org/repository/releases</url>
+		</repository>
+		<snapshotRepository>
+			<id>bytedance-snapshots</id>
+			<url>https://maven.byted.org/repository/snapshots</url>
+		</snapshotRepository>
+	</distributionManagement>
+
 	<parent>
 		<groupId>org.apache</groupId>
 		<artifactId>apache</artifactId>
