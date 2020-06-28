@@ -116,6 +116,11 @@ class StreamExecutionEnvironment(javaEnv: JavaEnv) {
     this
   }
 
+  def useBatchMode(): StreamExecutionEnvironment = {
+    javaEnv.useBatchMode()
+    this
+  }
+
   /**
    * Gets the default buffer timeout set for this environment
    */

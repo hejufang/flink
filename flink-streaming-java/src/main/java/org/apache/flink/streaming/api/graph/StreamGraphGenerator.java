@@ -133,6 +133,14 @@ public class StreamGraphGenerator {
 
 	private GlobalDataExchangeMode globalDataExchangeMode = GlobalDataExchangeMode.ALL_EDGES_PIPELINED;
 
+	private boolean isBatchJob = false;
+
+	/**
+	 * If there are some stream edges that can not be chained and the shuffle mode of edge is not
+	 * specified, translate these edges into {@code BLOCKING} result partition type.
+	 */
+	private boolean blockingConnectionsBetweenChains = false;
+
 	// This is used to assign a unique ID to iteration source/sink
 	protected static Integer iterationIdCounter = 0;
 	public static int getNewIterationNodeId() {
@@ -192,6 +200,11 @@ public class StreamGraphGenerator {
 		return this;
 	}
 
+	public StreamGraphGenerator setIsBatchJob(boolean isBatchJob) {
+		this.isBatchJob = isBatchJob;
+		return this;
+	}
+
 	public void setSavepointRestoreSettings(SavepointRestoreSettings savepointRestoreSettings) {
 		this.savepointRestoreSettings = savepointRestoreSettings;
 	}
@@ -205,6 +218,7 @@ public class StreamGraphGenerator {
 		streamGraph.setTimeCharacteristic(timeCharacteristic);
 		streamGraph.setJobName(jobName);
 		streamGraph.setGlobalDataExchangeMode(globalDataExchangeMode);
+		streamGraph.setIsBatchJob(isBatchJob);
 
 		alreadyTransformed = new HashMap<>();
 
