@@ -29,6 +29,10 @@ import org.apache.flink.table.catalog.CatalogTable;
 import org.apache.flink.table.catalog.CatalogTableImpl;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.UnresolvedIdentifier;
+import org.apache.flink.table.connector.format.TableSchemaInferrable;
+import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.planner.calcite.FlinkCalciteSqlValidator;
@@ -46,6 +50,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 
 /**
  * Helper class for converting {@link SqlCreateTable} to {@link CreateTableOperation}.
@@ -87,7 +93,7 @@ class SqlCreateTableConverter {
 
 	private CatalogTable createCatalogTable(SqlCreateTable sqlCreateTable) {
 
-		final TableSchema sourceTableSchema;
+		TableSchema sourceTableSchema;
 		final List<String> sourcePartitionKeys;
 		final List<SqlTableLike.SqlTableLikeOption> likeOptions;
 		final Map<String, String> sourceProperties;
@@ -104,7 +110,6 @@ class SqlCreateTableConverter {
 			likeOptions = Collections.emptyList();
 			sourceProperties = Collections.emptyMap();
 		}
-
 		Map<SqlTableLike.FeatureOption, SqlTableLike.MergingStrategy> mergingStrategies =
 			mergeTableLikeUtil.computeMergingStrategies(likeOptions);
 
@@ -114,6 +119,12 @@ class SqlCreateTableConverter {
 			.stream()
 			.filter(SqlTableConstraint::isPrimaryKey)
 			.findAny();
+
+		TableSchema inferredTableSchema = inferTableSchema(mergedOptions).orElse(null);
+		if (inferredTableSchema != null) {
+			sourceTableSchema = mergeOriginTableSchemaWithInferredOne(sourceTableSchema, inferredTableSchema);
+		}
+
 		TableSchema mergedSchema = mergeTableLikeUtil.mergeTables(
 			mergingStrategies,
 			sourceTableSchema,
@@ -137,6 +148,42 @@ class SqlCreateTableConverter {
 			partitionKeys,
 			mergedOptions,
 			tableComment);
+	}
+
+	private TableSchema mergeOriginTableSchemaWithInferredOne(
+			TableSchema originTableSchema,
+			TableSchema inferredTableSchema) {
+		TableSchema.Builder builder = TableSchema.builder().copy(originTableSchema);
+		inferredTableSchema.getTableColumns().forEach(builder::add);
+		return builder.build();
+	}
+
+	private Optional<TableSchema> inferTableSchema(Map<String, String> options) {
+
+		String format = options.get(FORMAT);
+		DeserializationFormatFactory deserializationFormatFactory =
+			FactoryUtil.discoverOptionalFactory(
+				Thread.currentThread().getContextClassLoader(),
+				DeserializationFormatFactory.class,
+				format).orElse(null);
+
+		if ((deserializationFormatFactory instanceof TableSchemaInferrable)) {
+			return Optional.of(
+				((TableSchemaInferrable) deserializationFormatFactory).getTableSchema(options));
+		}
+
+		SerializationFormatFactory serializationFormatFactory =
+			FactoryUtil.discoverOptionalFactory(
+				Thread.currentThread().getContextClassLoader(),
+				SerializationFormatFactory.class,
+				format).orElse(null);
+
+		if ((serializationFormatFactory instanceof TableSchemaInferrable)) {
+			return Optional.of(
+				((TableSchemaInferrable) serializationFormatFactory).getTableSchema(options));
+		}
+
+		return Optional.empty();
 	}
 
 	private CatalogTable lookupLikeSourceTable(SqlTableLike sqlTableLike) {

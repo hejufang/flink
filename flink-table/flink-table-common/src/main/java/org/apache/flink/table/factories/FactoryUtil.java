@@ -266,6 +266,35 @@ public final class FactoryUtil {
 	}
 
 	/**
+	 * Return the optional factory with the specific classLoader, factoryClass and factoryIdentifier.
+	 * */
+	@SuppressWarnings("unchecked")
+	public static <T extends Factory> Optional<T> discoverOptionalFactory(
+			ClassLoader classLoader,
+			Class<T> factoryClass,
+			String factoryIdentifier) {
+		final List<Factory> factories = discoverFactories(classLoader);
+
+		List<Factory> matchingFactories = factories.stream()
+			.filter(f -> factoryClass.isAssignableFrom(f.getClass()))
+			.filter(f -> f.factoryIdentifier().equals(factoryIdentifier))
+			.collect(Collectors.toList());
+
+		if (matchingFactories.size() > 1) {
+			throw new ValidationException(
+				String.format(
+					"Multiple factories for identifier '%s' that implement '%s' found in the classpath.",
+					factoryIdentifier,
+					factoryClass.getName()));
+		}
+
+		if (matchingFactories.isEmpty()) {
+			return Optional.empty();
+		}
+		return Optional.of((T) matchingFactories.get(0));
+	}
+
+	/**
 	 * Validates the required and optional {@link ConfigOption}s of a factory.
 	 *
 	 * <p>Note: It does not check for left-over options.

@@ -527,7 +527,7 @@ public class TableSchema {
 
 		private List<TableColumn> columns;
 
-		private final List<WatermarkSpec> watermarkSpecs;
+		private List<WatermarkSpec> watermarkSpecs;
 
 		private UniqueConstraint primaryKey;
 
@@ -689,6 +689,13 @@ public class TableSchema {
 				throw new ValidationException("PRIMARY KEY constraint must be defined for at least a single column.");
 			}
 			this.primaryKey = UniqueConstraint.primaryKey(name, Arrays.asList(columns));
+			return this;
+		}
+
+		public Builder copy(TableSchema tableSchema) {
+			columns = tableSchema.getTableColumns();
+			watermarkSpecs = tableSchema.watermarkSpecs;
+			primaryKey = tableSchema.primaryKey;
 			return this;
 		}
 
