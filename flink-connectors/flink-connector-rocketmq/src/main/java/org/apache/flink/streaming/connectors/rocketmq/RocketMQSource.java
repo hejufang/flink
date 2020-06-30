@@ -115,13 +115,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private Properties props;
 	private String topic;
 	private String group;
-	/**
-	 * If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled.
-	 */
+	/** If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled. */
 	private boolean forceAutoCommitEnabled;
-	/**
-	 * Weather there is an successful checkpoint.
-	 */
+	/** Weather there is an successful checkpoint. */
 	private transient volatile boolean hasSuccessfulCheckpoint;
 	private transient volatile boolean restored;
 	private transient boolean enableCheckpoint;
@@ -429,10 +425,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		unionOffsetStates.clear();
 
 		HashMap<MessageQueue, Long> currentOffsets = new HashMap<>(offsetTable.size());
-
-		// remove the unassigned queues in order to avoid read the wrong offset when the source restart
-		Set<MessageQueue> assignedQueues = consumer.fetchMessageQueuesInBalance(topic);
-		offsetTable.entrySet().removeIf(item -> !assignedQueues.contains(item.getKey()));
 
 		for (Map.Entry<MessageQueue, Long> entry : offsetTable.entrySet()) {
 			unionOffsetStates.add(Tuple2.of(entry.getKey(), entry.getValue()));
