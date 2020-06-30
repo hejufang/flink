@@ -1086,6 +1086,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 						// the periodic interrupting thread - a different thread than the canceller, in case
 						// the application code does blocking stuff in its cancellation paths.
 						if (invokable.shouldInterruptOnCancel()) {
+							LOG.info("Task {} starts interrupting thread.", taskNameWithSubtask);
 							Runnable interrupter = new TaskInterrupter(
 									LOG,
 									invokable,
@@ -1106,6 +1107,7 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 						// if a cancellation timeout is set, the watchdog thread kills the process
 						// if graceful cancellation does not succeed
 						if (taskCancellationTimeout > 0) {
+							LOG.info("Task {} starts watchdog thread.", taskNameWithSubtask);
 							Runnable cancelWatchdog = new TaskCancelerWatchDog(
 									executingThread,
 									taskManagerActions,
@@ -1472,8 +1474,10 @@ public class Task implements Runnable, TaskActions, PartitionProducerStateProvid
 				// will get misleading errors in the logs.
 				networkResourcesCloser.run();
 
+				LOG.info("Task {} network resources are closed.", taskName);
 				// send the initial interruption signal, if requested
 				if (invokable.shouldInterruptOnCancel()) {
+					LOG.info("TaskCanceller interrupts task {} thread.", taskName);
 					executer.interrupt();
 				}
 			}

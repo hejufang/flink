@@ -484,6 +484,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			// Additionally, the cancellation watch dog will issue a hard-cancel (kill the TaskManager
 			// process) as a backup in case some shutdown procedure blocks outside our control.
 			setShouldInterruptOnCancel(false);
+			LOG.info("The task {} thread cannot be interrupted because the task is outside user code now.", getName());
 
 			// clear any previously issued interrupt for a more graceful shutdown
 			Thread.interrupted();
