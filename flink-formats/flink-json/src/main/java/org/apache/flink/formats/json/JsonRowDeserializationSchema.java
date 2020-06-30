@@ -177,7 +177,8 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 				// return null to indicate it cannot be deserialized according DeserializationSchema.deserialize.
 				return null;
 			} else {
-				throw new IOException("Failed to deserialize JSON object.", t);
+				throw new IOException(String.format("Failed to deserialize JSON object, "
+					+ "the message causing failure is %s", new String(message)), t);
 			}
 		}
 	}
