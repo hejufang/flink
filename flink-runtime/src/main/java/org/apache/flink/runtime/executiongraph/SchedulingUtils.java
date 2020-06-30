@@ -101,7 +101,7 @@ public class SchedulingUtils {
 		return FutureUtils.waitForAll(schedulingFutures);
 	}
 
-	public static void scheduleRecoverableExecution(
+	public static CompletableFuture<Void> scheduleRecoverableExecution(
 			Execution execution,
 			ExecutionGraph executionGraph) {
 
@@ -109,7 +109,7 @@ public class SchedulingUtils {
 
 		final CompletableFuture<Execution> allocateFuture = execution.allocateResourcesForExecution(
 				executionGraph.getSlotProviderStrategy(), LocationPreferenceConstraint.ALL, Collections.emptySet());
-		allocateFuture.thenAccept(executionToDeploy -> {
+		return allocateFuture.thenAccept(executionToDeploy -> {
 			try {
 				executionToDeploy.deploy(true);
 			} catch (Throwable t) {

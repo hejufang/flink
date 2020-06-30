@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -106,12 +107,14 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 		try {
 			long createTimestamp = System.currentTimeMillis();
 			Execution newExecution = vertexToRecover.resetForNewExecution(createTimestamp, globalModVersion);
-			SchedulingUtils.scheduleRecoverableExecution(newExecution, executionGraph);
+			CompletableFuture<Void> future = SchedulingUtils.scheduleRecoverableExecution(newExecution, executionGraph);
+			future.whenComplete((Void ignore, Throwable t) -> {
+				if (t != null) {
+					executionGraph.failGlobal(new Exception("Error during fine grained recovery - triggering full recovery", t));
+				}
+			});
 		} catch (GlobalModVersionMismatch e) {
-			// this happens if a concurrent global recovery happens. simply do nothing.
-		} catch (Exception e) {
-			executionGraph.failGlobal(
-					new Exception("Error during fine grained recovery - triggering full recovery", e));
+			LOG.warn("Concurrent global recovery happens, ignore...");
 		}
 	}
 
