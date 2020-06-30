@@ -28,11 +28,16 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
+import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.rocketmq.aggregate.SubTaskRunningState;
+import org.apache.flink.streaming.connectors.rocketmq.aggregate.TaskStateAggFunction;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQueueStrategyParallelism;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -78,11 +83,12 @@ import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getLo
  * checkpoints are enabled. Otherwise, the source doesn't provide any reliability guarantees.
  */
 public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
-	implements CheckpointedFunction, CheckpointListener, ResultTypeQueryable<OUT> {
+	implements CheckpointedFunction, CheckpointListener, ResultTypeQueryable<OUT>, ProcessingTimeCallback {
 
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSource.class);
+	private static final String TASK_RUNNING_STATE = "task_running_state";
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private transient Counter skipDirty;
@@ -92,8 +98,16 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private RocketMQDeserializationSchema<OUT> schema;
 	private RunningChecker runningChecker;
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
+	private transient ListState<Boolean> runningState;
 	private Map<MessageQueue, Long> offsetTable;
 	private Map<MessageQueue, Long> restoredOffsets;
+
+	/**
+	 * batch mode param.
+	 */
+	private boolean isTaskRunning = true;
+	private boolean isSubTaskRunning = true;
+
 	/**
 	 * Data for pending but uncommitted offsets.
 	 */
@@ -101,9 +115,13 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private Properties props;
 	private String topic;
 	private String group;
-	/** If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled. */
+	/**
+	 * If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled.
+	 */
 	private boolean forceAutoCommitEnabled;
-	/** Weather there is an successful checkpoint. */
+	/**
+	 * Weather there is an successful checkpoint.
+	 */
 	private transient volatile boolean hasSuccessfulCheckpoint;
 	private transient volatile boolean restored;
 	private transient boolean enableCheckpoint;
@@ -111,11 +129,15 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private transient int parallelism;
 	private transient int subTaskId;
 	private transient Throwable error;
+	private transient GlobalAggregateManager taskRunningAggregateManager;
+	private transient TaskStateAggFunction taskStateAggFunction;
+	private transient ProcessingTimeService processingTimeService;
 
 	public RocketMQSource(RocketMQDeserializationSchema<OUT> schema, Properties props) {
 		this.schema = schema;
 		this.props = props;
 		saveConfigurationToSystemProperties(props);
+		runningChecker = new RunningChecker();
 	}
 
 	@Override
@@ -147,8 +169,12 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		if (pendingOffsetsToCommit == null) {
 			pendingOffsetsToCommit = new LinkedMap();
 		}
-
-		runningChecker = new RunningChecker();
+		if (!schema.isStreamingMode()) {
+			taskStateAggFunction = new TaskStateAggFunction(parallelism);
+			processingTimeService = ((StreamingRuntimeContext) getRuntimeContext()).getProcessingTimeService();
+			processingTimeService.registerTimer(processingTimeService
+				.getCurrentProcessingTime() + TaskStateAggFunction.DEFAULT_AGG_INTERVAL, this);
+		}
 
 		//Wait for lite pull consumer
 		pullConsumerScheduleService = new MQPullConsumerScheduleService(group);
@@ -210,7 +236,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 									OUT data = schema.deserialize(mq, msg);
 									if (schema.isEndOfStream(balancedMQ, data)) {
 										LOG.info("Sub task: {} received all assign message queue end message.", subTaskId);
-										runningChecker.setRunning(false);
+										isSubTaskRunning = false;
 										break;
 									}
 									// output and state update are atomic
@@ -259,16 +285,19 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			}
 		});
 
-		try {
-			pullConsumerScheduleService.start();
-		} catch (MQClientException e) {
-			throw new RuntimeException(e);
+		if (isSubTaskRunning) {
+			try {
+				pullConsumerScheduleService.start();
+				isSubTaskRunning = checkRunnable();
+				if (!isSubTaskRunning) {
+					pullConsumerScheduleService.shutdown();
+				}
+			} catch (MQClientException e) {
+				throw new RuntimeException(e);
+			}
 		}
-
-		runningChecker.setRunning(checkRunnable());
-
+		runningChecker.setRunning(isTaskRunning);
 		awaitTermination();
-
 	}
 
 	private boolean checkRunnable() {
@@ -412,6 +441,11 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		pendingOffsetsToCommit.put(context.getCheckpointId(), currentOffsets);
 
+		if (!schema.isStreamingMode()) {
+			runningState.clear();
+			runningState.add(isSubTaskRunning);
+		}
+
 		if (LOG.isDebugEnabled()) {
 			LOG.debug("Snapshotted state, last processed offsets: {}, checkpoint id: {}, timestamp: {}",
 				offsetTable, context.getCheckpointId(), context.getCheckpointTimestamp());
@@ -426,11 +460,17 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		// Given this, initializeState() is not only the place where different types of state are initialized,
 		// but also where state recovery logic is included.
 		LOG.debug("initialize State ...");
+		this.taskRunningAggregateManager = ((StreamingRuntimeContext) getRuntimeContext()).getGlobalAggregateManager();
 
 		this.unionOffsetStates = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {
 
 		})));
+		if (!schema.isStreamingMode()) {
+			this.runningState = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
+				TASK_RUNNING_STATE, TypeInformation.of(new TypeHint<Boolean>() {
+			})));
+		}
 		this.restored = context.isRestored();
 
 		if (restored) {
@@ -441,6 +481,11 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			for (Tuple2<MessageQueue, Long> mqOffsets : unionOffsetStates.get()) {
 				if (!restoredOffsets.containsKey(mqOffsets.f0) || restoredOffsets.get(mqOffsets.f0) < mqOffsets.f1) {
 					restoredOffsets.put(mqOffsets.f0, mqOffsets.f1);
+				}
+			}
+			if (!schema.isStreamingMode()) {
+				for (Boolean storedRunningState : runningState.get()) {
+					isSubTaskRunning = storedRunningState && isSubTaskRunning;
 				}
 			}
 			LOG.info("Setting restore state in the consumer. Using the following offsets: {}", restoredOffsets);
@@ -509,6 +554,19 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		} catch (Throwable t) {
 			// We catch all Throwable as it is not critical path.
 			LOG.warn("Parse rocketmq metrics failed.", t);
+		}
+	}
+
+	@Override
+	public void onProcessingTime(long timestamp) throws Exception {
+		LOG.info("SubTask {} isRunning: {}.", subTaskId, isSubTaskRunning);
+		isTaskRunning = taskRunningAggregateManager.updateGlobalAggregate(TASK_RUNNING_STATE,
+			new SubTaskRunningState(subTaskId, isSubTaskRunning),
+			taskStateAggFunction);
+		runningChecker.setRunning(isTaskRunning);
+		if (isTaskRunning) {
+			processingTimeService.registerTimer(processingTimeService.getCurrentProcessingTime()
+				+ TaskStateAggFunction.DEFAULT_AGG_INTERVAL, this);
 		}
 	}
 }
