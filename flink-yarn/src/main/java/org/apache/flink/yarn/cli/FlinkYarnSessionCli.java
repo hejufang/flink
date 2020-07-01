@@ -43,6 +43,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.yarn.AbstractYarnClusterDescriptor;
+import org.apache.flink.yarn.Utils;
 import org.apache.flink.yarn.YarnClusterDescriptor;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
@@ -503,6 +504,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 	@Override
 	public AbstractYarnClusterDescriptor createClusterDescriptor(CommandLine commandLine) throws FlinkException {
 		final Configuration effectiveConfiguration = applyCommandLineOptionsToConfiguration(commandLine);
+		Utils.updateYarnConfig(yarnConfiguration, effectiveConfiguration);
 
 		return createDescriptor(
 			effectiveConfiguration,

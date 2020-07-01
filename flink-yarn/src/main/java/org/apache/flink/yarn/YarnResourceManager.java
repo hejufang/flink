@@ -309,6 +309,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			failureRater);
 		this.flinkConfig  = flinkConfig;
 		this.yarnConfig = new YarnConfiguration();
+		Utils.updateYarnConfig(this.yarnConfig, this.flinkConfig);
 
 		// hack fs.defaultFs in yanrConfiguration
 		if (flinkConfig.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {

@@ -910,4 +910,17 @@ public final class Utils {
 		}
 		return containerID;
 	}
+
+	public static void updateYarnConfig(
+			final YarnConfiguration yarnConfiguration, final org.apache.flink.configuration.Configuration flinkConfig) {
+
+		String yarnConfigPrefix = YarnConfigOptions.YARN_CONFIG_KEY_PREFIX;
+		for (Map.Entry<String, String> entry: flinkConfig.toMap().entrySet()) {
+			if (entry.getKey().startsWith(yarnConfigPrefix) && entry.getKey().length() > yarnConfigPrefix.length()) {
+				// remove prefix
+				String key = entry.getKey().substring(yarnConfigPrefix.length());
+				yarnConfiguration.set(key, entry.getValue());
+			}
+		}
+	}
 }
