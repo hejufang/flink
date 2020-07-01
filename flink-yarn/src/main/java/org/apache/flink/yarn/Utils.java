@@ -22,6 +22,7 @@ import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -608,5 +609,19 @@ public final class Utils {
 			containerID = "noContainerID";
 		}
 		return containerID;
+	}
+
+	public static void updateYarnConfig(
+			final YarnConfiguration yarnConfiguration, final org.apache.flink.configuration.Configuration flinkConfig) {
+
+		String yarnConfigPrefix = YarnConfigOptions.YARN_CONFIG_KEY_PREFIX;
+		for (Map.Entry<String, String> entry: flinkConfig.toMap().entrySet()) {
+			if (entry.getKey().startsWith(yarnConfigPrefix) && entry.getKey().length() > yarnConfigPrefix.length()) {
+				// remove prefix
+				String key = entry.getKey().substring(yarnConfigPrefix.length());
+				yarnConfiguration.set(key, entry.getValue());
+				LOG.info("update yarn config set {} to {}.", key, entry.getValue());
+			}
+		}
 	}
 }

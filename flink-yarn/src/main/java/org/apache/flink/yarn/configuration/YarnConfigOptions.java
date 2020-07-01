@@ -297,6 +297,11 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Cleanup running containers on NMClient stop.");
 
+	/**
+	 * Yarn configuration key prefix.
+	 */
+	public static final String YARN_CONFIG_KEY_PREFIX = "flink.yarn.config.";
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 

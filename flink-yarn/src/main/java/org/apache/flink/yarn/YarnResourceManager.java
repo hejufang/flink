@@ -163,6 +163,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			resourceManagerMetricGroup,
 			failureRater);
 		this.yarnConfig = new YarnConfiguration();
+		Utils.updateYarnConfig(this.yarnConfig, this.flinkConfig);
+
 		this.workerNodeMap = new ConcurrentHashMap<>();
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(
 				YarnConfigOptions.HEARTBEAT_DELAY_SECONDS) * 1000;

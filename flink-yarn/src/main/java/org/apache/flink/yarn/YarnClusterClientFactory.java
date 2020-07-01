@@ -92,6 +92,8 @@ public class YarnClusterClientFactory extends AbstractContainerizedClusterClient
 			yarnConfiguration.set(YarnConfiguration.APP_QUEUE_NAME, queueName);
 		}
 
+		Utils.updateYarnConfig(yarnConfiguration, configuration);
+
 		final YarnClient yarnClient = YarnClient.createYarnClient();
 
 		yarnClient.init(yarnConfiguration);
