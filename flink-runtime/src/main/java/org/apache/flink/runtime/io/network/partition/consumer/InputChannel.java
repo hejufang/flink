@@ -315,6 +315,7 @@ public abstract class InputChannel {
 
 		executor.schedule(() -> {
 			if (!isReleased() && isReadyToUpdate()) {
+				LOG.warn("Channel {} is still not updated after {} minutes, fail this task.", this, maxDelayMinutes);
 				this.setError(cause);
 			}
 		}, maxDelayMinutes, TimeUnit.MINUTES);
