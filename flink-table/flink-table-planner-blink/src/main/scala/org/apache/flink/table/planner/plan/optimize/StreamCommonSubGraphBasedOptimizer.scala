@@ -78,6 +78,7 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
         MiniBatchIntervalTrait.NONE.getMiniBatchInterval
       }
       sinkBlock.setMiniBatchInterval(miniBatchInterval)
+      sinkBlock.setFinalSinkBlock(true)
     }
 
     if (sinkBlocks.size == 1) {
@@ -89,7 +90,8 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
         block.getPlan,
         block.isUpdateAsRetraction,
         block.getMiniBatchInterval,
-        isSinkBlock = true)
+        isSinkBlock = true,
+        isFinalSinkBlock = true)
       block.setOptimizedPlan(optimizedTree)
       return sinkBlocks
     }
@@ -122,7 +124,8 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
           s,
           updatesAsRetraction = block.isUpdateAsRetraction,
           miniBatchInterval = block.getMiniBatchInterval,
-          isSinkBlock = true)
+          isSinkBlock = true,
+          isFinalSinkBlock = block.isFinalSinkBlock)
         block.setOptimizedPlan(optimizedTree)
 
       case o =>
@@ -130,7 +133,8 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
           o,
           updatesAsRetraction = block.isUpdateAsRetraction,
           miniBatchInterval = block.getMiniBatchInterval,
-          isSinkBlock = isSinkBlock)
+          isSinkBlock = isSinkBlock,
+          isFinalSinkBlock = block.isFinalSinkBlock)
         val isAccRetract = optimizedPlan.getTraitSet
           .getTrait(AccModeTraitDef.INSTANCE).getAccMode == AccMode.AccRetract
         val name = createUniqueIntermediateRelTableName
@@ -155,7 +159,8 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
       relNode: RelNode,
       updatesAsRetraction: Boolean,
       miniBatchInterval: MiniBatchInterval,
-      isSinkBlock: Boolean): RelNode = {
+      isSinkBlock: Boolean,
+      isFinalSinkBlock: Boolean): RelNode = {
 
     val config = planner.getTableConfig
     val calciteConfig = TableConfigUtils.getCalciteConfig(config)
@@ -175,7 +180,7 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
 
       def getMiniBatchInterval: MiniBatchInterval = miniBatchInterval
 
-      override def needFinalTimeIndicatorConversion: Boolean = true
+      override def needFinalTimeIndicatorConversion: Boolean = isFinalSinkBlock
     })
   }
 
@@ -210,12 +215,20 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
       case n: Sink =>
         require(isSinkBlock)
         val optimizedPlan = optimizeTree(
-          n, retractionFromRoot, miniBatchInterval, isSinkBlock = true)
+          n,
+          retractionFromRoot,
+          miniBatchInterval,
+          isSinkBlock = true,
+          isFinalSinkBlock = block.isFinalSinkBlock)
         block.setOptimizedPlan(optimizedPlan)
 
       case o =>
         val optimizedPlan = optimizeTree(
-          o, retractionFromRoot, miniBatchInterval, isSinkBlock = isSinkBlock)
+          o,
+          retractionFromRoot,
+          miniBatchInterval,
+          isSinkBlock = isSinkBlock,
+          isFinalSinkBlock = block.isFinalSinkBlock)
         val name = createUniqueIntermediateRelTableName
         val intermediateRelTable = createIntermediateRelTable(optimizedPlan, isAccRetract = false)
         val newTableScan = wrapIntermediateRelTableToTableScan(intermediateRelTable, name)

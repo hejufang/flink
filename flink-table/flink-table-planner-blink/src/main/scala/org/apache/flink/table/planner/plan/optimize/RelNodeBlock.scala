@@ -128,6 +128,8 @@ class RelNodeBlock(val outputNode: RelNode) {
 
   private var updateAsRetract: Boolean = false
 
+  private var _isFinalSinkBlock: Boolean = false
+
   private var miniBatchInterval: MiniBatchInterval = MiniBatchInterval.NONE
 
   def addChild(block: RelNodeBlock): Unit = childBlocks += block
@@ -135,6 +137,10 @@ class RelNodeBlock(val outputNode: RelNode) {
   def children: Seq[RelNodeBlock] = childBlocks.toSeq
 
   def setNewOutputNode(newNode: RelNode): Unit = newOutputNode = Option(newNode)
+
+  def setFinalSinkBlock(isFinalSinkBlock: Boolean): Unit = _isFinalSinkBlock = isFinalSinkBlock
+
+  def isFinalSinkBlock: Boolean = _isFinalSinkBlock
 
   def getNewOutputNode: Option[RelNode] = newOutputNode
 
