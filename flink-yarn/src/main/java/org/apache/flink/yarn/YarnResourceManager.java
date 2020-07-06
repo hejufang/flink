@@ -243,6 +243,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	 * Resource Manager has already updated, wait NodeManager update success.
 	 */
 	private Map<ContainerId, Container> waitNMUpdate;
+	/** The failed times to update container. */
+	private Map<ContainerId, Integer> containerUpdateFailedTimesMap;
+	/** Before this timestamp, the container will be skipped for updating resource.*/
+	private Map<ContainerId, Long> skipUpdateContainersMap;
+	/** If the container retry times exceed this, it will be add to nmUpdateFailedTimes to skip update for some times. */
+	private static final int CONTAINER_MAX_RETRY_TIMES = 3;
+	/** If the container retry times exceed maxRetryTimes, it will be skipping to update for this times. */
+	private static final long CONTAINER_SKIP_UPDATE_TIME_MS = 30 * 60 * 1000;
 	private ContainerResources targetResources;
 	private long resourcesUpdateTimeoutMS = 2 * 60 * 1000;
 	private EstimaterClient estimaterClient;
@@ -396,6 +404,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		if (smartResourcesEnable) {
 			this.pendingUpdating = new HashMap<>();
 			this.waitNMUpdate = new HashMap<>();
+			this.containerUpdateFailedTimesMap = new ConcurrentHashMap<>();
+			this.skipUpdateContainersMap = new ConcurrentHashMap<>();
 			String smartResourcesServiceName =
 				flinkConfig.getString(ConfigConstants.SMART_RESOURCES_SERVICE_NAME_KEY, null);
 			Preconditions.checkNotNull(smartResourcesServiceName, "SmartResources enabled and service name not set");
@@ -1247,6 +1257,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private void containersUpdated(List<UpdatedContainer> updatedContainers) {
 		for (UpdatedContainer updatedContainer : updatedContainers) {
+			// remove containerId from skipUpdateContainersMap while receiving update success response from yarn RM
+			if (skipUpdateContainersMap.containsKey(updatedContainer.getContainer().getId())) {
+				skipUpdateContainersMap.remove(updatedContainer.getContainer().getId());
+			}
+
 			if (!workerNodeMap.containsKey(getResourceID(updatedContainer.getContainer()))) {
 				log.info("Container {} resources was updated but container has complete",
 					updatedContainer.getContainer().getId());
@@ -1308,6 +1323,23 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				} else {
 					log.info("Container {} has been released",
 						updateContainerError.getUpdateContainerRequest().getContainerId());
+				}
+			} else {
+				int containerUpdateFailedTimes = containerUpdateFailedTimesMap
+					.getOrDefault(updateContainerError.getUpdateContainerRequest().getContainerId(),
+						0) + 1;
+				if (containerUpdateFailedTimes >= CONTAINER_MAX_RETRY_TIMES) {
+					// add container to updateSkipList
+					skipUpdateContainersMap
+						.put(updateContainerError.getUpdateContainerRequest().getContainerId(),
+							System.currentTimeMillis() + CONTAINER_SKIP_UPDATE_TIME_MS);
+					containerUpdateFailedTimesMap
+						.remove(updateContainerError.getUpdateContainerRequest().getContainerId());
+				} else {
+					// update container update failed times
+					containerUpdateFailedTimesMap
+						.put(updateContainerError.getUpdateContainerRequest().getContainerId(),
+							containerUpdateFailedTimes);
 				}
 			}
 		}
@@ -1384,6 +1416,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			if (pendingUpdating.containsKey(containerId) &&
 				pendingUpdating.get(containerId) < System.currentTimeMillis()) {
 				continue;
+			}
+
+			if (skipUpdateContainersMap.containsKey(containerId)) {
+				if (skipUpdateContainersMap.get(containerId) < System.currentTimeMillis()) {
+					continue;
+				} else {
+					skipUpdateContainersMap.remove(containerId);
+				}
 			}
 
 			long targetVCoresMilli = Utils.vCoresToMilliVcores(targetResources.getVcores());
@@ -1616,6 +1656,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				return;
 			} catch (Throwable e) {
 				log.warn("estimate application resources error", e);
+				if (e.getMessage() != null && e.getMessage().contains("The duration of the application is too short")) {
+					try {
+						Thread.sleep(CONTAINER_SKIP_UPDATE_TIME_MS);
+					} catch (InterruptedException e1) {
+						return;
+					}
+				}
 			}
 		}
 	}
