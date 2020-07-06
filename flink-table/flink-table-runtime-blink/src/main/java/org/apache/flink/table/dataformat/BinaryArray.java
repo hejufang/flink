@@ -372,7 +372,7 @@ public final class BinaryArray extends BinarySection implements BaseArray {
 
 	private void checkNoNull() {
 		if (anyNull()) {
-			throw new RuntimeException("Array can not have null value!");
+			throw new RuntimeException("Primitive array must not contain a null value.");
 		}
 	}
 

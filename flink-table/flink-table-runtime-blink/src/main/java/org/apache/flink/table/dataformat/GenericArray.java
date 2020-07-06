@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.dataformat;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -112,39 +114,82 @@ public class GenericArray implements BaseArray {
 		setNullAt(pos);
 	}
 
+	private boolean anyNull() {
+		for (Object element : (Object[]) arr) {
+			if (element == null) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void checkNoNull() {
+		if (anyNull()) {
+			throw new RuntimeException("Primitive array must not contain a null value.");
+		}
+	}
+
 	@Override
 	public boolean[] toBooleanArray() {
-		return (boolean[]) arr;
+		if (isPrimitiveArray) {
+			return (boolean[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Boolean[]) arr);
 	}
 
 	@Override
 	public byte[] toByteArray() {
-		return (byte[]) arr;
+		if (isPrimitiveArray) {
+			return (byte[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Byte[]) arr);
 	}
 
 	@Override
 	public short[] toShortArray() {
-		return (short[]) arr;
+		if (isPrimitiveArray) {
+			return (short[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Short[]) arr);
 	}
 
 	@Override
 	public int[] toIntArray() {
-		return (int[]) arr;
+		if (isPrimitiveArray) {
+			return (int[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Integer[]) arr);
 	}
 
 	@Override
 	public long[] toLongArray() {
-		return (long[]) arr;
+		if (isPrimitiveArray) {
+			return (long[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Long[]) arr);
 	}
 
 	@Override
 	public float[] toFloatArray() {
-		return (float[]) arr;
+		if (isPrimitiveArray) {
+			return (float[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Float[]) arr);
 	}
 
 	@Override
 	public double[] toDoubleArray() {
-		return (double[]) arr;
+		if (isPrimitiveArray) {
+			return (double[]) arr;
+		}
+		checkNoNull();
+		return ArrayUtils.toPrimitive((Double[]) arr);
 	}
 
 	@Override
