@@ -46,6 +46,8 @@ import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.PlaceholderStreamStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
+import org.apache.flink.runtime.state.SharedStateRegistryFactory;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.FileStateHandle;
@@ -54,6 +56,9 @@ import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.state.testutils.TestCompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.testutils.CommonTestUtils;
 import org.apache.flink.runtime.testutils.RecoverableCompletedCheckpointStore;
+import org.apache.flink.runtime.util.ZooKeeperUtils;
+import org.apache.flink.runtime.zookeeper.ZooKeeperStateHandleStore;
+import org.apache.flink.runtime.zookeeper.ZooKeeperTestEnvironment;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
@@ -64,6 +69,7 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.Iterables;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -75,6 +81,8 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.mockito.verification.VerificationMode;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -82,11 +90,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -95,6 +105,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -119,6 +130,8 @@ import static org.mockito.Mockito.when;
  */
 public class CheckpointCoordinatorTest extends TestLogger {
 
+	private static final ZooKeeperTestEnvironment ZOOKEEPER = new ZooKeeperTestEnvironment(1);
+
 	private static final String TASK_MANAGER_LOCATION_INFO = "Unknown location";
 
 	private CheckpointFailureManager failureManager;
@@ -128,9 +141,15 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
 	@Before
 	public void setUp() throws Exception {
+		ZOOKEEPER.deleteAll();
 		failureManager = new CheckpointFailureManager(
 			0,
 			NoOpFailJobCall.INSTANCE);
+	}
+
+	@AfterClass
+	public static void tearDown() throws Exception {
+		ZOOKEEPER.shutdown();
 	}
 
 	@Test
@@ -3734,6 +3753,82 @@ public class CheckpointCoordinatorTest extends TestLogger {
 	}
 
 	@Test
+	public void testRestoreOnDcSwitch() throws Exception {
+		// zk: 7,8,9  hdfs: 7,8,9 ; we use 7,8,9
+		testRestoreOnDcSwitch(Arrays.asList(7L, 8L, 9L), Arrays.asList(7L, 8L, 9L), Arrays.asList(7L, 8L, 9L));
+
+		// zk: 7,8,9  hdfs: 7,8,10 ; we use 8,9,10
+		testRestoreOnDcSwitch(Arrays.asList(7L, 8L, 9L), Arrays.asList(7L, 8L, 10L), Arrays.asList(7L, 8L, 9L, 10L));
+
+		// zk: 6,8,10  hdfs: 7,9,11 ; we use 7,9,11
+		testRestoreOnDcSwitch(Arrays.asList(6L, 8L, 10L), Arrays.asList(7L, 9L, 11L), Arrays.asList(6L, 7L, 8L, 9L, 10L, 11L));
+
+		// zk: 6,8,10  hdfs: 7,9,11 ; we use 7,9,11
+		testRestoreOnDcSwitch(Arrays.asList(7L, 8L, 10L), Arrays.asList(9L, 10L), Arrays.asList(7L, 8L, 9L, 10L));
+	}
+
+	public void testRestoreOnDcSwitch(List<Long> checkpointIdsOnZK, List<Long> checkpointIdsOnHDFS, List<Long> expectCheckpointIds) throws Exception {
+		final JobID jid = new JobID();
+		CheckpointProperties props = CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION);
+
+		final List<CompletedCheckpoint> checkpointsOnHDFS = new ArrayList<>();
+		for (long checkpointId : checkpointIdsOnHDFS) {
+			checkpointsOnHDFS.add(new CompletedCheckpointStoreTest.TestCompletedCheckpoint(jid, checkpointId, System.currentTimeMillis(), new HashMap<>(), props));
+		}
+
+		final ZooKeeperStateHandleStore<CompletedCheckpoint> checkpointsInZooKeeper = ZooKeeperUtils.createZooKeeperStateHandleStore(
+				ZOOKEEPER.getClient(),
+				"/" + UUID.randomUUID().toString(),
+				new TestingRetrievableStateStorageHelper<>());
+
+		final ZooKeeperCompletedCheckpointStore store = new ZooKeeperCompletedCheckpointStore(
+				3,
+				checkpointsInZooKeeper,
+				Executors.directExecutor());
+		for (long checkpointId : checkpointIdsOnZK) {
+			store.addCheckpoint(new CompletedCheckpointStoreTest.TestCompletedCheckpoint(jid, checkpointId, System.currentTimeMillis(), new HashMap<>(), props));
+		}
+
+		final List<SharedStateRegistry> createdSharedStateRegistries = new ArrayList<>(2);
+
+		// set up the coordinator and validate the initial state
+		CheckpointCoordinatorConfiguration chkConfig = new CheckpointCoordinatorConfiguration(
+				600000,
+				600000,
+				0,
+				Integer.MAX_VALUE,
+				CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION,
+				true,
+				false,
+				0);
+		final TestCheckpointCoordinator coord = new TestCheckpointCoordinator(
+				jid,
+				chkConfig,
+				new ExecutionVertex[]{},
+				new ExecutionVertex[]{},
+				new ExecutionVertex[]{},
+				new StandaloneCheckpointIDCounter(),
+				store,
+				new MemoryStateBackend(),
+				Executors.directExecutor(),
+				deleteExecutor -> {
+					SharedStateRegistry instance = new SharedStateRegistry(deleteExecutor);
+					createdSharedStateRegistries.add(instance);
+					return instance;
+				},
+				failureManager);
+		coord.setCheckpointsOnHDFS(checkpointsOnHDFS);
+
+		coord.restoreLatestCheckpointedState(new HashMap<>(),
+				false,
+				false,
+				true,
+				CheckpointCoordinatorTest.class.getClassLoader());
+		Assert.assertArrayEquals(expectCheckpointIds.toArray(), store.getAllCheckpoints().stream()
+				.map(CompletedCheckpoint::getCheckpointID).toArray());
+	}
+
+	@Test
 	public void testSharedStateRegistrationOnRestore() throws Exception {
 
 		final JobID jid = new JobID();
@@ -4102,5 +4197,52 @@ public class CheckpointCoordinatorTest extends TestLogger {
 			when(v.getJobVertex()).thenReturn(vertex);
 		}
 		return vertex;
+	}
+
+	/**
+	 * TestCheckpointCoordinator for dc switch.
+	 */
+	public class TestCheckpointCoordinator extends CheckpointCoordinator {
+
+		private Set<CompletedCheckpoint> checkpointsOnStorage = new HashSet<>();
+
+		public TestCheckpointCoordinator(
+				JobID job,
+				CheckpointCoordinatorConfiguration chkConfig,
+				ExecutionVertex[] tasksToTrigger,
+				ExecutionVertex[] tasksToWaitFor,
+				ExecutionVertex[] tasksToCommitTo,
+				CheckpointIDCounter checkpointIDCounter,
+				CompletedCheckpointStore completedCheckpointStore,
+				StateBackend checkpointStateBackend,
+				Executor executor,
+				SharedStateRegistryFactory sharedStateRegistryFactory,
+				CheckpointFailureManager failureManager) {
+			super(job,
+					null,
+					chkConfig,
+					tasksToTrigger,
+					tasksToWaitFor,
+					tasksToCommitTo,
+					checkpointIDCounter,
+					completedCheckpointStore,
+					checkpointStateBackend,
+					executor,
+					sharedStateRegistryFactory,
+					failureManager);
+		}
+
+		public void setCheckpointsOnHDFS(List<CompletedCheckpoint> checkpoints) {
+			checkpointsOnStorage.addAll(checkpoints);
+		}
+
+		@Override
+		public Set<CompletedCheckpoint> findAllCompletedCheckpointsOnStorage(
+				Map<JobVertexID, ExecutionJobVertex> tasks,
+				boolean allowNonRestoredState,
+				boolean findCheckpointInCheckpointStore,
+				@Nullable ClassLoader userClassLoader) {
+			return checkpointsOnStorage;
+		}
 	}
 }

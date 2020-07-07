@@ -226,6 +226,35 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 		LOG.debug("Added {} to {}.", checkpoint, path);
 	}
 
+	/**
+	 * Different with addCheckpoint on
+	 * 1. Insert a new checkpoint into a ordered position based on checkpoint id.
+	 * 2. Do not deal with maxNumberOfCheckpointsToRetain.
+	 */
+	@Override
+	public void addCheckpointInOrder(final CompletedCheckpoint checkpoint) throws Exception {
+		checkNotNull(checkpoint, "Checkpoint");
+
+		final String path = checkpointIdToPath(checkpoint.getCheckpointID());
+
+		// Now add the new one. If it fails, we don't want to loose existing data.
+		checkpointsInZooKeeper.addAndLock(path, checkpoint);
+
+		final List<CompletedCheckpoint> disorderCheckpoints = new ArrayList<>();
+		while (completedCheckpoints.size() > 0 && completedCheckpoints.getLast().getCheckpointID() > checkpoint.getCheckpointID()) {
+			disorderCheckpoints.add(completedCheckpoints.pollLast());
+		}
+
+		completedCheckpoints.addLast(checkpoint);
+
+		Collections.reverse(disorderCheckpoints);
+		for (CompletedCheckpoint completedCheckpoint : disorderCheckpoints) {
+			completedCheckpoints.addLast(completedCheckpoint);
+		}
+
+		LOG.info("Added {} to {}.", checkpoint, path);
+	}
+
 	private void tryRemoveCompletedCheckpoint(CompletedCheckpoint completedCheckpoint, ThrowingConsumer<CompletedCheckpoint, Exception> discardCallback) {
 		try {
 			if (tryRemove(completedCheckpoint.getCheckpointID())) {
