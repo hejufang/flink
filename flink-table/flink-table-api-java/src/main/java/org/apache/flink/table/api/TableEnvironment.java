@@ -840,6 +840,17 @@ public interface TableEnvironment {
 	}
 
 	/**
+	 * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE, DELETE or DDL statements,
+	 * and return {@link StatementSet} if have INSERT operation.
+	 *
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @return the {@link StatementSet} if have INSERT operation, otherwise returns Optional.EMPTY.
+	 */
+	default Optional<StatementSet> getStatementSetBySql(String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Evaluates a SQL query on registered tables and retrieves the result as a {@link Table}.
 	 *
 	 * <p>All tables referenced by the query must be registered in the TableEnvironment.

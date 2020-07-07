@@ -23,6 +23,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.api.dag.Transformation;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.EnvironmentSettings;
@@ -666,9 +667,24 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
 	@Override
 	public Optional<Table> sql(String stmt) {
+		Tuple2<Optional<Table>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
+		Optional<StatementSet> statementSetOptional = tuple2.f1;
+		statementSetOptional.ifPresent(statementSet -> statementSet.execute());
+		return tuple2.f0;
+	}
+
+	@Override
+	public Optional<StatementSet> getStatementSetBySql(String stmt) {
+		Tuple2<Optional<Table>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
+		return tuple2.f1;
+	}
+
+	private Tuple2<Optional<Table>, Optional<StatementSet>> sqlInternal(String stmt) {
 		List<String> statementList = SqlSplitUtils.getSqlList(stmt);
 		StatementSet statementSet = createStatementSet();
 		boolean hasModifyOperation = false;
+		Optional<Table> tableOptional = Optional.empty();
+		Optional<StatementSet> statementSetOptional = Optional.empty();
 		for (int i = 0; i < statementList.size(); i++) {
 			String statement = statementList.get(i);
 			Preconditions.checkNotNull(statement, "statement must not be null!");
@@ -686,7 +702,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
 				Table table = sqlQueryInternal(operation);
 				if (i == statementList.size() - 1) {
-					return Optional.of(table);
+					tableOptional = Optional.of(table);
 				}
 			} else if (operation instanceof ModifyOperation) {
 				statementSet.addInsertSql(statement);
@@ -696,9 +712,9 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			}
 		}
 		if (hasModifyOperation) {
-			statementSet.execute();
+			statementSetOptional = Optional.of(statementSet);
 		}
-		return Optional.empty();
+		return Tuple2.of(tableOptional, statementSetOptional);
 	}
 
 	@Override
