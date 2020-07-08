@@ -26,6 +26,9 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayDeque;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -36,18 +39,21 @@ import scala.concurrent.duration.Duration;
  * Similar implementation with {@link FailureRateRestartStrategy} but much simpler.
  */
 public class RecoverableRestartStrategy implements RestartStrategy {
+	private static final Logger LOG = LoggerFactory.getLogger(RecoverableRestartStrategy.class);
 
 	private final Time failuresInterval;
 	private final int maxFailuresPerInterval;
+	private final boolean fallbackToGlobalRestart;
 	private final ArrayDeque<Long> restartTimestampsDeque;
 
-	public RecoverableRestartStrategy(int maxFailuresPerInterval, Time failuresInterval) {
+	public RecoverableRestartStrategy(int maxFailuresPerInterval, Time failuresInterval, boolean fallbackToGlobalRestart) {
 		Preconditions.checkNotNull(failuresInterval, "Failures interval cannot be null.");
 		Preconditions.checkArgument(maxFailuresPerInterval > 0, "Maximum number of restart attempts per time unit must be greater than 0.");
 		Preconditions.checkArgument(failuresInterval.getSize() > 0, "Failures interval must be greater than 0 ms.");
 
 		this.failuresInterval = failuresInterval;
 		this.maxFailuresPerInterval = maxFailuresPerInterval;
+		this.fallbackToGlobalRestart = fallbackToGlobalRestart;
 		this.restartTimestampsDeque = new ArrayDeque<>(maxFailuresPerInterval);
 	}
 
@@ -57,7 +63,11 @@ public class RecoverableRestartStrategy implements RestartStrategy {
 			Long now = System.currentTimeMillis();
 			Long earliestFailure = restartTimestampsDeque.peek();
 
-			return (now - earliestFailure) > failuresInterval.toMilliseconds();
+			boolean canRestart = (now - earliestFailure) > failuresInterval.toMilliseconds();
+			if (!canRestart && fallbackToGlobalRestart) {
+				reset();
+			}
+			return canRestart;
 		} else {
 			return true;
 		}
@@ -76,6 +86,11 @@ public class RecoverableRestartStrategy implements RestartStrategy {
 		return restartTimestampsDeque.size() >= maxFailuresPerInterval;
 	}
 
+	private void reset() {
+		LOG.info("RecoverableRestartStrategy is reset.");
+		restartTimestampsDeque.clear();
+	}
+
 	@Override
 	public String toString() {
 		return "RecoverableRestartStrategy(" +
@@ -89,25 +104,29 @@ public class RecoverableRestartStrategy implements RestartStrategy {
 		String failuresIntervalString = configuration.getString(
 				ConfigConstants.RESTART_STRATEGY_RECOVERABLE_FAILURE_RATE_FAILURE_RATE_INTERVAL, Duration.apply(10, TimeUnit.MINUTES).toString()
 		);
+		boolean fallbackToGlobalRestart = configuration.getBoolean(
+				ConfigConstants.RESTART_STRATEGY_RECOVERABLE_FALLBACK_GLOBAL_RESTART, false);
 
 		Duration failuresInterval = Duration.apply(failuresIntervalString);
 
-		return new RecoverableRestartStrategyFactory(maxFailuresPerInterval, Time.milliseconds(failuresInterval.toMillis()));
+		return new RecoverableRestartStrategyFactory(maxFailuresPerInterval, Time.milliseconds(failuresInterval.toMillis()), fallbackToGlobalRestart);
 	}
 
 	public static class RecoverableRestartStrategyFactory extends RestartStrategyFactory {
 
 		private final int maxFailuresPerInterval;
 		private final Time failuresInterval;
+		private final boolean fallbackToGlobalRestart;
 
-		public RecoverableRestartStrategyFactory(int maxFailuresPerInterval, Time failuresInterval) {
+		public RecoverableRestartStrategyFactory(int maxFailuresPerInterval, Time failuresInterval, boolean fallbackToGlobalRestart) {
 			this.maxFailuresPerInterval = maxFailuresPerInterval;
 			this.failuresInterval = Preconditions.checkNotNull(failuresInterval);
+			this.fallbackToGlobalRestart = fallbackToGlobalRestart;
 		}
 
 		@Override
 		public RestartStrategy createRestartStrategy() {
-			return new RecoverableRestartStrategy(maxFailuresPerInterval, failuresInterval);
+			return new RecoverableRestartStrategy(maxFailuresPerInterval, failuresInterval, fallbackToGlobalRestart);
 		}
 	}
 }

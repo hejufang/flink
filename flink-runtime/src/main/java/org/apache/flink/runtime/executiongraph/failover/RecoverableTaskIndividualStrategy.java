@@ -82,7 +82,7 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 
 		if (!executionGraph.getRestartStrategy().canRestart()) {
 			LOG.info("Fail to pass the restart strategy validation in individual failover. Fallback to fail global.");
-			executionGraph.failGlobal(new SuppressRestartsException(cause));
+			executionGraph.failGlobal(cause);
 			return;
 		}
 
@@ -93,7 +93,7 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 
 		taskExecution.getReleaseFuture().whenCompleteAsync((ignore, error) -> {
 			if (error != null) {
-				executionGraph.failGlobal(new SuppressRestartsException(error));
+				executionGraph.failGlobal(error);
 			}
 
 			executionGraph.getRestartStrategy().restart(() -> performExecutionVertexRestart(

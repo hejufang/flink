@@ -56,6 +56,8 @@ public final class ConfigConstants {
 	@PublicEvolving
 	public static final String RESTART_STRATEGY_RECOVERABLE_FAILURE_RATE_FAILURE_RATE_INTERVAL = "restart-strategy.recoverable-failure-rate.failure-rate-interval";
 
+	@PublicEvolving
+	public static final String RESTART_STRATEGY_RECOVERABLE_FALLBACK_GLOBAL_RESTART = "restart-strategy.recoverable-failure-rate.fallback-global-restart";
 
 	/**
 	 * Defines the restart strategy to be used. It can be "off", "none", "disable" to be disabled or
