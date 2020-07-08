@@ -62,7 +62,8 @@ public class Elasticsearch6UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
 			long globalRateLimit,
-			boolean byteEsMode) {
+			boolean byteEsMode,
+			boolean ignoreInvalidData) {
 
 		return new Elasticsearch6UpsertTableSink(
 			isAppendOnly,

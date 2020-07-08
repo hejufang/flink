@@ -85,6 +85,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_HOSTNAME;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_PORT;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS_PROTOCOL;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_IGNORE_INVALID_DATA;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_INDEX;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_DELIMITER;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_FIELD_INDICES;
@@ -156,6 +157,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		properties.add(CONNECTOR_CONNECTION_USERNAME);
 		properties.add(CONNECTOR_CONNECTION_PASSWORD);
 		properties.add(CONNECTOR_KEY_FIELD_INDICES);
+		properties.add(CONNECTOR_IGNORE_INVALID_DATA);
 
 		// rate limit
 		properties.add(CONNECTOR_GLOBAL_RATE_LIMIT);
@@ -200,7 +202,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			getSinkOptions(descriptorProperties),
 			getKeyFieldIndices(descriptorProperties),
 			descriptorProperties.getOptionalLong(CONNECTOR_GLOBAL_RATE_LIMIT).orElse(-1L),
-			byteEsMode);
+			byteEsMode,
+			descriptorProperties.getOptionalBoolean(CONNECTOR_IGNORE_INVALID_DATA).orElse(false));
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -223,7 +226,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		Map<SinkOption, String> sinkOptions,
 		int[] keyFieldIndices,
 		long globalRateLimit,
-		boolean byteEsMode);
+		boolean byteEsMode,
+		boolean ignoreInvalidData);
 
 	// --------------------------------------------------------------------------------------------
 	// Helper methods

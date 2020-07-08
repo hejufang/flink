@@ -91,7 +91,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
 			long globalRateLimit,
-			boolean byteEsMode) {
+			boolean byteEsMode,
+			boolean ignoreInvalidData) {
 		this(
 			isAppendOnly,
 			schema,
@@ -104,7 +105,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
-			byteEsMode
+			byteEsMode,
+			ignoreInvalidData
 		);
 		this.globalRateLimit = globalRateLimit;
 	}
@@ -121,7 +123,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
-			boolean byteEsMode) {
+			boolean byteEsMode,
+			boolean ignoreInvalidData) {
 
 		super(
 			isAppendOnly,
@@ -137,7 +140,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			sinkOptions,
 			UPDATE_REQUEST_FACTORY,
 			keyFieldIndices,
-			byteEsMode);
+			byteEsMode,
+			ignoreInvalidData);
 	}
 
 	@VisibleForTesting
@@ -201,7 +205,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			sinkOptions,
 			keyFieldIndices,
 			globalRateLimit,
-			byteEsMode);
+			byteEsMode,
+			ignoreInvalidData);
 	}
 
 	@Override
@@ -416,6 +421,10 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 				String index,
 				String id,
 				String opType) {
+			if (opType == null || index == null) {
+				LOG.error("Invalid OpType: {} or index {}", opType, index);
+				return;
+			}
 			switch (opType.toLowerCase()) {
 				case "delete":
 					DeleteRequest deleteRequest = new DeleteRequest().index(index).id(id);
@@ -465,6 +474,9 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 				case "update":
 					UpdateRequest updateRequest = new UpdateRequest().index(index).id(id);
 					updateRequest.doc(doc, XContentType.JSON);
+					if (version > 0) {
+						updateRequest.version(version);
+					}
 					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
 						updateRequest.routing(routing);
 					}
@@ -478,6 +490,9 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 					UpdateRequest upsertRequest = new UpdateRequest().index(index).id(id);
 					upsertRequest.doc(doc, XContentType.JSON);
 					upsertRequest.docAsUpsert(true);
+					if (version > 0) {
+						upsertRequest.version(version);
+					}
 					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
 						upsertRequest.routing(routing);
 					}

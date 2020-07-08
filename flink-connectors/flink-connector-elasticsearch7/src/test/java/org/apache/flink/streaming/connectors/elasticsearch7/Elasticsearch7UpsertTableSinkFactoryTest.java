@@ -103,6 +103,7 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				-1,
 				-1,
 				-1,
+				false,
 				false));
 		expectedBuilder.setFailureHandler(new DummyFailureHandler());
 		expectedBuilder.setBulkFlushBackoff(true);
@@ -148,6 +149,7 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
+			false,
 			false);
 	}
 

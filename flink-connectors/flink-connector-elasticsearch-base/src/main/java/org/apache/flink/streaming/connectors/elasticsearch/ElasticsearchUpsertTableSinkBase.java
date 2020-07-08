@@ -47,6 +47,8 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -127,6 +129,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	/** Whether to use ByteEs mode. */
 	private final boolean byteEsMode;
 
+	protected final boolean ignoreInvalidData;
+
 	public ElasticsearchUpsertTableSinkBase(
 			boolean isAppendOnly,
 			TableSchema schema,
@@ -141,7 +145,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			Map<SinkOption, String> sinkOptions,
 			RequestFactory requestFactory,
 			int[] keyFieldIndices,
-			boolean byteEsMode) {
+			boolean byteEsMode,
+			boolean ignoreInvalidData) {
 
 		this.isAppendOnly = isAppendOnly;
 		this.schema = Preconditions.checkNotNull(schema);
@@ -157,6 +162,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		this.requestFactory = Preconditions.checkNotNull(requestFactory);
 		this.keyFieldIndices = keyFieldIndices;
 		this.byteEsMode = byteEsMode;
+		this.ignoreInvalidData = ignoreInvalidData;
 	}
 
 	public ElasticsearchUpsertTableSinkBase(
@@ -187,6 +193,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			sinkOptions,
 			requestFactory,
 			keyFieldIndices,
+			false,
 			false
 		);
 	}
@@ -322,7 +329,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				idIndex,
 				opTypeIndex,
 				sourceIndex,
-				byteEsMode);
+				byteEsMode,
+				ignoreInvalidData);
 		final SinkFunction<Tuple2<Boolean, Row>> sinkFunction = createSinkFunction(
 			hosts,
 			failureHandler,
@@ -586,8 +594,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	 * Sink function for converting upserts into Elasticsearch {@link ActionRequest}s.
 	 */
 	public static class ElasticsearchUpsertSinkFunction implements ElasticsearchSinkFunction<Tuple2<Boolean, Row>> {
-
-		private static final long serialVersionUID = 1L;
+		private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchUpsertSinkFunction.class);
+		private static final long serialVersionUID = 2L;
 
 		private final IndexGenerator indexGenerator;
 		private final String docType;
@@ -604,6 +612,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		private final int opTypeIndex;
 		private final int sourceIndex;
 		private final boolean byteEsMode;
+		private final boolean ignoreInvalidData;
 
 		public ElasticsearchUpsertSinkFunction(
 				IndexGenerator indexGenerator,
@@ -620,7 +629,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				int idIndex,
 				int opTypeIndex,
 				int sourceIndex,
-				boolean byteEsMode) {
+				boolean byteEsMode,
+				boolean ignoreInvalidData) {
 
 			this.indexGenerator = Preconditions.checkNotNull(indexGenerator);
 			this.docType = Preconditions.checkNotNull(docType);
@@ -637,6 +647,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			this.opTypeIndex = opTypeIndex;
 			this.sourceIndex = sourceIndex;
 			this.byteEsMode = byteEsMode;
+			this.ignoreInvalidData = ignoreInvalidData;
 		}
 
 		@Override
@@ -674,6 +685,14 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 					}
 				}
 
+				if (index == null || opType == null) {
+					if (ignoreInvalidData) {
+						LOG.error("Receive invalid data, doc id {}, opType {}, indexer {}", id, opType, index);
+					} else {
+						throw new RuntimeException(String.format(
+							"Invalid data find, doc id %s, opType %s, indexer %s", id, opType, index));
+					}
+				}
 				requestFactory.addCustomRequestToIndexer(source, indexer, version, routing, index, id, opType);
 			} else {
 				final String formattedIndex = indexGenerator.generate(element.f1);

@@ -62,7 +62,8 @@ public class Elasticsearch7UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
 			long globalRateLimit,
-			boolean byteEsMode) {
+			boolean byteEsMode,
+			boolean ignoreInvalidData) {
 
 		return new Elasticsearch7UpsertTableSink(
 			isAppendOnly,
@@ -77,6 +78,7 @@ public class Elasticsearch7UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			sinkOptions,
 			keyFieldIndices,
 			globalRateLimit,
-			byteEsMode);
+			byteEsMode,
+			ignoreInvalidData);
 	}
 }

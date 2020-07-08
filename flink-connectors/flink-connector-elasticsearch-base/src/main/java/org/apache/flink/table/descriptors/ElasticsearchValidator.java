@@ -49,6 +49,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_KEY_DELIMITER = "connector.key-delimiter";
 	public static final String CONNECTOR_KEY_NULL_LITERAL = "connector.key-null-literal";
 	public static final String CONNECTOR_KEY_FIELD_INDICES = "connector.key-field-indices";
+	public static final String CONNECTOR_IGNORE_INVALID_DATA = "connector.ignore-invalid-data";
 	public static final String CONNECTOR_FAILURE_HANDLER = "connector.failure-handler";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_FAIL = "fail";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE = "ignore";
@@ -86,6 +87,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_URI, true, 1);
 		properties.validateBoolean(CONNECTOR_BYTE_ES_MODE, true);
 		properties.validateBoolean(CONNECTOR_BYTE_ES_ENABLE_GDPR, true);
+		properties.validateBoolean(CONNECTOR_IGNORE_INVALID_DATA, true);
 		validateVersion(properties);
 		validateHosts(properties);
 		validateGeneralProperties(properties);
