@@ -88,6 +88,7 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_BYTE_ES_MODE, true);
 		properties.validateBoolean(CONNECTOR_BYTE_ES_ENABLE_GDPR, true);
 		properties.validateBoolean(CONNECTOR_IGNORE_INVALID_DATA, true);
+		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 		validateVersion(properties);
 		validateHosts(properties);
 		validateGeneralProperties(properties);

@@ -75,7 +75,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			XContentType.JSON,
 			new DummyFailureHandler(),
 			createTestSinkOptions(),
-			new int[0]);
+			new int[0],
+			-1);
 
 		final DataStreamMock dataStreamMock = new DataStreamMock(
 				new StreamExecutionEnvironmentMock(),
@@ -151,7 +152,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			contentType,
 			failureHandler,
 			sinkOptions,
-			keyFieldIndices);
+			keyFieldIndices,
+			-1);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -174,7 +176,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				XContentType contentType,
 				ActionRequestFailureHandler failureHandler,
 				Map<SinkOption, String> sinkOptions,
-				int[] keyFieldIndices) {
+				int[] keyFieldIndices,
+				int parallelism) {
 
 			super(
 				isAppendOnly,
@@ -188,7 +191,8 @@ public class Elasticsearch6UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				contentType,
 				failureHandler,
 				sinkOptions,
-				keyFieldIndices);
+				keyFieldIndices,
+				parallelism);
 		}
 
 		@Override

@@ -96,6 +96,7 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
+			int parallelism,
 			long globalRateLimit) {
 		this(
 			isAppendOnly,
@@ -109,7 +110,8 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			contentType,
 			failureHandler,
 			sinkOptions,
-			keyFieldIndices
+			keyFieldIndices,
+			parallelism
 		);
 		this.globalRateLimit = globalRateLimit;
 	}
@@ -126,7 +128,8 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
-		int[] keyFieldIndices) {
+		int[] keyFieldIndices,
+		int parallelism) {
 
 		super(
 			isAppendOnly,
@@ -141,7 +144,8 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			UPDATE_REQUEST_FACTORY,
-			keyFieldIndices);
+			keyFieldIndices,
+			parallelism);
 	}
 
 	@Override
@@ -159,6 +163,7 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		Map<SinkOption, String> sinkOptions,
 		RequestFactory requestFactory,
 		int[] keyFieldIndices,
+		int parallelism,
 		boolean byteEsMode) {
 
 		return new Elasticsearch6UpsertTableSink(
@@ -174,6 +179,7 @@ public class Elasticsearch6UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
+			parallelism,
 			globalRateLimit);
 	}
 

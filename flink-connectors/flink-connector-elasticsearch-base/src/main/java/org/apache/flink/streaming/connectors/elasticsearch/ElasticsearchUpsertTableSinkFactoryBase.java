@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_VERSION;
@@ -172,6 +173,9 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		// user defined params, used in custom ActionRequestFailureHandler
 		properties.add(CONNECTOR_USER_DEFINED_PARAMS);
 
+		// parallelism
+		properties.add(CONNECTOR_PARALLELISM);
+
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_NAME);
@@ -202,6 +206,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 			getSinkOptions(descriptorProperties),
 			getKeyFieldIndices(descriptorProperties),
 			descriptorProperties.getOptionalLong(CONNECTOR_GLOBAL_RATE_LIMIT).orElse(-1L),
+			descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).orElse(-1),
 			byteEsMode,
 			descriptorProperties.getOptionalBoolean(CONNECTOR_IGNORE_INVALID_DATA).orElse(false));
 	}
@@ -226,6 +231,7 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		Map<SinkOption, String> sinkOptions,
 		int[] keyFieldIndices,
 		long globalRateLimit,
+		int parallelism,
 		boolean byteEsMode,
 		boolean ignoreInvalidData);
 

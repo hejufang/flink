@@ -91,6 +91,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
 			long globalRateLimit,
+			int parallelism,
 			boolean byteEsMode,
 			boolean ignoreInvalidData) {
 		this(
@@ -105,6 +106,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
+			parallelism,
 			byteEsMode,
 			ignoreInvalidData
 		);
@@ -123,6 +125,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
+			int parallelism,
 			boolean byteEsMode,
 			boolean ignoreInvalidData) {
 
@@ -140,6 +143,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			sinkOptions,
 			UPDATE_REQUEST_FACTORY,
 			keyFieldIndices,
+			parallelism,
 			byteEsMode,
 			ignoreInvalidData);
 	}
@@ -157,7 +161,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 		XContentType contentType,
 		ActionRequestFailureHandler failureHandler,
 		Map<SinkOption, String> sinkOptions,
-		int[] keyFieldIndices) {
+		int[] keyFieldIndices,
+		int parallelism) {
 
 		super(
 			isAppendOnly,
@@ -172,7 +177,8 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			failureHandler,
 			sinkOptions,
 			UPDATE_REQUEST_FACTORY,
-			keyFieldIndices);
+			keyFieldIndices,
+			parallelism);
 	}
 
 	@Override
@@ -190,6 +196,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			Map<SinkOption, String> sinkOptions,
 			RequestFactory requestFactory,
 			int[] keyFieldIndices,
+			int parallelism,
 			boolean byteEsMode) {
 
 		return new Elasticsearch7UpsertTableSink(
@@ -205,8 +212,10 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 			sinkOptions,
 			keyFieldIndices,
 			globalRateLimit,
+			parallelism,
 			byteEsMode,
 			ignoreInvalidData);
+
 	}
 
 	@Override

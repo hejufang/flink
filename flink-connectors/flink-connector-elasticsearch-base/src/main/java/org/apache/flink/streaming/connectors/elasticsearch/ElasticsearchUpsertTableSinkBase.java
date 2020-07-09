@@ -126,6 +126,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 	/** Key field indices determined by the query. */
 	private int[] keyFieldIndices;
 
+	private final int parallelism;
+
 	/** Whether to use ByteEs mode. */
 	private final boolean byteEsMode;
 
@@ -145,6 +147,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			Map<SinkOption, String> sinkOptions,
 			RequestFactory requestFactory,
 			int[] keyFieldIndices,
+			int parallelism,
 			boolean byteEsMode,
 			boolean ignoreInvalidData) {
 
@@ -161,6 +164,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		this.sinkOptions = Preconditions.checkNotNull(sinkOptions);
 		this.requestFactory = Preconditions.checkNotNull(requestFactory);
 		this.keyFieldIndices = keyFieldIndices;
+		this.parallelism = parallelism;
 		this.byteEsMode = byteEsMode;
 		this.ignoreInvalidData = ignoreInvalidData;
 	}
@@ -178,7 +182,8 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			ActionRequestFailureHandler failureHandler,
 			Map<SinkOption, String> sinkOptions,
 			RequestFactory requestFactory,
-			int[] keyFieldIndices) {
+			int[] keyFieldIndices,
+			int parallelism) {
 		this(
 			isAppendOnly,
 			schema,
@@ -193,6 +198,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			sinkOptions,
 			requestFactory,
 			keyFieldIndices,
+			parallelism,
 			false,
 			false
 		);
@@ -337,7 +343,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			sinkOptions,
 			upsertFunction);
 		return dataStream.addSink(sinkFunction)
-			.setParallelism(dataStream.getParallelism())
+			.setParallelism(parallelism > 0 ? parallelism : dataStream.getParallelism())
 			.name(TableConnectorUtils.generateRuntimeName(this.getClass(), getFieldNames()));
 	}
 
@@ -382,6 +388,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 			sinkOptions,
 			requestFactory,
 			keyFieldIndices,
+			parallelism,
 			byteEsMode);
 	}
 
@@ -441,6 +448,7 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		Map<SinkOption, String> sinkOptions,
 		RequestFactory requestFactory,
 		int[] keyFieldIndices,
+		int parallelism,
 		boolean byteEsMode);
 
 	protected abstract SinkFunction<Tuple2<Boolean, Row>> createSinkFunction(

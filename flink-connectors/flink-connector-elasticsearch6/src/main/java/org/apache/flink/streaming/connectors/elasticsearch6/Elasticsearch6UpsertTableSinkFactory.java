@@ -62,6 +62,7 @@ public class Elasticsearch6UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			Map<SinkOption, String> sinkOptions,
 			int[] keyFieldIndices,
 			long globalRateLimit,
+			int parallelism,
 			boolean byteEsMode,
 			boolean ignoreInvalidData) {
 
@@ -78,6 +79,7 @@ public class Elasticsearch6UpsertTableSinkFactory extends ElasticsearchUpsertTab
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
+			parallelism,
 			globalRateLimit);
 	}
 }

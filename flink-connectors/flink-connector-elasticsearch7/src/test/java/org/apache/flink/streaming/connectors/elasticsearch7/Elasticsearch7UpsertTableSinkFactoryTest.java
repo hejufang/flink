@@ -149,6 +149,7 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 			failureHandler,
 			sinkOptions,
 			keyFieldIndices,
+			-1,
 			false,
 			false);
 	}
@@ -186,7 +187,8 @@ public class Elasticsearch7UpsertTableSinkFactoryTest extends ElasticsearchUpser
 				contentType,
 				failureHandler,
 				sinkOptions,
-				new int[0]);
+				new int[0],
+				-1);
 		}
 
 		@Override
