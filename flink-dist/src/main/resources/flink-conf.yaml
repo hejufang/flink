@@ -183,6 +183,9 @@ common:
   heartbeat.timeout: 120000
   heartbeat.interval: 40000
 
+  register-dashboard.url : "https://grafana.byted.org/api/dashboards/db"
+  register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
+
   bytedance.streaming.yarn.gang-scheduler.enable: true
   bytedance.streaming.taskmanager.initial-on-start: true
   bytedance.streaming.taskmanager.number-initial-percentage: 1.0

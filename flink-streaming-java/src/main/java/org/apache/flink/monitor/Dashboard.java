@@ -403,13 +403,11 @@ public class Dashboard {
 		return dashboardJson;
 	}
 
-	public boolean registerDashboard() throws IOException {
-		String url = "https://grafana.byted.org/api/dashboards/db";
+	public boolean registerDashboard(String url, String token) throws IOException {
 		String dashboardJson = renderDashboard();
 
-		Map<String, String> headers = new HashMap();
-		headers.put("Authorization",
-				"Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9");
+		Map<String, String> headers = new HashMap<>();
+		headers.put("Authorization", token);
 		headers.put("Accept", "application/json");
 		headers.put("Content-Type", "application/json");
 

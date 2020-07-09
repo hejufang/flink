@@ -2200,6 +2200,12 @@ public final class ConfigConstants {
 	public static final String YARN_STREAMING_APPLICATION_TYPE_DEFAULT = "Apache Flink";
 
 	public static final String STREAMING_JOB_KEY_PREFIX = "bytedance.streaming.";
+	public static final String SAVE_META_ENABLED = "save-meta.enabled";
+	public static final String SAVE_META_ENABLED_DEFAULT = "true";
+	public static final String REGISTER_DASHBOARD_ENABLED = "register-dashboard.enabled";
+	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "true";
+	public static final String REGISTER_DASHBOARD_URL = "register-dashboard.url";
+	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
 
 	/**
 	 * Not instantiable.

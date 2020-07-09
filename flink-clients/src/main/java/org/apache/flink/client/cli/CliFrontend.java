@@ -1265,6 +1265,25 @@ public class CliFrontend {
 		System.setProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			configuration.getString(ConfigConstants.KAFKA_SERVER_URL_KEY,
 				ConfigConstants.KAFKA_SERVER_URL_DEFAUL));
+
+		// Whether save meta to db.
+		System.setProperty(ConfigConstants.SAVE_META_ENABLED,
+				configuration.getString(ConfigConstants.SAVE_META_ENABLED,
+						ConfigConstants.SAVE_META_ENABLED_DEFAULT));
+
+		// Whether register dashboard.
+		System.setProperty(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
+				configuration.getString(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
+						ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT));
+
+		String registerDashboardUrl = configuration.getString(ConfigConstants.REGISTER_DASHBOARD_URL, null);
+		if (registerDashboardUrl != null) {
+			System.setProperty(ConfigConstants.REGISTER_DASHBOARD_URL, registerDashboardUrl);
+		}
+		String registerDashboardToken = configuration.getString(ConfigConstants.REGISTER_DASHBOARD_TOKEN, null);
+		if (registerDashboardToken != null) {
+			System.setProperty(ConfigConstants.REGISTER_DASHBOARD_TOKEN, registerDashboardToken);
+		}
 	}
 
 	/**

@@ -1930,16 +1930,13 @@ public abstract class StreamExecutionEnvironment {
 		}
 	}
 
-	public void saveMetaAndRegisterDashboard(StreamGraph streamGraph) {
+	private void saveMeta(StreamGraph streamGraph, JobGraph jobGraph) {
 		String jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,
 			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
 		if ("pyFlink".equals(jobType)) {
 			return;
 		}
 
-		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
-			ConfigConstants.CLUSTER_NAME_DEFAULT);
-		LOG.info("clusterName = {}", clusterName);
 		for (StreamNode node : streamGraph.getStreamNodes()) {
 			String operatorName = node.getOperatorName();
 			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
@@ -1948,10 +1945,6 @@ public abstract class StreamExecutionEnvironment {
 			}
 			node.setOperatorName(UniqueNameGenerator.appendSuffixIfNotUnique(operatorName));
 		}
-		JobGraph jobGraph = streamGraph.getJobGraph();
-		String dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
-			ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
-		LOG.info("dataSource = {}", dataSource);
 		try {
 			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph);
 			if (jobMeta.saveToDB()) {
@@ -1963,14 +1956,30 @@ public abstract class StreamExecutionEnvironment {
 			LOG.warn("Failed to save job meta to database.", e);
 		}
 
+	}
+
+	private void registerDashboard(StreamGraph streamGraph, JobGraph jobGraph) {
+		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+				ConfigConstants.CLUSTER_NAME_DEFAULT);
+		LOG.info("clusterName = {}", clusterName);
+		String dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
+		LOG.info("dataSource = {}", dataSource);
+		String url = System.getProperty(ConfigConstants.REGISTER_DASHBOARD_URL);
+		String token = System.getProperty(ConfigConstants.REGISTER_DASHBOARD_TOKEN);
+		if (url == null || token == null) {
+			throw new IllegalArgumentException(
+					"dashboard url or token not exists, please config by "
+							+ ConfigConstants.REGISTER_DASHBOARD_URL + " and "
+							+ ConfigConstants.REGISTER_DASHBOARD_TOKEN);
+		}
 		int maxRetryTimes = 5;
 		int retryTimes = 0;
 		boolean registerDashboardSuccessfully = false;
 		while (retryTimes++ < maxRetryTimes && !registerDashboardSuccessfully) {
 			try {
-				Dashboard dashboard = new Dashboard(clusterName, dataSource, streamGraph,
-					jobGraph);
-				registerDashboardSuccessfully = dashboard.registerDashboard();
+				Dashboard dashboard = new Dashboard(clusterName, dataSource, streamGraph, jobGraph);
+				registerDashboardSuccessfully = dashboard.registerDashboard(url, token);
 			} catch (Throwable e){
 				registerDashboardSuccessfully = false;
 				LOG.info("Failed to registering dashboard, retry", e);
@@ -1980,6 +1989,20 @@ public abstract class StreamExecutionEnvironment {
 			LOG.info("Succeed in registering dashboard.");
 		} else {
 			LOG.warn("Failed to registering dashboard!");
+		}
+	}
+
+	public void saveMetaAndRegisterDashboard(StreamGraph streamGraph) {
+		JobGraph jobGraph = streamGraph.getJobGraph();
+		if (Boolean.parseBoolean(
+				System.getProperty(
+						ConfigConstants.SAVE_META_ENABLED, ConfigConstants.SAVE_META_ENABLED_DEFAULT))) {
+			saveMeta(streamGraph, jobGraph);
+		}
+		if (Boolean.parseBoolean(
+				System.getProperty(
+						ConfigConstants.REGISTER_DASHBOARD_ENABLED, ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT))) {
+			registerDashboard(streamGraph, jobGraph);
 		}
 	}
 }
