@@ -31,9 +31,6 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializatio
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -45,12 +42,10 @@ import java.util.Properties;
 public class FlinkKafkaMultiClusterConsumer010<T> extends RichParallelSourceFunction<T>
 		implements SourceFunction<T>, ResultTypeQueryable<T> {
 
-	private static final long serialVersionUID = 1L;
-	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaMultiClusterConsumer010.class);
+	private static final long serialVersionUID = 2L;
 
 	private final KafkaDeserializationSchema<T> kafkaDeserializationSchema;
-	private final List<KafkaConsumerConf> consumerConfs;
-	private transient List<FlinkKafkaConsumer010<T>> consumers;
+	private final List<FlinkKafkaConsumer010<T>> consumers;
 	private transient volatile Throwable firstError;
 
 	public FlinkKafkaMultiClusterConsumer010(
@@ -67,7 +62,7 @@ public class FlinkKafkaMultiClusterConsumer010<T> extends RichParallelSourceFunc
 		Preconditions.checkNotNull(kafkaDeserializationSchema,
 			"kafkaDeserializationSchema cannot be null!");
 		this.kafkaDeserializationSchema = kafkaDeserializationSchema;
-		this.consumerConfs = consumerConfs;
+		this.consumers = constructKafkaConsumers(consumerConfs);
 	}
 
 	/**
@@ -75,16 +70,17 @@ public class FlinkKafkaMultiClusterConsumer010<T> extends RichParallelSourceFunc
 	 *
 	 * @param consumerConfs consumer configurations.
 	 */
-	private void initKafkaConsumers(Collection<KafkaConsumerConf> consumerConfs) {
-		consumers = new ArrayList<>();
+	private List<FlinkKafkaConsumer010<T>> constructKafkaConsumers(Collection<KafkaConsumerConf> consumerConfs) {
+		List<FlinkKafkaConsumer010<T>> consumers = new ArrayList<>();
 		for (KafkaConsumerConf consumerConf : consumerConfs) {
 			List<String> topics = consumerConf.getTopics();
 			Properties properties = consumerConf.toKafkaProperties();
 			FlinkKafkaConsumer010<T> kafkaConsumer010 =
 				new FlinkKafkaConsumer010<>(topics, kafkaDeserializationSchema, properties);
 			setStartupMode(kafkaConsumer010, consumerConf.getStartupMode());
-			this.consumers.add(kafkaConsumer010);
+			consumers.add(kafkaConsumer010);
 		}
+		return consumers;
 	}
 
 	private static void setStartupMode(FlinkKafkaConsumer010<?> kafkaConsumer010, StartupMode startupMode) {
@@ -155,7 +151,6 @@ public class FlinkKafkaMultiClusterConsumer010<T> extends RichParallelSourceFunc
 
 	@Override
 	public void open(Configuration configuration) throws Exception {
-		initKafkaConsumers(consumerConfs);
 		for (FlinkKafkaConsumer010<T> consumer : consumers) {
 			consumer.setRuntimeContext(this.getRuntimeContext());
 			consumer.open(configuration);
