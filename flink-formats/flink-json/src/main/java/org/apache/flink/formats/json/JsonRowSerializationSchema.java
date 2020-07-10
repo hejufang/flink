@@ -35,6 +35,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Arra
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -76,6 +77,8 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	/** Whether filter null values. Currently we only filter row's null columns. */
 	private final boolean filterNullValues;
 
+	private final boolean bytesAsJsonNode;
+
 	/** Object mapper that is used to create output JSON objects. */
 	private final ObjectMapper mapper = new ObjectMapper();
 
@@ -92,7 +95,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 			TypeInformation<Row> typeInfo,
 			boolean enforceUtf8Encoding) {
 		// TODO make this constructor private in the future
-		this(typeInfo, enforceUtf8Encoding, false);
+		this(typeInfo, enforceUtf8Encoding, false, false);
 	}
 
 	/**
@@ -102,13 +105,15 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	public JsonRowSerializationSchema(
 		TypeInformation<Row> typeInfo,
 		boolean enforceUtf8Encoding,
-		boolean filterNullValues) {
+		boolean filterNullValues,
+		boolean bytesAsJsonNode) {
 		// TODO make this constructor private in the future
 		Preconditions.checkNotNull(typeInfo, "Type information");
 		Preconditions.checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.enforceUtf8Encoding = enforceUtf8Encoding;
 		this.filterNullValues = filterNullValues;
+		this.bytesAsJsonNode = bytesAsJsonNode;
 		this.runtimeConverter = createConverter(typeInfo);
 	}
 
@@ -118,7 +123,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 	@Deprecated
 	public JsonRowSerializationSchema(TypeInformation<Row> typeInfo) {
 		// TODO make this constructor private in the future
-		this(typeInfo, false, false);
+		this(typeInfo, false, false, false);
 	}
 
 	/**
@@ -130,6 +135,7 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 		private final RowTypeInfo typeInfo;
 		private boolean enforceUtf8Encoding = false;
 		private boolean filterNullValues = false;
+		private boolean bytesAsJsonNode = false;
 
 		/**
 		 * Creates a JSON serialization schema for the given type information.
@@ -173,8 +179,13 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 			return this;
 		}
 
+		public Builder setBytesAsJsonNode(boolean bytesAsJsonNode) {
+			this.bytesAsJsonNode = bytesAsJsonNode;
+			return this;
+		}
+
 		public JsonRowSerializationSchema build() {
-			return new JsonRowSerializationSchema(typeInfo, enforceUtf8Encoding, filterNullValues);
+			return new JsonRowSerializationSchema(typeInfo, enforceUtf8Encoding, filterNullValues, bytesAsJsonNode);
 		}
 	}
 
@@ -205,12 +216,15 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 			return false;
 		}
 		final JsonRowSerializationSchema that = (JsonRowSerializationSchema) o;
-		return Objects.equals(typeInfo, that.typeInfo);
+		return filterNullValues == that.filterNullValues &&
+			enforceUtf8Encoding == that.enforceUtf8Encoding &&
+			bytesAsJsonNode == that.bytesAsJsonNode &&
+			Objects.equals(typeInfo, that.typeInfo);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(typeInfo);
+		return Objects.hash(typeInfo, filterNullValues, enforceUtf8Encoding, bytesAsJsonNode);
 	}
 
 	/*
@@ -251,6 +265,15 @@ public class JsonRowSerializationSchema implements SerializationSchema<Row> {
 		} else if (typeInfo instanceof BasicArrayTypeInfo) {
 			return Optional.of(createObjectArrayConverter(((BasicArrayTypeInfo) typeInfo).getComponentInfo()));
 		} else if (isPrimitiveByteArray(typeInfo)) {
+			if (bytesAsJsonNode) {
+				return Optional.of((mapper, reuse, object) -> {
+					try {
+						return mapper.readTree((byte[]) object);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
+			}
 			return Optional.of((mapper, reuse, object) -> mapper.getNodeFactory().binaryNode((byte[]) object));
 		} else {
 			return Optional.empty();

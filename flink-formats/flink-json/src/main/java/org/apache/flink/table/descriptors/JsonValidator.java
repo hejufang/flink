@@ -38,6 +38,7 @@ public class JsonValidator extends FormatDescriptorValidator {
 	// Flink will replace all integer to #, which means not allowing format.enforce-utf8-encoding.
 	public static final String FORMAT_ENFORCE_UTF8_ENCODING = "format.enforce-utf-encoding";
 	public static final String FORMAT_FILTER_NULL_VALUES = "format.filter-null-values";
+	public static final String FORMAT_BYTES_AS_JSON_NODE = "format.bytes-as-json-node";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -65,5 +66,6 @@ public class JsonValidator extends FormatDescriptorValidator {
 		properties.validateInt(FORMAT_SKIP_INTERVAL_MS, true);
 		properties.validateBoolean(FORMAT_ENFORCE_UTF8_ENCODING, true);
 		properties.validateBoolean(FORMAT_FILTER_NULL_VALUES, true);
+		properties.validateBoolean(FORMAT_BYTES_AS_JSON_NODE, true);
 	}
 }

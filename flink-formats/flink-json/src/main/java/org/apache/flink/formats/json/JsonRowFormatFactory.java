@@ -57,6 +57,7 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(JsonValidator.FORMAT_SKIP_INTERVAL_MS);
 		properties.add(JsonValidator.FORMAT_ENFORCE_UTF8_ENCODING);
 		properties.add(JsonValidator.FORMAT_FILTER_NULL_VALUES);
+		properties.add(JsonValidator.FORMAT_BYTES_AS_JSON_NODE);
 		return properties;
 	}
 
@@ -82,6 +83,9 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 				}
 			});
 
+		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_BYTES_AS_JSON_NODE)
+			.ifPresent(schema::bytesAsJsonNode);
+
 		Map<String, Boolean> jsonParserFeatureMap = new HashMap<>();
 		descriptorProperties.getPropertiesWithPrefix(JsonValidator.FORMAT_JSON_PARSER_FEATURE)
 			.forEach((k, v) -> jsonParserFeatureMap.put(k.toUpperCase(), Boolean.parseBoolean(v)));
@@ -103,6 +107,8 @@ public class JsonRowFormatFactory extends TableFormatFactoryBase<Row>
 			.ifPresent(builder::setEnforceUtf8Encoding);
 		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_FILTER_NULL_VALUES)
 			.ifPresent(builder::setFilterNullValues);
+		descriptorProperties.getOptionalBoolean(JsonValidator.FORMAT_BYTES_AS_JSON_NODE)
+			.ifPresent(builder::setBytesAsJsonNode);
 		return builder.build();
 	}
 

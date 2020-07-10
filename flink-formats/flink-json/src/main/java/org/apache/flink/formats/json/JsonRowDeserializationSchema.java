@@ -97,6 +97,8 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 	/** Object mapper for parsing the JSON. */
 	private final ObjectMapper objectMapper;
 
+	private final boolean bytesAsJsonNode;
+
 	/** Json parser feature map, see JsonParser.Feature. */
 	Map<String, Boolean> jsonParserFeatureMap;
 
@@ -112,7 +114,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			TypeInformation<Row> typeInfo,
 			boolean failOnMissingField,
 			boolean defaultOnMissingField) {
-		this(typeInfo, failOnMissingField, defaultOnMissingField, new HashMap<>(), false, -1);
+		this(typeInfo, failOnMissingField, defaultOnMissingField, new HashMap<>(), false, -1, false);
 	}
 
 	private JsonRowDeserializationSchema(
@@ -121,12 +123,14 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		boolean defaultOnMissingField,
 		Map<String, Boolean> jsonParserFeatureMap,
 		boolean skipDirty,
-		int skipIntervalMs) {
+		int skipIntervalMs,
+		boolean bytesAsJsonNode) {
 		checkNotNull(typeInfo, "Type information");
 		checkArgument(typeInfo instanceof RowTypeInfo, "Only RowTypeInfo is supported");
 		this.typeInfo = (RowTypeInfo) typeInfo;
 		this.failOnMissingField = failOnMissingField;
 		this.defaultOnMissingField = defaultOnMissingField;
+		this.bytesAsJsonNode = bytesAsJsonNode;
 		this.runtimeConverter = createConverter(this.typeInfo);
 		objectMapper = new ObjectMapper();
 		this.jsonParserFeatureMap = jsonParserFeatureMap;
@@ -208,6 +212,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		// This value can be set by user.
 		// Negative value means print every dirty data.
 		private int skipIntervalMs = 10_000;
+		private boolean bytesAsJsonNode = false;
 
 		/**
 		 * Creates a JSON deserialization schema for the given type information.
@@ -275,9 +280,14 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 			return this;
 		}
 
+		public Builder bytesAsJsonNode(boolean bytesAsJsonNode) {
+			this.bytesAsJsonNode = bytesAsJsonNode;
+			return this;
+		}
+
 		public JsonRowDeserializationSchema build() {
 			return new JsonRowDeserializationSchema(typeInfo, failOnMissingField,
-				defaultOnMissingField, jsonParserFeatureMap, skipDirty, skipIntervalMs);
+				defaultOnMissingField, jsonParserFeatureMap, skipDirty, skipIntervalMs, bytesAsJsonNode);
 		}
 	}
 
@@ -292,12 +302,13 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 		final JsonRowDeserializationSchema that = (JsonRowDeserializationSchema) o;
 		return Objects.equals(typeInfo, that.typeInfo) &&
 			Objects.equals(failOnMissingField, that.failOnMissingField) &&
-			Objects.equals(defaultOnMissingField, that.defaultOnMissingField);
+			Objects.equals(defaultOnMissingField, that.defaultOnMissingField) &&
+			Objects.equals(bytesAsJsonNode, that.bytesAsJsonNode);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(typeInfo, failOnMissingField, defaultOnMissingField);
+		return Objects.hash(typeInfo, failOnMissingField, defaultOnMissingField, bytesAsJsonNode);
 	}
 
 	/*
@@ -375,6 +386,9 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 	}
 
 	private DeserializationRuntimeConverter createByteArrayConverter() {
+		if (bytesAsJsonNode) {
+			return (mapper, jsonNode) -> jsonNode.toString().getBytes();
+		}
 		return (mapper, jsonNode) -> {
 			try {
 				return jsonNode.binaryValue();
