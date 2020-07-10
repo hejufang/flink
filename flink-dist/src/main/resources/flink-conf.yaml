@@ -78,6 +78,10 @@ common:
   # TODO(zoudan):add region restart monitor
   jobmanager.execution.failover-strategy: region
 
+  # Table & SQL configurations.
+  # validate before execute, e.g. hive permission check.
+  table.exec.validate-before-execute: true
+
   #==============================================================================
   # Rest & web frontend
   #==============================================================================

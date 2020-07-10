@@ -22,6 +22,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.ServiceNode;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.Identity;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.InfSecException;
 import org.apache.flink.shaded.byted.org.byted.infsec.client.SecTokenC;
@@ -29,8 +31,6 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessin
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.bytedance.commons.consul.Discovery;
-import com.bytedance.commons.consul.ServiceNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

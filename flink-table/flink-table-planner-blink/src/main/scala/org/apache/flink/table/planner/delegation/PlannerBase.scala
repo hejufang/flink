@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.delegation
 
 import org.apache.flink.annotation.VisibleForTesting
 import org.apache.flink.api.dag.Transformation
+import org.apache.flink.configuration.{ConfigOption, ConfigOptions}
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException}
@@ -54,6 +55,7 @@ import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.tools.FrameworkConfig
 
+import java.lang.{Boolean => JBoolean}
 import java.util
 import java.util.function.{Supplier => JSupplier}
 
@@ -80,6 +82,12 @@ abstract class PlannerBase(
     val catalogManager: CatalogManager,
     isStreamingMode: Boolean)
   extends Planner {
+
+  private val TABLE_EXEC_VALIDATE_BEFORE_EXEC: ConfigOption[JBoolean] =
+    ConfigOptions.key("table.exec.validate-before-execute")
+      .booleanType()
+      .defaultValue(false)
+      .withDescription("Specifies whether to validate exec node before execute.");
 
   // temporary utility until we don't use planner expressions anymore
   functionCatalog.setPlannerTypeInferenceUtil(PlannerTypeInferenceUtilImpl.INSTANCE)
@@ -159,7 +167,12 @@ abstract class PlannerBase(
     val relNodes = modifyOperations.map(translateToRel)
     val optimizedRelNodes = optimize(relNodes)
     val execNodes = translateToExecNodePlan(optimizedRelNodes)
-    validateExecNodes(execNodes)
+    val needValidationBeforeExecute =
+      getTableConfig.getConfiguration.get(TABLE_EXEC_VALIDATE_BEFORE_EXEC)
+
+    if (needValidationBeforeExecute) {
+      validateExecNodes(execNodes)
+    }
     translateToPlan(execNodes)
   }
 

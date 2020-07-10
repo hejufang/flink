@@ -17,15 +17,15 @@
 
 package org.apache.flink.table.catalog.hive.util;
 
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import org.apache.flink.shaded.httpclient.org.apache.http.client.config.RequestConfig;
+import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpGet;
+import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpPost;
+import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpUriRequest;
+import org.apache.flink.shaded.httpclient.org.apache.http.entity.StringEntity;
+import org.apache.flink.shaded.httpclient.org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.flink.shaded.httpclient.org.apache.http.impl.client.HttpClients;
+import org.apache.flink.shaded.httpclient.org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.util.Map;
@@ -35,7 +35,7 @@ import java.util.Map;
  */
 public class HttpUtil {
 	private static final String CHARSET_UTF_8 = "UTF-8";
-	private static RequestConfig requestConfig = RequestConfig.custom()
+	private static final RequestConfig requestConfig = RequestConfig.custom()
 		.setSocketTimeout(5000)
 		.setConnectTimeout(5000)
 		.setConnectionRequestTimeout(5000)
