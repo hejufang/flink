@@ -71,7 +71,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class RedisLookupFunction extends TableFunction<Row> {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisLookupFunction.class);
-
+	private static final Row EMPTY_ROW = new Row(0);
 	private transient ClientPool clientPool;
 	private transient Jedis jedis;
 
@@ -103,19 +103,22 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private transient Cache<Row, Row> cache;
 
 	public RedisLookupFunction(
-			RedisOptions options, RedisLookupOptions lookupOptions,
-			String[] fieldNames, TypeInformation[] fieldTypes, String[] keyNames,
+			RedisOptions options,
+			RedisLookupOptions lookupOptions,
+			String[] fieldNames,
+			TypeInformation[] fieldTypes,
+			String[] keyNames,
 			@Nullable DeserializationSchema<Row> deserializationSchema) {
 		this.fieldNames = fieldNames;
 		this.fieldTypes = fieldTypes;
 		List<String> nameList = Arrays.asList(fieldNames);
 		this.keyTypes = Arrays.stream(keyNames)
-				.map(s -> {
-					checkArgument(nameList.contains(s),
-							"keyName %s can't find in fieldNames %s.", s, nameList);
-					return fieldTypes[nameList.indexOf(s)];
-				})
-				.toArray(TypeInformation[]::new);
+			.map(s -> {
+				checkArgument(nameList.contains(s),
+					"keyName %s can't find in fieldNames %s.", s, nameList);
+				return fieldTypes[nameList.indexOf(s)];
+			})
+			.toArray(TypeInformation[]::new);
 
 		this.cluster = options.getCluster();
 		this.psm = options.getPsm();
@@ -144,22 +147,22 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	@Override
 	public void open(FunctionContext context) throws Exception {
 		this.cache = cacheMaxSize == -1 || cacheExpireMs == -1 ? null : CacheBuilder.newBuilder()
-				.expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)
-				.maximumSize(cacheMaxSize)
-				.recordStats()
-				.build();
+			.expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)
+			.maximumSize(cacheMaxSize)
+			.recordStats()
+			.build();
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
 		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
 			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
 			clientPool = RedisUtils.getAbaseClientPool(cluster, psm, table, serverUpdatePeriod, timeout, forceConnectionsSetting,
-					maxTotalConnections, maxIdleConnections, minIdleConnections);
+				maxTotalConnections, maxIdleConnections, minIdleConnections);
 		} else {
 			// Use redis by default
 			LOG.info("Storage is {}, init redis client pool.", STORAGE_REDIS);
 			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
-					maxTotalConnections, maxIdleConnections, minIdleConnections);
+				maxTotalConnections, maxIdleConnections, minIdleConnections);
 		}
 
 		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
@@ -174,7 +177,9 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		if (cache != null) {
 			Row cachedRow = cache.getIfPresent(keyRow);
 			if (cachedRow != null) {
-				collect(cachedRow);
+				if (cachedRow.getArity() > 0) {
+					collect(cachedRow);
+				}
 				return;
 			}
 		}
@@ -211,11 +216,11 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				}
 				if (row != null) {
 					collect(row);
-					if (cache != null) {
-						cache.put(keyRow, row);
-					}
 				}
-				break;
+				if (cache != null) {
+					cache.put(keyRow, row == null ? EMPTY_ROW : row);
+				}
+				return;
 			} catch (Exception e) {
 				LOG.error(String.format("Redis executeBatch error, retry times = %d", retry), e);
 				if (retry >= maxRetryTimes) {

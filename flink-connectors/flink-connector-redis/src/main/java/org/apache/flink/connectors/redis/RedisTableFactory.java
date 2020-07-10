@@ -136,12 +136,12 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		DeserializationSchema<Row> deserializationSchema = null;
 		if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)) {
+			if (properties.containsKey(CONNECTOR_DATA_TYPE)) {
+				throw new FlinkRuntimeException("Can't configure the format.type and " +
+					"connector.redis-data-type at the same time.");
+			}
 			deserializationSchema = TableConnectorUtils.getDeserializationSchema(properties,
 				this.getClass().getClassLoader());
-		} else if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)
-			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
-			throw new FlinkRuntimeException("Can't configure the format.type and " +
-				"connector.redis-data-type at the same time.");
 		}
 
 		return RedisTableSource.builder()
