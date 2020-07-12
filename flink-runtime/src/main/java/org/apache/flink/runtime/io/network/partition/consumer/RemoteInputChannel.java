@@ -301,7 +301,7 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 
 	@Override
 	public String toString() {
-		return "RemoteInputChannel [" + partitionId + " at " + connectionId + "]";
+		return "RemoteInputChannel#" + channelIndex + " [" + partitionId + " at " + connectionId + "]";
 	}
 
 	// ------------------------------------------------------------------------
@@ -535,6 +535,12 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		boolean recycleBuffer = true;
 
 		try {
+
+			if (!isChannelAvailable()) {
+				LOG.info("Channel {} is unavailable, buffer is ignored.", this);
+				return;
+			}
+
 			final boolean wasEmpty;
 			synchronized (receivedBuffers) {
 				// Similar to notifyBufferAvailable(), make sure that we never add a buffer
@@ -595,6 +601,10 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 
 	public void onError(Throwable cause) {
 		if (isRecoverable) {
+			if (!isChannelAvailable()) {
+				LOG.info("Channel {} is unavailable, the error {} is ignored.", this, cause.getMessage());
+				return;
+			}
 			// send event
 			final boolean wasEmpty;
 			synchronized (receivedBuffers) {
