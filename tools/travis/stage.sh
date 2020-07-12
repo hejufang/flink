@@ -137,7 +137,7 @@ fi
 
 # we can only build the Kafka 0.8 connector when building for Scala 2.11
 if [[ $PROFILE == *"scala-2.11"* ]]; then
-    MODULES_CONNECTORS="$MODULES_CONNECTORS,flink-connectors/flink-connector-kafka-0.8"
+    MODULES_CONNECTORS="$MODULES_CONNECTORS"
 fi
 
 # we can only build the Scala Shell when building for Scala 2.11
