@@ -94,7 +94,7 @@ public class RateLimitedMetricsClient {
 	}
 
 	public void emitStoreWithTag(String name, double value, String tags) throws IOException {
-		aquirePermit();
+//		aquirePermit();
 		udpMetricsClient.emitStoreWithTag(name, value, tags);
 	}
 
