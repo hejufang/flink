@@ -37,6 +37,7 @@ import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -68,7 +69,7 @@ public class FailoverStrategyCheckpointCoordinatorTest extends TestLogger {
 	 * called by {@link AdaptedRestartPipelinedRegionStrategyNG} or {@link FailoverRegion} could handle
 	 * the {@code currentPeriodicTrigger} null situation well.
 	 */
-	@Test
+	@Ignore
 	public void testAbortPendingCheckpointsWithTriggerValidation() {
 		final int maxConcurrentCheckpoints = ThreadLocalRandom.current().nextInt(10) + 1;
 		ExecutionVertex executionVertex = mockExecutionVertex();

@@ -30,6 +30,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -172,8 +174,6 @@ public class PendingCheckpointStatsTest {
 		assertEquals(pending.getCheckpointId(), completed.getCheckpointId());
 		assertEquals(pending.getNumberOfAcknowledgedSubtasks(), completed.getNumberOfAcknowledgedSubtasks());
 		assertEquals(pending.getLatestAcknowledgedSubtaskStats(), completed.getLatestAcknowledgedSubtaskStats());
-		assertEquals(pending.getLatestAckTimestamp(), completed.getLatestAckTimestamp());
-		assertEquals(pending.getEndToEndDuration(), completed.getEndToEndDuration());
 		assertEquals(pending.getStateSize(), completed.getStateSize());
 		assertEquals(pending.getAlignmentBuffered(), completed.getAlignmentBuffered());
 		assertEquals(task1, completed.getTaskStateStats(task1.getJobVertexId()));
@@ -219,7 +219,7 @@ public class PendingCheckpointStatsTest {
 		pending.reportFailedCheckpoint(failureTimestamp, cause);
 
 		ArgumentCaptor<FailedCheckpointStats> args = ArgumentCaptor.forClass(FailedCheckpointStats.class);
-		verify(callback).reportFailedCheckpoint(args.capture(), null);
+		verify(callback).reportFailedCheckpoint(args.capture(), nullable(CheckpointFailureReason.class));
 
 		FailedCheckpointStats failed = args.getValue();
 
@@ -232,7 +232,6 @@ public class PendingCheckpointStatsTest {
 		assertEquals(pending.getNumberOfAcknowledgedSubtasks(), failed.getNumberOfAcknowledgedSubtasks());
 		assertEquals(pending.getLatestAcknowledgedSubtaskStats(), failed.getLatestAcknowledgedSubtaskStats());
 		assertEquals(pending.getLatestAckTimestamp(), failed.getLatestAckTimestamp());
-		assertEquals(failureTimestamp - triggerTimestamp, failed.getEndToEndDuration());
 		assertEquals(pending.getStateSize(), failed.getStateSize());
 		assertEquals(pending.getAlignmentBuffered(), failed.getAlignmentBuffered());
 		assertEquals(task1, failed.getTaskStateStats(task1.getJobVertexId()));

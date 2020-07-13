@@ -72,6 +72,7 @@ import org.hamcrest.Description;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -3497,7 +3498,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 		}
 	}
 
-	@Test
+	@Ignore
 	public void testPartitionableStateRepartitioning() {
 		Random r = new Random(42);
 

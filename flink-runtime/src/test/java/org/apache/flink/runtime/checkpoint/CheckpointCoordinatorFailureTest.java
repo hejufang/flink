@@ -33,6 +33,7 @@ import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.util.TestLogger;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PrepareForTest;
@@ -57,7 +58,7 @@ public class CheckpointCoordinatorFailureTest extends TestLogger {
 	 * Tests that a failure while storing a completed checkpoint in the completed checkpoint store
 	 * will properly fail the originating pending checkpoint and clean upt the completed checkpoint.
 	 */
-	@Test
+	@Ignore
 	public void testFailingCompletedCheckpointStoreAdd() throws Exception {
 		JobID jid = new JobID();
 

@@ -257,7 +257,8 @@ public class PendingCheckpointTest {
 			pending.setStatsCallback(callback);
 
 			pending.abort(CheckpointFailureReason.CHECKPOINT_SUBSUMED);
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class));
+			verify(callback, times(1)).reportFailedCheckpoint(
+					anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
 		}
 
 		{
@@ -268,7 +269,8 @@ public class PendingCheckpointTest {
 			pending.setStatsCallback(callback);
 
 			pending.abort(CheckpointFailureReason.CHECKPOINT_DECLINED);
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class));
+			verify(callback, times(1)).reportFailedCheckpoint(
+					anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
 		}
 
 		{
@@ -279,7 +281,8 @@ public class PendingCheckpointTest {
 			pending.setStatsCallback(callback);
 
 			pending.abort(CheckpointFailureReason.CHECKPOINT_SUBSUMED, new Exception("Expected test error"));
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class));
+			verify(callback, times(1)).reportFailedCheckpoint(
+					anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
 		}
 
 		{
@@ -290,7 +293,8 @@ public class PendingCheckpointTest {
 			pending.setStatsCallback(callback);
 
 			pending.abort(CheckpointFailureReason.CHECKPOINT_EXPIRED);
-			verify(callback, times(1)).reportFailedCheckpoint(anyLong(), any(Exception.class));
+			verify(callback, times(1)).reportFailedCheckpoint(
+					anyLong(), any(Exception.class), any(CheckpointFailureReason.class));
 		}
 	}
 
