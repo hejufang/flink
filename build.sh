@@ -20,7 +20,7 @@
 rm -rf output
 
 # compile current branch
-mvn clean package -U -DskipTests -Pinclude-hadoop
+mvn clean package -U -DskipTests -Pinclude-hadoop -Psql-jars
 
 # copy flink-1.11 to output
 mkdir -p output
