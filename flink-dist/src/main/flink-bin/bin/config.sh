@@ -73,13 +73,15 @@ getDynamicFiles() {
 }
 
 getClientIncludeUserJar() {
+    local clientIncludeUserJar=$(readFromConfig "flink-client-classpath-include-user-jar" "" "${YAML_CONF}")
     for arg in $* ; do
         if [[ $arg =~ "flink-client-classpath-include-user-jar=" ]]; then
             length=`expr length "flink-client-classpath-include-user-jar="`
-            echo ${arg:$length}
+            clientIncludeUserJar=${arg:$length}
             break
         fi
     done
+    echo $clientIncludeUserJar
 }
 
 findFlinkDistJar() {

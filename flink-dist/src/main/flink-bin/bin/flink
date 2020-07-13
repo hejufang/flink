@@ -49,9 +49,9 @@ if [ "$DYNAMIC_FILES" != "" ]; then
         CC_CLASSPATH=$DYNAMIC_FILES:$CC_CLASSPATH
 fi
 USER_JAR=`getUserJar $*`
-echo $USER_JAR
+echo "USER_JAR = $USER_JAR"
 flink_client_classpath_include_user_jar=`getClientIncludeUserJar $*`
-echo $flink_client_classpath_include_user_jar
+echo "flink_client_classpath_include_user_jar = $flink_client_classpath_include_user_jar"
 
 log=$FLINK_LOG_DIR/flink-$FLINK_IDENT_STRING-client-$HOSTNAME.log
 log_setting=(-Dlog.file="$log" -Dlog4j.configuration=file:"$FLINK_CONF_DIR"/log4j-cli.properties -Dlog4j.configurationFile=file:"$FLINK_CONF_DIR"/log4j-cli.properties -Dlogback.configurationFile=file:"$FLINK_CONF_DIR"/logback.xml)

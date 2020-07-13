@@ -16,6 +16,9 @@
 # limitations under the License.
 ################################################################################
 
+# shell configurations which must be set at top level.
+flink-client-classpath-include-user-jar: FIRST
+
 common:
   taskmanager.memory.preallocate: false
   parallelism.default: 1
@@ -59,7 +62,6 @@ common:
   containerized.jobmanager.heap-cutoff-ratio: 0.1
 
   flink.lib.path: lib_new_conf
-
 
   restart-strategy: failure-rate
   restart-strategy.failure-rate.max-failures-per-interval: 5
