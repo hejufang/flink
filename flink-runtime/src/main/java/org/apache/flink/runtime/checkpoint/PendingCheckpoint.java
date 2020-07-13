@@ -374,7 +374,8 @@ public class PendingCheckpoint {
 					metrics.getSyncDurationMillis(),
 					metrics.getAsyncDurationMillis(),
 					metrics.getBytesBufferedInAlignment(),
-					alignmentDurationMillis);
+					alignmentDurationMillis,
+					checkpointId);
 
 				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
 			}

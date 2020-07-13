@@ -93,6 +93,8 @@ public class SubtaskCheckpointStatistics {
 
 		public static final String FIELD_NAME_STATE_SIZE = "state_size";
 
+		public static final String FIELD_NAME_CHECKPOINT_ID = "checkpoint_id";
+
 		public static final String FIELD_NAME_CHECKPOINT_DURATION = "checkpoint";
 
 		public static final String FIELD_NAME_ALIGNMENT = "alignment";
@@ -106,6 +108,9 @@ public class SubtaskCheckpointStatistics {
 		@JsonProperty(FIELD_NAME_STATE_SIZE)
 		private final long stateSize;
 
+		@JsonProperty(FIELD_NAME_CHECKPOINT_ID)
+		private final long checkpointId;
+
 		@JsonProperty(FIELD_NAME_CHECKPOINT_DURATION)
 		private final CheckpointDuration checkpointDuration;
 
@@ -118,12 +123,14 @@ public class SubtaskCheckpointStatistics {
 				@JsonProperty(FIELD_NAME_ACK_TIMESTAMP) long ackTimestamp,
 				@JsonProperty(FIELD_NAME_DURATION) long duration,
 				@JsonProperty(FIELD_NAME_STATE_SIZE) long stateSize,
+				@JsonProperty(FIELD_NAME_CHECKPOINT_ID) long checkpointId,
 				@JsonProperty(FIELD_NAME_CHECKPOINT_DURATION) CheckpointDuration checkpointDuration,
 				@JsonProperty(FIELD_NAME_ALIGNMENT) CheckpointAlignment alignment) {
 			super(index, "completed");
 			this.ackTimestamp = ackTimestamp;
 			this.duration = duration;
 			this.stateSize = stateSize;
+			this.checkpointId = checkpointId;
 			this.checkpointDuration = checkpointDuration;
 			this.alignment = alignment;
 		}
@@ -138,6 +145,10 @@ public class SubtaskCheckpointStatistics {
 
 		public long getStateSize() {
 			return stateSize;
+		}
+
+		public long getCheckpointId() {
+			return checkpointId;
 		}
 
 		public CheckpointDuration getCheckpointDuration() {
@@ -160,13 +171,14 @@ public class SubtaskCheckpointStatistics {
 			return ackTimestamp == that.ackTimestamp &&
 				duration == that.duration &&
 				stateSize == that.stateSize &&
+				checkpointId == that.checkpointId &&
 				Objects.equals(checkpointDuration, that.checkpointDuration) &&
 				Objects.equals(alignment, that.alignment);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(ackTimestamp, duration, stateSize, checkpointDuration, alignment);
+			return Objects.hash(ackTimestamp, duration, stateSize, checkpointId, checkpointDuration, alignment);
 		}
 
 		/**

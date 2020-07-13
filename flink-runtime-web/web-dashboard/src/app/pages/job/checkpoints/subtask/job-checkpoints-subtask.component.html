@@ -80,6 +80,7 @@
       <tr>
         <th><strong>ID</strong></th>
         <th><strong>Barriers Received</strong></th>
+        <th nzSortKey="checkpoint_id" nzShowSort><strong>Checkpoint Id</strong></th>
         <th nzSortKey="ack_timestamp" nzShowSort><strong>Acknowledgement Time</strong></th>
         <th nzSortKey="end_to_end_duration" nzShowSort><strong>E2E Duration</strong></th>
         <th nzSortKey="state_size" nzShowSort><strong>State Size</strong></th>
@@ -94,6 +95,7 @@
         <td>{{ subTask['index'] + 1 }}</td>
         <ng-container *ngIf="subTask['status'] == 'completed'">
           <td>all</td>
+          <td>{{ subTask['checkpoint_id'] }}</td>
           <td>{{ subTask['ack_timestamp'] | date:'HH:mm:ss' }}</td>
           <td>{{ subTask['end_to_end_duration'] | humanizeDuration}}</td>
           <td>{{ subTask['state_size'] | humanizeBytes }}</td>

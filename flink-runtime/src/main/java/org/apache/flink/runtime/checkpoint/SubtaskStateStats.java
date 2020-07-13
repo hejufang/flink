@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
 import java.io.Serializable;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -62,6 +64,8 @@ public class SubtaskStateStats implements Serializable {
 
 	private final long barriersReceived;
 
+	private final long checkpointId;
+
 	/**
 	 * Creates the stats for a single subtask.
 	 *
@@ -80,10 +84,12 @@ public class SubtaskStateStats implements Serializable {
 			long syncCheckpointDuration,
 			long asyncCheckpointDuration,
 			long alignmentBuffered,
-			long alignmentDuration) {
-		this(subtaskIndex, ackTimestamp, stateSize, syncCheckpointDuration, asyncCheckpointDuration, alignmentBuffered, alignmentDuration, -1);
+			long alignmentDuration,
+			long checkpointId) {
+		this(subtaskIndex, ackTimestamp, stateSize, syncCheckpointDuration, asyncCheckpointDuration, alignmentBuffered, alignmentDuration, checkpointId, -1);
 	}
 
+	@VisibleForTesting
 	SubtaskStateStats(
 			int subtaskIndex,
 			long ackTimestamp,
@@ -91,7 +97,19 @@ public class SubtaskStateStats implements Serializable {
 			long syncCheckpointDuration,
 			long asyncCheckpointDuration,
 			long alignmentBuffered,
+			long alignmentDuration) {
+		this(subtaskIndex, ackTimestamp, stateSize, syncCheckpointDuration, asyncCheckpointDuration, alignmentBuffered, alignmentDuration, 0L, -1);
+	}
+
+	private SubtaskStateStats(
+			int subtaskIndex,
+			long ackTimestamp,
+			long stateSize,
+			long syncCheckpointDuration,
+			long asyncCheckpointDuration,
+			long alignmentBuffered,
 			long alignmentDuration,
+			long checkpointId,
 			long barriersReceived) {
 
 		checkArgument(subtaskIndex >= 0, "Negative subtask index");
@@ -104,6 +122,7 @@ public class SubtaskStateStats implements Serializable {
 		this.alignmentBuffered = alignmentBuffered;
 		this.alignmentDuration = alignmentDuration;
 		this.barriersReceived = barriersReceived;
+		this.checkpointId = checkpointId;
 	}
 
 	/**
@@ -194,5 +213,9 @@ public class SubtaskStateStats implements Serializable {
 
 	public long getBarriersReceived() {
 		return barriersReceived;
+	}
+
+	public long getCheckpointId() {
+		return checkpointId;
 	}
 }

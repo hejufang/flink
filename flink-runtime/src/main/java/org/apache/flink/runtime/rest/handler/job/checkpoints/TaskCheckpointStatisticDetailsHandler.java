@@ -205,6 +205,7 @@ public class TaskCheckpointStatisticDetailsHandler
 					subtask.getAckTimestamp(),
 					subtask.getEndToEndDuration(triggerTimestamp),
 					subtask.getStateSize(),
+					subtask.getCheckpointId(),
 					new SubtaskCheckpointStatistics.CompletedSubtaskCheckpointStatistics.CheckpointDuration(
 						subtask.getSyncCheckpointDuration(),
 						subtask.getAsyncCheckpointDuration()),

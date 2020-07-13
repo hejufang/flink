@@ -54,6 +54,7 @@ public class TaskCheckpointStatisticsWithSubtaskDetailsTest extends RestResponse
 			4L,
 			13L,
 			1337L,
+			0L,
 			new SubtaskCheckpointStatistics.CompletedSubtaskCheckpointStatistics.CheckpointDuration(1L, 2L),
 			new SubtaskCheckpointStatistics.CompletedSubtaskCheckpointStatistics.CheckpointAlignment(2L, 3L)));
 
