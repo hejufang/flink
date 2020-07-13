@@ -719,6 +719,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			}
 		);
 
+		// temporary fix
+		failureManager.setFailOnInvalidTokens(chkConfig.isFailOnInvalidTokens());
+
 		// create the coordinator that triggers and commits checkpoints and holds the state
 		checkpointCoordinator = new CheckpointCoordinator(
 			jobInformation.getJobId(),

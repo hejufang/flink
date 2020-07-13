@@ -20,6 +20,9 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.hadoop.ipc.RemoteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,12 +36,17 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class CheckpointFailureManager {
 
+	private static final Logger LOG = LoggerFactory.getLogger(CheckpointFailureManager.class);
+
 	public static final int UNLIMITED_TOLERABLE_FAILURE_NUMBER = Integer.MAX_VALUE;
 
 	private final int tolerableCpFailureNumber;
 	private final FailJobCallback failureCallback;
 	private final AtomicInteger continuousFailureCounter;
 	private final Set<Long> countedCheckpointIds;
+
+	// As this is just a temporary fix, we do not define it as final and refactor the constructors.
+	private boolean failOnInvalidTokens = false;
 
 	public CheckpointFailureManager(int tolerableCpFailureNumber, FailJobCallback failureCallback) {
 		checkArgument(tolerableCpFailureNumber >= 0,
@@ -60,6 +68,10 @@ public class CheckpointFailureManager {
 	 *                      latest generated checkpoint id as a special flag.
 	 */
 	public void handleJobLevelCheckpointException(CheckpointException exception, long checkpointId) {
+		if (failOnInvalidTokens) {
+			checkTokenProblemInTraces(exception);
+		}
+
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
@@ -81,10 +93,35 @@ public class CheckpointFailureManager {
 			CheckpointException exception,
 			long checkpointId,
 			ExecutionAttemptID executionAttemptID) {
+		if (failOnInvalidTokens) {
+			checkTokenProblemInTraces(exception);
+		}
+
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
 			failureCallback.failJobDueToTaskFailure(new FlinkRuntimeException("Exceeded checkpoint tolerable failure threshold."), executionAttemptID);
+		}
+	}
+
+	public void setFailOnInvalidTokens(boolean failOnInvalidTokens) {
+		this.failOnInvalidTokens = failOnInvalidTokens;
+	}
+
+	/**
+	 * If the throwable is caused, directly or indirectly, by expired tokens, we need to for the whole job to restart.
+	 */
+	public void checkTokenProblemInTraces(Throwable throwable) {
+		Throwable t = throwable;
+		while (t != null) {
+			if (t instanceof RemoteException) {
+				String remoteClassName = ((RemoteException) t).getClassName();
+				if (remoteClassName.equals("org.apache.hadoop.security.token.SecretManager$InvalidToken")) {
+					LOG.error("Temporary fix to invalid token problem: kill the job and force it to restart.", throwable);
+					System.exit(1); // anything but zero
+				}
+			}
+			t = t.getCause();
 		}
 	}
 

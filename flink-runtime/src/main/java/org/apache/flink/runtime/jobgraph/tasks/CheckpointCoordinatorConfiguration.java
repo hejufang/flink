@@ -65,6 +65,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	private final boolean isPreferCheckpointForRecovery;
 
+	private final boolean failOnInvalidTokens;
+
 	@VisibleForTesting
 	public CheckpointCoordinatorConfiguration(
 		long checkpointInterval,
@@ -83,7 +85,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isExactlyOnce,
 			isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.defaultStrategy(),
-			tolerableCpFailureNumber);
+			tolerableCpFailureNumber,
+			false);
 	}
 
 	public CheckpointCoordinatorConfiguration(
@@ -95,7 +98,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			boolean isExactlyOnce,
 			boolean isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration,
-			int tolerableCpFailureNumber) {
+			int tolerableCpFailureNumber,
+			boolean failOnInvalidTokens) {
 
 		// sanity checks
 		if (checkpointInterval < MINIMAL_CHECKPOINT_TIME || checkpointTimeout < MINIMAL_CHECKPOINT_TIME ||
@@ -113,6 +117,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.isPreferCheckpointForRecovery = isPreferCheckpointForRecovery;
 		this.checkpointSchedulerConfiguration = Preconditions.checkNotNull(checkpointSchedulerConfiguration);
 		this.tolerableCheckpointFailureNumber = tolerableCpFailureNumber;
+		this.failOnInvalidTokens = failOnInvalidTokens;
 	}
 
 	public long getCheckpointInterval() {
@@ -145,6 +150,10 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	public int getTolerableCheckpointFailureNumber() {
 		return tolerableCheckpointFailureNumber;
+	}
+
+	public boolean isFailOnInvalidTokens() {
+		return failOnInvalidTokens;
 	}
 
 	public CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration getCheckpointSchedulerConfiguration() {

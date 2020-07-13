@@ -373,7 +373,8 @@ public class ExecutionGraphBuilder {
 					origin.isExactlyOnce(),
 					origin.isPreferCheckpointForRecovery(),
 					overrideSchedulingConfig,
-					origin.getTolerableCheckpointFailureNumber());
+					origin.getTolerableCheckpointFailureNumber(),
+					origin.isFailOnInvalidTokens());
 			}
 
 			executionGraph.enableCheckpointing(
