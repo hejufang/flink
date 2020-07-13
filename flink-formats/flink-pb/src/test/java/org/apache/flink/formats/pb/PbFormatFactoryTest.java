@@ -54,8 +54,11 @@ public class PbFormatFactoryTest {
 						DataTypes.FIELD("mapTest", DataTypes.MAP(DataTypes.STRING(), DataTypes.INT()))
 					)))
 			.field("bytesTest", DataTypes.BYTES())
+			.field("oneofTestStr", DataTypes.STRING())
+			.field("oneofTestInt", DataTypes.INT())
 			.build();
 
-		assertEquals(expectedTableSchema, pbFormatFactory.getTableSchema(formatOptions));
+		TableSchema tableSchema = pbFormatFactory.getTableSchema(formatOptions);
+		assertEquals(expectedTableSchema, tableSchema);
 	}
 }

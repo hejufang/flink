@@ -54,4 +54,10 @@ public class PbOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Optional flag whether is a ad instance format.");
+
+	public static final ConfigOption<Boolean> SINK_WITH_SIZE_HEADER = ConfigOptions
+		.key("sink-with-size-header")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional flag whether add size before serialized bytes.");
 }

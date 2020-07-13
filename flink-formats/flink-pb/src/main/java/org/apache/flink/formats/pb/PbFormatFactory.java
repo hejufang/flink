@@ -20,6 +20,7 @@ package org.apache.flink.formats.pb;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
@@ -27,12 +28,15 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.format.TableSchemaInferrable;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
 import org.apache.flink.table.factories.DynamicTableFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.FieldsDataType;
 import org.apache.flink.table.types.logical.RowType;
@@ -48,13 +52,17 @@ import java.util.Set;
 import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
 import static org.apache.flink.formats.pb.PbOptions.PB_CLASS;
+import static org.apache.flink.formats.pb.PbOptions.SINK_WITH_SIZE_HEADER;
 import static org.apache.flink.formats.pb.PbOptions.SKIP_BYTES;
 import static org.apache.flink.formats.pb.PbOptions.WITH_WRAPPER;
 
 /**
  * Table format factory for providing configured instances of Pb to RowData {@link DeserializationSchema}.
  */
-public class PbFormatFactory implements DeserializationFormatFactory, TableSchemaInferrable {
+public class PbFormatFactory implements
+		DeserializationFormatFactory,
+		SerializationFormatFactory,
+		TableSchemaInferrable {
 
 	private static final String IDENTIFIER = "pb";
 
@@ -89,6 +97,36 @@ public class PbFormatFactory implements DeserializationFormatFactory, TableSchem
 					.setWithWrapper(withWrapper)
 					.setAdInstanceFormat(isAdInstanceFormat)
 					.setIgnoreParseErrors(ignoreParseErrors)
+					.build();
+			}
+
+			@Override
+			public ChangelogMode getChangelogMode() {
+				return ChangelogMode.insertOnly();
+			}
+		};
+	}
+
+	@Override
+	public EncodingFormat<SerializationSchema<RowData>> createEncodingFormat(DynamicTableFactory.Context context, ReadableConfig formatOptions) {
+		FactoryUtil.validateFactoryOptions(this, formatOptions);
+
+		final String pbClass = formatOptions.get(PB_CLASS);
+		final boolean withWrapper = formatOptions.get(WITH_WRAPPER);
+		final boolean sinkWithSizeHeader = formatOptions.get(SINK_WITH_SIZE_HEADER);
+
+		return new EncodingFormat<SerializationSchema<RowData>>() {
+			@Override
+			public SerializationSchema<RowData> createRuntimeEncoder(
+					DynamicTableSink.Context context,
+					DataType consumedDataType) {
+				final RowType rowType = (RowType) consumedDataType.getLogicalType();
+
+				return PbRowDataSerializationSchema.builder()
+					.setRowType(rowType)
+					.setPbDescriptorClass(pbClass)
+					.setWithWrapper(withWrapper)
+					.setSinkWithSizeHeader(sinkWithSizeHeader)
 					.build();
 			}
 

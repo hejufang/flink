@@ -14,11 +14,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package org.apache.flink.formats.pb;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
@@ -27,40 +27,37 @@ import org.apache.flink.table.types.logical.RowType;
 import com.google.protobuf.Descriptors;
 import org.junit.Test;
 
-import java.io.IOException;
-
 import static org.apache.flink.formats.pb.PbSchemaTestUtil.TEST_PB_CLASS_NAME;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 
 /**
- * Tests for {@link PbRowDataDeserializationSchema}.
+ * Tests for {@link PbRowDataSerializationSchema}.
  */
-public class PbRowDataDeserializationSchemaTest {
+public class PbRowDataSerializationSchemaTest {
 	@Test
-	public void testDeserialize() throws IOException {
+	public void testSerialize() {
 		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
 		RowData rowData = PbSchemaTestUtil.generateRowData();
 
-		testDeserialization(getDeserializationSchema(false), pbBytes, rowData);
-		testDeserialization(getDeserializationSchema(true), pbBytes, GenericRowData.of(rowData));
+		testSerialize(getSerializationSchema(false), rowData, pbBytes);
+		testSerialize(getSerializationSchema(true), GenericRowData.of(rowData), pbBytes);
 	}
 
-	private static void testDeserialization(
-			PbRowDataDeserializationSchema deserializationSchema,
-			byte[] originBytes,
-			RowData expectedResult) throws IOException {
-		deserializationSchema.open(null);
-		RowData deserializedResult = deserializationSchema.deserialize(originBytes);
-		assertEquals(expectedResult, deserializedResult);
+	private static void testSerialize(
+			PbRowDataSerializationSchema serializationSchema,
+			RowData rowData,
+			byte[] expectedResult) {
+		serializationSchema.open(null);
+		byte[] serializedResult = serializationSchema.serialize(rowData);
+		assertArrayEquals(expectedResult, serializedResult);
 	}
 
-	private static PbRowDataDeserializationSchema getDeserializationSchema(boolean withWrapper) {
+	private static PbRowDataSerializationSchema getSerializationSchema(boolean withWrapper) {
 		Descriptors.Descriptor descriptor = PbUtils.validateAndGetDescriptor(TEST_PB_CLASS_NAME);
 		DataType dataType = PbFormatFactory.createDataType(descriptor, withWrapper);
 
-		return PbRowDataDeserializationSchema.builder()
+		return PbRowDataSerializationSchema.builder()
 			.setRowType((RowType) dataType.getLogicalType())
-			.setResultTypeInfo(TypeInformation.of(RowData.class))
 			.setPbDescriptorClass(TEST_PB_CLASS_NAME)
 			.setWithWrapper(withWrapper)
 			.build();
