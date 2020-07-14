@@ -341,6 +341,7 @@ stork:
   high-availability.zookeeper.quorum: 10.105.4.10:2181,10.105.4.21:2181,10.105.4.35:2181,10.105.4.91:2181,10.105.4.254:2181
   hdfs.prefix: hdfs://harunasgee/flink_sgee
   checkpoint.hdfs.prefix: hdfs://harunasgee/flink_sgee
+  taskmanager.network.memory.lazy-allocate: true
 
 shark:
   dc: sg
@@ -348,6 +349,7 @@ shark:
   high-availability.zookeeper.quorum: 10.126.35.119:2181,10.126.35.162:2181,10.126.35.163:2181,10.126.35.186:2181,10.126.35.189:2181
   hdfs.prefix: hdfs://harunasglark/flink_sglark
   checkpoint.hdfs.prefix:  hdfs://harunasglark/flink_sglark
+  taskmanager.network.memory.lazy-allocate: true
 
 marmt:
   dc: va
@@ -416,6 +418,7 @@ alisg:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
+  taskmanager.network.memory.lazy-allocate: true
 
 boe:
   dc: vm
