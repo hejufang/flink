@@ -152,6 +152,11 @@ under the License.
 			<scope>test</scope>
 			<type>test-jar</type>
 		</dependency>
+
+		<dependency>
+			<groupId>com.typesafe</groupId>
+			<artifactId>config</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>

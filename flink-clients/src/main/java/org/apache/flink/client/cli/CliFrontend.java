@@ -1271,6 +1271,11 @@ public class CliFrontend {
 				configuration.getString(ConfigConstants.SAVE_META_ENABLED,
 						ConfigConstants.SAVE_META_ENABLED_DEFAULT));
 
+		// Job meta db name
+		System.setProperty(ConfigConstants.JOB_META_DB_NAME_KEY,
+			configuration.getString(ConfigConstants.JOB_META_DB_NAME_KEY,
+				ConfigConstants.JOB_META_DB_NAME_VALUE));
+
 		// Whether register dashboard.
 		System.setProperty(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
 				configuration.getString(ConfigConstants.REGISTER_DASHBOARD_ENABLED,

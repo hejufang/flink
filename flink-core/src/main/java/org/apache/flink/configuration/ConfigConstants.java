@@ -2079,6 +2079,8 @@ public final class ConfigConstants {
 	public static final String DTOP_DATABASE_DEFAULT = "dtop";
 	public static final String DASHBOARD_DATA_SOURCE_KEY = "dashboard.data_source";
 	public static final String DASHBOARD_DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String JOB_META_DB_NAME_KEY = "jobmeta.db.name";
+	public static final String JOB_META_DB_NAME_VALUE = "dayu";
 	public static final String FILES = "files";
 	public static final String DTOP_TEMPLATE =
 		"https://grafana.byted.org/dashboard/db/flink-resource-monitor-new?orgId=1&refresh=1m&var-appName=%s&var-datasource=%s&var-database=%s";

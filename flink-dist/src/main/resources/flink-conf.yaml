@@ -106,6 +106,9 @@ common:
   dtop.data_source: dtop_cn
   dtop.database: dtop
 
+  # Configurations for job meta db
+  jobmeta.db.name: dayu
+
   # Configurations for smart resources
   smart-resources.service-name: data.inf.sr_estimater.service.lf
   log4j.appender.databus.channel: yarn_container_level_log

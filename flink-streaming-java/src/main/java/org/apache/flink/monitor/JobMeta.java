@@ -22,7 +22,9 @@ import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
-import com.bytedance.commons.conf.Conf;
+import com.bytedance.commons.consul.Discovery;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,13 +43,13 @@ import java.util.Random;
  */
 public class JobMeta {
 	private static final Logger LOG = LoggerFactory.getLogger(JobMeta.class);
-	private static final String CONF_FILE = "/opt/tiger/ss_conf/ss/db_dayu.conf";
-	private static final String HOST_KEY = "ss_dayu_write_host";
-	private static final String PORT_KEY = "ss_dayu_write_port";
-	private static final String DATABASE_KEY = "ss_dayu_db_name";
-	private static final String USER_KEY = "ss_dayu_write_user";
-	private static final String PASSWORD_KEY = "ss_dayu_write_password";
-
+	private static final String CONF_FILE = "conf/flink_jobmeta_ss_db.conf";
+	private static final String DB_CONF_PREFIX = "mysql.%s";
+	private static final String HOST_KEY = "ss_write_host";
+	private static final String PORT_KEY = "ss_write_port";
+	private static final String DATABASE_KEY = "ss_db_name";
+	private static final String USER_KEY = "ss_write_user";
+	private static final String PASSWORD_KEY = "ss_write_password";
 	private StreamGraph streamGraph;
 	private JobGraph jobGraph;
 
@@ -106,16 +108,20 @@ public class JobMeta {
 
 	public HashMap<String, String> getMysqlConfig() {
 		HashMap<String, String> result = new HashMap<>();
-		Conf mysqlConf = new Conf(CONF_FILE);
-		String hostsStr = mysqlConf.getServers(HOST_KEY);
+		String dbName = System.getProperty(ConfigConstants.JOB_META_DB_NAME_KEY,
+			ConfigConstants.JOB_META_DB_NAME_VALUE);
+		Config config = ConfigFactory.parseResources(JobMeta.class.getClassLoader(), CONF_FILE);
+		Config dbConfig = config.getConfig(String.format(DB_CONF_PREFIX, dbName));
+		String hostsUri = dbConfig.getString(HOST_KEY);
+		String hostsStr = new Discovery().translateUri(hostsUri);
 		String[] hosts = hostsStr.split(",");
 		Random rand = new Random();
 		int r = rand.nextInt(hosts.length);
 		String host = hosts[r];
-		String port = mysqlConf.getString(PORT_KEY);
-		String user = mysqlConf.getString(USER_KEY);
-		String database = mysqlConf.getString(DATABASE_KEY);
-		String password = mysqlConf.getString(PASSWORD_KEY);
+		String port = dbConfig.getString(PORT_KEY);
+		String user = dbConfig.getString(USER_KEY);
+		String database = dbConfig.getString(DATABASE_KEY);
+		String password = dbConfig.getString(PASSWORD_KEY);
 		result.put("host", host);
 		result.put("port", port);
 		result.put("user", user);
