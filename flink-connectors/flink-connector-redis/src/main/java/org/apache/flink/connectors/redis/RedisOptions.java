@@ -199,8 +199,8 @@ public class RedisOptions {
 		private boolean forceConnectionsSetting;
 		private int getResourceMaxRetries = GET_RESOURCE_MAX_RETRIES_DEFAULT;
 		private int flushMaxRetries = FLUSH_MAX_RETRIES_DEFAULT;
-		private RedisMode mode;
-		private RedisDataType redisDataType;
+		private RedisMode mode = RedisMode.INSERT;
+		private RedisDataType redisDataType = RedisDataType.STRING;
 		private int batchSize = BATCH_SIZE_DEFAULT;
 		private int ttlSeconds = TTL_DEFAULT;
 		private boolean logFailuresOnly;
@@ -308,6 +308,8 @@ public class RedisOptions {
 		public RedisOptions build() {
 			Preconditions.checkNotNull(cluster, "cluster was not supplied.");
 			Preconditions.checkNotNull(psm, "psm was not supplied.");
+			Preconditions.checkNotNull(mode, "RedisMode can not be null.");
+			Preconditions.checkNotNull(redisDataType, "RedisDataType can not be null.");
 			Preconditions.checkArgument(getResourceMaxRetries > 0,
 				"getResourceMaxRetries must be greater than 0");
 			Preconditions.checkArgument(flushMaxRetries > 0,
