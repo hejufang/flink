@@ -371,22 +371,45 @@ marmt:
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
 
-giraf:
-  dc: va
-  clusterName: giraf
+grila:
+  dc: i18n_gcp
+  clusterName: grila
   high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
-  hdfs.prefix: hdfs://harunava/home/byte_inf_compute_gcp/flink_vagcp
-  checkpoint.hdfs.prefix: hdfs://harunava/home/byte_inf_compute_gcp/flink_vagcp
-  dashboard.data_source: bytetsd_gva
-  dtop.data_source: dtop_maliva
-  dtop.database: dtop_maliva
-  smart-resources.service-name: data.inf.sr_estimater.service.maliva
-  kafka_server_url: http://kafka-config-va.byted.org
+  hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  dashboard.data_source: bytetsd_useastred
+  dtop.data_source: dtop_gcp
+  dtop.database: dtop_gcp
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva #todo wangmeng
+  kafka_server_url: http://kafka-config-gcp.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
-  # TODO(zoudan): replace docker server with domain url
-  docker.server: 10.8.27.231:8002
-  docker.hub: aliyun-va-hub.byted.org
-  docker.region: Aliyun_VA
+  docker.server: image-manager.byted.org
+  docker.hub: useast-red-hub.byted.org
+  docker.region: US-East-Red
+  yaop_url: http://yaop-gcp.bytedance.net
+  jobmeta.db.name: flink_meta
+  register-dashboard.url: "https://grafana-i18n.byted.org/api/dashboards/db"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+
+gavia:
+  dc: i18n_gcp
+  clusterName: gavia
+  high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
+  hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  dashboard.data_source: bytetsd_useastred
+  dtop.data_source: dtop_gcp
+  dtop.database: dtop_gcp
+  smart-resources.service-name: data.inf.sr_estimater.service.maliva #todo wangmeng
+  kafka_server_url: http://kafka-config-gcp.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  docker.server: image-manager.byted.org
+  docker.hub: useast-red-hub.byted.org
+  docker.region: US-East-Red
+  yaop_url: http://yaop-gcp.bytedance.net
+  jobmeta.db.name: flink_meta
+  register-dashboard.url: "https://grafana-i18n.byted.org/api/dashboards/db"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
 
 macaw:
   dc: va
@@ -435,6 +458,7 @@ boe:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.131.41:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  save-meta.enabled: false
 
 cof:
   dc: vm
@@ -448,6 +472,7 @@ cof:
   # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.225.162.46:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
+  save-meta.enabled: false
 
 swan:
   dc: ka
@@ -478,3 +503,6 @@ boei18n:
   docker.hub: aliyun-va-hub.byted.org
   docker.namespace: yarn
   docker.region: Aliyun_VA
+  save-meta.enabled: false
+  register-dashboard.url: "https://grafana-boei18n.byted.org/api/dashboards/db"
+  register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
