@@ -1280,11 +1280,11 @@ public class CliFrontend {
 		System.setProperty(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
 				configuration.getString(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
 						ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT));
+		// Grafana domain url.
+		System.setProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+			configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE));
 
-		String registerDashboardUrl = configuration.getString(ConfigConstants.REGISTER_DASHBOARD_URL, null);
-		if (registerDashboardUrl != null) {
-			System.setProperty(ConfigConstants.REGISTER_DASHBOARD_URL, registerDashboardUrl);
-		}
 		String registerDashboardToken = configuration.getString(ConfigConstants.REGISTER_DASHBOARD_TOKEN, null);
 		if (registerDashboardToken != null) {
 			System.setProperty(ConfigConstants.REGISTER_DASHBOARD_TOKEN, registerDashboardToken);

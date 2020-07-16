@@ -1965,12 +1965,14 @@ public abstract class StreamExecutionEnvironment {
 		String dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
 				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
 		LOG.info("dataSource = {}", dataSource);
-		String url = System.getProperty(ConfigConstants.REGISTER_DASHBOARD_URL);
+		String grafanaDomainUrl = System.getProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
+		String url = String.format(ConfigConstants.METRIC_REGISTER_URL_TEMPLATE, grafanaDomainUrl);
 		String token = System.getProperty(ConfigConstants.REGISTER_DASHBOARD_TOKEN);
 		if (url == null || token == null) {
 			throw new IllegalArgumentException(
 					"dashboard url or token not exists, please config by "
-							+ ConfigConstants.REGISTER_DASHBOARD_URL + " and "
+							+ ConfigConstants.GRAFANA_DOMAIN_URL_KEY + " and "
 							+ ConfigConstants.REGISTER_DASHBOARD_TOKEN);
 		}
 		int maxRetryTimes = 5;

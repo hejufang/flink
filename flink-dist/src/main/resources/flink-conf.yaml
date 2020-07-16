@@ -186,7 +186,7 @@ common:
   heartbeat.timeout: 120000
   heartbeat.interval: 40000
 
-  register-dashboard.url : "https://grafana.byted.org/api/dashboards/db"
+  grafana.domain_url: "https://grafana.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
 
   bytedance.streaming.yarn.gang-scheduler.enable: true
@@ -388,7 +388,7 @@ grila:
   docker.region: US-East-Red
   yaop_url: http://yaop-gcp.bytedance.net
   jobmeta.db.name: flink_meta
-  register-dashboard.url: "https://grafana-i18n.byted.org/api/dashboards/db"
+  grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
 
 gavia:
@@ -408,7 +408,7 @@ gavia:
   docker.region: US-East-Red
   yaop_url: http://yaop-gcp.bytedance.net
   jobmeta.db.name: flink_meta
-  register-dashboard.url: "https://grafana-i18n.byted.org/api/dashboards/db"
+  grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
 
 macaw:
@@ -504,5 +504,5 @@ boei18n:
   docker.namespace: yarn
   docker.region: Aliyun_VA
   save-meta.enabled: false
-  register-dashboard.url: "https://grafana-boei18n.byted.org/api/dashboards/db"
+  grafana.domain_url: "https://grafana-boei18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="

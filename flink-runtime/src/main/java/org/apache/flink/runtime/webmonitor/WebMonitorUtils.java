@@ -324,6 +324,8 @@ public final class WebMonitorUtils {
 		if (configuration == null) {
 			return null;
 		} else {
+			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
 			String applicatioName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
 				ConfigConstants.APPLICATION_NAME_DEFAULT);
 			String jobName = applicatioName;
@@ -333,7 +335,7 @@ public final class WebMonitorUtils {
 			}
 			String clusterName = configuration.getString(ConfigConstants.CLUSTER_NAME_KEY,
 				ConfigConstants.CLUSTER_NAME_DEFAULT);
-			String metric = String.format(ConfigConstants.METRIC_TEMPLATE, clusterName, jobName);
+			String metric = String.format(ConfigConstants.METRIC_TEMPLATE, grafanaDomainUrl, clusterName, jobName);
 			return metric;
 		}
 	}
@@ -342,13 +344,15 @@ public final class WebMonitorUtils {
 		if (configuration == null) {
 			return null;
 		} else {
+			String grafanaDomainUrl = configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE);
 			String applicationName = configuration.getString(ConfigConstants.APPLICATION_NAME_KEY,
 				ConfigConstants.APPLICATION_NAME_DEFAULT);
 			String dataSource = configuration.getString(ConfigConstants.DTOP_DATA_SOURCE_KEY,
 				ConfigConstants.DTOP_DATA_SOURCE_DEFAULT);
 			String database = configuration.getString(ConfigConstants.DTOP_DATABASE_KEY,
 				ConfigConstants.DTOP_DATABASE_DEFAULT);
-			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, applicationName, dataSource, database);
+			String dtop = String.format(ConfigConstants.DTOP_TEMPLATE, grafanaDomainUrl, applicationName, dataSource, database);
 			return dtop;
 		}
 	}

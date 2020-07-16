@@ -2083,15 +2083,15 @@ public final class ConfigConstants {
 	public static final String JOB_META_DB_NAME_VALUE = "dayu";
 	public static final String FILES = "files";
 	public static final String DTOP_TEMPLATE =
-		"https://grafana.byted.org/dashboard/db/flink-resource-monitor-new?orgId=1&refresh=1m&var-appName=%s&var-datasource=%s&var-database=%s";
+		"%s/dashboard/db/flink-resource-monitor-new?orgId=1&refresh=1m&var-appName=%s&var-datasource=%s&var-database=%s";
 	public static final String JOB_CLUSTER_NAME_DEFAULT = "flink_independent_yarn";
 	public static final String JOB_DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String JOB_NAME_KEY = "jobName";
 	public static final String JOB_NAME_DEFAULT = "unknown";
 	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
 	public static final String CHECKPOINT_HDFS_PREFIX_KEY = "checkpoint.hdfs.prefix";
-	public static final String METRIC_TEMPLATE =
-		"https://grafana.byted.org/dashboard/db/flink-%s-%s?orgId=1";
+	public static final String METRIC_REGISTER_URL_TEMPLATE = "%s/api/dashboards/db";
+	public static final String METRIC_TEMPLATE = "%s/dashboard/db/flink-%s-%s?orgId=1";
 
 	public static final String PER_JOB_REST_SUBMIT_ENABLED = "per-job.rest.submit.enabled";
 	public static final boolean PER_JOB_REST_SUBMIT_ENABLED_DEFAULT = false;
@@ -2206,7 +2206,8 @@ public final class ConfigConstants {
 	public static final String SAVE_META_ENABLED_DEFAULT = "true";
 	public static final String REGISTER_DASHBOARD_ENABLED = "register-dashboard.enabled";
 	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "true";
-	public static final String REGISTER_DASHBOARD_URL = "register-dashboard.url";
+	public static final String GRAFANA_DOMAIN_URL_KEY = "grafana.domain_url";
+	public static final String GRAFANA_DOMAIN_URL_VALUE = "https://grafana.byted.org";
 	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
 
 	/**
