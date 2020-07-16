@@ -59,6 +59,7 @@ import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_DATA_T
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FLUSH_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FORCE_CONNECTION_SETTINGS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_GET_RESOURCE_MAX_RETRIES;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LATER_JOIN_LATENCY_MS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_LOOKUP_CACHE_TTL;
@@ -120,6 +121,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+		properties.add(CONNECTOR_LATER_JOIN_LATENCY_MS);
 
 		// format wildcard
 		properties.add(FORMAT + ".*");
@@ -236,6 +238,8 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
 		descriptorProperties.getOptionalBoolean(CONNECTOR_SKIP_FORMAT_KEY)
 				.ifPresent(builder::setSkipFormatKey);
+		descriptorProperties.getOptionalInt(CONNECTOR_LATER_JOIN_LATENCY_MS)
+				.ifPresent(builder::setLaterJoinLatencyMs);
 
 		// TODO: 2020/5/13 Because part of online Abase cluster doesn't support complex data type. So doesn't support now.
 		if (descriptorProperties.getOptionalString(CONNECTOR_TYPE).get().equals(ABASE) &&

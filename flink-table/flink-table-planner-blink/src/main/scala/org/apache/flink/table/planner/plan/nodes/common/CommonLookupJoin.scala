@@ -38,7 +38,7 @@ import org.apache.flink.table.planner.plan.utils.LookupJoinUtil._
 import org.apache.flink.table.planner.plan.utils.{JoinTypeUtil, RelExplainUtil}
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
-import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinRunner, LookupJoinWithCalcRunner}
+import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinRunner, LookupJoinWithCalcRetryRunner, LookupJoinWithCalcRunner, LookupJoinWithRetryRunner}
 import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter
 import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter.getInternalClassForType
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
@@ -60,7 +60,6 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.validate.SqlValidatorUtil
 import org.apache.calcite.tools.RelBuilder
 import org.apache.calcite.util.mapping.IntPair
-
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
@@ -153,7 +152,6 @@ abstract class CommonLookupJoin(
       env: StreamExecutionEnvironment,
       config: TableConfig,
       relBuilder: RelBuilder): Transformation[BaseRow] = {
-
     val inputRowType = FlinkTypeFactory.toLogicalRowType(input.getRowType)
     val tableSourceRowType = FlinkTypeFactory.toLogicalRowType(tableRowType)
     val resultRowType = FlinkTypeFactory.toLogicalRowType(getRowType)
@@ -318,12 +316,23 @@ abstract class CommonLookupJoin(
           calcOnTemporalTable,
           tableSourceRowType)
 
-        new LookupJoinWithCalcRunner(
-          generatedFetcher,
-          generatedCalc,
-          generatedCollector,
-          leftOuterJoin,
-          rightRowType.getFieldCount)
+        if (lookupableTableSource.getLaterJoinMs > 0) {
+          new LookupJoinWithCalcRetryRunner(
+            generatedFetcher,
+            generatedCalc,
+            generatedCollector,
+            inputTransformation.getOutputType.asInstanceOf[BaseRowTypeInfo],
+            leftOuterJoin,
+            rightRowType.getFieldCount,
+            lookupableTableSource.getLaterJoinMs)
+        } else {
+          new LookupJoinWithCalcRunner(
+            generatedFetcher,
+            generatedCalc,
+            generatedCollector,
+            leftOuterJoin,
+            rightRowType.getFieldCount)
+        }
       } else {
         // right type is the same as table source row type, because no calc after temporal table
         val rightRowType = tableSourceRowType
@@ -334,11 +343,21 @@ abstract class CommonLookupJoin(
           resultRowType,
           remainingCondition,
           None)
-        new LookupJoinRunner(
-          generatedFetcher,
-          generatedCollector,
-          leftOuterJoin,
-          rightRowType.getFieldCount)
+        if (lookupableTableSource.getLaterJoinMs > 0) {
+          new LookupJoinWithRetryRunner(
+            generatedFetcher,
+            generatedCollector,
+            inputTransformation.getOutputType.asInstanceOf[BaseRowTypeInfo],
+            leftOuterJoin,
+            rightRowType.getFieldCount,
+            lookupableTableSource.getLaterJoinMs)
+        } else {
+          new LookupJoinRunner(
+            generatedFetcher,
+            generatedCollector,
+            leftOuterJoin,
+            rightRowType.getFieldCount)
+        }
       }
       new ProcessOperator(processFunc)
     }

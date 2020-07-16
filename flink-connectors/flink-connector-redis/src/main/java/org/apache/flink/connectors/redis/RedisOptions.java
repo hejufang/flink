@@ -53,6 +53,7 @@ public class RedisOptions {
 	private final int batchSize;
 	private final int ttlSeconds;
 	private final int parallelism;
+	private final int laterJoinLatencyMs;
 	/**
 	 * Flag indicating whether to ignore failures (and log them), or to fail on failures.
 	 */
@@ -138,6 +139,10 @@ public class RedisOptions {
 		return skipFormatKey;
 	}
 
+	public int getLaterJoinLatencyMs() {
+		return laterJoinLatencyMs;
+	}
+
 	RedisOptions(
 			String cluster,
 			String table,
@@ -157,7 +162,8 @@ public class RedisOptions {
 			int ttlSeconds,
 			boolean logFailuresOnly,
 			boolean skipFormatKey,
-			int parallelism) {
+			int parallelism,
+			int laterJoinLatencyMs) {
 		this.cluster = cluster;
 		this.table = table;
 		this.storage = storage;
@@ -177,6 +183,7 @@ public class RedisOptions {
 		this.logFailuresOnly = logFailuresOnly;
 		this.skipFormatKey = skipFormatKey;
 		this.parallelism = parallelism;
+		this.laterJoinLatencyMs = laterJoinLatencyMs;
 	}
 
 	public static RedisOptionsBuilder builder() {
@@ -206,6 +213,7 @@ public class RedisOptions {
 		private boolean logFailuresOnly;
 		private boolean skipFormatKey;
 		private int parallelism;
+		private int laterJoinLatencyMs = -1;
 
 		RedisOptionsBuilder() {
 		}
@@ -305,6 +313,10 @@ public class RedisOptions {
 			return this;
 		}
 
+		public void setLaterJoinLatencyMs(int laterJoinLatencyMs) {
+			this.laterJoinLatencyMs = laterJoinLatencyMs;
+		}
+
 		public RedisOptions build() {
 			Preconditions.checkNotNull(cluster, "cluster was not supplied.");
 			Preconditions.checkNotNull(psm, "psm was not supplied.");
@@ -337,7 +349,8 @@ public class RedisOptions {
 				ttlSeconds,
 				logFailuresOnly,
 				skipFormatKey,
-				parallelism);
+				parallelism,
+				laterJoinLatencyMs);
 		}
 
 		@Override

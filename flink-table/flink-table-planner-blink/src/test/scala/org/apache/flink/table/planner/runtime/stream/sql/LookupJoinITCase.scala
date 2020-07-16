@@ -63,6 +63,14 @@ class LookupJoinITCase extends StreamingTestBase {
     .field("name", Types.STRING)
     .build()
 
+  val userLaterTableSource = InMemoryLookupableTableSource.builder()
+    .data(userData)
+    .field("age", Types.INT)
+    .field("id", Types.LONG)
+    .field("name", Types.STRING)
+    .setLaterJoinLatencyMs(1000)
+    .build()
+
   val userTableSourceWith2Keys = InMemoryLookupableTableSource.builder()
     .data(userData)
     .field("age", Types.INT)
@@ -105,6 +113,29 @@ class LookupJoinITCase extends StreamingTestBase {
       "3,15,Fabian,Fabian")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
     assertEquals(0, userTableSource.getResourceCounter)
+  }
+
+  @Test
+  def testJoinTemporalTableWithLatency(): Unit = {
+    val streamTable = env.fromCollection(data)
+      .toTable(tEnv, 'id, 'len, 'content, 'proctime.proctime)
+    tEnv.registerTable("T", streamTable)
+
+    tEnv.registerTableSource("userTable", userLaterTableSource)
+
+    val sql = "SELECT T.id, T.len, T.content, D.name FROM T JOIN userTable " +
+      "for system_time as of T.proctime AS D ON T.id = D.id"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,12,Julian,Julian",
+      "2,15,Hello,Jark",
+      "3,15,Fabian,Fabian")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+    assertEquals(0, userLaterTableSource.getResourceCounter)
   }
 
   @Test

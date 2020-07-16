@@ -34,8 +34,11 @@ import org.apache.flink.table.runtime.collector.TableFunctionCollector;
 import org.apache.flink.table.runtime.generated.GeneratedCollectorWrapper;
 import org.apache.flink.table.runtime.generated.GeneratedFunctionWrapper;
 import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinRunner;
+import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinWithCalcRetryRunner;
 import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinWithCalcRunner;
+import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinWithRetryRunner;
 import org.apache.flink.table.runtime.typeutils.BaseRowSerializer;
+import org.apache.flink.table.runtime.typeutils.BaseRowTypeInfo;
 import org.apache.flink.table.runtime.util.BaseRowHarnessAssertor;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.VarCharType;
@@ -75,6 +78,31 @@ public class LookupJoinHarnessTest {
 		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createHarness(
 			JoinType.INNER_JOIN,
 			FilterOnTable.WITHOUT_FILTER);
+
+		testHarness.open();
+
+		testHarness.processElement(record(1, "a"));
+		testHarness.processElement(record(2, "b"));
+		testHarness.processElement(record(3, "c"));
+		testHarness.processElement(record(4, "d"));
+		testHarness.processElement(record(5, "e"));
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+		expectedOutput.add(record(3, "c", 3, "Jark"));
+		expectedOutput.add(record(3, "c", 3, "Jackson"));
+		expectedOutput.add(record(4, "d", 4, "Fabian"));
+
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+		testHarness.close();
+	}
+
+	@Test
+	public void testTemporalInnerJoinWithRetry() throws Exception {
+		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createHarness(
+			JoinType.INNER_JOIN,
+			FilterOnTable.WITHOUT_FILTER,
+			1000);
 
 		testHarness.open();
 
@@ -170,25 +198,53 @@ public class LookupJoinHarnessTest {
 
 	// ---------------------------------------------------------------------------------
 
-	@SuppressWarnings("unchecked")
 	private OneInputStreamOperatorTestHarness<BaseRow, BaseRow> createHarness(
 			JoinType joinType,
 			FilterOnTable filterOnTable) throws Exception {
+		return createHarness(joinType, filterOnTable, -1);
+	}
+
+	@SuppressWarnings("unchecked")
+	private OneInputStreamOperatorTestHarness<BaseRow, BaseRow> createHarness(
+			JoinType joinType,
+			FilterOnTable filterOnTable,
+			int laterLatencyMs) throws Exception {
 		boolean isLeftJoin = joinType == JoinType.LEFT_JOIN;
 		ProcessFunction<BaseRow, BaseRow> joinRunner;
 		if (filterOnTable == FilterOnTable.WITHOUT_FILTER) {
-			joinRunner = new LookupJoinRunner(
-				new GeneratedFunctionWrapper<>(new TestingFetcherFunction()),
-				new GeneratedCollectorWrapper<>(new TestingFetcherCollector()),
-				isLeftJoin,
-				2);
+			if (laterLatencyMs < 0) {
+				joinRunner = new LookupJoinRunner(
+					new GeneratedFunctionWrapper<>(new TestingFetcherFunction()),
+					new GeneratedCollectorWrapper<>(new TestingFetcherCollector()),
+					isLeftJoin,
+					2);
+			} else {
+				joinRunner = new LookupJoinWithRetryRunner(
+					new GeneratedFunctionWrapper<>(new TestingFetcherFunction()),
+					new GeneratedCollectorWrapper<>(new TestingFetcherCollector()),
+					new BaseRowTypeInfo(new IntType(), new VarCharType()),
+					isLeftJoin,
+					2,
+					laterLatencyMs);
+			}
 		} else {
-			joinRunner = new LookupJoinWithCalcRunner(
-				new GeneratedFunctionWrapper<>(new TestingFetcherFunction()),
-				new GeneratedFunctionWrapper<>(new CalculateOnTemporalTable()),
-				new GeneratedCollectorWrapper<>(new TestingFetcherCollector()),
-				isLeftJoin,
-				2);
+			if (laterLatencyMs < 0) {
+				joinRunner = new LookupJoinWithCalcRunner(
+					new GeneratedFunctionWrapper<>(new TestingFetcherFunction()),
+					new GeneratedFunctionWrapper<>(new CalculateOnTemporalTable()),
+					new GeneratedCollectorWrapper<>(new TestingFetcherCollector()),
+					isLeftJoin,
+					2);
+			} else {
+				joinRunner = new LookupJoinWithCalcRetryRunner(
+					new GeneratedFunctionWrapper<>(new TestingFetcherFunction()),
+					new GeneratedFunctionWrapper<>(new CalculateOnTemporalTable()),
+					new GeneratedCollectorWrapper<>(new TestingFetcherCollector()),
+					new BaseRowTypeInfo(new IntType(), new VarCharType()),
+					isLeftJoin,
+					2,
+					laterLatencyMs);
+			}
 		}
 
 		ProcessOperator<BaseRow, BaseRow> operator = new ProcessOperator<>(joinRunner);

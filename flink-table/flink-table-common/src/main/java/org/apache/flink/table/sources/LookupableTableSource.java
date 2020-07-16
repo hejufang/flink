@@ -52,4 +52,9 @@ public interface LookupableTableSource<T> extends TableSource<T> {
 	 * {@link #getLookupFunction(String[])} will be used.
 	 */
 	boolean isAsyncEnabled();
+
+	default int getLaterJoinMs() {
+		// -1 means turn off later join.
+		return -1;
+	}
 }

@@ -45,7 +45,8 @@ class InMemoryLookupableTableSource(
     fieldNames: Array[String],
     fieldTypes: Array[TypeInformation[_]],
     data: List[Row],
-    asyncEnabled: Boolean)
+    asyncEnabled: Boolean,
+    laterJoinLatency: Int = -1)
   extends LookupableTableSource[Row] {
 
   val resourceCounter = new AtomicInteger(0)
@@ -82,6 +83,7 @@ class InMemoryLookupableTableSource(
   @VisibleForTesting
   def getResourceCounter: Int = resourceCounter.get()
 
+  override def getLaterJoinMs: Int = super.getLaterJoinMs
 }
 
 object InMemoryLookupableTableSource {
@@ -135,6 +137,7 @@ object InMemoryLookupableTableSource {
     private val schema = new mutable.LinkedHashMap[String, TypeInformation[_]]()
     private var data: List[Product] = _
     private var asyncEnabled: Boolean = false
+    private var laterJoinLatency: Int = -1
 
     /**
       * Sets table data for the table source.
@@ -168,6 +171,11 @@ object InMemoryLookupableTableSource {
       this
     }
 
+    def setLaterJoinLatencyMs(laterJoinLatencyMs: Int): Builder = {
+      this.laterJoinLatency = laterJoinLatencyMs
+      this
+    }
+
     /**
       * Apply the current values and constructs a newly-created [[InMemoryLookupableTableSource]].
       *
@@ -185,7 +193,8 @@ object InMemoryLookupableTableSource {
         fieldNames,
         fieldTypes,
         rowData,
-        asyncEnabled
+        asyncEnabled,
+        laterJoinLatency
       )
     }
   }

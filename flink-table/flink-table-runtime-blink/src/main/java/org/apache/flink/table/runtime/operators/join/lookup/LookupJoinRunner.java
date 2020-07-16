@@ -74,14 +74,8 @@ public class LookupJoinRunner extends ProcessFunction<BaseRow, BaseRow> {
 
 	@Override
 	public void processElement(BaseRow in, Context ctx, Collector<BaseRow> out) throws Exception {
-		collector.setCollector(out);
-		collector.setInput(in);
-		collector.reset();
-
-		// fetcher has copied the input field when object reuse is enabled
-		fetcher.flatMap(in, getFetcherCollector());
-
-		if (isLeftOuterJoin && !collector.isCollected()) {
+		boolean isCollected = doJoin(in, out);
+		if (isLeftOuterJoin && !isCollected) {
 			outRow.replace(in, nullRow);
 			outRow.setHeader(in.getHeader());
 			out.collect(outRow);
@@ -101,5 +95,15 @@ public class LookupJoinRunner extends ProcessFunction<BaseRow, BaseRow> {
 		if (collector != null) {
 			FunctionUtils.closeFunction(collector);
 		}
+	}
+
+	protected boolean doJoin(BaseRow in, Collector<BaseRow> out) throws Exception {
+		collector.setCollector(out);
+		collector.setInput(in);
+		collector.reset();
+
+		// fetcher has copied the input field when object reuse is enabled
+		fetcher.flatMap(in, getFetcherCollector());
+		return collector.isCollected();
 	}
 }

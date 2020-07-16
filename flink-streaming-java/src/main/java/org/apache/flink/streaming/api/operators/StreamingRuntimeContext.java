@@ -215,4 +215,11 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 		return streamConfig.getBufferTimeout();
 	}
 
+	public <T> ListState<T> getOperatorListState(ListStateDescriptor<T> stateProperties) {
+		try {
+			return operator.getOperatorStateBackend().getListState(stateProperties);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
 }

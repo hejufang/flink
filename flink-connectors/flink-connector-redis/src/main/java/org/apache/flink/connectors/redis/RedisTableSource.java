@@ -137,6 +137,11 @@ public class RedisTableSource implements
 		return new RedisTableSource(options, lookupOptions, schema, fields, deserializationSchema);
 	}
 
+	@Override
+	public int getLaterJoinMs() {
+		return options.getLaterJoinLatencyMs();
+	}
+
 	/**
 	 * Builder for a {@link RedisTableSource}.
 	 */
