@@ -378,9 +378,9 @@ grila:
   hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
   checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
   dashboard.data_source: bytetsd_useastred
-  dtop.data_source: dtop_gcp
-  dtop.database: dtop_gcp
-  smart-resources.service-name: data.inf.sr_estimater.service.maliva #todo wangmeng
+  dtop.data_source: dtop_i18n
+  dtop.database: dtop_i18n
+  smart-resources.service-name: data.inf.sr_estimater.service.useast2a
   kafka_server_url: http://kafka-config-gcp.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   docker.server: image-manager.byted.org
@@ -398,9 +398,9 @@ gavia:
   hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
   checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
   dashboard.data_source: bytetsd_useastred
-  dtop.data_source: dtop_gcp
-  dtop.database: dtop_gcp
-  smart-resources.service-name: data.inf.sr_estimater.service.maliva #todo wangmeng
+  dtop.data_source: dtop_i18n
+  dtop.database: dtop_i18n
+  smart-resources.service-name: data.inf.sr_estimater.service.useast2a
   kafka_server_url: http://kafka-config-gcp.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
   docker.server: image-manager.byted.org
