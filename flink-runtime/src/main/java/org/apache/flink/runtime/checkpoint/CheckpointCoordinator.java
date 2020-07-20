@@ -21,6 +21,8 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
+import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
 import org.apache.flink.runtime.checkpoint.scheduler.CheckpointScheduler;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -54,6 +56,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,6 +70,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
@@ -179,8 +183,11 @@ public class CheckpointCoordinator {
 
 	private final CheckpointFailureManager failureManager;
 
+	private final CheckpointHandler checkpointHandler;
+
 	// --------------------------------------------------------------------------------------------
 
+	@VisibleForTesting
 	public CheckpointCoordinator(
 		JobID job,
 		CheckpointCoordinatorConfiguration chkConfig,
@@ -204,7 +211,8 @@ public class CheckpointCoordinator {
 			checkpointStateBackend,
 			executor,
 			sharedStateRegistryFactory,
-			failureManager);
+			failureManager,
+			new GlobalCheckpointHandler());
 	}
 
 	public CheckpointCoordinator(
@@ -219,7 +227,8 @@ public class CheckpointCoordinator {
 			StateBackend checkpointStateBackend,
 			Executor executor,
 			SharedStateRegistryFactory sharedStateRegistryFactory,
-			CheckpointFailureManager failureManager) {
+			CheckpointFailureManager failureManager,
+			CheckpointHandler checkpointHandler) {
 
 		// sanity checks
 		checkNotNull(checkpointStateBackend);
@@ -243,6 +252,9 @@ public class CheckpointCoordinator {
 		this.masterHooks = new HashMap<>();
 
 		this.checkpointScheduler = createCheckpointScheduler(job, this, chkConfig);
+
+		this.checkpointHandler = checkpointHandler;
+		checkpointHandler.loadPendingCheckpoints(pendingCheckpoints);
 
 		this.checkpointProperties = CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
@@ -592,6 +604,10 @@ public class CheckpointCoordinator {
 					// only do the work if the checkpoint is not discarded anyways
 					// note that checkpoint completion discards the pending checkpoint object
 					if (!checkpoint.isDiscarded()) {
+						if (sendActionToHandler(handler -> handler.tryHandleExpireCheckpoint(checkpoint), Collections.singleton(checkpoint))) {
+							return;
+						}
+
 						LOG.info("Checkpoint {} of job {} expired before completing.", checkpointID, job);
 
 						failPendingCheckpoint(checkpoint, CheckpointFailureReason.CHECKPOINT_EXPIRED);
@@ -722,7 +738,17 @@ public class CheckpointCoordinator {
 				return;
 			}
 
-			checkpoint = pendingCheckpoints.remove(checkpointId);
+			checkpoint = pendingCheckpoints.get(checkpointId);
+
+			if (checkpoint != null && !checkpoint.isDiscarded()) {
+				if (sendActionToHandler(handler -> handler.tryHandleDeclineMessage(message),
+						Collections.singleton(checkpoint))) {
+					LOG.info("Decline message {} is ignored.", message.toString());
+					return;
+				}
+			}
+
+			pendingCheckpoints.remove(checkpointId);
 
 			if (checkpoint != null && !checkpoint.isDiscarded()) {
 				LOG.info("Decline checkpoint {} by task {} of job {} at {}.",
@@ -785,6 +811,9 @@ public class CheckpointCoordinator {
 			final PendingCheckpoint checkpoint = pendingCheckpoints.get(checkpointId);
 
 			if (checkpoint != null && !checkpoint.isDiscarded()) {
+				if (sendActionToHandler(handler -> handler.tryHandleAck(message), Collections.singleton(checkpoint))) {
+					return false;
+				}
 
 				switch (checkpoint.acknowledgeTask(message.getTaskExecutionId(), message.getSubtaskState(), message.getCheckpointMetrics())) {
 					case SUCCESS:
@@ -904,6 +933,8 @@ public class CheckpointCoordinator {
 				throw new CheckpointException("Could not complete the pending checkpoint " + checkpointId + '.',
 					CheckpointFailureReason.FINALIZE_CHECKPOINT_FAILURE, exception);
 			}
+
+			checkpointHandler.onCheckpointComplete(completedCheckpoint);
 		} finally {
 			pendingCheckpoints.remove(checkpointId);
 
@@ -1307,6 +1338,16 @@ public class CheckpointCoordinator {
 		}
 	}
 
+	public void onTaskFailure(Collection<ExecutionVertex> vertices, CheckpointException exception) {
+		synchronized (lock) {
+			if (sendActionToHandler(handler -> handler.tryHandleTasksFailure(vertices), pendingCheckpoints.values())) {
+				return;
+			}
+
+			abortPendingCheckpoints(exception);
+		}
+	}
+
 	/**
 	 * Aborts all the pending checkpoints due to en exception.
 	 * @param exception The exception.
@@ -1501,5 +1542,43 @@ public class CheckpointCoordinator {
 
 	private boolean allPendingCheckpointsDiscarded() {
 		return pendingCheckpoints.values().stream().allMatch(PendingCheckpoint::isDiscarded);
+	}
+
+	/**
+	 * This should hold CheckpointCoordinator's lock because handler may modify the pending checkpoint.
+	 */
+	private boolean sendActionToHandler(Function<CheckpointHandler, Boolean> function, Collection<PendingCheckpoint> checkpoints) {
+		assert Thread.holdsLock(lock);
+
+		if (checkpoints.size() == 0) {
+			LOG.info("No need to let checkpoint handler do this because there is no pending checkpoints.");
+		}
+
+		boolean ack;
+		try {
+			ack = function.apply(checkpointHandler);
+		} catch (Throwable t) {
+			LOG.error("CheckpointHandler fails to handle this action.", t);
+			return false;
+		}
+
+		if (ack) {
+			// good news
+			List<PendingCheckpoint> finalizedCheckpoints = checkpoints.stream()
+					.filter(PendingCheckpoint::isFullyAcknowledged)
+					.sorted((o1, o2) -> (int) (o1.getCheckpointId() - o2.getCheckpointId())).collect(Collectors.toList());
+			for (PendingCheckpoint checkpoint : finalizedCheckpoints) {
+				try {
+					completePendingCheckpoint(checkpoint);
+				} catch (CheckpointException t) {
+					LOG.warn("Error while processing checkpoint acknowledgement message", t);
+				}
+			}
+			LOG.info("CheckpointHandler handles this action as expected for checkpoints [{}].",
+					checkpoints.stream().map(PendingCheckpoint::getCheckpointId).map(String::valueOf).collect(Collectors.joining(",")));
+			return true;
+		}
+
+		return false;
 	}
 }

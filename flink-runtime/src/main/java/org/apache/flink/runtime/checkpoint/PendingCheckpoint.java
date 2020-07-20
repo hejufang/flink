@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -86,6 +87,8 @@ public class PendingCheckpoint {
 
 	private final Map<OperatorID, OperatorState> operatorStates;
 
+	private final Map<ExecutionAttemptID, ExecutionVertex> totalTasks;
+
 	private final Map<ExecutionAttemptID, ExecutionVertex> notYetAcknowledgedTasks;
 
 	private final List<MasterState> masterState;
@@ -133,6 +136,7 @@ public class PendingCheckpoint {
 		this.checkpointId = checkpointId;
 		this.checkpointTimestamp = checkpointTimestamp;
 		this.notYetAcknowledgedTasks = checkNotNull(verticesToConfirm);
+		this.totalTasks = new HashMap<>(verticesToConfirm);
 		this.props = checkNotNull(props);
 		this.targetLocation = checkNotNull(targetLocation);
 		this.executor = Preconditions.checkNotNull(executor);
@@ -179,6 +183,18 @@ public class PendingCheckpoint {
 
 	public boolean isAcknowledgedBy(ExecutionAttemptID executionAttemptId) {
 		return !notYetAcknowledgedTasks.containsKey(executionAttemptId);
+	}
+
+	public Map<ExecutionAttemptID, ExecutionVertex> getTotalTasks() {
+		return totalTasks;
+	}
+
+	/**
+	 * This method should be carefully modified. {@link #notYetAcknowledgedTasks} is not thread-safe and ConcurrentException
+	 * will easily occur if we don't do a shallow copy for its values.
+	 */
+	public Collection<ExecutionVertex> copyOfNotYetAcknowledgedTasks() {
+		return new ArrayList<>(notYetAcknowledgedTasks.values());
 	}
 
 	public boolean isDiscarded() {
@@ -296,6 +312,10 @@ public class PendingCheckpoint {
 		}
 	}
 
+	public TaskAcknowledgeResult replaceTaskStates(ExecutionAttemptID executionAttemptID, TaskStateSnapshot operatorSubtaskStates) {
+		return acknowledgeTask(executionAttemptID, operatorSubtaskStates, null);
+	}
+
 	/**
 	 * Acknowledges the task with the given execution attempt id and the given subtask state.
 	 *
@@ -307,7 +327,7 @@ public class PendingCheckpoint {
 	public TaskAcknowledgeResult acknowledgeTask(
 			ExecutionAttemptID executionAttemptId,
 			TaskStateSnapshot operatorSubtaskStates,
-			CheckpointMetrics metrics) {
+			@Nullable CheckpointMetrics metrics) {
 
 		synchronized (lock) {
 			if (discarded) {
@@ -364,18 +384,31 @@ public class PendingCheckpoint {
 			// to prevent null-pointers from concurrent modification, copy reference onto stack
 			final PendingCheckpointStats statsCallback = this.statsCallback;
 			if (statsCallback != null) {
-				// Do this in millis because the web frontend works with them
-				long alignmentDurationMillis = metrics.getAlignmentDurationNanos() / 1_000_000;
+				SubtaskStateStats subtaskStateStats;
+				if (metrics != null) {
+					// Do this in millis because the web frontend works with them
+					long alignmentDurationMillis = metrics.getAlignmentDurationNanos() / 1_000_000;
 
-				SubtaskStateStats subtaskStateStats = new SubtaskStateStats(
-					subtaskIndex,
-					ackTimestamp,
-					stateSize,
-					metrics.getSyncDurationMillis(),
-					metrics.getAsyncDurationMillis(),
-					metrics.getBytesBufferedInAlignment(),
-					alignmentDurationMillis,
-					checkpointId);
+					subtaskStateStats = new SubtaskStateStats(
+							subtaskIndex,
+							ackTimestamp,
+							stateSize,
+							metrics.getSyncDurationMillis(),
+							metrics.getAsyncDurationMillis(),
+							metrics.getBytesBufferedInAlignment(),
+							alignmentDurationMillis,
+							checkpointId);
+				} else {
+					subtaskStateStats = new SubtaskStateStats(
+							subtaskIndex,
+							ackTimestamp,
+							stateSize,
+							0L,
+							0L,
+							0L,
+							0L,
+							checkpointId);
+				}
 
 				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
 			}

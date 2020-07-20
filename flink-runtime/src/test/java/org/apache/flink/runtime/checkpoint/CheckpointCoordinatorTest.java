@@ -4220,7 +4220,6 @@ public class CheckpointCoordinatorTest extends TestLogger {
 				SharedStateRegistryFactory sharedStateRegistryFactory,
 				CheckpointFailureManager failureManager) {
 			super(job,
-					null,
 					chkConfig,
 					tasksToTrigger,
 					tasksToWaitFor,

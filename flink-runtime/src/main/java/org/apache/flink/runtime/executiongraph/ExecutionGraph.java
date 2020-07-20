@@ -42,6 +42,9 @@ import org.apache.flink.runtime.checkpoint.CheckpointStatsSnapshot;
 import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
+import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
+import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
+import org.apache.flink.runtime.checkpoint.handler.RegionCheckpointHandler;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
@@ -721,6 +724,12 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		// temporary fix
 		failureManager.setFailOnInvalidTokens(chkConfig.isFailOnInvalidTokens());
+		final CheckpointHandler checkpointHandler;
+		if (chkConfig.isRegionCheckpointEnabled()) {
+			checkpointHandler = new RegionCheckpointHandler(tasksToCommitTo);
+		} else {
+			checkpointHandler = new GlobalCheckpointHandler();
+		}
 
 		// create the coordinator that triggers and commits checkpoints and holds the state
 		checkpointCoordinator = new CheckpointCoordinator(
@@ -735,7 +744,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			checkpointStateBackend,
 			ioExecutor,
 			SharedStateRegistry.DEFAULT_FACTORY,
-			failureManager);
+			failureManager,
+			checkpointHandler);
 
 		// register the master hooks on the checkpoint coordinator
 		for (MasterTriggerRestoreHook<?> hook : masterHooks) {
