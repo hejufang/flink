@@ -67,6 +67,12 @@ under the License.
 			<version>${codahale.metrics.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>org.apache.thrift</groupId>
+			<artifactId>libthrift</artifactId>
+			<version>0.13.0</version>
+		</dependency>
+
 		<!-- Table ecosystem -->
 		<dependency>
 			<groupId>org.apache.flink</groupId>
@@ -110,6 +116,35 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 	</dependencies>
+
+
+	<profiles>
+		<profile>
+			<id>rpc-example</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.thrift.tools</groupId>
+						<artifactId>maven-thrift-plugin</artifactId>
+						<version>0.1.11</version>
+						<configuration>
+							<thriftSourceRoot>src/main/java/com/bytedance/thrift</thriftSourceRoot>
+							<generator>java</generator>
+						</configuration>
+						<executions>
+							<execution>
+								<id>thrift-sources</id>
+								<phase>generate-sources</phase>
+								<goals>
+									<goal>compile</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 	<build>
 		<plugins>
@@ -297,7 +332,7 @@ under the License.
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-checkstyle-plugin</artifactId>
 				<configuration>
-					<excludes>**/EventProto**</excludes>
+					<excludes>com/bytedance/**</excludes>
 				</configuration>
 			</plugin>
 		</plugins>

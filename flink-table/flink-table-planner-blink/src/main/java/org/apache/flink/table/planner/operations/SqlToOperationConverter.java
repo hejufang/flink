@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.operations;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connectors.rpc.RPCTableFactory;
 import org.apache.flink.format.binlog.BinlogRowFormatFactory;
 import org.apache.flink.formats.pb.PbBinlogDRCRowFormatFactory;
 import org.apache.flink.formats.pb.PbBinlogRowFormatFactory;
@@ -48,6 +49,7 @@ import org.apache.flink.table.catalog.exceptions.DatabaseNotExistException;
 import org.apache.flink.table.catalog.exceptions.TableAlreadyExistException;
 import org.apache.flink.table.descripters.BinlogValidator;
 import org.apache.flink.table.descriptors.FormatDescriptorValidator;
+import org.apache.flink.table.descriptors.RPCValidator;
 import org.apache.flink.table.descriptors.Rowtime;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.Operation;
@@ -96,6 +98,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
 
@@ -506,8 +509,16 @@ public class SqlToOperationConverter {
 		TableSchema.Builder builder = new TableSchema.Builder();
 		Map<String, String> propertiesMap = propertiesToMap(sqlCreateTable.getPropertyList());
 
+		String connectorType = propertiesMap.getOrDefault(CONNECTOR_TYPE, "");
 		String formatType = propertiesMap.getOrDefault(FormatDescriptorValidator.FORMAT_TYPE, "");
-		if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)
+		if (sqlCreateTable.getColumnList().size() == 0 && connectorType.equals(RPCValidator.RPC)) {
+			RowTypeInfo rowTypeInfo = (RowTypeInfo) RPCTableFactory.getRowTypeInformation(
+				propertiesToMap(sqlCreateTable.getPropertyList()));
+			for (int index = 0; index < rowTypeInfo.getArity(); index++) {
+				builder = builder.field(rowTypeInfo.getFieldNames()[index], rowTypeInfo.getTypeAt(index));
+			}
+			physicalSchema = builder.build();
+		} else if (formatType.equals(PbConstant.FORMAT_BINLOG_TYPE_VALUE)
 			|| formatType.equals(PbConstant.FORMAT_TYPE_VALUE)
 			|| formatType.equals(PbConstant.FORMAT_BINLOG_DRC_TYPE_VALUE)
 			|| formatType.equals(BinlogValidator.FORMAT_TYPE_VALUE)

@@ -1,0 +1,182 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.connectors.rpc;
+
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
+import org.apache.flink.connectors.rpc.thrift.ThriftRowTypeInformationUtil;
+import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
+import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.descriptors.DescriptorProperties;
+import org.apache.flink.table.descriptors.RPCValidator;
+import org.apache.flink.table.factories.StreamTableSinkFactory;
+import org.apache.flink.table.sinks.StreamTableSink;
+import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.RetryManager;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.flink.connectors.rpc.thrift.ThriftRPCClient.CLIENT_CLASS_SUFFIX;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_CLASS;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_CONSTANT_VALUE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_SIZE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CLUSTER;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONNECTION_POOL_SIZE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONSUL;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONSUL_INTERVAL;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_FLUSH_TIMEOUT_MS;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RESPONSE_VALUE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RPC_TYPE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_METHOD;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_SERVICE_CLASS;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_TIMEOUT_MS;
+import static org.apache.flink.table.descriptors.RPCValidator.RPC;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
+import static org.apache.flink.table.factories.TableFormatFactoryBase.deriveSchema;
+import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_DELAY_MS;
+import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_MAX_TIMES;
+import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_STRATEGY;
+import static org.apache.flink.table.utils.RetryUtils.getRetryStrategy;
+
+/**
+ * The factory for creating a {@link RPCUpsertTableSink}.
+ */
+public class RPCTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+
+	@Override
+	public Map<String, String> requiredContext() {
+		Map<String, String> requiredContext = new HashMap<>(1);
+		requiredContext.put(CONNECTOR_TYPE, RPC);
+		return requiredContext;
+	}
+
+	@Override
+	public List<String> supportedProperties() {
+		List<String> supportedProperties = new ArrayList<>();
+
+		// consul
+		supportedProperties.add(CONNECTOR_CONSUL);
+		supportedProperties.add(CONNECTOR_CLUSTER);
+		supportedProperties.add(CONNECTOR_CONSUL_INTERVAL);
+
+		// thrift
+		supportedProperties.add(CONNECTOR_THRIFT_SERVICE_CLASS);
+		supportedProperties.add(CONNECTOR_THRIFT_METHOD);
+
+		// connect
+		supportedProperties.add(CONNECTOR_TIMEOUT_MS);
+		supportedProperties.add(CONNECTOR_RESPONSE_VALUE);
+		supportedProperties.add(CONNECTOR_RPC_TYPE);
+		supportedProperties.add(CONNECTOR_CONNECTION_POOL_SIZE);
+
+		// batch
+		supportedProperties.add(CONNECTOR_BATCH_CLASS);
+		supportedProperties.add(CONNECTOR_BATCH_SIZE);
+		supportedProperties.add(CONNECTOR_FLUSH_TIMEOUT_MS);
+		supportedProperties.add(CONNECTOR_BATCH_CONSTANT_VALUE);
+
+		// retry
+		supportedProperties.add(CONNECTOR_RETRY_STRATEGY);
+		supportedProperties.add(CONNECTOR_RETRY_MAX_TIMES);
+		supportedProperties.add(CONNECTOR_RETRY_DELAY_MS);
+
+		// parallelism
+		supportedProperties.add(CONNECTOR_PARALLELISM);
+
+		// schema
+		supportedProperties.add(SCHEMA + ".#." + SCHEMA_TYPE);
+		supportedProperties.add(SCHEMA + ".#." + SCHEMA_NAME);
+
+		return supportedProperties;
+	}
+
+	@Override
+	public StreamTableSink<Tuple2<Boolean, Row>> createStreamTableSink(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		RPCOptions rpcOptions = getRPCOptions(descriptorProperties);
+		final TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
+		RowTypeInfo rowTypeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
+		return new RPCUpsertTableSink(rpcOptions, tableSchema, rowTypeInfo);
+	}
+
+	private static DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
+		descriptorProperties.putProperties(properties);
+		new RPCValidator().validate(descriptorProperties);
+		return descriptorProperties;
+	}
+
+	private RPCOptions getRPCOptions(DescriptorProperties descriptorProperties) {
+		RPCOptions.Builder builder = RPCOptions.builder();
+
+		RetryManager.Strategy retryStrategy = getRetryStrategy(descriptorProperties);
+		builder.setRetryStrategy(retryStrategy);
+
+		descriptorProperties.getOptionalString(CONNECTOR_CONSUL).ifPresent(builder::setConsul);
+		descriptorProperties.getOptionalString(CONNECTOR_CLUSTER).ifPresent(builder::setCluster);
+		descriptorProperties.getOptionalInt(CONNECTOR_CONSUL_INTERVAL).ifPresent(builder::setConsulIntervalSeconds);
+		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_SERVICE_CLASS).ifPresent(builder::setThriftServiceClass);
+		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).ifPresent(builder::setThriftMethod);
+		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS).ifPresent(builder::setConnectTimeoutMs);
+		descriptorProperties.getOptionalString(CONNECTOR_RESPONSE_VALUE).ifPresent(builder::setResponseValue);
+		descriptorProperties.getOptionalInt(CONNECTOR_CONNECTION_POOL_SIZE).ifPresent(builder::setConnectionPoolSize);
+		descriptorProperties.getOptionalString(CONNECTOR_BATCH_CLASS).ifPresent(builder::setBatchClass);
+		descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).ifPresent(builder::setBatchSize);
+		descriptorProperties.getOptionalInt(CONNECTOR_FLUSH_TIMEOUT_MS).ifPresent(builder::setFlushTimeoutMs);
+		descriptorProperties.getOptionalString(CONNECTOR_BATCH_CONSTANT_VALUE).ifPresent(builder::setBatchConstantValue);
+		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setSinkParallelism);
+
+		return builder.build();
+	}
+
+	public static TypeInformation<Row> getRowTypeInformation(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		int batchSize = descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).orElse(1);
+		String serviceClassName = descriptorProperties
+			.getOptionalString(CONNECTOR_THRIFT_SERVICE_CLASS).orElse("");
+		String methodName = descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).orElse("");
+		Preconditions.checkArgument(serviceClassName.length() > 0,
+			"connector.thrift-service-class must set.");
+		Preconditions.checkArgument(methodName.length() > 0, "connector.thrift-method must set.");
+		serviceClassName += CLIENT_CLASS_SUFFIX;
+		Class<?> sqlMappingClass;
+		if (batchSize == 1) {
+			sqlMappingClass = ThriftUtil.getParameterClassOfRequest(serviceClassName, methodName);
+		} else {
+			String batchClassName = descriptorProperties.getOptionalString(CONNECTOR_BATCH_CLASS).orElse("");
+			Preconditions.checkArgument(batchClassName.length() > 0,
+				"In batch scenario, connector.batch-class must set.");
+			try {
+				sqlMappingClass = Class.forName(batchClassName);
+			} catch (ClassNotFoundException e) {
+				throw new FlinkRuntimeException(String.format("Can't find class : %s", batchClassName), e);
+			}
+		}
+		return ThriftRowTypeInformationUtil.generateRowTypeInformation(sqlMappingClass);
+	}
+}
