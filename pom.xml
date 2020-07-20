@@ -118,6 +118,7 @@ under the License.
 		<java.version>1.8</java.version>
 		<slf4j.version>1.7.15</slf4j.version>
 		<log4j.version>1.2.17</log4j.version>
+		<databus4j.version>1.2.0-SNAPSHOT</databus4j.version>
 		<!-- Overwrite default values from parent pom.
 			 Intellij is (sometimes?) using those values to choose target language level
 			 and thus is changing back to java 1.6 on each maven re-import -->
@@ -178,6 +179,12 @@ under the License.
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
+		</dependency>
+
+		<!--	databus: OVERRIDE the old version (it is NOT relocated) 	-->
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-shaded-databus4j</artifactId>
 		</dependency>
 
 		<!-- 'javax.annotation' classes like '@Nullable' -->
@@ -330,6 +337,12 @@ under the License.
 				<groupId>log4j</groupId>
 				<artifactId>log4j</artifactId>
 				<version>${log4j.version}</version>
+			</dependency>
+
+			<dependency>
+				<groupId>org.apache.flink</groupId>
+				<artifactId>flink-shaded-databus4j</artifactId>
+				<version>${databus4j.version}-${flink.shaded.version}</version>
 			</dependency>
 
 			<dependency>
