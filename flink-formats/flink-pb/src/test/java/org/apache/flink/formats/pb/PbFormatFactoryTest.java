@@ -56,6 +56,11 @@ public class PbFormatFactoryTest {
 			.field("bytesTest", DataTypes.BYTES())
 			.field("oneofTestStr", DataTypes.STRING())
 			.field("oneofTestInt", DataTypes.INT())
+			.field("innerMessage", DataTypes.ROW(
+				DataTypes.FIELD("longTest", DataTypes.BIGINT()),
+				DataTypes.FIELD("boolTest", DataTypes.BOOLEAN())
+			))
+			.field("intArrayTest", DataTypes.ARRAY(DataTypes.INT()))
 			.build();
 
 		TableSchema tableSchema = pbFormatFactory.getTableSchema(formatOptions);

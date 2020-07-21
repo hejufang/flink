@@ -65,7 +65,7 @@ public class DeserializationRuntimeConverterFactory {
 			case MAP:
 				return createMapConverter((MapType) type, (Descriptors.FieldDescriptor) genericDescriptor);
 			case ROW:
-				return createRowConverter((RowType) type, (Descriptors.Descriptor) genericDescriptor);
+				return createRowConverter((RowType) type, genericDescriptor);
 			default:
 				throw new UnsupportedOperationException("Unsupported type: " + type);
 		}
@@ -73,9 +73,16 @@ public class DeserializationRuntimeConverterFactory {
 
 	private static DeserializationRuntimeConverter createRowConverter(
 			RowType rowType,
-			Descriptors.Descriptor descriptor) {
+			Descriptors.GenericDescriptor genericDescriptor) {
 
+		Descriptors.Descriptor descriptor;
+		if (genericDescriptor instanceof Descriptors.Descriptor) {
+			descriptor = (Descriptors.Descriptor) genericDescriptor;
+		} else {
+			descriptor = ((Descriptors.FieldDescriptor) genericDescriptor).getMessageType();
+		}
 		List<Descriptors.FieldDescriptor> fieldDescriptors = descriptor.getFields();
+
 		AtomicInteger index = new AtomicInteger();
 		final DeserializationRuntimeConverter[] fieldConverters = rowType.getFields().stream()
 			.map(RowType.RowField::getType)
@@ -101,7 +108,11 @@ public class DeserializationRuntimeConverterFactory {
 			Descriptors.FieldDescriptor fieldDescriptor) {
 
 		LogicalType elementType = type.getElementType();
-		Descriptors.Descriptor elementDescriptor = fieldDescriptor.getMessageType();
+
+		Descriptors.Descriptor elementDescriptor = null;
+		if (fieldDescriptor.getJavaType() == Descriptors.FieldDescriptor.JavaType.MESSAGE) {
+			elementDescriptor = fieldDescriptor.getMessageType();
+		}
 
 		DeserializationRuntimeConverter elementConverter = createConverter(elementType, elementDescriptor);
 		return (message) -> {

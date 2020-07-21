@@ -51,4 +51,11 @@ message Container {
     string oneofTestStr = 10;
     int32 oneofTestInt = 11;
   }
+  InnerMessage innerMessage = 12;
+  repeated int32 intArrayTest = 13;
+}
+
+message InnerMessage {
+  int64 longTest = 1;
+  bool boolTest = 2;
 }

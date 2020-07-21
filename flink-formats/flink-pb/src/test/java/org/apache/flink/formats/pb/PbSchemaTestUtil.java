@@ -67,6 +67,12 @@ public class PbSchemaTestUtil {
 			.addArrayTest(messageValue)
 			.setBytesTest(ByteString.copyFrom(bytesValue))
 			.setOneofTestInt(INT_VALUE)
+			.setInnerMessage(
+				TestPb.InnerMessage.newBuilder()
+					.setLongTest(LONG_VALUE)
+					.setBoolTest(BOOL_VALUE).build())
+			.addIntArrayTest(INT_VALUE)
+			.addIntArrayTest(INT_VALUE)
 			.build();
 
 		return container.toByteArray();
@@ -93,7 +99,9 @@ public class PbSchemaTestUtil {
 				GenericRowData.of(binaryStringData, new GenericMapData(expectedMapValue))}),
 			bytesValue,
 			BinaryStringData.fromString(""),
-			INT_VALUE
+			INT_VALUE,
+			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
+			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE})
 		);
 	}
 }

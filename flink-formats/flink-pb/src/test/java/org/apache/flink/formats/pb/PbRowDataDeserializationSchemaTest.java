@@ -30,7 +30,7 @@ import org.junit.Test;
 import java.io.IOException;
 
 import static org.apache.flink.formats.pb.PbSchemaTestUtil.TEST_PB_CLASS_NAME;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 
 /**
  * Tests for {@link PbRowDataDeserializationSchema}.
@@ -51,7 +51,7 @@ public class PbRowDataDeserializationSchemaTest {
 			RowData expectedResult) throws IOException {
 		deserializationSchema.open(null);
 		RowData deserializedResult = deserializationSchema.deserialize(originBytes);
-		assertEquals(expectedResult, deserializedResult);
+		assertArrayEquals(new Object[]{expectedResult}, new Object[]{deserializedResult});
 	}
 
 	private static PbRowDataDeserializationSchema getDeserializationSchema(boolean withWrapper) {
