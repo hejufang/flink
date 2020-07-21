@@ -97,6 +97,24 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 	}
 
 	@Test
+	public void testMaxPercentageRecovery() throws Exception {
+		final Configuration configuration = new Configuration();
+		configuration.setDouble("state.checkpoints.region.max-percentage-recovery", 0.1);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
+		env.getCheckpointConfig().enableRegionCheckpoint();
+		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
+		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.setParallelism(4);
+
+		env.addSource(new TestSource(3)).addSink(new ExpireSink());
+
+		env.execute();
+
+		// only the first checkpoint can be successful because 0.1 * 4 is less than the number of bad regions
+		Assert.assertEquals(1, latestSuccessfulChckpointId.get());
+	}
+
+	@Test
 	public void testMaxRetainedParameter1() throws Exception {
 		testMaxRetainedParameterWithExpiration(3, 1, 2);
 	}

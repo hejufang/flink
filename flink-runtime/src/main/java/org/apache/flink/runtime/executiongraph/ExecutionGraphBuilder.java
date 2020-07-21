@@ -272,9 +272,12 @@ public class ExecutionGraphBuilder {
 			if (snapshotSettings.getCheckpointCoordinatorConfiguration().isRegionCheckpointEnabled()) {
 				final int maxNumberOfSnapshotsToRetain = jobManagerConfig.getInteger(
 						CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS);
+				final double maxPercentageOfRecovery = jobManagerConfig.getDouble(
+						CheckpointingOptions.MAX_PERCENTAGE_RECOVERY);
 				checkpointHandler = new RegionCheckpointHandler(
 						confirmVertices.stream().flatMap(jv -> Arrays.stream(jv.getTaskVertices())).toArray(ExecutionVertex[]::new),
-						maxNumberOfSnapshotsToRetain);
+						maxNumberOfSnapshotsToRetain,
+						maxPercentageOfRecovery);
 			} else {
 				checkpointHandler = new GlobalCheckpointHandler();
 			}

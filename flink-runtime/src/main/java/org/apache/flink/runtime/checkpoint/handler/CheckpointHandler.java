@@ -38,7 +38,6 @@ public interface CheckpointHandler {
 
 	/**
 	 * Try to make an expired checkpoint successful.
-	 * @param pendingCheckpoint
 	 * @return true if the expired checkpoint could be handled.
 	 */
 	boolean tryHandleExpireCheckpoint(PendingCheckpoint pendingCheckpoint);
@@ -49,14 +48,20 @@ public interface CheckpointHandler {
 	 */
 	boolean tryHandleTasksFailure(Collection<ExecutionVertex> vertices);
 
+	/**
+	 * Try to recover the checkpoint from a decline message.
+	 * @return true if decline message can be ignored.
+	 */
 	boolean tryHandleDeclineMessage(DeclineCheckpoint message);
 
 	/**
 	 * Check whether the ack is available or not.
-	 * @param message
 	 * @return true if the ack is accepted.
 	 */
 	boolean tryHandleAck(AcknowledgeCheckpoint message);
 
+	/**
+	 * Clear a specific checkpoint's data.
+	 */
 	void clearCheckpoint(long checkpointId);
 }

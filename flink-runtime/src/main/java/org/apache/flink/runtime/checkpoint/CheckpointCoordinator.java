@@ -1552,6 +1552,7 @@ public class CheckpointCoordinator {
 
 		if (checkpoints.size() == 0) {
 			LOG.info("No need to let checkpoint handler do this because there is no pending checkpoints.");
+			return false;
 		}
 
 		boolean ack;
@@ -1563,7 +1564,6 @@ public class CheckpointCoordinator {
 		}
 
 		if (ack) {
-			// good news
 			List<PendingCheckpoint> finalizedCheckpoints = checkpoints.stream()
 					.filter(PendingCheckpoint::isFullyAcknowledged)
 					.sorted((o1, o2) -> (int) (o1.getCheckpointId() - o2.getCheckpointId())).collect(Collectors.toList());

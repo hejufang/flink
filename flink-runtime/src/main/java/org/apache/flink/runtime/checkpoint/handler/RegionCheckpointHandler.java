@@ -54,6 +54,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 
 	/** Used to decide the oldest good region that bad regions can recover from */
 	private final int maxNumberOfSnapshotsToRetain;
+	private final double maxPercentageOfRecovery;
 
 	private final ArrayDeque<Long> completedCheckpointIds;
 
@@ -63,12 +64,16 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 	 */
 	private final Object lock = new Object();
 
-	public RegionCheckpointHandler(ExecutionVertex[] vertices, int maxNumberOfSnapshotsToRetain) {
+	public RegionCheckpointHandler(
+			ExecutionVertex[] vertices,
+			int maxNumberOfSnapshotsToRetain,
+			double maxPercentageOfRecovery) {
 		Preconditions.checkArgument(maxNumberOfSnapshotsToRetain > 0);
 		this.vertexToRegion = new HashMap<>();
 		this.checkpointIdToGoodRegions = new HashMap<>();
 		this.checkpointIdToBadRegions = new HashMap<>();
 		this.maxNumberOfSnapshotsToRetain = maxNumberOfSnapshotsToRetain;
+		this.maxPercentageOfRecovery = maxPercentageOfRecovery;
 		this.completedCheckpointIds = new ArrayDeque<>(maxNumberOfSnapshotsToRetain + 1);
 		constructCheckpointRegions(vertices);
 	}
@@ -145,7 +150,8 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 					return false;
 				}
 			}
-			return true;
+
+			return isRecoveryAvailable(checkpointId);
 		}
 	}
 
@@ -156,7 +162,8 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			final long checkpointId = message.getCheckpointId();
 			if (checkpointIdToCheckpoint.containsKey(checkpointId)) {
 				return tryHandleSingleTaskCheckpointFailure(checkpointIdToCheckpoint.get(checkpointId)
-						.getTotalTasks().get(message.getTaskExecutionId()), Collections.singleton(checkpointId), false);
+						.getTotalTasks().get(message.getTaskExecutionId()), Collections.singleton(checkpointId), false)
+						&& isRecoveryAvailable(checkpointId);
 			}
 
 			return false;
@@ -203,7 +210,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			for (long checkpointId : checkpointIds) {
 				final PendingCheckpoint pendingCheckpoint = checkpointIdToCheckpoint.get(checkpointId);
 				final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint.replaceTaskStates(attempt, snapshotOpt.get());
-				if (!result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
+				if (!isRecoveryAvailable(checkpointId) || !result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 					return false;
 				}
 			}
@@ -239,5 +246,13 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			checkpointIdToGoodRegions.remove(checkpointId);
 			checkpointIdToBadRegions.remove(checkpointId);
 		}
+	}
+
+	private boolean isRecoveryAvailable(long checkpointId) {
+		if (!checkpointIdToBadRegions.containsKey(checkpointId)) {
+			return true;
+		}
+
+		return Math.ceil(maxPercentageOfRecovery * vertexToRegion.size()) > checkpointIdToBadRegions.get(checkpointId).size();
 	}
 }

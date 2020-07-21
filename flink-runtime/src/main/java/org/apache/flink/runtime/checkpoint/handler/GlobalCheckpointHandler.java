@@ -35,9 +35,7 @@ public class GlobalCheckpointHandler implements CheckpointHandler {
 	public void loadPendingCheckpoints(Map<Long, PendingCheckpoint> pendingCheckpoints) {}
 
 	@Override
-	public void onCheckpointComplete(CompletedCheckpoint completedCheckpoint) {
-
-	}
+	public void onCheckpointComplete(CompletedCheckpoint completedCheckpoint) {}
 
 	@Override
 	public boolean tryHandleExpireCheckpoint(PendingCheckpoint pendingCheckpoint) {
@@ -60,7 +58,5 @@ public class GlobalCheckpointHandler implements CheckpointHandler {
 	}
 
 	@Override
-	public void clearCheckpoint(long checkpointId) {
-
-	}
+	public void clearCheckpoint(long checkpointId) {}
 }
