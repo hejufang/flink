@@ -44,6 +44,7 @@ under the License.
 		<module>flink-metrics-datadog</module>
 		<module>flink-metrics-opentsdb</module>
 		<module>flink-metrics-slf4j</module>
+		<module>flink-metrics-databus</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

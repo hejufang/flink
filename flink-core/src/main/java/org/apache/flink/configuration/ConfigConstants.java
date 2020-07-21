@@ -2163,6 +2163,9 @@ public final class ConfigConstants {
 	public static final String PARTITION_LIST_OLD_KEY = "partition.list";
 	public static final String PARTITION_LIST_KEY = "partition_list";
 
+	// ---------------------------- Data Warehouse ---------------------------
+	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_KEY = "warehouse.channel";
+	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT = "flink_dw_metrics";
 
 	// ---------------------------- Log4j Configurations --------------------------
 	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
