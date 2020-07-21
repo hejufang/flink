@@ -31,6 +31,7 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,17 +52,25 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 	private final Map<Long, Set<CheckpointRegion>> checkpointIdToBadRegions;
 	private Map<Long, PendingCheckpoint> checkpointIdToCheckpoint;
 
+	/** Used to decide the oldest good region that bad regions can recover from */
+	private final int maxNumberOfSnapshotsToRetain;
+
+	private final ArrayDeque<Long> completedCheckpointIds;
+
 	/**
 	 * we don't actually need this because it should be promised by CheckpointCoordinator's lock,
 	 * but I think it's still needed for future development in case anything changes in some day.
 	 */
 	private final Object lock = new Object();
 
-	public RegionCheckpointHandler(ExecutionVertex[] vertices) {
+	public RegionCheckpointHandler(ExecutionVertex[] vertices, int maxNumberOfSnapshotsToRetain) {
+		Preconditions.checkArgument(maxNumberOfSnapshotsToRetain > 0);
 		this.vertexToRegion = new HashMap<>();
-		constructCheckpointRegions(vertices);
 		this.checkpointIdToGoodRegions = new HashMap<>();
 		this.checkpointIdToBadRegions = new HashMap<>();
+		this.maxNumberOfSnapshotsToRetain = maxNumberOfSnapshotsToRetain;
+		this.completedCheckpointIds = new ArrayDeque<>(maxNumberOfSnapshotsToRetain + 1);
+		constructCheckpointRegions(vertices);
 	}
 
 	private void constructCheckpointRegions(ExecutionVertex[] vertices) {
@@ -81,7 +90,6 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 	@Override
 	public void onCheckpointComplete(CompletedCheckpoint completedCheckpoint) {
 		synchronized (lock) {
-			LOG.info("Checkpoint {} is completed, extracting good regions...", completedCheckpoint.getCheckpointID());
 			final long checkpointId = completedCheckpoint.getCheckpointID();
 
 			Preconditions.checkState(!checkpointIdToGoodRegions.containsKey(checkpointId), "Checkpoint ID " + checkpointId + " should only succeed once.");
@@ -97,8 +105,17 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 				}
 			}
 
+			LOG.info("Checkpoint {} is completed and find {} good regions.",
+					completedCheckpoint.getCheckpointID(), checkpointIdToGoodRegions.get(checkpointId).size());
 			// let every region extracts state from checkpoint and snapshot
 			checkpointIdToGoodRegions.get(checkpointId).forEach(checkpointRegion -> checkpointRegion.extractSubTaskStateAndSnapshot(completedCheckpoint));
+
+			completedCheckpointIds.addFirst(checkpointId);
+			while (completedCheckpointIds.size() > maxNumberOfSnapshotsToRetain) {
+				final long outdatedCheckpointId = completedCheckpointIds.pollLast();
+				vertexToRegion.values().forEach(region -> region.cleanSnapshots(outdatedCheckpointId));
+				clearCheckpoint(outdatedCheckpointId);
+			}
 		}
 	}
 
@@ -124,6 +141,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 						return false;
 					}
 				} else {
+					LOG.info("Fail to find snapshot for checkpoint {} from CheckpointRegion.", checkpointId);
 					return false;
 				}
 			}

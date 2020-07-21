@@ -25,6 +25,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.StandaloneCompletedCheckpointStore;
+import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
@@ -170,7 +171,8 @@ public class AdaptedRestartPipelinedRegionStrategyNGAbortPendingCheckpointsTest 
 				0,
 				jobVertices,
 				checkpointCoordinatorConfiguration,
-				new UnregisteredMetricsGroup()));
+				new UnregisteredMetricsGroup()),
+			new GlobalCheckpointHandler());
 	}
 
 	private static void assertNoPendingCheckpoints(final CheckpointCoordinator checkpointCoordinator) {

@@ -43,8 +43,6 @@ import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
 import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
-import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
-import org.apache.flink.runtime.checkpoint.handler.RegionCheckpointHandler;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
@@ -696,7 +694,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			CheckpointIDCounter checkpointIDCounter,
 			CompletedCheckpointStore checkpointStore,
 			StateBackend checkpointStateBackend,
-			CheckpointStatsTracker statsTracker) {
+			CheckpointStatsTracker statsTracker,
+			CheckpointHandler checkpointHandler) {
 
 		checkState(state == JobStatus.CREATED, "Job must be in CREATED state");
 		checkState(checkpointCoordinator == null, "checkpointing already enabled");
@@ -724,12 +723,6 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		// temporary fix
 		failureManager.setFailOnInvalidTokens(chkConfig.isFailOnInvalidTokens());
-		final CheckpointHandler checkpointHandler;
-		if (chkConfig.isRegionCheckpointEnabled()) {
-			checkpointHandler = new RegionCheckpointHandler(tasksToCommitTo);
-		} else {
-			checkpointHandler = new GlobalCheckpointHandler();
-		}
 
 		// create the coordinator that triggers and commits checkpoints and holds the state
 		checkpointCoordinator = new CheckpointCoordinator(

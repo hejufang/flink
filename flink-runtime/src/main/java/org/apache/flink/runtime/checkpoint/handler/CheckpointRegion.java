@@ -82,6 +82,12 @@ public class CheckpointRegion {
 		}
 	}
 
+	public void cleanSnapshots(long checkpointId) {
+		while (!snapshots.isEmpty() && snapshots.getLast().checkpointId <= checkpointId) {
+			snapshots.pollLast();
+		}
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {

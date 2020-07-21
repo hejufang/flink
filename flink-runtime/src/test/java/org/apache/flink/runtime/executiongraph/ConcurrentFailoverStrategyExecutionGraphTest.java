@@ -28,6 +28,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.StandaloneCompletedCheckpointStore;
+import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -401,7 +402,8 @@ public class ConcurrentFailoverStrategyExecutionGraphTest extends TestLogger {
 				1,
 				allVertices,
 				checkpointCoordinatorConfiguration,
-				UnregisteredMetricGroups.createUnregisteredTaskMetricGroup()));
+				UnregisteredMetricGroups.createUnregisteredTaskMetricGroup()),
+				new GlobalCheckpointHandler());
 
 		final CheckpointCoordinator checkpointCoordinator = graph.getCheckpointCoordinator();
 

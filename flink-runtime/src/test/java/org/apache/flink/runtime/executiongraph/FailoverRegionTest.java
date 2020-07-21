@@ -37,6 +37,7 @@ import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.StandaloneCompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
+import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -609,7 +610,8 @@ public class FailoverRegionTest extends TestLogger {
 					0,
 					jobVertices,
 					mock(CheckpointCoordinatorConfiguration.class),
-					new UnregisteredMetricsGroup()));
+					new UnregisteredMetricsGroup()),
+					new GlobalCheckpointHandler());
 	}
 
 	/**

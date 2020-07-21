@@ -30,6 +30,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,53 +46,87 @@ import java.util.concurrent.atomic.AtomicLong;
 public class RegionCheckpointITCase extends TestLogger implements Serializable {
 	private static final Logger LOG = LoggerFactory.getLogger(RegionCheckpointITCase.class);
 
-	private static final int CHECKPOINT_EXPIRE_PERIOD = 5000;
-	private static final int CHECKPOINT_INTERVAL = 3000;
+	private static final int CHECKPOINT_EXPIRE_PERIOD = 3000;
+	private static final int CHECKPOINT_INTERVAL = 2000;
 
+	/** Checkpoint Id greater than this will fail if using global checkpoint handler. */
 	private static final int COMPLETE_CHECKPOINTS_BEFORE_TESTING = 1;
-	private static final int TOTAL_CHECKPOINTS = 3;
 
+	private static final AtomicLong latestSuccessfulChckpointId = new AtomicLong(0);
 	private static final AtomicLong latestCheckpointId = new AtomicLong(0);
+
+	@Before
+	public void setup() {
+		latestSuccessfulChckpointId.set(0);
+		latestCheckpointId.set(0);
+	}
 
 	@Test
 	public void testExpiredCheckpoint() throws Exception {
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(new Configuration());
+		final Configuration configuration = new Configuration();
+		configuration.setInteger("state.checkpoints.region.max-retained-snapshots", 1000);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
 		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
 		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
-		env.setParallelism(4);
 
-		env.addSource(new TestSource()).addSink(new ExpireSink());
-
+		env.addSource(new TestSource(3)).addSink(new ExpireSink());
 		env.execute();
 
-		Assert.assertTrue(latestCheckpointId.get() > COMPLETE_CHECKPOINTS_BEFORE_TESTING);
+		Assert.assertEquals(3, latestSuccessfulChckpointId.get());
 	}
 
 	@Test
 	public void testTaskFailedCheckpoint() throws Exception {
 		final Configuration configuration = new Configuration();
+		configuration.setInteger("state.checkpoints.region.max-retained-snapshots", 1000);
 		configuration.setString("jobmanager.execution.failover-strategy", "region");
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(configuration);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
 		env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 1000L));
 		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 		env.setParallelism(4);
 
-		env.addSource(new TestSource()).addSink(new FailedSink());
+		env.addSource(new TestSource(3)).addSink(new FailedSink());
 
 		env.execute();
 
-		Assert.assertTrue(latestCheckpointId.get() > COMPLETE_CHECKPOINTS_BEFORE_TESTING && FailedSink.exceptionThrown.get());
+		Assert.assertTrue(latestSuccessfulChckpointId.get() == 3 && FailedSink.exceptionThrown.get());
 	}
 
-	static class FailedSink extends RichSinkFunction<Integer> {
+	@Test
+	public void testMaxRetainedParameter1() throws Exception {
+		testMaxRetainedParameterWithExpiration(3, 1, 2);
+	}
+
+	@Test
+	public void testMaxRetainedParameter2() throws Exception {
+		testMaxRetainedParameterWithExpiration(4, 2, 3);
+	}
+
+	public void testMaxRetainedParameterWithExpiration(int totalCheckpoints, int retainedSnapshots, int lastSuccessfulCheckpointId) throws Exception {
+		final Configuration configuration = new Configuration();
+		configuration.setInteger("state.checkpoints.region.max-retained-snapshots", retainedSnapshots);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(configuration);
+		env.getCheckpointConfig().enableRegionCheckpoint();
+		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
+		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.setParallelism(4);
+
+		env.addSource(new TestSource(totalCheckpoints)).addSink(new ExpireSink());
+
+		env.execute();
+
+		Assert.assertEquals(lastSuccessfulCheckpointId, latestSuccessfulChckpointId.get());
+	}
+
+	private static class FailedSink extends RichSinkFunction<Integer> {
 		static AtomicBoolean exceptionThrown = new AtomicBoolean(false);
 		@Override
 		public void invoke(Integer value, Context context) throws Exception {
-			if (latestCheckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING && getRuntimeContext().getIndexOfThisSubtask() == 0 && !exceptionThrown.get()) {
+			if (latestSuccessfulChckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING && getRuntimeContext().getIndexOfThisSubtask() == 0 && !exceptionThrown.get()) {
 				exceptionThrown.compareAndSet(false, true);
 				// sleep until a new checkpoint is triggered
 				LOG.info("Fail the task.");
@@ -101,7 +136,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		}
 	}
 
-	static class ExpireSink extends RichSinkFunction<Integer> implements CheckpointListener, CheckpointedFunction {
+	private static class ExpireSink extends RichSinkFunction<Integer> implements CheckpointListener, CheckpointedFunction {
 		static AtomicBoolean expired = new AtomicBoolean(false);
 		@Override
 		public void invoke(Integer value, Context context) throws Exception {}
@@ -112,10 +147,9 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		@Override
 		public void snapshotState(FunctionSnapshotContext context) throws Exception {
 			if (getRuntimeContext().getIndexOfThisSubtask() == 0
-					&& latestCheckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING
-					&& !expired.get()) {
+					&& latestSuccessfulChckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING) {
 				// let checkpoint expire
-				LOG.info("Sleep to expire the checkpoint {}.", latestCheckpointId.get() + 1);
+				LOG.info("Sleep to expire the checkpoint {}.", context.getCheckpointId());
 				expired.compareAndSet(false, true);
 				Thread.sleep(CHECKPOINT_EXPIRE_PERIOD * 2);
 			}
@@ -125,19 +159,25 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		public void initializeState(FunctionInitializationContext context) throws Exception {}
 	}
 
-	static class TestSource extends RichParallelSourceFunction<Integer> implements CheckpointListener {
+	private static class TestSource extends RichParallelSourceFunction<Integer> implements CheckpointedFunction, CheckpointListener {
 
 		boolean loop = true;
+		int totalCheckpoints;
+
+		TestSource(int totalCheckpoints) {
+			this.totalCheckpoints = totalCheckpoints;
+		}
 
 		@Override
 		public void run(SourceContext<Integer> ctx) throws Exception {
-			while (loop && latestCheckpointId.get() < TOTAL_CHECKPOINTS) {
+			while (loop && latestCheckpointId.get() < totalCheckpoints) {
 				synchronized (ctx.getCheckpointLock()) {
 					ctx.collect(new Random().nextInt(100));
 				}
 				Thread.sleep(100);
 			}
-			LOG.info("Stop the source... latest checkpoint id={}", latestCheckpointId.get());
+			LOG.info("Stop the source... latest checkpoint id={}, latest successful checkpoint id={}",
+					latestCheckpointId, latestSuccessfulChckpointId.get());
 		}
 
 		@Override
@@ -147,10 +187,20 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 
 		@Override
 		public void notifyCheckpointComplete(long checkpointId) throws Exception {
-			if (latestCheckpointId.get() < checkpointId) {
-				latestCheckpointId.set(checkpointId);
+			if (latestSuccessfulChckpointId.get() < checkpointId) {
+				latestSuccessfulChckpointId.set(checkpointId);
 				LOG.info("New checkpoint {} is completed.", checkpointId);
 			}
 		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) throws Exception {
+			if (latestCheckpointId.get() < context.getCheckpointId()) {
+				latestCheckpointId.set(context.getCheckpointId());
+			}
+		}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {}
 	}
 }
