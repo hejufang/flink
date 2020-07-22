@@ -27,8 +27,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
-import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
-import org.apache.flink.runtime.state.SharedStateRegistry;
+import org.apache.flink.runtime.state.*;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorageLocation;
 
 import org.junit.Assert;
@@ -37,6 +36,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.Mockito;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
@@ -44,9 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.*;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -231,6 +229,43 @@ public class PendingCheckpointTest {
 	}
 
 	/**
+	 * Tests that abort stop metadata writing.
+	 */
+	@Test
+	public void testAbortMetadataWriting() throws InterruptedException, TimeoutException, ExecutionException {
+		final CheckpointStorageLocation location = new BlockedCheckpointStorageLocation();
+		final Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>(ACK_TASKS);
+		final CheckpointProperties props = CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION);
+		final ExecutorService executor = new ThreadPoolExecutor(1, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS,
+			new SynchronousQueue<>());
+
+		PendingCheckpoint checkpoint = new PendingCheckpoint(
+			new JobID(),
+			0,
+			1,
+			ackTasks,
+			props,
+			location,
+			executor);
+
+		// Write metadata in another thread
+		Runnable writeMetadataTask = () -> {
+			try {
+				checkpoint.finalizeCheckpoint();
+				fail("Did not throw expected Exception");
+			} catch (IOException ignored) { }
+		};
+		checkpoint.acknowledgeTask(ATTEMPT_ID, null, new CheckpointMetrics());
+		Future<?> future = executor.submit(writeMetadataTask);
+
+		// Allow the writing thread to proceed.
+		TimeUnit.MILLISECONDS.sleep(100);
+		checkpoint.abort(CheckpointFailureReason.CHECKPOINT_EXPIRED);
+
+		future.get(1, TimeUnit.SECONDS);
+	}
+
+	/**
 	 * Tests that the stats callbacks happen if the callback is registered.
 	 */
 	@Test
@@ -393,6 +428,85 @@ public class PendingCheckpointTest {
 			for (Runnable runnable : queue) {
 				runnable.run();
 			}
+		}
+	}
+
+	/**
+	 * Mimic HDFS storage location which might block for a long period of time.
+	 */
+	private static final class BlockedCheckpointStorageLocation implements CheckpointStorageLocation {
+
+		@Override
+		public CheckpointMetadataOutputStream createMetadataOutputStream() {
+			return new BlockedCheckpointMetadataOutputStream();
+		}
+
+		@Override
+		public void disposeOnFailure() {
+		}
+
+		@Override
+		public CheckpointStorageLocationReference getLocationReference() {
+			return null;
+		}
+
+		@Override
+		public CheckpointStateOutputStream createCheckpointStateOutputStream(CheckpointedStateScope scope) {
+			return null;
+		}
+	}
+
+	private static final class BlockedCheckpointMetadataOutputStream extends CheckpointMetadataOutputStream {
+
+		private volatile boolean closed = false;
+
+		@Override
+		public final void write(int b) throws IOException {
+			if (closed) {
+				throw new IOException("Stream already closed.");
+			}
+			fakeWrite();
+		}
+
+		@Override
+		public final void write(@Nonnull byte[] b, int off, int len) throws IOException {
+			if (closed) {
+				throw new IOException("Stream already closed.");
+			}
+			fakeWrite();
+		}
+
+		@Override
+		public CompletedCheckpointStorageLocation closeAndFinalizeCheckpoint() throws IOException {
+			if (closed) {
+				throw new IOException("Stream already closed.");
+			}
+			closed = true;
+			return null;
+		}
+
+		@Override
+		public void close() {
+			closed = true;
+		}
+
+		@Override
+		public long getPos() {
+			return 0;
+		}
+
+		@Override
+		public void flush() {
+		}
+
+		@Override
+		public void sync() {
+		}
+
+		private void fakeWrite() {
+			try {
+				TimeUnit.MILLISECONDS.sleep(100);
+			} catch (InterruptedException ignored) { }
 		}
 	}
 }

@@ -47,6 +47,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -108,6 +109,9 @@ public class PendingCheckpoint {
 	/** The executor for potentially blocking I/O operations, like state disposal. */
 	private final Executor executor;
 
+	/** The stream we used to persist metadata. */
+	private final AtomicReference<CheckpointMetadataOutputStream> metadataOutputStream;
+
 	private int numAcknowledgedTasks;
 
 	private boolean discarded;
@@ -145,6 +149,7 @@ public class PendingCheckpoint {
 		this.masterState = new ArrayList<>();
 		this.acknowledgedTasks = new HashSet<>(verticesToConfirm.size());
 		this.onCompletionPromise = new CompletableFuture<>();
+		this.metadataOutputStream = new AtomicReference<>(null);
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -272,8 +277,19 @@ public class PendingCheckpoint {
 				final CompletedCheckpointStorageLocation finalizedLocation;
 
 				try (CheckpointMetadataOutputStream out = targetLocation.createMetadataOutputStream()) {
+					metadataOutputStream.set(out);
+
 					Checkpoints.storeCheckpointMetadata(savepoint, out);
-					finalizedLocation = out.closeAndFinalizeCheckpoint();
+
+					// We might be faced with a racing condition (with the "abort" thread). This is a safeguard.
+					CheckpointMetadataOutputStream outputStream = metadataOutputStream.getAndSet(null);
+					if (outputStream != null) {
+						// Successfully controlled the output stream
+						finalizedLocation = out.closeAndFinalizeCheckpoint();
+					} else {
+						// Lost control of the output stream
+						throw new IOException("Metadata output stream closed by another thread.");
+					}
 				}
 
 				final long finishTimestamp = System.currentTimeMillis();
@@ -445,6 +461,7 @@ public class PendingCheckpoint {
 		try {
 			CheckpointException exception = wrapWithCheckpointException(reason, cause);
 			onCompletionPromise.completeExceptionally(exception);
+			closeMetadataOutputStream();
 			reportFailedCheckpoint(exception, reason);
 			assertAbortSubsumedForced(reason);
 		} finally {
@@ -457,6 +474,22 @@ public class PendingCheckpoint {
 	 */
 	public void abort(CheckpointFailureReason reason) {
 		abort(reason, null);
+	}
+
+	/**
+	 * Stops writing metadata, if it is being written now.
+	 */
+	private void closeMetadataOutputStream() {
+		// We will try to gain control of this stream from
+		CheckpointMetadataOutputStream outputStream = metadataOutputStream.getAndSet(null);
+		if (outputStream != null) {
+			// The output stream is opened and we gained an exclusive control on it.
+			try {
+				outputStream.close();
+			} catch (IOException e) {
+				LOG.warn("Failed to abort metadata writing.", e);
+			}
+		}
 	}
 
 	private CheckpointException wrapWithCheckpointException(CheckpointFailureReason reason, Throwable cause) {
