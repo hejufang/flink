@@ -43,6 +43,12 @@ public class CheckpointingOptions {
 			.defaultValue(1)
 			.withDescription("The maximum number of completed checkpoints to retain.");
 
+	/** Whether region checkpoint is enabled. */
+	public static final ConfigOption<Boolean> REGION_CHECKPOINT_ENABLED = ConfigOptions
+			.key("state.checkpoints.region.enabled")
+			.defaultValue(false)
+			.withDescription("Whether region checkpoint is enabled.");
+
 	/** The maximum number of snapshots from region checkpoints to retain.*/
 	public static final ConfigOption<Integer> MAX_RETAINED_REGION_SNAPSHOTS = ConfigOptions
 			.key("state.checkpoints.region.max-retained-snapshots")

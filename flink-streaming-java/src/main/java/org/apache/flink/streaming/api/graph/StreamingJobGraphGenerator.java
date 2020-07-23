@@ -728,8 +728,7 @@ public class StreamingJobGraphGenerator {
 				cfg.isPreferCheckpointForRecovery(),
 				cfg.getCheckpointSchedulerConfiguration(),
 				cfg.getTolerableCheckpointFailureNumber(),
-				cfg.isFailOnInvalidTokens(),
-				cfg.isRegionCheckpointEnabled()),
+				cfg.isFailOnInvalidTokens()),
 			serializedStateBackend,
 			serializedHooks);
 

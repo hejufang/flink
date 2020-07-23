@@ -109,8 +109,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * */
 	private int tolerableCheckpointFailureNumber = UNDEFINED_TOLERABLE_CHECKPOINT_NUMBER;
 
-	private boolean regionCheckpointEnabled = false;
-
 	// ------------------------------------------------------------------------
 
 	/**
@@ -138,10 +136,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	 */
 	public void setCheckpointingMode(CheckpointingMode checkpointingMode) {
 		this.checkpointingMode = requireNonNull(checkpointingMode);
-	}
-
-	public void enableRegionCheckpoint() {
-		this.regionCheckpointEnabled = true;
 	}
 
 	/**
@@ -448,10 +442,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	@PublicEvolving
 	public ExternalizedCheckpointCleanup getExternalizedCheckpointCleanup() {
 		return externalizedCheckpointCleanup;
-	}
-
-	public boolean isRegionCheckpointEnabled() {
-		return regionCheckpointEnabled;
 	}
 
 	/**

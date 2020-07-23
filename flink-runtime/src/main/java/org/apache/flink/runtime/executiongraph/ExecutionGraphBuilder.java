@@ -269,7 +269,8 @@ public class ExecutionGraphBuilder {
 
 			// configure region checkpoint
 			final CheckpointHandler checkpointHandler;
-			if (snapshotSettings.getCheckpointCoordinatorConfiguration().isRegionCheckpointEnabled()) {
+			final boolean regionCheckpointEnabled = jobManagerConfig.getBoolean(CheckpointingOptions.REGION_CHECKPOINT_ENABLED);
+			if (regionCheckpointEnabled) {
 				final int maxNumberOfSnapshotsToRetain = jobManagerConfig.getInteger(
 						CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS);
 				final double maxPercentageOfRecovery = jobManagerConfig.getDouble(
@@ -299,7 +300,7 @@ public class ExecutionGraphBuilder {
 					maxNumberOfCheckpointsToRetain = CheckpointingOptions.MAX_RETAINED_CHECKPOINTS.defaultValue();
 				}
 
-				if (snapshotSettings.getCheckpointCoordinatorConfiguration().isRegionCheckpointEnabled()) {
+				if (regionCheckpointEnabled) {
 					// override max retained checkpoints based on the region checkpoints
 					maxNumberOfCheckpointsToRetain = jobManagerConfig.getInteger(
 							CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS) * 2;
@@ -406,8 +407,7 @@ public class ExecutionGraphBuilder {
 					origin.isPreferCheckpointForRecovery(),
 					overrideSchedulingConfig,
 					origin.getTolerableCheckpointFailureNumber(),
-					origin.isFailOnInvalidTokens(),
-					origin.isRegionCheckpointEnabled());
+					origin.isFailOnInvalidTokens());
 			}
 
 			executionGraph.enableCheckpointing(

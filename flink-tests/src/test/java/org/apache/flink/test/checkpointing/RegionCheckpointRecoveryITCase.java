@@ -133,8 +133,8 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 	private JobGraph createJobGraph() throws Exception {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.getConfiguration().setInteger("state.checkpoints.region.max-retained-snapshots", 1000);
+		env.getConfiguration().setBoolean("state.checkpoints.region.enabled", true);
 		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
-		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(2000);
 		env.getCheckpointConfig().setCheckpointTimeout(3000);
 

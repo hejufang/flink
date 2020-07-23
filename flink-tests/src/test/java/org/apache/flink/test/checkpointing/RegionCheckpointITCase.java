@@ -65,9 +65,9 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 	public void testExpiredCheckpoint() throws Exception {
 		final Configuration configuration = new Configuration();
 		configuration.setInteger("state.checkpoints.region.max-retained-snapshots", 1000);
+		configuration.setBoolean("state.checkpoints.region.enabled", true);
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
 		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
-		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 
@@ -82,9 +82,9 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		final Configuration configuration = new Configuration();
 		configuration.setInteger("state.checkpoints.region.max-retained-snapshots", 1000);
 		configuration.setString("jobmanager.execution.failover-strategy", "region");
+		configuration.setBoolean("state.checkpoints.region.enabled", true);
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
 		env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 1000L));
-		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 		env.setParallelism(4);
@@ -100,8 +100,8 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 	public void testMaxPercentageRecovery() throws Exception {
 		final Configuration configuration = new Configuration();
 		configuration.setDouble("state.checkpoints.region.max-percentage-recovery", 0.1);
+		configuration.setBoolean("state.checkpoints.region.enabled", true);
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
-		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 		env.setParallelism(4);
@@ -127,8 +127,8 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 	public void testMaxRetainedParameterWithExpiration(int totalCheckpoints, int retainedSnapshots, int lastSuccessfulCheckpointId) throws Exception {
 		final Configuration configuration = new Configuration();
 		configuration.setInteger("state.checkpoints.region.max-retained-snapshots", retainedSnapshots);
+		configuration.setBoolean("state.checkpoints.region.enabled", true);
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(configuration);
-		env.getCheckpointConfig().enableRegionCheckpoint();
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 		env.setParallelism(4);

@@ -48,8 +48,6 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	private final int tolerableCheckpointFailureNumber;
 
-	private final boolean regionCheckpointEnabled;
-
 	/** Settings for what to do with checkpoints when a job finishes. */
 	private final CheckpointRetentionPolicy checkpointRetentionPolicy;
 
@@ -88,7 +86,6 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.defaultStrategy(),
 			tolerableCpFailureNumber,
-			false,
 			false);
 	}
 
@@ -102,8 +99,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			boolean isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration,
 			int tolerableCpFailureNumber,
-			boolean failOnInvalidTokens,
-			boolean regionCheckpointEnabled) {
+			boolean failOnInvalidTokens) {
 
 		// sanity checks
 		if (checkpointInterval < MINIMAL_CHECKPOINT_TIME || checkpointTimeout < MINIMAL_CHECKPOINT_TIME ||
@@ -122,7 +118,6 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.checkpointSchedulerConfiguration = Preconditions.checkNotNull(checkpointSchedulerConfiguration);
 		this.tolerableCheckpointFailureNumber = tolerableCpFailureNumber;
 		this.failOnInvalidTokens = failOnInvalidTokens;
-		this.regionCheckpointEnabled = regionCheckpointEnabled;
 	}
 
 	public long getCheckpointInterval() {
@@ -143,10 +138,6 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	public CheckpointRetentionPolicy getCheckpointRetentionPolicy() {
 		return checkpointRetentionPolicy;
-	}
-
-	public boolean isRegionCheckpointEnabled() {
-		return regionCheckpointEnabled;
 	}
 
 	public boolean isExactlyOnce() {
