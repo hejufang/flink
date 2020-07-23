@@ -20,7 +20,6 @@ package org.apache.flink.runtime.checkpoint.handler;
 
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
-import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
@@ -138,10 +137,11 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 				}
 				checkpointIdToBadRegions.get(checkpointId).add(region);
 
-				final Optional<TaskStateSnapshot> snapshotOpt = region.findLatestSnapshot(checkpointId);
+				final Optional<CheckpointRegion.RegionStateSnapshot> snapshotOpt = region.findLatestSnapshot(checkpointId);
 				if (snapshotOpt.isPresent()) {
 					final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint
-							.replaceTaskStates(vertex.getMainExecution().getAttemptId(), snapshotOpt.get());
+							.replaceTaskStates(vertex.getMainExecution().getAttemptId(),
+									snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId());
 					if (!result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 						return false;
 					}
@@ -204,12 +204,13 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 		}
 
 		// find latest successful snapshots from region's history
-		final Optional<TaskStateSnapshot> snapshotOpt = region.findLatestSnapshot();
+		final Optional<CheckpointRegion.RegionStateSnapshot> snapshotOpt = region.findLatestSnapshot();
 		if (snapshotOpt.isPresent()) {
 			// ingest snapshot into pending checkpoint
 			for (long checkpointId : checkpointIds) {
 				final PendingCheckpoint pendingCheckpoint = checkpointIdToCheckpoint.get(checkpointId);
-				final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint.replaceTaskStates(attempt, snapshotOpt.get());
+				final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint.replaceTaskStates(
+						attempt, snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId());
 				if (!isRecoveryAvailable(checkpointId) || !result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 					return false;
 				}

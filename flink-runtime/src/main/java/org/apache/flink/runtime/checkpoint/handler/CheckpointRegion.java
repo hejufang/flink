@@ -65,18 +65,18 @@ public class CheckpointRegion {
 		snapshots.addFirst(new RegionStateSnapshot(checkpoint.getCheckpointID(), new TaskStateSnapshot(snapshotStates)));
 	}
 
-	public Optional<TaskStateSnapshot> findLatestSnapshot() {
+	public Optional<RegionStateSnapshot> findLatestSnapshot() {
 		return findLatestSnapshot(Long.MAX_VALUE);
 	}
 
-	public Optional<TaskStateSnapshot> findLatestSnapshot(long maxCheckpointId) {
+	public Optional<RegionStateSnapshot> findLatestSnapshot(long maxCheckpointId) {
 		final Iterator<RegionStateSnapshot> iter = snapshots.iterator();
 		if (iter.hasNext()) {
 			final RegionStateSnapshot snapshot = iter.next();
 			if (snapshot.checkpointId > maxCheckpointId) {
 				throw new IllegalStateException(String.format("Snapshot id %s is greater than %s.", snapshot.checkpointId, maxCheckpointId));
 			}
-			return Optional.of(snapshot.snapshot);
+			return Optional.of(snapshot);
 		} else {
 			return Optional.empty();
 		}
@@ -105,7 +105,7 @@ public class CheckpointRegion {
 		return Objects.hash(vertex);
 	}
 
-	private static class RegionStateSnapshot {
+	public static class RegionStateSnapshot {
 
 		private final long checkpointId;
 		private final TaskStateSnapshot snapshot;
@@ -113,6 +113,14 @@ public class CheckpointRegion {
 		RegionStateSnapshot(long checkpointId, TaskStateSnapshot snapshot) {
 			this.checkpointId = checkpointId;
 			this.snapshot = snapshot;
+		}
+
+		public long getCheckpointId() {
+			return checkpointId;
+		}
+
+		public TaskStateSnapshot getSnapshot() {
+			return snapshot;
 		}
 	}
 }

@@ -328,8 +328,18 @@ public class PendingCheckpoint {
 		}
 	}
 
-	public TaskAcknowledgeResult replaceTaskStates(ExecutionAttemptID executionAttemptID, TaskStateSnapshot operatorSubtaskStates) {
-		return acknowledgeTask(executionAttemptID, operatorSubtaskStates, null);
+	public TaskAcknowledgeResult replaceTaskStates(
+			ExecutionAttemptID executionAttemptID,
+			TaskStateSnapshot operatorSubtaskStates,
+			long replacementChckpointId) {
+		return acknowledgeTask(executionAttemptID, operatorSubtaskStates, null, replacementChckpointId);
+	}
+
+	public TaskAcknowledgeResult acknowledgeTask(
+			ExecutionAttemptID executionAttemptId,
+			TaskStateSnapshot operatorSubtaskStates,
+			@Nullable CheckpointMetrics metrics) {
+		return acknowledgeTask(executionAttemptId, operatorSubtaskStates, metrics, -1L);
 	}
 
 	/**
@@ -343,7 +353,8 @@ public class PendingCheckpoint {
 	public TaskAcknowledgeResult acknowledgeTask(
 			ExecutionAttemptID executionAttemptId,
 			TaskStateSnapshot operatorSubtaskStates,
-			@Nullable CheckpointMetrics metrics) {
+			@Nullable CheckpointMetrics metrics,
+			long replacementChckpointId) {
 
 		synchronized (lock) {
 			if (discarded) {
@@ -423,7 +434,7 @@ public class PendingCheckpoint {
 							0L,
 							0L,
 							0L,
-							checkpointId);
+							replacementChckpointId);
 				}
 
 				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
