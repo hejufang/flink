@@ -176,13 +176,11 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
 			throws NoSuchObjectException, MetaException, TException {
-		checkPermissionsOfHiveMetaModifications();
 		return client.dropPartition(databaseName, tableName, partitionValues, deleteData);
 	}
 
 	public void renamePartition(String databaseName, String tableName, List<String> partitionValues, Partition partition)
 			throws InvalidOperationException, MetaException, TException {
-		checkPermissionsOfHiveMetaModifications();
 		client.renamePartition(databaseName, tableName, partitionValues, partition);
 	}
 
@@ -220,13 +218,11 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public boolean updateTableColumnStatistics(ColumnStatistics columnStatistics)
 			throws NoSuchObjectException, InvalidObjectException, MetaException, TException, InvalidInputException {
-		checkPermissionsOfHiveMetaModifications();
 		return client.updateTableColumnStatistics(columnStatistics);
 	}
 
 	public boolean updatePartitionColumnStatistics(ColumnStatistics columnStatistics)
 			throws NoSuchObjectException, InvalidObjectException, MetaException, TException, InvalidInputException {
-		checkPermissionsOfHiveMetaModifications();
 		return client.updatePartitionColumnStatistics(columnStatistics);
 	}
 
@@ -284,7 +280,6 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public void alter_partition(String databaseName, String tableName, Partition partition)
 			throws InvalidOperationException, MetaException, TException {
-		checkPermissionsOfHiveMetaModifications();
 		hiveShim.alterPartition(client, databaseName, tableName, partition);
 	}
 
