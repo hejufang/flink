@@ -1121,6 +1121,9 @@ public class CheckpointCoordinator {
 				}
 			}
 
+			long latestCheckpointIdOnStore = checkpointsOnStore.stream().max(Long::compareTo).orElse(-1L);
+			long latestCheckpointIdOnStorage = checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).max(Long::compareTo).orElse(-1L);
+
 			// checkpoints on HDFS but not on zookeeper!!!
 			LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
 			if (extraCheckpoints.size() > 0) {
@@ -1140,7 +1143,7 @@ public class CheckpointCoordinator {
 
 			// Restore from the latest checkpoint
 			CompletedCheckpoint latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
-			if (latest != null) {
+			if (latest != null && latestCheckpointIdOnStorage > latestCheckpointIdOnStore) {
 				checkpointIdCounter.setCount(latest.getCheckpointID() + 1);
 			}
 
