@@ -18,13 +18,17 @@
 
 package org.apache.flink.metrics;
 
+import java.util.Objects;
+
 /**
  * A Message instance indicates a behaviour from Flink.
  */
 public class Message<T> {
 
-	private final T data;
-	private final MessageMeta meta;
+	private T data;
+	private MessageMeta meta;
+
+	public Message() {}
 
 	public Message(T data) {
 		this.data = data;
@@ -38,5 +42,39 @@ public class Message<T> {
 
 	public MessageMeta getMeta() {
 		return meta;
+	}
+
+	public void setData(T data) {
+		this.data = data;
+	}
+
+	public void setMeta(MessageMeta meta) {
+		this.meta = meta;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		Message<?> message = (Message<?>) o;
+		return Objects.equals(data, message.data) &&
+				Objects.equals(meta, message.meta);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(data, meta);
+	}
+
+	@Override
+	public String toString() {
+		return "Message{" +
+				"data=" + data +
+				", meta=" + meta +
+				'}';
 	}
 }

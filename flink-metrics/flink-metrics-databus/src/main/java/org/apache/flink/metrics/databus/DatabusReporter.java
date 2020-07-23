@@ -80,7 +80,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 		this.cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
 		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
-		this.jobName = config.getString(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
 	}
 
 	@Override
@@ -93,7 +93,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		synchronized (this) {
 			for (Map.Entry<MessageSet, String> entry : messageSets.entrySet()) {
 				final String metricName = entry.getValue();
-				final MessageSet messageSet = entry.getKey();
+				final MessageSet<?> messageSet = entry.getKey();
 
 				for (Message message : messageSet.drainMessages()) {
 					// add metadata

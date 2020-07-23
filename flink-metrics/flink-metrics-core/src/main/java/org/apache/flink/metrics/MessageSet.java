@@ -26,11 +26,11 @@ import java.util.concurrent.ArrayBlockingQueue;
 /**
  * User registers a MessageSet instance to report data to Flink data warehouse.
  */
-public class MessageSet implements Gauge<MessageSet> {
+public class MessageSet<T> implements Gauge<MessageSet<T>> {
 
 	private static final int CAPACITY = 1 << 20;
 
-	private final ArrayBlockingQueue<Message> queue;
+	private final ArrayBlockingQueue<Message<T>> queue;
 	private final MessageType messageType;
 
 	public MessageSet(MessageType messageType) {
@@ -38,19 +38,19 @@ public class MessageSet implements Gauge<MessageSet> {
 		this.messageType = messageType;
 	}
 
-	public void addMessage(Message m) {
+	public void addMessage(Message<T> m) {
 		m.getMeta().setMessageType(messageType);
 		queue.add(m);
 	}
 
-	public Collection<Message> drainMessages() {
-		List<Message> messages = new ArrayList<>();
+	public Collection<Message<T>> drainMessages() {
+		List<Message<T>> messages = new ArrayList<>();
 		queue.drainTo(messages);
 		return messages;
 	}
 
 	@Override
-	public MessageSet getValue() {
+	public MessageSet<T> getValue() {
 		return this;
 	}
 

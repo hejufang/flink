@@ -20,6 +20,9 @@ package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.TagGauge;
@@ -267,6 +270,10 @@ public class CheckpointStatsTracker {
 		} finally {
 			statsReadWriteLock.unlock();
 		}
+
+		messageSet.addMessage(new Message<>(WarehouseCheckpointMessage.constructSuccessMessage(completed.checkpointId,
+				completed.triggerTimestamp, System.currentTimeMillis(), completed.getEndToEndDuration(), completed.getExternalPath(),
+				completed.getStateSize(), completed.getAlignmentBuffered())));
 	}
 
 	/**
@@ -286,6 +293,8 @@ public class CheckpointStatsTracker {
 						.addTagValue("reason", reasonMessage.substring(0, Math.min(20, reasonMessage.length())))
 						.addTagValue("chk_id", String.valueOf(failed.getCheckpointId()))
 						.build());
+				messageSet.addMessage(new Message<>(WarehouseCheckpointMessage.constructFailedMessage(failed.getCheckpointId(),
+						failed.triggerTimestamp, System.currentTimeMillis(), reasonMessage, failed.getEndToEndDuration(), failed.getStateSize())));
 			}
 
 			dirty = true;
@@ -368,7 +377,11 @@ public class CheckpointStatsTracker {
 	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC = "lastCheckpointExternalPath";
 
+	static final String WAREHOUSE_FAILED_CHECKPOINTS = "warehouseFailedCheckpoints";
+
 	static final TagGauge failedCheckpointsTagGauge = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+
+	static final MessageSet<WarehouseCheckpointMessage> messageSet = new MessageSet<>(MessageType.CHECKPOINT);
 
 	/**
 	 * Register the exposed metrics.
@@ -386,6 +399,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_ALIGNMENT_BUFFERED_METRIC, new LatestCompletedCheckpointAlignmentBufferedGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
 		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, failedCheckpointsTagGauge);
+		metricGroup.gauge(WAREHOUSE_FAILED_CHECKPOINTS, messageSet);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
@@ -491,5 +505,4 @@ public class CheckpointStatsTracker {
 			}
 		}
 	}
-
 }

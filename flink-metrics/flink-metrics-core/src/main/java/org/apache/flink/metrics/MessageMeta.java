@@ -18,6 +18,8 @@
 
 package org.apache.flink.metrics;
 
+import java.util.Objects;
+
 /**
  * Metas for {@link Message}.
  */
@@ -93,5 +95,41 @@ public class MessageMeta {
 
 	public void setQueue(String queue) {
 		this.queue = queue;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		MessageMeta that = (MessageMeta) o;
+		return timestamp == that.timestamp &&
+				Objects.equals(jobName, that.jobName) &&
+				messageType == that.messageType &&
+				Objects.equals(region, that.region) &&
+				Objects.equals(cluster, that.cluster) &&
+				Objects.equals(queue, that.queue) &&
+				Objects.equals(metricName, that.metricName);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName);
+	}
+
+	@Override
+	public String toString() {
+		return "MessageMeta{" +
+				"timestamp=" + timestamp +
+				", jobName='" + jobName + '\'' +
+				", messageType=" + messageType +
+				", region='" + region + '\'' +
+				", cluster='" + cluster + '\'' +
+				", queue='" + queue + '\'' +
+				", metricName='" + metricName + '\'' +
+				'}';
 	}
 }
