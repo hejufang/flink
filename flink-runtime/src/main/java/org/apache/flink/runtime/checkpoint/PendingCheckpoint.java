@@ -328,18 +328,76 @@ public class PendingCheckpoint {
 		}
 	}
 
-	public TaskAcknowledgeResult replaceTaskStates(
-			ExecutionAttemptID executionAttemptID,
-			TaskStateSnapshot operatorSubtaskStates,
-			long replacementChckpointId) {
-		return acknowledgeTask(executionAttemptID, operatorSubtaskStates, null, replacementChckpointId);
-	}
-
-	public TaskAcknowledgeResult acknowledgeTask(
+	public TaskAcknowledgeResult overrideTaskStates(
 			ExecutionAttemptID executionAttemptId,
 			TaskStateSnapshot operatorSubtaskStates,
-			@Nullable CheckpointMetrics metrics) {
-		return acknowledgeTask(executionAttemptId, operatorSubtaskStates, metrics, -1L);
+			long overrideCheckpointId) {
+		synchronized (lock) {
+			if (discarded) {
+				return TaskAcknowledgeResult.DISCARDED;
+			}
+
+			ExecutionVertex vertex = notYetAcknowledgedTasks.remove(executionAttemptId);
+			if (vertex != null) {
+				acknowledgedTasks.add(executionAttemptId);
+				++numAcknowledgedTasks;
+			} else {
+				vertex = totalTasks.get(executionAttemptId);
+			}
+
+			List<OperatorID> operatorIDs = vertex.getJobVertex().getOperatorIDs();
+			int subtaskIndex = vertex.getParallelSubtaskIndex();
+			long ackTimestamp = System.currentTimeMillis();
+
+			long stateSize = 0L;
+
+			if (operatorSubtaskStates != null) {
+				for (OperatorID operatorID : operatorIDs) {
+
+					OperatorSubtaskState operatorSubtaskState =
+							operatorSubtaskStates.getSubtaskStateByOperatorID(operatorID);
+
+					// if no real operatorSubtaskState was reported, we insert an empty state
+					if (operatorSubtaskState == null) {
+						operatorSubtaskState = new OperatorSubtaskState();
+					}
+
+					OperatorState operatorState = operatorStates.get(operatorID);
+
+					if (operatorState == null) {
+						operatorState = new OperatorState(
+								operatorID,
+								vertex.getTotalNumberOfParallelSubtasks(),
+								vertex.getMaxParallelism());
+						operatorStates.put(operatorID, operatorState);
+					}
+
+					operatorState.putState(subtaskIndex, operatorSubtaskState);
+					stateSize += operatorSubtaskState.getStateSize();
+				}
+			}
+
+			// publish the checkpoint statistics
+			// to prevent null-pointers from concurrent modification, copy reference onto stack
+			final PendingCheckpointStats statsCallback = this.statsCallback;
+			if (statsCallback != null) {
+				SubtaskStateStats subtaskStateStats = new SubtaskStateStats(
+						subtaskIndex,
+						ackTimestamp,
+						stateSize,
+						0L,
+						0L,
+						0L,
+						0L,
+						overrideCheckpointId);
+
+				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats, true);
+			}
+
+			LOG.info("Checkpoint {} replaces states of Task {} with snapshot from checkpoint {}.",
+					checkpointId, vertex.getTaskNameWithSubtaskIndex(), overrideCheckpointId);
+			return TaskAcknowledgeResult.SUCCESS;
+		}
 	}
 
 	/**
@@ -353,8 +411,7 @@ public class PendingCheckpoint {
 	public TaskAcknowledgeResult acknowledgeTask(
 			ExecutionAttemptID executionAttemptId,
 			TaskStateSnapshot operatorSubtaskStates,
-			@Nullable CheckpointMetrics metrics,
-			long replacementChckpointId) {
+			CheckpointMetrics metrics) {
 
 		synchronized (lock) {
 			if (discarded) {
@@ -411,31 +468,18 @@ public class PendingCheckpoint {
 			// to prevent null-pointers from concurrent modification, copy reference onto stack
 			final PendingCheckpointStats statsCallback = this.statsCallback;
 			if (statsCallback != null) {
-				SubtaskStateStats subtaskStateStats;
-				if (metrics != null) {
-					// Do this in millis because the web frontend works with them
-					long alignmentDurationMillis = metrics.getAlignmentDurationNanos() / 1_000_000;
+				// Do this in millis because the web frontend works with them
+				long alignmentDurationMillis = metrics.getAlignmentDurationNanos() / 1_000_000;
 
-					subtaskStateStats = new SubtaskStateStats(
-							subtaskIndex,
-							ackTimestamp,
-							stateSize,
-							metrics.getSyncDurationMillis(),
-							metrics.getAsyncDurationMillis(),
-							metrics.getBytesBufferedInAlignment(),
-							alignmentDurationMillis,
-							checkpointId);
-				} else {
-					subtaskStateStats = new SubtaskStateStats(
-							subtaskIndex,
-							ackTimestamp,
-							stateSize,
-							0L,
-							0L,
-							0L,
-							0L,
-							replacementChckpointId);
-				}
+				SubtaskStateStats subtaskStateStats = new SubtaskStateStats(
+					subtaskIndex,
+					ackTimestamp,
+					stateSize,
+					metrics.getSyncDurationMillis(),
+					metrics.getAsyncDurationMillis(),
+					metrics.getBytesBufferedInAlignment(),
+					alignmentDurationMillis,
+					checkpointId);
 
 				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
 			}

@@ -57,6 +57,25 @@ public class TaskStateStats implements Serializable {
 	}
 
 	/**
+	 * Remove subtask's statistics from TaskStats.
+	 */
+	boolean removeSubtaskStats(int subtaskIndex) {
+		if (subtaskStats[subtaskIndex] != null) {
+			final SubtaskStateStats subtask = subtaskStats[subtaskIndex];
+
+			subtaskStats[subtaskIndex] = null;
+			latestAckedSubtaskStats = null;
+			numAcknowledgedSubtasks--;
+
+			summaryStats.removeSummary(subtask);
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
 	 * Hands in the stats for a subtask.
 	 *
 	 * @param subtask Stats for the sub task to hand in.
@@ -221,6 +240,18 @@ public class TaskStateStats implements Serializable {
 			asyncCheckpointDuration.add(subtaskStats.getAsyncCheckpointDuration());
 			alignmentBuffered.add(subtaskStats.getAlignmentBuffered());
 			alignmentDuration.add(subtaskStats.getAlignmentDuration());
+		}
+
+		/**
+		 * Remove the stats from summary with the given subtask.
+		 */
+		void removeSummary(SubtaskStateStats subtaskStats) {
+			stateSize.remove(subtaskStats.getStateSize());
+			ackTimestamp.remove(subtaskStats.getAckTimestamp());
+			syncCheckpointDuration.remove(subtaskStats.getSyncCheckpointDuration());
+			asyncCheckpointDuration.remove(subtaskStats.getAsyncCheckpointDuration());
+			alignmentBuffered.remove(subtaskStats.getAlignmentBuffered());
+			alignmentDuration.remove(subtaskStats.getAlignmentDuration());
 		}
 
 		/**

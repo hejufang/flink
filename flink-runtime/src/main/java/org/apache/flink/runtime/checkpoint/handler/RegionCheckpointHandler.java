@@ -140,7 +140,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 				final Optional<CheckpointRegion.RegionStateSnapshot> snapshotOpt = region.findLatestSnapshot(checkpointId);
 				if (snapshotOpt.isPresent()) {
 					final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint
-							.replaceTaskStates(vertex.getMainExecution().getAttemptId(),
+							.overrideTaskStates(vertex.getMainExecution().getAttemptId(),
 									snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId());
 					if (!result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 						return false;
@@ -209,7 +209,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			// ingest snapshot into pending checkpoint
 			for (long checkpointId : checkpointIds) {
 				final PendingCheckpoint pendingCheckpoint = checkpointIdToCheckpoint.get(checkpointId);
-				final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint.replaceTaskStates(
+				final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint.overrideTaskStates(
 						attempt, snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId());
 				if (!isRecoveryAvailable(checkpointId) || !result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 					return false;

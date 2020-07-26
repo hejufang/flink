@@ -140,18 +140,41 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		Assert.assertEquals(lastSuccessfulCheckpointId, latestSuccessfulChckpointId.get());
 	}
 
-	private static class FailedSink extends RichSinkFunction<Integer> {
+	private static class FailedSink extends RichSinkFunction<Integer> implements CheckpointedFunction {
 		static AtomicBoolean exceptionThrown = new AtomicBoolean(false);
+		static AtomicBoolean enterSnapshotProcess = new AtomicBoolean(false);
+		static AtomicBoolean failoverFinished = new AtomicBoolean(false);
+
+		@Override
+		public void open(Configuration parameters) throws Exception{
+			if (getRuntimeContext().getIndexOfThisSubtask() == 0 && getRuntimeContext().getAttemptNumber() == 1) {
+				failoverFinished.compareAndSet(false, true);
+			}
+		}
+
 		@Override
 		public void invoke(Integer value, Context context) throws Exception {
 			if (latestSuccessfulChckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING && getRuntimeContext().getIndexOfThisSubtask() == 0 && !exceptionThrown.get()) {
+				while (!enterSnapshotProcess.get()) {
+					Thread.sleep(100);
+				}
 				exceptionThrown.compareAndSet(false, true);
-				// sleep until a new checkpoint is triggered
-				LOG.info("Fail the task.");
-				Thread.sleep(CHECKPOINT_INTERVAL * 2);
 				throw new RuntimeException("Expected exception.");
 			}
 		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) throws Exception {
+			if (latestSuccessfulChckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING && getRuntimeContext().getIndexOfThisSubtask() == 1) {
+				enterSnapshotProcess.compareAndSet(false, true);
+				while (!exceptionThrown.get() || !failoverFinished.get()) {
+					Thread.sleep(100);
+				}
+			}
+		}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {}
 	}
 
 	private static class ExpireSink extends RichSinkFunction<Integer> implements CheckpointListener, CheckpointedFunction {
