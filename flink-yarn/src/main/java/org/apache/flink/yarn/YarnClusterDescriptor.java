@@ -972,6 +972,16 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		final String customApplicationName = customName != null ? customName : applicationName;
 
 		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, customApplicationName.replaceAll(" ", "-"));
+		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER, configuration.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT));
+		if (yarnQueue != null) {
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, this.yarnQueue);
+		}
+		String dc = configuration.getString(ConfigConstants.DC_KEY, null);
+		if (dc != null) {
+			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_DC, dc);
+		} else {
+			LOG.warn("Unable to parse dc.");
+		}
 
 		amContainer.setEnvironment(appMasterEnv);
 

@@ -29,6 +29,7 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
+import org.apache.flink.yarn.YarnConfigKeys;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,6 +68,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
 	private String region;
+	private String cluster;
 
 	// *************************************************************************
 	//     Global Aggregated Metric (add metric name below if needed)
@@ -179,12 +181,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		this.jobName = config.getString("jobname", "flink");
 		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
 
-		// avoid yarn dependency
-		this.region = System.getenv("_FLINK_YARN_DC");
-
-		globalNeededMetrics.add(FULL_RESTARTS_METRIC);
-		globalNeededMetrics.add(CURRENT_OFFSETS_RATE_METRIC);
-		globalNeededMetrics.add(FAILED_CHECKPOINTS_METRIC);
+		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
+		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
 	}
 
 	@Override
@@ -337,6 +335,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		List<TagKv> tags = new ArrayList<>();
 		tags.add(new TagKv("jobname", this.jobName));
 		tags.add(new TagKv("region", this.region));
+		tags.add(new TagKv("cluster", this.cluster));
 		if (key.contains("jobmanager")) {
 			Matcher m = JOB_MANAGER_PATTERN.matcher(key);
 			if (m.find()) {
