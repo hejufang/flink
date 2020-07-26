@@ -1096,6 +1096,9 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_QUEUE, this.yarnQueue.replace(" ", "-"));
 		}
 
+		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER, configuration.getString(
+				ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT));
+
 		if (remotePathKeytab != null) {
 			appMasterEnv.put(YarnConfigKeys.KEYTAB_PATH, remotePathKeytab.toString());
 			String principal = configuration.getString(SecurityOptions.KERBEROS_LOGIN_PRINCIPAL);

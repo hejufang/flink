@@ -78,9 +78,9 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.clientWrapper = new DatabusClientWrapper(config.getString(
 				ConfigConstants.FLINK_DATA_WAREHOUSE_CHANNEL_KEY, ConfigConstants.FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT));
 		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
-		this.cluster = config.getString(ConfigConstants.CLUSTER_NAME_KEY, ConfigConstants.CLUSTER_NAME_DEFAULT);
+		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
 		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
-		this.jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+		this.jobName = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_JOB);
 	}
 
 	@Override
