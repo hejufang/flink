@@ -124,6 +124,7 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		properties.add(CONNECTOR_BATCH_SIZE);
 		properties.add(CONNECTOR_ASYNC_MODE_ENABLED);
 		properties.add(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED);
+		properties.add(CONNECTOR_ROCKETMQ_PROPERTIES + ".*");
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
