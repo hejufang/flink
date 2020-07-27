@@ -65,7 +65,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	private final boolean isPreferCheckpointForRecovery;
 
-	private final boolean failOnInvalidTokens;
+	private boolean failOnInvalidTokens;
 
 	@VisibleForTesting
 	public CheckpointCoordinatorConfiguration(
@@ -85,8 +85,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isExactlyOnce,
 			isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.defaultStrategy(),
-			tolerableCpFailureNumber,
-			false);
+			tolerableCpFailureNumber);
 	}
 
 	public CheckpointCoordinatorConfiguration(
@@ -98,8 +97,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			boolean isExactlyOnce,
 			boolean isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration,
-			int tolerableCpFailureNumber,
-			boolean failOnInvalidTokens) {
+			int tolerableCpFailureNumber) {
 
 		// sanity checks
 		if (checkpointInterval < MINIMAL_CHECKPOINT_TIME || checkpointTimeout < MINIMAL_CHECKPOINT_TIME ||
@@ -117,7 +115,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.isPreferCheckpointForRecovery = isPreferCheckpointForRecovery;
 		this.checkpointSchedulerConfiguration = Preconditions.checkNotNull(checkpointSchedulerConfiguration);
 		this.tolerableCheckpointFailureNumber = tolerableCpFailureNumber;
-		this.failOnInvalidTokens = failOnInvalidTokens;
+		this.failOnInvalidTokens = false;
 	}
 
 	public long getCheckpointInterval() {
@@ -160,6 +158,10 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		return checkpointSchedulerConfiguration;
 	}
 
+	public void setFailOnInvalidTokens(boolean failOnInvalidTokens) {
+		this.failOnInvalidTokens = failOnInvalidTokens;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -177,7 +179,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			checkpointRetentionPolicy == that.checkpointRetentionPolicy &&
 			checkpointSchedulerConfiguration == that.checkpointSchedulerConfiguration &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
-			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber;
+			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber &&
+			failOnInvalidTokens == that.failOnInvalidTokens;
 	}
 
 	@Override
@@ -190,8 +193,9 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				checkpointRetentionPolicy,
 				isExactlyOnce,
 				isPreferCheckpointForRecovery,
-			checkpointSchedulerConfiguration,
-				tolerableCheckpointFailureNumber);
+				checkpointSchedulerConfiguration,
+				tolerableCheckpointFailureNumber,
+				failOnInvalidTokens);
 	}
 
 	@Override
@@ -203,6 +207,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			", maxConcurrentCheckpoints=" + maxConcurrentCheckpoints +
 			", checkpointRetentionPolicy=" + checkpointRetentionPolicy +
 			", tolerableCheckpointFailureNumber=" + tolerableCheckpointFailureNumber +
+			", failOnInvalidTokens=" + failOnInvalidTokens +
 			'}';
 	}
 }

@@ -406,9 +406,11 @@ public class ExecutionGraphBuilder {
 					origin.isExactlyOnce(),
 					origin.isPreferCheckpointForRecovery(),
 					overrideSchedulingConfig,
-					origin.getTolerableCheckpointFailureNumber(),
-					origin.isFailOnInvalidTokens());
+					origin.getTolerableCheckpointFailureNumber());
 			}
+
+			final boolean failOnInvalidTokens = jobManagerConfig.getBoolean(CheckpointingOptions.CHECKPOINT_FAIL_ON_INVALID_TOKENS);
+			chkConfig.setFailOnInvalidTokens(failOnInvalidTokens);
 
 			executionGraph.enableCheckpointing(
 				chkConfig,

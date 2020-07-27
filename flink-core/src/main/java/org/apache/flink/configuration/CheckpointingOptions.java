@@ -216,4 +216,13 @@ public class CheckpointingOptions {
 		.key("checkpoint.scheduler.hourly.offset")
 		.defaultValue(0)
 		.withDescription("The offset of whole hour alignment. E. g. 4 means align with 00:04 hourly.");
+
+	// ------------------------------------------------------------------------
+	//  Others
+	// ------------------------------------------------------------------------
+
+	public static final ConfigOption<Boolean> CHECKPOINT_FAIL_ON_INVALID_TOKENS = ConfigOptions
+		.key("checkpoint.fail-on-invalid-tokens")
+		.defaultValue(false)
+		.withDescription("Whether the job will fail on invalid tokens.");
 }

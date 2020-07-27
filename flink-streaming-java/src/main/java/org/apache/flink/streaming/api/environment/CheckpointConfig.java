@@ -97,9 +97,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	@Deprecated
 	private boolean failOnCheckpointingErrors = true;
 
-	/** Determines if a job will fail immediately when there is a invalid token error. **/
-	private boolean failOnInvalidTokens = false;
-
 	/** Determines if a job will fallback to checkpoint when there is a more recent savepoint. **/
 	private boolean preferCheckpointForRecovery = false;
 
@@ -335,23 +332,6 @@ public class CheckpointConfig implements java.io.Serializable {
 		} else {
 			this.tolerableCheckpointFailureNumber = UNLIMITED_TOLERABLE_FAILURE_NUMBER;
 		}
-	}
-
-
-	/**
-	 * This is a temporary fix to deal with invalid tokens problem, will be removed.
-	 */
-	public boolean isFailOnInvalidTokens() {
-		return failOnInvalidTokens;
-	}
-
-	/**
-	 * Temporary fix. Sets the expected behaviour for job in case that they encounter an invalid token error.
-	 * If this is set as true, job manager would fail immediately.
-	 * If this is set as false, job manager would deal with it as it is a normal checkpoint exception.
-	 */
-	public void setFailOnInvalidTokens(boolean failOnInvalidTokens) {
-		this.failOnInvalidTokens = failOnInvalidTokens;
 	}
 
 	/**
