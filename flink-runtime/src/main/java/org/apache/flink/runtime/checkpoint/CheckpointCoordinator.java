@@ -604,7 +604,8 @@ public class CheckpointCoordinator {
 					// only do the work if the checkpoint is not discarded anyways
 					// note that checkpoint completion discards the pending checkpoint object
 					if (!checkpoint.isDiscarded()) {
-						if (sendActionToHandler(handler -> handler.tryHandleExpireCheckpoint(checkpoint), Collections.singleton(checkpoint))) {
+						if (sendActionToHandler(handler -> handler.tryHandleExpireCheckpoint(checkpoint),
+								Collections.singleton(checkpoint.getCheckpointId()))) {
 							return;
 						}
 
@@ -742,7 +743,7 @@ public class CheckpointCoordinator {
 
 			if (checkpoint != null && !checkpoint.isDiscarded()) {
 				if (sendActionToHandler(handler -> handler.tryHandleDeclineMessage(message),
-						Collections.singleton(checkpoint))) {
+						Collections.singleton(checkpoint.getCheckpointId()))) {
 					LOG.info("Decline message {} is ignored.", message.toString());
 					return;
 				}
@@ -811,7 +812,7 @@ public class CheckpointCoordinator {
 			final PendingCheckpoint checkpoint = pendingCheckpoints.get(checkpointId);
 
 			if (checkpoint != null && !checkpoint.isDiscarded()) {
-				if (sendActionToHandler(handler -> handler.tryHandleAck(message), Collections.singleton(checkpoint))) {
+				if (sendActionToHandler(handler -> handler.tryHandleAck(message), Collections.singleton(checkpoint.getCheckpointId()))) {
 					return false;
 				}
 
@@ -972,8 +973,13 @@ public class CheckpointCoordinator {
 
 		for (ExecutionVertex ev : tasksToCommitTo) {
 			Execution ee = ev.getMainExecution();
+
 			if (ee != null) {
-				ee.notifyCheckpointComplete(checkpointId, timestamp);
+				// ignore if this vertex doesn't finish its own checkpoint
+				if (!sendNotificationToHandler(handler -> handler.tryHandleCompletedNotification(ee.getVertex(), checkpointId),
+						Collections.singleton(checkpointId))) {
+					ee.notifyCheckpointComplete(checkpointId, timestamp);
+				}
 			}
 		}
 	}
@@ -1343,7 +1349,8 @@ public class CheckpointCoordinator {
 
 	public void onTaskFailure(Collection<ExecutionVertex> vertices, CheckpointException exception) {
 		synchronized (lock) {
-			if (sendActionToHandler(handler -> handler.tryHandleTasksFailure(vertices), pendingCheckpoints.values())) {
+			if (sendActionToHandler(handler -> handler.tryHandleTasksFailure(vertices),
+					pendingCheckpoints.values().stream().map(PendingCheckpoint::getCheckpointId).collect(Collectors.toList()))) {
 				return;
 			}
 
@@ -1550,10 +1557,12 @@ public class CheckpointCoordinator {
 	/**
 	 * This should hold CheckpointCoordinator's lock because handler may modify the pending checkpoint.
 	 */
-	private boolean sendActionToHandler(Function<CheckpointHandler, Boolean> function, Collection<PendingCheckpoint> checkpoints) {
+	private boolean sendActionToHandler(
+			Function<CheckpointHandler, Boolean> function,
+			Collection<Long> checkpointIds) {
 		assert Thread.holdsLock(lock);
 
-		if (checkpoints.size() == 0) {
+		if (checkpointIds.size() == 0) {
 			LOG.info("No need to let checkpoint handler do this because there is no pending checkpoints.");
 			return false;
 		}
@@ -1567,7 +1576,8 @@ public class CheckpointCoordinator {
 		}
 
 		if (ack) {
-			List<PendingCheckpoint> finalizedCheckpoints = checkpoints.stream()
+			List<PendingCheckpoint> finalizedCheckpoints = checkpointIds.stream()
+					.map(pendingCheckpoints::get)
 					.filter(PendingCheckpoint::isFullyAcknowledged)
 					.sorted((o1, o2) -> (int) (o1.getCheckpointId() - o2.getCheckpointId())).collect(Collectors.toList());
 			for (PendingCheckpoint checkpoint : finalizedCheckpoints) {
@@ -1578,10 +1588,35 @@ public class CheckpointCoordinator {
 				}
 			}
 			LOG.info("CheckpointHandler handles this action as expected for checkpoints [{}].",
-					checkpoints.stream().map(PendingCheckpoint::getCheckpointId).map(String::valueOf).collect(Collectors.joining(",")));
+					checkpointIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
 			return true;
 		}
 
 		return false;
+	}
+
+	/**
+	 * Similar to {@link #sendActionToHandler(Function, Collection)} but this function will not modify any states
+	 * such as PendingCheckpoints.
+	 */
+	private boolean sendNotificationToHandler(
+			Function<CheckpointHandler, Boolean> function,
+			Collection<Long> checkpointIds) {
+		assert Thread.holdsLock(lock);
+
+		boolean ack;
+		try {
+			ack = function.apply(checkpointHandler);
+		} catch (Throwable t) {
+			LOG.error("CheckpointHandler fails to handle this notification.", t);
+			return false;
+		}
+
+		if (ack) {
+			LOG.info("CheckpointHandler handles this notification as expected for checkpoints [{}].",
+					checkpointIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+		}
+
+		return ack;
 	}
 }

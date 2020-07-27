@@ -58,5 +58,10 @@ public class GlobalCheckpointHandler implements CheckpointHandler {
 	}
 
 	@Override
+	public boolean tryHandleCompletedNotification(ExecutionVertex vertex, long checkpointId) {
+		return false;
+	}
+
+	@Override
 	public void clearCheckpoint(long checkpointId) {}
 }

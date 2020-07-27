@@ -56,9 +56,15 @@ public interface CheckpointHandler {
 
 	/**
 	 * Check whether the ack is available or not.
-	 * @return true if the ack is accepted.
+	 * @return true if the ack can be ignored.
 	 */
 	boolean tryHandleAck(AcknowledgeCheckpoint message);
+
+	/**
+	 * Check whether the notifyCheckpointComplete notification should be sent or not.
+	 * @return true if the notification can be ignored.
+	 */
+	boolean tryHandleCompletedNotification(ExecutionVertex vertex, long checkpointId);
 
 	/**
 	 * Clear a specific checkpoint's data.

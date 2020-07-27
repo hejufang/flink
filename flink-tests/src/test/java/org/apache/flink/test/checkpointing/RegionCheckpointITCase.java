@@ -71,10 +71,11 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 
-		env.addSource(new TestSource(3)).addSink(new ExpireSink());
+		env.addSource(new TestSource(3)).addSink(new ExpireSink(3));
 		env.execute();
 
 		Assert.assertEquals(3, latestSuccessfulChckpointId.get());
+		Assert.assertEquals(1L, ExpireSink.notifications.get());
 	}
 
 	@Test
@@ -106,7 +107,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 		env.setParallelism(4);
 
-		env.addSource(new TestSource(3)).addSink(new ExpireSink());
+		env.addSource(new TestSource(3)).addSink(new ExpireSink(3));
 
 		env.execute();
 
@@ -133,7 +134,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
 		env.setParallelism(4);
 
-		env.addSource(new TestSource(totalCheckpoints)).addSink(new ExpireSink());
+		env.addSource(new TestSource(totalCheckpoints)).addSink(new ExpireSink(totalCheckpoints));
 
 		env.execute();
 
@@ -144,6 +145,12 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		static AtomicBoolean exceptionThrown = new AtomicBoolean(false);
 		static AtomicBoolean enterSnapshotProcess = new AtomicBoolean(false);
 		static AtomicBoolean failoverFinished = new AtomicBoolean(false);
+
+		FailedSink() {
+			exceptionThrown.compareAndSet(true, false);
+			enterSnapshotProcess.compareAndSet(true, false);
+			failoverFinished.compareAndSet(false, true);
+		}
 
 		@Override
 		public void open(Configuration parameters) throws Exception{
@@ -179,11 +186,25 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 
 	private static class ExpireSink extends RichSinkFunction<Integer> implements CheckpointListener, CheckpointedFunction {
 		static AtomicBoolean expired = new AtomicBoolean(false);
+		static AtomicLong notifications = new AtomicLong(0);
+
+		int totalCheckpoints;
+
+		ExpireSink(int totalCheckpoints) {
+			this.totalCheckpoints = totalCheckpoints;
+			expired.compareAndSet(true, false);
+			notifications.set(0);
+		}
+
 		@Override
 		public void invoke(Integer value, Context context) throws Exception {}
 
 		@Override
-		public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+		public void notifyCheckpointComplete(long checkpointId) throws Exception {
+			if (getRuntimeContext().getIndexOfThisSubtask() == 0 && checkpointId <= totalCheckpoints) {
+				notifications.incrementAndGet();
+			}
+		}
 
 		@Override
 		public void snapshotState(FunctionSnapshotContext context) throws Exception {
@@ -211,7 +232,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 
 		@Override
 		public void run(SourceContext<Integer> ctx) throws Exception {
-			while (loop && latestCheckpointId.get() < totalCheckpoints) {
+			while (loop && latestCheckpointId.get() <= totalCheckpoints) {
 				synchronized (ctx.getCheckpointLock()) {
 					ctx.collect(new Random().nextInt(100));
 				}
@@ -228,7 +249,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 
 		@Override
 		public void notifyCheckpointComplete(long checkpointId) throws Exception {
-			if (latestSuccessfulChckpointId.get() < checkpointId) {
+			if (checkpointId <= totalCheckpoints && latestSuccessfulChckpointId.get() < checkpointId) {
 				latestSuccessfulChckpointId.set(checkpointId);
 				LOG.info("New checkpoint {} is completed.", checkpointId);
 			}

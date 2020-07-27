@@ -237,7 +237,32 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			if (!checkpointIdToBadRegions.containsKey(checkpointId)) {
 				checkpointIdToBadRegions.put(checkpointId, new HashSet<>());
 			}
-			return checkpointIdToBadRegions.get(checkpointId).contains(region);
+
+			final boolean result = checkpointIdToBadRegions.get(checkpointId).contains(region);
+
+			if (result) {
+				LOG.info("Ack {} is ignored.", ack);
+			}
+
+			return result;
+		}
+	}
+
+	@Override
+	public boolean tryHandleCompletedNotification(ExecutionVertex vertex, long checkpointId) {
+		synchronized (lock) {
+			final CheckpointRegion region = vertexToRegion.get(vertex.getID());
+			if (!checkpointIdToBadRegions.containsKey(checkpointId)) {
+				return false;
+			}
+
+			final boolean result = checkpointIdToBadRegions.get(checkpointId).contains(region);
+
+			if (result) {
+				LOG.info("Stop sending notifyCheckpointComplete of checkpoint {} to {}.", checkpointId, vertex.getTaskNameWithSubtaskIndex());
+			}
+
+			return result;
 		}
 	}
 
