@@ -483,9 +483,6 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 				case "update":
 					UpdateRequest updateRequest = new UpdateRequest().index(index).id(id);
 					updateRequest.doc(doc, XContentType.JSON);
-					if (version > 0) {
-						updateRequest.version(version);
-					}
 					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
 						updateRequest.routing(routing);
 					}
@@ -499,9 +496,6 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 					UpdateRequest upsertRequest = new UpdateRequest().index(index).id(id);
 					upsertRequest.doc(doc, XContentType.JSON);
 					upsertRequest.docAsUpsert(true);
-					if (version > 0) {
-						upsertRequest.version(version);
-					}
 					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
 						upsertRequest.routing(routing);
 					}
