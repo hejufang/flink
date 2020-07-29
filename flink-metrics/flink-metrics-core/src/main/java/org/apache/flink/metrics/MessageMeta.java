@@ -39,6 +39,10 @@ public class MessageMeta {
 
 	private String metricName;
 
+	private String user;
+
+	private String applicationId;
+
 	public MessageMeta() {}
 
 	public void setTimestamp(long timestamp) {
@@ -97,6 +101,22 @@ public class MessageMeta {
 		this.queue = queue;
 	}
 
+	public String getUser() {
+		return user;
+	}
+
+	public void setUser(String user) {
+		this.user = user;
+	}
+
+	public String getApplicationId() {
+		return applicationId;
+	}
+
+	public void setApplicationId(String applicationId) {
+		this.applicationId = applicationId;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -112,12 +132,14 @@ public class MessageMeta {
 				Objects.equals(region, that.region) &&
 				Objects.equals(cluster, that.cluster) &&
 				Objects.equals(queue, that.queue) &&
-				Objects.equals(metricName, that.metricName);
+				Objects.equals(metricName, that.metricName) &&
+				Objects.equals(user, that.user) &&
+				Objects.equals(applicationId, that.applicationId);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName);
+		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, applicationId);
 	}
 
 	@Override
@@ -130,6 +152,8 @@ public class MessageMeta {
 				", cluster='" + cluster + '\'' +
 				", queue='" + queue + '\'' +
 				", metricName='" + metricName + '\'' +
+				", user='" + user + '\'' +
+				", applicationId='" + applicationId + '\'' +
 				'}';
 	}
 }

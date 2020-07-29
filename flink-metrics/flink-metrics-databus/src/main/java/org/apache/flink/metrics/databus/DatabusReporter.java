@@ -56,6 +56,10 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	private String jobName;
 
+	private String user;
+
+	private String applicationId;
+
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	@Override
@@ -81,6 +85,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
 		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
 		this.jobName = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_JOB);
+		this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
+		this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
 	}
 
 	@Override
@@ -101,6 +107,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 					message.getMeta().setCluster(cluster);
 					message.getMeta().setQueue(queue);
 					message.getMeta().setJobName(jobName);
+					message.getMeta().setUser(user);
+					message.getMeta().setApplicationId(applicationId);
 					message.getMeta().setMetricName(metricName);
 					message.getMeta().setMessageType(messageSet.getMessageType());
 					try {
