@@ -534,7 +534,7 @@ public class CheckpointCoordinator {
 
 		for (ExecutionVertex ev : tasksToWaitFor) {
 			Execution ee = ev.getMainExecution();
-			if (ee != null) {
+			if (ee != null && ee.getState() == ExecutionState.RUNNING) {
 				ackTasks.put(ee.getAttemptId(), ev);
 			} else {
 				LOG.info("Checkpoint acknowledging task {} of job {} is not being executed at the moment. Aborting checkpoint.",
