@@ -23,7 +23,9 @@ import org.apache.flink.annotation.Internal;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The ConsumerCallBridge simply calls methods on the {@link KafkaConsumer}.
@@ -48,6 +50,22 @@ public class KafkaConsumerCallBridge09 {
 
 	public void seekPartitionToEnd(KafkaConsumer<?, ?> consumer, TopicPartition partition) {
 		consumer.seekToEnd(partition);
+	}
+
+	public Map<TopicPartition, Long> getEndOffsets(KafkaConsumer<?, ?> consumer, Collection<TopicPartition> topicPartitions) {
+		throw new UnsupportedOperationException();
+	}
+
+	public Map<TopicPartition, Long> getBeginningOffsets(KafkaConsumer<?, ?> consumer, Collection<TopicPartition> topicPartitions) {
+		throw new UnsupportedOperationException();
+	}
+
+	public void pause(KafkaConsumer<?, ?> consumer, List<TopicPartition> topicPartitions) {
+		throw new UnsupportedOperationException();
+	}
+
+	public void resume(KafkaConsumer<?, ?> consumer, List<TopicPartition> topicPartitions) {
+		throw new UnsupportedOperationException();
 	}
 
 }

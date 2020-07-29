@@ -119,6 +119,8 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				useMetrics,
 				rateLimiter,
 				rateLimitingUnit,
+				0,
+				1,
 				-1);
 	}
 
@@ -139,6 +141,49 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 			boolean useMetrics,
 			FlinkConnectorRateLimiter rateLimiter,
 			RateLimitingUnit rateLimitingUnit,
+			long sampleInterval,
+			long sampleNum) throws Exception {
+		this(
+			sourceContext,
+			assignedPartitionsWithInitialOffsets,
+			watermarksPeriodic,
+			watermarksPunctuated,
+			processingTimeProvider,
+			autoWatermarkInterval,
+			userCodeClassLoader,
+			taskNameWithSubtasks,
+			deserializer,
+			kafkaProperties,
+			pollTimeout,
+			subtaskMetricGroup,
+			consumerMetricGroup,
+			useMetrics,
+			rateLimiter,
+			rateLimitingUnit,
+			sampleInterval,
+			sampleNum,
+			-1);
+	}
+
+	public Kafka09Fetcher(
+			SourceContext<T> sourceContext,
+			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
+			SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic,
+			SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated,
+			ProcessingTimeService processingTimeProvider,
+			long autoWatermarkInterval,
+			ClassLoader userCodeClassLoader,
+			String taskNameWithSubtasks,
+			KafkaDeserializationSchema<T> deserializer,
+			Properties kafkaProperties,
+			long pollTimeout,
+			MetricGroup subtaskMetricGroup,
+			MetricGroup consumerMetricGroup,
+			boolean useMetrics,
+			FlinkConnectorRateLimiter rateLimiter,
+			RateLimitingUnit rateLimitingUnit,
+			long sampleInterval,
+			long sampleNum,
 			long manualCommitInterval) throws Exception {
 		super(
 				sourceContext,
@@ -168,7 +213,9 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				consumerMetricGroup,
 				subtaskMetricGroup,
 				rateLimiter,
-				rateLimitingUnit
+				rateLimitingUnit,
+				sampleInterval,
+				sampleNum
 			);
 
 		if (manualCommitInterval > 0) {

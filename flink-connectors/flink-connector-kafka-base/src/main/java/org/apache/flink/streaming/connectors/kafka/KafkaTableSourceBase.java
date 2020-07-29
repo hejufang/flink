@@ -57,6 +57,8 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_L
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_PARTITION_RANGE;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_SAMPLE_INTERVAL;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_SAMPLE_NUM;
 
 /**
  * A version-agnostic Kafka {@link StreamTableSource}.
@@ -242,6 +244,12 @@ public abstract class KafkaTableSourceBase implements
 			&& RateLimitingUnit.valueList().contains(rateLimitingUnitStr)) {
 			kafkaConsumer.setRateLimitingUnit(RateLimitingUnit.valueOf(rateLimitingUnitStr));
 		}
+
+		// Set sampling strategy.
+		long sampleInterval = Long.parseLong(configurations.getOrDefault(CONNECTOR_SOURCE_SAMPLE_INTERVAL, "0"));
+		long sampleNum = Long.parseLong(configurations.getOrDefault(CONNECTOR_SOURCE_SAMPLE_NUM, "1"));
+		kafkaConsumer.setSampleNum(sampleNum);
+		kafkaConsumer.setSampleInterval(sampleInterval);
 
 		// Set Kafka Source Parallelism
 		int parallelism = Integer.valueOf(configurations.getOrDefault(CONNECTOR_PARALLELISM, "-1"));

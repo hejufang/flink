@@ -23,8 +23,10 @@ import org.apache.flink.annotation.Internal;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The ConsumerCallBridge simply calls the {@link KafkaConsumer#assign(java.util.Collection)} method.
@@ -51,4 +53,25 @@ public class KafkaConsumerCallBridge010 extends KafkaConsumerCallBridge09 {
 	public void seekPartitionToEnd(KafkaConsumer<?, ?> consumer, TopicPartition partition) {
 		consumer.seekToEnd(Collections.singletonList(partition));
 	}
+
+	@Override
+	public Map<TopicPartition, Long> getEndOffsets(KafkaConsumer<?, ?> consumer, Collection<TopicPartition> topicPartitions) {
+		return consumer.endOffsets(topicPartitions);
+	}
+
+	@Override
+	public Map<TopicPartition, Long> getBeginningOffsets(KafkaConsumer<?, ?> consumer, Collection<TopicPartition> topicPartitions) {
+		return consumer.beginningOffsets(topicPartitions);
+	}
+
+	@Override
+	public void pause(KafkaConsumer<?, ?> consumer, List<TopicPartition> topicPartitions) {
+		consumer.pause(topicPartitions);
+	}
+
+	@Override
+	public void resume(KafkaConsumer<?, ?> consumer, List<TopicPartition> topicPartitions) {
+		consumer.resume(topicPartitions);
+	}
+
 }

@@ -231,6 +231,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Rate limiter unit, supported unit: BYTE, RECORD. */
 	protected RateLimitingUnit rateLimitingUnit;
 
+	/** Sample interval, the unit is record. */
+	protected long sampleInterval = 0;
+
+	/** Sample num in each turn. */
+	protected long sampleNum = 1;
+
 	// ------------------------------------------------------------------------
 	//  internal metrics
 	// ------------------------------------------------------------------------
@@ -602,6 +608,22 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public void setRateLimitingUnit(RateLimitingUnit rateLimitingUnit) {
 		this.rateLimitingUnit = rateLimitingUnit;
+	}
+
+	public long getSampleInterval() {
+		return sampleInterval;
+	}
+
+	public void setSampleInterval(long sampleInterval) {
+		this.sampleInterval = sampleInterval;
+	}
+
+	public long getSampleNum() {
+		return sampleNum;
+	}
+
+	public void setSampleNum(long sampleNum) {
+		this.sampleNum = sampleNum;
 	}
 
 	// ------------------------------------------------------------------------

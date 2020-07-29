@@ -84,6 +84,8 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 				useMetrics,
 				rateLimiter,
 				rateLimitingUnit,
+				0,
+				1,
 				-1);
 	}
 
@@ -104,6 +106,49 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 			boolean useMetrics,
 			FlinkConnectorRateLimiter rateLimiter,
 			RateLimitingUnit rateLimitingUnit,
+			long sampleInterval,
+			long sampleNum) throws Exception {
+		super(
+			sourceContext,
+			assignedPartitionsWithInitialOffsets,
+			watermarksPeriodic,
+			watermarksPunctuated,
+			processingTimeProvider,
+			autoWatermarkInterval,
+			userCodeClassLoader,
+			taskNameWithSubtasks,
+			deserializer,
+			kafkaProperties,
+			pollTimeout,
+			subtaskMetricGroup,
+			consumerMetricGroup,
+			useMetrics,
+			rateLimiter,
+			rateLimitingUnit,
+			sampleInterval,
+			sampleNum,
+			-1);
+	}
+
+	public Kafka010Fetcher(
+			SourceContext<T> sourceContext,
+			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
+			SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic,
+			SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated,
+			ProcessingTimeService processingTimeProvider,
+			long autoWatermarkInterval,
+			ClassLoader userCodeClassLoader,
+			String taskNameWithSubtasks,
+			KafkaDeserializationSchema<T> deserializer,
+			Properties kafkaProperties,
+			long pollTimeout,
+			MetricGroup subtaskMetricGroup,
+			MetricGroup consumerMetricGroup,
+			boolean useMetrics,
+			FlinkConnectorRateLimiter rateLimiter,
+			RateLimitingUnit rateLimitingUnit,
+			long sampleInterval,
+			long sampleNum,
 			long manualCommitInterval) throws Exception {
 		super(
 				sourceContext,
@@ -122,6 +167,8 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 				useMetrics,
 				rateLimiter,
 				rateLimitingUnit,
+				sampleInterval,
+				sampleNum,
 				manualCommitInterval);
 	}
 

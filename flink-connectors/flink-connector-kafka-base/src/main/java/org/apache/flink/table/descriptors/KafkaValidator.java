@@ -83,6 +83,10 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	// Partition range to consume
 	public static final String CONNECTOR_SOURCE_PARTITION_RANGE = "connector.source-partition-range";
 
+	// Source sampling
+	public static final String CONNECTOR_SOURCE_SAMPLE_INTERVAL = "connector.source-sample-interval";
+	public static final String CONNECTOR_SOURCE_SAMPLE_NUM = "connector.source-sample-num";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -103,6 +107,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		validateSinkPartitioner(properties);
 
 		validatePartitionRange(properties);
+
+		validateSampling(properties);
 	}
 
 	private void validatePartitionRange(DescriptorProperties properties) {
@@ -169,6 +175,11 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		sinkPartitionerValidators.put(CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH,
 			key -> properties.validateString(CONNECTOR_KEYBY_FIELDS, false, 1));
 		properties.validateEnum(CONNECTOR_SINK_PARTITIONER, true, sinkPartitionerValidators);
+	}
+
+	private void validateSampling(DescriptorProperties properties) {
+		properties.validateLong(CONNECTOR_SOURCE_SAMPLE_INTERVAL, true, 0);
+		properties.validateLong(CONNECTOR_SOURCE_SAMPLE_NUM, true, 1);
 	}
 
 	// utilities

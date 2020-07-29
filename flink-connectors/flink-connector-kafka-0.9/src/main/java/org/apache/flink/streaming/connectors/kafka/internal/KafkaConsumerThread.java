@@ -49,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -130,6 +131,36 @@ public class KafkaConsumerThread extends Thread {
 	/** Rate limiter unit, supported unit: BYTE(default), RECORD. */
 	private RateLimitingUnit rateLimitingUnit = RateLimitingUnit.BYTE;
 
+	/** Number of records between two sampling operations.*/
+	private final long sampleInterval;
+
+	/** Number of records that one sampling operation produces.*/
+	private final long sampleNum;
+
+	/** One sample segment is composed of one sampling interval and one sampling operation.
+	 * The length of sample segment is sum of {{@link #sampleInterval}} and {{@link #sampleNum}}.*/
+	private final long sampleSegmentLen;
+
+	/**
+	 * A list of partitions which are temporarily suspended because their latest offsets
+	 * haven't reached the sample interval, from being consumed by the thread. They will
+	 * be resumed before next poll.
+	 */
+	private final List<TopicPartition> suspendPartitions;
+
+	/**
+	 * The keys are partitions that need to be consumed next turn, because last poll
+	 * didn't cover the requested sample amounts. The values are the amounts to be consumed.
+	 */
+	private final Map<TopicPartition, Long> toConsumeMap;
+
+	/**
+	 * The keys are all partitions subscribed to this consumer, the values are offsets that are
+	 * processed last poll. Because the commit operations cannot be called immediately after poll,
+	 * we cannot use last committed offsets.
+	 */
+	private final Map<TopicPartition, Long> lastProcessedMap;
+
 	public KafkaConsumerThread(
 			Logger log,
 			Handover handover,
@@ -142,7 +173,9 @@ public class KafkaConsumerThread extends Thread {
 			MetricGroup consumerMetricGroup,
 			MetricGroup subtaskMetricGroup,
 			FlinkConnectorRateLimiter rateLimiter,
-			RateLimitingUnit rateLimitingUnit) {
+			RateLimitingUnit rateLimitingUnit,
+			long sampleInterval,
+			long sampleNum) {
 
 		super(threadName);
 		setDaemon(true);
@@ -172,6 +205,58 @@ public class KafkaConsumerThread extends Thread {
 			this.rateLimitingUnit = rateLimitingUnit;
 		}
 		log.info("rateLimitingUnit: {}", this.rateLimitingUnit);
+
+		this.sampleInterval = sampleInterval;
+		this.sampleNum = sampleNum;
+		this.sampleSegmentLen = sampleInterval + sampleNum;
+		this.suspendPartitions = new ArrayList<>();
+		this.toConsumeMap = new HashMap<>();
+		this.lastProcessedMap = new HashMap<>();
+	}
+
+	public KafkaConsumerThread(
+			Logger log,
+			Handover handover,
+			Properties kafkaProperties,
+			ClosableBlockingQueue<KafkaTopicPartitionState<TopicPartition>> unassignedPartitionsQueue,
+			KafkaConsumerCallBridge09 consumerCallBridge,
+			String threadName,
+			long pollTimeout,
+			boolean useMetrics,
+			MetricGroup consumerMetricGroup,
+			MetricGroup subtaskMetricGroup,
+			FlinkConnectorRateLimiter rateLimiter,
+			RateLimitingUnit rateLimitingUnit) {
+		this(
+			log,
+			handover,
+			kafkaProperties,
+			unassignedPartitionsQueue,
+			consumerCallBridge,
+			threadName,
+			pollTimeout,
+			useMetrics,
+			consumerMetricGroup,
+			subtaskMetricGroup,
+			rateLimiter,
+			rateLimitingUnit,
+			0,
+			1
+		);
+	}
+
+	private void initProcessedMap() {
+		Set<TopicPartition> toProcessPartitions = consumer.assignment();
+		Map<TopicPartition, Long> earliestOffsetMap = consumerCallBridge
+			.getBeginningOffsets(consumer, toProcessPartitions);
+		for (TopicPartition partition : toProcessPartitions) {
+			lastProcessedMap.put(partition, getLastCommittedOffset(earliestOffsetMap, partition));
+		}
+	}
+
+	private long getLastCommittedOffset(Map<TopicPartition, Long> earliestOffsetMap, TopicPartition partition) {
+		OffsetAndMetadata lastCommittedInfo = consumer.committed(partition);
+		return (lastCommittedInfo == null) ? earliestOffsetMap.getOrDefault(partition, 0L) : lastCommittedInfo.offset();
 	}
 
 	// ------------------------------------------------------------------------
@@ -231,6 +316,10 @@ public class KafkaConsumerThread extends Thread {
 			// they are carried across via re-adding them to the unassigned partitions queue
 			List<KafkaTopicPartitionState<TopicPartition>> newPartitions;
 
+			if (sampleInterval > 0){
+				initProcessedMap();
+			}
+
 			// main fetch loop
 			while (running) {
 
@@ -253,8 +342,7 @@ public class KafkaConsumerThread extends Thread {
 				try {
 					if (hasAssignedPartitions) {
 						newPartitions = unassignedPartitionsQueue.pollBatch();
-					}
-					else {
+					} else {
 						// if no assigned partitions block until we get at least one
 						// instead of hot spinning this loop. We rely on a fact that
 						// unassignedPartitionsQueue will be closed on a shutdown, so
@@ -276,7 +364,7 @@ public class KafkaConsumerThread extends Thread {
 				// get the next batch of records, unless we did not manage to hand the old batch over
 				if (records == null) {
 					try {
-						records = getRecordsFromKafka();
+						records = (sampleInterval > 0) ? getSampledRecordsAfterInterval() : getRecordsFromKafka();
 					}
 					catch (WakeupException we) {
 						continue;
@@ -582,6 +670,110 @@ public class KafkaConsumerThread extends Thread {
 			rateLimiter.acquire(requiredNum);
 		}
 		return records;
+	}
+
+	/** Wait for subscribed partitions ready to be fetched. If all partitions are not ready, sleep the thread.
+	 * In the case that last call has got enough sampled records, ready state means unprocessed records amount
+	 * to {{@link #sampleSegmentLen}}.
+	 * In the case that last call hasn't got enough sampled records, ready state means unprocessed records amount
+	 * to {{@link #sampleSegmentLen}} plus number of records left to be sampling last call.
+	 */
+	private void runWaitingLoop(Set<TopicPartition> toProcessPartitions) throws InterruptedException {
+		Map<TopicPartition, Long> latestOffsetMap, earliestOffsetMap;
+		earliestOffsetMap = consumerCallBridge.getBeginningOffsets(consumer, toProcessPartitions);
+		long latestOffset, lastProcessed;
+		boolean toWait = true;
+		while (running && toWait) {
+			consumerCallBridge.resume(consumer, suspendPartitions);
+			suspendPartitions.clear();
+			latestOffsetMap = consumerCallBridge.getEndOffsets(consumer, toProcessPartitions);
+			//Check each partitions if they are ready to be sampled, if not, pause the partitions.
+			for (TopicPartition partition : toProcessPartitions) {
+				latestOffset = latestOffsetMap.getOrDefault(partition, 0L);
+				lastProcessed = lastProcessedMap
+					.getOrDefault(partition, getLastCommittedOffset(earliestOffsetMap, partition));
+				if ((latestOffset - lastProcessed) >=
+						(toConsumeMap.getOrDefault(partition, 0L) + sampleSegmentLen)) {
+					if (!toConsumeMap.containsKey(partition)) {
+						consumer.seek(partition, lastProcessed + sampleInterval);
+					}
+				} else {
+					suspendPartitions.add(partition);
+				}
+			}
+			consumerCallBridge.pause(consumer, suspendPartitions);
+			if (suspendPartitions.size() != toProcessPartitions.size()) {
+				toWait = false;
+			} else {
+				sleep(100);
+			}
+		}
+	}
+
+	/**
+	 * Sample data in a segment, when the segment is very long, sample can be done several times.
+	 * Note that except the root call of this method, sampleLen is always equal to {{@link #sampleNum}}.
+	 * In the root call, sampleLen can be either {{@link #sampleNum}} or toConsumeSize get from {{@link #toConsumeMap}}.
+	 * Also, this method will return the toConsumeSize that next sampling call should cover.
+	 * @return the toConsumeSize that next sampling call should cover.
+	 */
+	private long sampleInSegment(
+			List<ConsumerRecord<byte[], byte[]>> candidates,
+			List<ConsumerRecord<byte[], byte[]>> sampleData,
+			long sampleLen) {
+		if (candidates.size() == 0) {
+			return 0;
+		} else if (candidates.size() < sampleLen) {
+			sampleData.addAll(candidates);
+			return sampleLen - candidates.size();
+		} else if (candidates.size() < sampleLen + sampleInterval) {
+			sampleData.addAll(candidates.subList(0, Math.toIntExact(sampleLen)));
+			return 0;
+		} else {
+			sampleData.addAll(candidates.subList(0, Math.toIntExact(sampleLen)));
+			return sampleInSegment(
+					candidates.subList(Math.toIntExact(sampleLen + sampleInterval), candidates.size()),
+					sampleData,
+					sampleNum);
+		}
+	}
+
+	/**
+	 * Get sampled records from Kafka. In one sampling segment, we skip {{@link #sampleInterval}} records,
+	 * and then return {{@link #sampleNum}} records. Because we cannot control the number of records fetched
+	 * from Kafka, we may not get enough sampled records in one call. Therefore, we should record the progress
+	 * of sampling each time when this method is called.
+	 * @return ConsumerRecords
+	 * @throws InterruptedException
+	 */
+	private ConsumerRecords<byte[], byte[]> getSampledRecordsAfterInterval() throws InterruptedException {
+		Set<TopicPartition> toProcessPartitions = consumer.assignment();
+
+		runWaitingLoop(toProcessPartitions);
+
+		ConsumerRecords<byte[], byte[]> records = consumer.poll(pollTimeout);
+
+		Map<TopicPartition, List<ConsumerRecord<byte[], byte[]>>> sampledRecords = new HashMap<>();
+		long sampleLen, leftToConsume;
+		List<ConsumerRecord<byte[], byte[]>> tmpList = new ArrayList<>();
+		for (TopicPartition partition : toProcessPartitions) {
+			List<ConsumerRecord<byte[], byte[]>> candidates = records.records(partition);
+			if (candidates.size() == 0) {
+				continue;
+			}
+			tmpList.clear();
+			sampleLen = toConsumeMap.getOrDefault(partition, sampleNum);
+			leftToConsume = sampleInSegment(candidates, tmpList, sampleLen);
+			if (leftToConsume > 0){
+				toConsumeMap.put(partition, leftToConsume);
+			} else {
+				toConsumeMap.remove(partition);
+			}
+			lastProcessedMap.put(partition, tmpList.get(tmpList.size() - 1).offset());
+			sampledRecords.put(partition, tmpList);
+		}
+
+		return new ConsumerRecords<>(sampledRecords);
 	}
 
 
