@@ -32,6 +32,8 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.accumulators.StringifiedAccumulatorResult;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.blob.VoidBlobWriter;
@@ -73,6 +75,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
@@ -86,6 +89,7 @@ import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.types.Either;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
@@ -343,6 +347,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private FailoverTopology failoverTopology;
 
+	private final RemoteBlacklistReporter remoteBlacklistReporter;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -538,7 +544,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			scheduleMode,
 			allowQueuedScheduling,
 			false,
-			false);
+			false,
+			BlacklistUtil.createNoOpRemoteBlacklistReporter());
 	}
 
 	public ExecutionGraph(
@@ -560,7 +567,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			ScheduleMode scheduleMode,
 			boolean allowQueuedScheduling,
 			boolean scheduleTaskFairly,
-			boolean isRecoverable) throws IOException {
+			boolean isRecoverable,
+			RemoteBlacklistReporter remoteBlacklistReporter) throws IOException {
 
 		checkNotNull(futureExecutor);
 
@@ -629,6 +637,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		this.scheduleTaskFairly = scheduleTaskFairly;
 		this.isRecoverable = isRecoverable;
+
+		this.remoteBlacklistReporter = remoteBlacklistReporter;
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
@@ -1319,6 +1329,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 					ongoingSchedulingFuture.cancel(false);
 				}
 
+				if (t instanceof NoResourceAvailableException) {
+					remoteBlacklistReporter.clearBlacklist();
+				}
 				// we build a future that is complete once all vertices have reached a terminal state
 				final ConjunctFuture<Void> allTerminal = cancelVerticesAsync();
 				FutureUtils.assertNoException(allTerminal.handle(
@@ -1935,6 +1948,14 @@ public class ExecutionGraph implements AccessExecutionGraph {
 						checkpointCoordinator.failUnacknowledgedPendingCheckpointsFor(execution.getAttemptId(), ex);
 					}
 
+					TaskManagerLocation taskManagerLocation = execution.getAssignedResourceLocation();
+					if (taskManagerLocation != null) {
+						remoteBlacklistReporter.onFailure(taskManagerLocation.getFQDNHostname(), taskManagerLocation.getResourceID(), ex, System.currentTimeMillis());
+					} else if (ex instanceof NoResourceAvailableException) {
+						remoteBlacklistReporter.clearBlacklist();
+					} else {
+						LOG.info("taskManagerLocation is null, not report to blacklist.");
+					}
 					failoverStrategy.onTaskFailure(execution, ex);
 				}
 				catch (Throwable t) {

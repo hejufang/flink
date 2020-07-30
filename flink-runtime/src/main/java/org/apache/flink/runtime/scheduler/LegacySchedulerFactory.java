@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategyFactory;
@@ -65,7 +66,8 @@ public class LegacySchedulerFactory implements SchedulerNGFactory {
 			final JobManagerJobMetricGroup jobManagerJobMetricGroup,
 			final Time slotRequestTimeout,
 			final ShuffleMaster<?> shuffleMaster,
-			final PartitionTracker partitionTracker) throws Exception {
+			final PartitionTracker partitionTracker,
+			final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
 
 		return new LegacyScheduler(
 			log,
@@ -83,6 +85,7 @@ public class LegacySchedulerFactory implements SchedulerNGFactory {
 			jobManagerJobMetricGroup,
 			slotRequestTimeout,
 			shuffleMaster,
-			partitionTracker);
+			partitionTracker,
+			remoteBlacklistReporter);
 	}
 }

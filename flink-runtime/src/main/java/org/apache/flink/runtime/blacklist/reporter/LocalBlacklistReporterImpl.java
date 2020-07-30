@@ -16,49 +16,30 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.blacklisttracker;
+package org.apache.flink.runtime.blacklist.reporter;
 
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 
 /**
- * TaskManager Failure, only the last Exception.
+ * Implement of Blacklist Reporter.
  */
-public class TaskManagerFailure {
-	private String hostname;
-	private ResourceID resourceID;
-	private String exception;
-	private long timestamp;
+public class LocalBlacklistReporterImpl implements BlacklistReporter {
+	private final BlacklistTracker blacklistTracker;
+	private final BlacklistUtil.FailureType failureType = BlacklistUtil.FailureType.TASK_MANAGER;
 
-	public TaskManagerFailure(String hostname, ResourceID resourceID, String exception, long timestamp) {
-		this.hostname = hostname;
-		this.resourceID = resourceID;
-		this.exception = exception;
-		this.timestamp = timestamp;
-	}
-
-	public String getHostname() {
-		return hostname;
-	}
-
-	public ResourceID getResourceID() {
-		return resourceID;
-	}
-
-	public String getException() {
-		return exception;
-	}
-
-	public long getTimestamp() {
-		return timestamp;
+	public LocalBlacklistReporterImpl(BlacklistTracker blacklistTracker) {
+		this.blacklistTracker = blacklistTracker;
 	}
 
 	@Override
-	public String toString() {
-		return "TaskManagerFailure{" +
-				"hostname='" + hostname + '\'' +
-				", resourceID='" + resourceID + '\'' +
-				", exception=" + exception +
-				", timestamp=" + timestamp +
-				'}';
+	public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
+		blacklistTracker.onFailure(failureType, hostname, resourceID, t, timestamp);
+	}
+
+	@Override
+	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) {
+		blacklistTracker.addIgnoreExceptionClass(exceptionClass);
 	}
 }

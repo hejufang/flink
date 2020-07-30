@@ -26,8 +26,10 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
-import org.apache.flink.runtime.blacklisttracker.BlacklistTracker;
-import org.apache.flink.runtime.blacklisttracker.BlacklistTrackerFactory;
+import org.apache.flink.runtime.blacklist.BlacklistActions;
+import org.apache.flink.runtime.blacklist.reporter.BlacklistReporter;
+import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -143,7 +145,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	/** The slot manager maintains the available slots. */
 	private final SlotManager slotManager;
 
-	protected BlacklistTracker sessionBlacklistTracker;
+	protected final BlacklistTracker blacklistTracker;
+
+	protected final BlacklistReporter blacklistReporter;
 
 	private final ClusterInformation clusterInformation;
 
@@ -235,7 +239,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.taskExecutors = new HashMap<>(8);
 		this.taskExecutorGatewayFutures = new HashMap<>(8);
 		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
-		this.sessionBlacklistTracker = BlacklistTrackerFactory.createBlacklistTracker(flinkConfig);
+		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig);
+		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
 	}
 
 	public Map<ResourceID, WorkerRegistration<WorkerType>> getTaskExecutors() {
@@ -306,7 +311,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 
 		try {
-			sessionBlacklistTracker.close();
+			blacklistTracker.close();
 		} catch (Exception e) {
 			exception = ExceptionUtils.firstOrSuppressed(e, exception);
 		}
@@ -699,6 +704,70 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
+	@Override
+	public void clearBlacklist(JobID jobID, JobMasterId jobMasterId, Time timeout) {
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobID);
+		if (jobManagerRegistration != null) {
+			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
+				blacklistTracker.clearAll();
+			} else {
+				log.warn("The job leader's id {} does not match the received id {}.",
+						jobManagerRegistration.getJobMasterId(), jobMasterId);
+			}
+		} else {
+			log.warn("Could not find registered job manager for job {}.", jobID);
+		}
+	}
+
+	@Override
+	public void onTaskFailure(
+			JobID jobID,
+			JobMasterId jobMasterId,
+			BlacklistUtil.FailureType failureType,
+			String hostname,
+			ResourceID taskManagerId,
+			Throwable cause,
+			long timestamp,
+			Time timeout) {
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobID);
+		if (jobManagerRegistration != null) {
+			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
+				final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
+
+				if (taskExecutor == null) {
+					log.debug("Blacklist will not update, because taskExecutor {} not exists.", taskManagerId);
+				} else {
+					blacklistTracker.onFailure(
+							failureType,
+							taskExecutor.getTaskManagerLocation().getFQDNHostname(),
+							taskManagerId,
+							cause,
+							timestamp);
+				}
+			} else {
+				log.warn("The job leader's id {} does not match the received id {}.",
+						jobManagerRegistration.getJobMasterId(), jobMasterId);
+			}
+		} else {
+			log.warn("Could not find registered job manager for job {}.", jobID);
+		}
+	}
+
+	@Override
+	public void addIgnoreExceptionClass(JobID jobID, JobMasterId jobMasterId, Class<? extends Throwable> exceptionClass) {
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobID);
+		if (jobManagerRegistration != null) {
+			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
+				blacklistTracker.addIgnoreExceptionClass(exceptionClass);
+			} else {
+				log.warn("The job leader's id {} does not match the received id {}.",
+						jobManagerRegistration.getJobMasterId(), jobMasterId);
+			}
+		} else {
+			log.warn("Could not find registered job manager for job {}.", jobID);
+		}
+	}
+
 	// ------------------------------------------------------------------------
 	//  Internal methods
 	// ------------------------------------------------------------------------
@@ -1020,22 +1089,19 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 * Record failure number of worker in ResourceManagers. If maximum failure rate is detected,
 	 * then cancel all pending requests.
 	 */
-	@VisibleForTesting
 	protected void recordWorkerFailure() {
 		failureRater.markFailure(SystemClock.getInstance());
 		if (failureRater.exceedsFailureRate()) {
 			cancelAllPendingSlotRequests(new MaximumFailedTaskManagerExceedingException(
 				new RuntimeException(String.format("Maximum number of failed workers %f"
 						+ " is detected in Resource Manager", failureRater.getCurrentFailureRate()))));
-
 		}
-
 	}
 
 	protected void recordWorkerFailure(String hostname, ResourceID resourceID, Throwable cause) {
 		recordWorkerFailure();
 		try {
-			sessionBlacklistTracker.taskManagerFailure(hostname, resourceID, cause, System.currentTimeMillis());
+			blacklistReporter.onFailure(hostname, resourceID, cause, System.currentTimeMillis());
 		} catch (Exception e) {
 			log.warn("Report failure to blacklist error.", e);
 		}
@@ -1129,7 +1195,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		startHeartbeatServices();
 
 		slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
-		sessionBlacklistTracker.start(getMainThreadExecutor(), new ResourceActionsImpl());
+		blacklistTracker.start(getMainThreadExecutor(), new BlacklistActionsImpl());
 	}
 
 	/**
@@ -1147,7 +1213,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 				slotManager.suspend();
 
-				sessionBlacklistTracker.clearAll();
+				blacklistTracker.clearAll();
 
 				stopHeartbeatServices();
 
@@ -1335,7 +1401,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				}
 			}
 		}
+	}
 
+	private class BlacklistActionsImpl implements BlacklistActions {
 		@Override
 		public void notifyBlacklistUpdated() {
 			validateRunsInMainThread();

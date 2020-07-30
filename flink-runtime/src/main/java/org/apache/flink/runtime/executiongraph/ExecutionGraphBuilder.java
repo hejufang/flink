@@ -28,6 +28,8 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.JobException;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
@@ -110,6 +112,47 @@ public class ExecutionGraphBuilder {
 			ShuffleMaster<?> shuffleMaster,
 			PartitionTracker partitionTracker) throws JobExecutionException, JobException {
 
+		final RemoteBlacklistReporter remoteBlacklistReporter = BlacklistUtil.createNoOpRemoteBlacklistReporter();
+
+		return buildGraph(
+				prior,
+				jobGraph,
+				jobManagerConfig,
+				futureExecutor,
+				ioExecutor,
+				slotProvider,
+				classLoader,
+				recoveryFactory,
+				rpcTimeout,
+				restartStrategy,
+				metrics,
+				blobWriter,
+				allocationTimeout,
+				log,
+				shuffleMaster,
+				partitionTracker,
+				remoteBlacklistReporter);
+	}
+
+	public static ExecutionGraph buildGraph(
+			@Nullable ExecutionGraph prior,
+			JobGraph jobGraph,
+			Configuration jobManagerConfig,
+			ScheduledExecutorService futureExecutor,
+			Executor ioExecutor,
+			SlotProvider slotProvider,
+			ClassLoader classLoader,
+			CheckpointRecoveryFactory recoveryFactory,
+			Time rpcTimeout,
+			RestartStrategy restartStrategy,
+			MetricGroup metrics,
+			BlobWriter blobWriter,
+			Time allocationTimeout,
+			Logger log,
+			ShuffleMaster<?> shuffleMaster,
+			PartitionTracker partitionTracker,
+			RemoteBlacklistReporter remoteBlacklistReporter) throws JobExecutionException, JobException {
+
 		final FailoverStrategy.Factory failoverStrategy =
 			FailoverStrategyLoader.loadFailoverStrategy(jobManagerConfig, log);
 
@@ -130,27 +173,29 @@ public class ExecutionGraphBuilder {
 			log,
 			shuffleMaster,
 			partitionTracker,
-			failoverStrategy);
+			failoverStrategy,
+			remoteBlacklistReporter);
 	}
 
 	public static ExecutionGraph buildGraph(
-		@Nullable ExecutionGraph prior,
-		JobGraph jobGraph,
-		Configuration jobManagerConfig,
-		ScheduledExecutorService futureExecutor,
-		Executor ioExecutor,
-		SlotProvider slotProvider,
-		ClassLoader classLoader,
-		CheckpointRecoveryFactory recoveryFactory,
-		Time rpcTimeout,
-		RestartStrategy restartStrategy,
-		MetricGroup metrics,
-		BlobWriter blobWriter,
-		Time allocationTimeout,
-		Logger log,
-		ShuffleMaster<?> shuffleMaster,
-		PartitionTracker partitionTracker,
-		FailoverStrategy.Factory failoverStrategyFactory) throws JobExecutionException, JobException {
+			@Nullable ExecutionGraph prior,
+			JobGraph jobGraph,
+			Configuration jobManagerConfig,
+			ScheduledExecutorService futureExecutor,
+			Executor ioExecutor,
+			SlotProvider slotProvider,
+			ClassLoader classLoader,
+			CheckpointRecoveryFactory recoveryFactory,
+			Time rpcTimeout,
+			RestartStrategy restartStrategy,
+			MetricGroup metrics,
+			BlobWriter blobWriter,
+			Time allocationTimeout,
+			Logger log,
+			ShuffleMaster<?> shuffleMaster,
+			PartitionTracker partitionTracker,
+			FailoverStrategy.Factory failoverStrategyFactory,
+			RemoteBlacklistReporter remoteBlacklistReporter) throws JobExecutionException, JobException {
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
@@ -203,7 +248,8 @@ public class ExecutionGraphBuilder {
 					jobGraph.getScheduleMode(),
 					jobGraph.getAllowQueuedScheduling(),
 					scheduleTaskFairly,
-					isRecoverable);
+					isRecoverable,
+					remoteBlacklistReporter);
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}

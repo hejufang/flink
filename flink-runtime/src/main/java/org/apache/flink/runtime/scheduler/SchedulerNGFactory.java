@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.io.network.partition.PartitionTracker;
@@ -41,20 +42,21 @@ import java.util.concurrent.ScheduledExecutorService;
 public interface SchedulerNGFactory {
 
 	SchedulerNG createInstance(
-		Logger log,
-		JobGraph jobGraph,
-		BackPressureStatsTracker backPressureStatsTracker,
-		Executor ioExecutor,
-		Configuration jobMasterConfiguration,
-		SlotProvider slotProvider,
-		ScheduledExecutorService futureExecutor,
-		ClassLoader userCodeLoader,
-		CheckpointRecoveryFactory checkpointRecoveryFactory,
-		Time rpcTimeout,
-		BlobWriter blobWriter,
-		JobManagerJobMetricGroup jobManagerJobMetricGroup,
-		Time slotRequestTimeout,
-		ShuffleMaster<?> shuffleMaster,
-		PartitionTracker partitionTracker) throws Exception;
+			Logger log,
+			JobGraph jobGraph,
+			BackPressureStatsTracker backPressureStatsTracker,
+			Executor ioExecutor,
+			Configuration jobMasterConfiguration,
+			SlotProvider slotProvider,
+			ScheduledExecutorService futureExecutor,
+			ClassLoader userCodeLoader,
+			CheckpointRecoveryFactory checkpointRecoveryFactory,
+			Time rpcTimeout,
+			BlobWriter blobWriter,
+			JobManagerJobMetricGroup jobManagerJobMetricGroup,
+			Time slotRequestTimeout,
+			ShuffleMaster<?> shuffleMaster,
+			PartitionTracker partitionTracker,
+			RemoteBlacklistReporter remoteBlacklistReporter) throws Exception;
 
 }

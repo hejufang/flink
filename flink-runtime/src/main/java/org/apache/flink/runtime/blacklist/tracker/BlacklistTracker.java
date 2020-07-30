@@ -16,27 +16,31 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.blacklisttracker;
+package org.apache.flink.runtime.blacklist.tracker;
 
+import org.apache.flink.runtime.blacklist.BlacklistActions;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
-import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Interface for Blacklist tracker.
  */
 public interface BlacklistTracker extends AutoCloseable {
 
-	void start(ComponentMainThreadExecutor mainThreadExecutor, ResourceActions newResourceActions);
-
-	void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass);
+	void start(ComponentMainThreadExecutor mainThreadExecutor, BlacklistActions blacklistActions);
 
 	void clearAll();
 
-	void taskManagerFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp);
+	void onFailure(BlacklistUtil.FailureType failureType, String hostname, ResourceID resourceID, Throwable cause, long timestamp);
 
-	Map<String, TaskManagerFailure> getBlackedHosts();
+	Map<String, HostFailure> getBlackedHosts();
 
+	Set<ResourceID> getBlackedResources(BlacklistUtil.FailureType failureType, String hostname);
+
+	void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass);
 }

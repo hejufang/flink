@@ -21,6 +21,8 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.VoidBlobWriter;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointRecoveryFactory;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
@@ -191,6 +193,7 @@ public class LegacySchedulerBatchSchedulingTest extends TestLogger {
 
 	private LegacyScheduler createLegacyScheduler(JobGraph jobGraph, SlotPool slotPool, ComponentMainThreadExecutor mainThreadExecutor, Time slotRequestTimeout) throws Exception {
 		final Scheduler scheduler = createScheduler(slotPool, mainThreadExecutor);
+		final RemoteBlacklistReporter remoteBlacklistReporter = BlacklistUtil.createNoOpRemoteBlacklistReporter();
 		final LegacyScheduler legacyScheduler = new LegacyScheduler(
 			LOG,
 			jobGraph,
@@ -207,7 +210,8 @@ public class LegacySchedulerBatchSchedulingTest extends TestLogger {
 			UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup(),
 			slotRequestTimeout,
 			NettyShuffleMaster.INSTANCE,
-			NoOpPartitionTracker.INSTANCE);
+			NoOpPartitionTracker.INSTANCE,
+			remoteBlacklistReporter);
 
 		legacyScheduler.setMainThreadExecutor(mainThreadExecutor);
 

@@ -29,7 +29,8 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
-import org.apache.flink.runtime.blacklisttracker.TaskManagerFailure;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -328,7 +329,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			}
 		}
 
-		sessionBlacklistTracker.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
+		blacklistReporter.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
 
 		this.env = env;
 		this.workerNodeMap = new ConcurrentHashMap<>();
@@ -703,7 +704,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onBlacklistUpdated() {
-		Map<String, TaskManagerFailure> newBlackedHosts = sessionBlacklistTracker.getBlackedHosts();
+		Map<String, HostFailure> newBlackedHosts = blacklistTracker.getBlackedHosts();
 
 		Set<String> blacklistAddition = new HashSet<>(newBlackedHosts.keySet());
 		blacklistAddition.removeAll(yarnBlackedHosts);
@@ -717,11 +718,27 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		log.info("BlacklistUpdated, yarnBlackedHosts: {}, blacklistAddition: {}, blacklistRemoval: {}",
 				yarnBlackedHosts, blacklistAddition, blacklistRemoval);
 
+		// release all blacked containers.
+		newBlackedHosts.keySet().forEach(hostname -> {
+			Set<ResourceID> resourceIDS = blacklistTracker.getBlackedResources(BlacklistUtil.FailureType.TASK, hostname);
+			resourceIDS.forEach(resourceID -> {
+				if (workerNodeMap.containsKey(resourceID)) {
+					WorkerRegistration<YarnWorkerNode> registration = getTaskExecutors().get(resourceID);
+					if (registration != null) {
+						releaseResource(
+								registration.getInstanceID(),
+								new Exception("worker " + resourceID + " in blacklist."));
+					}
+				}
+			});
+		});
+
 		// clear and re-add all tags.
 		blacklistGauge.reset();
-		for (Map.Entry<String, TaskManagerFailure> entry : newBlackedHosts.entrySet()) {
+		for (Map.Entry<String, HostFailure> entry : newBlackedHosts.entrySet()) {
 			String host = entry.getKey();
-			String reason = entry.getValue().getException();
+			String reason = entry.getValue().getException().getMessage();
+			BlacklistUtil.FailureType failureType = entry.getValue().getFailureType();
 			if (reason != null) {
 				reason = reason.replaceAll(" ", "_").substring(0, Math.min(30, reason.length()));
 			}
@@ -731,6 +748,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					new TagGaugeStore.TagValuesBuilder()
 							.addTagValue("blackedHost", host)
 							.addTagValue("reason", reason)
+							.addTagValue("type", failureType.name())
 							.build());
 		}
 	}
@@ -788,7 +806,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 									onFatalError(new RuntimeException(fatalMessage));
 								}
 							}
-							sessionBlacklistTracker.clearAll();
+							blacklistTracker.clearAll();
 							scheduleRunAsync(
 								this::recordFailureAndStartNewWorkerIfNeeded,
 								flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS),
@@ -881,16 +899,23 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					executor.execute(new Runnable() {
 						@Override
 						public void run() {
+							boolean isStartContainerError = true;
 							try {
-								long ts = System.currentTimeMillis();
-								// Context information used to start a TaskExecutor Java process
-								ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
-									container.getResource(),
-									containerIdStr,
-									container.getNodeId().getHost());
-								log.info("Create context for container {} take {} milliseconds",
-										containerIdStr,
-										System.currentTimeMillis() - ts);
+								ContainerLaunchContext taskExecutorLaunchContext;
+								try {
+									long ts = System.currentTimeMillis();
+									// Context information used to start a TaskExecutor Java process
+									taskExecutorLaunchContext = createTaskExecutorLaunchContext(
+											container.getResource(),
+											containerIdStr,
+											container.getNodeId().getHost());
+									log.info("Create context for container {} take {} milliseconds",
+											containerIdStr,
+											System.currentTimeMillis() - ts);
+								} catch (Throwable t) {
+									isStartContainerError = false;
+									throw t;
+								}
 								startingContainers.put(resourceId, System.currentTimeMillis());
 								if (nmClientAsyncEnabled) {
 									nodeManagerClientAsync.startContainerAsync(container, taskExecutorLaunchContext);
@@ -903,10 +928,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								// release the failed container
 								removeContainer(resourceId);
 								resourceManagerClient.releaseAssignedContainer(container.getId());
-								recordFailureAndStartNewWorkerIfNeeded(
-										yarnWorkerNode.getContainer().getNodeId().getHost(),
-										resourceId,
-										t);
+								if (isStartContainerError) {
+									recordFailureAndStartNewWorkerIfNeeded(
+											yarnWorkerNode.getContainer().getNodeId().getHost(),
+											resourceId,
+											t);
+								} else {
+									recordFailureAndStartNewWorkerIfNeeded();
+								}
 							}
 						}
 					});

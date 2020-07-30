@@ -16,36 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.blacklisttracker;
+package org.apache.flink.runtime.blacklist.reporter;
 
-import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
-import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
+import org.apache.flink.runtime.jobmaster.JobMasterId;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 
-import java.util.Collections;
-import java.util.Map;
+import javax.annotation.Nonnull;
 
 /**
- * Do nothing.
+ * Filter and Report failure to blacklist tracker.
  */
-public class NonBlacklistTracker implements BlacklistTracker {
-	@Override
-	public void start(ComponentMainThreadExecutor mainThreadExecutor, ResourceActions newResourceActions) { }
+public interface RemoteBlacklistReporter extends BlacklistReporter, AutoCloseable {
+	void start(
+		@Nonnull JobMasterId jobMasterId,
+		@Nonnull ComponentMainThreadExecutor componentMainThreadExecutor) throws Exception;
 
-	@Override
-	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) { }
+	void suspend();
 
-	@Override
-	public void clearAll() { }
+	void close();
 
-	@Override
-	public void taskManagerFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) { }
+	void connectToResourceManager(@Nonnull ResourceManagerGateway resourceManagerGateway);
 
-	@Override
-	public Map<String, TaskManagerFailure> getBlackedHosts() {
-		return Collections.emptyMap();
-	}
+	void disconnectResourceManager();
 
-	@Override
-	public void close() throws Exception { }
+	void clearBlacklist();
 }

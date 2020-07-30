@@ -26,35 +26,34 @@ import org.apache.flink.annotation.PublicEvolving;
 @PublicEvolving
 public class BlacklistOptions {
 
-	public static final ConfigOption<Boolean> BLACKLIST_ENABLED = ConfigOptions
-			.key("blacklist.enabled")
+	public static final ConfigOption<Boolean> TASKMANAGER_BLACKLIST_ENABLED = ConfigOptions
+			.key("blacklist.taskmanager.enabled")
 			.defaultValue(false)
 			.withDescription("Enable blacklist mechanism if set to true.");
 
-	public static final ConfigOption<Integer> JOB_MAX_TASK_FAILURE_PER_HOST = ConfigOptions
-			.key("blacklist.job.max-task-failure-per-host")
+	public static final ConfigOption<Boolean> TASK_BLACKLIST_ENABLED = ConfigOptions
+			.key("blacklist.task.enabled")
+			.defaultValue(false)
+			.withDescription("Enable blacklist mechanism if set to true.");
+
+	public static final ConfigOption<Integer> MAX_TASK_FAILURE_NUM_PER_HOST = ConfigOptions
+			.key("blacklist.max-task-failure-num-per-host")
 			.defaultValue(2)
 			.withDescription("Maximum task failure of a same vertex before added the Host to (Job, Host) blacklist.");
 
-	public static final ConfigOption<Integer> SESSION_MAX_JOB_FAILURE_PER_HOST = ConfigOptions
-			.key("blacklist.session.max-job-failure-per-host")
-			.defaultValue(2)
-			.withDescription("Maximum number of times for a Host being added to (Job, Host) blacklist " +
-					"before added the Host to (Session, Host) blacklist.");
-
-	public static final ConfigOption<Integer> SESSION_MAX_TASKMANAGER_FAILURE_PER_HOST = ConfigOptions
-			.key("blacklist.session.max-taskmanager-failure-per-host")
+	public static final ConfigOption<Integer> MAX_TASKMANAGER_FAILURE_NUM_PER_HOST = ConfigOptions
+			.key("blacklist.max-taskmanager-failure-num-per-host")
 			.defaultValue(2)
 			.withDescription("Maximum TaskManager failure (launching failure or heartbeat timeout with ResourceManager) of " +
 					"a same host before added the Host to (Session, Host) blacklist.");
 
-	public static final ConfigOption<Integer> JOB_BLACKLIST_LENGTH = ConfigOptions
-			.key("blacklist.job-blacklist-length")
+	public static final ConfigOption<Integer> TASK_BLACKLIST_MAX_LENGTH = ConfigOptions
+			.key("blacklist.task-blacklist-max-length")
 			.defaultValue(10)
 			.withDescription("Maximum length of (Job, Host) blacklist.");
 
-	public static final ConfigOption<Integer> SESSION_BLACKLIST_LENGTH = ConfigOptions
-			.key("blacklist.session-blacklist-length")
+	public static final ConfigOption<Integer> TASKMANAGER_BLACKLIST_MAX_LENGTH = ConfigOptions
+			.key("blacklist.taskmanager-blacklist-max-length")
 			.defaultValue(10)
 			.withDescription("Maximum length of (Session, Host) blacklist.");
 
