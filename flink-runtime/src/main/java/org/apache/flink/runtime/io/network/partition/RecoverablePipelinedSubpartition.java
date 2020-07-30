@@ -63,7 +63,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 	@Override
 	public void markBufferBuilderCleaned() {
 		if (needCleanBufferBuilderUpdater.compareAndSet(this, true, false)) {
-			LOG.info("{}: BufferBuilder is cleaned.", this);
+			LOG.debug("{}: BufferBuilder is cleaned.", this);
 		}
 	}
 
@@ -105,7 +105,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 			buffer.close();
 		}
 
-		LOG.info("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
+		LOG.debug("{}: Released {}. Available Buffers: {}.", parent.getOwningTaskName(), this, buffers.size());
 		buffers.clear();
 
 		if (needCleanBufferBuilderUpdater.compareAndSet(this, false, true)) {
@@ -138,7 +138,7 @@ public class RecoverablePipelinedSubpartition extends PipelinedSubpartition {
 					"Subpartition %s of is being (or already has been) consumed, " +
 							"but pipelined subpartitions can only be consumed once.", index, parent.getPartitionId());
 
-			LOG.info("{}: Creating read view for subpartition {} of partition {}.",
+			LOG.debug("{}: Creating read view for subpartition {} of partition {}.",
 					parent.getOwningTaskName(), index, parent.getPartitionId());
 
 			readView = new RecoverablePipelinedSubpartitionView(this, availabilityListener);
