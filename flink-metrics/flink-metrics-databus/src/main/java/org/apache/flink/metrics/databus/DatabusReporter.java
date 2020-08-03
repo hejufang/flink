@@ -27,6 +27,7 @@ import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
+import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,6 +61,10 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	private String applicationId;
 
+	private String commitId;
+
+	private String commitDate;
+
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	@Override
@@ -87,6 +92,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.jobName = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_JOB);
 		this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
 		this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
+		this.commitId = EnvironmentInformation.getRevisionInformation().commitId;
+		this.commitDate = EnvironmentInformation.getRevisionInformation().commitDate;
 	}
 
 	@Override
@@ -111,6 +118,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 					message.getMeta().setApplicationId(applicationId);
 					message.getMeta().setMetricName(metricName);
 					message.getMeta().setMessageType(messageSet.getMessageType());
+					message.getMeta().setCommitId(commitId);
+					message.getMeta().setCommitDate(commitDate);
 					try {
 						final String data = objectMapper.writeValueAsString(message);
 						clientWrapper.addToBuffer(data);

@@ -43,6 +43,10 @@ public class MessageMeta {
 
 	private String applicationId;
 
+	private String commitId;
+
+	private String commitDate;
+
 	public MessageMeta() {}
 
 	public void setTimestamp(long timestamp) {
@@ -117,6 +121,22 @@ public class MessageMeta {
 		this.applicationId = applicationId;
 	}
 
+	public String getCommitId() {
+		return commitId;
+	}
+
+	public void setCommitId(String commitId) {
+		this.commitId = commitId;
+	}
+
+	public String getCommitDate() {
+		return commitDate;
+	}
+
+	public void setCommitDate(String commitDate) {
+		this.commitDate = commitDate;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -134,12 +154,14 @@ public class MessageMeta {
 				Objects.equals(queue, that.queue) &&
 				Objects.equals(metricName, that.metricName) &&
 				Objects.equals(user, that.user) &&
-				Objects.equals(applicationId, that.applicationId);
+				Objects.equals(applicationId, that.applicationId) &&
+				Objects.equals(commitId, that.commitId) &&
+				Objects.equals(commitDate, that.commitDate);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, applicationId);
+		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, applicationId, commitId, commitDate);
 	}
 
 	@Override
@@ -154,6 +176,8 @@ public class MessageMeta {
 				", metricName='" + metricName + '\'' +
 				", user='" + user + '\'' +
 				", applicationId='" + applicationId + '\'' +
+				", commitId='" + commitId + '\'' +
+				", commitDate='" + commitDate + '\'' +
 				'}';
 	}
 }
