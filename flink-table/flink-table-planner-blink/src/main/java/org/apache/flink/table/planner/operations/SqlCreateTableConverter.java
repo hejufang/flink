@@ -32,6 +32,7 @@ import org.apache.flink.table.catalog.UnresolvedIdentifier;
 import org.apache.flink.table.connector.format.TableSchemaInferrable;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.table.factories.FileSystemFormatFactory;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
@@ -181,6 +182,17 @@ class SqlCreateTableConverter {
 		if ((serializationFormatFactory instanceof TableSchemaInferrable)) {
 			return Optional.of(
 				((TableSchemaInferrable) serializationFormatFactory).getTableSchema(options));
+		}
+
+		FileSystemFormatFactory fileSystemFormatFactory =
+			FactoryUtil.discoverOptionalFactory(
+				Thread.currentThread().getContextClassLoader(),
+				FileSystemFormatFactory.class,
+				format).orElse(null);
+
+		if ((fileSystemFormatFactory instanceof TableSchemaInferrable)) {
+			return Optional.of(
+				((TableSchemaInferrable) fileSystemFormatFactory).getTableSchema(options));
 		}
 
 		return Optional.empty();

@@ -138,4 +138,12 @@ public interface InputFormat<OT, T extends InputSplit> extends InputSplitSource<
 	 * @throws IOException Thrown, if the input could not be closed properly.
 	 */
 	void close() throws IOException;
+
+
+	/**
+	 * Whether to task null value as end stream.
+	 * */
+	default boolean takeNullAsEndOfStream() {
+		return true;
+	}
 }
