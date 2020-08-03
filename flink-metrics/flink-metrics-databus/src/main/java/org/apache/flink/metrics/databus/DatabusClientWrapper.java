@@ -20,7 +20,7 @@ package org.apache.flink.metrics.databus;
 
 import org.apache.flink.annotation.VisibleForTesting;
 
-import org.apache.flink.shaded.byted.com.bytedance.data.databus.DatabusClient;
+import com.bytedance.data.databus.DatabusClient;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
