@@ -88,6 +88,7 @@ under the License.
 		<module>flink-connector-databus</module>
 		<module>flink-connector-bytable</module>
 		<module>flink-connector-rpc</module>
+		<module>flink-connector-faas</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

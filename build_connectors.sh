@@ -37,4 +37,4 @@ cp flink-connector-loghouse/target/flink-connector-loghouse-1.9-byted-SNAPSHOT.j
 cp flink-connector-bytable/target/flink-connector-bytable-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-databus/target/flink-connector-databus-1.9-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-rpc/target/flink-connector-rpc-1.9-byted-SNAPSHOT.jar ../output/runtime_files
-
+cp flink-connector-faas/target/flink-connector-faas-1.9-byted-SNAPSHOT.jar ../output/runtime_files
