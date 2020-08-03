@@ -202,10 +202,12 @@ final class FlinkDistribution {
 			commands.add("--jar");
 			commands.add(jar);
 		}
-		commands.add("--update");
-		commands.add("\"" + job.getSQL() + "\"");
 
-		AutoClosableProcess.runBlocking(commands.toArray(new String[0]));
+		AutoClosableProcess
+			.create(commands.toArray(new String[0]))
+			.setStdInputs(job.getSqlLines().toArray(new String[0]))
+			.setStdoutProcessor(LOG::info) // logging the SQL statements and error message
+			.runBlocking();
 	}
 
 	public void performJarOperation(JarOperation operation) throws IOException {
@@ -268,7 +270,7 @@ final class FlinkDistribution {
 	}
 
 	public void setTaskExecutorHosts(Collection<String> taskExecutorHosts) throws IOException {
-		Files.write(conf.resolve("slaves"), taskExecutorHosts);
+		Files.write(conf.resolve("workers"), taskExecutorHosts);
 	}
 
 	public Stream<String> searchAllLogs(Pattern pattern, Function<Matcher, String> matchProcessor) throws IOException {

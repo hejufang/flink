@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.execution.librarycache;
 
 import org.apache.flink.util.ChildFirstClassLoader;
+import org.apache.flink.util.FlinkUserCodeClassLoader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 /**
  * Gives the URLClassLoader a nicer name for debugging purposes.
@@ -33,28 +35,40 @@ import java.util.Arrays;
 public class FlinkUserCodeClassLoaders {
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkUserCodeClassLoaders.class);
 
-	public static URLClassLoader parentFirst(URL[] urls, ClassLoader parent) {
-		return new ParentFirstClassLoader(urls, parent);
+	private FlinkUserCodeClassLoaders() {
+
+	}
+
+	public static URLClassLoader parentFirst(
+			URL[] urls,
+			ClassLoader parent,
+			Consumer<Throwable> classLoadingExceptionHandler) {
+		return new ParentFirstClassLoader(urls, parent, classLoadingExceptionHandler);
 	}
 
 	public static URLClassLoader childFirst(
-		URL[] urls,
-		ClassLoader parent,
-		String[] alwaysParentFirstPatterns) {
-		return new ChildFirstClassLoader(urls, parent, alwaysParentFirstPatterns);
+			URL[] urls,
+			ClassLoader parent,
+			String[] alwaysParentFirstPatterns,
+			Consumer<Throwable> classLoadingExceptionHandler) {
+		return new ChildFirstClassLoader(urls, parent, alwaysParentFirstPatterns, classLoadingExceptionHandler);
 	}
 
 	public static URLClassLoader create(
-		ResolveOrder resolveOrder, URL[] urls, ClassLoader parent, String[] alwaysParentFirstPatterns) {
+			ResolveOrder resolveOrder,
+			URL[] urls,
+			ClassLoader parent,
+			String[] alwaysParentFirstPatterns,
+			Consumer<Throwable> classLoadingExceptionHandler) {
 
 		LOG.info("Create FlinkUserCodeClassLoaders resolveOrder = {}", resolveOrder);
 		LOG.info("Create FlinkUserCodeClassLoaders urls = {}", Arrays.asList(urls));
 
 		switch (resolveOrder) {
 			case CHILD_FIRST:
-				return childFirst(urls, parent, alwaysParentFirstPatterns);
+				return childFirst(urls, parent, alwaysParentFirstPatterns, classLoadingExceptionHandler);
 			case PARENT_FIRST:
-				return parentFirst(urls, parent);
+				return parentFirst(urls, parent, classLoadingExceptionHandler);
 			default:
 				throw new IllegalArgumentException("Unknown class resolution order: " + resolveOrder);
 		}
@@ -80,14 +94,10 @@ public class FlinkUserCodeClassLoaders {
 	/**
 	 * Regular URLClassLoader that first loads from the parent and only after that from the URLs.
 	 */
-	static class ParentFirstClassLoader extends URLClassLoader {
+	static class ParentFirstClassLoader extends FlinkUserCodeClassLoader {
 
-		ParentFirstClassLoader(URL[] urls) {
-			this(urls, FlinkUserCodeClassLoaders.class.getClassLoader());
-		}
-
-		ParentFirstClassLoader(URL[] urls, ClassLoader parent) {
-			super(urls, parent);
+		ParentFirstClassLoader(URL[] urls, ClassLoader parent, Consumer<Throwable> classLoadingExceptionHandler) {
+			super(urls, parent, classLoadingExceptionHandler);
 		}
 	}
 }

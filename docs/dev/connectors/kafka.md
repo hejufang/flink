@@ -70,7 +70,7 @@ For details on Kafka compatibility, please refer to the official [Kafka document
 </div>
 
 Flink's streaming connectors are not currently part of the binary distribution.
-See how to link with them for cluster execution [here]({{ site.baseurl}}/dev/projectsetup/dependencies.html).
+See how to link with them for cluster execution [here]({{ site.baseurl}}/dev/project-configuration.html).
 
 ## Kafka Consumer
 
@@ -372,9 +372,8 @@ properties.setProperty("group.id", "test");
 FlinkKafkaConsumer<String> myConsumer =
     new FlinkKafkaConsumer<>("topic", new SimpleStringSchema(), properties);
 myConsumer.assignTimestampsAndWatermarks(
-    WatermarkStrategies.
-        .<String>forBoundedOutOfOrderness(Duration.ofSeconds(20))
-        .build());
+    WatermarkStrategy.
+        .forBoundedOutOfOrderness(Duration.ofSeconds(20)));
 
 DataStream<String> stream = env.addSource(myConsumer);
 {% endhighlight %}
@@ -388,9 +387,8 @@ properties.setProperty("group.id", "test")
 val myConsumer =
     new FlinkKafkaConsumer("topic", new SimpleStringSchema(), properties);
 myConsumer.assignTimestampsAndWatermarks(
-    WatermarkStrategies.
-        .forBoundedOutOfOrderness[String](Duration.ofSeconds(20))
-        .build())
+    WatermarkStrategy.
+        .forBoundedOutOfOrderness(Duration.ofSeconds(20)))
 
 val stream = env.addSource(myConsumer)
 {% endhighlight %}

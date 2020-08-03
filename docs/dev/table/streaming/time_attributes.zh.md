@@ -82,6 +82,8 @@ env.set_stream_time_characteristic(TimeCharacteristic.ProcessingTime)  # default
 </div>
 </div>
 
+<a name="processing-time"></a>
+
 处理时间
 ---------------
 
@@ -120,10 +122,10 @@ GROUP BY TUMBLE(user_action_time, INTERVAL '10' MINUTE);
 DataStream<Tuple2<String, String>> stream = ...;
 
 // 声明一个额外的字段作为时间属性字段
-Table table = tEnv.fromDataStream(stream, $("user_name"), $("data"), $("user_action_time").proctime()");
+Table table = tEnv.fromDataStream(stream, $("user_name"), $("data"), $("user_action_time").proctime());
 
 WindowedTable windowedTable = table.window(
-        Tumble.over(interval(Duration.ofMinutes(10)))
+        Tumble.over(lit(10).minutes())
             .on($("user_action_time"))
             .as("userActionWindow"));
 {% endhighlight %}
@@ -177,7 +179,7 @@ tEnv.registerTableSource("user_actions", new UserActionSource());
 WindowedTable windowedTable = tEnv
 	.from("user_actions")
 	.window(Tumble
-	    .over(interval(Duration.ofMinutes(10)))
+	    .over(lit(10).minutes())
 	    .on($("user_action_time"))
 	    .as("userActionWindow"));
 {% endhighlight %}
@@ -284,7 +286,7 @@ Table table = tEnv.fromDataStream(stream, $("user_action_time").rowtime(), $("us
 // Usage:
 
 WindowedTable windowedTable = table.window(Tumble
-       .over(interval(Duration.ofMinutes(10)))
+       .over(lit(10).minutes())
        .on($("user_action_time"))
        .as("userActionWindow"));
 {% endhighlight %}
@@ -365,7 +367,7 @@ tEnv.registerTableSource("user_actions", new UserActionSource());
 
 WindowedTable windowedTable = tEnv
 	.from("user_actions")
-	.window(Tumble.over(interval(Duration.ofMinutes(10))).on($("user_action_time")).as("userActionWindow"));
+	.window(Tumble.over(lit(10).minutes()).on($("user_action_time")).as("userActionWindow"));
 {% endhighlight %}
 </div>
 <div data-lang="scala" markdown="1">

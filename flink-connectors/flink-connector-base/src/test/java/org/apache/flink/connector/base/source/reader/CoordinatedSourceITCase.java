@@ -19,7 +19,7 @@
 package org.apache.flink.connector.base.source.reader;
 
 import org.apache.flink.api.common.accumulators.ListAccumulator;
-import org.apache.flink.api.common.eventtime.WatermarkStrategies;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;
 import org.apache.flink.configuration.Configuration;
@@ -45,9 +45,9 @@ public class CoordinatedSourceITCase extends AbstractTestBase {
 	public void testEnumeratorReaderCommunication() throws Exception {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		MockBaseSource source = new MockBaseSource(2, 10, Boundedness.BOUNDED);
-		DataStream<Integer> stream = env.continuousSource(
+		DataStream<Integer> stream = env.fromSource(
 				source,
-				WatermarkStrategies.<Integer>noWatermarks().build(),
+				WatermarkStrategy.noWatermarks(),
 				"TestingSource");
 		executeAndVerify(env, stream, 20);
 	}
@@ -57,13 +57,13 @@ public class CoordinatedSourceITCase extends AbstractTestBase {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		MockBaseSource source1 = new MockBaseSource(2, 10, Boundedness.BOUNDED);
 		MockBaseSource source2 = new MockBaseSource(2, 10, 20, Boundedness.BOUNDED);
-		DataStream<Integer> stream1 = env.continuousSource(
+		DataStream<Integer> stream1 = env.fromSource(
 				source1,
-				WatermarkStrategies.<Integer>noWatermarks().build(),
+				WatermarkStrategy.noWatermarks(),
 				"TestingSource1");
-		DataStream<Integer> stream2 = env.continuousSource(
+		DataStream<Integer> stream2 = env.fromSource(
 				source2,
-				WatermarkStrategies.<Integer>noWatermarks().build(),
+				WatermarkStrategy.noWatermarks(),
 				"TestingSource2");
 		executeAndVerify(env, stream1.union(stream2), 40);
 	}

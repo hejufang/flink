@@ -24,6 +24,8 @@ class JobExecutionResult(object):
     """
     The result of a job execution. Gives access to the execution time of the job,
     and to all accumulators created by this job.
+
+    .. versionadded:: 1.11.0
     """
 
     def __init__(self, j_job_execution_result):
@@ -35,27 +37,10 @@ class JobExecutionResult(object):
 
         :return: JobID, or null if the job has been executed on a runtime without JobIDs
                  or if the execution failed.
+
+        .. versionadded:: 1.11.0
         """
         return JobID(self._j_job_execution_result.getJobID())
-
-    def is_job_execution_result(self):
-        """
-        Checks if this JobSubmissionResult is also a JobExecutionResult.
-
-        .. seealso:: :func:`get_job_execution_result` to retrieve the JobExecutionResult.
-
-        :return: ``True`` if this is a JobExecutionResult, ``False`` otherwise.
-        """
-        return self._j_job_execution_result.isJobExecutionResult()
-
-    def get_job_execution_result(self):
-        """
-        Returns the JobExecutionResult if available.
-
-        :throws: Exception if this is not a JobExecutionResult.
-        :return: The JobExecutionResult.
-        """
-        return self
 
     def get_net_runtime(self):
         """
@@ -63,6 +48,8 @@ class JobExecutionResult(object):
         without the pre-flight steps like the optimizer.
 
         :return: The net execution time in milliseconds.
+
+        .. versionadded:: 1.11.0
         """
         return self._j_job_execution_result.getNetRuntime()
 
@@ -73,6 +60,8 @@ class JobExecutionResult(object):
 
         :param accumulator_name: The name of the accumulator.
         :return: The value of the accumulator with the given name.
+
+        .. versionadded:: 1.11.0
         """
         return self.get_all_accumulator_results().get(accumulator_name)
 
@@ -83,6 +72,8 @@ class JobExecutionResult(object):
 
         :return: The dict which the keys are names of the accumulator and the values
                  are values of the accumulator produced by the job.
+
+        .. versionadded:: 1.11.0
         """
         j_result_map = self._j_job_execution_result.getAllAccumulatorResults()
         accumulators = {}
@@ -90,8 +81,10 @@ class JobExecutionResult(object):
             accumulators[key] = j_result_map[key]
         return accumulators
 
-    def to_string(self):
+    def __str__(self):
         """
         Convert JobExecutionResult to a string, if possible.
+
+        .. versionadded:: 1.11.0
         """
         return self._j_job_execution_result.toString()

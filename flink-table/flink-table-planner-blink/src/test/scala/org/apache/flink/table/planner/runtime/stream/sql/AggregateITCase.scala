@@ -38,7 +38,7 @@ import org.apache.flink.table.planner.runtime.utils.UserDefinedFunctionTestUtils
 import org.apache.flink.table.planner.runtime.utils._
 import org.apache.flink.table.planner.utils.DateTimeTestUtil.{localDate, localDateTime, localTime => mLocalTime}
 import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo
-import org.apache.flink.types.{Row, RowKind}
+import org.apache.flink.types.Row
 
 import org.junit.Assert.assertEquals
 import org.junit._
@@ -1256,82 +1256,28 @@ class AggregateITCase(
   }
 
   @Test
-  def testAggregateOnChangelogSource(): Unit = {
-    val dataId = TestValuesTableFactory.registerData(TestData.userChangelog)
-    val ddl =
-      s"""
-         |CREATE TABLE user_logs (
-         |  user_id STRING,
-         |  user_name STRING,
-         |  email STRING,
-         |  balance DECIMAL(18,2)
-         |) WITH (
-         | 'connector' = 'values',
-         | 'data-id' = '$dataId',
-         | 'changelog-mode' = 'I,UA,UB,D'
-         |)
-         |""".stripMargin
-    tEnv.executeSql(ddl)
+  def testAggregationCodeSplit(): Unit = {
 
-    val query =
-      s"""
-         |SELECT count(*), sum(balance), max(email)
-         |FROM user_logs
-         |""".stripMargin
+    val t = env.fromCollection(TestData.smallTupleData3)
+      .toTable(tEnv, 'a, 'b, 'c)
+    tEnv.createTemporaryView("MyTable", t)
 
-    val result = tEnv.sqlQuery(query).toRetractStream[Row]
-    val sink = new TestingRetractSink()
-    result.addSink(sink).setParallelism(result.parallelism)
+    val columnNumber = 500
+
+    val selectList = Stream.range(3, columnNumber)
+      .map(i => s"SUM(CASE WHEN a IS NOT NULL AND a > $i THEN 0 WHEN a < 0 THEN 0 ELSE $i END)")
+      .mkString(",")
+    val sqlQuery = s"select $selectList from MyTable group by b, c"
+
+    val result = tEnv.sqlQuery(sqlQuery).toRetractStream[Row]
+    val sink = new TestingRetractSink
+    result.addSink(sink)
     env.execute()
 
-    val expected = Seq("3,29.39,tom123@gmail.com")
-    assertEquals(expected.sorted, sink.getRetractResults.sorted)
-  }
-
-  @Test
-  def testAggregateOnInsertDeleteChangelogSource(): Unit = {
-    // only contains INSERT and DELETE
-    val userChangelog = TestData.userChangelog.map { row =>
-      row.getKind match {
-        case RowKind.INSERT | RowKind.DELETE => row
-        case RowKind.UPDATE_BEFORE =>
-          val ret = Row.copy(row)
-          ret.setKind(RowKind.DELETE)
-          ret
-        case RowKind.UPDATE_AFTER =>
-          val ret = Row.copy(row)
-          ret.setKind(RowKind.INSERT)
-          ret
-      }
-    }
-    val dataId = TestValuesTableFactory.registerData(userChangelog)
-    val ddl =
-      s"""
-         |CREATE TABLE user_logs (
-         |  user_id STRING,
-         |  user_name STRING,
-         |  email STRING,
-         |  balance DECIMAL(18,2)
-         |) WITH (
-         | 'connector' = 'values',
-         | 'data-id' = '$dataId',
-         | 'changelog-mode' = 'I,D'
-         |)
-         |""".stripMargin
-    tEnv.executeSql(ddl)
-
-    val query =
-      s"""
-         |SELECT count(*), sum(balance), max(email)
-         |FROM user_logs
-         |""".stripMargin
-
-    val result = tEnv.sqlQuery(query).toRetractStream[Row]
-    val sink = new TestingRetractSink()
-    result.addSink(sink).setParallelism(result.parallelism)
-    env.execute()
-
-    val expected = Seq("3,29.39,tom123@gmail.com")
-    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+    val expected = Stream.range(3, columnNumber).map(_.toString).mkString(",")
+    assertEquals(sink.getRawResults.size, 3)
+    sink.getRetractResults.foreach(result =>
+      assertEquals(expected, result)
+    )
   }
 }

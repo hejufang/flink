@@ -189,7 +189,7 @@ class TableEnvironment(object):
         :param table_source: The table source to register.
         :type table_source: pyflink.table.TableSource
 
-        .. note:: Deprecated in 1.10. Use :func:`connect` instead.
+        .. note:: Deprecated in 1.10. Use :func:`execute_sql` instead.
         """
         warnings.warn("Deprecated in 1.10. Use connect instead.", DeprecationWarning)
         self._j_tenv.registerTableSourceInternal(name, table_source._j_table_source)
@@ -214,7 +214,7 @@ class TableEnvironment(object):
         :param table_sink: The table sink to register.
         :type table_sink: pyflink.table.TableSink
 
-        .. note:: Deprecated in 1.10. Use :func:`connect` instead.
+        .. note:: Deprecated in 1.10. Use :func:`execute_sql` instead.
         """
         warnings.warn("Deprecated in 1.10. Use connect instead.", DeprecationWarning)
         self._j_tenv.registerTableSinkInternal(name, table_sink._j_table_sink)
@@ -372,6 +372,8 @@ class TableEnvironment(object):
 
         :return: List of view names in the current database of the current catalog.
         :rtype: list[str]
+
+        .. versionadded:: 1.11.0
         """
         j_view_name_array = self._j_tenv.listViews()
         return [item for item in j_view_name_array]
@@ -491,6 +493,8 @@ class TableEnvironment(object):
         :type extra_details: tuple[ExplainDetail] (variable-length arguments of ExplainDetail)
         :return: The statement for which the AST and execution plan will be returned.
         :rtype: str
+
+        .. versionadded:: 1.11.0
         """
 
         j_extra_details = to_j_explain_detail_arr(extra_details)
@@ -532,6 +536,8 @@ class TableEnvironment(object):
         :return content for DQL/SHOW/DESCRIBE/EXPLAIN,
                 the affected row count for `DML` (-1 means unknown),
                 or a string message ("OK") for other statements.
+
+        .. versionadded:: 1.11.0
         """
         self._before_execute()
         return TableResult(self._j_tenv.executeSql(stmt))
@@ -544,6 +550,8 @@ class TableEnvironment(object):
 
         :return statement_set instance
         :rtype: pyflink.table.StatementSet
+
+        .. versionadded:: 1.11.0
         """
         _j_statement_set = self._j_tenv.createStatementSet()
         return StatementSet(_j_statement_set, self)
@@ -790,6 +798,8 @@ class TableEnvironment(object):
         :return: A :class:`~pyflink.table.descriptors.ConnectTableDescriptor` used to build the
                  temporary table.
         :rtype: pyflink.table.descriptors.ConnectTableDescriptor
+
+        .. note:: Deprecated in 1.11. Use :func:`execute_sql` to register a table instead.
         """
         pass
 
@@ -1209,7 +1219,13 @@ class TableEnvironment(object):
                            determines the number of parallel source tasks.
                            If not specified, the default parallelism will be used.
         :return: The result table.
+
+        .. versionadded:: 1.11.0
         """
+
+        if not self._is_blink_planner and isinstance(self, BatchTableEnvironment):
+            raise TypeError("It doesn't support to convert from Pandas DataFrame in the batch "
+                            "mode of old planner")
 
         import pandas as pd
         if not isinstance(pdf, pd.DataFrame):
@@ -1383,7 +1399,10 @@ class StreamTableEnvironment(TableEnvironment):
         :return: A :class:`~pyflink.table.descriptors.StreamTableDescriptor` used to build the
                  temporary table.
         :rtype: pyflink.table.descriptors.StreamTableDescriptor
+
+        .. note:: Deprecated in 1.11. Use :func:`execute_sql` to register a table instead.
         """
+        warnings.warn("Deprecated in 1.11. Use execute_sql instead.", DeprecationWarning)
         return StreamTableDescriptor(
             self._j_tenv.connect(connector_descriptor._j_connector_descriptor))
 
@@ -1517,7 +1536,10 @@ class BatchTableEnvironment(TableEnvironment):
                  to build the temporary table.
         :rtype: pyflink.table.descriptors.BatchTableDescriptor or
                 pyflink.table.descriptors.StreamTableDescriptor
+
+        .. note:: Deprecated in 1.11. Use :func:`execute_sql` to register a table instead.
         """
+        warnings.warn("Deprecated in 1.11. Use execute_sql instead.", DeprecationWarning)
         gateway = get_gateway()
         blink_t_env_class = get_java_class(
             gateway.jvm.org.apache.flink.table.api.internal.TableEnvironmentImpl)

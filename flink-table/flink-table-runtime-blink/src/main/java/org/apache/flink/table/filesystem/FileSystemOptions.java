@@ -46,11 +46,18 @@ public class FileSystemOptions {
 			.defaultValue(MemorySize.ofMebiBytes(128))
 			.withDescription("The maximum part file size before rolling (by default 128MB).");
 
-	public static final ConfigOption<Duration> SINK_ROLLING_POLICY_TIME_INTERVAL = key("sink.rolling-policy.time-interval")
+	public static final ConfigOption<Duration> SINK_ROLLING_POLICY_ROLLOVER_INTERVAL = key("sink.rolling-policy.rollover-interval")
 			.durationType()
 			.defaultValue(Duration.ofMinutes(30))
 			.withDescription("The maximum time duration a part file can stay open before rolling" +
-					" (by default 30 min to avoid to many small files).");
+					" (by default 30 min to avoid to many small files). The frequency at which" +
+					" this is checked is controlled by the 'sink.rolling-policy.check-interval' option.");
+
+	public static final ConfigOption<Duration> SINK_ROLLING_POLICY_CHECK_INTERVAL = key("sink.rolling-policy.check-interval")
+			.durationType()
+			.defaultValue(Duration.ofMinutes(1))
+			.withDescription("The interval for checking time based rolling policies. " +
+					"This controls the frequency to check whether a part file should rollover based on 'sink.rolling-policy.rollover-interval'.");
 
 	public static final ConfigOption<Boolean> SINK_SHUFFLE_BY_PARTITION = key("sink.shuffle-by-partition.enable")
 			.booleanType()
@@ -64,9 +71,8 @@ public class FileSystemOptions {
 					.booleanType()
 					.defaultValue(false)
 					.withDescription("Enable streaming source or not.\n" +
-							"NOTES: For non-partition table, please make sure that " +
-							"each file should be put atomically into the target directory, " +
-							"otherwise the reader may get incomplete data.");
+							" NOTES: Please make sure that each partition/file should be written" +
+							" atomically, otherwise the reader may get incomplete data.");
 
 	public static final ConfigOption<Duration> STREAMING_SOURCE_MONITOR_INTERVAL =
 			key("streaming-source.monitor-interval")
@@ -81,8 +87,9 @@ public class FileSystemOptions {
 					.withDescription("The consume order of streaming source," +
 							" support create-time and partition-time." +
 							" create-time compare partition/file creation time, this is not the" +
-							" partition create time in Hive metaStore, but the folder/file create" +
-							" time in filesystem;" +
+							" partition create time in Hive metaStore, but the folder/file modification" +
+							" time in filesystem, if the partition folder somehow gets updated," +
+							" e.g. add new file into folder, it can affect how the data is consumed." +
 							" partition-time compare time represented by partition name.\n" +
 							"For non-partition table, this value should always be 'create-time'.");
 
@@ -92,7 +99,8 @@ public class FileSystemOptions {
 					.defaultValue("1970-00-00")
 					.withDescription("Start offset for streaming consuming." +
 							" How to parse and compare offsets depends on your order." +
-							" For create-time and partition-time, should be a timestamp string." +
+							" For create-time and partition-time, should be a timestamp" +
+							" string (yyyy-[m]m-[d]d [hh:mm:ss])." +
 							" For partition-time, will use partition time extractor to" +
 							" extract time from partition.");
 
@@ -157,8 +165,8 @@ public class FileSystemOptions {
 					.withDescription("Policy to commit a partition is to notify the downstream" +
 							" application that the partition has finished writing, the partition" +
 							" is ready to be read." +
-							" metastore: add partition to metastore. Only work with hive table," +
-							" it is empty implementation for file system table." +
+							" metastore: add partition to metastore. Only hive table supports metastore" +
+							" policy, file system manages partitions through directory structure." +
 							" success-file: add '_success' file to directory." +
 							" Both can be configured at the same time: 'metastore,success-file'." +
 							" custom: use policy class to create a commit policy." +

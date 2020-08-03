@@ -19,6 +19,7 @@ from pyflink.common.completable_future import CompletableFuture
 from pyflink.common.job_execution_result import JobExecutionResult
 from pyflink.common.job_id import JobID
 from pyflink.common.job_status import JobStatus
+from pyflink.java_gateway import get_gateway
 
 __all__ = ['JobClient']
 
@@ -26,6 +27,8 @@ __all__ = ['JobClient']
 class JobClient(object):
     """
     A client that is scoped to a specific job.
+
+    .. versionadded:: 1.11.0
     """
 
     def __init__(self, j_job_client):
@@ -37,6 +40,8 @@ class JobClient(object):
 
         :return: JobID, or null if the job has been executed on a runtime without JobIDs
                  or if the execution failed.
+
+        .. versionadded:: 1.11.0
         """
         return JobID(self._j_job_client.getJobID())
 
@@ -46,6 +51,8 @@ class JobClient(object):
 
         :return: A CompletableFuture containing the JobStatus of the associated job.
         :rtype: pyflink.common.CompletableFuture
+
+        .. versionadded:: 1.11.0
         """
         return CompletableFuture(self._j_job_client.getJobStatus(), JobStatus)
 
@@ -55,10 +62,12 @@ class JobClient(object):
 
         :return: A CompletableFuture for canceling the associated job.
         :rtype: pyflink.common.CompletableFuture
+
+        .. versionadded:: 1.11.0
         """
         return CompletableFuture(self._j_job_client.cancel())
 
-    def stop_with_savepoint(self, advance_to_end_of_event_time, savepoint_directory):
+    def stop_with_savepoint(self, advance_to_end_of_event_time, savepoint_directory=None):
         """
         Stops the associated job on Flink cluster.
 
@@ -73,12 +82,14 @@ class JobClient(object):
         :type savepoint_directory: str
         :return: A CompletableFuture containing the path where the savepoint is located.
         :rtype: pyflink.common.CompletableFuture
+
+        .. versionadded:: 1.11.0
         """
         return CompletableFuture(
             self._j_job_client.stopWithSavepoint(advance_to_end_of_event_time, savepoint_directory),
             str)
 
-    def trigger_savepoint(self, savepoint_directory):
+    def trigger_savepoint(self, savepoint_directory=None):
         """
         Triggers a savepoint for the associated job. The savepoint will be written to the given
         savepoint directory.
@@ -87,10 +98,12 @@ class JobClient(object):
         :type savepoint_directory: str
         :return: A CompletableFuture containing the path where the savepoint is located.
         :rtype: pyflink.common.CompletableFuture
+
+        .. versionadded:: 1.11.0
         """
         return CompletableFuture(self._j_job_client.triggerSavepoint(savepoint_directory), str)
 
-    def get_accumulators(self, class_loader):
+    def get_accumulators(self, class_loader=None):
         """
         Requests the accumulators of the associated job. Accumulators can be requested while it
         is running or after it has finished. The class loader is used to deserialize the incoming
@@ -99,16 +112,24 @@ class JobClient(object):
         :param class_loader: Class loader used to deserialize the incoming accumulator results.
         :return: A CompletableFuture containing the accumulators of the associated job.
         :rtype: pyflink.common.CompletableFuture
+
+        .. versionadded:: 1.11.0
         """
+        if class_loader is None:
+            class_loader = get_gateway().jvm.Thread.currentThread().getContextClassLoader()
         return CompletableFuture(self._j_job_client.getAccumulators(class_loader), dict)
 
-    def get_job_execution_result(self, user_class_loader):
+    def get_job_execution_result(self, user_class_loader=None):
         """
         Returns the JobExecutionResult result of the job execution of the submitted job.
 
         :param user_class_loader: Class loader used to deserialize the accumulators of the job.
         :return: A CompletableFuture containing the JobExecutionResult result of the job execution.
         :rtype: pyflink.common.CompletableFuture
+
+        .. versionadded:: 1.11.0
         """
+        if user_class_loader is None:
+            user_class_loader = get_gateway().jvm.Thread.currentThread().getContextClassLoader()
         return CompletableFuture(self._j_job_client.getJobExecutionResult(user_class_loader),
                                  JobExecutionResult)

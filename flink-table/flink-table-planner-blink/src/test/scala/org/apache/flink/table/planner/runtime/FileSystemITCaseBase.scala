@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.runtime
 
 import org.apache.flink.api.common.typeinfo.{TypeInformation, Types}
 import org.apache.flink.api.java.typeutils.RowTypeInfo
+import org.apache.flink.core.fs.Path
 import org.apache.flink.table.api.TableEnvironment
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.planner.runtime.FileSystemITCaseBase._
@@ -28,8 +29,11 @@ import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
 import org.apache.flink.table.planner.runtime.utils.TableEnvUtil.execInsertSqlAndWaitResult
 import org.apache.flink.types.Row
 
+import org.junit.Assert.assertTrue
 import org.junit.rules.TemporaryFolder
 import org.junit.{Rule, Test}
+
+import java.io.File
 
 import scala.collection.{JavaConverters, Seq}
 
@@ -69,7 +73,8 @@ trait FileSystemITCaseBase {
          |  x string,
          |  y int,
          |  a int,
-         |  b bigint
+         |  b bigint,
+         |  c as b + 1
          |) partitioned by (a, b) with (
          |  'connector' = 'filesystem',
          |  'path' = '$resultPath',
@@ -182,8 +187,27 @@ trait FileSystemITCaseBase {
     )
 
     check(
+      "select x, y, a, b, c from partitionedTable where a=1 and c=2",
+      data_partition_1_2
+    )
+
+    check(
       "select x, y from partitionedTable",
       data
+    )
+  }
+
+  @Test
+  def testPartitionWithHiddenFile(): Unit = {
+    execInsertSqlAndWaitResult(tableEnv, "insert into partitionedTable " +
+      "partition(a='1', b='1') select x, y from originalT where a=1 and b=1")
+
+    // create hidden partition dir
+    assertTrue(new File(new Path(resultPath + "/a=1/.b=2").toUri).mkdir())
+
+    check(
+      "select x, y from partitionedTable",
+      data_partition_1_1
     )
   }
 
@@ -225,8 +249,45 @@ trait FileSystemITCaseBase {
 
   @Test
   def testProjectPushDown(): Unit = {
+    execInsertSqlAndWaitResult(
+      tableEnv, "insert into partitionedTable select x, y, a, b from originalT")
+
+    check(
+      "select y, b, x from partitionedTable where a=3",
+      Seq(
+        row(17, 1, "x17"),
+        row(18, 2, "x18"),
+        row(19, 3, "x19")
+      ))
+  }
+
+  @Test
+  def testInsertAppend(): Unit = {
     tableEnv.sqlUpdate("insert into partitionedTable select x, y, a, b from originalT")
-    tableEnv.execute("test")
+    tableEnv.execute("test1")
+
+    tableEnv.sqlUpdate("insert into partitionedTable select x, y, a, b from originalT")
+    tableEnv.execute("test2")
+
+    check(
+      "select y, b, x from partitionedTable where a=3",
+      Seq(
+        row(17, 1, "x17"),
+        row(18, 2, "x18"),
+        row(19, 3, "x19"),
+        row(17, 1, "x17"),
+        row(18, 2, "x18"),
+        row(19, 3, "x19")
+      ))
+  }
+
+  @Test
+  def testInsertOverwrite(): Unit = {
+    tableEnv.sqlUpdate("insert overwrite partitionedTable select x, y, a, b from originalT")
+    tableEnv.execute("test1")
+
+    tableEnv.sqlUpdate("insert overwrite partitionedTable select x, y, a, b from originalT")
+    tableEnv.execute("test2")
 
     check(
       "select y, b, x from partitionedTable where a=3",
@@ -295,5 +356,13 @@ object FileSystemITCaseBase {
     row("x13", 13),
     row("x14", 14),
     row("x15", 15)
+  )
+
+  val data_partition_1_2: Seq[Row] = Seq(
+    row("x1", 1, 1, 1, 2),
+    row("x2", 2, 1, 1, 2),
+    row("x3", 3, 1, 1, 2),
+    row("x4", 4, 1, 1, 2),
+    row("x5", 5, 1, 1, 2)
   )
 }

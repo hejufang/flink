@@ -35,6 +35,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
+import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.PartFileInfo;
 import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
 import org.apache.flink.streaming.api.functions.sink.filesystem.StreamingFileSink;
@@ -63,10 +64,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_PARTITION_COMMIT_POLICY_KIND;
+import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_CHECK_INTERVAL;
 import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_FILE_SIZE;
-import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_TIME_INTERVAL;
+import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_ROLLOVER_INTERVAL;
 import static org.apache.flink.table.filesystem.FileSystemTableFactory.createFormatFactory;
 
 /**
@@ -126,6 +129,10 @@ public class FileSystemTableSink implements
 				partitionKeys.toArray(new String[0]));
 
 		EmptyMetaStoreFactory metaStoreFactory = new EmptyMetaStoreFactory(path);
+		OutputFileConfig outputFileConfig = OutputFileConfig.builder()
+				.withPartPrefix("part-" + UUID.randomUUID().toString())
+				.build();
+		FileSystemFactory fsFactory = FileSystem::get;
 
 		if (isBounded) {
 			FileSystemOutputFormat.Builder<RowData> builder = new FileSystemOutputFormat.Builder<>();
@@ -134,9 +141,11 @@ public class FileSystemTableSink implements
 			builder.setPartitionColumns(partitionKeys.toArray(new String[0]));
 			builder.setFormatFactory(createOutputFormatFactory());
 			builder.setMetaStoreFactory(metaStoreFactory);
+			builder.setFileSystemFactory(fsFactory);
 			builder.setOverwrite(overwrite);
 			builder.setStaticPartitions(staticPartitions);
 			builder.setTempPath(toStagingPath());
+			builder.setOutputFileConfig(outputFileConfig);
 			return dataStream.writeUsingOutputFormat(builder.build())
 					.setParallelism(dataStream.getParallelism());
 		} else {
@@ -147,7 +156,7 @@ public class FileSystemTableSink implements
 			TableRollingPolicy rollingPolicy = new TableRollingPolicy(
 					!(writer instanceof Encoder),
 					conf.get(SINK_ROLLING_POLICY_FILE_SIZE).getBytes(),
-					conf.get(SINK_ROLLING_POLICY_TIME_INTERVAL).toMillis());
+					conf.get(SINK_ROLLING_POLICY_ROLLOVER_INTERVAL).toMillis());
 
 			BucketsBuilder<RowData, String, ? extends BucketsBuilder<RowData, ?, ?>> bucketsBuilder;
 			if (writer instanceof Encoder) {
@@ -155,12 +164,14 @@ public class FileSystemTableSink implements
 				bucketsBuilder = StreamingFileSink.forRowFormat(
 						path, new ProjectionEncoder((Encoder<RowData>) writer, computer))
 						.withBucketAssigner(assigner)
+						.withOutputFileConfig(outputFileConfig)
 						.withRollingPolicy(rollingPolicy);
 			} else {
 				//noinspection unchecked
 				bucketsBuilder = StreamingFileSink.forBulkFormat(
 						path, new ProjectionBulkFactory((BulkWriter.Factory<RowData>) writer, computer))
 						.withBucketAssigner(assigner)
+						.withOutputFileConfig(outputFileConfig)
 						.withRollingPolicy(rollingPolicy);
 			}
 			return createStreamingSink(
@@ -171,7 +182,9 @@ public class FileSystemTableSink implements
 					overwrite,
 					dataStream,
 					bucketsBuilder,
-					metaStoreFactory);
+					metaStoreFactory,
+					fsFactory,
+					conf.get(SINK_ROLLING_POLICY_CHECK_INTERVAL).toMillis());
 		}
 	}
 
@@ -183,13 +196,16 @@ public class FileSystemTableSink implements
 			boolean overwrite,
 			DataStream<RowData> inputStream,
 			BucketsBuilder<RowData, String, ? extends BucketsBuilder<RowData, ?, ?>> bucketsBuilder,
-			TableMetaStoreFactory msFactory) {
+			TableMetaStoreFactory msFactory,
+			FileSystemFactory fsFactory,
+			long rollingCheckInterval) {
 		if (overwrite) {
 			throw new IllegalStateException("Streaming mode not support overwrite.");
 		}
 
 		StreamingFileWriter fileWriter = new StreamingFileWriter(
-				BucketsBuilder.DEFAULT_BUCKET_CHECK_INTERVAL, bucketsBuilder);
+				rollingCheckInterval,
+				bucketsBuilder);
 		DataStream<CommitMessage> writerStream = inputStream.transform(
 				StreamingFileWriter.class.getSimpleName(),
 				TypeExtractor.createTypeInfo(CommitMessage.class),
@@ -200,7 +216,7 @@ public class FileSystemTableSink implements
 		// save committer when we don't need it.
 		if (partitionKeys.size() > 0 && conf.contains(SINK_PARTITION_COMMIT_POLICY_KIND)) {
 			StreamingFileCommitter committer = new StreamingFileCommitter(
-					path, tableIdentifier, partitionKeys, msFactory, conf);
+					path, tableIdentifier, partitionKeys, msFactory, fsFactory, conf);
 			returnStream = writerStream
 					.transform(StreamingFileCommitter.class.getSimpleName(), Types.VOID, committer)
 					.setParallelism(1)

@@ -25,7 +25,9 @@ import org.apache.flink.table.api.ValidationException;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -89,6 +91,17 @@ public interface PartitionCommitPolicy {
 		 * Path of this partition.
 		 */
 		Path partitionPath();
+
+		/**
+		 * Partition spec in the form of a map from partition keys to values.
+		 */
+		default LinkedHashMap<String, String> partitionSpec() {
+			LinkedHashMap<String, String> res = new LinkedHashMap<>();
+			for (int i = 0; i < partitionKeys().size(); i++) {
+				res.put(partitionKeys().get(i), partitionValues().get(i));
+			}
+			return res;
+		}
 	}
 
 	/**
@@ -99,7 +112,7 @@ public interface PartitionCommitPolicy {
 			String policyKind,
 			String customClass,
 			String successFileName,
-			FileSystem fileSystem) {
+			Supplier<FileSystem> fsSupplier) {
 		if (policyKind == null) {
 			return Collections.emptyList();
 		}
@@ -109,7 +122,7 @@ public interface PartitionCommitPolicy {
 				case METASTORE:
 					return new MetastoreCommitPolicy();
 				case SUCCESS_FILE:
-					return new SuccessFileCommitPolicy(successFileName, fileSystem);
+					return new SuccessFileCommitPolicy(successFileName, fsSupplier.get());
 				case CUSTOM:
 					try {
 						return (PartitionCommitPolicy) cl.loadClass(customClass).newInstance();

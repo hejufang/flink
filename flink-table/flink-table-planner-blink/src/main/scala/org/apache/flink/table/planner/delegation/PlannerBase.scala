@@ -23,7 +23,7 @@ import org.apache.flink.api.dag.Transformation
 import org.apache.flink.configuration.{ConfigOption, ConfigOptions}
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.table.api.config.ExecutionConfigOptions
-import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException}
+import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException, TableSchema}
 import org.apache.flink.table.catalog._
 import org.apache.flink.table.connector.sink.DynamicTableSink
 import org.apache.flink.table.delegation.{Executor, Parser, Planner}
@@ -32,7 +32,7 @@ import org.apache.flink.table.factories.{FactoryUtil, TableFactoryUtil}
 import org.apache.flink.table.operations.OutputConversionModifyOperation.UpdateMode
 import org.apache.flink.table.operations._
 import org.apache.flink.table.planner.JMap
-import org.apache.flink.table.planner.calcite.{CalciteParser, FlinkPlannerImpl, FlinkRelBuilder, FlinkTypeFactory, SqlExprToRexConverter, SqlExprToRexConverterFactory}
+import org.apache.flink.table.planner.calcite._
 import org.apache.flink.table.planner.catalog.CatalogManagerCalciteSchema
 import org.apache.flink.table.planner.expressions.PlannerTypeInferenceUtilImpl
 import org.apache.flink.table.planner.hint.FlinkHints
@@ -57,12 +57,12 @@ import org.apache.calcite.tools.FrameworkConfig
 
 import java.lang.{Boolean => JBoolean}
 import java.util
-import java.util.function.{Supplier => JSupplier}
+import java.util.function.{Function => JFunction, Supplier => JSupplier}
 
 import _root_.scala.collection.JavaConversions._
 
 /**
-  * Implementation of [[Planner]] for legacy Flink planner. It supports only streaming use cases.
+  * Implementation of [[Planner]] for blink planner. It supports only streaming use cases.
   * (The new [[org.apache.flink.table.sources.InputFormatTableSource]] should work, but will be
   * handled as streaming sources, and no batch specific optimizations will be applied).
   *
@@ -97,17 +97,6 @@ abstract class PlannerBase(
       plannerContext.createSqlExprToRexConverter(tableRowType)
   }
 
-  @VisibleForTesting
-  private[flink] val plannerContext: PlannerContext =
-    new PlannerContext(
-      config,
-      functionCatalog,
-      catalogManager,
-      asRootSchema(new CatalogManagerCalciteSchema(
-        catalogManager, sqlExprToRexConverterFactory, isStreamingMode)),
-      getTraitDefs.toList
-    )
-
   private val parser: Parser = new ParserImpl(
     catalogManager,
     new JSupplier[FlinkPlannerImpl] {
@@ -118,8 +107,23 @@ abstract class PlannerBase(
     // parsing statements
     new JSupplier[CalciteParser] {
       override def get(): CalciteParser = plannerContext.createCalciteParser()
+    },
+    new JFunction[TableSchema, SqlExprToRexConverter] {
+      override def apply(t: TableSchema): SqlExprToRexConverter = {
+        sqlExprToRexConverterFactory.create(plannerContext.getTypeFactory.buildRelNodeRowType(t))
+      }
     }
   )
+
+  @VisibleForTesting
+  private[flink] val plannerContext: PlannerContext =
+    new PlannerContext(
+      config,
+      functionCatalog,
+      catalogManager,
+      asRootSchema(new CatalogManagerCalciteSchema(catalogManager, isStreamingMode)),
+      getTraitDefs.toList
+    )
 
   /** Returns the [[FlinkRelBuilder]] of this TableEnvironment. */
   private[flink] def getRelBuilder: FlinkRelBuilder = {

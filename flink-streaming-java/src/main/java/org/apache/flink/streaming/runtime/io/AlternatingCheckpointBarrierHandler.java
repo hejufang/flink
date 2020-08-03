@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.runtime.io;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
+import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
@@ -50,31 +51,26 @@ class AlternatingCheckpointBarrierHandler extends CheckpointBarrierHandler {
 	}
 
 	@Override
-	public boolean isBlocked(int channelIndex) {
-		return activeHandler.isBlocked(channelIndex);
+	public boolean isBlocked(InputChannelInfo channelInfo) {
+		return activeHandler.isBlocked(channelInfo);
 	}
 
 	@Override
-	public void processBarrier(CheckpointBarrier receivedBarrier, int channelIndex) throws Exception {
+	public void processBarrier(CheckpointBarrier receivedBarrier, InputChannelInfo channelInfo) throws Exception {
 		if (receivedBarrier.getId() < lastSeenBarrierId) {
 			return;
 		}
+
 		lastSeenBarrierId = receivedBarrier.getId();
 		CheckpointBarrierHandler previousHandler = activeHandler;
 		activeHandler = receivedBarrier.isCheckpoint() ? unalignedHandler : alignedHandler;
-		abortPreviousIfNeeded(receivedBarrier, previousHandler);
-		activeHandler.processBarrier(receivedBarrier, channelIndex);
-	}
-
-	private void abortPreviousIfNeeded(CheckpointBarrier barrier, CheckpointBarrierHandler prevHandler) throws IOException {
-		if (prevHandler != activeHandler && prevHandler.isCheckpointPending() && prevHandler.getLatestCheckpointId() < barrier.getId()) {
-			prevHandler.releaseBlocksAndResetBarriers();
-			notifyAbort(
-				prevHandler.getLatestCheckpointId(),
-				new CheckpointException(
-					format("checkpoint %d subsumed by %d", prevHandler.getLatestCheckpointId(), barrier.getId()),
-					CHECKPOINT_DECLINED_SUBSUMED));
+		if (previousHandler != activeHandler) {
+			previousHandler.abortPendingCheckpoint(
+				lastSeenBarrierId,
+				new CheckpointException(format("checkpoint subsumed by %d", lastSeenBarrierId), CHECKPOINT_DECLINED_SUBSUMED));
 		}
+
+		activeHandler.processBarrier(receivedBarrier, channelInfo);
 	}
 
 	@Override
@@ -95,13 +91,18 @@ class AlternatingCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
 	@Override
 	public long getAlignmentDurationNanos() {
-		return alignedHandler.getAlignmentDurationNanos();
+		return activeHandler.getAlignmentDurationNanos();
 	}
 
 	@Override
-	public boolean hasInflightData(long checkpointId, int channelIndex) {
+	public long getCheckpointStartDelayNanos() {
+		return activeHandler.getCheckpointStartDelayNanos();
+	}
+
+	@Override
+	public boolean hasInflightData(long checkpointId, InputChannelInfo channelInfo) {
 		// should only be called for unaligned checkpoint
-		return unalignedHandler.hasInflightData(checkpointId, channelIndex);
+		return unalignedHandler.hasInflightData(checkpointId, channelInfo);
 	}
 
 	@Override

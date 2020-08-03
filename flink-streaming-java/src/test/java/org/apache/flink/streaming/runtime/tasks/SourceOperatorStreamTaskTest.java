@@ -19,12 +19,13 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.api.common.eventtime.TimestampAssigner;
-import org.apache.flink.api.common.eventtime.WatermarkStrategies;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.mocks.MockSource;
 import org.apache.flink.api.connector.source.mocks.MockSourceReader;
 import org.apache.flink.api.connector.source.mocks.MockSourceSplit;
+import org.apache.flink.api.connector.source.mocks.MockSourceSplitSerializer;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointMetaData;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -132,11 +133,11 @@ public class SourceOperatorStreamTaskTest {
 		// get a source operator.
 		SourceOperatorFactory<Integer> sourceOperatorFactory = new SourceOperatorFactory<>(
 				new MockSource(Boundedness.BOUNDED, 1),
-				WatermarkStrategies.<Integer>noWatermarks().build());
+				WatermarkStrategy.noWatermarks());
 
 		// build a test harness.
-		MultipleInputStreamTaskTestHarnessBuilder<Integer> builder =
-				new MultipleInputStreamTaskTestHarnessBuilder<>(SourceOperatorStreamTask::new, BasicTypeInfo.INT_TYPE_INFO);
+		StreamTaskMailboxTestHarnessBuilder<Integer> builder =
+				new StreamTaskMailboxTestHarnessBuilder<>(SourceOperatorStreamTask::new, BasicTypeInfo.INT_TYPE_INFO);
 		if (snapshot != null) {
 			// Set initial snapshot if needed.
 			builder.setTaskStateSnapshot(checkpointId, snapshot);
@@ -152,7 +153,8 @@ public class SourceOperatorStreamTaskTest {
 			// Prepare the source split and assign it to the source reader.
 			MockSourceSplit split = new MockSourceSplit(0, 0);
 			// Assign the split to the source reader.
-			AddSplitEvent<MockSourceSplit> addSplitEvent = new AddSplitEvent<>(Collections.singletonList(split));
+			AddSplitEvent<MockSourceSplit> addSplitEvent =
+					new AddSplitEvent<>(Collections.singletonList(split), new MockSourceSplitSerializer());
 			testHarness
 					.getStreamTask()
 					.dispatchOperatorEvent(OPERATOR_ID, new SerializedValue<>(addSplitEvent));

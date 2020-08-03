@@ -2,7 +2,6 @@
 title: "SQL 客户端"
 nav-parent_id: tableapi
 nav-pos: 90
-is_beta: true
 ---
 <!--
 Licensed to the Apache Software Foundation (ASF) under one
@@ -28,8 +27,6 @@ Flink 的 Table & SQL API 可以处理 SQL 语言编写的查询语句，但是�
 *SQL 客户端* 的目的是提供一种简单的方式来编写、调试和提交表程序到 Flink 集群上，而无需写一行 Java 或 Scala 代码。*SQL 客户端命令行界面（CLI）* 能够在命令行中检索和可视化分布式应用中实时产生的结果。
 
 <a href="{{ site.baseurl }}/fig/sql_client_demo.gif"><img class="offset" src="{{ site.baseurl }}/fig/sql_client_demo.gif" alt="Animated demo of the Flink SQL Client CLI running table programs on a cluster" width="80%" /></a>
-
-<span class="label label-danger">注意</span> SQL 客户端正处于早期开发阶段。虽然还没准备好用于生产，但是它对于原型设计和玩转 Flink SQL 还是很实用的工具。将来，社区计划通过提供基于 REST 的 [SQL 客户端网关（Gateway）](sqlClient.html#limitations--future)的来扩展它的功能。
 
 * This will be replaced by the TOC
 {:toc}
@@ -65,7 +62,7 @@ SELECT 'Hello World';
 
 该查询不需要 table source，并且只产生一行结果。CLI 将从集群中检索结果并将其可视化。按 `Q` 键退出结果视图。
 
-CLI 为维护和可视化结果提供**两种模式**。
+CLI 为维护和可视化结果提供**三种模式**。
 
 **表格模式**（table mode）在内存中实体化结果，并将结果用规则的分页表格可视化展示出来。执行如下命令启用：
 
@@ -79,7 +76,18 @@ SET execution.result-mode=table;
 SET execution.result-mode=changelog;
 {% endhighlight %}
 
-你可以用如下查询来查看两种结果模式的运行情况：
+**Tableau模式**（tableau mode）更接近传统的数据库，会将执行的结果以制表的形式直接打在屏幕之上。具体显示的内容会取决于作业
+执行模式的不同(`execution.type`)：
+
+{% highlight text %}
+SET execution.result-mode=tableau;
+{% endhighlight %}
+
+注意当你使用这个模式运行一个流式查询的时候，Flink 会将结果持续的打印在当前的屏幕之上。如果这个流式查询的输入是有限的数据集，
+那么Flink在处理完所有的数据之后，会自动的停止作业，同时屏幕上的打印也会相应的停止。如果你想提前结束这个查询，那么可以直接使用
+`CTRL-C` 按键，这个会停掉作业同时停止屏幕上的打印。
+
+你可以用如下查询来查看三种结果模式的运行情况：
 
 {% highlight sql %}
 SELECT name, COUNT(*) AS cnt FROM (VALUES ('Bob'), ('Alice'), ('Greg'), ('Bob')) AS NameTable(name) GROUP BY name;
@@ -105,9 +113,35 @@ Alice, 1
 Greg, 1
 {% endhighlight %}
 
-这两种结果模式在 SQL 查询的原型设计过程中都非常有用。这两种模式结果都存储在 SQL 客户端 的 Java 堆内存中。为了保持 CLI 界面及时响应，变更日志模式仅显示最近的 1000 个更改。表格模式支持浏览更大的结果，这些结果仅受可用主内存和配置的[最大行数](sqlClient.html#configuration)（`max-table-result-rows`）的限制。
+*Tableau模式* 下，如果这个查询以流的方式执行，那么将显示以下内容：
+{% highlight text %}
++-----+----------------------+----------------------+
+| +/- |                 name |                  cnt |
++-----+----------------------+----------------------+
+|   + |                  Bob |                    1 |
+|   + |                Alice |                    1 |
+|   + |                 Greg |                    1 |
+|   - |                  Bob |                    1 |
+|   + |                  Bob |                    2 |
++-----+----------------------+----------------------+
+Received a total of 5 rows
+{% endhighlight %}
 
-<span class="label label-danger">注意</span> 在批处理环境下执行的查询只能用表格模式进行检索。
+如果这个查询以批的方式执行，显示的内容如下：
+{% highlight text %}
++-------+-----+
+|  name | cnt |
++-------+-----+
+| Alice |   1 |
+|   Bob |   2 |
+|  Greg |   1 |
++-------+-----+
+3 rows in set
+{% endhighlight %}
+
+这几种结果模式在 SQL 查询的原型设计过程中都非常有用。这些模式的结果都存储在 SQL 客户端 的 Java 堆内存中。为了保持 CLI 界面及时响应，变更日志模式仅显示最近的 1000 个更改。表格模式支持浏览更大的结果，这些结果仅受可用主内存和配置的[最大行数](sqlClient.html#configuration)（`max-table-result-rows`）的限制。
+
+<span class="label label-danger">注意</span> 在批处理环境下执行的查询只能用表格模式或者Tableau模式进行检索。
 
 定义查询语句后，可以将其作为长时间运行的独立 Flink 作业提交给集群。为此，其目标系统需要使用 [INSERT INTO 语句](sqlClient.html#detached-sql-queries)指定存储结果。[配置部分](sqlClient.html#configuration)解释如何声明读取数据的 table source，写入数据的 sink 以及配置其他表程序属性的方法。
 
@@ -257,16 +291,16 @@ tables:
       type: csv
       fields:
         - name: MyField1
-          type: INT
+          data-type: INT
         - name: MyField2
-          type: VARCHAR
+          data-type: VARCHAR
       line-delimiter: "\n"
       comment-prefix: "#"
     schema:
       - name: MyField1
-        type: INT
+        data-type: INT
       - name: MyField2
-        type: VARCHAR
+        data-type: VARCHAR
   - name: MyCustomView
     type: view
     query: "SELECT MyField2 FROM MyTableSource"
@@ -694,6 +728,6 @@ tables:
 局限与未来
 --------------------
 
-当前的 SQL 客户端仍处于非常早期的开发阶段，作为更大的 Flink 改进提案 24（[FLIP-24](https://cwiki.apache.org/confluence/display/FLINK/FLIP-24+-+SQL+Client)）的一部分，将来可能会发生变化。如果你发现了 bug 可以随时创建 issue，或者如果（如邮件列表、Pull requests中）发现有用的特性，欢迎积极参与讨论。
+当前的 SQL 客户端仅支持嵌入式模式。在将来，社区计划提供基于 REST 的 [SQL 客户端网关（Gateway）](sqlClient.html#limitations--future) 的功能，详见 [FLIP-24](https://cwiki.apache.org/confluence/display/FLINK/FLIP-24+-+SQL+Client) 和 [FLIP-91](https://cwiki.apache.org/confluence/display/FLINK/FLIP-91%3A+Support+SQL+Client+Gateway)。
 
 {% top %}

@@ -18,7 +18,7 @@
 
 package org.apache.flink.connector.jdbc.catalog;
 
-import org.apache.flink.connector.jdbc.table.JdbcDynamicTableSourceSinkFactory;
+import org.apache.flink.connector.jdbc.table.JdbcDynamicTableFactory;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.api.constraints.UniqueConstraint;
 import org.apache.flink.table.catalog.AbstractCatalog;
@@ -153,7 +153,7 @@ public abstract class AbstractJdbcCatalog extends AbstractCatalog {
 
 	@Override
 	public Optional<Factory> getFactory() {
-		return Optional.of(new JdbcDynamicTableSourceSinkFactory());
+		return Optional.of(new JdbcDynamicTableFactory());
 	}
 
 	// ------ databases ------
@@ -226,12 +226,12 @@ public abstract class AbstractJdbcCatalog extends AbstractCatalog {
 
 	@Override
 	public CatalogPartition getPartition(ObjectPath tablePath, CatalogPartitionSpec partitionSpec) throws PartitionNotExistException, CatalogException {
-		throw new UnsupportedOperationException();
+		throw new PartitionNotExistException(getName(), tablePath, partitionSpec);
 	}
 
 	@Override
 	public boolean partitionExists(ObjectPath tablePath, CatalogPartitionSpec partitionSpec) throws CatalogException {
-		throw new UnsupportedOperationException();
+		return false;
 	}
 
 	@Override
@@ -258,12 +258,12 @@ public abstract class AbstractJdbcCatalog extends AbstractCatalog {
 
 	@Override
 	public CatalogFunction getFunction(ObjectPath functionPath) throws FunctionNotExistException, CatalogException {
-		throw new UnsupportedOperationException();
+		throw new FunctionNotExistException(getName(), functionPath);
 	}
 
 	@Override
 	public boolean functionExists(ObjectPath functionPath) throws CatalogException {
-		throw new UnsupportedOperationException();
+		return false;
 	}
 
 	@Override

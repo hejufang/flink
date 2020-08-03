@@ -19,16 +19,23 @@
 package org.apache.flink.table.catalog;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.CatalogNotExistException;
 import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.api.internal.CatalogTableSchemaResolver;
+import org.apache.flink.table.api.internal.TableEnvironmentImpl;
 import org.apache.flink.table.catalog.exceptions.CatalogException;
 import org.apache.flink.table.catalog.exceptions.DatabaseNotExistException;
 import org.apache.flink.table.catalog.exceptions.PartitionNotExistException;
 import org.apache.flink.table.catalog.exceptions.TableAlreadyExistException;
 import org.apache.flink.table.catalog.exceptions.TableNotExistException;
+import org.apache.flink.table.delegation.Parser;
+import org.apache.flink.table.delegation.Planner;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
@@ -69,6 +76,8 @@ public final class CatalogManager {
 	private String currentCatalogName;
 
 	private String currentDatabaseName;
+
+	private CatalogTableSchemaResolver schemaResolver;
 
 	// The name of the built-in catalog
 	private final String builtInCatalogName;
@@ -144,6 +153,16 @@ public final class CatalogManager {
 				defaultCatalog,
 				new DataTypeFactoryImpl(classLoader, config, executionConfig));
 		}
+	}
+
+	/**
+	 * We do not pass it in the ctor, because we need a {@link Parser} that is constructed in a
+	 * {@link Planner}.  At the same time {@link Planner} needs a {@link CatalogManager} to
+	 * be constructed. Thus we can't get {@link Parser} instance when creating a
+	 * {@link CatalogManager}. See {@link TableEnvironmentImpl#create}.
+	 */
+	public void setCatalogTableSchemaResolver(CatalogTableSchemaResolver schemaResolver) {
+		this.schemaResolver = schemaResolver;
 	}
 
 	/**
@@ -305,18 +324,25 @@ public final class CatalogManager {
 	public static class TableLookupResult {
 		private final boolean isTemporary;
 		private final CatalogBaseTable table;
+		private final TableSchema resolvedSchema;
 
-		private static TableLookupResult temporary(CatalogBaseTable table) {
-			return new TableLookupResult(true, table);
+		@VisibleForTesting
+		public static TableLookupResult temporary(CatalogBaseTable table, TableSchema resolvedSchema) {
+			return new TableLookupResult(true, table, resolvedSchema);
 		}
 
-		private static TableLookupResult permanent(CatalogBaseTable table) {
-			return new TableLookupResult(false, table);
+		@VisibleForTesting
+		public static TableLookupResult permanent(CatalogBaseTable table, TableSchema resolvedSchema) {
+			return new TableLookupResult(false, table, resolvedSchema);
 		}
 
-		private TableLookupResult(boolean isTemporary, CatalogBaseTable table) {
+		private TableLookupResult(
+				boolean isTemporary,
+				CatalogBaseTable table,
+				TableSchema resolvedSchema) {
 			this.isTemporary = isTemporary;
 			this.table = table;
+			this.resolvedSchema = resolvedSchema;
 		}
 
 		public boolean isTemporary() {
@@ -325,6 +351,10 @@ public final class CatalogManager {
 
 		public CatalogBaseTable getTable() {
 			return table;
+		}
+
+		public TableSchema getResolvedSchema() {
+			return resolvedSchema;
 		}
 	}
 
@@ -336,12 +366,18 @@ public final class CatalogManager {
 	 * @return table that the path points to.
 	 */
 	public Optional<TableLookupResult> getTable(ObjectIdentifier objectIdentifier) {
+		Preconditions.checkNotNull(schemaResolver, "schemaResolver should not be null");
 		CatalogBaseTable temporaryTable = temporaryTables.get(objectIdentifier);
 		if (temporaryTable != null) {
-			return Optional.of(TableLookupResult.temporary(temporaryTable));
+			TableSchema resolvedSchema = resolveTableSchema(temporaryTable);
+			return Optional.of(TableLookupResult.temporary(temporaryTable, resolvedSchema));
 		} else {
 			return getPermanentTable(objectIdentifier);
 		}
+	}
+
+	private TableSchema resolveTableSchema(CatalogBaseTable table) {
+		return schemaResolver.resolve(table.getSchema());
 	}
 
 	/**
@@ -368,7 +404,9 @@ public final class CatalogManager {
 		ObjectPath objectPath = objectIdentifier.toObjectPath();
 		if (currentCatalog != null) {
 			try {
-				return Optional.of(TableLookupResult.permanent(currentCatalog.getTable(objectPath)));
+				CatalogBaseTable catalogTable = currentCatalog.getTable(objectPath);
+				TableSchema resolvedSchema = resolveTableSchema(catalogTable);
+				return Optional.of(TableLookupResult.permanent(catalogTable, resolvedSchema));
 			} catch (TableNotExistException e) {
 				// Ignore.
 			}

@@ -44,10 +44,12 @@ import org.apache.flink.table.types.{AbstractDataType, DataType}
 import org.apache.flink.table.util.JavaScalaConversionUtil
 import org.apache.flink.table.utils.PrintUtils
 import org.apache.flink.types.Row
+
 import org.apache.calcite.jdbc.CalciteSchemaBuilder.asRootSchema
 import org.apache.calcite.sql.parser.SqlParser
 import org.apache.calcite.tools.FrameworkConfig
 import org.apache.commons.lang3.StringUtils
+
 import _root_.java.lang.{Iterable => JIterable, Long => JLong}
 import _root_.java.util.function.{Function => JFunction, Supplier => JSupplier}
 import _root_.java.util.{Optional, Collections => JCollections, HashMap => JHashMap, List => JList, Map => JMap}
@@ -126,6 +128,8 @@ abstract class TableEnvImpl(
       override def get(): CalciteParser = planningConfigurationBuilder.createCalciteParser()
     }
   )
+
+  catalogManager.setCatalogTableSchemaResolver(new CatalogTableSchemaResolver(parser, false))
 
   def getConfig: TableConfig = config
 
@@ -320,6 +324,44 @@ abstract class TableEnvImpl(
       false)
   }
 
+  override def registerTableSource(name: String, tableSource: TableSource[_]): Unit = {
+    validateTableSource(tableSource)
+    registerTableSourceInternal(name, tableSource)
+  }
+
+  override def registerTableSink(
+      name: String,
+      fieldNames: Array[String],
+      fieldTypes: Array[TypeInformation[_]],
+      tableSink: TableSink[_]): Unit = {
+
+    if (fieldNames == null) {
+      throw new TableException("fieldNames must not be null.")
+    }
+    if (fieldTypes == null) {
+      throw new TableException("fieldTypes must not be null.")
+    }
+    if (fieldNames.length == 0) {
+      throw new TableException("fieldNames must not be empty.")
+    }
+    if (fieldNames.length != fieldTypes.length) {
+      throw new TableException("Same number of field names and types required.")
+    }
+
+    val configuredSink = tableSink.configure(fieldNames, fieldTypes)
+    registerTableSinkInternal(name, configuredSink)
+  }
+
+  override def registerTableSink(name: String, configuredSink: TableSink[_]): Unit = {
+    // validate
+    if (configuredSink.getTableSchema.getFieldNames.length == 0) {
+      throw new TableException("Field names must not be empty.")
+    }
+
+    validateTableSink(configuredSink)
+    registerTableSinkInternal(name, configuredSink)
+  }
+
   override def fromTableSource(source: TableSource[_]): Table = {
     createTable(new TableSourceQueryOperation(source, isBatchTable))
   }
@@ -442,7 +484,7 @@ abstract class TableEnvImpl(
     val objectIdentifier: ObjectIdentifier = catalogManager.qualifyIdentifier(identifier)
 
     JavaScalaConversionUtil.toScala(catalogManager.getTable(objectIdentifier))
-      .map(t => new CatalogQueryOperation(objectIdentifier, t.getTable.getSchema))
+      .map(t => new CatalogQueryOperation(objectIdentifier, t.getResolvedSchema))
   }
 
   override def listModules(): Array[String] = {
@@ -594,7 +636,8 @@ abstract class TableEnvImpl(
         .resultKind(ResultKind.SUCCESS_WITH_CONTENT)
         .tableSchema(tableSchema)
         .data(tableSink.getResultIterator)
-        .setPrintStyle(PrintStyle.tableau(PrintUtils.MAX_COLUMN_WIDTH, PrintUtils.NULL_COLUMN))
+        .setPrintStyle(
+          PrintStyle.tableau(PrintUtils.MAX_COLUMN_WIDTH, PrintUtils.NULL_COLUMN, true))
         .build
     } catch {
       case e: Exception =>
@@ -736,13 +779,13 @@ abstract class TableEnvImpl(
         catalogManager.setCurrentDatabase(useDatabaseOperation.getDatabaseName)
         TableResultImpl.TABLE_RESULT_OK
       case _: ShowCatalogsOperation =>
-        buildShowResult(listCatalogs())
+        buildShowResult("catalog name", listCatalogs())
       case _: ShowDatabasesOperation =>
-        buildShowResult(listDatabases())
+        buildShowResult("database name", listDatabases())
       case _: ShowTablesOperation =>
-        buildShowResult(listTables())
+        buildShowResult("table name", listTables())
       case _: ShowFunctionsOperation =>
-        buildShowResult(listFunctions())
+        buildShowResult("function name", listFunctions())
       case createViewOperation: CreateViewOperation =>
         if (createViewOperation.isTemporary) {
           catalogManager.createTemporaryTable(
@@ -768,7 +811,7 @@ abstract class TableEnvImpl(
         }
         TableResultImpl.TABLE_RESULT_OK
       case _: ShowViewsOperation =>
-        buildShowResult(listViews())
+        buildShowResult("view name", listViews())
       case explainOperation: ExplainOperation =>
         val explanation = explainInternal(JCollections.singletonList(explainOperation.getChild))
         TableResultImpl.builder.
@@ -794,12 +837,12 @@ abstract class TableEnvImpl(
     }
   }
 
-  private def buildShowResult(objects: Array[String]): TableResult = {
+  private def buildShowResult(columnName: String, objects: Array[String]): TableResult = {
     val rows = Array.ofDim[Object](objects.length, 1)
     objects.zipWithIndex.foreach {
       case (obj, i) => rows(i)(0) = obj
     }
-    buildResult(Array("result"), Array(DataTypes.STRING), rows)
+    buildResult(Array(columnName), Array(DataTypes.STRING), rows)
   }
 
   private def buildDescribeResult(schema: TableSchema): TableResult = {

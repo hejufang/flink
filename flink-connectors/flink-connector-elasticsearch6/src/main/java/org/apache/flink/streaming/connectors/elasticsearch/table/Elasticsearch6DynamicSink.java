@@ -50,7 +50,7 @@ import java.util.Objects;
 @PublicEvolving
 final class Elasticsearch6DynamicSink implements DynamicTableSink {
 	@VisibleForTesting
-	static final Elasticsearch7RequestFactory REQUEST_FACTORY = new Elasticsearch7RequestFactory();
+	static final Elasticsearch6RequestFactory REQUEST_FACTORY = new Elasticsearch6RequestFactory();
 
 	private final EncodingFormat<SerializationSchema<RowData>> format;
 	private final TableSchema schema;
@@ -128,16 +128,17 @@ final class Elasticsearch6DynamicSink implements DynamicTableSink {
 				upsertFunction);
 
 			builder.setFailureHandler(config.getFailureHandler());
-			config.getBulkFlushMaxActions().ifPresent(builder::setBulkFlushMaxActions);
-			config.getBulkFlushMaxSize().ifPresent(builder::setBulkFlushMaxSizeMb);
-			config.getBulkFlushInterval().ifPresent(builder::setBulkFlushInterval);
+			builder.setBulkFlushMaxActions(config.getBulkFlushMaxActions());
+			builder.setBulkFlushMaxSizeMb((int) (config.getBulkFlushMaxByteSize() >> 20));
+			builder.setBulkFlushInterval(config.getBulkFlushInterval());
 			builder.setBulkFlushBackoff(config.isBulkFlushBackoffEnabled());
 			config.getBulkFlushBackoffType().ifPresent(builder::setBulkFlushBackoffType);
 			config.getBulkFlushBackoffRetries().ifPresent(builder::setBulkFlushBackoffRetries);
 			config.getBulkFlushBackoffDelay().ifPresent(builder::setBulkFlushBackoffDelay);
 
-			config.getPathPrefix()
-				.ifPresent(pathPrefix -> builder.setRestClientFactory(new DefaultRestClientFactory(pathPrefix)));
+			// we must overwrite the default factory which is defined with a lambda because of a bug
+			// in shading lambda serialization shading see FLINK-18006
+			builder.setRestClientFactory(new DefaultRestClientFactory(config.getPathPrefix().orElse(null)));
 
 			final ElasticsearchSink<RowData> sink = builder.build();
 
@@ -156,7 +157,7 @@ final class Elasticsearch6DynamicSink implements DynamicTableSink {
 
 	@Override
 	public String asSummaryString() {
-		return "Elasticsearch7";
+		return "Elasticsearch6";
 	}
 
 	/**
@@ -199,7 +200,7 @@ final class Elasticsearch6DynamicSink implements DynamicTableSink {
 	/**
 	 * Version-specific creation of {@link org.elasticsearch.action.ActionRequest}s used by the sink.
 	 */
-	private static class Elasticsearch7RequestFactory implements RequestFactory {
+	private static class Elasticsearch6RequestFactory implements RequestFactory {
 		@Override
 		public UpdateRequest createUpdateRequest(
 			String index,
@@ -219,7 +220,7 @@ final class Elasticsearch6DynamicSink implements DynamicTableSink {
 				String key,
 				XContentType contentType,
 				byte[] document) {
-			return new IndexRequest(index, docType, index)
+			return new IndexRequest(index, docType, key)
 				.source(document, contentType);
 		}
 

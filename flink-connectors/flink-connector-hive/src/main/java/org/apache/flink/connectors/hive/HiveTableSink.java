@@ -82,10 +82,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.apache.flink.table.catalog.hive.util.HivePermissionUtils.PermissionType.ALL;
+import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_CHECK_INTERVAL;
 import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_FILE_SIZE;
-import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_TIME_INTERVAL;
+import static org.apache.flink.table.filesystem.FileSystemOptions.SINK_ROLLING_POLICY_ROLLOVER_INTERVAL;
 
 /**
  * Table sink to write to Hive tables.
@@ -136,6 +138,7 @@ public class HiveTableSink implements
 			StorageDescriptor sd = table.getSd();
 			HiveTableMetaStoreFactory msFactory = new HiveTableMetaStoreFactory(
 					jobConf, hiveVersion, dbName, tableName);
+			HadoopFileSystemFactory fsFactory = new HadoopFileSystemFactory(jobConf);
 
 			Class hiveOutputFormatClz = hiveShim.getHiveOutputFormatClass(
 					Class.forName(sd.getOutputFormat()));
@@ -151,9 +154,10 @@ public class HiveTableSink implements
 					isCompressed);
 			String extension = Utilities.getFileExtension(jobConf, isCompressed,
 					(HiveOutputFormat<?, ?>) hiveOutputFormatClz.newInstance());
-			extension = extension == null ? "" : extension;
 			OutputFileConfig outputFileConfig = OutputFileConfig.builder()
-					.withPartSuffix(extension).build();
+					.withPartPrefix("part-" + UUID.randomUUID().toString())
+					.withPartSuffix(extension == null ? "" : extension)
+					.build();
 			if (isBounded) {
 				FileSystemOutputFormat.Builder<Row> builder = new FileSystemOutputFormat.Builder<>();
 				builder.setPartitionComputer(new HiveRowPartitionComputer(
@@ -166,7 +170,7 @@ public class HiveTableSink implements
 						partitionColumns));
 				builder.setDynamicGrouped(dynamicGrouping);
 				builder.setPartitionColumns(partitionColumns);
-				builder.setFileSystemFactory(new HadoopFileSystemFactory(jobConf));
+				builder.setFileSystemFactory(fsFactory);
 				builder.setFormatFactory(new HiveOutputFormatFactory(recordWriterFactory));
 				builder.setMetaStoreFactory(
 						msFactory);
@@ -193,7 +197,7 @@ public class HiveTableSink implements
 				TableRollingPolicy rollingPolicy = new TableRollingPolicy(
 						true,
 						conf.get(SINK_ROLLING_POLICY_FILE_SIZE).getBytes(),
-						conf.get(SINK_ROLLING_POLICY_TIME_INTERVAL).toMillis());
+						conf.get(SINK_ROLLING_POLICY_ROLLOVER_INTERVAL).toMillis());
 
 				Optional<BulkWriter.Factory<RowData>> bulkFactory = createBulkWriterFactory(partitionColumns, sd);
 				BucketsBuilder<RowData, String, ? extends BucketsBuilder<RowData, ?, ?>> builder;
@@ -221,7 +225,9 @@ public class HiveTableSink implements
 						overwrite,
 						dataStream,
 						builder,
-						msFactory);
+						msFactory,
+						fsFactory,
+						conf.get(SINK_ROLLING_POLICY_CHECK_INTERVAL).toMillis());
 			}
 		} catch (TException e) {
 			throw new CatalogException("Failed to query Hive metaStore", e);

@@ -31,11 +31,12 @@ Flink SQL supports the following CREATE statements for now:
 
 - CREATE TABLE
 - CREATE DATABASE
+- CREATE VIEW
 - CREATE FUNCTION
 
 ## Run a CREATE statement
 
-CREATE statements can be executed with the `sqlUpdate()` method of the `TableEnvironment`, or executed in [SQL CLI]({{ site.baseurl }}/dev/table/sqlClient.html). The `sqlUpdate()` method returns nothing for a successful CREATE operation, otherwise will throw an exception.
+CREATE statements can be executed with the `executeSql()` method of the `TableEnvironment`, or executed in [SQL CLI]({{ site.baseurl }}/dev/table/sqlClient.html). The `executeSql()` method returns 'OK' for a successful CREATE operation, otherwise will throw an exception.
 
 The following examples show how to run a CREATE statement in `TableEnvironment` and in SQL CLI.
 
@@ -47,16 +48,16 @@ TableEnvironment tableEnv = TableEnvironment.create(settings);
 
 // SQL query with a registered table
 // register a table named "Orders"
-tableEnv.sqlUpdate("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
+tableEnv.executeSql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
 // run a SQL query on the Table and retrieve the result as a new Table
 Table result = tableEnv.sqlQuery(
   "SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'");
 
-// SQL update with a registered table
+// Execute insert SQL with a registered table
 // register a TableSink
-tableEnv.sqlUpdate("CREATE TABLE RubberOrders(product STRING, amount INT) WITH (...)");
-// run a SQL update query on the Table and emit the result to the TableSink
-tableEnv.sqlUpdate(
+tableEnv.executeSql("CREATE TABLE RubberOrders(product STRING, amount INT) WITH (...)");
+// run an insert SQL on the Table and emit the result to the TableSink
+tableEnv.executeSql(
   "INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'");
 {% endhighlight %}
 </div>
@@ -68,38 +69,38 @@ val tableEnv = TableEnvironment.create(settings)
 
 // SQL query with a registered table
 // register a table named "Orders"
-tableEnv.sqlUpdate("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
+tableEnv.executeSql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
 // run a SQL query on the Table and retrieve the result as a new Table
 val result = tableEnv.sqlQuery(
   "SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'");
 
-// SQL update with a registered table
+// Execute insert SQL with a registered table
 // register a TableSink
-tableEnv.sqlUpdate("CREATE TABLE RubberOrders(product STRING, amount INT) WITH ('connector.path'='/path/to/file' ...)");
-// run a SQL update query on the Table and emit the result to the TableSink
-tableEnv.sqlUpdate(
+tableEnv.executeSql("CREATE TABLE RubberOrders(product STRING, amount INT) WITH ('connector.path'='/path/to/file' ...)");
+// run an insert SQL on the Table and emit the result to the TableSink
+tableEnv.executeSql(
   "INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
 {% endhighlight %}
 </div>
 
 <div data-lang="python" markdown="1">
 {% highlight python %}
-settings = EnvironmentSettings.newInstance()...
-table_env = TableEnvironment.create(settings)
+settings = EnvironmentSettings.new_instance()...
+table_env = StreamTableEnvironment.create(env, settings)
 
 # SQL query with a registered table
 # register a table named "Orders"
-tableEnv.sqlUpdate("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
+table_env.execute_sql("CREATE TABLE Orders (`user` BIGINT, product STRING, amount INT) WITH (...)");
 # run a SQL query on the Table and retrieve the result as a new Table
-result = tableEnv.sqlQuery(
+result = table_env.sql_query(
   "SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'");
 
-# SQL update with a registered table
+# Execute an INSERT SQL with a registered table
 # register a TableSink
-table_env.sql_update("CREATE TABLE RubberOrders(product STRING, amount INT) WITH (...)")
-# run a SQL update query on the Table and emit the result to the TableSink
+table_env.execute_sql("CREATE TABLE RubberOrders(product STRING, amount INT) WITH (...)")
+# run an INSERT SQL on the Table and emit the result to the TableSink
 table_env \
-    .sql_update("INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
+    .execute_sql("INSERT INTO RubberOrders SELECT product, amount FROM Orders WHERE product LIKE '%Rubber%'")
 {% endhighlight %}
 </div>
 
@@ -126,6 +127,7 @@ CREATE TABLE [catalog_name.][db_name.]table_name
   (
     { <column_definition> | <computed_column_definition> }[ , ...n]
     [ <watermark_definition> ]
+    [ <table_constraint> ][ , ...n]
   )
   [COMMENT table_comment]
   [PARTITIONED BY (partition_column_name1, partition_column_name2, ...)]
@@ -133,7 +135,13 @@ CREATE TABLE [catalog_name.][db_name.]table_name
   [ LIKE source_table [( <like_options> )] ]
    
 <column_definition>:
-  column_name column_type [COMMENT column_comment]
+  column_name column_type [ <column_constraint> ] [COMMENT column_comment]
+  
+<column_constraint>:
+  [CONSTRAINT constraint_name] PRIMARY KEY NOT ENFORCED
+
+<table_constraint>:
+  [CONSTRAINT constraint_name] PRIMARY KEY (column_name, ...) NOT ENFORCED
 
 <computed_column_definition>:
   column_name AS computed_column_expression [COMMENT column_comment]
@@ -201,6 +209,24 @@ CREATE TABLE Orders (
 ) WITH ( . . . );
 {% endhighlight %}
 
+**PRIMARY KEY**
+
+Primary key constraint is a hint for Flink to leverage for optimizations. It tells that a column or a set of columns of a table or a view are unique and they **do not** contain null.
+Neither of columns in a primary can be nullable. Primary key therefore uniquely identify a row in a table.
+
+Primary key constraint can be either declared along with a column definition (a column constraint) or as a single line (a table constraint).
+For both cases, it should only be declared as a singleton. If you define multiple primary key constraints at the same time, an exception would be thrown.
+
+##### Validity Check
+
+SQL standard specifies that a constraint can either be `ENFORCED` or `NOT ENFORCED`. This controls if the constraint checks are performed on the incoming/outgoing data.
+Flink does not own the data therefore the only mode we want to support is the `NOT ENFORCED` mode.
+It is up to the user to ensure that the query enforces key integrity.
+
+Flink will assume correctness of the primary key by assuming that the columns nullability is aligned with the columns in primary key. Connectors should ensure those are aligned.
+
+**Notes:** In a CREATE TABLE statement, creating a primary key constraint will alter the columns nullability, that means, a column with primary key constraint is not nullable.
+
 **PARTITIONED BY**
 
 Partition the created table by the specified columns. A directory is created for each partition if this table is used as a filesystem sink.
@@ -230,7 +256,7 @@ CREATE TABLE Orders (
     order_time TIMESTAMP(3)
 ) WITH ( 
     'connector' = 'kafka',
-    'startup-mode' = 'earliest-offset'
+    'scan.startup.mode' = 'earliest-offset'
 );
 
 CREATE TABLE Orders_with_watermark (
@@ -238,7 +264,7 @@ CREATE TABLE Orders_with_watermark (
     WATERMARK FOR order_time AS order_time - INTERVAL '5' SECOND 
 ) WITH (
     -- Overwrite the startup-mode
-    'startup-mode' = 'latest-offset'
+    'scan.startup.mode' = 'latest-offset'
 )
 LIKE Orders;
 {% endhighlight %}
@@ -252,7 +278,7 @@ CREATE TABLE Orders_with_watermark (
     WATERMARK FOR order_time AS order_time - INTERVAL '5' SECOND 
 ) WITH (
     'connector' = 'kafka',
-    'startup-mode' = 'latest-offset'
+    'scan.startup.mode' = 'latest-offset'
 );
 {% endhighlight %}
 
@@ -348,6 +374,25 @@ If the database already exists, nothing happens.
 
 Database properties used to store extra information related to this database.
 The key and value of expression `key1=val1` should both be string literal.
+
+{% top %}
+
+## CREATE VIEW
+{% highlight sql %}
+CREATE [TEMPORARY] VIEW [IF NOT EXISTS] [catalog_name.][db_name.]view_name
+  [{columnName [, columnName ]* }] [COMMENT view_comment]
+  AS query_expression
+{% endhighlight %}
+
+Create a view with the given query expression. If a view with the same name already exists in the catalog, an exception is thrown.
+
+**TEMPORARY**
+
+Create temporary view that has catalog and database namespaces and overrides views.
+
+**IF NOT EXISTS**
+
+If the view already exists, nothing happens.
 
 {% top %}
 

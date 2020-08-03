@@ -25,6 +25,8 @@ __all__ = ['TableResult']
 class TableResult(object):
     """
     A :class:`~pyflink.table.TableResult` is the representation of the statement execution result.
+
+    .. versionadded:: 1.11.0
     """
 
     def __init__(self, j_table_result):
@@ -37,6 +39,8 @@ class TableResult(object):
 
         :return: The job client, optional.
         :rtype: pyflink.common.JobClient
+
+        .. versionadded:: 1.11.0
         """
         job_client = self._j_table_result.getJobClient()
         if job_client.isPresent():
@@ -48,8 +52,67 @@ class TableResult(object):
         """
         Get the schema of result.
 
+        The schema of DDL, USE, EXPLAIN:
+        ::
+
+            +-------------+-------------+----------+
+            | column name | column type | comments |
+            +-------------+-------------+----------+
+            | result      | STRING      |          |
+            +-------------+-------------+----------+
+
+        The schema of SHOW:
+        ::
+
+            +---------------+-------------+----------+
+            |  column name  | column type | comments |
+            +---------------+-------------+----------+
+            | <object name> | STRING      |          |
+            +---------------+-------------+----------+
+            The column name of `SHOW CATALOGS` is "catalog name",
+            the column name of `SHOW DATABASES` is "database name",
+            the column name of `SHOW TABLES` is "table name",
+            the column name of `SHOW VIEWS` is "view name",
+            the column name of `SHOW FUNCTIONS` is "function name".
+
+        The schema of DESCRIBE:
+        ::
+
+            +------------------+-------------+-------------------------------------------------+
+            | column name      | column type |                 comments                        |
+            +------------------+-------------+-------------------------------------------------+
+            | name             | STRING      | field name                                      |
+            +------------------+-------------+-------------------------------------------------+
+            | type             | STRING      | field type expressed as a String                |
+            +------------------+-------------+-------------------------------------------------+
+            | null             | BOOLEAN     | field nullability: true if a field is nullable, |
+            |                  |             | else false                                      |
+            +------------------+-------------+-------------------------------------------------+
+            | key              | BOOLEAN     | key constraint: 'PRI' for primary keys,         |
+            |                  |             | 'UNQ' for unique keys, else null                |
+            +------------------+-------------+-------------------------------------------------+
+            | computed column  | STRING      | computed column: string expression              |
+            |                  |             | if a field is computed column, else null        |
+            +------------------+-------------+-------------------------------------------------+
+            | watermark        | STRING      | watermark: string expression if a field is      |
+            |                  |             | watermark, else null                            |
+            +------------------+-------------+-------------------------------------------------+
+
+        The schema of INSERT: (one column per one sink)
+        ::
+
+            +----------------------------+-------------+-----------------------+
+            | column name                | column type | comments              |
+            +----------------------------+-------------+-----------------------+
+            | (name of the insert table) | BIGINT      | the insert table name |
+            +----------------------------+-------------+-----------------------+
+
+        The schema of SELECT is the selected field names and types.
+
         :return: The schema of result.
         :rtype: pyflink.table.TableSchema
+
+        .. versionadded:: 1.11.0
         """
         return TableSchema(j_table_schema=self._j_table_result.getTableSchema())
 
@@ -57,13 +120,25 @@ class TableResult(object):
         """
         Return the ResultKind which represents the result type.
 
+        For DDL operation and USE operation, the result kind is always SUCCESS.
+        For other operations, the result kind is always SUCCESS_WITH_CONTENT.
+
         :return: The result kind.
         :rtype: pyflink.table.ResultKind
+
+        .. versionadded:: 1.11.0
         """
         return ResultKind._from_j_result_kind(self._j_table_result.getResultKind())
 
     def print(self):
         """
         Print the result contents as tableau form to client console.
+
+        For streaming mode, this method guarantees end-to-end exactly-once record delivery
+        which requires the checkpointing mechanism to be enabled.
+        By default, checkpointing is disabled. To enable checkpointing, set checkpointing properties
+        (see ExecutionCheckpointingOptions) through `TableConfig#getConfiguration()`.
+
+        .. versionadded:: 1.11.0
         """
         self._j_table_result.print()
