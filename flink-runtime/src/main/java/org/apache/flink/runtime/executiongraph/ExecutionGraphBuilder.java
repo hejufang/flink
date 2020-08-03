@@ -348,8 +348,8 @@ public class ExecutionGraphBuilder {
 
 				if (regionCheckpointEnabled) {
 					// override max retained checkpoints based on the region checkpoints
-					maxNumberOfCheckpointsToRetain = jobManagerConfig.getInteger(
-							CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS) * 2;
+					maxNumberOfCheckpointsToRetain += (jobManagerConfig.getInteger(
+							CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS) + 1);
 					LOG.info("Override {} to {} according to {}={}.",
 							CheckpointingOptions.MAX_RETAINED_CHECKPOINTS.key(),
 							maxNumberOfCheckpointsToRetain,
