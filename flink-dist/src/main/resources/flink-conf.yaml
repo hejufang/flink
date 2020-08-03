@@ -361,7 +361,7 @@ stork:
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
-  jobmeta.db.name: dayu_overseas
+  save-meta.enabled: false
 
 shark:
   dc: sg
@@ -378,7 +378,7 @@ shark:
   docker.server: image-manager.byted.org
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
-  jobmeta.db.name: dayu_overseas
+  save-meta.enabled: false
 
 marmt:
   dc: va
@@ -396,7 +396,7 @@ marmt:
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
-  save-meta.enabled: false
+  jobmeta.db.name: flink_meta_va
   # grafana.domain_url: "https://grafana-us.byted.org"
 
 macaw:
@@ -415,7 +415,7 @@ macaw:
   docker.server: image-manager.byted.org
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
-  save-meta.enabled: false
+  jobmeta.db.name: flink_meta_va
   # grafana.domain_url: "https://grafana-us.byted.org"
 
 grila:
@@ -474,7 +474,7 @@ alisg:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
-  jobmeta.db.name: dayu_overseas
+  jobmeta.db.name: flink_meta_sg
 
 boe:
   dc: vm
