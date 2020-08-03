@@ -352,6 +352,15 @@ stork:
   high-availability.zookeeper.quorum: 10.105.4.10:2181,10.105.4.21:2181,10.105.4.35:2181,10.105.4.91:2181,10.105.4.254:2181
   hdfs.prefix: hdfs://harunasgee/flink_sgee
   checkpoint.hdfs.prefix: hdfs://harunasgee/flink_sgee
+  dashboard.data_source: bytetsd_sgee
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
   jobmeta.db.name: dayu_overseas
 
 shark:
@@ -360,6 +369,15 @@ shark:
   high-availability.zookeeper.quorum: 10.126.35.119:2181,10.126.35.162:2181,10.126.35.163:2181,10.126.35.186:2181,10.126.35.189:2181
   hdfs.prefix: hdfs://harunasglark/flink_sglark
   checkpoint.hdfs.prefix:  hdfs://harunasglark/flink_sglark
+  dashboard.data_source: bytetsd_sgsaas1lark
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
   jobmeta.db.name: dayu_overseas
 
 marmt:
