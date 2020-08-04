@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.time.Deadline;
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
@@ -42,6 +43,7 @@ import org.apache.flink.util.TestLogger;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -50,6 +52,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
@@ -71,14 +74,18 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 	@ClassRule
 	public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeClass
+	public static void initializeCluster() throws Exception {
 		final File checkpointDir = temporaryFolder.newFolder();
 		checkpointPath = checkpointDir.toURI().toString();
 
 		Configuration config = new Configuration();
 		config.setString(CheckpointingOptions.STATE_BACKEND, STATE_BACKEND);
 		config.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, checkpointPath);
+
+		config.setInteger(CheckpointingOptions.FS_SMALL_FILE_THRESHOLD, 1);
+		config.setInteger(CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS, 1000);
+		config.setBoolean(CheckpointingOptions.REGION_CHECKPOINT_ENABLED, true);
 
 		cluster = new MiniClusterWithClientResource(
 				new MiniClusterResourceConfiguration.Builder()
@@ -89,11 +96,17 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		cluster.before();
 	}
 
+	@Before
+	public void setUp() {
+		TestSource.reset();
+		StatefulAndExpireSink.reset();
+	}
+
 	@Test
 	public void testRecovery() throws Exception {
 		final ClusterClient<?> client = cluster.getClusterClient();
 
-		final JobGraph job = createJobGraph();
+		final JobGraph job = createJobGraph(true);
 		client.setDetached(true);
 		client.submitJob(job, RegionCheckpointRecoveryITCase.class.getClassLoader());
 
@@ -114,10 +127,10 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		TestSource.numberOfCheckpoints = 0;
 		TestSource.numberOfSuccessfulCheckpoints = 0;
 		client.setDetached(true);
-		final JobGraph recoveredJob = createJobGraph();
+		final JobGraph recoveredJob = createJobGraph(false);
 
 		// regard the checkpoint as a savepoint
-		final String savepointPath = checkpointPath + "/" + JOB_NAME + "/default/chk-1";
+		final String savepointPath = checkpointPath + JOB_NAME + "/default/chk-1";
 		LOG.info("Using {} as the savepoint path.", savepointPath);
 		recoveredJob.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(savepointPath));
 		client.submitJob(recoveredJob, RegionCheckpointRecoveryITCase.class.getClassLoader());
@@ -130,15 +143,67 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		Assert.assertTrue(StatefulAndExpireSink.stateRestored = true);
 	}
 
-	private JobGraph createJobGraph() throws Exception {
+	@Test
+	public void testRecoveryWithFailedSource() throws Exception {
+		final ClusterClient<?> client = cluster.getClusterClient();
+
+		final JobGraph job = createJobGraphWithFailedCheckpoint(true);
+		client.setDetached(true);
+		client.submitJob(job, RegionCheckpointRecoveryITCase.class.getClassLoader());
+
+		while (TestSource.numberOfCheckpoints < 3) {
+			Thread.sleep(200);
+		}
+		// cancel job
+		client.cancel(job.getJobID());
+
+		while (getRunningJobs(client).size() > 0) {
+			Thread.sleep(200);
+		}
+
+		// make sure the checkpoint is successful
+		Assert.assertTrue(TestSource.numberOfSuccessfulCheckpoints > 0);
+
+		// recover the job from checkpoint
+		TestSource.numberOfCheckpoints = 0;
+		TestSource.numberOfSuccessfulCheckpoints = 0;
+		client.setDetached(true);
+		final JobGraph recoveredJob = createJobGraphWithFailedCheckpoint(false);
+
+		// regard the checkpoint as a savepoint
+		final String savepointPath = checkpointPath + JOB_NAME + "/default/chk-1";
+		LOG.info("Using {} as the savepoint path.", savepointPath);
+		recoveredJob.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(savepointPath));
+		client.submitJob(recoveredJob, RegionCheckpointRecoveryITCase.class.getClassLoader());
+
+		Deadline deadline = Deadline.fromNow(Duration.ofMinutes(1L));
+		while (TestSource.numberOfSuccessfulCheckpoints == 0 && deadline.hasTimeLeft()) {
+			Thread.sleep(200);
+		}
+
+		Assert.assertTrue(deadline.hasTimeLeft());
+
+		client.cancel(recoveredJob.getJobID());
+		Assert.assertTrue(StatefulAndExpireSink.stateRestored = true);
+	}
+
+	private JobGraph createJobGraphWithFailedCheckpoint(boolean beforeCancel) {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.getConfiguration().setInteger("state.checkpoints.region.max-retained-snapshots", 1000);
-		env.getConfiguration().setBoolean("state.checkpoints.region.enabled", true);
 		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
 		env.getCheckpointConfig().setCheckpointInterval(2000);
 		env.getCheckpointConfig().setCheckpointTimeout(3000);
 
-		env.addSource(new TestSource()).addSink(new StatefulAndExpireSink());
+		env.addSource(new TestSource(beforeCancel, true)).addSink(new StatefulSink());
+		return env.getStreamGraph(JOB_NAME).getJobGraph();
+	}
+
+	private JobGraph createJobGraph(boolean beforeCancel) throws Exception {
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
+		env.getCheckpointConfig().setCheckpointInterval(2000);
+		env.getCheckpointConfig().setCheckpointTimeout(3000);
+
+		env.addSource(new TestSource(beforeCancel, false)).addSink(new StatefulAndExpireSink());
 		return env.getStreamGraph().getJobGraph();
 	}
 
@@ -148,6 +213,13 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		static int numberOfSuccessfulCheckpoints = 0;
 
 		boolean loop = true;
+		boolean failedAfterSuccessfulCheckpoint;
+		boolean beforeCancel;
+
+		TestSource(boolean beforeCancel, boolean failedAfterSuccessfulCheckpoint) {
+			this.failedAfterSuccessfulCheckpoint = failedAfterSuccessfulCheckpoint;
+			this.beforeCancel = beforeCancel;
+		}
 
 		@Override
 		public void run(SourceContext<Integer> ctx) throws Exception {
@@ -174,10 +246,38 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 			if (getRuntimeContext().getIndexOfThisSubtask() == 0) {
 				numberOfCheckpoints++;
 			}
+			if (beforeCancel && failedAfterSuccessfulCheckpoint && numberOfSuccessfulCheckpoints > 0) {
+				throw new RuntimeException("Fail the synchronization part.");
+			}
 		}
 
 		@Override
 		public void initializeState(FunctionInitializationContext context) throws Exception {}
+
+		static void reset() {
+			numberOfCheckpoints = 0;
+			numberOfSuccessfulCheckpoints = 0;
+		}
+	}
+
+	private static class StatefulSink extends RichSinkFunction<Integer> implements CheckpointedFunction {
+		ListStateDescriptor<Integer> descriptor = new ListStateDescriptor<Integer>("list_state", Integer.class);
+		ListState<Integer> state;
+
+		@Override
+		public void invoke(Integer value, Context context) throws Exception {
+			if (state != null) {
+				state.add(value);
+			}
+		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) throws Exception {}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {
+			state = context.getOperatorStateStore().getUnionListState(descriptor);
+		}
 	}
 
 	private static class StatefulAndExpireSink extends RichSinkFunction<Integer> implements CheckpointedFunction {
@@ -203,12 +303,16 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 
 		@Override
 		public void initializeState(FunctionInitializationContext context) throws Exception {
+			state = context.getOperatorStateStore().getUnionListState(descriptor);
 			if (context.isRestored()) {
-				state = context.getOperatorStateStore().getUnionListState(descriptor);
 				if (state.get().iterator().hasNext()) {
 					stateRestored = true;
 				}
 			}
+		}
+
+		static void reset() {
+			stateRestored = false;
 		}
 	}
 

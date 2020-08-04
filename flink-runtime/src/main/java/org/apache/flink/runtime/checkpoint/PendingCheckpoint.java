@@ -372,7 +372,7 @@ public class PendingCheckpoint {
 						operatorStates.put(operatorID, operatorState);
 					}
 
-					operatorState.putState(subtaskIndex, operatorSubtaskState);
+					operatorState.putState(subtaskIndex, new OperatorSubtaskStatePlaceHolder(operatorSubtaskState));
 					stateSize += operatorSubtaskState.getStateSize();
 				}
 			}
