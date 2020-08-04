@@ -362,6 +362,8 @@ marmt:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
 
 macaw:
   dc: va
@@ -378,6 +380,8 @@ macaw:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
+  jobmeta.db.name: flink_meta_va
+  grafana.domain_url: "https://grafana-us.byted.org"
 
 grila:
   dc: i18n_gcp
