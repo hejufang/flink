@@ -86,6 +86,12 @@ class StatementSetImpl implements StatementSet {
 	}
 
 	@Override
+	public StatementSet addOperation(ModifyOperation operation) {
+		operations.add(operation);
+		return this;
+	}
+
+	@Override
 	public String explain(ExplainDetail... extraDetails) {
 		List<Operation> operationList = operations.stream().map(o -> (Operation) o).collect(Collectors.toList());
 		return tableEnvironment.explainInternal(operationList, extraDetails);

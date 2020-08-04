@@ -25,6 +25,8 @@ import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
 
+import org.apache.calcite.sql.SqlNode;
+
 import java.util.List;
 
 /**
@@ -47,6 +49,25 @@ public interface Parser {
 	 * @throws org.apache.flink.table.api.SqlParserException when failed to parse the statement
 	 */
 	List<Operation> parse(String statement);
+
+
+	/**
+	 * Entry point for parsing SQL queries expressed as a String into SqlNode List.
+	 *
+	 * @param statement the SQL statement to evaluate
+	 * @return parsed {@link SqlNode}s
+	 * @throws org.apache.flink.table.api.SqlParserException when failed to parse the statement
+	 */
+	default List<SqlNode> parseToSqlNodes(String statement) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Convert a {@link SqlNode} to a {@link Operation}.
+	 * */
+	default Operation convertSqlNodeToOperation(SqlNode sqlNode) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Entry point for parsing SQL identifiers expressed as a String.

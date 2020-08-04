@@ -30,6 +30,7 @@ import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.util.SourceStringReader;
 
 import java.io.Reader;
+import java.util.List;
 
 /**
  * Thin wrapper around {@link SqlParser} that does exception conversion and {@link SqlNode} casting.
@@ -52,6 +53,22 @@ public class CalciteParser {
 		try {
 			SqlParser parser = SqlParser.create(sql, config);
 			return parser.parseStmt();
+		} catch (SqlParseException e) {
+			throw new SqlParserException("SQL parse failed. " + e.getMessage(), e);
+		}
+	}
+
+	/**
+	 * Parses SQL statements into a list of {@link SqlNode}. The {@link SqlNode}s are not yet validated.
+	 *
+	 * @param statements multiple statements string to parse
+	 * @return parsed sql node list
+	 * @throws SqlParserException if an exception is thrown when parsing the statement
+	 */
+	public List<SqlNode> parseMultipleStatements(String statements) {
+		try {
+			SqlParser parser = SqlParser.create(statements, config);
+			return parser.parseStmtList().getList();
 		} catch (SqlParseException e) {
 			throw new SqlParserException("SQL parse failed. " + e.getMessage(), e);
 		}

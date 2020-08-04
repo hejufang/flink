@@ -132,11 +132,10 @@ import org.apache.flink.table.types.AbstractDataType;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.utils.PrintUtils;
-import org.apache.flink.table.utils.SqlSplitUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.Preconditions;
 
+import org.apache.calcite.sql.SqlNode;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -704,7 +703,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public Optional<Table> sql(String stmt) {
 		Tuple2<Optional<Table>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
 		Optional<StatementSet> statementSetOptional = tuple2.f1;
-		statementSetOptional.ifPresent(statementSet -> statementSet.execute());
+		statementSetOptional.ifPresent(StatementSet::execute);
 		return tuple2.f0;
 	}
 
@@ -715,37 +714,27 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	}
 
 	private Tuple2<Optional<Table>, Optional<StatementSet>> sqlInternal(String stmt) {
-		List<String> statementList = SqlSplitUtils.getSqlList(stmt);
 		StatementSet statementSet = createStatementSet();
 		boolean hasModifyOperation = false;
 		Optional<Table> tableOptional = Optional.empty();
 		Optional<StatementSet> statementSetOptional = Optional.empty();
-		for (int i = 0; i < statementList.size(); i++) {
-			String statement = statementList.get(i);
-			Preconditions.checkNotNull(statement, "statement must not be null!");
-			List<Operation> operations = parser.parse(statement);
-			if (operations.size() == 0) {
-				LOG.info("operation of statement: '{}' is empty, continue.", statement.trim());
-				continue;
-			}
-			if (operations.size() != 1) {
-				throw new ValidationException("Unexpected sql: '" + statement + "', " +
-					"each splitted statement is supposed to be a single SQL statement");
-			}
+		List<SqlNode> sqlNodes = parser.parseToSqlNodes(stmt);
 
-			Operation operation = operations.get(0);
+		for (int i = 0; i < sqlNodes.size(); i++) {
+			Operation operation = parser.convertSqlNodeToOperation(sqlNodes.get(i));
 			if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
 				Table table = sqlQueryInternal(operation);
-				if (i == statementList.size() - 1) {
+				if (i == sqlNodes.size() - 1) {
 					tableOptional = Optional.of(table);
 				}
 			} else if (operation instanceof ModifyOperation) {
-				statementSet.addInsertSql(statement);
+				statementSet.addOperation((ModifyOperation) operation);
 				hasModifyOperation = true;
 			} else {
 				executeOperation(operation);
 			}
 		}
+
 		if (hasModifyOperation) {
 			statementSetOptional = Optional.of(statementSet);
 		}

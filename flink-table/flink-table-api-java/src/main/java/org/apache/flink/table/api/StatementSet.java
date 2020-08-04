@@ -19,6 +19,7 @@
 package org.apache.flink.table.api;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.table.operations.ModifyOperation;
 
 /**
  * A {@link StatementSet} accepts DML statements or {@link Table}s,
@@ -45,6 +46,13 @@ public interface StatementSet {
 	 * add {@link Table} with the given sink table name to the set.
 	 */
 	StatementSet addInsert(String targetPath, Table table, boolean overwrite);
+
+	/**
+	 * add a {@link ModifyOperation} to the set.
+	 */
+	default StatementSet addOperation(ModifyOperation operation) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * returns the AST and the execution plan to compute the result of the

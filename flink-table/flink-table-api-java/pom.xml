@@ -43,6 +43,12 @@ under the License.
 			<version>${project.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>org.apache.calcite</groupId>
+			<artifactId>calcite-core</artifactId>
+			<version>${calcite.version}</version>
+		</dependency>
+
 		<!-- test dependencies -->
 
 		<dependency>

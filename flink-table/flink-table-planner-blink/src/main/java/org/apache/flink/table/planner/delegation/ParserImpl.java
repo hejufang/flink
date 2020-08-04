@@ -81,6 +81,19 @@ public class ParserImpl implements Parser {
 	}
 
 	@Override
+	public List<SqlNode> parseToSqlNodes(String statement) {
+		CalciteParser parser = calciteParserSupplier.get();
+		return parser.parseMultipleStatements(statement);
+	}
+
+	@Override
+	public Operation convertSqlNodeToOperation(SqlNode sqlNode) {
+		FlinkPlannerImpl planner = validatorSupplier.get();
+		return SqlToOperationConverter.convert(planner, catalogManager, sqlNode)
+			.orElseThrow(() -> new TableException("Unsupported query: " + sqlNode.toString()));
+	}
+
+	@Override
 	public UnresolvedIdentifier parseIdentifier(String identifier) {
 		CalciteParser parser = calciteParserSupplier.get();
 		SqlIdentifier sqlIdentifier = parser.parseIdentifier(identifier);
