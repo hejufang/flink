@@ -325,28 +325,24 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionState,
 			List<Map<StreamStateHandle, OperatorStateHandle>> mergeMapList) {
 
-		boolean isFirstIteration = true;
+		Map<StreamStateHandle, OperatorStateHandle> data = new HashMap<>();
+
+		for (Map.Entry<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> e :
+				unionState.entrySet()) {
+			for (Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo> handleWithMetaInfo : e.getValue()) {
+				OperatorStateHandle operatorStateHandle = data.get(handleWithMetaInfo.f0);
+				if (operatorStateHandle == null) {
+					operatorStateHandle = new OperatorStreamStateHandle(
+							new HashMap<>(unionState.size()),
+							handleWithMetaInfo.f0);
+					data.put(handleWithMetaInfo.f0, operatorStateHandle);
+				}
+				operatorStateHandle.getStateNameToPartitionOffsets().put(e.getKey(), handleWithMetaInfo.f1);
+			}
+		}
 
 		for (Map<StreamStateHandle, OperatorStateHandle> mergeMap : mergeMapList) {
-			for (Map.Entry<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> e :
-					unionState.entrySet()) {
-
-				for (Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo> handleWithMetaInfo : e.getValue()) {
-					if (isFirstIteration) {
-						OperatorStateHandle operatorStateHandle = mergeMap.get(handleWithMetaInfo.f0);
-						if (operatorStateHandle == null) {
-							operatorStateHandle = new OperatorStreamStateHandle(
-									new HashMap<>(unionState.size()),
-									handleWithMetaInfo.f0);
-							mergeMap.put(handleWithMetaInfo.f0, operatorStateHandle);
-						}
-						operatorStateHandle.getStateNameToPartitionOffsets().put(e.getKey(), handleWithMetaInfo.f1);
-					} else {
-						mergeMap.put(handleWithMetaInfo.f0, mergeMapList.get(0).get(handleWithMetaInfo.f0));
-					}
-				}
-			}
-			isFirstIteration = false;
+			mergeMap.putAll(data);
 		}
 	}
 
