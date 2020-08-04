@@ -23,7 +23,9 @@ package org.apache.flink.metrics;
  */
 public enum MessageType {
 
-	CHECKPOINT("checkpoint");
+	CHECKPOINT("checkpoint"),
+
+	ORIGINAL_METRICS("original_metrics");
 
 	private final String name;
 

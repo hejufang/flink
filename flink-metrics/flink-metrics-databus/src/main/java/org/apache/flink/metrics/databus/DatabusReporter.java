@@ -20,11 +20,15 @@ package org.apache.flink.metrics.databus;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.WarehouseOriginalMetricMessage;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 import org.apache.flink.runtime.util.EnvironmentInformation;
@@ -73,6 +77,10 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		synchronized (this) {
 			if (metric instanceof MessageSet) {
 				messageSets.put((MessageSet) metric, name);
+			} else if (metric instanceof Counter) {
+				counters.put((Counter) metric, name);
+			} else if (metric instanceof Gauge) {
+				gauges.put((Gauge<?>) metric, name);
 			}
 		}
 	}
@@ -110,22 +118,40 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 				for (Message message : messageSet.drainMessages()) {
 					// add metadata
-					message.getMeta().setRegion(region);
-					message.getMeta().setCluster(cluster);
-					message.getMeta().setQueue(queue);
-					message.getMeta().setJobName(jobName);
-					message.getMeta().setUser(user);
-					message.getMeta().setApplicationId(applicationId);
+					fillMessageMeta(message);
 					message.getMeta().setMetricName(metricName);
 					message.getMeta().setMessageType(messageSet.getMessageType());
-					message.getMeta().setCommitId(commitId);
-					message.getMeta().setCommitDate(commitDate);
+					sendToDatabusClient(message);
+				}
+			}
+
+			// report original metrics (counter and gauge)
+			for (Map.Entry<Counter, String> counterStringEntry : counters.entrySet()) {
+				String metricName = counterStringEntry.getValue();
+				double metricValue = counterStringEntry.getKey().getCount();
+				sendOriginalMetricToDatabusClient(metricName, metricValue);
+			}
+
+			for (Map.Entry<Gauge<?>, String> gaugeStringEntry : gauges.entrySet()) {
+				String metricName = gaugeStringEntry.getValue();
+				Object value = gaugeStringEntry.getKey().getValue();
+
+				Double metricValue = null;
+
+				if (value instanceof Number) {
+					metricValue = ((Number) value).doubleValue();
+				} else if (value instanceof String) {
 					try {
-						final String data = objectMapper.writeValueAsString(message);
-						clientWrapper.addToBuffer(data);
-					} catch (IOException e) {
-						LOG.warn("Fail to parse message string, please check type {}.", messageSet.getMessageType(), e);
+						metricValue = Double.parseDouble((String) value);
+					} catch (NumberFormatException nf) {
+						LOG.warn("{} for metric {} can't be casted to Number.", value, metricName);
 					}
+				} else {
+					continue;
+				}
+
+				if (metricValue != null) {
+					sendOriginalMetricToDatabusClient(metricName, metricValue);
 				}
 			}
 
@@ -134,6 +160,34 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 			} catch (IOException e) {
 				LOG.warn("Fail to flush data.", e);
 			}
+		}
+	}
+
+	private void sendOriginalMetricToDatabusClient(String metricName, double metricValue) {
+		final Message<WarehouseOriginalMetricMessage> message = new Message<>(new WarehouseOriginalMetricMessage(metricName, metricValue));
+		fillMessageMeta(message);
+		message.getMeta().setMetricName(metricName);
+		message.getMeta().setMessageType(MessageType.ORIGINAL_METRICS);
+		sendToDatabusClient(message);
+	}
+
+	private void fillMessageMeta(Message message) {
+		message.getMeta().setRegion(region);
+		message.getMeta().setCluster(cluster);
+		message.getMeta().setQueue(queue);
+		message.getMeta().setJobName(jobName);
+		message.getMeta().setUser(user);
+		message.getMeta().setApplicationId(applicationId);
+		message.getMeta().setCommitId(commitId);
+		message.getMeta().setCommitDate(commitDate);
+	}
+
+	private void sendToDatabusClient(Message message) {
+		try {
+			final String data = objectMapper.writeValueAsString(message);
+			clientWrapper.addToBuffer(data);
+		} catch (IOException e) {
+			LOG.warn("Fail to parse message string, please check message {}", message.getMeta().toString(), e);
 		}
 	}
 

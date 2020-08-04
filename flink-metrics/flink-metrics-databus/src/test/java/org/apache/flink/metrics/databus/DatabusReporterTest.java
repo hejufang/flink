@@ -18,9 +18,11 @@
 
 package org.apache.flink.metrics.databus;
 
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import org.junit.Assert;
@@ -44,6 +46,8 @@ public class DatabusReporterTest {
 
 		final MessageSet messageSet = new MessageSet(MessageType.CHECKPOINT);
 		reporter.notifyOfAddedMetric(messageSet, "test_metrics_name", new UnregisteredMetricsGroup());
+		reporter.notifyOfAddedMetric(new SimpleCounter(), "test_metrics_counter", new UnregisteredMetricsGroup());
+		reporter.notifyOfAddedMetric((Gauge<Integer>) () -> 1234, "test_metrics_gauge", new UnregisteredMetricsGroup());
 
 		// add mesasge
 		messageSet.addMessage(new Message<>(new MessageBody(String.class.getName(), String.class.getPackage().getName())));
@@ -52,9 +56,9 @@ public class DatabusReporterTest {
 		// report
 		reporter.report();
 
-		Assert.assertEquals(2, wrapper.getIndex());
-		Assert.assertTrue(wrapper.getKeys()[1].length > 0 && wrapper.getKeys()[2] == null);
-		Assert.assertTrue(wrapper.getValues()[1].length > 0 && wrapper.getValues()[2] == null);
+		Assert.assertEquals(4, wrapper.getIndex());
+		Assert.assertTrue(wrapper.getKeys()[3].length > 0 && wrapper.getKeys()[4] == null);
+		Assert.assertTrue(wrapper.getValues()[3].length > 0 && wrapper.getValues()[4] == null);
 	}
 
 	static class TestDatabusClientWrapper extends DatabusClientWrapper {
