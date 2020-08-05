@@ -29,6 +29,7 @@ import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporterImpl;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTrackerImpl;
 import org.apache.flink.runtime.blacklist.tracker.NoOpBlacklistTrackerImpl;
+import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,11 +40,11 @@ import org.slf4j.LoggerFactory;
 public class BlacklistUtil {
 	private static final Logger LOG = LoggerFactory.getLogger(BlacklistUtil.class);
 
-	public static BlacklistTracker createBlacklistTracker(Configuration configuration) {
+	public static BlacklistTracker createBlacklistTracker(Configuration configuration, JobManagerMetricGroup jobManagerMetricGroup) {
 		BlacklistConfiguration blacklistConfiguration = BlacklistConfiguration.fromConfiguration(configuration);
 		if (blacklistConfiguration.isTaskBlacklistEnabled() || blacklistConfiguration.isTaskManagerBlacklistEnabled()) {
 			LOG.info("create new Blacklist with config: {}", blacklistConfiguration);
-			return new BlacklistTrackerImpl(blacklistConfiguration);
+			return new BlacklistTrackerImpl(blacklistConfiguration, jobManagerMetricGroup);
 		} else {
 			LOG.info("Blacklist not enabled.");
 			return new NoOpBlacklistTrackerImpl();

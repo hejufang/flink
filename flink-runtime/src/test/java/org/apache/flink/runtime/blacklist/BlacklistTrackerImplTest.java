@@ -24,6 +24,7 @@ import org.apache.flink.runtime.blacklist.reporter.LocalBlacklistReporterImpl;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTrackerImpl;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -40,7 +41,7 @@ public class BlacklistTrackerImplTest {
 	public void testBlacklistAdd() throws Exception {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
-				Time.seconds(60), Time.seconds(1));
+				Time.seconds(60), Time.seconds(1), UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 		blacklistTracker.start(
 				ComponentMainThreadExecutorServiceAdapter.forMainThread(),
 				() -> LOG.info("Blacklist Actions received blacklist updated."));
@@ -56,7 +57,7 @@ public class BlacklistTrackerImplTest {
 	public void testFailureOutdatedExcess() throws Exception {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				2, 2, 3, 3,
-				Time.milliseconds(1000), Time.milliseconds(250));
+				Time.milliseconds(1000), Time.milliseconds(250), UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 		blacklistTracker.start(
 				ComponentMainThreadExecutorServiceAdapter.forMainThread(),
 				() -> LOG.info("Blacklist Actions received blacklist updated."));
@@ -74,7 +75,7 @@ public class BlacklistTrackerImplTest {
 	public void testBlacklistLengthExcess() throws Exception {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1));
+				Time.seconds(60), Time.seconds(1), UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 		blacklistTracker.start(
 				ComponentMainThreadExecutorServiceAdapter.forMainThread(),
 				() -> LOG.info("Blacklist Actions received blacklist updated."));
@@ -94,7 +95,7 @@ public class BlacklistTrackerImplTest {
 	public void testMultiTypeFailure() throws Exception {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1));
+				Time.seconds(60), Time.seconds(1), UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 		blacklistTracker.start(
 				ComponentMainThreadExecutorServiceAdapter.forMainThread(),
 				() -> LOG.info("Blacklist Actions received blacklist updated."));
@@ -129,7 +130,7 @@ public class BlacklistTrackerImplTest {
 	public void testIgnoreClass() throws Exception {
 		BlacklistTrackerImpl blacklistTracker = new BlacklistTrackerImpl(
 				1, 1, 1, 2,
-				Time.seconds(60), Time.seconds(1));
+				Time.seconds(60), Time.seconds(1), UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 		blacklistTracker.start(
 				ComponentMainThreadExecutorServiceAdapter.forMainThread(),
 				() -> LOG.info("Blacklist Actions received blacklist updated."));

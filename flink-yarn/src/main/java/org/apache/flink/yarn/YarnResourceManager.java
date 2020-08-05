@@ -221,8 +221,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private Set<String> yarnBlackedHosts;
 
-	private final TagGauge blacklistGauge = new TagGauge.TagGaugeBuilder().build();
-
 	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
 
 	/**
@@ -732,25 +730,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				}
 			});
 		});
-
-		// clear and re-add all tags.
-		blacklistGauge.reset();
-		for (Map.Entry<String, HostFailure> entry : newBlackedHosts.entrySet()) {
-			String host = entry.getKey();
-			String reason = entry.getValue().getException().getMessage();
-			BlacklistUtil.FailureType failureType = entry.getValue().getFailureType();
-			if (reason != null) {
-				reason = reason.replaceAll(" ", "_").substring(0, Math.min(30, reason.length()));
-			}
-
-			blacklistGauge.addMetric(
-					1,
-					new TagGaugeStore.TagValuesBuilder()
-							.addTagValue("blackedHost", host)
-							.addTagValue("reason", reason)
-							.addTagValue("type", failureType.name())
-							.build());
-		}
 	}
 
 	@Override
@@ -1715,7 +1694,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.counter("releasedSlowContainers", releasedSlowContainerCounter);
 		jobManagerMetricGroup.counter("slowContainers", slowContainerCounter);
 		jobManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
-		jobManagerMetricGroup.gauge("blackedHost", blacklistGauge);
 		jobManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
 	}
 

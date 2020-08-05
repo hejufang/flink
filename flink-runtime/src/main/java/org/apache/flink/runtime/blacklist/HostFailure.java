@@ -19,11 +19,19 @@
 package org.apache.flink.runtime.blacklist;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkException;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * TaskManager Failure, only the last Exception.
  */
 public class HostFailure {
+	public static final List<Class<? extends Throwable> > STRIP_EXCEPTION_LIST = Arrays.asList(
+			FlinkException.class);
+
 	private final BlacklistUtil.FailureType failureType;
 	private final String hostname;
 	private final ResourceID resourceID;
@@ -39,7 +47,11 @@ public class HostFailure {
 		this.failureType = failureType;
 		this.hostname = hostname;
 		this.resourceID = resourceID;
-		this.exception = exception;
+		Throwable t = exception;
+		for (Class<? extends Throwable> c : STRIP_EXCEPTION_LIST) {
+			t = ExceptionUtils.stripException(t, c);
+		}
+		this.exception = t;
 		this.timestamp = timestamp;
 	}
 

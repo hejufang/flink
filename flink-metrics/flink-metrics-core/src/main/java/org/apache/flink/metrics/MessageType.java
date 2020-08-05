@@ -25,7 +25,9 @@ public enum MessageType {
 
 	CHECKPOINT("checkpoint"),
 
-	ORIGINAL_METRICS("original_metrics");
+	ORIGINAL_METRICS("original_metrics"),
+
+	BLACKLIST("blacklist");
 
 	private final String name;
 

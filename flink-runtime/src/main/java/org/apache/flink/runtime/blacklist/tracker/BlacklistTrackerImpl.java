@@ -19,12 +19,20 @@
 package org.apache.flink.runtime.blacklist.tracker;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistConfiguration;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
+import org.apache.flink.runtime.blacklist.WarehouseBlacklistFailureMessage;
+import org.apache.flink.runtime.blacklist.WarehouseBlacklistRecordMessage;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,12 +51,26 @@ import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
  * Blacklist tracker for session.
  * Always run in mainThread.
  */
 public class BlacklistTrackerImpl implements BlacklistTracker {
 	private static final Logger LOG = LoggerFactory.getLogger(BlacklistTrackerImpl.class);
+
+	private static final String BLACKLIST_METRIC_NAME = "blackedHost";
+	private static final String WAREHOUSE_BLACKLIST_FAILURES = "warehouseBlacklistFailures";
+	private static final String WAREHOUSE_BLACKLIST_RECORDS = "warehouseBlacklistRecords";
+
+	private final TagGauge blacklistGauge = new TagGauge.TagGaugeBuilder().build();
+	private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet =
+			new MessageSet<>(MessageType.BLACKLIST);
+	private final MessageSet<WarehouseBlacklistRecordMessage> blacklistRecordMessageSet =
+			new MessageSet<>(MessageType.BLACKLIST);
+
+	private final JobManagerMetricGroup jobManagerMetricGroup;
 	/**
 	 * Host already added to blacklist. key: host, value: latest failure timestamp.
 	 */
@@ -64,14 +86,17 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 
 	private final Set<Class<? extends Throwable>> ignoreExceptionClasses;
 
-	public BlacklistTrackerImpl(BlacklistConfiguration blacklistConfiguration) {
+	public BlacklistTrackerImpl(
+			BlacklistConfiguration blacklistConfiguration,
+			JobManagerMetricGroup jobManagerMetricGroup) {
 		this(
 				blacklistConfiguration.getMaxTaskFailureNumPerHost(),
 				blacklistConfiguration.getMaxTaskManagerFailureNumPerHost(),
 				blacklistConfiguration.getTaskBlacklistMaxLength(),
 				blacklistConfiguration.getTaskManagerBlacklistMaxLength(),
 				blacklistConfiguration.getFailureTimeout(),
-				blacklistConfiguration.getCheckInterval());
+				blacklistConfiguration.getCheckInterval(),
+				jobManagerMetricGroup);
 	}
 
 	public BlacklistTrackerImpl(
@@ -80,18 +105,22 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			int taskBlacklistMaxLength,
 			int taskManagerBlacklistMaxLength,
 			Time failureTimeout,
-			Time checkInterval) {
+			Time checkInterval,
+			JobManagerMetricGroup jobManagerMetricGroup) {
 
 		this.blackedHosts = new HashMap<>();
 		this.checkInterval = checkInterval;
+		this.jobManagerMetricGroup = checkNotNull(jobManagerMetricGroup);
 
 		this.allFailures = new HashMap<>();
 		this.allFailures.put(BlacklistUtil.FailureType.TASK_MANAGER,
-				new HostFailures(maxTaskManagerFailureNumPerHost, failureTimeout, taskManagerBlacklistMaxLength));
+				new HostFailures(maxTaskManagerFailureNumPerHost, failureTimeout, taskManagerBlacklistMaxLength, blacklistFailureMessageSet));
 		this.allFailures.put(BlacklistUtil.FailureType.TASK,
-				new HostFailures(maxTaskFailureNumPerHost, failureTimeout, taskBlacklistMaxLength));
+				new HostFailures(maxTaskFailureNumPerHost, failureTimeout, taskBlacklistMaxLength, blacklistFailureMessageSet));
 
 		this.ignoreExceptionClasses = new HashSet<>();
+
+		registerMetrics();
 	}
 
 	@Override
@@ -110,6 +139,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		clearAll();
 	}
 
+	@Override
 	public void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass) {
 		this.ignoreExceptionClasses.add(exceptionClass);
 		LOG.info("Add ignore Exception class {}.", exceptionClass.getName());
@@ -157,6 +187,12 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		}
 	}
 
+	private void registerMetrics() {
+		jobManagerMetricGroup.gauge(BLACKLIST_METRIC_NAME, blacklistGauge);
+		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_FAILURES, blacklistFailureMessageSet);
+		jobManagerMetricGroup.gauge(WAREHOUSE_BLACKLIST_RECORDS, blacklistRecordMessageSet);
+	}
+
 	public void tryUpdateBlacklist() {
 		Map<String, HostFailure> tempBlackedHost = new HashMap<>();
 		for (Map.Entry<BlacklistUtil.FailureType, HostFailures> allFailuresEntry : allFailures.entrySet()) {
@@ -172,6 +208,29 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		}
 		if (!blackedHosts.equals(tempBlackedHost)) {
 			blackedHosts = tempBlackedHost;
+
+			blacklistGauge.reset();
+			for (Map.Entry<String, HostFailure> entry : blackedHosts.entrySet()) {
+				String host = entry.getKey();
+				Throwable exception = entry.getValue().getException();
+				String reason = exception.getMessage();
+				BlacklistUtil.FailureType failureType = entry.getValue().getFailureType();
+				if (reason != null) {
+					reason = reason.replaceAll(" ", "_").substring(0, Math.min(30, reason.length()));
+				}
+				blacklistGauge.addMetric(
+						1,
+						new TagGaugeStore.TagValuesBuilder()
+							.addTagValue("blackedHost", host)
+							.addTagValue("exception", exception.getClass().getName())
+							.addTagValue("reason", reason)
+							.addTagValue("type", failureType.name())
+							.build()
+				);
+
+				blacklistRecordMessageSet.addMessage(
+						new Message<>(WarehouseBlacklistRecordMessage.fromHostFailure(entry.getValue())));
+			}
 			blacklistActions.notifyBlacklistUpdated();
 		}
 	}
@@ -197,12 +256,18 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 		private final int maxFailureNumPerHost;
 		private final Time failureTimeout;
 		private final int blacklistMaxLength;
+		private final MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet;
 
-		public HostFailures(int maxFailureNumPerHost, Time failureTimeout, int blacklistMaxLength) {
+		public HostFailures(
+				int maxFailureNumPerHost,
+				Time failureTimeout,
+				int blacklistMaxLength,
+				MessageSet<WarehouseBlacklistFailureMessage> blacklistFailureMessageSet) {
 			this.hostFailures = new HashMap<>();
 			this.maxFailureNumPerHost = maxFailureNumPerHost;
 			this.failureTimeout = failureTimeout;
 			this.blacklistMaxLength = blacklistMaxLength;
+			this.blacklistFailureMessageSet = blacklistFailureMessageSet;
 		}
 
 		public boolean addFailure(HostFailure hostFailure) {
@@ -216,6 +281,9 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			hostFailures.putIfAbsent(hostFailure.getHostname(), new LinkedList<>());
 			hostFailures.get(hostFailure.getHostname()).add(hostFailure);
 			checkOutdatedFailure();
+
+			blacklistFailureMessageSet.addMessage(
+					new Message<>(WarehouseBlacklistFailureMessage.fromHostFailure(hostFailure)));
 			return true;
 		}
 

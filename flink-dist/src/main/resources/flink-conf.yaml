@@ -158,7 +158,7 @@ common:
 
   # blacklist
   blacklist.taskmanager.enabled: true
-  blacklist.task.enabled: false
+  blacklist.task.enabled: true
   blacklist.max-task-failure-num-per-host: 5
   blacklist.max-taskmanager-failure-num-per-host: 2
   blacklist.task-blacklist-max-length: 10
@@ -244,7 +244,6 @@ leser:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  blacklist.task.enabled: true
 
 lobst:
   dc: cn
@@ -329,7 +328,6 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
-  blacklist.task.enabled: true
 
 quoka:
   dc: cn
@@ -337,7 +335,6 @@ quoka:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
-  blacklist.task.enabled: ture
 
 camel:
   dc: cn

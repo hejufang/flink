@@ -239,7 +239,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.taskExecutors = new HashMap<>(8);
 		this.taskExecutorGatewayFutures = new HashMap<>(8);
 		this.exitProcessOnJobManagerTimedout = flinkConfig.getBoolean(ResourceManagerOptions.EXIT_PROCESS_WHEN_JOB_MANAGER_TIMEOUT);
-		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig);
+		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig, jobManagerMetricGroup);
 		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
 	}
 
