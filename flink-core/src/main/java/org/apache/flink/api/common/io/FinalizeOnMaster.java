@@ -19,6 +19,7 @@
 package org.apache.flink.api.common.io;
 
 import org.apache.flink.annotation.Public;
+import org.apache.flink.api.common.ExecutionInfo;
 
 import java.io.IOException;
 
@@ -28,6 +29,11 @@ import java.io.IOException;
  */
 @Public
 public interface FinalizeOnMaster {
+
+	// for speculation
+	default void finalizeGlobal(ExecutionInfo[] executionInfos) throws IOException {
+		finalizeGlobal(executionInfos.length);
+	}
 
 	/**
 	 * The method is invoked on the master (JobManager) after all (parallel) instances of an OutputFormat finished.

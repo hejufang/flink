@@ -1564,7 +1564,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 				try {
 					for (ExecutionJobVertex ejv : verticesInCreationOrder) {
-						ejv.getJobVertex().finalizeOnMaster(getUserClassLoader());
+						ejv.getJobVertex().finalizeOnMaster(getUserClassLoader(), ejv.getFinishedAttempts());
 					}
 				}
 				catch (Throwable t) {

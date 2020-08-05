@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.jobgraph;
 
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.io.FinalizeOnMaster;
 import org.apache.flink.api.common.io.GenericInputFormat;
 import org.apache.flink.api.common.io.InitializeOnMaster;
@@ -119,7 +120,7 @@ public class JobTaskVertexTest {
 			assertEquals("Previous classloader was not restored.", ctxCl, Thread.currentThread().getContextClassLoader());
 
 			try {
-				copy.finalizeOnMaster(cl);
+				copy.finalizeOnMaster(cl, new ExecutionInfo[0]);
 				fail("Did not throw expected exception.");
 			} catch (TestException e) {
 				// all good

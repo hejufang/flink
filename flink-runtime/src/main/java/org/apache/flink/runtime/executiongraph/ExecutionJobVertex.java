@@ -25,6 +25,7 @@ import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.core.io.InputSplit;
@@ -355,6 +356,14 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 	@Override
 	public ExecutionVertex[] getTaskVertices() {
 		return taskVertices;
+	}
+
+	public ExecutionInfo[] getFinishedAttempts() {
+		ExecutionInfo[] attempts = new ExecutionInfo[taskVertices.length];
+		for (ExecutionVertex ev : taskVertices) {
+			attempts[ev.getParallelSubtaskIndex()] = ev.getFinishedAttempt();
+		}
+		return attempts;
 	}
 
 	public IntermediateResult[] getProducedDataSets() {

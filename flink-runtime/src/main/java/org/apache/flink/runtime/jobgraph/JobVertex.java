@@ -23,6 +23,7 @@ import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplitSource;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
@@ -524,9 +525,10 @@ public class JobVertex implements java.io.Serializable {
 	 * master after the job completed.
 	 * 
 	 * @param loader The class loader for user defined code.
+	 * @param finishedAttempts The finished Attempts for this vertex.
 	 * @throws Exception The method may throw exceptions which cause the job to fail immediately.
 	 */
-	public void finalizeOnMaster(ClassLoader loader) throws Exception {}
+	public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts) throws Exception {}
 
 	// --------------------------------------------------------------------------------------------
 

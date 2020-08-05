@@ -23,6 +23,7 @@ import org.apache.flink.api.common.io.InitializeOnMaster;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.runtime.operators.util.TaskConfig;
 
 import java.util.HashMap;
@@ -108,7 +109,7 @@ public class InputOutputFormatVertex extends JobVertex {
 	}
 
 	@Override
-	public void finalizeOnMaster(ClassLoader loader) throws Exception {
+	public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] executionInfos) throws Exception {
 		final InputOutputFormatContainer formatContainer = initInputOutputformatContainer(loader);
 
 		final ClassLoader original = Thread.currentThread().getContextClassLoader();
@@ -130,7 +131,7 @@ public class InputOutputFormatVertex extends JobVertex {
 				}
 
 				if (outputFormat instanceof FinalizeOnMaster) {
-					((FinalizeOnMaster) outputFormat).finalizeGlobal(getParallelism());
+					((FinalizeOnMaster) outputFormat).finalizeGlobal(executionInfos);
 				}
 			}
 
