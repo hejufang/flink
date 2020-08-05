@@ -322,6 +322,7 @@ public class ExecutionGraphBuilder {
 				final double maxPercentageOfRecovery = jobManagerConfig.getDouble(
 						CheckpointingOptions.MAX_PERCENTAGE_RECOVERY);
 				checkpointHandler = new RegionCheckpointHandler(
+						metrics,
 						confirmVertices.stream().flatMap(jv -> Arrays.stream(jv.getTaskVertices())).toArray(ExecutionVertex[]::new),
 						maxNumberOfSnapshotsToRetain,
 						maxPercentageOfRecovery);

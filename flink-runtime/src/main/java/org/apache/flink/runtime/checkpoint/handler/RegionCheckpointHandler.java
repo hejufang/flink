@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.checkpoint.handler;
 
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -45,6 +46,12 @@ import java.util.Set;
 public class RegionCheckpointHandler implements CheckpointHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(RegionCheckpointHandler.class);
 
+	private static final String REGION_CHECKPOINT_JOB_COUNT = "numberOfRegionCheckpointJobs";
+	private static final String REGION_CHECKPOINT_CHECKPOINT_COUNT = "numberOfRegionCheckpoints";
+	private static final String REGION_CHECKPOINT_RECOVERY_COUNT = "numberOfRegionCheckpointRecoveries";
+
+	private final MetricGroup metricGroup;
+
 	private final Map<ExecutionVertexID, CheckpointRegion> vertexToRegion;
 
 	private final Map<Long, Set<CheckpointRegion>> checkpointIdToGoodRegions;
@@ -57,6 +64,9 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 
 	private final ArrayDeque<Long> completedCheckpointIds;
 
+	private long numberOfRecoveries;
+	private long numberOfRegionCheckpoints;
+
 	/**
 	 * we don't actually need this because it should be promised by CheckpointCoordinator's lock,
 	 * but I think it's still needed for future development in case anything changes in some day.
@@ -64,10 +74,12 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 	private final Object lock = new Object();
 
 	public RegionCheckpointHandler(
+			MetricGroup metricGroup,
 			ExecutionVertex[] vertices,
 			int maxNumberOfSnapshotsToRetain,
 			double maxPercentageOfRecovery) {
 		Preconditions.checkArgument(maxNumberOfSnapshotsToRetain > 0);
+		this.metricGroup = metricGroup;
 		this.vertexToRegion = new HashMap<>();
 		this.checkpointIdToGoodRegions = new HashMap<>();
 		this.checkpointIdToBadRegions = new HashMap<>();
@@ -75,6 +87,10 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 		this.maxPercentageOfRecovery = maxPercentageOfRecovery;
 		this.completedCheckpointIds = new ArrayDeque<>(maxNumberOfSnapshotsToRetain + 1);
 		constructCheckpointRegions(vertices);
+
+		this.metricGroup.gauge(REGION_CHECKPOINT_JOB_COUNT, () -> 1);
+		this.metricGroup.gauge(REGION_CHECKPOINT_CHECKPOINT_COUNT, () -> numberOfRegionCheckpoints);
+		this.metricGroup.gauge(REGION_CHECKPOINT_RECOVERY_COUNT, () -> numberOfRecoveries);
 	}
 
 	private void constructCheckpointRegions(ExecutionVertex[] vertices) {
@@ -107,6 +123,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 						checkpointIdToGoodRegions.get(checkpointId).add(region);
 					}
 				}
+				numberOfRegionCheckpoints++;
 			}
 
 			LOG.info("Checkpoint {} is completed and find {} good regions.",
@@ -151,7 +168,12 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 				}
 			}
 
-			return isRecoveryAvailable(checkpointId);
+			if (isRecoveryAvailable(checkpointId)) {
+				numberOfRecoveries += notYetKnowledgedTasks.size();
+				return true;
+			} else {
+				return false;
+			}
 		}
 	}
 
@@ -161,9 +183,12 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			LOG.info("Try to handle {}.", message);
 			final long checkpointId = message.getCheckpointId();
 			if (checkpointIdToCheckpoint.containsKey(checkpointId)) {
-				return tryHandleSingleTaskCheckpointFailure(checkpointIdToCheckpoint.get(checkpointId)
+				if (tryHandleSingleTaskCheckpointFailure(checkpointIdToCheckpoint.get(checkpointId)
 						.getTotalTasks().get(message.getTaskExecutionId()), Collections.singleton(checkpointId), false)
-						&& isRecoveryAvailable(checkpointId);
+						&& isRecoveryAvailable(checkpointId)) {
+					numberOfRecoveries++;
+					return true;
+				}
 			}
 
 			return false;
@@ -180,6 +205,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 				}
 			}
 
+			numberOfRecoveries += vertices.size();
 			return true;
 		}
 	}
