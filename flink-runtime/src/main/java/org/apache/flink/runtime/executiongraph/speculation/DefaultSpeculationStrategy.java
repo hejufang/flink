@@ -260,6 +260,9 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 		for (Map.Entry<ExecutionJobVertex, Set<Execution>> entry : currentExecutions.entrySet()) {
 			final ExecutionJobVertex executionJobVertex = entry.getKey();
 			final Set<Execution> executions = entry.getValue();
+			if (!executionJobVertex.getJobVertex().getSupportSpeculation()) {
+				continue;
+			}
 			if (executions.size() > 0) {
 				// 检查已完成的 task 是否符合推测执行的 quantile 参数要求
 				if (finishedExecutions.get(executionJobVertex).size() > getQuantileNum(executionJobVertex)) {
@@ -267,7 +270,10 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 					final double timeCostThreshold = Math.max(timeCostMedianHeap.get(executionJobVertex).median() * multiplier, MIN_TIME_TO_SPECULATION);
 					for (final Execution execution : executions) {
 						if (getRunningTime(execution, currTimestamp) > timeCostThreshold) {
-							regions.add(vertexToRegion.get(execution.getVertex().getID()));
+							SpeculationRegion speculationRegion = vertexToRegion.get(execution.getVertex().getID());
+							if (speculationRegion.getSupportSpeculation()) {
+								regions.add(speculationRegion);
+							}
 						}
 					}
 				}

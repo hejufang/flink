@@ -19,11 +19,11 @@
 package org.apache.flink.runtime.jobgraph;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.InputSplitSource;
-import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
@@ -117,6 +117,9 @@ public class JobVertex implements java.io.Serializable {
 
 	/** The input dependency constraint to schedule this vertex. */
 	private InputDependencyConstraint inputDependencyConstraint = InputDependencyConstraint.ANY;
+
+	/** Whether the vertex supports speculation. */
+	private boolean supportSpeculation = true;
 
 	// --------------------------------------------------------------------------------------------
 
@@ -570,6 +573,14 @@ public class JobVertex implements java.io.Serializable {
 
 	public void setInputDependencyConstraint(InputDependencyConstraint inputDependencyConstraint) {
 		this.inputDependencyConstraint = inputDependencyConstraint;
+	}
+
+	public boolean getSupportSpeculation() {
+		return this.supportSpeculation;
+	}
+
+	public void setSupportSpeculation(boolean supportSpeculation) {
+		this.supportSpeculation = supportSpeculation;
 	}
 
 	// --------------------------------------------------------------------------------------------

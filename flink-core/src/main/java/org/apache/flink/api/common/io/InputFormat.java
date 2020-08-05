@@ -152,4 +152,13 @@ public interface InputFormat<OT, T extends InputSplit> extends InputSplitSource<
 	 * @throws IOException Thrown, if the input could not be closed properly.
 	 */
 	void close() throws IOException;
+
+	/**
+	 * Whether the input format supports speculation
+	 *
+	 * @return True if the input format supports speculation, otherwise false.
+	 * */
+	default boolean supportSpeculation() {
+		return true;
+	}
 }

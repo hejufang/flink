@@ -38,10 +38,21 @@ public class SpeculationRegion {
 
 	private final int size;
 
+	private final boolean supportSpeculation;
+
 	public SpeculationRegion(Set<FailoverVertex> vertices) {
 		this.vertices = vertices;
 		this.resetVertices = new HashSet<>();
 		this.size = vertices.size();
+		boolean supportSpeculation = true;
+		for (FailoverVertex v : vertices) {
+			supportSpeculation &= v.getSupportSpeculation();
+		}
+		this.supportSpeculation = supportSpeculation;
+	}
+
+	public boolean getSupportSpeculation() {
+		return this.supportSpeculation;
 	}
 
 	public Set<FailoverVertex> getConnectedVertices() {

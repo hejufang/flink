@@ -51,4 +51,9 @@ public interface FailoverVertex {
 	 * @return output edges of this vertex
 	 */
 	Iterable<? extends FailoverEdge> getOutputEdges();
+
+	/**
+	 * Return whether supports speculation
+	 * */
+	boolean getSupportSpeculation();
 }

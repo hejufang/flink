@@ -64,7 +64,7 @@ public class InputOutputFormatVertex extends JobVertex {
 		try {
 			// set user classloader before calling user code
 			Thread.currentThread().setContextClassLoader(loader);
-
+			boolean supportSpeculation = true;
 			// configure the input format and setup input splits
 			Map<OperatorID, UserCodeWrapper<? extends InputFormat<?, ?>>> inputFormats = formatContainer.getInputFormats();
 			if (inputFormats.size() > 1) {
@@ -82,6 +82,7 @@ public class InputOutputFormatVertex extends JobVertex {
 				}
 
 				setInputSplitSource(inputFormat);
+				supportSpeculation &= inputFormat.supportSpeculation();
 			}
 
 			// configure input formats and invoke initializeGlobal()
@@ -100,8 +101,9 @@ public class InputOutputFormatVertex extends JobVertex {
 				if (outputFormat instanceof InitializeOnMaster) {
 					((InitializeOnMaster) outputFormat).initializeGlobal(getParallelism());
 				}
+				supportSpeculation &= outputFormat.supportSpeculation();
 			}
-
+			setSupportSpeculation(supportSpeculation);
 		} finally {
 			// restore original classloader
 			Thread.currentThread().setContextClassLoader(original);

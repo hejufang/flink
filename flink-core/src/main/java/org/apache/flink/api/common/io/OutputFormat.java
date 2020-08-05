@@ -84,5 +84,14 @@ public interface OutputFormat<IT> extends Serializable {
 	 * @throws IOException Thrown, if the input could not be closed properly.
 	 */
 	void close() throws IOException;
+
+	/**
+	 * Whether the output format supports speculation
+	 *
+	 * @return True if the output format supports speculation, otherwise false.
+	 * */
+	default boolean supportSpeculation() {
+		return false;
+	}
 }
 

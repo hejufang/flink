@@ -62,7 +62,7 @@ public class DefaultFailoverTopology implements FailoverTopology {
 		for (ExecutionVertex vertex : executionGraph.getAllExecutionVertices()) {
 			final DefaultFailoverVertex failoverVertex = new DefaultFailoverVertex(
 				new ExecutionVertexID(vertex.getJobvertexId(), vertex.getParallelSubtaskIndex()),
-				vertex.getTaskNameWithSubtaskIndex());
+				vertex.getTaskNameWithSubtaskIndex(), vertex.getJobVertex().getJobVertex().getSupportSpeculation());
 			this.failoverVertices.add(failoverVertex);
 			failoverVertexMap.put(vertex, failoverVertex);
 		}
