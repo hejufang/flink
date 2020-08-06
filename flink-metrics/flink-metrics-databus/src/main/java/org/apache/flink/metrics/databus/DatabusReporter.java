@@ -144,7 +144,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 					try {
 						metricValue = Double.parseDouble((String) value);
 					} catch (NumberFormatException nf) {
-						LOG.warn("{} for metric {} can't be casted to Number.", value, metricName);
+						LOG.debug("{} for metric {} can't be casted to Number.", value, metricName);
 					}
 				} else {
 					continue;
