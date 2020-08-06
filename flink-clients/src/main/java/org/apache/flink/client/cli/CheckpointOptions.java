@@ -20,6 +20,7 @@ package org.apache.flink.client.cli;
 
 import org.apache.commons.cli.CommandLine;
 
+import static org.apache.flink.client.cli.CliFrontendParser.CHECKPOINT_ANALYZE_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.CHECKPOINT_ID;
 
 /**
@@ -29,6 +30,8 @@ public class CheckpointOptions extends CommandLineOptions {
 
 	private final String[] args;
 	private int checkpointID;
+	private boolean isAnalyzation;
+	private String metadataPath;
 
 	public CheckpointOptions(CommandLine line) {
 		super(line);
@@ -38,6 +41,11 @@ public class CheckpointOptions extends CommandLineOptions {
 		} else {
 			checkpointID = -1;
 		}
+
+		if (line.hasOption(CHECKPOINT_ANALYZE_OPTION.getOpt())) {
+			isAnalyzation = true;
+			metadataPath = line.getOptionValue(CHECKPOINT_ANALYZE_OPTION.getOpt());
+		}
 	}
 
 	public String[] getArgs() {
@@ -46,5 +54,13 @@ public class CheckpointOptions extends CommandLineOptions {
 
 	public int getCheckpointID() {
 		return checkpointID;
+	}
+
+	public boolean isAnalyzation() {
+		return isAnalyzation;
+	}
+
+	public String getMetadataPath() {
+		return metadataPath;
 	}
 }

@@ -894,12 +894,18 @@ public class CliFrontend {
 			jobId = null;
 		}
 
-		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
-		if (jobName == null && jobId == null) {
-			throw new CliArgsException("Missing JobID and JobName. Specify one of them.");
-		}
+		if (checkpointOptions.isAnalyzation()) {
+			final String path = checkpointOptions.getMetadataPath();
+			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
+			infos.forEach(System.out::println);
+		} else {
+			String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+			if (jobName == null && jobId == null) {
+				throw new CliArgsException("Missing JobID and JobName. Specify one of them.");
+			}
 
-		clearCheckpoints(activeCommandLine, commandLine, jobId, jobName, checkpointOptions.getCheckpointID());
+			clearCheckpoints(activeCommandLine, commandLine, jobId, jobName, checkpointOptions.getCheckpointID());
+		}
 	}
 
 	private void clearCheckpoints(

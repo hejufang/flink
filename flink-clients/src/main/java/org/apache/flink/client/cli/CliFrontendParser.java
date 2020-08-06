@@ -96,6 +96,9 @@ public class CliFrontendParser {
 	static final Option CHECKPOINT_ID = new Option("cid", "checkpointID", true,
 			"Checkpoint ID.");
 
+	static final Option CHECKPOINT_ANALYZE_OPTION = new Option("anl", "analyze", true,
+			"Path of checkpoint's metadata to analyze");
+
 	// list specific options
 	static final Option RUNNING_OPTION = new Option("r", "running", false,
 			"Show only running programs and their JobIDs");
@@ -283,6 +286,7 @@ public class CliFrontendParser {
 	static Options getCheckpointCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
 		options.addOption(CHECKPOINT_ID);
+		options.addOption(CHECKPOINT_ANALYZE_OPTION);
 		return options.addOption(CLUSTER_NAME_OPTION);
 	}
 
@@ -326,6 +330,7 @@ public class CliFrontendParser {
 
 	private static Options getCheckpointOptionsWithoutDeprecatedOptions(Options options) {
 		options.addOption(CHECKPOINT_ID);
+		options.addOption(CHECKPOINT_ANALYZE_OPTION);
 		return options;
 	}
 
@@ -347,6 +352,7 @@ public class CliFrontendParser {
 		printHelpForStop(customCommandLines);
 		printHelpForCancel(customCommandLines);
 		printHelpForSavepoint(customCommandLines);
+		printHelpForCheckpoint(customCommandLines);
 
 		System.out.println();
 	}
@@ -444,7 +450,7 @@ public class CliFrontendParser {
 		formatter.setLeftPadding(5);
 		formatter.setWidth(80);
 
-		System.out.println("\nAction \"checkpoint\" dispose the specified checkpoint or all checkpoints.");
+		System.out.println("\nAction \"checkpoint\" operates the specified checkpoint or all checkpoints.");
 		System.out.println("\n  Syntax: checkpoint [OPTIONS] [<Job ID>]");
 		System.out.println("\n  Sample: checkpoint -m yarn-cluster -cn flink -ynm wordcount");
 		formatter.setSyntaxPrefix("  \"checkpoint\" action options:");
