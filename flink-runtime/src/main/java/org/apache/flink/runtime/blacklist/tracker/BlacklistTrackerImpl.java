@@ -210,13 +210,14 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 			blackedHosts = tempBlackedHost;
 
 			blacklistGauge.reset();
+			long ts = System.currentTimeMillis();
 			for (Map.Entry<String, HostFailure> entry : blackedHosts.entrySet()) {
 				String host = entry.getKey();
 				Throwable exception = entry.getValue().getException();
 				String reason = exception.getMessage();
 				BlacklistUtil.FailureType failureType = entry.getValue().getFailureType();
 				if (reason != null) {
-					reason = reason.replaceAll(" ", "_").substring(0, Math.min(30, reason.length()));
+					reason = reason.replaceAll(" ", "_").substring(0, Math.min(30, reason.length())).split("\n")[0];
 				}
 				blacklistGauge.addMetric(
 						1,
@@ -229,7 +230,10 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				);
 
 				blacklistRecordMessageSet.addMessage(
-						new Message<>(WarehouseBlacklistRecordMessage.fromHostFailure(entry.getValue())));
+						new Message<>(new WarehouseBlacklistRecordMessage(
+								entry.getValue().getHostname(),
+								entry.getValue().getFailureType(),
+								ts)));
 			}
 			blacklistActions.notifyBlacklistUpdated();
 		}
