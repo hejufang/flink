@@ -31,6 +31,9 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.WarehouseOriginalMetricMessage;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
+import org.apache.flink.runtime.metrics.groups.FrontMetricGroup;
+import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
+import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.yarn.YarnConfigKeys;
 
@@ -40,14 +43,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * DatabusReport for data warehouse.
  */
 public class DatabusReporter extends AbstractReporter implements Scheduled {
 	private static final Logger LOG = LoggerFactory.getLogger(DatabusReporter.class);
+
+	/** ban some fine-grained metrics to avoid too much traffic in Kafka. */
+	private static final Set<Class> bannedMetricGroups = new HashSet<>(Arrays.asList(
+			OperatorMetricGroup.class,
+			TaskMetricGroup.class));
 
 	private final Map<MessageSet, String> messageSets = new HashMap<>();
 
@@ -73,14 +84,21 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-		final String name = group.getMetricIdentifier(metricName, this);
-		synchronized (this) {
-			if (metric instanceof MessageSet) {
-				messageSets.put((MessageSet) metric, name);
-			} else if (metric instanceof Counter) {
-				counters.put((Counter) metric, name);
-			} else if (metric instanceof Gauge) {
-				gauges.put((Gauge<?>) metric, name);
+		if (group instanceof FrontMetricGroup) {
+			FrontMetricGroup frontMetricGroup = (FrontMetricGroup) group;
+			Class clz = frontMetricGroup.getParentMetricGroup().getClass();
+			final String name = group.getMetricIdentifier(metricName, this);
+			synchronized (this) {
+				if (metric instanceof MessageSet) {
+					LOG.info("Successfully register {}.", name);
+					messageSets.put((MessageSet) metric, name);
+				} else if (metric instanceof Counter && !bannedMetricGroups.contains(clz)) {
+					LOG.info("Successfully register {}.", name);
+					counters.put((Counter) metric, name);
+				} else if (metric instanceof Gauge && !bannedMetricGroups.contains(clz)) {
+					LOG.info("Successfully register {}.", name);
+					gauges.put((Gauge<?>) metric, name);
+				}
 			}
 		}
 	}

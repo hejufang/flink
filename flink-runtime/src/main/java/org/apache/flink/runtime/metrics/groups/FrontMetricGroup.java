@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.metrics.groups;
 
 import org.apache.flink.metrics.CharacterFilter;
+import org.apache.flink.metrics.MetricGroup;
 
 /**
  * Metric group which forwards all registration calls to a variable parent metric group that injects a variable reporter
@@ -53,5 +54,9 @@ public class FrontMetricGroup<P extends AbstractMetricGroup<?>> extends ProxyMet
 
 	public String getLogicalScope(CharacterFilter filter, char delimiter) {
 		return parentMetricGroup.getLogicalScope(filter, delimiter, this.reporterIndex);
+	}
+
+	public MetricGroup getParentMetricGroup() {
+		return parentMetricGroup;
 	}
 }
