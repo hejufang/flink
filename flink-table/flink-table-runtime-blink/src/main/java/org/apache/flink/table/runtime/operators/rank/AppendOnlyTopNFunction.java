@@ -111,7 +111,10 @@ public class AppendOnlyTopNFunction extends AbstractTopNFunction {
 			buffer.put(sortKey, inputRowSer.copy(input));
 			Collection<BaseRow> inputs = buffer.get(sortKey);
 			// update data state
-			dataState.put(sortKey, (List<BaseRow>) inputs);
+			// copy a new collection to avoid mutating state values, see CopyOnWriteStateMap,
+			// otherwise, the result might be corrupt.
+			// don't need to perform a deep copy, because BaseRow elements will not be updated
+			dataState.put(sortKey, new ArrayList<>(inputs));
 			if (outputRankNumber || hasOffset()) {
 				// the without-number-algorithm can't handle topN with offset,
 				// so use the with-number-algorithm to handle offset
