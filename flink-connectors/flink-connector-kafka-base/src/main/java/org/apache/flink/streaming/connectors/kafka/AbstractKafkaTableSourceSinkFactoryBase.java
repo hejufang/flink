@@ -87,6 +87,8 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_STARTU
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TEAM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TOPIC;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TYPE_VALUE_KAFKA;
+import static org.apache.flink.table.descriptors.KafkaValidator.METADATA_FIELDS_MAPPING;
+import static org.apache.flink.table.descriptors.KafkaValidator.METADATA_FIELD_INDEX_MAPPING;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_CLASS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_FROM;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_SERIALIZED;
@@ -153,6 +155,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_SOURCE_PARTITION_RANGE);
 		properties.add(CONNECTOR_SOURCE_SAMPLE_INTERVAL);
 		properties.add(CONNECTOR_SOURCE_SAMPLE_NUM);
+		properties.add(METADATA_FIELDS_MAPPING);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -195,7 +198,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 				descriptorProperties,
 				Optional.of(deserializationSchema.getProducedType())),
 			topic,
-			getKafkaProperties(descriptorProperties, topic),
+			getKafkaProperties(descriptorProperties),
 			deserializationSchema,
 			startupOptions.startupMode,
 			startupOptions.specificOffsets,
@@ -300,7 +303,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 	// Helper methods
 	// --------------------------------------------------------------------------------------------
 
-	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
+	protected DescriptorProperties getValidatedProperties(Map<String, String> properties) {
 		// The origin properties is an UnmodifiableMap, so we create a new one.
 		Map<String, String> newProperties = new HashMap<>(properties);
 		addDefaultProperties(newProperties);
@@ -314,7 +317,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		return descriptorProperties;
 	}
 
-	private Map<String, String> getOtherConfigurations(DescriptorProperties descriptorProperties) {
+	protected Map<String, String> getOtherConfigurations(DescriptorProperties descriptorProperties) {
 		Map<String, String> configurations = new HashMap<>();
 
 		descriptorProperties.getOptionalString(CONNECTOR_PARALLELISM)
@@ -331,6 +334,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			.ifPresent(sn -> configurations.put(CONNECTOR_SOURCE_SAMPLE_NUM, sn));
 		descriptorProperties.getOptionalString(CONNECTOR_SOURCE_SAMPLE_INTERVAL)
 			.ifPresent(si -> configurations.put(CONNECTOR_SOURCE_SAMPLE_INTERVAL, si));
+		descriptorProperties.getOptionalString(METADATA_FIELD_INDEX_MAPPING)
+			.ifPresent(mf -> configurations.put(METADATA_FIELD_INDEX_MAPPING, mf));
 		descriptorProperties.getOptionalBoolean(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(value ->
 			configurations.put(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION, String.valueOf(value)));
 		descriptorProperties.getOptionalString(CONNECTOR_SOURCE_PARTITION_RANGE).ifPresent(value ->
@@ -338,7 +343,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		return configurations;
 	}
 
-	private Properties getKafkaProperties(DescriptorProperties descriptorProperties, String topic) {
+	protected Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
 		final Properties kafkaProperties = new Properties();
 		final List<Map<String, String>> propsList = descriptorProperties.getFixedIndexedProperties(
 			CONNECTOR_PROPERTIES,
@@ -365,10 +370,6 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			}
 		});
 		return kafkaProperties;
-	}
-
-	private Properties getKafkaProperties(DescriptorProperties descriptorProperties) {
-		return getKafkaProperties(descriptorProperties, null);
 	}
 
 	/**
@@ -401,7 +402,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		}
 	}
 
-	private List<String> getMainProperties() {
+	protected List<String> getMainProperties() {
 		List<String> properties = new ArrayList<>();
 		properties.add(CONNECTOR_CLUSTER);
 		properties.add(CONNECTOR_TOPIC);
@@ -412,7 +413,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		return properties;
 	}
 
-	private StartupOptions getStartupOptions(
+	protected StartupOptions getStartupOptions(
 			DescriptorProperties descriptorProperties,
 			String topic) {
 		final Map<KafkaTopicPartition, Long> specificOffsets = new HashMap<>();
@@ -519,10 +520,13 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 				.allMatch(mapping -> mapping.getKey().equals(mapping.getValue()));
 	}
 
-	private static class StartupOptions {
-		private StartupMode startupMode;
-		private Map<KafkaTopicPartition, Long> specificOffsets;
-		private Long relativeOffset;
-		private Long timestamp;
+	/**
+	 * class for startup options.
+	 */
+	protected static class StartupOptions {
+		protected StartupMode startupMode;
+		protected Map<KafkaTopicPartition, Long> specificOffsets;
+		protected Long relativeOffset;
+		protected Long timestamp;
 	}
 }

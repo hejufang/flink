@@ -27,16 +27,22 @@ import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionState;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
+import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 
 /**
  * A fetcher that fetches data from Kafka brokers via the Kafka 0.10 consumer API.
@@ -48,6 +54,8 @@ import java.util.Properties;
  */
 @Internal
 public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
+	/** Mapping of schema field indices and {{@link Metadata}}.*/
+	private Map<Integer, Metadata> fieldToMetadataMap;
 
 	@VisibleForTesting
 	public Kafka010Fetcher(
@@ -107,49 +115,9 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 			FlinkConnectorRateLimiter rateLimiter,
 			RateLimitingUnit rateLimitingUnit,
 			long sampleInterval,
-			long sampleNum) throws Exception {
-		super(
-			sourceContext,
-			assignedPartitionsWithInitialOffsets,
-			watermarksPeriodic,
-			watermarksPunctuated,
-			processingTimeProvider,
-			autoWatermarkInterval,
-			userCodeClassLoader,
-			taskNameWithSubtasks,
-			deserializer,
-			kafkaProperties,
-			pollTimeout,
-			subtaskMetricGroup,
-			consumerMetricGroup,
-			useMetrics,
-			rateLimiter,
-			rateLimitingUnit,
-			sampleInterval,
-			sampleNum,
-			-1);
-	}
-
-	public Kafka010Fetcher(
-			SourceContext<T> sourceContext,
-			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
-			SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic,
-			SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated,
-			ProcessingTimeService processingTimeProvider,
-			long autoWatermarkInterval,
-			ClassLoader userCodeClassLoader,
-			String taskNameWithSubtasks,
-			KafkaDeserializationSchema<T> deserializer,
-			Properties kafkaProperties,
-			long pollTimeout,
-			MetricGroup subtaskMetricGroup,
-			MetricGroup consumerMetricGroup,
-			boolean useMetrics,
-			FlinkConnectorRateLimiter rateLimiter,
-			RateLimitingUnit rateLimitingUnit,
-			long sampleInterval,
 			long sampleNum,
-			long manualCommitInterval) throws Exception {
+			long manualCommitInterval,
+			Map<Integer, Metadata> fieldToMetadataMap) throws Exception {
 		super(
 				sourceContext,
 				assignedPartitionsWithInitialOffsets,
@@ -170,6 +138,7 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 				sampleInterval,
 				sampleNum,
 				manualCommitInterval);
+		this.fieldToMetadataMap = fieldToMetadataMap;
 	}
 
 	@Override
@@ -195,5 +164,33 @@ public class Kafka010Fetcher<T> extends Kafka09Fetcher<T> {
 	@Override
 	protected String getFetcherName() {
 		return "Kafka 0.10 Fetcher";
+	}
+
+	@Override
+	protected T constructValue(ConsumerRecord<byte[], byte[]> record, KafkaDeserializationSchema<T> deserializer) throws Exception {
+		T value = deserializer.deserialize(record);
+		if (fieldToMetadataMap != null && value instanceof Row) {
+			List<Object> valueList = new ArrayList<>();
+			for (int i = 0; i < ((Row) value).getArity(); i++) {
+				valueList.add(((Row) value).getField(i));
+			}
+			// The TreeMap ensures that fields will be inserted into the row in order of their index.
+			Map<Integer, Metadata> sortedMap = new TreeMap<>(fieldToMetadataMap);
+			for (Map.Entry<Integer, Metadata> entry : sortedMap.entrySet()) {
+				valueList.add(entry.getKey(), getMetaData(entry.getValue(), record));
+			}
+			return (T) Row.of(valueList.toArray(new Object[0]));
+		}
+		return value;
+	}
+
+	private Object getMetaData(Metadata metadata, ConsumerRecord<byte[], byte[]> record) {
+		switch (metadata) {
+			case TIMESTAMP: return record.timestamp();
+			case PARTITION: return (long) record.partition();
+			case OFFSET: return record.offset();
+			default: throw new FlinkRuntimeException("Could not support this kind of metadata: '" + metadata.toString()
+				+ "', we only support " + Metadata.getCollectionStr() + ".");
+		}
 	}
 }

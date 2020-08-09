@@ -99,6 +99,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.METADATA_FIELDS_MAPPING;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_PROCTIME;
 
@@ -567,8 +568,30 @@ public class SqlToOperationConverter {
 						"pb, pb_binlog and pb_binlog_drc!");
 			}
 
+			// Adding metadata related fields for pb format.
+			Set<String> metadataFields = null;
+			if (propertiesMap.containsKey(METADATA_FIELDS_MAPPING)) {
+				metadataFields = new HashSet<>();
+				// setup table columns
+				SqlNodeList columnList = sqlCreateTable.getColumnList();
+				// collect the physical table schema first.
+				final List<SqlNode> physicalColumns = columnList.getList().stream()
+					.filter(n -> n instanceof SqlTableColumn).collect(Collectors.toList());
+				for (SqlNode node : physicalColumns) {
+					SqlTableColumn column = (SqlTableColumn) node;
+					final RelDataType relType = column.getType().deriveType(factory,
+						column.getType().getNullable());
+					metadataFields.add(column.getName().getSimple());
+					builder.field(column.getName().getSimple(),
+						LogicalTypeDataTypeConverter.fromLogicalTypeToDataType(
+							FlinkTypeFactory.toLogicalType(relType)));
+				}
+			}
+
 			for (int index = 0; index < rowTypeInfo.getArity(); index++) {
-				builder = builder.field(rowTypeInfo.getFieldNames()[index], rowTypeInfo.getTypeAt(index));
+				if (metadataFields == null || !metadataFields.contains(rowTypeInfo.getFieldNames()[index])) {
+					builder = builder.field(rowTypeInfo.getFieldNames()[index], rowTypeInfo.getTypeAt(index));
+				}
 			}
 			physicalSchema = builder.build();
 		} else {

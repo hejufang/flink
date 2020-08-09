@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.kafka;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.table.api.TableSchema;
@@ -83,19 +84,18 @@ public class Kafka010TableSource extends KafkaTableSourceBase {
 	}
 
 	public Kafka010TableSource(
-		TableSchema schema,
-		Optional<String> proctimeAttribute,
-		List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
-		Optional<Map<String, String>> fieldMapping,
-		String topic,
-		Properties properties,
-		DeserializationSchema<Row> deserializationSchema,
-		StartupMode startupMode,
-		Map<KafkaTopicPartition, Long> specificStartupOffsets,
-		Long relativeOffset,
-		Long timestamp,
-		Map<String, String> configurations) {
-
+			TableSchema schema,
+			Optional<String> proctimeAttribute,
+			List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+			Optional<Map<String, String>> fieldMapping,
+			String topic,
+			Properties properties,
+			DeserializationSchema<Row> deserializationSchema,
+			StartupMode startupMode,
+			Map<KafkaTopicPartition, Long> specificStartupOffsets,
+			Long relativeOffset,
+			Long timestamp,
+			Map<String, String> configurations) {
 		super(schema,
 			proctimeAttribute,
 			rowtimeAttributeDescriptors,
@@ -108,6 +108,36 @@ public class Kafka010TableSource extends KafkaTableSourceBase {
 			relativeOffset,
 			timestamp,
 			configurations);
+	}
+
+	public Kafka010TableSource(
+			TableSchema schema,
+			Optional<String> proctimeAttribute,
+			List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+			Optional<Map<String, String>> fieldMapping,
+			String topic,
+			Properties properties,
+			DeserializationSchema<Row> deserializationSchema,
+			StartupMode startupMode,
+			Map<KafkaTopicPartition, Long> specificStartupOffsets,
+			Long relativeOffset,
+			Long timestamp,
+			Map<String, String> configurations,
+			DeserializationSchema<Row> deserializationSchemaWithoutMetadata) {
+		super(
+			schema,
+			proctimeAttribute,
+			rowtimeAttributeDescriptors,
+			fieldMapping,
+			topic,
+			properties,
+			deserializationSchema,
+			startupMode,
+			specificStartupOffsets,
+			relativeOffset,
+			timestamp,
+			configurations,
+			deserializationSchemaWithoutMetadata);
 	}
 
 	/**
@@ -128,7 +158,11 @@ public class Kafka010TableSource extends KafkaTableSourceBase {
 	}
 
 	@Override
-	protected FlinkKafkaConsumerBase<Row> createKafkaConsumer(String topic, Properties properties, DeserializationSchema<Row> deserializationSchema) {
-		return new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
+	protected FlinkKafkaConsumerBase<Row> createKafkaConsumer(
+			String topic,
+			Properties properties,
+			DeserializationSchema<Row> deserializationSchema) {
+		Map<Integer, Metadata> fieldToMetadataMap = genFieldToMetadataMap();
+		return new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties, fieldToMetadataMap, getDeserializationSchemaWithoutMetadata());
 	}
 }

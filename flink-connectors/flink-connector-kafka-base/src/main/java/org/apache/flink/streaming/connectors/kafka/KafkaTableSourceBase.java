@@ -27,11 +27,13 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.Types;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.descriptors.KafkaValidator;
 import org.apache.flink.table.sources.DefinedFieldMapping;
 import org.apache.flink.table.sources.DefinedProctimeAttribute;
 import org.apache.flink.table.sources.DefinedRowtimeAttributes;
@@ -50,6 +52,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
@@ -114,6 +117,9 @@ public abstract class KafkaTableSourceBase implements
 	/** Specific timestamp for kafka consumer to consume from. */
 	private final Long timestamp;
 
+	/** Deserialization schema without metadata for decoding records from Kafka. */
+	private final DeserializationSchema<Row> deserializationSchemaWithoutMetadata;
+
 	/**
 	 * Creates a generic Kafka {@link StreamTableSource}.
 	 *
@@ -154,22 +160,52 @@ public abstract class KafkaTableSourceBase implements
 				specificStartupOffsets,
 				relativeOffset,
 				timestamp,
-				new HashMap<>());
+				new HashMap<>(),
+				null);
 	}
 
 	protected KafkaTableSourceBase(
-		TableSchema schema,
-		Optional<String> proctimeAttribute,
-		List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
-		Optional<Map<String, String>> fieldMapping,
-		String topic,
-		Properties properties,
-		DeserializationSchema<Row> deserializationSchema,
-		StartupMode startupMode,
-		Map<KafkaTopicPartition, Long> specificStartupOffsets,
-		Long relativeOffset,
-		Long timestamp,
-		Map<String, String> configurations) {
+			TableSchema schema,
+			Optional<String> proctimeAttribute,
+			List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+			Optional<Map<String, String>> fieldMapping,
+			String topic,
+			Properties properties,
+			DeserializationSchema<Row> deserializationSchema,
+			StartupMode startupMode,
+			Map<KafkaTopicPartition, Long> specificStartupOffsets,
+			Long relativeOffset,
+			Long timestamp,
+			Map<String, String> configurations) {
+		this(schema,
+			proctimeAttribute,
+			rowtimeAttributeDescriptors,
+			fieldMapping,
+			topic,
+			properties,
+			deserializationSchema,
+			startupMode,
+			specificStartupOffsets,
+			relativeOffset,
+			timestamp,
+			configurations,
+			null);
+	}
+
+	protected KafkaTableSourceBase(
+			TableSchema schema,
+			Optional<String> proctimeAttribute,
+			List<RowtimeAttributeDescriptor> rowtimeAttributeDescriptors,
+			Optional<Map<String, String>> fieldMapping,
+			String topic,
+			Properties properties,
+			DeserializationSchema<Row> deserializationSchema,
+			StartupMode startupMode,
+			Map<KafkaTopicPartition, Long> specificStartupOffsets,
+			Long relativeOffset,
+			Long timestamp,
+			Map<String, String> configurations,
+			DeserializationSchema<Row> deserializationSchemaWithoutMetadata) {
 		this.schema = Preconditions.checkNotNull(schema, "Schema must not be null.");
 		this.proctimeAttribute = validateProctimeAttribute(proctimeAttribute);
 		this.rowtimeAttributeDescriptors = validateRowtimeAttributeDescriptors(rowtimeAttributeDescriptors);
@@ -184,6 +220,7 @@ public abstract class KafkaTableSourceBase implements
 		this.relativeOffset = relativeOffset;
 		this.timestamp = timestamp;
 		this.configurations = configurations;
+		this.deserializationSchemaWithoutMetadata = deserializationSchemaWithoutMetadata;
 	}
 
 	/**
@@ -328,6 +365,10 @@ public abstract class KafkaTableSourceBase implements
 		return deserializationSchema;
 	}
 
+	protected DeserializationSchema<Row> getDeserializationSchemaWithoutMetadata() {
+		return deserializationSchemaWithoutMetadata;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -444,6 +485,21 @@ public abstract class KafkaTableSourceBase implements
 			}
 		}
 		return rowtimeAttributeDescriptors;
+	}
+
+	/**
+	 * Refer to the field_index_mapping string, generate a map to represent it.
+	 * @return Mapping of schema field indices and {@link Metadata}.
+	 */
+	protected Map<Integer, Metadata> genFieldToMetadataMap() {
+		if (!configurations.containsKey(KafkaValidator.METADATA_FIELD_INDEX_MAPPING)) {
+			return null;
+		} else {
+			return Arrays.stream(configurations.get(KafkaValidator.METADATA_FIELD_INDEX_MAPPING).split(","))
+				.map(kvStr -> kvStr.split("="))
+				.collect(Collectors.toMap(kvList -> Integer.valueOf(kvList[0]),
+					kvList -> Metadata.findByName(kvList[1])));
+		}
 	}
 
 	//////// ABSTRACT METHODS FOR SUBCLASSES

@@ -20,7 +20,10 @@ package org.apache.flink.table.descriptors;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
+import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.ValidationException;
 
 import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
 
@@ -29,6 +32,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.apache.flink.table.descriptors.DescriptorProperties.noValidation;
+import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 
 /**
  * The validator for {@link Kafka}.
@@ -109,6 +113,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		validatePartitionRange(properties);
 
 		validateSampling(properties);
+
+		validateMetadataExtract(properties);
 	}
 
 	private void validatePartitionRange(DescriptorProperties properties) {
@@ -180,6 +186,33 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	private void validateSampling(DescriptorProperties properties) {
 		properties.validateLong(CONNECTOR_SOURCE_SAMPLE_INTERVAL, true, 0);
 		properties.validateLong(CONNECTOR_SOURCE_SAMPLE_NUM, true, 1);
+	}
+
+	private void validateMetadataExtract(DescriptorProperties properties) {
+		properties.getOptionalString(METADATA_FIELDS_MAPPING).ifPresent(
+			metadataExtractStr -> {
+				TableSchema tableSchema = properties.getTableSchema(SCHEMA);
+				String[] extractItems = metadataExtractStr.split(",");
+				for (String extractItem: extractItems) {
+					String[] kvList = extractItem.trim().split("=");
+					if (kvList.length != 2) {
+						throw new ValidationException("Could not split the property str: '" + extractItem
+							+ "' correctly, please use '=' as delimiter, like 'timestamp=ts'.");
+					}
+					if (!Metadata.contains(kvList[0])) {
+						throw new ValidationException("Could not support this kind of metadata: '" + kvList[0]
+							+ "', we only support " + Metadata.getCollectionStr() + ".");
+					}
+					tableSchema.getFieldDataType(kvList[1])
+						.ifPresent(dataType -> {
+							if (!dataType.getConversionClass().equals(Metadata.findByName(kvList[0]).getDataClass())) {
+								throw new ValidationException("The metadata field '" + kvList[0]
+									+ "' should be " + Metadata.findByName(kvList[0]).getDataClass());
+							}
+						});
+				}
+			}
+		);
 	}
 
 	// utilities

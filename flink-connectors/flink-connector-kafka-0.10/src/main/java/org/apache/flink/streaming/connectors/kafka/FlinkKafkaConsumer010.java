@@ -24,6 +24,7 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internal.Kafka010Fetcher;
 import org.apache.flink.streaming.connectors.kafka.internal.Kafka010PartitionDiscoverer;
@@ -76,7 +77,8 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	private static final long serialVersionUID = 2324564345203409112L;
 
 	private final long manualCommitInterval;
-
+	private Map<Integer, Metadata> fieldToMetadataMap;
+	private DeserializationSchema<T> deserializationSchemaWithoutMetadata;
 
 	// ------------------------------------------------------------------------
 
@@ -92,6 +94,28 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	 */
 	public FlinkKafkaConsumer010(String topic, DeserializationSchema<T> valueDeserializer, Properties props) {
 		this(Collections.singletonList(topic), valueDeserializer, props);
+	}
+
+	/**
+	 * Creates a new Kafka streaming source consumer for Kafka 0.10.x.
+	 *
+	 * <p>This constructor allow consumer to build a output row with kafka message metadata.
+	 *
+	 * @param topic
+	 *           The name of the topic that should be consumed.
+	 * @param valueDeserializer
+	 *           The deserializer used to resolve the real schema which includes kafka message metadata.
+	 * @param props
+	 *           The properties used to configure the Kafka consumer client, and the ZooKeeper client.
+	 * @param fieldToMetadataMap
+	 *           Mapping of schema field indices and {{@link Metadata}}.
+	 * @param deserializationSchemaWithoutMetadata
+	 *           The deserializer used to convert between Kafka's byte messages and Flink's objects.
+	 */
+	public FlinkKafkaConsumer010(String topic, DeserializationSchema<T> valueDeserializer, Properties props, Map<Integer, Metadata> fieldToMetadataMap, DeserializationSchema<T> deserializationSchemaWithoutMetadata) {
+		this(Collections.singletonList(topic), valueDeserializer, props);
+		this.fieldToMetadataMap = fieldToMetadataMap;
+		this.deserializationSchemaWithoutMetadata = deserializationSchemaWithoutMetadata;
 	}
 
 	/**
@@ -212,6 +236,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	public FlinkKafkaConsumer010(Pattern subscriptionPattern, KafkaDeserializationSchema<T> deserializer, Properties props) {
 		super(subscriptionPattern, deserializer, props);
 		manualCommitInterval = -1;
+		fieldToMetadataMap = null;
 	}
 
 	@Override
@@ -235,6 +260,9 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 			rateLimiter.open(runtimeContext);
 		}
 
+		KafkaDeserializationSchema<T> realDeserializer = deserializationSchemaWithoutMetadata == null ? deserializer :
+			new KafkaDeserializationSchemaWrapper<>(deserializationSchemaWithoutMetadata);
+
 		return new Kafka010Fetcher<>(
 				sourceContext,
 				assignedPartitionsWithInitialOffsets,
@@ -244,7 +272,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 				runtimeContext.getExecutionConfig().getAutoWatermarkInterval(),
 				runtimeContext.getUserCodeClassLoader(),
 				runtimeContext.getTaskNameWithSubtasks(),
-				deserializer,
+				realDeserializer,
 				properties,
 				pollTimeout,
 				runtimeContext.getMetricGroup(),
@@ -254,7 +282,9 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 				rateLimitingUnit,
 				sampleInterval,
 				sampleNum,
-				manualCommitInterval);
+				manualCommitInterval,
+				fieldToMetadataMap
+			);
 	}
 
 	@Override
@@ -293,7 +323,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 
 		// use a short-lived consumer to fetch the offsets;
 		// this is ok because this is a one-time operation that happens only on startup
-		try (KafkaConsumer<?, ?> consumer = new KafkaConsumer(properties)) {
+		try (KafkaConsumer<?, ?> consumer = new KafkaConsumer<>(properties)) {
 			for (Map.Entry<TopicPartition, OffsetAndTimestamp> partitionToOffset :
 				consumer.offsetsForTimes(partitionOffsetsRequest).entrySet()) {
 

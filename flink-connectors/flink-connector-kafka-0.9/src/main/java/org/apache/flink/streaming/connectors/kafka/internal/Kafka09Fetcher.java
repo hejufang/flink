@@ -142,47 +142,6 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 			FlinkConnectorRateLimiter rateLimiter,
 			RateLimitingUnit rateLimitingUnit,
 			long sampleInterval,
-			long sampleNum) throws Exception {
-		this(
-			sourceContext,
-			assignedPartitionsWithInitialOffsets,
-			watermarksPeriodic,
-			watermarksPunctuated,
-			processingTimeProvider,
-			autoWatermarkInterval,
-			userCodeClassLoader,
-			taskNameWithSubtasks,
-			deserializer,
-			kafkaProperties,
-			pollTimeout,
-			subtaskMetricGroup,
-			consumerMetricGroup,
-			useMetrics,
-			rateLimiter,
-			rateLimitingUnit,
-			sampleInterval,
-			sampleNum,
-			-1);
-	}
-
-	public Kafka09Fetcher(
-			SourceContext<T> sourceContext,
-			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
-			SerializedValue<AssignerWithPeriodicWatermarks<T>> watermarksPeriodic,
-			SerializedValue<AssignerWithPunctuatedWatermarks<T>> watermarksPunctuated,
-			ProcessingTimeService processingTimeProvider,
-			long autoWatermarkInterval,
-			ClassLoader userCodeClassLoader,
-			String taskNameWithSubtasks,
-			KafkaDeserializationSchema<T> deserializer,
-			Properties kafkaProperties,
-			long pollTimeout,
-			MetricGroup subtaskMetricGroup,
-			MetricGroup consumerMetricGroup,
-			boolean useMetrics,
-			FlinkConnectorRateLimiter rateLimiter,
-			RateLimitingUnit rateLimitingUnit,
-			long sampleInterval,
 			long sampleNum,
 			long manualCommitInterval) throws Exception {
 		super(
@@ -234,6 +193,10 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 		};
 	}
 
+	protected T constructValue(ConsumerRecord<byte[], byte[]> record, KafkaDeserializationSchema<T> deserializer) throws Exception {
+		return deserializer.deserialize(record);
+	}
+
 	// ------------------------------------------------------------------------
 	//  Fetcher work methods
 	// ------------------------------------------------------------------------
@@ -259,7 +222,7 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 					for (ConsumerRecord<byte[], byte[]> record : partitionRecords) {
 
-						final T value = deserializer.deserialize(record);
+						final T value = constructValue(record, deserializer);
 
 						if (deserializer.isEndOfStream(value)) {
 							// end of stream signaled
