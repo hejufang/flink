@@ -122,7 +122,11 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 		Set<Set<FailoverVertex>> distinctRegions = executionGraph.getFailoverTopology().getDistinctRegions();
 		for (Set<FailoverVertex> regionVertices : distinctRegions) {
 			LOG.debug("Creating a speculation region with {} vertices.", regionVertices.size());
-			final SpeculationRegion failoverRegion = new SpeculationRegion(regionVertices);
+			boolean supportSpeculation = true;
+			for (FailoverVertex v : regionVertices) {
+				supportSpeculation &= v.getSupportSpeculation();
+			}
+			final SpeculationRegion failoverRegion = new SpeculationRegion(regionVertices, supportSpeculation);
 			for (FailoverVertex vertex : regionVertices) {
 				vertexToRegion.put(vertex.getExecutionVertexID(), failoverRegion);
 			}

@@ -25,6 +25,7 @@ import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.util.UserCodeWrapper;
 import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.runtime.operators.util.TaskConfig;
+import org.apache.flink.util.Preconditions;
 
 import java.util.HashMap;
 import java.util.List;
@@ -133,6 +134,7 @@ public class InputOutputFormatVertex extends JobVertex {
 				}
 
 				if (outputFormat instanceof FinalizeOnMaster) {
+					Preconditions.checkArgument(executionInfos.length == getParallelism());
 					((FinalizeOnMaster) outputFormat).finalizeGlobal(executionInfos);
 				}
 			}
