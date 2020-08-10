@@ -97,11 +97,6 @@ public class TestFailoverTopology implements FailoverTopology {
 		public Iterable<? extends FailoverEdge> getOutputEdges() {
 			return outputEdges::iterator;
 		}
-
-		@Override
-		public boolean getSupportSpeculation() {
-			return true;
-		}
 	}
 
 	/**

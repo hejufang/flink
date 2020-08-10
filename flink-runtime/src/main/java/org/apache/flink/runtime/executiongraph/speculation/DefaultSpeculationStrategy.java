@@ -124,7 +124,7 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 			LOG.debug("Creating a speculation region with {} vertices.", regionVertices.size());
 			boolean supportSpeculation = true;
 			for (FailoverVertex v : regionVertices) {
-				supportSpeculation &= v.getSupportSpeculation();
+				supportSpeculation &= executionGraph.getJobVertex(v.getExecutionVertexID().getJobVertexId()).getJobVertex().getSupportSpeculation();
 			}
 			final SpeculationRegion failoverRegion = new SpeculationRegion(regionVertices, supportSpeculation);
 			for (FailoverVertex vertex : regionVertices) {

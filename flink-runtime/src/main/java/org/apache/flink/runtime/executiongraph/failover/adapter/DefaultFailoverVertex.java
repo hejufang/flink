@@ -40,18 +40,14 @@ class DefaultFailoverVertex implements FailoverVertex {
 
 	private final List<DefaultFailoverEdge> outputEdges;
 
-	private final boolean supportSpeculation;
-
 	DefaultFailoverVertex(
 		ExecutionVertexID executionVertexID,
-		String executionVertexName,
-		boolean supportSpeculation) {
+		String executionVertexName) {
 
 		this.executionVertexID = checkNotNull(executionVertexID);
 		this.executionVertexName = checkNotNull(executionVertexName);
 		this.inputEdges = new ArrayList<>();
 		this.outputEdges = new ArrayList<>();
-		this.supportSpeculation = supportSpeculation;
 	}
 
 	@Override
@@ -80,10 +76,5 @@ class DefaultFailoverVertex implements FailoverVertex {
 
 	void addOutputEdge(DefaultFailoverEdge edge) {
 		outputEdges.add(edge);
-	}
-
-	@Override
-	public boolean getSupportSpeculation() {
-		return supportSpeculation;
 	}
 }
