@@ -142,6 +142,19 @@ class TopNBuffer implements Serializable {
 	}
 
 	/**
+	 * Returns the last record of the last Entry in the buffer.
+	 */
+	BaseRow lastElement() {
+		Map.Entry<BaseRow, Collection<BaseRow>> last = treeMap.lastEntry();
+		BaseRow lastElement = null;
+		if (last != null) {
+			Collection<BaseRow> collection = last.getValue();
+			lastElement = getLastElement(collection);
+		}
+		return lastElement;
+	}
+
+	/**
 	 * Gets record which rank is given value.
 	 *
 	 * @param rank rank value to search
