@@ -320,7 +320,8 @@ class RelNodeBlockPlanBuilder private(config: TableConfig) {
   private def isValidBreakPoint(node: RelNode): Boolean = node match {
     case _: TableFunctionScan | _: Snapshot => false
     case union: Union if union.all => !isUnionAllAsBreakPointDisabled
-    case project: Project => project.getProjects.forall(p => !hasWindowGroup(p))
+    case project: Project =>
+      project.getProjects.forall(p => !WindowPropertiesRules.hasGroupFunction(p))
     case agg: Aggregate =>
       agg.getInput match {
         case project: Project =>
