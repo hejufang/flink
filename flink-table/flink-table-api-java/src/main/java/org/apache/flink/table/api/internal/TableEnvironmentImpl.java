@@ -700,8 +700,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	}
 
 	@Override
-	public Optional<Table> sql(String stmt) {
-		Tuple2<Optional<Table>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
+	public Optional<TableResult> sql(String stmt) {
+		Tuple2<Optional<TableResult>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
 		Optional<StatementSet> statementSetOptional = tuple2.f1;
 		statementSetOptional.ifPresent(StatementSet::execute);
 		return tuple2.f0;
@@ -709,36 +709,34 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
 	@Override
 	public Optional<StatementSet> getStatementSetBySql(String stmt) {
-		Tuple2<Optional<Table>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
+		Tuple2<Optional<TableResult>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
 		return tuple2.f1;
 	}
 
-	private Tuple2<Optional<Table>, Optional<StatementSet>> sqlInternal(String stmt) {
+	private Tuple2<Optional<TableResult>, Optional<StatementSet>> sqlInternal(String stmt) {
 		StatementSet statementSet = createStatementSet();
 		boolean hasModifyOperation = false;
-		Optional<Table> tableOptional = Optional.empty();
+		Optional<TableResult> tableResultOptional = Optional.empty();
 		Optional<StatementSet> statementSetOptional = Optional.empty();
 		List<SqlNode> sqlNodes = parser.parseToSqlNodes(stmt);
 
 		for (int i = 0; i < sqlNodes.size(); i++) {
 			Operation operation = parser.convertSqlNodeToOperation(sqlNodes.get(i));
-			if (operation instanceof QueryOperation && !(operation instanceof ModifyOperation)) {
-				Table table = sqlQueryInternal(operation);
-				if (i == sqlNodes.size() - 1) {
-					tableOptional = Optional.of(table);
-				}
-			} else if (operation instanceof ModifyOperation) {
+			if (operation instanceof ModifyOperation) {
 				statementSet.addOperation((ModifyOperation) operation);
 				hasModifyOperation = true;
 			} else {
-				executeOperation(operation);
+				TableResult tableResult = executeOperation(operation);
+				if (i == sqlNodes.size() - 1) {
+					tableResultOptional = Optional.of(tableResult);
+				}
 			}
 		}
 
 		if (hasModifyOperation) {
 			statementSetOptional = Optional.of(statementSet);
 		}
-		return Tuple2.of(tableOptional, statementSetOptional);
+		return Tuple2.of(tableResultOptional, statementSetOptional);
 	}
 
 	@Override

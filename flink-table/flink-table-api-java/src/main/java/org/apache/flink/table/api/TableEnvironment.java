@@ -888,7 +888,7 @@ public interface TableEnvironment {
 	 * @return An optional table with value if the last statement is a query statement,
 	 *         otherwise returns Optional.EMPTY.
 	 * */
-	default Optional<Table> sql(String stmt) {
+	default Optional<TableResult> sql(String stmt) {
 		throw new UnsupportedOperationException();
 	}
 
