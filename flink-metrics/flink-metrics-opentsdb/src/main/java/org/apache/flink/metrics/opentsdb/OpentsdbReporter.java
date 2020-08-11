@@ -82,6 +82,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final String NUMBER_OF_RECOVERABLE_JOBS = "numberOfRecoverableJobs";
 	private static final String NUMBER_OF_RECOVERABLE_TASKS = "numberOfTaskRecoveries";
 	private static final String NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES = "numberOfGlobalFailures";
+	private static final String REGION_CHECKPOINT_JOB_COUNT = "numberOfRegionCheckpointJobs";
+	private static final String REGION_CHECKPOINT_CHECKPOINT_COUNT = "numberOfRegionCheckpoints";
+	private static final String REGION_CHECKPOINT_RECOVERY_COUNT = "numberOfRegionCheckpointRecoveries";
 
 	// 全局 metric
 	private final Set<String> globalNeededMetrics = new HashSet<>(Arrays.asList(
@@ -93,7 +96,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			NUMBER_OF_SUCCESSFUL_SPECULATION,
 			NUMBER_OF_RECOVERABLE_JOBS,
 			NUMBER_OF_RECOVERABLE_TASKS,
-			NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES));
+			NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES,
+			REGION_CHECKPOINT_JOB_COUNT,
+			REGION_CHECKPOINT_CHECKPOINT_COUNT,
+			REGION_CHECKPOINT_RECOVERY_COUNT));
 
 	// dashboard metric
 	private final Set<String> neededMetrics = new HashSet<>(Arrays.asList(
