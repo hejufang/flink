@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
+import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
@@ -41,7 +42,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -63,11 +63,9 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 	private static final Logger LOG = LoggerFactory.getLogger(JdbcRowDataLookupFunction.class);
 	private static final long serialVersionUID = 1L;
 
+	private final JdbcOptions options;
 	private final String query;
-	private final String drivername;
 	private final String dbURL;
-	private final String username;
-	private final String password;
 	private final DataType[] keyTypes;
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
@@ -91,10 +89,8 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 		checkNotNull(fieldNames, "No fieldNames supplied.");
 		checkNotNull(fieldTypes, "No fieldTypes supplied.");
 		checkNotNull(keyNames, "No keyNames supplied.");
-		this.drivername = options.getDriverName();
+		this.options = options;
 		this.dbURL = options.getDbURL();
-		this.username = options.getUsername().orElse(null);
-		this.password = options.getPassword().orElse(null);
 		List<String> nameList = Arrays.asList(fieldNames);
 		this.keyTypes = Arrays.stream(keyNames)
 			.map(s -> {
@@ -193,12 +189,7 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 	}
 
 	private void establishConnectionAndStatement() throws SQLException, ClassNotFoundException {
-		Class.forName(drivername);
-		if (username == null) {
-			dbConn = DriverManager.getConnection(dbURL);
-		} else {
-			dbConn = DriverManager.getConnection(dbURL, username, password);
-		}
+		dbConn = new SimpleJdbcConnectionProvider(options).getConnection();
 		statement = dbConn.prepareStatement(query);
 	}
 

@@ -35,6 +35,11 @@ under the License.
 	<name>flink-connectors</name>
 	<packaging>pom</packaging>
 
+	<!-- connector client version -->
+	<properties>
+		<mysql.version>1.2.6-RELEASE</mysql.version>
+	</properties>
+
 	<modules>
 		<module>flink-hadoop-compatibility</module>
 		<module>flink-hcatalog</module>

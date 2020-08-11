@@ -30,7 +30,9 @@ package org.apache.flink.table.connector;
 public interface SpecificParallelism {
 
 	/**
-	 * Returns the parallelism for this connector, only positive value is valid.
+	 * Returns the parallelism for this connector.
+	 * 1. if you want to set manually, only positive value is valid.
+	 * 2. if you want to use default parallelism value, just return -1.
 	 * @return parallelism for this connector.
 	 */
 	int getParallelism();

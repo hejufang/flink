@@ -21,6 +21,7 @@ package org.apache.flink.connector.jdbc.internal.options;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -33,15 +34,27 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class JdbcOptions extends JdbcConnectionOptions {
 
 	private static final long serialVersionUID = 1L;
+	private static final String BYTEDANCE_MYSQL_URL_TEMPLATE = "jdbc:mysql:///%s?db_consul=%s" +
+		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
 
 	public static final int CONNECTION_CHECK_TIMEOUT_SECONDS = 60;
 
 	private String tableName;
 	private JdbcDialect dialect;
 
-	private JdbcOptions(String dbURL, String tableName, String driverName, String username,
-						String password, JdbcDialect dialect) {
-		super(dbURL, driverName, username, password);
+	private JdbcOptions(
+			String dbURL,
+			String tableName,
+			String driverName,
+			String username,
+			String password,
+			JdbcDialect dialect,
+			boolean useBytedanceMysql,
+			String consul,
+			String psm,
+			String dbname,
+			String initSql) {
+		super(dbURL, driverName, username, password, useBytedanceMysql, consul, psm, dbname, initSql);
 		this.tableName = tableName;
 		this.dialect = dialect;
 	}
@@ -67,7 +80,12 @@ public class JdbcOptions extends JdbcConnectionOptions {
 				Objects.equals(driverName, options.driverName) &&
 				Objects.equals(username, options.username) &&
 				Objects.equals(password, options.password) &&
-				Objects.equals(dialect.getClass().getName(), options.dialect.getClass().getName());
+				Objects.equals(dialect.getClass().getName(), options.dialect.getClass().getName()) &&
+				Objects.equals(useBytedanceMysql, options.useBytedanceMysql) &&
+				Objects.equals(consul, options.consul) &&
+				Objects.equals(psm, options.psm) &&
+				Objects.equals(dbname, options.dbname) &&
+				Objects.equals(initSql, options.initSql);
 		} else {
 			return false;
 		}
@@ -83,6 +101,11 @@ public class JdbcOptions extends JdbcConnectionOptions {
 		private String username;
 		private String password;
 		private JdbcDialect dialect;
+		private boolean useBytedanceMysql;
+		private String consul;
+		private String psm;
+		private String dbname;
+		private String initSql;
 
 		/**
 		 * required, table name.
@@ -118,7 +141,7 @@ public class JdbcOptions extends JdbcConnectionOptions {
 		}
 
 		/**
-		 * required, JDBC DB url.
+		 * optional, JDBC DB url.
 		 */
 		public Builder setDBUrl(String dbURL) {
 			this.dbURL = dbURL;
@@ -134,8 +157,47 @@ public class JdbcOptions extends JdbcConnectionOptions {
 			return this;
 		}
 
+		/**
+		 * optional, whether use bytedance mysql.
+		 */
+		public Builder setUseBytedanceMysql(boolean useBytedanceMysql) {
+			this.useBytedanceMysql = useBytedanceMysql;
+			return this;
+		}
+
+		/**
+		 * optional, consul, if url is not set, then it is required.
+		 */
+		public Builder setConsul(String consul) {
+			this.consul = consul;
+			return this;
+		}
+
+		/**
+		 * optional, psm for non-authentication, if url is not set, then it is required.
+		 */
+		public Builder setPsm(String psm) {
+			this.psm = psm;
+			return this;
+		}
+
+		/**
+		 * optional, name of database, if url is not set, then it is required.
+		 */
+		public Builder setDbname(String dbname) {
+			this.dbname = dbname;
+			return this;
+		}
+
+		/**
+		 * optional, init sql which will be executed when create a db connection.
+		 */
+		public Builder setInitSql(String initSql) {
+			this.initSql = initSql;
+			return this;
+		}
+
 		public JdbcOptions build() {
-			checkNotNull(dbURL, "No dbURL supplied.");
 			checkNotNull(tableName, "No tableName supplied.");
 			if (this.dialect == null) {
 				Optional<JdbcDialect> optional = JdbcDialects.get(dbURL);
@@ -150,7 +212,27 @@ public class JdbcOptions extends JdbcConnectionOptions {
 				});
 			}
 
-			return new JdbcOptions(dbURL, tableName, driverName, username, password, dialect);
+			if (dbURL == null) {
+				if (useBytedanceMysql) {
+					this.dbURL = String.format(BYTEDANCE_MYSQL_URL_TEMPLATE, dbname, consul, psm);
+				} else {
+					throw new FlinkRuntimeException("Can't init db url, because " +
+						"dbUrl == null & useBytedanceMysql is false");
+				}
+			}
+
+			return new JdbcOptions(
+				dbURL,
+				tableName,
+				driverName,
+				username,
+				password,
+				dialect,
+				useBytedanceMysql,
+				consul,
+				psm,
+				dbname,
+				initSql);
 		}
 	}
 }

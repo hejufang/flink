@@ -19,6 +19,7 @@ package org.apache.flink.connector.jdbc.internal.connection;
 
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 
+import com.bytedance.mysql.MysqlDriverManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,15 +27,15 @@ import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /**
  * Simple JDBC connection provider.
  */
 public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Serializable {
 
-	private static final Logger LOG = LoggerFactory.getLogger(SimpleJdbcConnectionProvider.class);
-
 	private static final long serialVersionUID = 1L;
+	private static final Logger LOG = LoggerFactory.getLogger(SimpleJdbcConnectionProvider.class);
 
 	private final JdbcConnectionOptions jdbcOptions;
 
@@ -50,10 +51,34 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 			synchronized (this) {
 				if (connection == null) {
 					Class.forName(jdbcOptions.getDriverName());
-					if (jdbcOptions.getUsername().isPresent()) {
-						connection = DriverManager.getConnection(jdbcOptions.getDbURL(), jdbcOptions.getUsername().get(), jdbcOptions.getPassword().orElse(null));
+					if (jdbcOptions.getUseBytedanceMysql()) {
+						if (jdbcOptions.getUsername().isPresent()) {
+							connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL(),
+								jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
+						} else {
+							connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL());
+						}
 					} else {
-						connection = DriverManager.getConnection(jdbcOptions.getDbURL());
+						if (jdbcOptions.getUsername().isPresent()) {
+							connection = DriverManager.getConnection(jdbcOptions.getDbURL(),
+								jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
+						} else {
+							connection = DriverManager.getConnection(jdbcOptions.getDbURL());
+						}
+					}
+
+					if (connection == null) {
+						String errMsg = String.format("can't get connection, dbUrl = %s, username = %s, " +
+							"password = %s", jdbcOptions.getDbURL(), jdbcOptions.getUsername().get(),
+							jdbcOptions.getPassword().get());
+						throw new RuntimeException(errMsg);
+					}
+
+					if (jdbcOptions.getInitSql() != null) {
+						try (Statement statement = connection.createStatement()){
+							LOG.info("Execute init sql: {}", jdbcOptions.getInitSql());
+							statement.execute(jdbcOptions.getInitSql());
+						}
 					}
 				}
 			}

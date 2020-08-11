@@ -38,9 +38,21 @@ under the License.
 	<properties>
 		<postgres.version>42.2.10</postgres.version>
 		<otj-pg-embedded.version>0.13.3</otj-pg-embedded.version>
+		<shading.prefix>org.apache.flink.shaded.jdbc</shading.prefix>
 	</properties>
 
 	<dependencies>
+		<dependency>
+			<groupId>com.bytedance</groupId>
+			<artifactId>mysql</artifactId>
+			<version>${mysql.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<!-- Table ecosystem -->
 		<!-- Projects depending on this project won't depend on flink-table-*. -->
 		<dependency>
@@ -150,4 +162,67 @@ under the License.
 		</dependency>
 
 	</dependencies>
+	<profiles>
+		<profile>
+			<id>sql-jars</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-shade-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>shade-flink</id>
+								<phase>package</phase>
+								<goals>
+									<goal>shade</goal>
+								</goals>
+								<configuration>
+									<artifactSet>
+										<includes>
+											<include>*:*</include>
+										</includes>
+									</artifactSet>
+									<relocations>
+										<relocation>
+											<pattern>com.bytedance.mysql</pattern>
+											<shadedPattern>${shading.prefix}.com.bytedance.mysql</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>${shading.prefix}.com.google</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.bytedance.commons</pattern>
+											<shadedPattern>${shading.prefix}.com.bytedance.commons</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>${shading.prefix}.okhttp3</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>${shading.prefix}.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google.gson</pattern>
+											<shadedPattern>${shading.prefix}.com.google.gson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.byted.infsec.client</pattern>
+											<shadedPattern>${shading.prefix}.org.byted.infsec.client</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson</pattern>
+											<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+									</relocations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>

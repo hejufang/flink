@@ -72,6 +72,7 @@ public class JdbcDynamicTableFactoryTest {
 			.setDriverName("org.apache.derby.jdbc.EmbeddedDriver")
 			.setUsername("user")
 			.setPassword("pass")
+			.setUseBytedanceMysql(false)
 			.build();
 		JdbcLookupOptions lookupOptions = JdbcLookupOptions.builder()
 			.setCacheMaxSize(-1)
@@ -121,6 +122,8 @@ public class JdbcDynamicTableFactoryTest {
 		JdbcOptions options = JdbcOptions.builder()
 			.setDBUrl("jdbc:derby:memory:mydb")
 			.setTableName("mytable")
+			.setDriverName("com.mysql.jdbc.Driver")
+			.setUseBytedanceMysql(false)
 			.build();
 		JdbcReadOptions readOptions = JdbcReadOptions.builder()
 			.setPartitionColumnName("aaa")
@@ -155,6 +158,8 @@ public class JdbcDynamicTableFactoryTest {
 		JdbcOptions options = JdbcOptions.builder()
 			.setDBUrl("jdbc:derby:memory:mydb")
 			.setTableName("mytable")
+			.setDriverName("com.mysql.jdbc.Driver")
+			.setUseBytedanceMysql(false)
 			.build();
 		JdbcLookupOptions lookupOptions = JdbcLookupOptions.builder()
 			.setCacheMaxSize(1000)
@@ -182,6 +187,8 @@ public class JdbcDynamicTableFactoryTest {
 		JdbcOptions options = JdbcOptions.builder()
 			.setDBUrl("jdbc:derby:memory:mydb")
 			.setTableName("mytable")
+			.setDriverName("com.mysql.jdbc.Driver")
+			.setUseBytedanceMysql(false)
 			.build();
 		JdbcExecutionOptions executionOptions = JdbcExecutionOptions.builder()
 			.withBatchSize(1000)
@@ -287,6 +294,7 @@ public class JdbcDynamicTableFactoryTest {
 		options.put("connector", "jdbc");
 		options.put("url", "jdbc:derby:memory:mydb");
 		options.put("table-name", "mytable");
+		options.put("use-bytedance-mysql", "false");
 		return options;
 	}
 

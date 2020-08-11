@@ -30,6 +30,7 @@ import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.table.connector.SpecificParallelism;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
@@ -55,7 +56,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * A JDBC outputFormat that supports batching records before writing records to database.
  */
 @Internal
-public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementExecutor<JdbcIn>> extends AbstractJdbcOutputFormat<In> {
+public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementExecutor<JdbcIn>>
+		extends AbstractJdbcOutputFormat<In>
+		implements SpecificParallelism {
 
 	/**
 	 * An interface to extract a value from given argument.
@@ -100,6 +103,11 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 		this.executionOptions = checkNotNull(executionOptions);
 		this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
 		this.jdbcRecordExtractor = checkNotNull(recordExtractor);
+	}
+
+	@Override
+	public int getParallelism() {
+		return executionOptions.getParallelism();
 	}
 
 	/**

@@ -39,12 +39,31 @@ public class JdbcConnectionOptions implements Serializable {
 	protected final String username;
 	@Nullable
 	protected final String password;
+	protected final boolean useBytedanceMysql;
+	protected final String consul;
+	protected final String psm;
+	protected final String dbname;
+	protected final String initSql;
 
-	protected JdbcConnectionOptions(String url, String driverName, String username, String password) {
+	protected JdbcConnectionOptions(
+			String url,
+			String driverName,
+			String username,
+			String password,
+			boolean useBytedanceMysql,
+			String consul,
+			String psm,
+			String dbname,
+			String initSql) {
 		this.url = Preconditions.checkNotNull(url, "jdbc url is empty");
 		this.driverName = Preconditions.checkNotNull(driverName, "driver name is empty");
 		this.username = username;
 		this.password = password;
+		this.useBytedanceMysql = useBytedanceMysql;
+		this.consul = consul;
+		this.psm = psm;
+		this.dbname = dbname;
+		this.initSql = initSql;
 	}
 
 	public String getDbURL() {
@@ -63,6 +82,26 @@ public class JdbcConnectionOptions implements Serializable {
 		return Optional.ofNullable(password);
 	}
 
+	public boolean getUseBytedanceMysql() {
+		return useBytedanceMysql;
+	}
+
+	public String getConsul() {
+		return consul;
+	}
+
+	public String getPsm() {
+		return psm;
+	}
+
+	public String getDbname() {
+		return dbname;
+	}
+
+	public String getInitSql() {
+		return initSql;
+	}
+
 	/**
 	 * Builder for {@link JdbcConnectionOptions}.
 	 */
@@ -71,6 +110,11 @@ public class JdbcConnectionOptions implements Serializable {
 		private String driverName;
 		private String username;
 		private String password;
+		private boolean useBytedanceMysql;
+		private String consul;
+		private String psm;
+		private String dbname;
+		private String initSql;
 
 		public JdbcConnectionOptionsBuilder withUrl(String url) {
 			this.url = url;
@@ -92,8 +136,42 @@ public class JdbcConnectionOptions implements Serializable {
 			return this;
 		}
 
+		public JdbcConnectionOptionsBuilder withUseBytedanceMysql(boolean useBytedanceMysql) {
+			this.useBytedanceMysql = useBytedanceMysql;
+			return this;
+		}
+
+		public JdbcConnectionOptionsBuilder withConsul(String consul) {
+			this.consul = consul;
+			return this;
+		}
+
+		public JdbcConnectionOptionsBuilder withPsm(String psm) {
+			this.psm = psm;
+			return this;
+		}
+
+		public JdbcConnectionOptionsBuilder withDbname(String dbname) {
+			this.dbname = dbname;
+			return this;
+		}
+
+		public JdbcConnectionOptionsBuilder withInitSql(String initSql) {
+			this.initSql = initSql;
+			return this;
+		}
+
 		public JdbcConnectionOptions build() {
-			return new JdbcConnectionOptions(url, driverName, username, password);
+			return new JdbcConnectionOptions(
+				url,
+				driverName,
+				username,
+				password,
+				useBytedanceMysql,
+				consul,
+				psm,
+				dbname,
+				initSql);
 		}
 	}
 }

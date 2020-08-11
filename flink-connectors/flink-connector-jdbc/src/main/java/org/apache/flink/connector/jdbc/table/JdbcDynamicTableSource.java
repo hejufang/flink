@@ -91,6 +91,8 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 		final JdbcRowDataInputFormat.Builder builder = JdbcRowDataInputFormat.builder()
 			.setDrivername(options.getDriverName())
 			.setDBUrl(options.getDbURL())
+			.setUseBytedanceMysql(options.getUseBytedanceMysql())
+			.setInitsql(options.getInitSql())
 			.setUsername(options.getUsername().orElse(null))
 			.setPassword(options.getPassword().orElse(null));
 

@@ -31,16 +31,19 @@ public class JdbcExecutionOptions implements Serializable {
 	public static final int DEFAULT_MAX_RETRY_TIMES = 3;
 	private static final int DEFAULT_INTERVAL_MILLIS = 0;
 	public static final int DEFAULT_SIZE = 5000;
+	private static final int PARALLELISM = -1;
 
 	private final long batchIntervalMs;
 	private final int batchSize;
 	private final int maxRetries;
+	private final int parallelism;
 
-	private JdbcExecutionOptions(long batchIntervalMs, int batchSize, int maxRetries) {
+	private JdbcExecutionOptions(long batchIntervalMs, int batchSize, int maxRetries, int parallelism) {
 		Preconditions.checkArgument(maxRetries >= 1);
 		this.batchIntervalMs = batchIntervalMs;
 		this.batchSize = batchSize;
 		this.maxRetries = maxRetries;
+		this.parallelism = parallelism;
 	}
 
 	public long getBatchIntervalMs() {
@@ -55,6 +58,10 @@ public class JdbcExecutionOptions implements Serializable {
 		return maxRetries;
 	}
 
+	public int getParallelism() {
+		return parallelism;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -66,12 +73,13 @@ public class JdbcExecutionOptions implements Serializable {
 		JdbcExecutionOptions that = (JdbcExecutionOptions) o;
 		return batchIntervalMs == that.batchIntervalMs &&
 			batchSize == that.batchSize &&
-			maxRetries == that.maxRetries;
+			maxRetries == that.maxRetries &&
+			parallelism == that.parallelism;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(batchIntervalMs, batchSize, maxRetries);
+		return Objects.hash(batchIntervalMs, batchSize, maxRetries, parallelism);
 	}
 
 	public static Builder builder() {
@@ -89,6 +97,7 @@ public class JdbcExecutionOptions implements Serializable {
 		private long intervalMs = DEFAULT_INTERVAL_MILLIS;
 		private int size = DEFAULT_SIZE;
 		private int maxRetries = DEFAULT_MAX_RETRY_TIMES;
+		private int parallelism = PARALLELISM;
 
 		public Builder withBatchSize(int size) {
 			this.size = size;
@@ -105,8 +114,13 @@ public class JdbcExecutionOptions implements Serializable {
 			return this;
 		}
 
+		public Builder withParallelism(int parallelism) {
+			this.parallelism = parallelism;
+			return this;
+		}
+
 		public JdbcExecutionOptions build() {
-			return new JdbcExecutionOptions(intervalMs, size, maxRetries);
+			return new JdbcExecutionOptions(intervalMs, size, maxRetries, parallelism);
 		}
 	}
 }

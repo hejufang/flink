@@ -77,9 +77,34 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	private static final ConfigOption<String> DRIVER = ConfigOptions
 		.key("driver")
 		.stringType()
-		.noDefaultValue()
+		.defaultValue("com.mysql.jdbc.Driver")
 		.withDescription("the class name of the JDBC driver to use to connect to this URL. " +
 			"If not set, it will automatically be derived from the URL.");
+	public static final ConfigOption<Boolean> USE_BYTEDANCE_MYSQL = ConfigOptions
+		.key("use-bytedance-mysql")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("whether use bytedance mysql.");
+	public static final ConfigOption<String> CONSUL = ConfigOptions
+		.key("consul")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("The consul name corresponding to the database.");
+	public static final ConfigOption<String> PSM = ConfigOptions
+		.key("psm")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("psm for non-authentication.");
+	public static final ConfigOption<String> DBNAME = ConfigOptions
+		.key("dbname")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("name of database.");
+	public static final ConfigOption<String> INIT_SQL = ConfigOptions
+		.key("init-sql")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("init sql which will be executed when create a db connection.");
 
 	// read config options
 	private static final ConfigOption<String> SCAN_PARTITION_COLUMN = ConfigOptions
@@ -147,6 +172,11 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.intType()
 		.defaultValue(3)
 		.withDescription("the max retry times if writing records to database failed.");
+	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions
+		.key("parallelism")
+		.intType()
+		.defaultValue(-1)
+		.withDescription("parallelism of sink.");
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
@@ -181,15 +211,25 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	}
 
 	private JdbcOptions getJdbcOptions(ReadableConfig readableConfig) {
-		final String url = readableConfig.get(URL);
-		final JdbcOptions.Builder builder = JdbcOptions.builder()
-			.setDBUrl(url)
-			.setTableName(readableConfig.get(TABLE_NAME))
-			.setDialect(JdbcDialects.get(url).get());
+		Optional<String> url = readableConfig.getOptional(URL);
 
-		readableConfig.getOptional(DRIVER).ifPresent(builder::setDriverName);
-		readableConfig.getOptional(USERNAME).ifPresent(builder::setUsername);
-		readableConfig.getOptional(PASSWORD).ifPresent(builder::setPassword);
+		final JdbcOptions.Builder builder = JdbcOptions.builder()
+			.setTableName(readableConfig.get(TABLE_NAME));
+
+		if (url.isPresent()) {
+			builder.setDBUrl(url.get()).setDialect(JdbcDialects.get(url.get()).get());
+		} else {
+			builder.setDBUrl(null).setDialect(JdbcDialects.get("jdbc:mysql:").get());
+		}
+
+		builder.setDriverName(readableConfig.get(DRIVER));
+		builder.setUsername(readableConfig.get(USERNAME));
+		builder.setPassword(readableConfig.get(PASSWORD));
+		builder.setUseBytedanceMysql(readableConfig.get(USE_BYTEDANCE_MYSQL));
+		builder.setConsul(readableConfig.get(CONSUL));
+		builder.setDbname(readableConfig.get(DBNAME));
+		builder.setPsm(readableConfig.get(PSM));
+		builder.setInitSql(readableConfig.get(INIT_SQL));
 		return builder.build();
 	}
 
@@ -218,6 +258,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		builder.withBatchSize(config.get(SINK_BUFFER_FLUSH_MAX_ROWS));
 		builder.withBatchIntervalMs(config.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis());
 		builder.withMaxRetries(config.get(SINK_MAX_RETRIES));
+		builder.withParallelism(config.get(PARALLELISM));
 		return builder.build();
 	}
 
@@ -242,7 +283,6 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
 		Set<ConfigOption<?>> requiredOptions = new HashSet<>();
-		requiredOptions.add(URL);
 		requiredOptions.add(TABLE_NAME);
 		return requiredOptions;
 	}
@@ -250,9 +290,15 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> optionalOptions = new HashSet<>();
+		optionalOptions.add(URL);
 		optionalOptions.add(DRIVER);
 		optionalOptions.add(USERNAME);
 		optionalOptions.add(PASSWORD);
+		optionalOptions.add(USE_BYTEDANCE_MYSQL);
+		optionalOptions.add(CONSUL);
+		optionalOptions.add(DBNAME);
+		optionalOptions.add(PSM);
+		optionalOptions.add(INIT_SQL);
 		optionalOptions.add(SCAN_PARTITION_COLUMN);
 		optionalOptions.add(SCAN_PARTITION_LOWER_BOUND);
 		optionalOptions.add(SCAN_PARTITION_UPPER_BOUND);
@@ -264,13 +310,30 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		optionalOptions.add(SINK_BUFFER_FLUSH_INTERVAL);
 		optionalOptions.add(SINK_MAX_RETRIES);
+		optionalOptions.add(PARALLELISM);
 		return optionalOptions;
 	}
 
 	private void validateConfigOptions(ReadableConfig config) {
-		String jdbcUrl = config.get(URL);
-		final Optional<JdbcDialect> dialect = JdbcDialects.get(jdbcUrl);
-		checkState(dialect.isPresent(), "Cannot handle such jdbc url: " + jdbcUrl);
+		final Optional<String> jdbcUrl = config.getOptional(URL);
+		final Boolean useBytedanceMySQL = config.get(USE_BYTEDANCE_MYSQL);
+		config.getOptional(TABLE_NAME).orElseThrow(() -> new IllegalArgumentException(
+			String.format("Could not find required option: %s", TABLE_NAME.key())));
+
+		if (jdbcUrl.isPresent()) {
+			final Optional<JdbcDialect> dialect = JdbcDialects.get(jdbcUrl.get());
+			checkState(dialect.isPresent(), "Cannot handle such jdbc url: " + jdbcUrl);
+		} else {
+			config.getOptional(CONSUL).orElseThrow(() ->
+				new IllegalArgumentException("consul must be provided when url is null"));
+			config.getOptional(PSM).orElseThrow(() ->
+				new IllegalArgumentException("psm must be provided when url is null"));
+			config.getOptional(DBNAME).orElseThrow(() ->
+				new IllegalArgumentException("dbname must be provided when url is null"));
+			checkState(useBytedanceMySQL, "use_bytedance_mysql must be true when url is null");
+			final Optional<JdbcDialect> dialect = JdbcDialects.get("jdbc:mysql:");
+			checkState(dialect.isPresent(), "Cannot handle such jdbc url: jdbc:mysql:");
+		}
 
 		checkAllOrNone(config, new ConfigOption[]{
 			USERNAME,

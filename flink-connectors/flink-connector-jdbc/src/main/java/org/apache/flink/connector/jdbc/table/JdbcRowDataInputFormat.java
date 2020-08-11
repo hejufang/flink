@@ -336,6 +336,16 @@ public class JdbcRowDataInputFormat extends RichInputFormat<RowData, InputSplit>
 			return this;
 		}
 
+		public Builder setUseBytedanceMysql(boolean useBytedanceMysql) {
+			this.connOptionsBuilder.withUseBytedanceMysql(useBytedanceMysql);
+			return this;
+		}
+
+		public Builder setInitsql(String initsql) {
+			this.connOptionsBuilder.withInitSql(initsql);
+			return this;
+		}
+
 		public Builder setQuery(String query) {
 			this.queryTemplate = query;
 			return this;
