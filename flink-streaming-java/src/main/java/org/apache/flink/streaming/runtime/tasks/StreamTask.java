@@ -434,6 +434,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 			// let the task do its work
 			isRunning = true;
+			getEnvironment().initializeCheckpoint();
 			run();
 
 			// if this left the run() method cleanly despite the fact that this was canceled,

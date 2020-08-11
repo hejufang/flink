@@ -37,7 +37,9 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.CheckpointTaskIdentifier;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
@@ -185,6 +187,8 @@ public class CheckpointCoordinator {
 
 	private final CheckpointHandler checkpointHandler;
 
+	private final Set<CheckpointTaskIdentifier> initializations;
+
 	// --------------------------------------------------------------------------------------------
 
 	@VisibleForTesting
@@ -255,6 +259,8 @@ public class CheckpointCoordinator {
 
 		this.checkpointHandler = checkpointHandler;
 		checkpointHandler.loadPendingCheckpoints(pendingCheckpoints);
+
+		this.initializations = new HashSet<>(tasksToWaitFor.length);
 
 		this.checkpointProperties = CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
@@ -544,6 +550,12 @@ public class CheckpointCoordinator {
 			}
 		}
 
+		// check if all tasks finish the initialization of the states
+		if (initializations.size() < tasksToWaitFor.length) {
+			LOG.info("Only {} tasks finish the initialization of state. Aborting checkpoint.", initializations.size());
+			throw new CheckpointException(CheckpointFailureReason.NOT_ALL_TASKS_INITIALIZED);
+		}
+
 		// we will actually trigger this checkpoint!
 
 		// we lock with a special lock to make sure that trigger requests do not overtake each other.
@@ -710,6 +722,27 @@ public class CheckpointCoordinator {
 	// --------------------------------------------------------------------------------------------
 	//  Handling checkpoints and messages
 	// --------------------------------------------------------------------------------------------
+
+	public void receiveInitializationMessage(InitializeCheckpoint message) {
+		if (shutdown || message == null) {
+			return;
+		}
+
+		if (!job.equals(message.getJob())) {
+			throw new IllegalArgumentException("Received InitializeCheckpoint message for job " +
+					message.getJob() + " while this coordinator handles job " + job);
+		}
+
+		synchronized (lock) {
+			// we need to check inside the lock for being shutdown as well, otherwise we
+			// get races and invalid error log messages
+			if (shutdown) {
+				return;
+			}
+
+			initializations.add(message.getIdentifier());
+		}
+	}
 
 	/**
 	 * Receives a {@link DeclineCheckpoint} message for a pending checkpoint.

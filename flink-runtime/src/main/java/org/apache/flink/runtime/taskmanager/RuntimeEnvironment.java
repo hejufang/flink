@@ -294,6 +294,11 @@ public class RuntimeEnvironment implements Environment {
 	}
 
 	@Override
+	public void initializeCheckpoint() {
+		checkpointResponder.initializeCheckpoint(jobId, executionId, getJobVertexId(), getTaskInfo().getIndexOfThisSubtask());
+	}
+
+	@Override
 	public void failExternally(Throwable cause) {
 		this.containingTask.failExternally(cause);
 	}

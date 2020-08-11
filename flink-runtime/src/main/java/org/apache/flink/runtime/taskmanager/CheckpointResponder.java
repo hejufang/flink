@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 /**
  * Responder for checkpoint acknowledge and decline messages in the {@link Task}.
@@ -62,4 +63,11 @@ public interface CheckpointResponder {
 		ExecutionAttemptID executionAttemptID,
 		long checkpointId,
 		Throwable cause);
+
+	/**
+	 * Initializes a checkpoint.
+	 * @param jobID Job ID of the running job
+	 * @param executionAttemptID Execution attempt ID of the running task
+	 */
+	default void initializeCheckpoint(JobID jobID, ExecutionAttemptID executionAttemptID, JobVertexID vertexID, int subtaskIndex) {};
 }

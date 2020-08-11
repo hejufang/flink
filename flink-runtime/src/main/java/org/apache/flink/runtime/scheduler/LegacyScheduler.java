@@ -65,6 +65,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.query.KvStateLocation;
@@ -596,6 +597,25 @@ public class LegacyScheduler implements SchedulerNG {
 			} else {
 				log.debug(errorMessage, jobGraph.getJobID());
 			}
+		}
+	}
+
+	@Override
+	public void initializeCheckpoint(final InitializeCheckpoint initialization) {
+		mainThreadExecutor.assertRunningInMainThread();
+
+		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+		if (checkpointCoordinator != null) {
+			ioExecutor.execute(() -> {
+				try {
+					checkpointCoordinator.receiveInitializationMessage(initialization);
+				} catch (Exception e) {
+					log.error("Error in CheckpointCoordinator while processing {}.", initialization, e);
+				}
+			});
+		} else {
+			String errorMessage = "Received InitializationCheckpoint message {} for job {} with no CheckpointCoordinator";
+			log.error(errorMessage, initialization, jobGraph.getJobID());
 		}
 	}
 

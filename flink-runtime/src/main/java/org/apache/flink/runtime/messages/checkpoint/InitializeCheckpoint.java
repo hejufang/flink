@@ -16,24 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.checkpoint;
+package org.apache.flink.runtime.messages.checkpoint;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
-import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
-import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
-import org.apache.flink.runtime.rpc.RpcGateway;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 
-public interface CheckpointCoordinatorGateway extends RpcGateway {
+/**
+ * This message is sent from a StreamTask and it indicates that a task finishes its state initialization.
+ */
+public class InitializeCheckpoint extends AbstractCheckpointMessage {
 
-	void acknowledgeCheckpoint(
-			final JobID jobID,
-			final ExecutionAttemptID executionAttemptID,
-			final long checkpointId,
-			final CheckpointMetrics checkpointMetrics,
-			final TaskStateSnapshot subtaskState);
+	private static final long serialVersionUID = 1L;
 
-	void declineCheckpoint(DeclineCheckpoint declineCheckpoint);
+	private static final long UNKNOWN_CHECKPOINT_ID = -1L;
 
-	default void initializeCheckpoint(InitializeCheckpoint initializeCheckpoint) {};
+	private final CheckpointTaskIdentifier identifier;
+
+	public InitializeCheckpoint(JobID job, ExecutionAttemptID taskExecutionId, JobVertexID vertexID, int subtaskIndex) {
+		super(job, taskExecutionId, UNKNOWN_CHECKPOINT_ID);
+		this.identifier = new CheckpointTaskIdentifier(vertexID, subtaskIndex);
+	}
+
+	public CheckpointTaskIdentifier getIdentifier() {
+		return identifier;
+	}
 }

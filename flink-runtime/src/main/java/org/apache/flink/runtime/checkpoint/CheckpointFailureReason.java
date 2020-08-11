@@ -34,6 +34,8 @@ public enum CheckpointFailureReason {
 
 	NOT_ALL_REQUIRED_TASKS_RUNNING(true, "Not all required tasks are currently running."),
 
+	NOT_ALL_TASKS_INITIALIZED(true, "Not all tasks finish the initialization of states."),
+
 	EXCEPTION(true, "An Exception occurred while triggering the checkpoint."),
 
 	CHECKPOINT_ASYNC_EXCEPTION(false, "Asynchronous task checkpoint failed."),
