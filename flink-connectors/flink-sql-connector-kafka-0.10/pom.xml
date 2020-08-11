@@ -79,6 +79,7 @@ under the License.
 									<include>org.codehaus.jackson:jackson-mapper-asl</include>
 									<include>org.codehaus.jackson:jackson-xc</include>
 									<include>com.bytedance:commons</include>
+									<include>com.github.luben:zstd-jni</include>
 								</includes>
 							</artifactSet>
 							<filters>
