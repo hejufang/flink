@@ -158,6 +158,10 @@ public class TosSinkFunction
 		try {
 			mergeList(recordListNow, recordListPre);
 			byte[] dataSend = dumpAndClearRecords(recordListPre);
+			// tos upload doesn't allow empty data
+			if (dataSend.length == 0) {
+				dataSend = " ".getBytes();
+			}
 			tosSinkClient.fullUpload(dataSend);
 		} catch (FlinkRuntimeException e) {
 			throw new FlinkRuntimeException("fullUploadFlush failed", e);
