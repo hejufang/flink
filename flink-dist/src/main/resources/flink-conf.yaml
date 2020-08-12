@@ -213,7 +213,7 @@ flink:
 dw:
   dc: cn
   clusterName: dw
-  high-availability.zookeeper.quorum: 10.224.152.92:2184,10.6.18.154:2184,10.6.16.79:2184,10.11.43.39:2184,10.11.43.66:2184
+  high-availability.zookeeper.quorum: 10.11.43.39:2184,10.11.43.66:2184,10.224.152.92:2184,10.224.71.64:2184,10.224.71.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
 
