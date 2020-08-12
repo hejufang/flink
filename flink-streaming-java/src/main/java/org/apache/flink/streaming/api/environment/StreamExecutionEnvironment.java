@@ -239,7 +239,7 @@ public class StreamExecutionEnvironment {
 		this.configure(this.configuration, this.userClassloader);
 	}
 
-	protected Configuration getConfiguration() {
+	public Configuration getConfiguration() {
 		return this.configuration;
 	}
 

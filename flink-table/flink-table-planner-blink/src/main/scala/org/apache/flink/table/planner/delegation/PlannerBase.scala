@@ -92,6 +92,9 @@ abstract class PlannerBase(
   // temporary utility until we don't use planner expressions anymore
   functionCatalog.setPlannerTypeInferenceUtil(PlannerTypeInferenceUtilImpl.INSTANCE)
 
+  // add all configurations in StreamExecutionEnvironment to TableConfig.
+  config.addConfiguration(getExecEnv.getConfiguration)
+
   private val sqlExprToRexConverterFactory = new SqlExprToRexConverterFactory {
     override def create(tableRowType: RelDataType): SqlExprToRexConverter =
       plannerContext.createSqlExprToRexConverter(tableRowType)
@@ -171,13 +174,17 @@ abstract class PlannerBase(
     val relNodes = modifyOperations.map(translateToRel)
     val optimizedRelNodes = optimize(relNodes)
     val execNodes = translateToExecNodePlan(optimizedRelNodes)
+    validateBeforeExecuteIfNeeded(execNodes)
+    translateToPlan(execNodes)
+  }
+
+  protected def validateBeforeExecuteIfNeeded(execNodes: util.List[ExecNode[_, _]]): Unit = {
     val needValidationBeforeExecute =
       getTableConfig.getConfiguration.get(TABLE_EXEC_VALIDATE_BEFORE_EXEC)
 
     if (needValidationBeforeExecute) {
       validateExecNodes(execNodes)
     }
-    translateToPlan(execNodes)
   }
 
   // validate exec node, e.g. hive privilege check.
