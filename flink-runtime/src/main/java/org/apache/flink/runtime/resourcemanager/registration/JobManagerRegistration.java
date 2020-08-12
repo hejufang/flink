@@ -34,13 +34,17 @@ public class JobManagerRegistration {
 
 	private final JobMasterGateway jobManagerGateway;
 
+	private final int minSlotsNum;
+
 	public JobManagerRegistration(
 			JobID jobID,
 			ResourceID jobManagerResourceID,
-			JobMasterGateway jobManagerGateway) {
+			JobMasterGateway jobManagerGateway,
+			int minSlotsNum) {
 		this.jobID = Preconditions.checkNotNull(jobID);
 		this.jobManagerResourceID = Preconditions.checkNotNull(jobManagerResourceID);
 		this.jobManagerGateway = Preconditions.checkNotNull(jobManagerGateway);
+		this.minSlotsNum = minSlotsNum;
 	}
 
 	public JobID getJobID() {
@@ -57,6 +61,10 @@ public class JobManagerRegistration {
 
 	public JobMasterGateway getJobManagerGateway() {
 		return jobManagerGateway;
+	}
+
+	public int getMinSlotsNum() {
+		return minSlotsNum;
 	}
 
 }

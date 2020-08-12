@@ -20,8 +20,11 @@ package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
@@ -50,6 +53,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,8 +64,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.junit.Assert.*;
 
 /**
  * Tests for the {@link ResourceManager}.
@@ -141,7 +144,7 @@ public class ResourceManagerTest extends TestLogger {
 		final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder().setAddress(UUID.randomUUID().toString()).createTestingTaskExecutorGateway();
 		rpcService.registerGateway(taskExecutorGateway.getAddress(), taskExecutorGateway);
 
-		resourceManager = createAndStartResourceManager(heartbeatServices);
+		resourceManager = createAndStartResourceManager(heartbeatServices, new Configuration());
 		final ResourceManagerGateway resourceManagerGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 
 		registerTaskExecutor(resourceManagerGateway, taskManagerId, taskExecutorGateway.getAddress());
@@ -200,6 +203,7 @@ public class ResourceManagerTest extends TestLogger {
 					jobMasterResourceId,
 					jobMasterGateway.getAddress(),
 					jobId,
+					1,
 					TIMEOUT);
 
 				assertThat(registrationFuture.get(), instanceOf(RegistrationResponse.Success.class));
@@ -236,17 +240,37 @@ public class ResourceManagerTest extends TestLogger {
 		);
 	}
 
+	@Test
+	public void testWorkerMaximumFailureRate() throws Exception {
+		Configuration configuration = new Configuration();
+		configuration.setInteger(ResourceManagerOptions.MAXIMUM_WORKERS_FAILURE_RATE, 2);
+		resourceManager = createAndStartResourceManager(fastHeartbeatServices, configuration);
+
+		resourceManager.recordWorkerFailure();
+		resourceManager.recordWorkerFailure();
+		resourceManager.recordWorkerFailure();
+
+		WorkerResourceSpec wrs = new WorkerResourceSpec.Builder().setCpuCores(1.0).setTaskHeapMemoryMB(100).build();
+
+		TestingResourceManager spResouceManager = Mockito.spy(resourceManager);
+		boolean success =  spResouceManager.tryStartNewWorker(wrs);
+		Mockito.verify(spResouceManager, Mockito.never()).startNewWorker(wrs);
+		assertFalse(success);
+	}
+
+
 	private void runHeartbeatTimeoutTest(
 			ThrowingConsumer<ResourceManagerGateway, Exception> registerComponentAtResourceManager,
 			ThrowingConsumer<ResourceID, Exception> verifyHeartbeatTimeout) throws Exception {
-		resourceManager = createAndStartResourceManager(fastHeartbeatServices);
+		resourceManager = createAndStartResourceManager(fastHeartbeatServices, new Configuration());
 		final ResourceManagerGateway resourceManagerGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
 
 		registerComponentAtResourceManager.accept(resourceManagerGateway);
 		verifyHeartbeatTimeout.accept(resourceManagerResourceId);
 	}
 
-	private TestingResourceManager createAndStartResourceManager(HeartbeatServices heartbeatServices) throws Exception {
+	private TestingResourceManager createAndStartResourceManager(HeartbeatServices heartbeatServices,
+																 Configuration configuration) throws Exception {
 		final SlotManager slotManager = SlotManagerBuilder.newBuilder()
 			.setScheduledExecutor(rpcService.getScheduledExecutor())
 			.build();
@@ -264,7 +288,8 @@ public class ResourceManagerTest extends TestLogger {
 			NoOpResourceManagerPartitionTracker::get,
 			jobLeaderIdService,
 			testingFatalErrorHandler,
-			UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup());
+			UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
+			FailureRaterUtil.createFailureRater(configuration));
 
 		resourceManager.start();
 

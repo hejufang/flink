@@ -69,6 +69,7 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 		ResourceID jobMasterResourceId,
 		String jobMasterAddress,
 		JobID jobId,
+		int minSlotsNum,
 		@RpcTimeout Time timeout);
 
 	/**

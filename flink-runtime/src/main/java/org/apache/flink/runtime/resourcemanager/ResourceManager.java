@@ -31,6 +31,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatListener;
 import org.apache.flink.runtime.heartbeat.HeartbeatManager;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
@@ -52,6 +53,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.registration.RegistrationResponse;
+import org.apache.flink.runtime.resourcemanager.exceptions.MaximumFailedTaskManagerExceedingException;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnknownTaskExecutorException;
 import org.apache.flink.runtime.resourcemanager.registration.JobManagerRegistration;
@@ -73,6 +75,7 @@ import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.clock.SystemClock;
 
 import javax.annotation.Nullable;
 
@@ -96,7 +99,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * <p>It offers the following methods as part of its rpc interface to interact with him remotely:
  * <ul>
- *     <li>{@link #registerJobManager(JobMasterId, ResourceID, String, JobID, Time)} registers a {@link JobMaster} at the resource manager</li>
+ *     <li>{@link #registerJobManager(JobMasterId, ResourceID, String, JobID, int, Time)} registers a {@link JobMaster} at the resource manager</li>
  *     <li>{@link #requestSlot(JobMasterId, SlotRequest, Time)} requests a slot from the resource manager</li>
  * </ul>
  */
@@ -141,6 +144,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final ResourceManagerMetricGroup resourceManagerMetricGroup;
 
+	private final FailureRater failureRater;
+
 	/** The service to elect a ResourceManager leader. */
 	private LeaderElectionService leaderElectionService;
 
@@ -149,6 +154,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	/** The heartbeat manager with job managers. */
 	private HeartbeatManager<Void, Void> jobManagerHeartbeatManager;
+
 
 	/**
 	 * Represents asynchronous state clearing work.
@@ -159,17 +165,18 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private CompletableFuture<Void> clearStateFuture = CompletableFuture.completedFuture(null);
 
 	public ResourceManager(
-			RpcService rpcService,
-			ResourceID resourceId,
-			HighAvailabilityServices highAvailabilityServices,
-			HeartbeatServices heartbeatServices,
-			SlotManager slotManager,
-			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
-			JobLeaderIdService jobLeaderIdService,
-			ClusterInformation clusterInformation,
-			FatalErrorHandler fatalErrorHandler,
-			ResourceManagerMetricGroup resourceManagerMetricGroup,
-			Time rpcTimeout) {
+		RpcService rpcService,
+		ResourceID resourceId,
+		HighAvailabilityServices highAvailabilityServices,
+		HeartbeatServices heartbeatServices,
+		SlotManager slotManager,
+		ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
+		JobLeaderIdService jobLeaderIdService,
+		ClusterInformation clusterInformation,
+		FatalErrorHandler fatalErrorHandler,
+		ResourceManagerMetricGroup resourceManagerMetricGroup,
+		Time rpcTimeout,
+		FailureRater failureRater) {
 
 		super(rpcService, AkkaRpcServiceUtils.createRandomName(RESOURCE_MANAGER_NAME), null);
 
@@ -181,6 +188,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.clusterInformation = checkNotNull(clusterInformation);
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 		this.resourceManagerMetricGroup = checkNotNull(resourceManagerMetricGroup);
+		this.failureRater = checkNotNull(failureRater);
 
 		this.jobManagerRegistrations = new HashMap<>(4);
 		this.jmResourceIdRegistrations = new HashMap<>(4);
@@ -294,6 +302,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final ResourceID jobManagerResourceId,
 			final String jobManagerAddress,
 			final JobID jobId,
+			final int minSlotsNum,
 			final Time timeout) {
 
 		checkNotNull(jobMasterId);
@@ -342,6 +351,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					return registerJobMasterInternal(
 						jobMasterGateway,
 						jobId,
+						minSlotsNum,
 						jobManagerAddress,
 						jobManagerResourceId);
 				} else {
@@ -707,6 +717,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private RegistrationResponse registerJobMasterInternal(
 		final JobMasterGateway jobMasterGateway,
 		JobID jobId,
+		int minSlotsNum,
 		String jobManagerAddress,
 		ResourceID jobManagerResourceId) {
 		if (jobManagerRegistrations.containsKey(jobId)) {
@@ -724,7 +735,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				JobManagerRegistration jobManagerRegistration = new JobManagerRegistration(
 					jobId,
 					jobManagerResourceId,
-					jobMasterGateway);
+					jobMasterGateway,
+					minSlotsNum);
 				jobManagerRegistrations.put(jobId, jobManagerRegistration);
 				jmResourceIdRegistrations.put(jobManagerResourceId, jobManagerRegistration);
 			}
@@ -733,7 +745,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			JobManagerRegistration jobManagerRegistration = new JobManagerRegistration(
 				jobId,
 				jobManagerResourceId,
-				jobMasterGateway);
+				jobMasterGateway,
+				minSlotsNum);
+			failureRater.onRequiredSlotNumChanged(minSlotsNum);
 			jobManagerRegistrations.put(jobId, jobManagerRegistration);
 			jmResourceIdRegistrations.put(jobManagerResourceId, jobManagerRegistration);
 		}
@@ -819,6 +833,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		resourceManagerMetricGroup.gauge(
 			MetricNames.NUM_REGISTERED_TASK_MANAGERS,
 			() -> (long) taskExecutors.size());
+		resourceManagerMetricGroup.meter(
+			MetricNames.WORKER_FAILURE_RATE,
+			failureRater);
 	}
 
 	private void clearStateInternal() {
@@ -832,6 +849,34 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			onFatalError(new ResourceManagerException("Could not properly clear the job leader id service.", e));
 		}
 		clearStateFuture = clearStateAsync();
+	}
+
+	protected boolean tryStartNewWorker(WorkerResourceSpec workerResourceSpec) {
+		if (failureRater.exceedsFailureRate()) {
+			log.warn("tryStartNewWorker failed because failure rate exceeds limit. current failure rate is {}",
+				failureRater.getCurrentFailureRate());
+			return false;
+		}
+		return startNewWorker(workerResourceSpec);
+	}
+
+	/**
+	 * Record failure number of worker in ResourceManagers. If maximum failure rate is detected,
+	 * then cancel all pending requests.
+	 */
+	@VisibleForTesting
+	protected void recordWorkerFailure() {
+		failureRater.markFailure(SystemClock.getInstance());
+		if (failureRater.exceedsFailureRate()) {
+			cancelAllPendingSlotRequests(new MaximumFailedTaskManagerExceedingException(
+				new RuntimeException(String.format("Maximum number of failed workers %f"
+					+ " is detected in Resource Manager", failureRater.getCurrentFailureRate()))));
+
+		}
+	}
+
+	private void cancelAllPendingSlotRequests(Exception cause) {
+		slotManager.cancelAllPendingSlotRequests(cause);
 	}
 
 	/**
@@ -855,7 +900,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				jobId);
 
 			jobManagerHeartbeatManager.unmonitorTarget(jobManagerResourceId);
-
+			failureRater.onRequiredSlotNumChanged(-jobManagerRegistration.getMinSlotsNum());
 			jmResourceIdRegistrations.remove(jobManagerResourceId);
 
 			// tell the job manager about the disconnect
@@ -1162,7 +1207,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		@Override
 		public boolean allocateResource(WorkerResourceSpec workerResourceSpec) {
 			validateRunsInMainThread();
-			return startNewWorker(workerResourceSpec);
+			return tryStartNewWorker(workerResourceSpec);
 		}
 
 		@Override

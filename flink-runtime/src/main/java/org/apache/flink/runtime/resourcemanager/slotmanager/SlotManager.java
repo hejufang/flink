@@ -94,6 +94,12 @@ public interface SlotManager extends AutoCloseable {
 	boolean registerSlotRequest(SlotRequest slotRequest) throws ResourceManagerException;
 
 	/**
+	 * Cancel all pending slot requests.
+	 * @param cause the exception caused the cancellation
+	 */
+	void cancelAllPendingSlotRequests(Exception cause);
+
+	/**
 	 * Cancels and removes a pending slot request with the given allocation id. If there is no such
 	 * pending request, then nothing is done.
 	 *

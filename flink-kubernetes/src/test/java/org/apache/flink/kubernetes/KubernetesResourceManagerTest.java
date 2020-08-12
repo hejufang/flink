@@ -39,6 +39,8 @@ import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
@@ -148,7 +150,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				FatalErrorHandler fatalErrorHandler,
 				ResourceManagerMetricGroup resourceManagerMetricGroup,
 				FlinkKubeClient flinkKubeClient,
-				KubernetesResourceManagerConfiguration configuration) {
+				KubernetesResourceManagerConfiguration configuration,
+				FailureRater failureRater) {
 			super(
 				rpcService,
 				resourceId,
@@ -162,7 +165,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				fatalErrorHandler,
 				resourceManagerMetricGroup,
 				flinkKubeClient,
-				configuration
+				configuration,
+				failureRater
 			);
 		}
 
@@ -596,7 +600,7 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 
 			final TestingRpcService rpcService = new TestingRpcService(configuration);
 			final MockResourceManagerRuntimeServices rmServices = new MockResourceManagerRuntimeServices(rpcService, TIMEOUT, slotManager);
-
+			final FailureRater failureRater = FailureRaterUtil.createFailureRater(new Configuration());
 			final TestingKubernetesResourceManager kubernetesResourceManager = new TestingKubernetesResourceManager(
 				rpcService,
 				ResourceID.generate(),
@@ -609,7 +613,8 @@ public class KubernetesResourceManagerTest extends KubernetesTestBase {
 				testingFatalErrorHandlerResource.getFatalErrorHandler(),
 				UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 				flinkKubeClient,
-				new KubernetesResourceManagerConfiguration(CLUSTER_ID, TESTING_POD_CREATION_RETRY_INTERVAL));
+				new KubernetesResourceManagerConfiguration(CLUSTER_ID, TESTING_POD_CREATION_RETRY_INTERVAL),
+				failureRater);
 			kubernetesResourceManager.start();
 			rmServices.grantLeadership();
 			return kubernetesResourceManager;

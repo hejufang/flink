@@ -25,6 +25,8 @@ import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
@@ -66,6 +68,7 @@ public final class StandaloneResourceManagerFactory extends ResourceManagerFacto
 		ResourceManagerMetricGroup resourceManagerMetricGroup,
 		ResourceManagerRuntimeServices resourceManagerRuntimeServices) {
 
+		final FailureRater failureRater = FailureRaterUtil.createFailureRater(configuration);
 		final Time standaloneClusterStartupPeriodTime = ConfigurationUtils.getStandaloneClusterStartupPeriodTime(configuration);
 
 		return new StandaloneResourceManager(
@@ -80,7 +83,8 @@ public final class StandaloneResourceManagerFactory extends ResourceManagerFacto
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
 			standaloneClusterStartupPeriodTime,
-			AkkaUtils.getTimeoutAsTime(configuration));
+			AkkaUtils.getTimeoutAsTime(configuration),
+			failureRater);
 	}
 
 	@Override

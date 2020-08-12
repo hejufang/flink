@@ -19,9 +19,11 @@
 package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.TestingHeartbeatServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.NoOpResourceManagerPartitionTracker;
@@ -100,7 +102,8 @@ public class ResourceManagerHATest extends TestLogger {
 				testingFatalErrorHandler,
 				UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 				Time.minutes(5L),
-				RpcUtils.INF_TIMEOUT) {
+				RpcUtils.INF_TIMEOUT,
+				FailureRaterUtil.createFailureRater(new Configuration())) {
 
 				@Override
 				public void revokeLeadership() {

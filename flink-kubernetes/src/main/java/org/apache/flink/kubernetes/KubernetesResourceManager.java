@@ -38,6 +38,7 @@ import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
@@ -106,7 +107,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			FatalErrorHandler fatalErrorHandler,
 			ResourceManagerMetricGroup resourceManagerMetricGroup,
 			FlinkKubeClient kubeClient,
-			KubernetesResourceManagerConfiguration configuration) {
+			KubernetesResourceManagerConfiguration configuration,
+			FailureRater failureRater) {
 		super(
 			flinkConfig,
 			System.getenv(),
@@ -119,7 +121,8 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			jobLeaderIdService,
 			clusterInformation,
 			fatalErrorHandler,
-			resourceManagerMetricGroup);
+			resourceManagerMetricGroup,
+			failureRater);
 		this.clusterId = configuration.getClusterId();
 		this.kubeClient = kubeClient;
 		this.configuration = configuration;
@@ -328,13 +331,14 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			final int requiredTaskManagers = entry.getValue();
 
 			while (requiredTaskManagers > getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)) {
-				requestKubernetesPod(workerResourceSpec);
+				tryStartNewWorker(workerResourceSpec);
 			}
 		}
 	}
 
 	private void removePodAndTryRestartIfRequired(KubernetesPod pod) {
 		if (pod.isTerminated()) {
+			recordWorkerFailure();
 			internalStopPod(pod.getName());
 			requestKubernetesPodIfRequired();
 		}

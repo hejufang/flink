@@ -57,6 +57,40 @@ public class ResourceManagerOptions {
 			" default, the port of the JobManager, because the same ActorSystem is used." +
 			" Its not possible to use this configuration key to define port ranges.");
 
+
+	/**
+	 * Defines the maximum number of worker (YARN / Mesos) failures can happen in WORKERS_FAILURE_INTERVAL_MS before
+	 * rejecting subsequent worker requests until the failure rate falls below the maximum. It is to quickly catch
+	 * external dependency caused workers failure and terminate job accordingly.
+	 * Be default, -1.0 is set to disable the feature.
+	 */
+	public static final ConfigOption<Integer> MAXIMUM_WORKERS_FAILURE_RATE = ConfigOptions
+		.key("resourcemanager.maximum-workers-failure-rate")
+		.defaultValue(-1)
+		.withDescription("Defines the maximum number of worker (YARN / Mesos) failures per minute before rejecting" +
+			" subsequent worker requests until the failure rate falls below the maximum. It is to quickly catch" +
+			" external dependency caused workers failure and terminate job accordingly." +
+			" Be default, -1 is set to disable the feature.");
+
+	/**
+	 * Defines the maximum ratio of failed workers to effective workers in WORKERS_FAILURE_INTERVAL_MS.
+	 * Be default, -1.0 is set to disable the feature.
+	 */
+	public static final ConfigOption<Double> MAXIMUM_WORKERS_FAILURE_RATE_RATIO = ConfigOptions
+		.key("resourcemanager.maximum-workers-failure-rate-ratio")
+		.defaultValue(-1.0)
+		.withDescription("Defines the maximum ratio of failed workers to effective workers in WORKERS_FAILURE_INTERVAL_MS." +
+			"Be default, -1.0 is set to disable the feature.");
+
+	/**
+	 * Defines time duration in milliseconds for counting workers (YARN / Mesos) failure happened.
+	 */
+	public static final ConfigOption<Long> WORKERS_FAILURE_INTERVAL_MS = ConfigOptions
+		.key("resourcemanager.workers-failure-interval")
+		.defaultValue(60000L)
+		.withDescription("Defines time duration in milliseconds for counting workers (YARN / Mesos) failure happened."
+		);
+
 	@Documentation.Section(Documentation.Sections.EXPERT_SCHEDULING)
 	public static final ConfigOption<Integer> MAX_SLOT_NUM = ConfigOptions
 		.key("slotmanager.number-of-slots.max")

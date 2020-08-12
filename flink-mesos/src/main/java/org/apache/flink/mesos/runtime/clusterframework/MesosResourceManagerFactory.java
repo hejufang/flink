@@ -25,6 +25,8 @@ import org.apache.flink.mesos.util.MesosUtils;
 import org.apache.flink.runtime.clusterframework.ContainerSpecification;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
@@ -77,6 +79,7 @@ public class MesosResourceManagerFactory extends ActiveResourceManagerFactory<Re
 
 		final MesosTaskManagerParameters taskManagerParameters = MesosUtils.createTmParameters(configuration, LOG);
 		final ContainerSpecification taskManagerContainerSpec = MesosUtils.createContainerSpec(configuration);
+		final FailureRater failureRater = FailureRaterUtil.createFailureRater(configuration);
 
 		return new MesosResourceManager(
 			rpcService,
@@ -94,7 +97,8 @@ public class MesosResourceManagerFactory extends ActiveResourceManagerFactory<Re
 			taskManagerParameters,
 			taskManagerContainerSpec,
 			webInterfaceUrl,
-			resourceManagerMetricGroup);
+			resourceManagerMetricGroup,
+			failureRater);
 	}
 
 	@Override

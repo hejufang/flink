@@ -19,8 +19,11 @@
 package org.apache.flink.runtime.resourcemanager;
 
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.NoOpResourceManagerPartitionTracker;
@@ -110,6 +113,7 @@ public class StandaloneResourceManagerTest extends TestLogger {
 			RPC_SERVICE.getTestingRpcService(),
 			TIMEOUT,
 			slotManager);
+		final FailureRater failureRater = FailureRaterUtil.createFailureRater(new Configuration());
 
 		final TestingStandaloneResourceManager rm = new TestingStandaloneResourceManager(
 			rmServices.rpcService,
@@ -122,7 +126,8 @@ public class StandaloneResourceManagerTest extends TestLogger {
 			fatalErrorHandler,
 			UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 			startupPeriod,
-			rmServices);
+			rmServices,
+			failureRater);
 
 		rm.start();
 		rmServices.grantLeadership();
@@ -144,7 +149,8 @@ public class StandaloneResourceManagerTest extends TestLogger {
 				FatalErrorHandler fatalErrorHandler,
 				ResourceManagerMetricGroup resourceManagerMetricGroup,
 				Time startupPeriodTime,
-				MockResourceManagerRuntimeServices rmServices) {
+				MockResourceManagerRuntimeServices rmServices,
+				FailureRater failureRater) {
 			super(
 				rpcService,
 				resourceId,
@@ -157,7 +163,8 @@ public class StandaloneResourceManagerTest extends TestLogger {
 				fatalErrorHandler,
 				resourceManagerMetricGroup,
 				startupPeriodTime,
-				RpcUtils.INF_TIMEOUT);
+				RpcUtils.INF_TIMEOUT,
+				failureRater);
 			this.rmServices = rmServices;
 		}
 	}

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.resourcemanager;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
@@ -47,7 +48,8 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
 			JobLeaderIdService jobLeaderIdService,
 			FatalErrorHandler fatalErrorHandler,
-			ResourceManagerMetricGroup resourceManagerMetricGroup) {
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			FailureRater failureRater) {
 		super(
 			rpcService,
 			resourceId,
@@ -59,7 +61,8 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 			new ClusterInformation("localhost", 1234),
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
-			RpcUtils.INF_TIMEOUT);
+			RpcUtils.INF_TIMEOUT,
+			failureRater);
 	}
 
 	@Override

@@ -26,6 +26,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceIDRetrievable;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
@@ -79,7 +80,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			JobLeaderIdService jobLeaderIdService,
 			ClusterInformation clusterInformation,
 			FatalErrorHandler fatalErrorHandler,
-			ResourceManagerMetricGroup resourceManagerMetricGroup) {
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			FailureRater failureRater) {
 		super(
 			rpcService,
 			resourceId,
@@ -91,7 +93,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			clusterInformation,
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
-			AkkaUtils.getTimeoutAsTime(flinkConfig));
+			AkkaUtils.getTimeoutAsTime(flinkConfig),
+			failureRater);
 
 		this.flinkConfig = flinkConfig;
 		this.env = env;

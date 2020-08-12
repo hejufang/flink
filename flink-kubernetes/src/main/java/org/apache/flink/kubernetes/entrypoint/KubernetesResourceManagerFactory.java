@@ -27,6 +27,8 @@ import org.apache.flink.kubernetes.configuration.KubernetesResourceManagerConfig
 import org.apache.flink.kubernetes.kubeclient.KubeClientFactory;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerImpl;
@@ -75,6 +77,8 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 				configuration.getString(KubernetesConfigOptions.CLUSTER_ID),
 				POD_CREATION_RETRY_INTERVAL);
 
+		final FailureRater failureRater = FailureRaterUtil.createFailureRater(configuration);
+
 		return new KubernetesResourceManager(
 			rpcService,
 			resourceId,
@@ -88,7 +92,8 @@ public class KubernetesResourceManagerFactory extends ActiveResourceManagerFacto
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
 			KubeClientFactory.fromConfiguration(configuration),
-			kubernetesResourceManagerConfiguration);
+			kubernetesResourceManagerConfiguration,
+			failureRater);
 	}
 
 	@Override

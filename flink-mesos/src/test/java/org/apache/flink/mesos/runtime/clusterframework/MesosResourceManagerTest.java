@@ -46,6 +46,8 @@ import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.TestingHighAvailabilityServices;
@@ -176,7 +178,8 @@ public class MesosResourceManagerTest extends TestLogger {
 			MesosConfiguration mesosConfig,
 			MesosTaskManagerParameters taskManagerParameters,
 			ContainerSpecification taskManagerContainerSpec,
-			ResourceManagerMetricGroup resourceManagerMetricGroup) {
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			FailureRater failureRater) {
 			super(
 				rpcService,
 				resourceId,
@@ -193,7 +196,8 @@ public class MesosResourceManagerTest extends TestLogger {
 				taskManagerParameters,
 				taskManagerContainerSpec,
 				null,
-				resourceManagerMetricGroup);
+				resourceManagerMetricGroup,
+				failureRater);
 		}
 
 		@Override
@@ -307,7 +311,8 @@ public class MesosResourceManagerTest extends TestLogger {
 					rmServices.mesosConfig,
 					tmParams,
 					containerSpecification,
-					UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup());
+					UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
+					FailureRaterUtil.createFailureRater(flinkConfig));
 			workerResourceSpec = WorkerResourceSpec.fromTaskExecutorProcessSpec(spec);
 
 			// TaskExecutors
@@ -413,6 +418,7 @@ public class MesosResourceManagerTest extends TestLogger {
 			public final JobMasterGateway gateway;
 			public final JobMasterId jobMasterId;
 			public final SettableLeaderRetrievalService leaderRetrievalService;
+			public final int minSlotsNum;
 
 			MockJobMaster(JobID jobID) {
 				this.jobID = jobID;
@@ -421,6 +427,7 @@ public class MesosResourceManagerTest extends TestLogger {
 				this.gateway = mock(JobMasterGateway.class);
 				this.jobMasterId = JobMasterId.generate();
 				this.leaderRetrievalService = new SettableLeaderRetrievalService(this.address, this.jobMasterId.toUUID());
+				this.minSlotsNum = 0;
 			}
 		}
 
@@ -468,7 +475,7 @@ public class MesosResourceManagerTest extends TestLogger {
 		 */
 		public void registerJobMaster(MockJobMaster jobMaster) throws Exception  {
 			CompletableFuture<RegistrationResponse> registration = resourceManager.registerJobManager(
-				jobMaster.jobMasterId, jobMaster.resourceID, jobMaster.address, jobMaster.jobID, timeout);
+				jobMaster.jobMasterId, jobMaster.resourceID, jobMaster.address, jobMaster.jobID, jobMaster.minSlotsNum, timeout);
 			assertTrue(registration.get() instanceof JobMasterRegistrationSuccess);
 		}
 

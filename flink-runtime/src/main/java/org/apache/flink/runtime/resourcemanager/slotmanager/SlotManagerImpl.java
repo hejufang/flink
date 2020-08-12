@@ -396,6 +396,26 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	/**
+	 * Cancel all pending slot requests.
+	 * @param cause the exception caused the cancellation
+	 */
+	@Override
+	public void cancelAllPendingSlotRequests(Exception cause) {
+		for (PendingSlotRequest pendingSlotRequest : pendingSlotRequests.values()) {
+			cancelPendingSlotRequest(pendingSlotRequest);
+
+			// notify each job master about this exception
+			resourceActions.notifyAllocationFailure(
+				pendingSlotRequest.getJobId(),
+				pendingSlotRequest.getAllocationId(),
+				cause
+			);
+		}
+
+		pendingSlotRequests.clear();
+	}
+
+	/**
 	 * Cancels and removes a pending slot request with the given allocation id. If there is no such
 	 * pending request, then nothing is done.
 	 *

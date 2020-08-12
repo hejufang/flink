@@ -46,6 +46,7 @@ import org.apache.flink.runtime.clusterframework.ContainerSpecification;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
@@ -164,7 +165,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			MesosTaskManagerParameters taskManagerParameters,
 			ContainerSpecification taskManagerContainerSpec,
 			@Nullable String webUiUrl,
-			ResourceManagerMetricGroup resourceManagerMetricGroup) {
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			FailureRater failureRater) {
 		super(
 			rpcService,
 			resourceId,
@@ -176,7 +178,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			clusterInformation,
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
-			AkkaUtils.getTimeoutAsTime(flinkConfig));
+			AkkaUtils.getTimeoutAsTime(flinkConfig),
+			failureRater);
 
 		this.mesosServices = Preconditions.checkNotNull(mesosServices);
 		this.actorSystem = Preconditions.checkNotNull(mesosServices.getLocalActorSystem());
@@ -661,7 +664,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			assert(launched != null);
 			LOG.info("Worker {} failed with status: {}, reason: {}, message: {}.",
 				id, status.getState(), status.getReason(), status.getMessage());
-			startNewWorker(launched.workerResourceSpec());
+			recordWorkerFailure();
+			tryStartNewWorker(launched.workerResourceSpec());
 		}
 
 		closeTaskManagerConnection(id, new Exception(status.getMessage()));

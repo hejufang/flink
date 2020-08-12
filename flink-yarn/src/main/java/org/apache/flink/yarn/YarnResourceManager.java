@@ -30,6 +30,7 @@ import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
+import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
@@ -138,7 +139,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			ClusterInformation clusterInformation,
 			FatalErrorHandler fatalErrorHandler,
 			@Nullable String webInterfaceUrl,
-			ResourceManagerMetricGroup resourceManagerMetricGroup) {
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			FailureRater failureRater) {
 		super(
 			flinkConfig,
 			env,
@@ -151,7 +153,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			jobLeaderIdService,
 			clusterInformation,
 			fatalErrorHandler,
-			resourceManagerMetricGroup);
+			resourceManagerMetricGroup,
+			failureRater);
 		this.yarnConfig = new YarnConfiguration();
 		this.workerNodeMap = new ConcurrentHashMap<>();
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(
@@ -378,6 +381,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					notifyAllocatedWorkerStopped(resourceId);
 
 					if (yarnWorkerNode != null) {
+						recordWorkerFailure();
 						// Container completed unexpectedly ~> start a new one
 						requestYarnContainerIfRequired();
 					}
@@ -482,6 +486,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerClient.releaseAssignedContainer(containerId);
 		notifyAllocatedWorkerStopped(resourceId);
 		// and ask for a new one
+		recordWorkerFailure();
 		requestYarnContainerIfRequired();
 	}
 
@@ -614,7 +619,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		for (Map.Entry<WorkerResourceSpec, Integer> requiredWorkersPerResourceSpec : getRequiredResources().entrySet()) {
 			final WorkerResourceSpec workerResourceSpec = requiredWorkersPerResourceSpec.getKey();
 			while (requiredWorkersPerResourceSpec.getValue() > getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)) {
-				final boolean requestContainerSuccess = requestYarnContainer(workerResourceSpec);
+				final boolean requestContainerSuccess = tryStartNewWorker(workerResourceSpec);
 				Preconditions.checkState(requestContainerSuccess,
 					"Cannot request container for worker resource spec {}.", workerResourceSpec);
 			}

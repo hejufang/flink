@@ -141,6 +141,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final JobGraph jobGraph;
 
+	private final int minSlotsNum;
+
 	private final Time rpcTimeout;
 
 	private final HighAvailabilityServices highAvailabilityServices;
@@ -278,6 +280,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.accumulators = new HashMap<>();
 		this.taskManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
 		this.resourceManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
+
+		this.minSlotsNum = jobGraph.calcMinRequiredSlotsNum();
 	}
 
 	private SchedulerNG createScheduler(final JobManagerJobMetricGroup jobManagerJobMetricGroup) throws Exception {
@@ -1139,6 +1143,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 						jobManagerResourceID,
 						jobManagerRpcAddress,
 						jobID,
+						minSlotsNum,
 						timeout);
 				}
 			};

@@ -187,7 +187,7 @@ public class TestingResourceManagerGateway implements ResourceManagerGateway {
 	}
 
 	@Override
-	public CompletableFuture<RegistrationResponse> registerJobManager(JobMasterId jobMasterId, ResourceID jobMasterResourceId, String jobMasterAddress, JobID jobId, Time timeout) {
+	public CompletableFuture<RegistrationResponse> registerJobManager(JobMasterId jobMasterId, ResourceID jobMasterResourceId, String jobMasterAddress, JobID jobId, int minSlotsNum, Time timeout) {
 		final QuadFunction<JobMasterId, ResourceID, String, JobID, CompletableFuture<RegistrationResponse>> currentConsumer = registerJobManagerFunction;
 
 		if (currentConsumer != null) {

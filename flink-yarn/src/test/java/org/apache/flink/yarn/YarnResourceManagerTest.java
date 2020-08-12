@@ -20,6 +20,7 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -30,6 +31,8 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
+import org.apache.flink.runtime.failurerate.FailureRater;
+import org.apache.flink.runtime.failurerate.FailureRaterUtil;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.instance.HardwareDescription;
@@ -142,6 +145,7 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		flinkConfig = new Configuration();
 		flinkConfig.set(TaskManagerOptions.TOTAL_FLINK_MEMORY, MemorySize.parse("1g"));
+		flinkConfig.setString(ConfigConstants.JOB_WORK_DIR_KEY, "file:///tmp/");
 
 		File root = folder.getRoot();
 		File home = new File(root, "home");
@@ -192,7 +196,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				ClusterInformation clusterInformation,
 				FatalErrorHandler fatalErrorHandler,
 				@Nullable String webInterfaceUrl,
-				ResourceManagerMetricGroup resourceManagerMetricGroup) {
+				ResourceManagerMetricGroup resourceManagerMetricGroup,
+				FailureRater failureRater) {
 			super(
 				rpcService,
 				resourceId,
@@ -206,7 +211,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				clusterInformation,
 				fatalErrorHandler,
 				webInterfaceUrl,
-				resourceManagerMetricGroup);
+				resourceManagerMetricGroup,
+				failureRater);
 			this.testingYarnNMClientAsync = new TestingYarnNMClientAsync(this);
 			this.testingYarnAMRMClientAsync = new TestingYarnAMRMClientAsync(this);
 		}
@@ -260,6 +266,8 @@ public class YarnResourceManagerTest extends TestLogger {
 
 		int containerIdx = 0;
 
+		public FailureRater failureRater = FailureRaterUtil.createFailureRater(new Configuration());
+
 		/**
 		 * Create mock RM dependencies.
 		 */
@@ -293,7 +301,9 @@ public class YarnResourceManagerTest extends TestLogger {
 							new ClusterInformation("localhost", 1234),
 							testingFatalErrorHandler,
 							null,
-							UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup());
+							UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
+							failureRater
+						);
 
 			testingYarnAMRMClientAsync = resourceManager.testingYarnAMRMClientAsync;
 			testingYarnNMClientAsync = resourceManager.testingYarnNMClientAsync;
@@ -545,6 +555,8 @@ public class YarnResourceManagerTest extends TestLogger {
 				Container testingContainer = createTestingContainer();
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
+				// wait for container to start
+				Thread.sleep(1000);
 				verifyFutureCompleted(addContainerRequestFutures.get(0));
 				verifyFutureCompleted(removeContainerRequestFuture);
 				verifyFutureCompleted(startContainerAsyncFuture);
