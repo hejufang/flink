@@ -146,4 +146,13 @@ public interface InputFormat<OT, T extends InputSplit> extends InputSplitSource<
 	default boolean takeNullAsEndOfStream() {
 		return true;
 	}
+
+	/**
+	 * Whether the input format supports speculation
+	 *
+	 * @return True if the input format supports speculation, otherwise false.
+	 * */
+	default boolean supportSpeculation() {
+		return true;
+	}
 }

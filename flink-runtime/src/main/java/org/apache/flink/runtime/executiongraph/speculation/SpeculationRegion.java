@@ -38,10 +38,13 @@ public class SpeculationRegion {
 
 	private final int size;
 
-	public SpeculationRegion(Set<DefaultExecutionVertex> vertices) {
+	private final boolean supportSpeculation;
+
+	public SpeculationRegion(Set<DefaultExecutionVertex> vertices, boolean supportSpeculation) {
 		this.vertices = vertices;
 		this.resetVertices = new HashSet<>();
 		this.size = vertices.size();
+		this.supportSpeculation = supportSpeculation;
 	}
 
 	public Set<DefaultExecutionVertex> getConnectedVertices() {
@@ -74,6 +77,10 @@ public class SpeculationRegion {
 		}
 		this.sourceVertices = result;
 		return this.sourceVertices;
+	}
+
+	public boolean getSupportSpeculation() {
+		return this.supportSpeculation;
 	}
 
 	public boolean resetVertex(ExecutionVertexID id) {

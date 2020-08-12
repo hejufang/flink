@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.minicluster;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
@@ -617,7 +618,7 @@ public class MiniClusterITCase extends TestLogger {
 		}
 
 		@Override
-		public void finalizeOnMaster(ClassLoader loader) throws Exception {
+		public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts) throws Exception {
 			Thread.sleep(waitingTime);
 			finalizedOnMaster.set(true);
 		}

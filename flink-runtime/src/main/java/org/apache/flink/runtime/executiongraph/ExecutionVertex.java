@@ -20,6 +20,7 @@ package org.apache.flink.runtime.executiongraph;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.Archiveable;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
@@ -321,6 +322,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 			createCopyExecution();
 		}
 		return copyExecutions.get(0);
+	}
+
+	public ExecutionInfo getFinishedAttempt() {
+		return new ExecutionInfo(subTaskIndex, getConsumableExecution(false, false).getAttemptNumber());
 	}
 
 	/**

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.jobgraph;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.configuration.Configuration;
@@ -124,6 +125,9 @@ public class JobVertex implements java.io.Serializable {
 
 	/** The input dependency constraint to schedule this vertex. */
 	private InputDependencyConstraint inputDependencyConstraint = InputDependencyConstraint.ANY;
+
+	/** Whether the vertex supports speculation. */
+	private boolean supportSpeculation = true;
 
 	// --------------------------------------------------------------------------------------------
 
@@ -521,9 +525,10 @@ public class JobVertex implements java.io.Serializable {
 	 * master after the job completed.
 	 *
 	 * @param loader The class loader for user defined code.
+	 * @param finishedAttempts The finished Attempts for this vertex.
 	 * @throws Exception The method may throw exceptions which cause the job to fail immediately.
 	 */
-	public void finalizeOnMaster(ClassLoader loader) throws Exception {}
+	public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts) throws Exception {}
 
 	// --------------------------------------------------------------------------------------------
 
@@ -565,6 +570,14 @@ public class JobVertex implements java.io.Serializable {
 
 	public void setInputDependencyConstraint(InputDependencyConstraint inputDependencyConstraint) {
 		this.inputDependencyConstraint = inputDependencyConstraint;
+	}
+
+	public boolean getSupportSpeculation() {
+		return this.supportSpeculation;
+	}
+
+	public void setSupportSpeculation(boolean supportSpeculation) {
+		this.supportSpeculation = supportSpeculation;
 	}
 
 	// --------------------------------------------------------------------------------------------

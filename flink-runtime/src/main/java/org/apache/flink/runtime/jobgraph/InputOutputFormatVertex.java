@@ -23,8 +23,10 @@ import org.apache.flink.api.common.io.InitializeOnMaster;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.util.UserCodeWrapper;
+import org.apache.flink.api.common.ExecutionInfo;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.operators.util.TaskConfig;
+import org.apache.flink.util.Preconditions;
 
 import java.util.HashMap;
 import java.util.List;
@@ -63,6 +65,7 @@ public class InputOutputFormatVertex extends JobVertex {
 			// set user classloader before calling user code
 			Thread.currentThread().setContextClassLoader(loader);
 
+			boolean supportSpeculation = true;
 			// configure the input format and setup input splits
 			Map<OperatorID, UserCodeWrapper<? extends InputFormat<?, ?>>> inputFormats = formatContainer.getInputFormats();
 			if (inputFormats.size() > 1) {
@@ -80,6 +83,7 @@ public class InputOutputFormatVertex extends JobVertex {
 				}
 
 				setInputSplitSource(inputFormat);
+				supportSpeculation &= inputFormat.supportSpeculation();
 			}
 
 			// configure input formats and invoke initializeGlobal()
@@ -98,8 +102,9 @@ public class InputOutputFormatVertex extends JobVertex {
 				if (outputFormat instanceof InitializeOnMaster) {
 					((InitializeOnMaster) outputFormat).initializeGlobal(getParallelism());
 				}
+				supportSpeculation &= outputFormat.supportSpeculation();
 			}
-
+			setSupportSpeculation(supportSpeculation);
 		} finally {
 			// restore original classloader
 			Thread.currentThread().setContextClassLoader(original);
@@ -107,7 +112,7 @@ public class InputOutputFormatVertex extends JobVertex {
 	}
 
 	@Override
-	public void finalizeOnMaster(ClassLoader loader) throws Exception {
+	public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] executionInfos) throws Exception {
 		final InputOutputFormatContainer formatContainer = initInputOutputformatContainer(loader);
 
 		final ClassLoader original = Thread.currentThread().getContextClassLoader();
@@ -129,7 +134,8 @@ public class InputOutputFormatVertex extends JobVertex {
 				}
 
 				if (outputFormat instanceof FinalizeOnMaster) {
-					((FinalizeOnMaster) outputFormat).finalizeGlobal(getParallelism());
+					Preconditions.checkArgument(executionInfos.length == getParallelism());
+					((FinalizeOnMaster) outputFormat).finalizeGlobal(executionInfos);
 				}
 			}
 
