@@ -390,8 +390,7 @@ boe:
   dashboard.data_source: bytetsd_boe
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log
-  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
-  yaop_url: http://10.225.131.41:8092
+  yaop_url: https://yaop-boe.bytedance.net
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   cluster.evenly-spread-out-slots: true
 
@@ -404,8 +403,7 @@ cof:
   dashboard.data_source: bytetsd_cof
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log
-  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
-  yaop_url: http://10.225.162.46:8092
+  yaop_url: https://yaop-boe.bytedance.net
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   cluster.evenly-spread-out-slots: true
 
