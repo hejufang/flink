@@ -613,9 +613,6 @@ public class LegacyScheduler implements SchedulerNG {
 					log.error("Error in CheckpointCoordinator while processing {}.", initialization, e);
 				}
 			});
-		} else {
-			String errorMessage = "Received InitializationCheckpoint message {} for job {} with no CheckpointCoordinator";
-			log.error(errorMessage, initialization, jobGraph.getJobID());
 		}
 	}
 
