@@ -32,6 +32,7 @@ import org.apache.flink.metrics.WarehouseOriginalMetricMessage;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 import org.apache.flink.runtime.metrics.groups.FrontMetricGroup;
+import org.apache.flink.runtime.metrics.groups.GenericMetricGroup;
 import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.util.EnvironmentInformation;
@@ -84,21 +85,17 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	@Override
 	public void notifyOfAddedMetric(Metric metric, String metricName, MetricGroup group) {
-		if (group instanceof FrontMetricGroup) {
-			FrontMetricGroup frontMetricGroup = (FrontMetricGroup) group;
-			Class clz = frontMetricGroup.getParentMetricGroup().getClass();
-			final String name = group.getMetricIdentifier(metricName, this);
-			synchronized (this) {
-				if (metric instanceof MessageSet) {
-					LOG.info("Successfully register {}.", name);
-					messageSets.put((MessageSet) metric, name);
-				} else if (metric instanceof Counter && !bannedMetricGroups.contains(clz)) {
-					LOG.info("Successfully register {}.", name);
-					counters.put((Counter) metric, name);
-				} else if (metric instanceof Gauge && !bannedMetricGroups.contains(clz)) {
-					LOG.info("Successfully register {}.", name);
-					gauges.put((Gauge<?>) metric, name);
-				}
+		final String name = group.getMetricIdentifier(metricName, this);
+		synchronized (this) {
+			if (metric instanceof MessageSet) {
+				LOG.info("Successfully register {}.", name);
+				messageSets.put((MessageSet) metric, name);
+			} else if (metric instanceof Counter && !isMetricGroupBanned(group)) {
+				LOG.info("Successfully register {}.", name);
+				counters.put((Counter) metric, name);
+			} else if (metric instanceof Gauge && !isMetricGroupBanned(group)) {
+				LOG.info("Successfully register {}.", name);
+				gauges.put((Gauge<?>) metric, name);
 			}
 		}
 	}
@@ -206,6 +203,18 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 			clientWrapper.addToBuffer(data);
 		} catch (IOException e) {
 			LOG.warn("Fail to parse message string, please check message {}", message.getMeta().toString(), e);
+		}
+	}
+
+	private boolean isMetricGroupBanned(MetricGroup metricGroup) {
+		if (metricGroup instanceof FrontMetricGroup) {
+			FrontMetricGroup frontMetricGroup = (FrontMetricGroup) metricGroup;
+			return isMetricGroupBanned(frontMetricGroup.getParentMetricGroup());
+		} else if (metricGroup instanceof GenericMetricGroup) {
+			GenericMetricGroup genericMetricGroup = (GenericMetricGroup) metricGroup;
+			return isMetricGroupBanned(genericMetricGroup.getParentMetricGroup());
+		} else {
+			return bannedMetricGroups.contains(metricGroup.getClass());
 		}
 	}
 

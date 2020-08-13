@@ -20,6 +20,7 @@ package org.apache.flink.runtime.metrics.groups;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.metrics.CharacterFilter;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
 
@@ -60,5 +61,9 @@ public class GenericMetricGroup extends AbstractMetricGroup<AbstractMetricGroup<
 	@Override
 	protected String getGroupName(CharacterFilter filter) {
 		return filter.filterCharacters(name);
+	}
+
+	public MetricGroup getParentMetricGroup() {
+		return parent;
 	}
 }
