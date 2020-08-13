@@ -64,6 +64,7 @@ under the License.
 		<module>flink-sql-connector-elasticsearch7</module>
 		<module>flink-connector-base</module>
 		<module>flink-connector-tos</module>
+		<module>flink-connector-bmq</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

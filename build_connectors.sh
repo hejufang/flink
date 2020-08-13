@@ -24,4 +24,4 @@ mvn clean install -DskipTests -T 1C -Psql-jars
 cd flink-connectors
 cp flink-connector-tos/target/flink-connector-tos-1.11-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-sql-connector-hive-1.2.2-bd31/target/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar  ../output/runtime_files
-
+cp flink-connector-bmq/target/flink-connector-bmq-1.11-byted-SNAPSHOT.jar ../output/runtime_files
