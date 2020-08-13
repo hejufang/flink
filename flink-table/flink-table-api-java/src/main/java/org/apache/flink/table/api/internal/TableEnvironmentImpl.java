@@ -725,12 +725,13 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			if (operation instanceof ModifyOperation) {
 				statementSet.addOperation((ModifyOperation) operation);
 				hasModifyOperation = true;
-			} else {
+			} else if (!(operation instanceof QueryOperation)) {
 				TableResult tableResult = executeOperation(operation);
 				if (i == sqlNodes.size() - 1) {
 					tableResultOptional = Optional.of(tableResult);
 				}
 			}
+			// Just skip QueryOperation here.
 		}
 
 		if (hasModifyOperation) {
