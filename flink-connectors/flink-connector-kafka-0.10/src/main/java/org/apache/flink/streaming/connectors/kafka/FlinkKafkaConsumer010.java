@@ -30,15 +30,12 @@ import org.apache.flink.streaming.connectors.kafka.internal.Kafka010Fetcher;
 import org.apache.flink.streaming.connectors.kafka.internal.Kafka010PartitionDiscoverer;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDiscoverer;
-import org.apache.flink.streaming.connectors.kafka.internals.FeatureStoreSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
-import org.apache.flink.types.Row;
 import org.apache.flink.util.PropertiesUtil;
 import org.apache.flink.util.SerializedValue;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
@@ -151,7 +148,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 	 *           The properties that are used to configure both the fetcher and the offset handler.
 	 */
 	public FlinkKafkaConsumer010(List<String> topics, DeserializationSchema<T> deserializer, Properties props) {
-		this(topics, (KafkaDeserializationSchemaWrapper<T>) getDeserializationSchema(deserializer, props), props);
+		this(topics, new KafkaDeserializationSchemaWrapper<>(deserializer), props);
 	}
 
 	/**
@@ -337,13 +334,5 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 		}
 
 		return result;
-	}
-
-	private static KafkaDeserializationSchemaWrapper getDeserializationSchema(DeserializationSchema valueDeserializer, Properties props) {
-		if (props.containsKey(ConsumerConfig.PARQUET_SELECT_COLUMNS_CONIFG)) {
-			return new FeatureStoreSchemaWrapper((DeserializationSchema<Row>) valueDeserializer);
-		} else {
-			return new KafkaDeserializationSchemaWrapper(valueDeserializer);
-		}
 	}
 }
