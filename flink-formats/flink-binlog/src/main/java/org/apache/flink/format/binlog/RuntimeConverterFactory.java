@@ -22,6 +22,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.binlog.DRCEntry;
 import com.google.protobuf.Descriptors;
@@ -86,6 +87,7 @@ public class RuntimeConverterFactory {
 		for (int i = 2; i < rowTypeInfo.getArity(); i++) {
 			String columnName = columnNames[i];
 			TypeInformation typeInformation = rowTypeInfo.getTypeAt(i);
+			String fieldName = rowTypeInfo.getFieldNames()[i];
 			if (!(typeInformation instanceof RowTypeInfo)) {
 				// Ignore the time column, which is the only one without RowTypeInfo.
 				continue;
@@ -99,7 +101,8 @@ public class RuntimeConverterFactory {
 				String realColumnName = removeColumnNamePrefix(innerColumnName);
 				RuntimeConverter valueConverter =
 					createValueConverter(innerColumnTypeInfo, realColumnName);
-				innerConverterList.add(addConverterWrapper(valueConverter, innerColumnTypeInfo, realColumnName));
+				innerConverterList.add(addConverterWrapper(valueConverter, innerColumnTypeInfo,
+					realColumnName, fieldName));
 			}
 
 			converterMap.put(columnName, assembleRowConverter(columnName, innerRowTypeInfo, innerConverterList));
@@ -182,7 +185,8 @@ public class RuntimeConverterFactory {
 	private static RuntimeConverter addConverterWrapper(
 			RuntimeConverter converter,
 			TypeInformation typeInfo,
-			String innerColumnName) {
+			String innerColumnName,
+			String fieldName) {
 		return o -> {
 			DynamicMessage columnMessage = (DynamicMessage) o;
 
@@ -196,7 +200,12 @@ public class RuntimeConverterFactory {
 					return null;
 				}
 				String valueInString = (String) columnMessage.getField(FIELD_DESCRIPTORS.get(VALUE_COLUMN));
-				return converter.convert(valueInString);
+				try {
+					return converter.convert(valueInString);
+				} catch (Throwable t) {
+					throw new FlinkRuntimeException(String.format("Failed to convert value '%s' to " +
+						"type '%s' for column '%s'.", valueInString, typeInfo, fieldName), t);
+				}
 			}
 
 			return columnMessage.getField(DRCEntry.Column.getDescriptor().findFieldByName(innerColumnName));
