@@ -180,6 +180,11 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 	public void onTaskSuccess(Execution execution) {
 		assertRunningInJobMasterMainThread();
 
+		// double check
+		if (execution.getState() != ExecutionState.FINISHED) {
+			return;
+		}
+
 		final ExecutionJobVertex executionJobVertex = execution.getVertex().getJobVertex();
 		Preconditions.checkArgument(finishedExecutions.containsKey(executionJobVertex), execution.getVertex().getTaskName() + " not exist in successfulExecutionVertexIDs!");
 

@@ -547,6 +547,10 @@ public abstract class SchedulerBase implements SchedulerNG {
 				if (executionVertex.getExecution(isCopyExecution)
 						.getState() == taskExecutionState.getExecutionState()) {
 					return true;
+				} else if (taskExecutionState.getExecutionState() == ExecutionState.FINISHED
+						&& executionVertex.getExecution(isCopyExecution).getState() == ExecutionState.FAILED) {
+					// try to finish the task but splits' status is not compatible
+					return true;
 				} else {
 					log.warn("The state is not compatible in {}", executionVertex
 							.getExecution(isCopyExecution(taskExecutionState.getID())).getVertexWithAttempt());
