@@ -164,6 +164,11 @@ public class SpeculationITCase extends TestLogger implements Serializable {
 		@Override
 		public void close() throws IOException {
 		}
+
+		@Override
+		public boolean supportSpeculation() {
+			return true;
+		}
 	}
 
 	private List<String> generateData() {

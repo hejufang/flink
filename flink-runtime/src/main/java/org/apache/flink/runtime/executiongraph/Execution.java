@@ -370,7 +370,9 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				nextInputSplit = totalInputSplits.get(inputSplitsSize);
 			}
 		}
-		this.inputSplits.add(nextInputSplit);
+		if (nextInputSplit != null) {
+			this.inputSplits.add(nextInputSplit);
+		}
 		return nextInputSplit;
 	}
 
@@ -1118,6 +1120,15 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	void markFinished(Map<String, Accumulator<?, ?>> userAccumulators, IOMetrics metrics) {
 
 		assertRunningInJobMasterMainThread();
+
+		// check whether splits are completely consumed
+		if (this.inputSplits.hashCode() != vertex.getTotalInputSplits().hashCode()) {
+			final String message = String.format("%s has %d splits but vertex has %d splits.", this,
+					this.inputSplits.size(), vertex.getTotalInputSplits().size());
+			LOG.error(message);
+			markFailed(new IllegalStateException(message));
+			return;
+		}
 
 		// this call usually comes during RUNNING, but may also come while still in deploying (very fast tasks!)
 		while (true) {
