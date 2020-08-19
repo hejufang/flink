@@ -29,6 +29,7 @@ import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalTableSourc
 import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode}
 import org.apache.flink.table.planner.plan.schema.TableSourceTable
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
+import org.apache.flink.table.validate.Validatable
 
 import org.apache.calcite.plan._
 import org.apache.calcite.rel.RelNode
@@ -93,5 +94,16 @@ class BatchExecTableSourceScan(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     createSourceTransformation(planner.getExecEnv, getRelDetailedDescription)
+  }
+
+  /**
+   * Validate the table source if it is Validatable.
+   **/
+  override def validateBeforeExecution(): Unit = {
+    tableSourceTable.tableSource match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
+    }
   }
 }

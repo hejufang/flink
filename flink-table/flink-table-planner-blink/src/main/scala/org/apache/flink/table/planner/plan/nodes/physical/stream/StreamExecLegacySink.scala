@@ -34,6 +34,7 @@ import org.apache.flink.table.planner.sinks.DataStreamTableSink
 import org.apache.flink.table.runtime.typeutils.{RowDataTypeInfo, TypeCheckUtils}
 import org.apache.flink.table.sinks._
 import org.apache.flink.table.types.logical.TimestampType
+import org.apache.flink.table.validate.Validatable
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelNode
@@ -206,4 +207,14 @@ class StreamExecLegacySink[T](
 
   }
 
+  /**
+   * Validate the table sink if it is Validatable.
+   **/
+  override def validateBeforeExecution(): Unit = {
+    sink match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
+    }
+  }
 }

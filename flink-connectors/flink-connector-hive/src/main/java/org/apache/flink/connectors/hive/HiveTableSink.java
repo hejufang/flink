@@ -331,6 +331,7 @@ public class HiveTableSink implements
 		String tableName = identifier.getObjectName();
 		List<String> projectedFieldNames = Arrays.asList(getTableSchema().getFieldNames());
 
-		HivePermissionUtils.checkPermission(user, psm, dbName, tableName, projectedFieldNames, ALL);
+		HivePermissionUtils.checkPermission(user, psm, dbName, tableName, projectedFieldNames,
+			ALL, true);
 	}
 }

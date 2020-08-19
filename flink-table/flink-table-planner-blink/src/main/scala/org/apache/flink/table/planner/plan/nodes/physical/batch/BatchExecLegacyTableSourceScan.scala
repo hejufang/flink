@@ -187,7 +187,7 @@ class BatchExecLegacyTableSourceScan(
 
 
   /**
-   * Validate the table source if it is Validatable
+   * Validate the table source if it is Validatable.
    **/
   override def validateBeforeExecution(): Unit = {
     tableSource match {

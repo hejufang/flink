@@ -620,7 +620,8 @@ public class HiveTableSource implements
 		List<String> columnValues = getColumnValueListFromPredicates();
 		List<String> allColumnsNeedToCheckPermission = new ArrayList<>(columnValues);
 		allColumnsNeedToCheckPermission.addAll(projectedFieldNames);
-		HivePermissionUtils.checkPermission(user, psm, database, table, allColumnsNeedToCheckPermission, SELECT);
+		HivePermissionUtils.checkPermission(user, psm, database, table,
+			allColumnsNeedToCheckPermission, SELECT, true);
 	}
 
 	/**

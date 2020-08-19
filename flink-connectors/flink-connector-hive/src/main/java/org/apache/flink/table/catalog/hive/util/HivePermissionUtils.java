@@ -58,13 +58,29 @@ public class HivePermissionUtils {
 	private static final String CONTENT_TYPE_KEY = "Content-Type";
 	private static final String CONTENT_TYPE_VAL = "application/json";
 
-	public static void checkPermission(
+	/**
+	 * Check whether user or psm has hive permission.
+	 *
+	 * @param user user used to check permission
+	 * @param psm  psm used to check permission
+	 * @param database hive database
+	 * @param table hive table
+	 * @param columns columns in table
+	 * @param permissionType permission type
+	 * @param failOnPermissionDenied whether fail on permission denied. If true, this method will
+	 *                               throw an exception on permission denied, otherwise just write
+	 *                               a error log.
+	 *
+	 * @return return whether user or psm has hive permission.
+	 * */
+	public static boolean checkPermission(
 			String user,
 			String psm,
 			String database,
 			String table,
 			List<String> columns,
-			PermissionType permissionType) {
+			PermissionType permissionType,
+			boolean failOnPermissionDenied) {
 		String postData = buildPostData(user, psm, database, table, columns, permissionType);
 		String requestUrl = getRequestUrl();
 		try {
@@ -88,8 +104,12 @@ public class HivePermissionUtils {
 				if (columnsWithoutPermission != null && !columnsWithoutPermission.isEmpty()) {
 					errorMsg += String.format(" Columns without permission: %s.", columnsWithoutPermission);
 				}
-				throw new FlinkRuntimeException(errorMsg);
+				if (failOnPermissionDenied) {
+					throw new FlinkRuntimeException(errorMsg);
+				}
+				LOG.error(errorMsg);
 			}
+			return hasPermission;
 		} catch (IOException e) {
 			throw new FlinkRuntimeException(String.format(
 				"Failed to send request to hive catalog server. url = %s, postData = %s.",

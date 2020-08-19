@@ -28,6 +28,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalSink
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.ChangelogPlanUtils
+import org.apache.flink.table.validate.Validatable
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelNode
@@ -106,5 +107,16 @@ class StreamExecSink(
       planner.getTableConfig,
       rowtimeFieldIndex,
       isBounded = false)
+  }
+
+  /**
+   * Validate the table sink if it is Validatable.
+   **/
+  override def validateBeforeExecution(): Unit = {
+    tableSink match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
+    }
   }
 }

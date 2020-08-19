@@ -45,6 +45,7 @@ import org.apache.flink.table.sources.wmstrategies.{PeriodicWatermarkAssigner, P
 import org.apache.flink.table.sources.{DefinedFieldMapping, RowtimeAttributeDescriptor, StreamTableSource}
 import org.apache.flink.table.types.{DataType, FieldsDataType}
 import org.apache.flink.table.utils.TypeMappingUtils
+import org.apache.flink.table.validate.Validatable
 import org.apache.flink.types.Row
 
 import org.apache.calcite.plan._
@@ -216,6 +217,17 @@ class StreamExecLegacyTableSourceScan(
         override def apply(t: String): String = mapping.getFieldMapping.get(t)
       }
     case _ => JFunction.identity()
+  }
+
+  /**
+   * Validate the table source if it is Validatable.
+   **/
+  override def validateBeforeExecution(): Unit = {
+    tableSource match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
+    }
   }
 }
 

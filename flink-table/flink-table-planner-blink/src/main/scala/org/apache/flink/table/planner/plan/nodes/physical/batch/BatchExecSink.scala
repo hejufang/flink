@@ -28,6 +28,7 @@ import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.delegation.BatchPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalSink
 import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode}
+import org.apache.flink.table.validate.Validatable
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelNode
@@ -92,5 +93,16 @@ class BatchExecSink(
       planner.getTableConfig,
       -1 /* not rowtime field */,
       isBounded = true)
+  }
+
+  /**
+   * Validate the table sink if it is Validatable.
+   **/
+  override def validateBeforeExecution(): Unit = {
+    tableSink match {
+      case validatable: Validatable =>
+        validatable.validate();
+      case _ =>
+    }
   }
 }
