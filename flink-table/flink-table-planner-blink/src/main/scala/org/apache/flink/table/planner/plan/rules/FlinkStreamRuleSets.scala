@@ -170,7 +170,9 @@ object FlinkStreamRuleSets {
     PushFilterIntoTableSourceScanRule.INSTANCE,
     PushFilterIntoLegacyTableSourceScanRule.INSTANCE,
     // push partition into the table scan
-    PushPartitionIntoLegacyTableSourceScanRule.INSTANCE
+    PushPartitionIntoLegacyTableSourceScanRule.INSTANCE,
+    // push partition into the dynamic table scan
+    PushPartitionIntoTableSourceScanRule.INSTANCE
   )
 
   /**

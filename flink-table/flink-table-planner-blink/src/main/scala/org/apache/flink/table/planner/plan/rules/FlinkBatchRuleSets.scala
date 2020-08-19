@@ -173,9 +173,10 @@ object FlinkBatchRuleSets {
 
     // push partition into the table scan
     PushPartitionIntoLegacyTableSourceScanRule.INSTANCE,
+    PushPartitionIntoTableSourceScanRule.INSTANCE,
     // push a filter down into the table scan
-    PushFilterIntoTableSourceScanRule.INSTANCE,
-    PushFilterIntoLegacyTableSourceScanRule.INSTANCE
+    PushFilterIntoLegacyTableSourceScanRule.INSTANCE,
+    PushFilterIntoTableSourceScanRule.INSTANCE
   )
 
   /**
