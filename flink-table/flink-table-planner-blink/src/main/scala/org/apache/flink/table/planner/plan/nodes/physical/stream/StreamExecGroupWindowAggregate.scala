@@ -79,9 +79,9 @@ class StreamExecGroupWindowAggregate(
   override def producesRetractions: Boolean = false
 
   override def requireWatermark: Boolean = window match {
-    case TumblingGroupWindow(_, timeField, size)
+    case TumblingGroupWindow(_, timeField, size, _)
       if isRowtimeAttribute(timeField) && hasTimeIntervalType(size) => true
-    case SlidingGroupWindow(_, timeField, size, _)
+    case SlidingGroupWindow(_, timeField, size, _, _)
       if isRowtimeAttribute(timeField) && hasTimeIntervalType(size) => true
     case SessionGroupWindow(_, timeField, _)
       if isRowtimeAttribute(timeField) => true
@@ -159,8 +159,8 @@ class StreamExecGroupWindowAggregate(
     }
 
     val isCountWindow = window match {
-      case TumblingGroupWindow(_, _, size) if hasRowIntervalType(size) => true
-      case SlidingGroupWindow(_, _, size, _) if hasRowIntervalType(size) => true
+      case TumblingGroupWindow(_, _, size, _) if hasRowIntervalType(size) => true
+      case SlidingGroupWindow(_, _, size, _, _) if hasRowIntervalType(size) => true
       case _ => false
     }
 
@@ -251,14 +251,14 @@ class StreamExecGroupWindowAggregate(
       needRetraction: Boolean): GeneratedNamespaceAggsHandleFunction[_] = {
 
     val needMerge = window match {
-      case SlidingGroupWindow(_, _, size, _) if hasTimeIntervalType(size) => true
+      case SlidingGroupWindow(_, _, size, _, _) if hasTimeIntervalType(size) => true
       case SessionGroupWindow(_, _, _) => true
       case _ => false
     }
     val windowClass = window match {
-      case TumblingGroupWindow(_, _, size) if hasRowIntervalType(size) =>
+      case TumblingGroupWindow(_, _, size, _) if hasRowIntervalType(size) =>
         classOf[CountWindow]
-      case SlidingGroupWindow(_, _, size, _) if hasRowIntervalType(size) =>
+      case SlidingGroupWindow(_, _, size, _, _) if hasRowIntervalType(size) =>
         classOf[CountWindow]
       case UserDefinedGroupWindow(_, _, _, _, _, _) => classOf[TimeWindow]
       case _ => classOf[TimeWindow]
@@ -300,40 +300,40 @@ class StreamExecGroupWindowAggregate(
       .withInputFields(inputFields.toArray)
 
     val newBuilder = window match {
-      case TumblingGroupWindow(_, timeField, size)
+      case TumblingGroupWindow(_, timeField, size, offset)
           if isProctimeAttribute(timeField) && hasTimeIntervalType(size) =>
-        builder.tumble(toDuration(size)).withProcessingTime()
+        builder.tumble(toDuration(size), toDuration(offset)).withProcessingTime()
 
-      case TumblingGroupWindow(_, timeField, size)
+      case TumblingGroupWindow(_, timeField, size, offset)
           if isRowtimeAttribute(timeField) && hasTimeIntervalType(size) =>
-        builder.tumble(toDuration(size)).withEventTime(timeIdx)
+        builder.tumble(toDuration(size), toDuration(offset)).withEventTime(timeIdx)
 
-      case TumblingGroupWindow(_, timeField, size)
+      case TumblingGroupWindow(_, timeField, size, _)
           if isProctimeAttribute(timeField) && hasRowIntervalType(size) =>
         builder.countWindow(toLong(size))
 
-      case TumblingGroupWindow(_, _, _) =>
+      case TumblingGroupWindow(_, _, _, _) =>
         // TODO: EventTimeTumblingGroupWindow should sort the stream on event time
         // before applying the  windowing logic. Otherwise, this would be the same as a
         // ProcessingTimeTumblingGroupWindow
         throw new UnsupportedOperationException(
           "Event-time grouping windows on row intervals are currently not supported.")
 
-      case SlidingGroupWindow(_, timeField, size, slide)
+      case SlidingGroupWindow(_, timeField, size, slide, offset)
           if isProctimeAttribute(timeField) && hasTimeIntervalType(size) =>
-        builder.sliding(toDuration(size), toDuration(slide))
+        builder.sliding(toDuration(size), toDuration(slide), toDuration(offset))
           .withProcessingTime()
 
-      case SlidingGroupWindow(_, timeField, size, slide)
+      case SlidingGroupWindow(_, timeField, size, slide, offset)
           if isRowtimeAttribute(timeField) && hasTimeIntervalType(size) =>
-        builder.sliding(toDuration(size), toDuration(slide))
+        builder.sliding(toDuration(size), toDuration(slide), toDuration(offset))
           .withEventTime(timeIdx)
 
-      case SlidingGroupWindow(_, timeField, size, slide)
+      case SlidingGroupWindow(_, timeField, size, slide, _)
           if isProctimeAttribute(timeField) && hasRowIntervalType(size) =>
         builder.countWindow(toLong(size), toLong(slide))
 
-      case SlidingGroupWindow(_, _, _, _) =>
+      case SlidingGroupWindow(_, _, _, _, _) =>
         // TODO: EventTimeTumblingGroupWindow should sort the stream on event time
         // before applying the  windowing logic. Otherwise, this would be the same as a
         // ProcessingTimeTumblingGroupWindow

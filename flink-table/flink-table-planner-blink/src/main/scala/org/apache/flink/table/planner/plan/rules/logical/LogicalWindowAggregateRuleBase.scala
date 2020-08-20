@@ -208,18 +208,8 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
       g._1 match {
         case call: RexCall =>
           call.getOperator match {
-            case FlinkSqlOperatorTable.TUMBLE =>
-              if (call.getOperands.size() == 2) {
-                true
-              } else {
-                throw new TableException("TUMBLE window with alignment is not supported yet.")
-              }
-            case FlinkSqlOperatorTable.HOP =>
-              if (call.getOperands.size() == 3) {
-                true
-              } else {
-                throw new TableException("HOP window with alignment is not supported yet.")
-              }
+            case FlinkSqlOperatorTable.TUMBLE | FlinkSqlOperatorTable.HOP =>
+              true
             case FlinkSqlOperatorTable.SESSION =>
               if (call.getOperands.size() == 2) {
                 true
@@ -258,18 +248,30 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
     windowExpr.getOperator match {
       case FlinkSqlOperatorTable.TUMBLE =>
         val interval = getOperandAsLong(windowExpr, 1)
+        val offset = if (windowExpr.getOperands.size() > 2) {
+          getOperandAsLong(windowExpr, 2)
+        } else {
+          0L
+        }
         TumblingGroupWindow(
           windowRef,
           timeField,
-          intervalOfMillis(interval))
+          intervalOfMillis(interval),
+          intervalOfMillis(offset))
 
       case FlinkSqlOperatorTable.HOP =>
         val (slide, size) = (getOperandAsLong(windowExpr, 1), getOperandAsLong(windowExpr, 2))
+        val offset = if (windowExpr.getOperands.size() > 3) {
+          getOperandAsLong(windowExpr, 3)
+        } else {
+          0L
+        }
         SlidingGroupWindow(
           windowRef,
           timeField,
           intervalOfMillis(size),
-          intervalOfMillis(slide))
+          intervalOfMillis(slide),
+          intervalOfMillis(offset))
 
       case FlinkSqlOperatorTable.SESSION =>
         val gap = getOperandAsLong(windowExpr, 1)
