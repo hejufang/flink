@@ -24,6 +24,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
  * Filter and Report failure to blacklist tracker.
  */
 public interface BlacklistReporter {
+
 	void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp);
 
 	void addIgnoreExceptionClass(Class<? extends Throwable> exceptionClass);

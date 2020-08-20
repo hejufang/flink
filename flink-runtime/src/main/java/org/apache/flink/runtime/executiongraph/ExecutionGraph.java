@@ -639,6 +639,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.isRecoverable = isRecoverable;
 
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
+		this.remoteBlacklistReporter.setExecutionGraph(this);
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
@@ -728,8 +729,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				public void failJobDueToTaskFailure(Throwable cause, ExecutionAttemptID failingTask) {
 					getJobMasterMainThreadExecutor().execute(() -> failGlobalIfExecutionIsStillRunning(cause, failingTask));
 				}
-			}
-		);
+			}, remoteBlacklistReporter);
 
 		// temporary fix
 		failureManager.setFailOnInvalidTokens(chkConfig.isFailOnInvalidTokens());
@@ -1950,7 +1950,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 					TaskManagerLocation taskManagerLocation = execution.getAssignedResourceLocation();
 					if (taskManagerLocation != null) {
-						remoteBlacklistReporter.onFailure(taskManagerLocation.getFQDNHostname(), taskManagerLocation.getResourceID(), ex, System.currentTimeMillis());
+						remoteBlacklistReporter.reportFailure(execution.getAttemptId(), ex, System.currentTimeMillis());
 					} else if (ex instanceof NoResourceAvailableException) {
 						remoteBlacklistReporter.clearBlacklist();
 					} else {

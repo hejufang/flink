@@ -23,14 +23,18 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,6 +61,9 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 
 	private final List<Class<? extends Throwable>> cachedExceptionClass;
 
+	@Nullable
+	private ExecutionGraph executionGraph;
+
 	public RemoteBlacklistReporterImpl(JobID jobId, Time rpcTimeout) {
 		this.jobID = jobId;
 		this.rpcTimeout = rpcTimeout;
@@ -73,6 +80,25 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 	}
 
 	@Override
+	public void setExecutionGraph(ExecutionGraph executionGraph) {
+		this.executionGraph = executionGraph;
+	}
+
+	// ------------------------------------------------------------------------
+	//  Blacklist Reporter
+	// ------------------------------------------------------------------------
+
+	@Override
+	public void reportFailure(ExecutionAttemptID attemptID, Throwable t, long timestamp) {
+		if (executionGraph != null) {
+			final TaskManagerLocation location = executionGraph.getRegisteredExecutions().get(attemptID).getAssignedResourceLocation();
+			onFailure(location.getFQDNHostname(), location.getResourceID(), t, timestamp);
+		} else {
+			throw new UnsupportedOperationException("Should report failure after executionGraph is initialized.");
+		}
+	}
+
+	@Override
 	public void suspend() {
 		componentMainThreadExecutor.assertRunningInMainThread();
 
@@ -82,8 +108,7 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 	}
 
 	@Override
-	public void close() {
-	}
+	public void close() {}
 
 	// ------------------------------------------------------------------------
 	//  Resource Manager Connection
@@ -108,6 +133,7 @@ public class RemoteBlacklistReporterImpl implements RemoteBlacklistReporter {
 	// ------------------------------------------------------------------------
 	//  Blacklist Reporter
 	// ------------------------------------------------------------------------
+
 	@Override
 	public void onFailure(String hostname, ResourceID resourceID, Throwable t, long timestamp) {
 		if (resourceManagerGateway != null && jobMasterId != null) {

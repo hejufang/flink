@@ -20,6 +20,8 @@ package org.apache.flink.runtime.blacklist.reporter;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
 
@@ -29,6 +31,12 @@ import javax.annotation.Nonnull;
  * Filter and Report failure to blacklist tracker.
  */
 public class NoOpBlacklistReporterImpl implements RemoteBlacklistReporter {
+	@Override
+	public void reportFailure(ExecutionAttemptID attemptID, Throwable t, long timestamp) {}
+
+	@Override
+	public void setExecutionGraph(ExecutionGraph executionGraph) {}
+
 	@Override
 	public void start(@Nonnull JobMasterId jobMasterId, @Nonnull ComponentMainThreadExecutor componentMainThreadExecutor) throws Exception { }
 
