@@ -184,11 +184,18 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		final Path tmpRestoreInstancePath = new Path(
 			instanceBasePath.getAbsolutePath(),
 			UUID.randomUUID().toString()); // used as restore source for IncrementalRemoteKeyedStateHandle
+		boolean error = false;
 		try {
 			restoreFromLocalState(
 				transferRemoteStateToLocalDirectory(tmpRestoreInstancePath, stateHandle));
+		} catch (Throwable t) {
+			error = true;
+			LOG.error("Fail to restore state from rocksdb directory {}.", tmpRestoreInstancePath.toString());
 		} finally {
-			cleanUpPathQuietly(tmpRestoreInstancePath);
+			// do not clean the directory when error occurs
+			if (!error) {
+				cleanUpPathQuietly(tmpRestoreInstancePath);
+			}
 		}
 	}
 
