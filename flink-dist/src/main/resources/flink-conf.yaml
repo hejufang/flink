@@ -20,11 +20,11 @@ common:
   taskmanager.memory.preallocate: false
   parallelism.default: 1
   stream-partitioner.default: rescale
-#  io.tmp.dirs: /opt/tmp/flink
-#  taskmanager.tmp.dirs: /opt/tmp/flink
+  
   state.backend: rocksdb
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.9/flink/fs_checkpoint_dir
-#  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
+  state.checkpoints.num-retained: 3
+
   taskmanager.network.memory.fraction: 0.3
   taskmanager.network.memory.max: 2147483648
 
