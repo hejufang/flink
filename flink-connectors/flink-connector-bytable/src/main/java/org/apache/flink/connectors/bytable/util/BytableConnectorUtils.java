@@ -18,7 +18,6 @@
 package org.apache.flink.connectors.bytable.util;
 
 import org.apache.flink.connectors.bytable.BytableOption;
-import org.apache.flink.util.AbstractID;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -47,21 +46,8 @@ public class BytableConnectorUtils {
 	public static final int TABLE_SERVER_WRITE_TIMEOUT_MS_DEFAULT = 5000;
 	public static final Client.ClientMetaCacheType CLIENT_META_CACHE_TYPE_DEFAULT =
 		Client.ClientMetaCacheType.OnDemandMetaCache;
-	private static int referenceCount = 0;
-	private static String fileLibPath = "bytableLib";
-	private static boolean initFlag = false;
 
 	public static synchronized Client getBytableClient(BytableOption bytableOption) {
-		if (!initFlag) {
-			try {
-				LOG.info("Init the bytable environment.");
-				initBytableEnvironment();
-				initFlag = true;
-			} catch (Exception e) {
-				throw new FlinkRuntimeException("Init the bytable environment failed.", e);
-			}
-		}
-		referenceCount++;
 		String metricName = bytableOption.getMetricName();
 		String masterUrls = bytableOption.getMasterUrls();
 		int threadPoolSize = bytableOption.getThreadPoolSize();
@@ -81,45 +67,6 @@ public class BytableConnectorUtils {
 		}
 		LOG.info("Connection established.");
 		return client;
-	}
-
-	private static void initBytableEnvironment() {
-		fileLibPath += new AbstractID();
-		LOG.info("Extract the file to : " + fileLibPath);
-		extractLib(fileLibPath, "libgflags.so.2");
-		extractLib(fileLibPath, "libcrypto.so.1.0.0");
-		extractLib(fileLibPath, "libinfsec.so");
-		extractLib(fileLibPath, "libjemalloc.so.2");
-		extractLib(fileLibPath, "libmsgpack.so.3");
-		extractLib(fileLibPath, "libprotobuf.so.15");
-		extractLib(fileLibPath, "libssl.so.1.0.0");
-		extractLib(fileLibPath, "libthrift-0.9.1.so");
-		extractLib(fileLibPath, "libglog.so.0");
-		extractLib(fileLibPath, "ld-linux-x86-64.so.2");
-		extractLib(fileLibPath, "libnss_nis.so.2");
-		extractLib(fileLibPath, "liblzma.so.5");
-		extractLib(fileLibPath, "libpthread.so.0");
-		extractLib(fileLibPath, "libc.so.6");
-		extractLib(fileLibPath, "libm.so.6");
-		extractLib(fileLibPath, "libresolv.so.2");
-		extractLib(fileLibPath, "libdl.so.2");
-		extractLib(fileLibPath, "libnsl.so.1");
-		extractLib(fileLibPath, "librt.so.1");
-		extractLib(fileLibPath, "libevent-2.0.so.5");
-		extractLib(fileLibPath, "libnss_compat.so.2");
-		extractLib(fileLibPath, "libgcc_s.so.1");
-		extractLib(fileLibPath, "libnss_dns.so.2");
-		extractLib(fileLibPath, "libstdc++.so.6");
-		extractLib(fileLibPath, "libnss_files.so.2");
-		extractLib(fileLibPath, "libnss_hesiod.so.2");
-		extractLib(fileLibPath, "libunwind.so.8");
-		extractLib(fileLibPath, "libnss_nisplus.so.2");
-		extractLib(fileLibPath, "libz.so.1");
-		extractLib(fileLibPath, "libbytable-cclient.so");
-		String libPath = System.getProperty("user.dir") + "/" + fileLibPath;
-		LOG.info("begin to set the D library : " + libPath);
-		addLibraryDir(libPath);
-		LOG.info("init the bytable environment success");
 	}
 
 	/**
@@ -175,20 +122,6 @@ public class BytableConnectorUtils {
 				throw new FlinkRuntimeException("Failed to get permissions to set library path", e);
 			} else {
 				throw new FlinkRuntimeException("Failed to get field handle to set library path", e);
-			}
-		}
-	}
-
-	public static synchronized void closeFile() {
-		referenceCount--;
-		if (referenceCount == 0) {
-			String dir = System.getProperty("user.dir") + "/" + fileLibPath;
-			boolean success = deleteDir((new File(dir)));
-			if (success) {
-				(new File(dir)).delete();
-				LOG.info("Successfully deleted {} . ", dir);
-			} else {
-				LOG.error("Failed to delete {} .", dir);
 			}
 		}
 	}

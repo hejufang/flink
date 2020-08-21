@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.flink.connectors.bytable.util.BytableConnectorUtils.closeFile;
 import static org.apache.flink.connectors.bytable.util.BytableConnectorUtils.getBytableClient;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -103,7 +102,6 @@ public class BytableSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> 
 				table.close();
 			}
 			if (bytableClient != null) {
-				closeFile();
 				bytableClient.close();
 			}
 		}

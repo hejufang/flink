@@ -36,7 +36,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.connectors.bytable.util.BytableConnectorUtils.closeFile;
 import static org.apache.flink.connectors.bytable.util.BytableConnectorUtils.getBytableClient;
 
 /**
@@ -141,7 +140,6 @@ public class BytableLookupFunction extends TableFunction<Row> {
 			table.close();
 		}
 		if (bytableClient != null) {
-			closeFile();
 			bytableClient.close();
 		}
 	}

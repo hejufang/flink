@@ -37,7 +37,7 @@ under the License.
 
 	<!-- connector client version -->
 	<properties>
-		<bytable.version>1.0.0-SNAPSHOT</bytable.version>
+		<bytable.version>1.1.0</bytable.version>
 		<clickhouse.version>0.1.54</clickhouse.version>
 		<databus.version>1.2.0-SNAPSHOT</databus.version>
 		<elasticsearch6.version>6.3.1</elasticsearch6.version>
