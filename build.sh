@@ -23,11 +23,11 @@ rm -rf output
 mvn clean -U package -DskipTests -Pinclude-hadoop
 # copy flink-1.9 to output
 mkdir -p output/deploy/flink-1.9
-rm -rf flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/opt
-cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/* output/deploy/flink-1.9/
+rm -rf flink-dist/target/flink-1.9.1-byted-SNAPSHOT-bin/flink-1.9.1-byted-SNAPSHOT/opt
+cp -r flink-dist/target/flink-1.9.1-byted-SNAPSHOT-bin/flink-1.9.1-byted-SNAPSHOT/* output/deploy/flink-1.9/
 
 # copy flink-tools to output
-cp -r flink-dist/target/flink-1.9-byted-SNAPSHOT-bin/flink-1.9-byted-SNAPSHOT/flink_deploy/* output/
+cp -r flink-dist/target/flink-1.9.1-byted-SNAPSHOT-bin/flink-1.9.1-byted-SNAPSHOT/flink_deploy/* output/
 
 # compile flink-1.5
 git checkout -b flink-1.5-deploy origin/flink-1.5
