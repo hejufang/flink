@@ -60,39 +60,41 @@ class CheckpointMetadataAnalyzer {
 		returnInfos.add(String.format("These are references of checkpoint %s", checkpoint.getCheckpointId()));
 
 		for (OperatorState operatorState : checkpoint.getOperatorStates()) {
+			int i = 0;
 			for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
 				List<KeyedStateHandle> keyedStateHandles = subtaskState.getManagedKeyedState().asList();
 				if (!keyedStateHandles.isEmpty()) {
 					KeyedStateHandle keyedStateHandle = keyedStateHandles.get(0);
-					analyzeKeyedStateHandle(keyedStateHandle, returnInfos);
+					analyzeKeyedStateHandle(keyedStateHandle, returnInfos, i, operatorState.getOperatorID().toString());
 				}
 
 				List<OperatorStateHandle> operatorStateHandles = subtaskState.getManagedOperatorState().asList();
 				if (!operatorStateHandles.isEmpty()) {
 					OperatorStateHandle operatorStateHandle = operatorStateHandles.get(0);
-					analyzeOperatorStateHandle(operatorStateHandle, returnInfos);
+					analyzeOperatorStateHandle(operatorStateHandle, returnInfos, i, operatorState.getOperatorID().toString());
 				}
+				i++;
 			}
 		}
 		return returnInfos;
 	}
 
-	private static void analyzeOperatorStateHandle(OperatorStateHandle operatorStateHandle, final List<String> infos) {
+	private static void analyzeOperatorStateHandle(OperatorStateHandle operatorStateHandle, final List<String> infos, int index, String operatorID) {
 		OperatorStreamStateHandle operatorStreamStateHandle = (OperatorStreamStateHandle) operatorStateHandle;
 		convertToFileStateHandle(operatorStreamStateHandle.getDelegateStateHandle()).ifPresent(
-				streamHandle -> infos.add(streamHandle.getFilePath().getPath()));
+				streamHandle -> infos.add(String.format("index=%d, operator=%s, path=%s, data=%s", index, operatorID, streamHandle.getFilePath().getPath(), operatorStreamStateHandle)));
 	}
 
-	private static void analyzeKeyedStateHandle(KeyedStateHandle keyedStateHandle, final List<String> infos) {
+	private static void analyzeKeyedStateHandle(KeyedStateHandle keyedStateHandle, final List<String> infos, int index, String operatorID) {
 		if (keyedStateHandle instanceof KeyGroupsStateHandle) {
 			final KeyGroupsStateHandle keyGroupsStateHandle = (KeyGroupsStateHandle) keyedStateHandle;
 			final Optional<FileStateHandle> fileStateHandle = convertToFileStateHandle(keyGroupsStateHandle.getDelegateStateHandle());
-			fileStateHandle.ifPresent(handle -> infos.add(handle.getFilePath().getPath()));
+			fileStateHandle.ifPresent(handle -> infos.add(String.format("index=%d, operator=%s, path=%s, data=%s", index, operatorID, handle.getFilePath().getPath(), keyedStateHandle)));
 		} else if (keyedStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
 			final IncrementalRemoteKeyedStateHandle incrementalRemoteKeyedStateHandle = (IncrementalRemoteKeyedStateHandle) keyedStateHandle;
 			incrementalRemoteKeyedStateHandle.getSharedState().values().forEach(
 					streamStateHandle -> convertToFileStateHandle(streamStateHandle).ifPresent(
-							handle -> infos.add(handle.getFilePath().getPath())));
+							handle -> infos.add(String.format("index=%d, operator=%s, path=%s, data=%s", index, operatorID, handle.getFilePath().getPath(), incrementalRemoteKeyedStateHandle))));
 		} else {
 			throw new IllegalStateException(String.format("Unexpected KeyedStateHandle instance %s", keyedStateHandle.getClass().getName()));
 		}
