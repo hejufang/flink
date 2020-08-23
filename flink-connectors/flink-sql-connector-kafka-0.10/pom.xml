@@ -68,6 +68,18 @@ under the License.
 									<include>org.apache.flink:flink-connector-kafka-0.9_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-connector-kafka-0.10_${scala.binary.version}</include>
 									<include>com.github.luben:zstd-jni</include>
+									<include>org.apache.parquet:parquet-column</include>
+									<include>org.apache.parquet:parquet-hadoop</include>
+									<include>org.apache.parquet:parquet-common</include>
+									<include>org.apache.parquet:parquet-format</include>
+									<include>org.apache.parquet:parquet-encoding</include>
+									<include>org.apache.parquet:parquet-jackson</include>
+									<include>org.apache.parquet:parquet-avro</include>
+									<include>org.codehaus.jackson:jackson-core-asl</include>
+									<include>org.codehaus.jackson:jackson-jaxrs</include>
+									<include>org.codehaus.jackson:jackson-mapper-asl</include>
+									<include>org.codehaus.jackson:jackson-xc</include>
+									<include>com.bytedance:commons</include>
 								</includes>
 							</artifactSet>
 							<filters>
