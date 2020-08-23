@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -75,4 +76,7 @@ public abstract class AbstractStateBackend implements StateBackend, java.io.Seri
 		String operatorIdentifier,
 		@Nonnull Collection<OperatorStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws Exception;
+
+	@VisibleForTesting
+	public void setOperatorStateRestoreThreads(int nThreads) {}
 }

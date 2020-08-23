@@ -172,6 +172,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	/** Whether we already lazily initialized our local storage directories. */
 	private transient boolean isInitialized;
 
+	private int nThreadOfOperatorStateBackend;
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -276,6 +278,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.priorityQueueStateType = PriorityQueueStateType.HEAP;
 		this.defaultMetricOptions = new RocksDBNativeMetricOptions();
 		this.enableTtlCompactionFilter = TernaryBoolean.UNDEFINED;
+		this.nThreadOfOperatorStateBackend = 1;
 	}
 
 	/**
@@ -311,6 +314,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		// configure incremental checkpoints
 		this.enableIncrementalCheckpointing = original.enableIncrementalCheckpointing.resolveUndefined(
 			config.getBoolean(CheckpointingOptions.INCREMENTAL_CHECKPOINTS));
+		this.nThreadOfOperatorStateBackend = config.getInteger(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
 
 		if (original.numberOfTransferingThreads == UNDEFINED_NUMBER_OF_TRANSFERING_THREADS) {
 			this.numberOfTransferingThreads = config.getInteger(CHECKPOINT_TRANSFER_THREAD_NUM);
@@ -983,5 +987,10 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		final Field initField = org.rocksdb.NativeLibraryLoader.class.getDeclaredField("initialized");
 		initField.setAccessible(true);
 		initField.setBoolean(null, false);
+	}
+
+	@Override
+	public void setOperatorStateRestoreThreads(int nThreads) {
+		this.nThreadOfOperatorStateBackend = nThreads;
 	}
 }

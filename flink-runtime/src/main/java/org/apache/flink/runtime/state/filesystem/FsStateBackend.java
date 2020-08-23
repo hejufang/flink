@@ -123,6 +123,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 	 * */
 	private final int writeBufferSize;
 
+	private int nThreadOfOperatorStateBackend;
+
 	// -----------------------------------------------------------------------
 
 	/**
@@ -366,6 +368,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		this.asynchronousSnapshots = original.asynchronousSnapshots.resolveUndefined(
 				configuration.getBoolean(CheckpointingOptions.ASYNC_SNAPSHOTS));
 
+		this.nThreadOfOperatorStateBackend = configuration.getInteger(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
+
 		final int sizeThreshold = original.fileStateThreshold >= 0 ?
 				original.fileStateThreshold :
 				configuration.getInteger(CheckpointingOptions.FS_SMALL_FILE_THRESHOLD);
@@ -563,7 +567,12 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			env.getExecutionConfig(),
 			isUsingAsynchronousSnapshots(),
 			stateHandles,
-			cancelStreamRegistry).build();
+			cancelStreamRegistry).setRestoreThreads(nThreadOfOperatorStateBackend).build();
+	}
+
+	@Override
+	public void setOperatorStateRestoreThreads(int nThreads) {
+		this.nThreadOfOperatorStateBackend = nThreads;
 	}
 
 	// ------------------------------------------------------------------------

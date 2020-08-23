@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state.memory;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.CheckpointingOptions;
@@ -116,6 +117,8 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 	/** Switch to chose between synchronous and asynchronous snapshots.
 	 * A value of 'UNDEFINED' means not yet configured, in which case the default will be used. */
 	private final TernaryBoolean asynchronousSnapshots;
+
+	private int nThreadOfOperatorStateBackend;
 
 	// ------------------------------------------------------------------------
 
@@ -225,6 +228,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 		this.maxStateSize = maxStateSize;
 
 		this.asynchronousSnapshots = asynchronousSnapshots;
+		this.nThreadOfOperatorStateBackend = 1;
 	}
 
 	/**
@@ -238,6 +242,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 		super(original.getCheckpointPath(), original.getSavepointPath(), configuration);
 
 		this.maxStateSize = original.maxStateSize;
+		this.nThreadOfOperatorStateBackend = configuration.getInteger(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
 
 		// if asynchronous snapshots were configured, use that setting,
 		// else check the configuration
@@ -316,7 +321,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 			env.getExecutionConfig(),
 			isUsingAsynchronousSnapshots(),
 			stateHandles,
-			cancelStreamRegistry).build();
+			cancelStreamRegistry).setRestoreThreads(nThreadOfOperatorStateBackend).build();
 	}
 
 	@Override
@@ -350,6 +355,11 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 			priorityQueueSetFactory,
 			isUsingAsynchronousSnapshots(),
 			cancelStreamRegistry).build();
+	}
+
+	@VisibleForTesting
+	public void setOperatorStateRestoreThreads(int restoreThreads) {
+		this.nThreadOfOperatorStateBackend = restoreThreads;
 	}
 
 	// ------------------------------------------------------------------------

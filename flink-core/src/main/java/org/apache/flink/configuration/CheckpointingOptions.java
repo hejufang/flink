@@ -61,6 +61,12 @@ public class CheckpointingOptions {
 			.defaultValue(0.5)
 			.withDescription("The maximum percentage of regions that can be recovered from history.");
 
+	/** The number of threads that used to restore operator states. */
+	public static final ConfigOption<Integer> OPERATOR_STATE_RESTORE_THREAD_NUM = ConfigOptions
+			.key("state.backend.operator.restore-thread-num")
+			.defaultValue(1)
+			.withDescription("The number of threads that used to restore operator states.");
+
 	/** Option whether the state backend should use an asynchronous snapshot method where
 	 * possible and configurable.
 	 *
