@@ -46,6 +46,7 @@ public class DefaultOperatorStateBackendBuilder implements
 	@VisibleForTesting
 	protected final CloseableRegistry cancelStreamRegistry;
 
+	private int restoreThreads;
 
 	public DefaultOperatorStateBackendBuilder(
 		ClassLoader userClassloader,
@@ -58,6 +59,7 @@ public class DefaultOperatorStateBackendBuilder implements
 		this.asynchronousSnapshots = asynchronousSnapshots;
 		this.restoreStateHandles = stateHandles;
 		this.cancelStreamRegistry = cancelStreamRegistry;
+		this.restoreThreads = 1;
 	}
 
 	@Override
@@ -77,8 +79,8 @@ public class DefaultOperatorStateBackendBuilder implements
 			userClassloader,
 			registeredOperatorStates,
 			registeredBroadcastStates,
-			restoreStateHandles
-		);
+			restoreStateHandles,
+			restoreThreads);
 		try {
 			restoreOperation.restore();
 		} catch (Exception e) {
@@ -94,5 +96,10 @@ public class DefaultOperatorStateBackendBuilder implements
 			new HashMap<>(),
 			snapshotStrategy
 		);
+	}
+
+	public DefaultOperatorStateBackendBuilder setRestoreThreads(int threads) {
+		this.restoreThreads = threads;
+		return this;
 	}
 }
