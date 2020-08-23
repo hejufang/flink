@@ -576,6 +576,11 @@ public class RocksDBStateBackend extends AbstractManagedMemoryStateBackend
         rocksDBStateBackend.setWriteBatchSize(writeBatchSize);
     }
 
+    @Override
+    public void setOperatorStateRestoreThreads(int nThreadOfOperatorStateBackend) {
+        rocksDBStateBackend.setNumberOfTransferThreads(nThreadOfOperatorStateBackend);
+    }
+
     // ------------------------------------------------------------------------
     //  utilities
     // ------------------------------------------------------------------------

@@ -45,12 +45,15 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.junit.Assert;
-import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -73,19 +76,28 @@ import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@RunWith(Parameterized.class)
 public class OperatorStateBackendTest {
 
-    @ClassRule
-    public static final TestExecutorResource<ExecutorService> EXECUTOR_RESOURCE =
+    @Rule
+    public final TestExecutorResource<ExecutorService> executorResource =
             new TestExecutorResource<>(() -> Executors.newFixedThreadPool(1));
 
     private final ClassLoader classLoader = getClass().getClassLoader();
     private final Collection<OperatorStateHandle> emptyStateHandles = Collections.emptyList();
 
+    @Parameterized.Parameters
+    public static Collection<Integer> data() {
+        return Arrays.asList(1, 5, 10);
+    }
+
+    @Parameterized.Parameter public int restoreThreads;
+
     @Test
     public void testCreateOnAbstractStateBackend() throws Exception {
         // we use the memory state backend as a subclass of the AbstractStateBackend
         final AbstractStateBackend abstractStateBackend = new MemoryStateBackend();
+        abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
         CloseableRegistry cancelStreamRegistry = new CloseableRegistry();
         final OperatorStateBackend operatorStateBackend =
                 abstractStateBackend.createOperatorStateBackend(
@@ -120,6 +132,7 @@ public class OperatorStateBackendTest {
         final OperatorStateBackend operatorStateBackend =
                 new DefaultOperatorStateBackendBuilder(
                                 classLoader, cfg, false, emptyStateHandles, new CloseableRegistry())
+                        .setRestoreThreads(restoreThreads)
                         .build();
 
         ListStateDescriptor<File> stateDescriptor = new ListStateDescriptor<>("test", File.class);
@@ -164,6 +177,7 @@ public class OperatorStateBackendTest {
                                 false,
                                 emptyStateHandles,
                                 new CloseableRegistry())
+                        .setRestoreThreads(restoreThreads)
                         .build();
 
         ListStateDescriptor<Serializable> stateDescriptor1 =
@@ -255,6 +269,7 @@ public class OperatorStateBackendTest {
     public void testCorrectClassLoaderUsedOnSnapshot() throws Exception {
 
         AbstractStateBackend abstractStateBackend = new MemoryStateBackend(4096);
+        abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
 
         final Environment env = createMockEnvironment();
         CloseableRegistry cancelStreamRegistry = new CloseableRegistry();
@@ -406,6 +421,7 @@ public class OperatorStateBackendTest {
     @Test
     public void testSnapshotEmpty() throws Exception {
         final AbstractStateBackend abstractStateBackend = new MemoryStateBackend(4096);
+        abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
         CloseableRegistry cancelStreamRegistry = new CloseableRegistry();
 
         final OperatorStateBackend operatorStateBackend =
@@ -433,6 +449,7 @@ public class OperatorStateBackendTest {
     @Test
     public void testSnapshotBroadcastStateWithEmptyOperatorState() throws Exception {
         final AbstractStateBackend abstractStateBackend = new MemoryStateBackend(4096);
+        abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
 
         OperatorStateBackend operatorStateBackend =
                 abstractStateBackend.createOperatorStateBackend(
@@ -555,6 +572,7 @@ public class OperatorStateBackendTest {
     @Test
     public void testSnapshotRestoreSync() throws Exception {
         AbstractStateBackend abstractStateBackend = new MemoryStateBackend(2 * 4096);
+        abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
 
         OperatorStateBackend operatorStateBackend =
                 abstractStateBackend.createOperatorStateBackend(
@@ -698,6 +716,7 @@ public class OperatorStateBackendTest {
                                 true,
                                 emptyStateHandles,
                                 new CloseableRegistry())
+                        .setRestoreThreads(restoreThreads)
                         .build();
 
         ListStateDescriptor<MutableType> stateDescriptor1 =
@@ -765,7 +784,7 @@ public class OperatorStateBackendTest {
                 operatorStateBackend.snapshot(
                         1, 1, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation());
 
-        ExecutorService executorService = EXECUTOR_RESOURCE.getExecutor();
+        ExecutorService executorService = executorResource.getExecutor();
 
         executorService.submit(runnableFuture);
 
@@ -805,6 +824,7 @@ public class OperatorStateBackendTest {
             operatorStateBackend.dispose();
 
             AbstractStateBackend abstractStateBackend = new MemoryStateBackend(4096);
+            abstractStateBackend.setOperatorStateRestoreThreads(restoreThreads);
             CloseableRegistry cancelStreamRegistry = new CloseableRegistry();
 
             operatorStateBackend =
@@ -885,6 +905,7 @@ public class OperatorStateBackendTest {
                                 true,
                                 emptyStateHandles,
                                 new CloseableRegistry())
+                        .setRestoreThreads(restoreThreads)
                         .build();
 
         ListStateDescriptor<MutableType> stateDescriptor1 =
@@ -919,7 +940,7 @@ public class OperatorStateBackendTest {
                 operatorStateBackend.snapshot(
                         1, 1, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation());
 
-        EXECUTOR_RESOURCE.getExecutor().submit(runnableFuture);
+        executorResource.getExecutor().submit(runnableFuture);
 
         // wait until the async checkpoint is in the write code, then continue
         waiterLatch.await();
@@ -944,6 +965,7 @@ public class OperatorStateBackendTest {
                                 true,
                                 emptyStateHandles,
                                 new CloseableRegistry())
+                        .setRestoreThreads(restoreThreads)
                         .build();
 
         ListStateDescriptor<MutableType> stateDescriptor1 =
@@ -967,7 +989,7 @@ public class OperatorStateBackendTest {
                 operatorStateBackend.snapshot(
                         1, 1, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation());
 
-        EXECUTOR_RESOURCE.getExecutor().submit(runnableFuture);
+        executorResource.getExecutor().submit(runnableFuture);
 
         // wait until the async checkpoint is in the stream's write code, then continue
         waiterLatch.await();

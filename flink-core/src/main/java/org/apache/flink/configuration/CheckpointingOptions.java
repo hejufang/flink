@@ -108,6 +108,12 @@ public class CheckpointingOptions {
                     .defaultValue(1)
                     .withDescription("The maximum number of completed checkpoints to retain.");
 
+    /** The number of threads that used to restore operator states. */
+    public static final ConfigOption<Integer> OPERATOR_STATE_RESTORE_THREAD_NUM =
+            ConfigOptions.key("state.backend.operator.restore-thread-num")
+                    .defaultValue(1)
+                    .withDescription("The number of threads that used to restore operator states.");
+
     /** @deprecated Checkpoints are always asynchronous. */
     @Deprecated
     public static final ConfigOption<Boolean> ASYNC_SNAPSHOTS =

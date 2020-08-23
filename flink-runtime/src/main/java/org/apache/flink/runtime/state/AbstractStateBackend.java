@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.state;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -28,6 +29,7 @@ import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.metrics.LatencyTrackingStateConfig;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 
@@ -44,6 +46,8 @@ import java.util.Collection;
 public abstract class AbstractStateBackend implements StateBackend, java.io.Serializable {
 
     private static final long serialVersionUID = 4620415814639230247L;
+
+    protected int nThreadOfOperatorStateBackend = -1;
 
     public static StreamCompressionDecorator getCompressionDecorator(
             ExecutionConfig executionConfig) {
@@ -83,4 +87,14 @@ public abstract class AbstractStateBackend implements StateBackend, java.io.Seri
             @Nonnull Collection<OperatorStateHandle> stateHandles,
             CloseableRegistry cancelStreamRegistry)
             throws Exception;
+
+    @VisibleForTesting
+    public void setOperatorStateRestoreThreads(int nThreads) {
+        Preconditions.checkArgument(nThreads > 0);
+        this.nThreadOfOperatorStateBackend = nThreads;
+    }
+
+    public int getOperatorStateRestoreThreads() {
+        return nThreadOfOperatorStateBackend > 0 ? nThreadOfOperatorStateBackend : 1;
+    }
 }

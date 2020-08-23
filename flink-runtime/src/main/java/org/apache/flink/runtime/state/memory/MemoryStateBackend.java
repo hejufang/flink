@@ -343,6 +343,7 @@ public class MemoryStateBackend extends AbstractFileStateBackend
                         isUsingAsynchronousSnapshots(),
                         stateHandles,
                         cancelStreamRegistry)
+                .setRestoreThreads(getOperatorStateRestoreThreads())
                 .build();
     }
 

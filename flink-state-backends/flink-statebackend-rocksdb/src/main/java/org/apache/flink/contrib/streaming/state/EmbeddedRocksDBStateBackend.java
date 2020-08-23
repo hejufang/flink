@@ -175,6 +175,7 @@ public class EmbeddedRocksDBStateBackend extends AbstractManagedMemoryStateBacke
      * key-group range.
      */
     private double overlapFractionThreshold;
+
     // ------------------------------------------------------------------------
 
     /** Creates a new {@code EmbeddedRocksDBStateBackend} for storing local state. */
@@ -218,6 +219,13 @@ public class EmbeddedRocksDBStateBackend extends AbstractManagedMemoryStateBacke
         this.enableIncrementalCheckpointing =
                 original.enableIncrementalCheckpointing.resolveUndefined(
                         config.get(CheckpointingOptions.INCREMENTAL_CHECKPOINTS));
+
+        if (original.nThreadOfOperatorStateBackend > 0) {
+            this.nThreadOfOperatorStateBackend = original.nThreadOfOperatorStateBackend;
+        } else {
+            this.nThreadOfOperatorStateBackend =
+                    config.get(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
+        }
 
         if (original.numberOfTransferThreads == UNDEFINED_NUMBER_OF_TRANSFER_THREADS) {
             this.numberOfTransferThreads = config.get(CHECKPOINT_TRANSFER_THREAD_NUM);
@@ -520,6 +528,7 @@ public class EmbeddedRocksDBStateBackend extends AbstractManagedMemoryStateBacke
                         asyncSnapshots,
                         stateHandles,
                         cancelStreamRegistry)
+                .setRestoreThreads(getOperatorStateRestoreThreads())
                 .build();
     }
 

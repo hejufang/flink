@@ -422,6 +422,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
         // configure latency tracking
         latencyTrackingConfigBuilder =
                 original.latencyTrackingConfigBuilder.configure(configuration);
+        this.nThreadOfOperatorStateBackend =
+                configuration.get(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
     }
 
     private int getValidFileStateThreshold(long fileStateThreshold) {
@@ -620,6 +622,7 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
                         isUsingAsynchronousSnapshots(),
                         stateHandles,
                         cancelStreamRegistry)
+                .setRestoreThreads(getOperatorStateRestoreThreads())
                 .build();
     }
 

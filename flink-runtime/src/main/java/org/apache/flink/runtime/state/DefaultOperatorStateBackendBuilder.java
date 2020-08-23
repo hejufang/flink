@@ -46,6 +46,8 @@ public class DefaultOperatorStateBackendBuilder
 
     @VisibleForTesting protected final CloseableRegistry cancelStreamRegistry;
 
+    private int restoreThreads;
+
     public DefaultOperatorStateBackendBuilder(
             ClassLoader userClassloader,
             ExecutionConfig executionConfig,
@@ -57,6 +59,7 @@ public class DefaultOperatorStateBackendBuilder
         this.asynchronousSnapshots = asynchronousSnapshots;
         this.restoreStateHandles = stateHandles;
         this.cancelStreamRegistry = cancelStreamRegistry;
+        this.restoreThreads = 1;
     }
 
     @Override
@@ -75,7 +78,8 @@ public class DefaultOperatorStateBackendBuilder
                         userClassloader,
                         registeredOperatorStates,
                         registeredBroadcastStates,
-                        restoreStateHandles);
+                        restoreStateHandles,
+                        restoreThreads);
         try {
             restoreOperation.restore();
         } catch (Exception e) {
@@ -95,5 +99,10 @@ public class DefaultOperatorStateBackendBuilder
                         snapshotStrategy,
                         cancelStreamRegistryForBackend,
                         asynchronousSnapshots ? ASYNCHRONOUS : SYNCHRONOUS));
+    }
+
+    public DefaultOperatorStateBackendBuilder setRestoreThreads(int threads) {
+        this.restoreThreads = threads;
+        return this;
     }
 }

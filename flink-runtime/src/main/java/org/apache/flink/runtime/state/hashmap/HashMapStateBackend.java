@@ -21,6 +21,7 @@ package org.apache.flink.runtime.state.hashmap;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.execution.SavepointFormatType;
@@ -84,6 +85,8 @@ public class HashMapStateBackend extends AbstractStateBackend implements Configu
     private HashMapStateBackend(HashMapStateBackend original, ReadableConfig config) {
         // configure latency tracking
         latencyTrackingConfigBuilder = original.latencyTrackingConfigBuilder.configure(config);
+        this.nThreadOfOperatorStateBackend =
+                config.get(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
     }
 
     @Override
@@ -157,6 +160,7 @@ public class HashMapStateBackend extends AbstractStateBackend implements Configu
                         true,
                         stateHandles,
                         cancelStreamRegistry)
+                .setRestoreThreads(getOperatorStateRestoreThreads())
                 .build();
     }
 }
