@@ -247,16 +247,12 @@ public class KafkaConsumerThread extends Thread {
 
 	private void initProcessedMap() {
 		Set<TopicPartition> toProcessPartitions = consumer.assignment();
-		Map<TopicPartition, Long> earliestOffsetMap = consumerCallBridge
-			.getBeginningOffsets(consumer, toProcessPartitions);
 		for (TopicPartition partition : toProcessPartitions) {
-			lastProcessedMap.put(partition, getLastCommittedOffset(earliestOffsetMap, partition));
+			lastProcessedMap.putIfAbsent(partition, consumer.position(partition));
 		}
-	}
-
-	private long getLastCommittedOffset(Map<TopicPartition, Long> earliestOffsetMap, TopicPartition partition) {
-		OffsetAndMetadata lastCommittedInfo = consumer.committed(partition);
-		return (lastCommittedInfo == null) ? earliestOffsetMap.getOrDefault(partition, 0L) : lastCommittedInfo.offset();
+		if (toProcessPartitions.size() != lastProcessedMap.size()) {
+			lastProcessedMap.keySet().removeIf(partition -> !toProcessPartitions.contains(partition));
+		}
 	}
 
 	// ------------------------------------------------------------------------
@@ -316,10 +312,6 @@ public class KafkaConsumerThread extends Thread {
 			// they are carried across via re-adding them to the unassigned partitions queue
 			List<KafkaTopicPartitionState<TopicPartition>> newPartitions;
 
-			if (sampleInterval > 0){
-				initProcessedMap();
-			}
-
 			// main fetch loop
 			while (running) {
 
@@ -351,6 +343,9 @@ public class KafkaConsumerThread extends Thread {
 					}
 					if (newPartitions != null) {
 						reassignPartitions(newPartitions);
+						if (sampleInterval > 0){
+							initProcessedMap();
+						}
 					}
 				} catch (AbortedReassignmentException e) {
 					continue;
@@ -679,8 +674,7 @@ public class KafkaConsumerThread extends Thread {
 	 * to {{@link #sampleSegmentLen}} plus number of records left to be sampling last call.
 	 */
 	private void runWaitingLoop(Set<TopicPartition> toProcessPartitions) throws InterruptedException {
-		Map<TopicPartition, Long> latestOffsetMap, earliestOffsetMap;
-		earliestOffsetMap = consumerCallBridge.getBeginningOffsets(consumer, toProcessPartitions);
+		Map<TopicPartition, Long> latestOffsetMap;
 		long latestOffset, lastProcessed;
 		boolean toWait = true;
 		while (running && toWait) {
@@ -690,8 +684,7 @@ public class KafkaConsumerThread extends Thread {
 			//Check each partitions if they are ready to be sampled, if not, pause the partitions.
 			for (TopicPartition partition : toProcessPartitions) {
 				latestOffset = latestOffsetMap.getOrDefault(partition, 0L);
-				lastProcessed = lastProcessedMap
-					.getOrDefault(partition, getLastCommittedOffset(earliestOffsetMap, partition));
+				lastProcessed = lastProcessedMap.get(partition);
 				if ((latestOffset - lastProcessed) >=
 						(toConsumeMap.getOrDefault(partition, 0L) + sampleSegmentLen)) {
 					if (!toConsumeMap.containsKey(partition)) {
