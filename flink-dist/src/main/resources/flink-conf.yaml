@@ -68,8 +68,6 @@ common:
   restart-strategy.failure-rate.failure-rate-interval: 40 min
   restart-strategy.failure-rate.delay: 20 s
 
-  flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
-
 # restart-strategy: fixed-delay
 # restart-strategy.fixed-delay.attempts: 100
 # restart-strategy.fixed-delay.delay: 20 s

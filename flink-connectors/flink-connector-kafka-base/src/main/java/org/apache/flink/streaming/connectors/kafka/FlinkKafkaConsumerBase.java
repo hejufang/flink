@@ -105,8 +105,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	public static final int MAX_NUM_PENDING_CHECKPOINTS = 100;
 
 	/**
-	 * The default interval to execute partition discovery,
-	 * in milliseconds ({@code Long.MIN_VALUE}, i.e. disabled by default).
+	 * The interval value to disable executing partition discovery.
 	 */
 	public static final long PARTITION_DISCOVERY_DISABLED = Long.MIN_VALUE;
 
@@ -115,6 +114,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	/** Configuration key to define the consumer's partition discovery interval, in milliseconds. */
 	public static final String KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = "flink.partition-discovery.interval-millis";
+
+	/** The default interval to execute partition discovery in milliseconds. */
+	public static final long PARTITION_DISCOVERY_INTERVAL_DEFAULT = 600000;
 
 	public static final String KEY_MANUAL_COMMIT_OFFSETS_INTERVAL_MILLIS = "flink.manually-commit-offsets.interval-millis";
 
