@@ -94,6 +94,19 @@ public final class FactoryUtil {
 		.withDescription("Defines the format identifier for encoding data. " +
 			"The identifier is used to discover a suitable format factory.");
 
+	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions.key("parallelism")
+		.intType()
+		.noDefaultValue()
+		.withDescription(
+			"The parallelism of connector.");
+
+	public static final ConfigOption<Boolean> SINK_LOG_FAILURES_ONLY = ConfigOptions
+		.key("sink.log-failures-only")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription(
+			"Flag indicating whether to ignore failures (and log them), or to fail on failures");
+
 	private static final String FORMAT_KEY = "format";
 
 	private static final String FORMAT_SUFFIX = ".format";
