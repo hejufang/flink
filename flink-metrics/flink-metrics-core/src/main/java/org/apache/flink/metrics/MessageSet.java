@@ -40,7 +40,10 @@ public class MessageSet<T> implements Gauge<MessageSet<T>> {
 
 	public void addMessage(Message<T> m) {
 		m.getMeta().setMessageType(messageType);
-		queue.add(m);
+		if (queue.size() == CAPACITY) {
+			queue.poll();
+		}
+		queue.offer(m);
 	}
 
 	public Collection<Message<T>> drainMessages() {
