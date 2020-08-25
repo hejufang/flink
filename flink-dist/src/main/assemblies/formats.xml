@@ -20,7 +20,7 @@ under the License.
 	xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.0 http://maven.apache.org/xsd/assembly-1.1.0.xsd">
-	<id>connector</id>
+	<id>format</id>
 	<formats>
 		<format>dir</format>
 	</formats>
@@ -30,30 +30,23 @@ under the License.
 
 	<files>
 		<file>
-			<source>../flink-connectors/flink-sql-connector-hive-1.2.2-bd31/target/flink-sql-connector-hive-1.2.2-bd31_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>connectors/</outputDirectory>
-			<destName>flink-sql-connector-hive-1.2.2-bd31_${scala.binary.version}-${project.version}.jar</destName>
+			<source>../flink-formats/flink-json/target/flink-json-${project.version}.jar</source>
+			<outputDirectory>formats/</outputDirectory>
+			<destName>flink-json-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
-			<source>../flink-connectors/flink-connector-tos/target/flink-connector-tos-${project.version}.jar</source>
-			<outputDirectory>connectors/</outputDirectory>
-			<destName>flink-connector-tos-${project.version}.jar</destName>
+			<source>../flink-formats/flink-pb/target/flink-pb-${project.version}.jar</source>
+			<outputDirectory>formats/</outputDirectory>
+			<destName>flink-pb-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 
 		<file>
-			<source>../flink-connectors/flink-connector-redis/target/flink-connector-redis-${project.version}.jar</source>
-			<outputDirectory>connectors/</outputDirectory>
-			<destName>flink-connector-redis-${project.version}.jar</destName>
-			<fileMode>0644</fileMode>
-		</file>
-
-		<file>
-			<source>../flink-connectors/flink-connector-jdbc/target/flink-connector-jdbc_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>connectors/</outputDirectory>
-			<destName>flink-connector-jdbc_${scala.binary.version}-${project.version}.jar</destName>
+			<source>../flink-formats/flink-sequence-file/target/flink-sequence-file-${project.version}.jar</source>
+			<outputDirectory>formats/</outputDirectory>
+			<destName>flink-sequence-file-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
 	</files>
