@@ -27,7 +27,9 @@ public enum MessageType {
 
 	ORIGINAL_METRICS("original_metrics"),
 
-	BLACKLIST("blacklist");
+	BLACKLIST("blacklist"),
+
+	JOB_CONFIG("job_config");
 
 	private final String name;
 
