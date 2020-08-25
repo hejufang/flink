@@ -53,6 +53,12 @@ under the License.
 				</exclusion>
 			</exclusions>
 		</dependency>
+
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>5.1.45</version>
+		</dependency>
 		<!-- Table ecosystem -->
 		<!-- Projects depending on this project won't depend on flink-table-*. -->
 		<dependency>
@@ -145,12 +151,6 @@ under the License.
 			<version>2.5.4</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>mysql</groupId>
-			<artifactId>mysql-connector-java</artifactId>
-			<version>8.0.20</version>
-			<scope>test</scope>
-		</dependency>
 
 		<!-- Derby test dependencies -->
 
@@ -215,6 +215,10 @@ under the License.
 										<relocation>
 											<pattern>com.fasterxml.jackson</pattern>
 											<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.mysql</pattern>
+											<shadedPattern>${shading.prefix}.com.mysql</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
