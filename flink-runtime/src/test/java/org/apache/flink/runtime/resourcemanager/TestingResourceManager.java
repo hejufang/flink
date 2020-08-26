@@ -119,7 +119,7 @@ public class TestingResourceManager extends ResourceManager<ResourceID> {
 	}
 
 	@Override
-	public boolean stopWorker(ResourceID worker) {
+	public boolean stopWorker(ResourceID worker, int exitCode) {
 		// cannot stop workers
 		return false;
 	}

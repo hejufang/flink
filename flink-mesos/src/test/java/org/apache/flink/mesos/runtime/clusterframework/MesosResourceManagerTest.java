@@ -491,7 +491,7 @@ public class MesosResourceManagerTest extends TestLogger {
 
 			CompletableFuture<Void> allocateResourceFuture = resourceManager.callAsync(
 				() -> {
-					rmServices.rmActions.allocateResource(resourceProfile);
+					rmServices.rmActions.allocateResources(resourceProfile, 1);
 					return null;
 				},
 				timeout);
@@ -577,7 +577,7 @@ public class MesosResourceManagerTest extends TestLogger {
 
 			CompletableFuture<Void> allocateResourceFuture = resourceManager.callAsync(
 				() -> {
-					rmServices.rmActions.allocateResource(resourceProfile1);
+					rmServices.rmActions.allocateResources(resourceProfile1, 1);
 					return null;
 				},
 				timeout);

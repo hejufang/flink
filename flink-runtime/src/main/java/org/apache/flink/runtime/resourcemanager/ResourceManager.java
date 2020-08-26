@@ -81,6 +81,8 @@ import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
+import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
+
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -245,6 +247,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	public Map<ResourceID, WorkerRegistration<WorkerType>> getTaskExecutors() {
 		return taskExecutors;
+	}
+
+	protected int getNumberExtraRegisteredTaskManagers() {
+		return slotManager.getNumberExtraRegisteredTaskManagers();
 	}
 
 	// ------------------------------------------------------------------------
@@ -490,6 +496,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	@Override
 	public void disconnectJobManager(final JobID jobId, final Exception cause) {
 		closeJobManagerConnection(jobId, cause);
+	}
+
+	protected void requestExtraTaskManagers(int extraNum) throws ResourceManagerException {
+		slotManager.requestExtraTaskManagers(extraNum);
+	}
+
+	protected void reduceExtraTaskManagers(int reduceNum) {
+		slotManager.reduceExtraTaskManagers(reduceNum);
 	}
 
 	@Override
@@ -1008,7 +1022,25 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
+	protected void releaseResource(ResourceID resourceID, Exception cause, int exitCode) {
+		WorkerRegistration<WorkerType> workerRegistration = taskExecutors.get(resourceID);
+		if (workerRegistration != null) {
+			WorkerType worker = workerRegistration.getWorker();
+			if (worker != null) {
+				if (stopWorker(worker, exitCode)) {
+					closeTaskManagerConnection(worker.getResourceID(), cause);
+				} else {
+					log.warn("Worker {} could not be stopped, exitCode {}.", worker.getResourceID(), exitCode);
+				}
+			}
+		}
+	}
+
 	protected void releaseResource(InstanceID instanceId, Exception cause) {
+		releaseResource(instanceId, cause, ContainerExitStatus.INVALID);
+	}
+
+	protected void releaseResource(InstanceID instanceId, Exception cause, int exitCode) {
 		WorkerType worker = null;
 
 		// TODO: Improve performance by having an index on the instanceId
@@ -1020,10 +1052,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 
 		if (worker != null) {
-			if (stopWorker(worker)) {
+			if (stopWorker(worker, exitCode)) {
 				closeTaskManagerConnection(worker.getResourceID(), cause);
 			} else {
-				log.debug("Worker {} could not be stopped.", worker.getResourceID());
+				log.warn("Worker {} could not be stopped, exitCode {}.", worker.getResourceID(), exitCode);
 			}
 		} else {
 			// unregister in order to clean up potential left over state
@@ -1346,9 +1378,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 * Stops the given worker.
 	 *
 	 * @param worker The worker.
+	 * @param exitCode The Container exitCode.
 	 * @return True if the worker was stopped, otherwise false
 	 */
-	public abstract boolean stopWorker(WorkerType worker);
+	public abstract boolean stopWorker(WorkerType worker, int exitCode);
+
+	public boolean stopWorker(WorkerType worker) {
+		return stopWorker(worker, ContainerExitStatus.INVALID);
+	}
 
 	/**
 	 * Set {@link SlotManager} whether to fail unfulfillable slot requests.
@@ -1376,9 +1413,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 
 		@Override
-		public Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) {
+		public Collection<ResourceProfile> allocateResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException {
 			validateRunsInMainThread();
-			return startNewWorker(resourceProfile);
+			return startNewWorkers(resourceProfile, resourceNumber);
 		}
 
 		@Override

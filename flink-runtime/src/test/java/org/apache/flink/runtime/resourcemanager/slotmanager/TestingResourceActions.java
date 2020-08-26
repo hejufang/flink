@@ -62,15 +62,19 @@ public class TestingResourceActions implements ResourceActions {
 	}
 
 	@Override
-	public Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) throws ResourceManagerException {
-		return allocateResourceFunction.apply(resourceProfile);
+	public Collection<ResourceProfile> allocateResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException {
+		Collection<ResourceProfile> resourceProfiles = new ArrayList<>();
+		for (int i = 0; i < resourceNumber; i++) {
+			resourceProfiles.addAll(allocateResourceFunction.apply(resourceProfile));
+		}
+		return resourceProfiles;
 	}
 
 	@Override
 	public Collection<ResourceProfile> initialResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException {
 		Collection<ResourceProfile> resourceProfiles = new ArrayList<>();
 		for (int i = 0; i < resourceNumber; i++) {
-			resourceProfiles.addAll(allocateResource(resourceProfile));
+			resourceProfiles.addAll(allocateResourceFunction.apply(resourceProfile));
 		}
 		return resourceProfiles;
 	}

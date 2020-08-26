@@ -24,8 +24,10 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
@@ -79,6 +81,7 @@ import com.bytedance.commons.consul.Discovery;
 import com.bytedance.commons.consul.ServiceNode;
 import com.bytedance.sr.estimater.client.EstimaterClient;
 import com.bytedance.sr.estimater.client.ResourcesUsage;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.ConstraintContent;
@@ -89,10 +92,13 @@ import org.apache.hadoop.yarn.api.protocolrecords.NodeSkipHighLoadContent;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ConstraintType;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 import org.apache.hadoop.yarn.api.records.ContainerUpdateType;
+import org.apache.hadoop.yarn.api.records.DeschedulerNodeSkipHighLoadContent;
+import org.apache.hadoop.yarn.api.records.DeschedulerResult;
 import org.apache.hadoop.yarn.api.records.ExecutionTypeRequest;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.GangSchedulerNotifyContent;
@@ -122,6 +128,7 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -284,6 +291,36 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private final boolean cleanupRunningContainersOnStop;
 
+	/** Enable yarn container descheduler. */
+	private final boolean deschedulerEnable;
+	/** Enable yarn container descheduler for load Type. */
+	private final boolean deschedulerLoadTypeEnable;
+	/** Enable yarn container descheduler for disk type. */
+	private final boolean deschedulerDiskTypeEnable;
+	/** Interval minimum time for yarn container performance type descheduler. */
+	private final long deschedulerPerfIntervalMinMs;
+	/** Interval minimum time for yarn container usability type descheduler. */
+	private final long deschedulerUsabilityIntervalMinMs;
+	/** Request new containers time out for yarn container descheduler. */
+	private final long deschedulerRequestTimeout;
+	/** Check interval for handle yarn container descheduler. */
+	private final long descheduledContainersCheckIntervalMs;
+	/** ConstraintType list according to type priority. */
+	private final List<ConstraintType> priorityConstraintTypes;
+	/** Descheduled containers need to handle. */
+	private List<Container> descheduledContainers;
+	/** Descheduled containers' constraint type now. */
+	private ConstraintType descheduledConstraintType;
+	/** Completed last time of constraint types, use for interval limit. */
+	private Map<ConstraintType, Long> deschedulerCompleteLastTime;
+	/** The time when handle descheduler start, use for deschedulerDurationMs counter. */
+	private long deschedulerStartTime;
+	private long deschedulerDurationMs;
+	private final Counter descheduledContainersCounter;
+	private final Gauge deschedulerDurationMsGuage;
+	private final TagGauge deschedulerReceivedGuage = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+	private final TagGauge deschedulerHandleGuage = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+
 	public YarnResourceManager(
 		RpcService rpcService,
 		String resourceManagerEndpointId,
@@ -389,6 +426,27 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		this.nodeAttributesExpression = flinkConfig.getString(YarnConfigOptions.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
 
 		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
+
+		this.deschedulerEnable = flinkConfig.getBoolean(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_ENABLE);
+		this.deschedulerLoadTypeEnable = flinkConfig.getBoolean(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_LOAD_TYPE_ENABLE);
+		this.deschedulerDiskTypeEnable = flinkConfig.getBoolean(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_DISK_TYPE_ENABLE);
+		this.deschedulerPerfIntervalMinMs = flinkConfig.getLong(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_PERFORMANCE_TYPE_INTERVAL_MIN_MS);
+		this.deschedulerUsabilityIntervalMinMs = flinkConfig.getLong(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_USABILITY_TYPE_INTERVAL_MIN_MS);
+		this.deschedulerRequestTimeout = flinkConfig.getLong(ResourceManagerOptions.TASK_MANAGER_TIMEOUT) / 2;
+		this.descheduledContainersCheckIntervalMs = deschedulerRequestTimeout / 10;
+		this.deschedulerStartTime = 0L;
+		this.descheduledContainers = new ArrayList<>();
+		this.priorityConstraintTypes =  Arrays.asList(
+			ConstraintType.NODE_DISK_HEALTHY_GUARANTEE,
+			ConstraintType.NODE_SKIP_HIGH_LOAD);
+		this.deschedulerCompleteLastTime = new HashMap<>();
+		this.descheduledContainersCounter = new SimpleCounter();
+		this.deschedulerDurationMsGuage = new Gauge() {
+			@Override
+			public Long getValue() {
+				return deschedulerDurationMs;
+			}
+		};
 
 		// smart resources
 		smartResourcesStats = new SmartResourcesStats();
@@ -569,6 +627,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		log.info("start checkSlowAllocation with slowContainerCheckIntervalMs: {}, slowContainerTimeoutMs: {}.",
 			slowContainerCheckIntervalMs, slowContainerTimeoutMs);
 		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		if (deschedulerEnable) {
+			log.info("start check descheduled containers with intervalMs: {}.", descheduledContainersCheckIntervalMs);
+			scheduleRunAsync(this::checkDescheduledContainers, descheduledContainersCheckIntervalMs, TimeUnit.MILLISECONDS);
+		}
 	}
 
 	@Override
@@ -681,14 +743,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	@Override
-	public boolean stopWorker(final YarnWorkerNode workerNode) {
+	public boolean stopWorker(final YarnWorkerNode workerNode, int exitCode) {
 		final Container container = workerNode.getContainer();
-		log.info("Stopping container {}.", container.getId());
+		log.info("Stopping container {}, exitCode {}.", container.getId(), exitCode);
 		try {
 			if (nmClientAsyncEnabled) {
-				nodeManagerClientAsync.stopContainerAsync(container.getId(), container.getNodeId());
+				nodeManagerClientAsync.stopContainerAsync(container.getId(), container.getNodeId(), exitCode);
 			} else {
-				nodeManagerClient.stopContainer(container.getId(), container.getNodeId());
+				nodeManagerClient.stopContainer(container.getId(), container.getNodeId(), exitCode);
 			}
 		} catch (final Exception e) {
 			log.warn("Error while calling YARN Node Manager to stop container", e);
@@ -841,6 +903,208 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				}
 			}
 		);
+	}
+
+	@Override
+	public void onContainersDescheduled(List<Container> receivedContainers) {
+		runAsync(() -> {
+			if (!deschedulerEnable) {
+				log.warn("descheduler is not enable, but received descheduled containers.");
+				return;
+			}
+			if (CollectionUtils.isEmpty(receivedContainers)) {
+				log.warn("get descheduled containers empty list.");
+				return;
+			}
+			String containerMsg = receivedContainers.stream().map(c -> c.getId().toString()).collect(Collectors.joining(","));
+			log.info("received descheduled containers: {}, size: {}", containerMsg, receivedContainers.size());
+			if (descheduledContainers.size() > 0) {
+				log.info("already have descheduled containers in processing, nowSize: {}.", descheduledContainers.size());
+				return;
+			}
+
+			// Filter containers and constraintType need handle by user config and priority
+			Tuple2<ConstraintType, List<Container>> descheduledTuple2 = filterConstraintTypeAndContainers(receivedContainers);
+			ConstraintType constraintType = descheduledTuple2.f0;
+			List<Container> containers = descheduledTuple2.f1;
+			if (constraintType == null || CollectionUtils.isEmpty(containers)) {
+				log.info("no descheduled containers need handle after filter.");
+				return;
+			}
+
+			// Check if descheduler in the interval limit.
+			Long completeLastTime = 0L;
+			if (deschedulerCompleteLastTime.containsKey(constraintType)) {
+				completeLastTime = deschedulerCompleteLastTime.get(constraintType);
+			}
+			Long deschedulerIntervalMinMs;
+			if (constraintType.equals(ConstraintType.NODE_DISK_HEALTHY_GUARANTEE)) {
+				deschedulerIntervalMinMs = deschedulerUsabilityIntervalMinMs;
+			} else {
+				deschedulerIntervalMinMs = deschedulerPerfIntervalMinMs;
+			}
+			if (System.currentTimeMillis() < completeLastTime + deschedulerIntervalMinMs) {
+				log.info("this deschedulerType: {} is in interval limit, last completeTime: {}, intervalMinMs: {}",
+					constraintType.name(), completeLastTime, deschedulerIntervalMinMs);
+				return;
+			}
+
+			for (Container container : containers) {
+				descheduledContainers.add(container);
+			}
+			descheduledConstraintType = constraintType;
+			descheduledContainersCounter.inc(containers.size());
+			deschedulerStartTime = System.currentTimeMillis();
+
+			try {
+				log.info("request new containers for release descheduled containers.");
+				requestExtraTaskManagers(containers.size());
+			} catch (ResourceManagerException ex) {
+				log.warn("request extra containers from resourceManager error, cancel descheduler process.", ex);
+				deschedulerFailedCounterInc("requestResourceError");
+				descheduledContainers.clear();
+			}
+		});
+	}
+
+	private Tuple2<ConstraintType, List<Container>> filterConstraintTypeAndContainers(List<Container> receivedContainers) {
+		Map<ConstraintType, List<Container>> constraintContainerMap = new HashMap<>();
+		for (Container container : receivedContainers) {
+			log.info("descheduled container: {}, host: {}.", container.getId(), container.getNodeHttpAddress());
+			List<DeschedulerResult> deschedulerResults = container.getDeschedulerResults().getHardDeschedulerResult();
+			for (DeschedulerResult deschedulerResult : deschedulerResults) {
+				deschedulerReceivedCounterInc(deschedulerResult);
+				ConstraintType constraintType = deschedulerResult.getGlobalConstraint().getConstraintType();
+				log.info("descheduler type: {}, content: {}.", constraintType, deschedulerResult.getDeschedulerResultContent());
+				if (constraintContainerMap.containsKey(constraintType)) {
+					constraintContainerMap.get(constraintType).add(container);
+					continue;
+				}
+				if ((constraintType.equals(ConstraintType.NODE_SKIP_HIGH_LOAD) && deschedulerLoadTypeEnable)
+					|| (constraintType.equals(ConstraintType.NODE_DISK_HEALTHY_GUARANTEE) && deschedulerDiskTypeEnable)) {
+					List<Container> constraintContainerList = new ArrayList<>();
+					constraintContainerList.add(container);
+					constraintContainerMap.put(constraintType, constraintContainerList);
+				} else {
+					log.info("constraint type {} is not enable or support.", constraintType);
+				}
+			}
+		}
+		if (constraintContainerMap.isEmpty()) {
+			return new Tuple2<>(null, Collections.emptyList());
+		}
+		// Filter by constraintType priority
+		for (ConstraintType constraintType : priorityConstraintTypes) {
+			if (constraintContainerMap.containsKey(constraintType)) {
+				log.info("descheduler constraintType is {} after filter.", constraintType);
+				return new Tuple2<>(constraintType, constraintContainerMap.get(constraintType));
+			}
+		}
+		return new Tuple2<>(null, Collections.emptyList());
+	}
+
+	private void deschedulerReceivedCounterInc(DeschedulerResult deschedulerResult) {
+		GlobalConstraint globalConstraint = deschedulerResult.getGlobalConstraint();
+		ConstraintType constraintType = globalConstraint.getConstraintType();
+		TagGaugeStore.TagValuesBuilder tagValueBuilder = new TagGaugeStore.TagValuesBuilder()
+			.addTagValue("constraintType", constraintType.name());
+		if (constraintType.equals(ConstraintType.NODE_SKIP_HIGH_LOAD)) {
+			DeschedulerNodeSkipHighLoadContent loadContent = deschedulerResult.getDeschedulerResultContent().getDeschedulerNodeSkipHighLoadContent();
+			tagValueBuilder.addTagValue("maxLoadCoreRatioLastMin", String.valueOf(
+				globalConstraint.getConstraintContent().getNodeSkipHighLoadContent().getMaxLoadCoreRatioLastMin()));
+			tagValueBuilder.addTagValue("currentNodeLoadAvgLastMin", String.valueOf(loadContent.getCurrentNodeLoadAvgLastMin()));
+			tagValueBuilder.addTagValue("currentContainerLoad", String.valueOf(loadContent.getCurrentContainerLoad()));
+		}
+		deschedulerReceivedGuage.addMetric(1, tagValueBuilder.build());
+	}
+
+	private void deschedulerFailedCounterInc(String reason) {
+		deschedulerHandleGuage.addMetric(
+			1,
+			new TagGaugeStore.TagValuesBuilder()
+				.addTagValue("constraintType", descheduledConstraintType.name())
+				.addTagValue("resultType", "failed")
+				.addTagValue("reason", reason)
+				.build());
+	}
+
+	private void deschedulerSuccessCounterInc() {
+		deschedulerHandleGuage.addMetric(
+			1,
+			new TagGaugeStore.TagValuesBuilder()
+				.addTagValue("constraintType", descheduledConstraintType.name())
+				.addTagValue("resultType", "success")
+				.build());
+	}
+
+	private int getDescuedulerExitCode(Container container) {
+		List<DeschedulerResult> deschedulerResults = container.getDeschedulerResults().getHardDeschedulerResult();
+		if (deschedulerResults != null && deschedulerResults.size() > 0) {
+			ConstraintType constraintType = null;
+			if (deschedulerResults.size() == 1) {
+				constraintType = deschedulerResults.get(0).getGlobalConstraint().getConstraintType();
+			} else {
+				Set<ConstraintType> constraintTypes = new HashSet<>();
+				for (DeschedulerResult deschedulerResult : deschedulerResults) {
+					constraintTypes.add(deschedulerResult.getGlobalConstraint().getConstraintType());
+				}
+				for (ConstraintType priorityConstraintType : priorityConstraintTypes) {
+					if (constraintTypes.contains(priorityConstraintType)) {
+						constraintType = priorityConstraintType;
+					}
+				}
+			}
+			if (constraintType == null) {
+				return ContainerExitStatus.KILLED_BY_DESCHEDULER;
+			}
+			if (constraintType.equals(ConstraintType.NODE_DISK_HEALTHY_GUARANTEE)) {
+				return ContainerExitStatus.KILLED_BY_DESCHEDULER_WHEN_DISK_FAILED;
+			} else if (constraintType.equals(ConstraintType.NODE_SKIP_HIGH_LOAD)) {
+				return ContainerExitStatus.KILLED_BY_DESCHEDULER_WHEN_EXCEEDED_LOAD_RATIO;
+			}
+		}
+		return ContainerExitStatus.KILLED_BY_DESCHEDULER;
+	}
+
+	private void checkDescheduledContainersInternal() {
+		if (descheduledContainers.size() <= 0) {
+			return;
+		}
+		if (System.currentTimeMillis() > deschedulerStartTime + deschedulerRequestTimeout) {
+			log.warn("request new resources for descheduler time out, outTime: {}, descheduled contaienr size: {}, now extra task manager size: {}.",
+				deschedulerRequestTimeout, descheduledContainers.size(), getNumberExtraRegisteredTaskManagers());
+			descheduledContainers.clear();
+			reduceExtraTaskManagers(descheduledContainers.size());
+			deschedulerFailedCounterInc("requestResourceTimeOut");
+			return;
+		}
+		if (getNumberExtraRegisteredTaskManagers() < descheduledContainers.size()) {
+			log.info("extra task manager is not ready for descheduler, need: {}, now: {}.", descheduledContainers.size(), getNumberExtraRegisteredTaskManagers());
+			return;
+		}
+		log.info("already get extra registered task manager: {}, descheduled container: {}, start to release descheduled containers.",
+			getNumberExtraRegisteredTaskManagers(), descheduledContainers.size());
+		int descheduledSize = descheduledContainers.size();
+		// reduce extra task manager num first, avoid request new containers after release descheduled containers.
+		reduceExtraTaskManagers(descheduledSize);
+		try {
+			for (Container container : descheduledContainers) {
+				log.info("start to release descheduled container {}, host: {}.", container.getId(), container.getNodeHttpAddress());
+				ResourceID resourceID = new ResourceID(container.getId().toString());
+				int exitCode = getDescuedulerExitCode(container);
+				releaseResource(resourceID, new Exception("this container need descheduler to keep constraint, exitCode:" + exitCode), exitCode);
+				log.info("already release descheduled container {}, host: {}.", container.getId(), container.getNodeHttpAddress());
+			}
+			deschedulerCompleteLastTime.put(descheduledConstraintType, System.currentTimeMillis());
+			deschedulerSuccessCounterInc();
+			deschedulerDurationMs = System.currentTimeMillis() - deschedulerStartTime;
+			log.info("handle descheduled containers success, size: {}, durationMs: {}.", descheduledSize, deschedulerDurationMs);
+		} catch (Exception ex) {
+			log.warn("handle descheduler error.", ex);
+			deschedulerFailedCounterInc("releaseResourceError");
+		} finally {
+			descheduledContainers.clear();
+		}
 	}
 
 	@Override
@@ -1111,6 +1375,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				ConstraintContent cc = ConstraintContent.newInstance();
 				cc.setNodeSkipHighLoadContent(nodeSkipHighLoadContent);
 				load.setConstraintContent(cc);
+				load.setIsDeschedulerEnabled(deschedulerEnable && deschedulerLoadTypeEnable);
 				hardConstraints.add(load);
 			}
 
@@ -1123,6 +1388,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				attributes.setConstraintContent(cc1);
 				hardConstraints.add(attributes);
 			}
+
+			// ----disk healthy guarantee----
+			GlobalConstraint disk = GlobalConstraint.newInstance(ConstraintType.NODE_DISK_HEALTHY_GUARANTEE);
+			disk.setIsDeschedulerEnabled(deschedulerEnable && deschedulerDiskTypeEnable);
+			hardConstraints.add(disk);
 
 			// ----set soft constraints----
 			List<GlobalConstraint> softConstraints = new ArrayList<>();
@@ -1695,6 +1965,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.counter("slowContainers", slowContainerCounter);
 		jobManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
 		jobManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
+		jobManagerMetricGroup.counter("descheduledContainers", descheduledContainersCounter);
+		jobManagerMetricGroup.gauge("deschedulerDurationMs", deschedulerDurationMsGuage);
+		jobManagerMetricGroup.gauge("deschedulerHandleResult", deschedulerHandleGuage);
+		jobManagerMetricGroup.gauge("deschedulerReceivedInfo", deschedulerReceivedGuage);
 	}
 
 	private void checkSlowContainersInternal() {
@@ -1763,6 +2037,16 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			log.warn("Error while checkSlowContainers.", e);
 		} finally {
 			scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	private void checkDescheduledContainers() {
+		try {
+			checkDescheduledContainersInternal();
+		} catch (Exception e) {
+			log.warn("Error while check descheduled containers.", e);
+		} finally {
+			scheduleRunAsync(this::checkDescheduledContainers, descheduledContainersCheckIntervalMs, TimeUnit.MILLISECONDS);
 		}
 	}
 

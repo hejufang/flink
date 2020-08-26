@@ -145,6 +145,8 @@ common:
   yarn.gang-scheduler.wait-time-before-retry-ms: 1000
   yarn.gang-scheduler.max-retry-times: 5
   yarn.gang-scheduler.downgrade-timeout-ms: 1800000
+  yarn.gang-scheduler.container-descheduler.enable: false
+  yarn.gang-scheduler.container-descheduler.disk-type-enable: false
 
   # GC log options
   flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
@@ -190,6 +192,8 @@ common:
   register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
 
   bytedance.streaming.yarn.gang-scheduler.enable: true
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: false
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.disk-type-enable: true
   bytedance.streaming.taskmanager.initial-on-start: true
   bytedance.streaming.taskmanager.number-initial-percentage: 1.0
   bytedance.streaming.flink.job_api: DataStream

@@ -40,13 +40,14 @@ public interface ResourceActions {
 	void releaseResource(InstanceID instanceId, Exception cause);
 
 	/**
-	 * Requests to allocate a resource with the given {@link ResourceProfile}.
+	 * Requests to allocate a resource with the given {@link ResourceProfile} and resource number.
 	 *
 	 * @param resourceProfile for the to be allocated resource
+	 * @param resourceNumber  the number of resources
 	 * @return Collection of {@link ResourceProfile} describing the allocated slots
 	 * @throws ResourceManagerException if the resource cannot be allocated
 	 */
-	Collection<ResourceProfile> allocateResource(ResourceProfile resourceProfile) throws ResourceManagerException;
+	Collection<ResourceProfile> allocateResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException;
 
 	/**
 	 * Requests to initialize resources with the given resourceNumber.

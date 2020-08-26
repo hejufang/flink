@@ -61,6 +61,8 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberAssignedPendingTaskManagerSlots();
 
+	int getNumberExtraRegisteredTaskManagers();
+
 	// ---------------------------------------------------------------------------------------------
 	// Component lifecycle methods
 	// ---------------------------------------------------------------------------------------------
@@ -87,6 +89,19 @@ public interface SlotManager extends AutoCloseable {
 	 * @throws ResourceManagerException if the slot request failed (e.g. not enough resources left)
 	 */
 	boolean registerSlotRequest(SlotRequest slotRequest) throws ResourceManagerException;
+
+	/**
+	 * Request extra task managers more than job actual needs, notice these task managers may release when time out.
+	 * @param extraNum
+	 * @throws ResourceManagerException
+	 */
+	void requestExtraTaskManagers(int extraNum) throws ResourceManagerException;
+
+	/**
+	 * Reduce extra task managers more than job actual needs, notice these task managers may release when time out.
+	 * @param reduceNum
+	 */
+	void reduceExtraTaskManagers(int reduceNum);
 
 	/**
 	 * Cancel all pending slot requests.

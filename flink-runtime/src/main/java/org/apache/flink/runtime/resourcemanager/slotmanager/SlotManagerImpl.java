@@ -92,8 +92,8 @@ public class SlotManagerImpl implements SlotManager {
 	/** Number of task managers. */
 	private final int numInitialTaskManagers;
 
-	/** Number of extra task managers. */
-	private final int numberExtraTaskManagers;
+	/** Number of extra initial task managers that will always keep. */
+	private final int numInitialExtraTaskManagers;
 
 	/** Shuffle the pending slots when TaskManager register. */
 	private final boolean shufflePendingSlots;
@@ -106,6 +106,9 @@ public class SlotManagerImpl implements SlotManager {
 
 	/** Number of Current Active TaskManagers.*/
 	private final AtomicInteger activeTaskManagers;
+
+	/** Number of Extra needed TaskManagers that will release after timeout. */
+	private final AtomicInteger numExtraTaskManagers;
 
 	/** Map of fulfilled and active allocations for request deduplication purposes. */
 	private final HashMap<AllocationID, SlotID> fulfilledSlotRequests;
@@ -205,7 +208,7 @@ public class SlotManagerImpl implements SlotManager {
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
 		this.numInitialTaskManagers = numInitialTaskManagers;
-		this.numberExtraTaskManagers = Math.max(
+		this.numInitialExtraTaskManagers = Math.max(
 				(int) (numInitialTaskManagers * extraInitialTaskManagerFraction),
 				extraInitialTaskManagerNumbers);
 
@@ -220,6 +223,7 @@ public class SlotManagerImpl implements SlotManager {
 		pendingSlots = new HashMap<>(16);
 		pendingTaskManagers = new AtomicInteger(0);
 		activeTaskManagers = new AtomicInteger(0);
+		numExtraTaskManagers = new AtomicInteger(0);
 
 		resourceManagerId = null;
 		resourceActions = null;
@@ -286,6 +290,15 @@ public class SlotManagerImpl implements SlotManager {
 		return (int) pendingSlots.values().stream().filter(slot -> slot.getAssignedPendingSlotRequest() != null).count();
 	}
 
+	/**
+	 * The number of taskManager already registered but more than job needed.
+	 * @return the number of free and excess taskManagers
+	 */
+	@Override
+	public int getNumberExtraRegisteredTaskManagers() {
+		return Math.max(0, taskManagerRegistrations.size() - getMinimalTaskManagerNumber());
+	}
+
 	// ---------------------------------------------------------------------------------------------
 	// Component lifecycle methods
 	// ---------------------------------------------------------------------------------------------
@@ -307,7 +320,7 @@ public class SlotManagerImpl implements SlotManager {
 
 		if (numInitialTaskManagers > 0) {
 			// initial slot manager with enough task managers.
-			initialResources(ResourceProfile.UNKNOWN, getMinimalTaskManagerNumber());
+			initialResources(ResourceProfile.UNKNOWN, numTaskManagersNeedRequest());
 		}
 
 		started = true;
@@ -366,6 +379,7 @@ public class SlotManagerImpl implements SlotManager {
 
 		activeTaskManagers.set(0);
 		pendingTaskManagers.set(0);
+		numExtraTaskManagers.set(0);
 
 		resourceManagerId = null;
 		resourceActions = null;
@@ -406,7 +420,7 @@ public class SlotManagerImpl implements SlotManager {
 		} else {
 			PendingSlotRequest pendingSlotRequest = new PendingSlotRequest(slotRequest);
 
-			if (activeTaskManagers.get() < numInitialTaskManagers) {
+			if (activeTaskManagers.get() < numTaskManagersNeedRequest()) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
 				if (taskManagerNotEnough()) {
@@ -425,6 +439,34 @@ public class SlotManagerImpl implements SlotManager {
 			}
 
 			return true;
+		}
+	}
+
+	@Override
+	public void requestExtraTaskManagers(int extraNum) throws ResourceManagerException {
+		LOG.info("request {} extra task managers, currently has {} extra task managers.", extraNum, this.numExtraTaskManagers.get());
+		checkInit();
+		if (extraNum <= 0) {
+			return;
+		}
+		this.numExtraTaskManagers.getAndAdd(extraNum);
+		try {
+			allocateResources(ResourceProfile.UNKNOWN, extraNum);
+		} catch (ResourceManagerException ex) {
+			reduceExtraTaskManagers(extraNum);
+			throw ex;
+		}
+	}
+
+	@Override
+	public void reduceExtraTaskManagers(int reduceNum) {
+		LOG.info("reduce extra task managers, size:{}, nowSize:{}", reduceNum, this.numExtraTaskManagers.get());
+		checkInit();
+		if (reduceNum <= 0) {
+			return;
+		}
+		if (this.numExtraTaskManagers.addAndGet(reduceNum * -1) < 0) {
+			this.numExtraTaskManagers.set(0);
 		}
 	}
 
@@ -978,7 +1020,11 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	private Optional<PendingTaskManagerSlot> allocateResource(ResourceProfile resourceProfile) throws ResourceManagerException {
-		final Collection<ResourceProfile> requestedSlots = resourceActions.allocateResource(resourceProfile);
+		return allocateResources(resourceProfile, 1);
+	}
+
+	private Optional<PendingTaskManagerSlot> allocateResources(ResourceProfile resourceProfile, int resourceNumber) throws ResourceManagerException {
+		final Collection<ResourceProfile> requestedSlots = resourceActions.allocateResources(resourceProfile, resourceNumber);
 
 		if (requestedSlots.isEmpty()) {
 			return Optional.empty();
@@ -991,7 +1037,7 @@ public class SlotManagerImpl implements SlotManager {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(slotIterator.next());
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
-			pendingTaskManagers.getAndIncrement();
+			pendingTaskManagers.getAndAdd(resourceNumber);
 
 			return Optional.of(pendingTaskManagerSlot);
 		}
@@ -1368,12 +1414,18 @@ public class SlotManagerImpl implements SlotManager {
 		Preconditions.checkState(started, "The slot manager has not been started.");
 	}
 
+	/** The minimal resources need keep. */
 	private int getMinimalTaskManagerNumber() {
-		return numInitialTaskManagers + numberExtraTaskManagers;
+		return numInitialTaskManagers + numInitialExtraTaskManagers;
+	}
+
+	/** As the only number for judge whether need request resources. */
+	private int numTaskManagersNeedRequest() {
+		return getMinimalTaskManagerNumber() + numExtraTaskManagers.get();
 	}
 
 	private boolean taskManagerNotEnough() {
-		return activeTaskManagers.get() + pendingTaskManagers.get() < getMinimalTaskManagerNumber();
+		return activeTaskManagers.get() + pendingTaskManagers.get() < numTaskManagersNeedRequest();
 	}
 
 	// ---------------------------------------------------------------------------------------------

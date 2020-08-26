@@ -171,7 +171,12 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"numberOfGlobalFailures",
 			"numberOfRecoverableJobs",
 			"blackedHost",
-			"completedContainer"
+			"completedContainer",
+			// container descheduler
+			"descheduledContainers",
+			"deschedulerReceivedInfo",
+			"deschedulerHandleResult",
+			"deschedulerDurationMs"
 	));
 
 	private Map<String, String> globalMetricNames = new HashMap<>();

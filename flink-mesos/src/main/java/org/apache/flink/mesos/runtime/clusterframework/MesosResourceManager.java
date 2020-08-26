@@ -465,8 +465,8 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 	}
 
 	@Override
-	public boolean stopWorker(RegisteredMesosWorkerNode workerNode) {
-		LOG.info("Stopping worker {}.", workerNode.getResourceID());
+	public boolean stopWorker(RegisteredMesosWorkerNode workerNode, int exitCode) {
+		LOG.info("Stopping worker {}, exitCode {}.", workerNode.getResourceID(), exitCode);
 		try {
 
 			if (workersInLaunch.containsKey(workerNode.getResourceID())) {

@@ -301,6 +301,46 @@ public class YarnConfigOptions {
 			.defaultValue(1800000)
 			.withDescription("Back to GangScheduler after downgrade timeout.");
 
+	/**
+	 * Open container descheduler in gang scheduler.
+	 */
+	public static final ConfigOption<Boolean> GANG_CONTAINER_DESCHEDULER_ENABLE =
+		key("yarn.gang-scheduler.container-descheduler.enable")
+			.defaultValue(false)
+			.withDescription("Enable yarn container descheduler in gang scheduler.");
+
+	/**
+	 * Enable disk type container descheduler in gang scheduler.
+	 */
+	public static final ConfigOption<Boolean> GANG_CONTAINER_DESCHEDULER_DISK_TYPE_ENABLE =
+		key("yarn.gang-scheduler.container-descheduler.disk-type-enable")
+			.defaultValue(false)
+			.withDescription("Enable yarn container descheduler in gang scheduler for disk constraint type.");
+
+	/**
+	 * Enable load type container descheduler in gang scheduler.
+	 */
+	public static final ConfigOption<Boolean> GANG_CONTAINER_DESCHEDULER_LOAD_TYPE_ENABLE =
+		key("yarn.gang-scheduler.container-descheduler.load-type-enable")
+			.defaultValue(false)
+			.withDescription("Enable yarn container descheduler in gang scheduler for load constraint type.");
+
+	/**
+	 * Interval minimum time for performance type(e.g. machine load problem) container descheduler in gang scheduler.
+	 */
+	public static final ConfigOption<Long> GANG_CONTAINER_DESCHEDULER_PERFORMANCE_TYPE_INTERVAL_MIN_MS =
+		key("yarn.gang-scheduler.container-descheduler.performance-type.interval-min-ms")
+			.defaultValue(6 * 60 * 60 * 1000L)
+			.withDescription("Minimum time interval before next scheduling of container performance-type descheduler in gang scheduler.");
+
+	/**
+	 * Interval minimum time for usability type(e.g. disk problem) container descheduler in gang scheduler.
+	 */
+	public static final ConfigOption<Long> GANG_CONTAINER_DESCHEDULER_USABILITY_TYPE_INTERVAL_MIN_MS =
+		key("yarn.gang-scheduler.container-descheduler.usability-type.interval-min-ms")
+			.defaultValue(30 * 60 * 1000L)
+			.withDescription("Minimum time interval before next scheduling of container usability-type descheduler in gang scheduler.");
+
 	// ------------------------------------------------------------------------
 
 	/**
