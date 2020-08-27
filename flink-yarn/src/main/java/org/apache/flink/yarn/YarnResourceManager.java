@@ -630,6 +630,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		if (deschedulerEnable) {
 			log.info("start check descheduled containers with intervalMs: {}.", descheduledContainersCheckIntervalMs);
 			scheduleRunAsync(this::checkDescheduledContainers, descheduledContainersCheckIntervalMs, TimeUnit.MILLISECONDS);
+		} else {
+			log.info("container descheduler is disabled.");
 		}
 	}
 
@@ -1375,7 +1377,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 				ConstraintContent cc = ConstraintContent.newInstance();
 				cc.setNodeSkipHighLoadContent(nodeSkipHighLoadContent);
 				load.setConstraintContent(cc);
-				load.setIsDeschedulerEnabled(deschedulerEnable && deschedulerLoadTypeEnable);
+				if (deschedulerEnable) {
+					load.setIsDeschedulerEnabled(deschedulerLoadTypeEnable);
+				}
 				hardConstraints.add(load);
 			}
 
@@ -1390,9 +1394,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			}
 
 			// ----disk healthy guarantee----
-			GlobalConstraint disk = GlobalConstraint.newInstance(ConstraintType.NODE_DISK_HEALTHY_GUARANTEE);
-			disk.setIsDeschedulerEnabled(deschedulerEnable && deschedulerDiskTypeEnable);
-			hardConstraints.add(disk);
+			if (deschedulerEnable) {
+				GlobalConstraint disk = GlobalConstraint.newInstance(ConstraintType.NODE_DISK_HEALTHY_GUARANTEE);
+				disk.setIsDeschedulerEnabled(deschedulerDiskTypeEnable);
+				hardConstraints.add(disk);
+			}
 
 			// ----set soft constraints----
 			List<GlobalConstraint> softConstraints = new ArrayList<>();
