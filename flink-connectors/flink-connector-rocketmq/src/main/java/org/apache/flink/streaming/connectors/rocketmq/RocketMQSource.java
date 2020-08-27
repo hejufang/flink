@@ -38,7 +38,6 @@ import org.apache.flink.streaming.connectors.rocketmq.serialization.RocketMQDese
 import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQueueStrategyParallelism;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
-import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -124,7 +123,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 	private transient int parallelism;
 	private transient int subTaskId;
-	private transient Throwable error;
+	/** Errors encountered in the async consumer are stored here. */
+	private transient volatile Throwable asyncError;
 	private transient GlobalAggregateManager taskRunningAggregateManager;
 	private transient TaskStateAggFunction taskStateAggFunction;
 	private transient ProcessingTimeService processingTimeService;
@@ -250,7 +250,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 								// Otherwise, MQPullConsumerScheduleService will catch all error
 								// and we cannot get the error and fail the job.
 								LOG.error("Failed to process data from source.", t);
-								error = t;
+								asyncError = t;
 								close();
 							}
 							break;
@@ -276,7 +276,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 						pullTaskContext.setPullNextDelayTimeMillis(delayWhenMessageNotFound);
 					}
 				} catch (Exception e) {
-					throw new RuntimeException(e);
+					LOG.error("Failed to consume data from source.", e);
+					asyncError = e;
 				}
 			}
 		});
@@ -306,8 +307,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		}
 	}
 
-	private void awaitTermination() throws InterruptedException {
+	private void awaitTermination() throws Exception {
 		while (runningChecker.isRunning()) {
+			checkErrors();
 			Thread.sleep(50);
 		}
 	}
@@ -395,15 +397,22 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		}
 	}
 
+	private void checkErrors() throws Exception {
+		Throwable t = asyncError;
+		if (t != null) {
+			// prevent double throwing
+			asyncError = null;
+			throw new Exception("Failed to consume data from RocketMQ: " + t.getMessage(), t);
+		}
+	}
+
 	@Override
 	public void close() throws Exception {
 		LOG.debug("close ...");
 		// pretty much the same logic as cancelling
 		try {
 			cancel();
-			if (error != null) {
-				throw new FlinkRuntimeException("Error occurs while consuming data from RocketMQ.", error);
-			}
+			checkErrors();
 		} finally {
 			super.close();
 		}

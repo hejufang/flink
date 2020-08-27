@@ -25,6 +25,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.rocketmq.selector.TopicSelector;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyValueSerializationSchema;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.rocketmq.client.exception.MQClientException;
@@ -66,6 +67,9 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 	private List<Message> batchList;
 
 	private int messageDeliveryDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL_DEFAULT;
+
+	/** Errors encountered in the async producer are stored here. */
+	private transient volatile Throwable asyncError;
 
 	public RocketMQSink(
 		boolean async,
@@ -139,6 +143,7 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 
 	@Override
 	public void invoke(IN input, Context context) throws Exception {
+		checkErrors();
 		Message msg = prepareMessage(input);
 
 		if (batchFlushOnCheckpoint) {
@@ -161,10 +166,12 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 					public void onException(Throwable throwable) {
 						if (throwable != null) {
 							LOG.error("Async send message failure!", throwable);
+							asyncError = throwable;
 						}
 					}
 				});
 			} catch (Exception e) {
+				asyncError = e;
 				LOG.error("Async send message failure!", e);
 			}
 		} else {
@@ -172,7 +179,7 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 				SendResult result = producer.send(msg);
 				LOG.debug("Sync send message result: {}", result);
 			} catch (Exception e) {
-				LOG.error("Sync send message failure!", e);
+				throw new FlinkRuntimeException("Sync send message failure!", e);
 			}
 		}
 	}
@@ -210,16 +217,25 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		return this;
 	}
 
+	private void checkErrors() throws Exception {
+		Throwable t = asyncError;
+		if (t != null) {
+			// prevent double throwing
+			asyncError = null;
+			throw new Exception("Failed to send data to RocketMQ: " + t.getMessage(), t);
+		}
+	}
+
 	@Override
 	public void close() throws Exception {
 		if (producer != null) {
 			try {
 				flushSync();
-			} catch (Exception e) {
-				LOG.error("FlushSync failure!", e);
+				checkErrors();
+			} finally {
+				// make sure producer can be shutdown, thus current producerGroup will be unregistered
+				producer.shutdown();
 			}
-			// make sure producer can be shutdown, thus current producerGroup will be unregistered
-			producer.shutdown();
 		}
 	}
 
