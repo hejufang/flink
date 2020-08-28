@@ -421,7 +421,7 @@ public class SlotManagerImpl implements SlotManager {
 		} else {
 			PendingSlotRequest pendingSlotRequest = new PendingSlotRequest(slotRequest);
 
-			if (activeTaskManagers.get() < numTaskManagersNeedRequest()) {
+			if (activeTaskManagers.get() < numInitialTaskManagers) {
 				waitingTaskManagerSlotRequests.put(slotRequest.getAllocationId(), pendingSlotRequest);
 				LOG.info("Add pendingSlotRequest {} to wait SlotManager initialized.", slotRequest.getAllocationId());
 				if (taskManagerNotEnough()) {
