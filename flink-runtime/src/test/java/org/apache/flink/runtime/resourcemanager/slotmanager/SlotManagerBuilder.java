@@ -102,9 +102,6 @@ public class SlotManagerBuilder {
 			taskManagerRequestTimeout,
 			slotRequestTimeout,
 			taskManagerTimeout,
-			waitResultConsumedBeforeRelease,
-			numInitialTaskManagers,
-			extraInitialTaskManagerNumbers,
-			extraInitialTaskManagerFraction);
+			waitResultConsumedBeforeRelease);
 	}
 }

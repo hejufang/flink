@@ -23,6 +23,7 @@ import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.JobManagerOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.ConfigMessage;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
@@ -293,7 +294,13 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.establishedResourceManagerConnection = null;
 
 		this.accumulators = new HashMap<>();
-		this.jobInfo = new JobInfo(jobGraph.calcMinRequiredSlotsNum());
+
+		// initialize job information
+		final int slotsPerTaskManager = jobMasterConfiguration.getConfiguration().getInteger(TaskManagerOptions.NUM_TASK_SLOTS);
+		final int numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPerTaskManager - 1) / slotsPerTaskManager;
+		final double initialPercentage = jobMasterConfiguration.getConfiguration().getDouble(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS_PERCENTAGE);
+		final int initialExtraTaskManagers = jobMasterConfiguration.getConfiguration().getInteger(TaskManagerOptions.NUM_EXTRA_INITIAL_TASK_MANAGERS);
+		this.jobInfo = new JobInfo(jobGraph.calcMinRequiredSlotsNum(), (int) (numTaskManagers * initialPercentage), initialExtraTaskManagers);
 
 		// send job's configuration
 		if (jobManagerJobMetricGroup != null) {

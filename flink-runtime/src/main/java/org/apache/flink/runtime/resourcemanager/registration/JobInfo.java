@@ -18,17 +18,66 @@
 
 package org.apache.flink.runtime.resourcemanager.registration;
 
+import org.apache.flink.annotation.VisibleForTesting;
+
+import java.util.Objects;
+
 /**
  * Job information, such as minimum required slot num of job.
  */
 public class JobInfo implements java.io.Serializable {
 	private final int minSlotsNum;
+	private final int initialTaskManagers;
+	private final int initialExtraTaskManagers;
 
+	@VisibleForTesting
 	public JobInfo(int minSlotsNum) {
+		this(minSlotsNum, 1, 0);
+	}
+
+	public JobInfo(int minSlotsNum, int initialTaskManagers, int extraTaskManagers) {
 		this.minSlotsNum = minSlotsNum;
+		this.initialTaskManagers = initialTaskManagers;
+		this.initialExtraTaskManagers = extraTaskManagers;
 	}
 
 	public int getMinSlotsNum() {
 		return minSlotsNum;
+	}
+
+	public int getInitialTaskManagers() {
+		return initialTaskManagers;
+	}
+
+	public int getInitialExtraTaskManagers() {
+		return initialExtraTaskManagers;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		JobInfo jobInfo = (JobInfo) o;
+		return minSlotsNum == jobInfo.minSlotsNum &&
+				initialTaskManagers == jobInfo.initialTaskManagers &&
+				initialExtraTaskManagers == jobInfo.initialExtraTaskManagers;
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(minSlotsNum, initialTaskManagers, initialExtraTaskManagers);
+	}
+
+	@Override
+	public String toString() {
+		return "JobInfo{" +
+				"minSlotsNum=" + minSlotsNum +
+				", initialTaskManagers=" + initialTaskManagers +
+				", initialExtraTaskManagers=" + initialExtraTaskManagers +
+				'}';
 	}
 }

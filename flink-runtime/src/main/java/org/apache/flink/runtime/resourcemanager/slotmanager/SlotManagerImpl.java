@@ -31,6 +31,7 @@ import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
+import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
@@ -89,12 +90,6 @@ public class SlotManagerImpl implements SlotManager {
 	/** Index of all currently free slots. */
 	private final LinkedHashMap<SlotID, TaskManagerSlot> freeSlots;
 
-	/** Number of task managers. */
-	private final int numInitialTaskManagers;
-
-	/** Number of extra initial task managers that will always keep. */
-	private final int numInitialExtraTaskManagers;
-
 	/** Shuffle the pending slots when TaskManager register. */
 	private final boolean shufflePendingSlots;
 
@@ -149,23 +144,11 @@ public class SlotManagerImpl implements SlotManager {
 	 * */
 	private boolean failUnfulfillableRequest = true;
 
-	public SlotManagerImpl(
-		SlotMatchingStrategy slotMatchingStrategy,
-		ScheduledExecutor scheduledExecutor,
-		Time taskManagerRequestTimeout,
-		Time slotRequestTimeout,
-		Time taskManagerTimeout,
-		boolean waitResultConsumedBeforeRelease) {
-		this(slotMatchingStrategy,
-			scheduledExecutor,
-			taskManagerRequestTimeout,
-			slotRequestTimeout,
-			taskManagerTimeout,
-			waitResultConsumedBeforeRelease,
-			0,
-			0,
-			0);
-	}
+	/** Number of task managers. */
+	private int numInitialTaskManagers = 0;
+
+	/** Number of extra initial task managers that will always keep. */
+	private int numInitialExtraTaskManagers = 0;
 
 	public SlotManagerImpl(
 			SlotMatchingStrategy slotMatchingStrategy,
@@ -173,19 +156,13 @@ public class SlotManagerImpl implements SlotManager {
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
-			boolean waitResultConsumedBeforeRelease,
-			int numInitialTaskManagers,
-			int extraInitialTaskManagerNumbers,
-			float extraInitialTaskManagerFraction) {
+			boolean waitResultConsumedBeforeRelease) {
 		this(slotMatchingStrategy,
 				scheduledExecutor,
 				taskManagerRequestTimeout,
 				slotRequestTimeout,
 				taskManagerTimeout,
 				waitResultConsumedBeforeRelease,
-				numInitialTaskManagers,
-				extraInitialTaskManagerNumbers,
-				extraInitialTaskManagerFraction,
 				false);
 	}
 
@@ -196,9 +173,6 @@ public class SlotManagerImpl implements SlotManager {
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
-			int numInitialTaskManagers,
-			int extraInitialTaskManagerNumbers,
-			float extraInitialTaskManagerFraction,
 			boolean shufflePendingSlots) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
@@ -207,11 +181,6 @@ public class SlotManagerImpl implements SlotManager {
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
-		this.numInitialTaskManagers = numInitialTaskManagers;
-		this.numInitialExtraTaskManagers = Math.max(
-				(int) (numInitialTaskManagers * extraInitialTaskManagerFraction),
-				extraInitialTaskManagerNumbers);
-
 		this.shufflePendingSlots = shufflePendingSlots;
 
 		slots = new HashMap<>(16);
@@ -297,6 +266,13 @@ public class SlotManagerImpl implements SlotManager {
 	@Override
 	public int getNumberExtraRegisteredTaskManagers() {
 		return Math.max(0, taskManagerRegistrations.size() - getMinimalTaskManagerNumber());
+	}
+
+	@Override
+	public void setJobInfo(JobID jobID, JobInfo jobInfo) {
+		// TODO. support multiple jobs requirement with JobID
+		this.numInitialTaskManagers = jobInfo.getInitialTaskManagers();
+		this.numInitialExtraTaskManagers = jobInfo.getInitialExtraTaskManagers();
 	}
 
 	// ---------------------------------------------------------------------------------------------
