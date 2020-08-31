@@ -120,7 +120,7 @@ public class JobTaskVertexTest {
 			assertEquals("Previous classloader was not restored.", ctxCl, Thread.currentThread().getContextClassLoader());
 
 			try {
-				copy.finalizeOnMaster(cl, new ExecutionInfo[0]);
+				copy.finalizeOnMaster(cl, new ExecutionInfo[0], null);
 				fail("Did not throw expected exception.");
 			} catch (TestException e) {
 				// all good

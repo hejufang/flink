@@ -38,6 +38,8 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -526,9 +528,12 @@ public class JobVertex implements java.io.Serializable {
 	 *
 	 * @param loader The class loader for user defined code.
 	 * @param finishedAttempts The finished Attempts for this vertex.
+	 * @param ioExecutor The executor for users to do IO operations.
 	 * @throws Exception The method may throw exceptions which cause the job to fail immediately.
 	 */
-	public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts) throws Exception {}
+	public CompletableFuture<Void> finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts, Executor ioExecutor) throws Exception {
+		return CompletableFuture.completedFuture(null);
+	}
 
 	// --------------------------------------------------------------------------------------------
 

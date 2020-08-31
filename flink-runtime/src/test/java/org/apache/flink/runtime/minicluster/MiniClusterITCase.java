@@ -53,6 +53,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
@@ -556,7 +557,7 @@ public class MiniClusterITCase extends TestLogger {
 			source.setInvokableClass(WaitingNoOpInvokable.class);
 			source.setParallelism(parallelism);
 
-			final WaitOnFinalizeJobVertex sink = new WaitOnFinalizeJobVertex("Sink", 20L);
+			final WaitOnFinalizeJobVertex sink = new WaitOnFinalizeJobVertex("Sink", 2000L);
 			sink.setInvokableClass(NoOpInvokable.class);
 			sink.setParallelism(parallelism);
 
@@ -573,6 +574,41 @@ public class MiniClusterITCase extends TestLogger {
 			jobResultFuture.get().toJobExecutionResult(getClass().getClassLoader());
 
 			assertTrue(sink.finalizedOnMaster.get());
+		}
+	}
+
+	@Test(expected = JobExecutionException.class)
+	public void testFinalizeOnMasterThrowsException() throws Exception {
+		final int parallelism = 11;
+
+		final MiniClusterConfiguration cfg = new MiniClusterConfiguration.Builder()
+				.setNumTaskManagers(1)
+				.setNumSlotsPerTaskManager(parallelism)
+				.setConfiguration(getDefaultConfiguration())
+				.build();
+
+		try (final MiniCluster miniCluster = new MiniCluster(cfg)) {
+			miniCluster.start();
+
+			final JobVertex source = new JobVertex("Source");
+			source.setInvokableClass(WaitingNoOpInvokable.class);
+			source.setParallelism(parallelism);
+
+			final ThrowsExceptionJobVertex sink = new ThrowsExceptionJobVertex("Sink");
+			sink.setInvokableClass(NoOpInvokable.class);
+			sink.setParallelism(parallelism);
+
+			sink.connectNewDataSetAsInput(source, DistributionPattern.POINTWISE,
+					ResultPartitionType.PIPELINED);
+
+			final JobGraph jobGraph = new JobGraph("SubtaskInFinalStateRaceCondition", source, sink);
+
+			final CompletableFuture<JobSubmissionResult> submissionFuture = miniCluster.submitJob(jobGraph);
+
+			final CompletableFuture<JobResult> jobResultFuture = submissionFuture.thenCompose(
+					(JobSubmissionResult ignored) -> miniCluster.requestJobResult(jobGraph.getJobID()));
+
+			jobResultFuture.get().toJobExecutionResult(getClass().getClassLoader());
 		}
 	}
 
@@ -603,6 +639,26 @@ public class MiniClusterITCase extends TestLogger {
 		return jg;
 	}
 
+	private static class ThrowsExceptionJobVertex extends JobVertex {
+		private static final long serialVersionUID = -1179547322468530299L;
+
+		public ThrowsExceptionJobVertex(String name) {
+			super(name);
+		}
+
+		@Override
+		public CompletableFuture<Void> finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts, Executor ioExecutor) throws Exception {
+			return CompletableFuture.runAsync(() -> {
+				try {
+					Thread.sleep(1000);
+					throw new RuntimeException("Expected exception.");
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+			}, ioExecutor);
+		}
+	}
+
 	private static class WaitOnFinalizeJobVertex extends JobVertex {
 
 		private static final long serialVersionUID = -1179547322468530299L;
@@ -618,9 +674,15 @@ public class MiniClusterITCase extends TestLogger {
 		}
 
 		@Override
-		public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts) throws Exception {
-			Thread.sleep(waitingTime);
-			finalizedOnMaster.set(true);
+		public CompletableFuture<Void> finalizeOnMaster(ClassLoader loader, ExecutionInfo[] finishedAttempts, Executor ioExecutor) throws Exception {
+			return CompletableFuture.runAsync(() -> {
+				try {
+					Thread.sleep(waitingTime);
+				} catch (InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+				finalizedOnMaster.set(true);
+			}, ioExecutor);
 		}
 	}
 }
