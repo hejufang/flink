@@ -47,9 +47,9 @@ common:
 
   # fs.hdfs.hdfssite: /opt/tiger/yarn_deploy/hadoop/conf/hdfs-site.xml
 
-#  metrics.reporters: opentsdb_reporter
-#  metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
-#  metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
+  #  metrics.reporters: opentsdb_reporter
+  #  metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
+  #  metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
 
   prune.buffer.threshold: 262144
 
@@ -320,22 +320,46 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
   cluster.evenly-spread-out-slots: true
 
-maliva:
-  dc: va
-  clusterName: maliva
-  high-availability.zookeeper.quorum: 10.110.150.57:2181,10.110.150.58:2181,10.110.150.59:2181,10.110.150.60:2181,10.110.150.61:2181
-  hdfs.prefix: hdfs://harunavaali/flink_maliva
-  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
-  dashboard.data_source: bytetsd_maliva
-  dtop.data_source: dtop_maliva
-  dtop.database: dtop_maliva
-  smart-resources.service-name: data.inf.sr_estimater.service.maliva
-  kafka_server_url: http://kafka-config-va.byted.org
-  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
-  # TODO(zoudan): replace docker server with domain url
-  docker.server: 10.8.27.231:8002
-  docker.hub: aliyun-va-hub.byted.org
-  docker.region: Aliyun_VA
+camel:
+  dc: cn
+  clusterName: camel
+  high-availability.zookeeper.quorum: 10.148.16.172:2181,10.148.16.37:2181,10.148.16.90:2181,10.148.20.100:2181,10.148.20.98:2181
+  hdfs.prefix: hdfs://haruna/flink_cr
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_cr
+
+stork:
+  dc: sg
+  clusterName: stork
+  high-availability.zookeeper.quorum: 10.105.4.10:2181,10.105.4.21:2181,10.105.4.35:2181,10.105.4.91:2181,10.105.4.254:2181
+  hdfs.prefix: hdfs://harunasgee/flink_sgee
+  checkpoint.hdfs.prefix: hdfs://harunasgee/flink_sgee
+  dashboard.data_source: bytetsd_sgee
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  save-meta.enabled: false
+
+shark:
+  dc: sg
+  clusterName: shark
+  high-availability.zookeeper.quorum: 10.126.35.119:2181,10.126.35.162:2181,10.126.35.163:2181,10.126.35.186:2181,10.126.35.189:2181
+  hdfs.prefix: hdfs://harunasglark/flink_sglark
+  checkpoint.hdfs.prefix:  hdfs://harunasglark/flink_sglark
+  dashboard.data_source: bytetsd_sgsaas1lark
+  dtop.data_source: dtop_alisg
+  dtop.database: dtop_alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  kafka_server_url: http://kafka-config-sg.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_sg
+  docker.server: image-manager.byted.org
+  docker.hub: aliyun-sin-hub.byted.org
+  docker.region: Aliyun_SG
+  save-meta.enabled: false
 
 marmt:
   dc: va
@@ -370,6 +394,46 @@ macaw:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
+
+grila:
+  dc: i18n_gcp
+  clusterName: grila
+  high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
+  hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  dashboard.data_source: bytetsd_useastred
+  dtop.data_source: dtop_i18n
+  dtop.database: dtop_i18n
+  smart-resources.service-name: data.inf.sr_estimater.service.useast2a
+  kafka_server_url: http://kafka-config-gcp.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  docker.server: image-manager.byted.org
+  docker.hub: useast-red-hub.byted.org
+  docker.region: US-East-Red
+  yaop_url: http://yaop-gcp.bytedance.net
+  jobmeta.db.name: flink_meta
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+
+gavia:
+  dc: i18n_gcp
+  clusterName: gavia
+  high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
+  hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  dashboard.data_source: bytetsd_useastred
+  dtop.data_source: dtop_i18n
+  dtop.database: dtop_i18n
+  smart-resources.service-name: data.inf.sr_estimater.service.useast2a
+  kafka_server_url: http://kafka-config-gcp.byted.org
+  log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
+  docker.server: image-manager.byted.org
+  docker.hub: useast-red-hub.byted.org
+  docker.region: US-East-Red
+  yaop_url: http://yaop-gcp.bytedance.net
+  jobmeta.db.name: flink_meta
+  grafana.domain_url: "https://grafana-i18n.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
 
 alisg:
   dc: sg
