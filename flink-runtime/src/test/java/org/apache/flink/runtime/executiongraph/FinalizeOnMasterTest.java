@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.executiongraph;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.ExecutionInfo;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.jobgraph.JobVertex;
@@ -29,9 +29,7 @@ import org.apache.flink.util.TestLogger;
 import org.junit.Test;
 
 import static org.apache.flink.runtime.executiongraph.ExecutionGraphTestUtils.createSimpleTestGraph;
-
 import static org.junit.Assert.assertEquals;
-
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -66,8 +64,8 @@ public class FinalizeOnMasterTest extends TestLogger {
 		ExecutionGraphTestUtils.finishAllVertices(eg);
 		assertEquals(JobStatus.FINISHED, eg.waitUntilTerminal());
 
-		verify(vertex1, times(1)).finalizeOnMaster(any(ClassLoader.class), any());
-		verify(vertex2, times(1)).finalizeOnMaster(any(ClassLoader.class), any());
+		verify(vertex1, times(1)).finalizeOnMaster(any(ClassLoader.class), any(), any());
+		verify(vertex2, times(1)).finalizeOnMaster(any(ClassLoader.class), any(), any());
 
 		assertEquals(0, eg.getRegisteredExecutions().size());
 	}
@@ -93,7 +91,7 @@ public class FinalizeOnMasterTest extends TestLogger {
 
 		assertEquals(JobStatus.FAILED, eg.waitUntilTerminal());
 
-		verify(vertex, times(0)).finalizeOnMaster(any(ClassLoader.class), any());
+		verify(vertex, times(0)).finalizeOnMaster(any(ClassLoader.class), any(), any());
 
 		assertEquals(0, eg.getRegisteredExecutions().size());
 	}

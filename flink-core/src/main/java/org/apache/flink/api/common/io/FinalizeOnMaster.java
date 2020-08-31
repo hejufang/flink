@@ -22,6 +22,8 @@ import org.apache.flink.annotation.Public;
 import org.apache.flink.api.common.ExecutionInfo;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 /**
  * This interface may be implemented by {@link OutputFormat}s to have the master finalize them globally.
@@ -31,8 +33,9 @@ import java.io.IOException;
 public interface FinalizeOnMaster {
 
 	// for speculation
-	default void finalizeGlobal(ExecutionInfo[] executionInfos) throws IOException {
+	default CompletableFuture<Void> finalizeGlobal(ExecutionInfo[] executionInfos, Executor ioExecutor) throws IOException {
 		finalizeGlobal(executionInfos.length);
+		return CompletableFuture.completedFuture(null);
 	}
 
 	/**

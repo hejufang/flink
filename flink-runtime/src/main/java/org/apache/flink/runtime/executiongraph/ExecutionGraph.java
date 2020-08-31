@@ -1562,9 +1562,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				// we do the final cleanup in the I/O executor, because it may involve
 				// some heavier work
 
+				final List<CompletableFuture<Void>> futures = new ArrayList<>();
 				try {
 					for (ExecutionJobVertex ejv : verticesInCreationOrder) {
-						ejv.getJobVertex().finalizeOnMaster(getUserClassLoader(), ejv.getFinishedAttempts());
+						futures.add(ejv.getJobVertex().finalizeOnMaster(getUserClassLoader(), ejv.getFinishedAttempts(), ioExecutor));
 					}
 				}
 				catch (Throwable t) {
@@ -1573,11 +1574,16 @@ public class ExecutionGraph implements AccessExecutionGraph {
 					return;
 				}
 
-				// if we do not make this state transition, then a concurrent
-				// cancellation or failure happened
-				if (transitionState(JobStatus.RUNNING, JobStatus.FINISHED)) {
-					onTerminalState(JobStatus.FINISHED);
-				}
+				FutureUtils.combineAll(futures).whenCompleteAsync((ignore, t) -> {
+					if (t != null) {
+						ExceptionUtils.rethrowIfFatalError(t);
+						failGlobal(new Exception("Failed to finalize execution on master", t));
+					} else {
+						if (transitionState(JobStatus.RUNNING, JobStatus.FINISHED)) {
+							onTerminalState(JobStatus.FINISHED);
+						}
+					}
+				}, jobMasterMainThreadExecutor);
 			}
 		}
 	}

@@ -24,12 +24,16 @@ import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.util.UserCodeWrapper;
 import org.apache.flink.api.common.ExecutionInfo;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.operators.util.TaskConfig;
 import org.apache.flink.util.Preconditions;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -112,9 +116,10 @@ public class InputOutputFormatVertex extends JobVertex {
 	}
 
 	@Override
-	public void finalizeOnMaster(ClassLoader loader, ExecutionInfo[] executionInfos) throws Exception {
+	public CompletableFuture<Void> finalizeOnMaster(ClassLoader loader, ExecutionInfo[] executionInfos, Executor ioExecutor) throws Exception {
 		final InputOutputFormatContainer formatContainer = initInputOutputformatContainer(loader);
 
+		final ArrayList<CompletableFuture<Void>> futures = new ArrayList<>();
 		final ClassLoader original = Thread.currentThread().getContextClassLoader();
 		try {
 			// set user classloader before calling user code
@@ -135,10 +140,11 @@ public class InputOutputFormatVertex extends JobVertex {
 
 				if (outputFormat instanceof FinalizeOnMaster) {
 					Preconditions.checkArgument(executionInfos.length == getParallelism());
-					((FinalizeOnMaster) outputFormat).finalizeGlobal(executionInfos);
+					futures.add(((FinalizeOnMaster) outputFormat).finalizeGlobal(executionInfos, ioExecutor));
 				}
 			}
 
+			return FutureUtils.combineAll(futures).thenAccept(ignore -> {});
 		} finally {
 			// restore original classloader
 			Thread.currentThread().setContextClassLoader(original);
