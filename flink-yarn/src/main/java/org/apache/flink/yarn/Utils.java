@@ -661,6 +661,8 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
 		}
 
+		setIpv6Env(flinkConfig, containerEnv);
+
 		// Add environment params to TM appMasterEnv for docker mode.
 		setDockerEnv(flinkConfig, containerEnv);
 
@@ -728,6 +730,22 @@ public final class Utils {
 			ldLibraryPath = LD_LIBRARY_PATH_DEFAULT;
 		}
 		env.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH, ldLibraryPath);
+	}
+
+	public static void setIpv6Env(
+			org.apache.flink.configuration.Configuration flinkConfiguration,
+			Map<String, String> env) {
+		if (!flinkConfiguration.getBoolean(ConfigConstants.IPV6_ENABLED_KEY, ConfigConstants.IPV6_ENABLED_VALUE)) {
+			// unset the ipv6 environments when disable ipv6.
+			String oldUnsetEnvs = env.get(YarnConfigKeys.ENV_RUNTIME_UNSET);
+			String newUnsetEnvs;
+			if (!StringUtils.isNullOrWhitespaceOnly(oldUnsetEnvs)) {
+				newUnsetEnvs = oldUnsetEnvs + ";" + YarnConfigKeys.ENV_IPV6_SUPPORT;
+			} else {
+				newUnsetEnvs = YarnConfigKeys.ENV_IPV6_SUPPORT;
+			}
+			env.put(YarnConfigKeys.ENV_RUNTIME_UNSET, newUnsetEnvs);
+		}
 	}
 
 	/**

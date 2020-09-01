@@ -1119,6 +1119,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			appMasterEnv.put(YarnConfigKeys.ENV_DYNAMIC_PROPERTIES, dynamicPropertiesEncoded);
 		}
 
+		Utils.setIpv6Env(configuration, appMasterEnv);
+
 		BtraceUtil.attachToEnv(appMasterEnv, null);
 
 		// set classpath from YARN configuration

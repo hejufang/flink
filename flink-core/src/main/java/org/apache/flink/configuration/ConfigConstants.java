@@ -2213,6 +2213,9 @@ public final class ConfigConstants {
 	public static final String GRAFANA_DOMAIN_URL_VALUE = "https://grafana.byted.org";
 	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
 
+	public static final String IPV6_ENABLED_KEY = "ipv6.enabled";
+	public static final boolean IPV6_ENABLED_VALUE = false;
+
 	/**
 	 * Not instantiable.
 	 */

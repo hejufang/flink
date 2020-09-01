@@ -58,6 +58,9 @@ public class YarnConfigKeys {
 
 	public static final String ENV_LD_LIBRARY_PATH = "LD_LIBRARY_PATH";
 
+	public static final String ENV_RUNTIME_UNSET = "YARN_CONTAINER_RUNTIME_UNSET_ENV";
+	public static final String ENV_IPV6_SUPPORT = "BYTED_HOST_IPV6;MY_HOST_IPV6";
+
 	/** Default value of LD_LIBRARY_PATH. */
 	public static final String LD_LIBRARY_PATH_DEFAULT = "/opt/tiger/ss_lib/so:" +
 		"/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib";
