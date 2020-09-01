@@ -22,7 +22,8 @@ import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
-import com.bytedance.commons.consul.Discovery;
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import org.slf4j.Logger;

@@ -67,6 +67,8 @@ import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.exceptions.ContainerCompletedException;
 import org.apache.flink.yarn.exceptions.ExpectedContainerCompletedException;
 
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
+import org.apache.flink.shaded.byted.com.bytedance.commons.consul.ServiceNode;
 import org.apache.flink.shaded.httpclient.org.apache.http.client.config.RequestConfig;
 import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.flink.shaded.httpclient.org.apache.http.client.methods.HttpGet;
@@ -77,8 +79,6 @@ import org.apache.flink.shaded.httpclient.org.apache.http.util.EntityUtils;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.bytedance.commons.consul.Discovery;
-import com.bytedance.commons.consul.ServiceNode;
 import com.bytedance.sr.estimater.client.EstimaterClient;
 import com.bytedance.sr.estimater.client.ResourcesUsage;
 import org.apache.commons.collections.CollectionUtils;
@@ -1804,7 +1804,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			// api addrs was configed by service name
 			Discovery discovery = new Discovery();
 			String serviceName = uriPieces[2].replace("{", "").replace("}", "");
-			List<ServiceNode> nodes = discovery.translateOne(serviceName);
+			List<ServiceNode> nodes = discovery.lookupName(serviceName);
 			if (nodes.size() == 0) {
 				throw new Exception("Build SR check url error, no available nodes.");
 			}
