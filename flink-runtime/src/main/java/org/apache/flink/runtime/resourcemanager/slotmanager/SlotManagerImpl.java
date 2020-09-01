@@ -287,7 +287,17 @@ public class SlotManagerImpl implements SlotManager {
 		numInitialTaskManagers = Math.max(numInitialTaskManagers, jobInitialTaskManagers);
 
 		final int requestedTaskManagers = numTaskManagersNeedRequest() - pendingTaskManagers.get() - activeTaskManagers.get();
-		initialResources(ResourceProfile.UNKNOWN, requestedTaskManagers);
+		LOG.info("Job {} is initializing {} TaskManagers.", jobID, requestedTaskManagers);
+		initialResources(requestedTaskManagers);
+	}
+
+	@Override
+	public void receiveResources(int taskManagers, Collection<ResourceProfile> workerSlotProfiles) {
+		this.pendingTaskManagers.getAndAdd(taskManagers);
+		for (ResourceProfile requestedSlot : workerSlotProfiles) {
+			final PendingTaskManagerSlot pendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
+			this.pendingSlots.put(pendingTaskManagerSlot.getTaskManagerSlotId(), pendingTaskManagerSlot);
+		}
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -309,7 +319,7 @@ public class SlotManagerImpl implements SlotManager {
 		mainThreadExecutor = Preconditions.checkNotNull(newMainThreadExecutor);
 		resourceActions = Preconditions.checkNotNull(newResourceActions);
 
-		initialResources(ResourceProfile.UNKNOWN, numInitialTaskManagers);
+		initialResources(numInitialTaskManagers);
 
 		started = true;
 
@@ -1034,21 +1044,21 @@ public class SlotManagerImpl implements SlotManager {
 		}
 	}
 
-	private void initialResources(ResourceProfile resourceProfile, int resourceNumber) {
+	private void initialResources(int resourceNumber) {
 		if (resourceNumber <= 0) {
 			return;
 		}
 
 		try {
 			final Collection<ResourceProfile> requestedSlots;
-			requestedSlots = resourceActions.initialResources(resourceProfile, resourceNumber);
+			requestedSlots = resourceActions.initialResources(ResourceProfile.UNKNOWN, resourceNumber);
 			for (ResourceProfile requestedSlot : requestedSlots) {
 				final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
 				pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
 			}
 			pendingTaskManagers.getAndAdd(resourceNumber);
 		} catch (ResourceManagerException e) {
-			LOG.error("AllocateResource {} {} error, ", resourceProfile, resourceNumber, e);
+			LOG.error("AllocateResource {} {} error, ", ResourceProfile.UNKNOWN, resourceNumber, e);
 		}
 	}
 

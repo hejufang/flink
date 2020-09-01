@@ -623,6 +623,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	protected void startServicesOnLeadership() {
+		// let slot manager know the resources from previous attempt in case of JM failover
+		slotManager.receiveResources(workerNodeMap.size(), createWorkerSlotProfiles(flinkConfig, workerNodeMap.size()));
+
 		super.startServicesOnLeadership();
 		log.info("start checkSlowAllocation with slowContainerCheckIntervalMs: {}, slowContainerTimeoutMs: {}.",
 			slowContainerCheckIntervalMs, slowContainerTimeoutMs);
@@ -727,15 +730,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	public Collection<ResourceProfile> initialWorkers(ResourceProfile resourceProfile, int workerNumber) {
-		int currentWorkers = workerNodeMap.size();
-		if (workerNumber > (currentWorkers + numPendingContainerRequests)) {
-			log.info("Initialize {} workers, we have {} workers from YARN, so request {} new workers",
-				workerNumber, currentWorkers, workerNumber - currentWorkers - numPendingContainerRequests);
-			startNewWorkers(resourceProfile, workerNumber - currentWorkers - numPendingContainerRequests);
-		} else {
-			log.info("Initialize {} workers, but we found {} workers by getContainersFromPreviousAttempts, and pending {} requests.",
-				workerNumber, currentWorkers, numPendingContainerRequests);
-		}
+		startNewWorkers(resourceProfile, workerNumber);
 		return createWorkerSlotProfiles(flinkConfig, workerNumber);
 	}
 

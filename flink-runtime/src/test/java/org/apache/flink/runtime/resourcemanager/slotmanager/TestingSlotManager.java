@@ -20,6 +20,7 @@ package org.apache.flink.runtime.resourcemanager.slotmanager;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
@@ -29,6 +30,7 @@ import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 
+import java.util.Collection;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
@@ -91,6 +93,11 @@ public class TestingSlotManager implements SlotManager {
 
 	@Override
 	public void initializeJobResources(JobID jobID, JobInfo jobInfo) {
+
+	}
+
+	@Override
+	public void receiveResources(int taskManagers, Collection<ResourceProfile> workerSlotProfiles) {
 
 	}
 

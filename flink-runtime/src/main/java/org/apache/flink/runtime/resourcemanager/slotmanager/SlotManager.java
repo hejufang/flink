@@ -31,6 +31,7 @@ import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnection;
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 
+import java.util.Collection;
 import java.util.concurrent.Executor;
 
 /**
@@ -66,6 +67,8 @@ public interface SlotManager extends AutoCloseable {
 	int getNumberExtraRegisteredTaskManagers();
 
 	void initializeJobResources(JobID jobID, JobInfo jobInfo);
+
+	void receiveResources(int taskManagers, Collection<ResourceProfile> workerSlotProfiles);
 
 	// ---------------------------------------------------------------------------------------------
 	// Component lifecycle methods
