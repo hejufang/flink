@@ -88,13 +88,10 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		final String name = group.getMetricIdentifier(metricName, this);
 		synchronized (this) {
 			if (metric instanceof MessageSet) {
-				LOG.info("Successfully register {}.", name);
 				messageSets.put((MessageSet) metric, name);
 			} else if (metric instanceof Counter && !isMetricGroupBanned(group)) {
-				LOG.info("Successfully register {}.", name);
 				counters.put((Counter) metric, name);
 			} else if (metric instanceof Gauge && !isMetricGroupBanned(group)) {
-				LOG.info("Successfully register {}.", name);
 				gauges.put((Gauge<?>) metric, name);
 			}
 		}
