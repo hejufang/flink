@@ -201,7 +201,7 @@ public class BlobServer extends Thread implements BlobService, BlobWriter, Perma
 
 		if (LOG.isInfoEnabled()) {
 			LOG.info("Started BLOB server at {}:{} - max concurrent requests: {} - max backlog: {}",
-					serverSocket.getInetAddress().getHostAddress(), getPort(), maxConnections, backlog);
+					serverSocket.getInetAddress().getCanonicalHostName(), getPort(), maxConnections, backlog);
 		}
 	}
 
@@ -337,7 +337,7 @@ public class BlobServer extends Thread implements BlobService, BlobWriter, Perma
 			ShutdownHookUtil.removeShutdownHook(shutdownHook, getClass().getSimpleName(), LOG);
 
 			if (LOG.isInfoEnabled()) {
-				LOG.info("Stopped BLOB server at {}:{}", serverSocket.getInetAddress().getHostAddress(), getPort());
+				LOG.info("Stopped BLOB server at {}:{}", serverSocket.getInetAddress().getCanonicalHostName(), getPort());
 			}
 
 			ExceptionUtils.tryRethrowIOException(exception);

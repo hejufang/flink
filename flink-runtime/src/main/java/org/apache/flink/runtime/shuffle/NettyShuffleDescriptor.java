@@ -100,7 +100,7 @@ public class NettyShuffleDescriptor implements ShuffleDescriptor {
 				ProducerDescriptor producerDescriptor,
 				int connectionIndex) {
 			InetSocketAddress address =
-				new InetSocketAddress(producerDescriptor.getAddress(), producerDescriptor.getDataPort());
+				new InetSocketAddress(producerDescriptor.getAddress().getCanonicalHostName(), producerDescriptor.getDataPort());
 			return new NetworkPartitionConnectionInfo(new ConnectionID(address, connectionIndex));
 		}
 	}

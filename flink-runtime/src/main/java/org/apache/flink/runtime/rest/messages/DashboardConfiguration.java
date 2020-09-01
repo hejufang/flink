@@ -150,9 +150,9 @@ public class DashboardConfiguration implements ResponseBody {
 		}
 
 		final String jmContainerId = WebMonitorUtils.getJMContainerId();
-		final String jmIp = WebMonitorUtils.getIp();
-		final String jmLog = WebMonitorUtils.getContainerLog(jmContainerId, jmIp);
-		final String jmWebShell = WebMonitorUtils.getContainerWebShell(jmContainerId, jmIp);
+		final String jmHostname = WebMonitorUtils.getFQDNHostname();
+		final String jmLog = WebMonitorUtils.getContainerLog(jmContainerId, jmHostname);
+		final String jmWebShell = WebMonitorUtils.getContainerWebShell(jmContainerId, jmHostname);
 
 		return new DashboardConfiguration(
 			refreshInterval,

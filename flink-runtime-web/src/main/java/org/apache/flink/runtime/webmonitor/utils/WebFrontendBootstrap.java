@@ -115,9 +115,9 @@ public class WebFrontendBootstrap {
 		final String address;
 
 		if (inetAddress.isAnyLocalAddress()) {
-			address = config.getString(JobManagerOptions.ADDRESS, InetAddress.getLocalHost().getHostName());
+			address = config.getString(JobManagerOptions.ADDRESS, InetAddress.getLocalHost().getCanonicalHostName());
 		} else {
-			address = inetAddress.getHostAddress();
+			address = inetAddress.getCanonicalHostName();
 		}
 
 		int port = bindAddress.getPort();

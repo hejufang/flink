@@ -110,7 +110,7 @@ class NettyServer {
 		// --------------------------------------------------------------------
 
 		// Server bind address
-		bootstrap.localAddress(config.getServerAddress(), config.getServerPort());
+		bootstrap.localAddress(config.getServerPort());
 
 		// Pooled allocators for Netty's ByteBuf instances
 		bootstrap.option(ChannelOption.ALLOCATOR, nettyBufferPool);

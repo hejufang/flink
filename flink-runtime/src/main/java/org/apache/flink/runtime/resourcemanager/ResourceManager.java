@@ -613,7 +613,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final ResourceID resourceId = taskExecutorEntry.getKey();
 			final WorkerRegistration<WorkerType> taskExecutor = taskExecutorEntry.getValue();
 
-			String host = taskExecutor.getTaskExecutorGateway().getHostname();
+			String host = taskExecutor.getTaskManagerLocation().getFQDNHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
 			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
@@ -647,7 +647,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			return FutureUtils.completedExceptionally(new UnknownTaskExecutorException(resourceId));
 		} else {
 			final InstanceID instanceId = taskExecutor.getInstanceID();
-			String host = taskExecutor.getTaskExecutorGateway().getHostname();
+			String host = taskExecutor.getTaskManagerLocation().getFQDNHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
 			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
