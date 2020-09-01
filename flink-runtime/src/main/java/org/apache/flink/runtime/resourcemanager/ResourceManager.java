@@ -829,7 +829,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				jobInfo);
 
 			// only need to reset the initial taskmanagers when the job is first registered
-			slotManager.setJobInfo(jobId, jobManagerRegistration.getJobInfo());
+			slotManager.initializeJobResources(jobId, jobManagerRegistration.getJobInfo());
 			failureRater.onRequiredSlotNumChanged(jobInfo.getMinSlotsNum());
 			jobManagerRegistrations.put(jobId, jobManagerRegistration);
 			jmResourceIdRegistrations.put(jobManagerResourceId, jobManagerRegistration);

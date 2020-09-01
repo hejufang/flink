@@ -65,7 +65,7 @@ public interface SlotManager extends AutoCloseable {
 
 	int getNumberExtraRegisteredTaskManagers();
 
-	void setJobInfo(JobID jobID, JobInfo jobInfo);
+	void initializeJobResources(JobID jobID, JobInfo jobInfo);
 
 	// ---------------------------------------------------------------------------------------------
 	// Component lifecycle methods

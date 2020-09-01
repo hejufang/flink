@@ -90,7 +90,9 @@ public class TestingSlotManager implements SlotManager {
 	public int getNumberExtraRegisteredTaskManagers() { return 0; }
 
 	@Override
-	public void setJobInfo(JobID jobID, JobInfo jobInfo) {}
+	public void initializeJobResources(JobID jobID, JobInfo jobInfo) {
+
+	}
 
 	@Override
 	public void start(ResourceManagerId newResourceManagerId, Executor newMainThreadExecutor, ResourceActions newResourceActions) {

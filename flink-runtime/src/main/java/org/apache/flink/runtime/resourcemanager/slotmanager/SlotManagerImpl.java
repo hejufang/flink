@@ -24,6 +24,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
+import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.messages.Acknowledge;
@@ -144,11 +145,11 @@ public class SlotManagerImpl implements SlotManager {
 	 * */
 	private boolean failUnfulfillableRequest = true;
 
-	/** Number of task managers. */
-	private int numInitialTaskManagers = 0;
-
-	/** Number of extra initial task managers that will always keep. */
+	/** The sum of all job's needed initial extra taskmanagers. */
 	private int numInitialExtraTaskManagers = 0;
+
+	/** Number of task managers. */
+	private int numInitialTaskManagers;
 
 	public SlotManagerImpl(
 			SlotMatchingStrategy slotMatchingStrategy,
@@ -156,13 +157,15 @@ public class SlotManagerImpl implements SlotManager {
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
-			boolean waitResultConsumedBeforeRelease) {
+			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers) {
 		this(slotMatchingStrategy,
 				scheduledExecutor,
 				taskManagerRequestTimeout,
 				slotRequestTimeout,
 				taskManagerTimeout,
 				waitResultConsumedBeforeRelease,
+				numInitialTaskManagers,
 				false);
 	}
 
@@ -173,6 +176,7 @@ public class SlotManagerImpl implements SlotManager {
 			Time slotRequestTimeout,
 			Time taskManagerTimeout,
 			boolean waitResultConsumedBeforeRelease,
+			int numInitialTaskManagers,
 			boolean shufflePendingSlots) {
 
 		this.slotMatchingStrategy = Preconditions.checkNotNull(slotMatchingStrategy);
@@ -181,6 +185,8 @@ public class SlotManagerImpl implements SlotManager {
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
 		this.taskManagerTimeout = Preconditions.checkNotNull(taskManagerTimeout);
 		this.waitResultConsumedBeforeRelease = waitResultConsumedBeforeRelease;
+		this.numInitialTaskManagers = numInitialTaskManagers;
+
 		this.shufflePendingSlots = shufflePendingSlots;
 
 		slots = new HashMap<>(16);
@@ -269,10 +275,19 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	@Override
-	public void setJobInfo(JobID jobID, JobInfo jobInfo) {
+	public void initializeJobResources(JobID jobID, JobInfo jobInfo) {
+		assertRunningInMainThread();
 		// TODO. support multiple jobs requirement with JobID
-		this.numInitialTaskManagers = jobInfo.getInitialTaskManagers();
-		this.numInitialExtraTaskManagers = jobInfo.getInitialExtraTaskManagers();
+		final int jobInitialTaskManagers = jobInfo.getInitialTaskManagers();
+		final int jobInitialExtraTaskManagers = jobInfo.getInitialExtraTaskManagers();
+
+		// To support multiple jobs, we need to know whether multiple jobs
+		// share the resources or apply their own. Currently we let them share the resources.
+		numInitialExtraTaskManagers += jobInitialExtraTaskManagers;
+		numInitialTaskManagers = Math.max(numInitialTaskManagers, jobInitialTaskManagers);
+
+		final int requestedTaskManagers = numTaskManagersNeedRequest() - pendingTaskManagers.get() - activeTaskManagers.get();
+		initialResources(ResourceProfile.UNKNOWN, requestedTaskManagers);
 	}
 
 	// ---------------------------------------------------------------------------------------------
@@ -294,10 +309,7 @@ public class SlotManagerImpl implements SlotManager {
 		mainThreadExecutor = Preconditions.checkNotNull(newMainThreadExecutor);
 		resourceActions = Preconditions.checkNotNull(newResourceActions);
 
-		if (numInitialTaskManagers > 0) {
-			// initial slot manager with enough task managers.
-			initialResources(ResourceProfile.UNKNOWN, numTaskManagersNeedRequest());
-		}
+		initialResources(ResourceProfile.UNKNOWN, numInitialTaskManagers);
 
 		started = true;
 
@@ -356,6 +368,9 @@ public class SlotManagerImpl implements SlotManager {
 		activeTaskManagers.set(0);
 		pendingTaskManagers.set(0);
 		numExtraTaskManagers.set(0);
+
+		numInitialTaskManagers = 0;
+		numInitialExtraTaskManagers = 0;
 
 		resourceManagerId = null;
 		resourceActions = null;
@@ -1020,6 +1035,10 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	private void initialResources(ResourceProfile resourceProfile, int resourceNumber) {
+		if (resourceNumber <= 0) {
+			return;
+		}
+
 		try {
 			final Collection<ResourceProfile> requestedSlots;
 			requestedSlots = resourceActions.initialResources(resourceProfile, resourceNumber);
@@ -1402,6 +1421,12 @@ public class SlotManagerImpl implements SlotManager {
 
 	private boolean taskManagerNotEnough() {
 		return activeTaskManagers.get() + pendingTaskManagers.get() < numTaskManagersNeedRequest();
+	}
+
+	private void assertRunningInMainThread() {
+		if (!(mainThreadExecutor instanceof ComponentMainThreadExecutor.DummyComponentMainThreadExecutor)) {
+			((ComponentMainThreadExecutor) mainThreadExecutor).assertRunningInMainThread();
+		}
 	}
 
 	// ---------------------------------------------------------------------------------------------

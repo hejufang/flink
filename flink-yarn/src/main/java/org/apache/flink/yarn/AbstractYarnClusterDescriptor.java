@@ -841,6 +841,16 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			TaskManagerOptions.TASK_MANAGER_HEAP_MEMORY,
 			clusterSpecification.getTaskManagerMemoryMB() + "m");
 
+		int numTaskManagers;
+		if (jobGraph == null) {
+			numTaskManagers = clusterSpecification.getNumberTaskManagers();
+		} else {
+			numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + slotsPreTaskManager - 1) / slotsPreTaskManager;
+		}
+
+		final double percentage = configuration.getDouble(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS_PERCENTAGE);
+		configuration.setInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS, (int) (numTaskManagers * percentage));
+
 		Path remotePathJar = null;
 		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Do not need to upload flink.jar in docker mode");
