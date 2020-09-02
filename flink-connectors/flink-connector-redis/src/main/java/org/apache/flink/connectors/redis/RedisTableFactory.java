@@ -113,6 +113,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_MIN_IDLE_CONNECTIONS);
 		properties.add(CONNECTOR_LOG_FAILURES_ONLY);
 		properties.add(CONNECTOR_SKIP_FORMAT_KEY);
+		properties.add(CONNECTOR_LOOKUP_CACHE_NULL_VALUE);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);

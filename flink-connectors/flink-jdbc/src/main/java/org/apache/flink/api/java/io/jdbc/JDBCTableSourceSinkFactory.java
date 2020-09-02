@@ -113,6 +113,7 @@ public class JDBCTableSourceSinkFactory implements
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
 		properties.add(CONNECTOR_CONNECTION_POOL_SIZE);
+		properties.add(CONNECTOR_LOOKUP_CACHE_NULL_VALUE);
 
 		// sink options
 		properties.add(CONNECTOR_WRITE_FLUSH_MAX_ROWS);
