@@ -78,6 +78,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
 	private final JDBCOptions options;
+	private final boolean cacheNullValue;
 
 	private transient JDBCConnectionPool connectionPool;
 
@@ -108,6 +109,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 		this.cacheMaxSize = lookupOptions.getCacheMaxSize();
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
 		this.maxRetryTimes = lookupOptions.getMaxRetryTimes();
+		this.cacheNullValue = lookupOptions.isCacheNullValue();
 		this.keySqlTypes = Arrays.stream(keyTypes).mapToInt(JDBCTypeUtil::typeInformationToSqlType).toArray();
 		this.outputSqlTypes = Arrays.stream(fieldTypes).mapToInt(JDBCTypeUtil::typeInformationToSqlType).toArray();
 		this.query = options.getDialect().getSelectFromStatement(
@@ -189,6 +191,9 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 							collect(row);
 						}
 						rows.trimToSize();
+						if (!cacheNullValue && rows.isEmpty()) {
+							continue;
+						}
 						cache.put(keyRow, rows);
 					}
 				}

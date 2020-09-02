@@ -31,11 +31,13 @@ public class JDBCLookupOptions implements Serializable {
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
+	private final boolean cacheNullValue;
 
-	private JDBCLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes) {
+	private JDBCLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, boolean cacheNullValue) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
+		this.cacheNullValue = cacheNullValue;
 	}
 
 	public long getCacheMaxSize() {
@@ -50,6 +52,10 @@ public class JDBCLookupOptions implements Serializable {
 		return maxRetryTimes;
 	}
 
+	public boolean isCacheNullValue() {
+		return cacheNullValue;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -60,7 +66,8 @@ public class JDBCLookupOptions implements Serializable {
 			JDBCLookupOptions options = (JDBCLookupOptions) o;
 			return Objects.equals(cacheMaxSize, options.cacheMaxSize) &&
 				Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
-				Objects.equals(maxRetryTimes, options.maxRetryTimes);
+				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
+				Objects.equals(cacheNullValue, options.cacheNullValue);
 		} else {
 			return false;
 		}
@@ -73,6 +80,7 @@ public class JDBCLookupOptions implements Serializable {
 		private long cacheMaxSize = -1L;
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
+		private boolean cacheNullValue = true;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -98,8 +106,12 @@ public class JDBCLookupOptions implements Serializable {
 			return this;
 		}
 
+		public void setCacheNullValue(boolean cacheNullValue) {
+			this.cacheNullValue = cacheNullValue;
+		}
+
 		public JDBCLookupOptions build() {
-			return new JDBCLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes);
+			return new JDBCLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, cacheNullValue);
 		}
 	}
 }

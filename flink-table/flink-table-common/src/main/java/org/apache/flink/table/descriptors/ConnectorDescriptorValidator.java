@@ -64,6 +64,11 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	public static final String CONNECTOR_LOG_FAILURES_ONLY = "connector.log-failures-only";
 
 	/**
+	 * Key for field indices and metadata mapping, for internal use.
+	 */
+	public static final String CONNECTOR_LOOKUP_CACHE_NULL_VALUE = "connector.cache-null-value";
+
+	/**
 	 * Key for fields and metadata mapping.
 	 */
 	public static final String METADATA_FIELDS_MAPPING = "metadata.fields.mapping";

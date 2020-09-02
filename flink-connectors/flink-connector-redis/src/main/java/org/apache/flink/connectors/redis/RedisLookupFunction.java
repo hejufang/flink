@@ -99,6 +99,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
+	private final boolean cacheNullValue;
 
 	private transient Cache<Row, Row> cache;
 
@@ -136,6 +137,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		this.cacheMaxSize = lookupOptions.getCacheMaxSize();
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
 		this.maxRetryTimes = lookupOptions.getMaxRetryTimes();
+		this.cacheNullValue = lookupOptions.isCacheNullValue();
 
 		this.deserializationSchema = deserializationSchema;
 	}
@@ -218,7 +220,11 @@ public class RedisLookupFunction extends TableFunction<Row> {
 					collect(row);
 				}
 				if (cache != null) {
-					cache.put(keyRow, row == null ? EMPTY_ROW : row);
+					if (row != null) {
+						cache.put(keyRow, row);
+					} else if (cacheNullValue) {
+						cache.put(keyRow, EMPTY_ROW);
+					}
 				}
 				return;
 			} catch (Exception e) {
