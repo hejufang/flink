@@ -64,7 +64,7 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	public static final String CONNECTOR_LOG_FAILURES_ONLY = "connector.log-failures-only";
 
 	/**
-	 * Key for field indices and metadata mapping, for internal use.
+	 * Key for field indices whether cache null value in lookup join.
 	 */
 	public static final String CONNECTOR_LOOKUP_CACHE_NULL_VALUE = "connector.cache-null-value";
 
