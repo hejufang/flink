@@ -25,6 +25,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.connectors.rocketmq.selector.TopicSelector;
+import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyBySerializationSchemaWrapper;
+import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyValueSerializationSchema;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyValueSerializationSchemaWrapper;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 
 /**
@@ -120,9 +123,19 @@ public class RocketMQUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
+		String keyByFieldNames = configurations.get(CONNECTOR_KEYBY_FIELDS);
+		KeyValueSerializationSchema<Row> keyValueSerializationSchema;
+		if (keyByFieldNames == null) {
+			keyValueSerializationSchema =
+				new KeyValueSerializationSchemaWrapper<>(serializationSchema);
+		} else {
+			int[] keyByFieldIndexes = getKeyByFieldIndexes(schema, keyByFieldNames);
+			keyValueSerializationSchema =
+				new KeyBySerializationSchemaWrapper(keyByFieldIndexes, serializationSchema);
+		}
+
 		RocketMQSink<Row> rowRocketMQSink =
-			new RocketMQSink<>(new KeyValueSerializationSchemaWrapper<>(serializationSchema),
-				topicSelector, properties, options);
+			new RocketMQSink<>(keyValueSerializationSchema, topicSelector, properties, options);
 
 		// filter retract rows
 		DataStream<Row> rowDataStream = dataStream
@@ -142,6 +155,23 @@ public class RocketMQUpsertTableSink implements UpsertStreamTableSink<Row> {
 			dataStreamSink.setParallelism(parallelism);
 		}
 		return dataStreamSink;
+	}
+
+	private static int[] getKeyByFieldIndexes(TableSchema schema, String keybyFiledNames) {
+		String[] keyByFiledNames = keybyFiledNames.split(",");
+		int[] keyByFieldIndexes = new int[keyByFiledNames.length];
+
+		for (int i = 0; i < keyByFiledNames.length; i++) {
+			String keybyFieldName = keyByFiledNames[i].trim();
+			int fieldIndex = schema.getFieldNameIndex(keybyFieldName)
+				.orElseThrow(() -> new IllegalArgumentException(
+					String.format("keyby field '%s' not found in table. All field names are : %s.",
+						keybyFieldName,
+						Arrays.asList(schema.getFieldNames()))));
+			keyByFieldIndexes[i] = fieldIndex;
+		}
+
+		return keyByFieldIndexes;
 	}
 
 	public static RocketMQUpsertTableSinkBuilder builder() {

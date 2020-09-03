@@ -88,5 +88,6 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_BATCH_SIZE, true, 1);
 		properties.validateBoolean(CONNECTOR_ASYNC_MODE_ENABLED, true);
 		properties.validateBoolean(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED, true);
+		properties.validateString(CONNECTOR_KEYBY_FIELDS, true, 1);
 	}
 }
