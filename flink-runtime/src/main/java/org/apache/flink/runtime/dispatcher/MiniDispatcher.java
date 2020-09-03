@@ -91,7 +91,7 @@ public class MiniDispatcher extends Dispatcher {
 				ApplicationStatus status = result.getSerializedThrowable().isPresent() ?
 						ApplicationStatus.FAILED : ApplicationStatus.SUCCEEDED;
 
-				LOG.info("Shutting down per-job cluster because someone retrieved the job result.");
+				LOG.warn("Shutting down per-job cluster because someone retrieved the job result.", new Exception("Just to see the stack trace"));
 				shutDownFuture.complete(status);
 			});
 		} else {
