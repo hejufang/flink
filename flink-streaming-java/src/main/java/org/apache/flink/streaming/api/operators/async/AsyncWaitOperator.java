@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.datastream.AsyncDataStream;
@@ -166,8 +167,9 @@ public class AsyncWaitOperator<IN, OUT>
 	public void open() throws Exception {
 		super.open();
 
+		Counter counter = getRuntimeContext().getMetricGroup().counter("asyncLookupNullCounter");
 		// create the emitter
-		this.emitter = new Emitter<>(checkpointingLock, output, queue, this);
+		this.emitter = new Emitter<>(checkpointingLock, output, queue, this, counter);
 
 		// start the emitter thread
 		this.emitterThread = new Thread(emitter, "AsyncIO-Emitter-Thread (" + getOperatorName() + ')');

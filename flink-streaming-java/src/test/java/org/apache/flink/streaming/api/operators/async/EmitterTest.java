@@ -18,6 +18,8 @@
 
 package org.apache.flink.streaming.api.operators.async;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.async.queue.OrderedStreamElementQueue;
@@ -98,8 +100,8 @@ public class EmitterTest extends TestLogger {
 		final int capacity = 5;
 
 		StreamElementQueue queue = new OrderedStreamElementQueue(capacity, executor, operatorActions);
-
-		final Emitter<Integer> emitter = new Emitter<>(lock, output, queue, operatorActions);
+		Counter counter = new SimpleCounter();
+		final Emitter<Integer> emitter = new Emitter<>(lock, output, queue, operatorActions, counter);
 
 		final Thread emitterThread = new Thread(emitter);
 		emitterThread.start();
@@ -151,7 +153,8 @@ public class EmitterTest extends TestLogger {
 
 		StreamElementQueue queue = new OrderedStreamElementQueue(capacity, executor, operatorActions);
 
-		final Emitter<Integer> emitter = new Emitter<>(lock, output, queue, operatorActions);
+		Counter counter = new SimpleCounter();
+		final Emitter<Integer> emitter = new Emitter<>(lock, output, queue, operatorActions, counter);
 
 		final Thread emitterThread = new Thread(emitter);
 		emitterThread.start();

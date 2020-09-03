@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.operators.async;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.operators.async.queue.AsyncCollectionResult;
@@ -58,13 +59,16 @@ public class Emitter<OUT> implements Runnable {
 	/** Output for stream records. */
 	private final TimestampedCollector<OUT> timestampedCollector;
 
+	private final transient Counter counter;
+
 	private volatile boolean running;
 
 	public Emitter(
 			final Object checkpointLock,
 			final Output<StreamRecord<OUT>> output,
 			final StreamElementQueue streamElementQueue,
-			final OperatorActions operatorActions) {
+			final OperatorActions operatorActions,
+			final Counter counter) {
 
 		this.checkpointLock = Preconditions.checkNotNull(checkpointLock, "checkpointLock");
 		this.output = Preconditions.checkNotNull(output, "output");
@@ -72,6 +76,7 @@ public class Emitter<OUT> implements Runnable {
 		this.operatorActions = Preconditions.checkNotNull(operatorActions, "operatorActions");
 
 		this.timestampedCollector = new TimestampedCollector<>(this.output);
+		this.counter = counter;
 		this.running = true;
 	}
 
@@ -129,9 +134,14 @@ public class Emitter<OUT> implements Runnable {
 					Collection<OUT> resultCollection = streamRecordResult.get();
 
 					if (resultCollection != null) {
+						if (resultCollection.size() == 0) {
+							counter.inc();
+						}
 						for (OUT result : resultCollection) {
 							timestampedCollector.collect(result);
 						}
+					} else {
+						counter.inc();
 					}
 				} catch (Exception e) {
 					operatorActions.failOperator(
