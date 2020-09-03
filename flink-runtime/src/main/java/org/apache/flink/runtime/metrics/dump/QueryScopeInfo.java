@@ -30,6 +30,8 @@ public abstract class QueryScopeInfo {
 	public static final byte INFO_CATEGORY_JOB = 2;
 	public static final byte INFO_CATEGORY_TASK = 3;
 	public static final byte INFO_CATEGORY_OPERATOR = 4;
+	public static final byte INFO_CATEGORY_SQL_GATEWAY = 5;
+	public static final byte INFO_CATEGORY_SESSION = 6;
 
 	/** The remaining scope not covered by specific fields. */
 	public final String scope;
@@ -213,6 +215,55 @@ public abstract class QueryScopeInfo {
 		@Override
 		public byte getCategory() {
 			return INFO_CATEGORY_OPERATOR;
+		}
+	}
+
+	/**
+	 * Container for the sql gateway scope. Stores no additional information.
+	 */
+	public static class SqlGatewayQueryScopeInfo extends QueryScopeInfo {
+		public SqlGatewayQueryScopeInfo() {
+			super("");
+		}
+
+		public SqlGatewayQueryScopeInfo(String scope) {
+			super(scope);
+		}
+
+		@Override
+		public SqlGatewayQueryScopeInfo copy(String additionalScope) {
+			return new SqlGatewayQueryScopeInfo(concatScopes(additionalScope));
+		}
+
+		@Override
+		public byte getCategory() {
+			return INFO_CATEGORY_SQL_GATEWAY;
+		}
+	}
+
+	/**
+	 * Container for the session scope. Stores the ID of the session.
+	 */
+	public static class SessionQueryScopeInfo extends QueryScopeInfo {
+		public final String sessionID;
+
+		public SessionQueryScopeInfo(String sessionID) {
+			this(sessionID, "");
+		}
+
+		public SessionQueryScopeInfo(String sessionID, String scope) {
+			super(scope);
+			this.sessionID = sessionID;
+		}
+
+		@Override
+		public SessionQueryScopeInfo copy(String additionalScope) {
+			return new SessionQueryScopeInfo(this.sessionID, concatScopes(additionalScope));
+		}
+
+		@Override
+		public byte getCategory() {
+			return INFO_CATEGORY_SESSION;
 		}
 	}
 }

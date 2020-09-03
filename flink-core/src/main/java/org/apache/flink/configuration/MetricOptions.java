@@ -114,6 +114,18 @@ public class MetricOptions {
 			.defaultValue("<host>.taskmanager.<tm_id>.<job_name>.<operator_name>.<subtask_index>")
 			.withDescription("Defines the scope format string that is applied to all metrics scoped to an operator.");
 
+	/** The scope format string that is applied to all metrics scoped to a SqlGateway. */
+	public static final ConfigOption<String> SCOPE_NAMING_SQL_GATEWAY =
+		key("metrics.scope.sqlgateway")
+			.defaultValue("<host>.sqlgateway")
+			.withDescription("Defines the scope format string that is applied to all metrics scoped to a SqlGateway.");
+
+	/** The scope format string that is applied to all metrics scoped to a job on a JobManager. */
+	public static final ConfigOption<String> SCOPE_NAMING_SQL_GATEWAY_SESSION =
+		key("metrics.scope.sqlgateway.session")
+			.defaultValue("<host>.sqlgateway.<session_name>")
+			.withDescription("Defines the scope format string that is applied to all metrics scoped to a session on a SqlGateway.");
+
 	public static final ConfigOption<Long> LATENCY_INTERVAL =
 		key("metrics.latency.interval")
 			.defaultValue(0L)

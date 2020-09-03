@@ -32,6 +32,7 @@ import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.AbstractMetricGroup;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.ProcessMetricGroup;
+import org.apache.flink.runtime.metrics.groups.SqlGatewayMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.runtime.rpc.akka.AkkaRpcServiceUtils;
@@ -112,6 +113,20 @@ public class MetricUtils {
 			instantiateSystemMetrics(taskManagerMetricGroup, systemResourceProbeInterval.get());
 		}
 		return Tuple2.of(taskManagerMetricGroup, statusGroup);
+	}
+
+	public static SqlGatewayMetricGroup instantiateSqlGatewayMetricGroup(
+			final MetricRegistry metricRegistry,
+			final String hostName,
+			final Optional<Time> systemResourceProbeInterval) {
+		final SqlGatewayMetricGroup sqlGatewayMetricGroup = new SqlGatewayMetricGroup(
+				metricRegistry,
+				hostName
+		);
+		createAndInitializeStatusMetricGroup(sqlGatewayMetricGroup);
+		systemResourceProbeInterval.ifPresent(
+				interval -> instantiateSystemMetrics(sqlGatewayMetricGroup, interval));
+		return sqlGatewayMetricGroup;
 	}
 
 	private static MetricGroup createAndInitializeStatusMetricGroup(AbstractMetricGroup<?> parentMetricGroup) {

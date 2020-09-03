@@ -32,6 +32,8 @@ public final class ScopeFormats {
 	private final TaskManagerJobScopeFormat taskManagerJobFormat;
 	private final TaskScopeFormat taskFormat;
 	private final OperatorScopeFormat operatorFormat;
+	private final SqlGatewayScopeFormat sqlGatewayFormat;
+	private final SqlGatewaySessionScopeFormat sqlGatewaySessionFormat;
 
 	// ------------------------------------------------------------------------
 
@@ -44,13 +46,23 @@ public final class ScopeFormats {
 			String taskManagerFormat,
 			String taskManagerJobFormat,
 			String taskFormat,
-			String operatorFormat) {
+			String operatorFormat,
+			String sqlGatewayFormat,
+			String sqlGatewaySessionFormat) {
 		this.jobManagerFormat = new JobManagerScopeFormat(jobManagerFormat);
-		this.jobManagerJobFormat = new JobManagerJobScopeFormat(jobManagerJobFormat, this.jobManagerFormat);
+		this.jobManagerJobFormat = new JobManagerJobScopeFormat(
+				jobManagerJobFormat,
+				this.jobManagerFormat);
 		this.taskManagerFormat = new TaskManagerScopeFormat(taskManagerFormat);
-		this.taskManagerJobFormat = new TaskManagerJobScopeFormat(taskManagerJobFormat, this.taskManagerFormat);
+		this.taskManagerJobFormat = new TaskManagerJobScopeFormat(
+				taskManagerJobFormat,
+				this.taskManagerFormat);
 		this.taskFormat = new TaskScopeFormat(taskFormat, this.taskManagerJobFormat);
 		this.operatorFormat = new OperatorScopeFormat(operatorFormat, this.taskFormat);
+		this.sqlGatewayFormat = new SqlGatewayScopeFormat(sqlGatewayFormat);
+		this.sqlGatewaySessionFormat = new SqlGatewaySessionScopeFormat(
+				sqlGatewaySessionFormat,
+				this.sqlGatewayFormat);
 	}
 
 	// ------------------------------------------------------------------------
@@ -81,6 +93,14 @@ public final class ScopeFormats {
 		return this.operatorFormat;
 	}
 
+	public SqlGatewayScopeFormat getSqlGatewayFormat() {
+		return this.sqlGatewayFormat;
+	}
+
+	public SqlGatewaySessionScopeFormat getSqlGatewaySessionFormat() {
+		return this.sqlGatewaySessionFormat;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Parsing from Config
 	// ------------------------------------------------------------------------
@@ -98,7 +118,17 @@ public final class ScopeFormats {
 		String tmJobFormat = config.getString(MetricOptions.SCOPE_NAMING_TM_JOB);
 		String taskFormat = config.getString(MetricOptions.SCOPE_NAMING_TASK);
 		String operatorFormat = config.getString(MetricOptions.SCOPE_NAMING_OPERATOR);
+		String sqlGatewayFormat = config.getString(MetricOptions.SCOPE_NAMING_SQL_GATEWAY);
+		String sqlGatewaySessionFormat = config.getString(MetricOptions.SCOPE_NAMING_SQL_GATEWAY_SESSION);
 
-		return new ScopeFormats(jmFormat, jmJobFormat, tmFormat, tmJobFormat, taskFormat, operatorFormat);
+		return new ScopeFormats(
+				jmFormat,
+				jmJobFormat,
+				tmFormat,
+				tmJobFormat,
+				taskFormat,
+				operatorFormat,
+				sqlGatewayFormat,
+				sqlGatewaySessionFormat);
 	}
 }

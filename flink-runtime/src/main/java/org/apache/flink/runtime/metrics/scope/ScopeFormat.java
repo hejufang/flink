@@ -92,6 +92,9 @@ public abstract class ScopeFormat {
 	public static final String SCOPE_OPERATOR_ID = asVariable("operator_id");
 	public static final String SCOPE_OPERATOR_NAME = asVariable("operator_name");
 
+	// ----- Sql Gateway Session ----
+	public static final String SCOPE_SESSION_ID = asVariable("session_id");
+	public static final String SCOPE_SESSION_NAME = asVariable("session_name");
 
 	// ------------------------------------------------------------------------
 	//  Scope Format Base

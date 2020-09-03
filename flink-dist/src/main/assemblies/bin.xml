@@ -111,6 +111,19 @@ under the License.
 			<outputDirectory/>
 			<fileMode>0644</fileMode>
 		</file>
+
+		<file>
+			<source>../flink-metrics/flink-metrics-dropwizard/target/flink-metrics-dropwizard-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
+			<source>../flink-metrics/flink-metrics-opentsdb/target/flink-metrics-opentsdb-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<destName>flink-metrics-opentsdb-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
 	</files>
 
 	<fileSets>
