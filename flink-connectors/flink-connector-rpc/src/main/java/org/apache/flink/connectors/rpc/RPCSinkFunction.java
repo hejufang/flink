@@ -20,8 +20,8 @@ package org.apache.flink.connectors.rpc;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.connectors.rpc.thrift.DeserializationRuntimeConverter;
-import org.apache.flink.connectors.rpc.thrift.DeserializationRuntimeConverterFactory;
+import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverter;
+import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverterFactory;
 import org.apache.flink.connectors.rpc.thrift.ThriftRPCClient;
 import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
@@ -62,10 +62,10 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
 
-	private transient DeserializationRuntimeConverter runtimeConverter;
+	private transient SerializationRuntimeConverter runtimeConverter;
 
 	public RPCSinkFunction(RPCOptions options, RowTypeInfo rowTypeInfo) {
-		this.requestClass = ThriftUtil.getParameterClassOfRequest(
+		this.requestClass = ThriftUtil.getParameterClassOfMethod(
 			options.getThriftServiceClass() + CLIENT_CLASS_SUFFIX, options.getThriftMethod());
 		this.options = options;
 		this.fieldNames = rowTypeInfo.getFieldNames();
@@ -85,9 +85,9 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		if (options.getBatchClass() == null) {
-			runtimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(requestClass, fieldNames);
+			runtimeConverter = SerializationRuntimeConverterFactory.createRowConverter(requestClass, fieldNames);
 		} else {
-			runtimeConverter = DeserializationRuntimeConverterFactory
+			runtimeConverter = SerializationRuntimeConverterFactory
 				.createRowConverter(Class.forName(options.getBatchClass()), fieldNames);
 		}
 		thriftRPCClient.open();
@@ -160,7 +160,8 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	}
 
 	private synchronized void sendRequest() {
-		thriftRPCClient.sendRequest(requestList);
+		Object response = thriftRPCClient.sendRequest(requestList);
+		thriftRPCClient.checkResponse(response);
 		requestList.clear();
 	}
 

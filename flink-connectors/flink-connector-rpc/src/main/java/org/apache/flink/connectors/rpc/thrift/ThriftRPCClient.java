@@ -80,7 +80,7 @@ public class ThriftRPCClient implements Serializable {
 		this.responseValue = options.getResponseValue();
 	}
 
-	public void open() throws ClassNotFoundException {
+	public void open() {
 		ThriftClientFactory clientFactory = new ThriftClientFactory(connectTimeoutMs, serviceClassName);
 		GenericKeyedObjectPoolConfig<ThriftClientFactory.ThriftClient> config = new GenericKeyedObjectPoolConfig<>();
 		config.setMaxTotalPerKey(1);
@@ -89,16 +89,20 @@ public class ThriftRPCClient implements Serializable {
 		hostPorts = RPCDiscovery.getHostPorts(consul, cluster, connectionPoolSize);
 		Preconditions.checkArgument(hostPorts.size() > 0,
 			"consul cannot get any host:port for " + consul);
-		serviceClass = Class.forName(serviceClassName + CLIENT_CLASS_SUFFIX);
-		batchListFieldName = batchClassName == null ? null :
-			ThriftUtil.getFieldNameOfRequestList(requestClass, Class.forName(batchClassName));
+		try {
+			serviceClass = Class.forName(serviceClassName + CLIENT_CLASS_SUFFIX);
+			batchListFieldName = batchClassName == null ? null :
+				ThriftUtil.getFieldNameOfRequestList(requestClass, Class.forName(batchClassName));
+		} catch (ClassNotFoundException e) {
+			throw new FlinkRuntimeException(e);
+		}
 	}
 
 	public void close() {
 		clientPool.clear();
 	}
 
-	public void sendRequest(List<Object> request) {
+	public Object sendRequest(List<Object> request) {
 		final RPCDiscovery.HostPort hostPort = refreshAndGetOneServer();
 		ThriftClientFactory.ThriftClient thriftClient = null;
 		try {
@@ -108,11 +112,10 @@ public class ThriftRPCClient implements Serializable {
 			if (request.size() > 1) {
 				Preconditions.checkArgument(batchClassName.length() > 0,
 					"In batch scenario, connector.batch-class must set.");
-				responseResult = sendBatchRequest(request, serviceClient);
+				return sendBatchRequest(request, serviceClient);
 			} else {
-				responseResult = sendSingleRequest(request, serviceClient);
+				return sendSingleRequest(request, serviceClient);
 			}
-			checkResponse(responseResult);
 		} catch (Exception e) {
 			throw new FlinkRuntimeException(e);
 		} finally {
@@ -147,8 +150,14 @@ public class ThriftRPCClient implements Serializable {
 	 * json field value. If user doesn't provide response value, we suppose sink always success.
 	 * @param response the rpc method response object.
 	 */
-	private void checkResponse(Object response) throws JsonProcessingException {
-		String responseJson = objectMapper.writeValueAsString(response);
+	public void checkResponse(Object response) {
+		String responseJson;
+		try {
+			responseJson = objectMapper.writeValueAsString(response);
+		} catch (JsonProcessingException e) {
+			throw new FlinkRuntimeException(String.format("Mapping response object : %s to json string failed.",
+				response), e);
+		}
 		if (responseValue != null && !JsonUtil.isSecondJsonCoversFirstJson(responseValue, responseJson)) {
 			throw new FlinkRuntimeException(
 				String.format("Send request failed. The response value is : %s.", responseJson));

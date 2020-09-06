@@ -26,7 +26,9 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.RPCValidator;
 import org.apache.flink.table.factories.StreamTableSinkFactory;
+import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.sinks.StreamTableSink;
+import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
@@ -48,6 +50,10 @@ import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONNECTI
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONSUL;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONSUL_INTERVAL;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_FLUSH_TIMEOUT_MS;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_IS_DIMENSION_TABLE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_CACHE_TTL;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RESPONSE_VALUE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RPC_TYPE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_METHOD;
@@ -64,9 +70,11 @@ import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_STRATEGY;
 import static org.apache.flink.table.utils.RetryUtils.getRetryStrategy;
 
 /**
- * The factory for creating a {@link RPCUpsertTableSink}.
+ * The factory for creating {@link RPCUpsertTableSink} or {@link RPCTableSource}.
  */
-public class RPCTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+public class RPCTableFactory implements
+		StreamTableSourceFactory<Row>,
+		StreamTableSinkFactory<Tuple2<Boolean, Row>> {
 
 	@Override
 	public Map<String, String> requiredContext() {
@@ -105,6 +113,12 @@ public class RPCTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, R
 		supportedProperties.add(CONNECTOR_RETRY_MAX_TIMES);
 		supportedProperties.add(CONNECTOR_RETRY_DELAY_MS);
 
+		// dimension
+		supportedProperties.add(CONNECTOR_IS_DIMENSION_TABLE);
+		supportedProperties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
+		supportedProperties.add(CONNECTOR_LOOKUP_CACHE_TTL);
+		supportedProperties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+
 		// parallelism
 		supportedProperties.add(CONNECTOR_PARALLELISM);
 
@@ -113,6 +127,15 @@ public class RPCTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, R
 		supportedProperties.add(SCHEMA + ".#." + SCHEMA_NAME);
 
 		return supportedProperties;
+	}
+
+	@Override
+	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		final TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
+		RPCOptions rpcOptions = getRPCOptions(descriptorProperties);
+		RPCLookupOptions rpcLookupOptions = getRPCLookupOptions(descriptorProperties);
+		return new RPCTableSource(tableSchema, rpcOptions, rpcLookupOptions);
 	}
 
 	@Override
@@ -154,6 +177,17 @@ public class RPCTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, R
 		return builder.build();
 	}
 
+	private RPCLookupOptions getRPCLookupOptions(DescriptorProperties descriptorProperties) {
+		final RPCLookupOptions.Builder builder = RPCLookupOptions.builder();
+
+		descriptorProperties.getOptionalLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS).ifPresent(builder::setCacheMaxSize);
+		descriptorProperties.getOptionalDuration(CONNECTOR_LOOKUP_CACHE_TTL).ifPresent(
+			s -> builder.setCacheExpireMs(s.toMillis()));
+		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
+
+		return builder.build();
+	}
+
 	public static TypeInformation<Row> getRowTypeInformation(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		int batchSize = descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).orElse(1);
@@ -164,19 +198,24 @@ public class RPCTableFactory implements StreamTableSinkFactory<Tuple2<Boolean, R
 			"connector.thrift-service-class must set.");
 		Preconditions.checkArgument(methodName.length() > 0, "connector.thrift-method must set.");
 		serviceClassName += CLIENT_CLASS_SUFFIX;
-		Class<?> sqlMappingClass;
+		Class<?> requestClass;
 		if (batchSize == 1) {
-			sqlMappingClass = ThriftUtil.getParameterClassOfRequest(serviceClassName, methodName);
+			requestClass = ThriftUtil.getParameterClassOfMethod(serviceClassName, methodName);
 		} else {
 			String batchClassName = descriptorProperties.getOptionalString(CONNECTOR_BATCH_CLASS).orElse("");
 			Preconditions.checkArgument(batchClassName.length() > 0,
 				"In batch scenario, connector.batch-class must set.");
 			try {
-				sqlMappingClass = Class.forName(batchClassName);
+				requestClass = Class.forName(batchClassName);
 			} catch (ClassNotFoundException e) {
 				throw new FlinkRuntimeException(String.format("Can't find class : %s", batchClassName), e);
 			}
 		}
-		return ThriftRowTypeInformationUtil.generateRowTypeInformation(sqlMappingClass);
+		if (descriptorProperties.getOptionalBoolean(CONNECTOR_IS_DIMENSION_TABLE).orElse(false)) {
+			Class<?> responseClass = ThriftUtil.getReturnClassOfMethod(serviceClassName, methodName);
+			return ThriftRowTypeInformationUtil.generateDimensionRowTypeInformation(requestClass, responseClass);
+		} else {
+			return ThriftRowTypeInformationUtil.generateRowTypeInformation(requestClass);
+		}
 	}
 }

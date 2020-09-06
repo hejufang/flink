@@ -55,13 +55,36 @@ public class ThriftUtil {
 	}
 
 	/**
+	 * Get the thrift service method response class.
+	 * @param serviceClassName the full name of the service java class which generate by thrift.
+	 * @param methodName the method in service which will be execute.
+	 * @return the response class of method.
+	 */
+	public static Class<?> getReturnClassOfMethod(String serviceClassName, String methodName) {
+		Class<?> serviceClass;
+		try {
+			serviceClass = Class.forName(serviceClassName);
+		} catch (ClassNotFoundException e) {
+			throw new FlinkRuntimeException(String.format("Can't find class : %s", serviceClassName), e);
+		}
+		Method[] methods = serviceClass.getDeclaredMethods();
+		for (Method method : methods) {
+			if (methodName.equals(method.getName())) {
+				return method.getReturnType();
+			}
+		}
+		throw new FlinkRuntimeException(String.format("Can't find method : %s in service : %s",
+			methodName, serviceClassName));
+	}
+
+	/**
 	 * Get the thrift service method parameter class. In practice, it always be a request struct.
 	 * So we just support one parameter at now.
 	 * @param serviceClassName the full name of the service java class which generate by thrift.
 	 * @param methodName the method in service which will be execute.
 	 * @return the parameter class in method.
 	 */
-	public static Class<?> getParameterClassOfRequest(String serviceClassName, String methodName) {
+	public static Class<?> getParameterClassOfMethod(String serviceClassName, String methodName) {
 		Class<?> parameterClass;
 		Class<?> serviceClass;
 		try {
@@ -150,5 +173,15 @@ public class ThriftUtil {
 			}
 		}
 		return result;
+	}
+
+	public static boolean isPrimitivePackageClass(Class<?> classType) {
+		return classType.equals(Boolean.class)
+			|| classType.equals(Byte.class)
+			|| classType.equals(Short.class)
+			|| classType.equals(Integer.class)
+			|| classType.equals(Long.class)
+			|| classType.equals(Double.class)
+			|| classType.equals(String.class);
 	}
 }

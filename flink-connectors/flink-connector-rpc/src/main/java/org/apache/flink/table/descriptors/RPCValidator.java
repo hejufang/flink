@@ -39,6 +39,11 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_FLUSH_TIMEOUT_MS = "connector.flush-timeout-ms";
 	public static final String CONNECTOR_BATCH_CONSTANT_VALUE = "connector.batch-constant-value";
 
+	public static final String CONNECTOR_IS_DIMENSION_TABLE = "connector.is-dimension-table";
+	public static final String CONNECTOR_LOOKUP_CACHE_MAX_ROWS = "connector.lookup.cache.max-rows";
+	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
+	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -59,6 +64,11 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_BATCH_SIZE, true, 1);
 		properties.validateInt(CONNECTOR_FLUSH_TIMEOUT_MS, true, 100);
 		properties.validateString(CONNECTOR_BATCH_CONSTANT_VALUE, true, 1);
+
+		properties.validateBoolean(CONNECTOR_IS_DIMENSION_TABLE, true);
+		properties.validateLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS, true, 1);
+		properties.validateLong(CONNECTOR_LOOKUP_CACHE_TTL, true, 1);
+		properties.validateInt(CONNECTOR_LOOKUP_MAX_RETRIES, true, 1);
 
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 	}

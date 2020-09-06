@@ -20,12 +20,12 @@ package org.apache.flink.connectors.rpc.thrift;
 import java.io.Serializable;
 
 /**
- * The converter to convert thrift object to sql object according class.
+ * The converter to convert sql object to thrift object according class and field name.
  */
 @FunctionalInterface
-public interface DeserializationRuntimeConverter extends Serializable {
+public interface SerializationRuntimeConverter extends Serializable {
 	/**
-	 * Convert thrift object to Row.
+	 * Convert message to thrift object.
 	 * @param message origin message.
 	 * @return Converted message.
 	 */
