@@ -233,6 +233,13 @@ larva:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
 
+locst:
+  dc: cn
+  clusterName: locst
+  high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
+  hdfs.prefix: hdfs://haruna/flink_lf
+  checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+
 oryx:
   dc: cn
   clusterName: oryx
