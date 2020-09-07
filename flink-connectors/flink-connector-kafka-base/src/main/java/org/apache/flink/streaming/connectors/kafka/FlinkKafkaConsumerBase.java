@@ -61,6 +61,7 @@ import org.apache.commons.collections.map.LinkedMap;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,6 +120,10 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	public static final long PARTITION_DISCOVERY_INTERVAL_DEFAULT = 600000;
 
 	public static final String KEY_MANUAL_COMMIT_OFFSETS_INTERVAL_MILLIS = "flink.manually-commit-offsets.interval-millis";
+
+	public static final int RETRY_TIMES = 3;
+
+	public static final int RETRY_INTERVAL_MS = 200;
 
 	/** State name of the consumer's partition offset states. */
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
@@ -690,90 +695,114 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			LOG.info("Consumer subtask {} will start reading {} partitions with offsets in restored state: {}",
 				getRuntimeContext().getIndexOfThisSubtask(), subscribedPartitionsToStartOffsets.size(), subscribedPartitionsToStartOffsets);
 		} else {
-			// use the partition discoverer to fetch the initial seed partitions,
-			// and set their initial offsets depending on the startup mode.
-			// for SPECIFIC_OFFSETS and TIMESTAMP modes, we set the specific offsets now;
-			// for other modes (EARLIEST, LATEST, and GROUP_OFFSETS), the offset is lazily determined
-			// when the partition is actually read.
-			switch (startupMode) {
-				case SPECIFIC_OFFSETS:
-					if (specificStartupOffsets == null) {
-						throw new IllegalStateException(
-							"Startup mode for the consumer set to " + StartupMode.SPECIFIC_OFFSETS +
-								", but no specific offsets were specified.");
-					}
-
-					for (KafkaTopicPartition seedPartition : allPartitions) {
-						Long specificOffset = specificStartupOffsets.get(seedPartition);
-						if (specificOffset != null) {
-							// since the specified offsets represent the next record to read, we subtract
-							// it by one so that the initial state of the consumer will be correct
-							subscribedPartitionsToStartOffsets.put(seedPartition, specificOffset - 1);
-						} else {
-							// default to group offset behaviour if the user-provided specific offsets
-							// do not contain a value for this partition
-							subscribedPartitionsToStartOffsets.put(seedPartition, KafkaTopicPartitionStateSentinel.GROUP_OFFSET);
-						}
-					}
-
-					break;
-				case TIMESTAMP:
-					if (startupOffsetsTimestamp == null) {
-						throw new IllegalStateException(
-							"Startup mode for the consumer set to " + StartupMode.TIMESTAMP +
-								", but no startup timestamp was specified.");
-					}
-
-					for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset
-							: fetchOffsetsWithTimestamp(allPartitions, startupOffsetsTimestamp).entrySet()) {
-						subscribedPartitionsToStartOffsets.put(
-							partitionToOffset.getKey(),
-							(partitionToOffset.getValue() == null)
-									// if an offset cannot be retrieved for a partition with the given timestamp,
-									// we default to using the latest offset for the partition
-									? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
-									// since the specified offsets represent the next record to read, we subtract
-									// it by one so that the initial state of the consumer will be correct
-									: partitionToOffset.getValue() - 1);
-					}
-
-					break;
-				default:
-					if (relativeOffset == null) {
-						for (KafkaTopicPartition seedPartition : allPartitions) {
-							if (resetEarliestForNewPartition && startupMode == StartupMode.GROUP_OFFSETS) {
-								subscribedPartitionsToStartOffsets.put(seedPartition,
-									KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
-
-							} else {
-								subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+			int retry = 0;
+			while (true) {
+				try {
+					// use the partition discoverer to fetch the initial seed partitions,
+					// and set their initial offsets depending on the startup mode.
+					// for SPECIFIC_OFFSETS and TIMESTAMP modes, we set the specific offsets now;
+					// for other modes (EARLIEST, LATEST, and GROUP_OFFSETS), the offset is lazily determined
+					// when the partition is actually read.
+					switch (startupMode) {
+						case SPECIFIC_OFFSETS:
+							if (specificStartupOffsets == null) {
+								throw new IllegalStateException(
+									"Startup mode for the consumer set to " + StartupMode.SPECIFIC_OFFSETS +
+										", but no specific offsets were specified.");
 							}
-						}
-					} else {
-						if (startupMode == StartupMode.EARLIEST && relativeOffset < 0) {
-							throw new FlinkRuntimeException("RelativeOffset should not < 0 when StartupMode is EARLIEST");
-						}
-						if (startupMode == StartupMode.LATEST && relativeOffset > 0) {
-							throw new FlinkRuntimeException("RelativeOffset should not > 0 when StartupMode is LATEST");
-						}
-						if (resetEarliestForNewPartition) {
-							throw new FlinkRuntimeException("resetEarliestForNewPartition and relativeOffset cannot " +
-								"work together.");
-						}
 
-						Map<KafkaTopicPartition, Long> offsets = fetchOffsetsWithStartupMode(allPartitions, startupMode);
-						for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset : offsets.entrySet()) {
-							subscribedPartitionsToStartOffsets.put(
-								partitionToOffset.getKey(),
-								(partitionToOffset.getValue() == null)
-									// if an offset cannot be retrieved for a partition with the given timestamp,
-									// we default to using the latest offset for the partition
-									? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
+							for (KafkaTopicPartition seedPartition : allPartitions) {
+								Long specificOffset = specificStartupOffsets.get(seedPartition);
+								if (specificOffset != null) {
 									// since the specified offsets represent the next record to read, we subtract
 									// it by one so that the initial state of the consumer will be correct
-									: partitionToOffset.getValue() + relativeOffset - 1);
-						}
+									subscribedPartitionsToStartOffsets.put(seedPartition, specificOffset - 1);
+								} else {
+									// default to group offset behaviour if the user-provided specific offsets
+									// do not contain a value for this partition
+									subscribedPartitionsToStartOffsets.put(seedPartition, KafkaTopicPartitionStateSentinel.GROUP_OFFSET);
+								}
+							}
+
+							break;
+						case TIMESTAMP:
+							if (startupOffsetsTimestamp == null) {
+								throw new IllegalStateException(
+									"Startup mode for the consumer set to " + StartupMode.TIMESTAMP +
+										", but no startup timestamp was specified.");
+							}
+
+							try {
+								for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset
+									: fetchOffsetsWithTimestamp(allPartitions, startupOffsetsTimestamp).entrySet()) {
+									subscribedPartitionsToStartOffsets.put(
+										partitionToOffset.getKey(),
+										(partitionToOffset.getValue() == null)
+											// if an offset cannot be retrieved for a partition with the given timestamp,
+											// we default to using the latest offset for the partition
+											? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
+											// since the specified offsets represent the next record to read, we subtract
+											// it by one so that the initial state of the consumer will be correct
+											: partitionToOffset.getValue() - 1);
+								}
+							} catch (TimeoutException e) {
+								LOG.warn("Could not get the offset of the partitions({}).", allPartitions, e);
+								throw e;
+							}
+
+							break;
+						default:
+							if (relativeOffset == null) {
+								for (KafkaTopicPartition seedPartition : allPartitions) {
+									if (resetEarliestForNewPartition && startupMode == StartupMode.GROUP_OFFSETS) {
+										subscribedPartitionsToStartOffsets.put(seedPartition,
+											KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+
+									} else {
+										subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+									}
+								}
+							} else {
+								if (startupMode == StartupMode.EARLIEST && relativeOffset < 0) {
+									throw new FlinkRuntimeException("RelativeOffset should not < 0 when StartupMode is EARLIEST");
+								}
+								if (startupMode == StartupMode.LATEST && relativeOffset > 0) {
+									throw new FlinkRuntimeException("RelativeOffset should not > 0 when StartupMode is LATEST");
+								}
+								if (resetEarliestForNewPartition) {
+									throw new FlinkRuntimeException("resetEarliestForNewPartition and relativeOffset cannot " +
+											"work together.");
+								}
+
+								Map<KafkaTopicPartition, Long> offsets;
+								try {
+									offsets = fetchOffsetsWithStartupMode(allPartitions, startupMode);
+								} catch (TimeoutException e) {
+									LOG.warn("Could not get the offset of the partitions({}).", allPartitions, e);
+									throw e;
+								}
+								for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset : offsets.entrySet()) {
+									subscribedPartitionsToStartOffsets.put(
+										partitionToOffset.getKey(),
+										(partitionToOffset.getValue() == null)
+											// if an offset cannot be retrieved for a partition with the given timestamp,
+											// we default to using the latest offset for the partition
+											? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
+											// since the specified offsets represent the next record to read, we subtract
+											// it by one so that the initial state of the consumer will be correct
+											: partitionToOffset.getValue() + relativeOffset - 1);
+								}
+							}
 					}
+					break;
+				} catch (TimeoutException e) {
+					if (retry++ >= RETRY_TIMES) {
+						throw new FlinkRuntimeException(
+							String.format("Could not get the offset of the partitions(%s).", allPartitions), e);
+					}
+
+					Thread.sleep(RETRY_INTERVAL_MS);
+				}
 			}
 
 			if (!subscribedPartitionsToStartOffsets.isEmpty()) {
@@ -953,6 +982,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 					} catch (AbstractPartitionDiscoverer.WakeupException | AbstractPartitionDiscoverer.ClosedException e) {
 						// the partition discoverer may have been closed or woken up before or during the discovery;
 						// this would only happen if the consumer was canceled; simply escape the loop
+						LOG.warn(
+							"The partition discoverer may have been closed or woken up before or during the discovery",
+							e);
 						break;
 					}
 
@@ -972,6 +1004,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 					}
 				}
 			} catch (Exception e) {
+				LOG.error("An error occurred during the kafka partition discovery.", e);
 				discoveryLoopErrorRef.set(e);
 			} finally {
 				// calling cancel will also let the fetcher loop escape
