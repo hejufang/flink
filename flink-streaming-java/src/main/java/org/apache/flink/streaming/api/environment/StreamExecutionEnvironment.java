@@ -1930,13 +1930,7 @@ public abstract class StreamExecutionEnvironment {
 		}
 	}
 
-	private void saveMeta(StreamGraph streamGraph, JobGraph jobGraph) {
-		String jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,
-			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
-		if ("pyFlink".equals(jobType)) {
-			return;
-		}
-
+	public void replaceOperatorName(StreamGraph streamGraph) {
 		for (StreamNode node : streamGraph.getStreamNodes()) {
 			String operatorName = node.getOperatorName();
 			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
@@ -1944,6 +1938,14 @@ public abstract class StreamExecutionEnvironment {
 				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
 			}
 			node.setOperatorName(UniqueNameGenerator.appendSuffixIfNotUnique(operatorName));
+		}
+	}
+
+	private void saveMeta(StreamGraph streamGraph, JobGraph jobGraph) {
+		String jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,
+			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
+		if ("pyFlink".equals(jobType)) {
+			return;
 		}
 		try {
 			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph);

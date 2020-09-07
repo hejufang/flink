@@ -65,6 +65,7 @@ public class StreamPlanEnvironment extends StreamExecutionEnvironment {
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
 		replaceJobName(streamGraph);
+		replaceOperatorName(streamGraph);
 		saveMetaAndRegisterDashboard(streamGraph);
 		LOG.info("StreamPlanEnvironment execute {}", streamGraph.getJobName());
 		transformations.clear();
