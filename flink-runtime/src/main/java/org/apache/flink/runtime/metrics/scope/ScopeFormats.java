@@ -32,6 +32,7 @@ public final class ScopeFormats {
 	private final TaskManagerJobScopeFormat taskManagerJobFormat;
 	private final TaskScopeFormat taskFormat;
 	private final OperatorScopeFormat operatorFormat;
+	private final ClientScopeFormat clientScopeFormat;
 
 	// ------------------------------------------------------------------------
 
@@ -44,13 +45,15 @@ public final class ScopeFormats {
 			String taskManagerFormat,
 			String taskManagerJobFormat,
 			String taskFormat,
-			String operatorFormat) {
+			String operatorFormat,
+			String clientScopeFormat) {
 		this.jobManagerFormat = new JobManagerScopeFormat(jobManagerFormat);
 		this.jobManagerJobFormat = new JobManagerJobScopeFormat(jobManagerJobFormat, this.jobManagerFormat);
 		this.taskManagerFormat = new TaskManagerScopeFormat(taskManagerFormat);
 		this.taskManagerJobFormat = new TaskManagerJobScopeFormat(taskManagerJobFormat, this.taskManagerFormat);
 		this.taskFormat = new TaskScopeFormat(taskFormat, this.taskManagerJobFormat);
 		this.operatorFormat = new OperatorScopeFormat(operatorFormat, this.taskFormat);
+		this.clientScopeFormat = new ClientScopeFormat(clientScopeFormat);
 	}
 
 	// ------------------------------------------------------------------------
@@ -81,6 +84,10 @@ public final class ScopeFormats {
 		return this.operatorFormat;
 	}
 
+	public ClientScopeFormat getClientScopeFormat() {
+		return clientScopeFormat;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Parsing from Config
 	// ------------------------------------------------------------------------
@@ -98,7 +105,8 @@ public final class ScopeFormats {
 		String tmJobFormat = config.getString(MetricOptions.SCOPE_NAMING_TM_JOB);
 		String taskFormat = config.getString(MetricOptions.SCOPE_NAMING_TASK);
 		String operatorFormat = config.getString(MetricOptions.SCOPE_NAMING_OPERATOR);
+		String cliFormat = config.getString(MetricOptions.SCOPE_NAMING_CLI);
 
-		return new ScopeFormats(jmFormat, jmJobFormat, tmFormat, tmJobFormat, taskFormat, operatorFormat);
+		return new ScopeFormats(jmFormat, jmJobFormat, tmFormat, tmJobFormat, taskFormat, operatorFormat, cliFormat);
 	}
 }

@@ -109,15 +109,16 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
 		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
-		this.jobName = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_JOB);
 		this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
 		this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
 		this.commitId = EnvironmentInformation.getRevisionInformation().commitId;
 		this.commitDate = EnvironmentInformation.getRevisionInformation().commitDate;
+		this.jobName = getJobName();
 	}
 
 	@Override
 	public void close() {
+		report();
 		clientWrapper.close();
 	}
 
@@ -222,5 +223,18 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	public void setRegion(String region) {
 		this.region = region;
+	}
+
+	public String getJobName() {
+		// get job name from yarn env.
+		String jobName = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_JOB);
+		if (jobName != null && jobName.lastIndexOf("_") > 0) {
+			// remove username from job name.
+			jobName = jobName.substring(0, jobName.lastIndexOf("_"));
+		} else {
+			// get job name from client env.
+			jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY, ConfigConstants.JOB_NAME_DEFAULT);
+		}
+		return jobName;
 	}
 }

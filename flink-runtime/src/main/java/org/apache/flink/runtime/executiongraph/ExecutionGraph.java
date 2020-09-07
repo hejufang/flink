@@ -28,6 +28,9 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
@@ -78,6 +81,7 @@ import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmanager.slots.TaskManagerGateway;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
 import org.apache.flink.runtime.scheduler.adapter.ExecutionGraphToSchedulingTopologyAdapter;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -191,6 +195,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	/** The log object used for debugging. */
 	static final Logger LOG = LoggerFactory.getLogger(ExecutionGraph.class);
+
+	// warehouse messages
+	public static final String EVENT_METRIC_NAME = "executionGraphEvent";
 
 	// --------------------------------------------------------------------------------------------
 
@@ -348,6 +355,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	private FailoverTopology failoverTopology;
 
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
+
+	private final MessageSet<WarehouseJobStartEventMessage> eventMessageSet;
 
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
@@ -545,7 +554,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			allowQueuedScheduling,
 			false,
 			false,
-			BlacklistUtil.createNoOpRemoteBlacklistReporter());
+			BlacklistUtil.createNoOpRemoteBlacklistReporter(),
+			new MessageSet<>(MessageType.JOB_START_EVENT));
 	}
 
 	public ExecutionGraph(
@@ -568,7 +578,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			boolean allowQueuedScheduling,
 			boolean scheduleTaskFairly,
 			boolean isRecoverable,
-			RemoteBlacklistReporter remoteBlacklistReporter) throws IOException {
+			RemoteBlacklistReporter remoteBlacklistReporter,
+			MessageSet<WarehouseJobStartEventMessage> eventMessageSet) throws IOException {
 
 		checkNotNull(futureExecutor);
 
@@ -640,6 +651,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
 		this.remoteBlacklistReporter.setExecutionGraph(this);
+
+		this.eventMessageSet = eventMessageSet;
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
@@ -1100,6 +1113,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			this.numVerticesTotal += ejv.getParallelism();
 			newExecJobVertices.add(ejv);
 		}
+		eventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, getJobID().toString(), globalModVersion, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_EXECUTION_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_ATTACH_JOB_VERTEX)));
 
 		if (partitionReleaseStrategyFactory instanceof NotReleasingPartitionReleaseStrategy.Factory &&
 				!(failoverStrategy instanceof AdaptedRestartPipelinedRegionStrategyNG) &&
@@ -1112,7 +1127,13 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		failoverStrategy.notifyNewVertices(newExecJobVertices);
 		speculationStrategy.notifyNewVertices(newExecJobVertices);
 
+		eventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, getJobID().toString(), globalModVersion, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_EXECUTION_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_BUILD_FAILOVER_TOPOLOGY)));
+
 		schedulingTopology = new ExecutionGraphToSchedulingTopologyAdapter(this);
+
+		eventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, getJobID().toString(), globalModVersion, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_EXECUTION_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_BUILD_SCHEDULING_TOPOLOGY)));
 
 		partitionReleaseStrategy = partitionReleaseStrategyFactory.createInstance(
 			schedulingTopology, failoverTopology);
@@ -1999,4 +2020,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return failoverTopology;
 	}
 
+	public MessageSet<WarehouseJobStartEventMessage> getEventMessageSet() {
+		return eventMessageSet;
+	}
 }

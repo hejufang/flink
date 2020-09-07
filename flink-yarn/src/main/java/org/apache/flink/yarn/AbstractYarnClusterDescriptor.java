@@ -36,12 +36,15 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
@@ -159,6 +162,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	private YarnConfigOptions.UserJarInclusion userJarInclusion;
 
+	private MessageSet<WarehouseJobStartEventMessage> messageSet = null;
+
 	public AbstractYarnClusterDescriptor(
 			Configuration flinkConfiguration,
 			YarnConfiguration yarnConfiguration,
@@ -210,6 +215,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			throw new IllegalArgumentException("The passed jar path ('" + localJarPath + "') does not end with the 'jar' extension");
 		}
 		this.flinkJarPath = localJarPath;
+	}
+
+	@Override
+	public void setMessageSet(MessageSet<WarehouseJobStartEventMessage> messageSet) {
+		this.messageSet = messageSet;
 	}
 
 	/**
@@ -593,6 +603,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	}
 
+	private void addMessage(Message<WarehouseJobStartEventMessage> m) {
+		if (messageSet != null) {
+			messageSet.addMessage(m);
+		}
+	}
+
 	private void checkYarnQueues(YarnClient yarnClient) {
 		try {
 			List<QueueInfo> queues = yarnClient.getAllQueues();
@@ -631,6 +647,15 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			YarnClient yarnClient,
 			YarnClientApplication yarnApplication,
 			ClusterSpecification clusterSpecification) throws Exception {
+		final String jobIdString;
+		if (jobGraph != null) {
+			jobIdString = jobGraph.getJobID().toString();
+		} else {
+			jobIdString = null;
+		}
+
+		addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_PREPARE_AM_CONTEXT, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 
 		// ------------------ Initialize the file systems -------------------------
 
@@ -1161,6 +1186,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		setApplicationTags(appContext);
 
+		addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_PREPARE_AM_CONTEXT, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
+		addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_DEPLOY_YARN_CLUSTER, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
+
 		// add a hook to clean up in case deployment fails
 		Thread deploymentFailureHook = new DeploymentFailureHook(yarnClient, yarnApplication, yarnFilesDir);
 		Runtime.getRuntime().addShutdownHook(deploymentFailureHook);
@@ -1207,6 +1237,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			lastAppState = appState;
 			Thread.sleep(1000);
 		}
+		addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_DEPLOY_YARN_CLUSTER, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
 		// print the application id for user to cancel themselves.
 		if (isDetachedMode()) {
 			LOG.info("The Flink YARN client has been started in detached mode. In order to stop " +

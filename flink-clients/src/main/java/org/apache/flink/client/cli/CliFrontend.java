@@ -36,6 +36,7 @@ import org.apache.flink.client.program.ProgramParametrizationException;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationMapping;
+import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -43,6 +44,9 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.optimizer.DataStatistics;
 import org.apache.flink.optimizer.Optimizer;
 import org.apache.flink.optimizer.costs.DefaultCostEstimator;
@@ -56,6 +60,12 @@ import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
+import org.apache.flink.runtime.metrics.MetricRegistryImpl;
+import org.apache.flink.runtime.metrics.ReporterSetup;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
+import org.apache.flink.runtime.metrics.util.MetricUtils;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
 import org.apache.flink.runtime.state.CheckpointStorage;
@@ -77,16 +87,20 @@ import java.io.FileNotFoundException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -113,6 +127,9 @@ public class CliFrontend {
 	private static final String CONFIG_DIRECTORY_FALLBACK_1 = "../conf";
 	private static final String CONFIG_DIRECTORY_FALLBACK_2 = "conf";
 
+	// warehouse messages
+	private static final String EVENT_METRIC_NAME = "clientEvent";
+
 	// --------------------------------------------------------------------------------------------
 
 	private final Configuration configuration;
@@ -124,6 +141,11 @@ public class CliFrontend {
 	private final FiniteDuration clientTimeout;
 
 	private final int defaultParallelism;
+
+	private MetricRegistryImpl metricRegistry = null;
+	private ClientMetricGroup clientMetricGroup = null;
+	private final MessageSet<WarehouseJobStartEventMessage> jobStartEventMessageSet = new MessageSet<>(MessageType.JOB_START_EVENT);
+	private final Set<WarehouseJobStartEventMessage> jobStartEventMessagesWaitJobId = new HashSet<>();
 
 	public CliFrontend(
 			Configuration configuration,
@@ -204,6 +226,15 @@ public class CliFrontend {
 			}
 		}
 
+		final CustomCommandLine<?> customCommandLine = getActiveCustomCommandLine(commandLine);
+		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
+		metricRegistry = createMetricRegistry(effectiveConfiguration);
+		clientMetricGroup = createClientMetricGroup(metricRegistry, effectiveConfiguration);
+		registerMetrics();
+
+		jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_PROGRAM, WarehouseJobStartEventMessage.EVENT_ACTION_START));
+
 		final PackagedProgram program;
 		try {
 			LOG.info("Building program from JAR file");
@@ -212,13 +243,46 @@ public class CliFrontend {
 		catch (FileNotFoundException e) {
 			throw new CliArgsException("Could not build the program from JAR file.", e);
 		}
-
-		final CustomCommandLine<?> customCommandLine = getActiveCustomCommandLine(commandLine);
+		jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_PROGRAM, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH));
 
 		try {
 			runProgram(customCommandLine, commandLine, runOptions, program);
 		} finally {
 			program.deleteExtractedLibraries();
+		}
+	}
+
+	/**
+	 * Factory method to create the metric registry for the mini cluster.
+	 *
+	 * @param config The configuration of the mini cluster
+	 */
+	protected MetricRegistryImpl createMetricRegistry(Configuration config) {
+		MetricRegistryImpl metricRegistry = new MetricRegistryImpl(
+			MetricRegistryConfiguration.fromConfiguration(config),
+			ReporterSetup.fromConfiguration(config));
+
+		ShutdownHookUtil.addShutdownHook(metricRegistry::shutdown, "Metrics shutdown hook.", LOG);
+		return metricRegistry;
+	}
+
+	private ClientMetricGroup createClientMetricGroup(MetricRegistryImpl metricRegistry, Configuration configuration) {
+		String hostname = "Unknown";
+		try {
+			hostname = InetAddress.getLocalHost().getCanonicalHostName();
+		} catch (UnknownHostException e) {
+			LOG.error("Get hostname failed, ", e);
+		}
+		return MetricUtils.instantiateClientMetricGroup(
+				metricRegistry,
+				hostname,
+				ConfigurationUtils.getSystemResourceMetricsProbingInterval(configuration));
+	}
+
+	private void registerMetrics() {
+		if (clientMetricGroup != null) {
+			clientMetricGroup.gauge(EVENT_METRIC_NAME, jobStartEventMessageSet);
 		}
 	}
 
@@ -284,12 +348,20 @@ public class CliFrontend {
 		return newArgsArray;
 	}
 
+	private void addMessageWithJobId(String jobId) {
+		for (WarehouseJobStartEventMessage message : jobStartEventMessagesWaitJobId) {
+			message.setJobId(jobId);
+			jobStartEventMessageSet.addMessage(new Message<>(message));
+		}
+	}
+
 	private <T> void runProgram(
 			CustomCommandLine<T> customCommandLine,
 			CommandLine commandLine,
 			RunOptions runOptions,
 			PackagedProgram program) throws ProgramInvocationException, FlinkException {
 		final ClusterDescriptor<T> clusterDescriptor = customCommandLine.createClusterDescriptor(commandLine);
+		clusterDescriptor.setMessageSet(jobStartEventMessageSet);
 		Configuration effectiveConfiguration = clusterDescriptor.getFlinkConfiguration();
 		if (effectiveConfiguration == null) {
 			effectiveConfiguration = configuration;
@@ -305,7 +377,12 @@ public class CliFrontend {
 				int parallelism = customCommandLine.adjustDefaultParallelism(defaultParallelism, commandLine, runOptions);
 				LOG.info("Set default parallelism to " + parallelism);
 
+				jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_STREAM_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_START));
+
 				FlinkPlan flinkPlan = PackagedProgramUtils.createFlinkPlan(program, effectiveConfiguration, parallelism);
+				jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_STREAM_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH));
 
 				if (flinkPlan instanceof StreamingPlan && !((StreamingPlan) flinkPlan).isBatchJob()) {
 					// enable gang scheduler when stream job
@@ -315,15 +392,27 @@ public class CliFrontend {
 				final boolean perJobRestSubmitEnabled = effectiveConfiguration.getBoolean(ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED,
 					ConfigConstants.PER_JOB_REST_SUBMIT_ENABLED_DEFAULT);
 
+				jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_JOB_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_START));
 				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(flinkPlan, program, effectiveConfiguration);
+				final String jobIdString = jobGraph.getJobID().toString();
+
+				addMessageWithJobId(jobIdString);
+				jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_JOB_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
+
 				if (perJobRestSubmitEnabled) {
 					LOG.info("Deploy job through RestClusterClient to avoid upload jobGraph file to HDFS.");
 					try {
 						client = clusterDescriptor.deploySessionCluster(clusterSpecification, true);
 						LOG.info("Finish deploying cluster, submit job now...");
+						jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+								WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_SUBMIT_JOB, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 						client.setPrintStatusDuringExecution(runOptions.getStdoutLogging());
 						client.setDetached(runOptions.getDetachedMode());
 						client.submitJob(jobGraph, getClass().getClassLoader());
+						jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+								WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_SUBMIT_JOB, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
 					} catch (Throwable throwable) {
 						if (client == null) {
 							LOG.error("Client should not be null after deploying cluster!");
@@ -342,7 +431,11 @@ public class CliFrontend {
 				}
 
 				if (client.getFlinkConfiguration().getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START)) {
+					jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+							WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_CHECK_SLOT_ENOUGH, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 					client.waitForClusterToBeReady(jobGraph.calcMinRequiredSlotsNum());
+					jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+							WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_CHECK_SLOT_ENOUGH, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
 				}
 
 				try {
@@ -414,9 +507,9 @@ public class CliFrontend {
 			} else {
 				LOG.info("Client is null.");
 			}
-			System.exit(-1);
 		} finally {
 			try {
+				metricRegistry.shutdown();
 				clusterDescriptor.close();
 			} catch (Exception e) {
 				LOG.info("Could not properly close the cluster descriptor.", e);

@@ -20,7 +20,9 @@ package org.apache.flink.client.deployment;
 
 import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.util.FlinkException;
 
 /**
@@ -86,4 +88,6 @@ public interface ClusterDescriptor<T> extends AutoCloseable {
 	void setDefaultConfigurationForStream();
 
 	Configuration getFlinkConfiguration();
+
+	default void setMessageSet(MessageSet<WarehouseJobStartEventMessage> messageSet) {}
 }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.metrics.Message;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
@@ -27,6 +28,7 @@ import org.apache.flink.runtime.jobmanager.scheduler.LocationPreferenceConstrain
 import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmaster.slotpool.Scheduler;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
@@ -148,6 +150,8 @@ public class SchedulingUtils {
 		final Set<AllocationID> allPreviousAllocationIds = Collections.unmodifiableSet(
 			computePriorAllocationIdsIfRequiredByScheduling(vertices, slotProviderStrategy.asSlotProvider()));
 
+		executionGraph.getEventMessageSet().addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, executionGraph.getJobID().toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_SCHEDULE_TASK, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 		// allocate the slots (obtain all their futures)
 		for (ExecutionVertex ev : vertices) {
 			// these calls are not blocking, they only return futures
@@ -159,12 +163,18 @@ public class SchedulingUtils {
 			allAllocationFutures.add(allocationFuture);
 		}
 
+		executionGraph.getEventMessageSet().addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, executionGraph.getJobID().toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_SCHEDULE_TASK, WarehouseJobStartEventMessage.EVENT_ACTION_ALLOCATE_RESOURCE)));
 		// this future is complete once all slot futures are complete.
 		// the future fails once one slot future fails.
 		final ConjunctFuture<Collection<Execution>> allAllocationsFuture = FutureUtils.combineAll(allAllocationFutures);
 
 		return allAllocationsFuture.thenAccept(
 			(Collection<Execution> executionsToDeploy) -> {
+				executionGraph.getEventMessageSet().addMessage(new Message<>(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, executionGraph.getJobID().toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_SCHEDULE_TASK, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
+				executionGraph.getEventMessageSet().addMessage(new Message<>(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, executionGraph.getJobID().toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_DEPLOY_TASK, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 				final Map<ExecutionVertex, Execution> allocationFutures = new HashMap<>();
 				for (Execution execution : executionsToDeploy) {
 					allocationFutures.put(execution.getVertex(), execution);
@@ -185,6 +195,8 @@ public class SchedulingUtils {
 					throw new CompletionException(new FlinkException(
 							String.format("The follow Executions not in ExecutionGraph, %s", allocationFutures)));
 				}
+				executionGraph.getEventMessageSet().addMessage(new Message<>(new WarehouseJobStartEventMessage(
+						WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, executionGraph.getJobID().toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_DEPLOY_TASK, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
 			})
 			// Generate a more specific failure message for the eager scheduling
 			.exceptionally(

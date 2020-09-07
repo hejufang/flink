@@ -26,6 +26,9 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
@@ -61,6 +64,7 @@ import org.apache.flink.runtime.jobgraph.jsonplan.JsonPlanGenerator;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
@@ -225,6 +229,8 @@ public class ExecutionGraphBuilder {
 		final SpeculationStrategy.Factory speculationStrategyFactory =
 				SpeculationStrategyLoader.loadSpeculationStrategy(jobManagerConfig);
 
+		final MessageSet<WarehouseJobStartEventMessage> jobStartEventMessageSet = new MessageSet<>(MessageType.JOB_START_EVENT);
+
 		// create a new execution graph, if none exists so far
 		final ExecutionGraph executionGraph;
 		try {
@@ -249,7 +255,8 @@ public class ExecutionGraphBuilder {
 					jobGraph.getAllowQueuedScheduling(),
 					scheduleTaskFairly,
 					isRecoverable,
-					remoteBlacklistReporter);
+					remoteBlacklistReporter,
+					jobStartEventMessageSet);
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}
@@ -268,6 +275,8 @@ public class ExecutionGraphBuilder {
 		// initialize the vertices that have a master initialization hook
 		// file output formats create directories here, input formats create splits
 
+		jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, jobId.toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_EXECUTION_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 		final long initMasterStart = System.nanoTime();
 		log.info("Running initialization on master for job {} ({}).", jobName, jobId);
 
@@ -289,6 +298,8 @@ public class ExecutionGraphBuilder {
 
 		log.info("Successfully ran initialization on master in {} ms.",
 				(System.nanoTime() - initMasterStart) / 1_000_000);
+		jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, jobId.toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_EXECUTION_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_INITIALIZATION)));
 
 		// topologically sort the job vertices and attach the graph to the existing one
 		List<JobVertex> sortedTopology = jobGraph.getVerticesSortedTopologicallyFromSources();
@@ -472,12 +483,16 @@ public class ExecutionGraphBuilder {
 				checkpointHandler);
 		}
 
+		jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+				WarehouseJobStartEventMessage.EVENT_MODULE_JOB_MASTER, null, null, jobId.toString(), executionGraph.getGlobalModVersion(), WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_EXECUTION_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
+
 		// create all the metrics for the Execution Graph
 
 		metrics.gauge(RestartTimeGauge.METRIC_NAME, new RestartTimeGauge(executionGraph));
 		metrics.gauge(DownTimeGauge.METRIC_NAME, new DownTimeGauge(executionGraph));
 		metrics.gauge(UpTimeGauge.METRIC_NAME, new UpTimeGauge(executionGraph));
 		metrics.gauge(NumberOfFullRestartsGauge.METRIC_NAME, new NumberOfFullRestartsGauge(executionGraph));
+		metrics.gauge(ExecutionGraph.EVENT_METRIC_NAME, jobStartEventMessageSet);
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
 		executionGraph.getSpeculationStrategy().registerMetrics(metrics);

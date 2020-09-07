@@ -16,26 +16,22 @@
  * limitations under the License.
  */
 
-package org.apache.flink.metrics;
+package org.apache.flink.runtime.metrics.scope;
 
 /**
- * The type of {@link Message}.
+ * The scope format for the {@link org.apache.flink.runtime.metrics.groups.ClientMetricGroup}.
  */
-public enum MessageType {
+public class ClientScopeFormat extends ScopeFormat {
 
-	CHECKPOINT("checkpoint"),
+	public ClientScopeFormat(String format) {
+		super(format, null, new String[] {
+			SCOPE_HOST
+		});
+	}
 
-	ORIGINAL_METRICS("original_metrics"),
-
-	BLACKLIST("blacklist"),
-
-	JOB_CONFIG("job_config"),
-
-	JOB_START_EVENT("job_start_event");
-
-	private final String name;
-
-	MessageType(final String name) {
-		this.name = name;
+	public String[] formatScope(String hostname) {
+		final String[] template = copyTemplate();
+		final String[] values = { hostname };
+		return bindVariables(template, values);
 	}
 }

@@ -28,6 +28,9 @@ import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
@@ -47,6 +50,7 @@ import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
+import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
@@ -155,6 +159,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	implements AMRMClientAsync.CallbackHandler, NMClientAsync.CallbackHandler {
 
 	private static final Priority RM_REQUEST_PRIORITY = Priority.newInstance(1);
+
+	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
+
+	private final MessageSet<WarehouseJobStartEventMessage> jobStartEventMessageSet = new MessageSet<>(MessageType.JOB_START_EVENT);
+
+	static final String ENV_YARN_CONTAINER_ID = "CONTAINER_ID";
+
 	/** The process environment variables. */
 	private final Map<String, String> env;
 
@@ -291,6 +302,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private final boolean cleanupRunningContainersOnStop;
 
+	private final String currentContainerId;
+
 	/** Enable yarn container descheduler. */
 	private final boolean deschedulerEnable;
 	/** Enable yarn container descheduler for load Type. */
@@ -426,6 +439,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		this.nodeAttributesExpression = flinkConfig.getString(YarnConfigOptions.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
 
 		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
+
+		this.currentContainerId = System.getenv(ENV_YARN_CONTAINER_ID);
 
 		this.deschedulerEnable = flinkConfig.getBoolean(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_ENABLE);
 		this.deschedulerLoadTypeEnable = flinkConfig.getBoolean(YarnConfigOptions.GANG_CONTAINER_DESCHEDULER_LOAD_TYPE_ENABLE);
@@ -807,6 +822,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					containerStartDurationMaxMs,
 					System.currentTimeMillis() - startingContainers.get(resourceID));
 		}
+		if (workerNode != null) {
+			jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+					WarehouseJobStartEventMessage.EVENT_MODULE_RESOURCE_MANAGER, currentContainerId, workerNode.getContainer().getId().toString(), null, 0, WarehouseJobStartEventMessage.EVENT_TYPE_START_CONTAINER, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
+		}
 		return workerNode;
 	}
 
@@ -1143,6 +1162,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 							try {
 								ContainerLaunchContext taskExecutorLaunchContext;
 								try {
+									jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+											WarehouseJobStartEventMessage.EVENT_MODULE_RESOURCE_MANAGER, currentContainerId, containerIdStr, null, 0, WarehouseJobStartEventMessage.EVENT_TYPE_CREATE_TASK_MANAGER_CONTEXT, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 									long ts = System.currentTimeMillis();
 									// Context information used to start a TaskExecutor Java process
 									taskExecutorLaunchContext = createTaskExecutorLaunchContext(
@@ -1152,10 +1173,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 									log.info("Create context for container {} take {} milliseconds",
 											containerIdStr,
 											System.currentTimeMillis() - ts);
+									jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+											WarehouseJobStartEventMessage.EVENT_MODULE_RESOURCE_MANAGER, currentContainerId, containerIdStr, null, 0, WarehouseJobStartEventMessage.EVENT_TYPE_CREATE_TASK_MANAGER_CONTEXT, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
 								} catch (Throwable t) {
 									isStartContainerError = false;
 									throw t;
 								}
+								jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
+										WarehouseJobStartEventMessage.EVENT_MODULE_RESOURCE_MANAGER, currentContainerId, containerIdStr, null, 0, WarehouseJobStartEventMessage.EVENT_TYPE_START_CONTAINER, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 								startingContainers.put(resourceId, System.currentTimeMillis());
 								if (nmClientAsyncEnabled) {
 									nodeManagerClientAsync.startContainerAsync(container, taskExecutorLaunchContext);
@@ -1970,6 +1995,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.gauge("deschedulerDurationMs", deschedulerDurationMsGuage);
 		jobManagerMetricGroup.gauge("deschedulerHandleResult", deschedulerHandleGuage);
 		jobManagerMetricGroup.gauge("deschedulerReceivedInfo", deschedulerReceivedGuage);
+		jobManagerMetricGroup.gauge(EVENT_METRIC_NAME, jobStartEventMessageSet);
 	}
 
 	private void checkSlowContainersInternal() {

@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.Plan;
+import org.apache.flink.client.deployment.ClusterDeploymentException;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.optimizer.CompilerException;
@@ -492,7 +493,7 @@ public abstract class ClusterClient<T> {
 	 * <p>This is delayed until right before job submission to report any other errors first
 	 * (e.g. invalid job definitions/errors in the user jar)
 	 */
-	public void waitForClusterToBeReady(int minRequiredSlotsNum) {
+	public void waitForClusterToBeReady(int minRequiredSlotsNum) throws ClusterDeploymentException {
 		log.info("Waiting until min required num slots are ready");
 
 		for (ClusterOverviewWithVersion currentStatus, lastStatus = null; true; lastStatus = currentStatus) {
@@ -513,7 +514,7 @@ public abstract class ClusterClient<T> {
 					log.error(currentStatus.getRmFatalMessage());
 					System.err.println(currentStatus.getRmFatalMessage());
 					shutDownCluster();
-					System.exit(-1);
+					throw new ClusterDeploymentException("Cluster deploy error: " + currentStatus.getRmFatalMessage());
 				}
 				log.info("TaskManager status (Taskmanagers: " + currentStatus.getNumTaskManagersConnected()
 					+ ", MinRequiredSlots: "

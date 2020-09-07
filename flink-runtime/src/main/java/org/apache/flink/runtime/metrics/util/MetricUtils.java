@@ -29,6 +29,7 @@ import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistry;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -109,6 +110,25 @@ public class MetricUtils {
 			instantiateSystemMetrics(taskManagerMetricGroup, systemResourceProbeInterval.get());
 		}
 		return Tuple2.of(taskManagerMetricGroup, statusGroup);
+	}
+
+	public static ClientMetricGroup instantiateClientMetricGroup(
+			final MetricRegistry metricRegistry,
+			final String hostname,
+			final Optional<Time> systemResourceProbeInterval) {
+		final ClientMetricGroup clientMetricGroup = new ClientMetricGroup(
+			metricRegistry,
+			hostname);
+
+		MetricGroup statusGroup = clientMetricGroup.addGroup(METRIC_GROUP_STATUS_NAME);
+
+		// initialize the Client metrics
+		instantiateStatusMetrics(statusGroup);
+
+		if (systemResourceProbeInterval.isPresent()) {
+			instantiateSystemMetrics(clientMetricGroup, systemResourceProbeInterval.get());
+		}
+		return clientMetricGroup;
 	}
 
 	public static void instantiateStatusMetrics(
