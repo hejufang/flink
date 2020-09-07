@@ -349,6 +349,14 @@ public class JobManagerOptions {
 			.defaultValue(true)
 			.withDescription("Controls whether partitions should already be released during the job execution.");
 
+	/**
+	 * Whether let client shutdown the cluster or not.
+	 */
+	public static final ConfigOption<Boolean> SHUTDOWN_BY_CLIENT =
+			key("jobmanager.shutdown-by-client")
+					.defaultValue(false)
+					.withDescription("Whether let client shutdown the cluster or not.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

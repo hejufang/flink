@@ -20,6 +20,7 @@ package org.apache.flink.runtime.dispatcher;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.entrypoint.ClusterEntrypoint;
 import org.apache.flink.runtime.entrypoint.JobClusterEntrypoint;
@@ -85,7 +86,7 @@ public class MiniDispatcher extends Dispatcher {
 	public CompletableFuture<JobResult> requestJobResult(JobID jobId, Time timeout) {
 		final CompletableFuture<JobResult> jobResultFuture = super.requestJobResult(jobId, timeout);
 
-		if (executionMode == ClusterEntrypoint.ExecutionMode.NORMAL) {
+		if (executionMode == ClusterEntrypoint.ExecutionMode.NORMAL && !getConfiguration().getBoolean(JobManagerOptions.SHUTDOWN_BY_CLIENT)) {
 			// terminate the MiniDispatcher once we served the first JobResult successfully
 			jobResultFuture.thenAccept((JobResult result) -> {
 				ApplicationStatus status = result.getSerializedThrowable().isPresent() ?

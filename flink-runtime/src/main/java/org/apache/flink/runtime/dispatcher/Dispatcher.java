@@ -885,4 +885,8 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 			() -> removeJobAndRegisterTerminationFuture(jobId, false),
 			getMainThreadExecutor());
 	}
+
+	Configuration  getConfiguration() {
+		return this.configuration;
+	}
 }
