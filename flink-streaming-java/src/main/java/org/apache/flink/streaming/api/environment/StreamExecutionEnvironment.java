@@ -1740,6 +1740,10 @@ public class StreamExecutionEnvironment {
 
 			// never reached, only make javac happy
 			return null;
+		} finally {
+			if (configuration.getBoolean(DeploymentOptions.ATTACHED)) {
+				jobClient.cancel();
+			}
 		}
 	}
 
