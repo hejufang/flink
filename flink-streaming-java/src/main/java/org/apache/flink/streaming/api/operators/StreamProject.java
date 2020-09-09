@@ -48,9 +48,11 @@ public class StreamProject<IN, OUT extends Tuple>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		for (int i = 0; i < this.numFields; i++) {
 			outTuple.setField(((Tuple) element.getValue()).getField(fields[i]), i);
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 		output.collect(element.replace(outTuple));
 	}
 

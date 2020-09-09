@@ -59,8 +59,10 @@ public class StreamGroupedReduce<IN> extends AbstractUdfStreamOperator<IN, Reduc
 		IN currentValue = values.value();
 
 		if (currentValue != null) {
+			long startTimestamp = System.nanoTime();
 			IN reduced = userFunction.reduce(currentValue, value);
 			values.update(reduced);
+			getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 			output.collect(element.replace(reduced));
 		} else {
 			values.update(value);

@@ -194,7 +194,9 @@ public abstract class AbstractPythonFunctionOperator<IN, OUT>
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
 		checkInvokeStartBundle();
+		long startTimestamp = System.nanoTime();
 		pythonFunctionRunner.processElement(element.getValue());
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 		checkInvokeFinishBundleByCount();
 	}
 

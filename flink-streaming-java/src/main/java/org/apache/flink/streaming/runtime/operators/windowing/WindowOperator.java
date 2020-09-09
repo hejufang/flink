@@ -300,6 +300,8 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 
 		final K key = this.<K>getKeyedStateBackend().getCurrentKey();
 
+		long startTimestamp = System.nanoTime();
+
 		if (windowAssigner instanceof MergingWindowAssigner) {
 			MergingWindowSet<W> mergingWindows = getMergingWindowSet();
 
@@ -412,6 +414,8 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
 				registerCleanupTimer(window);
 			}
 		}
+
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 
 		// side output input event if
 		// element not handled by any window

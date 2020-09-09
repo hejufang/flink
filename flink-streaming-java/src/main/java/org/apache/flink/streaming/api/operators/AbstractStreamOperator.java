@@ -29,7 +29,9 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.metrics.Histogram;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -131,6 +133,9 @@ public abstract class AbstractStreamOperator<OUT>
 	/** Metric group for the operator. */
 	protected transient OperatorMetricGroup metrics;
 
+	/** Operator process latency metrics. */
+	protected transient Histogram operatorLatency;
+
 	protected transient LatencyStats latencyStats;
 
 	// ---------------- time handler ------------------
@@ -164,9 +169,11 @@ public abstract class AbstractStreamOperator<OUT>
 				operatorMetricGroup.getIOMetricGroup().reuseOutputMetricsForTask();
 			}
 			this.metrics = operatorMetricGroup;
+			this.operatorLatency = operatorMetricGroup.getOperatorLatency();
 		} catch (Exception e) {
 			LOG.warn("An error occurred while instantiating task metrics.", e);
 			this.metrics = UnregisteredMetricGroups.createUnregisteredOperatorMetricGroup();
+			this.operatorLatency = new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram());
 			this.output = output;
 		}
 
@@ -231,6 +238,13 @@ public abstract class AbstractStreamOperator<OUT>
 	@Override
 	public MetricGroup getMetricGroup() {
 		return metrics;
+	}
+
+	/**
+	 * Get the Operator latency.
+	 */
+	public Histogram getOperatorLatency() {
+		return operatorLatency;
 	}
 
 	@Override

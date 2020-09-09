@@ -106,6 +106,7 @@ public abstract class AbstractMapBundleOperator<K, V, IN, OUT>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		// get the key and value for the map bundle
 		final IN input = element.getValue();
 		final K bundleKey = getKey(input);
@@ -119,6 +120,7 @@ public abstract class AbstractMapBundleOperator<K, V, IN, OUT>
 
 		numOfElements++;
 		bundleTrigger.onElement(input);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	/**

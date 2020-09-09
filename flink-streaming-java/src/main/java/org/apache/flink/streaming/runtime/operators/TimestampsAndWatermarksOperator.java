@@ -89,11 +89,13 @@ public class TimestampsAndWatermarksOperator<T>
 
 	@Override
 	public void processElement(final StreamRecord<T> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		final T event = element.getValue();
 		final long previousTimestamp = element.hasTimestamp() ? element.getTimestamp() : Long.MIN_VALUE;
 		final long newTimestamp = timestampAssigner.extractTimestamp(event, previousTimestamp);
 
 		element.setTimestamp(newTimestamp);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 		output.collect(element);
 		watermarkGenerator.onEvent(event, newTimestamp, wmOutput);
 	}

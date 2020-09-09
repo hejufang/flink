@@ -36,7 +36,10 @@ public class StreamFilter<IN> extends AbstractUdfStreamOperator<IN, FilterFuncti
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
-		if (userFunction.filter(element.getValue())) {
+		long startTimestamp = System.nanoTime();
+		boolean value = userFunction.filter(element.getValue());
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
+		if (value) {
 			output.collect(element);
 		}
 	}

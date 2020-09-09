@@ -20,7 +20,10 @@ package org.apache.flink.runtime.metrics.groups;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.metrics.CharacterFilter;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.SimpleHistogram;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
 import org.apache.flink.runtime.metrics.scope.ScopeFormat;
@@ -40,12 +43,16 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 
 	private final OperatorIOMetricGroup ioMetrics;
 
+	private final Histogram operatorLatency;
+
 	public OperatorMetricGroup(MetricRegistry registry, TaskMetricGroup parent, OperatorID operatorID, String operatorName) {
 		super(registry, registry.getScopeFormats().getOperatorFormat().formatScope(checkNotNull(parent), operatorID, operatorName), parent);
 		this.operatorID = operatorID;
 		this.operatorName = operatorName;
 
 		ioMetrics = new OperatorIOMetricGroup(this);
+		operatorLatency = this.histogram(MetricNames.OPERATOR_PROCESS_LATENCY,
+			new SimpleHistogram(SimpleHistogram.buildSlidingWindowReservoirHistogram()));
 	}
 
 	// ------------------------------------------------------------------------
@@ -70,6 +77,15 @@ public class OperatorMetricGroup extends ComponentMetricGroup<TaskMetricGroup> {
 	 */
 	public OperatorIOMetricGroup getIOMetricGroup() {
 		return ioMetrics;
+	}
+
+	/**
+	 * Returns the OperatorProcessLatency for this operator.
+	 *
+	 * @return Operator process latency of Histogram type for this operator.
+	 */
+	public Histogram getOperatorLatency() {
+		return operatorLatency;
 	}
 
 	// ------------------------------------------------------------------------

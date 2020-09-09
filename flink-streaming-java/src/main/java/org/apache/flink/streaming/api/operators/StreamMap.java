@@ -38,6 +38,10 @@ public class StreamMap<IN, OUT>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
-		output.collect(element.replace(userFunction.map(element.getValue())));
+		long startTimestamp = System.nanoTime();
+		OUT tmp = userFunction.map(element.getValue());
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
+
+		output.collect(element.replace(tmp));
 	}
 }

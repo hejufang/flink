@@ -131,6 +131,7 @@ public class StreamingFileCommitter extends AbstractStreamOperator<Void>
 
 	@Override
 	public void processElement(StreamRecord<CommitMessage> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		CommitMessage message = element.getValue();
 		for (String partition : message.partitions) {
 			trigger.addPartition(partition);
@@ -143,6 +144,7 @@ public class StreamingFileCommitter extends AbstractStreamOperator<Void>
 		if (needCommit) {
 			commitPartitions(message.checkpointId);
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	private void commitPartitions(long checkpointId) throws Exception {

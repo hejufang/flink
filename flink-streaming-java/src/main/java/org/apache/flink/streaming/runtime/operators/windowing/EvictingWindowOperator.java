@@ -103,6 +103,7 @@ public class EvictingWindowOperator<K, IN, OUT, W extends Window>
 		final Collection<W> elementWindows = windowAssigner.assignWindows(
 				element.getValue(), element.getTimestamp(), windowAssignerContext);
 
+		long startTimestamp = System.nanoTime();
 		//if element is handled by none of assigned elementWindows
 		boolean isSkippedElement = true;
 
@@ -224,6 +225,8 @@ public class EvictingWindowOperator<K, IN, OUT, W extends Window>
 				registerCleanupTimer(window);
 			}
 		}
+
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 
 		// side output input event if
 		// element not handled by any window

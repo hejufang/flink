@@ -83,15 +83,18 @@ public class StreamGroupedFold<IN, OUT, KEY>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		OUT value = values.value();
 
 		if (value != null) {
 			OUT folded = userFunction.fold(outTypeSerializer.copy(value), element.getValue());
 			values.update(folded);
+			getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 			output.collect(element.replace(folded));
 		} else {
 			OUT first = userFunction.fold(outTypeSerializer.copy(initialValue), element.getValue());
 			values.update(first);
+			getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 			output.collect(element.replace(first));
 		}
 	}

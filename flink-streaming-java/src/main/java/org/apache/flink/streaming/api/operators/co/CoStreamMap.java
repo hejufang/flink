@@ -40,11 +40,17 @@ public class CoStreamMap<IN1, IN2, OUT>
 
 	@Override
 	public void processElement1(StreamRecord<IN1> element) throws Exception {
-		output.collect(element.replace(userFunction.map1(element.getValue())));
+		long startTimestamp = System.nanoTime();
+		OUT tmp = userFunction.map1(element.getValue());
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
+		output.collect(element.replace(tmp));
 	}
 
 	@Override
 	public void processElement2(StreamRecord<IN2> element) throws Exception {
-		output.collect(element.replace(userFunction.map2(element.getValue())));
+		long startTimestamp = System.nanoTime();
+		OUT tmp = userFunction.map2(element.getValue());
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
+		output.collect(element.replace(tmp));
 	}
 }

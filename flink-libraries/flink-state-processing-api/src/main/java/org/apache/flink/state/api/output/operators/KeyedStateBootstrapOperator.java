@@ -77,7 +77,9 @@ public class KeyedStateBootstrapOperator<K, IN>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		userFunction.processElement(element.getValue(), context);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override

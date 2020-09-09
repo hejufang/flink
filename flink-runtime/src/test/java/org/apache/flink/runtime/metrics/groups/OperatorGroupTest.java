@@ -118,6 +118,7 @@ public class OperatorGroupTest extends TestLogger {
 		assertNotNull(opGroup.getIOMetricGroup());
 		assertNotNull(opGroup.getIOMetricGroup().getNumRecordsInCounter());
 		assertNotNull(opGroup.getIOMetricGroup().getNumRecordsOutCounter());
+		assertNotNull(opGroup.getOperatorLatency());
 	}
 
 	@Test

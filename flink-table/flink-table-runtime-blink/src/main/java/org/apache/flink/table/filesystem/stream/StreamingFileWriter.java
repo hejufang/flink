@@ -115,11 +115,13 @@ public class StreamingFileWriter extends AbstractStreamOperator<CommitMessage>
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		helper.onElement(
 				element.getValue(),
 				getProcessingTimeService().getCurrentProcessingTime(),
 				element.hasTimestamp() ? element.getTimestamp() : null,
 				currentWatermark);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	/**

@@ -40,6 +40,8 @@ public class QueryableAppendingStateOperator<IN> extends AbstractQueryableStateO
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		state.add(element.getValue());
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 }

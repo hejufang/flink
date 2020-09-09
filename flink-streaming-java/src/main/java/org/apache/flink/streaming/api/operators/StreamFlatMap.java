@@ -46,7 +46,9 @@ public class StreamFlatMap<IN, OUT>
 
 	@Override
 	public void processElement(StreamRecord<IN> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		collector.setTimestamp(element);
 		userFunction.flatMap(element.getValue(), collector);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 }

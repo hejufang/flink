@@ -322,6 +322,7 @@ public abstract class WindowOperator<K, W extends Window>
 	@Override
 	public void processElement(StreamRecord<RowData> record) throws Exception {
 		RowData inputRow = record.getValue();
+		long startTimestamp = System.nanoTime();
 		long timestamp;
 		if (windowAssigner.isEventTime()) {
 			timestamp = inputRow.getLong(rowtimeIndex);
@@ -368,6 +369,7 @@ public abstract class WindowOperator<K, W extends Window>
 			// markEvent will increase numLateRecordsDropped
 			lateRecordsDroppedRate.markEvent();
 		}
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	@Override

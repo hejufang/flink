@@ -37,6 +37,9 @@ public class MetricNames {
 	public static final String IO_NUM_BYTES_IN_RATE = IO_NUM_BYTES_IN + SUFFIX_RATE;
 	public static final String IO_NUM_BYTES_OUT_RATE = IO_NUM_BYTES_OUT + SUFFIX_RATE;
 
+	// the time unit is microsecond
+	public static final String OPERATOR_PROCESS_LATENCY = "latency";
+
 	public static final String IO_NUM_BUFFERS_IN = "numBuffersIn";
 	public static final String IO_NUM_BUFFERS_OUT = "numBuffersOut";
 	public static final String IO_NUM_BUFFERS_OUT_RATE = IO_NUM_BUFFERS_OUT + SUFFIX_RATE;

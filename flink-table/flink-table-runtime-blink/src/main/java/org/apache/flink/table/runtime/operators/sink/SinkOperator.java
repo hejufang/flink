@@ -76,6 +76,7 @@ public class SinkOperator extends AbstractUdfStreamOperator<Object, SinkFunction
 
 	@Override
 	public void processElement(StreamRecord<RowData> element) throws Exception {
+		long startTimestamp = System.nanoTime();
 		sinkContext.element = element;
 		RowData row = element.getValue();
 		if (notNullCheck) {
@@ -84,6 +85,7 @@ public class SinkOperator extends AbstractUdfStreamOperator<Object, SinkFunction
 			}
 		}
 		userFunction.invoke(row, sinkContext);
+		getOperatorLatency().update((System.nanoTime() - startTimestamp) / 1000);
 	}
 
 	private boolean failOrFilterNullValues(RowData row) {
