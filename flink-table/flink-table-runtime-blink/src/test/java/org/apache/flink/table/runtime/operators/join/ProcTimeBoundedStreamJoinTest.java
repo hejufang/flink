@@ -48,7 +48,7 @@ public class ProcTimeBoundedStreamJoinTest extends TimeBoundedStreamJoinTestBase
 	@Test
 	public void testProcTimeInnerJoinWithCommonBounds() throws Exception {
 		ProcTimeBoundedStreamJoin joinProcessFunc = new ProcTimeBoundedStreamJoin(
-				FlinkJoinType.INNER, -10, 20, rowType, rowType, generatedFunction);
+				FlinkJoinType.INNER, -10, 20, rowType, rowType, generatedFunction, false);
 		KeyedTwoInputStreamOperatorTestHarness<BaseRow, BaseRow, BaseRow, BaseRow> testHarness = createTestHarness(
 				joinProcessFunc);
 		testHarness.open();
@@ -106,7 +106,7 @@ public class ProcTimeBoundedStreamJoinTest extends TimeBoundedStreamJoinTestBase
 	@Test
 	public void testProcTimeInnerJoinWithNegativeBounds() throws Exception {
 		ProcTimeBoundedStreamJoin joinProcessFunc = new ProcTimeBoundedStreamJoin(
-				FlinkJoinType.INNER, -10, -5, rowType, rowType, generatedFunction);
+				FlinkJoinType.INNER, -10, -5, rowType, rowType, generatedFunction, false);
 
 		KeyedTwoInputStreamOperatorTestHarness<BaseRow, BaseRow, BaseRow, BaseRow> testHarness = createTestHarness(
 				joinProcessFunc);

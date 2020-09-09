@@ -42,8 +42,17 @@ public final class RowTimeBoundedStreamJoin extends TimeBoundedStreamJoin {
 			BaseRowTypeInfo rightType,
 			GeneratedFunction<FlatJoinFunction<BaseRow, BaseRow, BaseRow>> genJoinFunc,
 			int leftTimeIdx,
-			int rightTimeIdx) {
-		super(joinType, leftLowerBound, leftUpperBound, allowedLateness, leftType, rightType, genJoinFunc);
+			int rightTimeIdx,
+			boolean eagerCleanup) {
+		super(
+			joinType,
+			leftLowerBound,
+			leftUpperBound,
+			allowedLateness,
+			leftType,
+			rightType,
+			genJoinFunc,
+			eagerCleanup);
 		this.leftTimeIdx = leftTimeIdx;
 		this.rightTimeIdx = rightTimeIdx;
 	}

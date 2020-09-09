@@ -26,9 +26,10 @@ import org.apache.flink.streaming.api.operators.{StreamFlatMap, StreamMap, TwoIn
 import org.apache.flink.streaming.api.transformations.{OneInputTransformation, TwoInputTransformation, UnionTransformation}
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.dataformat.BaseRow
-import org.apache.flink.table.planner.calcite.FlinkTypeFactory
+import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
+import org.apache.flink.table.planner.plan.rules.physical.stream.StreamExecWindowJoinRule.TABLE_EXEC_TIME_INTERVAL_JOIN_EAGER_CLEANUP
 import org.apache.flink.table.planner.plan.utils.{JoinTypeUtil, KeySelectorUtil, UpdatingPlanChecker, WindowJoinUtil}
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
 import org.apache.flink.table.runtime.generated.GeneratedFunction
@@ -162,6 +163,9 @@ class StreamExecWindowJoin(
           val joinInfo = JoinInfo.of(left, right, joinCondition)
           val leftKeys = joinInfo.leftKeys.toIntArray
           val rightKeys = joinInfo.rightKeys.toIntArray
+          val config = cluster.getPlanner.getContext.asInstanceOf[FlinkContext].getTableConfig
+          val eagerCleanup = config.getConfiguration
+            .getBoolean(TABLE_EXEC_TIME_INTERVAL_JOIN_EAGER_CLEANUP)
 
           // generate join function
           val joinFunction = WindowJoinUtil.generateJoinFunction(
@@ -180,7 +184,8 @@ class StreamExecWindowJoin(
               returnType,
               joinFunction,
               leftKeys,
-              rightKeys)
+              rightKeys,
+              eagerCleanup)
           } else {
             createProcTimeJoin(
               leftPlan,
@@ -188,7 +193,8 @@ class StreamExecWindowJoin(
               returnType,
               joinFunction,
               leftKeys,
-              rightKeys)
+              rightKeys,
+              eagerCleanup)
           }
         }
       case FlinkJoinType.ANTI =>
@@ -281,7 +287,8 @@ class StreamExecWindowJoin(
       returnTypeInfo: BaseRowTypeInfo,
       joinFunction: GeneratedFunction[FlatJoinFunction[BaseRow, BaseRow, BaseRow]],
       leftKeys: Array[Int],
-      rightKeys: Array[Int]): Transformation[BaseRow] = {
+      rightKeys: Array[Int],
+      eagerCleanup: java.lang.Boolean): Transformation[BaseRow] = {
     val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val procJoinFunc = new ProcTimeBoundedStreamJoin(
@@ -290,7 +297,8 @@ class StreamExecWindowJoin(
       leftUpperBound,
       leftTypeInfo,
       rightTypeInfo,
-      joinFunction)
+      joinFunction,
+      eagerCleanup)
 
     val ret = new TwoInputTransformation[BaseRow, BaseRow, BaseRow](
       leftPlan,
@@ -321,7 +329,8 @@ class StreamExecWindowJoin(
       returnTypeInfo: BaseRowTypeInfo,
       joinFunction: GeneratedFunction[FlatJoinFunction[BaseRow, BaseRow, BaseRow]],
       leftKeys: Array[Int],
-      rightKeys: Array[Int]
+      rightKeys: Array[Int],
+      eagerCleanup: java.lang.Boolean
   ): Transformation[BaseRow] = {
     val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
@@ -334,7 +343,8 @@ class StreamExecWindowJoin(
       rightTypeInfo,
       joinFunction,
       leftTimeIndex,
-      rightTimeIndex)
+      rightTimeIndex,
+      eagerCleanup)
 
     val ret = new TwoInputTransformation[BaseRow, BaseRow, BaseRow](
       leftPlan,

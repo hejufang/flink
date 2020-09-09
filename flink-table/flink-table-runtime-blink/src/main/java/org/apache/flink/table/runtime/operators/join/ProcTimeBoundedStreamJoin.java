@@ -36,8 +36,17 @@ public final class ProcTimeBoundedStreamJoin extends TimeBoundedStreamJoin {
 			long leftUpperBound,
 			BaseRowTypeInfo leftType,
 			BaseRowTypeInfo rightType,
-			GeneratedFunction<FlatJoinFunction<BaseRow, BaseRow, BaseRow>> genJoinFunc) {
-		super(joinType, leftLowerBound, leftUpperBound, 0L, leftType, rightType, genJoinFunc);
+			GeneratedFunction<FlatJoinFunction<BaseRow, BaseRow, BaseRow>> genJoinFunc,
+			boolean eagerCleanup) {
+		super(
+			joinType,
+			leftLowerBound,
+			leftUpperBound,
+			0L,
+			leftType,
+			rightType,
+			genJoinFunc,
+			eagerCleanup);
 	}
 
 	@Override

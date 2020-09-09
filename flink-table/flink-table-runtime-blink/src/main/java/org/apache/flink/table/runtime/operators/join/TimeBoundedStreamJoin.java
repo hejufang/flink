@@ -86,6 +86,8 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 	private long leftExpirationTime = 0L;
 	private long rightExpirationTime = 0L;
 
+	private final boolean eagerCleanup;
+
 	// ------------------------------------------------------------------------
 	// Metrics
 	// ------------------------------------------------------------------------
@@ -103,7 +105,8 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 			long allowedLateness,
 			BaseRowTypeInfo leftType,
 			BaseRowTypeInfo rightType,
-			GeneratedFunction<FlatJoinFunction<BaseRow, BaseRow, BaseRow>> genJoinFunc) {
+			GeneratedFunction<FlatJoinFunction<BaseRow, BaseRow, BaseRow>> genJoinFunc,
+			boolean eagerCleanup) {
 		this.joinType = joinType;
 		this.leftRelativeSize = -leftLowerBound;
 		this.rightRelativeSize = leftUpperBound;
@@ -115,6 +118,7 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 		this.leftType = leftType;
 		this.rightType = rightType;
 		this.genJoinFunc = genJoinFunc;
+		this.eagerCleanup = eagerCleanup;
 	}
 
 	@Override
@@ -381,11 +385,21 @@ abstract class TimeBoundedStreamJoin extends CoProcessFunction<BaseRow, BaseRow,
 	 */
 	private void registerCleanUpTimer(Context ctx, long rowTime, boolean leftRow) throws IOException {
 		if (leftRow) {
-			long cleanUpTime = rowTime + leftRelativeSize + minCleanUpInterval + allowedLateness + 1;
+			long cleanUpTime;
+			if (eagerCleanup) {
+				cleanUpTime = rowTime + leftRelativeSize + allowedLateness + 1;
+			} else {
+				cleanUpTime = rowTime + leftRelativeSize + minCleanUpInterval + allowedLateness + 1;
+			}
 			registerTimer(ctx, cleanUpTime);
 			rightTimerState.update(cleanUpTime);
 		} else {
-			long cleanUpTime = rowTime + rightRelativeSize + minCleanUpInterval + allowedLateness + 1;
+			long cleanUpTime;
+			if (eagerCleanup) {
+				cleanUpTime = rowTime + rightRelativeSize + allowedLateness + 1;
+			} else {
+				cleanUpTime = rowTime + rightRelativeSize + minCleanUpInterval + allowedLateness + 1;
+			}
 			registerTimer(ctx, cleanUpTime);
 			leftTimerState.update(cleanUpTime);
 		}

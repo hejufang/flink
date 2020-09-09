@@ -18,6 +18,9 @@
 
 package org.apache.flink.table.planner.plan.rules.physical.stream
 
+import org.apache.flink.annotation.Experimental
+import org.apache.flink.configuration.ConfigOption
+import org.apache.flink.configuration.ConfigOptions.key
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistribution
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
@@ -133,4 +136,14 @@ class StreamExecWindowJoinRule
 
 object StreamExecWindowJoinRule {
   val INSTANCE: RelOptRule = new StreamExecWindowJoinRule
+
+  @Experimental
+  val TABLE_EXEC_TIME_INTERVAL_JOIN_EAGER_CLEANUP: ConfigOption[java.lang.Boolean] =
+    key("table.exec.time-interval-join.eager-cleanup")
+      .defaultValue(java.lang.Boolean.valueOf(false))
+      .withDescription("Whether to enable eager cleanup for time bounded join." +
+        "This option resolves the disorder problem for time bounded join operator, however, " +
+        "this may introduce some compatibility problem with prior jobs. Hence we make this " +
+        "optional, and default disabled. Opening this option, you'd better use a new checkpoint " +
+        "namespace.")
 }
