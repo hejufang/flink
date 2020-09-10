@@ -135,12 +135,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	}
 
 	private void validateKafkaProperties(DescriptorProperties properties) {
-		if (properties.containsKey(CONNECTOR_PROPERTIES_BOOTSTRAP_SERVER)
-			|| properties.containsKey(CONNECTOR_PROPERTIES_GROUP_ID)) {
-
-			properties.validateString(CONNECTOR_PROPERTIES_BOOTSTRAP_SERVER, false);
+		if (properties.containsKey(CONNECTOR_PROPERTIES_GROUP_ID)) {
 			properties.validateString(CONNECTOR_PROPERTIES_GROUP_ID, true);
-
 		} else {
 			final Map<String, Consumer<String>> propertyValidators = new HashMap<>();
 			propertyValidators.put(

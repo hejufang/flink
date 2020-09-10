@@ -43,7 +43,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_BOOTSTRAP_SERVERS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_GROUP_ID;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_SPECIFIC_OFFSETS;
@@ -155,7 +154,6 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		final Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(TOPIC);
 		options.add(FactoryUtil.FORMAT);
-		options.add(PROPS_BOOTSTRAP_SERVERS);
 		return options;
 	}
 

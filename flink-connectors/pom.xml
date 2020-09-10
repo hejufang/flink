@@ -30,15 +30,15 @@ under the License.
 		<relativePath>..</relativePath>
 	</parent>
 
+	<properties>
+		<kafka010.byted.version>0.10.1.2-bd1.6.9</kafka010.byted.version>
+		<kafka.base.version>0.10.1.1</kafka.base.version>
+		<mysql.version>1.2.6-RELEASE</mysql.version>
+	</properties>
 
 	<artifactId>flink-connectors</artifactId>
 	<name>flink-connectors</name>
 	<packaging>pom</packaging>
-
-	<!-- connector client version -->
-	<properties>
-		<mysql.version>1.2.6-RELEASE</mysql.version>
-	</properties>
 
 	<modules>
 		<module>flink-hadoop-compatibility</module>

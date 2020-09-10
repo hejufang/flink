@@ -53,12 +53,6 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Required topic name from which the table is read");
 
-	public static final ConfigOption<String> PROPS_BOOTSTRAP_SERVERS = ConfigOptions
-			.key("properties.bootstrap.servers")
-			.stringType()
-			.noDefaultValue()
-			.withDescription("Required Kafka server connection string");
-
 	public static final ConfigOption<String> PROPS_GROUP_ID = ConfigOptions
 			.key("properties.group.id")
 			.stringType()
