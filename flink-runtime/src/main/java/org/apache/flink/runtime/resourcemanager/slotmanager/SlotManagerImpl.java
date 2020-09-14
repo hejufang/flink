@@ -293,6 +293,7 @@ public class SlotManagerImpl implements SlotManager {
 
 	@Override
 	public void receiveResources(int taskManagers, Collection<ResourceProfile> workerSlotProfiles) {
+		LOG.info("Receive {} TaskManagers.", taskManagers);
 		this.pendingTaskManagers.getAndAdd(taskManagers);
 		for (ResourceProfile requestedSlot : workerSlotProfiles) {
 			final PendingTaskManagerSlot pendingTaskManagerSlot = new PendingTaskManagerSlot(requestedSlot);
@@ -319,7 +320,9 @@ public class SlotManagerImpl implements SlotManager {
 		mainThreadExecutor = Preconditions.checkNotNull(newMainThreadExecutor);
 		resourceActions = Preconditions.checkNotNull(newResourceActions);
 
-		initialResources(numInitialTaskManagers);
+		final int requestedTaskManagers = numInitialTaskManagers - pendingTaskManagers.get() - activeTaskManagers.get();
+		LOG.info("SlotManager is initializing {} TaskManagers.", requestedTaskManagers);
+		initialResources(requestedTaskManagers);
 
 		started = true;
 
@@ -376,10 +379,11 @@ public class SlotManagerImpl implements SlotManager {
 		}
 
 		activeTaskManagers.set(0);
-		pendingTaskManagers.set(0);
-		numExtraTaskManagers.set(0);
 
-		numInitialTaskManagers = 0;
+		pendingSlots.clear();
+		pendingTaskManagers.set(0);
+
+		numExtraTaskManagers.set(0);
 		numInitialExtraTaskManagers = 0;
 
 		resourceManagerId = null;

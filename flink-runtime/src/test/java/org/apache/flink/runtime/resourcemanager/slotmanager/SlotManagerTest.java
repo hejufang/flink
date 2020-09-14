@@ -39,6 +39,7 @@ import org.apache.flink.runtime.resourcemanager.registration.TaskExecutorConnect
 import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
+import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotAllocationException;
@@ -57,6 +58,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -1673,5 +1675,62 @@ public class SlotManagerTest extends TestLogger {
 
 		slotManager.unregisterTaskManager(tc2.getInstanceID());
 		assertEquals(4, resourceRequests.get());
+	}
+
+
+	/**
+	 * Tests slot request with task manager failed.
+	 */
+	@Test
+	public void testSlotRequestWithSlotManagerRestart() throws Exception {
+		final SlotManagerImpl slotManager = SlotManagerBuilder.newBuilder().setNumInitialTaskManagers(2).build();
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+
+		final AtomicInteger resourceRequests = new AtomicInteger(0);
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+				.setAllocateResourceFunction(
+						convert(ignored -> {
+							resourceRequests.incrementAndGet();
+							return 1;
+						})
+				).build();
+
+		// pending taskSlots when slotManager started.
+		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		assertEquals(2, resourceRequests.get());
+		assertEquals(2, slotManager.getNumberPendingTaskManagerSlots());
+
+		// test SlotManager lost leadership with non workers.
+		slotManager.suspend();
+		resourceRequests.set(0);
+		slotManager.receiveResources(2, Collections.nCopies(2, ResourceProfile.UNKNOWN));
+		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		assertEquals(0, resourceRequests.get());
+		assertEquals(2, slotManager.getNumberPendingTaskManagerSlots());
+
+		TaskExecutorConnection tc1 = new TaskExecutorConnection(ResourceID.generate(), new TestingTaskExecutorGatewayBuilder().createTestingTaskExecutorGateway());
+		slotManager.registerTaskManager(
+				tc1,
+				new SlotReport(new SlotStatus(new SlotID(ResourceID.generate(), 0), ResourceProfile.UNKNOWN)));
+
+		assertEquals(1, slotManager.getNumberPendingTaskManagerSlots());
+
+		// test SlotManager lost leadership with one workers.
+		slotManager.suspend();
+		resourceRequests.set(0);
+		assertEquals(0, slotManager.getNumberPendingTaskManagerSlots());
+		slotManager.receiveResources(2, Collections.nCopies(2, ResourceProfile.UNKNOWN));
+		slotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		assertEquals(0, resourceRequests.get());
+		assertEquals(2, slotManager.getNumberPendingTaskManagerSlots());
+
+		// test JobManager failover create new slotManager.
+		resourceRequests.set(0);
+		final SlotManagerImpl newSlotManager = SlotManagerBuilder.newBuilder().setNumInitialTaskManagers(2).build();
+		// receive containers from previous attempts.
+		newSlotManager.receiveResources(1, Collections.nCopies(1, ResourceProfile.UNKNOWN));
+		assertEquals(1, newSlotManager.getNumberPendingTaskManagerSlots());
+		newSlotManager.start(resourceManagerId, Executors.directExecutor(), resourceManagerActions);
+		assertEquals(2, newSlotManager.getNumberPendingTaskManagerSlots());
 	}
 }

@@ -639,7 +639,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	@Override
 	protected void startServicesOnLeadership() {
 		// let slot manager know the resources from previous attempt in case of JM failover
-		slotManager.receiveResources(workerNodeMap.size(), createWorkerSlotProfiles(flinkConfig, workerNodeMap.size()));
+		final int numberWorkers = workerNodeMap.size() + numPendingContainerRequests;
+		slotManager.receiveResources(numberWorkers, createWorkerSlotProfiles(flinkConfig, numberWorkers));
 
 		super.startServicesOnLeadership();
 		log.info("start checkSlowAllocation with slowContainerCheckIntervalMs: {}, slowContainerTimeoutMs: {}.",
