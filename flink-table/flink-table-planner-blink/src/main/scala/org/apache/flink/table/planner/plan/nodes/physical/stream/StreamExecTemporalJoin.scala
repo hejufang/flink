@@ -265,7 +265,7 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
     val minRetentionTime = tableConfig.getMinIdleStateRetentionTime
     val maxRetentionTime = tableConfig.getMaxIdleStateRetentionTime
     joinType match {
-      case JoinRelType.INNER =>
+      case JoinRelType.INNER | JoinRelType.LEFT =>
         if (rightTimeAttributeInputReference.isDefined) {
           val operator = new TemporalRowTimeJoinOperator(
             BaseRowTypeInfo.of(leftInputType),
@@ -274,7 +274,8 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
             leftTimeAttributeInputReference,
             rightTimeAttributeInputReference.get,
             minRetentionTime,
-            maxRetentionTime)
+            maxRetentionTime,
+            joinType == JoinRelType.LEFT)
           if (config.getConfiguration.getBoolean(
             StreamExecTemporalJoin.TABLE_EXEC_TEMPORAL_JOIN_IGNORE_IDLE_INPUT)) {
             operator.enableIgnoreIdleInput()
@@ -285,11 +286,13 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
             BaseRowTypeInfo.of(rightInputType),
             generatedJoinCondition,
             minRetentionTime,
-            maxRetentionTime)
+            maxRetentionTime,
+            joinType == JoinRelType.LEFT)
         }
       case _ =>
         throw new ValidationException(
-          s"Only ${JoinRelType.INNER} temporal join is supported in [$textualRepresentation]")
+          s"Only ${JoinRelType.INNER} and ${JoinRelType.LEFT} temporal join" +
+            s" is supported in [$textualRepresentation]")
     }
   }
 }

@@ -19,6 +19,8 @@
 package org.apache.flink.table.planner.calcite
 
 import org.apache.flink.table.api.ValidationException
+import org.apache.flink.table.functions.TemporalTableFunctionImpl
+import org.apache.flink.table.planner.functions.utils.TableSqlFunction
 import org.apache.flink.table.types.logical.DecimalType
 
 import org.apache.calcite.adapter.java.JavaTypeFactory
@@ -87,8 +89,31 @@ class FlinkCalciteSqlValidator(
   private def isCollectionTable(node: SqlNode): Boolean = {
     // TABLE (`func`(`foo`)) AS bar
     node match {
-      case n: SqlCall if n.getKind == SqlKind.AS =>
-        n.getOperandList.get(0).getKind == SqlKind.COLLECTION_TABLE
+      case n: SqlCall if n.getKind == SqlKind.AS => {
+        if (n.getOperandList.get(0).getKind == SqlKind.COLLECTION_TABLE) {
+          // we enabled temporal table function left outer join in
+          // LogicalCorrelateWithFilterToJoinFromTemporalTableFunctionRule,
+          // currently only left outer join on table function is not supported.
+          var operand0 = n.getOperandList.get(0)
+          operand0 match {
+            case call: SqlCall =>
+              operand0 = call.getOperandList.get(0)
+              val operator = operand0 match {
+                case call1: SqlCall =>
+                  call1.getOperator
+                case _ =>
+              }
+              operator match {
+                case tableFunction: TableSqlFunction =>
+                  return !tableFunction.udtf.isInstanceOf[TemporalTableFunctionImpl]
+                case _ =>
+              }
+            case _ =>
+          }
+          return true
+        }
+        false
+      }
       case _ => false
     }
   }

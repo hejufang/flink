@@ -45,20 +45,26 @@ public class TemporalProcessTimeJoinOperator
 	private final BaseRowTypeInfo rightType;
 	private final GeneratedJoinCondition generatedJoinCondition;
 
+	private final boolean isLeftOuterJoin;
+
 	private transient ValueState<BaseRow> rightState;
 	private transient JoinCondition joinCondition;
 
 	private transient JoinedRow outRow;
 	private transient TimestampedCollector<BaseRow> collector;
 
+	private transient BaseRow nullRightRow;
+
 	public TemporalProcessTimeJoinOperator(
 			BaseRowTypeInfo rightType,
 			GeneratedJoinCondition generatedJoinCondition,
 			long minRetentionTime,
-			long maxRetentionTime) {
+			long maxRetentionTime,
+			boolean isLeftOuterJoin) {
 		super(minRetentionTime, maxRetentionTime);
 		this.rightType = rightType;
 		this.generatedJoinCondition = generatedJoinCondition;
+		this.isLeftOuterJoin = isLeftOuterJoin;
 	}
 
 	@Override
@@ -71,6 +77,7 @@ public class TemporalProcessTimeJoinOperator
 		this.rightState = getRuntimeContext().getState(rightStateDesc);
 		this.collector = new TimestampedCollector<>(output);
 		this.outRow = new JoinedRow();
+		this.nullRightRow = constructEmptyRow(rightType.getArity());
 		// consider watermark from left stream only.
 		super.processWatermark2(Watermark.MAX_WATERMARK);
 	}
@@ -78,13 +85,16 @@ public class TemporalProcessTimeJoinOperator
 	@Override
 	public void processElement1(StreamRecord<BaseRow> element) throws Exception {
 		BaseRow rightSideRow = rightState.value();
-		if (rightSideRow == null) {
+		BaseRow leftSideRow = element.getValue();
+		outRow.setHeader(leftSideRow.getHeader());
+
+		if (rightSideRow == null && isLeftOuterJoin) {
+			outRow.replace(leftSideRow, nullRightRow);
+			collector.collect(outRow);
 			return;
 		}
 
-		BaseRow leftSideRow = element.getValue();
 		if (joinCondition.apply(leftSideRow, rightSideRow)) {
-			outRow.setHeader(leftSideRow.getHeader());
 			outRow.replace(leftSideRow, rightSideRow);
 			collector.collect(outRow);
 		}

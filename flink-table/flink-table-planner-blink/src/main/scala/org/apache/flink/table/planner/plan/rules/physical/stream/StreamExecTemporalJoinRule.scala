@@ -56,7 +56,8 @@ class StreamExecTemporalJoinRule
       join.getCluster.getRexBuilder,
       tableConfig)
 
-    windowBounds.isEmpty && join.getJoinType == JoinRelType.INNER
+    windowBounds.isEmpty &&
+      (join.getJoinType == JoinRelType.INNER || join.getJoinType == JoinRelType.LEFT)
   }
 
   override def onMatch(call: RelOptRuleCall): Unit = {

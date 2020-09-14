@@ -87,6 +87,8 @@ public class TemporalRowTimeJoinOperator
 
 	private final RowtimeComparator rightRowtimeComparator;
 
+	private final boolean isLeftOuterJoin;
+
 	/**
 	 * Incremental index generator for {@link #leftState}'s keys.
 	 */
@@ -116,6 +118,7 @@ public class TemporalRowTimeJoinOperator
 
 	private transient JoinCondition joinCondition;
 	private transient JoinedRow outRow;
+	private transient BaseRow nullRightRow;
 
 	public TemporalRowTimeJoinOperator(
 			BaseRowTypeInfo leftType,
@@ -124,7 +127,8 @@ public class TemporalRowTimeJoinOperator
 			int leftTimeAttribute,
 			int rightTimeAttribute,
 			long minRetentionTime,
-			long maxRetentionTime) {
+			long maxRetentionTime,
+			boolean isLeftOuterJoin) {
 		super(minRetentionTime, maxRetentionTime);
 		this.leftType = leftType;
 		this.rightType = rightType;
@@ -132,6 +136,7 @@ public class TemporalRowTimeJoinOperator
 		this.leftTimeAttribute = leftTimeAttribute;
 		this.rightTimeAttribute = rightTimeAttribute;
 		this.rightRowtimeComparator = new RowtimeComparator(rightTimeAttribute);
+		this.isLeftOuterJoin = isLeftOuterJoin;
 	}
 
 	@Override
@@ -154,6 +159,7 @@ public class TemporalRowTimeJoinOperator
 		collector = new TimestampedCollector<>(output);
 		outRow = new JoinedRow();
 		outRow.setHeader(BaseRowUtil.ACCUMULATE_MSG);
+		this.nullRightRow = constructEmptyRow(rightType.getArity());
 	}
 
 	@Override
@@ -225,6 +231,9 @@ public class TemporalRowTimeJoinOperator
 						outRow.replace(leftRow, rightRow.get());
 						collector.collect(outRow);
 					}
+				} else if (isLeftOuterJoin) {
+					outRow.replace(leftRow, nullRightRow);
+					collector.collect(outRow);
 				}
 				leftIterator.remove();
 			} else {

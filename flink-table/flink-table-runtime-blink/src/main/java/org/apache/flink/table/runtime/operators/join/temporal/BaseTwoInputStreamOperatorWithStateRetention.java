@@ -31,6 +31,7 @@ import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.operators.Triggerable;
 import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
 import org.apache.flink.table.dataformat.BaseRow;
+import org.apache.flink.table.dataformat.GenericRow;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -159,4 +160,12 @@ public abstract class BaseTwoInputStreamOperatorWithStateRetention
 	 * @param time The timestamp of the fired timer.
 	 */
 	public abstract void cleanupState(long time);
+
+	protected static BaseRow constructEmptyRow(int arity) {
+		GenericRow row = new GenericRow(arity);
+		for (int i = 0; i < arity; ++i) {
+			row.setNullAt(i);
+		}
+		return row;
+	}
 }
