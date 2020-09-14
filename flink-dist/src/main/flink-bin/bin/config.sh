@@ -154,8 +154,8 @@ DEFAULT_ENV_JAVA_OPTS_TM=""                         # Optional JVM args (TaskMan
 DEFAULT_ENV_JAVA_OPTS_HS=""                         # Optional JVM args (HistoryServer)
 DEFAULT_ENV_JAVA_OPTS_CLI=""                        # Optional JVM args (Client)
 DEFAULT_ENV_SSH_OPTS=""                             # Optional SSH parameters running in cluster mode
-DEFAULT_YARN_CONF_DIR=""                            # YARN Configuration Directory, if necessary
-DEFAULT_HADOOP_CONF_DIR=""                          # Hadoop Configuration Directory, if necessary
+DEFAULT_YARN_CONF_DIR="/opt/tiger/yarn_deploy/hadoop/conf"             # YARN Configuration Directory, if necessary
+DEFAULT_HADOOP_CONF_DIR="/opt/tiger/yarn_deploy/hadoop/conf"           # Hadoop Configuration Directory, if necessary
 
 ########################################################################################################################
 # CONFIG KEYS: The default values can be overwritten by the following keys in conf/flink-conf.yaml
@@ -222,6 +222,12 @@ DEFAULT_FLINK_LOG_DIR=$FLINK_HOME_DIR_MANGLED/log
 FLINK_CONF_FILE="flink-conf.yaml"
 YAML_CONF=${FLINK_CONF_DIR}/${FLINK_CONF_FILE}
 
+# Native library for GNU linker
+HADOOP_NATIVE_LIB="/opt/tiger/yarn_deploy/hadoop/lib/native"
+HADOOP_LZO_LIB="/opt/tiger/yarn_deploy/hadoop/lzo/lib"
+SS_SO_LIB="/opt/tiger/ss_lib/so"
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_NATIVE_LIB:$HADOOP_LZO_LIB:$SS_SO_LIB
+
 ### Exported environment variables ###
 export FLINK_CONF_DIR
 export FLINK_BIN_DIR
@@ -230,6 +236,7 @@ export FLINK_PLUGINS_DIR
 export FLINK_LIB_DIR
 # export /opt dir to access it for the SQL client
 export FLINK_OPT_DIR
+export LD_LIBRARY_PATH
 
 ########################################################################################################################
 # ENVIRONMENT VARIABLES
@@ -515,11 +522,11 @@ TMWorkers() {
         command -v pdsh >/dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             for worker in ${WORKERS[@]}; do
-                ssh -n $FLINK_SSH_OPTS $worker -- "nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\" &"
+                ssh -n $FLINK_SSH_OPTS $worker -- "FLINK_CONF_DIR=${FLINK_CONF_DIR} nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\" &"
             done
         else
             PDSH_SSH_ARGS="" PDSH_SSH_ARGS_APPEND=$FLINK_SSH_OPTS pdsh -w $(IFS=, ; echo "${WORKERS[*]}") \
-                "nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\""
+                "FLINK_CONF_DIR=${FLINK_CONF_DIR} nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\""
         fi
     fi
 }

@@ -206,6 +206,13 @@ under the License.
 			<fileMode>0755</fileMode>
 		</fileSet>
 
+		<!-- copy clusters configuration -->
+		<fileSet>
+			<directory>src/main/flink-bin/htap_confs</directory>
+			<outputDirectory>htap_confs</outputDirectory>
+			<fileMode>0644</fileMode>
+		</fileSet>
+
 		<!-- create an empty log directory -->
 		<fileSet>
 			<directory>src/main/flink-bin/</directory>
