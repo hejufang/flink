@@ -88,71 +88,93 @@
 		</dependency>
 	</dependencies>
 
+	<profiles>
+		<profile>
+			<id>sql-jars</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-shade-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>shade-flink</id>
+								<phase>package</phase>
+								<goals>
+									<goal>shade</goal>
+								</goals>
+								<configuration>
+									<artifactSet>
+										<includes>
+											<include>*:*</include>
+										</includes>
+									</artifactSet>
+									<relocations>
+										<relocation>
+											<pattern>com.bytedance</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.bytedance</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google.common</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.google.common</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson.core</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.fasterxml.jackson.core</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson.annotation</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.fasterxml.jackson.annotation</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson.databind</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.fasterxml.jackson.databind</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.okhttp3</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.sun.xml.bind</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.sun.xml.bind</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.codahale.metrics</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.codahale.metrics</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google.protobuf</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.google.protobuf</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google.protobuf.util</pattern>
+											<shadedPattern>org.apache.flink.htap.shaded.com.google.protobuf.util</shadedPattern>
+										</relocation>
+									</relocations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
 	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-shade-plugin</artifactId>
+				<artifactId>maven-source-plugin</artifactId>
 				<executions>
 					<execution>
-						<id>shade-flink</id>
-						<phase>package</phase>
+						<id>attach-sources</id>
 						<goals>
-							<goal>shade</goal>
+							<goal>jar</goal>
 						</goals>
-						<configuration>
-							<artifactSet>
-								<includes>
-									<include>*:*</include>
-								</includes>
-							</artifactSet>
-							<relocations>
-								<relocation>
-									<pattern>com.bytedance</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.bytedance</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.google.common</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.google.common</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.fasterxml.jackson.core</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.fasterxml.jackson.core</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.fasterxml.jackson.annotation</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.fasterxml.jackson.annotation</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.fasterxml.jackson.databind</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.fasterxml.jackson.databind</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>okhttp3</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.okhttp3</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>okio</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.okio</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.sun.xml.bind</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.sun.xml.bind</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.codahale.metrics</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.codahale.metrics</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.google.protobuf</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.google.protobuf</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>com.google.protobuf.util</pattern>
-									<shadedPattern>org.apache.flink.metrics4j.shaded.com.google.protobuf.util</shadedPattern>
-								</relocation>
-							</relocations>
-						</configuration>
 					</execution>
 				</executions>
 			</plugin>
