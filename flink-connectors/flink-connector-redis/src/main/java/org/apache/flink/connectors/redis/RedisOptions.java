@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.flink.connectors.util.Constant.BATCH_SIZE_DEFAULT;
+import static org.apache.flink.connectors.util.Constant.BUFFER_FLUSH_INTERVAL_DEFAULT;
 import static org.apache.flink.connectors.util.Constant.FLUSH_MAX_RETRIES_DEFAULT;
 import static org.apache.flink.connectors.util.Constant.GET_RESOURCE_MAX_RETRIES_DEFAULT;
 import static org.apache.flink.connectors.util.Constant.TTL_DEFAULT;
@@ -51,6 +52,7 @@ public class RedisOptions {
 	private final RedisMode mode;
 	private final RedisDataType redisDataType;
 	private final int batchSize;
+	private final long bufferFlushInterval;
 	private final int ttlSeconds;
 	private final int parallelism;
 	private final int laterJoinLatencyMs;
@@ -123,6 +125,10 @@ public class RedisOptions {
 		return batchSize;
 	}
 
+	public long getBufferFlushInterval() {
+		return bufferFlushInterval;
+	}
+
 	public int getTtlSeconds() {
 		return ttlSeconds;
 	}
@@ -159,6 +165,7 @@ public class RedisOptions {
 			RedisMode mode,
 			RedisDataType redisDataType,
 			int batchSize,
+			long bufferFlushInterval,
 			int ttlSeconds,
 			boolean logFailuresOnly,
 			boolean skipFormatKey,
@@ -179,6 +186,7 @@ public class RedisOptions {
 		this.mode = mode;
 		this.redisDataType = redisDataType;
 		this.batchSize = batchSize;
+		this.bufferFlushInterval = bufferFlushInterval;
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
 		this.skipFormatKey = skipFormatKey;
@@ -209,6 +217,7 @@ public class RedisOptions {
 		private RedisMode mode = RedisMode.INSERT;
 		private RedisDataType redisDataType = RedisDataType.STRING;
 		private int batchSize = BATCH_SIZE_DEFAULT;
+		private long bufferFlushInterval = BUFFER_FLUSH_INTERVAL_DEFAULT;
 		private int ttlSeconds = TTL_DEFAULT;
 		private boolean logFailuresOnly;
 		private boolean skipFormatKey;
@@ -293,6 +302,11 @@ public class RedisOptions {
 			return this;
 		}
 
+		public RedisOptionsBuilder setBufferFlushInterval(long bufferFlushInterval) {
+			this.bufferFlushInterval = bufferFlushInterval;
+			return this;
+		}
+
 		public RedisOptionsBuilder setTtlSeconds(int ttlSeconds) {
 			this.ttlSeconds = ttlSeconds;
 			return this;
@@ -346,6 +360,7 @@ public class RedisOptions {
 				mode,
 				redisDataType,
 				batchSize,
+				bufferFlushInterval,
 				ttlSeconds,
 				logFailuresOnly,
 				skipFormatKey,
@@ -370,6 +385,7 @@ public class RedisOptions {
 				", flushMaxRetries=" + flushMaxRetries +
 				", mode='" + mode + '\'' +
 				", batchSize=" + batchSize +
+				", bufferFlushInterval=" + bufferFlushInterval +
 				", ttlSeconds=" + ttlSeconds +
 				", logFailuresOnly=" + logFailuresOnly +
 				", skipFormatKey=" + skipFormatKey +

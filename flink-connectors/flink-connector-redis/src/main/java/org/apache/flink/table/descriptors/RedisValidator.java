@@ -38,6 +38,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_GET_RESOURCE_MAX_RETRIES = "connector.get-resource-max-retries";
 	public static final String CONNECTOR_FLUSH_MAX_RETRIES = "connector.flush-max-retries";
 	public static final String CONNECTOR_BATCH_SIZE = "connector.batch-size";
+	public static final String CONNECTOR_BUFFER_FLUSH_INTERVAL_MS = "connector.buffer-flush.interval-ms";
 	public static final String CONNECTOR_TTL_SECONDS = "connector.ttl-seconds";
 	public static final String CONNECTOR_TIMEOUT_MS = "connector.timeout-ms";
 	public static final String CONNECTOR_LOG_FAILURES_ONLY = "connector.log-failures-only";
@@ -65,6 +66,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_GET_RESOURCE_MAX_RETRIES, true, 1);
 		properties.validateInt(CONNECTOR_FLUSH_MAX_RETRIES, true, 1);
 		properties.validateInt(CONNECTOR_BATCH_SIZE, true, 1);
+		properties.validateLong(CONNECTOR_BUFFER_FLUSH_INTERVAL_MS, true, 0);
 		properties.validateInt(CONNECTOR_TTL_SECONDS, true, 1);
 		properties.validateInt(CONNECTOR_TIMEOUT_MS, true, 1);
 		properties.validateBoolean(CONNECTOR_LOG_FAILURES_ONLY, true);

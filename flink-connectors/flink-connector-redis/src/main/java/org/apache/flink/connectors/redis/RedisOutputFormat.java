@@ -25,6 +25,7 @@ import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisMode;
 import org.apache.flink.connectors.util.RedisUtils;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -39,7 +40,10 @@ import redis.clients.jedis.exceptions.JedisException;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.connectors.util.Constant.INCR_MODE;
 import static org.apache.flink.connectors.util.Constant.INSERT_MODE;
@@ -57,16 +61,21 @@ import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
  */
 public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisOutputFormat.class);
-
+	private static final String THREAD_POOL_NAME = "redis-sink-function";
 	private transient Counter writeFailed;
 	private transient ArrayDeque<Tuple2<Boolean, Row>> recordDeque;
-	private SpringDbPool springDbPool;
-	private ClientPool clientPool;
-	private AtomicInteger recordCursor = new AtomicInteger(0);
+	private transient SpringDbPool springDbPool;
+	private transient ClientPool clientPool;
+	private transient int batchCount = 0;
+	private transient ScheduledExecutorService scheduler;
+	private transient ScheduledFuture<?> scheduledFuture;
+	private transient volatile Exception flushException;
+	private transient volatile boolean closed = false;
 	private SerializationSchema<Row> serializationSchema;
 
 	// <------------------------- connection configurations --------------------------->
 	private int batchSize;
+	private long bufferFlushInterval;
 	private int ttlSeconds;
 	private Jedis jedis;
 	private String cluster;
@@ -119,10 +128,35 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		if (logFailuresOnly) {
 			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
 		}
+
+		scheduler = Executors.newScheduledThreadPool(1, new ExecutorThreadFactory(THREAD_POOL_NAME));
+		if (bufferFlushInterval > 0) {
+			scheduledFuture = scheduler.scheduleWithFixedDelay(() -> {
+				synchronized (this) {
+					if (closed) {
+						return;
+					}
+					try {
+						if (flushException == null) {
+							flush();
+						}
+					} catch (Exception e) {
+						flushException = e;
+					}
+				}
+			}, bufferFlushInterval, bufferFlushInterval, TimeUnit.MILLISECONDS);
+		}
+	}
+
+	private void checkFlushException() {
+		if (flushException != null) {
+			throw new RuntimeException("Writing records to Redis/Abase failed.", flushException);
+		}
 	}
 
 	@Override
-	public void writeRecord(Tuple2<Boolean, Row> tuple2) {
+	public synchronized void writeRecord(Tuple2<Boolean, Row> tuple2) {
+		checkFlushException();
 		Row record = tuple2.f1;
 		int fieldSize = record.getArity();
 		if (fieldSize < 2) {
@@ -131,14 +165,15 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		}
 
 		recordDeque.add(tuple2);
-		if (recordCursor.incrementAndGet() == batchSize) {
+		batchCount++;
+		if (batchCount == batchSize) {
 			flush();
 		}
 	}
 
-	public void flush() {
+	public synchronized void flush() {
 		int flushRetryIndex = 0;
-		Pipeline pipeline = null;
+		Pipeline pipeline;
 
 		while (flushRetryIndex <= flushMaxRetries) {
 			try {
@@ -177,7 +212,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					}
 				}
 				recordDeque.clear();
-				recordCursor.set(0);
+				batchCount = 0;
 				return;
 			} catch (Exception e) {
 				if (flushRetryIndex < flushMaxRetries) {
@@ -390,7 +425,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	}
 
 	@Override
-	public void close() {
+	public synchronized void close() {
+		if (closed) {
+			return;
+		}
+		closed = true;
 		if (jedis != null) {
 			if (recordDeque != null && !recordDeque.isEmpty()) {
 				flush();
@@ -400,6 +439,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		if (clientPool != null) {
 			clientPool.close();
 		}
+		if (scheduledFuture != null) {
+			scheduledFuture.cancel(false);
+			scheduler.shutdown();
+		}
+		checkFlushException();
 	}
 
 	public static RedisOutputFormatBuilder buildRedisOutputFormat() {
@@ -453,6 +497,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			format.mode = options.getMode();
 			format.redisDataType = options.getRedisDataType();
 			format.batchSize = options.getBatchSize();
+			format.bufferFlushInterval = options.getBufferFlushInterval();
 			format.ttlSeconds = options.getTtlSeconds();
 			format.parallelism = options.getParallelism();
 			format.serializationSchema = this.serializationSchema;

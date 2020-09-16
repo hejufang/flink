@@ -26,6 +26,8 @@ public class Constant {
 	public static final int GET_RESOURCE_MAX_RETRIES_DEFAULT = 5;
 	public static final int FLUSH_MAX_RETRIES_DEFAULT = 5;
 	public static final int BATCH_SIZE_DEFAULT = 10;
+	// In order not to change flush behavior of existing jobs, flush interval is turned off by default.
+	public static final long BUFFER_FLUSH_INTERVAL_DEFAULT = -1;
 	public static final int TTL_DEFAULT = -1;
 
 	public static final String STORAGE_REDIS = "redis";

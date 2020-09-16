@@ -55,6 +55,7 @@ import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHE
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.RedisValidator.ABASE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BATCH_SIZE;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BUFFER_FLUSH_INTERVAL_MS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_CLUSTER;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_DATA_TYPE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_FLUSH_MAX_RETRIES;
@@ -105,6 +106,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_GET_RESOURCE_MAX_RETRIES);
 		properties.add(CONNECTOR_FLUSH_MAX_RETRIES);
 		properties.add(CONNECTOR_BATCH_SIZE);
+		properties.add(CONNECTOR_BUFFER_FLUSH_INTERVAL_MS);
 		properties.add(CONNECTOR_TTL_SECONDS);
 		properties.add(CONNECTOR_TIMEOUT_MS);
 		properties.add(CONNECTOR_FORCE_CONNECTION_SETTINGS);
@@ -221,6 +223,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		descriptorProperties.getOptionalString(CONNECTOR_TYPE).ifPresent(builder::setStorage);
 		descriptorProperties.getOptionalString(CONNECTOR_TABLE).ifPresent(builder::setTable);
 		descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).ifPresent(builder::setBatchSize);
+		descriptorProperties.getOptionalLong(CONNECTOR_BUFFER_FLUSH_INTERVAL_MS).ifPresent(builder::setBufferFlushInterval);
 		descriptorProperties.getOptionalInt(CONNECTOR_FLUSH_MAX_RETRIES)
 				.ifPresent(builder::setFlushMaxRetries);
 		descriptorProperties.getOptionalInt(CONNECTOR_GET_RESOURCE_MAX_RETRIES)
