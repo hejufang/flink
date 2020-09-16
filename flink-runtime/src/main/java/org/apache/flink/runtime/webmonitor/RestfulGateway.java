@@ -93,10 +93,28 @@ public interface RestfulGateway extends RpcGateway {
 	 */
 	CompletableFuture<ClusterOverview> requestClusterOverview(@RpcTimeout Time timeout);
 
+	/**
+	 * Requests the JMWebShell url from Yarn.
+	 *
+	 * @param timeout of the request
+	 * @return Future containing the resource overview
+	 */
 	default CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
 		CompletableFuture<String> jmWebShellFuture = new CompletableFuture<>();
 		jmWebShellFuture.completeExceptionally(new Exception("noJmWebShell"));
 		return jmWebShellFuture;
+	}
+
+	/**
+	 * Requests the JobManagerLog url.
+	 *
+	 * @param timeout of the request
+	 * @return Future containing the resource overview
+	 */
+	default CompletableFuture<String> requestJobManagerLogUrl(@RpcTimeout Time timeout) {
+		CompletableFuture<String> jmLogFuture = new CompletableFuture<>();
+		jmLogFuture.completeExceptionally(new Exception("noJmLog"));
+		return jmLogFuture;
 	}
 
 	/**

@@ -165,14 +165,14 @@ public class DashboardConfiguration implements ResponseBody {
 			jmWebShell);
 	}
 
-	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmWebShell) {
+	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmLog, String jmWebShell) {
 		return new DashboardConfiguration(
 			dashboardConfiguration.getRefreshInterval(),
 			dashboardConfiguration.getTimeZoneName(),
 			dashboardConfiguration.getTimeZoneOffset(),
 			dashboardConfiguration.getFlinkVersion(),
 			dashboardConfiguration.getFlinkRevision(),
-			dashboardConfiguration.getJmLog(),
+			jmLog,
 			jmWebShell);
 	}
 }

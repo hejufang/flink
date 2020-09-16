@@ -41,6 +41,7 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 
 	private DashboardConfiguration dashboardConfiguration;
 	private CompletableFuture<String> jobManagerWebShellFuture;
+	private CompletableFuture<String> jobManagerLogFuture;
 
 	public DashboardConfigHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -55,19 +56,16 @@ public class DashboardConfigHandler extends AbstractRestHandler<RestfulGateway, 
 
 	@Override
 	public CompletableFuture<DashboardConfiguration> handleRequest(@Nonnull HandlerRequest<EmptyRequestBody, EmptyMessageParameters> request, @Nonnull RestfulGateway gateway) {
-		if (jobManagerWebShellFuture == null) {
+		if (jobManagerWebShellFuture == null || jobManagerLogFuture == null) {
+			jobManagerLogFuture = gateway.requestJobManagerLogUrl(timeout);
 			jobManagerWebShellFuture = gateway.requestJMWebShell(timeout);
-			return jobManagerWebShellFuture
-				.thenApply(
-					jmWebShell -> {
-						dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmWebShell);
-						return dashboardConfiguration;
-					})
-				.exceptionally(
-					e -> {
-						jobManagerWebShellFuture = null;
-						return dashboardConfiguration;
-					});
+			return jobManagerLogFuture
+				.thenCombineAsync(jobManagerWebShellFuture, (jmLog, jmWebShell) -> dashboardConfiguration = DashboardConfiguration.fromDashboardConfiguration(dashboardConfiguration, jmLog, jmWebShell))
+				.exceptionally(e -> {
+					jobManagerWebShellFuture = null;
+					jobManagerLogFuture = null;
+					return dashboardConfiguration;
+				});
 		} else {
 			return CompletableFuture.completedFuture(dashboardConfiguration);
 		}

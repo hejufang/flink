@@ -122,6 +122,7 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.util.megatron.MegatronUtil;
 import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
 
 import javax.annotation.Nonnull;
@@ -2095,12 +2096,40 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	@Override
+	public CompletableFuture<String> requestJobManagerLogUrl(Time timeout) {
+		CompletableFuture<String> jmLog = new CompletableFuture<>();
+		try {
+			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+			String jmHost = Utils.getYarnHostname() + ":" + System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
+			jmLog.complete(
+				MegatronUtil.getMegatronLogUrl(region, jmHost, Utils.getCurrentContainerID(), EnvironmentInformation.getHadoopUser(), ""));
+		} catch (Exception e) {
+			log.error("Error while get relay log.", e);
+			jmLog.completeExceptionally(e);
+		}
+		return jmLog;
+	}
+
+	@Override
 	public String getTaskManagerWebShell(ResourceID resourceID, String host) {
 		try {
 			return NMWebshellUtil.getWeshellRelayFullUrl(host, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser());
 		} catch (Exception e) {
 			log.error("Error while get relay webshell, fallback to default webshell.", e);
 			return super.getTaskManagerWebShell(resourceID, host);
+		}
+	}
+
+	@Override
+	public String getTaskManagerLogUrl(ResourceID resourceID, String host) {
+		try {
+			String nmPort = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
+			String nmHostWithPort = host + ":" + nmPort;
+			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+			return MegatronUtil.getMegatronLogUrl(region, nmHostWithPort, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser(), "");
+		} catch (Exception e) {
+			log.error("Error while get relay log, fallback to default log.", e);
+			return super.getTaskManagerLogUrl(resourceID, host);
 		}
 	}
 

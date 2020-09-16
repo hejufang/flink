@@ -615,7 +615,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			String host = taskExecutor.getTaskManagerLocation().getFQDNHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
-			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			String tmLog = getTaskManagerLogUrl(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 
 			taskManagerInfos.add(
@@ -638,6 +638,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		return WebMonitorUtils.getContainerWebShell(resourceId.getResourceIdString(), host);
 	}
 
+	public String getTaskManagerLogUrl(ResourceID resourceId, String host) {
+		return WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+	}
+
 	@Override
 	public CompletableFuture<TaskManagerInfo> requestTaskManagerInfo(ResourceID resourceId, Time timeout) {
 
@@ -649,7 +653,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final InstanceID instanceId = taskExecutor.getInstanceID();
 			String host = taskExecutor.getTaskManagerLocation().getFQDNHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
-			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			String tmLog = getTaskManagerLogUrl(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 			final TaskManagerInfo taskManagerInfo = new TaskManagerInfo(
 				resourceId,

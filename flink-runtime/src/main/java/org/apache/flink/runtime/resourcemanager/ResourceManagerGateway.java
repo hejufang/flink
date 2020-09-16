@@ -209,10 +209,28 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	 */
 	CompletableFuture<ResourceOverview> requestResourceOverview(@RpcTimeout Time timeout);
 
+	/**
+	 * Requests the JMWebShell url from Yarn
+	 *
+	 * @param timeout of the request
+	 * @return Future containing the resource overview
+	 */
 	default CompletableFuture<String> requestJMWebShell(@RpcTimeout Time timeout) {
 		CompletableFuture<String> jmWebShell = new CompletableFuture<>();
 		jmWebShell.completeExceptionally(new Exception("no JobManager WebShell"));
 		return jmWebShell;
+	}
+
+	/**
+	 * Requests the JobManagerLog url
+	 *
+	 * @param timeout of the request
+	 * @return Future containing the resource overview
+	 */
+	default CompletableFuture<String> requestJobManagerLogUrl(@RpcTimeout Time timeout) {
+		CompletableFuture<String> jmLog = new CompletableFuture<>();
+		jmLog.completeExceptionally(new Exception("no JobManager Log"));
+		return jmLog;
 	}
 
 	/**
