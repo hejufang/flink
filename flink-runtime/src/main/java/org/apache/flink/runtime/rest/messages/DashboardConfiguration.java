@@ -20,7 +20,6 @@ package org.apache.flink.runtime.rest.messages;
 
 import org.apache.flink.runtime.rest.handler.cluster.DashboardConfigHandler;
 import org.apache.flink.runtime.util.EnvironmentInformation;
-import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
@@ -204,9 +203,7 @@ public class DashboardConfiguration implements ResponseBody {
 			flinkRevision = "unknown revision";
 		}
 
-		final String jmContainerId = WebMonitorUtils.getJMContainerId();
-		final String jmIp = WebMonitorUtils.getIp();
-		final String jmLog = WebMonitorUtils.getContainerLog(jmContainerId, jmIp);
+		final String jmLog = "";
 		final String jmWebShell = "";
 
 		return new DashboardConfiguration(
@@ -221,7 +218,7 @@ public class DashboardConfiguration implements ResponseBody {
 			jmWebShell);
 	}
 
-	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmWebShell) {
+	public static DashboardConfiguration fromDashboardConfiguration(DashboardConfiguration dashboardConfiguration, String jmLog, String jmWebShell) {
 		return new DashboardConfiguration(
 			dashboardConfiguration.getRefreshInterval(),
 			dashboardConfiguration.getTimeZoneName(),
@@ -229,7 +226,7 @@ public class DashboardConfiguration implements ResponseBody {
 			dashboardConfiguration.getFlinkVersion(),
 			dashboardConfiguration.getFlinkRevision(),
 			dashboardConfiguration.getFeatures(),
-			dashboardConfiguration.getJmLog(),
+			jmLog,
 			jmWebShell);
 	}
 }

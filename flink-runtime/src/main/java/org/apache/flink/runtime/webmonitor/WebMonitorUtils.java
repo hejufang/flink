@@ -31,7 +31,6 @@ import org.apache.flink.runtime.executiongraph.AccessExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.rest.handler.legacy.files.StaticFileServerHandler;
-import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 import org.apache.flink.util.FlinkException;
 
@@ -48,16 +47,13 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -361,91 +357,5 @@ public final class WebMonitorUtils {
 				ConfigConstants.DTOP_DATABASE_DEFAULT);
 			return String.format(ConfigConstants.DTOP_TEMPLATE, grafanaDomainUrl, applicationName, dataSource, database);
 		}
-	}
-
-	/**
-	 * Matches three style hostnames, va:ip-10-100-40-222, sg_aliyun:n115-012-150.byted.org.
-	 * cn: n6-131-220
-	 * @return ip if succeed to change, otherwise host
-	 */
-	public static String convertHostToIp(String host) {
-		boolean isMatcher = false;
-		if (host.startsWith("n")) {
-			Matcher matcher = nPattern.matcher(host);
-			if (matcher.find()) {
-				String ipOne = matcher.group(1);
-				String ipTwo = matcher.group(2);
-				String ipThree = matcher.group(3);
-				isMatcher = true;
-				return "10." + ipOne + "." + ipTwo + "." + ipThree;
-			}
-		} else if (host.startsWith("ip")) {
-			Matcher matcher = ipPrefixPattern.matcher(host);
-			if (matcher.find()) {
-				String ipOne = matcher.group(1);
-				String ipTwo = matcher.group(2);
-				String ipThree = matcher.group(3);
-				String ipFour = matcher.group(4);
-				isMatcher = true;
-				return ipOne + "." + ipTwo + "." + ipThree + "." + ipFour;
-			}
-		} else {
-			Matcher matcher = ipPattern.matcher(host);
-			isMatcher = true;
-			return host;
-		}
-
-		if (!isMatcher) {
-			LOG.error("Failed to match regex, host = {}", host);
-		}
-
-		return host;
-	}
-
-	public static String getUser() {
-		String hadoopUser = System.getenv("HADOOP_USER_NAME");
-		if (hadoopUser == null) {
-			hadoopUser = "unknown";
-		}
-		return hadoopUser;
-	}
-
-	public static String getContainerLog(String resouceId, String host) {
-		String ip = convertHostToIp(host);
-		return String.format(ConfigConstants.CONTAINER_LOG_TEMPLATE, ip, resouceId, EnvironmentInformation.getHadoopUser());
-	}
-
-	/**
-	 * Get JM container from jvm system arguments log.file.
-	 * For example: -Dlog.file=/data00/yarn/userlogs/application_1555229779424_0072
-	 * /container_e06_1555229779424_0072_01_000001/jobmanager.log
-	 * @return containerId if succeed otherwise "NoJmContainerId".
-	 */
-	public static String getJMContainerId() {
-		String logFile = System.getProperty("log.file", null);
-		if (logFile != null) {
-			LOG.debug("logfile = {}", logFile);
-			for (String word : logFile.split("/")) {
-				if (word.startsWith("container")) {
-					return word;
-				}
-			}
-		}
-		return "NoJMContainerId";
-	}
-
-	/**
-	 * Get local ip.
-	 */
-	public static String getIp() {
-		String ip;
-		try {
-			InetAddress addr = InetAddress.getLocalHost();
-			ip = addr.getHostAddress();
-		} catch (UnknownHostException ue) {
-			LOG.error("Failed to get ip", ue);
-			ip = "NoIp";
-		}
-		return ip;
 	}
 }

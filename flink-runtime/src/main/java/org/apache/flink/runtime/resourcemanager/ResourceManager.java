@@ -72,7 +72,6 @@ import org.apache.flink.runtime.taskexecutor.SlotReport;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorHeartbeatPayload;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
-import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.clock.SystemClock;
@@ -548,7 +547,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			String host = taskExecutor.getTaskExecutorGateway().getHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
-			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			String tmLog = getTaskManagerLogUrl(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 
 			taskManagerInfos.add(
@@ -573,6 +572,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		return "";
 	}
 
+	public String getTaskManagerLogUrl(ResourceID resourceId, String host) {
+		return "";
+	}
+
 	@Override
 	public CompletableFuture<TaskManagerInfo> requestTaskManagerInfo(ResourceID resourceId, Time timeout) {
 
@@ -584,7 +587,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			final InstanceID instanceId = taskExecutor.getInstanceID();
 			String host = taskExecutor.getTaskExecutorGateway().getHostname();
 			String webShell = getTaskManagerWebShell(resourceId, host);
-			String tmLog = WebMonitorUtils.getContainerLog(resourceId.getResourceIdString(), host);
+			String tmLog = getTaskManagerLogUrl(resourceId, host);
 			log.debug("webShell = {}, tmLog = {}", webShell, tmLog);
 			final TaskManagerInfo taskManagerInfo = new TaskManagerInfo(
 				resourceId,

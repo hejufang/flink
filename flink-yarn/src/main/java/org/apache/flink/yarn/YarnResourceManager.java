@@ -21,6 +21,7 @@ package org.apache.flink.yarn;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -65,6 +66,7 @@ import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.util.megatron.MegatronUtil;
 import org.apache.hadoop.yarn.util.webshell.NMWebshellUtil;
 
 import javax.annotation.Nonnull;
@@ -412,6 +414,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		});
 	}
 
+	@Override
+	public void onContainersDescheduled(List<Container> list) {
+		// TODO implement this function later.
+	}
+
 	private Map<Resource, List<Container>> groupContainerByResource(List<Container> containers) {
 		return containers.stream().collect(Collectors.groupingBy(Container::getResource));
 	}
@@ -716,12 +723,40 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	@Override
+	public CompletableFuture<String> requestJobManagerLogUrl(Time timeout) {
+		CompletableFuture<String> jmLog = new CompletableFuture<>();
+		try {
+			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+			String jmHost = Utils.getYarnHostname() + ":" + System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
+			jmLog.complete(
+				MegatronUtil.getMegatronLogUrl(region, jmHost, Utils.getCurrentContainerID(), EnvironmentInformation.getHadoopUser(), ""));
+		} catch (Exception e) {
+			log.error("Error while get relay log.", e);
+			jmLog.completeExceptionally(e);
+		}
+		return jmLog;
+	}
+
+	@Override
 	public String getTaskManagerWebShell(ResourceID resourceID, String host) {
 		try {
 			return NMWebshellUtil.getWeshellRelayFullUrl(host, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser());
 		} catch (Exception e) {
 			log.error("Error while get relay webshell, fallback to default webshell.", e);
 			return super.getTaskManagerWebShell(resourceID, host);
+		}
+	}
+
+	@Override
+	public String getTaskManagerLogUrl(ResourceID resourceID, String host) {
+		try {
+			String nmPort = System.getenv(ApplicationConstants.Environment.NM_HTTP_PORT.name());
+			String nmHostWithPort = host + ":" + nmPort;
+			String region = flinkConfig.getString(ConfigConstants.DC_KEY, ConfigConstants.DC_DEFAULT);
+			return MegatronUtil.getMegatronLogUrl(region, nmHostWithPort, resourceID.getResourceIdString(), EnvironmentInformation.getHadoopUser(), "");
+		} catch (Exception e) {
+			log.error("Error while get relay log, fallback to default log.", e);
+			return super.getTaskManagerLogUrl(resourceID, host);
 		}
 	}
 }
