@@ -152,15 +152,4 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 		properties.validateDuration(CONNECTOR_WRITE_FLUSH_INTERVAL, true, 1);
 		properties.validateInt(CONNECTOR_WRITE_MAX_RETRIES, true);
 	}
-
-	private void checkAllOrNone(DescriptorProperties properties, String[] propertyNames) {
-		int presentCount = 0;
-		for (String name : propertyNames) {
-			if (properties.getOptionalString(name).isPresent()) {
-				presentCount++;
-			}
-		}
-		Preconditions.checkArgument(presentCount == 0 || presentCount == propertyNames.length,
-			"Either all or none of the following properties should be provided:\n" + String.join("\n", propertyNames));
-	}
 }

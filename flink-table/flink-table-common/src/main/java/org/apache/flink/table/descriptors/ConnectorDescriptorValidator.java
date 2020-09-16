@@ -19,6 +19,7 @@
 package org.apache.flink.table.descriptors;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.util.Preconditions;
 
 /**
  * Validator for {@link ConnectorDescriptor}.
@@ -83,5 +84,16 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 		properties.validateString(CONNECTOR_TYPE, false, 1);
 		properties.validateInt(CONNECTOR_PROPERTY_VERSION, true, 0);
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
+	}
+
+	protected void checkAllOrNone(DescriptorProperties properties, String[] propertyNames) {
+		int presentCount = 0;
+		for (String name : propertyNames) {
+			if (properties.getOptionalString(name).isPresent()) {
+				presentCount++;
+			}
+		}
+		Preconditions.checkArgument(presentCount == 0 || presentCount == propertyNames.length,
+			"Either all or none of the following properties should be provided:\n" + String.join("\n", propertyNames));
 	}
 }

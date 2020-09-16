@@ -87,6 +87,7 @@ under the License.
 		<module>flink-connector-loghouse</module>
 		<module>flink-connector-databus</module>
 		<module>flink-connector-bytable</module>
+		<module>flink-connector-bytesql</module>
 		<module>flink-connector-rpc</module>
 		<module>flink-connector-faas</module>
 	</modules>
