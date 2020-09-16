@@ -229,8 +229,8 @@ under the License.
 						</goals>
 						<configuration>
 							<nodeVersion>v10.9.0</nodeVersion>
-							<nodeDownloadRoot>http://npm.taobao.org/mirrors/node/</nodeDownloadRoot>
-							<npmDownloadRoot>http://npm.taobao.org/mirrors/npm/</npmDownloadRoot>
+							<nodeDownloadRoot>http://nodejs.org/dist/</nodeDownloadRoot>
+							<npmDownloadRoot>http://registry.npmjs.org/npm/-/</npmDownloadRoot>
 						</configuration>
 					</execution>
 					<execution>
@@ -243,7 +243,7 @@ under the License.
 							<environmentVariables>
 								<HUSKY_SKIP_INSTALL>true</HUSKY_SKIP_INSTALL>
 							</environmentVariables>
-							<npmRegistryURL>https://registry.npm.taobao.org</npmRegistryURL>
+							<npmRegistryURL>https://bnpm.byted.org</npmRegistryURL>
 						</configuration>
 					</execution>
 					<execution>
