@@ -63,5 +63,12 @@ under the License.
 			<destName>flink-connector-htap_${scala.binary.version}-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
+
+		<file>
+			<source>../flink-connectors/flink-connector-bmq/target/flink-connector-bmq-${project.version}.jar</source>
+			<outputDirectory>connectors/</outputDirectory>
+			<destName>flink-connector-bmq-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
 	</files>
 </assembly>
