@@ -75,6 +75,7 @@ public class RuntimeConverterFactory {
 	static final Map<String, Descriptors.FieldDescriptor> FIELD_DESCRIPTORS = initFieldDescriptors();
 	static final Map<String, Descriptors.Descriptor> DESCRIPTORS = initDescriptors();
 	private static final Map<String, TypeInformation> JDBC_TO_FLINK_TYPE = getJdbcToFlinkType();
+	private static final String ZERO_TIMESTAMP_STR = "0000-00-00 00:00:00";
 
 	/**
 	 * Create runtime converter according to RowTypeInfo.
@@ -137,7 +138,9 @@ public class RuntimeConverterFactory {
 		} else if (typeInfo == Types.SQL_TIME) {
 			return o -> Time.valueOf((String) o);
 		} else if (typeInfo == Types.SQL_TIMESTAMP) {
-			return o -> Timestamp.valueOf((String) o);
+			// Timestamp.valueOf will throw an exception if the value of o is
+			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
+			return o -> ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o);
 		} else {
 			throw new IllegalArgumentException(
 				String.format("Unsupported type for 'value' column: %s.", typeInfo));
