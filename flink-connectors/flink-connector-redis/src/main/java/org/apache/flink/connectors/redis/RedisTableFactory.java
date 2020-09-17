@@ -47,6 +47,7 @@ import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_LIST;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_SET;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
+import static org.apache.flink.connectors.util.Constant.REDIS_INCR_VALID_DATATYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_CACHE_NULL_VALUE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -172,9 +173,9 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
 			throw new FlinkRuntimeException("Can't configure the format.type and " +
 				"connector.redis-data-type at the same time.");
-		} else if (INCR_MODE.equalsIgnoreCase(properties.get(CONNECTOR_MODE))
-			&& properties.containsKey(CONNECTOR_DATA_TYPE)) {
-			throw new FlinkRuntimeException("Can not configure connector.redis-data-type in incr mode.");
+		} else if (INCR_MODE.equalsIgnoreCase(properties.get(CONNECTOR_MODE)) &&
+			!REDIS_INCR_VALID_DATATYPE.contains(properties.getOrDefault(CONNECTOR_DATA_TYPE, REDIS_DATATYPE_STRING))) {
+			throw new FlinkRuntimeException("Unsupported data type in incr mode. Supported: string, hash.");
 		}
 
 		builder.setOptions(getRedisOptions(descriptorProperties));

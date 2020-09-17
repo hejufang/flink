@@ -18,6 +18,9 @@
 
 package org.apache.flink.connectors.util;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  *  Default value and constants.
  */
@@ -41,4 +44,8 @@ public class Constant {
 	public static final String REDIS_DATATYPE_LIST = "list";
 	public static final String REDIS_DATATYPE_SET = "set";
 	public static final String REDIS_DATATYPE_ZSET = "zset";
+	public static final Set<String> REDIS_INCR_VALID_DATATYPE = new HashSet<String>() {{
+		add(REDIS_DATATYPE_STRING);
+		add(REDIS_DATATYPE_HASH);
+	}};
 }

@@ -54,6 +54,7 @@ import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.connectors.util.Constant.STORAGE_ABASE;
 import static org.apache.flink.connectors.util.Constant.STORAGE_REDIS;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_DATA_TYPE;
 import static org.apache.flink.table.metric.Constants.WRITE_FAILED;
 
 /**
@@ -260,7 +261,42 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		}
 	}
 
-	private void incr(Pipeline pipeline, Row record) {
+	private void incr(Pipeline pipeline, Row row) {
+		if (row != null) {
+			switch (redisDataType) {
+				case HASH:
+					incrHashValue(pipeline, row);
+					break;
+				case STRING:
+					incrValue(pipeline, row);
+					break;
+				default:
+					throw new RuntimeException(String.format("%s should be %s or %s, when sink mode is INCR.",
+						CONNECTOR_DATA_TYPE, RedisDataType.HASH, RedisDataType.STRING));
+			}
+		}
+	}
+
+	private void incrHashValue(Pipeline pipeline, Row row) {
+		Object key = row.getField(0);
+		Object hashKey = row.getField(1);
+		Object incrementValue = row.getField(2);
+		if (hashKey == null || incrementValue == null) {
+			throw new FlinkRuntimeException(
+				String.format("In %s mode, hash_key / increment_value can't be null. " +
+					"key: %s, hash_key: %s, increment_value: %s ", INCR_MODE, key, hashKey, incrementValue));
+		}
+		if (incrementValue instanceof Long || incrementValue instanceof Integer) {
+			pipeline.hincrBy(key.toString(), hashKey.toString(), ((Number) incrementValue).longValue());
+		} else if (incrementValue instanceof Double || incrementValue instanceof Float) {
+			pipeline.hincrByFloat(key.toString(), hashKey.toString(), ((Number) incrementValue).floatValue());
+		} else {
+			throw new RuntimeException("Unsupported type for increment value in INCR mode, " +
+				"supported types: Long, Integer, Double, Float.");
+		}
+	}
+
+	private void incrValue(Pipeline pipeline, Row record) {
 		Object key = record.getField(0);
 		Object value = record.getField(1);
 		if (value == null) {
