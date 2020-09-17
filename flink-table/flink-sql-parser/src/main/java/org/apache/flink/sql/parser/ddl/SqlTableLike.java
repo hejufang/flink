@@ -224,6 +224,10 @@ public class SqlTableLike extends SqlCall implements ExtendedSqlNode {
 		writer.endList(frame);
 	}
 
+	public String[] fullTableName() {
+		return sourceTable.names.toArray(new String[0]);
+	}
+
 	/**
 	 * A pair of {@link MergingStrategy} and {@link FeatureOption}.
 	 *
