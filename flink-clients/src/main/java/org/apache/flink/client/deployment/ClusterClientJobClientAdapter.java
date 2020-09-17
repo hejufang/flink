@@ -76,6 +76,14 @@ public class ClusterClientJobClientAdapter<ClusterID> implements JobClient, Coor
 	}
 
 	@Override
+	public CompletableFuture<Void> shutDown() {
+		return bridgeClientRequest(clusterClientProvider, (clusterClient -> {
+			clusterClient.shutDownCluster();
+			return CompletableFuture.completedFuture(null);
+		})).thenApply((ignored -> null));
+	}
+
+	@Override
 	public CompletableFuture<String> stopWithSavepoint(boolean advanceToEndOfEventTime, @Nullable String savepointDirectory) {
 		return bridgeClientRequest(
 				clusterClientProvider,

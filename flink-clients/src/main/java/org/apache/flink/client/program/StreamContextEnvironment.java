@@ -88,6 +88,12 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 			// never reached, only make javac happy
 			return null;
+		} finally {
+			if (getConfiguration().getBoolean(DeploymentOptions.ATTACHED)
+					&& getConfiguration().getBoolean(DeploymentOptions.SHUTDOWN_IF_ATTACHED)) {
+				LOG.info("Shut down the cluster.");
+				jobClient.shutDown().get();
+			}
 		}
 	}
 

@@ -83,4 +83,11 @@ public interface JobClient {
 	 * @param userClassloader the classloader used to de-serialize the accumulators of the job.
 	 */
 	CompletableFuture<JobExecutionResult> getJobExecutionResult(final ClassLoader userClassloader);
+
+	/**
+	 * Shut down the cluster that this client communicate with.
+	 */
+	default CompletableFuture<Void> shutDown() {
+		throw new UnsupportedOperationException();
+	}
 }
