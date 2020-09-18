@@ -81,6 +81,7 @@ public class DataStreamSource<T> extends SingleOutputStreamOperator<T> {
 						outTypeInfo,
 						source.getParallelism() > 0 ? source.getParallelism() : environment.getParallelism())
 					.setUseDefaultParallelism(true));
+		this.isParallel = true;
 	}
 
 	@Override
