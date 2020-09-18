@@ -155,6 +155,7 @@ DEFAULT_ENV_JAVA_OPTS_HS=""                         # Optional JVM args (History
 DEFAULT_ENV_JAVA_OPTS_CLI=""                        # Optional JVM args (Client)
 DEFAULT_ENV_SSH_OPTS=""                             # Optional SSH parameters running in cluster mode
 DEFAULT_YARN_CONF_DIR="/opt/tiger/yarn_deploy/hadoop/conf"             # YARN Configuration Directory, if necessary
+DEFAULT_HADOOP_HOME="/opt/tiger/yarn_deploy/hadoop"                    # Hadoop Home Directory, if necessary
 DEFAULT_HADOOP_CONF_DIR="/opt/tiger/yarn_deploy/hadoop/conf"           # Hadoop Configuration Directory, if necessary
 
 ########################################################################################################################
@@ -167,6 +168,7 @@ KEY_ENV_PID_DIR="env.pid.dir"
 KEY_ENV_LOG_DIR="env.log.dir"
 KEY_ENV_LOG_MAX="env.log.max"
 KEY_ENV_YARN_CONF_DIR="env.yarn.conf.dir"
+KEY_ENV_HADOOP_HOME="env.hadoop.home"
 KEY_ENV_HADOOP_CONF_DIR="env.hadoop.conf.dir"
 KEY_ENV_JAVA_HOME="env.java.home"
 KEY_ENV_JAVA_OPTS="env.java.opts"
@@ -298,6 +300,10 @@ if [ -z "${YARN_CONF_DIR}" ]; then
     YARN_CONF_DIR=$(readFromConfig ${KEY_ENV_YARN_CONF_DIR} "${DEFAULT_YARN_CONF_DIR}" "${YAML_CONF}")
 fi
 
+if [ -z "${HADOOP_HOME}" ]; then
+    HADOOP_HOME=$(readFromConfig ${KEY_ENV_HADOOP_HOME} "${DEFAULT_HADOOP_HOME}" "${YAML_CONF}")
+fi
+
 if [ -z "${HADOOP_CONF_DIR}" ]; then
     HADOOP_CONF_DIR=$(readFromConfig ${KEY_ENV_HADOOP_CONF_DIR} "${DEFAULT_HADOOP_CONF_DIR}" "${YAML_CONF}")
 fi
@@ -401,6 +407,10 @@ if [ -z "$HADOOP_CONF_DIR" ]; then
         HADOOP_CONF_DIR="$DEFAULT_HADOOP_CONF_DIR"
     fi
 fi
+
+# export hadoop env explicitly otherwise JM/TM can't find it (only for standalone)
+export HADOOP_CONF_DIR
+export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
 
 INTERNAL_HADOOP_CLASSPATHS="${HADOOP_CLASSPATH}:${HADOOP_CONF_DIR}:${YARN_CONF_DIR}"
 
@@ -522,11 +532,11 @@ TMWorkers() {
         command -v pdsh >/dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             for worker in ${WORKERS[@]}; do
-                ssh -n $FLINK_SSH_OPTS $worker -- "FLINK_CONF_DIR=${FLINK_CONF_DIR} nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\" &"
+                ssh -n $FLINK_SSH_OPTS $worker -- "SEC_TOKEN_STRING=${SEC_TOKEN_STRING} FLINK_CONF_DIR=${FLINK_CONF_DIR} nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\" &"
             done
         else
             PDSH_SSH_ARGS="" PDSH_SSH_ARGS_APPEND=$FLINK_SSH_OPTS pdsh -w $(IFS=, ; echo "${WORKERS[*]}") \
-                "FLINK_CONF_DIR=${FLINK_CONF_DIR} nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\""
+                "SEC_TOKEN_STRING=${SEC_TOKEN_STRING} FLINK_CONF_DIR=${FLINK_CONF_DIR} nohup /bin/bash -l \"${FLINK_BIN_DIR}/taskmanager.sh\" \"${CMD}\""
         fi
     fi
 }
