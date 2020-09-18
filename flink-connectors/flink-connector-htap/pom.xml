@@ -113,6 +113,10 @@
 										<relocation>
 											<pattern>com.bytedance</pattern>
 											<shadedPattern>org.apache.flink.htap.shaded.com.bytedance</shadedPattern>
+											<excludes>
+												<exclude>com.bytedance.htap.storage.**</exclude>
+												<exclude>com.bytedance.htap.meta.**</exclude>
+											</excludes>
 										</relocation>
 										<relocation>
 											<pattern>com.google.common</pattern>
