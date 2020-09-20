@@ -218,6 +218,7 @@ dw:
   high-availability.zookeeper.quorum: 10.11.43.39:2184,10.11.43.66:2184,10.224.152.92:2184,10.224.71.64:2184,10.224.71.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
 
 lepad:
   dc: cn
