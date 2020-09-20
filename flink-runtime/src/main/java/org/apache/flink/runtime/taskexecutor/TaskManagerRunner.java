@@ -21,6 +21,7 @@ package org.apache.flink.runtime.taskexecutor;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.core.fs.FileSystem;
@@ -62,6 +63,7 @@ import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
+import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.TaskManagerExceptionUtils;
 
 import org.slf4j.Logger;
@@ -71,7 +73,9 @@ import java.lang.reflect.UndeclaredThrowableException;
 import java.net.InetAddress;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -383,6 +387,17 @@ public class TaskManagerRunner implements FatalErrorHandler, AutoCloseableAsync 
 			TaskManagerConfiguration.fromConfiguration(configuration, taskExecutorResourceSpec, externalAddress);
 
 		String metricQueryServiceAddress = metricRegistry.getMetricQueryServiceGatewayRpcAddress();
+
+		List<String> preloadClasses = new ArrayList<>();
+		String preloadClassesStr = configuration.getString(CoreOptions.FLINK_PRE_LOAD_CLASS);
+		if (preloadClassesStr != null) {
+			preloadClasses.addAll(Arrays.asList(preloadClassesStr.split(";")));
+		}
+		preloadClassesStr = configuration.getString(CoreOptions.FLINK_TM_PRE_LOAD_CLASS);
+		if (preloadClassesStr != null) {
+			preloadClasses.addAll(Arrays.asList(preloadClassesStr.split(";")));
+		}
+		InstantiationUtil.loadClasses(preloadClasses);
 
 		return new TaskExecutor(
 			rpcService,

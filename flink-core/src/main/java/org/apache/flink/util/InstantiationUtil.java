@@ -47,6 +47,7 @@ import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -729,6 +730,21 @@ public final class InstantiationUtil {
 		@SuppressWarnings("unchecked")
 		Class<T> clazz = (Class<T>) rawClazz;
 		return clazz;
+	}
+
+	/**
+	 * Load classes only.
+	 * @param classNames class name to load.
+	 * @throws ClassNotFoundException if class not found.
+	 */
+	public static void loadClasses(List<String> classNames) throws ClassNotFoundException {
+		for (String className : classNames) {
+			if (!StringUtils.isNullOrWhitespaceOnly(className)) {
+				Class.forName(className);
+			} else {
+				LOG.warn("Class name is null or whitespace only, skip to load.");
+			}
+		}
 	}
 
 	// --------------------------------------------------------------------------------------------

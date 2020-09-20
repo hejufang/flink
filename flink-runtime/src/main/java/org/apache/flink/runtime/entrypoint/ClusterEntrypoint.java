@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.configuration.JobManagerOptions;
@@ -67,6 +68,7 @@ import org.apache.flink.util.AutoCloseableAsync;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.FileUtils;
+import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 
@@ -82,7 +84,9 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -168,6 +172,17 @@ public abstract class ClusterEntrypoint implements AutoCloseableAsync, FatalErro
 			configureFileSystems(configuration, pluginManager);
 
 			SecurityContext securityContext = installSecurityContext(configuration);
+
+			List<String> preloadClasses = new ArrayList<>();
+			String preloadClassesStr = configuration.getString(CoreOptions.FLINK_PRE_LOAD_CLASS);
+			if (preloadClassesStr != null) {
+				preloadClasses.addAll(Arrays.asList(preloadClassesStr.split(";")));
+			}
+			preloadClassesStr = configuration.getString(CoreOptions.FLINK_JM_PRE_LOAD_CLASS);
+			if (preloadClassesStr != null) {
+				preloadClasses.addAll(Arrays.asList(preloadClassesStr.split(";")));
+			}
+			InstantiationUtil.loadClasses(preloadClasses);
 
 			securityContext.runSecured((Callable<Void>) () -> {
 				runCluster(configuration, pluginManager);

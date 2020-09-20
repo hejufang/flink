@@ -364,4 +364,31 @@ public class CoreOptions {
 	public static ConfigOption<Long> fileSystemConnectionLimitStreamInactivityTimeout(String scheme) {
 		return ConfigOptions.key("fs." + scheme + ".limit.stream-timeout").defaultValue(0L);
 	}
+
+	/**
+	 * Preload classes for both JobManager and TaskManager.
+	 */
+	public static final ConfigOption<String> FLINK_PRE_LOAD_CLASS = ConfigOptions
+		.key("flink.preload.class")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Preload classes for both JobManager and TaskManager, multi classes split by ';'.");
+
+	/**
+	 * Preload classes for JobManager.
+	 */
+	public static final ConfigOption<String> FLINK_JM_PRE_LOAD_CLASS = ConfigOptions
+		.key("flink.jobmanager.preload.class")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Preload classes for JobManager, multi classes split by ';'.");
+
+	/**
+	 * Preload classes for TaskManager.
+	 */
+	public static final ConfigOption<String> FLINK_TM_PRE_LOAD_CLASS = ConfigOptions
+		.key("flink.taskmanager.preload.class")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Preload classes for TaskManager, multi classes split by ';'.");
 }
