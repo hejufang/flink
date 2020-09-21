@@ -36,9 +36,6 @@ import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.handler.codec.http.HttpResponseStatus;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nonnull;
 
 import java.util.Map;
@@ -50,7 +47,6 @@ import java.util.concurrent.CompletionException;
  */
 public class JobExecutionResultHandler
 	extends AbstractRestHandler<RestfulGateway, EmptyRequestBody, JobExecutionResultResponseBody, JobMessageParameters> {
-	private static final Logger LOG = LoggerFactory.getLogger(JobExecutionResultHandler.class);
 
 	public JobExecutionResultHandler(
 			final GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -75,7 +71,6 @@ public class JobExecutionResultHandler
 		return jobStatusFuture.thenCompose(
 			jobStatus -> {
 				if (jobStatus.isGloballyTerminalState()) {
-					LOG.info("Job teminates to request job result.");
 					return gateway
 						.requestJobResult(jobId, timeout)
 						.thenApply(JobExecutionResultResponseBody::created);

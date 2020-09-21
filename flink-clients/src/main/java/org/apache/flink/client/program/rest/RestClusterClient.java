@@ -286,7 +286,6 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 			() -> {
 				final JobMessageParameters messageParameters = new JobMessageParameters();
 				messageParameters.jobPathParameter.resolve(jobId);
-				LOG.info("Try to request job result.");
 				return sendRequest(
 					JobExecutionResultHeaders.getInstance(),
 					messageParameters);
@@ -597,11 +596,9 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
 		resourceFutureSupplier.get().whenComplete((asynchronouslyCreatedResource, throwable) -> {
 			if (throwable != null) {
-				LOG.warn("Fail to retrieve the http result.", throwable);
 				resultFuture.completeExceptionally(throwable);
 			} else {
 				if (asynchronouslyCreatedResource.queueStatus().getId() == QueueStatus.Id.COMPLETED) {
-					LOG.warn("Succeed to retrieve the result.");
 					resultFuture.complete(asynchronouslyCreatedResource.resource());
 				} else {
 					retryExecutorService.schedule(() -> {
