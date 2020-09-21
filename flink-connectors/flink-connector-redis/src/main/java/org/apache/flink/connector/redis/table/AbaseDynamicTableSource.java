@@ -27,7 +27,7 @@ import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 
-import java.io.Serializable;
+import com.bytedance.kvclient.ClientPool;
 
 /**
  * A {@link DynamicTableSource} for Abase.
@@ -43,14 +43,20 @@ public class AbaseDynamicTableSource extends RedisDynamicTableSource {
 
 	@Override
 	protected ClientPoolProvider getClientPoolProvider() {
-		return (ClientPoolProvider & Serializable) (redisOptions) -> RedisUtils.getAbaseClientPool(
-			redisOptions.getCluster(),
-			redisOptions.getPsm(),
-			redisOptions.getTable(),
-			redisOptions.getTimeout(),
-			redisOptions.getMaxTotalConnections(),
-			redisOptions.getMaxIdleConnections(),
-			redisOptions.getMinIdleConnections()
-		);
+		return new ClientPoolProvider() {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public ClientPool createClientPool(RedisOptions options) {
+				return RedisUtils.getAbaseClientPool(
+					options.getCluster(),
+					options.getPsm(),
+					options.getTable(),
+					options.getTimeout(),
+					options.getMaxTotalConnections(),
+					options.getMaxIdleConnections(),
+					options.getMinIdleConnections()
+				);
+			}
+		};
 	}
 }

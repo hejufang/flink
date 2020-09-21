@@ -32,9 +32,9 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
-import javax.annotation.Nullable;
+import com.bytedance.kvclient.ClientPool;
 
-import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * A {@link DynamicTableSource} for Redis.
@@ -60,14 +60,20 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 	}
 
 	protected ClientPoolProvider getClientPoolProvider() {
-		return (ClientPoolProvider & Serializable) (redisOptions) -> RedisUtils.getRedisClientPool(
-			redisOptions.getCluster(),
-			redisOptions.getPsm(),
-			redisOptions.getTimeout(),
-			redisOptions.getMaxTotalConnections(),
-			redisOptions.getMaxIdleConnections(),
-			redisOptions.getMinIdleConnections()
-		);
+		return new ClientPoolProvider() {
+			private static final long serialVersionUID = 1L;
+			@Override
+			public ClientPool createClientPool(RedisOptions options) {
+				return RedisUtils.getRedisClientPool(
+					options.getCluster(),
+					options.getPsm(),
+					options.getTimeout(),
+					options.getMaxTotalConnections(),
+					options.getMaxIdleConnections(),
+					options.getMinIdleConnections()
+				);
+			}
+		};
 	}
 
 	@Override

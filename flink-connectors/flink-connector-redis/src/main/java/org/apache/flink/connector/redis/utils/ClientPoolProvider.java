@@ -21,9 +21,11 @@ import org.apache.flink.connector.redis.options.RedisOptions;
 
 import com.bytedance.kvclient.ClientPool;
 
+import java.io.Serializable;
+
 /**
  * Provider of a ClientPool for connecting redis/abase.
  */
-public interface ClientPoolProvider {
+public interface ClientPoolProvider extends Serializable {
 	ClientPool createClientPool(RedisOptions options);
 }
