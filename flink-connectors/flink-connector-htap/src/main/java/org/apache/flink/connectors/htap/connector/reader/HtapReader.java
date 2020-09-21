@@ -115,7 +115,8 @@ public class HtapReader implements AutoCloseable {
 
 	public List<HtapScanToken> scanTokens(
 			List<HtapFilterInfo> tableFilters,
-			List<String> tableProjections) {
+			List<String> tableProjections,
+			int rowLimit) {
 		HtapScanToken.HtapScanTokenBuilder tokenBuilder = client.newScanTokenBuilder(table);
 
 		if (tableProjections != null) {
@@ -128,6 +129,10 @@ public class HtapReader implements AutoCloseable {
 				.forEach(tokenBuilder::predicate);
 		}
 
+		if (rowLimit >= 0) {
+			tokenBuilder.limit(rowLimit);
+		}
+
 		tokenBuilder.batchSizeBytes(SCAN_TOKEN_BATCH_SIZE_BYTES);
 
 		return tokenBuilder.build();
@@ -135,7 +140,7 @@ public class HtapReader implements AutoCloseable {
 
 	public HtapInputSplit[] createInputSplits(int minNumSplits) throws IOException {
 		List<HtapScanToken> tokens =
-			scanTokens(tableFilters, tableProjections);
+			scanTokens(tableFilters, tableProjections, readerConfig.getRowLimit());
 		HtapInputSplit[] splits = new HtapInputSplit[tokens.size()];
 
 		for (int i = 0; i < tokens.size(); i++) {

@@ -135,6 +135,17 @@ public class HtapFilterInfo implements Serializable {
 			this.comparator = comparator;
 		}
 
+		@Override
+		public String toString() {
+			return comparator.toString();
+		}
+
+	}
+
+	@Override
+	public String toString() {
+		return "HtapFilterInfo[Column=" + column + ", FilterType=" + type.toString() +
+				", Value=" + value.toString() + "]";
 	}
 
 	/**

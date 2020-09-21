@@ -28,6 +28,7 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.sources.FilterableTableSource;
+import org.apache.flink.table.sources.LimitableTableSource;
 import org.apache.flink.table.sources.ProjectableTableSource;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.sources.TableSource;
@@ -55,7 +56,8 @@ import static org.apache.flink.connectors.htap.table.utils.HtapTableUtils.toHtap
 /**
  * HtapTableSource.
  */
-public class HtapTableSource implements StreamTableSource<Row>, ProjectableTableSource<Row>,
+public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSource<Row>,
+		ProjectableTableSource<Row>,
 		FilterableTableSource<Row> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapTableSource.class);
@@ -82,10 +84,12 @@ public class HtapTableSource implements StreamTableSource<Row>, ProjectableTable
 		this.flinkSchema = flinkSchema;
 		this.predicates = predicates;
 		this.projectedFields = projectedFields;
-		if (predicates != null && predicates.size() != 0) {
-			this.isFilterPushedDown = true;
-		}
-		this.isLimitPushedDown = isLimitPushedDown;
+		// TODO: predicated & limit push down is under development in Htap store,
+		//  we push down the expression and recompute in flink side now.
+		// if (predicates != null && predicates.size() != 0) {
+			// this.isFilterPushedDown = true;
+		// }
+		// this.isLimitPushedDown = isLimitPushedDown;
 	}
 
 	@Override
@@ -109,11 +113,6 @@ public class HtapTableSource implements StreamTableSource<Row>, ProjectableTable
 	}
 
 	@Override
-	public boolean isFilterPushedDown() {
-		return this.isFilterPushedDown;
-	}
-
-	@Override
 	public DataType getProducedDataType() {
 		if (projectedFields == null) {
 			return flinkSchema.toRowDataType();
@@ -134,6 +133,18 @@ public class HtapTableSource implements StreamTableSource<Row>, ProjectableTable
 	}
 
 	@Override
+	public boolean isLimitPushedDown() {
+		return this.isLimitPushedDown;
+	}
+
+	@Override
+	public TableSource<Row> applyLimit(long l) {
+		readerConfig.setRowLimit((int) l);
+		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, predicates, projectedFields,
+			true);
+	}
+
+	@Override
 	public TableSource<Row> projectFields(int[] ints) {
 		String[] fieldNames = new String[ints.length];
 		RowType producedDataType = (RowType) getProducedDataType().getLogicalType();
@@ -143,6 +154,11 @@ public class HtapTableSource implements StreamTableSource<Row>, ProjectableTable
 		}
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, predicates, fieldNames,
 			isLimitPushedDown);
+	}
+
+	@Override
+	public boolean isFilterPushedDown() {
+		return this.isFilterPushedDown;
 	}
 
 	@Override
@@ -156,12 +172,16 @@ public class HtapTableSource implements StreamTableSource<Row>, ProjectableTable
 				LOG.debug("Predicate [{}] converted into HtapFilterInfo and pushed into " +
 					"HtapTable [{}].", predicate, tableInfo.getName());
 					htapPredicates.add(htapPred.get());
-				predicatesIter.remove();
+				// TODO: predicated push down is under development in Htap store, should keep
+				//  expressions in flink side
+				// predicatesIter.remove();
 			} else {
 				LOG.debug("Predicate [{}] could not be pushed into HtapFilterInfo for HtapTable [{}].",
 					predicate, tableInfo.getName());
 			}
 		}
+		LOG.info("applied predicates: flink predicates: [{}], pushed predicates: [{}]",
+			predicates, htapPredicates);
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, htapPredicates, projectedFields,
 			isLimitPushedDown);
 	}
@@ -169,8 +189,10 @@ public class HtapTableSource implements StreamTableSource<Row>, ProjectableTable
 	@Override
 	public String explainSource() {
 		return "HtapTableSource[schema=" + Arrays.toString(getTableSchema().getFieldNames()) +
-				", filter=" + predicateString() + ", isLimitPushedDown=" + isLimitPushedDown +
-				(projectedFields != null ? ", projectFields=" + Arrays.toString(projectedFields) + "]" : "]");
+			", filter=" + predicateString() + ", isFilterPushedDown=" + isFilterPushedDown +
+			", limit=" + readerConfig.getRowLimit() +
+			", isLimitPushedDown=" + isLimitPushedDown +
+			(projectedFields != null ? ", projectFields=" + Arrays.toString(projectedFields) + "]" : "]");
 	}
 
 	private String predicateString() {
