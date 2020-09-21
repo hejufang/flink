@@ -18,7 +18,7 @@
 
 package org.apache.flink.client.cli;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import static org.apache.flink.client.cli.CliFrontendParser.STOP_AND_DRAIN;
 import static org.apache.flink.client.cli.CliFrontendParser.STOP_WITH_SAVEPOINT_PATH;

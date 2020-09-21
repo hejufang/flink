@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.entrypoint.parser;
 
-import org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
 
 /**
  * Container class for command line options.

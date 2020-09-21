@@ -27,10 +27,11 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.HelpFormatter;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+
 import org.slf4j.Logger;
 
 import java.net.InetSocketAddress;

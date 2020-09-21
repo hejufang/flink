@@ -29,7 +29,8 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.util.FlinkException;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+
 import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;

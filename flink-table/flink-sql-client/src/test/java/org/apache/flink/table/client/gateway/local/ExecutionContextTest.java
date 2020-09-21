@@ -49,7 +49,8 @@ import org.apache.flink.table.types.logical.TimestampKind;
 import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.util.StringUtils;
 
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+
 import org.junit.Test;
 
 import java.net.URL;

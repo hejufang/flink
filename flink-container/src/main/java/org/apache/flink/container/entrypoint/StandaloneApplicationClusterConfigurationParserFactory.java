@@ -24,9 +24,9 @@ import org.apache.flink.runtime.entrypoint.FlinkParseException;
 import org.apache.flink.runtime.entrypoint.parser.ParserResultFactory;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

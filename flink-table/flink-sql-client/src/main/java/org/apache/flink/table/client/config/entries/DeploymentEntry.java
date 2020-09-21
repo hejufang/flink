@@ -23,9 +23,10 @@ import org.apache.flink.table.client.config.ConfigUtil;
 import org.apache.flink.table.client.config.Environment;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

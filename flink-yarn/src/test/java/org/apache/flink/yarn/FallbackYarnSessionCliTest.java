@@ -21,11 +21,12 @@ package org.apache.flink.yarn;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.yarn.cli.FallbackYarnSessionCli;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLineParser;
+import org.apache.flink.shaded.org.apache.commons.cli.DefaultParser;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.ParseException;
+
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.junit.Test;
 

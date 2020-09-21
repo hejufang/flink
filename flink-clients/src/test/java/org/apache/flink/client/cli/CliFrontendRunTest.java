@@ -24,7 +24,8 @@ import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;

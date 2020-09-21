@@ -26,7 +26,7 @@ import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import java.net.MalformedURLException;
 import java.net.URL;

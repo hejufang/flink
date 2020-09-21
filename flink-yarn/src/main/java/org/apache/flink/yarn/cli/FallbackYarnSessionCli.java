@@ -27,9 +27,9 @@ import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
 import org.apache.flink.yarn.executors.YarnJobClusterExecutor;
 import org.apache.flink.yarn.executors.YarnSessionClusterExecutor;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 /**
  * A stub Yarn Command Line to throw an exception with the correct

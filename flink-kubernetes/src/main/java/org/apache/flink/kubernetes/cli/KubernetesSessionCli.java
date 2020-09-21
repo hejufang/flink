@@ -39,7 +39,8 @@ import org.apache.flink.kubernetes.kubeclient.KubeClientFactory;
 import org.apache.flink.runtime.security.SecurityUtils;
 import org.apache.flink.util.FlinkException;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

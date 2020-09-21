@@ -21,8 +21,8 @@ package org.apache.flink.client.cli;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.python.util.PythonDependencyUtils;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
 
 import java.util.ArrayList;
 import java.util.HashSet;

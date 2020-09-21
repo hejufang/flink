@@ -20,7 +20,8 @@ package org.apache.flink.client.cli;
 
 import org.apache.flink.client.program.PackagedProgramUtils;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

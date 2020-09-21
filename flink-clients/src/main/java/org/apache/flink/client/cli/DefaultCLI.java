@@ -20,8 +20,8 @@ package org.apache.flink.client.cli;
 
 import org.apache.flink.configuration.Configuration;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 /**
  * The default CLI which is used for interaction with standalone clusters.

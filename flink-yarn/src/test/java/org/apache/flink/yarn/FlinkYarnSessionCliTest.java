@@ -42,10 +42,11 @@ import org.apache.flink.yarn.cli.FlinkYarnSessionCli;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.executors.YarnJobClusterExecutor;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLineParser;
+import org.apache.flink.shaded.org.apache.commons.cli.DefaultParser;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.junit.Rule;
 import org.junit.Test;

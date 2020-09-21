@@ -21,8 +21,8 @@ package org.apache.flink.client.cli;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.FlinkException;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 /**
  * Custom command-line interface to load hooks for the command-line interface.

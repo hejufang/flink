@@ -28,7 +28,7 @@ import org.apache.flink.python.PythonOptions;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import javax.annotation.Nullable;
 

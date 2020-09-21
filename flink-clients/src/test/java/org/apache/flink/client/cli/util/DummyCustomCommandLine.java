@@ -22,8 +22,8 @@ import org.apache.flink.client.cli.CustomCommandLine;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 /**
  * Dummy implementation of the {@link CustomCommandLine} for testing purposes.

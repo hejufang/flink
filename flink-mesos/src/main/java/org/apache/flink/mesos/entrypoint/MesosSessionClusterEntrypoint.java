@@ -35,10 +35,10 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.JvmShutdownSafeguard;
 import org.apache.flink.runtime.util.SignalHandler;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.PosixParser;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLineParser;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.PosixParser;
 
 import java.util.concurrent.CompletableFuture;
 

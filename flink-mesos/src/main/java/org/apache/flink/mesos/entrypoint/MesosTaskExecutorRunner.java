@@ -36,10 +36,11 @@ import org.apache.flink.runtime.util.SignalHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.PosixParser;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLineParser;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.PosixParser;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -21,12 +21,12 @@ package org.apache.flink.client.cli;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.DefaultParser;
+import org.apache.flink.shaded.org.apache.commons.cli.HelpFormatter;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.ParseException;
 
 import javax.annotation.Nullable;
 

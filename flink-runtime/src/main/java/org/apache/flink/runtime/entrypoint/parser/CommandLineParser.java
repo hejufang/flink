@@ -20,11 +20,11 @@ package org.apache.flink.runtime.entrypoint.parser;
 
 import org.apache.flink.runtime.entrypoint.FlinkParseException;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.DefaultParser;
+import org.apache.flink.shaded.org.apache.commons.cli.HelpFormatter;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.ParseException;
 
 import javax.annotation.Nonnull;
 

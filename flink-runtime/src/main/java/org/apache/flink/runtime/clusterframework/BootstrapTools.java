@@ -34,11 +34,11 @@ import org.apache.flink.util.OperatingSystem;
 import org.apache.flink.shaded.guava18.com.google.common.escape.Escaper;
 import org.apache.flink.shaded.guava18.com.google.common.escape.Escapers;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelException;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.Option;
 
 import akka.actor.ActorSystem;
 import com.typesafe.config.Config;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Option;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

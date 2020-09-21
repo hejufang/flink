@@ -30,7 +30,8 @@ import org.apache.flink.optimizer.costs.DefaultCostEstimator;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.util.TestLogger;
 
-import org.apache.commons.cli.CommandLine;
+import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
+
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;

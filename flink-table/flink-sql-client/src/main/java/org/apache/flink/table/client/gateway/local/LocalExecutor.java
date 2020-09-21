@@ -64,7 +64,8 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.JarUtils;
 import org.apache.flink.util.StringUtils;
 
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

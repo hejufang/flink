@@ -758,10 +758,6 @@ under the License.
 									<shadedPattern>org.apache.flink.shaded.dist.org.yaml</shadedPattern>
 								</relocation>
 								<relocation>
-									<pattern>org.apache.commons.cli</pattern>
-									<shadedPattern>org.apache.flink.shaded.dist.org.apache.commons.cli</shadedPattern>
-								</relocation>
-								<relocation>
 									<pattern>com.codahale.metrics</pattern>
 									<shadedPattern>org.apache.flink.shaded.dist.com.codahale.metrics</shadedPattern>
 								</relocation>

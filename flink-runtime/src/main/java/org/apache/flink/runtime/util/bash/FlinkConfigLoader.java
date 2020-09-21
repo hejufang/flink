@@ -23,7 +23,7 @@ import org.apache.flink.runtime.entrypoint.ClusterConfigurationParserFactory;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.apache.flink.util.FlinkException;
 
-import org.apache.commons.cli.Options;
+import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
 import java.util.ArrayList;
 import java.util.Arrays;
