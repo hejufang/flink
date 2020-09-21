@@ -707,7 +707,10 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 				if (element.f0) {
 					processUpsert(element.f1, indexer, formattedIndex);
 				} else {
-					processDelete(element.f1, indexer, formattedIndex);
+					// temporary fix, see INFOI-14662
+					if (keyFieldIndices.length == 0) {
+						processDelete(element.f1, indexer, formattedIndex);
+					}
 				}
 			}
 		}
