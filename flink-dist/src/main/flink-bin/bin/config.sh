@@ -39,6 +39,11 @@ constructFlinkClassPath() {
         exit 1
     fi
 
+    jar_dependencies_classpath=`getJarDependencies`
+    if [ "$jar_dependencies_classpath" != "" ]; then
+        FLINK_CLASSPATH="$jar_dependencies_classpath:$FLINK_CLASSPATH"
+    fi
+
     echo "$FLINK_CLASSPATH""$FLINK_DIST"
 }
 
@@ -70,6 +75,32 @@ getDynamicFiles() {
             found=1
         fi
     done
+}
+
+getJarDependencies() {
+    # get jarDependencies from config file
+    local jar_dependencies=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependecies" 2>&1`
+
+    if [ ${#jar_dependencies} -eq 0 ]; then
+        return
+    fi
+    jar_dependencies_array=${jar_dependencies//,/ }
+
+    # get Jar dependencies through jar_dependencies value
+    jar_dependencies_classpath=""
+
+    for jar in ${jar_dependencies_array[*]}; do
+        lib_path=`ls "$FLINK_HOME/$jar"`
+        if [ $? -ne 0 ]; then
+            continue
+        fi
+        if [ ${#jar_dependencies_classpath} -eq 0 ]; then
+            jar_dependencies_classpath="$lib_path"
+        else
+            jar_dependencies_classpath="$jar_dependencies_classpath:$lib_path"
+        fi
+    done
+    echo $jar_dependencies_classpath
 }
 
 getClientIncludeUserJar() {

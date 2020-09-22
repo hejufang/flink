@@ -22,6 +22,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.TestLogger;
 
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -87,6 +88,17 @@ public class FlinkConfigLoaderTest extends TestLogger {
 		Configuration configuration = FlinkConfigLoader.loadConfiguration(args);
 		verifyConfiguration(configuration, TEST_CONFIG_KEY, TEST_CONFIG_VALUE);
 		verifyConfiguration(configuration, "key", "value");
+	}
+
+	@Test
+	public void testLoadConfigurationValue() throws Exception {
+		String [] args1 = {"--configDir", confDir.getRoot().getAbsolutePath(), "flink-client-classpath-include-user-jar"};
+		String userJarValue = FlinkConfigLoader.getValueFromConfiguration(args1);
+		Assert.assertEquals("", userJarValue);
+
+		String[] args2 = {"--configDir", confDir.getRoot().getAbsolutePath(), TEST_CONFIG_KEY};
+		String testValue = FlinkConfigLoader.getValueFromConfiguration(args2);
+		Assert.assertEquals(TEST_CONFIG_VALUE, testValue);
 	}
 
 	private void verifyConfiguration(Configuration config, String key, String expectedValue) {

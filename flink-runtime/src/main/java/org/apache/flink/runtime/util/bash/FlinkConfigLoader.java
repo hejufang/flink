@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.util.bash;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.entrypoint.ClusterConfigurationParserFactory;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
@@ -25,16 +26,23 @@ import org.apache.flink.util.FlinkException;
 
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+
+import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
  * Util class for loading configuration from commandline arguments.
  * It parses only the configuration file and dynamic properties, ignores other commandline options.
  */
 public class FlinkConfigLoader {
+
+	private static final Logger LOG = LoggerFactory.getLogger(FlinkConfigLoader.class);
 
 	private static final Options CMD_OPTIONS = ClusterConfigurationParserFactory.options();
 
@@ -65,4 +73,19 @@ public class FlinkConfigLoader {
 	}
 
 	private FlinkConfigLoader() {}
+
+	public static void main(String[] args) throws FlinkException {
+		System.out.println(getValueFromConfiguration(args));
+	}
+
+	@VisibleForTesting
+	static String getValueFromConfiguration(String[] args) throws FlinkException {
+		checkArgument(args.length == 3, "Should have three parameters, Syntax: --configDir <flinkConfigFile> <configKey>.");
+		Configuration configuration = FlinkConfigLoader.loadConfiguration(args);
+		String configKey = args[2];
+		if (!configuration.containsKey(configKey)) {
+			LOG.info("The value of configKry({}) does not exist.", configKey);
+		}
+		return configuration.getString(configKey, "");
+	}
 }
