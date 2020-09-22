@@ -1455,7 +1455,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 				log.error("Could not fail task {}.", executionAttemptID, t);
 			}
 		} else {
-			log.debug("Cannot find task to fail for execution {}.", executionAttemptID);
+			log.error("Cannot find task to fail for execution {}.", executionAttemptID);
 		}
 	}
 
@@ -1469,6 +1469,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		futureAcknowledge.whenCompleteAsync(
 			(ack, throwable) -> {
 				if (throwable != null) {
+					// we should always let JM know tasks' state, otherwise there might occur some serious problem.
+					// For example, a task fails but JM didn't receive the notification so that the task will never be
+					// redeployed.
+					onFatalError(throwable);
 					failTask(executionAttemptID, throwable);
 				}
 			},
