@@ -41,7 +41,6 @@ public abstract class AbstractJDBCOutputFormat<T> extends RichOutputFormat<T> {
 	private static final long serialVersionUID = 1L;
 	static final int DEFAULT_FLUSH_MAX_SIZE = 5000;
 	static final long DEFAULT_FLUSH_INTERVAL_MILLS = 0;
-	protected static final int VALID_CONNECTION_TIMEOUT_SEC = 10;
 	private static final String bytedanceMySQLUrlTemplate = "jdbc:mysql:///%s?db_consul=%s&psm=%s" +
 		"&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
 	private static final Logger LOG = LoggerFactory.getLogger(AbstractJDBCOutputFormat.class);

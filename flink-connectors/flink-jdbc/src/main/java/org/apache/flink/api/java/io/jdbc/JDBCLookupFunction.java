@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.flink.api.java.io.jdbc.JDBCOptions.VALID_CONNECTION_TIMEOUT_SEC;
 import static org.apache.flink.api.java.io.jdbc.JDBCUtils.getFieldFromResultSet;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -202,6 +203,19 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 				LOG.error(String.format("JDBC executeBatch error, retry times = %d", retry), e);
 				if (retry >= maxRetryTimes) {
 					throw new RuntimeException("Execution of JDBC statement failed.", e);
+				}
+
+				try {
+					if (!dbConn.isValid(VALID_CONNECTION_TIMEOUT_SEC)) {
+						statement.close();
+						dbConn.close();
+						dbConn = JDBCUtils.establishConnection(drivername, dbURL, username, password,
+							useBytedanceMysql, initSql);
+						statement = dbConn.prepareStatement(query);
+					}
+				} catch (SQLException | ClassNotFoundException exception) {
+					LOG.error("JDBC connection is not valid, and reestablish connection failed", exception);
+					throw new RuntimeException("Reestablish JDBC connection failed", exception);
 				}
 
 				try {

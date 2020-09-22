@@ -34,6 +34,7 @@ public class JDBCOptions implements Serializable {
 	private static final long serialVersionUID = 7376055590583414158L;
 	private static final String BYTEDANCE_MYSQL_URL_TEMPLATE = "jdbc:mysql:///%s?db_consul=%s" +
 		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
+	public static final int VALID_CONNECTION_TIMEOUT_SEC = 10;
 
 	private String dbURL;
 	private String tableName;

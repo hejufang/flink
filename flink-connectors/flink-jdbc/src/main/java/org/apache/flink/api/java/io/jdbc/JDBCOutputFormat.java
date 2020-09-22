@@ -29,6 +29,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 
+import static org.apache.flink.api.java.io.jdbc.JDBCOptions.VALID_CONNECTION_TIMEOUT_SEC;
 import static org.apache.flink.api.java.io.jdbc.JDBCUtils.setRecordToStatement;
 
 /**

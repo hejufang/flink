@@ -38,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.flink.api.java.io.jdbc.JDBCOptions.VALID_CONNECTION_TIMEOUT_SEC;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
