@@ -54,7 +54,6 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_NAME;
 import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_TYPE;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
-import static org.apache.flink.table.descriptors.RedisValidator.ABASE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BATCH_SIZE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_BUFFER_FLUSH_INTERVAL_MS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_CLUSTER;
@@ -246,14 +245,6 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 				.ifPresent(builder::setSkipFormatKey);
 		descriptorProperties.getOptionalInt(CONNECTOR_LATER_JOIN_LATENCY_MS)
 				.ifPresent(builder::setLaterJoinLatencyMs);
-
-		// TODO: 2020/5/13 Because part of online Abase cluster doesn't support complex data type. So doesn't support now.
-		if (descriptorProperties.getOptionalString(CONNECTOR_TYPE).get().equals(ABASE) &&
-		!redisDataType.getType().equals(REDIS_DATATYPE_STRING)) {
-			throw new FlinkRuntimeException("Abase only support String data type now." +
-				" Please don't configure connector.data-type.");
-		}
-
 		return builder.build();
 	}
 
