@@ -180,9 +180,11 @@ public final class GlobalConfiguration {
 			Map<String, Object> allYamlConf = (Map<String, Object>) yaml.load(input);
 			Map<String, Object> commonConf = (Map<String, Object>) allYamlConf.get(COMMON);
 			Map<String, Object> clusterConf = (Map<String, Object>) allYamlConf.get(clusterName);
-			if (commonConf != null && clusterConf != null) {
-				commonConf.putAll(clusterConf);
+			if (commonConf != null) {
 				allYamlConf = commonConf;
+			}
+			if (clusterConf != null) {
+				allYamlConf.putAll(clusterConf);
 			}
 			for (Map.Entry<String, Object> entry : allYamlConf.entrySet()) {
 				String key = entry.getKey();

@@ -26,9 +26,6 @@ import org.apache.flink.util.FlinkException;
 
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -41,8 +38,6 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * It parses only the configuration file and dynamic properties, ignores other commandline options.
  */
 public class FlinkConfigLoader {
-
-	private static final Logger LOG = LoggerFactory.getLogger(FlinkConfigLoader.class);
 
 	private static final Options CMD_OPTIONS = ClusterConfigurationParserFactory.options();
 
@@ -83,9 +78,6 @@ public class FlinkConfigLoader {
 		checkArgument(args.length == 3, "Should have three parameters, Syntax: --configDir <flinkConfigFile> <configKey>.");
 		Configuration configuration = FlinkConfigLoader.loadConfiguration(args);
 		String configKey = args[2];
-		if (!configuration.containsKey(configKey)) {
-			LOG.info("The value of configKry({}) does not exist.", configKey);
-		}
 		return configuration.getString(configKey, "");
 	}
 }
