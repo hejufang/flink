@@ -246,11 +246,13 @@ public class CliFrontend {
 		jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
 				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_PROGRAM, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH));
 
+		int exitCode;
 		try {
-			runProgram(customCommandLine, commandLine, runOptions, program);
+			exitCode = runProgram(customCommandLine, commandLine, runOptions, program);
 		} finally {
 			program.deleteExtractedLibraries();
 		}
+		System.exit(exitCode);
 	}
 
 	/**
@@ -355,7 +357,7 @@ public class CliFrontend {
 		}
 	}
 
-	private <T> void runProgram(
+	private <T> int runProgram(
 			CustomCommandLine<T> customCommandLine,
 			CommandLine commandLine,
 			RunOptions runOptions,
@@ -507,6 +509,7 @@ public class CliFrontend {
 			} else {
 				LOG.info("Client is null.");
 			}
+			return -1;
 		} finally {
 			try {
 				metricRegistry.shutdown();
@@ -515,6 +518,7 @@ public class CliFrontend {
 				LOG.info("Could not properly close the cluster descriptor.", e);
 			}
 		}
+		return 0;
 	}
 
 	/**
