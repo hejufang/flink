@@ -108,7 +108,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/**
 	 * The interval value to disable executing partition discovery.
 	 */
-	public static final long PARTITION_DISCOVERY_DISABLED = Long.MIN_VALUE;
+	public static final long PARTITION_DISCOVERY_DISABLED = -1L;
 
 	/** Boolean configuration key to disable metrics tracking. **/
 	public static final String KEY_DISABLE_METRICS = "flink.disable-metrics";
@@ -121,7 +121,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public static final String KEY_MANUAL_COMMIT_OFFSETS_INTERVAL_MILLIS = "flink.manually-commit-offsets.interval-millis";
 
-	public static final int RETRY_TIMES = 3;
+	public static final int RETRY_TIMES = 5;
 
 	public static final int RETRY_INTERVAL_MS = 200;
 
@@ -991,6 +991,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 					// no need to add the discovered partitions if we were closed during the meantime
 					if (running && !discoveredPartitions.isEmpty()) {
 						kafkaFetcher.addDiscoveredPartitions(discoveredPartitions);
+						LOG.info(String.format("Newly discovered partitions have been added: %s",
+							discoveredPartitions.toString()));
 					}
 
 					// do not waste any time sleeping if we're not running anymore
