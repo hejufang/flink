@@ -36,19 +36,13 @@ import org.apache.flink.table.dataformat.BinaryRowWriter;
 import org.apache.flink.table.dataformat.BinaryWriter;
 import org.apache.flink.table.dataformat.GenericRow;
 import org.apache.flink.table.dataformat.TypeGetterSetters;
-import org.apache.flink.table.dataview.MapViewTypeInfo;
 import org.apache.flink.table.runtime.types.InternalSerializers;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.table.types.logical.TypeInformationAnyType;
 import org.apache.flink.util.InstantiationUtil;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Serializer for BaseRow.
@@ -61,12 +55,6 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 
 	private transient BinaryRow reuseRow;
 	private transient BinaryRowWriter reuseWriter;
-
-	private BaseRowSerializer priorBaseRowSerializer;
-	private transient List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
-	private transient List<LogicalType> priorDistinctTypes = new ArrayList<>();
-	private transient List<LogicalType> newNonDistinctTypes = new ArrayList<>();
-	private transient List<LogicalType> newDistinctTypes = new ArrayList<>();
 
 	public BaseRowSerializer(ExecutionConfig config, RowType rowType) {
 		this(rowType.getChildren().toArray(new LogicalType[0]),
@@ -103,50 +91,8 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 	}
 
 	@Override
-	public void setPriorSerializer(TypeSerializer priorSerializer) {
-		this.priorBaseRowSerializer = (BaseRowSerializer) priorSerializer;
-		parseDistinctTypes(priorBaseRowSerializer.getTypes(), priorNonDistinctTypes, priorDistinctTypes);
-		parseDistinctTypes(this.getTypes(), newNonDistinctTypes, newDistinctTypes);
-	}
-
-	private static void parseDistinctTypes(LogicalType[] types,
-				List<LogicalType> nondistinctTypes, List<LogicalType> distinctTypes) {
-		for (LogicalType type : types) {
-			if (type instanceof TypeInformationAnyType && ((TypeInformationAnyType) type).getTypeInformation() instanceof MapViewTypeInfo) {
-				distinctTypes.add(type);
-			} else {
-				nondistinctTypes.add(type);
-			}
-		}
-	}
-
-	@Override
 	public void serialize(BaseRow row, DataOutputView target) throws IOException {
-		if (priorBaseRowSerializer != null && row.getArity() == priorBaseRowSerializer.getArity()) {
-			// mapping the fields from prior row to new row
-			BaseRow restoredRow = row;
-			GenericRow newRow = new GenericRow(this.getArity());
-
-			for (int i = 0; i < newNonDistinctTypes.size(); i++) {
-				if (i >= priorNonDistinctTypes.size()) {
-					setValueFromRestoredRow(null, newRow, -1, i, newNonDistinctTypes.get(i));
-				} else {
-					setValueFromRestoredRow(restoredRow, newRow, i, i, newNonDistinctTypes.get(i));
-				}
-			}
-
-			for (int i = 0; i < newDistinctTypes.size(); i++) {
-				if (i >= priorDistinctTypes.size()) {
-					setValueFromRestoredRow(null, newRow, -1, newNonDistinctTypes.size() + i, newDistinctTypes.get(i));
-				} else {
-					setValueFromRestoredRow(restoredRow, newRow, priorNonDistinctTypes.size() + i, newNonDistinctTypes.size() + i, newDistinctTypes.get(i));
-				}
-			}
-
-			binarySerializer.serialize(toBinaryRow(newRow), target);
-		} else {
-			binarySerializer.serialize(toBinaryRow(row), target);
-		}
+		binarySerializer.serialize(toBinaryRow(row), target);
 	}
 
 	@Override
@@ -309,23 +255,9 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 		return -1;
 	}
 
-	public LogicalType[] getTypes() {
-		return types;
-	}
-
 	@Override
 	public TypeSerializerSnapshot<BaseRow> snapshotConfiguration() {
 		return new BaseRowSerializerSnapshot(types, fieldSerializers);
-	}
-
-	private void setValueFromRestoredRow(@Nullable BaseRow priorRow, GenericRow currentRow,
-			int priorIndex, int currentIndex, LogicalType type) {
-		if (priorRow == null) {
-			currentRow.setNullAt(currentIndex);
-			return;
-		}
-
-		currentRow.setField(currentIndex, TypeGetterSetters.get(priorRow, priorIndex, type));
 	}
 
 	/**
@@ -402,32 +334,6 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 
 			BaseRowSerializer newRowSerializer = (BaseRowSerializer) newSerializer;
 			if (!Arrays.equals(previousTypes, newRowSerializer.types)) {
-				if (newRowSerializer.types.length > previousTypes.length) {
-					List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
-					List<LogicalType> priorDistinctTypes = new ArrayList<>();
-					List<LogicalType> newNonDistinctTypes = new ArrayList<>();
-					List<LogicalType> newDistinctTypes = new ArrayList<>();
-
-					parseDistinctTypes(previousTypes, priorNonDistinctTypes, priorDistinctTypes);
-					parseDistinctTypes(((BaseRowSerializer) newSerializer).getTypes(), newNonDistinctTypes, newDistinctTypes);
-
-					for (int i = 0; i < priorNonDistinctTypes.size(); i++) {
-						if (!previousTypes[i].equals(newRowSerializer.types[i])) {
-							return TypeSerializerSchemaCompatibility.incompatible();
-						}
-					}
-
-					for (int i = 0; i < priorDistinctTypes.size(); i++) {
-						int priorIndex = priorNonDistinctTypes.size() + i;
-						int newIndex = newNonDistinctTypes.size() + i;
-						if (!previousTypes[priorIndex].equals(newRowSerializer.types[newIndex])) {
-							return TypeSerializerSchemaCompatibility.incompatible();
-						}
-					}
-
-					return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
-				}
-
 				return TypeSerializerSchemaCompatibility.incompatible();
 			}
 

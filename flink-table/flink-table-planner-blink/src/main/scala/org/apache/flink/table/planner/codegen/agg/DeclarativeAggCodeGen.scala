@@ -94,15 +94,9 @@ class DeclarativeAggCodeGen(
         val memberNullTerm = bufferNullTerms(index)
         ctx.addReusableMember(s"private $typeTerm $memberName;")
         ctx.addReusableMember(s"private boolean $memberNullTerm;")
-        val initializeExpr = createAccumulator(generator).head
         s"""
            |${access.copyResultTermToTargetIfChanged(ctx, memberName)};
            |$memberNullTerm = ${access.nullTerm};
-           |if (${access.nullTerm}) {
-           |  ${initializeExpr.code}
-           |  $memberNullTerm = ${initializeExpr.nullTerm};
-           |  $memberName = ${initializeExpr.resultTerm};
-           |}
          """.stripMargin
     }
 
