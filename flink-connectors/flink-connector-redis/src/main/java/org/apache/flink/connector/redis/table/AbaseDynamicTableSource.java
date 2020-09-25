@@ -33,6 +33,22 @@ import com.bytedance.kvclient.ClientPool;
  * A {@link DynamicTableSource} for Abase.
  */
 public class AbaseDynamicTableSource extends RedisDynamicTableSource {
+	private static class ClientPoolProviderImpl implements ClientPoolProvider {
+		private static final long serialVersionUID = 1L;
+		@Override
+		public ClientPool createClientPool(RedisOptions redisOptions) {
+			return RedisUtils.getAbaseClientPool(
+				redisOptions.getCluster(),
+				redisOptions.getPsm(),
+				redisOptions.getTable(),
+				redisOptions.getTimeout(),
+				redisOptions.getMaxTotalConnections(),
+				redisOptions.getMaxIdleConnections(),
+				redisOptions.getMinIdleConnections()
+			);
+		}
+	}
+
 	public AbaseDynamicTableSource(
 			RedisOptions options,
 			RedisLookupOptions lookupOptions,
@@ -43,20 +59,6 @@ public class AbaseDynamicTableSource extends RedisDynamicTableSource {
 
 	@Override
 	protected ClientPoolProvider getClientPoolProvider() {
-		return new ClientPoolProvider() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public ClientPool createClientPool(RedisOptions options) {
-				return RedisUtils.getAbaseClientPool(
-					options.getCluster(),
-					options.getPsm(),
-					options.getTable(),
-					options.getTimeout(),
-					options.getMaxTotalConnections(),
-					options.getMaxIdleConnections(),
-					options.getMinIdleConnections()
-				);
-			}
-		};
+		return new ClientPoolProviderImpl();
 	}
 }

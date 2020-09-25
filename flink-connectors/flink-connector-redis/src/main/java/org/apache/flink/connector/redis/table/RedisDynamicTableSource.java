@@ -60,20 +60,7 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 	}
 
 	protected ClientPoolProvider getClientPoolProvider() {
-		return new ClientPoolProvider() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public ClientPool createClientPool(RedisOptions options) {
-				return RedisUtils.getRedisClientPool(
-					options.getCluster(),
-					options.getPsm(),
-					options.getTimeout(),
-					options.getMaxTotalConnections(),
-					options.getMaxIdleConnections(),
-					options.getMinIdleConnections()
-				);
-			}
-		};
+		return new ClientPoolProviderImpl();
 	}
 
 	@Override
@@ -113,5 +100,20 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 	@Override
 	public void applyProjection(int[][] projectedFields) {
 		this.schema = TableSchemaUtils.projectSchema(schema, projectedFields);
+	}
+
+	private static class ClientPoolProviderImpl implements ClientPoolProvider {
+		private static final long serialVersionUID = 1L;
+		@Override
+		public ClientPool createClientPool(RedisOptions redisOptions) {
+			return RedisUtils.getRedisClientPool(
+				redisOptions.getCluster(),
+				redisOptions.getPsm(),
+				redisOptions.getTimeout(),
+				redisOptions.getMaxTotalConnections(),
+				redisOptions.getMaxIdleConnections(),
+				redisOptions.getMinIdleConnections()
+			);
+		}
 	}
 }
