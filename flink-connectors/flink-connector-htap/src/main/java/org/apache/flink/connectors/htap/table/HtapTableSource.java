@@ -84,12 +84,10 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		this.flinkSchema = flinkSchema;
 		this.predicates = predicates;
 		this.projectedFields = projectedFields;
-		// TODO: predicated & limit push down is under development in Htap store,
-		//  we push down the expression and recompute in flink side now.
-		// if (predicates != null && predicates.size() != 0) {
-			// this.isFilterPushedDown = true;
-		// }
-		// this.isLimitPushedDown = isLimitPushedDown;
+		if (predicates != null && predicates.size() != 0) {
+			this.isFilterPushedDown = true;
+		}
+		this.isLimitPushedDown = isLimitPushedDown;
 	}
 
 	@Override
@@ -139,6 +137,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 
 	@Override
 	public TableSource<Row> applyLimit(long l) {
+		LOG.info("HtapTableSource[{}] apply limit: {}", tableInfo.getName(), l);
 		readerConfig.setRowLimit((int) l);
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, predicates, projectedFields,
 			true);
@@ -172,9 +171,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 				LOG.debug("Predicate [{}] converted into HtapFilterInfo and pushed into " +
 					"HtapTable [{}].", predicate, tableInfo.getName());
 					htapPredicates.add(htapPred.get());
-				// TODO: predicated push down is under development in Htap store, should keep
-				//  expressions in flink side
-				// predicatesIter.remove();
+				predicatesIter.remove();
 			} else {
 				LOG.debug("Predicate [{}] could not be pushed into HtapFilterInfo for HtapTable [{}].",
 					predicate, tableInfo.getName());
