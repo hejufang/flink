@@ -39,7 +39,7 @@ common:
   # The parallelism used for programs that did not specify and other parallelism.
   parallelism.default: 1000
 
-  table.exec.hive.infer-source-parallelism: false
+  table.exec.hive.infer-source-parallelism: true
   table.exec.hive.infer-source-parallelism.max: 200
 
   #metrics
@@ -53,12 +53,19 @@ common:
   # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
   jobmanager.execution.failover-strategy: region
 
+  # Classes pre-loaded when JM/TM starts
+  flink.preload.class: com.bytedance.htap.HtapClient
+  # External jars we needed
+  flink.external.jar.dependecies: connectors/flink-connector-htap*,connectors/flink-sql-connector-hive*
+
+  cluster.evenly-spread-out-slots: true
+
   #==============================================================================
   # Rest & web frontend
   #==============================================================================
 
   rest.port: 8081
-  rest.address: 0.0.0.0
+  rest.address: 10.196.82.139
 
   #==============================================================================
   # Advanced
@@ -74,10 +81,3 @@ common:
   akka.client.timeout: 300 s
   akka.ask.timeout: 300 s
   web.timeout: 300000
-
-flink:
-  dc: cn
-  clusterName: flink
-  high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
-  hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs://haruna/flink_lf

@@ -17,7 +17,7 @@
 ################################################################################
 
 common:
-  jobmanager.rpc.address: 10.149.23.45
+  jobmanager.rpc.address: 10.202.39.139
 
   # The RPC port where the JobManager is reachable.
   jobmanager.rpc.port: 6123
@@ -40,24 +40,21 @@ common:
   # The parallelism used for programs that did not specify and other parallelism.
   parallelism.default: 400
 
-  table.exec.hive.infer-source-parallelism: false
+  table.exec.hive.infer-source-parallelism: true
   table.exec.hive.infer-source-parallelism.max: 400
 
   #metrics
   metrics.reporters: opentsdb_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
   metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
-  metrics.reporter.opentsdb_reporter.prefix: htap_poc_flink
+  metrics.reporter.opentsdb_reporter.prefix: manta_flink
 
   # The failover strategy, i.e., how the job computation recovers from task failures.
   # Only restart tasks that may have been affected by the task failure, which typically includes
   # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
   jobmanager.execution.failover-strategy: region
-
-  # Classes pre-loaded when JM/TM starts
-  flink.preload.class: com.bytedance.htap.HtapClient
   # External jars we needed
-  flink.external.jar.dependecies: connectors/flink-connector-htap*,connectors/flink-sql-connector-hive*
+  flink.external.jar.dependecies: connectors/flink-sql-connector-hive*
 
   cluster.evenly-spread-out-slots: true
 
@@ -66,13 +63,13 @@ common:
   #==============================================================================
 
   rest.port: 8081
-  rest.address: 10.149.23.45
+  rest.address: 10.202.39.139
 
   #==============================================================================
   # Advanced
   #==============================================================================
 
-  io.tmp.dirs: /data01/flink_data
+  io.tmp.dirs: /data00/flink_data
 
   #==============================================================================
   # HistoryServer
