@@ -477,7 +477,7 @@ alisg:
   clusterName: alisg
   high-availability.zookeeper.quorum: 10.115.61.129:2181,10.115.61.130:2181,10.115.61.131:2181,10.115.61.132:2181,10.115.61.133:2181
   hdfs.prefix: hdfs://harunasg/flink_alisg
-  checkpoint.hdfs.prefix: hdfs://harunasg/flink_alisg
+  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
   dashboard.data_source: bytetsd_alisg
   dtop.data_source: dtop_alisg
   dtop.database: dtop_alisg
@@ -494,7 +494,7 @@ sloth:
   clusterName: sloth
   high-availability.zookeeper.quorum: 10.245.24.23:2181,10.245.30.27:2181,10.245.30.47:2181,10.245.9.27:2181,10.245.9.34:2181
   hdfs.prefix: hdfs://harunasg/flink_sg_sg1
-  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_sg1
+  checkpoint.hdfs.prefix: hdfs://harunasg/home/byte_flink_checkpoint_alisg
   dashboard.data_source: bytetsd_alisg
   dtop.data_source: dtop_alisg
   dtop.database: dtop_alisg
