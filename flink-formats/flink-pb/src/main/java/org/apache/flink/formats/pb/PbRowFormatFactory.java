@@ -54,6 +54,7 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 		properties.add(PbConstant.FORMAT_PB_CLASS);
 		properties.add(PbConstant.FORMAT_PB_SKIP_BYTES);
 		properties.add(PbConstant.FORMAT_PB_SINK_WITH_SIZE_HEADER);
+		properties.add(PbConstant.FORMAT_PB_SIZE_HEADER_WITH_LITTLE_ENDIAN);
 		properties.add(PbConstant.FORMAT_PB_WITH_WRAPPER);
 		properties.add(PbConstant.FORMAT_PB_IS_AD_INSTANCE_FORMAT);
 		properties.add(PbConstant.FORMAT_IGNORE_PARSE_ERRORS);
@@ -93,7 +94,11 @@ public class PbRowFormatFactory extends TableFormatFactoryBase<Row>
 			descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_WITH_WRAPPER)
 				.orElse(false);
 		RowTypeInfo typeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
-		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass, sinkWithSizeHeader, withWrapper);
+		boolean sizeHeaderWithLittleEndian =
+			descriptorProperties.getOptionalBoolean(PbConstant.FORMAT_PB_SIZE_HEADER_WITH_LITTLE_ENDIAN)
+			.orElse(false);
+		return new PbRowSerializationSchema(typeInfo, pbDescriptorClass,
+			sinkWithSizeHeader, withWrapper, sizeHeaderWithLittleEndian);
 	}
 
 	public TypeInformation<Row> getRowTypeInformation(Map<String, String> properties) {

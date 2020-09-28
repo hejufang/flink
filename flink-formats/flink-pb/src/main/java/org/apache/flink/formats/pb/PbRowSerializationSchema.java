@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * Serialization schema that serializes an object of Flink types into a protobuf bytes.
@@ -69,23 +70,30 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 
 	private final boolean sinkWithSizeHeader;
 
+	private final boolean sizeHeaderWithLittleEndian;
+
 	private final boolean withWrapper;
 
 	private final JsonRowSerializationSchema.SerializationRuntimeConverter jsonRuntimeConverter;
 
 	public PbRowSerializationSchema(RowTypeInfo typeInfo, String pbDescriptorClass,
 		boolean sinkWithSizeHeader) {
-		this(typeInfo, pbDescriptorClass, sinkWithSizeHeader, false);
+		this(typeInfo, pbDescriptorClass, sinkWithSizeHeader, false, true);
 	}
 
-	public PbRowSerializationSchema(RowTypeInfo typeInfo, String pbDescriptorClass,
-		boolean sinkWithSizeHeader, boolean withWrapper) {
+	public PbRowSerializationSchema(
+			RowTypeInfo typeInfo,
+			String pbDescriptorClass,
+			boolean sinkWithSizeHeader,
+			boolean withWrapper,
+			boolean sizeHeaderWithLittleEndian) {
 		this.typeInfo = typeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
 		this.jsonRuntimeConverter =
 			new JsonRowSerializationSchema(this.typeInfo, false).createConverter(this.typeInfo);
 		this.sinkWithSizeHeader = sinkWithSizeHeader;
 		this.withWrapper = withWrapper;
+		this.sizeHeaderWithLittleEndian = sizeHeaderWithLittleEndian;
 	}
 
 	@Override
@@ -111,7 +119,9 @@ public class PbRowSerializationSchema implements SerializationSchema<Row> {
 			byte[] dataBytes = builder.build().toByteArray();
 			if (sinkWithSizeHeader) {
 				if (byteBuffer == null) {
-					byteBuffer = ByteBuffer.allocate(Long.BYTES);
+					ByteOrder byteOrder =
+						sizeHeaderWithLittleEndian ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
+					byteBuffer = ByteBuffer.allocate(Long.BYTES).order(byteOrder);
 				}
 				int size = dataBytes.length;
 				byte[] sizeByte = byteBuffer.putLong(size).array();
