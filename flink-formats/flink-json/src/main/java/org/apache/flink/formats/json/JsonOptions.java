@@ -62,6 +62,12 @@ public class JsonOptions {
 				" Option ISO-8601 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}\" format and output timestamp in the same format." +
 				" Option SQL will parse input timestamp in \"yyyy-MM-dd HH:mm:ss.s{precision}\" format and output timestamp in the same format.");
 
+	public static final ConfigOption<Boolean> ENFORCE_UTF8_ENCODING = ConfigOptions
+			.key("enforce-utf-encoding")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Optional flag to enforce utf encoding.");
+
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations
 	// --------------------------------------------------------------------------------------------

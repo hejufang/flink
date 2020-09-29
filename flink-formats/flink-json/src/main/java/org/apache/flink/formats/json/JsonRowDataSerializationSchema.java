@@ -77,10 +77,21 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 	/** Timestamp format specification which is used to parse timestamp. */
 	private final TimestampFormat timestampFormat;
 
+	/** Flag indicating whether to enforce utf8 encoding. */
+	private final boolean enforceUTF8Encoding;
+
 	public JsonRowDataSerializationSchema(RowType rowType, TimestampFormat timestampFormat) {
+		this(rowType, timestampFormat, false);
+	}
+
+	public JsonRowDataSerializationSchema(
+			RowType rowType,
+			TimestampFormat timestampFormat,
+			boolean enforceUTF8Encoding) {
 		this.rowType = rowType;
 		this.timestampFormat = timestampFormat;
 		this.runtimeConverter = createConverter(rowType);
+		this.enforceUTF8Encoding = enforceUTF8Encoding;
 	}
 
 	@Override
@@ -91,6 +102,9 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 
 		try {
 			runtimeConverter.convert(mapper, node, row);
+			if (enforceUTF8Encoding) {
+				return mapper.writeValueAsString(node).getBytes();
+			}
 			return mapper.writeValueAsBytes(node);
 		} catch (Throwable t) {
 			throw new RuntimeException("Could not serialize row '" + row + "'. " +
@@ -107,12 +121,17 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 			return false;
 		}
 		JsonRowDataSerializationSchema that = (JsonRowDataSerializationSchema) o;
-		return rowType.equals(that.rowType) && timestampFormat.equals(timestampFormat);
+		return rowType.equals(that.rowType) &&
+			timestampFormat.equals(that.timestampFormat) &&
+			enforceUTF8Encoding == that.enforceUTF8Encoding;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(rowType, timestampFormat);
+		return Objects.hash(
+			rowType,
+			timestampFormat,
+			enforceUTF8Encoding);
 	}
 
 	// --------------------------------------------------------------------------------

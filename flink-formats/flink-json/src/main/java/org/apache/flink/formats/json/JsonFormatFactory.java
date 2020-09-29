@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.formats.json.JsonOptions.ENFORCE_UTF8_ENCODING;
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
@@ -109,6 +110,7 @@ public class JsonFormatFactory implements
 		FactoryUtil.validateFactoryOptions(this, formatOptions);
 
 		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
+		final boolean enforceUTF8Encoding = formatOptions.get(ENFORCE_UTF8_ENCODING);
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -116,7 +118,7 @@ public class JsonFormatFactory implements
 					DynamicTableSink.Context context,
 					DataType consumedDataType) {
 				final RowType rowType = (RowType) consumedDataType.getLogicalType();
-				return new JsonRowDataSerializationSchema(rowType, timestampOption);
+				return new JsonRowDataSerializationSchema(rowType, timestampOption, enforceUTF8Encoding);
 			}
 
 			@Override
@@ -143,6 +145,7 @@ public class JsonFormatFactory implements
 		options.add(IGNORE_PARSE_ERRORS);
 		options.add(LOG_ERROR_RECORDS_INTERVAL);
 		options.add(TIMESTAMP_FORMAT);
+		options.add(ENFORCE_UTF8_ENCODING);
 		return options;
 	}
 
