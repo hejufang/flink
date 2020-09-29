@@ -38,6 +38,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMap
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -83,20 +84,25 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 	/** Flag indicating whether to ignore null values, null elements in array won't be taken into account. */
 	private final boolean ignoreNullValues;
 
+	/** Flag indicating whether to encode a varbinary to json node. */
+	private final boolean byteAsJsonNode;
+
 	public JsonRowDataSerializationSchema(RowType rowType, TimestampFormat timestampFormat) {
-		this(rowType, timestampFormat, false, false);
+		this(rowType, timestampFormat, false, false, false);
 	}
 
 	public JsonRowDataSerializationSchema(
 			RowType rowType,
 			TimestampFormat timestampFormat,
 			boolean enforceUTF8Encoding,
-			boolean ignoreNullValues) {
+			boolean ignoreNullValues,
+			boolean byteAsJsonNode) {
 		this.rowType = rowType;
 		this.timestampFormat = timestampFormat;
-		this.runtimeConverter = createConverter(rowType);
 		this.enforceUTF8Encoding = enforceUTF8Encoding;
 		this.ignoreNullValues = ignoreNullValues;
+		this.byteAsJsonNode = byteAsJsonNode;
+		this.runtimeConverter = createConverter(rowType);
 	}
 
 	@Override
@@ -129,7 +135,8 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 		return rowType.equals(that.rowType) &&
 			timestampFormat.equals(that.timestampFormat) &&
 			enforceUTF8Encoding == that.enforceUTF8Encoding &&
-			ignoreNullValues == that.ignoreNullValues;
+			ignoreNullValues == that.ignoreNullValues &&
+			byteAsJsonNode == that.byteAsJsonNode;
 	}
 
 	@Override
@@ -138,7 +145,8 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 			rowType,
 			timestampFormat,
 			enforceUTF8Encoding,
-			ignoreNullValues);
+			ignoreNullValues,
+			byteAsJsonNode);
 	}
 
 	// --------------------------------------------------------------------------------
@@ -189,6 +197,15 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 				return (mapper, reuse, value) -> mapper.getNodeFactory().textNode(value.toString());
 			case BINARY:
 			case VARBINARY:
+				if (byteAsJsonNode) {
+					return (mapper, reuse, value) -> {
+						try {
+							return mapper.readTree((byte[]) value);
+						} catch (IOException e) {
+							throw new RuntimeException(e);
+						}
+					};
+				}
 				return (mapper, reuse, value) -> mapper.getNodeFactory().binaryNode((byte[]) value);
 			case DATE:
 				return createDateConverter();

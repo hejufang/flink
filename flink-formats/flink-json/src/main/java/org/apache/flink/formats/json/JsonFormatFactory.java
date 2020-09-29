@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.formats.json.JsonOptions.BYTES_AS_JSON_NODE;
 import static org.apache.flink.formats.json.JsonOptions.ENCODE_IGNORE_NULL_VALUES;
 import static org.apache.flink.formats.json.JsonOptions.ENFORCE_UTF8_ENCODING;
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
@@ -74,6 +75,7 @@ public class JsonFormatFactory implements
 
 		final boolean failOnMissingField = formatOptions.get(FAIL_ON_MISSING_FIELD);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
+		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
 		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
 		Map<Feature, Boolean> parserFeature = getParserFeatureMap(context.getCatalogTable().getOptions());
 		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
@@ -91,6 +93,7 @@ public class JsonFormatFactory implements
 					rowDataTypeInfo,
 					failOnMissingField,
 					ignoreParseErrors,
+					byteAsJsonNode,
 					timestampOption,
 					logParseErrorsInterval,
 					parserFeature
@@ -113,6 +116,7 @@ public class JsonFormatFactory implements
 		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
 		final boolean enforceUTF8Encoding = formatOptions.get(ENFORCE_UTF8_ENCODING);
 		final boolean ignoreNullValues = formatOptions.get(ENCODE_IGNORE_NULL_VALUES);
+		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -124,7 +128,8 @@ public class JsonFormatFactory implements
 					rowType,
 					timestampOption,
 					enforceUTF8Encoding,
-					ignoreNullValues);
+					ignoreNullValues,
+					byteAsJsonNode);
 			}
 
 			@Override
@@ -153,6 +158,7 @@ public class JsonFormatFactory implements
 		options.add(TIMESTAMP_FORMAT);
 		options.add(ENFORCE_UTF8_ENCODING);
 		options.add(ENCODE_IGNORE_NULL_VALUES);
+		options.add(BYTES_AS_JSON_NODE);
 		return options;
 	}
 

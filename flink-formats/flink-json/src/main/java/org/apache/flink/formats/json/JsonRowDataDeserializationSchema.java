@@ -90,6 +90,9 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	/** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
 	private final boolean ignoreParseErrors;
 
+	/** Flag indicating whether to decode a json node to varbinary. */
+	private final boolean byteAsJsonNode;
+
 	/** TypeInformation of the produced {@link RowData}. **/
 	private final TypeInformation<RowData> resultTypeInfo;
 
@@ -114,7 +117,15 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			boolean failOnMissingField,
 			boolean ignoreParseErrors,
 			TimestampFormat timestampFormat) {
-		this(rowType, resultTypeInfo, failOnMissingField, ignoreParseErrors, timestampFormat, -1, new HashMap<>());
+		this(
+			rowType,
+			resultTypeInfo,
+			failOnMissingField,
+			ignoreParseErrors,
+			false,
+			timestampFormat,
+			-1,
+			new HashMap<>());
 	}
 
 	public JsonRowDataDeserializationSchema(
@@ -122,6 +133,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			TypeInformation<RowData> resultTypeInfo,
 			boolean failOnMissingField,
 			boolean ignoreParseErrors,
+			boolean byteAsJsonNode,
 			TimestampFormat timestampFormat,
 			long logErrorInterval,
 			Map<JsonParser.Feature, Boolean> jsonParserFeatureMap) {
@@ -132,6 +144,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		this.resultTypeInfo = checkNotNull(resultTypeInfo);
 		this.failOnMissingField = failOnMissingField;
 		this.ignoreParseErrors = ignoreParseErrors;
+		this.byteAsJsonNode = byteAsJsonNode;
 		this.runtimeConverter = createRowConverter(checkNotNull(rowType));
 		this.timestampFormat = timestampFormat;
 		this.logErrorInterval = logErrorInterval;
@@ -177,6 +190,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		JsonRowDataDeserializationSchema that = (JsonRowDataDeserializationSchema) o;
 		return failOnMissingField == that.failOnMissingField &&
 				ignoreParseErrors == that.ignoreParseErrors &&
+				byteAsJsonNode == that.byteAsJsonNode &&
 				resultTypeInfo.equals(that.resultTypeInfo) &&
 				timestampFormat.equals(that.timestampFormat) &&
 				logErrorInterval == that.logErrorInterval;
@@ -187,6 +201,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		return Objects.hash(
 			failOnMissingField,
 			ignoreParseErrors,
+			byteAsJsonNode,
 			resultTypeInfo,
 			timestampFormat,
 			logErrorInterval);
@@ -343,6 +358,9 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	}
 
 	private byte[] convertToBytes(JsonNode jsonNode) {
+		if (byteAsJsonNode) {
+			return jsonNode.toString().getBytes();
+		}
 		try {
 			return jsonNode.binaryValue();
 		} catch (IOException e) {

@@ -62,6 +62,12 @@ public class JsonOptions {
 				" Option ISO-8601 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}\" format and output timestamp in the same format." +
 				" Option SQL will parse input timestamp in \"yyyy-MM-dd HH:mm:ss.s{precision}\" format and output timestamp in the same format.");
 
+	public static final ConfigOption<Boolean> BYTES_AS_JSON_NODE = ConfigOptions
+			.key("bytes-as-json-node")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Optional flag to encode a varbinary to json node or decode a json node to varbinary.");
+
 	public static final ConfigOption<Boolean> ENFORCE_UTF8_ENCODING = ConfigOptions
 			.key("enforce-utf-encoding")
 			.booleanType()
