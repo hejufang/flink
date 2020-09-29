@@ -21,6 +21,7 @@ package org.apache.flink.table.factories;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.configuration.ConfigOption;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -76,4 +77,8 @@ public interface Factory {
 	 * <p>See the documentation of {@link Factory} for more information.
 	 */
 	Set<ConfigOption<?>> optionalOptions();
+
+	default Set<String> optionalPrefixes() {
+		return new HashSet<>();
+	}
 }

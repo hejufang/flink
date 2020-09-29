@@ -38,6 +38,7 @@ import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
@@ -113,7 +114,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			boolean failOnMissingField,
 			boolean ignoreParseErrors,
 			TimestampFormat timestampFormat) {
-		this(rowType, resultTypeInfo, failOnMissingField, ignoreParseErrors, timestampFormat, -1);
+		this(rowType, resultTypeInfo, failOnMissingField, ignoreParseErrors, timestampFormat, -1, new HashMap<>());
 	}
 
 	public JsonRowDataDeserializationSchema(
@@ -122,7 +123,8 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			boolean failOnMissingField,
 			boolean ignoreParseErrors,
 			TimestampFormat timestampFormat,
-			long logErrorInterval) {
+			long logErrorInterval,
+			Map<JsonParser.Feature, Boolean> jsonParserFeatureMap) {
 		if (ignoreParseErrors && failOnMissingField) {
 			throw new IllegalArgumentException(
 				"JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
@@ -133,6 +135,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		this.runtimeConverter = createRowConverter(checkNotNull(rowType));
 		this.timestampFormat = timestampFormat;
 		this.logErrorInterval = logErrorInterval;
+		jsonParserFeatureMap.forEach(objectMapper::configure);
 	}
 
 	@Override

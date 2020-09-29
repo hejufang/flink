@@ -593,6 +593,12 @@ public final class FactoryUtil {
 					.map(ConfigOption::key)
 					.map(k -> formatPrefix + k)
 					.collect(Collectors.toSet()));
+			consumedOptionKeys.addAll(
+				allOptions.keySet().stream()
+				.filter(
+					key -> factory.optionalPrefixes().stream()
+						.anyMatch(key::startsWith))
+				.collect(Collectors.toSet()));
 			return Optional.of(factory);
 		}
 

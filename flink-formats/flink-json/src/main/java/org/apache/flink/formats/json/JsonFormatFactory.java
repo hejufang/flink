@@ -37,8 +37,12 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser.Feature;
+
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
@@ -56,6 +60,7 @@ public class JsonFormatFactory implements
 		SerializationFormatFactory {
 
 	public static final String IDENTIFIER = "json";
+	public static final String PARSER_FEATURE_PREFIX = "json.parser-feature.";
 
 	@SuppressWarnings("unchecked")
 	@Override
@@ -68,6 +73,7 @@ public class JsonFormatFactory implements
 		final boolean failOnMissingField = formatOptions.get(FAIL_ON_MISSING_FIELD);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
 		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
+		Map<Feature, Boolean> parserFeature = getParserFeatureMap(context.getCatalogTable().getOptions());
 		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
@@ -79,12 +85,13 @@ public class JsonFormatFactory implements
 				final TypeInformation<RowData> rowDataTypeInfo =
 						(TypeInformation<RowData>) context.createTypeInformation(producedDataType);
 				return new JsonRowDataDeserializationSchema(
-						rowType,
-						rowDataTypeInfo,
-						failOnMissingField,
-						ignoreParseErrors,
-						timestampOption,
-						logParseErrorsInterval
+					rowType,
+					rowDataTypeInfo,
+					failOnMissingField,
+					ignoreParseErrors,
+					timestampOption,
+					logParseErrorsInterval,
+					parserFeature
 					);
 			}
 
@@ -139,6 +146,13 @@ public class JsonFormatFactory implements
 		return options;
 	}
 
+	@Override
+	public Set<String> optionalPrefixes() {
+		Set<String> prefixes = new HashSet<>();
+		prefixes.add(PARSER_FEATURE_PREFIX);
+		return prefixes;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Validation
 	// ------------------------------------------------------------------------
@@ -157,5 +171,19 @@ public class JsonFormatFactory implements
 			throw new ValidationException(String.format("Unsupported value '%s' for %s. Supported values are [SQL, ISO-8601].",
 				timestampFormat, TIMESTAMP_FORMAT.key()));
 		}
+	}
+
+	public static Map<Feature, Boolean> getParserFeatureMap(Map<String, String> tableOptions) {
+		Map<Feature, Boolean> res = new HashMap<>();
+
+		tableOptions.keySet().stream()
+			.filter(key -> key.startsWith(PARSER_FEATURE_PREFIX))
+			.forEach(key -> {
+				final String value = tableOptions.get(key);
+				final String subKey = key.substring((PARSER_FEATURE_PREFIX).length()).toUpperCase();
+				res.put(Feature.valueOf(subKey), Boolean.parseBoolean(value));
+			});
+
+		return res;
 	}
 }
