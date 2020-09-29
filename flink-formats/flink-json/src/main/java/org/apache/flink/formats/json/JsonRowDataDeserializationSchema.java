@@ -44,6 +44,9 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.Arra
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.TextNode;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -75,6 +78,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public class JsonRowDataDeserializationSchema implements DeserializationSchema<RowData> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(JsonRowDataDeserializationSchema.class);
+
 	private static final long serialVersionUID = 1L;
 
 	/** Flag indicating whether to fail if a field is missing. */
@@ -97,12 +103,26 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	/** Timestamp format specification which is used to parse timestamp. */
 	private final TimestampFormat timestampFormat;
 
+	/** The interval between each time the error being logged. As logging all errors may cost a lot. */
+	private final long logErrorInterval;
+	private long lastLogErrorTimestamp = -1;
+
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
 			boolean failOnMissingField,
 			boolean ignoreParseErrors,
 			TimestampFormat timestampFormat) {
+		this(rowType, resultTypeInfo, failOnMissingField, ignoreParseErrors, timestampFormat, -1);
+	}
+
+	public JsonRowDataDeserializationSchema(
+			RowType rowType,
+			TypeInformation<RowData> resultTypeInfo,
+			boolean failOnMissingField,
+			boolean ignoreParseErrors,
+			TimestampFormat timestampFormat,
+			long logErrorInterval) {
 		if (ignoreParseErrors && failOnMissingField) {
 			throw new IllegalArgumentException(
 				"JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
@@ -112,6 +132,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		this.ignoreParseErrors = ignoreParseErrors;
 		this.runtimeConverter = createRowConverter(checkNotNull(rowType));
 		this.timestampFormat = timestampFormat;
+		this.logErrorInterval = logErrorInterval;
 	}
 
 	@Override
@@ -121,6 +142,11 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			return (RowData) runtimeConverter.convert(root);
 		} catch (Throwable t) {
 			if (ignoreParseErrors) {
+				long currentTime = System.currentTimeMillis();
+				if (currentTime - lastLogErrorTimestamp > logErrorInterval) {
+					lastLogErrorTimestamp = currentTime;
+					LOG.warn("Failed to deserialize JSON '{}', cause: {}", new String(message), t.getMessage());
+				}
 				return null;
 			}
 			throw new IOException(format("Failed to deserialize JSON '%s'.", new String(message)), t);
@@ -149,12 +175,18 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		return failOnMissingField == that.failOnMissingField &&
 				ignoreParseErrors == that.ignoreParseErrors &&
 				resultTypeInfo.equals(that.resultTypeInfo) &&
-				timestampFormat.equals(that.timestampFormat);
+				timestampFormat.equals(that.timestampFormat) &&
+				logErrorInterval == that.logErrorInterval;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(failOnMissingField, ignoreParseErrors, resultTypeInfo, timestampFormat);
+		return Objects.hash(
+			failOnMissingField,
+			ignoreParseErrors,
+			resultTypeInfo,
+			timestampFormat,
+			logErrorInterval);
 	}
 
 	// -------------------------------------------------------------------------------------

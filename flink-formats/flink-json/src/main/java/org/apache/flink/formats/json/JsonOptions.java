@@ -23,6 +23,8 @@ import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.TableException;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -44,6 +46,13 @@ public class JsonOptions {
 			.defaultValue(false)
 			.withDescription("Optional flag to skip fields and rows with parse errors instead of failing;\n"
 					+ "fields are set to null in case of errors, false by default");
+
+	public static final ConfigOption<Duration> LOG_ERROR_RECORDS_INTERVAL = ConfigOptions
+			.key("log-error-records-interval")
+			.durationType()
+			.defaultValue(Duration.of(10, ChronoUnit.SECONDS))
+			.withDescription("When ignore-parse-errors is true, this configs controls the frequency of logging the" +
+				"records that cannot be parsed correctly.");
 
 	public static final ConfigOption<String> TIMESTAMP_FORMAT = ConfigOptions
 			.key("timestamp-format.standard")

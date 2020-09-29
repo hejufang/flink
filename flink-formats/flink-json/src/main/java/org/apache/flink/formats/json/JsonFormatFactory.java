@@ -43,6 +43,7 @@ import java.util.Set;
 
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
+import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT_ENUM;
 
@@ -66,6 +67,7 @@ public class JsonFormatFactory implements
 
 		final boolean failOnMissingField = formatOptions.get(FAIL_ON_MISSING_FIELD);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
+		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
 		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
@@ -81,7 +83,8 @@ public class JsonFormatFactory implements
 						rowDataTypeInfo,
 						failOnMissingField,
 						ignoreParseErrors,
-						timestampOption
+						timestampOption,
+						logParseErrorsInterval
 					);
 			}
 
@@ -131,6 +134,7 @@ public class JsonFormatFactory implements
 		Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(FAIL_ON_MISSING_FIELD);
 		options.add(IGNORE_PARSE_ERRORS);
+		options.add(LOG_ERROR_RECORDS_INTERVAL);
 		options.add(TIMESTAMP_FORMAT);
 		return options;
 	}
