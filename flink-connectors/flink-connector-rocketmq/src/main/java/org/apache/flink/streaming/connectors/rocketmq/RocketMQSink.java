@@ -23,6 +23,7 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.streaming.connectors.rocketmq.selector.TopicSelector;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyValueSerializationSchema;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -51,7 +52,7 @@ import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.BATC
  */
 public class RocketMQSink<IN> extends RichSinkFunction<IN> implements CheckpointedFunction {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQSink.class);
 
@@ -67,6 +68,7 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 	private List<Message> batchList;
 
 	private int messageDeliveryDelayLevel = RocketMQConfig.MSG_DELAY_LEVEL_DEFAULT;
+	private MsgDelayLevelSelector<IN> msgDelayLevelSelector;
 
 	/** Errors encountered in the async producer are stored here. */
 	private transient volatile Throwable asyncError;
@@ -105,11 +107,13 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 	}
 
 	public RocketMQSink(KeyValueSerializationSchema<IN> schema, TopicSelector<IN> topicSelector,
+						MsgDelayLevelSelector<IN> msgDelayLevelSelector,
 						Properties props, RocketMQOptions options) {
 		this(schema, topicSelector, props);
 		this.batchSize = options.getBatchSize();
 		this.async = options.isAsync();
 		this.batchFlushOnCheckpoint = options.isBatchFlushOnCheckpoint();
+		this.msgDelayLevelSelector = msgDelayLevelSelector;
 	}
 
 	@Override
@@ -196,8 +200,12 @@ public class RocketMQSink<IN> extends RichSinkFunction<IN> implements Checkpoint
 		Preconditions.checkNotNull(value, "the message body is null");
 
 		Message msg = new Message(topic, tag, key, value);
-		if (this.messageDeliveryDelayLevel > RocketMQConfig.MSG_DELAY_LEVEL00) {
-			msg.setDelayTimeLevel(this.messageDeliveryDelayLevel);
+		int delayLevel = this.messageDeliveryDelayLevel;
+		if (msgDelayLevelSelector != null) {
+			delayLevel = msgDelayLevelSelector.getDelayLevel(input);
+		}
+		if (delayLevel > RocketMQConfig.MSG_DELAY_LEVEL00) {
+			msg.setDelayTimeLevel(delayLevel);
 		}
 		return msg;
 	}

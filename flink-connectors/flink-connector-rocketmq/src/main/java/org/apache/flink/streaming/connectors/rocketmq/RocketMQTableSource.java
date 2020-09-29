@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_DELAY_FIELD;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_FORCE_AUTO_COMMIT_ENABLED;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEYBY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
@@ -127,11 +128,11 @@ public class RocketMQTableSource implements
 		DataStream<Row> dataStream = dataStreamSource.name(explainSource());
 		// Transfer the stream to a KeyedStream if necessary.
 		String keybyFields = configurations.get(CONNECTOR_KEYBY_FIELDS);
+		RowTypeInfo resultTypeInformation = (RowTypeInfo) getReturnType();
+		String[] rowFieldNames = resultTypeInformation.getFieldNames();
 		if (keybyFields != null && !keybyFields.isEmpty()) {
 			String[] fields = Arrays.stream(keybyFields.split(","))
 				.map(String::trim).toArray(String[]::new);
-			RowTypeInfo resultTypeInformation = (RowTypeInfo) getReturnType();
-			String[] rowFieldNames = resultTypeInformation.getFieldNames();
 			for (String fieldName : fields) {
 				int fieldIndex = resultTypeInformation.getFieldIndex(fieldName);
 				if (fieldIndex < 0) {
@@ -140,6 +141,15 @@ public class RocketMQTableSource implements
 				}
 			}
 			dataStream = dataStream.keyBy(fields);
+		}
+
+		String delayLevelField = configurations.get(CONNECTOR_DELAY_FIELD);
+		if (delayLevelField != null && !delayLevelField.isEmpty()) {
+			int fieldIndex = resultTypeInformation.getFieldIndex(delayLevelField);
+			if (fieldIndex < 0) {
+				throw new FlinkRuntimeException(String.format("Delay field '%s' not found in table source, " +
+					" all row fields are: %s", delayLevelField, Arrays.asList(rowFieldNames)));
+			}
 		}
 		return dataStream;
 	}

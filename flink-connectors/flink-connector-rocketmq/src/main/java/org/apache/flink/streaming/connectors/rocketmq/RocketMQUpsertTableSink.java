@@ -24,10 +24,12 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
+import org.apache.flink.streaming.connectors.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.streaming.connectors.rocketmq.selector.TopicSelector;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyBySerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyValueSerializationSchema;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.KeyValueSerializationSchemaWrapper;
+import org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.sinks.TableSink;
@@ -134,8 +136,16 @@ public class RocketMQUpsertTableSink implements UpsertStreamTableSink<Row> {
 				new KeyBySerializationSchemaWrapper(keyByFieldIndexes, serializationSchema);
 		}
 
+		MsgDelayLevelSelector<Row> delayLevelSelector = null;
+		String delayLevelField = configurations.get(RocketMQValidator.CONNECTOR_DELAY_FIELD);
+		if (delayLevelField != null) {
+			final int deleyLevelIndex = getKeyByFieldIndexes(schema, delayLevelField)[0];
+			delayLevelSelector = row -> Math.min(Math.max(RocketMQConfig.MSG_DELAY_LEVEL00,
+				(Integer) row.getField(deleyLevelIndex)), RocketMQConfig.MSG_DELAY_LEVEL18);
+		}
+
 		RocketMQSink<Row> rowRocketMQSink =
-			new RocketMQSink<>(keyValueSerializationSchema, topicSelector, properties, options);
+			new RocketMQSink<>(keyValueSerializationSchema, topicSelector, delayLevelSelector, properties, options);
 
 		// filter retract rows
 		DataStream<Row> rowDataStream = dataStream
