@@ -80,18 +80,23 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 	/** Flag indicating whether to enforce utf8 encoding. */
 	private final boolean enforceUTF8Encoding;
 
+	/** Flag indicating whether to ignore null values, null elements in array won't be taken into account. */
+	private final boolean ignoreNullValues;
+
 	public JsonRowDataSerializationSchema(RowType rowType, TimestampFormat timestampFormat) {
-		this(rowType, timestampFormat, false);
+		this(rowType, timestampFormat, false, false);
 	}
 
 	public JsonRowDataSerializationSchema(
 			RowType rowType,
 			TimestampFormat timestampFormat,
-			boolean enforceUTF8Encoding) {
+			boolean enforceUTF8Encoding,
+			boolean ignoreNullValues) {
 		this.rowType = rowType;
 		this.timestampFormat = timestampFormat;
 		this.runtimeConverter = createConverter(rowType);
 		this.enforceUTF8Encoding = enforceUTF8Encoding;
+		this.ignoreNullValues = ignoreNullValues;
 	}
 
 	@Override
@@ -123,7 +128,8 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 		JsonRowDataSerializationSchema that = (JsonRowDataSerializationSchema) o;
 		return rowType.equals(that.rowType) &&
 			timestampFormat.equals(that.timestampFormat) &&
-			enforceUTF8Encoding == that.enforceUTF8Encoding;
+			enforceUTF8Encoding == that.enforceUTF8Encoding &&
+			ignoreNullValues == that.ignoreNullValues;
 	}
 
 	@Override
@@ -131,7 +137,8 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 		return Objects.hash(
 			rowType,
 			timestampFormat,
-			enforceUTF8Encoding);
+			enforceUTF8Encoding,
+			ignoreNullValues);
 	}
 
 	// --------------------------------------------------------------------------------
@@ -325,7 +332,9 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 			for (int i = 0; i < fieldCount; i++) {
 				String fieldName = fieldNames[i];
 				Object field = RowData.get(row, i, fieldTypes[i]);
-				node.set(fieldName, fieldConverters[i].convert(mapper, node.get(fieldName), field));
+				if (field != null || !ignoreNullValues) {
+					node.set(fieldName, fieldConverters[i].convert(mapper, node.get(fieldName), field));
+				}
 			}
 			return node;
 		};

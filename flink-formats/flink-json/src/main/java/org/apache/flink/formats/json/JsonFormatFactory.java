@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.formats.json.JsonOptions.ENCODE_IGNORE_NULL_VALUES;
 import static org.apache.flink.formats.json.JsonOptions.ENFORCE_UTF8_ENCODING;
 import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
@@ -111,6 +112,7 @@ public class JsonFormatFactory implements
 
 		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
 		final boolean enforceUTF8Encoding = formatOptions.get(ENFORCE_UTF8_ENCODING);
+		final boolean ignoreNullValues = formatOptions.get(ENCODE_IGNORE_NULL_VALUES);
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -118,7 +120,11 @@ public class JsonFormatFactory implements
 					DynamicTableSink.Context context,
 					DataType consumedDataType) {
 				final RowType rowType = (RowType) consumedDataType.getLogicalType();
-				return new JsonRowDataSerializationSchema(rowType, timestampOption, enforceUTF8Encoding);
+				return new JsonRowDataSerializationSchema(
+					rowType,
+					timestampOption,
+					enforceUTF8Encoding,
+					ignoreNullValues);
 			}
 
 			@Override
@@ -146,6 +152,7 @@ public class JsonFormatFactory implements
 		options.add(LOG_ERROR_RECORDS_INTERVAL);
 		options.add(TIMESTAMP_FORMAT);
 		options.add(ENFORCE_UTF8_ENCODING);
+		options.add(ENCODE_IGNORE_NULL_VALUES);
 		return options;
 	}
 

@@ -68,6 +68,12 @@ public class JsonOptions {
 			.defaultValue(false)
 			.withDescription("Optional flag to enforce utf encoding.");
 
+	public static final ConfigOption<Boolean> ENCODE_IGNORE_NULL_VALUES = ConfigOptions
+			.key("encode.ignore-null-values")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Optional flag to ignore null values during encoding.");
+
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations
 	// --------------------------------------------------------------------------------------------
