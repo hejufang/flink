@@ -24,6 +24,8 @@ import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 
+import java.util.concurrent.ScheduledExecutorService;
+
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -42,8 +44,12 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
 			TaskEventPublisher taskEventPublisher,
 			int initialBackOff,
 			int maxBackoff,
-			InputChannelMetrics metrics) {
-		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, metrics.getNumBytesInLocalCounter(), metrics.getNumBuffersInLocalCounter());
+			InputChannelMetrics metrics,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
+			boolean isRecoverable) {
+		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, metrics.getNumBytesInLocalCounter(),
+				metrics.getNumBuffersInLocalCounter(), maxDelayMinutes, executor, isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -60,6 +66,9 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
 			initialBackoff,
 			maxBackoff,
 			numBytesIn,
-			numBytesIn);
+			numBytesIn,
+			maxDelayMinutes,
+			executor,
+			isRecoverable);
 	}
 }

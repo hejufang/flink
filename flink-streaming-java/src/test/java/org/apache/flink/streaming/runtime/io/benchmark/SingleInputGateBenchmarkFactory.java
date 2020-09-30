@@ -55,7 +55,9 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 			connectionManager,
 			partitionManager,
 			taskEventPublisher,
-			networkBufferPool);
+			networkBufferPool,
+			5,
+			false);
 	}
 
 	@Override
@@ -115,7 +117,10 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 				initialBackoff,
 				maxBackoff,
 				metrics.getNumBytesInLocalCounter(),
-				metrics.getNumBuffersInLocalCounter());
+				metrics.getNumBuffersInLocalCounter(),
+				5,
+				null,
+				false);
 		}
 
 		@Override
@@ -159,7 +164,10 @@ public class SingleInputGateBenchmarkFactory extends SingleInputGateFactory {
 				initialBackOff,
 				maxBackoff,
 				metrics.getNumBytesInRemoteCounter(),
-				metrics.getNumBuffersInRemoteCounter());
+				metrics.getNumBuffersInRemoteCounter(),
+				5,
+				null,
+				false);
 		}
 
 		@Override

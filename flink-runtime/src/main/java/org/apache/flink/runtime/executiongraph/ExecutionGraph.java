@@ -317,6 +317,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** Shuffle master to register partitions for task deployment. */
 	private final ShuffleMaster<?> shuffleMaster;
 
+	private final boolean isRecoverable;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -337,7 +339,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			ShuffleMaster<?> shuffleMaster,
 			JobMasterPartitionTracker partitionTracker,
 			ScheduleMode scheduleMode,
-			SpeculationStrategy speculationStrategy) throws IOException {
+			SpeculationStrategy speculationStrategy,
+			boolean isRecoverable) throws IOException {
 
 		this.jobInformation = Preconditions.checkNotNull(jobInformation);
 
@@ -396,6 +399,9 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.resultPartitionAvailabilityChecker = new ExecutionGraphResultPartitionAvailabilityChecker(
 			this::createResultPartitionId,
 			partitionTracker);
+		this.isRecoverable = isRecoverable;
+
+		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
 
 	public void start(@Nonnull ComponentMainThreadExecutor jobMasterMainThreadExecutor) {
@@ -425,6 +431,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public Time getAllocationTimeout() {
 		return allocationTimeout;
+	}
+
+	public boolean isRecoverable() {
+		return isRecoverable;
 	}
 
 	@Nonnull

@@ -46,6 +46,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
+import java.util.concurrent.Executors;
 
 import static org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils.createFilledFinishedBufferConsumer;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createDummyConnectionManager;
@@ -345,7 +346,9 @@ public class InputGateFairnessTest {
 				SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
 				STUB_BUFFER_POOL_FACTORY,
 				null,
-				new UnpooledMemorySegmentProvider(32 * 1024));
+				new UnpooledMemorySegmentProvider(32 * 1024),
+				new TestChannelProvider(),
+				Executors.newSingleThreadScheduledExecutor());
 
 			try {
 				Field f = SingleInputGate.class.getDeclaredField("inputChannelsWithData");

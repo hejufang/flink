@@ -42,9 +42,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class PipelinedRegionSchedulingStrategy implements SchedulingStrategy {
 
-	private final SchedulerOperations schedulerOperations;
+	protected final SchedulerOperations schedulerOperations;
 
-	private final SchedulingTopology schedulingTopology;
+	protected final SchedulingTopology schedulingTopology;
 
 	private final DeploymentOption deploymentOption = new DeploymentOption(false);
 

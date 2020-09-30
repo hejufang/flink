@@ -40,6 +40,8 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 	private final SumCounter numRecordsOut;
 	private final Counter numBuffersOut;
 
+	private final Counter numRecordsDropped;
+
 	private final Meter numBytesInRate;
 	private final Meter numBytesOutRate;
 	private final Meter numRecordsInRate;
@@ -64,6 +66,8 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 		this.numBuffersOutRate = meter(MetricNames.IO_NUM_BUFFERS_OUT_RATE, new MeterView(numBuffersOut));
 
 		this.idleTimePerSecond = meter(MetricNames.TASK_IDLE_TIME, new MeterView(new SimpleCounter()));
+
+		this.numRecordsDropped = counter(MetricNames.IO_NUM_RECORDS_DROPPED);
 	}
 
 	public IOMetrics createSnapshot() {
@@ -96,6 +100,10 @@ public class TaskIOMetricGroup extends ProxyMetricGroup<TaskMetricGroup> {
 
 	public Meter getIdleTimeMsPerSecond() {
 		return idleTimePerSecond;
+	}
+
+	public Counter getNumRecordsDropped() {
+		return numRecordsDropped;
 	}
 
 	// ============================================================================================

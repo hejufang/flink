@@ -28,7 +28,7 @@ class DefaultExecutionVertexOperations implements ExecutionVertexOperations {
 
 	@Override
 	public void deploy(final ExecutionVertex executionVertex, final DeploymentOption deploymentOption) throws JobException {
-		executionVertex.getExecution(deploymentOption.isDeployCopy()).deploy();
+		executionVertex.getExecution(deploymentOption.isDeployCopy()).deploy(deploymentOption.isNotifyConsumer());
 	}
 
 	@Override

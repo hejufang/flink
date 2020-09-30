@@ -80,6 +80,8 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	private Counter numBuffersOut = new SimpleCounter();
 
+	private Counter numRecordsDropped = new SimpleCounter();
+
 	protected Meter idleTimeMsPerSecond = new MeterView(new SimpleCounter());
 
 	private final boolean flushAlways;
@@ -113,6 +115,20 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
 	protected void emit(T record, int targetChannel) throws IOException, InterruptedException {
 		checkErroneous();
+
+		// check whether need to clean the buffer builder
+		if (targetPartition.needToCleanBufferBuilder(targetChannel)) {
+
+			// clean bufferbuilders
+			closeBufferBuilder(targetChannel);
+			targetPartition.markBufferBuilderCleaned(targetChannel);
+		}
+
+		if (!targetPartition.isSubpartitionAvailable(targetChannel)) {
+			// abandon records if the targetChannel is not available
+			numRecordsDropped.inc();
+			return;
+		}
 
 		serializer.serializeRecord(record);
 
@@ -191,6 +207,7 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 		numBytesOut = metrics.getNumBytesOutCounter();
 		numBuffersOut = metrics.getNumBuffersOutCounter();
 		idleTimeMsPerSecond = metrics.getIdleTimeMsPerSecond();
+		numRecordsDropped = metrics.getNumRecordsDropped();
 	}
 
 	protected void finishBufferBuilder(BufferBuilder bufferBuilder) {

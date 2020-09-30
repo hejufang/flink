@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
@@ -38,6 +39,7 @@ import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTracker;
 import org.apache.flink.runtime.scheduler.strategy.EagerSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.LazyFromSourcesSchedulingStrategy;
+import org.apache.flink.runtime.scheduler.strategy.RecoverableSchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 
@@ -69,7 +71,7 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			final ShuffleMaster<?> shuffleMaster,
 			final JobMasterPartitionTracker partitionTracker) throws Exception {
 
-		final SchedulingStrategyFactory schedulingStrategyFactory = createSchedulingStrategyFactory(jobGraph.getScheduleMode());
+		final SchedulingStrategyFactory schedulingStrategyFactory = createSchedulingStrategyFactory(jobGraph.getScheduleMode(), jobMasterConfiguration);
 		final RestartBackoffTimeStrategy restartBackoffTimeStrategy = RestartBackoffTimeStrategyFactoryLoader
 			.createRestartBackoffTimeStrategyFactory(
 				jobGraph
@@ -112,10 +114,14 @@ public class DefaultSchedulerFactory implements SchedulerNGFactory {
 			speculationStrategyFactory);
 	}
 
-	static SchedulingStrategyFactory createSchedulingStrategyFactory(final ScheduleMode scheduleMode) {
+	static SchedulingStrategyFactory createSchedulingStrategyFactory(final ScheduleMode scheduleMode, Configuration configuration) {
 		switch (scheduleMode) {
 			case EAGER:
-				return new EagerSchedulingStrategy.Factory();
+				if (configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE)) {
+					return new RecoverableSchedulingStrategy.Factory();
+				} else {
+					return new EagerSchedulingStrategy.Factory();
+				}
 			case LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST:
 			case LAZY_FROM_SOURCES:
 				return new LazyFromSourcesSchedulingStrategy.Factory();

@@ -251,6 +251,21 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 		subpartitions[subpartitionIndex].flush();
 	}
 
+	@Override
+	public boolean isSubpartitionAvailable(int subpartitionIndex) {
+		return subpartitions[subpartitionIndex].isSubpartitionAvailable();
+	}
+
+	@Override
+	public boolean needToCleanBufferBuilder(int subpartitionIndex) {
+		return subpartitions[subpartitionIndex].needToCleanBufferBuilder();
+	}
+
+	@Override
+	public void markBufferBuilderCleaned(int subpartitionIndex) {
+		subpartitions[subpartitionIndex].markBufferBuilderCleaned();
+	}
+
 	/**
 	 * Finishes the result partition.
 	 *

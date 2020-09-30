@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 import java.io.IOException;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -47,8 +48,20 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			ConnectionManager connectionManager,
 			int initialBackOff,
 			int maxBackoff,
-			InputChannelMetrics metrics) {
-		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, metrics.getNumBytesInRemoteCounter(), metrics.getNumBuffersInRemoteCounter());
+			InputChannelMetrics metrics,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
+			boolean isRecoverable) {
+		super(inputGate,
+				channelIndex,
+				partitionId,
+				initialBackOff,
+				maxBackoff,
+				metrics.getNumBytesInRemoteCounter(),
+				metrics.getNumBuffersInRemoteCounter(),
+				maxDelayMinutes,
+				executor,
+				isRecoverable);
 
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
@@ -65,7 +78,10 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			initialBackoff,
 			maxBackoff,
 			numBytesIn,
-			numBuffersIn);
+			numBuffersIn,
+			maxDelayMinutes,
+			executor,
+			isRecoverable);
 		remoteInputChannel.assignExclusiveSegments();
 		return remoteInputChannel;
 	}

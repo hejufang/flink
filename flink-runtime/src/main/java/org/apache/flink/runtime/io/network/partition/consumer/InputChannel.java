@@ -31,11 +31,17 @@ import org.apache.flink.runtime.io.network.partition.PartitionException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -51,6 +57,18 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * </ol>
  */
 public abstract class InputChannel {
+	private static final Logger LOG = LoggerFactory.getLogger(InputChannel.class);
+
+	private static final AtomicReferenceFieldUpdater<InputChannel, Integer> CHANNEL_AVAILABLE_UPDATER =
+			AtomicReferenceFieldUpdater.newUpdater(InputChannel.class, Integer.class, "channelStatus");
+
+	private static final AtomicReferenceFieldUpdater<InputChannel, Boolean> READY_TO_UPDATE_UPDATER =
+			AtomicReferenceFieldUpdater.newUpdater(InputChannel.class, Boolean.class, "readyToUpdate");
+
+	private static final int CHANNEL_AVAILABLE = 1;
+	private static final int CHANNEL_UNAVAILABLE = 2;
+
+	protected final int channelIndex;
 
 	/** The info of the input channel to identify it globally within a task. */
 	protected final InputChannelInfo channelInfo;
@@ -71,12 +89,22 @@ public abstract class InputChannel {
 	/** The maximum backoff (in ms). */
 	protected final int maxBackoff;
 
+	protected final boolean isRecoverable;
+
 	protected final Counter numBytesIn;
 
 	protected final Counter numBuffersIn;
 
 	/** The current backoff (in ms). */
 	private int currentBackoff;
+
+	protected final ScheduledExecutorService executor;
+
+	protected int maxDelayMinutes;
+
+	// channel status
+	private volatile Integer channelStatus = CHANNEL_AVAILABLE;
+	private volatile Boolean readyToUpdate = false;
 
 	protected InputChannel(
 			SingleInputGate inputGate,
@@ -85,7 +113,10 @@ public abstract class InputChannel {
 			int initialBackoff,
 			int maxBackoff,
 			Counter numBytesIn,
-			Counter numBuffersIn) {
+			Counter numBuffersIn,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
+			boolean isRecoverable) {
 
 		checkArgument(channelIndex >= 0);
 
@@ -95,6 +126,7 @@ public abstract class InputChannel {
 		checkArgument(initial >= 0 && initial <= max);
 
 		this.inputGate = checkNotNull(inputGate);
+		this.channelIndex = channelIndex;
 		this.channelInfo = new InputChannelInfo(inputGate.getGateIndex(), channelIndex);
 		this.partitionId = checkNotNull(partitionId);
 
@@ -104,6 +136,10 @@ public abstract class InputChannel {
 
 		this.numBytesIn = numBytesIn;
 		this.numBuffersIn = numBuffersIn;
+
+		this.executor = executor;
+		this.isRecoverable = isRecoverable;
+		this.maxDelayMinutes = maxDelayMinutes;
 	}
 
 	// ------------------------------------------------------------------------
@@ -248,6 +284,14 @@ public abstract class InputChannel {
 		return currentBackoff <= 0 ? 0 : currentBackoff;
 	}
 
+	public int getInitialBackoff() {
+		return initialBackoff;
+	}
+
+	public int getMaxBackoff() {
+		return maxBackoff;
+	}
+
 	/**
 	 * Increases the current backoff and returns whether the operation was successful.
 	 *
@@ -275,6 +319,38 @@ public abstract class InputChannel {
 
 		// Reached maximum backoff
 		return false;
+	}
+
+	// ------------------------------------------------------------------------
+	// Channel availability related method
+	// ------------------------------------------------------------------------
+
+	public boolean isReadyToUpdate() {
+		return readyToUpdate;
+	}
+
+	public void setReadyToUpdate() {
+		if (READY_TO_UPDATE_UPDATER.compareAndSet(this, false, true)) {
+			LOG.info("{} : This is channel is ready to be updated.", this);
+		}
+	}
+
+	public boolean isChannelAvailable() {
+		return channelStatus == CHANNEL_AVAILABLE;
+	}
+
+	public void setChannelUnavailable(Throwable cause) {
+		LOG.warn("Channel " + this + " get exception" + cause.toString());
+		if (CHANNEL_AVAILABLE_UPDATER.compareAndSet(this, CHANNEL_AVAILABLE, CHANNEL_UNAVAILABLE)) {
+			LOG.info("Channel {} becomes unavailable.", channelIndex);
+		}
+
+		executor.schedule(() -> {
+			if (!isReleased() && isReadyToUpdate()) {
+				LOG.warn("Channel {} is still not updated after {} minutes, fail this task.", this, maxDelayMinutes);
+				this.setError(cause);
+			}
+		}, maxDelayMinutes, TimeUnit.MINUTES);
 	}
 
 	// ------------------------------------------------------------------------

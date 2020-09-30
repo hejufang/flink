@@ -141,6 +141,7 @@ public class TaskDeploymentDescriptorFactory {
 	}
 
 	@VisibleForTesting
+	@Deprecated
 	public static TaskDeploymentDescriptorFactory fromExecutionVertex(
 			ExecutionVertex executionVertex,
 			int attemptNumber) throws IOException {
@@ -167,7 +168,7 @@ public class TaskDeploymentDescriptorFactory {
 			getSerializedJobInformation(executionGraph),
 			getSerializedTaskInformation(executionVertex.getJobVertex().getTaskInformationOrBlobKey()),
 			executionGraph.getJobID(),
-			executionGraph.getScheduleMode().allowLazyDeployment(),
+			executionGraph.getScheduleMode().allowLazyDeployment() || executionGraph.isRecoverable(),
 			execution.getParallelSubtaskIndex(),
 			executionVertex.getAllInputEdges(),
 			execution.isCopy());

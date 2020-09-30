@@ -27,13 +27,23 @@ public class DeploymentOption {
 
 	private final boolean deployCopy;
 
+	private final boolean notifyConsumer;
+
 	public DeploymentOption(boolean sendScheduleOrUpdateConsumerMessage) {
-		this(sendScheduleOrUpdateConsumerMessage, false);
+		this(sendScheduleOrUpdateConsumerMessage, false, false);
 	}
 
 	public DeploymentOption(boolean sendScheduleOrUpdateConsumerMessage, boolean deployCopy) {
+		this(sendScheduleOrUpdateConsumerMessage, deployCopy, false);
+	}
+
+	public DeploymentOption(
+			boolean sendScheduleOrUpdateConsumerMessage,
+			boolean deployCopy,
+			boolean notifyConsumer) {
 		this.sendScheduleOrUpdateConsumerMessage = sendScheduleOrUpdateConsumerMessage;
 		this.deployCopy = deployCopy;
+		this.notifyConsumer = notifyConsumer;
 	}
 
 	public boolean sendScheduleOrUpdateConsumerMessage() {
@@ -42,5 +52,40 @@ public class DeploymentOption {
 
 	public boolean isDeployCopy() {
 		return deployCopy;
+	}
+
+	public boolean isNotifyConsumer() {
+		return notifyConsumer;
+	}
+
+	/**
+	 * Builder for {@link DeploymentOption}.
+	 */
+	public static class Builder {
+
+		boolean sendScheduleOrUpdateConsumerMessage;
+		boolean deployCopy;
+		boolean notifyConsumer;
+
+		public Builder() {}
+
+		public Builder sendScheduleOrUpdateConsumerMessage(boolean sendScheduleOrUpdateConsumerMessage) {
+			this.sendScheduleOrUpdateConsumerMessage = sendScheduleOrUpdateConsumerMessage;
+			return this;
+		}
+
+		public Builder deployCopy(boolean deployCopy) {
+			this.deployCopy = deployCopy;
+			return this;
+		}
+
+		public Builder notifyConsumer(boolean notifyConsumer) {
+			this.notifyConsumer = notifyConsumer;
+			return this;
+		}
+
+		public DeploymentOption build() {
+			return new DeploymentOption(sendScheduleOrUpdateConsumerMessage, deployCopy, notifyConsumer);
+		}
 	}
 }

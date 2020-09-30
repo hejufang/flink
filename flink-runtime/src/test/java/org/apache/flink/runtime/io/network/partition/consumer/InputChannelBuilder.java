@@ -113,7 +113,10 @@ public class InputChannelBuilder {
 			connectionManager,
 			initialBackoff,
 			maxBackoff,
-			metrics);
+			metrics,
+			5,
+			null,
+			false);
 	}
 
 	public LocalInputChannel buildLocalChannel(SingleInputGate inputGate) {
@@ -126,7 +129,10 @@ public class InputChannelBuilder {
 			initialBackoff,
 			maxBackoff,
 			metrics.getNumBytesInLocalCounter(),
-			metrics.getNumBuffersInLocalCounter());
+			metrics.getNumBuffersInLocalCounter(),
+			5,
+			null,
+			false);
 	}
 
 	public RemoteInputChannel buildRemoteChannel(SingleInputGate inputGate) {
@@ -139,7 +145,10 @@ public class InputChannelBuilder {
 			initialBackoff,
 			maxBackoff,
 			metrics.getNumBytesInRemoteCounter(),
-			metrics.getNumBuffersInRemoteCounter());
+			metrics.getNumBuffersInRemoteCounter(),
+			5,
+			null,
+			false);
 	}
 
 	public LocalRecoveredInputChannel buildLocalRecoveredChannel(SingleInputGate inputGate) {
@@ -151,7 +160,26 @@ public class InputChannelBuilder {
 			taskEventPublisher,
 			initialBackoff,
 			maxBackoff,
-			metrics);
+			metrics,
+			5,
+			null,
+			false);
+	}
+
+	public RemoteInputChannel buildRemoteAndSetToGate(SingleInputGate inputGate, boolean isRecoverable) {
+		return new RemoteInputChannel(
+				inputGate,
+				channelIndex,
+				partitionId,
+				connectionID,
+				connectionManager,
+				initialBackoff,
+				maxBackoff,
+				metrics.getNumBytesInRemoteCounter(),
+				metrics.getNumBuffersInRemoteCounter(),
+				5,
+				null,
+				isRecoverable);
 	}
 
 	public RemoteRecoveredInputChannel buildRemoteRecoveredChannel(SingleInputGate inputGate) {
@@ -163,6 +191,9 @@ public class InputChannelBuilder {
 			connectionManager,
 			initialBackoff,
 			maxBackoff,
-			metrics);
+			metrics,
+			5,
+			null,
+			false);
 	}
 }

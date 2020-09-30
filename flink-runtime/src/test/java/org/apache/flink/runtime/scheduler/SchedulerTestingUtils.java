@@ -393,7 +393,7 @@ public class SchedulerTestingUtils {
 			this.jobGraph = jobGraph;
 
 			// scheduling strategy is by default set according to the scheduleMode. It can be re-assigned later.
-			this.schedulingStrategyFactory = DefaultSchedulerFactory.createSchedulingStrategyFactory(jobGraph.getScheduleMode());
+			this.schedulingStrategyFactory = DefaultSchedulerFactory.createSchedulingStrategyFactory(jobGraph.getScheduleMode(), jobMasterConfiguration);
 		}
 
 		public DefaultSchedulerBuilder setLogger(final Logger log) {

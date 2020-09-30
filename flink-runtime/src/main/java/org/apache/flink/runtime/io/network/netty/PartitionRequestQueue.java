@@ -74,6 +74,10 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 		super.channelRegistered(ctx);
 	}
 
+	void notifyReaderReleased(final ReleasedCreditBasedSequenceNumberingViewReader reader) {
+		ctx.executor().execute(() -> ctx.pipeline().fireUserEventTriggered(reader));
+	}
+
 	void notifyReaderNonEmpty(final NetworkSequenceViewReader reader) {
 		// The notification might come from the same thread. For the initial writes this
 		// might happen before the reader has set its reference to the view, because
@@ -119,6 +123,12 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 	@VisibleForTesting
 	ArrayDeque<NetworkSequenceViewReader> getAvailableReaders() {
 		return availableReaders;
+	}
+
+	// this is called from netty thread
+	public void removeReader(final NetworkSequenceViewReader reader) {
+		availableReaders.remove(reader);
+		allReaders.remove(reader.getReceiverId());
 	}
 
 	public void notifyReaderCreated(final NetworkSequenceViewReader reader) {
@@ -171,6 +181,31 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
 		if (msg instanceof NetworkSequenceViewReader) {
 			enqueueAvailableReader((NetworkSequenceViewReader) msg);
+		} else if (msg instanceof ReleasedCreditBasedSequenceNumberingViewReader) {
+			// notify downstream tasks
+			ReleasedCreditBasedSequenceNumberingViewReader reader = (ReleasedCreditBasedSequenceNumberingViewReader) msg;
+			Throwable cause = reader.getReader().getFailureCause();
+
+			if (allReaders.containsKey(reader.getReader().getReceiverId())) {
+				return;
+			}
+
+			availableReaders.remove(reader.getReader());
+			allReaders.remove(reader.getReader().getReceiverId());
+
+			// cause may be null here, but we need to notify downstream task no matter what happened
+			ErrorResponse response;
+			if (cause != null) {
+				response = new ErrorResponse(
+						new ProducerFailedException(cause),
+						reader.getReader().getReceiverId());
+			} else {
+				response = new ErrorResponse(
+						new ProducerFailedException(new Exception("Unknown exception.")),
+						reader.getReader().getReceiverId());
+			}
+
+			ctx.writeAndFlush(response);
 		} else if (msg.getClass() == InputChannelID.class) {
 			// Release partition view that get a cancel request.
 			InputChannelID toCancel = (InputChannelID) msg;
@@ -182,6 +217,8 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 			final NetworkSequenceViewReader toRelease = allReaders.remove(toCancel);
 			if (toRelease != null) {
 				releaseViewReader(toRelease);
+			} else {
+				LOG.info("The server does not find the reader for InputChannel({}).", toCancel);
 			}
 		} else {
 			ctx.fireUserEventTriggered(msg);

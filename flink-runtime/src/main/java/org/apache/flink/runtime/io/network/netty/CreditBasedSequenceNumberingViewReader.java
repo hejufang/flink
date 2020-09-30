@@ -211,6 +211,16 @@ class CreditBasedSequenceNumberingViewReader implements BufferAvailabilityListen
 	}
 
 	@Override
+	public void notifyDataUnavailable() {
+		requestQueue.notifyReaderReleased(new ReleasedCreditBasedSequenceNumberingViewReader(this));
+	}
+
+	@Override
+	public void notifyListenerReleased() {
+		requestQueue.removeReader(this);
+	}
+
+	@Override
 	public String toString() {
 		return "CreditBasedSequenceNumberingViewReader{" +
 			"requestLock=" + requestLock +

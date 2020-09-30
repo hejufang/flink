@@ -21,11 +21,13 @@ package org.apache.flink.runtime.io.network.netty;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
 import org.apache.flink.runtime.io.network.netty.exception.LocalTransportException;
+import org.apache.flink.runtime.io.network.netty.exception.ProducerInactiveException;
 import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
 import org.apache.flink.runtime.io.network.netty.exception.TransportException;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.AddCredit;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.TcpConnectionLostException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 
@@ -141,9 +143,11 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 		if (!inputChannels.isEmpty()) {
 			final SocketAddress remoteAddr = ctx.channel().remoteAddress();
 
+			ProducerInactiveException exception = new ProducerInactiveException();
+
 			notifyAllChannelsOfErrorAndClose(new RemoteTransportException(
-				"Connection unexpectedly closed by remote task manager '" + remoteAddr + "'. "
-					+ "This might indicate that the remote task manager was lost.", remoteAddr));
+					"Connection unexpectedly closed by remote task manager '" + remoteAddr + "'. "
+							+ "This might indicate that the remote task manager was lost.", remoteAddr, exception));
 		}
 
 		super.channelInactive(ctx);
@@ -289,6 +293,10 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 
 				if (inputChannel != null) {
 					if (error.cause.getClass() == PartitionNotFoundException.class) {
+						LOG.info("Receive PartitionNotFoundException, try to retrigger the partition request if possible.");
+						inputChannel.onFailedPartitionRequest();
+					} else if (error.cause.getClass() == TcpConnectionLostException.class) {
+						LOG.info("Receive TcpConnectionLostException, try to retrigger the partition request if possible.");
 						inputChannel.onFailedPartitionRequest();
 					} else {
 						inputChannel.onError(new RemoteTransportException(
@@ -344,6 +352,11 @@ class CreditBasedPartitionRequestClientHandler extends ChannelInboundHandlerAdap
 				return;
 			}
 		}
+	}
+
+	@VisibleForTesting
+	public ChannelHandlerContext getCtx() {
+		return ctx;
 	}
 
 	private class WriteAndFlushNextMessageIfPossibleListener implements ChannelFutureListener {

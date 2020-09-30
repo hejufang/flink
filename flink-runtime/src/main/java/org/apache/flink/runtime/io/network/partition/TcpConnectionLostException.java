@@ -18,31 +18,19 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
-import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
-
 import java.io.IOException;
 
 /**
- * Listener interface implemented by consumers of {@link ResultSubpartitionView}
- * that want to be notified of availability of further buffers.
+ * Currently this exception can only be seen with the feature of single task failover and should not
+ * happen very often. Here is the case: assuming that there exists TM-A and TM-B, TM-B goes down before sending its
+ * credits to TM-A, which causes that TM-A cannot send more data because of the lack of the credits. And TM-A
+ * doesn't know the tcp connection is dead until tcp's keep-alive time is passed, which is 7,200 seconds by default.
  */
-public interface BufferAvailabilityListener {
+public class TcpConnectionLostException extends IOException {
 
-	/**
-	 * Called whenever there might be new data available.
-	 */
-	void notifyDataAvailable();
+	private static final long serialVersionUID = 1L;
 
-	/**
-	 * Allows the listener to react to a priority event before it is added to the outgoing buffer queue.
-	 *
-	 * @return true if the event has been fully processed and should not be added to the buffer queue.
-	 */
-	default boolean notifyPriorityEvent(BufferConsumer eventBufferConsumer) throws IOException {
-		return false;
+	public TcpConnectionLostException() {
+		super("The downstream task manager is dead but this task manager knows nothing about it.");
 	}
-
-	default void notifyDataUnavailable() {}
-
-	default void notifyListenerReleased() {}
 }

@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolOwner;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ProcessorArchitecture;
 import org.apache.flink.util.function.FunctionWithException;
 
@@ -66,6 +67,8 @@ public class ResultPartitionFactory {
 
 	private final int maxBuffersPerChannel;
 
+	private final boolean isRecoverable;
+
 	public ResultPartitionFactory(
 		ResultPartitionManager partitionManager,
 		FileChannelManager channelManager,
@@ -77,7 +80,8 @@ public class ResultPartitionFactory {
 		boolean forcePartitionReleaseOnConsumption,
 		boolean blockingShuffleCompressionEnabled,
 		String compressionCodec,
-		int maxBuffersPerChannel) {
+		int maxBuffersPerChannel,
+		boolean isRecoverable) {
 
 		this.partitionManager = partitionManager;
 		this.channelManager = channelManager;
@@ -90,6 +94,7 @@ public class ResultPartitionFactory {
 		this.blockingShuffleCompressionEnabled = blockingShuffleCompressionEnabled;
 		this.compressionCodec = compressionCodec;
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
+		this.isRecoverable = isRecoverable;
 	}
 
 	public ResultPartition create(
@@ -157,6 +162,7 @@ public class ResultPartitionFactory {
 			ResultSubpartition[] subpartitions) {
 		// Create the subpartitions.
 		if (type.isBlocking()) {
+			Preconditions.checkArgument(!isRecoverable);
 			initializeBoundedBlockingPartitions(
 				subpartitions,
 				partition,
@@ -164,8 +170,18 @@ public class ResultPartitionFactory {
 				networkBufferSize,
 				channelManager);
 		} else {
+			initializePipedlinedPartitions(subpartitions, partition, isRecoverable);
+		}
+	}
+
+	private static void initializePipedlinedPartitions(ResultSubpartition[] subpartitions, ResultPartition parent, boolean isRecoverable) {
+		if (isRecoverable) {
 			for (int i = 0; i < subpartitions.length; i++) {
-				subpartitions[i] = new PipelinedSubpartition(i, partition);
+				subpartitions[i] = new RecoverablePipelinedSubpartition(i, parent);
+			}
+		} else {
+			for (int i = 0; i < subpartitions.length; i++) {
+				subpartitions[i] = new PipelinedSubpartition(i, parent);
 			}
 		}
 	}

@@ -28,6 +28,7 @@ import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer.DeserializationResult;
 import org.apache.flink.runtime.io.network.api.serialization.SpillingAdaptiveSpanningRecordDeserializer;
@@ -41,6 +42,9 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
@@ -68,6 +72,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @Internal
 public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
+	private static final Logger LOG = LoggerFactory.getLogger(StreamTaskNetworkInput.class);
 
 	private final CheckpointedInputGate checkpointedInputGate;
 
@@ -193,7 +198,7 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 			checkState(lastChannel != StreamTaskInput.UNSPECIFIED);
 			currentRecordDeserializer = recordDeserializers[lastChannel];
 			checkState(currentRecordDeserializer != null,
-				"currentRecordDeserializer has already been released");
+				"currentRecordDeserializer for channel " + lastChannel + " has already been released");
 
 			currentRecordDeserializer.setNextBuffer(bufferOrEvent.getBuffer());
 		}
@@ -201,7 +206,11 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 			// Event received
 			final AbstractEvent event = bufferOrEvent.getEvent();
 			// TODO: with checkpointedInputGate.isFinished() we might not need to support any events on this level.
-			if (event.getClass() != EndOfPartitionEvent.class) {
+			if (event.getClass() == UnavailableChannelEvent.class) {
+				LOG.info("Receive UnavailableChannelEvent, clean channel {}.", bufferOrEvent.getChannelInfo().getInputChannelIdx());
+				cleanChannel(bufferOrEvent.getChannelInfo().getInputChannelIdx());
+				return;
+			} else if (event.getClass() != EndOfPartitionEvent.class) {
 				throw new IOException("Unexpected event: " + event);
 			}
 
@@ -244,6 +253,20 @@ public final class StreamTaskNetworkInput<T> implements StreamTaskInput<T> {
 			checkpointedInputGate.spillInflightBuffers(checkpointId, channelIndex, channelStateWriter);
 		}
 		return checkpointedInputGate.getAllBarriersReceivedFuture(checkpointId);
+	}
+
+	/**
+	 * Clean buffers when receiving UnavailableChannelEvent.
+	 */
+	public void cleanChannel(int channelIndex) {
+		if (channelIndex < recordDeserializers.length) {
+			RecordDeserializer<?> deserializer = recordDeserializers[channelIndex];
+			Buffer buffer = deserializer.getCurrentBuffer();
+			if (buffer != null && !buffer.isRecycled()) {
+				buffer.recycleBuffer();
+			}
+			deserializer.clear();
+		}
 	}
 
 	@Override

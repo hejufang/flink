@@ -76,6 +76,10 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final int maxBuffersPerChannel;
 
+	private final boolean isRecoverable;
+
+	private final int maxDelayMinutes;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -91,7 +95,9 @@ public class NettyShuffleEnvironmentConfiguration {
 			boolean forcePartitionReleaseOnConsumption,
 			boolean blockingShuffleCompressionEnabled,
 			String compressionCodec,
-			int maxBuffersPerChannel) {
+			int maxBuffersPerChannel,
+			int maxDelayMinutes,
+			boolean isRecoverable) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -108,6 +114,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.blockingShuffleCompressionEnabled = blockingShuffleCompressionEnabled;
 		this.compressionCodec = Preconditions.checkNotNull(compressionCodec);
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
+		this.maxDelayMinutes = maxDelayMinutes;
+		this.isRecoverable = isRecoverable;
 	}
 
 	// ------------------------------------------------------------------------
@@ -172,6 +180,14 @@ public class NettyShuffleEnvironmentConfiguration {
 		return maxBuffersPerChannel;
 	}
 
+	public boolean isRecoverable() {
+		return isRecoverable;
+	}
+
+	public int getMaxDelayMinutes() {
+		return maxDelayMinutes;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -224,6 +240,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean blockingShuffleCompressionEnabled =
 			configuration.get(NettyShuffleEnvironmentOptions.BLOCKING_SHUFFLE_COMPRESSION_ENABLED);
 		String compressionCodec = configuration.getString(NettyShuffleEnvironmentOptions.SHUFFLE_COMPRESSION_CODEC);
+		int maxDelayMinutes = configuration.getInteger(NettyShuffleEnvironmentOptions.MAX_DELAY_MINUTES);
+		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -240,7 +258,9 @@ public class NettyShuffleEnvironmentConfiguration {
 			forcePartitionReleaseOnConsumption,
 			blockingShuffleCompressionEnabled,
 			compressionCodec,
-			maxBuffersPerChannel);
+			maxBuffersPerChannel,
+			maxDelayMinutes,
+			isRecoverable);
 	}
 
 	/**

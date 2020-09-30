@@ -74,6 +74,8 @@ public class ResultPartitionBuilder {
 		return this;
 	}
 
+	private boolean isRecoverable;
+
 	public ResultPartitionBuilder setResultPartitionId(ResultPartitionID partitionId) {
 		this.partitionId = partitionId;
 		return this;
@@ -152,6 +154,11 @@ public class ResultPartitionBuilder {
 		return this;
 	}
 
+	public ResultPartitionBuilder isRecoverable(boolean isRecoverable) {
+		this.isRecoverable = isRecoverable;
+		return this;
+	}
+
 	ResultPartitionBuilder setBoundedBlockingSubpartitionType(
 			@SuppressWarnings("SameParameterValue") BoundedBlockingSubpartitionType blockingSubpartitionType) {
 		this.blockingSubpartitionType = blockingSubpartitionType;
@@ -170,7 +177,8 @@ public class ResultPartitionBuilder {
 			releasedOnConsumption,
 			blockingShuffleCompressionEnabled,
 			compressionCodec,
-			maxBuffersPerChannel);
+			maxBuffersPerChannel,
+			isRecoverable);
 
 		FunctionWithException<BufferPoolOwner, BufferPool, IOException> factory = bufferPoolFactory.orElseGet(() ->
 			resultPartitionFactory.createBufferPoolFactory(numberOfSubpartitions, partitionType));

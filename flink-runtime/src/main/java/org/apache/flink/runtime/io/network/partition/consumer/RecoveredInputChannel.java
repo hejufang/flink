@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -63,8 +64,12 @@ public abstract class RecoveredInputChannel extends InputChannel {
 			int initialBackoff,
 			int maxBackoff,
 			Counter numBytesIn,
-			Counter numBuffersIn) {
-		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, numBytesIn, numBuffersIn);
+			Counter numBuffersIn,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
+			boolean isRecoverable) {
+		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, numBytesIn, numBuffersIn,
+				maxDelayMinutes, executor, isRecoverable);
 
 		bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0);
 	}

@@ -112,6 +112,16 @@ public interface ResultPartitionWriter extends AutoCloseable, AvailabilityProvid
 	 */
 	void flush(int subpartitionIndex);
 
+	default boolean isSubpartitionAvailable(int subpartitionIndex) {
+		return true;
+	}
+
+	default boolean needToCleanBufferBuilder(int subpartitionIndex) {
+		return false;
+	}
+
+	default void markBufferBuilderCleaned(int subpartitionIndex) {}
+
 	/**
 	 * Fail the production of the partition.
 	 *

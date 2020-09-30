@@ -26,10 +26,15 @@ import org.apache.flink.api.common.restartstrategy.RestartStrategies.NoRestartSt
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestartStrategyOptions;
 import org.apache.flink.runtime.executiongraph.restart.NoOrFixedIfCheckpointingEnabledRestartStrategyFactory;
+import org.apache.flink.runtime.executiongraph.restart.RecoverableRestartBackoffTimeStrategy;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -37,6 +42,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * It respects the configs for the legacy {@link RestartStrategy}.
  */
 public final class RestartBackoffTimeStrategyFactoryLoader {
+	private static final Logger LOG = LoggerFactory.getLogger(RestartBackoffTimeStrategyFactoryLoader.class);
 
 	private RestartBackoffTimeStrategyFactoryLoader() {
 	}
@@ -66,6 +72,15 @@ public final class RestartBackoffTimeStrategyFactoryLoader {
 
 		checkNotNull(jobRestartStrategyConfiguration);
 		checkNotNull(clusterConfiguration);
+
+		// special case for recoverable feature
+		if (clusterConfiguration.getBoolean(FORCE_PARTITION_RECOVERABLE)) {
+			try {
+				return RecoverableRestartBackoffTimeStrategy.createFactory(clusterConfiguration);
+			} catch (Exception e) {
+				LOG.error("Fail to load recoverable restart strategy.", e);
+			}
+		}
 
 		return getJobRestartStrategyFactory(jobRestartStrategyConfiguration)
 			.orElse(getClusterRestartStrategyFactory(clusterConfiguration)

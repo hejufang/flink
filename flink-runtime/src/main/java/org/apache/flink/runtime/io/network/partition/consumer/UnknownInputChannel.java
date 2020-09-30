@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -50,6 +51,10 @@ class UnknownInputChannel extends InputChannel {
 
 	private final InputChannelMetrics metrics;
 
+	private final boolean isRecoverable;
+
+	private int maxDelayMinutes;
+
 	public UnknownInputChannel(
 			SingleInputGate gate,
 			int channelIndex,
@@ -59,9 +64,12 @@ class UnknownInputChannel extends InputChannel {
 			ConnectionManager connectionManager,
 			int initialBackoff,
 			int maxBackoff,
-			InputChannelMetrics metrics) {
+			InputChannelMetrics metrics,
+			int maxDelayMinutes,
+			ScheduledExecutorService executor,
+			boolean isRecoverable) {
 
-		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null);
+		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null, maxDelayMinutes, executor, isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -69,6 +77,8 @@ class UnknownInputChannel extends InputChannel {
 		this.metrics = checkNotNull(metrics);
 		this.initialBackoff = initialBackoff;
 		this.maxBackoff = maxBackoff;
+		this.isRecoverable = isRecoverable;
+		this.maxDelayMinutes = maxDelayMinutes;
 	}
 
 	@Override
@@ -128,7 +138,10 @@ class UnknownInputChannel extends InputChannel {
 			initialBackoff,
 			maxBackoff,
 			metrics.getNumBytesInRemoteCounter(),
-			metrics.getNumBuffersInRemoteCounter());
+			metrics.getNumBuffersInRemoteCounter(),
+			maxDelayMinutes,
+			executor,
+			isRecoverable);
 	}
 
 	public LocalInputChannel toLocalInputChannel() {
@@ -141,6 +154,9 @@ class UnknownInputChannel extends InputChannel {
 			initialBackoff,
 			maxBackoff,
 			metrics.getNumBytesInRemoteCounter(),
-			metrics.getNumBuffersInRemoteCounter());
+			metrics.getNumBuffersInRemoteCounter(),
+			maxDelayMinutes,
+			executor,
+			isRecoverable);
 	}
 }

@@ -64,23 +64,23 @@ public class PipelinedSubpartition extends ResultSubpartition {
 	// ------------------------------------------------------------------------
 
 	/** All buffers of this subpartition. Access to the buffers is synchronized on this object. */
-	private final ArrayDeque<BufferConsumer> buffers = new ArrayDeque<>();
+	protected final ArrayDeque<BufferConsumer> buffers = new ArrayDeque<>();
 
 	/** The number of non-event buffers currently in this subpartition. */
 	@GuardedBy("buffers")
-	private int buffersInBacklog;
+	protected int buffersInBacklog;
 
 	/** The read view to consume this subpartition. */
-	private PipelinedSubpartitionView readView;
+	protected PipelinedSubpartitionView readView;
 
 	/** Flag indicating whether the subpartition has been finished. */
-	private boolean isFinished;
+	protected boolean isFinished;
 
 	@GuardedBy("buffers")
-	private boolean flushRequested;
+	protected boolean flushRequested;
 
 	/** Flag indicating whether the subpartition has been released. */
-	private volatile boolean isReleased;
+	protected volatile boolean isReleased;
 
 	/** The total number of buffers (both data and event buffers). */
 	private long totalNumberOfBuffers;
@@ -139,12 +139,12 @@ public class PipelinedSubpartition extends ResultSubpartition {
 		LOG.debug("{}: Finished {}.", parent.getOwningTaskName(), this);
 	}
 
-	private boolean add(BufferConsumer bufferConsumer, boolean finish, boolean insertAsHead) {
+	protected boolean add(BufferConsumer bufferConsumer, boolean finish, boolean insertAsHead) {
 		checkNotNull(bufferConsumer);
 
 		final boolean notifyDataAvailable;
 		synchronized (buffers) {
-			if (isFinished || isReleased) {
+			if (isFinished || isReleased || !isSubpartitionAvailable()) {
 				bufferConsumer.close();
 				return false;
 			}
@@ -214,6 +214,8 @@ public class PipelinedSubpartition extends ResultSubpartition {
 
 			// Make sure that no further buffers are added to the subpartition
 			isReleased = true;
+
+			resetStatistics();
 		}
 
 		LOG.debug("{}: Released {}.", parent.getOwningTaskName(), this);
@@ -221,6 +223,13 @@ public class PipelinedSubpartition extends ResultSubpartition {
 		if (view != null) {
 			view.releaseAllResources();
 		}
+	}
+
+	protected void resetStatistics() {
+		assert Thread.holdsLock(buffers);
+
+		buffersInBacklog = 0;
+		flushRequested = false;
 	}
 
 	@Nullable
@@ -435,7 +444,7 @@ public class PipelinedSubpartition extends ResultSubpartition {
 	 * buffer into this subpartition.
 	 */
 	@GuardedBy("buffers")
-	private void increaseBuffersInBacklog(BufferConsumer buffer) {
+	protected void increaseBuffersInBacklog(BufferConsumer buffer) {
 		assert Thread.holdsLock(buffers);
 
 		if (buffer != null && buffer.isBuffer()) {
@@ -459,12 +468,12 @@ public class PipelinedSubpartition extends ResultSubpartition {
 		}
 	}
 
-	private boolean shouldNotifyDataAvailable() {
+	protected boolean shouldNotifyDataAvailable() {
 		// Notify only when we added first finished buffer.
 		return readView != null && !flushRequested && !isBlockedByCheckpoint && getNumberOfFinishedBuffers() == 1;
 	}
 
-	private void notifyDataAvailable() {
+	protected void notifyDataAvailable() {
 		if (readView != null) {
 			readView.notifyDataAvailable();
 		}

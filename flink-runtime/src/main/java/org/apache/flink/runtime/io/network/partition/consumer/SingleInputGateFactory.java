@@ -45,6 +45,10 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 
@@ -85,13 +89,21 @@ public class SingleInputGateFactory {
 
 	private final BoundedBlockingSubpartitionType blockingSubpartitionType;
 
+	private final boolean isRecoverable;
+
+	private final ScheduledExecutorService executor;
+
+	private final int maxDelayMinutes;
+
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
 			@Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
 			@Nonnull ConnectionManager connectionManager,
 			@Nonnull ResultPartitionManager partitionManager,
 			@Nonnull TaskEventPublisher taskEventPublisher,
-			@Nonnull NetworkBufferPool networkBufferPool) {
+			@Nonnull NetworkBufferPool networkBufferPool,
+			int maxDelayMinutes,
+			boolean isRecoverable) {
 		this.taskExecutorResourceId = taskExecutorResourceId;
 		this.partitionRequestInitialBackoff = networkConfig.partitionRequestInitialBackoff();
 		this.partitionRequestMaxBackoff = networkConfig.partitionRequestMaxBackoff();
@@ -105,6 +117,10 @@ public class SingleInputGateFactory {
 		this.partitionManager = partitionManager;
 		this.taskEventPublisher = taskEventPublisher;
 		this.networkBufferPool = networkBufferPool;
+		this.isRecoverable = isRecoverable;
+		this.maxDelayMinutes = maxDelayMinutes;
+		this.executor = Executors.unconfigurableScheduledExecutorService(
+				new ScheduledThreadPoolExecutor(1, new ThreadPoolExecutor.DiscardPolicy()));
 	}
 
 	/**
@@ -128,6 +144,18 @@ public class SingleInputGateFactory {
 			bufferDecompressor = new BufferDecompressor(networkBufferSize, compressionCodec);
 		}
 
+		ChannelProvider channelProvider = null;
+		if (isRecoverable) {
+			channelProvider = new ChannelProviderImpl(
+					connectionManager,
+					metrics,
+					partitionManager,
+					taskEventPublisher,
+					maxDelayMinutes,
+					executor,
+					isRecoverable);
+		}
+
 		SingleInputGate inputGate = new SingleInputGate(
 			owningTaskName,
 			gateIndex,
@@ -138,7 +166,9 @@ public class SingleInputGateFactory {
 			partitionProducerStateProvider,
 			bufferPoolFactory,
 			bufferDecompressor,
-			networkBufferPool);
+			networkBufferPool,
+			channelProvider,
+			executor);
 
 		createInputChannels(owningTaskName, igdd, inputGate, metrics);
 		return inputGate;
@@ -192,7 +222,10 @@ public class SingleInputGateFactory {
 					connectionManager,
 					partitionRequestInitialBackoff,
 					partitionRequestMaxBackoff,
-					metrics);
+					metrics,
+					maxDelayMinutes,
+					executor,
+					isRecoverable);
 			},
 			nettyShuffleDescriptor ->
 				createKnownInputChannel(
@@ -224,7 +257,10 @@ public class SingleInputGateFactory {
 				taskEventPublisher,
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
-				metrics);
+				metrics,
+				maxDelayMinutes,
+				executor,
+				isRecoverable);
 		} else {
 			// Different instances => remote
 			channelStatistics.numRemoteChannels++;
@@ -236,7 +272,10 @@ public class SingleInputGateFactory {
 				connectionManager,
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
-				metrics);
+				metrics,
+				maxDelayMinutes,
+				executor,
+				isRecoverable);
 		}
 	}
 

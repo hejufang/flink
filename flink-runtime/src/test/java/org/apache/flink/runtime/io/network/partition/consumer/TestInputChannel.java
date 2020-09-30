@@ -62,7 +62,8 @@ public class TestInputChannel extends InputChannel {
 	}
 
 	public TestInputChannel(SingleInputGate inputGate, int channelIndex, boolean reuseLastReturnBuffer, boolean notifyChannelNonEmpty) {
-		super(inputGate, channelIndex, new ResultPartitionID(), 0, 0, new SimpleCounter(), new SimpleCounter());
+		super(inputGate, channelIndex, new ResultPartitionID(), 0, 0, new SimpleCounter(),
+				new SimpleCounter(), 5, null, false);
 		this.reuseLastReturnBuffer = reuseLastReturnBuffer;
 		this.notifyChannelNonEmpty = notifyChannelNonEmpty;
 	}

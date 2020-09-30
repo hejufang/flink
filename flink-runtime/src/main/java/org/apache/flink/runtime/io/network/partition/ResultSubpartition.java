@@ -36,6 +36,12 @@ public abstract class ResultSubpartition {
 
 	/** The info of the subpartition to identify it globally within a task. */
 	protected final ResultSubpartitionInfo subpartitionInfo;
+	/** Status used to decide whether to abandon the record. */
+	public static final int SUBPARTITION_AVAILABLE = 1;
+	public static final int SUBPARTITION_UNAVAILABLE = 2;
+
+	/** The index of the subpartition at the parent partition. */
+	protected final int index;
 
 	/** The parent partition this subpartition belongs to. */
 	protected final ResultPartition parent;
@@ -43,6 +49,7 @@ public abstract class ResultSubpartition {
 	// - Statistics ----------------------------------------------------------
 
 	public ResultSubpartition(int index, ResultPartition parent) {
+		this.index = index;
 		this.parent = parent;
 		this.subpartitionInfo = new ResultSubpartitionInfo(parent.getPartitionIndex(), index);
 	}
@@ -69,6 +76,16 @@ public abstract class ResultSubpartition {
 	public int getSubPartitionIndex() {
 		return subpartitionInfo.getSubPartitionIdx();
 	}
+
+	public boolean isSubpartitionAvailable() {
+		return true;
+	}
+
+	public boolean needToCleanBufferBuilder() {
+		return false;
+	}
+
+	public void markBufferBuilderCleaned() {}
 
 	/**
 	 * Notifies the parent partition about a consumed {@link ResultSubpartitionView}.

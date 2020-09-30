@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.netty.NettyMessage.CloseRequest;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
+import org.apache.flink.runtime.io.network.partition.TcpConnectionLostException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandlerContext;
@@ -96,6 +97,11 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 						request.queueIndex);
 
 					outboundQueue.notifyReaderCreated(reader);
+				} catch (TcpConnectionLostException tcpLost) {
+					// release the reader and view
+					outboundQueue.cancel(request.receiverId);
+					// respond with error and let receiver request again
+					respondWithError(ctx, tcpLost, request.receiverId);
 				} catch (PartitionNotFoundException notFound) {
 					respondWithError(ctx, notFound, request.receiverId);
 				}

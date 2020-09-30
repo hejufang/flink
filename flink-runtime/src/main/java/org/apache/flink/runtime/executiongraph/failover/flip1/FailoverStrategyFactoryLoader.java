@@ -22,12 +22,17 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * A utility class to load NG failover strategy factories from the configuration.
  */
 public final class FailoverStrategyFactoryLoader {
+	private static final Logger LOG = LoggerFactory.getLogger(FailoverStrategyFactoryLoader.class);
 
 	/** Config name for the {@link RestartAllFailoverStrategy}. */
 	public static final String FULL_RESTART_STRATEGY_NAME = "full";
@@ -46,6 +51,16 @@ public final class FailoverStrategyFactoryLoader {
 	 */
 	public static FailoverStrategy.Factory loadFailoverStrategyFactory(final Configuration config) {
 		checkNotNull(config);
+
+		// special case for recoverable feature
+		if (config.getBoolean(FORCE_PARTITION_RECOVERABLE)) {
+			try {
+				return new RecoverableFailoverStrategy.Factory();
+			} catch (Exception e) {
+				LOG.error("Fail to load recoverable restart strategy.", e);
+			}
+		}
+
 
 		final String strategyParam = config.getString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY);
 

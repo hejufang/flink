@@ -101,7 +101,8 @@ public class ResultPartitionFactoryTest extends TestLogger {
 			releasePartitionOnConsumption,
 			false,
 			"LZ4",
-			Integer.MAX_VALUE);
+			Integer.MAX_VALUE,
+			false);
 
 		final ResultPartitionDeploymentDescriptor descriptor = new ResultPartitionDeploymentDescriptor(
 			PartitionDescriptorBuilder

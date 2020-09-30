@@ -78,6 +78,7 @@ public class BoundedBlockingSubpartitionWriteReadTest {
 	@Parameters(name = "type = {0}, compressionEnabled = {1}")
 	public static Collection<Object[]> parameters() {
 		return Arrays.stream(BoundedBlockingSubpartitionType.values())
+				.filter((type) -> !type.equals(BoundedBlockingSubpartitionType.YARN))
 				.map((type) -> new Object[][] { { type, true }, { type, false } })
 				.flatMap(Arrays::stream)
 				.collect(Collectors.toList());

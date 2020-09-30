@@ -27,12 +27,17 @@ import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferReceivedListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.util.CloseableIterator;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -42,6 +47,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -52,6 +58,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * An input channel, which requests a remote partition queue.
  */
 public class RemoteInputChannel extends InputChannel {
+	private static final Logger LOG = LoggerFactory.getLogger(RemoteInputChannel.class);
 
 	/** ID to distinguish this channel from other channels sharing the same TCP connection. */
 	private final InputChannelID id = new InputChannelID();
@@ -110,10 +117,11 @@ public class RemoteInputChannel extends InputChannel {
 		int initialBackOff,
 		int maxBackoff,
 		Counter numBytesIn,
-		Counter numBuffersIn) {
-
-		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, numBytesIn, numBuffersIn);
-
+		Counter numBuffersIn,
+		int maxDelayMinutes,
+		ScheduledExecutorService executor,
+		boolean isRecoverable) {
+		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, numBytesIn, numBuffersIn, maxDelayMinutes, executor, isRecoverable);
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
 		this.bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0);
@@ -177,6 +185,18 @@ public class RemoteInputChannel extends InputChannel {
 		synchronized (receivedBuffers) {
 			next = receivedBuffers.poll();
 			moreAvailable = !receivedBuffers.isEmpty();
+
+			if (!moreAvailable) {
+				if (!isChannelAvailable()) {
+					try {
+						LOG.info("{} : This channel is unavailable, ready to update.", this);
+						setReadyToUpdate();
+						inputGate.tryUpdateInputChannelFromChannelProviderCache(this);
+					} catch (InterruptedException e) {
+						setError(e);
+					}
+				}
+			}
 		}
 
 		if (next == null) {
@@ -447,7 +467,7 @@ public class RemoteInputChannel extends InputChannel {
 				// Similar to notifyBufferAvailable(), make sure that we never add a buffer
 				// after releaseAllResources() released all buffers from receivedBuffers
 				// (see above for details).
-				if (isReleased.get()) {
+				if (isReleased.get() || !isChannelAvailable()) {
 					return;
 				}
 
@@ -492,7 +512,7 @@ public class RemoteInputChannel extends InputChannel {
 		boolean success = false;
 
 		synchronized (receivedBuffers) {
-			if (!isReleased.get()) {
+			if (!isReleased.get() && isChannelAvailable()) {
 				if (expectedSequenceNumber == sequenceNumber) {
 					expectedSequenceNumber++;
 					success = true;
@@ -512,6 +532,25 @@ public class RemoteInputChannel extends InputChannel {
 	}
 
 	public void onError(Throwable cause) {
+		if (isRecoverable) {
+			// send event
+			final boolean wasEmpty;
+			synchronized (receivedBuffers) {
+				setChannelUnavailable(cause);
+
+				wasEmpty = receivedBuffers.isEmpty();
+				try {
+					receivedBuffers.add(EventSerializer.toBuffer(UnavailableChannelEvent.INSTANCE));
+				} catch (IOException e) {
+					throw new RuntimeException("Fail to serialize UnavailableChannelEvent.", e);
+				}
+			}
+			if (wasEmpty) {
+				notifyChannelNonEmpty();
+			}
+
+			return;
+		}
 		setError(cause);
 	}
 
