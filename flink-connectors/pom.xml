@@ -67,6 +67,7 @@ under the License.
 		<module>flink-connector-tos</module>
 		<module>flink-connector-bmq</module>
 		<module>flink-connector-htap</module>
+		<module>flink-connector-doris</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

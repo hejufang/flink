@@ -38,7 +38,7 @@ under the License.
 	<properties>
 		<postgres.version>42.2.10</postgres.version>
 		<otj-pg-embedded.version>0.13.3</otj-pg-embedded.version>
-		<shading.prefix>org.apache.flink.shaded.jdbc</shading.prefix>
+		<shading.prefix>org.apache.flink.jdbc.shaded</shading.prefix>
 	</properties>
 
 	<dependencies>
