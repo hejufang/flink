@@ -42,6 +42,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ContainerNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.node.TextNode;
 
@@ -354,7 +355,11 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 	}
 
 	private StringData convertToString(JsonNode jsonNode) {
-		return StringData.fromString(jsonNode.asText());
+		if (jsonNode instanceof ContainerNode) {
+			return StringData.fromString(jsonNode.toString());
+		} else {
+			return StringData.fromString(jsonNode.asText());
+		}
 	}
 
 	private byte[] convertToBytes(JsonNode jsonNode) {
