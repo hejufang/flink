@@ -131,13 +131,13 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		for (int retry = 1; retry <= lookupOptions.getMaxRetryTimes(); retry++) {
 			try {
 				RowData row = null;
-				String key = String.valueOf(keys[0]);
+				Object key = keys[0];
 				if (deserializationSchema != null) {
-					row = lookupWithSchema(key);
+					row = lookupWithSchema(key.toString());
 				} else {
-					Object value = getValueFromExternal(key);
+					Object value = getValueFromExternal(key.toString());
 					if (value != null) {
-						row = convertToRow(key.getBytes(), value);
+						row = convertToRow(key, value);
 					}
 				}
 				if (row != null) {
@@ -221,15 +221,15 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	 * Converting lookup key and value to internal row. Note that when RedisValueType is not String,
 	 * the elements in value can only be VARCHAR, like ARRAY&lt;BIGINT&gt;.
 	 */
-	public RowData convertToRow(byte[] key, Object value) {
+	public RowData convertToRow(Object key, Object value) {
 		if (options.getRedisValueType().equals(RedisValueType.GENERAL)) {
 			GenericRowData row = new GenericRowData(2);
-			row.setField(0, convertToBasicTypeObj(key, fieldTypes[0]));
+			row.setField(0, convertToBasicTypeObj(key.toString().getBytes(), fieldTypes[0]));
 			row.setField(1, convertToBasicTypeObj((byte[]) value, fieldTypes[1]));
 			return row;
 		} else {
 			Row row = new Row(2);
-			row.setField(0, convertToBasicTypeObj(key, fieldTypes[0]));
+			row.setField(0, key);
 			row.setField(1, value);
 			return (RowData) converter.toInternal(row);
 		}

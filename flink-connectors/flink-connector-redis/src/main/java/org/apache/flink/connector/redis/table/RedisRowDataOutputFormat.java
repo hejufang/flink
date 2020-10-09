@@ -46,6 +46,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -331,9 +332,14 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 
 	private void writeHash(Pipeline pipeline, Row record) {
 		Object key = record.getField(0);
-		Object hashKey = record.getField(1);
-		Object hashValue = record.getField(2);
-		pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
+		if (record.getArity() == 2) {
+			Object hashMap = record.getField(1);
+			pipeline.hmset(key.toString(), (Map<String, String>) hashMap);
+		} else {
+			Object hashKey = record.getField(1);
+			Object hashValue = record.getField(2);
+			pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
+		}
 		setExpire(pipeline, key);
 	}
 

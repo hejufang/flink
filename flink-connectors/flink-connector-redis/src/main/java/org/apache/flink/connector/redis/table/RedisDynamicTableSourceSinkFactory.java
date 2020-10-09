@@ -28,6 +28,7 @@ import org.apache.flink.connector.redis.options.RedisLookupOptions;
 import org.apache.flink.connector.redis.options.RedisOptions;
 import org.apache.flink.connector.redis.utils.RedisSinkMode;
 import org.apache.flink.connector.redis.utils.RedisValueType;
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.connector.format.DecodingFormat;
@@ -82,15 +83,16 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 		final ReadableConfig config = helper.getOptions();
 
-		helper.validate();
-		validateConfigOptions(config);
-
 		EncodingFormat<SerializationSchema<RowData>> encodingFormat =
 			helper.discoverOptionalEncodingFormat(SerializationFormatFactory.class, FactoryUtil.FORMAT)
 				.orElse(null);
+		helper.validate();
+		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		RedisOptions options = getRedisOptions(config);
+		validateSchema(options, physicalSchema);
 		return createRedisDynamicTableSink(
-			getRedisOptions(config),
+			options,
 			getRedisInsertOptions(config),
 			physicalSchema,
 			encodingFormat
@@ -115,15 +117,17 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 		final ReadableConfig config = helper.getOptions();
 
+		DecodingFormat<DeserializationSchema<RowData>> decodingFormat =
+			helper.discoverOptionalDecodingFormat(DeserializationFormatFactory.class, FactoryUtil.FORMAT)
+				.orElse(null);
 		helper.validate();
 		validateConfigOptions(config);
 
-		DecodingFormat<DeserializationSchema<RowData>> decodingFormat = config.getOptional(FORMAT).isPresent() ?
-			helper.discoverDecodingFormat(DeserializationFormatFactory.class, FactoryUtil.FORMAT) : null;
-
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+		RedisOptions options = getRedisOptions(config);
+		validateSchema(options, physicalSchema);
 		return createRedisDynamicTableSource(
-			getRedisOptions(config),
+			options,
 			getRedisLookupOptions(config),
 			physicalSchema,
 			decodingFormat
@@ -229,6 +233,14 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			LOOKUP_CACHE_MAX_ROWS,
 			LOOKUP_CACHE_TTL
 		});
+	}
+
+	private void validateSchema(RedisOptions options, TableSchema schema) {
+		if (options.getRedisValueType().equals(RedisValueType.HASH) && schema.getFieldCount() == 2) {
+			Preconditions.checkState(schema.getFieldDataTypes()[1]
+				.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
+				"Unsupported type for hash value, should be map<varchar, varchar>");
+		}
 	}
 
 	private void checkAllOrNone(ReadableConfig config, ConfigOption<?>[] configOptions) {
