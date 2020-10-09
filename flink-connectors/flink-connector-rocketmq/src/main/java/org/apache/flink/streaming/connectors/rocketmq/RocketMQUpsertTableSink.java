@@ -131,7 +131,7 @@ public class RocketMQUpsertTableSink implements UpsertStreamTableSink<Row> {
 			keyValueSerializationSchema =
 				new KeyValueSerializationSchemaWrapper<>(serializationSchema);
 		} else {
-			int[] keyByFieldIndexes = getKeyByFieldIndexes(schema, keyByFieldNames);
+			int[] keyByFieldIndexes = getIndexesInSchemaByName(schema, keyByFieldNames);
 			keyValueSerializationSchema =
 				new KeyBySerializationSchemaWrapper(keyByFieldIndexes, serializationSchema);
 		}
@@ -139,7 +139,7 @@ public class RocketMQUpsertTableSink implements UpsertStreamTableSink<Row> {
 		MsgDelayLevelSelector<Row> delayLevelSelector = null;
 		String delayLevelField = configurations.get(RocketMQValidator.CONNECTOR_DELAY_FIELD);
 		if (delayLevelField != null) {
-			final int deleyLevelIndex = getKeyByFieldIndexes(schema, delayLevelField)[0];
+			final int deleyLevelIndex = getIndexesInSchemaByName(schema, delayLevelField)[0];
 			delayLevelSelector = row -> Math.min(Math.max(RocketMQConfig.MSG_DELAY_LEVEL00,
 				(Integer) row.getField(deleyLevelIndex)), RocketMQConfig.MSG_DELAY_LEVEL18);
 		}
@@ -167,7 +167,7 @@ public class RocketMQUpsertTableSink implements UpsertStreamTableSink<Row> {
 		return dataStreamSink;
 	}
 
-	private static int[] getKeyByFieldIndexes(TableSchema schema, String keybyFiledNames) {
+	private static int[] getIndexesInSchemaByName(TableSchema schema, String keybyFiledNames) {
 		String[] keyByFiledNames = keybyFiledNames.split(",");
 		int[] keyByFieldIndexes = new int[keyByFiledNames.length];
 
