@@ -23,6 +23,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisMode;
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.FormatDescriptorValidator;
@@ -34,6 +35,7 @@ import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -177,10 +179,20 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 			throw new FlinkRuntimeException("Unsupported data type in incr mode. Supported: string, hash.");
 		}
 
-		builder.setOptions(getRedisOptions(descriptorProperties));
+		RedisOptions options = getRedisOptions(descriptorProperties);
 		TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
+		checkSchema(options, tableSchema);
+		builder.setOptions(options);
 		RedisOutputFormat outputFormat = builder.build();
 		return new RedisUpsertTableSink(tableSchema, outputFormat);
+	}
+
+	private void checkSchema(RedisOptions options, TableSchema tableSchema) {
+		if (options.getRedisDataType().equals(RedisDataType.HASH) && tableSchema.getFieldCount() == 2) {
+			Preconditions.checkState(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())
+				.equals(tableSchema.getFieldDataType(1).get()),
+				"Unsupported type for hash value, should be map<varchar, varchar>");
+		}
 	}
 
 	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {

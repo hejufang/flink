@@ -40,6 +40,7 @@ import redis.clients.jedis.exceptions.JedisException;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -383,12 +384,17 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 
 	private void writeHash(Pipeline pipeline, Row record) {
 		Object key = record.getField(0);
-		Object hashKey = record.getField(1);
-		Object hashValue = record.getField(2);
-		if (key instanceof byte[] && hashKey instanceof byte[] && hashValue instanceof byte[]) {
-			pipeline.hset((byte[]) key, (byte[]) hashKey, (byte[]) hashValue);
+		if (record.getArity() == 2) {
+			Object hash = record.getField(1);
+			pipeline.hmset(key.toString(), (Map<String, String>) hash);
 		} else {
-			pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
+			Object hashKey = record.getField(1);
+			Object hashValue = record.getField(2);
+			if (key instanceof byte[] && hashKey instanceof byte[] && hashValue instanceof byte[]) {
+				pipeline.hset((byte[]) key, (byte[]) hashKey, (byte[]) hashValue);
+			} else {
+				pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
+			}
 		}
 		setExpire(pipeline, key);
 	}
