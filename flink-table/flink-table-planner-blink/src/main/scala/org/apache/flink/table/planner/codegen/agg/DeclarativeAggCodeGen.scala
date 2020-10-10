@@ -87,6 +87,7 @@ class DeclarativeAggCodeGen(
       }
       .map(expr => generator.generateExpression(expr.accept(rexNodeGen)))
 
+    val initializeExprs = createAccumulator(generator)
     val setters = aggBufferAccesses.zipWithIndex.map {
       case (access, index) =>
         val typeTerm = primitiveTypeTermForType(access.resultType)
@@ -94,9 +95,15 @@ class DeclarativeAggCodeGen(
         val memberNullTerm = bufferNullTerms(index)
         ctx.addReusableMember(s"private $typeTerm $memberName;")
         ctx.addReusableMember(s"private boolean $memberNullTerm;")
+        val initializeExpr = initializeExprs(index)
         s"""
            |${access.copyResultTermToTargetIfChanged(ctx, memberName)};
            |$memberNullTerm = ${access.nullTerm};
+           |if (${access.nullTerm}) {
+           |  ${initializeExpr.code}
+           |  $memberNullTerm = ${initializeExpr.nullTerm};
+           |  $memberName = ${initializeExpr.resultTerm};
+           |}
          """.stripMargin
     }
 

@@ -140,14 +140,25 @@ class ImperativeAggCodeGen(
       useStateDataView = true,
       useBackupDataView = false)
 
+    val initializeExpr = createAccumulator(generator).head
     if (isAccTypeInternal) {
       ctx.addReusableMember(s"private $accTypeInternalTerm $accInternalTerm;")
-      s"$accInternalTerm = ${expr.resultTerm};"
+      s"""
+         |$accInternalTerm = ${expr.resultTerm};
+         |if (${expr.nullTerm}) {
+         |  ${initializeExpr.code}
+         |  $accInternalTerm = ${initializeExpr.resultTerm};
+         |}
+      """.stripMargin
     } else {
       ctx.addReusableMember(s"private $accTypeInternalTerm $accInternalTerm;")
       ctx.addReusableMember(s"private $accTypeExternalTerm $accExternalTerm;")
       s"""
          |$accInternalTerm = ${expr.resultTerm};
+         |if (${expr.nullTerm}) {
+         |  ${initializeExpr.code}
+         |  $accInternalTerm = ${initializeExpr.resultTerm};
+         |}
          |$accExternalTerm = ${genToExternal(ctx, externalAccType, accInternalTerm)};
       """.stripMargin
     }
