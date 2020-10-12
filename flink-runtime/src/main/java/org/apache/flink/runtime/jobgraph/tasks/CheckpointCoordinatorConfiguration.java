@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.jobgraph.tasks;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.util.Preconditions;
@@ -49,6 +50,9 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	/** Settings for what to do with checkpoints when a job finishes. */
 	private final CheckpointRetentionPolicy checkpointRetentionPolicy;
+
+	/** Scheduling strategy for checkpoints. */
+	private final CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration;
 
 	/**
 	 * Flag indicating whether exactly once checkpoint mode has been configured.
@@ -86,11 +90,12 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			checkpointRetentionPolicy,
 			isExactlyOnce,
 			isPreferCheckpointForRecovery,
+			CheckpointSchedulingStrategies.defaultStrategy(),
 			tolerableCpFailureNumber,
 			isUnalignedCheckpoint);
 	}
 
-	private CheckpointCoordinatorConfiguration(
+	public CheckpointCoordinatorConfiguration(
 			long checkpointInterval,
 			long checkpointTimeout,
 			long minPauseBetweenCheckpoints,
@@ -98,6 +103,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			CheckpointRetentionPolicy checkpointRetentionPolicy,
 			boolean isExactlyOnce,
 			boolean isPreferCheckpointForRecovery,
+			CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration,
 			int tolerableCpFailureNumber,
 			boolean isUnalignedCheckpointsEnabled) {
 
@@ -117,6 +123,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.checkpointRetentionPolicy = Preconditions.checkNotNull(checkpointRetentionPolicy);
 		this.isExactlyOnce = isExactlyOnce;
 		this.isPreferCheckpointForRecovery = isPreferCheckpointForRecovery;
+		this.checkpointSchedulerConfiguration = Preconditions.checkNotNull(checkpointSchedulerConfiguration);
 		this.tolerableCheckpointFailureNumber = tolerableCpFailureNumber;
 		this.isUnalignedCheckpointsEnabled = isUnalignedCheckpointsEnabled;
 	}
@@ -157,6 +164,10 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		return isUnalignedCheckpointsEnabled;
 	}
 
+	public CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration getCheckpointSchedulerConfiguration() {
+		return checkpointSchedulerConfiguration;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -173,6 +184,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isExactlyOnce == that.isExactlyOnce &&
 			isUnalignedCheckpointsEnabled == that.isUnalignedCheckpointsEnabled &&
 			checkpointRetentionPolicy == that.checkpointRetentionPolicy &&
+			checkpointSchedulerConfiguration == that.checkpointSchedulerConfiguration &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
 			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber;
 	}
@@ -188,6 +200,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isExactlyOnce,
 				isUnalignedCheckpointsEnabled,
 				isPreferCheckpointForRecovery,
+				checkpointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber);
 	}
 
@@ -221,6 +234,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		private CheckpointRetentionPolicy checkpointRetentionPolicy = CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION;
 		private boolean isExactlyOnce = true;
 		private boolean isPreferCheckpointForRecovery = true;
+		private CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration;
 		private int tolerableCheckpointFailureNumber;
 		private boolean isUnalignedCheckpointsEnabled;
 
@@ -233,6 +247,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				checkpointRetentionPolicy,
 				isExactlyOnce,
 				isPreferCheckpointForRecovery,
+				checkpointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber,
 				isUnalignedCheckpointsEnabled
 			);
@@ -270,6 +285,11 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 		public CheckpointCoordinatorConfigurationBuilder setPreferCheckpointForRecovery(boolean preferCheckpointForRecovery) {
 			isPreferCheckpointForRecovery = preferCheckpointForRecovery;
+			return this;
+		}
+
+		public CheckpointCoordinatorConfigurationBuilder setCheckpointSchedulerConfiguration(CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration) {
+			this.checkpointSchedulerConfiguration = checkpointSchedulerConfiguration;
 			return this;
 		}
 

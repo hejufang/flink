@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
+import org.apache.flink.runtime.checkpoint.scheduler.CheckpointScheduler;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -73,11 +74,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
+import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -141,20 +141,14 @@ public class CheckpointCoordinator {
 	 * need to be ascending across job managers. */
 	private final CheckpointIDCounter checkpointIdCounter;
 
-	/** The base checkpoint interval. Actual trigger time may be affected by the
-	 * max concurrent checkpoints and minimum-pause values */
-	private final long baseInterval;
-
 	/** The max time (in ms) that a checkpoint may take. */
 	private final long checkpointTimeout;
-
-	/** The min time(in ms) to delay after a checkpoint could be triggered. Allows to
-	 * enforce minimum processing time between checkpoint attempts */
-	private final long minPauseBetweenCheckpoints;
 
 	/** The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
 	 * It must be single-threaded. Eventually it will be replaced by main thread executor. */
 	private final ScheduledExecutor timer;
+
+	private final CheckpointScheduler checkpointScheduler;
 
 	/** The master checkpoint hooks executed by this checkpoint coordinator. */
 	private final HashMap<String, MasterTriggerRestoreHook<?>> masterHooks;
@@ -167,12 +161,12 @@ public class CheckpointCoordinator {
 	/** The number of consecutive failed trigger attempts. */
 	private final AtomicInteger numUnsuccessfulCheckpointsTriggers = new AtomicInteger(0);
 
-	/** A handle to the current periodic trigger, to cancel it when necessary. */
-	private ScheduledFuture<?> currentPeriodicTrigger;
-
 	/** The timestamp (via {@link Clock#relativeTimeMillis()}) when the last checkpoint
 	 * completed. */
 	private long lastCheckpointCompletionRelativeTime;
+
+	/** The timestamp (via {@link System#nanoTime()}) when the last checkpoint completed. */
+	private long lastCheckpointCompletionNanos;
 
 	/** Flag whether a triggered checkpoint should immediately schedule the next checkpoint.
 	 * Non-volatile, because only accessed in synchronized scope */
@@ -258,23 +252,8 @@ public class CheckpointCoordinator {
 		// sanity checks
 		checkNotNull(checkpointStateBackend);
 
-		// max "in between duration" can be one year - this is to prevent numeric overflows
-		long minPauseBetweenCheckpoints = chkConfig.getMinPauseBetweenCheckpoints();
-		if (minPauseBetweenCheckpoints > 365L * 24 * 60 * 60 * 1_000) {
-			minPauseBetweenCheckpoints = 365L * 24 * 60 * 60 * 1_000;
-		}
-
-		// it does not make sense to schedule checkpoints more often then the desired
-		// time between checkpoints
-		long baseInterval = chkConfig.getCheckpointInterval();
-		if (baseInterval < minPauseBetweenCheckpoints) {
-			baseInterval = minPauseBetweenCheckpoints;
-		}
-
 		this.job = checkNotNull(job);
-		this.baseInterval = baseInterval;
 		this.checkpointTimeout = chkConfig.getCheckpointTimeout();
-		this.minPauseBetweenCheckpoints = minPauseBetweenCheckpoints;
 		this.tasksToTrigger = checkNotNull(tasksToTrigger);
 		this.tasksToWaitFor = checkNotNull(tasksToWaitFor);
 		this.tasksToCommitTo = checkNotNull(tasksToCommitTo);
@@ -295,6 +274,8 @@ public class CheckpointCoordinator {
 		this.masterHooks = new HashMap<>();
 
 		this.timer = timer;
+		this.checkpointScheduler = createCheckpointScheduler(job, this, chkConfig);
+		this.checkpointScheduler.setTimer(timer);
 
 		this.checkpointProperties = CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
@@ -316,7 +297,7 @@ public class CheckpointCoordinator {
 			chkConfig.getMaxConcurrentCheckpoints(),
 			this::rescheduleTrigger,
 			this.clock,
-			this.minPauseBetweenCheckpoints,
+			chkConfig.getMinPauseBetweenCheckpoints(),
 			this.pendingCheckpoints::size,
 			this.lock);
 	}
@@ -386,6 +367,9 @@ public class CheckpointCoordinator {
 				LOG.info("Stopping checkpoint coordinator for job {}.", job);
 
 				periodicScheduling = false;
+
+				// shut down the thread that handles the timeouts and pending triggers
+				checkpointScheduler.shutdownNow();
 
 				// shut down the hooks
 				MasterHooks.close(masterHooks.values(), LOG);
@@ -674,9 +658,7 @@ public class CheckpointCoordinator {
 
 			pendingCheckpoints.put(checkpointID, checkpoint);
 
-			ScheduledFuture<?> cancellerHandle = timer.schedule(
-				new CheckpointCanceller(checkpoint),
-				checkpointTimeout, TimeUnit.MILLISECONDS);
+			ScheduledFuture<?> cancellerHandle = checkpointScheduler.scheduleTimeoutCanceller(new CheckpointCanceller(checkpoint));
 
 			if (!checkpoint.setCancellerHandle(cancellerHandle)) {
 				// checkpoint is already disposed!
@@ -1419,9 +1401,13 @@ public class CheckpointCoordinator {
 		return isTriggering;
 	}
 
+	public CheckpointIDCounter getCheckpointIdCounter() {
+		return checkpointIdCounter;
+	}
+
 	@VisibleForTesting
 	boolean isCurrentPeriodicTriggerAvailable() {
-		return currentPeriodicTrigger != null;
+		return checkpointScheduler.inPeriodicallyScheduling();
 	}
 
 	/**
@@ -1430,7 +1416,7 @@ public class CheckpointCoordinator {
 	 * @return <code>true</code> if periodic checkpoints have been configured.
 	 */
 	public boolean isPeriodicCheckpointingConfigured() {
-		return baseInterval != Long.MAX_VALUE;
+		return checkpointScheduler.isPeriodicCheckpointingConfigured();
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -1447,7 +1433,7 @@ public class CheckpointCoordinator {
 			stopCheckpointScheduler();
 
 			periodicScheduling = true;
-			currentPeriodicTrigger = scheduleTriggerWithDelay(getRandomInitDelay());
+			checkpointScheduler.startScheduling();
 		}
 	}
 
@@ -1455,7 +1441,7 @@ public class CheckpointCoordinator {
 		synchronized (lock) {
 			periodicScheduling = false;
 
-			cancelPeriodicTrigger();
+			checkpointScheduler.stopScheduling();
 
 			final CheckpointException reason =
 				new CheckpointException(CheckpointFailureReason.CHECKPOINT_COORDINATOR_SUSPEND);
@@ -1493,27 +1479,7 @@ public class CheckpointCoordinator {
 		}
 	}
 
-	private void rescheduleTrigger(long tillNextMillis) {
-		cancelPeriodicTrigger();
-		currentPeriodicTrigger = scheduleTriggerWithDelay(tillNextMillis);
-	}
-
-	private void cancelPeriodicTrigger() {
-		if (currentPeriodicTrigger != null) {
-			currentPeriodicTrigger.cancel(false);
-			currentPeriodicTrigger = null;
-		}
-	}
-
-	private long getRandomInitDelay() {
-		return ThreadLocalRandom.current().nextLong(minPauseBetweenCheckpoints, baseInterval + 1L);
-	}
-
-	private ScheduledFuture<?> scheduleTriggerWithDelay(long initDelay) {
-		return timer.scheduleAtFixedRate(
-			new ScheduledTrigger(),
-			initDelay, baseInterval, TimeUnit.MILLISECONDS);
-	}
+	private void rescheduleTrigger(long tillNextMillis) {}
 
 	private void restoreStateToCoordinators(final Map<OperatorID, OperatorState> operatorStates) throws Exception {
 		for (OperatorCoordinatorCheckpointContext coordContext : coordinatorsToCheckpoint) {
@@ -1552,19 +1518,6 @@ public class CheckpointCoordinator {
 	}
 
 	// ------------------------------------------------------------------------
-
-	private final class ScheduledTrigger implements Runnable {
-
-		@Override
-		public void run() {
-			try {
-				triggerCheckpoint(true);
-			}
-			catch (Exception e) {
-				LOG.error("Exception while triggering checkpoint for job {}.", job, e);
-			}
-		}
-	}
 
 	/**
 	 * Discards the given state object asynchronously belonging to the given job, execution attempt
@@ -1740,6 +1693,20 @@ public class CheckpointCoordinator {
 				}
 			}
 		}
+	}
+
+	private void checkAndResetCheckpointScheduler() {
+		if (!shutdown && periodicScheduling && !checkpointScheduler.isScheduling()) {
+			synchronized (lock) {
+				if (pendingCheckpoints.isEmpty() || allPendingCheckpointsDiscarded()) {
+					checkpointScheduler.startScheduling();
+				}
+			}
+		}
+	}
+
+	private boolean allPendingCheckpointsDiscarded() {
+		return pendingCheckpoints.values().stream().allMatch(PendingCheckpoint::isDiscarded);
 	}
 
 	private static CheckpointException getCheckpointException(

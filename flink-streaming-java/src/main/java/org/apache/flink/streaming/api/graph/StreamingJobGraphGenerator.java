@@ -965,6 +965,7 @@ public class StreamingJobGraphGenerator {
 				.setCheckpointRetentionPolicy(retentionAfterTermination)
 				.setExactlyOnce(getCheckpointingMode(cfg) == CheckpointingMode.EXACTLY_ONCE)
 				.setPreferCheckpointForRecovery(cfg.isPreferCheckpointForRecovery())
+				.setCheckpointSchedulerConfiguration(cfg.getCheckpointSchedulerConfiguration())
 				.setTolerableCheckpointFailureNumber(cfg.getTolerableCheckpointFailureNumber())
 				.setUnalignedCheckpointsEnabled(cfg.isUnalignedCheckpointsEnabled())
 				.build(),
