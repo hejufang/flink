@@ -25,9 +25,12 @@ import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
+import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkRowDataFieldHashPartitioner;
 import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 
@@ -94,8 +97,15 @@ public class KafkaOptions {
 			.withDescription("Optional output partitioning from Flink's partitions\n"
 					+ "into Kafka's partitions valid enumerations are\n"
 					+ "\"fixed\": (each Flink partition ends up in at most one Kafka partition),\n"
-					+ "\"round-robin\": (a Flink partition is distributed to Kafka partitions round-robin)\n"
+					+ "\"round-robin\": (a Flink partition is distributed to Kafka partitions round-robin),\n"
+					+ "\"row-fields-hash\": (a Flink partition is partitioned by specific field)\n"
 					+ "\"custom class name\": (use a custom FlinkKafkaPartitioner subclass)");
+
+	public static final ConfigOption<String> SINK_PARTITIONER_FIELD = ConfigOptions
+			.key("sink.keyby-fields")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Specific key field");
 
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations
@@ -118,6 +128,7 @@ public class KafkaOptions {
 	// Sink partitioner.
 	public static final String SINK_PARTITIONER_VALUE_FIXED = "fixed";
 	public static final String SINK_PARTITIONER_VALUE_ROUND_ROBIN = "round-robin";
+	public static final String SINK_PARTITIONER_ROW_FIELD_HASH = "row-fields-hash";
 
 	private static final Set<String> SINK_PARTITIONER_ENUMS = new HashSet<>(Arrays.asList(
 			SINK_PARTITIONER_VALUE_FIXED,
@@ -259,7 +270,8 @@ public class KafkaOptions {
 	 */
 	public static Optional<FlinkKafkaPartitioner<RowData>> getFlinkKafkaPartitioner(
 			ReadableConfig tableOptions,
-			ClassLoader classLoader) {
+			ClassLoader classLoader,
+			TableSchema schema) {
 		return tableOptions.getOptional(SINK_PARTITIONER)
 				.flatMap((String partitioner) -> {
 					switch (partitioner) {
@@ -267,6 +279,17 @@ public class KafkaOptions {
 						return Optional.of(new FlinkFixedPartitioner<>());
 					case SINK_PARTITIONER_VALUE_ROUND_ROBIN:
 						return Optional.empty();
+					case SINK_PARTITIONER_ROW_FIELD_HASH:
+						String keybyFieldNames = tableOptions.getOptional(SINK_PARTITIONER_FIELD)
+							.orElseThrow(
+								() -> new IllegalArgumentException(
+									String.format("Use '%s' must specific field '%s'", SINK_PARTITIONER_ROW_FIELD_HASH, SINK_PARTITIONER_FIELD.key())));
+						int[] fieldIndexList = schema.getIndexListFromFieldNames(keybyFieldNames);
+						DataType[] dataTypes = new DataType[fieldIndexList.length];
+						for (int i = 0; i < dataTypes.length; i++) {
+							dataTypes[i] = schema.getFieldDataType(fieldIndexList[i]).get();
+						}
+						return Optional.of(new FlinkRowDataFieldHashPartitioner(fieldIndexList, dataTypes));
 					// Default fallback to full class name of the partitioner.
 					default:
 						return Optional.of(initializePartitioner(partitioner, classLoader));

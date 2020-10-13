@@ -199,6 +199,20 @@ public class TableSchema {
 	}
 
 	/**
+	 * Returns the specified index for the given field name.
+	 *
+	 * @param fieldName the name of the field
+	 */
+	private Optional<Integer> getFieldNameIndex(String fieldName) {
+		for (int i = 0; i < columns.size(); i++) {
+			if (columns.get(i).getName().equals(fieldName)) {
+				return Optional.of(i);
+			}
+		}
+		return Optional.empty();
+	}
+
+	/**
 	 * Returns the {@link TableColumn} instance for the given field index.
 	 *
 	 * @param fieldIndex the index of the field
@@ -367,6 +381,23 @@ public class TableSchema {
 
 	public static Builder builder() {
 		return new Builder();
+	}
+
+	public int[] getIndexListFromFieldNames(String filedNames) {
+		String[] filedNameArray = filedNames.split(",");
+		int [] keybyFieldIndexArray = new int[filedNameArray.length];
+
+		for (int i = 0; i < filedNameArray.length; i++) {
+			String keybyFieldName = filedNameArray[i].trim();
+			int fieldIndex = getFieldNameIndex(keybyFieldName)
+				.orElseThrow(() -> new IllegalArgumentException(
+					String.format("keyby field '%s' not found in table. All field names are : %s.",
+						keybyFieldName,
+						Arrays.asList(getFieldNames()))));
+			keybyFieldIndexArray[i] = fieldIndex;
+		}
+
+		return keybyFieldIndexArray;
 	}
 
 	//~ Tools ------------------------------------------------------------------

@@ -48,6 +48,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCA
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_SPECIFIC_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER_FIELD;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.TOPIC;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getFlinkKafkaPartitioner;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getKafkaProperties;
@@ -109,7 +110,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				consumedDataType,
 				topic,
 				getKafkaProperties(context.getCatalogTable().getOptions()),
-				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader()),
+				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), context.getCatalogTable().getSchema()),
 				encodingFormat);
 	}
 
@@ -165,6 +166,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_STARTUP_SPECIFIC_OFFSETS);
 		options.add(SCAN_STARTUP_TIMESTAMP_MILLIS);
 		options.add(SINK_PARTITIONER);
+		options.add(SINK_PARTITIONER_FIELD);
 		return options;
 	}
 }
