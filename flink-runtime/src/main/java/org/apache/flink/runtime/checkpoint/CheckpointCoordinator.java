@@ -1112,7 +1112,7 @@ public class CheckpointCoordinator {
 	 * restore from.
 	 * @param allowNonRestoredState Allow checkpoint state that cannot be mapped
 	 * to any job vertex in tasks.
-	 * @param findCheckpointInCheckpointStore whether find checkpoint in checkpointStore.
+	 * @param findCheckpointInCheckpointStorage whether find checkpoint in checkpointStore.
 	 * @param userClassLoader The class loader to resolve serialized classes in legacy savepoint versions.
 	 * @return <code>true</code> if state was restored, <code>false</code> otherwise.
 	 * @throws IllegalStateException If the CheckpointCoordinator is shut down.
@@ -1131,7 +1131,7 @@ public class CheckpointCoordinator {
 			Map<JobVertexID, ExecutionJobVertex> tasks,
 			boolean errorIfNoCheckpoint,
 			boolean allowNonRestoredState,
-			boolean findCheckpointInCheckpointStore,
+			boolean findCheckpointInCheckpointStorage,
 			@Nullable ClassLoader userClassLoader) throws Exception {
 
 		synchronized (lock) {
@@ -1146,10 +1146,15 @@ public class CheckpointCoordinator {
 			sharedStateRegistry = sharedStateRegistryFactory.create(executor);
 
 			// Recover the checkpoints, TODO this could be done only when there is a new leader, not on each recovery
-			completedCheckpointStore.recover();
+			// do not need to recover the checkpoint store on failover
+			// if findCheckpointInCheckpointStorage equals to true, it means the job just starts and needs to load
+			// checkpoint from HDFS
+			if (findCheckpointInCheckpointStorage) {
+				completedCheckpointStore.recover();
+			}
 
 			final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
-					tasks, allowNonRestoredState, findCheckpointInCheckpointStore, userClassLoader);
+					tasks, allowNonRestoredState, findCheckpointInCheckpointStorage, userClassLoader);
 			LOG.info("Find {} checkpoints on HDFS.", checkpointsOnStorage.size());
 			final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
 					.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
