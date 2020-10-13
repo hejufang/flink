@@ -847,11 +847,11 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			log.info("Received MSG_TYPE_GANG_SCHEDULE_FAILED message, {}", msg);
 			GangSchedulerNotifyContent gangSchedulerNotifyContent = msg.getNotifyContent().getGangSchedulerNotifyContent();
 			if (!fatalOnGangFailed) {
-				if (numPendingContainerRequests >= gangSchedulerNotifyContent.getRequestedContainerNum()) {
-					runAsync(() -> {
+				runAsync(() -> {
+						if (numPendingContainerRequests >= gangSchedulerNotifyContent.getRequestedContainerNum()) {
 							final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
 							final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
-							for (int i = 0; i < gangSchedulerNotifyContent.getRequestedContainerNum(); i++) {
+							for (int i = 0; i < gangSchedulerNotifyContent.getRequestedContainerNum() && pendingRequestsIterator.hasNext(); i++) {
 								removeContainerRequest(pendingRequestsIterator.next(), false);
 							}
 
@@ -861,7 +861,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 									gangLastDowngradeTimestamp = System.currentTimeMillis();
 								} else {
 									String fatalMessage = "Request container by GangScheduler failed more than "
-											+ gangCurrentRetryTimes + " times, " + gangSchedulerNotifyContent;
+										+ gangCurrentRetryTimes + " times, " + gangSchedulerNotifyContent;
 									onFatalError(new RuntimeException(fatalMessage));
 								}
 							}
@@ -870,12 +870,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								this::recordFailureAndStartNewWorkerIfNeeded,
 								flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS),
 								TimeUnit.MILLISECONDS);
+						} else {
+							log.info("Failed containerRequests:{} more than pending:{}. It is AMRMClient auto request, ignore.",
+								gangSchedulerNotifyContent.getRequestedContainerNum(), numPendingContainerRequests);
 						}
-					);
-				} else {
-					log.info("Failed containerRequests:{} more than pending:{}. It is AMRMClient auto request, ignore.",
-						gangSchedulerNotifyContent.getRequestedContainerNum(), numPendingContainerRequests);
-				}
+					}
+				);
 			} else {
 				String fatalMessage = "Request new container by GangScheduler failed, " + gangSchedulerNotifyContent;
 				onFatalError(fatalMessage, flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_FATAL_MS));
