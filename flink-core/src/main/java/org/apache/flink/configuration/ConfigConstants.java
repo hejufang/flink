@@ -2073,6 +2073,9 @@ public final class ConfigConstants {
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 
+	/** Config partition key for kafka. */
+	public static final String PARTITION_LIST_KEY = "partition_list";
+
 	/**
 	 * Not instantiable.
 	 */

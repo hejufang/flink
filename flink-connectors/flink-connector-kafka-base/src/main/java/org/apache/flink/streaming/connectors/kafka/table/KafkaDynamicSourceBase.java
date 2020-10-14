@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
@@ -67,6 +68,9 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 	/** Properties for the Kafka consumer. */
 	protected final Properties properties;
 
+	/** Properties for the flink source. */
+	protected final Properties otherProperties;
+
 	/** The startup mode for the contained consumer (default is {@link StartupMode#GROUP_OFFSETS}). */
 	protected final StartupMode startupMode;
 
@@ -78,6 +82,17 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 
 	/** The default value when startup timestamp is not used.*/
 	private static final long DEFAULT_STARTUP_TIMESTAMP_MILLIS = 0L;
+
+	protected KafkaDynamicSourceBase(
+		DataType outputDataType,
+		String topic,
+		Properties properties,
+		DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
+		StartupMode startupMode,
+		Map<KafkaTopicPartition, Long> specificStartupOffsets,
+		long startupTimestampMillis) {
+		this(outputDataType, topic, properties, decodingFormat, startupMode, specificStartupOffsets, startupTimestampMillis, null);
+	}
 
 	/**
 	 * Creates a generic Kafka {@link StreamTableSource}.
@@ -99,7 +114,8 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 			DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
-			long startupTimestampMillis) {
+			long startupTimestampMillis,
+			Properties otherProperties) {
 		this.outputDataType = Preconditions.checkNotNull(
 				outputDataType, "Produced data type must not be null.");
 		this.topic = Preconditions.checkNotNull(topic, "Topic must not be null.");
@@ -110,6 +126,7 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		this.specificStartupOffsets = Preconditions.checkNotNull(
 			specificStartupOffsets, "Specific offsets must not be null.");
 		this.startupTimestampMillis = startupTimestampMillis;
+		this.otherProperties = otherProperties;
 	}
 
 	@Override
@@ -124,6 +141,7 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		// Version-specific Kafka consumer
 		FlinkKafkaConsumerBase<RowData> kafkaConsumer =
 				getKafkaConsumer(topic, properties, deserializationSchema);
+		kafkaConsumer.setWhiteTopicPartitionList(otherProperties.getProperty(ConfigConstants.PARTITION_LIST_KEY));
 		return SourceFunctionProvider.of(kafkaConsumer, false);
 	}
 

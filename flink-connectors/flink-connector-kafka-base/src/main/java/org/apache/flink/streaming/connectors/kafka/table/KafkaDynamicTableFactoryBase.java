@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
@@ -43,7 +44,9 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPERTIES_PREFIX;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_GROUP_ID;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_SPECIFIC_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
@@ -87,7 +90,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				decodingFormat,
 				startupOptions.startupMode,
 				startupOptions.specificOffsets,
-				startupOptions.startupTimestampMillis);
+				startupOptions.startupTimestampMillis,
+				getOtherProperties(context.getCatalogTable().getOptions()));
 	}
 
 	@Override
@@ -132,7 +136,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
-			long startupTimestampMillis);
+			long startupTimestampMillis,
+			Properties otherProperties);
 
 	/**
 	 * Constructs the version-specific Kafka table sink.
@@ -165,8 +170,19 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_STARTUP_MODE);
 		options.add(SCAN_STARTUP_SPECIFIC_OFFSETS);
 		options.add(SCAN_STARTUP_TIMESTAMP_MILLIS);
+		options.add(SCAN_PARTITION_RANGE);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
 		return options;
+	}
+
+	private Properties getOtherProperties(Map<String, String> properties) {
+		Properties otherProperties = new Properties();
+		String partitionRange = properties.get(SCAN_PARTITION_RANGE.key());
+		String cluster = properties.get(PROPERTIES_PREFIX + ".cluster");
+		String topic = properties.get(TOPIC.key());
+		String partitionRangeConf = cluster + "||" + topic + "||" + partitionRange;
+		otherProperties.put(ConfigConstants.PARTITION_LIST_KEY, partitionRangeConf);
+		return otherProperties;
 	}
 }

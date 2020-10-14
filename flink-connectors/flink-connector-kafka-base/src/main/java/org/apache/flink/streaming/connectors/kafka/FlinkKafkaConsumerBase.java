@@ -32,6 +32,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
@@ -173,6 +174,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Data for pending but uncommitted offsets. */
 	private final LinkedMap pendingOffsetsToCommit = new LinkedMap();
 
+	/** User-supplied properties for Kafka. **/
+	protected final Properties properties;
+
 	/** The fetcher implements the connections to the Kafka brokers. */
 	private transient volatile AbstractFetcher<T, ?> kafkaFetcher;
 
@@ -223,7 +227,17 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	 */
 	private transient KafkaCommitCallback offsetCommitCallback;
 
+	private String whiteTopicPartitionList;
 	// ------------------------------------------------------------------------
+
+	public FlinkKafkaConsumerBase(
+		List<String> topics,
+		Pattern topicPattern,
+		KafkaDeserializationSchema<T> deserializer,
+		long discoveryIntervalMillis,
+		boolean useMetrics) {
+		this(topics, topicPattern, deserializer, discoveryIntervalMillis, useMetrics, null);
+	}
 
 	/**
 	 * Base constructor.
@@ -233,13 +247,15 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	 * @param deserializer The deserializer to turn raw byte messages into Java/Scala objects.
 	 * @param discoveryIntervalMillis the topic / partition discovery interval, in
 	 *                                milliseconds (0 if discovery is disabled).
+	 * @param props The deserializer to turn raw byte messages into Java/Scala objects.
 	 */
 	public FlinkKafkaConsumerBase(
 			List<String> topics,
 			Pattern topicPattern,
 			KafkaDeserializationSchema<T> deserializer,
 			long discoveryIntervalMillis,
-			boolean useMetrics) {
+			boolean useMetrics,
+			Properties props) {
 		this.topicsDescriptor = new KafkaTopicsDescriptor(topics, topicPattern);
 		this.deserializer = checkNotNull(deserializer, "valueDeserializer");
 
@@ -247,7 +263,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			discoveryIntervalMillis == PARTITION_DISCOVERY_DISABLED || discoveryIntervalMillis >= 0,
 			"Cannot define a negative value for the topic / partition discovery interval.");
 		this.discoveryIntervalMillis = discoveryIntervalMillis;
-
+		this.properties = props;
 		this.useMetrics = useMetrics;
 	}
 
@@ -550,7 +566,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		this.partitionDiscoverer.open();
 
 		subscribedPartitionsToStartOffsets = new HashMap<>();
-		final List<KafkaTopicPartition> allPartitions = partitionDiscoverer.discoverPartitions();
+		final List<KafkaTopicPartition> allPartitions = filterPartitions(partitionDiscoverer.discoverPartitions());
 		if (restoredState != null) {
 			for (KafkaTopicPartition partition : allPartitions) {
 				if (!restoredState.containsKey(partition)) {
@@ -798,7 +814,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 					final List<KafkaTopicPartition> discoveredPartitions;
 					try {
-						discoveredPartitions = partitionDiscoverer.discoverPartitions();
+						discoveredPartitions = filterPartitions(partitionDiscoverer.discoverPartitions());
 					} catch (AbstractPartitionDiscoverer.WakeupException | AbstractPartitionDiscoverer.ClosedException e) {
 						// the partition discoverer may have been closed or woken up before or during the discovery;
 						// this would only happen if the consumer was canceled; simply escape the loop
@@ -1110,5 +1126,113 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		@SuppressWarnings("unchecked")
 		Class<Tuple2<KafkaTopicPartition, Long>> tupleClass = (Class<Tuple2<KafkaTopicPartition, Long>>) (Class<?>) Tuple2.class;
 		return new TupleSerializer<>(tupleClass, fieldSerializers);
+	}
+
+	/**
+	 * Set the topic partition list, for example: "cluster1||topic1||1,3-5;cluster2||topic2||1,2,3".
+	 *
+	 * @param whiteTopicPartitionList the partition list which want to consume
+	 */
+	public void setWhiteTopicPartitionList(String whiteTopicPartitionList) {
+		this.whiteTopicPartitionList = whiteTopicPartitionList;
+	}
+
+	private List<KafkaTopicPartition> filterPartitions(List<KafkaTopicPartition> topicPartitionList) {
+		List<KafkaTopicPartition> result = new ArrayList<>();
+		if (topicPartitionList == null || topicPartitionList.isEmpty()) {
+			return result;
+		}
+		String kafkaCluster = this.properties.getProperty("cluster");
+		if (kafkaCluster == null || kafkaCluster.isEmpty()) {
+			return result;
+		}
+
+		// The kafka partition_list property overrides the same system environment.
+		if (whiteTopicPartitionList == null || whiteTopicPartitionList.isEmpty()) {
+			whiteTopicPartitionList = System.getenv(ConfigConstants.PARTITION_LIST_KEY);
+		}
+		LOG.info("topicPartitionListStr = {}", whiteTopicPartitionList);
+		List<KafkaTopicPartition> whiteTopicPartitions =
+			parseTopicPartitionList(whiteTopicPartitionList, kafkaCluster);
+		LOG.info("The white partition info = {}", whiteTopicPartitions);
+		if (!whiteTopicPartitions.isEmpty()) {
+			for (KafkaTopicPartition kafkaTopicPartition : topicPartitionList) {
+				if (whiteTopicPartitions.contains(kafkaTopicPartition)) {
+					result.add(kafkaTopicPartition);
+				}
+			}
+		} else {
+			result = topicPartitionList;
+		}
+		return result;
+	}
+
+	/**
+	 * Get topic partition list of the kafka cluster from topicPartitionListStr.
+	 *
+	 * @param topicPartitionListStr for example: partitionListStr="cluster1||topic1||1,3-5;cluster2||topic2||1,2,3"
+	 * @param kafkaCluster which cluster we will get
+	 * @return The kafka topic partitions on kafkaCluster
+	 */
+	private List<KafkaTopicPartition> parseTopicPartitionList(
+		String topicPartitionListStr,
+		String kafkaCluster) {
+		List<KafkaTopicPartition> topicPartitions = new ArrayList<>();
+		if (topicPartitionListStr != null && !topicPartitionListStr.isEmpty()) {
+			topicPartitionListStr = topicPartitionListStr.replace(" ", "");
+			String[] topicItems = topicPartitionListStr.split(";");
+			for (String topicItem : topicItems) {
+				if (topicItem != null) {
+					String[] items = topicItem.split("\\|\\|", 3);
+					if (items.length == 3) {
+						if (kafkaCluster.equals(items[0])) {
+							List<Integer> whitePartitions = parsePartitionList(items[2]);
+							for (Integer whitePartition : whitePartitions) {
+								topicPartitions.add(new KafkaTopicPartition(items[1], whitePartition));
+							}
+						}
+					}
+				}
+			}
+		}
+		return topicPartitions;
+	}
+
+	/**
+	 * Convert partition range str to list.
+	 *
+	 * @param partitionListStr for example: 1-3,5
+	 * @return the list of partition
+	 */
+	private List<Integer> parsePartitionList(String partitionListStr) {
+		List<Integer> result = new ArrayList<>();
+		if (partitionListStr == null) {
+			return null;
+		}
+		String[] rangeList = partitionListStr.split(",");
+		try {
+			for (String range : rangeList) {
+				if (range.contains("-")) {
+					String rangeStr = range.trim();
+					String[] s = rangeStr.split("-");
+					if (s.length >= 2) {
+						int start = Integer.parseInt(s[0]);
+						int end = Integer.parseInt(s[1]);
+						for (int i = start; i <= end; i++) {
+							result.add(i);
+						}
+					}
+				} else {
+					int partition = Integer.parseInt(range.trim());
+					result.add(partition);
+				}
+			}
+		} catch (Throwable t) {
+			String errorMsg = String.format("Failed to parse kafka partition list %s, " +
+				"example: 'cluster1||topic1||1,3-5' represent set partition white list for " +
+				"cluster1-topic1 to {1,3,4,5}.", partitionListStr);
+			throw new RuntimeException(errorMsg, t);
+		}
+		return result;
 	}
 }

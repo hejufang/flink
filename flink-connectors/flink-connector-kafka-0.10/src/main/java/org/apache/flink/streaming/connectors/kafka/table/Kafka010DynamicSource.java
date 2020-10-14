@@ -59,8 +59,8 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
-			long startupTimestampMillis) {
-
+			long startupTimestampMillis,
+			Properties otherProperties) {
 		super(
 			outputDataType,
 			topic,
@@ -68,7 +68,8 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			decodingFormat,
 			startupMode,
 			specificStartupOffsets,
-			startupTimestampMillis);
+			startupTimestampMillis,
+			otherProperties);
 	}
 
 	@Override
@@ -88,7 +89,8 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 				this.decodingFormat,
 				this.startupMode,
 				this.specificStartupOffsets,
-				this.startupTimestampMillis);
+				this.startupTimestampMillis,
+				this.otherProperties);
 	}
 
 	@Override

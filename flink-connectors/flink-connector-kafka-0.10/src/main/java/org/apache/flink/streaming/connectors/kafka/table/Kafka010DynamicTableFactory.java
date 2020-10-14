@@ -47,8 +47,8 @@ public class Kafka010DynamicTableFactory extends KafkaDynamicTableFactoryBase {
 			DecodingFormat<DeserializationSchema<RowData>> decodingFormat,
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
-			long startupTimestampMillis) {
-
+			long startupTimestampMillis,
+			Properties otherProperties) {
 		return new Kafka010DynamicSource(
 			producedDataType,
 			topic,
@@ -56,7 +56,8 @@ public class Kafka010DynamicTableFactory extends KafkaDynamicTableFactoryBase {
 			decodingFormat,
 			startupMode,
 			specificStartupOffsets,
-			startupTimestampMillis);
+			startupTimestampMillis,
+			otherProperties);
 	}
 
 	@Override

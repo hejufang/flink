@@ -86,6 +86,12 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Optional timestamp used in case of \"timestamp\" startup mode");
 
+	public static final ConfigOption<String> SCAN_PARTITION_RANGE = ConfigOptions
+			.key("scan.source-partition-range")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Optional kafka source partition range");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
