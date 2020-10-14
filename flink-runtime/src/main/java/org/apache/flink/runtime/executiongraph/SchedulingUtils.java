@@ -237,6 +237,7 @@ public class SchedulingUtils {
 						message += ", execution status: " + executionMessageBuilder.toString();
 
 						resultThrowable = new NoResourceAvailableException(message);
+						executionGraph.incrementNoResourceAvailableException();
 					} else {
 						resultThrowable = strippedThrowable;
 					}

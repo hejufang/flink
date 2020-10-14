@@ -285,6 +285,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** Counts all restarts. Used by other Gauges/Meters and does not register to metric group. */
 	private final Counter numberOfRestartsCounter = new SimpleCounter();
 
+	private final Counter noResourceAvailableExceptionCounter = new SimpleCounter();
+
 	// ------ Configuration of the Execution -------
 
 	/** Flag to indicate whether the scheduler may queue tasks for execution, or needs to be able
@@ -901,6 +903,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	 */
 	public long getNumberOfRestarts() {
 		return numberOfRestartsCounter.getCount();
+	}
+
+	public Counter getNoResourceAvailableExceptionCounter() {
+		return noResourceAvailableExceptionCounter;
 	}
 
 	@Override
@@ -1557,6 +1563,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public void incrementRestarts() {
 		numberOfRestartsCounter.inc();
+	}
+
+	public void incrementNoResourceAvailableException() {
+		noResourceAvailableExceptionCounter.inc();
 	}
 
 	private void initFailureCause(Throwable t) {

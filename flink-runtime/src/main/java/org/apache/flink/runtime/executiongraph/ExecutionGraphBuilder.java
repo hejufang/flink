@@ -92,6 +92,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class ExecutionGraphBuilder {
 	private static final Logger LOG = LoggerFactory.getLogger(ExecutionGraphBuilder.class);
+	private static final String NO_RESOURCE_AVAILABLE_EXCEPTION_METRIC = "noResourceAvailableException";
 
 	/**
 	 * Builds the ExecutionGraph from the JobGraph.
@@ -492,6 +493,7 @@ public class ExecutionGraphBuilder {
 		metrics.gauge(DownTimeGauge.METRIC_NAME, new DownTimeGauge(executionGraph));
 		metrics.gauge(UpTimeGauge.METRIC_NAME, new UpTimeGauge(executionGraph));
 		metrics.gauge(NumberOfFullRestartsGauge.METRIC_NAME, new NumberOfFullRestartsGauge(executionGraph));
+		metrics.counter(NO_RESOURCE_AVAILABLE_EXCEPTION_METRIC, executionGraph.getNoResourceAvailableExceptionCounter());
 		metrics.gauge(ExecutionGraph.EVENT_METRIC_NAME, jobStartEventMessageSet);
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);

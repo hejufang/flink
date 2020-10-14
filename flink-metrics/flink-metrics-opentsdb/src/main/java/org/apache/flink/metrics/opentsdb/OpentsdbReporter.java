@@ -76,6 +76,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	private static final String GLOBAL_PREFIX = "job";
 	private static final String FULL_RESTARTS_METRIC = "fullRestarts";
+	private static final String NO_RESOURCE_AVAILABLE_EXCEPTION_METRIC = "noResourceAvailableException";
 	private static final String CURRENT_OFFSETS_RATE_METRIC = "currentOffsetsRate";
 	private static final String FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
 	private static final String NUMBER_OF_CHECKPOINTS_METRIC = "totalNumberOfCheckpoints";
@@ -91,6 +92,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	// 全局 metric
 	private final Set<String> globalNeededMetrics = new HashSet<>(Arrays.asList(
 			FULL_RESTARTS_METRIC,
+			NO_RESOURCE_AVAILABLE_EXCEPTION_METRIC,
 			CURRENT_OFFSETS_RATE_METRIC,
 			FAILED_CHECKPOINTS_METRIC,
 			NUMBER_OF_CHECKPOINTS_METRIC,
@@ -109,6 +111,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"downtime",
 			"fullRestarts",
 			"restartingTime",
+			"noResourceAvailableException",
 			// TaskManager / Slot
 			"numRegisteredTaskManagers",
 			"taskSlotsTotal",
