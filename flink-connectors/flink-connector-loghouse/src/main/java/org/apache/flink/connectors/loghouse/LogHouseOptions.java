@@ -41,6 +41,7 @@ public class LogHouseOptions implements Serializable {
 	private final String namespace;
 	private final String consul;
 	private final List<Tuple2<Integer, Integer>> keysIndex;
+	private final Compressor compressor;
 
 	private final int sinkParallelism;
 
@@ -57,7 +58,8 @@ public class LogHouseOptions implements Serializable {
 			String consul,
 			List<Tuple2<Integer, Integer>> keysIndex,
 			SerializationSchema<Row> serializationSchema,
-			int sinkParallelism) {
+			int sinkParallelism,
+			Compressor compressor) {
 		this.flushMaxRetries = flushMaxRetries;
 		this.flushTimeoutMs = flushTimeoutMs;
 		this.batchSizeKB = batchSizeKB;
@@ -69,6 +71,7 @@ public class LogHouseOptions implements Serializable {
 		this.keysIndex = keysIndex;
 		this.serializationSchema = serializationSchema;
 		this.sinkParallelism = sinkParallelism;
+		this.compressor = compressor;
 	}
 
 	public int getFlushMaxRetries() {
@@ -115,6 +118,10 @@ public class LogHouseOptions implements Serializable {
 		return serializationSchema;
 	}
 
+	public Compressor getCompressor() {
+		return compressor;
+	}
+
 	/**
 	 * Get a {@link Builder}.
 	 * @return a Builder instance which can build a {@link LogHouseOptions}.
@@ -139,6 +146,7 @@ public class LogHouseOptions implements Serializable {
 		private String consul = null;
 		private List<Tuple2<Integer, Integer>> keysIndex;
 		private SerializationSchema<Row> serializationSchema;
+		private Compressor compressor = new NoOpCompressor();
 
 		private Builder() {
 		}
@@ -198,6 +206,11 @@ public class LogHouseOptions implements Serializable {
 			return this;
 		}
 
+		public Builder withCompressor(Compressor compressor) {
+			this.compressor = compressor;
+			return this;
+		}
+
 		public LogHouseOptions build() {
 			return new LogHouseOptions(
 				flushMaxRetries,
@@ -210,7 +223,8 @@ public class LogHouseOptions implements Serializable {
 				consul,
 				keysIndex,
 				serializationSchema,
-				sinkParallelism
+				sinkParallelism,
+				compressor
 			);
 		}
 	}

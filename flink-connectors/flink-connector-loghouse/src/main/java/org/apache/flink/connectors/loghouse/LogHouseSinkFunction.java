@@ -56,6 +56,7 @@ public class LogHouseSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>>
 
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
+	private transient Compressor compressor;
 
 	public LogHouseSinkFunction(LogHouseOptions options) {
 		this.options = options;
@@ -99,6 +100,9 @@ public class LogHouseSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>>
 				}
 			}, options.getFlushTimeoutMs(), options.getFlushTimeoutMs(), TimeUnit.MILLISECONDS);
 		}
+
+		compressor = options.getCompressor();
+		compressor.open();
 	}
 
 	@Override
@@ -119,6 +123,8 @@ public class LogHouseSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>>
 		if (logHouseClient != null) {
 			logHouseClient.close();
 		}
+
+		compressor.close();
 	}
 
 	@Override
@@ -138,12 +144,14 @@ public class LogHouseSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>>
 		}
 	}
 
-	private Record buildRecordFromRow(Row row) {
+	private Record buildRecordFromRow(Row row) throws Exception {
 		Record record = new Record();
 
 		record.setKeys(buildKeyFromRow(row));
 
-		record.setValue(options.getSerializationSchema().serialize(row));
+		byte[] value = options.getSerializationSchema().serialize(row);
+		byte[] compressedValue = compressor.compress(value);
+		record.setValue(compressedValue);
 
 		return record;
 	}

@@ -20,6 +20,7 @@ package org.apache.flink.connectors.loghouse;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.LogHouseValidator;
 import org.apache.flink.table.descriptors.SchemaValidator;
@@ -33,6 +34,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
@@ -40,6 +42,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CLUSTERING;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_BATCH_SIZE;
+import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_COMPRESSOR;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_CONNECTION_POOL_SIZE;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_CONSUL;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_CONSUL_INTERVAL;
@@ -48,6 +51,7 @@ import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_FLU
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_KEYS_INDEX;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_NAMESPACE;
 import static org.apache.flink.table.descriptors.LogHouseValidator.CONNECTOR_TIMEOUT_MS;
+import static org.apache.flink.table.descriptors.LogHouseValidator.GZIP_COMPRESSOR;
 import static org.apache.flink.table.descriptors.LogHouseValidator.LOG_HOUSE;
 import static org.apache.flink.table.descriptors.LogHouseValidator.PARTITION;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -97,6 +101,9 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 		supportedProperties.add(SCHEMA + ".#." + SCHEMA_TYPE);
 		supportedProperties.add(SCHEMA + ".#." + SCHEMA_NAME);
 
+		// compression
+		supportedProperties.add(CONNECTOR_COMPRESSOR);
+
 		// format wildcard
 		supportedProperties.add(FORMAT + ".*");
 
@@ -123,6 +130,8 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 			.getSerializationSchema(properties, this.getClass().getClassLoader());
 		builder.withSerializationSchema(serializationSchema);
 
+		builder.withCompressor(getCompressor(descriptorProperties));
+
 		final TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
 
 		return new LogHouseUpsertStreamTableSink(builder.build(), tableSchema);
@@ -145,5 +154,17 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 		new LogHouseValidator().validate(descriptorProperties);
 
 		return descriptorProperties;
+	}
+
+	private Compressor getCompressor(DescriptorProperties properties) {
+		Optional<String> compressor = properties.getOptionalString(CONNECTOR_COMPRESSOR);
+		return compressor.map(s -> {
+			switch (s) {
+				case GZIP_COMPRESSOR:
+					return new GzipCompressor();
+				default:
+					throw new ValidationException("unsupported compressor type: " + s);
+			}
+		}).orElse(null);
 	}
 }

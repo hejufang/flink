@@ -17,6 +17,7 @@
 
 package org.apache.flink.table.descriptors;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -44,6 +45,9 @@ public class LogHouseValidator extends ConnectorDescriptorValidator {
 	public static final String CLUSTERING = "clustering";
 	public static final String PARTITION = "partition";
 
+	public static final String CONNECTOR_COMPRESSOR = "connector.compressor";
+	public static final String GZIP_COMPRESSOR = "gzip";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -61,6 +65,8 @@ public class LogHouseValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_CONNECTION_POOL_SIZE, true, 1, 20); // 1 ~ 20
 
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
+
+		properties.validateEnumValues(CONNECTOR_COMPRESSOR, true, Collections.singletonList(GZIP_COMPRESSOR));
 
 		validateKeysIndex(properties);
 	}
