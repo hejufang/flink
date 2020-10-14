@@ -90,6 +90,7 @@ under the License.
 		<module>flink-connector-bytesql</module>
 		<module>flink-connector-rpc</module>
 		<module>flink-connector-faas</module>
+		<module>flink-connector-doris</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
