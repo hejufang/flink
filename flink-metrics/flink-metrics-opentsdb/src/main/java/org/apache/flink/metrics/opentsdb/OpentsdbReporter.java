@@ -166,7 +166,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"gateway_throughput",
 			"session_count",
 			"job_count",
-			"result_count"
+			"result_count",
+			"query_phase_latency"
 	));
 
 	private Map<String, String> globalMetricNames = new HashMap<>();
