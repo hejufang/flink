@@ -78,6 +78,11 @@ public interface Factory {
 	 */
 	Set<ConfigOption<?>> optionalOptions();
 
+	/**
+	 * Returns a set of prefix strings with which an implementation of this factory consumes configurations start.
+	 * A group of configurations with the same prefix can be expressed like this.
+	 * Notice that the return value cannot be null.
+	 */
 	default Set<String> optionalPrefixes() {
 		return new HashSet<>();
 	}
