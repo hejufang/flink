@@ -130,7 +130,7 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 			.getSerializationSchema(properties, this.getClass().getClassLoader());
 		builder.withSerializationSchema(serializationSchema);
 
-		builder.withCompressor(getCompressor(descriptorProperties));
+		getCompressor(descriptorProperties).ifPresent(builder::withCompressor);
 
 		final TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
 
@@ -156,7 +156,7 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 		return descriptorProperties;
 	}
 
-	private Compressor getCompressor(DescriptorProperties properties) {
+	private Optional<Compressor> getCompressor(DescriptorProperties properties) {
 		Optional<String> compressor = properties.getOptionalString(CONNECTOR_COMPRESSOR);
 		return compressor.map(s -> {
 			switch (s) {
@@ -165,6 +165,6 @@ public class LogHouseStreamTableSinkFactory implements StreamTableSinkFactory<Tu
 				default:
 					throw new ValidationException("unsupported compressor type: " + s);
 			}
-		}).orElse(null);
+		});
 	}
 }
