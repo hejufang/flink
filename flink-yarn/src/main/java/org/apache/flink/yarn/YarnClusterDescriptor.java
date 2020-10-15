@@ -438,14 +438,14 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		try {
 			yarnClient.killApplication(applicationId);
 
-			try (final FileSystem fs = FileSystem.get(yarnConfiguration)) {
-				final Path applicationDir = YarnApplicationFileUploader
-						.getApplicationDirPath(fs.getHomeDirectory(), applicationId);
+			String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,
+				ConfigConstants.PATH_JOB_WORK_FILE);
+			final Path homeDir = new Path(jobWorkDir);
+			final Path applicationDir = YarnApplicationFileUploader.getApplicationDirPath(homeDir, applicationId);
 
-				Utils.deleteApplicationFiles(Collections.singletonMap(
-						YarnConfigKeys.FLINK_YARN_FILES,
-						applicationDir.toUri().toString()));
-			}
+			Utils.deleteApplicationFiles(Collections.singletonMap(
+				YarnConfigKeys.FLINK_YARN_FILES,
+				applicationDir.toUri().toString()));
 
 		} catch (YarnException | IOException e) {
 			throw new FlinkException("Could not kill the Yarn Flink cluster with id " + applicationId + '.', e);
@@ -691,7 +691,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		final YarnApplicationFileUploader fileUploader = YarnApplicationFileUploader.from(
 			fs,
-			fs.getHomeDirectory(),
+			homeDir,
 			providedLibDirs,
 			appContext.getApplicationId(),
 			getFileReplication());
