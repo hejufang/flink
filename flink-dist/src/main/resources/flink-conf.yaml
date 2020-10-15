@@ -16,21 +16,27 @@
 # limitations under the License.
 ################################################################################
 
-# shell configurations which must be set at top level.
-flink-client-classpath-include-user-jar: FIRST
-
 common:
-  taskmanager.memory.preallocate: false
-  parallelism.default: 1
-  stream-partitioner.default: rescale
-  #  io.tmp.dirs: /opt/tmp/flink
-  #  taskmanager.tmp.dirs: /opt/tmp/flink
+  # Common Setup Options
+  ## Fault Tolerance
+  restart-strategy: failure-rate
+  restart-strategy.failure-rate.max-failures-per-interval: 5
+  restart-strategy.failure-rate.failure-rate-interval: 30 min
+  restart-strategy.failure-rate.delay: 20 s
+  jobmanager.execution.failover-strategy: region
+
+  ## Checkpoints and State Backends
   state.backend: rocksdb
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.11/flink/fs_checkpoint_dir
-  #  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
-  taskmanager.network.memory.fraction: 0.3
-  taskmanager.network.memory.max: 2147483648
+  state.backend.incremental: true
+  state.checkpoints.num-retained: 10
+  execution.checkpointing.tolerable-failed-checkpoints: 10000
+  execution.checkpointing.interval: 2 min
+  execution.checkpointing.min-pause: 1 min
+  execution.checkpointing.mode: EXACTLY_ONCE
+  execution.checkpointing.timeout: 10 min
 
+  ## High Availability
   high-availability: zookeeper
   high-availability.storageDir: ${hdfs.prefix}/${clusterName}/1.11/ha/
   high-availability.zookeeper.path.root: /${dc}/${clusterName}/flink
@@ -38,65 +44,58 @@ common:
   high-availability.zookeeper.client.connection-timeout: 60000 # default 15000ms
   high-availability.zookeeper.client.retry-wait: 20000 # default 5000ms
   high-availability.zookeeper.client.session-timeout: 60000 # default 60000ms, be careful to change this.
+
+  ## Memory Configuration
+  taskmanager.memory.network.fraction: 0.3
+  taskmanager.memory.network.max: 2147483648
+
+  # Security
+  ## Auth with External Systems
   zookeeper.sasl.disable: true
 
+  # Resource Orchestration Frameworks
+  ## Yarn
   yarn.application-attempts: 5
   yarn.application-attempt-failures-validity-interval: 3600000
+  yarn.per-job-cluster.include-user-jar: FIRST
+  yarn.taskmanager.set_token: false
 
-  job.work.dir: ${hdfs.prefix}/${clusterName}/1.11/
+  # Metrics
+  metrics.reporters: opentsdb_reporter
+  metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
+  metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
 
-  # fs.hdfs.hdfssite: /opt/tiger/yarn_deploy/hadoop/conf/hdfs-site.xml
+  # REST endpoint and Client
+  rest.await-leader-timeout: 300000
+  rest.retry.max-attempts: 30
+  rest.retry.delay: 10000
 
-  #  metrics.reporters: opentsdb_reporter
-  #  metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
-  #  metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
+  # Web UI
+  web.submit.enable: false
 
-  prune.buffer.threshold: 262144
+  # Full JobManager Options
+  resourcemanager.taskmanager-timeout: 600000
+  slot.request.timeout: 300000
 
-  jobmanager.archive.fs.dir: ${hdfs.prefix}/${clusterName}/1.11/completed-jobs
-  historyserver.archive.fs.dir: ${hdfs.prefix}/${clusterName}/1.11/completed-jobs
-  historyserver.web.tmpdir: /opt/tmp/flink/historyserver/tmpdir
+  # Full TaskManagerOptions
+  taskmanager.network.netty.sendReceiveBufferSize: 4194304
 
+  # RPC / Akka
   akka.ask.timeout: 60 s
+  akka.lookup.timeout: 60 s
+  akka.tcp.timeout: 80 s
 
-  containerized.jobmanager.heap-cutoff-ratio: 0.1
+  # JVM and Logging Options
+  flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
+  flink.gc.g1: false
 
-  flink.lib.path: lib_new_conf
-
-  restart-strategy: failure-rate
-  restart-strategy.failure-rate.max-failures-per-interval: 5
-  restart-strategy.failure-rate.failure-rate-interval: 30 min
-  restart-strategy.failure-rate.delay: 20 s
-
-  flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
-
-  # restart-strategy: fixed-delay
-  # restart-strategy.fixed-delay.attempts: 100
-  # restart-strategy.fixed-delay.delay: 20 s
-  # The failover strategy, i.e., how the job computation recovers from task failures.
-  # Only restart tasks that may have been affected by the task failure, which typically includes
-  # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
-
-  # TODO(zoudan):add region restart monitor
-  jobmanager.execution.failover-strategy: region
-
-  # Table & SQL configurations.
-  # validate before execute, e.g. hive permission check.
-  table.exec.validate-before-execute: true
-
-  #==============================================================================
-  # Rest & web frontend
-  #==============================================================================
-
+  # Check Unique
   dc: cn
   check.job.unique: true
-
   job.unique.zookeeper.client.session-timeout: 5000
   job.unique.zookeeper.client.connection-timeout: 10000
 
-  taskmanager.network.credit-model: true
-  yarn.per-job-cluster.include-user-jar: FIRST
-
+  # PyFlink on Bytedance
   base_jar: deploy/flink-1.11/basejar/flink-python-byted.jar
   bin: deploy/flink-1.11/bin/flink
   vcores: 4
@@ -105,21 +104,15 @@ common:
   HADOOP_CONF_DIR: /opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/conf/
   kafka_server_url: http://kafka-config.byted.org
 
-  # Configurations for dashboard
+  # Doctor
   dashboard.data_source: bytetsd
-
-  # Configurations for dtop
   dtop.data_source: dtop_cn
   dtop.database: dtop
-
-  # Configurations for smart resources
-  smart-resources.service-name: data.inf.sr_estimater.service.lf
   log4j.appender.databus.channel: yarn_container_level_log
 
   # Configurations for docker mode
   runtime.lib.dir: /opt/tiger/flink_deploy/deploy/flink-1.11/lib
   runtime.conf.dir: /opt/tiger/flink_deploy/deploy/flink-1.11/conf
-
   docker.default_image: yarn_runtime_flink:latest
   docker.image.include_lib: false
   docker.authorization: "Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q="
@@ -127,16 +120,6 @@ common:
   docker.server: image-manager.byted.org
   docker.hub: hub.byted.org
   docker.region: China-North-LF
-
-  nmclientasync.enabled: true
-  taskmanager.initial-on-start: false
-  resourcemanager.taskmanager-timeout: 600000
-  slot.request.timeout: 300000
-
-  # client configs
-  rest.await-leader-timeout: 300000
-  rest.retry.max-attempts: 30
-  rest.retry.delay: 10000
 
   # Gang scheduler
   yarn.gang-scheduler.enable: false
@@ -148,14 +131,6 @@ common:
   yarn.gang-scheduler.max-retry-times: 5
   yarn.gang-scheduler.downgrade-timeout-ms: 1800000
 
-  # GC log options
-  flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
-  flink.gc.g1: false
-  yarn.taskmanager.set_token: false
-
-  # subpartition type
-  taskmanager.network.bounded-blocking-subpartition-type: file
-
   # blacklist
   blacklist.enabled: true
   blacklist.job.max-task-failure-per-host: 2
@@ -166,18 +141,26 @@ common:
   blacklist.failure-timeout: "60 min"
   blacklist.check-interval: "5 min"
 
+  # Table & SQL configurations.
+  # validate before execute, e.g. hive permission check.
+  table.exec.validate-before-execute: true
+
+  # Configurations for smart resources
+  smart-resources.service-name: data.inf.sr_estimater.service.lf
+
+  # Load-balance scheduler
+  nmclientasync.enabled: true
+  taskmanager.initial-on-start: false
   jobmanager.upload-user-jar: false
-
-  web.submit.enable: false
-  resourcemanager.shuffle-pending-slots: false
-
-  # The Netty send and receive buffer size.
-  taskmanager.network.netty.sendReceiveBufferSize: 4194304
-
   taskmanager.number-extra-initial: 0
   taskmanager.extra-initial-fraction: 0
-
+  resourcemanager.shuffle-pending-slots: false
   jobmanager.execution.schedule-task-fairly: false
+
+  # Miscellaneous Options
+  stream-partitioner.default: rescale
+  job.work.dir: ${hdfs.prefix}/${clusterName}/1.11/
+  flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
 
 flink:
   dc: cn
@@ -373,7 +356,6 @@ marmt:
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
-  # TODO(zoudan): replace docker server with domain url
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
@@ -390,7 +372,6 @@ macaw:
   smart-resources.service-name: data.inf.sr_estimater.service.maliva
   kafka_server_url: http://kafka-config-va.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_mva_aliyun
-  # TODO(zoudan): replace docker server with domain url
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-va-hub.byted.org
   docker.region: Aliyun_VA
@@ -447,7 +428,6 @@ alisg:
   smart-resources.service-name: data.inf.sr_estimater.service.alisg
   kafka_server_url: http://kafka-config-sg.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_sg
-  # TODO(zoudan): replace docker server with domain url
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
@@ -501,7 +481,6 @@ boei18n:
   dashboard.data_source: bytetsd_boei18n
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log
-  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
   yaop_url: http://10.231.17.57:8092
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   docker.hub: aliyun-va-hub.byted.org
