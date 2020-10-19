@@ -321,6 +321,10 @@ abstract class StreamExecGroupWindowAggregateBase(
         .withAllowedLateness(Duration.ofMillis(emitStrategy.getAllowLateness))
     }
 
+    if (emitStrategy.enabledEmitUnchanged) {
+      newBuilder.enableEmitUnchanged()
+    }
+
     aggsHandler match {
       case agg: GeneratedNamespaceAggsHandleFunction[_] =>
         newBuilder

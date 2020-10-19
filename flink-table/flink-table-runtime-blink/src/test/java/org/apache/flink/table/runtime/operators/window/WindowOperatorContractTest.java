@@ -214,7 +214,8 @@ public class WindowOperatorContractTest {
 					windowTypes,
 					2,
 					sendRetraction,
-					allowedLateness);
+					allowedLateness,
+					false);
 			return new KeyedOneInputStreamOperatorTestHarness<RowData, RowData, RowData>(
 				operator, keySelector, keyType);
 		} else {

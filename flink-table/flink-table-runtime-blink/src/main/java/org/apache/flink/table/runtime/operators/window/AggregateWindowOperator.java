@@ -67,6 +67,8 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 	protected RecordEqualiser equaliser;
 	private GeneratedRecordEqualiser generatedEqualiser;
 
+	private final boolean emitUnchanged;
+
 	AggregateWindowOperator(
 			NamespaceAggsHandleFunction<W> windowAggregator,
 			RecordEqualiser equaliser,
@@ -79,7 +81,8 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			LogicalType[] windowPropertyTypes,
 			int rowtimeIndex,
 			boolean produceUpdates,
-			long allowedLateness) {
+			long allowedLateness,
+			boolean emitUnchanged) {
 		super(windowAggregator,
 			windowAssigner,
 			trigger,
@@ -93,6 +96,7 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			allowedLateness);
 		this.aggWindowAggregator = windowAggregator;
 		this.equaliser = checkNotNull(equaliser);
+		this.emitUnchanged = emitUnchanged;
 	}
 
 	AggregateWindowOperator(
@@ -107,7 +111,8 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			LogicalType[] windowPropertyTypes,
 			int rowtimeIndex,
 			boolean sendRetraction,
-			long allowedLateness) {
+			long allowedLateness,
+			boolean emitUnchanged) {
 		super(windowAssigner,
 			trigger,
 			windowSerializer,
@@ -120,6 +125,7 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			allowedLateness);
 		this.generatedAggWindowAggregator = generatedAggWindowAggregator;
 		this.generatedEqualiser = checkNotNull(generatedEqualiser);
+		this.emitUnchanged = emitUnchanged;
 	}
 
 	@Override
@@ -154,7 +160,7 @@ public class AggregateWindowOperator<K, W extends Window> extends WindowOperator
 			// has emitted result for the window
 			if (previousAggResult != null) {
 				// current agg is not equal to the previous emitted, should emit retract
-				if (!equaliser.equals(aggResult, previousAggResult)) {
+				if (emitUnchanged || !equaliser.equals(aggResult, previousAggResult)) {
 					// send UPDATE_BEFORE
 					collect(RowKind.UPDATE_BEFORE, (RowData) getCurrentKey(), previousAggResult);
 					// send UPDATE_AFTER

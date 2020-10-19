@@ -37,11 +37,14 @@ class WindowEmitStrategy(
     earlyFireDelayEnabled: JBoolean,
     lateFireDelay: JLong,
     lateFireDelayEnabled: JBoolean,
-    allowLateness: JLong) {
+    allowLateness: JLong,
+    emitUnchanged: JBoolean) {
 
   checkValidation()
 
   def getAllowLateness: JLong = allowLateness
+
+  def enabledEmitUnchanged: Boolean = emitUnchanged
 
   private def checkValidation(): Unit = {
     if (isSessionWindow && (earlyFireDelayEnabled || lateFireDelayEnabled)) {
@@ -159,6 +162,8 @@ object WindowEmitStrategy {
       TABLE_EXEC_EMIT_LATE_FIRE_ENABLED)
     val lateFireDelay = getMillisecondFromConfigDuration(
       tableConfig, TABLE_EXEC_EMIT_LATE_FIRE_DELAY)
+    val emitUnchanged = tableConfig.getConfiguration.getBoolean(
+      TABLE_EXEC_EMIT_UNCHANGED_ENABLED)
     new WindowEmitStrategy(
       isEventTime,
       isSessionWindow,
@@ -166,7 +171,8 @@ object WindowEmitStrategy {
       enableEarlyFireDelay,
       lateFireDelay,
       enableLateFireDelay,
-      allowLateness)
+      allowLateness,
+      emitUnchanged)
   }
 
   // It is a experimental config, will may be removed later.
@@ -206,5 +212,14 @@ object WindowEmitStrategy {
           "< 0 is illegal configuration. " +
           "0 means no delay (fire on every element). " +
           "> 0 means the fire interval.")
+
+  @Experimental
+  val TABLE_EXEC_EMIT_UNCHANGED_ENABLED: ConfigOption[JBoolean] =
+    key("table.exec.emit.unchanged.enabled")
+      .defaultValue(Boolean.box(false))
+      .withDescription("Whether to emit unchanged agg results, default not." +
+        "If enabled, we will emit -[aggResult], +[aggResult] to downstream if the " +
+        "aggResult has not been changed. We emit -[aggResult] to keep the semantic intact," +
+        "if downstream operator will consume retract message, this will not break the result.")
 
 }

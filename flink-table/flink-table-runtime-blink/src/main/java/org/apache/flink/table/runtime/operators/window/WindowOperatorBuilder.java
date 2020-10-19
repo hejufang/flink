@@ -70,6 +70,7 @@ public class WindowOperatorBuilder {
 	protected LogicalType[] windowPropertyTypes;
 	protected long allowedLateness = 0L;
 	protected boolean produceUpdates = false;
+	private boolean emitUnchanged = false;
 	protected int rowtimeIndex = -1;
 
 	public static WindowOperatorBuilder builder() {
@@ -161,6 +162,11 @@ public class WindowOperatorBuilder {
 
 	public WindowOperatorBuilder produceUpdates() {
 		this.produceUpdates = true;
+		return this;
+	}
+
+	public WindowOperatorBuilder enableEmitUnchanged() {
+		this.emitUnchanged = true;
 		return this;
 	}
 
@@ -332,7 +338,8 @@ public class WindowOperatorBuilder {
 					windowOperatorBuilder.windowPropertyTypes,
 					windowOperatorBuilder.rowtimeIndex,
 					windowOperatorBuilder.produceUpdates,
-					windowOperatorBuilder.allowedLateness);
+					windowOperatorBuilder.allowedLateness,
+					windowOperatorBuilder.emitUnchanged);
 			} else {
 				//noinspection unchecked
 				return new AggregateWindowOperator(
@@ -347,7 +354,8 @@ public class WindowOperatorBuilder {
 					windowOperatorBuilder.windowPropertyTypes,
 					windowOperatorBuilder.rowtimeIndex,
 					windowOperatorBuilder.produceUpdates,
-					windowOperatorBuilder.allowedLateness);
+					windowOperatorBuilder.allowedLateness,
+					windowOperatorBuilder.emitUnchanged);
 			}
 		}
 	}
