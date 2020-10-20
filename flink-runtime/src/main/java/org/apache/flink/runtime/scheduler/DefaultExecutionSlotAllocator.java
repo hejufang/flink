@@ -94,7 +94,7 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 			final SlotRequestId slotRequestId = new SlotRequestId();
 			final SlotSharingGroupId slotSharingGroupId = schedulingRequirements.getSlotSharingGroupId();
 
-			LOG.debug("Allocate slot with id {} for execution {}", slotRequestId, executionVertexId);
+			LOG.info("Allocate slot with id {} for execution {}", slotRequestId, executionVertexId);
 
 			CompletableFuture<LogicalSlot> slotFuture = calculatePreferredLocations(
 					executionVertexId,

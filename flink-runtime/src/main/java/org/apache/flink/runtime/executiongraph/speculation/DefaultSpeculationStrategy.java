@@ -218,54 +218,62 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 	public void run() {
 		assertRunningInJobMasterMainThread();
 
-		if (credits <= 0) {
-			LOG.info("There is not enough credits for running speculation. Current credits = {}", credits);
-		}
+		try {
+			if (credits <= 0) {
+				LOG.info("There is not enough credits for running speculation. Current credits = {}", credits);
+			}
 
-		int tempCredits = credits;
-		boolean scheduled = false;
+			int tempCredits = credits;
+			boolean scheduled = false;
 
-		final Set<SpeculationRegion> regions = checkSpeculationRegions(System.currentTimeMillis());
+			final Set<SpeculationRegion> regions = checkSpeculationRegions(System.currentTimeMillis());
 
-		for (final SpeculationRegion region : regions) {
-			if (!runningRegions.contains(region)) {
-				if (region.getConnectedVertices().size() <= tempCredits) {
-					// every region has only one source vertex
-					final List<ExecutionVertexDeploymentOption> deploymentOptions = new ArrayList<>();
-					for (final DefaultExecutionVertex failoverVertex : region.getSourceVertices()) {
-						// do not schedule if source execution vertex is finished
-						final ExecutionVertex ev = getExecutionVertex(failoverVertex.getId());
-						if (!ev.getExecutionState().isFinished()) {
-							numberOfSpeculation++;
-							deploymentOptions.add(new ExecutionVertexDeploymentOption(ev.getID(),
-											new DeploymentOption(true, true)));
-							scheduled = true;
-							LOG.info("Reschedule the copy execution of {}.", ev.getCurrentExecutionAttempt().getVertexWithAttempt());
-						} else {
-							LOG.info("Refuse to schedule copy execution because the source task is already finished.");
+			for (final SpeculationRegion region : regions) {
+				if (!runningRegions.contains(region)) {
+					if (region.getConnectedVertices().size() <= tempCredits) {
+						// every region has only one source vertex
+						final List<ExecutionVertexDeploymentOption> deploymentOptions = new ArrayList<>();
+						for (final DefaultExecutionVertex failoverVertex : region.getSourceVertices()) {
+							// do not schedule if source execution vertex is finished
+							final ExecutionVertex ev = getExecutionVertex(failoverVertex.getId());
+							if (!ev.getExecutionState().isFinished()) {
+								numberOfSpeculation++;
+								deploymentOptions.add(new ExecutionVertexDeploymentOption(ev.getID(),
+										new DeploymentOption(true, true)));
+								scheduled = true;
+								LOG.info("Reschedule the copy execution of {}.", ev.getCurrentExecutionAttempt().getVertexWithAttempt());
+							} else {
+								LOG.info("Refuse to schedule copy execution because the source task is already finished.");
+							}
 						}
+						scheduler.allocateSlotsAndDeploy(deploymentOptions);
+						if (scheduled) {
+							runningRegions.add(region);
+							tempCredits -= region.getConnectedVertices().size();
+						}
+					} else {
+						LOG.debug("There is not enough credits for running speculation. Currently only {} credits left.", tempCredits);
 					}
-					scheduler.allocateSlotsAndDeploy(deploymentOptions);
-					if (scheduled) {
-						runningRegions.add(region);
-						tempCredits -= region.getConnectedVertices().size();
-					}
-				} else {
-					LOG.debug("There is not enough credits for running speculation. Currently only {} credits left.", tempCredits);
 				}
 			}
+		} catch (Throwable t) {
+			LOG.error("Caught unexpected exception.", t);
+			System.exit(2);
 		}
 		jobMasterMainThreadExecutor.schedule(this, interval, TimeUnit.MILLISECONDS);
 	}
 
 	private long getRunningTime(Execution execution) {
 		long finished = execution.getStateTimestamp(ExecutionState.FINISHED);
+		if (finished == 0) {
+			throw new IllegalStateException(String.format("Finished execution %s should have a finish timestamp.", execution.getVertexWithAttempt()));
+		}
 		return getRunningTime(execution, finished);
 	}
 
 	private long getRunningTime(Execution execution, long current) {
 		long running = execution.getStateTimestamp(ExecutionState.RUNNING);
-		return current - running;
+		return running == 0 ? 0 : current - running;
 	}
 
 	private ExecutionVertex getExecutionVertex(final ExecutionVertexID vertexID) {
@@ -293,6 +301,7 @@ public class DefaultSpeculationStrategy extends SpeculationStrategy {
 					final double timeCostThreshold = Math.max(timeCostMedianHeap.get(executionJobVertex).median() * multiplier, MIN_TIME_TO_SPECULATION);
 					for (final Execution execution : executions) {
 						if (getRunningTime(execution, currTimestamp) > timeCostThreshold) {
+
 							SpeculationRegion speculationRegion = vertexToRegion.get(execution.getVertex().getID());
 							if (speculationRegion.getSupportSpeculation()) {
 								regions.add(speculationRegion);
