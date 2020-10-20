@@ -35,22 +35,8 @@ under the License.
 
 	<properties>
 		<hbase.version>1.4.3</hbase.version>
+		<shading.prefix>org.apache.flink.hbase.shaded</shading.prefix>
 	</properties>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.19.1</version>
-				<configuration>
-					<argLine>-XX:MaxPermSize=128m -Dmvn.forkNumber=${surefire.forkNumber}</argLine>
-					<!-- Enforce single fork execution due to heavy mini cluster use in the tests -->
-					<forkCount>1</forkCount>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
 
 	<dependencies>
 
@@ -363,7 +349,139 @@ under the License.
 				</dependencies>
 			</dependencyManagement>
 		</profile>
-
+		<profile>
+			<id>sql-jars</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-shade-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>shade-flink</id>
+								<phase>package</phase>
+								<goals>
+									<goal>shade</goal>
+								</goals>
+								<configuration>
+									<artifactSet>
+										<includes>
+											<include>*:*</include>
+										</includes>
+									</artifactSet>
+									<relocations>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>${shading.prefix}.com.google</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.yammer</pattern>
+											<shadedPattern>${shading.prefix}.com.yammer</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.thoughtworks</pattern>
+											<shadedPattern>${shading.prefix}.com.thoughtworks</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.avro</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.avro</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.commons</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.commons</shadedPattern>
+										</relocation>
+										<!-- org.apache.hadoop.hbase is not shaded -->
+										<relocation>
+											<pattern>org.apache.hadoop.metrics2</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.hadoop.metrics2</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.htrace</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.htrace</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.http</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.http</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.jute</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.jute</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.zookeeper</pattern>
+											<shadedPattern>${shading.prefix}.org.apache.zookeeper</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.codehaus</pattern>
+											<shadedPattern>${shading.prefix}.org.codehaus</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.tukaani</pattern>
+											<shadedPattern>${shading.prefix}.org.tukaani</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>io.netty</pattern>
+											<shadedPattern>${shading.prefix}.io.netty</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>hbase-webapps</pattern>
+											<shadedPattern>${shading.prefix}.hbase-webapps</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>avro</pattern>
+											<shadedPattern>${shading.prefix}.avro</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>edu.umd.cs</pattern>
+											<shadedPattern>${shading.prefix}.edu.umd.cs</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.codahale.metrics</pattern>
+											<shadedPattern>${shading.prefix}.com.codahale.metrics</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.lmax.disruptor</pattern>
+											<shadedPattern>${shading.prefix}.com.lmax.disruptor</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.sun</pattern>
+											<shadedPattern>${shading.prefix}.com.sun</shadedPattern>
+										</relocation>
+									</relocations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
 	</profiles>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.19.1</version>
+				<configuration>
+					<argLine>-XX:MaxPermSize=128m -Dmvn.forkNumber=${surefire.forkNumber}</argLine>
+					<!-- Enforce single fork execution due to heavy mini cluster use in the tests -->
+					<forkCount>1</forkCount>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-source-plugin</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 
 </project>
