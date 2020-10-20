@@ -1338,6 +1338,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				} else {
 					owner.checkpointExceptionHandler.tryHandleCheckpointException(checkpointMetaData,
 						new CheckpointException(CheckpointFailureReason.CHECKPOINT_SYNC_EXCEPTION, ex));
+					// the task should fail in synchronous part of a checkpoint see FLINK-17350
+					throw ex;
 				}
 			}
 		}
