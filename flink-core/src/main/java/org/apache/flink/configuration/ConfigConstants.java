@@ -2197,6 +2197,8 @@ public final class ConfigConstants {
 	public static final String SMART_RESOURCES_MEM_MAX_MB_KEY = "smart-resources.mem-max-mb";
 	public static final int SMART_RESOURCES_MEM_MAX_MB_DEFAULT = 60 * 1024;
 	public static final String SMART_RESOURCES_SERVICE_NAME_KEY = "smart-resources.service-name";
+	public static final boolean SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_DEFAULT = false;
+	public static final String SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_KEY = "smart-resources.cpu-adjust-double.enable";
 
 	public static final String HDFS_DEPENDENCY_ENABLED = "hdfs.dependency.enabled";
 	public static final boolean HDFS_DEPENDENCY_ENABLED_DEFAULT = true;

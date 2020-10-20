@@ -281,6 +281,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private double memReserveRatio;
 	private SmartResourcesStats smartResourcesStats;
 	private boolean disableMemAdjust = false;
+	private boolean srCpuAdjustDoubleEnable = false;
 	private int srMemMaxMB;
 	private String srCpuEstimateMode;
 	private String srAdjustCheckApi;
@@ -472,8 +473,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			smartResourcesEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_ENABLE_OLD_KEY,
 				ConfigConstants.SMART_RESOURCES_ENABLE_DEFAULT);
 		}
+		srCpuAdjustDoubleEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_KEY,
+			ConfigConstants.SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_DEFAULT);
 		Map<String, Object> smartResourcesConfig = new HashMap<>();
 		smartResourcesConfig.put(ConfigConstants.SMART_RESOURCES_ENABLE_KEY, smartResourcesEnable);
+		smartResourcesConfig.put(ConfigConstants.SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_KEY,
+			srCpuAdjustDoubleEnable);
 		if (smartResourcesEnable) {
 			this.pendingUpdating = new HashMap<>();
 			this.waitNMUpdate = new HashMap<>();
@@ -1938,20 +1943,25 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					* (1 + memReserveRatio) / 1024)).intValue() * 1024;
 				newMemoryMB = newMemoryMB > srMemMaxMB ? srMemMaxMB : newMemoryMB;
 
-				int newVcores = 0;
-				if (srCpuEstimateMode.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_FLOOR)) {
-					newVcores = new Double(Math.floor(applicationTotalResources.getCpuTotalVcores()
-						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
-				} else if (srCpuEstimateMode.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_ROUND)) {
-					newVcores = new Long(Math.round(applicationTotalResources.getCpuTotalVcores()
-						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
-				} else if (srCpuEstimateMode.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_CEIL)) {
-					newVcores = new Double(Math.ceil(applicationTotalResources.getCpuTotalVcores()
-						* (1 + cpuReserveRatio) / workerNodeMap.size())).intValue();
+				double newVcores = Double.parseDouble(String.format("%.3f",
+					applicationTotalResources.getCpuTotalVcores() * (1 + cpuReserveRatio)
+						/ workerNodeMap.size()));
+				if (!srCpuAdjustDoubleEnable) {
+					if (srCpuEstimateMode
+						.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_FLOOR)) {
+						newVcores = new Double(Math.floor(newVcores));
+					} else if (srCpuEstimateMode
+						.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_ROUND)) {
+						newVcores = new Long(Math.round(newVcores));
+					} else if (srCpuEstimateMode
+						.equals(ConfigConstants.SMART_RESOURCES_CPU_ESTIMATE_MODE_CEIL)) {
+						newVcores = new Double(Math.ceil(newVcores));
+					}
 				}
+				log.info("newVcores: {}, newMemoryMB: {}.", newVcores, newMemoryMB);
 
 				newVcores = newVcores > 8 ? 8 : newVcores;
-				newVcores = newVcores == 0 ? 1 : newVcores;
+				newVcores = newVcores < 1 ? 1 : newVcores;
 				final UpdateContainersResources updateContainersResources = new UpdateContainersResources(
 					newMemoryMB, newVcores, new Long(containerMaxResources.getDurtion()).intValue());
 
