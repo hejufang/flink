@@ -122,7 +122,7 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 				return;
 			}
 		}
-		String realSQL = ByteSQLUtils.generateActualSql(query, keys);
+		String realSQL = ByteSQLUtils.generateActualSql(query, keyRow);
 		doLookup(realSQL, keyRow);
 	}
 

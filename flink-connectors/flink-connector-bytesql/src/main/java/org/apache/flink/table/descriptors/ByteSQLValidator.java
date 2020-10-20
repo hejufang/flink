@@ -35,11 +35,17 @@ public class ByteSQLValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
 	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
 
+	public static final String CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS = "connector.sink.buffer-flush.max-rows";
+	public static final String CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL = "connector.sink.buffer-flush.interval";
+	public static final String CONNECTOR_SINK_PRIMARY_KEY_INDICES = "connector.sink.primary-key-indices";
+	public static final String CONNECTOR_SINK_MAX_RETRIES = "connector.sink.max-retries";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
 		validateCommonProperties(properties);
 		validateLookupProperties(properties);
+		validateSinkProperties(properties);
 	}
 
 	private void validateCommonProperties(DescriptorProperties properties) {
@@ -60,5 +66,12 @@ public class ByteSQLValidator extends ConnectorDescriptorValidator {
 			CONNECTOR_LOOKUP_CACHE_MAX_ROWS,
 			CONNECTOR_LOOKUP_CACHE_TTL
 		});
+	}
+
+	private void validateSinkProperties(DescriptorProperties properties) {
+		properties.validateInt(CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS, true);
+		properties.validateDuration(CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL, true, 1);
+		properties.validateInt(CONNECTOR_SINK_MAX_RETRIES, true);
+		properties.validateString(CONNECTOR_SINK_PRIMARY_KEY_INDICES, true);
 	}
 }

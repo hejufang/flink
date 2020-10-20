@@ -18,15 +18,20 @@
 
 package org.apache.flink.connectors.bytesql;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.table.descriptors.ByteSQLInsertOptions;
 import org.apache.flink.table.descriptors.ByteSQLLookupOptions;
 import org.apache.flink.table.descriptors.ByteSQLOptions;
 import org.apache.flink.table.descriptors.ByteSQLValidator;
 import org.apache.flink.table.descriptors.DescriptorProperties;
+import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
+import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +43,10 @@ import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_LOOK
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_PASSWORD;
+import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL;
+import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_MAX_RETRIES;
+import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_PRIMARY_KEY_INDICES;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_TABLE;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_USERNAME;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
@@ -49,13 +58,25 @@ import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
 /**
  * Factory to creating configured instances of {@link ByteSQLTableSource}.
  */
-public class ByteSQLTableSourceFactory implements StreamTableSourceFactory<Row> {
+public class ByteSQLTableSourceSinkFactory implements StreamTableSourceFactory<Row>,
+		StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+
 	@Override
 	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		return new ByteSQLTableSource(
 			getByteSQLOptions(descriptorProperties),
 			getByteSQLLookupOptions(descriptorProperties),
+			descriptorProperties.getTableSchema(SCHEMA)
+		);
+	}
+
+	@Override
+	public StreamTableSink<Tuple2<Boolean, Row>> createStreamTableSink(Map<String, String> properties) {
+		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
+		return new ByteSQLUpsertTableSink(
+			getByteSQLOptions(descriptorProperties),
+			getByteSQLInsertOptions(descriptorProperties),
 			descriptorProperties.getTableSchema(SCHEMA)
 		);
 	}
@@ -84,6 +105,12 @@ public class ByteSQLTableSourceFactory implements StreamTableSourceFactory<Row> 
 		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+
+		// sink options
+		properties.add(CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS);
+		properties.add(CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL);
+		properties.add(CONNECTOR_SINK_MAX_RETRIES);
+		properties.add(CONNECTOR_SINK_PRIMARY_KEY_INDICES);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -118,4 +145,24 @@ public class ByteSQLTableSourceFactory implements StreamTableSourceFactory<Row> 
 		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
 		return builder.build();
 	}
+
+	private ByteSQLInsertOptions getByteSQLInsertOptions(DescriptorProperties descriptorProperties) {
+		final ByteSQLInsertOptions.Builder builder = ByteSQLInsertOptions.builder();
+		descriptorProperties.getOptionalInt(CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS).ifPresent(builder::setBufferFlushMaxRows);
+		descriptorProperties.getOptionalDuration(CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL).ifPresent(
+			s -> builder.setBufferFlushIntervalMills(s.toMillis()));
+		descriptorProperties.getOptionalInt(CONNECTOR_SINK_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
+		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
+		builder.setKeyFieldIndices(getKeyFieldIndices(descriptorProperties));
+		return builder.build();
+	}
+
+	private int[] getKeyFieldIndices(DescriptorProperties descriptorProperties) {
+		String indicesString = descriptorProperties.getOptionalString(CONNECTOR_SINK_PRIMARY_KEY_INDICES).orElse(null);
+		if (indicesString == null || indicesString.length() == 0) {
+			return new int[0];
+		}
+		return Arrays.stream(indicesString.split(",")).mapToInt(Integer::parseInt).toArray();
+	}
+
 }

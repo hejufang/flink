@@ -41,6 +41,11 @@ import java.util.stream.Collectors;
  * Utils for processing response from ByteSQL.
  */
 public class ByteSQLUtils {
+
+	public static String quoteIdentifier(String identifier) {
+		return "`" + identifier + "`";
+	}
+
 	/**
 	 * Get select fields statement by condition fields.
 	 */
@@ -53,15 +58,41 @@ public class ByteSQLUtils {
 			tableName + (conditionFields.length > 0 ? " WHERE " + fieldExpressions : "");
 	}
 
-	public static String generateActualSql(String sqlQuery, Object... parameters) {
+	public static String getInsertIntoStatement(String tableName, String[] fieldNames) {
+		String columns = Arrays.stream(fieldNames)
+			.map(ByteSQLUtils::quoteIdentifier)
+			.collect(Collectors.joining(", "));
+		String placeholders = Arrays.stream(fieldNames)
+			.map(f -> "?")
+			.collect(Collectors.joining(", "));
+		return "INSERT INTO " + quoteIdentifier(tableName) +
+			"(" + columns + ")" + " VALUES (" + placeholders + ")";
+	}
+
+	public static String getUpsertStatement(String tableName, String[] fieldNames) {
+		String updateClause = Arrays.stream(fieldNames)
+			.map(f -> quoteIdentifier(f) + "=VALUES(" + quoteIdentifier(f) + ")")
+			.collect(Collectors.joining(", "));
+		return getInsertIntoStatement(tableName, fieldNames) +
+			" ON DUPLICATE KEY UPDATE " + updateClause;
+	}
+
+	public static String getDeleteStatement(String tableName, String[] conditionFields) {
+		String conditionClause = Arrays.stream(conditionFields)
+			.map(f -> quoteIdentifier(f) + "=?")
+			.collect(Collectors.joining(" AND "));
+		return "DELETE FROM " + quoteIdentifier(tableName) + " WHERE " + conditionClause;
+	}
+
+	public static String generateActualSql(String sqlQuery, Row row) {
 		String[] parts = sqlQuery.split("\\?");
 		StringBuilder sb = new StringBuilder();
 
 		for (int i = 0; i < parts.length; i++) {
 			String part = parts[i];
 			sb.append(part);
-			if (i < parameters.length) {
-				sb.append(formatParameter(parameters[i]));
+			if (i < row.getArity()) {
+				sb.append(formatParameter(row.getField(i)));
 			}
 		}
 
