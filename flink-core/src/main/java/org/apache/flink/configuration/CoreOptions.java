@@ -217,6 +217,26 @@ public class CoreOptions {
 		.defaultValue(5)
 		.withDescription("The maximum number of old log files to keep.");
 
+	public static final ConfigOption<String> FLINK_LOG_LEVEL = ConfigOptions
+		.key("env.log.level")
+		.defaultValue("INFO")
+		.withDescription("Override the log.level property on log4j.properties");
+
+	public static final ConfigOption<String> FLINK_GC_LOG_OPTS = ConfigOptions
+		.key("env.gc.log.opts")
+		.defaultValue("")
+		.withDescription("Write all the garbage collections made by the JVM to a log file");
+
+	public static final ConfigOption<Boolean> FLINK_JVM_ERROR_FILE_ENABLED = ConfigOptions
+		.key("env.jvm.error.file")
+		.defaultValue(false)
+		.withDescription("Generate a error file when jvm crash");
+
+	public static final ConfigOption<Boolean> FLINK_DUMP_OOM_ENABLED = ConfigOptions
+		.key("env.jvm.dump.oom")
+		.defaultValue(false)
+		.withDescription("Generate a heap dump when the jvm oom");
+
 	/**
 	 * This options is here only for documentation generation, it is only
 	 * evaluated in the shell scripts.

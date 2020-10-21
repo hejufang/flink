@@ -1476,6 +1476,21 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		if (flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS).length() > 0) {
 			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_JM_JVM_OPTIONS);
 		}
+
+		String logDirectory = ApplicationConstants.LOG_DIR_EXPANSION_VAR;
+		if (flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS).length() > 0) {
+			javaOpts += " " + flinkConfiguration.getString(CoreOptions.FLINK_GC_LOG_OPTS);
+			javaOpts += " -Xloggc:" + logDirectory + "/gc.log";
+		}
+
+		if (flinkConfiguration.getBoolean(CoreOptions.FLINK_JVM_ERROR_FILE_ENABLED)) {
+			javaOpts += " -XX:ErrorFile=" + logDirectory + "/hs_err_pid%p.log";
+		}
+
+		if (flinkConfiguration.getBoolean(CoreOptions.FLINK_DUMP_OOM_ENABLED)) {
+			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {

@@ -182,6 +182,7 @@ public class BootstrapToolsTest extends TestLogger {
 		final String jvmOpts = "-Djvm"; // if set
 		final String tmJvmOpts = "-DtmJvm"; // if set
 		final String logfile = "-Dlog.file=./logs/taskmanager.log"; // if set
+		final String logLevel = "-Dlog.level=INFO";
 		final String logback =
 			"-Dlogback.configurationFile=file:./conf/logback.xml"; // if set
 		final String log4j =
@@ -228,7 +229,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				"" + // jvmOpts
-				" " + logfile + " " + logback +
+				" " + logfile + " " + logLevel + " " + logback +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -237,7 +238,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + krb5 + // jvmOpts
-				" " + logfile + " " + logback +
+				" " + logfile + " " + logLevel + " " + logback +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -247,7 +248,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				"" + // jvmOpts
-				" " + logfile + " " + log4j +
+				" " + logfile + " " + logLevel + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -256,7 +257,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + krb5 + // jvmOpts
-				" " + logfile + " " + log4j +
+				" " + logfile + " " + logLevel + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -266,7 +267,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				"" + // jvmOpts
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -275,7 +276,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + krb5 + // jvmOpts
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -286,7 +287,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts +
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -295,7 +296,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts + " " + krb5 + // jvmOpts
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -306,7 +307,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts + " " + tmJvmOpts +
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -315,7 +316,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " " + jvmmem +
 				" " + jvmOpts + " " + tmJvmOpts + " " + krb5 + // jvmOpts
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -328,7 +329,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java + " 1 " + jvmmem +
 				" 2 " + jvmOpts + " " + tmJvmOpts + " " + krb5 + // jvmOpts
-				" 3 " + logfile + " " + logback + " " + log4j +
+				" 3 " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" 4 " + mainClass + " 5 " + args + " 6 " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -338,7 +339,7 @@ public class BootstrapToolsTest extends TestLogger {
 			"%java% %logging% %jvmopts% %jvmmem% %class% %args% %redirects%");
 		assertEquals(
 			java +
-				" " + logfile + " " + logback + " " + log4j +
+				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
 				" " + jvmOpts + " " + tmJvmOpts + " " + krb5 + // jvmOpts
 				" " + jvmmem +
 				" " + mainClass + " " + args + " " + redirects,

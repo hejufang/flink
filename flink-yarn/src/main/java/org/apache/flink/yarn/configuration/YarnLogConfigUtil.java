@@ -21,6 +21,7 @@ package org.apache.flink.yarn.configuration;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.CoreOptions;
 
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.slf4j.Logger;
@@ -88,6 +89,10 @@ public class YarnLogConfigUtil {
 		if (logCommand.isEmpty()) {
 			logCommand = getLogBackCommand(logConfigFilePath);
 		}
+		if (configuration.getString(CoreOptions.FLINK_LOG_LEVEL).length() > 0) {
+			logCommand += " -Dlog.level=" + configuration.getString(CoreOptions.FLINK_LOG_LEVEL);
+		}
+
 		return logCommand;
 	}
 
