@@ -196,7 +196,8 @@ public class HiveTableSource implements
 
 		HiveTableInputFormat inputFormat = getInputFormat(
 				allHivePartitions,
-				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_READER));
+				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_READER),
+				flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL));
 
 		if (isStreamingSource()) {
 			if (catalogTable.getPartitionKeys().isEmpty()) {
@@ -234,7 +235,7 @@ public class HiveTableSource implements
 				splitNum = inputFormat.createInputSplits(0).length;
 				long nano2 = System.nanoTime();
 				LOG.info(
-						"Hive source({}}) createInputSplits use time: {} ms",
+						"Hive source({}) createInputSplits use time: {} ms",
 						tablePath,
 						(nano2 - nano1) / 1_000_000);
 			} catch (IOException e) {
@@ -329,7 +330,10 @@ public class HiveTableSource implements
 	}
 
 	@VisibleForTesting
-	HiveTableInputFormat getInputFormat(List<HiveTablePartition> allHivePartitions, boolean useMapRedReader) {
+	HiveTableInputFormat getInputFormat(
+			List<HiveTablePartition> allHivePartitions,
+			boolean useMapRedReader,
+			boolean createSplitInParallel) {
 		return new HiveTableInputFormat(
 				jobConf,
 				catalogTable,
@@ -337,7 +341,8 @@ public class HiveTableSource implements
 				projectedFields,
 				limit,
 				hiveVersion,
-				useMapRedReader);
+				useMapRedReader,
+				createSplitInParallel);
 	}
 
 	@Override
@@ -565,7 +570,10 @@ public class HiveTableSource implements
 		List<HiveTablePartition> allPartitions = initAllPartitions();
 		TableSchema producedSchema = getProducedTableSchema();
 		return new FileSystemLookupFunction<>(
-				getInputFormat(allPartitions, flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_READER)),
+				getInputFormat(
+					allPartitions,
+					flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_READER),
+					flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL)),
 				lookupKeys,
 				producedSchema.getFieldNames(),
 				producedSchema.getFieldDataTypes(),

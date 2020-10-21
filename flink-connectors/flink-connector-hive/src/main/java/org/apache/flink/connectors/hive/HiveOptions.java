@@ -52,4 +52,10 @@ public class HiveOptions {
 					.defaultValue(true)
 					.withDescription("If it is false, using flink native writer to write parquet and orc files; " +
 							"If it is true, using hadoop mapred record writer to write parquet and orc files.");
+
+	public static final ConfigOption<Boolean> TABLE_EXEC_HIVE_CREATE_SPLITS_IN_PARALLEL =
+			key("table.exec.hive.create-splits-in-parallel")
+					.booleanType()
+					.defaultValue(true)
+					.withDescription("If is true, we will create split in parallel.\n");
 }

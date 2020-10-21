@@ -711,9 +711,10 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 		@Override
 		HiveTableInputFormat getInputFormat(
 				List<HiveTablePartition> allHivePartitions,
-				boolean useMapRedReader) {
+				boolean useMapRedReader,
+				boolean createSplitInParallel) {
 			assertEquals(useMapRedReader, fallbackMR);
-			return super.getInputFormat(allHivePartitions, useMapRedReader);
+			return super.getInputFormat(allHivePartitions, useMapRedReader, createSplitInParallel);
 		}
 	}
 

@@ -23,6 +23,7 @@ import org.apache.flink.api.common.io.CheckpointableInputFormat;
 import org.apache.flink.api.common.io.LocatableInputSplitAssigner;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.api.java.hadoop.common.HadoopInputFormatCommonBase;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.connectors.hive.FlinkHiveException;
 import org.apache.flink.connectors.hive.HiveTablePartition;
 import org.apache.flink.core.io.InputSplitAssigner;
@@ -33,6 +34,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -40,6 +42,7 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -53,6 +56,9 @@ import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -66,7 +72,7 @@ import static org.apache.hadoop.mapreduce.lib.input.FileInputFormat.INPUT_DIR;
 public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, HiveTableInputSplit>
 		implements CheckpointableInputFormat<HiveTableInputSplit, Long> {
 
-	private static final long serialVersionUID = 1L;
+	private static final long serialVersionUID = 2L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveTableInputFormat.class);
 
@@ -97,6 +103,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 
 	private transient long currentReadCount = 0L;
 
+	private boolean createSplitInParallel;
+
 	@VisibleForTesting
 	protected transient SplitReader reader;
 
@@ -107,7 +115,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			int[] projectedFields,
 			long limit,
 			String hiveVersion,
-			boolean useMapRedReader) {
+			boolean useMapRedReader,
+			boolean createSplitInParallel) {
 		super(jobConf.getCredentials());
 		this.partitionKeys = catalogTable.getPartitionKeys();
 		this.fieldTypes = catalogTable.getSchema().getFieldDataTypes();
@@ -120,6 +129,8 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		int rowArity = catalogTable.getSchema().getFieldCount();
 		selectedFields = projectedFields != null ? projectedFields : IntStream.range(0, rowArity).toArray();
 		this.useMapRedReader = useMapRedReader;
+		this.createSplitInParallel = createSplitInParallel;
+		LOG.info("Create split in parallel: {}", createSplitInParallel);
 	}
 
 	public JobConf getJobConf() {
@@ -279,32 +290,40 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	@Override
 	public HiveTableInputSplit[] createInputSplits(int minNumSplits)
 			throws IOException {
-		return createInputSplits(minNumSplits, partitions, jobConf);
+		return createInputSplits(minNumSplits, partitions, jobConf, createSplitInParallel);
 	}
 
 	public static HiveTableInputSplit[] createInputSplits(
 			int minNumSplits,
 			List<HiveTablePartition> partitions,
 			JobConf jobConf) throws IOException {
+		return createInputSplits(minNumSplits, partitions, jobConf, false);
+	}
+
+	private static HiveTableInputSplit[] createInputSplits(
+			int minNumSplits,
+			List<HiveTablePartition> partitions,
+			JobConf jobConf,
+			boolean createSplitInParallel) throws IOException {
+		if (createSplitInParallel) {
+			return createInputSplitsInParallel(minNumSplits, partitions, jobConf);
+		} else {
+			return createInputSplitsSerially(minNumSplits, partitions, jobConf);
+		}
+	}
+
+	private static HiveTableInputSplit[] createInputSplitsSerially(
+			int minNumSplits,
+			List<HiveTablePartition> partitions,
+			JobConf jobConf) throws IOException {
 		List<HiveTableInputSplit> hiveSplits = new ArrayList<>();
 		int splitNum = 0;
-		FileSystem fs = null;
+		AtomicReference<FileSystem> fsRef = new AtomicReference<>();
 		for (HiveTablePartition partition : partitions) {
 			StorageDescriptor sd = partition.getStorageDescriptor();
-			Path inputPath = new Path(sd.getLocation());
-			if (fs == null) {
-				fs = inputPath.getFileSystem(jobConf);
-			}
-			// it's possible a partition exists in metastore but the data has been removed
-			if (!fs.exists(inputPath)) {
+			InputFormat format = prepareInputFormat(fsRef, sd, jobConf);
+			if (format == null) {
 				continue;
-			}
-			InputFormat format;
-			try {
-				format = (InputFormat)
-						Class.forName(sd.getInputFormat(), true, Thread.currentThread().getContextClassLoader()).newInstance();
-			} catch (Exception e) {
-				throw new FlinkHiveException("Unable to instantiate the hadoop input format", e);
 			}
 			ReflectionUtils.setConf(format, jobConf);
 			jobConf.set(INPUT_DIR, sd.getLocation());
@@ -316,6 +335,74 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		}
 
 		return hiveSplits.toArray(new HiveTableInputSplit[0]);
+	}
+
+	private static HiveTableInputSplit[] createInputSplitsInParallel(
+			int minNumSplits,
+			List<HiveTablePartition> partitions,
+			JobConf jobConf) throws IOException {
+		List<HiveTableInputSplit> hiveSplits = new ArrayList<>();
+		int splitNum = 0;
+		List<CompletableFuture<Tuple3<HiveTablePartition, InputSplit[], IOException>>> futureList = new ArrayList<>();
+		AtomicReference<FileSystem> fsRef = new AtomicReference<>();
+		for (HiveTablePartition partition : partitions) {
+			StorageDescriptor sd = partition.getStorageDescriptor();
+			JobConf newJobConf = new JobConf(jobConf);
+			InputFormat format = prepareInputFormat(fsRef, sd, newJobConf);
+			ReflectionUtils.setConf(format, newJobConf);
+			newJobConf.set(INPUT_DIR, sd.getLocation());
+			//TODO: we should consider how to calculate the splits according to minNumSplits in the future.
+			CompletableFuture<Tuple3<HiveTablePartition, InputSplit[], IOException>> future =
+				CompletableFuture.supplyAsync(() -> {
+					try {
+						return Tuple3.of(partition, format.getSplits(newJobConf, minNumSplits), null);
+					} catch (IOException e) {
+						return Tuple3.of(null, null, e);
+					}
+				});
+			futureList.add(future);
+		}
+
+		for (CompletableFuture<Tuple3<HiveTablePartition, InputSplit[], IOException>> future : futureList) {
+			try {
+				Tuple3<HiveTablePartition, InputSplit[], IOException> tuple3 = future.get();
+				if (tuple3.f2 != null) {
+					throw tuple3.f2;
+				}
+				HiveTablePartition partition = tuple3.f0;
+				InputSplit[] splitArray = tuple3.f1;
+
+				if (splitArray != null) {
+					for (org.apache.hadoop.mapred.InputSplit inputSplit : splitArray) {
+						hiveSplits.add(new HiveTableInputSplit(splitNum++, inputSplit, jobConf, partition));
+					}
+				}
+			} catch (InterruptedException | ExecutionException e) {
+				throw new FlinkRuntimeException("Failed to create spite.", e);
+			}
+		}
+
+		return hiveSplits.toArray(new HiveTableInputSplit[0]);
+	}
+
+	private static InputFormat prepareInputFormat(
+			AtomicReference<FileSystem> fsRef,
+			StorageDescriptor sd,
+			JobConf jobConf) throws IOException {
+		Path inputPath = new Path(sd.getLocation());
+		if (fsRef.get() == null) {
+			fsRef.set(inputPath.getFileSystem(jobConf));
+		}
+		// it's possible a partition exists in metastore but the data has been removed
+		if (!fsRef.get().exists(inputPath)) {
+			return null;
+		}
+		try {
+			return (InputFormat) Class.forName(sd.getInputFormat(), true,
+				Thread.currentThread().getContextClassLoader()).newInstance();
+		} catch (Exception e) {
+			throw new FlinkHiveException("Unable to instantiate the hadoop input format", e);
+		}
 	}
 
 	@Override
@@ -344,6 +431,7 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		out.writeObject(limit);
 		out.writeObject(hiveVersion);
 		out.writeBoolean(useMapRedReader);
+		out.writeBoolean(createSplitInParallel);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -366,5 +454,6 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 		limit = (long) in.readObject();
 		hiveVersion = (String) in.readObject();
 		useMapRedReader = in.readBoolean();
+		createSplitInParallel = in.readBoolean();
 	}
 }
