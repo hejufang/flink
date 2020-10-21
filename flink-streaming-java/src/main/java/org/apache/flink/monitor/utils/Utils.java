@@ -40,21 +40,25 @@ import java.util.stream.Collectors;
  */
 public class Utils {
 	private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
-	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
+	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 20;
+	private static final int METRICS_TASK_NAME_MAX_LENGTH = 100;
 	private static final Pattern CLUSTER_WITH_DC_PATTERN = Pattern.compile("(.*)\\.service\\.(\\w+)");
 
 	public static String replaceSpecialCharacter(String name) {
-		String result = name.replaceAll("[^\\w.]", "_")
-			.replaceAll("\\.+", ".")
-			.replaceAll("_+", "_");
-		return result;
+		if (name != null) {
+			return name.replaceAll("[^\\w.]", "_")
+					.replaceAll("\\.+", ".")
+					.replaceAll("_+", "_");
+		} else {
+			return name;
+		}
 	}
 
 	public static List<String> getTasks(JobGraph jobGraph) {
 		List<String> tasks = new ArrayList<>();
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			String name = vertex.getName();
-			name = Utils.replaceSpecialCharacter(name);
+			name = formatTask(name);
 			tasks.add(name);
 		}
 		return tasks;
@@ -115,6 +119,15 @@ public class Utils {
 			LOG.warn("The operator name {} exceeded the {} characters length limit and was truncated.",
 				name, METRICS_OPERATOR_NAME_MAX_LENGTH);
 			name = name.substring(0, METRICS_OPERATOR_NAME_MAX_LENGTH);
+		}
+		return Utils.replaceSpecialCharacter(name);
+	}
+
+	public static String formatTask(String name) {
+		if (name != null && name.length() > METRICS_TASK_NAME_MAX_LENGTH) {
+			LOG.warn("The Task name {} exceeded the {} characters length limit and was truncated.",
+					name, METRICS_TASK_NAME_MAX_LENGTH);
+			name = name.substring(0, METRICS_TASK_NAME_MAX_LENGTH);
 		}
 		return Utils.replaceSpecialCharacter(name);
 	}
