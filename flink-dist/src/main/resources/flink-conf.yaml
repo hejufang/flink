@@ -30,9 +30,6 @@ common:
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.11/flink/fs_checkpoint_dir
   state.backend.incremental: true
   state.checkpoints.num-retained: 10
-  execution.checkpointing.tolerable-failed-checkpoints: 10000
-  execution.checkpointing.interval: 2 min
-  execution.checkpointing.min-pause: 1 min
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
 
