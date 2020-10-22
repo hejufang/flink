@@ -70,9 +70,9 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		if (newParallelism == oldParallelism) {
 
 			final int hashCode = previousParallelSubtaskStates.hashCode();
-			if (unionStateCache.containsKey(hashCode)) {
+			if (unionStatesCache.containsKey(hashCode)) {
 				LOG.info("Skip the union states re-assignment because of cache.");
-				return unionStateCache.get(hashCode);
+				return unionStatesCache.get(hashCode);
 			}
 
 			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionStates = collectUnionStates(previousParallelSubtaskStates);
@@ -91,8 +91,8 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			}
 
 			// always keep the latest union state
-			unionStateCache.clear();
-			unionStateCache.put(hashCode, result);
+			unionStatesCache.clear();
+			unionStatesCache.put(hashCode, result);
 
 			return result;
 		} else {
