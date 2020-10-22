@@ -25,6 +25,9 @@ import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
@@ -40,9 +43,12 @@ import java.util.stream.Collectors;
  */
 @Internal
 public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepartitioner {
+	private static final Logger LOG = LoggerFactory.getLogger(RoundRobinOperatorStateRepartitioner.class);
 
 	public static final OperatorStateRepartitioner INSTANCE = new RoundRobinOperatorStateRepartitioner();
 	private static final boolean OPTIMIZE_MEMORY_USE = false;
+
+	private final Map<Integer, List<List<OperatorStateHandle>>> unionStatesCache = new HashMap<>(1);
 
 	@Override
 	public List<List<OperatorStateHandle>> repartitionState(
@@ -62,6 +68,13 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 
 		// We only round-robin repartition UNION state if new parallelism equals to the old one.
 		if (newParallelism == oldParallelism) {
+
+			final int hashCode = previousParallelSubtaskStates.hashCode();
+			if (unionStateCache.containsKey(hashCode)) {
+				LOG.info("Skip the union states re-assignment because of cache.");
+				return unionStateCache.get(hashCode);
+			}
+
 			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionStates = collectUnionStates(previousParallelSubtaskStates);
 
 			if (unionStates.isEmpty()) {
@@ -72,6 +85,16 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			mergeMapList = initMergeMapList(previousParallelSubtaskStates);
 
 			repartitionUnionState(unionStates, mergeMapList);
+
+			for (int i = 0; i < mergeMapList.size(); ++i) {
+				result.add(i, new ArrayList<>(mergeMapList.get(i).values()));
+			}
+
+			// always keep the latest union state
+			unionStateCache.clear();
+			unionStateCache.put(hashCode, result);
+
+			return result;
 		} else {
 
 			// Reorganize: group by (State Name -> StreamStateHandle + Offsets)
