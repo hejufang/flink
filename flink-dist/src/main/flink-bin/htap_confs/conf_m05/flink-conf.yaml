@@ -56,7 +56,7 @@ common:
   # Classes pre-loaded when JM/TM starts
   flink.preload.class: org.apache.flink.htap.shaded.com.bytedance.htap.HtapClient
   # External jars we needed
-  flink.external.jar.dependecies: connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar
+  flink.external.jar.dependecies: connectors/flink-connector-htap_2.11-1.11-byted-SNAPSHOT.jar,connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,hive/flink-hive-udf-0.0.1.jar
 
   cluster.evenly-spread-out-slots: true
 
