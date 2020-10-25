@@ -542,6 +542,12 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			effectiveConfiguration.setString(HA_CLUSTER_ID, zkNamespace);
 		}
 
+		// Yarn will get cluster from conf by queue first
+		if (commandLine.hasOption(queue.getOpt())) {
+			String queueName = commandLine.getOptionValue(queue.getOpt());
+			effectiveConfiguration.setString(YarnConfigOptions.YARN_CONFIG_KEY_PREFIX + YarnConfiguration.APP_QUEUE_NAME, queueName);
+		}
+
 		final ApplicationId applicationId = getClusterId(commandLine);
 
 		if (applicationId != null) {
