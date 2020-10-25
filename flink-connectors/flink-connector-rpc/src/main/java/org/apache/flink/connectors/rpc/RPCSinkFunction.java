@@ -18,7 +18,6 @@
 package org.apache.flink.connectors.rpc;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverter;
 import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverterFactory;
@@ -29,6 +28,7 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.RetryManager;
@@ -50,26 +50,23 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	private static final long serialVersionUID = 1L;
 
 	private final RPCOptions options;
-	private final String[] fieldNames;
 	private final Class<?> requestClass;
 	private RetryManager.Strategy retryStrategy;
 	private final ThriftRPCClient thriftRPCClient;
+	private final RowType rowType;
 	private transient List<Object> requestList;
-
 	private transient volatile boolean closed = false;
 	private transient volatile Exception flushException;
-
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
-
 	private transient SerializationRuntimeConverter runtimeConverter;
 
-	public RPCSinkFunction(RPCOptions options, RowTypeInfo rowTypeInfo) {
+	public RPCSinkFunction(RPCOptions options, RowType rowType) {
 		this.requestClass = ThriftUtil.getParameterClassOfMethod(
 			options.getThriftServiceClass() + CLIENT_CLASS_SUFFIX, options.getThriftMethod());
 		this.options = options;
-		this.fieldNames = rowTypeInfo.getFieldNames();
 		this.thriftRPCClient = new ThriftRPCClient(options, requestClass);
+		this.rowType = rowType;
 	}
 
 	@Override
@@ -85,10 +82,10 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		if (options.getBatchClass() == null) {
-			runtimeConverter = SerializationRuntimeConverterFactory.createRowConverter(requestClass, fieldNames);
+			runtimeConverter = SerializationRuntimeConverterFactory.createRowConverter(requestClass, rowType);
 		} else {
 			runtimeConverter = SerializationRuntimeConverterFactory
-				.createRowConverter(Class.forName(options.getBatchClass()), fieldNames);
+				.createRowConverter(Class.forName(options.getBatchClass()), rowType);
 		}
 		thriftRPCClient.open();
 
@@ -127,6 +124,9 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 			scheduler.shutdown();
 		}
 		if (thriftRPCClient != null) {
+			if (requestList != null && requestList.size() > 0) {
+				flush();
+			}
 			thriftRPCClient.close();
 		}
 		checkFlushException();

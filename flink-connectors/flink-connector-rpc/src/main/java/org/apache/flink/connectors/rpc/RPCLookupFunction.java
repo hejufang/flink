@@ -27,6 +27,9 @@ import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -36,9 +39,11 @@ import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.connectors.rpc.thrift.ThriftRPCClient.CLIENT_CLASS_SUFFIX;
 
@@ -56,6 +61,7 @@ public class RPCLookupFunction extends TableFunction<Row> {
 	private final RPCLookupOptions rpcLookupOptions;
 	private final ThriftRPCClient thriftRPCClient;
 	private final TypeInformation<Row> typeInformation;
+	private final DataType dataType;
 
 	private transient SerializationRuntimeConverter serializationRuntimeConverter;
 	private transient DeserializationRuntimeConverter deserializationRuntimeConverter;
@@ -66,7 +72,8 @@ public class RPCLookupFunction extends TableFunction<Row> {
 			String[] fieldNames,
 			String[] lookupFieldNames,
 			RPCOptions rpcOptions,
-			RPCLookupOptions rpcLookupOptions) {
+			RPCLookupOptions rpcLookupOptions,
+			DataType dataType) {
 		this.typeInformation = typeInformation;
 		this.fieldNames = fieldNames;
 		this.lookupFieldNames = lookupFieldNames;
@@ -75,6 +82,7 @@ public class RPCLookupFunction extends TableFunction<Row> {
 		this.responseClass = ThriftUtil.getReturnClassOfMethod(serviceClassName, rpcOptions.getThriftMethod());
 		this.rpcLookupOptions = rpcLookupOptions;
 		this.thriftRPCClient = new ThriftRPCClient(rpcOptions, requestClass);
+		this.dataType = dataType;
 	}
 
 	@Override
@@ -89,9 +97,19 @@ public class RPCLookupFunction extends TableFunction<Row> {
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
+		List<String> nameList = Arrays.asList(fieldNames);
+		int[] indices = Arrays.stream(lookupFieldNames).mapToInt(nameList::indexOf).toArray();
+		List<LogicalType> logicalTypes = this.dataType.getLogicalType().getChildren();
+		List<RowType.RowField> rowFields = Arrays.stream(indices)
+			.mapToObj(i -> new RowType.RowField(fieldNames[i], logicalTypes.get(i)))
+			.collect(Collectors.toList());
+		RowType lookupRowType = new RowType(rowFields);
 		serializationRuntimeConverter =
-			SerializationRuntimeConverterFactory.createRowConverter(requestClass, lookupFieldNames);
-		deserializationRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(responseClass);
+			SerializationRuntimeConverterFactory.createRowConverter(requestClass, lookupRowType);
+		// Because the response field is appended to the tail of table schema.
+		deserializationRuntimeConverter =
+			DeserializationRuntimeConverterFactory.createRowConverter(responseClass,
+				(RowType) logicalTypes.get(logicalTypes.size() - 1));
 		thriftRPCClient.open();
 	}
 

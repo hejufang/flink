@@ -99,7 +99,9 @@ public class ThriftRPCClient implements Serializable {
 	}
 
 	public void close() {
-		clientPool.clear();
+		if (clientPool != null) {
+			clientPool.clear();
+		}
 	}
 
 	public Object sendRequest(List<Object> request) {

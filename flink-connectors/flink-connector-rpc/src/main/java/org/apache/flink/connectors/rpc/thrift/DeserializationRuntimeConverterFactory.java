@@ -17,10 +17,14 @@
 
 package org.apache.flink.connectors.rpc.thrift;
 
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.MapType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,32 +37,46 @@ import static org.apache.flink.connectors.rpc.thrift.ThriftUtil.isPrimitivePacka
  */
 public class DeserializationRuntimeConverterFactory {
 
-	public static DeserializationRuntimeConverter createRowConverter(Class<?> responseClass) {
+	public static DeserializationRuntimeConverter createRowConverter(Class<?> responseClass, RowType rowType) {
 		Field[] fields = responseClass.getFields();
+		int len = rowType.getFieldCount();
+		List<String> fieldNames = rowType.getFieldNames();
+		int convertIndex = 0; // The actually convert field index.
 		int actualFieldLength = fields.length - 1; // The java class which generate by thrift will add one more field.
-		DeserializationRuntimeConverter[] converters = new DeserializationRuntimeConverter[actualFieldLength];
+		DeserializationRuntimeConverter[] converters = new DeserializationRuntimeConverter[len];
 		for (int i = 0; i < actualFieldLength; i++) {
-			Class<?> innerClass = fields[i].getType();
-			DeserializationRuntimeConverter converter;
-			if (innerClass.isEnum()) {
-				converter = createEnumConverter();
-			} else if (innerClass.equals(List.class) || innerClass.equals(Set.class)) {
-				converter = createObjectArrayConverter(fields[i]);
-			} else if (innerClass.equals(Map.class)) {
-				converter = createMapConverter(fields[i]);
-			} else if (isPrimitivePackageClass(innerClass) || innerClass.isPrimitive()){
-				converter = createPrimitiveConverter(innerClass);
-			} else {
-				converter = createRowConverter(innerClass);
+			if (convertIndex == len) {
+				break;
 			}
-			converters[i] = wrapIntoNullableConverter(converter);
-
+			if (fields[i].getName().equals(fieldNames.get(convertIndex))) {
+				Class<?> innerClass = fields[i].getType();
+				DeserializationRuntimeConverter converter;
+				if (innerClass.isEnum()) {
+					converter = createEnumConverter();
+				} else if (innerClass.equals(List.class) || innerClass.equals(Set.class)) {
+					converter = createObjectArrayConverter(fields[i], (ArrayType) rowType.getTypeAt(convertIndex));
+				} else if (innerClass.equals(Map.class)) {
+					converter = createMapConverter(fields[i], (MapType) rowType.getTypeAt(convertIndex));
+				} else if (isPrimitivePackageClass(innerClass) || innerClass.isPrimitive()) {
+					converter = createPrimitiveConverter(innerClass);
+				} else {
+					converter = createRowConverter(innerClass, (RowType) rowType.getTypeAt(convertIndex));
+				}
+				converters[convertIndex++] = wrapIntoNullableConverter(converter);
+			}
 		}
 		return (message) -> {
-			Row result = new Row(actualFieldLength);
+			Row result = new Row(len);
+			int messageIndex = 0;
 			for (int i = 0; i < actualFieldLength; i++) {
-				Object innerObject = converters[i].convert(message.getClass().getFields()[i].get(message));
-				result.setField(i, innerObject);
+				if (messageIndex == len) {
+					break;
+				}
+				if (fields[i].getName().equals(fieldNames.get(messageIndex))) {
+					Object innerObject = converters[messageIndex].convert(fields[i].get(message));
+					result.setField(messageIndex, innerObject);
+					messageIndex++;
+				}
 			}
 			return result;
 		};
@@ -75,7 +93,15 @@ public class DeserializationRuntimeConverterFactory {
 
 	private static DeserializationRuntimeConverter createPrimitiveConverter(Class<?> responseClass) {
 		if (isPrimitivePackageClass(responseClass) || responseClass.isPrimitive()) {
-			return (message) -> message;
+			if (responseClass.equals(ByteBuffer.class)) {
+				return (message) -> {
+					byte[] arr = new byte[((ByteBuffer) message).remaining()];
+					((ByteBuffer) message).get(arr);
+					return arr;
+				};
+			} else {
+				return (message) -> message;
+			}
 		} else {
 			throw new UnsupportedOperationException(String.format("Class %s is not primitive or primitive package class",
 				responseClass));
@@ -86,7 +112,7 @@ public class DeserializationRuntimeConverterFactory {
 		return Object::toString;
 	}
 
-	private static DeserializationRuntimeConverter createObjectArrayConverter(Field field) {
+	private static DeserializationRuntimeConverter createObjectArrayConverter(Field field, ArrayType arrType) {
 		Class<?> outerClass = field.getType();
 		ParameterizedType genericType = (ParameterizedType) field.getGenericType();
 		Class<?> innerClass = (Class<?>) genericType.getActualTypeArguments()[0];
@@ -94,7 +120,7 @@ public class DeserializationRuntimeConverterFactory {
 		if (isPrimitivePackageClass(innerClass)) {
 			elementConverter = createPrimitiveConverter(innerClass);
 		} else {
-			elementConverter = createRowConverter(innerClass);
+			elementConverter = createRowConverter(innerClass, (RowType) arrType.getElementType());
 		}
 		if (outerClass.equals(List.class)) {
 			return (message) -> {
@@ -121,7 +147,7 @@ public class DeserializationRuntimeConverterFactory {
 
 	}
 
-	private static DeserializationRuntimeConverter createMapConverter(Field field) {
+	private static DeserializationRuntimeConverter createMapConverter(Field field, MapType mapType) {
 		ParameterizedType genericType = (ParameterizedType) field.getGenericType();
 		Class<?> keyClass = (Class<?>) genericType.getActualTypeArguments()[0];
 		Class<?> valueClass = (Class<?>) genericType.getActualTypeArguments()[1];
@@ -130,12 +156,12 @@ public class DeserializationRuntimeConverterFactory {
 		if (isPrimitivePackageClass(keyClass)) {
 			keyConverter = createPrimitiveConverter(keyClass);
 		} else {
-			keyConverter = createRowConverter(keyClass);
+			keyConverter = createRowConverter(keyClass, (RowType) mapType.getKeyType());
 		}
 		if (isPrimitivePackageClass(valueClass)) {
 			valueConverter = createPrimitiveConverter(valueClass);
 		} else {
-			valueConverter = createRowConverter(valueClass);
+			valueConverter = createRowConverter(valueClass, (RowType) mapType.getValueType());
 		}
 
 		return (message) -> {

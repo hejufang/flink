@@ -19,12 +19,12 @@ package org.apache.flink.connectors.rpc;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sinks.UpsertStreamTableSink;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
@@ -35,12 +35,10 @@ public class RPCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	private final RPCOptions options;
 	private final TableSchema tableSchema;
-	private final RowTypeInfo rowTypeInfo;
 
-	public RPCUpsertTableSink(RPCOptions options, TableSchema tableSchema, RowTypeInfo rowTypeInfo) {
+	public RPCUpsertTableSink(RPCOptions options, TableSchema tableSchema) {
 		this.options = Preconditions.checkNotNull(options);
 		this.tableSchema = Preconditions.checkNotNull(tableSchema);
-		this.rowTypeInfo = rowTypeInfo;
 	}
 
 	@Override
@@ -65,7 +63,8 @@ public class RPCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
-		DataStreamSink<Tuple2<Boolean, Row>> resultStream = dataStream.addSink(new RPCSinkFunction(options, rowTypeInfo));
+		DataStreamSink<Tuple2<Boolean, Row>> resultStream = dataStream
+			.addSink(new RPCSinkFunction(options, (RowType) tableSchema.toRowDataType().getLogicalType()));
 		if (options.getSinkParallelism() > 0) {
 			resultStream.setParallelism(options.getSinkParallelism());
 		}
@@ -79,6 +78,6 @@ public class RPCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public TableSink<Tuple2<Boolean, Row>> configure(String[] fieldNames, TypeInformation<?>[] fieldTypes) {
-		return new RPCUpsertTableSink(options, tableSchema, rowTypeInfo);
+		return new RPCUpsertTableSink(options, tableSchema);
 	}
 }

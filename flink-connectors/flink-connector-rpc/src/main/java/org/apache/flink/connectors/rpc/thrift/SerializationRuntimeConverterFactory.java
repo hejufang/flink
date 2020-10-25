@@ -17,10 +17,14 @@
 
 package org.apache.flink.connectors.rpc.thrift;
 
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.MapType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,29 +39,30 @@ import static org.apache.flink.connectors.rpc.thrift.ThriftUtil.isPrimitivePacka
  */
 public class SerializationRuntimeConverterFactory {
 
-	public static SerializationRuntimeConverter createRowConverter(Class<?> requestClass, String[] fieldNames) {
+	public static SerializationRuntimeConverter createRowConverter(Class<?> requestClass, RowType rowType) {
 		Field[] fields = requestClass.getFields();
+		int len = rowType.getFieldCount();
+		List<String> fieldNames = rowType.getFieldNames();
 		int convertIndex = 0; // The actually convert field index.
 		int actualFieldLength = fields.length - 1; // The java class which generate by thrift will add one more field.
-		SerializationRuntimeConverter[] converters = new SerializationRuntimeConverter[fieldNames.length];
+		SerializationRuntimeConverter[] converters = new SerializationRuntimeConverter[len];
 		for (int i = 0; i < actualFieldLength; i++) {
-			if (convertIndex == fieldNames.length) {
+			if (convertIndex == len) {
 				break;
 			}
-			if (fields[i].getName().equals(fieldNames[convertIndex])) {
+			if (fields[i].getName().equals(fieldNames.get(convertIndex))) {
 				Class<?> innerClass = fields[i].getType();
-				String[] innerFieldsName = getFieldNamesOfClass(innerClass);
 				SerializationRuntimeConverter converter;
 				if (innerClass.isEnum()) {
 					converter = createEnumConverter(innerClass);
 				} else if (innerClass.equals(List.class) || innerClass.equals(Set.class)) {
-					converter = createObjectArrayConverter(fields[i]);
+					converter = createObjectArrayConverter(fields[i], (ArrayType) rowType.getTypeAt(convertIndex));
 				} else if (innerClass.equals(Map.class)) {
-					converter = createMapConverter(fields[i]);
+					converter = createMapConverter(fields[i], (MapType) rowType.getTypeAt(convertIndex));
 				} else if (isPrimitivePackageClass(innerClass) || innerClass.isPrimitive()){
 					converter = createPrimitiveConverter(innerClass);
 				} else {
-					converter = createRowConverter(innerClass, innerFieldsName);
+					converter = createRowConverter(innerClass, (RowType) rowType.getTypeAt(convertIndex));
 				}
 				converters[convertIndex++] = wrapIntoNullableConverter(converter);
 			}
@@ -66,10 +71,10 @@ public class SerializationRuntimeConverterFactory {
 			Object result = requestClass.newInstance();
 			int messageIndex = 0;
 			for (int i = 0; i < actualFieldLength; i++) {
-				if (messageIndex == fieldNames.length) {
+				if (messageIndex == len) {
 					break;
 				}
-				if (fields[i].getName().equals(fieldNames[messageIndex])) {
+				if (fields[i].getName().equals(fieldNames.get(messageIndex))) {
 					Row innerValue = (Row) message;
 					Object innerObject = converters[messageIndex].convert(innerValue.getField(messageIndex));
 					messageIndex++;
@@ -91,7 +96,15 @@ public class SerializationRuntimeConverterFactory {
 
 	private static SerializationRuntimeConverter createPrimitiveConverter(Class<?> requestClass) {
 		if (isPrimitivePackageClass(requestClass) || requestClass.isPrimitive()) {
-			return (message) -> message;
+			if (requestClass.equals(ByteBuffer.class)) {
+				return (message) -> {
+					byte[] arr = new byte[((ByteBuffer) message).remaining()];
+					((ByteBuffer) message).get(arr);
+					return arr;
+				};
+			} else {
+				return (message) -> message;
+			}
 		} else {
 			throw new UnsupportedOperationException(String.format("Class %s is not primitive or primitive package class",
 				requestClass));
@@ -105,7 +118,7 @@ public class SerializationRuntimeConverterFactory {
 		};
 	}
 
-	private static SerializationRuntimeConverter createObjectArrayConverter(Field field) {
+	private static SerializationRuntimeConverter createObjectArrayConverter(Field field, ArrayType arrType) {
 		Class<?> outerClass = field.getType();
 		ParameterizedType genericType = (ParameterizedType) field.getGenericType();
 		Class<?> innerClass = (Class<?>) genericType.getActualTypeArguments()[0];
@@ -113,8 +126,7 @@ public class SerializationRuntimeConverterFactory {
 		if (isPrimitivePackageClass(innerClass)) {
 			elementConverter = createPrimitiveConverter(innerClass);
 		} else {
-			String[] innerFieldsName = getFieldNamesOfClass(innerClass);
-			elementConverter = createRowConverter(innerClass, innerFieldsName);
+			elementConverter = createRowConverter(innerClass, (RowType) arrType.getElementType());
 		}
 		if (outerClass.equals(List.class)) {
 			return (message) -> {
@@ -141,7 +153,7 @@ public class SerializationRuntimeConverterFactory {
 
 	}
 
-	private static SerializationRuntimeConverter createMapConverter(Field field) {
+	private static SerializationRuntimeConverter createMapConverter(Field field, MapType mapType) {
 		ParameterizedType genericType = (ParameterizedType) field.getGenericType();
 		Class<?> keyClass = (Class<?>) genericType.getActualTypeArguments()[0];
 		Class<?> valueClass = (Class<?>) genericType.getActualTypeArguments()[1];
@@ -150,14 +162,12 @@ public class SerializationRuntimeConverterFactory {
 		if (isPrimitivePackageClass(keyClass)) {
 			keyConverter = createPrimitiveConverter(keyClass);
 		} else {
-			String[] innerFieldsName = getFieldNamesOfClass(keyClass);
-			keyConverter = createRowConverter(keyClass, innerFieldsName);
+			keyConverter = createRowConverter(keyClass, (RowType) mapType.getKeyType());
 		}
 		if (isPrimitivePackageClass(valueClass)) {
 			valueConverter = createPrimitiveConverter(valueClass);
 		} else {
-			String[] innerFieldsName = getFieldNamesOfClass(valueClass);
-			valueConverter = createRowConverter(valueClass, innerFieldsName);
+			valueConverter = createRowConverter(valueClass, (RowType) mapType.getValueType());
 		}
 
 		return (message) -> {
@@ -170,28 +180,6 @@ public class SerializationRuntimeConverterFactory {
 			}
 			return result;
 		};
-	}
-
-	/**
-	 * Get the user-defined class fields name. If requestClass is a java type,
-	 * it is unnecessary to know a java type inner field. So we just return
-	 * new String[0].
-	 * @param requestClass the request class
-	 * @return the field names of request class
-	 */
-	private static String[] getFieldNamesOfClass(Class<?> requestClass) {
-		Field[] innerFields = requestClass.getFields();
-		String[] innerFieldsName = new String[0];
-		if (requestClass.getClassLoader() != null) {
-			/* The last field generate by thrift is metaDataMap which contains the thrift fields information.
-			 * Thrift version 0.13.0 is suitable for this implementation. Because we use reflect to get fields
-			 * information and use reflect to set field. So we doesn't need last field. */
-			innerFieldsName = new String[innerFields.length - 1];
-			for (int j = 0; j < innerFieldsName.length; j++) {
-				innerFieldsName[j] = innerFields[j].getName();
-			}
-		}
-		return innerFieldsName;
 	}
 
 }

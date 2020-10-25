@@ -19,7 +19,6 @@ package org.apache.flink.connectors.rpc;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connectors.rpc.thrift.ThriftRowTypeInformationUtil;
 import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
 import org.apache.flink.table.api.TableSchema;
@@ -63,7 +62,6 @@ import static org.apache.flink.table.descriptors.RPCValidator.RPC;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_TYPE;
-import static org.apache.flink.table.factories.TableFormatFactoryBase.deriveSchema;
 import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_DELAY_MS;
 import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_MAX_TIMES;
 import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_STRATEGY;
@@ -143,8 +141,7 @@ public class RPCTableFactory implements
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		RPCOptions rpcOptions = getRPCOptions(descriptorProperties);
 		final TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
-		RowTypeInfo rowTypeInfo = (RowTypeInfo) deriveSchema(properties).toRowType();
-		return new RPCUpsertTableSink(rpcOptions, tableSchema, rowTypeInfo);
+		return new RPCUpsertTableSink(rpcOptions, tableSchema);
 	}
 
 	private static DescriptorProperties getValidatedProperties(Map<String, String> properties) {
