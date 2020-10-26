@@ -16,6 +16,38 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <Root>
+  <TestCase name="testProcTimeMaterializationInMultiSink">
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalLegacySink(name=[`default_catalog`.`default_database`.`sink1`], fields=[long_field1, cnt1])
++- LogicalProject(long_field1=[$0], cnt1=[$2])
+   +- LogicalAggregate(group=[{0, 1}], cnt1=[COUNT()])
+      +- LogicalProject(long_field1=[$0], $f1=[$TUMBLE($2, 600000:INTERVAL MINUTE)])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2]])
+
+LogicalLegacySink(name=[`default_catalog`.`default_database`.`sink2`], fields=[long_field2, cnt2])
++- LogicalProject(long_field1=[$0], cnt1=[$2])
+   +- LogicalAggregate(group=[{0, 1}], cnt1=[COUNT()])
+      +- LogicalProject(long_field1=[$0], $f1=[$TUMBLE($2, 1200000:INTERVAL MINUTE)])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable2]])
+]]>
+  </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Exchange(distribution=[hash[long]], changelogMode=[I], reuse_id=[1])
++- Calc(select=[long, proctime], changelogMode=[I])
+   +- DataStreamScan(table=[[default_catalog, default_database, MyTable2]], fields=[long, int, proctime], changelogMode=[I])
+
+LegacySink(name=[`default_catalog`.`default_database`.`sink1`], fields=[long_field1, cnt1], changelogMode=[NONE])
++- GroupWindowAggregate(groupBy=[long], window=[TumblingGroupWindow('w$, proctime, 600000)], select=[long, COUNT(*) AS cnt1], changelogMode=[I])
+   +- Reused(reference_id=[1])
+
+LegacySink(name=[`default_catalog`.`default_database`.`sink2`], fields=[long_field2, cnt2], changelogMode=[NONE])
++- GroupWindowAggregate(groupBy=[long], window=[TumblingGroupWindow('w$, proctime, 1200000)], select=[long, COUNT(*) AS cnt1], changelogMode=[I])
+   +- Reused(reference_id=[1])
+]]>
+    </Resource>
+  </TestCase>
   <TestCase name="testAggregationOnProctime">
     <Resource name="sql">
       <![CDATA[SELECT MIN(proctime) FROM MyTable2 GROUP BY long]]>

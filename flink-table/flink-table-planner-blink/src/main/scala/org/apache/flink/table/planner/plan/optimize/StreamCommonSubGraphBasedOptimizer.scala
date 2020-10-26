@@ -178,7 +178,8 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
 
       def getMiniBatchInterval: MiniBatchInterval = miniBatchInterval
 
-      override def needFinalTimeIndicatorConversion: Boolean = true
+      // see FLINK-18070
+      override def needFinalTimeIndicatorConversion: Boolean = isSinkBlock
     })
   }
 

@@ -20,10 +20,12 @@ package org.apache.flink.table.planner.plan.stream.sql
 
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
+import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.data.TimestampData
 import org.apache.flink.table.functions.TableFunction
 import org.apache.flink.table.planner.plan.stream.sql.RelTimeIndicatorConverterTest.TableFunc
 import org.apache.flink.table.planner.utils.TableTestBase
+import org.apache.flink.table.types.logical.BigIntType
 
 import org.junit.Test
 
@@ -34,11 +36,53 @@ import java.sql.Timestamp
   */
 class RelTimeIndicatorConverterTest extends TableTestBase {
 
+  val LONG = new BigIntType()
+
   private val util = streamTestUtil()
   util.addDataStream[(Long, Long, Int)](
     "MyTable", 'rowtime.rowtime, 'long, 'int, 'proctime.proctime)
   util.addDataStream[(Long, Long, Int)]("MyTable1", 'rowtime.rowtime, 'long, 'int)
   util.addDataStream[(Long, Int)]("MyTable2", 'long, 'int, 'proctime.proctime)
+
+  @Test
+  def testProcTimeMaterializationInMultiSink(): Unit = {
+    val stmtSet = util.tableEnv.createStatementSet()
+
+    val middle = util.tableEnv.sqlQuery("SELECT * FROM MyTable2")
+    util.tableEnv.createTemporaryView("middle", middle)
+
+    val sql1 =
+      """
+        |SELECT
+        |  `long` as long_field1,
+        |  COUNT(*) AS cnt1
+        |FROM middle
+        |GROUP BY
+        |  `long`,
+        |  TUMBLE(proctime, INTERVAL '10' MINUTE)
+        |""".stripMargin
+    val query1 = util.tableEnv.sqlQuery(sql1)
+    val sink1 = util.createAppendTableSink(Array("long_field1", "cnt1"), Array(LONG, LONG))
+    util.tableEnv.asInstanceOf[TableEnvironmentInternal].registerTableSinkInternal("sink1", sink1)
+    stmtSet.addInsert("sink1", query1)
+
+    val sql2 =
+      """
+        |SELECT
+        |  `long` as long_field1,
+        |  COUNT(*) AS cnt1
+        |FROM middle
+        |GROUP BY
+        |  `long`,
+        |  TUMBLE(proctime, INTERVAL '20' MINUTE)
+        |""".stripMargin
+    val query2 = util.tableEnv.sqlQuery(sql2)
+    val sink2 = util.createAppendTableSink(Array("long_field2", "cnt2"), Array(LONG, LONG))
+    util.tableEnv.asInstanceOf[TableEnvironmentInternal].registerTableSinkInternal("sink2", sink2)
+    stmtSet.addInsert("sink2", query2)
+
+    util.verifyPlan(stmtSet, ExplainDetail.CHANGELOG_MODE)
+  }
 
   @Test
   def testSimpleMaterialization(): Unit = {
