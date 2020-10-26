@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.DeploymentOptionsInternal;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
 import org.apache.flink.yarn.configuration.YarnLogConfigUtil;
@@ -84,6 +85,11 @@ public class YarnClusterClientFactory extends AbstractContainerizedClusterClient
 			conf.set(ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
 			yarnConfiguration = new YarnConfiguration(conf);
 			LOG.info("Set {} to {}", ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
+		}
+
+		String queueName = configuration.getString(YarnConfigOptions.APPLICATION_QUEUE, "");
+		if (!StringUtils.isNullOrWhitespaceOnly(queueName)) {
+			yarnConfiguration.set(YarnConfiguration.APP_QUEUE_NAME, queueName);
 		}
 
 		final YarnClient yarnClient = YarnClient.createYarnClient();
