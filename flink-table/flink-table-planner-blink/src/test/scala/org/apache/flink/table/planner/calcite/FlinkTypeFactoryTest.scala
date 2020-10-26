@@ -18,9 +18,12 @@
 
 package org.apache.flink.table.planner.calcite
 
-import org.apache.flink.table.types.logical.{ArrayType, BigIntType, BooleanType, DateType, DecimalType, DoubleType, FloatType, IntType, LocalZonedTimestampType, LogicalType, MapType, RowType, SmallIntType, TimeType, TimestampType, TinyIntType, VarBinaryType, VarCharType}
-
+import org.apache.calcite.rel.`type`.RelDataType
+import org.apache.calcite.sql.`type`.{BasicSqlType, MapSqlType, SqlTypeName}
+import org.apache.flink.table.types.logical.{ArrayType, BigIntType, BooleanType, DateType, DecimalType, DoubleType, FloatType, IntType, LocalZonedTimestampType, LogicalType, MapType, RowType, SmallIntType, TimeType, TimestampType, TinyIntType, TypeInformationAnyType, VarBinaryType, VarCharType}
 import org.junit.{Assert, Test}
+
+import scala.collection.JavaConverters._
 
 class FlinkTypeFactoryTest {
 
@@ -81,5 +84,29 @@ class FlinkTypeFactoryTest {
     Assert.assertEquals(new DecimalType(38, 6), FlinkTypeSystem.inferAggAvgType(5))
     Assert.assertEquals(new DecimalType(8, 2), FlinkTypeSystem.inferRoundType(10, 5, 2))
     Assert.assertEquals(new DecimalType(8, 2), FlinkTypeSystem.inferRoundType(10, 5, 2))
+  }
+
+  @Test
+  def testConvertMapEquation(): Unit = {
+    val typeSystem = new FlinkTypeSystem
+    val typeFactory = new FlinkTypeFactory(typeSystem)
+
+    //Check if key/valueRelDataType of the maps are different but satisfy LEAST_RESTRICTIVE.
+    val map1: RelDataType = new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true)
+    val map2: RelDataType = new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.CHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true)
+    Assert.assertEquals(new MapSqlType(typeFactory.createSqlType(SqlTypeName.VARCHAR, Int.MaxValue),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true),
+      typeFactory.leastRestrictive(List(map1, map2).asJava))
+
+    //Check if nullability of the maps are different.
+    val map3: RelDataType = new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true)
+    val map4: RelDataType = new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), false)
+    Assert.assertEquals(new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true),
+      typeFactory.leastRestrictive(List(map3, map4).asJava))
   }
 }
