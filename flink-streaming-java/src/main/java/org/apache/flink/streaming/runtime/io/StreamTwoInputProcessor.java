@@ -375,14 +375,16 @@ public final class StreamTwoInputProcessor<IN1, IN2> implements StreamInputProce
 		}
 
 		@Override
-		public void emitStreamStatus(StreamStatus streamStatus) {
+		public void emitStreamStatus(StreamStatus streamStatus) throws Exception {
 			final StreamStatus anotherStreamStatus;
 			if (inputIndex == 0) {
 				firstStatus = streamStatus;
 				anotherStreamStatus = secondStatus;
+				operator.processStreamStatus1(streamStatus);
 			} else {
 				secondStatus = streamStatus;
 				anotherStreamStatus = firstStatus;
+				operator.processStreamStatus2(streamStatus);
 			}
 
 			// check if we need to toggle the task's stream status

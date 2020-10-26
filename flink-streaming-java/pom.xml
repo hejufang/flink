@@ -102,6 +102,7 @@ under the License.
 					<parameter>
 						<excludes combine.children="append">
 							<exclude>org.apache.flink.streaming.api.datastream.DataStream#assignTimestamps(org.apache.flink.streaming.api.functions.TimestampExtractor)</exclude>
+							<exclude>org.apache.flink.streaming.api.operators.TwoInputStreamOperator</exclude>
 						</excludes>
 						<ignoreMissingClasses>true</ignoreMissingClasses>
 					</parameter>

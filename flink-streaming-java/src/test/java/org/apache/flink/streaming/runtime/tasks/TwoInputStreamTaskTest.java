@@ -218,6 +218,13 @@ public class TwoInputStreamTaskTest {
 		// two was at WM 5 before going to IDLE then the output watermark will not jump to WM 6.
 		TestHarnessUtil.assertOutputEquals("Output was not correct.", expectedOutput, testHarness.getOutput());
 
+		// test the watermark calculation ignores idle input.
+		testHarness.processElement(new Watermark(initialTime + 7), 0, 0);
+
+		testHarness.waitForInputProcessing();
+		expectedOutput.add(new Watermark(initialTime + 7));
+		TestHarnessUtil.assertOutputEquals("Output was not correct.", expectedOutput, testHarness.getOutput());
+
 		// make all input channels idle and check that the operator's idle status is forwarded
 		testHarness.processElement(StreamStatus.IDLE, 0, 0);
 		testHarness.waitForInputProcessing();

@@ -50,6 +50,7 @@ import org.apache.flink.streaming.api.operators.StreamOperatorStateHandler.Check
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.streaming.util.LatencyStats;
@@ -150,6 +151,9 @@ public abstract class AbstractStreamOperator<OUT>
 	private long input1Watermark = Long.MIN_VALUE;
 	private long input2Watermark = Long.MIN_VALUE;
 
+	private transient StreamStatus streamStatus1;
+	private transient StreamStatus streamStatus2;
+
 	// ------------------------------------------------------------------------
 	//  Life Cycle
 	// ------------------------------------------------------------------------
@@ -224,6 +228,9 @@ public abstract class AbstractStreamOperator<OUT>
 
 		stateKeySelector1 = config.getStatePartitioner(0, getUserCodeClassloader());
 		stateKeySelector2 = config.getStatePartitioner(1, getUserCodeClassloader());
+
+		streamStatus1 = StreamStatus.ACTIVE;
+		streamStatus2 = StreamStatus.ACTIVE;
 	}
 
 	/**
@@ -586,7 +593,10 @@ public abstract class AbstractStreamOperator<OUT>
 
 	public void processWatermark1(Watermark mark) throws Exception {
 		input1Watermark = mark.getTimestamp();
-		long newMin = Math.min(input1Watermark, input2Watermark);
+		long newMin = input1Watermark;
+		if (streamStatus2.isActive()) {
+			newMin = Math.min(input1Watermark, input2Watermark);
+		}
 		if (newMin > combinedWatermark) {
 			combinedWatermark = newMin;
 			processWatermark(new Watermark(combinedWatermark));
@@ -595,11 +605,22 @@ public abstract class AbstractStreamOperator<OUT>
 
 	public void processWatermark2(Watermark mark) throws Exception {
 		input2Watermark = mark.getTimestamp();
-		long newMin = Math.min(input1Watermark, input2Watermark);
+		long newMin = input2Watermark;
+		if (streamStatus1.isActive()) {
+			newMin = Math.min(input1Watermark, input2Watermark);
+		}
 		if (newMin > combinedWatermark) {
 			combinedWatermark = newMin;
 			processWatermark(new Watermark(combinedWatermark));
 		}
+	}
+
+	public void processStreamStatus1(StreamStatus status) throws Exception {
+		streamStatus1 = status;
+	}
+
+	public void processStreamStatus2(StreamStatus status) throws Exception {
+		streamStatus2 = status;
 	}
 
 	@Override
