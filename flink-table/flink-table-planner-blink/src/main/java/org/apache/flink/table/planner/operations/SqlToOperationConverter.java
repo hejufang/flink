@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.operations;
 
 import org.apache.flink.sql.parser.ddl.SqlAddPartitions;
 import org.apache.flink.sql.parser.ddl.SqlAddReplaceColumns;
+import org.apache.flink.sql.parser.ddl.SqlAddResource;
 import org.apache.flink.sql.parser.ddl.SqlAlterDatabase;
 import org.apache.flink.sql.parser.ddl.SqlAlterFunction;
 import org.apache.flink.sql.parser.ddl.SqlAlterTable;
@@ -86,6 +87,7 @@ import org.apache.flink.table.operations.ShowViewsOperation;
 import org.apache.flink.table.operations.UseCatalogOperation;
 import org.apache.flink.table.operations.UseDatabaseOperation;
 import org.apache.flink.table.operations.ddl.AddPartitionsOperation;
+import org.apache.flink.table.operations.ddl.AddResourcesOperation;
 import org.apache.flink.table.operations.ddl.AlterCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.AlterDatabaseOperation;
 import org.apache.flink.table.operations.ddl.AlterPartitionPropertiesOperation;
@@ -234,6 +236,8 @@ public class SqlToOperationConverter {
 			return Optional.of(converter.convertDescribeTable((SqlRichDescribeTable) validated));
 		} else if (validated.getKind().belongsTo(SqlKind.QUERY)) {
 			return Optional.of(converter.convertSqlQuery(validated));
+		} else if (validated instanceof SqlAddResource) {
+			return Optional.of(converter.convertAddResources((SqlAddResource) validated));
 		} else {
 			return Optional.empty();
 		}
@@ -718,6 +722,11 @@ public class SqlToOperationConverter {
 	/** Convert SHOW VIEWS statement. */
 	private Operation convertShowViews(SqlShowViews sqlShowViews) {
 		return new ShowViewsOperation();
+	}
+
+	/** Convert ADD RESOURCES statement. */
+	private Operation convertAddResources(SqlAddResource sqlAddResource) {
+		return new AddResourcesOperation(sqlAddResource.getResourceName().getSimple());
 	}
 
 	/** Convert EXPLAIN statement. */

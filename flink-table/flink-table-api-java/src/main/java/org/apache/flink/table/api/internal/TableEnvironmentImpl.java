@@ -98,6 +98,7 @@ import org.apache.flink.table.operations.UnregisteredSinkModifyOperation;
 import org.apache.flink.table.operations.UseCatalogOperation;
 import org.apache.flink.table.operations.UseDatabaseOperation;
 import org.apache.flink.table.operations.ddl.AddPartitionsOperation;
+import org.apache.flink.table.operations.ddl.AddResourcesOperation;
 import org.apache.flink.table.operations.ddl.AlterCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.AlterDatabaseOperation;
 import org.apache.flink.table.operations.ddl.AlterPartitionPropertiesOperation;
@@ -833,7 +834,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	}
 
 	private TableResult executeOperation(Operation operation) {
-		if (operation instanceof ModifyOperation) {
+		if (operation instanceof AddResourcesOperation) {
+			// There is no need to handle AddResourcesOperation in planner for now.
+			return TableResultImpl.TABLE_RESULT_OK;
+		} else if (operation instanceof ModifyOperation) {
 			return executeInternal(Collections.singletonList((ModifyOperation) operation));
 		} else if (operation instanceof CreateTableOperation) {
 			CreateTableOperation createTableOperation = (CreateTableOperation) operation;

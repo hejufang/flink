@@ -26,6 +26,7 @@
     "org.apache.flink.sql.parser.ddl.constraint.SqlConstraintEnforcement"
     "org.apache.flink.sql.parser.ddl.constraint.SqlTableConstraint"
     "org.apache.flink.sql.parser.ddl.constraint.SqlUniqueSpec"
+    "org.apache.flink.sql.parser.ddl.SqlAddResource",
     "org.apache.flink.sql.parser.ddl.SqlAlterDatabase"
     "org.apache.flink.sql.parser.ddl.SqlAlterFunction"
     "org.apache.flink.sql.parser.ddl.SqlAlterTable"
@@ -96,6 +97,7 @@
     "PYTHON"
     "RAW"
     "RENAME"
+    "RESOURCES"
     "SCALA"
     "STRING"
     "TABLES"
@@ -456,6 +458,7 @@
     "SqlRichDescribeTable()"
     "SqlAlterTable()"
     "SqlShowViews()"
+    "SqlAddResource()"
   ]
 
   # List of methods for parsing custom literals.

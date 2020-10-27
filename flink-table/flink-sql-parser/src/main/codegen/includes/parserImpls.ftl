@@ -765,6 +765,20 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
     }
 }
 
+SqlAddResource SqlAddResource() :
+{
+    SqlIdentifier resourceName = null;
+}
+{
+    <ADD> <RESOURCES>
+
+    resourceName = SimpleIdentifier()
+
+    {
+        return new SqlAddResource(getPos(), resourceName);
+    }
+}
+
 SqlTableLike SqlTableLike(SqlParserPos startPos):
 {
     final List<SqlTableLikeOption> likeOptions = new ArrayList<SqlTableLikeOption>();

@@ -43,6 +43,11 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testAddResources() {
+		sql("add resources my_resource").ok("ADD RESOURCES `MY_RESOURCE`");
+	}
+
+	@Test
 	public void testShowCatalogs() {
 		sql("show catalogs").ok("SHOW CATALOGS");
 	}
