@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  */
 public class Utils {
 	private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
-	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 20;
+	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
 	private static final int METRICS_TASK_NAME_MAX_LENGTH = 100;
 	private static final Pattern CLUSTER_WITH_DC_PATTERN = Pattern.compile("(.*)\\.service\\.(\\w+)");
 
