@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,10 +47,11 @@ import java.util.stream.Collectors;
 public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepartitioner {
 	private static final Logger LOG = LoggerFactory.getLogger(RoundRobinOperatorStateRepartitioner.class);
 
+	public static final int CACHE_MAX_SIZE = 16;
 	public static final OperatorStateRepartitioner INSTANCE = new RoundRobinOperatorStateRepartitioner();
 	private static final boolean OPTIMIZE_MEMORY_USE = false;
 
-	private final Map<Integer, List<List<OperatorStateHandle>>> unionStatesCache = new HashMap<>(1);
+	private final Map<Integer, List<List<OperatorStateHandle>>> unionStatesCache = new MaxSizeHashMap<>(CACHE_MAX_SIZE);
 
 	@Override
 	public List<List<OperatorStateHandle>> repartitionState(
@@ -69,9 +72,10 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		// We only round-robin repartition UNION state if new parallelism equals to the old one.
 		if (newParallelism == oldParallelism) {
 
+			LOG.info("Repartition union states, hashCode = {}.", previousParallelSubtaskStates.hashCode());
 			final int hashCode = previousParallelSubtaskStates.hashCode();
 			if (unionStatesCache.containsKey(hashCode)) {
-				LOG.info("Skip the union states re-assignment because of cache.");
+				LOG.info("Skip the union states re-assignment because of cache contains hashCode {}.", hashCode);
 				return unionStatesCache.get(hashCode);
 			}
 
@@ -90,8 +94,6 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 				result.add(i, new ArrayList<>(mergeMapList.get(i).values()));
 			}
 
-			// always keep the latest union state
-			unionStatesCache.clear();
 			unionStatesCache.put(hashCode, result);
 
 			return result;
@@ -114,6 +116,11 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		}
 
 		return result;
+	}
+
+	@VisibleForTesting
+	public Map<Integer, List<List<OperatorStateHandle>>> getUnionStatesCache() {
+		return unionStatesCache;
 	}
 
 	/**
@@ -415,6 +422,19 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		public Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> getByMode(
 				OperatorStateHandle.Mode mode) {
 			return byMode.get(mode);
+		}
+	}
+
+	private static class MaxSizeHashMap<K, V> extends LinkedHashMap<K, V> {
+		private final int maxSize;
+
+		public MaxSizeHashMap(int maxSize) {
+			this.maxSize = maxSize;
+		}
+
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+			return size() > maxSize;
 		}
 	}
 }
