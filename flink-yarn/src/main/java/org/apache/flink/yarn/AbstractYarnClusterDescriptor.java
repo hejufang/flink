@@ -56,6 +56,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.service.Service;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -69,6 +70,8 @@ import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.SchedulerType;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.api.records.YarnClusterMetrics;
 import org.apache.hadoop.yarn.client.api.YarnClient;
@@ -1164,7 +1167,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		appContext.setApplicationName(name);
 		appContext.setApplicationType(appType);
 		appContext.setAMContainerSpec(amContainer);
-		appContext.setResource(capability);
 
 		flinkConfiguration.setString(YARN_APPLICATION_TYPE, appType);
 		if (!appType.equals(YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
@@ -1173,9 +1175,26 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		// Set priority for application
 		int priorityNum = flinkConfiguration.getInteger(YarnConfigOptions.APPLICATION_PRIORITY);
+		Priority priority;
 		if (priorityNum >= 0) {
-			Priority priority = Priority.newInstance(priorityNum);
-			appContext.setPriority(priority);
+			priority = Priority.newInstance(priorityNum);
+		} else {
+			priority = Priority.newInstance(YarnConfigOptions.APPLICATION_PRIORITY.defaultValue());
+		}
+
+		ResourceRequest resourceRequest = appContext.getAMContainerResourceRequest();
+		if (resourceRequest == null) {
+			resourceRequest = ResourceRequest.newInstance(priority, "*", capability, 1);
+			appContext.setAMContainerResourceRequest(resourceRequest);
+		} else {
+			resourceRequest.setPriority(priority);
+			resourceRequest.setCapability(capability);
+		}
+
+		if (configuration.getBoolean(YarnConfigOptions.GANG_SCHEDULER)) {
+			LOG.info("Using yarn gang schedule for Application Master.");
+			resourceRequest.setSchedulerType(SchedulerType.GANG_SCHEDULER);
+			resourceRequest.setAsynchronousScheduling(false);
 		}
 
 		if (yarnQueue != null) {
@@ -1414,6 +1433,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	 */
 	private void failSessionDuringDeployment(YarnClient yarnClient, YarnClientApplication yarnApplication) {
 		LOG.info("Killing YARN application");
+
+		if (yarnClient.isInState(Service.STATE.STOPPED)) {
+			LOG.info("yarn client already stopped.");
+			return;
+		}
 
 		try {
 			yarnClient.killApplication(yarnApplication.getNewApplicationResponse().getApplicationId());

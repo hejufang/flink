@@ -499,6 +499,7 @@ public class CliFrontend {
 			}
 		} catch (ClusterDeploymentException e) {
 			LOG.error("Error occured while deploy Yarn session cluster", e);
+			e.printStackTrace();
 			if (client != null) {
 				LOG.info("client is not null, try to shut it down.");
 				try {

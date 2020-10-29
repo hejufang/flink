@@ -511,8 +511,6 @@ public abstract class ClusterClient<T> {
 			}
 			if (currentStatus != null && !currentStatus.equals(lastStatus)) {
 				if (currentStatus.isRmFatal()) {
-					log.error(currentStatus.getRmFatalMessage());
-					System.err.println(currentStatus.getRmFatalMessage());
 					shutDownCluster();
 					throw new ClusterDeploymentException("Cluster deploy error: " + currentStatus.getRmFatalMessage());
 				}
