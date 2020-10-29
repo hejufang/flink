@@ -103,6 +103,10 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 
 	private transient long currentReadCount = 0L;
 
+	// Total processed record number of this input format.
+	// Caution: This field may be reset to 0 when task failover.
+	private transient long totalReadCount = 0L;
+
 	private boolean createSplitInParallel;
 
 	@VisibleForTesting
@@ -266,7 +270,9 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 
 	@Override
 	public boolean reachedEnd() throws IOException {
-		if (limit > 0 && currentReadCount >= limit) {
+		// currentReadCount will be save in state, but totalReadCount will not.
+		// So, currentReadCount may be greater than totalReadCount.
+		if (limit > 0 && (currentReadCount >= limit || totalReadCount >= limit)) {
 			return true;
 		} else {
 			return reader.reachedEnd();
@@ -274,8 +280,14 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 	}
 
 	@Override
+	public boolean reachedAllSplitsEnd() {
+		return limit > 0 && totalReadCount >= limit;
+	}
+
+	@Override
 	public RowData nextRecord(RowData reuse) throws IOException {
 		currentReadCount++;
+		totalReadCount++;
 		return reader.nextRecord(reuse);
 	}
 

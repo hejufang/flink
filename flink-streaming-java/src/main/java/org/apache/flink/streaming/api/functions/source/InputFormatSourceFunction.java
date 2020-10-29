@@ -29,6 +29,9 @@ import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProviderException;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
@@ -37,6 +40,7 @@ import java.util.NoSuchElementException;
  */
 @Internal
 public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<OUT> {
+	private static final Logger LOG = LoggerFactory.getLogger(InputFormatSourceFunction.class);
 	private static final long serialVersionUID = 1L;
 
 	private TypeInformation<OUT> typeInfo;
@@ -97,9 +101,13 @@ public class InputFormatSourceFunction<OUT> extends RichParallelSourceFunction<O
 						}
 					}
 				}
+				boolean reachAllEnd = format.reachedAllSplitsEnd();
 				format.close();
 				completedSplitsCounter.inc();
-
+				if (reachAllEnd) {
+					LOG.info("reachAllEnd is true, finish this source function.");
+					break;
+				}
 				if (isRunning) {
 					isRunning = splitIterator.hasNext();
 				}

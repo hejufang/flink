@@ -109,6 +109,9 @@ public interface InputFormat<OT, T extends InputSplit> extends InputSplitSource<
 	
 	/**
 	 * Method used to check if the end of the input is reached.
+	 * The difference between reachedEnd and reachedAllEnd are:
+	 * 	- reachedEnd : reach end of a split.
+	 * 	- reachedAllSplitsEnd : reach end of all splits assigned to this input format.
 	 * <p>
 	 * When this method is called, the input format it guaranteed to be opened.
 	 * 
@@ -116,7 +119,21 @@ public interface InputFormat<OT, T extends InputSplit> extends InputSplitSource<
 	 * @throws IOException Thrown, if an I/O error occurred.
 	 */
 	boolean reachedEnd() throws IOException;
-	
+
+	/**
+	 * Method used to check if this input format should end, no need to process left splits.
+	 * The difference between reachedEnd and reachedAllEnd are:
+	 * 	- reachedEnd : reach end of a split.
+	 * 	- reachedAllSplitsEnd : reach end of all splits assigned to this input format.
+	 * <p>
+	 * When this method is called, the input format it guaranteed to be opened.
+	 *
+	 * @return True if this input format should end, no need to process left splits, otherwise false.
+	 */
+	default boolean reachedAllSplitsEnd(){
+		return false;
+	}
+
 	/**
 	 * Reads the next record from the input.
 	 * <p>
