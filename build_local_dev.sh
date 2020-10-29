@@ -16,11 +16,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ################################################################################
+set -e
 
-rm -rf output
+for module in $@
+do
+  pushd "${module}"
+    mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars
+  popd
+done
 
-mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars
+pushd flink-dist
+  mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars
+popd
 
-# copy flink-1.11 to output
-mkdir -p output/deploy/flink-1.11
 cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/* output/deploy/flink-1.11/
