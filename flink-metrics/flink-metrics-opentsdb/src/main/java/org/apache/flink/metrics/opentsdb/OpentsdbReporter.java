@@ -63,6 +63,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
 	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
 			"(\\S+)\\.(jobmanager\\.\\S+)");
+	private static final Pattern CLIENT_PATTERN = Pattern.compile(
+			"(\\S+)\\.(client\\.\\S+)");
 	private static final Pattern TASK_MANAGER_PATTERN_1 = Pattern.compile(
 			"(\\S+)\\.taskmanager\\.(\\w+)\\.(\\S+)");
 	private static final Pattern TASK_MANAGER_PATTERN_2 = Pattern.compile(
@@ -362,6 +364,23 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		 * */
 		if (key.contains("sqlgateway")) {
 			Matcher m = SQL_GATEWAY_PATTERN.matcher(key);
+			if (m.find()) {
+				String hostName = m.group(1);
+				tags.add(new TagKv("hostname", hostName));
+				String metricName = m.group(2);
+				return new Tuple<>(metricName, TagKv.compositeTags(tags));
+			}
+			return new Tuple<>(key, TagKv.compositeTags(tags));
+		}
+
+		/*
+		 * for example
+		 * input: n8-159-232.byted.org.client.Status.JVM.Memory.Direct.TotalCapacity
+		 * output: metric=client.Status.JVM.Memory.Direct.TotalCapacity
+		 *         tags="host=n8-159-232.byted.org|jobname=StreamHelloWorld"
+		 * */
+		if (key.contains(".client.")) {
+			Matcher m = CLIENT_PATTERN.matcher(key);
 			if (m.find()) {
 				String hostName = m.group(1);
 				tags.add(new TagKv("hostname", hostName));
