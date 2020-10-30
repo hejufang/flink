@@ -367,29 +367,11 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		}
 
 		/*
-		 * for example
-		 * input: n8-159-232.byted.org.client.Status.JVM.Memory.Direct.TotalCapacity
-		 * output: metric=client.Status.JVM.Memory.Direct.TotalCapacity
-		 *         tags="host=n8-159-232.byted.org|jobname=StreamHelloWorld"
-		 * */
-		if (key.contains("client")) {
-			Matcher m = CLIENT_PATTERN.matcher(key);
-			if (m.find()) {
-				String hostName = m.group(1);
-				tags.add(new TagKv("hostname", hostName));
-				String metricName = m.group(2);
-				return new Tuple<>(metricName, TagKv.compositeTags(tags));
-			}
-			return new Tuple<>(key, TagKv.compositeTags(tags));
-		}
-
-		/*
 		* for example
 		* input: n8-159-071.taskmanager.60a0ee440e07f9065d1be2f81c6c8c7e.Status.JVM.ClassLoader.ClassesUnloaded
 		* output: metric=taskmanager.Status.JVM.ClassLoader.ClassesUnloaded
 		* 		  tags="host=n8-159-071|tmid=60a0ee440e07f9065d1be2f81c6c8c7e|jobname=HelloWorld"
 		* */
-
 		if (key.contains("taskmanager")) {
 			Matcher m = TASK_MANAGER_PATTERN_1.matcher(key);
 			String taskManagerMetricName = "";
@@ -434,6 +416,23 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					}
 					return new Tuple<>(taskManagerMetricName, TagKv.compositeTags(tags));
 				}
+			}
+			return new Tuple<>(key, TagKv.compositeTags(tags));
+		}
+
+		/*
+		 * for example
+		 * input: n8-159-232.byted.org.client.Status.JVM.Memory.Direct.TotalCapacity
+		 * output: metric=client.Status.JVM.Memory.Direct.TotalCapacity
+		 *         tags="host=n8-159-232.byted.org|jobname=StreamHelloWorld"
+		 * */
+		if (key.contains(".client.")) {
+			Matcher m = CLIENT_PATTERN.matcher(key);
+			if (m.find()) {
+				String hostName = m.group(1);
+				tags.add(new TagKv("hostname", hostName));
+				String metricName = m.group(2);
+				return new Tuple<>(metricName, TagKv.compositeTags(tags));
 			}
 			return new Tuple<>(key, TagKv.compositeTags(tags));
 		}
