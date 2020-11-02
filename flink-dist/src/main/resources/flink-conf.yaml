@@ -62,6 +62,10 @@ common:
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
   metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
 
+  # Grafana
+  grafana.domain_url: "https://grafana.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
+
   # REST endpoint and Client
   rest.await-leader-timeout: 300000
   rest.retry.max-attempts: 30

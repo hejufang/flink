@@ -2046,6 +2046,7 @@ public final class ConfigConstants {
 	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
 
 	public static final String DC_KEY = "dc";
+	public static final String DC_DEFAULT = "cn";
 	public static final String CLUSTER_NAME_KEY = "clusterName";
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
 
@@ -2072,6 +2073,28 @@ public final class ConfigConstants {
 
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
+
+	/** Configuration for owner. */
+	public static final String FLINK_OWNER_KEY = "owner";
+	public static final String FLINK_OWNER_DEFAULT = "null";
+	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
+	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
+	public static final String DASHBOARD_DATA_SOURCE_KEY = "dashboard.data_source";
+	public static final String DASHBOARD_DATA_SOURCE_DEFAULT = "bytetsd";
+	public static final String JOB_META_DB_NAME_KEY = "jobmeta.db.name";
+	public static final String JOB_META_DB_NAME_VALUE = "dayu";
+
+	public static final String SAVE_META_ENABLED = "save-meta.enabled";
+	public static final String SAVE_META_ENABLED_DEFAULT = "true";
+	public static final String REGISTER_DASHBOARD_ENABLED = "register-dashboard.enabled";
+	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "true";
+	public static final String GRAFANA_DOMAIN_URL_KEY = "grafana.domain_url";
+	public static final String GRAFANA_DOMAIN_URL_VALUE = "https://grafana.byted.org";
+	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
+	public static final String METRIC_REGISTER_URL_TEMPLATE = "%s/api/dashboards/db";
+
+	public static final String KAFKA_SERVER_URL_KEY = "kafka_server_url";
+	public static final String KAFKA_SERVER_URL_DEFAUL = "http://kafka-config.byted.org";
 
 	/** Config partition key for kafka. */
 	public static final String PARTITION_LIST_KEY = "partition_list";

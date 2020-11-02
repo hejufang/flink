@@ -59,6 +59,10 @@ public class CliFrontendParser {
 
 	static final Option CLUSTER_NAME_OPTION = new Option("cn", "clusterName", true,
 			"Yarn cluster name");
+
+	static final Option OWNER_OPTION = new Option("o", "owner", true,
+			"Owner of the job");
+
 	/**
 	 * @deprecated This has no effect anymore, we're keeping it to not break existing bash scripts.
 	 */
@@ -280,6 +284,7 @@ public class CliFrontendParser {
 		options = getProgramSpecificOptions(options);
 		options.addOption(SAVEPOINT_PATH_OPTION);
 		options.addOption(CLUSTER_NAME_OPTION);
+		options.addOption(OWNER_OPTION);
 		return options.addOption(SAVEPOINT_ALLOW_NON_RESTORED_OPTION);
 	}
 
@@ -349,6 +354,10 @@ public class CliFrontendParser {
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(JAR_OPTION);
 		return options;
+	}
+
+	public static Option getOwnerOption() {
+		return OWNER_OPTION;
 	}
 
 	/**

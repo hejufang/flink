@@ -44,6 +44,8 @@ public class TaskManagerJobMetricGroup extends JobMetricGroup<TaskManagerMetricG
 	/** Map from execution attempt ID (task identifier) to task metrics. */
 	private final Map<AbstractID, TaskMetricGroup> tasks = new HashMap<>();
 
+	static final int METRICS_TASK_NAME_MAX_LENGTH = 100;
+
 	// ------------------------------------------------------------------------
 
 	public TaskManagerJobMetricGroup(
@@ -72,6 +74,12 @@ public class TaskManagerJobMetricGroup extends JobMetricGroup<TaskManagerMetricG
 		checkNotNull(executionAttemptID);
 		checkNotNull(taskName);
 
+		String name = taskName;
+		if (name.length() > METRICS_TASK_NAME_MAX_LENGTH) {
+			LOG.warn("The task name {} exceeded the {} characters length limit and was truncated.", name, METRICS_TASK_NAME_MAX_LENGTH);
+			name = name.substring(0, METRICS_TASK_NAME_MAX_LENGTH);
+		}
+
 		synchronized (this) {
 			if (!isClosed()) {
 				TaskMetricGroup prior = tasks.get(executionAttemptID);
@@ -83,7 +91,7 @@ public class TaskManagerJobMetricGroup extends JobMetricGroup<TaskManagerMetricG
 						this,
 						jobVertexId,
 						executionAttemptID,
-						taskName,
+						name,
 						subtaskIndex,
 						attemptNumber);
 					tasks.put(executionAttemptID, task);

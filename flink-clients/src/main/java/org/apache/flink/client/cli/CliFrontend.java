@@ -205,9 +205,17 @@ public class CliFrontend {
 	 */
 	protected void run(String[] args) throws Exception {
 		LOG.info("Running 'run' command.");
+		args = setJobName(args);
 
 		final Options commandOptions = CliFrontendParser.getRunCommandOptions();
 		final CommandLine commandLine = getCommandLine(commandOptions, args, true);
+
+		String owner = commandLine.getOptionValue(CliFrontendParser.OWNER_OPTION.getOpt());
+		if (owner == null) {
+			owner = "";
+		}
+		LOG.info("owner = {}", owner);
+		System.setProperty("owner", owner);
 
 		// evaluate help flag
 		if (commandLine.hasOption(HELP_OPTION.getOpt())) {
@@ -245,6 +253,64 @@ public class CliFrontend {
 			throw new CliArgsException("Could not build the program from JAR file: " + e.getMessage(), e);
 		}
 		return program;
+	}
+
+	/**
+	 * Sets job name for metrics and dashboard.
+	 *
+	 * @param args Original arguments.
+	 */
+	public String[] setJobName(String[] args) {
+		boolean metricsJobNameExist = false;
+		int jobNameIndex = -2;
+		int clusterNameIndex = -2;
+		List<String> newArgsList = new ArrayList<>();
+		String jobName;
+		for (int i = 0; i < args.length; i++) {
+			if (args[i].contains("metrics.reporter.opentsdb_reporter.jobname")) {
+				metricsJobNameExist = true;
+			} else if (args[i].equals("-ynm")) {
+				jobNameIndex = i + 1;
+			} else if (args[i].equals("-cn")) {
+				clusterNameIndex = i + 1;
+			}
+		}
+		//1.Set an environment property for registering grafana dashboard.
+		String clusterName;
+		if (clusterNameIndex > 0 && clusterNameIndex < args.length) {
+			clusterName = args[clusterNameIndex];
+		} else {
+			clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY);
+		}
+
+		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
+		LOG.info("Cluster name is : " + clusterName);
+
+		if (jobNameIndex > 0 && jobNameIndex < args.length) {
+			jobName = args[jobNameIndex];
+			int i = jobName.lastIndexOf('_');
+			if (i > 0) {
+				jobName = jobName.substring(0, i);
+			}
+			//2.Set an environment property for registering grafana dashboard.
+			System.setProperty(ConfigConstants.JOB_NAME_KEY, jobName);
+			LOG.info("Job name is set to: " + jobName);
+			if (!metricsJobNameExist) {
+				//3.Add job name for metrics.
+				newArgsList.add("-yD");
+				newArgsList.add("metrics.reporter.opentsdb_reporter.jobname=" + jobName);
+			}
+		}
+
+		newArgsList.add("-yD");
+		newArgsList.add("clusterName=" + clusterName);
+		LOG.info("Cluster name is : {}", clusterName);
+
+		newArgsList.addAll(Arrays.asList(args));
+		LOG.info("args = {}", newArgsList);
+		String[] newArgsArray = new String[newArgsList.size()];
+		newArgsList.toArray(newArgsArray);
+		return newArgsArray;
 	}
 
 	private <T> Configuration getEffectiveConfiguration(
@@ -966,6 +1032,48 @@ public class CliFrontend {
 		}
 	}
 
+	public static void putSystemProperties(Configuration configuration) {
+		// Use data source when register dashboard.
+		System.setProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+			configuration.getString(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT));
+
+		// Use dc when register dashboard
+		System.setProperty(ConfigConstants.DC_KEY,
+			configuration.getString(ConfigConstants.DC_KEY,
+				ConfigConstants.DC_DEFAULT));
+
+		// Use kafka server url when register dashboard
+		System.setProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
+			configuration.getString(ConfigConstants.KAFKA_SERVER_URL_KEY,
+				ConfigConstants.KAFKA_SERVER_URL_DEFAUL));
+
+		// Whether save meta to db.
+		System.setProperty(ConfigConstants.SAVE_META_ENABLED,
+				configuration.getString(ConfigConstants.SAVE_META_ENABLED,
+						ConfigConstants.SAVE_META_ENABLED_DEFAULT));
+
+		// Job meta db name
+		System.setProperty(ConfigConstants.JOB_META_DB_NAME_KEY,
+			configuration.getString(ConfigConstants.JOB_META_DB_NAME_KEY,
+				ConfigConstants.JOB_META_DB_NAME_VALUE));
+
+		// Whether register dashboard.
+		System.setProperty(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
+				configuration.getString(ConfigConstants.REGISTER_DASHBOARD_ENABLED,
+						ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT));
+
+		// Grafana domain url.
+		System.setProperty(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+			configuration.getString(ConfigConstants.GRAFANA_DOMAIN_URL_KEY,
+				ConfigConstants.GRAFANA_DOMAIN_URL_VALUE));
+
+		String registerDashboardToken = configuration.getString(ConfigConstants.REGISTER_DASHBOARD_TOKEN, null);
+		if (registerDashboardToken != null) {
+			System.setProperty(ConfigConstants.REGISTER_DASHBOARD_TOKEN, registerDashboardToken);
+		}
+	}
+
 	/**
 	 * Submits the job based on the arguments.
 	 */
@@ -981,6 +1089,14 @@ public class CliFrontend {
 
 		// 2. load the global configuration
 		final Configuration configuration = GlobalConfiguration.loadConfiguration(configurationDirectory);
+
+		String jobType = parseDynamicProperty(args, ConfigConstants.FLINK_JOB_TYPE_KEY,
+			configuration.getString(ConfigConstants.FLINK_JOB_TYPE_KEY,
+				ConfigConstants.FLINK_JOB_TYPE_DEFAULT));
+		LOG.info("jobType = {}", jobType);
+		System.setProperty(ConfigConstants.FLINK_JOB_TYPE_KEY, jobType);
+
+		putSystemProperties(configuration);
 
 		// 3. load the custom command lines
 		final List<CustomCommandLine> customCommandLines = loadCustomCommandLines(
@@ -1105,6 +1221,23 @@ public class CliFrontend {
 			if (propertyFlag.equals(args[i]) && (i + 1 < args.length)) {
 				String value = args[i + 1];
 				return value;
+			}
+		}
+		return defaultValue;
+	}
+
+	public static String parseDynamicProperty(String[] args, String propertyFlag,
+		String defaultValue) {
+		for (int i = 0; i < args.length; i++) {
+			if ("-yD".equals(args[i]) && (i + 1) < args.length) {
+				String value = args[i + 1];
+				String[] kvPair = value.split("=");
+				if (kvPair.length == 2) {
+					String key = kvPair[0];
+					if (key.equals(propertyFlag)) {
+						return kvPair[1];
+					}
+				}
 			}
 		}
 		return defaultValue;

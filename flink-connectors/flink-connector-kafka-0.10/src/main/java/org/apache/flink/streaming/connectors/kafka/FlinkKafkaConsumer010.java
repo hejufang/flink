@@ -39,6 +39,10 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,6 +236,31 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumerBase<T> {
 		}
 		catch (Exception e) {
 			throw new IllegalArgumentException("Cannot parse poll timeout for '" + KEY_POLL_TIMEOUT + '\'', e);
+		}
+
+		int threshold = 10000;
+		if (props.containsKey("threshold")) {
+			threshold = Integer.parseInt(props.getProperty("threshold"));
+		}
+		String kafkaClusterName = props.getProperty("cluster");
+		String groupId = props.getProperty("group.id");
+		if (kafkaClusterName != null && !"".equals(kafkaClusterName)) {
+			String kafkaMetricsStr = System.getProperty("flink_kafka_metrics", "[]");
+			JSONParser parser = new JSONParser();
+			try {
+				JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
+				for (String topic: topics) {
+					JSONObject jsonObject = new JSONObject();
+					jsonObject.put("cluster", kafkaClusterName);
+					jsonObject.put("topic", topic);
+					jsonObject.put("consumer", groupId);
+					jsonObject.put("threshold", threshold);
+					jsonArray.add(jsonObject);
+				}
+				System.setProperty("flink_kafka_metrics", jsonArray.toJSONString());
+			} catch (ParseException e) {
+				LOG.error("Parse kafka metrics failed", e);
+			}
 		}
 	}
 

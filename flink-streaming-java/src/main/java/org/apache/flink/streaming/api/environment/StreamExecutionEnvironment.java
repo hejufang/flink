@@ -110,6 +110,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static org.apache.flink.monitor.utils.Utils.saveMetaAndRegisterDashboard;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -1718,6 +1719,9 @@ public class StreamExecutionEnvironment {
 	 */
 	@Internal
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
+
+		saveMetaAndRegisterDashboard(streamGraph);
+
 		final JobClient jobClient = executeAsync(streamGraph);
 
 		try {

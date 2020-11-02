@@ -24,6 +24,7 @@ import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
@@ -49,6 +50,8 @@ import org.apache.flink.streaming.api.transformations.SplitTransformation;
 import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.streaming.api.transformations.UnionTransformation;
 import org.apache.flink.streaming.runtime.io.MultipleInputSelectionHandler;
+import org.apache.flink.streaming.util.UniqueNameGenerator;
+import org.apache.flink.util.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +98,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class StreamGraphGenerator {
 
 	private static final Logger LOG = LoggerFactory.getLogger(StreamGraphGenerator.class);
+
+	private static final int OPERATOR_NAME_MAX_LENGTH = 20;
 
 	public static final int DEFAULT_LOWER_BOUND_MAX_PARALLELISM = KeyGroupRangeAssignment.DEFAULT_LOWER_BOUND_MAX_PARALLELISM;
 
@@ -216,6 +221,11 @@ public class StreamGraphGenerator {
 		streamGraph.setScheduleMode(scheduleMode);
 		streamGraph.setUserArtifacts(userArtifacts);
 		streamGraph.setTimeCharacteristic(timeCharacteristic);
+		String newJobName = getJobNameFromProperty();
+		if (newJobName != null) {
+			LOG.info("Update job name to {}.", newJobName);
+			jobName = newJobName;
+		}
 		streamGraph.setJobName(jobName);
 		streamGraph.setGlobalDataExchangeMode(globalDataExchangeMode);
 		streamGraph.setIsBatchJob(isBatchJob);
@@ -225,6 +235,8 @@ public class StreamGraphGenerator {
 		for (Transformation<?> transformation: transformations) {
 			transform(transformation);
 		}
+
+		replaceOperatorName();
 
 		final StreamGraph builtStreamGraph = streamGraph;
 
@@ -870,6 +882,27 @@ public class StreamGraphGenerator {
 			validateSplitTransformation(((PartitionTransformation) input).getInput());
 		} else {
 			return;
+		}
+	}
+
+	public String getJobNameFromProperty() {
+		String appName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		// Replace job name with yarn app name.
+		if (!StringUtils.isNullOrWhitespaceOnly(appName)){
+			return appName;
+		}
+		LOG.warn("can not get job name by key '{}' from property.", ConfigConstants.JOB_NAME_KEY);
+		return null;
+	}
+
+	public void replaceOperatorName() {
+		for (StreamNode node : streamGraph.getStreamNodes()) {
+			String operatorName = node.getOperatorName();
+			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
+			if (operatorName.length() > OPERATOR_NAME_MAX_LENGTH) {
+				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
+			}
+			node.setOperatorName(UniqueNameGenerator.appendSuffixIfNotUnique(operatorName));
 		}
 	}
 }

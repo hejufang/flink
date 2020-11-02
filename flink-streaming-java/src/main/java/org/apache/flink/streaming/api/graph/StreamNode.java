@@ -62,7 +62,7 @@ public class StreamNode implements Serializable {
 	private ResourceSpec preferredResources = ResourceSpec.DEFAULT;
 	private int managedMemoryWeight = Transformation.DEFAULT_MANAGED_MEMORY_WEIGHT;
 	private long bufferTimeout;
-	private final String operatorName;
+	private String operatorName;
 	private @Nullable String slotSharingGroup;
 	private @Nullable String coLocationGroup;
 	private KeySelector<?, ?>[] statePartitioners = new KeySelector[0];
@@ -228,6 +228,10 @@ public class StreamNode implements Serializable {
 
 	public String getOperatorName() {
 		return operatorName;
+	}
+
+	public void setOperatorName(String operatorName) {
+		this.operatorName = operatorName;
 	}
 
 	public List<OutputSelector<?>> getOutputSelectors() {
