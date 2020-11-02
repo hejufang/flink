@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.connectors.kafka.config.BytedKafkaConfig;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDiscoverer;
@@ -362,7 +363,8 @@ public class FlinkKafkaConsumerBaseMigrationTest {
 				StreamingRuntimeContext runtimeContext,
 				OffsetCommitMode offsetCommitMode,
 				MetricGroup consumerMetricGroup,
-				boolean useMetrics) throws Exception {
+				boolean useMetrics,
+				BytedKafkaConfig kafkaConfig) throws Exception {
 			return fetcher;
 		}
 

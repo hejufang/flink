@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.config.BytedKafkaConfig;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internal.KafkaShuffleFetcher;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher;
@@ -69,7 +70,8 @@ public class FlinkKafkaShuffleConsumer<T> extends FlinkKafkaConsumer<T> {
 			StreamingRuntimeContext runtimeContext,
 			OffsetCommitMode offsetCommitMode,
 			MetricGroup consumerMetricGroup,
-			boolean useMetrics) throws Exception {
+			boolean useMetrics,
+			BytedKafkaConfig kafkaConfig) throws Exception {
 		// make sure that auto commit is disabled when our offset commit mode is ON_CHECKPOINTS;
 		// this overwrites whatever setting the user configured in the properties
 		adjustAutoCommitConfig(properties, offsetCommitMode);

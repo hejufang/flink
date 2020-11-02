@@ -31,6 +31,8 @@ import org.apache.flink.table.types.DataType;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
+
 /**
  * Kafka 0.10 table sink for writing data into Kafka.
  */
@@ -42,13 +44,15 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
-			EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
+			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
+			Properties otherProperties) {
 		super(
 			consumedDataType,
 			topic,
 			properties,
 			partitioner,
-			encodingFormat);
+			encodingFormat,
+			otherProperties);
 	}
 
 	@Override
@@ -56,12 +60,16 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			String topic,
 			Properties properties,
 			SerializationSchema<RowData> serializationSchema,
-			Optional<FlinkKafkaPartitioner<RowData>> partitioner) {
-		return new FlinkKafkaProducer010<>(
+			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
+			Properties otherProperties) {
+		FlinkKafkaProducerBase<RowData> flinkKafkaProducerBase = new FlinkKafkaProducer010<>(
 			topic,
 			serializationSchema,
 			properties,
 			partitioner.orElse(null));
+		boolean logFailureOnly = Boolean.parseBoolean(otherProperties.getProperty(SINK_LOG_FAILURE_ONLY.key(), "false"));
+		flinkKafkaProducerBase.setLogFailuresOnly(logFailureOnly);
+		return flinkKafkaProducerBase;
 	}
 
 	@Override
@@ -71,7 +79,8 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 				this.topic,
 				this.properties,
 				this.partitioner,
-				this.encodingFormat);
+				this.encodingFormat,
+				this.otherProperties);
 	}
 
 	@Override

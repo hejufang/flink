@@ -77,7 +77,18 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			String topic,
 			Properties properties,
 			DeserializationSchema<RowData> deserializationSchema) {
-		return new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
+		FlinkKafkaConsumerBase<RowData> consumerBase =
+			new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
+		if (otherProperties.containsKey(KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION.key())) {
+			boolean value = Boolean.parseBoolean(
+				otherProperties.getProperty(KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION.key()));
+			if (value) {
+				consumerBase.resetToEarliestForNewPartition();
+			} else {
+				consumerBase.disableResetToEarliestForNewPartition();
+			}
+		}
+		return consumerBase;
 	}
 
 	@Override

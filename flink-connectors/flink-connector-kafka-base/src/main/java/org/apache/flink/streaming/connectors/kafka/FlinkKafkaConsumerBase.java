@@ -21,6 +21,8 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.OperatorStateStore;
@@ -44,6 +46,7 @@ import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.kafka.config.BytedKafkaConfig;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitModes;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
@@ -57,10 +60,14 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescript
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPunctuatedWatermarksAdapter;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
 
 import org.apache.commons.collections.map.LinkedMap;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,6 +80,7 @@ import java.util.Properties;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITS_FAILED_METRICS_COUNTER;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITS_SUCCEEDED_METRICS_COUNTER;
@@ -167,6 +175,13 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Timestamp to determine startup offsets; only relevant when startup mode is {@link StartupMode#TIMESTAMP}. */
 	private Long startupOffsetsTimestamp;
 
+	/** Whether reset to earliest for new partition at startup.*/
+	private boolean resetEarliestForNewPartition = true;
+
+	/** Relative offset for {@link StartupMode#LATEST} or {@link StartupMode#GROUP_OFFSETS} or
+	 * {@link StartupMode#EARLIEST}, can be negative and positive. */
+	private Long relativeOffset;
+
 	// ------------------------------------------------------------------------
 	//  runtime state (used individually by each parallel subtask)
 	// ------------------------------------------------------------------------
@@ -202,6 +217,20 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Flag indicating whether the consumer is still running. */
 	private volatile boolean running = true;
 
+	/**
+	 * RateLimiter to throttle bytes read from Kafka. The rateLimiter is set via
+	 * {@link #setRateLimiter(FlinkConnectorRateLimiter)}.
+	 */
+	protected FlinkConnectorRateLimiter rateLimiter;
+
+	/** Rate limiter unit, supported unit: BYTE, RECORD. */
+	protected RateLimitingUnit rateLimitingUnit;
+
+	/** Sample interval, the unit is record. */
+	protected long sampleInterval = 0;
+
+	/** Sample num in each turn. */
+	protected long sampleNum = 1;
 	// ------------------------------------------------------------------------
 	//  internal metrics
 	// ------------------------------------------------------------------------
@@ -648,9 +677,48 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 					break;
 				default:
-					for (KafkaTopicPartition seedPartition : allPartitions) {
-						subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+					if (relativeOffset == null) {
+						for (KafkaTopicPartition seedPartition : allPartitions) {
+							if (resetEarliestForNewPartition && startupMode == StartupMode.GROUP_OFFSETS) {
+								subscribedPartitionsToStartOffsets.put(seedPartition,
+									KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+
+							} else {
+								subscribedPartitionsToStartOffsets.put(seedPartition, startupMode.getStateSentinel());
+							}
+						}
+					} else {
+						if (startupMode == StartupMode.EARLIEST && relativeOffset < 0) {
+							throw new FlinkRuntimeException("RelativeOffset should not < 0 when StartupMode is EARLIEST");
+						}
+						if (startupMode == StartupMode.LATEST && relativeOffset > 0) {
+							throw new FlinkRuntimeException("RelativeOffset should not > 0 when StartupMode is LATEST");
+						}
+						if (resetEarliestForNewPartition) {
+							throw new FlinkRuntimeException("resetEarliestForNewPartition and relativeOffset cannot " +
+								"work together.");
+						}
+
+						Map<KafkaTopicPartition, Long> offsets;
+						try {
+							offsets = fetchOffsetsWithStartupMode(allPartitions, startupMode);
+						} catch (TimeoutException e) {
+							LOG.warn("Could not get the offset of the partitions({}).", allPartitions, e);
+							throw e;
+						}
+						for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset : offsets.entrySet()) {
+							subscribedPartitionsToStartOffsets.put(
+								partitionToOffset.getKey(),
+								(partitionToOffset.getValue() == null)
+									// if an offset cannot be retrieved for a partition with the given timestamp,
+									// we default to using the latest offset for the partition
+									? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
+									// since the specified offsets represent the next record to read, we subtract
+									// it by one so that the initial state of the consumer will be correct
+									: partitionToOffset.getValue() + relativeOffset - 1);
+						}
 					}
+					break;
 			}
 
 			if (!subscribedPartitionsToStartOffsets.isEmpty()) {
@@ -756,7 +824,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				(StreamingRuntimeContext) getRuntimeContext(),
 				offsetCommitMode,
 				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
-				useMetrics);
+				useMetrics,
+				new BytedKafkaConfig(rateLimitingUnit, sampleInterval, sampleNum));
 
 		if (!running) {
 			return;
@@ -772,6 +841,39 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		} else {
 			runWithPartitionDiscovery();
 		}
+	}
+
+	private Map<KafkaTopicPartition, Long> fetchOffsetsWithStartupMode(
+		List<KafkaTopicPartition> partitions,
+		StartupMode startupMode) {
+		final Map<KafkaTopicPartition, Long> result = new HashMap<>(partitions.size());
+		final List<TopicPartition> topicPartitions = partitions.stream()
+			.map(partition -> new TopicPartition(partition.getTopic(), partition.getPartition()))
+			.collect(Collectors.toList());
+
+		// use a short-lived consumer to fetch the offsets;
+		// this is ok because this is a one-time operation that happens only on startup
+		try (KafkaConsumer<?, ?> consumer = new KafkaConsumer(properties)) {
+			consumer.assign(topicPartitions);
+			if (startupMode == StartupMode.LATEST) {
+				consumer.seekToEnd(topicPartitions);
+			} else if (startupMode == StartupMode.EARLIEST) {
+				consumer.seekToBeginning(topicPartitions);
+			} else if (startupMode == StartupMode.GROUP_OFFSETS) {
+				// do nothing.
+			} else {
+				// This only happens when we add a new StartupMode and forget to deal with it.
+				throw new FlinkRuntimeException("StartupMode must be EARLIEST or GROUP_OFFSETS or LATEST " +
+					"to fetch offsets");
+			}
+
+			for (int i = 0; i < partitions.size(); ++i) {
+				long offset = consumer.position(topicPartitions.get(i));
+				result.put(partitions.get(i), offset);
+			}
+		}
+
+		return result;
 	}
 
 	private void runWithPartitionDiscovery() throws Exception {
@@ -1051,7 +1153,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			StreamingRuntimeContext runtimeContext,
 			OffsetCommitMode offsetCommitMode,
 			MetricGroup kafkaMetricGroup,
-			boolean useMetrics) throws Exception;
+			boolean useMetrics,
+			BytedKafkaConfig kafkaConfig) throws Exception;
 
 	/**
 	 * Creates the partition discoverer that is used to find new partitions for this subtask.
@@ -1135,6 +1238,69 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	 */
 	public void setWhiteTopicPartitionList(String whiteTopicPartitionList) {
 		this.whiteTopicPartitionList = whiteTopicPartitionList;
+	}
+
+	public long getSampleInterval() {
+		return sampleInterval;
+	}
+
+	public void setSampleInterval(long sampleInterval) {
+		this.sampleInterval = sampleInterval;
+	}
+
+	public long getSampleNum() {
+		return sampleNum;
+	}
+
+	public void setSampleNum(long sampleNum) {
+		this.sampleNum = sampleNum;
+	}
+
+	/**
+	 * Set {@link FlinkKafkaConsumerBase#resetEarliestForNewPartition} to true.
+	 * The default is to enable resetEarliestForNewPartition.
+	 * @return The consumer object, to allow function chaining.
+	 */
+	@Deprecated
+	public FlinkKafkaConsumerBase<T> resetToEarliestForNewPartition() {
+		if (startupMode != StartupMode.GROUP_OFFSETS) {
+			throw new FlinkRuntimeException("resetToEarliestForNewPartition() must be called after " +
+				"setting start from group offsets.");
+		}
+		this.resetEarliestForNewPartition = true;
+		return this;
+	}
+
+	/**
+	 * Set {@link FlinkKafkaConsumerBase#resetEarliestForNewPartition} to false.
+	 * @return The consumer object, to allow function chaining.
+	 */
+	public FlinkKafkaConsumerBase<T> disableResetToEarliestForNewPartition() {
+		this.resetEarliestForNewPartition = false;
+		return this;
+	}
+
+	/**
+	 * Set a rate limiter to ratelimit bytes read from Kafka.
+	 * @param kafkaRateLimiter
+	 */
+	public void setRateLimiter(FlinkConnectorRateLimiter kafkaRateLimiter) {
+		this.rateLimiter = kafkaRateLimiter;
+	}
+
+	public FlinkConnectorRateLimiter getRateLimiter() {
+		return rateLimiter;
+	}
+
+	/**
+	 * Set rate limiting unit.
+	 * */
+	public RateLimitingUnit getRateLimitingUnit() {
+		return rateLimitingUnit;
+	}
+
+	public void setRateLimitingUnit(RateLimitingUnit rateLimitingUnit) {
+		this.rateLimitingUnit = rateLimitingUnit;
 	}
 
 	private List<KafkaTopicPartition> filterPartitions(List<KafkaTopicPartition> topicPartitionList) {

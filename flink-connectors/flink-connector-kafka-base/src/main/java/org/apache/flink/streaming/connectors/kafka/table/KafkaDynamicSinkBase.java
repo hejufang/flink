@@ -38,7 +38,7 @@ import java.util.Properties;
  * A version-agnostic Kafka {@link DynamicTableSink}.
  *
  * <p>The version-specific Kafka consumers need to extend this class and
- * override {@link #createKafkaProducer(String, Properties, SerializationSchema, Optional)}}.
+ * override {@link #createKafkaProducer(String, Properties, SerializationSchema, Optional, Properties)}}.
  */
 @Internal
 public abstract class KafkaDynamicSinkBase implements DynamicTableSink {
@@ -58,17 +58,22 @@ public abstract class KafkaDynamicSinkBase implements DynamicTableSink {
 	/** Partitioner to select Kafka partition for each item. */
 	protected final Optional<FlinkKafkaPartitioner<RowData>> partitioner;
 
+	/** Properties that not for kafka client . */
+	protected final Properties otherProperties;
+
 	protected KafkaDynamicSinkBase(
 			DataType consumedDataType,
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
-			EncodingFormat<SerializationSchema<RowData>> encodingFormat) {
+			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
+			Properties otherProperties) {
 		this.consumedDataType = Preconditions.checkNotNull(consumedDataType, "Consumed data type must not be null.");
 		this.topic = Preconditions.checkNotNull(topic, "Topic must not be null.");
 		this.properties = Preconditions.checkNotNull(properties, "Properties must not be null.");
 		this.partitioner = Preconditions.checkNotNull(partitioner, "Partitioner must not be null.");
 		this.encodingFormat = Preconditions.checkNotNull(encodingFormat, "Encoding format must not be null.");
+		this.otherProperties = otherProperties;
 	}
 
 	@Override
@@ -85,7 +90,8 @@ public abstract class KafkaDynamicSinkBase implements DynamicTableSink {
 				this.topic,
 				properties,
 				serializationSchema,
-				this.partitioner);
+				this.partitioner,
+				otherProperties);
 
 		return SinkFunctionProvider.of(kafkaProducer);
 	}
@@ -103,7 +109,8 @@ public abstract class KafkaDynamicSinkBase implements DynamicTableSink {
 		String topic,
 		Properties properties,
 		SerializationSchema<RowData> serializationSchema,
-		Optional<FlinkKafkaPartitioner<RowData>> partitioner);
+		Optional<FlinkKafkaPartitioner<RowData>> partitioner,
+		Properties otherProperties);
 
 	@Override
 	public boolean equals(Object o) {

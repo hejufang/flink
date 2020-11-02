@@ -47,9 +47,15 @@ import java.util.Set;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPERTIES_PREFIX;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_GROUP_ID;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_NUM;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_UNIT;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_SOURCE_SAMPLE_INTERVAL;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_SOURCE_SAMPLE_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_SPECIFIC_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER_FIELD;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.TOPIC;
@@ -91,7 +97,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				startupOptions.startupMode,
 				startupOptions.specificOffsets,
 				startupOptions.startupTimestampMillis,
-				getOtherProperties(context.getCatalogTable().getOptions()));
+				getSourceOtherProperties(context.getCatalogTable().getOptions()));
 	}
 
 	@Override
@@ -115,7 +121,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				topic,
 				getKafkaProperties(context.getCatalogTable().getOptions()),
 				getFlinkKafkaPartitioner(tableOptions, context.getClassLoader(), context.getCatalogTable().getSchema()),
-				encodingFormat);
+				encodingFormat,
+				getSinkOtherProperties(context.getCatalogTable().getOptions()));
 	}
 
 	/**
@@ -153,7 +160,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			String topic,
 			Properties properties,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
-			EncodingFormat<SerializationSchema<RowData>> encodingFormat);
+			EncodingFormat<SerializationSchema<RowData>> encodingFormat,
+			Properties otherProperties);
 
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
@@ -171,18 +179,46 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_STARTUP_SPECIFIC_OFFSETS);
 		options.add(SCAN_STARTUP_TIMESTAMP_MILLIS);
 		options.add(SCAN_PARTITION_RANGE);
+		options.add(SCAN_RATE_LIMITING_NUM);
+		options.add(SCAN_RATE_LIMITING_UNIT);
+		options.add(SCAN_SOURCE_SAMPLE_NUM);
+		options.add(SCAN_SOURCE_SAMPLE_INTERVAL);
+		options.add(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
 		return options;
 	}
 
-	private Properties getOtherProperties(Map<String, String> properties) {
+	private Properties getSourceOtherProperties(Map<String, String> properties) {
 		Properties otherProperties = new Properties();
+
+		// kafka partition range.
 		String partitionRange = properties.get(SCAN_PARTITION_RANGE.key());
 		String cluster = properties.get(PROPERTIES_PREFIX + ".cluster");
 		String topic = properties.get(TOPIC.key());
 		String partitionRangeConf = cluster + "||" + topic + "||" + partitionRange;
 		otherProperties.put(ConfigConstants.PARTITION_LIST_KEY, partitionRangeConf);
+
+		// rate limit num
+		String limitingNum = properties.getOrDefault(SCAN_RATE_LIMITING_NUM.key(), null);
+		if (limitingNum != null) {
+			otherProperties.put(SCAN_RATE_LIMITING_NUM.key(), limitingNum);
+		}
+
+		String limitUnit = properties.getOrDefault(SCAN_RATE_LIMITING_UNIT.key(), null);
+		if (limitUnit != null) {
+			otherProperties.put(SCAN_RATE_LIMITING_UNIT.key(), limitUnit);
+		}
+
+		return otherProperties;
+	}
+
+	private Properties getSinkOtherProperties(Map<String, String> properties) {
+		Properties otherProperties = new Properties();
+
+		String logFailuresOnly = properties.getOrDefault(SINK_LOG_FAILURE_ONLY.key(), "false");
+		otherProperties.put(SINK_LOG_FAILURE_ONLY.key(), logFailuresOnly);
 		return otherProperties;
 	}
 }

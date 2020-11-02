@@ -19,6 +19,9 @@
 package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
@@ -142,6 +145,26 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		FlinkKafkaConsumerBase<RowData> kafkaConsumer =
 				getKafkaConsumer(topic, properties, deserializationSchema);
 		kafkaConsumer.setWhiteTopicPartitionList(otherProperties.getProperty(ConfigConstants.PARTITION_LIST_KEY));
+		long rateLimitingNum =
+			Long.valueOf(properties.getProperty(KafkaOptions.SCAN_RATE_LIMITING_NUM.key(), "-1"));
+		if (rateLimitingNum > 0) {
+			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rateLimitingNum);
+			kafkaConsumer.setRateLimiter(rateLimiter);
+		}
+
+		String rateLimitingUnitStr = properties.getProperty(KafkaOptions.SCAN_RATE_LIMITING_UNIT.key());
+		if (rateLimitingUnitStr != null &&
+				RateLimitingUnit.valueList().contains(rateLimitingUnitStr)) {
+			kafkaConsumer.setRateLimitingUnit(RateLimitingUnit.valueOf(rateLimitingUnitStr));
+		}
+
+		// Set sampling strategy.
+		long sampleInterval = Long.parseLong(properties.getProperty(KafkaOptions.SCAN_SOURCE_SAMPLE_INTERVAL.key(), "0"));
+		long sampleNum = Long.parseLong(properties.getProperty(KafkaOptions.SCAN_SOURCE_SAMPLE_NUM.key(), "1"));
+		kafkaConsumer.setSampleNum(sampleNum);
+		kafkaConsumer.setSampleInterval(sampleInterval);
+
 		return SourceFunctionProvider.of(kafkaConsumer, false);
 	}
 

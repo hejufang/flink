@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.kafka.table;
 
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
@@ -92,6 +93,35 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Optional kafka source partition range");
 
+	public static final ConfigOption<Long> SCAN_RATE_LIMITING_NUM = ConfigOptions
+			.key("scan.rate-limiting-num")
+			.longType()
+			.noDefaultValue()
+			.withDescription("Optional kafka rate limit num.");
+
+	public static final ConfigOption<RateLimitingUnit> SCAN_RATE_LIMITING_UNIT = ConfigOptions
+		.key("scan.rate-limiting-unit")
+		.enumType(RateLimitingUnit.class)
+		.noDefaultValue()
+		.withDescription("Optional kafka rate limit num unit: BYTE or RECORD.");
+
+	public static final ConfigOption<String> SCAN_SOURCE_SAMPLE_INTERVAL = ConfigOptions
+		.key("scan.source-sample-interval")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional source sample interval.");
+
+	public static final ConfigOption<Long> SCAN_SOURCE_SAMPLE_NUM = ConfigOptions
+		.key("scan.source-sample-num")
+		.longType()
+		.noDefaultValue()
+		.withDescription("Optional source sample num.");
+
+	public static final ConfigOption<Boolean> SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION = ConfigOptions
+		.key("scan.reset-to-earliest-for-new-partition")
+		.booleanType()
+		.noDefaultValue()
+		.withDescription("Optional reset to earliest for new partition.");
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
@@ -111,7 +141,13 @@ public class KafkaOptions {
 			.key("sink.keyby-fields")
 			.stringType()
 			.noDefaultValue()
-			.withDescription("Specific key field");
+			.withDescription("Optional specific key field");
+
+	public static final ConfigOption<String> SINK_LOG_FAILURE_ONLY = ConfigOptions
+		.key("sink.log-failures-only")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional whether only log when write kafka failed.");
 
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations

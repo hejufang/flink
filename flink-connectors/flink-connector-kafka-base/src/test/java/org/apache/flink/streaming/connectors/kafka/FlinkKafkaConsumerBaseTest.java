@@ -45,6 +45,7 @@ import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
+import org.apache.flink.streaming.connectors.kafka.config.BytedKafkaConfig;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDiscoverer;
@@ -1165,7 +1166,8 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 				StreamingRuntimeContext runtimeContext,
 				OffsetCommitMode offsetCommitMode,
 				MetricGroup consumerMetricGroup,
-				boolean useMetrics) throws Exception {
+				boolean useMetrics,
+				BytedKafkaConfig kafkaConfig) throws Exception {
 			return testFetcherSupplier.get();
 		}
 
@@ -1213,7 +1215,8 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 				StreamingRuntimeContext runtimeContext,
 				OffsetCommitMode offsetCommitMode,
 				MetricGroup consumerMetricGroup,
-				boolean useMetrics) throws Exception {
+				boolean useMetrics,
+				BytedKafkaConfig kafkaConfig) throws Exception {
 			return new TestingFetcher<T, String>(
 					sourceContext,
 					thisSubtaskPartitionsWithStartOffsets,
