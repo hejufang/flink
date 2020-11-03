@@ -66,7 +66,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
-import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
@@ -496,34 +495,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// Create application via yarnClient
 		final YarnClientApplication yarnApplication = yarnClient.createApplication();
-		final GetNewApplicationResponse appResponse = yarnApplication.getNewApplicationResponse();
-
-		Resource maxRes = appResponse.getMaximumResourceCapability();
-
-		final ClusterResourceDescription freeClusterMem;
-		try {
-			freeClusterMem = getCurrentFreeClusterResources(yarnClient);
-		} catch (YarnException | IOException e) {
-			failSessionDuringDeployment(yarnClient, yarnApplication);
-			throw new YarnDeploymentException("Could not retrieve information about free cluster resources.", e);
-		}
-
-		final int yarnMinAllocationMB = yarnConfiguration.getInt(YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB, 0);
-
-		final ClusterSpecification validClusterSpecification;
-		try {
-			validClusterSpecification = validateClusterResources(
-					clusterSpecification,
-					yarnMinAllocationMB,
-					maxRes,
-					freeClusterMem);
-		} catch (YarnDeploymentException yde) {
-			failSessionDuringDeployment(yarnClient, yarnApplication);
-			throw yde;
-		}
-
-		LOG.info("Cluster specification: {}", validClusterSpecification);
-
 		final ClusterEntrypoint.ExecutionMode executionMode = detached ?
 				ClusterEntrypoint.ExecutionMode.DETACHED
 				: ClusterEntrypoint.ExecutionMode.NORMAL;
@@ -537,7 +508,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				jobGraph,
 				yarnClient,
 				yarnApplication,
-				validClusterSpecification);
+				clusterSpecification);
 
 		// print the application id for user to cancel themselves.
 		if (detached) {
