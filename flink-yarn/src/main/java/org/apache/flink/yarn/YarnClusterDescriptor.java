@@ -969,14 +969,16 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// set classpath from YARN configuration
 		Utils.setupYarnClassPath(yarnConfiguration, appMasterEnv);
 
+		final String customApplicationName = customName != null ? customName : applicationName;
+
+		appMasterEnv.put(YarnConfigKeys.ENV_FLINK_YARN_JOB, customApplicationName.replaceAll(" ", "-"));
+
 		amContainer.setEnvironment(appMasterEnv);
 
 		// Set up resource type requirements for ApplicationMaster
 		Resource capability = Records.newRecord(Resource.class);
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
 		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
-
-		final String customApplicationName = customName != null ? customName : applicationName;
 
 		appContext.setApplicationName(customApplicationName);
 		appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
