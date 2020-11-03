@@ -450,8 +450,8 @@ public class BootstrapTools {
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());
 		startCommandValues.put("redirects",
-			"1> " + logDirectory + "/taskmanager.out " +
-			"2> " + logDirectory + "/taskmanager.err");
+			"1>> " + logDirectory + "/taskmanager.out " +
+			"2>> " + logDirectory + "/taskmanager.err");
 
 		String argsStr = TaskExecutorProcessUtils.generateDynamicConfigsStr(taskExecutorProcessSpec) + " --configDir " + configDirectory;
 		if (!mainArgs.isEmpty()) {

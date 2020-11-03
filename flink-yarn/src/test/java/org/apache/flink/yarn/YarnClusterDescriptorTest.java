@@ -180,8 +180,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 				" -Dlog4j.configurationFile=file:" + YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME; // if set
 		final String mainClass = clusterDescriptor.getYarnSessionClusterEntrypoint();
 		final String redirects =
-			"1> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.out " +
-			"2> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.err";
+			"1>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.out " +
+			"2>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.err";
 
 		try {
 			// no logging, with/out krb5
