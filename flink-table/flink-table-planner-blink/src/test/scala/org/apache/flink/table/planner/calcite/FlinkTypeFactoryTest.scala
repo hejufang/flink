@@ -108,5 +108,13 @@ class FlinkTypeFactoryTest {
     Assert.assertEquals(new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
       new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true),
       typeFactory.leastRestrictive(List(map3, map4).asJava))
+
+    //check if there are both map and null sqlType.
+    val map5: RelDataType = new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true)
+    val map6: RelDataType = new BasicSqlType(typeSystem, SqlTypeName.NULL)
+    Assert.assertEquals(new MapSqlType(new BasicSqlType(typeSystem, SqlTypeName.VARCHAR),
+      new BasicSqlType(typeSystem, SqlTypeName.VARCHAR), true),
+      typeFactory.leastRestrictive(List(map5, map6).asJava))
   }
 }

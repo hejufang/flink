@@ -289,21 +289,22 @@ class FlinkTypeFactory(typeSystem: RelDataTypeSystem) extends JavaTypeFactoryImp
 
   override def leastRestrictive(types: util.List[RelDataType]): RelDataType = {
     val type0 = types.get(0)
+    val allTypes = types.asScala
     if (type0.getSqlTypeName != null) {
-      if (type0.getKeyType != null) {
-        val resultKeyType = leastRestrictive(types.map(_.getKeyType).toList)
-        val resultValueType = leastRestrictive(types.map(_.getValueType).toList)
+      val resultType = resolveAllIdenticalTypes(types)
+      if (resultType.isDefined) {
+        // result type for identical types
+        return resultType.get
+      } else if (allTypes.forall{sqlType => sqlType.getSqlTypeName == SqlTypeName.MAP ||
+          sqlType.getSqlTypeName == SqlTypeName.NULL}) {
+        val resultKeyType = leastRestrictive(types.map(_.getKeyType).filter(_!=null).toList)
+        val resultValueType = leastRestrictive(types.map(_.getValueType).filter(_!=null).toList)
         val nullable = types.asScala
-            .exists(sqlType => sqlType.isNullable || sqlType.getSqlTypeName == SqlTypeName.NULL)
+          .exists(sqlType => sqlType.isNullable || sqlType.getSqlTypeName == SqlTypeName.NULL)
         return new MapSqlType(resultKeyType, resultValueType, nullable)
-      } else {
-        val resultType = resolveAllIdenticalTypes(types)
-        if (resultType.isDefined) {
-          // result type for identical types
-          return resultType.get
-        }
       }
     }
+
     // fall back to super
     super.leastRestrictive(types)
   }
