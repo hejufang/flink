@@ -523,6 +523,8 @@ boe:
   yaop_url: https://yaop-boe.bytedance.net
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   save-meta.enabled: false
+  grafana.domain_url: "https://grafana-boe.byted.org"
+  register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
 
 cof:
   dc: vm
