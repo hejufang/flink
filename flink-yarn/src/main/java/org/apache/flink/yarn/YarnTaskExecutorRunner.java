@@ -20,6 +20,7 @@ package org.apache.flink.yarn;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -103,6 +104,9 @@ public class YarnTaskExecutorRunner {
 			Preconditions.checkArgument(containerId != null,
 				"ContainerId variable %s not set", YarnResourceManager.ENV_FLINK_CONTAINER_ID);
 
+			// set containerId into configuration
+			configuration.setString(ConfigConstants.CONTAINER_ID, containerId);
+
 			SecurityUtils.getInstalledContext().runSecured((Callable<Void>) () -> {
 				TaskManagerRunner.runTaskManager(configuration, new ResourceID(containerId), pluginManager);
 				return null;
@@ -157,5 +161,14 @@ public class YarnTaskExecutorRunner {
 		if (taskExecutorHostname != null) {
 			configuration.setString(TaskManagerOptions.HOST, taskExecutorHostname);
 		}
+
+		// set local dirs passed by yarn container
+		final String localDirs = variables.getOrDefault(Environment.LOCAL_DIRS.key(), null);
+		if (localDirs != null) {
+			configuration.setString(ConfigConstants.CONTAINER_LOCAL_DIRS, localDirs);
+		}
+
+		// set curernt working dir
+		configuration.setString(ConfigConstants.CONTAINER_CURRENT_WORKING_DIR, currDir);
 	}
 }

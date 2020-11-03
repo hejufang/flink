@@ -2038,6 +2038,11 @@ public final class ConfigConstants {
 	/** The user lib directory name. */
 	public static final String DEFAULT_FLINK_USR_LIB_DIR = "usrlib";
 
+	// ------------------- Yarn Container Local Directories ------------------------
+	public static final String CONTAINER_LOCAL_DIRS = "flink.yarn.container.local.dir";
+	public static final String CONTAINER_CURRENT_WORKING_DIR = "flink.yarn.container.current.dir";
+	public static final String CONTAINER_ID = "flink.yarn.container.id";
+
 	// ---------------------------- Encoding ------------------------------
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;

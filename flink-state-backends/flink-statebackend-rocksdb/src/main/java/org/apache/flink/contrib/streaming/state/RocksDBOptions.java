@@ -36,6 +36,11 @@ import static org.apache.flink.contrib.streaming.state.RocksDBStateBackend.Prior
  */
 public class RocksDBOptions {
 
+	public static final ConfigOption<Boolean> FLINK_ROCKSDB_SSD = ConfigOptions
+			.key("flink.rocksdb.ssd")
+			.defaultValue(true)
+			.withDescription("Whether use ssd or not.");
+
 	/** The local directory (on the TaskManager) where RocksDB puts its files. */
 	@Documentation.Section(Documentation.Sections.EXPERT_ROCKSDB)
 	public static final ConfigOption<String> LOCAL_DIRECTORIES = ConfigOptions

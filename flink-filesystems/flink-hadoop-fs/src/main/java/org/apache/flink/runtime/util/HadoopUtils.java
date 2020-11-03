@@ -46,6 +46,8 @@ public class HadoopUtils {
 
 	static final Text HDFS_DELEGATION_TOKEN_KIND = new Text("HDFS_DELEGATION_TOKEN");
 
+	private static final String HDFS_KEY_PREFIX = "flink.hdfs.";
+
 	@SuppressWarnings("deprecation")
 	public static Configuration getHadoopConfiguration(org.apache.flink.configuration.Configuration flinkConfiguration) {
 
@@ -108,6 +110,15 @@ public class HadoopUtils {
 		if (!foundHadoopConfiguration) {
 			LOG.warn("Could not find Hadoop configuration via any of the supported methods " +
 				"(Flink configuration, environment variables).");
+		}
+
+		for (String key : flinkConfiguration.keySet()) {
+			if (key.startsWith(HDFS_KEY_PREFIX) && key.length() > HDFS_KEY_PREFIX.length()) {
+				final String value = flinkConfiguration.getString(key, null);
+				if (value != null && value.length() > 0) {
+					result.set(key.substring(HDFS_KEY_PREFIX.length()), value);
+				}
+			}
 		}
 
 		return result;

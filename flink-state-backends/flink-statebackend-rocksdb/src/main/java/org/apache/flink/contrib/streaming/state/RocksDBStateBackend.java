@@ -22,9 +22,12 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.configuration.CheckpointingOptions;
+import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.core.fs.DiskUtils;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.execution.Environment;
@@ -331,7 +334,41 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			this.localRocksDbDirectories = original.localRocksDbDirectories;
 		}
 		else {
-			final String rocksdbLocalPaths = config.get(RocksDBOptions.LOCAL_DIRECTORIES);
+			// use local dir otherwise nodemanager cannot clean the files
+			String rocksdbLocalPaths = null;
+			final String localDirs = config.get(RocksDBOptions.LOCAL_DIRECTORIES);
+			if (localDirs != null) {
+				// parse config flink.rocksdb.ssd
+				final String containerId = ((Configuration) config).getString(ConfigConstants.CONTAINER_ID, null);
+				final String[] localDirsArray = localDirs.split(",|" + File.pathSeparator);
+				final boolean useSsd = config.get(RocksDBOptions.FLINK_ROCKSDB_SSD);
+				if (useSsd) {
+					final List<String> ssdMounts = DiskUtils.ssdMounts();
+					// m * n loop
+					for (final String mount : ssdMounts) {
+						if (rocksdbLocalPaths == null) {
+							for (final String localDir : localDirsArray) {
+								// a bit hardcode here
+								if (localDir.startsWith(mount) || localDir.startsWith(DiskUtils.REMOTE_SSD_PREFIX)) {
+									rocksdbLocalPaths = localDir + "/" + containerId;
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (rocksdbLocalPaths == null) {
+				rocksdbLocalPaths = config.get(RocksDBOptions.LOCAL_DIRECTORIES);
+			}
+
+			if (rocksdbLocalPaths == null) {
+				rocksdbLocalPaths = ((Configuration) config).getString(ConfigConstants.CONTAINER_CURRENT_WORKING_DIR, null);
+			}
+
+			LOG.info("Using {} as rocksdb local directory.", rocksdbLocalPaths);
+
 			if (rocksdbLocalPaths != null) {
 				String[] directories = rocksdbLocalPaths.split(",|" + File.pathSeparator);
 
