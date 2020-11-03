@@ -16,18 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state.ttl;
+package org.apache.flink.table.runtime.util;
 
-/** Mocked time provider for state TTL. */
-public class MockTtlTimeProvider implements TtlTimeProvider {
-	public long time = 0;
+import org.apache.flink.api.common.state.StateTtlConfig;
+import org.apache.flink.api.common.time.Time;
 
-	@Override
-	public long currentTimestamp() {
-		return time;
-	}
+/**
+ * Utility to create a {@link StateTtlConfig} object.
+ * */
+public class StateTtlConfigUtil {
 
-	public void setCurrentTimestamp(long timestamp) {
-		this.time = timestamp;
+	/**
+	 * Creates a {@link StateTtlConfig} depends on retentionTime parameter.
+	 * @param retentionTime State ttl time which unit is MILLISECONDS.
+	 */
+	public static StateTtlConfig createTtlConfig(long retentionTime) {
+		if (retentionTime > 0) {
+			return StateTtlConfig
+				.newBuilder(Time.milliseconds(retentionTime))
+				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
+				.build();
+		} else {
+			return StateTtlConfig.DISABLED;
+		}
 	}
 }

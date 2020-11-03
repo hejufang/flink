@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.runtime.operators.aggregate;
 
+import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -45,6 +46,7 @@ import java.util.Map;
 import static org.apache.flink.table.dataformat.util.BaseRowUtil.ACCUMULATE_MSG;
 import static org.apache.flink.table.dataformat.util.BaseRowUtil.RETRACT_MSG;
 import static org.apache.flink.table.dataformat.util.BaseRowUtil.isAccumulateMsg;
+import static org.apache.flink.table.runtime.util.StateTtlConfigUtil.createTtlConfig;
 
 /**
  * Aggregate Function used for the groupby (without window) aggregate in miniBatch mode.
@@ -86,6 +88,11 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<BaseRow, List<B
 	private final boolean generateRetraction;
 
 	/**
+	 * State idle retention time which unit is MILLISECONDS.
+	 */
+	private final long stateRetentionTime;
+
+	/**
 	 * Reused output row.
 	 */
 	private transient JoinedRow resultRow = new JoinedRow();
@@ -120,28 +127,33 @@ public class MiniBatchGroupAggFunction extends MapBundleFunction<BaseRow, List<B
 			LogicalType[] accTypes,
 			RowType inputType,
 			int indexOfCountStar,
-			boolean generateRetraction) {
+			boolean generateRetraction,
+			long stateRetentionTime) {
 		this.genAggsHandler = genAggsHandler;
 		this.genRecordEqualiser = genRecordEqualiser;
 		this.recordCounter = RecordCounter.of(indexOfCountStar);
 		this.accTypes = accTypes;
 		this.inputType = inputType;
 		this.generateRetraction = generateRetraction;
+		this.stateRetentionTime = stateRetentionTime;
 	}
 
 	@Override
 	public void open(ExecutionContext ctx) throws Exception {
 		super.open(ctx);
+		StateTtlConfig ttlConfig = createTtlConfig(stateRetentionTime);
 		// instantiate function
 		function = genAggsHandler.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
-		function.open(new PerKeyStateDataViewStore(ctx.getRuntimeContext()));
+		function.open(new PerKeyStateDataViewStore(ctx.getRuntimeContext(), ttlConfig));
 		// instantiate equaliser
 		equaliser = genRecordEqualiser.newInstance(ctx.getRuntimeContext().getUserCodeClassLoader());
 
 		BaseRowTypeInfo accTypeInfo = new BaseRowTypeInfo(accTypes);
 		ValueStateDescriptor<BaseRow> accDesc = new ValueStateDescriptor<>("accState", accTypeInfo);
+		if (ttlConfig.isEnabled()){
+			accDesc.enableTimeToLive(ttlConfig);
+		}
 		accState = ctx.getRuntimeContext().getState(accDesc);
-
 		//noinspection unchecked
 		inputRowSerializer = (TypeSerializer) InternalSerializers.create(
 				inputType, ctx.getRuntimeContext().getExecutionConfig());

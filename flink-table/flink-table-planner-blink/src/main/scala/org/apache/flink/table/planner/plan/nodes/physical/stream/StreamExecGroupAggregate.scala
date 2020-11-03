@@ -177,7 +177,8 @@ class StreamExecGroupAggregate(
         accTypes,
         inputRowType,
         inputCountIndex,
-        generateRetraction)
+        generateRetraction,
+        tableConfig.getMinIdleStateRetentionTime)
 
       new KeyedMapBundleOperator(
         aggFunction,

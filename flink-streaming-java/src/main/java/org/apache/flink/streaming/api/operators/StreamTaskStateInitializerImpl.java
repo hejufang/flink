@@ -88,15 +88,25 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 	/** This object is the factory for everything related to state backends and checkpointing. */
 	private final StateBackend stateBackend;
 
-	public StreamTaskStateInitializerImpl(
-		Environment environment,
-		StateBackend stateBackend,
-		ProcessingTimeService processingTimeService) {
+	private final TtlTimeProvider ttlTimeProvider;
 
+	public StreamTaskStateInitializerImpl(
+			Environment environment,
+			StateBackend stateBackend,
+			ProcessingTimeService processingTimeService) {
+		this(environment, stateBackend, processingTimeService, TtlTimeProvider.DEFAULT);
+	}
+
+	public StreamTaskStateInitializerImpl(
+			Environment environment,
+			StateBackend stateBackend,
+			ProcessingTimeService processingTimeService,
+			TtlTimeProvider ttlTimeProvider) {
 		this.environment = environment;
 		this.taskStateManager = Preconditions.checkNotNull(environment.getTaskStateManager());
 		this.stateBackend = Preconditions.checkNotNull(stateBackend);
 		this.processingTimeService = processingTimeService;
+		this.ttlTimeProvider = ttlTimeProvider;
 	}
 
 	// -----------------------------------------------------------------------------------------------------------------
@@ -296,7 +306,7 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 					taskInfo.getMaxNumberOfParallelSubtasks(),
 					keyGroupRange,
 					environment.getTaskKvStateRegistry(),
-					TtlTimeProvider.DEFAULT,
+					ttlTimeProvider,
 					metricGroup,
 					stateHandles,
 					cancelStreamRegistryForRestore),

@@ -23,6 +23,7 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.table.dataview.ListViewTypeInfo;
@@ -36,9 +37,15 @@ public class PerKeyStateDataViewStore implements StateDataViewStore {
 	private static final String NULL_STATE_POSTFIX = "_null_state";
 
 	private final RuntimeContext ctx;
+	private final StateTtlConfig stateTtlConfig;
 
 	public PerKeyStateDataViewStore(RuntimeContext ctx) {
+		this(ctx, StateTtlConfig.DISABLED);
+	}
+
+	public PerKeyStateDataViewStore(RuntimeContext ctx, StateTtlConfig stateTtlConfig) {
 		this.ctx = ctx;
+		this.stateTtlConfig = stateTtlConfig;
 	}
 
 	@Override
@@ -47,13 +54,18 @@ public class PerKeyStateDataViewStore implements StateDataViewStore {
 			stateName,
 			mapViewTypeInfo.getKeyType(),
 			mapViewTypeInfo.getValueType());
-
+		if (stateTtlConfig.isEnabled()) {
+			mapStateDescriptor.enableTimeToLive(stateTtlConfig);
+		}
 		MapState<UK, UV> mapState = ctx.getMapState(mapStateDescriptor);
 
 		if (mapViewTypeInfo.isNullAware()) {
 			ValueStateDescriptor<UV> nullStateDescriptor = new ValueStateDescriptor<>(
 				stateName + NULL_STATE_POSTFIX,
 				mapViewTypeInfo.getValueType());
+			if (stateTtlConfig.isEnabled()) {
+				nullStateDescriptor.enableTimeToLive(stateTtlConfig);
+			}
 			ValueState<UV> nullState = ctx.getState(nullStateDescriptor);
 			return new StateMapView.KeyedStateMapViewWithKeysNullable<>(mapState, nullState);
 		} else {
@@ -66,7 +78,9 @@ public class PerKeyStateDataViewStore implements StateDataViewStore {
 		ListStateDescriptor<V> listStateDesc = new ListStateDescriptor<>(
 			stateName,
 			listViewTypeInfo.getElementType());
-
+		if (stateTtlConfig.isEnabled()) {
+			listStateDesc.enableTimeToLive(stateTtlConfig);
+		}
 		ListState<V> listState = ctx.getListState(listStateDesc);
 
 		return new StateListView.KeyedStateListView<>(listState);
