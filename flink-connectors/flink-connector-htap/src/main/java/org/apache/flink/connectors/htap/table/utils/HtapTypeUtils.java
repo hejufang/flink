@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.htap.table.utils;
 
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.BigIntType;
@@ -40,10 +41,17 @@ import org.apache.flink.table.types.logical.utils.LogicalTypeDefaultVisitor;
 import com.bytedance.htap.meta.ColumnTypeAttributes;
 import com.bytedance.htap.meta.MysqlType;
 import com.bytedance.htap.meta.Type;
+import com.bytedance.htap.util.DateUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -51,6 +59,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * HtapTypeUtils.
  */
 public class HtapTypeUtils {
+
+	private static final Logger LOG = LoggerFactory.getLogger(HtapTypeUtils.class);
 
 	public static DataType toFlinkType(
 			Type type,
@@ -103,16 +113,10 @@ public class HtapTypeUtils {
 	public static Type toHtapType(DataType dataType) {
 		checkNotNull(dataType, "type cannot be null");
 		LogicalType logicalType = dataType.getLogicalType();
-		return logicalType.accept(new HtapTypeLogicalTypeVisitor(dataType));
+		return logicalType.accept(new HtapTypeLogicalTypeVisitor());
 	}
 
 	private static class HtapTypeLogicalTypeVisitor extends LogicalTypeDefaultVisitor<Type> {
-
-		private final DataType dataType;
-
-		HtapTypeLogicalTypeVisitor(DataType dataType) {
-			this.dataType = dataType;
-		}
 
 		@Override
 		public Type visit(BooleanType booleanType) {
@@ -188,7 +192,208 @@ public class HtapTypeUtils {
 		protected Type defaultMethod(LogicalType logicalType) {
 			throw new UnsupportedOperationException(
 				String.format("Flink doesn't support converting type %s to Htap type yet.",
-				dataType.toString()));
+					logicalType.toString()));
+		}
+	}
+
+	public static Object getLiteralValue(
+			ValueLiteralExpression valueLiteralExpression,
+			DataType dataType) {
+		checkNotNull(dataType, "type cannot be null");
+		checkNotNull(valueLiteralExpression, "literal cannot be null");
+		LogicalType logicalType = dataType.getLogicalType();
+		return logicalType
+			.accept(new ConversionTypeLogicalTypeVisitor(valueLiteralExpression, dataType));
+	}
+
+	/**
+	 * {@link ValueLiteralExpression#getValueAs(Class)} is type-sensitive, which means that
+	 * {@link DataType#getConversionClass()} and literal's type must strictly match. So we
+	 * should do some casting in order to extract literal successfully.
+	 *
+	 * <p>For example, Integer's literal is {@link IntType} as default, so we should extract it as
+	 * Integer.
+	 */
+	private static class ConversionTypeLogicalTypeVisitor
+		extends LogicalTypeDefaultVisitor<Object> {
+
+		private final ValueLiteralExpression valueLiteralExpression;
+		private final DataType dataType;
+
+		ConversionTypeLogicalTypeVisitor(ValueLiteralExpression valueLiteralExpression,
+			DataType dataType) {
+			this.valueLiteralExpression = valueLiteralExpression;
+			this.dataType = dataType;
+		}
+
+		@Override
+		public Object visit(TinyIntType tinyIntType) {
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof IntType) {
+				Integer value = valueLiteralExpression.getValueAs(Integer.class).orElse(null);
+				if (value != null && value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+					return value.byteValue();
+				}
+			}
+			return defaultMethod(tinyIntType);
+		}
+
+		@Override
+		public Object visit(SmallIntType smallIntType) {
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof IntType) {
+				Integer value = valueLiteralExpression.getValueAs(Integer.class).orElse(null);
+				if (value != null && value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+					return value.shortValue();
+				}
+			}
+			return defaultMethod(smallIntType);
+		}
+
+		@Override
+		public Object visit(BigIntType bigIntType) {
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof IntType) {
+				Integer value = valueLiteralExpression.getValueAs(Integer.class).orElse(null);
+				if (value != null) {
+					return value.longValue();
+				}
+			}
+			return defaultMethod(bigIntType);
+		}
+
+		@Override
+		public Object visit(FloatType floatType) {
+			// If operator is `=`, literal is `DoubleType`, however if operator is not `=`,
+			// literal is `DecimalType`. So we should treat these cases differently.
+			LogicalType literalType = valueLiteralExpression.getOutputDataType().getLogicalType();
+			Number value = null;
+			if (literalType instanceof DecimalType) {
+				value = valueLiteralExpression.getValueAs(BigDecimal.class).orElse(null);
+			} else if (literalType instanceof DoubleType) {
+				value = valueLiteralExpression.getValueAs(Double.class).orElse(null);
+			}
+			if (value != null) {
+				float extracted = value.floatValue();
+				if (extracted == Float.NEGATIVE_INFINITY
+					|| extracted == Float.POSITIVE_INFINITY) {
+					return null;
+				}
+				return extracted;
+			}
+			return defaultMethod(floatType);
+		}
+
+		@Override
+		public Object visit(DoubleType doubleType) {
+			// If operator is not `=`, literal is `DecimalType`,
+			// so we should cast it down to `Double`
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof DecimalType) {
+				BigDecimal value = valueLiteralExpression.getValueAs(BigDecimal.class)
+					.orElse(null);
+				if (value != null) {
+					double extracted = value.doubleValue();
+					if (extracted == Double.NEGATIVE_INFINITY
+						|| extracted == Double.POSITIVE_INFINITY) {
+						return null;
+					}
+					return extracted;
+				}
+			}
+			return defaultMethod(doubleType);
+		}
+
+		@Override
+		public Object visit(DateType dateType) {
+			// If operator is `=`, literal of expression is `CharType` and we should transform it
+			// to `java.time.LocalDate`
+			Object extracted = null;
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof CharType) {
+				String extractedStr = valueLiteralExpression.getValueAs(String.class)
+					.orElse(null);
+				if (extractedStr != null) {
+					try {
+						extracted = LocalDate.parse(extractedStr);
+					} catch (DateTimeParseException ignored) {
+						// do nothing here, extracted is still null.
+						LOG.warn("LocalDate cannot be parsed from Literal: {}", extractedStr, ignored);
+					}
+				}
+			} else {
+				extracted = defaultMethod(dateType);
+			}
+			// return days since unix epoch
+			if (extracted instanceof LocalDate) {
+				Date date = Date.valueOf((LocalDate) extracted);
+				return DateUtil.sqlDateToEpochDays(date);
+			} else {
+				return extracted;
+			}
+		}
+
+		@Override
+		public Object visit(TimestampType timestampType) {
+			// If operator is `=`, literal of expression is `CharType` and we should transform it
+			// to java.time.LocalTime or java.sql.Timestamp.
+			// If operator is not `=`, literal is auto casted by flink and we can just take it.
+			Object extracted = null;
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof CharType) {
+				String extractedStr = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (extractedStr == null) {
+					return null;
+				}
+				try {
+					if (dataType.getConversionClass() == LocalDateTime.class) {
+						extracted = Timestamp.valueOf(extractedStr).toLocalDateTime();
+					} else if (dataType.getConversionClass() == Timestamp.class) {
+						extracted = Timestamp.valueOf(extractedStr);
+					}
+				} catch (IllegalArgumentException ignored) {
+					// do nothing here, extracted is still null.
+					LOG.warn("Timestamp cannot be parsed from Literal: {}", extractedStr, ignored);
+				}
+			} else {
+				extracted = defaultMethod(timestampType);
+			}
+			// We should transform `java.time.LocalTime` and `java.sql.Timestamp` to `microseconds
+			// since unix epoch` in order to push it down to the HtapStore.
+			if (extracted instanceof LocalDateTime) {
+				return Timestamp.valueOf((LocalDateTime) extracted).getTime() * 1000;
+			} else if (extracted instanceof Timestamp) {
+				return ((Timestamp) extracted).getTime() * 1000;
+			} else {
+				return extracted;
+			}
+		}
+
+		@Override
+		public Object visit(TimeType timeType) {
+			//  If operator is `=`, literal is `CharType` and we should transform it
+			//  to `java.time.LocalTime`.
+			Object extracted = null;
+			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof CharType) {
+				String extractedStr = valueLiteralExpression.getValueAs(String.class).orElse(null);
+				if (extractedStr != null) {
+					try {
+						extracted = LocalTime.parse(extractedStr);
+					} catch (DateTimeParseException ignored) {
+						// The hour of `java.time.LocalTime` should be between 0 to 23,
+						// so we ignore it if hour is larger than 23.
+						LOG.warn("LocalTime cannot be parsed from Literal: {}", extractedStr, ignored);
+					}
+				}
+			} else {
+				extracted = defaultMethod(timeType);
+			}
+			// return microseconds since the unix epoch
+			if (extracted instanceof LocalTime) {
+				LocalTime localTime = (LocalTime) extracted;
+				return (long) ((localTime.getHour() * 60 * 60
+					+ localTime.getMinute() * 60 + localTime.getSecond())) * 1000 * 1000;
+			}
+			return extracted;
+		}
+
+		@Override
+		protected Object defaultMethod(LogicalType logicalType) {
+			return valueLiteralExpression.getValueAs(dataType.getConversionClass()).orElse(null);
 		}
 	}
 }

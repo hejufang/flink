@@ -24,8 +24,6 @@ import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
 
 import java.io.Serializable;
-import java.sql.Date;
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -85,9 +83,11 @@ public class HtapFilterInfo implements Serializable {
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (short) this.value);
 				break;
 			case INT32:
+			case DATE:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (int) this.value);
 				break;
 			case INT64:
+			case UNIXTIME_MICROS:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (long) this.value);
 				break;
 			case DOUBLE:
@@ -96,16 +96,8 @@ public class HtapFilterInfo implements Serializable {
 			case BOOL:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (boolean) this.value);
 				break;
-			case DATE:
-				final LocalDate date = (LocalDate) this.value;
-				predicate = HtapPredicate.newComparisonPredicate(column, comparison, Date.valueOf(date));
-				break;
 			case VARCHAR:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, this.value);
-				break;
-			case UNIXTIME_MICROS:
-				final Long time = (Long) this.value;
-				predicate = HtapPredicate.newComparisonPredicate(column, comparison, time * 1000);
 				break;
 			case BINARY:
 				predicate = HtapPredicate.newComparisonPredicate(column, comparison, (byte[]) this.value);

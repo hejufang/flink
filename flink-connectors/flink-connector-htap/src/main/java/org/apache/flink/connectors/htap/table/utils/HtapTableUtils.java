@@ -33,7 +33,9 @@ import com.bytedance.htap.meta.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,6 +100,10 @@ public class HtapTableUtils {
 		return exp instanceof ValueLiteralExpression;
 	}
 
+	private static boolean isCallExpression(Expression exp) {
+		return exp instanceof CallExpression;
+	}
+
 	private static Optional<HtapFilterInfo> convertUnaryIsNullExpression(
 			FunctionDefinition functionDefinition,
 			List<Expression> children) {
@@ -123,15 +129,16 @@ public class HtapTableUtils {
 			List<Expression> children) {
 		FieldReferenceExpression fieldReferenceExpression;
 		ValueLiteralExpression valueLiteralExpression;
-		if (isFieldReferenceExpression(children.get(0)) &&
-			isValueLiteralExpression(children.get(1))) {
-			fieldReferenceExpression = (FieldReferenceExpression) children.get(0);
-			valueLiteralExpression = (ValueLiteralExpression) children.get(1);
-		} else if (isValueLiteralExpression(children.get(0)) &&
-			isFieldReferenceExpression(children.get(1))) {
-			fieldReferenceExpression = (FieldReferenceExpression) children.get(1);
+		if (isValueLiteralExpression(children.get(0))) {
+			fieldReferenceExpression = getFieldReferenceExpression(children.get(1)).orElse(null);
 			valueLiteralExpression = (ValueLiteralExpression) children.get(0);
+		} else if (isValueLiteralExpression(children.get(1))) {
+			fieldReferenceExpression = getFieldReferenceExpression(children.get(0)).orElse(null);
+			valueLiteralExpression = (ValueLiteralExpression) children.get(1);
 		} else {
+			return Optional.empty();
+		}
+		if (fieldReferenceExpression == null) {
 			return Optional.empty();
 		}
 		String columnName = fieldReferenceExpression.getName();
@@ -156,35 +163,52 @@ public class HtapTableUtils {
 	}
 
 	private static Optional<HtapFilterInfo> convertIsInExpression(List<Expression> children) {
-		// IN operation will be: or(equals(field, value1), equals(field, value2), ...) in blink
+		// IN operation will be: or(equals(field, value1), or(equals(field, value2), ...)) in blink
 		// For FilterType IS_IN, all internal CallExpression's function need to be equals and
 		// fields need to be same
-		List<Object> values = new ArrayList<>(children.size());
-		String columnName = "";
-		for (int i = 0; i < children.size(); i++) {
-			if (children.get(i) instanceof CallExpression) {
-				CallExpression callExpression = (CallExpression) children.get(i);
+		Deque<Expression> expressions = new ArrayDeque<>(children);
+		List<Object> values = new ArrayList<>(16);
+		String columnName = null;
+		// build values recursively
+		while (!expressions.isEmpty()) {
+			Expression expression = expressions.pop();
+			if (isCallExpression(expression)) {
+				CallExpression callExpression = (CallExpression) expression;
 				FunctionDefinition functionDefinition = callExpression.getFunctionDefinition();
 				List<Expression> subChildren = callExpression.getChildren();
-				FieldReferenceExpression fieldReferenceExpression;
-				ValueLiteralExpression valueLiteralExpression;
-				if (functionDefinition.equals(BuiltInFunctionDefinitions.EQUALS) &&
-					subChildren.size() == 2 && isFieldReferenceExpression(subChildren.get(0)) &&
-					isValueLiteralExpression(subChildren.get(1))) {
-					fieldReferenceExpression = (FieldReferenceExpression) subChildren.get(0);
-					valueLiteralExpression = (ValueLiteralExpression) subChildren.get(1);
-					String fieldName = fieldReferenceExpression.getName();
-					if (i != 0 && !columnName.equals(fieldName)) {
-						return Optional.empty();
+				if (functionDefinition.equals(BuiltInFunctionDefinitions.EQUALS)
+					&& subChildren.size() == 2) {
+					FieldReferenceExpression fieldReferenceExpression;
+					ValueLiteralExpression valueLiteralExpression;
+					if (isValueLiteralExpression(subChildren.get(0))){
+						fieldReferenceExpression =
+							getFieldReferenceExpression(subChildren.get(1)).orElse(null);
+						valueLiteralExpression = (ValueLiteralExpression) subChildren.get(0);
+					} else if (isValueLiteralExpression(subChildren.get(1))) {
+						fieldReferenceExpression =
+							getFieldReferenceExpression(subChildren.get(0)).orElse(null);
+						valueLiteralExpression = (ValueLiteralExpression) subChildren.get(1);
 					} else {
-						columnName = fieldName;
-					}
-					Object value = extractValueLiteral(fieldReferenceExpression,
-						valueLiteralExpression);
-					if (value == null) {
 						return Optional.empty();
 					}
-					values.add(i, value);
+					if (fieldReferenceExpression != null) {
+						String fieldName = fieldReferenceExpression.getName();
+						if (columnName == null || columnName.equals(fieldName)) {
+							columnName = fieldName;
+						} else {
+							return Optional.empty();
+						}
+						Object value =
+							extractValueLiteral(fieldReferenceExpression, valueLiteralExpression);
+						if (value == null) {
+							return Optional.empty();
+						}
+						values.add(value);
+					} else {
+						return Optional.empty();
+					}
+				} else if (functionDefinition.equals(BuiltInFunctionDefinitions.OR)) {
+					subChildren.forEach(expressions::push);
 				} else {
 					return Optional.empty();
 				}
@@ -200,6 +224,19 @@ public class HtapTableUtils {
 			FieldReferenceExpression fieldReferenceExpression,
 			ValueLiteralExpression valueLiteralExpression) {
 		DataType fieldType = fieldReferenceExpression.getOutputDataType();
-		return valueLiteralExpression.getValueAs(fieldType.getConversionClass()).orElse(null);
+		return HtapTypeUtils.getLiteralValue(valueLiteralExpression, fieldType);
+	}
+
+	private static Optional<FieldReferenceExpression> getFieldReferenceExpression(Expression exp) {
+		if (isFieldReferenceExpression(exp)) {
+			return Optional.of((FieldReferenceExpression) exp);
+		}
+		if (isCallExpression(exp)) {
+			CallExpression callExpression = (CallExpression) exp;
+			if (callExpression.getFunctionDefinition().equals(BuiltInFunctionDefinitions.CAST)) {
+				return Optional.of((FieldReferenceExpression) callExpression.getChildren().get(0));
+			}
+		}
+		return Optional.empty();
 	}
 }
