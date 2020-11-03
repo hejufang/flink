@@ -179,9 +179,9 @@ common:
 
   # yarn slow container detection
   yarn.slow-container.timeout-ms: 120000
-  yarn.slow-container.check-interval-ms: 60000
-  yarn.release-slow-container.timeout-ms: 600000
-  yarn.slow-container.allocation-max-fraction: 0.3
+  yarn.slow-container.check-interval-ms: 10000
+  yarn.slow-container.quantile: 0.9
+  yarn.slow-container.threshold-factor: 1.5
 
   jobmanager.execution.schedule-task-fairly: false
 

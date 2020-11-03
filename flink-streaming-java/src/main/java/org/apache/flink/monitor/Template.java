@@ -2101,10 +2101,10 @@ public class Template {
 			"						},\n" +
 			"						{\n" +
 			"							\"aggregator\": \"max\",\n" +
-			"							\"alias\": \"slowContainers\",\n" +
+			"							\"alias\": \"speculativeSlowContainerTimeoutMs\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.slowContainers\",\n" +
+			"							\"metric\": \"flink.jobmanager.speculativeSlowContainerTimeoutMs\",\n" +
 			"							\"refId\": \"B\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2113,10 +2113,10 @@ public class Template {
 			"						},\n" +
 			"						{\n" +
 			"							\"aggregator\": \"max\",\n" +
-			"							\"alias\": \"releasedSlowContainers\",\n" +
+			"							\"alias\": \"slowContainers\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.releasedSlowContainers\",\n" +
+			"							\"metric\": \"flink.jobmanager.slowContainers\",\n" +
 			"							\"refId\": \"C\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2162,6 +2162,10 @@ public class Template {
 			"					\"seriesOverrides\":[\n" +
 			"						{\n" +
 			"							\"alias\":\"containerStartDurationMaxMs\",\n" +
+			"							\"yaxis\":2\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"alias\":\"speculativeSlowContainerTimeoutMs\",\n" +
 			"							\"yaxis\":2\n" +
 			"						}\n" +
 			"					]\n" +
