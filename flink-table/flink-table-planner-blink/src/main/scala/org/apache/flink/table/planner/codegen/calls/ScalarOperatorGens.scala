@@ -340,7 +340,7 @@ object ScalarOperatorGens {
     }
     // numeric types
     else if (isNumeric(left.resultType) && isNumeric(right.resultType)) {
-      generateComparison(ctx, "==", left, right)
+      generateComparison(ctx, "==", toPrimitive(ctx, left), toPrimitive(ctx, right))
     }
     // array types
     else if (isArray(left.resultType) && canEqual) {
@@ -352,7 +352,7 @@ object ScalarOperatorGens {
     }
     // comparable types of same type
     else if (isComparable(left.resultType) && canEqual) {
-      generateComparison(ctx, "==", left, right)
+      generateComparison(ctx, "==", toPrimitive(ctx, left), toPrimitive(ctx, right))
     }
     // support date/time/timestamp equalTo string.
     // for performance, we cast literal string to literal time.
@@ -402,12 +402,12 @@ object ScalarOperatorGens {
     }
     // numeric types
     else if (isNumeric(left.resultType) && isNumeric(right.resultType)) {
-      generateComparison(ctx, "!=", left, right)
+      generateComparison(ctx, "!=", toPrimitive(ctx, left), toPrimitive(ctx, right))
     }
     // temporal types
     else if (isTemporal(left.resultType) &&
         isInteroperable(left.resultType, right.resultType)) {
-      generateComparison(ctx, "!=", left, right)
+      generateComparison(ctx, "!=", toPrimitive(ctx, left), toPrimitive(ctx, right))
     }
     // array types
     else if (isArray(left.resultType) && isInteroperable(left.resultType, right.resultType)) {
@@ -424,7 +424,7 @@ object ScalarOperatorGens {
     // comparable types
     else if (isComparable(left.resultType) &&
         isInteroperable(left.resultType, right.resultType)) {
-      generateComparison(ctx, "!=", left, right)
+      generateComparison(ctx, "!=", toPrimitive(ctx, left), toPrimitive(ctx, right))
     }
     // non-comparable types
     else {
@@ -441,6 +441,30 @@ object ScalarOperatorGens {
         }
       }
     }
+  }
+
+  /**
+    * `==` and `!=` in Java cannot be used to compare boxed type.
+    * For current planner, the nullable info is not accurate due to the design flaw,
+    * we cannot rely on the GeneratedExpression.resultType's nullable, hence we will
+    * force changing to primitive when using `==` and `!=`.
+    */
+  def toPrimitive(ctx: CodeGeneratorContext, input: GeneratedExpression): GeneratedExpression = {
+    val resultTypeTerm = primitiveTypeTermForType(input.resultType)
+    val defaultValue = primitiveDefaultValue(input.resultType)
+    val Seq(fieldTerm, nullTerm) = ctx.addReusableLocalVariables(
+      (resultTypeTerm, "field"),
+      ("boolean", "isNull"))
+    val code =
+      s"""
+        |${input.code}
+        |$nullTerm = ${input.nullTerm};
+        |$fieldTerm = $defaultValue;
+        |if (!${input.nullTerm}) {
+        |  $fieldTerm = ${input.resultTerm};
+        |}
+      """.stripMargin.trim
+    GeneratedExpression(fieldTerm, nullTerm, code, input.resultType)
   }
 
   /**

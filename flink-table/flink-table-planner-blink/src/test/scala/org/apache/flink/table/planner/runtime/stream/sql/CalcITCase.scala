@@ -260,4 +260,36 @@ class CalcITCase extends StreamingTestBase {
     val expected = List("2,2,Hello", "3,2,Hello world")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
   }
+
+  @Test
+  def testEquals(): Unit = {
+    val sqlQuery =
+      """
+        |SELECT CAST(col1 AS BIGINT) = CAST(col2 AS BIGINT)
+        |FROM (VALUES ('90114889369', '90114889369')) AS T(col1, col2)
+        |""".stripMargin
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+
+    val expected = List("true")
+    assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
+  def testNotEquals(): Unit = {
+    val sqlQuery =
+      """
+        |SELECT CAST(col1 AS BIGINT) <> CAST(col2 AS BIGINT)
+        |FROM (VALUES ('90114889369', '90114889369')) AS T(col1, col2)
+        |""".stripMargin
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+
+    val expected = List("false")
+    assertEquals(expected, sink.getAppendResults)
+  }
 }
