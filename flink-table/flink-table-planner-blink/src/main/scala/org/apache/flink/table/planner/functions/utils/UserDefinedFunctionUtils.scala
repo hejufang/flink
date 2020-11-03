@@ -468,7 +468,11 @@ object UserDefinedFunctionUtils {
       displayName: String,
       function: ScalarFunction,
       typeFactory: FlinkTypeFactory): SqlFunction = {
-    new ScalarSqlFunction(identifier, displayName, function, typeFactory)
+    if (HiveFunctionUtils.isHiveFunc(function)) {
+      new HiveScalarSqlFunction(identifier, function, typeFactory)
+    } else {
+      new ScalarSqlFunction(identifier, displayName, function, typeFactory)
+    }
   }
 
   /**
