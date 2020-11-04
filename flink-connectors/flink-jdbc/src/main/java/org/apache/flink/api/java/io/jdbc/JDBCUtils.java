@@ -245,18 +245,23 @@ public class JDBCUtils {
 		String password, boolean useBytedanceMysql, String initSql) throws SQLException, ClassNotFoundException {
 		Connection connection;
 		Class.forName(drivername);
-		if (useBytedanceMysql) {
-			if (username == null) {
-				connection = MysqlDriverManager.getConnection(dbURL);
+		try {
+			if (useBytedanceMysql) {
+				if (username == null) {
+					connection = MysqlDriverManager.getConnection(dbURL);
+				} else {
+					connection = MysqlDriverManager.getConnection(dbURL, username, password);
+				}
 			} else {
-				connection = MysqlDriverManager.getConnection(dbURL, username, password);
+				if (username == null) {
+					connection = DriverManager.getConnection(dbURL);
+				} else {
+					connection = DriverManager.getConnection(dbURL, username, password);
+				}
 			}
-		} else {
-			if (username == null) {
-				connection = DriverManager.getConnection(dbURL);
-			} else {
-				connection = DriverManager.getConnection(dbURL, username, password);
-			}
+		} catch (SQLException e) {
+			throw new RuntimeException("An error occurs when connect to mysql, this is usually because you wrote a " +
+				"wrong db name or table name, or do not have permission for this db, please check it!", e);
 		}
 
 		if (connection == null) {
