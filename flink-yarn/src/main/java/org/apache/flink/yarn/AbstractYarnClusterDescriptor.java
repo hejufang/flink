@@ -1191,7 +1191,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			resourceRequest.setCapability(capability);
 		}
 
-		if (configuration.getBoolean(YarnConfigOptions.GANG_SCHEDULER)) {
+		if (configuration.getBoolean(YarnConfigOptions.GANG_SCHEDULER_JOB_MANAGER)) {
 			LOG.info("Using yarn gang schedule for Application Master.");
 			resourceRequest.setSchedulerType(SchedulerType.GANG_SCHEDULER);
 			resourceRequest.setAsynchronousScheduling(false);

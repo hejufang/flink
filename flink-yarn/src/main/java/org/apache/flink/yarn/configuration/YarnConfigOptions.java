@@ -234,6 +234,11 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Use GangScheduler when allocate containers from Yarn.");
 
+	public static final ConfigOption<Boolean> GANG_SCHEDULER_JOB_MANAGER =
+		key("yarn.gang-scheduler.jobmanager.enable")
+			.defaultValue(false)
+			.withDescription("Use GangScheduler when allocate job manager from Yarn.");
+
 	/**
 	 * Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores.
 	 */

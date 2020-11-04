@@ -192,6 +192,7 @@ common:
   register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
 
   bytedance.streaming.yarn.gang-scheduler.enable: true
+  bytedance.streaming.yarn.gang-scheduler.jobmanager.enable: false
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: false
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.disk-type-enable: true
   bytedance.streaming.taskmanager.initial-on-start: true
@@ -263,6 +264,7 @@ leser:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  bytedance.streaming.yarn.gang-scheduler.jobmanager.enable: true
 
 lobst:
   dc: cn
