@@ -57,6 +57,16 @@ under the License.
 			<artifactId>flink-shaded-hadoop-2</artifactId>
 			<version>${hadoop.version}-${flink.shaded.version}</version>
 			<scope>provided</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>log4j</groupId>
+					<artifactId>log4j</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- standard utilities -->
