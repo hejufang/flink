@@ -53,6 +53,7 @@ import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_IS_DIMEN
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_PSM;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RESPONSE_VALUE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RPC_TYPE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_METHOD;
@@ -89,6 +90,7 @@ public class RPCTableFactory implements
 		supportedProperties.add(CONNECTOR_CONSUL);
 		supportedProperties.add(CONNECTOR_CLUSTER);
 		supportedProperties.add(CONNECTOR_CONSUL_INTERVAL);
+		supportedProperties.add(CONNECTOR_PSM);
 
 		// thrift
 		supportedProperties.add(CONNECTOR_THRIFT_SERVICE_CLASS);
@@ -160,6 +162,7 @@ public class RPCTableFactory implements
 		descriptorProperties.getOptionalString(CONNECTOR_CONSUL).ifPresent(builder::setConsul);
 		descriptorProperties.getOptionalString(CONNECTOR_CLUSTER).ifPresent(builder::setCluster);
 		descriptorProperties.getOptionalInt(CONNECTOR_CONSUL_INTERVAL).ifPresent(builder::setConsulIntervalSeconds);
+		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_SERVICE_CLASS).ifPresent(builder::setThriftServiceClass);
 		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).ifPresent(builder::setThriftMethod);
 		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS).ifPresent(builder::setConnectTimeoutMs);

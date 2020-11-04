@@ -25,6 +25,7 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 
 	public static final String CONNECTOR_CONSUL = "connector.consul";
 	public static final String CONNECTOR_CLUSTER = "connector.cluster";
+	public static final String CONNECTOR_PSM = "connector.psm";
 	public static final String CONNECTOR_THRIFT_SERVICE_CLASS = "connector.thrift-service-class";
 	public static final String CONNECTOR_THRIFT_METHOD = "connector.thrift-method";
 
@@ -51,6 +52,7 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 
 		properties.validateString(CONNECTOR_CONSUL, false, 1);
 		properties.validateString(CONNECTOR_CLUSTER, true, 1);
+		properties.validateString(CONNECTOR_PSM, true, 1);
 		properties.validateString(CONNECTOR_THRIFT_SERVICE_CLASS, false, 1);
 		properties.validateString(CONNECTOR_THRIFT_METHOD, false, 1);
 

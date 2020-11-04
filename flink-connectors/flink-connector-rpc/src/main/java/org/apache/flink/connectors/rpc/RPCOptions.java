@@ -33,6 +33,7 @@ public class RPCOptions implements Serializable {
 	private final String consul;
 	private final String cluster;
 	private final int consulIntervalSeconds;
+	private final String psm;
 	// thrift
 	private final String thriftServiceClass;
 	private final String thriftMethod;
@@ -53,6 +54,7 @@ public class RPCOptions implements Serializable {
 			String consul,
 			String cluster,
 			int consulIntervalSeconds,
+			String psm,
 			String thriftServiceClass,
 			String thriftMethod,
 			int connectTimeoutMs,
@@ -67,6 +69,7 @@ public class RPCOptions implements Serializable {
 		this.consul = consul;
 		this.cluster = cluster;
 		this.consulIntervalSeconds = consulIntervalSeconds;
+		this.psm = psm;
 		this.thriftServiceClass = thriftServiceClass;
 		this.thriftMethod = thriftMethod;
 		this.connectTimeoutMs = connectTimeoutMs;
@@ -90,6 +93,10 @@ public class RPCOptions implements Serializable {
 
 	public int getConsulIntervalSeconds() {
 		return consulIntervalSeconds;
+	}
+
+	public String getPsm() {
+		return psm;
 	}
 
 	public String getThriftServiceClass() {
@@ -152,6 +159,7 @@ public class RPCOptions implements Serializable {
 		private String consul = null;
 		private String cluster = null;
 		private int consulIntervalSeconds = 600; // default 10 min
+		private String psm;
 		// thrift
 		private String thriftServiceClass = null;
 		private String thriftMethod = null;
@@ -183,6 +191,11 @@ public class RPCOptions implements Serializable {
 
 		public Builder setConsulIntervalSeconds(int consulIntervalSeconds) {
 			this.consulIntervalSeconds = consulIntervalSeconds;
+			return this;
+		}
+
+		public Builder setPsm(String psm) {
+			this.psm = psm;
 			return this;
 		}
 
@@ -249,6 +262,7 @@ public class RPCOptions implements Serializable {
 				consul,
 				cluster,
 				consulIntervalSeconds,
+				psm,
 				thriftServiceClass,
 				thriftMethod,
 				connectTimeoutMs,

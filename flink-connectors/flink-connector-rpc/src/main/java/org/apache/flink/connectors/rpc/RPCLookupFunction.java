@@ -24,6 +24,8 @@ import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverter;
 import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverterFactory;
 import org.apache.flink.connectors.rpc.thrift.ThriftRPCClient;
 import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
+import org.apache.flink.connectors.rpc.util.ObjectUtil;
+import org.apache.flink.connectors.rpc.util.SecUtil;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
@@ -39,6 +41,7 @@ import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -62,10 +65,12 @@ public class RPCLookupFunction extends TableFunction<Row> {
 	private final ThriftRPCClient thriftRPCClient;
 	private final TypeInformation<Row> typeInformation;
 	private final DataType dataType;
+	private String psm;
 
 	private transient SerializationRuntimeConverter serializationRuntimeConverter;
 	private transient DeserializationRuntimeConverter deserializationRuntimeConverter;
 	private transient Cache<Row, Row> cache;
+	private transient Field baseField;
 
 	public RPCLookupFunction(
 			TypeInformation<Row> typeInformation,
@@ -82,6 +87,7 @@ public class RPCLookupFunction extends TableFunction<Row> {
 		this.responseClass = ThriftUtil.getReturnClassOfMethod(serviceClassName, rpcOptions.getThriftMethod());
 		this.rpcLookupOptions = rpcLookupOptions;
 		this.thriftRPCClient = new ThriftRPCClient(rpcOptions, requestClass);
+		this.psm = rpcOptions.getPsm();
 		this.dataType = dataType;
 	}
 
@@ -110,6 +116,16 @@ public class RPCLookupFunction extends TableFunction<Row> {
 		deserializationRuntimeConverter =
 			DeserializationRuntimeConverterFactory.createRowConverter(responseClass,
 				(RowType) logicalTypes.get(logicalTypes.size() - 1));
+		if (psm == null) {
+			psm = SecUtil.getIdentityFromToken().PSM;
+		}
+		if (psm != null && !psm.equals("")) {
+			try {
+				baseField = requestClass.getField("Base");
+			} catch (Exception e) {
+				LOG.info("There is not Base field in request class, cannot set psm.");
+			}
+		}
 		thriftRPCClient.open();
 	}
 
@@ -130,6 +146,9 @@ public class RPCLookupFunction extends TableFunction<Row> {
 		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {
 			try {
 				Object requestObject = serializationRuntimeConverter.convert(requestValue);
+				if (baseField != null) {
+					ObjectUtil.setPsm(requestObject, baseField, psm);
+				}
 				List<Object> requestList = Collections.singletonList(requestObject);
 				Object responseObject = thriftRPCClient.sendRequest(requestList);
 				Row responseValue = (Row) deserializationRuntimeConverter.convert(responseObject);

@@ -23,6 +23,8 @@ import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverter;
 import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverterFactory;
 import org.apache.flink.connectors.rpc.thrift.ThriftRPCClient;
 import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
+import org.apache.flink.connectors.rpc.util.ObjectUtil;
+import org.apache.flink.connectors.rpc.util.SecUtil;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
@@ -33,6 +35,10 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.RetryManager;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -48,6 +54,7 @@ import static org.apache.flink.connectors.rpc.thrift.ThriftRPCClient.CLIENT_CLAS
 public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> implements CheckpointedFunction {
 
 	private static final long serialVersionUID = 1L;
+	private static final Logger LOG = LoggerFactory.getLogger(RPCSinkFunction.class);
 
 	private final RPCOptions options;
 	private final Class<?> requestClass;
@@ -60,6 +67,9 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
 	private transient SerializationRuntimeConverter runtimeConverter;
+	private transient Field baseField;
+
+	private String psm;
 
 	public RPCSinkFunction(RPCOptions options, RowType rowType) {
 		this.requestClass = ThriftUtil.getParameterClassOfMethod(
@@ -86,6 +96,16 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 		} else {
 			runtimeConverter = SerializationRuntimeConverterFactory
 				.createRowConverter(Class.forName(options.getBatchClass()), rowType);
+		}
+		if (psm == null) {
+			psm = SecUtil.getIdentityFromToken().PSM;
+		}
+		if (psm != null && !psm.equals("")) {
+			try {
+				baseField = requestClass.getField("Base");
+			} catch (Exception e) {
+				LOG.info("There is not Base field in request class, cannot set psm.");
+			}
 		}
 		thriftRPCClient.open();
 
@@ -141,6 +161,9 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 		}
 
 		Object requestValue = runtimeConverter.convert(value.f1);
+		if (baseField != null) {
+			ObjectUtil.setPsm(requestValue, baseField, psm);
+		}
 		requestList.add(requestValue);
 		if (requestList.size() >= options.getBatchSize()) {
 			flush();
