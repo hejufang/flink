@@ -102,11 +102,6 @@ public class ZooKeeperLeaderElectionConnectionLossTest extends TestLogger {
 		}
 
 		@Override
-		public String getAddress() {
-			return "foobar";
-		}
-
-		@Override
 		public void handleError(Exception exception) {
 			exception.printStackTrace();
 			fail(exception.getMessage());
