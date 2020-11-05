@@ -19,6 +19,7 @@ package org.apache.flink.table.planner.plan.nodes.physical.stream
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.transformations.OneInputTransformation
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.dataformat.BaseRow
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
@@ -171,11 +172,14 @@ class StreamExecIncrementalGroupAggregate(
       finalAggGrouping,
       partialKeySelector.getProducedType)
 
+    val isMiniBatchStateTtlEnabled = config.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_STATE_TTL_ENABLED)
+
     val aggFunction = new MiniBatchIncrementalGroupAggFunction(
       partialAggsHandler,
       finalAggsHandler,
       finalKeySelector,
-      config.getMinIdleStateRetentionTime)
+      if (isMiniBatchStateTtlEnabled) config.getMinIdleStateRetentionTime else 0)
 
     val operator = new KeyedMapBundleOperator(
       aggFunction,

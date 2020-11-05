@@ -184,6 +184,13 @@ public class ExecutionConfigOptions {
 				"NOTE: MiniBatch only works for non-windowed aggregations currently. If " + TABLE_EXEC_MINIBATCH_ENABLED.key() +
 				" is set true, its value must be positive.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_MINIBATCH_STATE_TTL_ENABLED =
+		key("table.exec.mini-batch.state-ttl.enabled")
+			.defaultValue(false)
+			.withDescription("Specifies whether to enable state ttl for MiniBatchGroupAggFunction, " +
+				"MiniBatchGlobalGroupAggFunction and MiniBatchIncrementalGroupAggFunction.");
+
 	// ------------------------------------------------------------------------
 	//  Other Exec Options
 	// ------------------------------------------------------------------------

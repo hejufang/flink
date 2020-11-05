@@ -170,6 +170,9 @@ class StreamExecGroupAggregate(
     val isMiniBatchEnabled = tableConfig.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)
 
+    val isMiniBatchStateTtlEnabled = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_STATE_TTL_ENABLED)
+
     val operator = if (isMiniBatchEnabled) {
       val aggFunction = new MiniBatchGroupAggFunction(
         aggsHandler,
@@ -178,7 +181,7 @@ class StreamExecGroupAggregate(
         inputRowType,
         inputCountIndex,
         generateRetraction,
-        tableConfig.getMinIdleStateRetentionTime)
+        if (isMiniBatchStateTtlEnabled) tableConfig.getMinIdleStateRetentionTime else 0)
 
       new KeyedMapBundleOperator(
         aggFunction,

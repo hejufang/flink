@@ -163,6 +163,9 @@ class StreamExecGlobalGroupAggregate(
     val recordEqualiser = new EqualiserCodeGenerator(globalAggValueTypes)
       .generateRecordEqualiser("GroupAggValueEqualiser")
 
+    val isMiniBatchStateTtlEnabled = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_STATE_TTL_ENABLED)
+
     val operator = if (tableConfig.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)) {
       val aggFunction = new MiniBatchGlobalGroupAggFunction(
@@ -172,7 +175,7 @@ class StreamExecGlobalGroupAggregate(
         globalAccTypes,
         indexOfCountStar,
         generateRetraction,
-        tableConfig.getMinIdleStateRetentionTime)
+        if (isMiniBatchStateTtlEnabled) tableConfig.getMinIdleStateRetentionTime else 0)
 
       new KeyedMapBundleOperator(
         aggFunction,
