@@ -44,9 +44,9 @@ import java.util.List;
  */
 public class SqlFirstLastValueAggFunction extends SqlAggFunction {
 
-	public SqlFirstLastValueAggFunction(SqlKind kind) {
+	public SqlFirstLastValueAggFunction(SqlKind kind, String name) {
 		super(
-				kind.name(),
+				name == null ? kind.name() : name,
 				null,
 				kind,
 				ReturnTypes.ARG0_NULLABLE_IF_EMPTY,
@@ -57,7 +57,7 @@ public class SqlFirstLastValueAggFunction extends SqlAggFunction {
 				false,
 				Optionality.FORBIDDEN);
 		Preconditions.checkArgument(kind == SqlKind.FIRST_VALUE
-				|| kind == SqlKind.LAST_VALUE);
+				|| kind == SqlKind.LAST_VALUE || kind == SqlKind.FIRST || kind == SqlKind.LAST);
 	}
 
 	//~ Methods ----------------------------------------------------------------

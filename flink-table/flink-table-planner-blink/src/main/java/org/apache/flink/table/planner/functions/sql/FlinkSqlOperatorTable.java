@@ -756,12 +756,25 @@ public class FlinkSqlOperatorTable extends ReflectiveSqlOperatorTable {
 	 * <code>FIRST_VALUE</code> aggregate function.
 	 */
 	public static final SqlFirstLastValueAggFunction FIRST_VALUE =
-			new SqlFirstLastValueAggFunction(SqlKind.FIRST_VALUE);
+			new SqlFirstLastValueAggFunction(SqlKind.FIRST_VALUE, null);
+
+	/**
+	 * <code>FIRST_VALUE_IGNORE_RETRACTION</code> aggregate function.
+	 */
+	public static final SqlFirstLastValueAggFunction FIRST_VALUE_IGNORE_RETRACT =
+			new SqlFirstLastValueAggFunction(SqlKind.FIRST, "first_value_ignore_retract");
 
 	/**
 	 * <code>LAST_VALUE</code> aggregate function.
 	 */
-	public static final SqlFirstLastValueAggFunction LAST_VALUE = new SqlFirstLastValueAggFunction(SqlKind.LAST_VALUE);
+	public static final SqlFirstLastValueAggFunction LAST_VALUE =
+			new SqlFirstLastValueAggFunction(SqlKind.LAST_VALUE, null);
+
+	/**
+	 * <code>FIRST_VALUE_IGNORE_RETRACTION</code> aggregate function.
+	 */
+	public static final SqlFirstLastValueAggFunction LAST_VALUE_IGNORE_RETRACT =
+			new SqlFirstLastValueAggFunction(SqlKind.LAST, "last_value_ignore_retract");
 
 	/**
 	 * <code>LISTAGG</code> aggregate function.

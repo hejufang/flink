@@ -349,6 +349,12 @@ object SplitAggregateRule {
       (Seq(FlinkSqlOperatorTable.FIRST_VALUE), Seq(FlinkSqlOperatorTable.FIRST_VALUE)),
     FlinkSqlOperatorTable.LAST_VALUE ->
       (Seq(FlinkSqlOperatorTable.LAST_VALUE), Seq(FlinkSqlOperatorTable.LAST_VALUE)),
+    FlinkSqlOperatorTable.FIRST_VALUE_IGNORE_RETRACT ->
+      (Seq(FlinkSqlOperatorTable.FIRST_VALUE_IGNORE_RETRACT),
+        Seq(FlinkSqlOperatorTable.FIRST_VALUE_IGNORE_RETRACT)),
+    FlinkSqlOperatorTable.LAST_VALUE_IGNORE_RETRACT ->
+      (Seq(FlinkSqlOperatorTable.LAST_VALUE_IGNORE_RETRACT),
+        Seq(FlinkSqlOperatorTable.LAST_VALUE_IGNORE_RETRACT)),
     FlinkSqlOperatorTable.LISTAGG ->
       (Seq(FlinkSqlOperatorTable.LISTAGG), Seq(FlinkSqlOperatorTable.LISTAGG)),
     SINGLE_VALUE -> (Seq(SINGLE_VALUE), Seq(SINGLE_VALUE))
