@@ -219,11 +219,11 @@ public class RestartPipelinedRegionFailoverStrategy implements FailoverStrategy 
 		@Override
 		public boolean isAvailable(IntermediateResultPartitionID resultPartitionID) {
 			if (!failedPartitions.contains(resultPartitionID)) {
-				LOG.info("{} has already failed before.", resultPartitionID);
+				LOG.debug("{} has already failed before.", resultPartitionID);
 			}
 
 			if (resultPartitionAvailabilityChecker.isAvailable(resultPartitionID)) {
-				LOG.info("{} has already been released.", resultPartitionID);
+				LOG.debug("{} has already been released.", resultPartitionID);
 			}
 
 			return !failedPartitions.contains(resultPartitionID) &&
