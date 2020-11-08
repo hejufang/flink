@@ -85,6 +85,7 @@ import org.apache.flink.streaming.api.functions.source.SocketTextStreamFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.source.StatefulSequenceSource;
 import org.apache.flink.streaming.api.functions.source.TimestampedFileInputSplit;
+import org.apache.flink.streaming.api.graph.GlobalDataExchangeMode;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.streaming.api.operators.StreamSource;
@@ -1888,6 +1889,7 @@ public class StreamExecutionEnvironment {
 			if (streamGraph.getCheckpointConfig().isCheckpointingEnabled()) {
 				throw new IllegalArgumentException("Checkpoint is not supported for batch jobs.");
 			}
+			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.valueOf(configuration.get(ExecutionOptions.EXEC_SHUFFLE_MODE)));
 		}
 
 		return streamGraph;
