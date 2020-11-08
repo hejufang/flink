@@ -38,7 +38,9 @@ import org.apache.flink.streaming.connectors.rocketmq.serialization.RocketMQDese
 import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQueueStrategyParallelism;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.RetryManager;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.map.LinkedMap;
@@ -57,6 +59,7 @@ import org.json.simple.parser.JSONParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +72,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_EARLIEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_LATEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_TIMESTAMP;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_RETRY_TIMES;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_RETRY_TIMES_DEFAULT;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_EARLIEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_GROUP;
@@ -122,6 +128,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private transient boolean enableCheckpoint;
 
 	private transient int parallelism;
+	private transient int retryTimes;
 	private transient int subTaskId;
 	/** Errors encountered in the async consumer are stored here. */
 	private transient volatile Throwable asyncError;
@@ -186,6 +193,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildConsumerConfigs(props, consumer);
 		this.skipDirty = getRuntimeContext().getMetricGroup().counter("skipDirty");
+		this.retryTimes = getInteger(props, CONSUMER_RETRY_TIMES, CONSUMER_RETRY_TIMES_DEFAULT);
 	}
 
 	@Override
@@ -208,6 +216,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		pullConsumerScheduleService.setPullThreadNums(pullPoolSize);
 		pullConsumerScheduleService.registerPullTaskCallback(topic, new PullTaskCallback() {
+			private PullResult pullResult;
 
 			@Override
 			public void doPullTask(MessageQueue mq, PullTaskContext pullTaskContext) {
@@ -222,7 +231,17 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 					 */
 					Set<MessageQueue> balancedMQ = consumer.fetchMessageQueuesInBalance(topic);
 
-					PullResult pullResult = consumer.pull(mq, tag, offset, pullBatchSize);
+					RetryManager.Strategy strategy = RetryManager.createExponentialBackoffStrategy(retryTimes, CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
+					RetryManager.retry(new RetryManager.RetryableRunner() {
+						@Override
+						public void run() throws IOException {
+							try {
+								pullResult = consumer.pull(mq, tag, offset, pullBatchSize);
+							} catch (Exception e) {
+								throw new FlinkRuntimeException(e);
+							}
+						}
+					}, strategy);
 					boolean found = false;
 					switch (pullResult.getPullStatus()) {
 						case FOUND:

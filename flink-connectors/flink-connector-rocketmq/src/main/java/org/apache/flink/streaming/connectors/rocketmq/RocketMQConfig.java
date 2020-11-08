@@ -87,7 +87,11 @@ public class RocketMQConfig {
 	public static final int CONSUMER_BATCH_SIZE_DEFAULT = 32;
 	public static final String CONSUMER_DELAY_WHEN_MESSAGE_NOT_FOUND = "consumer.delay.when.message.not.found";
 	public static final int CONSUMER_DELAY_WHEN_MESSAGE_NOT_FOUND_DEFAULT = 10;
+	public static final String CONSUMER_RETRY_TIMES = "consumer.retry.times";
 
+	// Consumer will retry 10 times and cost 10 minutes at most
+	public static final int CONSUMER_RETRY_TIMES_DEFAULT = 10;
+	public static final int CONSUMER_RETRY_INIT_TIME_MS_DEFAULT = 600;
 	public static final int BATCH_SIZE_DEFAULT = 1000;
 	public static final String MSG_DELAY_LEVEL = "msg.delay.level";
 	public static final int MSG_DELAY_LEVEL00 = 0; // no delay
