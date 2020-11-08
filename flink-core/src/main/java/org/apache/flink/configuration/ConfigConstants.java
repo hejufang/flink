@@ -2089,9 +2089,9 @@ public final class ConfigConstants {
 	public static final String JOB_META_DB_NAME_VALUE = "dayu";
 
 	public static final String SAVE_META_ENABLED = "save-meta.enabled";
-	public static final String SAVE_META_ENABLED_DEFAULT = "true";
+	public static final String SAVE_META_ENABLED_DEFAULT = "false";
 	public static final String REGISTER_DASHBOARD_ENABLED = "register-dashboard.enabled";
-	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "true";
+	public static final String REGISTER_DASHBOARD_ENABLED_DEFAULT = "false";
 	public static final String GRAFANA_DOMAIN_URL_KEY = "grafana.domain_url";
 	public static final String GRAFANA_DOMAIN_URL_VALUE = "https://grafana.byted.org";
 	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";

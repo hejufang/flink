@@ -63,6 +63,8 @@ common:
   metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
 
   # Grafana
+  save-meta.enabled: true
+  register-dashboard.enabled: true
   grafana.domain_url: "https://grafana.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiYjZMS0hPSXZybVpOOWJMS3pLRHkwaXRoWWI2RW1UT2oiLCJuIjoianN0b3JtIiwiaWQiOjF9"
 
