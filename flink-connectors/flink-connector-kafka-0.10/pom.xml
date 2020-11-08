@@ -48,6 +48,14 @@ under the License.
 
 	<dependencies>
 
+		<!-- Add Kafka 0.10.x as a dependency -->
+
+		<dependency>
+			<groupId>org.apache.kafka</groupId>
+			<artifactId>kafka-clients</artifactId>
+			<version>${kafka010.byted.version}</version>
+		</dependency>
+
 		<!-- core dependencies -->
 
 		<dependency>
@@ -73,14 +81,6 @@ under the License.
 			<artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
-		</dependency>
-
-		<!-- Add Kafka 0.10.x as a dependency -->
-
-		<dependency>
-			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka-clients</artifactId>
-			<version>${kafka010.byted.version}</version>
 		</dependency>
 
 		<!-- Table ecosystem -->
