@@ -168,9 +168,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 			// number of write failed in sink
 			"writeFailed",
 			// slow containers
+			"releasedSlowContainers",
 			"slowContainers",
 			"containerStartDurationMaxMs",
-			"speculativeSlowContainerTimeoutMs",
 			// recoverable individual failover
 			"numberOfTaskRecoveries",
 			"numberOfGlobalFailures",

@@ -371,22 +371,20 @@ public class YarnConfigOptions {
 			.defaultValue(120000L)
 			.withDescription("Timeout in milliseconds of determine if the container is slow.");
 
+	public static final ConfigOption<Long> RELEASE_SLOW_CONTAINER_TIMEOUT_MS =
+		key("yarn.release-slow-container.timeout-ms")
+			.defaultValue(600000L)
+			.withDescription("Timeout in milliseconds of determine whether release slow containers.");
+
 	public static final ConfigOption<Long> SLOW_CONTAINER_CHECK_INTERVAL_MS =
 		key("yarn.slow-container.check-interval-ms")
-		.defaultValue(10000L)
+		.defaultValue(60000L)
 		.withDescription("Interval in milliseconds of check if the container is slow.");
 
-	public static final ConfigOption<Double> SLOW_CONTAINERS_QUANTILE =
-			key("yarn.slow-container.quantile")
-					.defaultValue(0.9)
-					.withDescription("The quantile of slow container timeout base threshold." +
-							"Means how many containers should be started before update slow container timeout threshold.");
-
-	public static final ConfigOption<Double> SLOW_CONTAINER_THRESHOLD_FACTOR =
-			key("yarn.slow-container.threshold-factor")
-					.defaultValue(1.5)
-					.withDescription("Times of slow container timeout base threshold." +
-							"Means containers which 1.5 times slow than the base threshold should be marked as slow containers.");
+	public static final ConfigOption<Double> SLOW_CONTAINER_ALLOCATION_MAX_FRACTION =
+		key("yarn.slow-container.allocation-max-fraction")
+			.defaultValue(0.3)
+			.withDescription("The largest ratio of slowContainers to startingContainers.");
 
 	public static final ConfigOption<Boolean> CLEANUP_RUNNING_CONTAINERS_ON_STOP =
 		key("yarn.nmclient.cleanup-running-containers-on-stop")

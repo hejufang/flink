@@ -216,12 +216,29 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	/** The number of containers requested, but not yet granted. */
 	private int numPendingContainerRequests;
 
-	private final SlowContainerManager slowContainerManager;
-	private long containerStartDurationMaxMs;
-	/** Interval in milliseconds of check if the container is slow. */
-	private final long slowContainerCheckIntervalMs;
+	/** The Allocated but not started containers. */
+	private final Map<ResourceID, Long> startingContainers;
 
-	private final Set<String> yarnBlackedHosts;
+	/** The slow containers. */
+	private final Set<ResourceID> slowContainers;
+
+	private final Counter slowContainerCounter;
+	private final Counter releasedSlowContainerCounter;
+	private long containerStartDurationMaxMs;
+
+	/** Timeout in milliseconds of determine if the container is slow. */
+	private long slowContainerTimeoutMs;
+
+	/** Timeout in milliseconds of determine whether release slow containers. */
+	private final long releaseSlowContainerTimoutMs;
+
+	/** Interval in milliseconds of check if the container is slow. */
+	private long slowContainerCheckIntervalMs;
+
+	/** The largest ratio of slowContainers to startingContainers. */
+	private double slowContainerAllocationMaxFraction;
+
+	private Set<String> yarnBlackedHosts;
 
 	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
 
@@ -382,19 +399,20 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		containerRequestHeartbeatIntervalMillis = flinkConfig.getInteger(YarnConfigOptions.CONTAINER_REQUEST_HEARTBEAT_INTERVAL_MILLISECONDS);
 		numPendingContainerRequests = 0;
 
+		startingContainers = new ConcurrentHashMap<>();
+		slowContainers = ConcurrentHashMap.newKeySet();
 		containerStartDurationMaxMs = -1;
-
-		long slowContainerTimeoutMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS);
-		double slowContainersQuantile = flinkConfig.getDouble(YarnConfigOptions.SLOW_CONTAINERS_QUANTILE);
+		slowContainerCounter = new SimpleCounter();
+		releasedSlowContainerCounter = new SimpleCounter();
+		slowContainerTimeoutMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS);
+		releaseSlowContainerTimoutMs = flinkConfig.getLong(YarnConfigOptions.RELEASE_SLOW_CONTAINER_TIMEOUT_MS);
 		Preconditions.checkArgument(
-				slowContainersQuantile < 1.0,
-				"%s must less than 1.0", YarnConfigOptions.SLOW_CONTAINERS_QUANTILE.key());
-		double slowContainerThresholdFactor = flinkConfig.getDouble(YarnConfigOptions.SLOW_CONTAINER_THRESHOLD_FACTOR);
-		Preconditions.checkArgument(
-				slowContainerThresholdFactor > 1.0,
-				"%s must great than 1.0", YarnConfigOptions.SLOW_CONTAINER_THRESHOLD_FACTOR.key());
-		slowContainerManager = new SlowContainerManager(slowContainerTimeoutMs, slowContainersQuantile, slowContainerThresholdFactor);
+				releaseSlowContainerTimoutMs > slowContainerTimeoutMs,
+				"{} must lager than {}.",
+				YarnConfigOptions.RELEASE_SLOW_CONTAINER_TIMEOUT_MS.key(),
+				YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS.key());
 		slowContainerCheckIntervalMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS);
+		slowContainerAllocationMaxFraction = flinkConfig.getDouble(YarnConfigOptions.SLOW_CONTAINER_ALLOCATION_MAX_FRACTION);
 
 		this.executor = Executors.newScheduledThreadPool(
 			flinkConfig.getInteger(YarnConfigOptions.CONTAINER_LAUNCHER_NUMBER));
@@ -535,16 +553,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		smartResourcesStats.setConfig(smartResourcesConfig);
 	}
 
-	@VisibleForTesting
-	public SlowContainerManager getSlowContainerManager() {
-		return slowContainerManager;
-	}
-
-	@VisibleForTesting
-	public int getNumPendingContainerRequests() {
-		return numPendingContainerRequests;
-	}
-
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
 			YarnConfiguration yarnConfiguration,
 			int yarnHeartbeatIntervalMillis,
@@ -592,7 +600,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		for (final Container container : containersFromPreviousAttempts) {
 			ResourceID resourceID = new ResourceID(container.getId().toString());
 			workerNodeMap.put(resourceID, new YarnWorkerNode(container));
-			slowContainerManager.containerAllocated(resourceID, ts);
+			startingContainers.put(resourceID, ts);
 		}
 	}
 
@@ -641,7 +649,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		slotManager.receiveResources(numberWorkers, createWorkerSlotProfiles(flinkConfig, numberWorkers));
 
 		super.startServicesOnLeadership();
-		slowContainerManager.setYarnResourceManager(this);
+		log.info("start checkSlowAllocation with slowContainerCheckIntervalMs: {}, slowContainerTimeoutMs: {}.",
+			slowContainerCheckIntervalMs, slowContainerTimeoutMs);
 		scheduleRunAsync(this::checkSlowContainers, slowContainerCheckIntervalMs, TimeUnit.MILLISECONDS);
 		if (deschedulerEnable) {
 			log.info("start check descheduled containers with intervalMs: {}.", descheduledContainersCheckIntervalMs);
@@ -811,12 +820,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	protected YarnWorkerNode workerStarted(ResourceID resourceID, TaskManagerLocation taskManagerLocation) {
+		// blacklistTracker use taskManagerLocation.getFQDNHostname to identify Host,
+		// Yarn use container.getNodeId.getHost to identify Host,
+		// save the hostname map in case of hostname in Flink different with hostname in Yarn.
 		YarnWorkerNode workerNode = workerStarted(resourceID);
-		slowContainerManager.containerStarted(resourceID, numPendingContainerRequests);
-		if (slowContainerManager.getContainerStartTime(resourceID) != SlowContainerManager.CONTAINER_NOT_START_TIME_MS) {
+		if (startingContainers.containsKey(resourceID)) {
 			containerStartDurationMaxMs = Math.max(
 					containerStartDurationMaxMs,
-					slowContainerManager.getContainerStartTime(resourceID));
+					System.currentTimeMillis() - startingContainers.get(resourceID));
 		}
 		if (workerNode != null) {
 			jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
@@ -1161,7 +1172,6 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 									jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
 											WarehouseJobStartEventMessage.EVENT_MODULE_RESOURCE_MANAGER, currentContainerId, containerIdStr, null, 0, WarehouseJobStartEventMessage.EVENT_TYPE_CREATE_TASK_MANAGER_CONTEXT, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
 									long ts = System.currentTimeMillis();
-									slowContainerManager.containerAllocated(resourceId, ts, numPendingContainerRequests);
 									// Context information used to start a TaskExecutor Java process
 									taskExecutorLaunchContext = createTaskExecutorLaunchContext(
 											container.getResource(),
@@ -1178,6 +1188,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								}
 								jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
 										WarehouseJobStartEventMessage.EVENT_MODULE_RESOURCE_MANAGER, currentContainerId, containerIdStr, null, 0, WarehouseJobStartEventMessage.EVENT_TYPE_START_CONTAINER, WarehouseJobStartEventMessage.EVENT_ACTION_START)));
+								startingContainers.put(resourceId, System.currentTimeMillis());
 								if (nmClientAsyncEnabled) {
 									nodeManagerClientAsync.startContainerAsync(container, taskExecutorLaunchContext);
 								} else {
@@ -1339,7 +1350,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			numPendingContainerRequests,
 			numberOfTaskSlots,
 			workerNodeMap.size(),
-			slowContainerManager.getTotalRedundantContainersNum());
+			slowContainers.size()
+		);
 	}
 
 	private void requestYarnContainer() {
@@ -1987,9 +1999,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	private void registerMetrics() {
+		jobManagerMetricGroup.counter("releasedSlowContainers", releasedSlowContainerCounter);
+		jobManagerMetricGroup.counter("slowContainers", slowContainerCounter);
 		jobManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
-		jobManagerMetricGroup.gauge("slowContainers", slowContainerManager::getSlowContainerSize);
-		jobManagerMetricGroup.gauge("speculativeSlowContainerTimeoutMs", slowContainerManager::getSpeculativeSlowContainerTimeoutMs);
 		jobManagerMetricGroup.gauge("completedContainer", completedContainerGauge);
 		jobManagerMetricGroup.counter("descheduledContainers", descheduledContainersCounter);
 		jobManagerMetricGroup.gauge("deschedulerDurationMs", deschedulerDurationMsGuage);
@@ -1998,9 +2010,68 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.gauge(EVENT_METRIC_NAME, jobStartEventMessageSet);
 	}
 
+	private void checkSlowContainersInternal() {
+		if (!startingContainers.isEmpty()) {
+			log.info("Start to check slow containers.");
+			final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
+			final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
+
+			for (WorkerRegistration<YarnWorkerNode> workerRegistration : getTaskExecutors().values()) {
+				ResourceID resourceID = workerRegistration.getResourceID();
+				if (startingContainers.remove(resourceID) != null) {
+					if (slowContainers.remove(resourceID)) {
+						if (numPendingContainerRequests > 0) {
+							removeContainerRequest(pendingRequestsIterator.next());
+						}
+						log.info("{} started, remove from slowContainers.", resourceID);
+					} else {
+						log.debug("{} started, remove from startingContainers.", resourceID);
+					}
+				}
+			}
+
+			boolean needStartNewContainers = false;
+			List<ResourceID> releaseContainers = new ArrayList<>();
+			for (Map.Entry<ResourceID, Long> startingContainer : startingContainers.entrySet()) {
+				ResourceID resourceID = startingContainer.getKey();
+				long waitedTimeMillis = System.currentTimeMillis() - startingContainer.getValue();
+				if (waitedTimeMillis > slowContainerTimeoutMs) {
+					if (!slowContainers.contains(resourceID)) {
+						slowContainerCounter.inc();
+						if (slowContainers.size() < workerNodeMap.size() * slowContainerAllocationMaxFraction) {
+							needStartNewContainers = true;
+							slowContainers.add(resourceID);
+							log.info("{} not started in {} milliseconds, try to allocate new container.",
+									resourceID, waitedTimeMillis);
+						}
+					} else if (waitedTimeMillis > releaseSlowContainerTimoutMs) {
+						needStartNewContainers = true;
+						releasedSlowContainerCounter.inc();
+						releaseContainers.add(resourceID);
+						log.warn("{} not started in {} milliseconds, stop it and try to allocate new container.",
+								resourceID, waitedTimeMillis);
+					} else {
+						log.info("{} not started in {} milliseconds.", resourceID, waitedTimeMillis);
+					}
+				}
+			}
+			for (ResourceID resourceID : releaseContainers) {
+				YarnWorkerNode yarnWorkerNode = workerNodeMap.get(resourceID);
+				if (yarnWorkerNode != null) {
+					stopWorker(yarnWorkerNode);
+				}
+				startingContainers.remove(resourceID);
+				slowContainers.remove(resourceID);
+			}
+			if (needStartNewContainers) {
+				startNewWorkerIfNeeded();
+			}
+		}
+	}
+
 	private void checkSlowContainers() {
 		try {
-			slowContainerManager.checkSlowContainer();
+			checkSlowContainersInternal();
 		} catch (Exception e) {
 			log.warn("Error while checkSlowContainers.", e);
 		} finally {
@@ -2074,40 +2145,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	@Override
 	protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause) {
-		YarnWorkerNode workerNode = removeContainer(resourceID);
-		if (workerNode != null) {
-			stopWorker(workerNode);
-		}
+		removeContainer(resourceID);
 		super.closeTaskManagerConnection(resourceID, cause);
 	}
 
 	private YarnWorkerNode removeContainer(ResourceID resourceID) {
-		slowContainerManager.containerRemoved(resourceID);
+		startingContainers.remove(resourceID);
+		slowContainers.remove(resourceID);
 		return workerNodeMap.remove(resourceID);
-	}
-
-	public void stopWorker(ResourceID resourceID, int exitCode) {
-		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
-		if (workerNode != null) {
-			stopWorker(workerNode, exitCode);
-		} else {
-			log.warn("Resource {} not found, can not stop it.", resourceID);
-		}
-	}
-
-	public void startNewWorker(ResourceID resourceID) {
-		if (workerNodeMap.containsKey(resourceID)) {
-			startNewWorker(ResourceProfile.UNKNOWN);
-		} else {
-			log.warn("Resource {} not found, will not start new worker.", resourceID);
-		}
-	}
-
-	public void removePendingRequests(int pendingRequestsNumber) {
-		final Collection<AMRMClient.ContainerRequest> pendingRequests = getPendingRequests();
-		final Iterator<AMRMClient.ContainerRequest> pendingRequestsIterator = pendingRequests.iterator();
-		for (int i = 0; i < pendingRequestsNumber && pendingRequestsIterator.hasNext(); i++) {
-			removeContainerRequest(pendingRequestsIterator.next());
-		}
 	}
 }
