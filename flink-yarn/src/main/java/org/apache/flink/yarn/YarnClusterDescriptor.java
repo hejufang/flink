@@ -483,7 +483,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		if (!flinkConfiguration.containsKey(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE.key())) {
 			// check whether yarn supports shuffle service
 			if (yarnConfiguration.get(Utils.YARN_SHUFFLE_SERVICE_NAME) != null) {
-				flinkConfiguration.set(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE, "yarn");
+				LOG.info("Shuffle Service feature is disabled for now.......");
+//				flinkConfiguration.set(NettyShuffleEnvironmentOptions.NETWORK_BLOCKING_SHUFFLE_TYPE, "yarn");
 			}
 		}
 
