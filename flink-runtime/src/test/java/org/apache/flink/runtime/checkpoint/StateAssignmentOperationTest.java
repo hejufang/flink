@@ -100,7 +100,7 @@ public class StateAssignmentOperationTest extends TestLogger {
 	/**
 	 * Verify repartition logic on partitionable states with all modes.
 	 */
-	@Ignore
+	@Test
 	public void testReDistributeCombinedPartitionableStates() {
 		OperatorID operatorID = new OperatorID();
 		OperatorState operatorState = new OperatorState(operatorID, 2, 4);

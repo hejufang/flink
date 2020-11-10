@@ -245,7 +245,11 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> nameToUnionState =
 				nameToStateByMode.getByMode(OperatorStateHandle.Mode.UNION);
 
-		repartitionUnionState(nameToUnionState, mergeMapList);
+		if (nameToStateByMode.getByMode(OperatorStateHandle.Mode.BROADCAST).isEmpty()) {
+			fastRepartitionUnionState(nameToUnionState, mergeMapList);
+		} else {
+			repartitionUnionState(nameToUnionState, mergeMapList);
+		}
 
 		// Now we also add the state handles marked for uniform broadcast to all parallel instances
 		Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> nameToBroadcastState =
@@ -349,12 +353,43 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 	}
 
 	/**
+	 * A faster version of {@link #repartitionUnionState} under some specific circumstances.
+	 */
+	private void fastRepartitionUnionState(
+			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionState,
+			List<Map<StreamStateHandle, OperatorStateHandle>> mergeMapList) {
+		Map<StreamStateHandle, OperatorStreamStateHandle> unionStateCache = new HashMap<>(1024);
+		for (Map.Entry<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> e :
+				unionState.entrySet()) {
+			for (Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo> handleWithMetaInfo : e.getValue()) {
+				if (!unionStateCache.containsKey(handleWithMetaInfo.f0)) {
+					unionStateCache.put(handleWithMetaInfo.f0, new OperatorStreamStateHandle(
+							new HashMap<>(unionState.size()), handleWithMetaInfo.f0));
+				}
+				unionStateCache.get(handleWithMetaInfo.f0).getStateNameToPartitionOffsets()
+						.put(e.getKey(), handleWithMetaInfo.f1);
+			}
+		}
+
+		for (Map<StreamStateHandle, OperatorStateHandle> mergeMap : mergeMapList) {
+			for (Map.Entry<StreamStateHandle, OperatorStreamStateHandle> entry : unionStateCache.entrySet()) {
+				if (!mergeMap.containsKey(entry.getKey())) {
+					mergeMap.put(entry.getKey(), entry.getValue());
+				} else {
+					mergeMap.get(entry.getKey()).getStateNameToPartitionOffsets().putAll(entry.getValue().getStateNameToPartitionOffsets());
+				}
+			}
+		}
+	}
+
+	/**
 	 * Repartition UNION state.
 	 */
 	private void repartitionUnionState(
 			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionState,
 			List<Map<StreamStateHandle, OperatorStateHandle>> mergeMapList) {
-
+		// the {{new HashMap()}} in the for-for loop will cause serious GC problem
+		// we should always consider fastRepartitionUnionState first
 		for (Map<StreamStateHandle, OperatorStateHandle> mergeMap : mergeMapList) {
 			for (Map.Entry<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> e :
 					unionState.entrySet()) {
