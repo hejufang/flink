@@ -122,7 +122,13 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 				return;
 			}
 		}
-		String realSQL = ByteSQLUtils.generateActualSql(query, keyRow);
+		String realSQL;
+		try {
+			realSQL = ByteSQLUtils.generateActualSql(query, keyRow);
+		} catch (ByteSQLException e) {
+			throw new RuntimeException(String.format("Resolving parameters from %s failed for query: %s.",
+				keyRow.toString(), query), e);
+		}
 		doLookup(realSQL, keyRow);
 	}
 

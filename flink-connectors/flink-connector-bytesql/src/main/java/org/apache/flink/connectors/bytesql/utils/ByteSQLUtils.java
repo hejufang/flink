@@ -30,12 +30,12 @@ import com.bytedance.infra.bytesql4j.exception.ByteSQLException;
 import com.bytedance.infra.bytesql4j.exception.DuplicatedEntryException;
 
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.bytedance.infra.bytesql4j.Utils.format2sql;
 
 /**
  * Utils for processing response from ByteSQL.
@@ -84,7 +84,7 @@ public class ByteSQLUtils {
 		return "DELETE FROM " + quoteIdentifier(tableName) + " WHERE " + conditionClause;
 	}
 
-	public static String generateActualSql(String sqlQuery, Row row) {
+	public static String generateActualSql(String sqlQuery, Row row) throws ByteSQLException {
 		String[] parts = sqlQuery.split("\\?");
 		StringBuilder sb = new StringBuilder();
 
@@ -92,28 +92,11 @@ public class ByteSQLUtils {
 			String part = parts[i];
 			sb.append(part);
 			if (i < row.getArity()) {
-				sb.append(formatParameter(row.getField(i)));
+				sb.append(format2sql(row.getField(i)));
 			}
 		}
 
 		return sb.toString();
-	}
-
-	private static String formatParameter(Object parameter) {
-		if (parameter == null) {
-			return "NULL";
-		} else {
-			if (parameter instanceof String) {
-				return "'" + ((String) parameter).replace("'", "''") + "'";
-			} else if (parameter instanceof Timestamp) {
-				return "to_timestamp('" + new SimpleDateFormat("MM/dd/yyyy HH:mm:ss.SSS").
-					format(parameter) + "', 'mm/dd/yyyy hh24:mi:ss.ff3')";
-			} else if (parameter instanceof Boolean) {
-				return (Boolean) parameter ? "1" : "0";
-			} else {
-				return parameter.toString();
-			}
-		}
 	}
 
 	public static List<Row> convertResponseToRows(
