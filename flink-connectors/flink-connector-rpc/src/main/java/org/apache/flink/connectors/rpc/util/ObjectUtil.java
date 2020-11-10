@@ -31,4 +31,11 @@ public class ObjectUtil {
 		baseClass.getField("Caller").set(oriBase, psm);
 		baseField.set(requestObject, oriBase);
 	}
+
+	public static String generateSetMethodName(String fieldName) {
+		//As set method in thrift will return object instead of nothing, we cannot use introspection to
+		//get the set method.
+		return "set" + Character.toUpperCase(fieldName.charAt(0)) +
+			fieldName.substring(1);
+	}
 }

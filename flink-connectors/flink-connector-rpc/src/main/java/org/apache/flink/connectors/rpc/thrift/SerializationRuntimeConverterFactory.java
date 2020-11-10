@@ -22,10 +22,15 @@ import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,12 +38,13 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.flink.connectors.rpc.thrift.ThriftUtil.isPrimitivePackageClass;
+import static org.apache.flink.connectors.rpc.util.ObjectUtil.generateSetMethodName;
 
 /**
  * Factory of serialization runtime converter.
  */
 public class SerializationRuntimeConverterFactory {
-
+	private static final Logger LOG = LoggerFactory.getLogger(SerializationRuntimeConverterFactory.class);
 	public static SerializationRuntimeConverter createRowConverter(Class<?> requestClass, RowType rowType) {
 		Field[] fields = requestClass.getFields();
 		int len = rowType.getFieldCount();
@@ -67,9 +73,19 @@ public class SerializationRuntimeConverterFactory {
 				converters[convertIndex++] = wrapIntoNullableConverter(converter);
 			}
 		}
+		Map<String, Method> setFieldMethods =
+			Arrays.stream(fields).collect(HashMap::new, (setFieldMethodMap, field) -> {
+				try {
+					setFieldMethodMap.put(field.getName(),
+						requestClass.getMethod(generateSetMethodName(field.getName()), field.getType()));
+				} catch (NoSuchMethodException e) {
+					throw new RuntimeException(String.format("Cannot find set method for %s", field.getName()), e);
+				}
+			}, HashMap::putAll);
 		return (message) -> {
 			Object result = requestClass.newInstance();
 			int messageIndex = 0;
+			Method setFieldMethod;
 			for (int i = 0; i < actualFieldLength; i++) {
 				if (messageIndex == len) {
 					break;
@@ -78,7 +94,10 @@ public class SerializationRuntimeConverterFactory {
 					Row innerValue = (Row) message;
 					Object innerObject = converters[messageIndex].convert(innerValue.getField(messageIndex));
 					messageIndex++;
-					fields[i].set(result, innerObject);
+					setFieldMethod = setFieldMethods.get(fields[i].getName());
+					if (setFieldMethod != null) {
+						setFieldMethod.invoke(result, innerObject);
+					}
 				}
 			}
 			return result;
