@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.utils;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.table.factories.TableFormatFactory;
 
 import java.util.ArrayList;
@@ -51,10 +52,12 @@ public class PropertyUtils {
 	/**
 	 * After removing the metadata fields from schema, the indices of remaining fields should be reordered.
 	 */
-	private static void reorderTheSchemaIndex(Map<String, String> properties) {
-		List<String> indices = new ArrayList<>();
+	@VisibleForTesting
+	protected static void reorderTheSchemaIndex(Map<String, String> properties) {
+		List<Integer> indices = new ArrayList<>();
 		properties.keySet().stream().filter(key -> key.startsWith(SCHEMA) && key.endsWith(SCHEMA_NAME))
-			.forEach(index -> indices.add(index.substring(SCHEMA.length() + 1, index.length() - SCHEMA_NAME.length() - 1)));
+			.forEach(index -> indices.add(
+				Integer.valueOf(index.substring(SCHEMA.length() + 1, index.length() - SCHEMA_NAME.length() - 1))));
 		Collections.sort(indices);
 		String pattern = "(\\d+)";
 		Pattern r = Pattern.compile(pattern);
@@ -67,7 +70,7 @@ public class PropertyUtils {
 			if (oriKey.startsWith(SCHEMA)) {
 				Matcher m = r.matcher(oriKey);
 				if (m.find()) {
-					String newKey = m.replaceFirst(String.valueOf(indices.indexOf(m.group())));
+					String newKey = m.replaceFirst(String.valueOf(indices.indexOf(Integer.valueOf(m.group()))));
 					it.remove();
 					newSchemaProps.put(newKey, oriValue);
 				}

@@ -295,7 +295,13 @@ public class SqlToOperationConverter {
 				if (tableSchema.getFieldNames().length > 0) {
 					columns = "`" + columns + "`";
 				}
-				columns += "," + sqlCreateTable.getColumnSqlString();
+				List<String> computedColumns = sqlCreateTable.getComputedColumnSqlStringList();
+				if (computedColumns.size() > 0) {
+					if (tableSchema.getFieldNames().length > 0) {
+						columns += ", ";
+					}
+					columns += String.join(", ", computedColumns);
+				}
 			} else if (BinlogValidator.FORMAT_TYPE_VALUE.equals(formatType)) {
 				String[] allColumnsButComputedOne = tableSchema.getFieldNames();
 				List<String> allConlumns = Arrays.asList(allColumnsButComputedOne);
