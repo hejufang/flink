@@ -175,6 +175,17 @@ public class ExecutionConfigOptions {
 			.withDescription("Sets the window elements buffer size limit used in group window agg operator.");
 
 	// ------------------------------------------------------------------------
+	// Lookup Options
+	// ------------------------------------------------------------------------
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN =
+		key("table.exec.keyby-before-lookup-join")
+			.defaultValue(false)
+			.withDescription("Sets whether to do a keyby before LookupJoin using lookup keys.\n" +
+				"It's useful when LookupJoin's input is huge, and keyby will reduce the size of " +
+				"cache for each subtask of LookupJoin.");
+
+	// ------------------------------------------------------------------------
 	//  Async Lookup Options
 	// ------------------------------------------------------------------------
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
