@@ -130,6 +130,77 @@ class WindowAggregateITCase(mode: StateBackendMode)
   }
 
   @Test
+  def testTumbleWindowOffset(): Unit = {
+    val stream = failingDataSource(data)
+      .assignTimestampsAndWatermarks(
+        new TimestampAndWatermarkWithOffset
+          [(Long, Int, Double, Float, BigDecimal, String, String)](10L))
+    val table = stream.toTable(tEnv,
+      'rowtime.rowtime, 'int, 'double, 'float, 'bigdec, 'string, 'name)
+    tEnv.registerTable("T1", table)
+
+    val sql =
+      """
+        |SELECT COUNT(1) AS cnt, `int`
+        |FROM T1
+        |GROUP BY `int`, TUMBLE(rowtime, INTERVAL '0.01' SECOND, INTERVAL '0.005' SECOND)
+      """.stripMargin
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,1",
+      "1,4",
+      "1,4",
+      "1,5",
+      "1,5",
+      "2,2",
+      "2,3"
+    )
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+  }
+
+  @Test
+  def testSlidingWindowOffset(): Unit = {
+    val stream = failingDataSource(data)
+      .assignTimestampsAndWatermarks(
+        new TimestampAndWatermarkWithOffset
+          [(Long, Int, Double, Float, BigDecimal, String, String)](10L))
+    val table = stream.toTable(tEnv,
+      'rowtime.rowtime, 'int, 'double, 'float, 'bigdec, 'string, 'name)
+    tEnv.registerTable("T1", table)
+
+    val sql =
+      """
+        |SELECT COUNT(1) AS cnt, `int`
+        |FROM T1
+        |GROUP BY
+        |  `int`,
+        |  HOP(rowtime,
+        |    INTERVAL '0.01' SECOND,
+        |    INTERVAL '0.01' SECOND,
+        |    INTERVAL '0.005' SECOND)
+      """.stripMargin
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,1",
+      "1,4",
+      "1,4",
+      "1,5",
+      "1,5",
+      "2,2",
+      "2,3"
+    )
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+  }
+
+  @Test
   def testEventTimeSessionWindow(): Unit = {
     //To verify the "merge" functionality, we create this test with the following characteristics:
     // 1. set the Parallelism to 1, and have the test data out of order

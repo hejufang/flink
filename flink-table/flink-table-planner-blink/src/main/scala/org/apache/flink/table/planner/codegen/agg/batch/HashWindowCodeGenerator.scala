@@ -289,7 +289,7 @@ class HashWindowCodeGenerator(
       inputTerm: String,
       inputType: RowType): Seq[GeneratedExpression] = {
     window match {
-      case SlidingGroupWindow(_, timeField, _, _) =>
+      case SlidingGroupWindow(_, timeField, _, _, _) =>
         if (assignPane) {
           val paneSize = ArithmeticUtils.gcd(windowSize, slideSize)
           Seq(genAlignedWindowStartExpr(
@@ -305,7 +305,7 @@ class HashWindowCodeGenerator(
           }
           exprs
         }
-      case TumblingGroupWindow(_, timeField, _) =>
+      case TumblingGroupWindow(_, timeField, _, _) =>
         Seq(genAlignedWindowStartExpr(
           ctx, inputTerm, inputType, timeField, windowStart, windowSize))
       case _ =>

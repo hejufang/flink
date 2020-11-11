@@ -281,7 +281,7 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
     }.toMap
   }
 
-  private[table] def getWindowExpressions(
+  protected def getWindowExpressions(
       agg: LogicalAggregate,
       project: LogicalProject): Seq[(RexCall, Int)] = {
     val groupKeys = agg.getGroupSet
@@ -341,18 +341,30 @@ abstract class LogicalWindowAggregateRuleBase(description: String)
     windowExpr.getOperator match {
       case FlinkSqlOperatorTable.TUMBLE =>
         val interval = getOperandAsLong(windowExpr, 1)
+        val offset = if (windowExpr.getOperands.size() > 2) {
+          getOperandAsLong(windowExpr, 2)
+        } else {
+          0L
+        }
         TumblingGroupWindow(
           windowRef,
           timeField,
-          intervalOfMillis(interval))
+          intervalOfMillis(interval),
+          intervalOfMillis(offset))
 
       case FlinkSqlOperatorTable.HOP =>
         val (slide, size) = (getOperandAsLong(windowExpr, 1), getOperandAsLong(windowExpr, 2))
+        val offset = if (windowExpr.getOperands.size() > 3) {
+          getOperandAsLong(windowExpr, 3)
+        } else {
+          0L
+        }
         SlidingGroupWindow(
           windowRef,
           timeField,
           intervalOfMillis(size),
-          intervalOfMillis(slide))
+          intervalOfMillis(slide),
+          intervalOfMillis(offset))
 
       case FlinkSqlOperatorTable.SESSION =>
         val gap = getOperandAsLong(windowExpr, 1)

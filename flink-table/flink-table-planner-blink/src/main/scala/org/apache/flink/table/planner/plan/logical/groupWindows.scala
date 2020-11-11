@@ -41,7 +41,8 @@ abstract class LogicalWindow(
 case class TumblingGroupWindow(
     alias: PlannerWindowReference,
     timeField: FieldReferenceExpression,
-    size: ValueLiteralExpression)
+    size: ValueLiteralExpression,
+    offset: ValueLiteralExpression)
   extends LogicalWindow(
     alias,
     timeField) {
@@ -57,7 +58,8 @@ case class SlidingGroupWindow(
     alias: PlannerWindowReference,
     timeField: FieldReferenceExpression,
     size: ValueLiteralExpression,
-    slide: ValueLiteralExpression)
+    slide: ValueLiteralExpression,
+    offset: ValueLiteralExpression)
   extends LogicalWindow(
     alias,
     timeField) {

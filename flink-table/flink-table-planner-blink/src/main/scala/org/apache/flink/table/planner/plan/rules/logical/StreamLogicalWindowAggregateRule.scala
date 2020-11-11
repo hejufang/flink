@@ -31,6 +31,10 @@ import org.apache.calcite.sql.`type`.{SqlTypeFamily, SqlTypeName}
 
 import _root_.java.math.{BigDecimal => JBigDecimal}
 
+import org.apache.flink.table.planner.functions.sql.FlinkSqlOperatorTable
+
+import _root_.scala.collection.JavaConversions._
+
 /**
   * Planner rule that transforms simple [[LogicalAggregate]] on a [[LogicalProject]]
   * with windowing expression to
@@ -92,6 +96,34 @@ class StreamLogicalWindowAggregateRule
           "MONTH and YEAR time unit are not supported yet.")
       case _ => throw new TableException("Only constant window descriptors are supported.")
     }
+
+  override def getWindowExpressions(
+    agg: LogicalAggregate,
+    project: LogicalProject): Seq[(RexCall, Int)] = {
+    val groupKeys = agg.getGroupSet
+
+    // get grouping expressions
+    val groupExpr = project.getProjects.zipWithIndex.filter(p => groupKeys.get(p._2))
+
+    // filter grouping expressions for window expressions
+    groupExpr.filter { g =>
+      g._1 match {
+        case call: RexCall =>
+          call.getOperator match {
+            case FlinkSqlOperatorTable.TUMBLE | FlinkSqlOperatorTable.HOP =>
+              true
+            case FlinkSqlOperatorTable.SESSION =>
+              if (call.getOperands.size() == 2) {
+                true
+              } else {
+                throw new TableException("SESSION window with alignment is not supported yet.")
+              }
+            case _ => false
+          }
+        case _ => false
+      }
+    }.map(w => (w._1.asInstanceOf[RexCall], w._2))
+  }
 }
 
 object StreamLogicalWindowAggregateRule {

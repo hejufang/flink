@@ -44,19 +44,19 @@ class WindowAggregateTest extends TableTestBase {
        |)
        |""".stripMargin)
 
-  @Test(expected = classOf[TableException])
-  def testTumbleWindowNoOffset(): Unit = {
+  @Test
+  def testTumbleWindowWithOffset(): Unit = {
     val sqlQuery =
       "SELECT SUM(a) AS sumA, COUNT(b) AS cntB FROM MyTable " +
-        "GROUP BY TUMBLE(proctime, INTERVAL '2' HOUR, TIME '10:00:00')"
+        "GROUP BY TUMBLE(proctime, INTERVAL '2' HOUR, INTERVAL '1' HOUR)"
     util.verifyPlan(sqlQuery)
   }
 
-  @Test(expected = classOf[TableException])
-  def testHopWindowNoOffset(): Unit = {
+  @Test
+  def testHopWindowWithOffset(): Unit = {
     val sqlQuery =
       "SELECT SUM(a) AS sumA, COUNT(b) AS cntB FROM MyTable " +
-        "GROUP BY HOP(proctime, INTERVAL '1' HOUR, INTERVAL '2' HOUR, TIME '10:00:00')"
+        "GROUP BY HOP(proctime, INTERVAL '1' HOUR, INTERVAL '2' HOUR, INTERVAL '1' HOUR)"
     util.verifyPlan(sqlQuery)
   }
 

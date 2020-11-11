@@ -27,6 +27,7 @@ import org.apache.flink.table.catalog.ConnectorCatalogTable;
 import org.apache.flink.table.catalog.DataTypeFactory;
 import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.UnresolvedIdentifier;
+import org.apache.flink.table.expressions.ApiExpressionUtils;
 import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.ExpressionDefaultVisitor;
@@ -558,7 +559,8 @@ public class QueryOperationConverter extends QueryOperationDefaultVisitor<RelNod
 							windowReference,
 							window.getTimeAttribute(),
 							window.getSize().orElseThrow(() -> new TableException("missed size parameters!")),
-							window.getSlide().orElseThrow(() -> new TableException("missed slide parameters!"))
+							window.getSlide().orElseThrow(() -> new TableException("missed slide parameters!")),
+							ApiExpressionUtils.valueLiteral(0L)
 					);
 				case SESSION:
 					return new SessionGroupWindow(
@@ -570,7 +572,8 @@ public class QueryOperationConverter extends QueryOperationDefaultVisitor<RelNod
 					return new TumblingGroupWindow(
 							windowReference,
 							window.getTimeAttribute(),
-							window.getSize().orElseThrow(() -> new TableException("missed size parameters!"))
+							window.getSize().orElseThrow(() -> new TableException("missed size parameters!")),
+							ApiExpressionUtils.valueLiteral(0L)
 					);
 				default:
 					throw new TableException("Unknown window type");
