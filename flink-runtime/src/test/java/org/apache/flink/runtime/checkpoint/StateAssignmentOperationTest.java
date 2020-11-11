@@ -98,6 +98,38 @@ public class StateAssignmentOperationTest extends TestLogger {
 	}
 
 	/**
+	 * Test for fast repartition.
+	 */
+	@Test
+	public void testReDistributeListAndUnionStates() {
+		OperatorID operatorID = new OperatorID();
+		OperatorState operatorState = new OperatorState(operatorID, 2, 4);
+
+		Map<String, OperatorStateHandle.StateMetaInfo> metaInfoMap1 = new HashMap<>(6);
+		metaInfoMap1.put("t-1", new OperatorStateHandle.StateMetaInfo(new long[]{0}, OperatorStateHandle.Mode.UNION));
+		metaInfoMap1.put("t-2", new OperatorStateHandle.StateMetaInfo(new long[]{22, 44}, OperatorStateHandle.Mode.UNION));
+		metaInfoMap1.put("t-3", new OperatorStateHandle.StateMetaInfo(new long[]{52, 63}, OperatorStateHandle.Mode.SPLIT_DISTRIBUTE));
+
+		OperatorStateHandle osh1 = new OperatorStreamStateHandle(metaInfoMap1, new ByteStreamStateHandle("test1", new byte[130]));
+		operatorState.putState(0, new OperatorSubtaskState(osh1, null, null, null));
+
+		Map<String, OperatorStateHandle.StateMetaInfo> metaInfoMap2 = new HashMap<>(3);
+		metaInfoMap2.put("t-1", new OperatorStateHandle.StateMetaInfo(new long[]{0}, OperatorStateHandle.Mode.UNION));
+
+		OperatorStateHandle osh2 = new OperatorStreamStateHandle(metaInfoMap2, new ByteStreamStateHandle("test2", new byte[86]));
+		operatorState.putState(1, new OperatorSubtaskState(osh2, null, null, null));
+
+		// rescale up case, parallelism 2 --> 3
+		verifyListAndUnionStates(operatorState, operatorID, 2, 3);
+
+		// rescale down case, parallelism 2 --> 1
+		verifyListAndUnionStates(operatorState, operatorID, 2, 1);
+
+		// not rescale
+		verifyListAndUnionStates(operatorState, operatorID, 2, 2);
+	}
+
+	/**
 	 * Verify repartition logic on partitionable states with all modes.
 	 */
 	@Test
@@ -285,4 +317,25 @@ public class StateAssignmentOperationTest extends TestLogger {
 		Assert.assertEquals(newParallelism, stateInfoCounts.get("t-6").intValue());
 	}
 
+	private void verifyListAndUnionStates(
+		OperatorState operatorState,
+		OperatorID operatorID,
+		int oldParallelism,
+		int newParallelism) {
+		final Map<String, Integer> stateInfoCounts = new HashMap<>();
+
+		verifyAndCollectStateInfo(operatorState, operatorID, oldParallelism, newParallelism, stateInfoCounts);
+
+		Assert.assertEquals(3, stateInfoCounts.size());
+		// t-1 is UNION state and original two sub-tasks both contains one.
+		Assert.assertEquals(2 * newParallelism, stateInfoCounts.get("t-1").intValue());
+		Assert.assertEquals(newParallelism, stateInfoCounts.get("t-2").intValue());
+
+		// t-3 is SPLIT_DISTRIBUTE state, when rescale up, they will be split to re-distribute.
+		if (oldParallelism < newParallelism) {
+			Assert.assertEquals(2, stateInfoCounts.get("t-3").intValue());
+		} else {
+			Assert.assertEquals(1, stateInfoCounts.get("t-3").intValue());
+		}
+	}
 }

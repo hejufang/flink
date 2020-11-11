@@ -88,7 +88,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			// Initialize
 			mergeMapList = initMergeMapList(previousParallelSubtaskStates);
 
-			repartitionUnionState(unionStates, mergeMapList);
+			fastRepartitionUnionState(unionStates, mergeMapList);
 
 			for (int i = 0; i < mergeMapList.size(); ++i) {
 				result.add(i, new ArrayList<>(mergeMapList.get(i).values()));
@@ -246,6 +246,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 				nameToStateByMode.getByMode(OperatorStateHandle.Mode.UNION);
 
 		if (nameToStateByMode.getByMode(OperatorStateHandle.Mode.BROADCAST).isEmpty()) {
+			// we can use the fast repartition if we don't have broadcast state
 			fastRepartitionUnionState(nameToUnionState, mergeMapList);
 		} else {
 			repartitionUnionState(nameToUnionState, mergeMapList);
@@ -358,6 +359,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 	private void fastRepartitionUnionState(
 			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionState,
 			List<Map<StreamStateHandle, OperatorStateHandle>> mergeMapList) {
+		LOG.info("Choose fastRepartitionUnionState which may reuse the operatorStateHandles.");
 		Map<StreamStateHandle, OperatorStreamStateHandle> unionStateCache = new HashMap<>(1024);
 		for (Map.Entry<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> e :
 				unionState.entrySet()) {
