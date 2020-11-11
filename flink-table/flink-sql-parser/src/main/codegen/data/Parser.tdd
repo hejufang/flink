@@ -39,6 +39,7 @@
     "org.apache.flink.sql.parser.ddl.SqlCreateFunction"
     "org.apache.flink.sql.parser.ddl.SqlCreateTable"
     "org.apache.flink.sql.parser.ddl.SqlCreateTable.TableCreationContext"
+    "org.apache.flink.sql.parser.ddl.SqlCreateTemporalTableFunction",
     "org.apache.flink.sql.parser.ddl.SqlCreateView"
     "org.apache.flink.sql.parser.ddl.SqlDropCatalog"
     "org.apache.flink.sql.parser.ddl.SqlDropDatabase"
@@ -101,6 +102,7 @@
     "SCALA"
     "STRING"
     "TABLES"
+    "TEMPORAL"
     "USE"
     "VIEWS"
     "WATERMARK"
@@ -382,6 +384,7 @@
     "SUBCLASS_ORIGIN"
     "SUBSTITUTE"
     "TABLE_NAME"
+    "TEMPORAL"
     "TEMPORARY"
     "TIES"
     "TIMESTAMPADD"

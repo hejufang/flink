@@ -37,6 +37,7 @@ import org.apache.flink.sql.parser.ddl.SqlCreateCatalog;
 import org.apache.flink.sql.parser.ddl.SqlCreateDatabase;
 import org.apache.flink.sql.parser.ddl.SqlCreateFunction;
 import org.apache.flink.sql.parser.ddl.SqlCreateTable;
+import org.apache.flink.sql.parser.ddl.SqlCreateTemporalTableFunction;
 import org.apache.flink.sql.parser.ddl.SqlCreateView;
 import org.apache.flink.sql.parser.ddl.SqlDropCatalog;
 import org.apache.flink.sql.parser.ddl.SqlDropDatabase;
@@ -102,6 +103,7 @@ import org.apache.flink.table.operations.ddl.CreateCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
 import org.apache.flink.table.operations.ddl.CreateTempSystemFunctionOperation;
+import org.apache.flink.table.operations.ddl.CreateTemporalTableFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.DropCatalogOperation;
@@ -196,6 +198,9 @@ public class SqlToOperationConverter {
 			return Optional.of(converter.convertAlterView((SqlAlterView) validated));
 		} else if (validated instanceof SqlCreateFunction) {
 			return Optional.of(converter.convertCreateFunction((SqlCreateFunction) validated));
+		} else if (validated instanceof SqlCreateTemporalTableFunction) {
+			return Optional.of(
+				converter.convertCreateTemporalTableFunction((SqlCreateTemporalTableFunction) validated));
 		} else if (validated instanceof SqlAlterFunction) {
 			return Optional.of(converter.convertAlterFunction((SqlAlterFunction) validated));
 		} else if (validated instanceof SqlDropFunction) {
@@ -447,6 +452,44 @@ public class SqlToOperationConverter {
 				sqlCreateFunction.isTemporary()
 			);
 		}
+	}
+
+	/** Convert CREATE TEMPORAL TABLE FUNCTION statement. */
+	private Operation convertCreateTemporalTableFunction(SqlCreateTemporalTableFunction temporalTableFunction) {
+		SqlNodeList propertyList = temporalTableFunction.getPropertyList();
+		Map<String, String> properties = new HashMap<>();
+		if (propertyList != null) {
+			propertyList.getList().forEach(p ->
+				properties.put(((SqlTableOption) p).getKeyString().toLowerCase(),
+					((SqlTableOption) p).getValueString()));
+		}
+
+		if (!properties.containsKey(SqlCreateTemporalTableFunction.PRIMARY_KEYS)) {
+			throw new SqlConversionException("CREATE TEMPORAL TABLE FUNCTION must set " +
+				SqlCreateTemporalTableFunction.PRIMARY_KEYS +
+				" in WITH properties.");
+		}
+		if (!properties.containsKey(SqlCreateTemporalTableFunction.TIME_ATTRIBUTE)) {
+			throw new SqlConversionException("CREATE TEMPORAL TABLE FUNCTION must set " +
+				SqlCreateTemporalTableFunction.TIME_ATTRIBUTE +
+				" in WITH properties.");
+		}
+		if (properties.size() > 2) {
+			throw new SqlConversionException("CREATE TEMPORAL TABLE FUNCTION only supports " +
+				SqlCreateTemporalTableFunction.PRIMARY_KEYS +
+				" and " +
+				SqlCreateTemporalTableFunction.TIME_ATTRIBUTE +
+				" in WITH properties.");
+		}
+
+		String primaryKeys = properties.get(SqlCreateTemporalTableFunction.PRIMARY_KEYS);
+		String timeAttribute = properties.get(SqlCreateTemporalTableFunction.TIME_ATTRIBUTE);
+
+		return new CreateTemporalTableFunctionOperation(
+			temporalTableFunction.getTemporalTableName().getSimple(),
+			temporalTableFunction.getViewOrTableName().getSimple(),
+			timeAttribute,
+			primaryKeys);
 	}
 
 	/** Convert ALTER FUNCTION statement. */

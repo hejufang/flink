@@ -779,6 +779,31 @@ SqlAddResource SqlAddResource() :
     }
 }
 
+SqlCreate SqlCreateTemporalTableFunction(Span s, boolean replace) :
+{
+    final SqlParserPos startPos = s.pos();
+    SqlIdentifier temporalTableName;
+    SqlIdentifier tableOrViewName;
+    SqlNodeList propertyList = SqlNodeList.EMPTY;
+    SqlParserPos pos = startPos;
+}
+{
+    <TEMPORAL> <TABLE> <FUNCTION>
+    temporalTableName = CompoundIdentifier()
+    <AS>
+    tableOrViewName = CompoundIdentifier()
+    <WITH>
+    propertyList = TableProperties()
+    {
+        return new SqlCreateTemporalTableFunction(
+            getPos(),
+            temporalTableName,
+            tableOrViewName,
+            propertyList
+        );
+    }
+}
+
 SqlTableLike SqlTableLike(SqlParserPos startPos):
 {
     final List<SqlTableLikeOption> likeOptions = new ArrayList<SqlTableLikeOption>();
@@ -1331,6 +1356,8 @@ SqlCreate SqlCreateExtended(Span s, boolean replace) :
         create = SqlCreateDatabase(s, replace)
         |
         create = SqlCreateFunction(s, replace, isTemporary)
+        |
+        create = SqlCreateTemporalTableFunction(s, replace)
     )
     {
         return create;

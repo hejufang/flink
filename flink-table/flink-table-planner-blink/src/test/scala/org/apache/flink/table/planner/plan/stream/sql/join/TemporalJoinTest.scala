@@ -50,6 +50,8 @@ class TemporalJoinTest extends TableTestBase {
     "ProctimeRates",
     proctimeRatesHistory.createTemporalTableFunction($"proctime", $"currency"))
 
+  util.addDataStream[(String, Int)]("MyTable", 'name, 'id, 'proctime.proctime)
+
   @Test
   def testSimpleJoin(): Unit = {
     val sqlQuery = "SELECT " +
@@ -57,6 +59,33 @@ class TemporalJoinTest extends TableTestBase {
       "FROM Orders AS o, " +
       "LATERAL TABLE (Rates(o.o_rowtime)) AS r " +
       "WHERE currency = o_currency"
+
+    util.verifyPlan(sqlQuery)
+  }
+
+  @Test
+  def testTemporalTableFunctionDDL(): Unit = {
+    val DDL =
+      """CREATE TEMPORAL TABLE FUNCTION my_func
+        |AS MyTable
+        |WITH (
+        |  'primary-keys' = 'name',
+        |  'time-attribute' = 'proctime'
+        |)
+        |""".stripMargin
+    util.getTableEnv.executeSql(DDL)
+
+    val sqlQuery =
+      """SELECT
+        |  T.name,
+        |  O.o_amount,
+        |  T.id
+        |FROM
+        |  ProctimeOrders O,
+        |  LATERAL TABLE (my_func(o_proctime)) T
+        |WHERE
+        |  O.o_currency = T.name
+        |""".stripMargin
 
     util.verifyPlan(sqlQuery)
   }

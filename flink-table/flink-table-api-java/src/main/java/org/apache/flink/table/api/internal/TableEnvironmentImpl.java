@@ -77,6 +77,7 @@ import org.apache.flink.table.factories.CatalogFactory;
 import org.apache.flink.table.factories.ComponentFactoryService;
 import org.apache.flink.table.factories.TableFactoryService;
 import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TemporalTableFunction;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.table.functions.UserDefinedFunctionHelper;
 import org.apache.flink.table.module.Module;
@@ -117,6 +118,7 @@ import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.operations.ddl.CreateTempSystemFunctionOperation;
+import org.apache.flink.table.operations.ddl.CreateTemporalTableFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateViewOperation;
 import org.apache.flink.table.operations.ddl.DropCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.DropCatalogOperation;
@@ -1069,6 +1071,14 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			return dropSystemFunction((DropTempSystemFunctionOperation) operation);
 		} else if (operation instanceof AlterCatalogFunctionOperation) {
 			return alterCatalogFunction((AlterCatalogFunctionOperation) operation);
+		} else if (operation instanceof CreateTemporalTableFunctionOperation) {
+			CreateTemporalTableFunctionOperation temporalOperation = (CreateTemporalTableFunctionOperation) operation;
+			createTemporalTableFunctionInternal(
+				temporalOperation.getTemporalTableName(),
+				temporalOperation.getViewOrTableName(),
+				temporalOperation.getTimeAttribute(),
+				temporalOperation.getPrimaryKeys());
+			return TableResultImpl.TABLE_RESULT_OK;
 		} else if (operation instanceof CreateCatalogOperation) {
 			return createCatalog((CreateCatalogOperation) operation);
 		} else if (operation instanceof DropCatalogOperation) {
@@ -1504,6 +1514,21 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		} catch (Exception e) {
 			throw new TableException(getDDLOpExecuteErrorMsg(operation.asSummaryString()), e);
 		}
+	}
+
+	private void createTemporalTableFunctionInternal(
+			String temporalTableName,
+			String viewOrTableName,
+			String timeAttribute,
+			String primaryKeys) {
+		// Use this query to leverage Table.createTemporalTableFunction to simplify the
+		// temporal table function creating process.
+		// It will be optimized during planning, and won't affect final DAG of the job.
+		Table table = sqlQuery("SELECT * FROM " + viewOrTableName);
+
+		TemporalTableFunction function = table.createTemporalTableFunction(timeAttribute, primaryKeys);
+
+		functionCatalog.registerTemporarySystemFunction(temporalTableName, function, false);
 	}
 
 	protected TableImpl createTable(QueryOperation tableOperation) {
