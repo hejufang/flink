@@ -33,10 +33,11 @@ public class RetryManager {
 		try {
 			boolean success = false;
 			Throwable lastError = null;
-			while (!success && strategy.shouldRetry()) {
+			while (strategy.shouldRetry()) {
 				try {
 					runner.run();
 					success = true;
+					break;
 				} catch (Throwable e) {
 					lastError = e;
 					LOG.warn("Failed when execute RetryableRunner.", e);
