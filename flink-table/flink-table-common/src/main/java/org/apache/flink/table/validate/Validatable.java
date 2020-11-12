@@ -23,4 +23,10 @@ package org.apache.flink.table.validate;
  */
 public interface Validatable {
 	void validate();
+
+	/**
+	 * Validate with specific user and psm.
+	 * */
+	default void validateWithUserOrPsm(String user, String psm) {
+	}
 }

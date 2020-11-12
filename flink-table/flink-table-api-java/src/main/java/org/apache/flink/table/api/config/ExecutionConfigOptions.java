@@ -279,6 +279,20 @@ public class ExecutionConfigOptions {
 						"Pipelined shuffle means data will be sent to consumer tasks once produced.")
 					.build());
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_VALIDATE_BEFORE_EXEC =
+		key("table.exec.validate-before-execute")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to validate exec node before execute.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_VALIDATE_WITH_USER_AND_PSM_BEFORE_EXEC =
+		key("table.exec.validate-with-user-and-psm-before-execute")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to validate exec node with user and psm before execute.");
+
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

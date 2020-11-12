@@ -617,6 +617,11 @@ public class HiveTableSource implements
 		Identity identity = HivePermissionUtils.getIdentityFromToken();
 		String user = identity.User;
 		String psm = identity.PSM;
+		validateWithUserOrPsm(user, psm);
+	}
+
+	@Override
+	public void validateWithUserOrPsm(String user, String psm) {
 		String database = tablePath.getDatabaseName();
 		String table = tablePath.getObjectName();
 		List<String> projectedFieldNames =

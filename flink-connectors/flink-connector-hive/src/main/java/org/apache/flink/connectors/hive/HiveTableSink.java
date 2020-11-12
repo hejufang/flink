@@ -327,6 +327,11 @@ public class HiveTableSink implements
 		Identity identity = HivePermissionUtils.getIdentityFromToken();
 		String user = identity.User;
 		String psm = identity.PSM;
+		validateWithUserOrPsm(user, psm);
+	}
+
+	@Override
+	public void validateWithUserOrPsm(String user, String psm) {
 		String dbName = identifier.getDatabaseName();
 		String tableName = identifier.getObjectName();
 		List<String> projectedFieldNames = Arrays.asList(getTableSchema().getFieldNames());

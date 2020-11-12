@@ -30,6 +30,7 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.FactoryUtil.TableFactoryHelper;
+import org.apache.flink.table.validate.Validatable;
 
 import javax.annotation.Nullable;
 
@@ -131,7 +132,10 @@ public final class TestDynamicTableFactory implements DynamicTableSourceFactory,
 	/**
 	 * {@link DynamicTableSource} for testing.
 	 */
-	public static class DynamicTableSourceMock implements ScanTableSource {
+	public static class DynamicTableSourceMock implements ScanTableSource, Validatable {
+
+		public static final String AUTHORIZED_USER = "authorized_user";
+		public static final String AUTHORIZED_PSM = "authorized_psm";
 
 		public final String target;
 		public final @Nullable DecodingFormat<DeserializationSchema<RowData>> keyFormat;
@@ -148,12 +152,12 @@ public final class TestDynamicTableFactory implements DynamicTableSourceFactory,
 
 		@Override
 		public ChangelogMode getChangelogMode() {
-			return null;
+			return ChangelogMode.insertOnly();
 		}
 
 		@Override
 		public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-			return null;
+			return () -> true;
 		}
 
 		@Override
@@ -183,6 +187,18 @@ public final class TestDynamicTableFactory implements DynamicTableSourceFactory,
 		@Override
 		public int hashCode() {
 			return Objects.hash(target, keyFormat, valueFormat);
+		}
+
+		@Override
+		public void validate() {
+		}
+
+		@Override
+		public void validateWithUserOrPsm(String user, String psm) {
+			if (AUTHORIZED_USER.equals(user) || AUTHORIZED_PSM.equals(psm)) {
+				return;
+			}
+			throw new RuntimeException(String.format("Either user: %s or psm: %s has permission.", user, psm));
 		}
 	}
 
