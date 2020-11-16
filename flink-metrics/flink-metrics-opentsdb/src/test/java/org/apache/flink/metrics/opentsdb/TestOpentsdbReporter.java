@@ -27,6 +27,17 @@ import org.junit.Test;
  * Created by zhangguanghui on 2017/7/27.
  */
 public class TestOpentsdbReporter {
+
+	@Test
+	public void testReadWhitelist() {
+		OpentsdbReporter reporter = new OpentsdbReporter();
+		reporter.loadAllMetrics();
+
+		Assert.assertTrue(reporter.getGlobalNeededMetrics().size() > 0);
+		Assert.assertTrue(reporter.getNonGlobalNeededMetrics().size() > 0);
+		Assert.assertTrue(reporter.getNonGlobalContainsNeededMetrics().size() > 0);
+	}
+
 	@Test
 	public void testOpen() {
 		OpentsdbReporter reporter = new OpentsdbReporter();
