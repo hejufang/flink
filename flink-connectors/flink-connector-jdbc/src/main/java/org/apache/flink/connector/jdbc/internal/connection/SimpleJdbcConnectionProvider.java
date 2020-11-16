@@ -50,27 +50,37 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
 		if (connection == null) {
 			synchronized (this) {
 				if (connection == null) {
-					Class.forName(jdbcOptions.getDriverName());
-					if (jdbcOptions.getUseBytedanceMysql()) {
-						if (jdbcOptions.getUsername().isPresent()) {
-							connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL(),
-								jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
+					try {
+						Class.forName(jdbcOptions.getDriverName());
+						if (jdbcOptions.getUseBytedanceMysql()) {
+							if (jdbcOptions.getUsername().isPresent()) {
+								connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL(),
+									jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
+							} else {
+								connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL());
+							}
 						} else {
-							connection = MysqlDriverManager.getConnection(jdbcOptions.getDbURL());
+							if (jdbcOptions.getUsername().isPresent()) {
+								connection = DriverManager.getConnection(jdbcOptions.getDbURL(),
+									jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
+							} else {
+								connection = DriverManager.getConnection(jdbcOptions.getDbURL());
+							}
 						}
-					} else {
-						if (jdbcOptions.getUsername().isPresent()) {
-							connection = DriverManager.getConnection(jdbcOptions.getDbURL(),
-								jdbcOptions.getUsername().get(), jdbcOptions.getPassword().get());
-						} else {
-							connection = DriverManager.getConnection(jdbcOptions.getDbURL());
-						}
+					} catch (SQLException e) {
+						throw new RuntimeException("An error occurs when connect to mysql, this is usually because you wrote a " +
+							"wrong db name or table name, or do not have permission for this db, please check it!", e);
 					}
 
 					if (connection == null) {
-						String errMsg = String.format("can't get connection, dbUrl = %s, username = %s, " +
-							"password = %s", jdbcOptions.getDbURL(), jdbcOptions.getUsername().get(),
-							jdbcOptions.getPassword().get());
+						String errMsg;
+						if (jdbcOptions.getUsername().isPresent() && jdbcOptions.getPassword().isPresent()) {
+							errMsg = String.format("can't get connection, dbUrl = %s, username = %s, " +
+									"password = %s", jdbcOptions.getDbURL(), jdbcOptions.getUsername().get(),
+								jdbcOptions.getPassword().get());
+						} else {
+							errMsg = String.format("can't get connection, dbUrl = %s", jdbcOptions.getDbURL());
+						}
 						throw new RuntimeException(errMsg);
 					}
 
