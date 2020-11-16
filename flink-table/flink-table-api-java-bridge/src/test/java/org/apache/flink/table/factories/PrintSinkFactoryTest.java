@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.flink.table.factories.PrintTableSinkFactory.PRINT_IDENTIFIER;
+import static org.apache.flink.table.factories.PrintTableSinkFactory.PRINT_SAMPLE_RATIO;
 import static org.apache.flink.table.factories.PrintTableSinkFactory.STANDARD_ERROR;
 
 /**
@@ -51,6 +52,7 @@ public class PrintSinkFactoryTest {
 		properties.put("connector", "print");
 		properties.put(PRINT_IDENTIFIER.key(), "my_print");
 		properties.put(STANDARD_ERROR.key(), "true");
+		properties.put(PRINT_SAMPLE_RATIO.key(), "0.6");
 
 		DynamicTableSink sink = FactoryUtil.createTableSink(
 				null,
