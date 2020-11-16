@@ -137,6 +137,14 @@ public class CheckpointingOptions {
 				"in a Flink supported filesystem. The storage path must be accessible from all participating processes/nodes" +
 				"(i.e. all TaskManagers and JobManagers).");
 
+	/**
+	 * The namespace for checkpoints of one job.
+	 */
+	public static final ConfigOption<String> CHECKPOINTS_NAMESPACE = ConfigOptions
+			.key("state.checkpoints.namespace")
+			.defaultValue("default")
+			.withDescription("The namespace for checkpoints of one job.");
+
 	/** The minimum size of state data files. All state chunks smaller than that
 	 * are stored inline in the root checkpoint metadata file. */
 	@Documentation.Section(Documentation.Sections.EXPERT_STATE_BACKENDS)

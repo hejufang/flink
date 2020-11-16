@@ -295,6 +295,11 @@ public class MemoryStateBackend extends AbstractFileStateBackend implements Conf
 		return new MemoryBackendCheckpointStorage(jobId, getCheckpointPath(), getSavepointPath(), maxStateSize);
 	}
 
+	@Override
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+		return createCheckpointStorage(jobId);
+	}
+
 	// ------------------------------------------------------------------------
 	//  state holding structures
 	// ------------------------------------------------------------------------

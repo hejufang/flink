@@ -117,6 +117,10 @@ public interface StateBackend extends java.io.Serializable {
 	 */
 	CheckpointStorage createCheckpointStorage(JobID jobId) throws IOException;
 
+	default CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+		return createCheckpointStorage(jobId);
+	}
+
 	// ------------------------------------------------------------------------
 	//  Structure Backends 
 	// ------------------------------------------------------------------------

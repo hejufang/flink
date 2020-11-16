@@ -451,6 +451,7 @@ public class CheckpointCoordinatorMasterHooksTest {
 			0);
 		return new CheckpointCoordinator(
 				jid,
+				"test",
 				chkConfig,
 				new ExecutionVertex[0],
 				ackVertices,

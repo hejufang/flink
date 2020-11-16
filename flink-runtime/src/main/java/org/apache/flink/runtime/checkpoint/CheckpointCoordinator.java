@@ -202,6 +202,7 @@ public class CheckpointCoordinator {
 
 	public CheckpointCoordinator(
 		JobID job,
+		String jobName,
 		CheckpointCoordinatorConfiguration chkConfig,
 		ExecutionVertex[] tasksToTrigger,
 		ExecutionVertex[] tasksToWaitFor,
@@ -217,6 +218,7 @@ public class CheckpointCoordinator {
 
 		this(
 			job,
+			jobName,
 			chkConfig,
 			tasksToTrigger,
 			tasksToWaitFor,
@@ -235,6 +237,7 @@ public class CheckpointCoordinator {
 	@VisibleForTesting
 	public CheckpointCoordinator(
 			JobID job,
+			String jobName,
 			CheckpointCoordinatorConfiguration chkConfig,
 			ExecutionVertex[] tasksToTrigger,
 			ExecutionVertex[] tasksToWaitFor,
@@ -280,7 +283,7 @@ public class CheckpointCoordinator {
 		this.checkpointProperties = CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
 		try {
-			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job);
+			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobName);
 			checkpointStorage.initializeBaseLocations();
 		} catch (IOException e) {
 			throw new FlinkRuntimeException("Failed to create checkpoint storage at checkpoint coordinator side.", e);

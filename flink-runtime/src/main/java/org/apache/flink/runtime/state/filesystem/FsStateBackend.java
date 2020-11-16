@@ -47,6 +47,7 @@ import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.TernaryBoolean;
 
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
@@ -99,6 +100,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @PublicEvolving
 public class FsStateBackend extends AbstractFileStateBackend implements ConfigurableStateBackend {
+	private static final Logger LOG = LoggerFactory.getLogger(FsStateBackend.class);
 
 	private static final long serialVersionUID = -8191916350224044011L;
 
@@ -499,6 +501,25 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			jobId,
 			getMinFileSizeThreshold(),
 			getWriteBufferSize());
+	}
+
+	public CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName) throws IOException {
+		LOG.info("createCheckpointStorage, jobId {}, jobName, {}", jobId, jobName);
+		if (config != null) {
+			checkNotNull(jobId, "jobId");
+			checkNotNull(jobName, "jobName");
+			return new FsCheckpointStorage(
+					getCheckpointPath().getFileSystem(),
+					getCheckpointPath(),
+					getSavepointPath(),
+					jobId,
+					jobName,
+					config.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE),
+					getMinFileSizeThreshold(),
+					getWriteBufferSize());
+		} else {
+			return createCheckpointStorage(jobId);
+		}
 	}
 
 	// ------------------------------------------------------------------------

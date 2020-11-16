@@ -74,6 +74,7 @@ public class FailoverStrategyCheckpointCoordinatorTest extends TestLogger {
 			0);
 		CheckpointCoordinator checkpointCoordinator = new CheckpointCoordinator(
 			new JobID(),
+			"test",
 			checkpointCoordinatorConfiguration,
 			new ExecutionVertex[] { executionVertex },
 			new ExecutionVertex[] { executionVertex },
