@@ -59,6 +59,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -76,6 +77,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
@@ -1164,7 +1166,7 @@ public class CheckpointCoordinator {
 			boolean errorIfNoCheckpoint,
 			boolean allowNonRestoredState) throws Exception {
 
-		return restoreLatestCheckpointedStateInternal(new HashSet<>(tasks.values()), true, errorIfNoCheckpoint, allowNonRestoredState);
+		return restoreLatestCheckpointedStateInternal(new HashSet<>(tasks.values()), true, errorIfNoCheckpoint, allowNonRestoredState, false, null);
 	}
 
 	/**
@@ -1195,7 +1197,7 @@ public class CheckpointCoordinator {
 		//     of the restarted region), meaning there will be unmatched state by design.
 		//   - because what we might end up restoring from an original savepoint with unmatched
 		//     state, if there is was no checkpoint yet.
-		return restoreLatestCheckpointedStateInternal(tasks, false, false, true);
+		return restoreLatestCheckpointedStateInternal(tasks, false, false, true, false, null);
 	}
 
 	/**
@@ -1225,14 +1227,24 @@ public class CheckpointCoordinator {
 			final Set<ExecutionJobVertex> tasks,
 			final boolean allowNonRestoredState) throws Exception {
 
-		return restoreLatestCheckpointedStateInternal(tasks, true, false, allowNonRestoredState);
+		return restoreLatestCheckpointedStateInternal(tasks, true, false, allowNonRestoredState, false, null);
+	}
+
+	public boolean restoreLatestCheckpointedStateToAll(
+			final Set<ExecutionJobVertex> tasks,
+			final boolean allowNonRestoredState,
+			final ClassLoader loader) throws Exception {
+
+		return restoreLatestCheckpointedStateInternal(tasks, true, false, allowNonRestoredState, true, loader);
 	}
 
 	private boolean restoreLatestCheckpointedStateInternal(
 		final Set<ExecutionJobVertex> tasks,
 		final boolean restoreCoordinators,
 		final boolean errorIfNoCheckpoint,
-		final boolean allowNonRestoredState) throws Exception {
+		final boolean allowNonRestoredState,
+		final boolean fromStorage,
+		@Nullable ClassLoader userClassLoader) throws Exception {
 
 		synchronized (lock) {
 			if (shutdown) {
@@ -1248,6 +1260,35 @@ public class CheckpointCoordinator {
 			// Recover the checkpoints, TODO this could be done only when there is a new leader, not on each recovery
 			completedCheckpointStore.recover();
 
+			/* ---------------- DC Failure Tolerance ---------------- */
+
+			final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
+					tasks, allowNonRestoredState, fromStorage, userClassLoader);
+			LOG.info("Find {} checkpoints on HDFS.", checkpointsOnStorage.size());
+			final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
+					.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
+			final Set<CompletedCheckpoint> extraCheckpoints = new HashSet<>();
+			for (CompletedCheckpoint checkpoint : checkpointsOnStorage) {
+				if (!checkpointsOnStore.contains(checkpoint.getCheckpointID())) {
+					extraCheckpoints.add(checkpoint);
+				}
+			}
+
+			long latestCheckpointIdOnStore = checkpointsOnStore.stream().max(Long::compareTo).orElse(-1L);
+			long latestCheckpointIdOnStorage = checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).max(Long::compareTo).orElse(-1L);
+
+			// checkpoints on HDFS but not on zookeeper!!!
+			LOG.info("There are {} checkpoints are on HDFS but not on Zookeeper.", extraCheckpoints.size());
+			if (extraCheckpoints.size() > 0) {
+				final List<CompletedCheckpoint> extraCheckpointsSortedList = new ArrayList<>(extraCheckpoints);
+				extraCheckpointsSortedList.sort((o1, o2) -> new Long(o1.getCheckpointID() - o2.getCheckpointID()).intValue());
+				for (CompletedCheckpoint checkpoint : extraCheckpointsSortedList) {
+					completedCheckpointStore.addCheckpointInOrder(checkpoint);
+				}
+			}
+
+			/* ---------------- DC Failure Tolerance --------------------- */
+
 			// Now, we re-register all (shared) states from the checkpoint store with the new registry
 			for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
 				completedCheckpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
@@ -1257,6 +1298,9 @@ public class CheckpointCoordinator {
 
 			// Restore from the latest checkpoint
 			CompletedCheckpoint latest = completedCheckpointStore.getLatestCheckpoint(isPreferCheckpointForRecovery);
+			if (latest != null && latestCheckpointIdOnStorage > latestCheckpointIdOnStore) {
+				checkpointIdCounter.setCount(latest.getCheckpointID() + 1);
+			}
 
 			if (latest == null) {
 				if (errorIfNoCheckpoint) {
@@ -1311,6 +1355,32 @@ public class CheckpointCoordinator {
 		}
 	}
 
+	@VisibleForTesting
+	public Set<CompletedCheckpoint> findAllCompletedCheckpointsOnStorage(
+			Set<ExecutionJobVertex> tasks,
+			boolean allowNonRestoredState,
+			boolean findCheckpointInCheckpointStore,
+			@Nullable ClassLoader userClassLoader) throws IOException {
+		final Set<CompletedCheckpoint> result = new HashSet<>();
+		final Map<JobVertexID, ExecutionJobVertex> mappings = new HashMap<>();
+		tasks.forEach(ejv -> mappings.put(ejv.getJobVertexId(), ejv));
+
+		if (findCheckpointInCheckpointStore && userClassLoader != null) {
+			for (String completedCheckpointPointer : checkpointStorage.findCompletedCheckpointPointer()) {
+				try {
+					final CompletedCheckpointStorageLocation checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer);
+					final CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
+							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState);
+					result.add(completedCheckpoint);
+				} catch (Exception e) {
+					LOG.warn("Fail to load checkpoint on {}.", completedCheckpointPointer, e);
+				}
+			}
+		}
+
+		return Collections.unmodifiableSet(result);
+	}
+
 	/**
 	 * Restore the state with given savepoint.
 	 *
@@ -1348,7 +1418,7 @@ public class CheckpointCoordinator {
 
 		LOG.info("Reset the checkpoint ID of job {} to {}.", job, nextCheckpointId);
 
-		return restoreLatestCheckpointedStateInternal(new HashSet<>(tasks.values()), true, true, allowNonRestored);
+		return restoreLatestCheckpointedStateInternal(new HashSet<>(tasks.values()), true, true, allowNonRestored, true, userClassLoader);
 	}
 
 	// ------------------------------------------------------------------------

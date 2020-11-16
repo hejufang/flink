@@ -254,7 +254,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 			// check whether we find a valid checkpoint
 			if (!checkpointCoordinator.restoreLatestCheckpointedStateToAll(
 				new HashSet<>(newExecutionGraph.getAllVertices().values()),
-				false)) {
+				false,
+					userCodeLoader)) {
 
 				// check whether we can restore from a savepoint
 				tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings());
