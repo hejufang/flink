@@ -24,14 +24,15 @@ import org.apache.flink.table.planner.runtime.utils.{StreamingTestBase, TestingR
 import org.apache.flink.types.Row
 
 import org.junit.Assert._
+import org.junit.Before
 import org.junit.Test
 
 import scala.collection.mutable
 
 class BuiltInFunctionITCase extends StreamingTestBase {
 
-  @Test
-  def testFirstValueWithOrder(): Unit = {
+  @Before
+  def prepareForFirstLastValueTest(): Unit = {
     val data1 = new mutable.MutableList[(Int, Long, String)]
     data1.+=((1, 1L, "Hi1"))
     data1.+=((1, 2L, "Hi2"))
@@ -43,7 +44,10 @@ class BuiltInFunctionITCase extends StreamingTestBase {
     env.setParallelism(1)
     val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
     tEnv.registerTable("T", tmp1)
+  }
 
+  @Test
+  def testFirstValueWithOrder(): Unit = {
     val sqlQuery = "SELECT a,first_value(c, b) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -60,18 +64,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testFirstValueWithoutOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,first_value(c) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -88,18 +80,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testLastValueWithOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,last_value(c, b) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -116,18 +96,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testLastValueWithoutOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,last_value(c) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -144,18 +112,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testFirstValueIgnoreRetractWithOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,first_value_ignore_retract(c, b) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -172,18 +128,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testFirstValueIgnoreRetractWithoutOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,first_value_ignore_retract(c) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -200,18 +144,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testLastValueIgnoreRetractWithOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,last_value_ignore_retract(c, b) FROM T group by a"
 
     val sink = new TestingRetractSink
@@ -228,18 +160,6 @@ class BuiltInFunctionITCase extends StreamingTestBase {
 
   @Test
   def testLastValueIgnoreRetractWithoutOrder(): Unit = {
-    val data1 = new mutable.MutableList[(Int, Long, String)]
-    data1.+=((1, 1L, "Hi1"))
-    data1.+=((1, 2L, "Hi2"))
-    data1.+=((2, 5L, "Hi3"))
-    data1.+=((2, 7L, "Hi5"))
-    data1.+=((1, 9L, "Hi6"))
-    data1.+=((1, 8L, "Hi8"))
-
-    env.setParallelism(1)
-    val tmp1 = env.fromCollection(data1).toTable(tEnv, 'a, 'b, 'c)
-    tEnv.registerTable("T", tmp1)
-
     val sqlQuery = "SELECT a,last_value_ignore_retract(c) FROM T group by a"
 
     val sink = new TestingRetractSink
