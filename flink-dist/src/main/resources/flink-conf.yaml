@@ -56,6 +56,7 @@ common:
   yarn.application-attempt-failures-validity-interval: 3600000
   yarn.per-job-cluster.include-user-jar: FIRST
   yarn.taskmanager.set_token: false
+  yarn.conf.cluster_queue_name.enable: true
   yarn.check.application.name.unique: false
 
   # Metrics

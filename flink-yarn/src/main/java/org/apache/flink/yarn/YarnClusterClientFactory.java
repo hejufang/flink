@@ -87,9 +87,11 @@ public class YarnClusterClientFactory extends AbstractContainerizedClusterClient
 			LOG.info("Set {} to {}", ConfigConstants.YARN_CLUSTER_NAME_KEY, shortClusterName);
 		}
 
-		String queueName = configuration.getString(YarnConfigOptions.APPLICATION_QUEUE, "");
-		if (!StringUtils.isNullOrWhitespaceOnly(queueName)) {
-			yarnConfiguration.set(YarnConfiguration.APP_QUEUE_NAME, queueName);
+		if (configuration.getBoolean(YarnConfigOptions.YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE)) {
+			String queueName = configuration.getString(YarnConfigOptions.APPLICATION_QUEUE, "");
+			if (!StringUtils.isNullOrWhitespaceOnly(queueName)) {
+				yarnConfiguration.set(YarnConfiguration.APP_QUEUE_NAME, queueName);
+			}
 		}
 
 		Utils.updateYarnConfig(yarnConfiguration, configuration);

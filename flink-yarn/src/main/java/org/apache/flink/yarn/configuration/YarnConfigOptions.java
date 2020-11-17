@@ -298,6 +298,12 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Cleanup running containers on NMClient stop.");
 
+	public static final ConfigOption<Boolean> YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE =
+		key("yarn.conf.cluster_queue_name.enable")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Enable set cluster_queue_name to yarn conf.");
+
 	public static final ConfigOption<Boolean> YARN_CHECK_APP_NAME_UNIQUE =
 		key("yarn.check.application.name.unique")
 			.booleanType()
