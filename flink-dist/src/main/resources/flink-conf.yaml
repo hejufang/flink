@@ -56,6 +56,7 @@ common:
   yarn.application-attempt-failures-validity-interval: 3600000
   yarn.per-job-cluster.include-user-jar: FIRST
   yarn.taskmanager.set_token: false
+  yarn.check.application.name.unique: false
 
   # Metrics
   metrics.reporters: opentsdb_reporter
@@ -95,11 +96,8 @@ common:
   containerized.taskmanager.env.LD_LIBRARY_PATH: /opt/tiger/ss_lib/so:/opt/tiger/yarn_deploy/hadoop-2.6.0-cdh5.4.4/lib/native:/usr/local/hadoop/lzo/lib
   flink.gc.g1: false
 
-  # Check Unique
+  # Env
   dc: cn
-  check.job.unique: true
-  job.unique.zookeeper.client.session-timeout: 5000
-  job.unique.zookeeper.client.connection-timeout: 10000
 
   # PyFlink on Bytedance
   base_jar: deploy/flink-1.11/basejar/flink-python-byted.jar
