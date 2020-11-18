@@ -224,7 +224,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			resourceManagerMetricGroup,
 			failureRater);
 		this.yarnConfig = new YarnConfiguration();
-		Utils.updateYarnConfig(this.yarnConfig, this.flinkConfig);
+		Utils.updateYarnConfigForJobManager(this.yarnConfig, this.flinkConfig);
 
 		blacklistReporter.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
 

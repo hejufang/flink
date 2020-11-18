@@ -94,7 +94,7 @@ public class YarnClusterClientFactory extends AbstractContainerizedClusterClient
 			}
 		}
 
-		Utils.updateYarnConfig(yarnConfiguration, configuration);
+		Utils.updateYarnConfigForClient(yarnConfiguration, configuration);
 
 		final YarnClient yarnClient = YarnClient.createYarnClient();
 

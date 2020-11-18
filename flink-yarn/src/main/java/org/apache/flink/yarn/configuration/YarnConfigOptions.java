@@ -409,6 +409,8 @@ public class YarnConfigOptions {
 	 * Yarn configuration key prefix.
 	 */
 	public static final String YARN_CONFIG_KEY_PREFIX = "flink.yarn.config.";
+	public static final String CLIENT_YARN_CONFIG_KEY_PREFIX = "flink.client.yarn.config.";
+	public static final String JOBMANAGER_YARN_CONFIG_KEY_PREFIX = "flink.jobmanager.yarn.config.";
 
 	public static final ConfigOption<Boolean> SLOW_CONTAINER_ENABLED =
 			key("yarn.slow-container.enabled")
