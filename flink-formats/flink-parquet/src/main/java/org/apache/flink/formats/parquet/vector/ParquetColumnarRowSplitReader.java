@@ -40,14 +40,18 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Types;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil.createColumnReader;
 import static org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil.createWritableColumnVector;
@@ -60,6 +64,8 @@ import static org.apache.parquet.hadoop.ParquetInputFormat.getFilter;
  * This reader is used to read a {@link VectorizedColumnBatch} from input split.
  */
 public class ParquetColumnarRowSplitReader implements Closeable {
+
+	private static final Logger LOG = LoggerFactory.getLogger(ParquetColumnarRowSplitReader.class);
 
 	private final boolean utcTimestamp;
 
@@ -81,7 +87,16 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 
 	private final LogicalType[] selectedTypes;
 
+	private final String[] selectedFieldNames;
+
 	private final int batchSize;
+
+	// name of fields not in parquet file. This always happens when user add columns in
+	// hive metastore after parquet file has been written.
+	private final List<String> fieldsNotInParquet;
+
+	// field types in parquet file, except partition fields and fields not in parquet file.
+	private final List<LogicalType> fieldTypesInParquetFile;
 
 	private ParquetFileReader reader;
 
@@ -120,6 +135,7 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 			long splitLength) throws IOException {
 		this.utcTimestamp = utcTimestamp;
 		this.selectedTypes = selectedTypes;
+		this.selectedFieldNames = selectedFieldNames;
 		this.batchSize = batchSize;
 		// then we need to apply the predicate push down filter
 		ParquetMetadata footer = readFooter(conf, path, range(splitStart, splitStart + splitLength));
@@ -141,10 +157,12 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 		this.rowsInBatch = 0;
 		this.rowsReturned = 0;
 
+		fieldsNotInParquet = parseFieldsNotInParquet();
+		fieldTypesInParquetFile = parseFieldTypesInParquetFile(fieldsNotInParquet);
 		checkSchema();
 
 		this.writableVectors = createWritableVectors();
-		this.columnarBatch = generator.generate(createReadableVectors());
+		this.columnarBatch = generator.generate(createReadableVectors(), fieldsNotInParquet);
 		this.row = new ColumnarRowData(columnarBatch);
 	}
 
@@ -153,14 +171,13 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 	 */
 	private static MessageType clipParquetSchema(
 			GroupType parquetSchema, String[] fieldNames, boolean caseSensitive) {
-		Type[] types = new Type[fieldNames.length];
+		List<Type> types = new ArrayList<>();
 		if (caseSensitive) {
-			for (int i = 0; i < fieldNames.length; ++i) {
-				String fieldName = fieldNames[i];
+			for (String fieldName : fieldNames) {
 				if (parquetSchema.getFieldIndex(fieldName) < 0) {
 					throw new IllegalArgumentException(fieldName + " does not exist");
 				}
-				types[i] = parquetSchema.getType(fieldName);
+				types.add(parquetSchema.getType(fieldName));
 			}
 		} else {
 			Map<String, Type> caseInsensitiveFieldMap = new HashMap<>();
@@ -174,26 +191,26 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 					return type;
 				});
 			}
-			for (int i = 0; i < fieldNames.length; ++i) {
-				Type type = caseInsensitiveFieldMap.get(fieldNames[i].toLowerCase(Locale.ROOT));
-				if (type == null) {
-					throw new IllegalArgumentException(fieldNames[i] + " does not exist");
+			for (String fieldName : fieldNames) {
+				Type type = caseInsensitiveFieldMap.get(fieldName.toLowerCase(Locale.ROOT));
+				if (type != null) {
+					types.add(type);
 				}
 				// TODO clip for array,map,row types.
-				types[i] = type;
 			}
 		}
 
-		return Types.buildMessage().addFields(types).named("flink-parquet");
+		return Types.buildMessage().addFields(types.toArray(new Type[0])).named("flink-parquet");
 	}
 
 	private WritableColumnVector[] createWritableVectors() {
-		WritableColumnVector[] columns = new WritableColumnVector[selectedTypes.length];
-		for (int i = 0; i < selectedTypes.length; i++) {
+		WritableColumnVector[] columns = new WritableColumnVector[fieldTypesInParquetFile.size()];
+		for (int i = 0; i < fieldTypesInParquetFile.size(); i++) {
+			LogicalType columnType = fieldTypesInParquetFile.get(i);
 			columns[i] = createWritableColumnVector(
-					batchSize,
-					selectedTypes[i],
-					requestedSchema.getColumns().get(i).getPrimitiveType());
+				batchSize,
+				columnType,
+				requestedSchema.getColumns().get(i).getPrimitiveType());
 		}
 		return columns;
 	}
@@ -212,11 +229,31 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 		return vectors;
 	}
 
-	private void checkSchema() throws IOException, UnsupportedOperationException {
+	private List<String> parseFieldsNotInParquet() {
+		List<String> fieldsNotInParquet = new ArrayList<>();
 		if (selectedTypes.length != requestedSchema.getFieldCount()) {
-			throw new RuntimeException("The quality of field type is incompatible with the request schema!");
+			fieldsNotInParquet =
+				Arrays.stream(selectedFieldNames)
+					.filter(f -> !requestedSchema.containsField(f))
+					.collect(Collectors.toList());
+			LOG.info("Fields not in parquet file: {}. We will fill these fields with null values.", fieldsNotInParquet);
 		}
+		return fieldsNotInParquet;
+	}
 
+	private List<LogicalType> parseFieldTypesInParquetFile(List<String> fieldsNotInParquet) {
+		List<LogicalType> parquetDatatypes = new ArrayList<>();
+		for (int i = 0; i < selectedTypes.length; i++) {
+			String fieldName = selectedFieldNames[i];
+			if (fieldsNotInParquet.contains(fieldName)) {
+				continue;
+			}
+			parquetDatatypes.add(selectedTypes[i]);
+		}
+		return parquetDatatypes;
+	}
+
+	private void checkSchema() throws IOException, UnsupportedOperationException {
 		/*
 		 * Check that the requested schema is supported.
 		 */
@@ -312,7 +349,7 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 		for (int i = 0; i < columns.size(); ++i) {
 			columnReaders[i] = createColumnReader(
 					utcTimestamp,
-					selectedTypes[i],
+					fieldTypesInParquetFile.get(i),
 					columns.get(i),
 					pages.getPageReader(columns.get(i)));
 		}
@@ -362,6 +399,11 @@ public class ParquetColumnarRowSplitReader implements Closeable {
 	 * Interface to gen {@link VectorizedColumnBatch}.
 	 */
 	public interface ColumnBatchGenerator {
-		VectorizedColumnBatch generate(ColumnVector[] readVectors);
+		/**
+		 * @param readVectors read vectors
+		 * @param fieldsNotInParquet fields not in parquet file. This always happens when user
+		 *        add columns in hive metastore after parquet file has been written.
+		 * */
+		VectorizedColumnBatch generate(ColumnVector[] readVectors, List<String> fieldsNotInParquet);
 	}
 }

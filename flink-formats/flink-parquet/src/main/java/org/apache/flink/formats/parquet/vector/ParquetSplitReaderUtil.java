@@ -65,6 +65,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -105,15 +106,31 @@ public class ParquetSplitReaderUtil {
 				.mapToInt(nonPartNames::indexOf)
 				.toArray();
 
-		ParquetColumnarRowSplitReader.ColumnBatchGenerator gen = readVectors -> {
+		ParquetColumnarRowSplitReader.ColumnBatchGenerator gen = (readVectors, fieldsNotInParquet) -> {
 			// create and initialize the row batch
 			ColumnVector[] vectors = new ColumnVector[selectedFields.length];
-			for (int i = 0; i < vectors.length; i++) {
+
+			//columns except non parquet columns and partition columns.
+			List<String> parquetFileColumnsExceptPartition = new ArrayList<>();
+			for (String nonPartName : selNonPartNames) {
+				if (!fieldsNotInParquet.contains(nonPartName)) {
+					parquetFileColumnsExceptPartition.add(nonPartName);
+				}
+			}
+
+			for (int i = 0; i < selectedFields.length; i++) {
 				String name = fullFieldNames[selectedFields[i]];
 				LogicalType type = fullFieldTypes[selectedFields[i]].getLogicalType();
-				vectors[i] = partitionSpec.containsKey(name) ?
-						createVectorFromConstant(type, partitionSpec.get(name), batchSize) :
-						readVectors[selNonPartNames.indexOf(name)];
+				if (partitionSpec.containsKey(name)) {
+					// 1. vectors for partition columns.
+					vectors[i] = createVectorFromConstant(type, partitionSpec.get(name), batchSize);
+				} else if (fieldsNotInParquet.contains(name)) {
+					// 2. vectors for columns not in parquet. We fill these columns with `null` values.
+					vectors[i] = createVectorFromConstant(type, null, batchSize);
+				} else {
+					// 3. vectors for other columns.
+					vectors[i] = readVectors[parquetFileColumnsExceptPartition.indexOf(name)];
+				}
 			}
 			return new VectorizedColumnBatch(vectors);
 		};
