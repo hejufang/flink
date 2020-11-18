@@ -19,28 +19,21 @@ under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<parent>
+		<artifactId>flink-formats</artifactId>
+		<groupId>org.apache.flink</groupId>
+		<version>1.11-byted-SNAPSHOT</version>
+	</parent>
 	<modelVersion>4.0.0</modelVersion>
 
-	<parent>
-		<groupId>org.apache.flink</groupId>
-		<artifactId>flink-formats</artifactId>
-		<version>1.11-byted-SNAPSHOT</version>
-		<relativePath>..</relativePath>
-	</parent>
-
-	<artifactId>flink-pb</artifactId>
-	<name>flink-pb</name>
-
-	<packaging>jar</packaging>
+	<artifactId>flink-pb-base</artifactId>
 
 	<properties>
 		<protobuf.version>3.7.0</protobuf.version>
 	</properties>
 
 	<dependencies>
-		<!-- core dependencies -->
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-core</artifactId>
@@ -49,21 +42,15 @@ under the License.
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-pb-base</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-
-		<dependency>
-			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-table-common</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
-
 		<dependency>
 			<groupId>com.google.protobuf</groupId>
 			<artifactId>protobuf-java</artifactId>
 			<version>${protobuf.version}</version>
+			<scope>provided</scope>
 		</dependency>
 	</dependencies>
 
@@ -86,16 +73,9 @@ under the License.
 								<configuration>
 									<artifactSet>
 										<includes>
-											<include>*:*</include>
+											<include>org.apache.flink:flink-pb-base</include>
 										</includes>
 									</artifactSet>
-									<relocations>
-										<!-- relocate the protobuf dependencies -->
-										<relocation>
-											<pattern>com.google.protobuf</pattern>
-											<shadedPattern>org.apache.flink.pb.shaded.com.google.protobuf</shadedPattern>
-										</relocation>
-									</relocations>
 								</configuration>
 							</execution>
 						</executions>
@@ -106,35 +86,7 @@ under the License.
 	</profiles>
 
 	<build>
-		<extensions>
-			<extension>
-				<groupId>kr.motd.maven</groupId>
-				<artifactId>os-maven-plugin</artifactId>
-				<version>1.5.0.Final</version>
-			</extension>
-		</extensions>
 		<plugins>
-			<plugin>
-				<groupId>org.xolstice.maven.plugins</groupId>
-				<artifactId>protobuf-maven-plugin</artifactId>
-				<version>0.5.0</version>
-				<configuration>
-					<protocArtifact>
-						com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
-					</protocArtifact>
-					<pluginId>grpc-java</pluginId>
-					<pluginArtifact>
-						io.grpc:protoc-gen-grpc-java:1.7.0:exe:${os.detected.classifier}
-					</pluginArtifact>
-				</configuration>
-				<executions>
-					<execution>
-						<goals>
-							<goal>test-compile</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -148,4 +100,5 @@ under the License.
 			</plugin>
 		</plugins>
 	</build>
+
 </project>
