@@ -91,13 +91,21 @@ class TwoStageOptimizedAggregateRule extends RelOptRule(
   }
 
   override def onMatch(call: RelOptRuleCall): Unit = {
+    val tableConfig = call.getPlanner.getContext.asInstanceOf[FlinkContext].getTableConfig
     val agg: StreamExecGroupAggregate = call.rel(0)
     val realInput: RelNode = call.rel(2)
     val needRetraction = StreamExecRetractionRules.isAccRetract(realInput)
     val fmq = FlinkRelMetadataQuery.reuseOrCreate(call.getMetadataQuery)
+
+    val optimizeMinAndMax = tableConfig.getConfiguration.getBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_OPTIMIZE_MIN_MAX_IN_TWO_STAGE_AGG_ENABLED)
+
     val monotonicity = fmq.getRelModifiedMonotonicity(agg)
-    val needRetractionArray = AggregateUtil.getNeedRetractions(
-      agg.grouping.length, needRetraction, monotonicity, agg.aggCalls)
+    var needRetractionArray = Array.fill(agg.aggCalls.size)(needRetraction)
+    if (optimizeMinAndMax) {
+      needRetractionArray = AggregateUtil.getNeedRetractions(
+        agg.grouping.length, needRetraction, monotonicity, agg.aggCalls)
+    }
 
     val localAggInfoList = AggregateUtil.transformToStreamAggregateInfoList(
       agg.aggCalls,

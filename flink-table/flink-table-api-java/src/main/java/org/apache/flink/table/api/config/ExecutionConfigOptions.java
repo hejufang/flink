@@ -191,6 +191,12 @@ public class ExecutionConfigOptions {
 			.withDescription("Specifies whether to enable state ttl for MiniBatchGroupAggFunction, " +
 				"MiniBatchGlobalGroupAggFunction and MiniBatchIncrementalGroupAggFunction.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_OPTIMIZE_MIN_MAX_IN_TWO_STAGE_AGG_ENABLED =
+		key("table.exec.optimize-min-max-in-two-stage-agg.enabled")
+			.defaultValue(true)
+			.withDescription("Whether to optimize min/max agg in two stage aggregation." +
+				"This optimization may cause some bugs (see INFOI-16035 for more details).");
 	// ------------------------------------------------------------------------
 	//  Other Exec Options
 	// ------------------------------------------------------------------------
