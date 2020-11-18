@@ -52,6 +52,26 @@ public class SqlCreateFunction extends SqlCreate {
 
 	private final boolean isSystemFunction;
 
+	private final boolean isLegacy;
+
+	public SqlCreateFunction(
+			SqlParserPos pos,
+			SqlIdentifier functionIdentifier,
+			SqlCharStringLiteral functionClassName,
+			String functionLanguage,
+			boolean ifNotExists,
+			boolean isTemporary,
+			boolean isSystemFunction,
+			boolean isLegacy) {
+		super(OPERATOR, pos, false, ifNotExists);
+		this.functionIdentifier = requireNonNull(functionIdentifier);
+		this.functionClassName = requireNonNull(functionClassName);
+		this.isSystemFunction = isSystemFunction;
+		this.isTemporary = isTemporary;
+		this.functionLanguage = functionLanguage;
+		this.isLegacy = isLegacy;
+	}
+
 	public SqlCreateFunction(
 			SqlParserPos pos,
 			SqlIdentifier functionIdentifier,
@@ -66,6 +86,7 @@ public class SqlCreateFunction extends SqlCreate {
 		this.isSystemFunction = isSystemFunction;
 		this.isTemporary = isTemporary;
 		this.functionLanguage = functionLanguage;
+		this.isLegacy = false;
 	}
 
 	@Override
@@ -99,6 +120,10 @@ public class SqlCreateFunction extends SqlCreate {
 			writer.keyword("LANGUAGE");
 			writer.keyword(functionLanguage);
 		}
+	}
+
+	public boolean isLegacy() {
+		return isLegacy;
 	}
 
 	public boolean isIfNotExists() {

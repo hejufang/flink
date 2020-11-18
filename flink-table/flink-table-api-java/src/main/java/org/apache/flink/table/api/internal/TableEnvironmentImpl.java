@@ -76,7 +76,9 @@ import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.factories.CatalogFactory;
 import org.apache.flink.table.factories.ComponentFactoryService;
 import org.apache.flink.table.factories.TableFactoryService;
+import org.apache.flink.table.functions.AggregateFunction;
 import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.TemporalTableFunction;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.table.functions.UserDefinedFunctionHelper;
@@ -116,6 +118,7 @@ import org.apache.flink.table.operations.ddl.AlterViewRenameOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
+import org.apache.flink.table.operations.ddl.CreateLegacyFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
 import org.apache.flink.table.operations.ddl.CreateTempSystemFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTemporalTableFunctionOperation;
@@ -137,6 +140,7 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.utils.PrintUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.commons.lang3.StringUtils;
@@ -365,6 +369,24 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		functionCatalog.registerTempSystemScalarFunction(
 			name,
 			function);
+	}
+
+	@Override
+	public <T> void registerFunction(String name, TableFunction<T> function) {
+		TypeInformation<T> typeInformation = UserDefinedFunctionHelper.getReturnTypeOfTableFunction(function);
+		functionCatalog.registerTempSystemTableFunction(name,
+			function,
+			typeInformation);
+	}
+
+	@Override
+	public <T, ACC> void registerFunction(String name, AggregateFunction<T, ACC> function) {
+		TypeInformation<T> returnTypeInformation = UserDefinedFunctionHelper.getReturnTypeOfAggregateFunction(function);
+		TypeInformation<ACC> accTypeInformation = UserDefinedFunctionHelper.getAccumulatorTypeOfAggregateFunction(function);
+		functionCatalog.registerTempSystemAggregateFunction(name,
+			function,
+			returnTypeInformation,
+			accTypeInformation);
 	}
 
 	@Override
@@ -1061,6 +1083,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			} catch (Exception e) {
 				throw new TableException(exMsg, e);
 			}
+		} else if (operation instanceof CreateLegacyFunctionOperation) {
+			return createLegacyFunction((CreateLegacyFunctionOperation) operation);
 		} else if (operation instanceof CreateCatalogFunctionOperation) {
 			return createCatalogFunction((CreateCatalogFunctionOperation) operation);
 		} else if (operation instanceof CreateTempSystemFunctionOperation) {
@@ -1501,6 +1525,27 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		} catch (Exception e) {
 			throw new TableException(exMsg, e);
 		}
+	}
+
+	private TableResult createLegacyFunction(CreateLegacyFunctionOperation operation) {
+		String name = operation.getFunctionName();
+		String className = operation.getFunctionClass();
+
+		try {
+			Class<?> functionClass = Class.forName(className);
+			Object function = functionClass.newInstance();
+			if (function instanceof ScalarFunction) {
+				registerFunction(name, (ScalarFunction) function);
+			} else if (function instanceof TableFunction<?>) {
+				registerFunction(name, (TableFunction<?>) function);
+			} else if (function instanceof AggregateFunction<?, ?>) {
+				registerFunction(name, (AggregateFunction<?, ?>) function);
+			}
+		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+			throw new FlinkRuntimeException(e);
+		}
+
+		return TableResultImpl.TABLE_RESULT_OK;
 	}
 
 	private TableResult dropSystemFunction(DropTempSystemFunctionOperation operation) {

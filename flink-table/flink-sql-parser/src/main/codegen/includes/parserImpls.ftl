@@ -255,6 +255,7 @@ SqlCreate SqlCreateFunction(Span s, boolean replace, boolean isTemporary) :
     String functionLanguage = null;
     boolean ifNotExists = false;
     boolean isSystemFunction = false;
+    boolean isLegacy = false;
 }
 {
     (
@@ -265,6 +266,10 @@ SqlCreate SqlCreateFunction(Span s, boolean replace, boolean isTemporary) :
     |
         <FUNCTION>
         ifNotExists = IfNotExistsOpt()
+        functionIdentifier = CompoundIdentifier()
+    |
+        <LEGACY> <FUNCTION>
+        { isLegacy = true; }
         functionIdentifier = CompoundIdentifier()
     )
 
@@ -285,7 +290,7 @@ SqlCreate SqlCreateFunction(Span s, boolean replace, boolean isTemporary) :
     ]
     {
         return new SqlCreateFunction(s.pos(), functionIdentifier, functionClassName, functionLanguage,
-                ifNotExists, isTemporary, isSystemFunction);
+                ifNotExists, isTemporary, isSystemFunction, isLegacy);
     }
 }
 

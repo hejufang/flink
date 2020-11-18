@@ -102,6 +102,7 @@ import org.apache.flink.table.operations.ddl.AlterViewRenameOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
+import org.apache.flink.table.operations.ddl.CreateLegacyFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTempSystemFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTemporalTableFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateViewOperation;
@@ -431,7 +432,11 @@ public class SqlToOperationConverter {
 		UnresolvedIdentifier unresolvedIdentifier =
 			UnresolvedIdentifier.of(sqlCreateFunction.getFunctionIdentifier());
 
-		if (sqlCreateFunction.isSystemFunction()) {
+		if (sqlCreateFunction.isLegacy()) {
+			return new CreateLegacyFunctionOperation(
+				unresolvedIdentifier.getObjectName(),
+				sqlCreateFunction.getFunctionClassName().getValueAs(String.class));
+		} else if (sqlCreateFunction.isSystemFunction()) {
 			return new CreateTempSystemFunctionOperation(
 				unresolvedIdentifier.getObjectName(),
 				sqlCreateFunction.getFunctionClassName().getValueAs(String.class),
