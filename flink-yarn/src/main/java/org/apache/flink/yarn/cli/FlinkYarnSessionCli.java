@@ -542,12 +542,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			effectiveConfiguration.setString(HA_CLUSTER_ID, zkNamespace);
 		}
 
-		// Yarn will get cluster from conf by queue first
-		if (commandLine.hasOption(queue.getOpt())) {
-			String queueName = commandLine.getOptionValue(queue.getOpt());
-			effectiveConfiguration.setString(YarnConfigOptions.YARN_CONFIG_KEY_PREFIX + YarnConfiguration.APP_QUEUE_NAME, queueName);
-		}
-
 		final ApplicationId applicationId = getClusterId(commandLine);
 
 		if (applicationId != null) {
@@ -604,6 +598,14 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 			effectiveConfiguration.setString(key, properties.getProperty(key));
 		}
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
+
+		// Yarn will get cluster from conf by queue first
+		if (effectiveConfiguration.getBoolean(YarnConfigOptions.YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE)) {
+			if (commandLine.hasOption(queue.getOpt())) {
+				String queueName = commandLine.getOptionValue(queue.getOpt());
+				effectiveConfiguration.setString(YarnConfigOptions.YARN_CONFIG_KEY_PREFIX + YarnConfiguration.APP_QUEUE_NAME, queueName);
+			}
+		}
 
 		if (isYarnPropertiesFileMode(commandLine)) {
 			return applyYarnProperties(effectiveConfiguration);

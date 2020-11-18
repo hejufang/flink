@@ -391,6 +391,11 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Cleanup running containers on NMClient stop.");
 
+	public static final ConfigOption<Boolean> YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE =
+		key("yarn.conf.cluster_queue_name.enable")
+			.defaultValue(true)
+			.withDescription("Enable set cluster_queue_name to yarn conf.");
+
 
 	/**
 	 * Yarn configuration key prefix.
