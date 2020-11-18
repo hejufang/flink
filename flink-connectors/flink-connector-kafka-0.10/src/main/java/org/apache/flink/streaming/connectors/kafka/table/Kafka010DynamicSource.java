@@ -20,15 +20,26 @@ package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer010;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
+import org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema;
+import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWithMetadataWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.utils.TypeConversions;
+import org.apache.flink.util.FlinkRuntimeException;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Map;
 import java.util.Properties;
@@ -60,7 +71,7 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
 			long startupTimestampMillis,
-			Properties otherProperties) {
+			KafkaSourceConfig kafkaSourceConfig) {
 		super(
 			outputDataType,
 			topic,
@@ -69,7 +80,7 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			startupMode,
 			specificStartupOffsets,
 			startupTimestampMillis,
-			otherProperties);
+			kafkaSourceConfig);
 	}
 
 	@Override
@@ -77,18 +88,64 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			String topic,
 			Properties properties,
 			DeserializationSchema<RowData> deserializationSchema) {
-		FlinkKafkaConsumerBase<RowData> consumerBase =
-			new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
-		if (otherProperties.containsKey(KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION.key())) {
-			boolean value = Boolean.parseBoolean(
-				otherProperties.getProperty(KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION.key()));
-			if (value) {
+		FlinkKafkaConsumerBase<RowData> consumerBase;
+		if (kafkaSourceConfig.getWithoutMetaDataType() == null) {
+			consumerBase = new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
+		} else {
+			TypeInformation<RowData> typeInformation = (TypeInformation<RowData>) TypeConversions.fromDataTypeToLegacyInfo(outputDataType);
+			final Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap = kafkaSourceConfig.getMetadataMap();
+			KafkaDeserializationSchema<RowData> kafkaDeserializationSchema =
+				new KafkaDeserializationSchemaRowDataWithMetadata(
+						deserializationSchema,
+						typeInformation,
+						metadataMap);
+			consumerBase = new FlinkKafkaConsumer010<>(topic, kafkaDeserializationSchema, properties);
+		}
+		if (kafkaSourceConfig.getKafkaResetNewPartition() != null) {
+			if (kafkaSourceConfig.getKafkaResetNewPartition()) {
 				consumerBase.resetToEarliestForNewPartition();
 			} else {
 				consumerBase.disableResetToEarliestForNewPartition();
 			}
 		}
 		return consumerBase;
+	}
+
+	private static class KafkaDeserializationSchemaRowDataWithMetadata extends KafkaDeserializationSchemaWithMetadataWrapper<RowData> {
+		public KafkaDeserializationSchemaRowDataWithMetadata(
+				DeserializationSchema<RowData> deserializationSchema,
+				TypeInformation<RowData> typeInformation,
+				Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap) {
+			super(deserializationSchema, typeInformation, metadataMap);
+		}
+
+		@Override
+		public RowData addMetadata(RowData element, ConsumerRecord<byte[], byte[]> record) {
+			GenericRowData oldRowData = (GenericRowData) element;
+			GenericRowData rowData = new GenericRowData(this.producerType.getArity());
+			for (int i = 0, j = 0; i < rowData.getArity(); i++) {
+				Metadata metadata = (Metadata) this.metadataMap.get(i);
+				if (metadata != null) {
+					rowData.setField(i, getMetadata(record, metadata));
+				} else {
+					rowData.setField(i, oldRowData.getField(j++));
+				}
+			}
+			return rowData;
+		}
+
+		private Object getMetadata(ConsumerRecord<byte[], byte[]> record, Metadata metadata) {
+			switch (metadata) {
+				case OFFSET:
+					return record.offset();
+				case TIMESTAMP:
+					return record.timestamp();
+				case PARTITION:
+					return (long) record.partition();
+				default:
+					throw new FlinkRuntimeException("Unsupported metadata.");
+			}
+		}
 	}
 
 	@Override
@@ -101,7 +158,7 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 				this.startupMode,
 				this.specificStartupOffsets,
 				this.startupTimestampMillis,
-				this.otherProperties);
+				this.kafkaSourceConfig);
 	}
 
 	@Override

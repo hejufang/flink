@@ -20,23 +20,28 @@ package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
-import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
+import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -44,7 +49,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPERTIES_PREFIX;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_CLUSTER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_GROUP_ID;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_NUM;
@@ -97,7 +102,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 				startupOptions.startupMode,
 				startupOptions.specificOffsets,
 				startupOptions.startupTimestampMillis,
-				getSourceOtherProperties(context.getCatalogTable().getOptions()));
+				getKafkaSourceConfig(context.getCatalogTable().getSchema(), tableOptions));
 	}
 
 	@Override
@@ -144,7 +149,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
 			long startupTimestampMillis,
-			Properties otherProperties);
+			KafkaSourceConfig kafkaSourceConfig);
 
 	/**
 	 * Constructs the version-specific Kafka table sink.
@@ -168,6 +173,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		final Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(TOPIC);
 		options.add(FactoryUtil.FORMAT);
+		options.add(PROPS_CLUSTER);
 		return options;
 	}
 
@@ -187,31 +193,29 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
+		options.add(FactoryUtil.SOURCE_METADATA_COLUMN);
 		return options;
 	}
 
-	private Properties getSourceOtherProperties(Map<String, String> properties) {
-		Properties otherProperties = new Properties();
+	private KafkaSourceConfig getKafkaSourceConfig(TableSchema tableSchema, ReadableConfig readableConfig) {
+		KafkaSourceConfig sourceConfig = new KafkaSourceConfig();
 
-		// kafka partition range.
-		String partitionRange = properties.get(SCAN_PARTITION_RANGE.key());
-		String cluster = properties.get(PROPERTIES_PREFIX + ".cluster");
-		String topic = properties.get(TOPIC.key());
-		String partitionRangeConf = cluster + "||" + topic + "||" + partitionRange;
-		otherProperties.put(ConfigConstants.PARTITION_LIST_KEY, partitionRangeConf);
+		String cluster = readableConfig.get(PROPS_CLUSTER);
+		String topic = readableConfig.get(TOPIC);
+		readableConfig.getOptional(SCAN_PARTITION_RANGE).ifPresent(
+			range ->
+				sourceConfig.setPartitionTopicList(cluster + "||" + topic + "||" + range)
+		);
+		readableConfig.getOptional(SCAN_RATE_LIMITING_NUM).ifPresent(sourceConfig::setScanSampleNum);
+		readableConfig.getOptional(SCAN_RATE_LIMITING_UNIT).ifPresent(sourceConfig::setRateLimitingUnit);
+		readableConfig.getOptional(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(sourceConfig::setKafkaResetNewPartition);
+		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_INTERVAL).ifPresent(sourceConfig::setScanSampleInterval);
+		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_NUM).ifPresent(sourceConfig::setScanSampleNum);
+		readableConfig.getOptional(FactoryUtil.SOURCE_METADATA_COLUMN).ifPresent(
+			metaDataInfo -> validateAndSetMetaInfo(metaDataInfo, tableSchema, sourceConfig)
+		);
 
-		// rate limit num
-		String limitingNum = properties.getOrDefault(SCAN_RATE_LIMITING_NUM.key(), null);
-		if (limitingNum != null) {
-			otherProperties.put(SCAN_RATE_LIMITING_NUM.key(), limitingNum);
-		}
-
-		String limitUnit = properties.getOrDefault(SCAN_RATE_LIMITING_UNIT.key(), null);
-		if (limitUnit != null) {
-			otherProperties.put(SCAN_RATE_LIMITING_UNIT.key(), limitUnit);
-		}
-
-		return otherProperties;
+		return sourceConfig;
 	}
 
 	private Properties getSinkOtherProperties(Map<String, String> properties) {
@@ -220,5 +224,21 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		String logFailuresOnly = properties.getOrDefault(SINK_LOG_FAILURE_ONLY.key(), "false");
 		otherProperties.put(SINK_LOG_FAILURE_ONLY.key(), logFailuresOnly);
 		return otherProperties;
+	}
+
+	private void validateAndSetMetaInfo(String metaInfo, TableSchema tableSchema, KafkaSourceConfig sourceConfig) {
+		DynamicSourceMetadataFactory<ConsumerRecord<byte[], byte[]>> factory = new DynamicSourceMetadataFactory<ConsumerRecord<byte[], byte[]>>() {
+			@Override
+			protected DynamicSourceMetadata findMetadata(String name) {
+				return Metadata.findByName(name);
+			}
+
+			@Override
+			protected String getMetadataValues() {
+				return Metadata.getValuesString();
+			}
+		};
+		sourceConfig.setMetadataMap(factory.parseWithSchema(metaInfo, tableSchema));
+		sourceConfig.setWithoutMetaDataType(factory.getWithoutMetaDataTypes(tableSchema, sourceConfig.getMetadataMap().keySet()));
 	}
 }

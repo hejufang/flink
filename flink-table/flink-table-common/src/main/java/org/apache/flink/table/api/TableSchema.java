@@ -277,6 +277,22 @@ public class TableSchema {
 	}
 
 	/**
+	 * ColumnFilter.
+	 */
+	public interface ColumnFilter {
+		boolean filter(TableColumn column);
+	}
+
+	public DataType toPhysicalRowDataTypeWithFilter(ColumnFilter columnFilter) {
+		final Field[] fields = columns.stream()
+			.filter(column -> !column.isGenerated())
+			.filter(columnFilter::filter)
+			.map(column -> FIELD(column.getName(), column.getType()))
+			.toArray(Field[]::new);
+		return ROW(fields);
+	}
+
+	/**
 	 * @deprecated Use {@link #toRowDataType()} instead.
 	 */
 	@Deprecated

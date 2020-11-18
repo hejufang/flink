@@ -63,6 +63,12 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Required consumer group in Kafka consumer, no need for Kafka producer");
 
+	public static final ConfigOption<String> PROPS_CLUSTER = ConfigOptions
+		.key("properties.cluster")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Required consumer group in Kafka consumer, no need for Kafka producer");
+
 	// --------------------------------------------------------------------------------------------
 	// Scan specific options
 	// --------------------------------------------------------------------------------------------
@@ -105,9 +111,9 @@ public class KafkaOptions {
 		.noDefaultValue()
 		.withDescription("Optional kafka rate limit num unit: BYTE or RECORD.");
 
-	public static final ConfigOption<String> SCAN_SOURCE_SAMPLE_INTERVAL = ConfigOptions
+	public static final ConfigOption<Long> SCAN_SOURCE_SAMPLE_INTERVAL = ConfigOptions
 		.key("scan.source-sample-interval")
-		.stringType()
+		.longType()
 		.noDefaultValue()
 		.withDescription("Optional source sample interval.");
 

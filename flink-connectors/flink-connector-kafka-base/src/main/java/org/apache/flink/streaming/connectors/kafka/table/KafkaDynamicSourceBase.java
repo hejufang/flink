@@ -21,10 +21,9 @@ package org.apache.flink.streaming.connectors.kafka.table;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
-import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
+import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -71,8 +70,7 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 	/** Properties for the Kafka consumer. */
 	protected final Properties properties;
 
-	/** Properties for the flink source. */
-	protected final Properties otherProperties;
+	protected final KafkaSourceConfig kafkaSourceConfig;
 
 	/** The startup mode for the contained consumer (default is {@link StartupMode#GROUP_OFFSETS}). */
 	protected final StartupMode startupMode;
@@ -118,7 +116,7 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 			StartupMode startupMode,
 			Map<KafkaTopicPartition, Long> specificStartupOffsets,
 			long startupTimestampMillis,
-			Properties otherProperties) {
+			KafkaSourceConfig kafkaSourceConfig) {
 		this.outputDataType = Preconditions.checkNotNull(
 				outputDataType, "Produced data type must not be null.");
 		this.topic = Preconditions.checkNotNull(topic, "Topic must not be null.");
@@ -129,7 +127,7 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		this.specificStartupOffsets = Preconditions.checkNotNull(
 			specificStartupOffsets, "Specific offsets must not be null.");
 		this.startupTimestampMillis = startupTimestampMillis;
-		this.otherProperties = otherProperties;
+		this.kafkaSourceConfig = kafkaSourceConfig;
 	}
 
 	@Override
@@ -139,31 +137,36 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 
 	@Override
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
+		DataType dataType;
+		if (kafkaSourceConfig.getWithoutMetaDataType() != null) {
+			dataType = kafkaSourceConfig.getWithoutMetaDataType();
+		} else {
+			dataType = outputDataType;
+		}
 		DeserializationSchema<RowData> deserializationSchema =
-				this.decodingFormat.createRuntimeDecoder(runtimeProviderContext, this.outputDataType);
+				this.decodingFormat.createRuntimeDecoder(runtimeProviderContext, dataType);
 		// Version-specific Kafka consumer
 		FlinkKafkaConsumerBase<RowData> kafkaConsumer =
 				getKafkaConsumer(topic, properties, deserializationSchema);
-		kafkaConsumer.setWhiteTopicPartitionList(otherProperties.getProperty(ConfigConstants.PARTITION_LIST_KEY));
-		long rateLimitingNum =
-			Long.valueOf(properties.getProperty(KafkaOptions.SCAN_RATE_LIMITING_NUM.key(), "-1"));
-		if (rateLimitingNum > 0) {
+		kafkaConsumer.setWhiteTopicPartitionList(kafkaSourceConfig.getPartitionTopicList());
+		if (kafkaSourceConfig.getRateLimitNumber() > 0) {
 			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rateLimitingNum);
+			rateLimiter.setRate(kafkaSourceConfig.getRateLimitNumber());
 			kafkaConsumer.setRateLimiter(rateLimiter);
 		}
 
-		String rateLimitingUnitStr = properties.getProperty(KafkaOptions.SCAN_RATE_LIMITING_UNIT.key());
-		if (rateLimitingUnitStr != null &&
-				RateLimitingUnit.valueList().contains(rateLimitingUnitStr)) {
-			kafkaConsumer.setRateLimitingUnit(RateLimitingUnit.valueOf(rateLimitingUnitStr));
+		if (kafkaSourceConfig.getRateLimitingUnit() != null) {
+			kafkaConsumer.setRateLimitingUnit(kafkaSourceConfig.getRateLimitingUnit());
 		}
 
 		// Set sampling strategy.
-		long sampleInterval = Long.parseLong(properties.getProperty(KafkaOptions.SCAN_SOURCE_SAMPLE_INTERVAL.key(), "0"));
-		long sampleNum = Long.parseLong(properties.getProperty(KafkaOptions.SCAN_SOURCE_SAMPLE_NUM.key(), "1"));
-		kafkaConsumer.setSampleNum(sampleNum);
-		kafkaConsumer.setSampleInterval(sampleInterval);
+		if (kafkaSourceConfig.getScanSampleInterval() != null) {
+			kafkaConsumer.setSampleInterval(kafkaSourceConfig.getScanSampleInterval());
+		}
+
+		if (kafkaSourceConfig.getScanSampleNum() != null) {
+			kafkaConsumer.setSampleNum(kafkaSourceConfig.getScanSampleNum());
+		}
 
 		return SourceFunctionProvider.of(kafkaConsumer, false);
 	}

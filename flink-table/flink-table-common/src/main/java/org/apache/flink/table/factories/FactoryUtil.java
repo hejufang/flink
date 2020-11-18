@@ -100,6 +100,12 @@ public final class FactoryUtil {
 		.withDescription(
 			"The parallelism of connector.");
 
+	public static final ConfigOption<String> SOURCE_METADATA_COLUMN = ConfigOptions.key("scan.metadata-fields-mapping")
+		.stringType()
+		.noDefaultValue()
+		.withDescription(
+			"Source metadata.");
+
 	public static final ConfigOption<Boolean> SINK_LOG_FAILURES_ONLY = ConfigOptions
 		.key("sink.log-failures-only")
 		.booleanType()
