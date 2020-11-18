@@ -930,14 +930,29 @@ public final class Utils {
 		return containerID;
 	}
 
-	public static void updateYarnConfig(
-			final YarnConfiguration yarnConfiguration, final org.apache.flink.configuration.Configuration flinkConfig) {
+	public static void updateYarnConfigForClient(
+			final YarnConfiguration yarnConfiguration,
+			final org.apache.flink.configuration.Configuration flinkConfig) {
+		updateYarnConfig(yarnConfiguration, flinkConfig, YarnConfigOptions.YARN_CONFIG_KEY_PREFIX);
+		updateYarnConfig(yarnConfiguration, flinkConfig, YarnConfigOptions.CLIENT_YARN_CONFIG_KEY_PREFIX);
+	}
 
-		String yarnConfigPrefix = YarnConfigOptions.YARN_CONFIG_KEY_PREFIX;
+	public static void updateYarnConfigForJobManager(
+			final YarnConfiguration yarnConfiguration,
+			final org.apache.flink.configuration.Configuration flinkConfig) {
+		updateYarnConfig(yarnConfiguration, flinkConfig, YarnConfigOptions.YARN_CONFIG_KEY_PREFIX);
+		updateYarnConfig(yarnConfiguration, flinkConfig, YarnConfigOptions.JOBMANAGER_YARN_CONFIG_KEY_PREFIX);
+	}
+
+	public static void updateYarnConfig(
+			final YarnConfiguration yarnConfiguration,
+			final org.apache.flink.configuration.Configuration flinkConfig,
+			final String configPrefix) {
+
 		for (Map.Entry<String, String> entry: flinkConfig.toMap().entrySet()) {
-			if (entry.getKey().startsWith(yarnConfigPrefix) && entry.getKey().length() > yarnConfigPrefix.length()) {
+			if (entry.getKey().startsWith(configPrefix) && entry.getKey().length() > configPrefix.length()) {
 				// remove prefix
-				String key = entry.getKey().substring(yarnConfigPrefix.length());
+				String key = entry.getKey().substring(configPrefix.length());
 				yarnConfiguration.set(key, entry.getValue());
 			}
 		}

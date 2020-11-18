@@ -40,6 +40,12 @@ common:
   yarn.application-attempts: 5
   yarn.application-attempt-failures-validity-interval: 3600000
   yarn.conf.cluster_queue_name.enable: true
+  flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
+  flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
+  flink.jobmanager.yarn.config.yarn.resourcemanager.connect.max-wait.ms: -1
+  flink.client.yarn.config.yarn.client.failover-max-attempts: -1
+  flink.client.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
+  flink.client.yarn.config.yarn.resourcemanager.connect.max-wait.ms: 900000
 
   job.work.dir: ${hdfs.prefix}/${clusterName}/1.9/
 

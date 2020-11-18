@@ -504,7 +504,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 	@Override
 	public AbstractYarnClusterDescriptor createClusterDescriptor(CommandLine commandLine) throws FlinkException {
 		final Configuration effectiveConfiguration = applyCommandLineOptionsToConfiguration(commandLine);
-		Utils.updateYarnConfig(yarnConfiguration, effectiveConfiguration);
+		Utils.updateYarnConfigForClient(yarnConfiguration, effectiveConfiguration);
 
 		return createDescriptor(
 			effectiveConfiguration,
