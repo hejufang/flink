@@ -367,6 +367,14 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint/lq_lf
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
 
+quaga:
+  dc: cn
+  clusterName: quaga
+  high-availability.zookeeper.quorum: 10.227.165.243:2181,10.227.165.222:2181,10.227.178.242:2181,10.227.174.244:2181,10.227.187.245:2181
+  hdfs.prefix: hdfs://haruna/flink_lq
+  checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
+  bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+
 camel:
   dc: cn
   clusterName: camel
