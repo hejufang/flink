@@ -524,7 +524,8 @@ public class SavepointV2Serializer implements SavepointSerializer<SavepointV2> {
 			throw new IOException("Unknown implementation of StreamStateHandle: " + stateHandle.getClass());
 		}
 
-		dos.flush();
+		// disable this because sometimes it takes too long to receive an ack from datanode
+//		dos.flush();
 	}
 
 	public static StreamStateHandle deserializeStreamStateHandle(DataInputStream dis) throws IOException {
