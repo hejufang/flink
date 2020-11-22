@@ -37,6 +37,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
 
 /**
@@ -163,12 +164,6 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		.defaultValue(15000)
 		.withDescription("Optional. It defines the interval of updating FE list "
 			+ "when we use doris-fe-psm to get FE list.");
-
-	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions
-		.key("parallelism")
-		.intType()
-		.defaultValue(-1)
-		.withDescription("Optional. It defines parallelism of sink.");
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {

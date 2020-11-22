@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -172,11 +173,6 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.intType()
 		.defaultValue(3)
 		.withDescription("the max retry times if writing records to database failed.");
-	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions
-		.key("parallelism")
-		.intType()
-		.defaultValue(-1)
-		.withDescription("parallelism of sink.");
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
