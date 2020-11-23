@@ -117,7 +117,7 @@ public class NFAStateSerializer extends TypeSerializerSingleton<NFAState> {
 	public NFAState deserialize(DataInputView source) throws IOException {
 		PriorityQueue<ComputationState> partialMatches = deserializeComputationStates(source);
 		PriorityQueue<ComputationState> completedMatches = deserializeComputationStates(source);
-		return new NFAState(partialMatches, completedMatches);
+		return new NFAState("default", partialMatches, completedMatches);
 	}
 
 	@Override

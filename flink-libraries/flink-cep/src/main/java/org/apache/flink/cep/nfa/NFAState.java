@@ -29,6 +29,7 @@ import java.util.Queue;
  */
 public class NFAState {
 
+	private String patternId;
 	/**
 	 * Current set of {@link ComputationState computation states} within the state machine.
 	 * These are the "active" intermediate states that are waiting for new matching
@@ -49,7 +50,8 @@ public class NFAState {
 			.thenComparingInt(c ->
 				c.getStartEventID() != null ? c.getStartEventID().getId() : Integer.MAX_VALUE);
 
-	public NFAState(Iterable<ComputationState> states) {
+	public NFAState(String patternId, Iterable<ComputationState> states) {
+		this.patternId = patternId;
 		this.partialMatches = new PriorityQueue<>(COMPUTATION_STATE_COMPARATOR);
 		for (ComputationState startingState : states) {
 			partialMatches.add(startingState);
@@ -58,9 +60,14 @@ public class NFAState {
 		this.completedMatches = new PriorityQueue<>(COMPUTATION_STATE_COMPARATOR);
 	}
 
-	public NFAState(Queue<ComputationState> partialMatches, Queue<ComputationState> completedMatches) {
+	public NFAState(String patternId, Queue<ComputationState> partialMatches, Queue<ComputationState> completedMatches) {
+		this.patternId = patternId;
 		this.partialMatches = partialMatches;
 		this.completedMatches = completedMatches;
+	}
+
+	public String getPatternId() {
+		return patternId;
 	}
 
 	/**

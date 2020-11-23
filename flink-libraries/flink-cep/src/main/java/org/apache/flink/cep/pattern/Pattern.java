@@ -32,6 +32,8 @@ import org.apache.flink.cep.pattern.conditions.SubtypeCondition;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.Preconditions;
 
+import java.io.Serializable;
+
 /**
  * Base class for a pattern definition.
  *
@@ -47,7 +49,9 @@ import org.apache.flink.util.Preconditions;
  * @param <T> Base type of the elements appearing in the pattern
  * @param <F> Subtype of T to which the current pattern operator is constrained
  */
-public class Pattern<T, F extends T> {
+public class Pattern<T, F extends T> implements Serializable {
+
+	private final String patternId;
 
 	/** Name of the pattern. */
 	private final String name;
@@ -84,6 +88,7 @@ public class Pattern<T, F extends T> {
 		this.previous = previous;
 		this.quantifier = Quantifier.one(consumingStrategy);
 		this.afterMatchSkipStrategy = afterMatchSkipStrategy;
+		this.patternId = "default";
 	}
 
 	public Pattern<T, ? extends T> getPrevious() {
@@ -555,6 +560,10 @@ public class Pattern<T, F extends T> {
 			throw new MalformedPatternException("Already applied quantifier to this Pattern. " +
 					"Current quantifier is: " + quantifier);
 		}
+	}
+
+	public String getPatternId() {
+		return patternId;
 	}
 
 	/**

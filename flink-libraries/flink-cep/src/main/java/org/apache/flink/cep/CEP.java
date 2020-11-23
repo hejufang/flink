@@ -39,6 +39,10 @@ public class CEP {
 		return new PatternStream<>(input, pattern);
 	}
 
+	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<Pattern<T, T>> patternDataStream) {
+		return new PatternStream<>(input, patternDataStream);
+	}
+
 	/**
 	 * Creates a {@link PatternStream} from an input data stream and a pattern.
 	 *

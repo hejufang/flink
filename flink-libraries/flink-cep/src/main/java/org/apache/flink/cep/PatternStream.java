@@ -56,6 +56,10 @@ public class PatternStream<T> {
 		this.builder = checkNotNull(builder);
 	}
 
+	PatternStream(final DataStream<T> inputStream, final DataStream<Pattern<T, T>> patternDataStream) {
+		this(PatternStreamBuilder.forStreamAndPatternDataStream(inputStream, patternDataStream));
+	}
+
 	PatternStream(final DataStream<T> inputStream, final Pattern<T, ?> pattern) {
 		this(PatternStreamBuilder.forStreamAndPattern(inputStream, pattern));
 	}

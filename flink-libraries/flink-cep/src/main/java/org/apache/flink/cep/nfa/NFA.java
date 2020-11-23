@@ -84,6 +84,8 @@ import static org.apache.flink.cep.nfa.MigrationUtils.deserializeComputationStat
  */
 public class NFA<T> {
 
+	private final String patternId;
+
 	/**
 	 * A set of all the valid NFA states, as returned by the
 	 * {@link NFACompiler NFACompiler}.
@@ -105,12 +107,18 @@ public class NFA<T> {
 	private final boolean handleTimeout;
 
 	public NFA(
+			final String patternId,
 			final Collection<State<T>> validStates,
 			final long windowTime,
 			final boolean handleTimeout) {
+		this.patternId = patternId;
 		this.windowTime = windowTime;
 		this.handleTimeout = handleTimeout;
 		this.states = loadStates(validStates);
+	}
+
+	public String getPatternId() {
+		return patternId;
 	}
 
 	private Map<String, State<T>> loadStates(final Collection<State<T>> validStates) {
@@ -133,7 +141,7 @@ public class NFA<T> {
 				startingStates.add(ComputationState.createStartState(state.getName()));
 			}
 		}
-		return new NFAState(startingStates);
+		return new NFAState(patternId, startingStates);
 	}
 
 	private State<T> getState(ComputationState state) {

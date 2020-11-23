@@ -23,12 +23,13 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 /**
  * Exemplary event for usage in tests of CEP. See also {@link SubEvent}
  */
-public class Event {
+public class Event implements Serializable {
 	private String name;
 	private double price;
 	private int id;

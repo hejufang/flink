@@ -33,20 +33,19 @@ import org.apache.flink.cep.EventComparator;
 import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
 import org.apache.flink.cep.nfa.NFA;
-import org.apache.flink.cep.nfa.NFA.MigratedNFA;
 import org.apache.flink.cep.nfa.NFAState;
 import org.apache.flink.cep.nfa.NFAStateSerializer;
 import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.nfa.compiler.NFACompiler;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
+import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MeterView;
-import org.apache.flink.runtime.state.KeyedStateFunction;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
@@ -54,14 +53,18 @@ import org.apache.flink.streaming.api.graph.StreamConfig;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.InternalTimer;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
-import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.operators.Triggerable;
+import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
+import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -74,20 +77,16 @@ import java.util.PriorityQueue;
 import java.util.stream.Stream;
 
 /**
- * CEP pattern operator for a keyed input stream. For each key, the operator creates
- * a {@link NFA} and a priority queue to buffer out of order elements. Both data structures are
- * stored using the managed keyed state.
- *
- * @param <IN> Type of the input elements
- * @param <KEY> Type of the key on which the input stream is keyed
- * @param <OUT> Type of the output elements
+ * The CepOperator which can cooperate with pattern data stream.
  */
 @Internal
-public class CepOperator<IN, KEY, OUT>
+public class CoCepOperator<IN, KEY, OUT>
 		extends AbstractUdfStreamOperator<OUT, PatternProcessFunction<IN, OUT>>
-		implements OneInputStreamOperator<IN, OUT>, Triggerable<KEY, VoidNamespace> {
+		implements TwoInputStreamOperator<IN, Pattern<IN, IN>, OUT>, Triggerable<KEY, VoidNamespace> {
 
-	private static final long serialVersionUID = -4166778210774160757L;
+	private static final long serialVersionUID = -1243854353417L;
+
+	private static final Logger LOG = LoggerFactory.getLogger(CoCepOperator.class);
 
 	private static final String LATE_ELEMENTS_DROPPED_METRIC_NAME = "numLateRecordsDropped";
 	private static final String LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME = "lateRecordsDroppedRate";
@@ -102,15 +101,13 @@ public class CepOperator<IN, KEY, OUT>
 	private static final String NFA_STATE_NAME = "nfaStateName";
 	private static final String EVENT_QUEUE_STATE_NAME = "eventQueuesStateName";
 
-	private final NFACompiler.NFAFactory<IN> nfaFactory;
-
 	private transient ValueState<NFAState> computationStates;
 	private transient MapState<Long, List<IN>> elementQueueState;
 	private transient SharedBuffer<IN> partialMatches;
 
 	private transient InternalTimerService<VoidNamespace> timerService;
 
-	private transient NFA<IN> nfa;
+	private transient NFA<IN> currentNFA;
 
 	/**
 	 * The last seen watermark. This will be used to
@@ -131,7 +128,7 @@ public class CepOperator<IN, KEY, OUT>
 	private final AfterMatchSkipStrategy afterMatchSkipStrategy;
 
 	/** Context passed to user function. */
-	private transient ContextFunctionImpl context;
+	private transient CoCepOperator.ContextFunctionImpl context;
 
 	/** Main output collector, that sets a proper timestamp to the StreamRecord. */
 	private transient TimestampedCollector<OUT> collector;
@@ -150,10 +147,9 @@ public class CepOperator<IN, KEY, OUT>
 	private transient Meter lateRecordsDroppedRate;
 	private transient Gauge<Long> watermarkLatency;
 
-	public CepOperator(
+	public CoCepOperator(
 			final TypeSerializer<IN> inputSerializer,
 			final boolean isProcessingTime,
-			final NFACompiler.NFAFactory<IN> nfaFactory,
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final AfterMatchSkipStrategy afterMatchSkipStrategy,
 			final PatternProcessFunction<IN, OUT> function,
@@ -161,7 +157,6 @@ public class CepOperator<IN, KEY, OUT>
 		super(function);
 
 		this.inputSerializer = Preconditions.checkNotNull(inputSerializer);
-		this.nfaFactory = Preconditions.checkNotNull(nfaFactory);
 
 		this.isProcessingTime = isProcessingTime;
 		this.comparator = comparator;
@@ -187,9 +182,9 @@ public class CepOperator<IN, KEY, OUT>
 
 		// initializeState through the provided context
 		computationStates = context.getKeyedStateStore().getState(
-			new ValueStateDescriptor<>(
-				NFA_STATE_NAME,
-				new NFAStateSerializer()));
+				new ValueStateDescriptor<>(
+						NFA_STATE_NAME,
+						new NFAStateSerializer()));
 
 		partialMatches = new SharedBuffer<>(context.getKeyedStateStore(), inputSerializer);
 
@@ -198,29 +193,6 @@ public class CepOperator<IN, KEY, OUT>
 						EVENT_QUEUE_STATE_NAME,
 						LongSerializer.INSTANCE,
 						new ListSerializer<>(inputSerializer)));
-
-		migrateOldState();
-	}
-
-	private void migrateOldState() throws Exception {
-		getKeyedStateBackend().applyToAllKeys(
-			VoidNamespace.INSTANCE,
-			VoidNamespaceSerializer.INSTANCE,
-			new ValueStateDescriptor<>(
-				"nfaOperatorStateName",
-				new NFA.NFASerializer<>(inputSerializer)
-			),
-			new KeyedStateFunction<Object, ValueState<MigratedNFA<IN>>>() {
-				@Override
-				public void process(Object key, ValueState<MigratedNFA<IN>> state) throws Exception {
-					MigratedNFA<IN> oldState = state.value();
-					computationStates.update(new NFAState("default", oldState.getComputationStates()));
-					org.apache.flink.cep.nfa.SharedBuffer<IN> sharedBuffer = oldState.getSharedBuffer();
-					partialMatches.init(sharedBuffer.getEventsBuffer(), sharedBuffer.getPages());
-					state.clear();
-				}
-			}
-		);
 	}
 
 	@Override
@@ -231,18 +203,15 @@ public class CepOperator<IN, KEY, OUT>
 				VoidNamespaceSerializer.INSTANCE,
 				this);
 
-		nfa = nfaFactory.createNFA();
-		nfa.open(cepRuntimeContext, new Configuration());
-
-		context = new ContextFunctionImpl();
+		context = new CoCepOperator.ContextFunctionImpl();
 		collector = new TimestampedCollector<>(output);
-		cepTimerService = new TimerServiceImpl();
+		cepTimerService = new CoCepOperator.TimerServiceImpl();
 
 		// metrics
 		this.numLateRecordsDropped = metrics.counter(LATE_ELEMENTS_DROPPED_METRIC_NAME);
 		this.lateRecordsDroppedRate = metrics.meter(
-			LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME,
-			new MeterView(numLateRecordsDropped, 60));
+				LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME,
+				new MeterView(numLateRecordsDropped, 60));
 		this.watermarkLatency = metrics.gauge(WATERMARK_LATENCY_METRIC_NAME, () -> {
 			long watermark = timerService.currentWatermark();
 			if (watermark < 0) {
@@ -254,15 +223,29 @@ public class CepOperator<IN, KEY, OUT>
 	}
 
 	@Override
+	public void processElement2(StreamRecord<Pattern<IN, IN>> element) throws Exception {
+		final Pattern<IN, IN> pattern = element.getValue();
+
+		final boolean timeoutHandling = getUserFunction() instanceof TimedOutPartialMatchHandler;
+		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling);
+
+		final NFA<IN> nfa = nfaFactory.createNFA();
+		nfa.open(cepRuntimeContext, new Configuration());
+
+		// update currentNFA
+		this.currentNFA = nfa;
+	}
+
+	@Override
 	public void close() throws Exception {
 		super.close();
-		if (nfa != null) {
-			nfa.close();
+		if (currentNFA != null) {
+			currentNFA.close();
 		}
 	}
 
 	@Override
-	public void processElement(StreamRecord<IN> element) throws Exception {
+	public void processElement1(StreamRecord<IN> element) throws Exception {
 		if (isProcessingTime) {
 			if (comparator == null) {
 				// there can be no out of order elements in processing time
@@ -303,6 +286,11 @@ public class CepOperator<IN, KEY, OUT>
 				lateRecordsDroppedRate.markEvent();
 			}
 		}
+	}
+
+	@Override
+	public void processWatermark1(Watermark mark) throws Exception {
+		processWatermark(mark);
 	}
 
 	/**
@@ -354,13 +342,13 @@ public class CepOperator<IN, KEY, OUT>
 			advanceTime(nfaState, timestamp);
 			try (Stream<IN> elements = sort(elementQueueState.get(timestamp))) {
 				elements.forEachOrdered(
-					event -> {
-						try {
-							processEvent(nfaState, event, timestamp);
-						} catch (Exception e) {
-							throw new RuntimeException(e);
+						event -> {
+							try {
+								processEvent(nfaState, event, timestamp);
+							} catch (Exception e) {
+								throw new RuntimeException(e);
+							}
 						}
-					}
 				);
 			}
 			elementQueueState.remove(timestamp);
@@ -398,13 +386,13 @@ public class CepOperator<IN, KEY, OUT>
 			advanceTime(nfa, timestamp);
 			try (Stream<IN> elements = sort(elementQueueState.get(timestamp))) {
 				elements.forEachOrdered(
-					event -> {
-						try {
-							processEvent(nfa, event, timestamp);
-						} catch (Exception e) {
-							throw new RuntimeException(e);
+						event -> {
+							try {
+								processEvent(nfa, event, timestamp);
+							} catch (Exception e) {
+								throw new RuntimeException(e);
+							}
 						}
-					}
 				);
 			}
 			elementQueueState.remove(timestamp);
@@ -425,7 +413,13 @@ public class CepOperator<IN, KEY, OUT>
 
 	private NFAState getNFAState() throws IOException {
 		NFAState nfaState = computationStates.value();
-		return nfaState != null ? nfaState : nfa.createInitialNFAState();
+		if (nfaState != null && currentNFA.getPatternId().equals(nfaState.getPatternId())) {
+			return nfaState;
+		} else {
+			Preconditions.checkArgument(currentNFA != null, "The pattern is not defined. Please check your pattern data stream if using broadcast.");
+			computationStates.update(currentNFA.createInitialNFAState());
+			return computationStates.value();
+		}
 	}
 
 	private void updateNFA(NFAState nfaState) throws IOException {
@@ -454,7 +448,7 @@ public class CepOperator<IN, KEY, OUT>
 	private void processEvent(NFAState nfaState, IN event, long timestamp) throws Exception {
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
 			Collection<Map<String, List<IN>>> patterns =
-				nfa.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
+					currentNFA.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
 			processMatchedSequences(patterns, timestamp);
 		}
 	}
@@ -466,7 +460,7 @@ public class CepOperator<IN, KEY, OUT>
 	private void advanceTime(NFAState nfaState, long timestamp) throws Exception {
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
 			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
-					nfa.advanceTime(sharedBufferAccessor, nfaState, timestamp);
+					currentNFA.advanceTime(sharedBufferAccessor, nfaState, timestamp);
 			if (!timedOut.isEmpty()) {
 				processTimedOutSequences(timedOut);
 			}

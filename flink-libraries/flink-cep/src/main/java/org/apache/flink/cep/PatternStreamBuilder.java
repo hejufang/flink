@@ -26,20 +26,25 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.functions.NullByteKeySelector;
 import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
+import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.nfa.compiler.NFACompiler;
 import org.apache.flink.cep.operator.CepOperator;
+import org.apache.flink.cep.operator.CoCepOperator;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
 import java.util.Map;
 
+import static org.apache.flink.streaming.api.environment.StreamExecutionEnvironment.getExecutionEnvironment;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -49,6 +54,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 final class PatternStreamBuilder<IN> {
 
 	private final DataStream<IN> inputStream;
+
+	private final DataStream<Pattern<IN, IN>> patternDataStream;
 
 	private final Pattern<IN, ?> pattern;
 
@@ -62,12 +69,16 @@ final class PatternStreamBuilder<IN> {
 
 	private PatternStreamBuilder(
 			final DataStream<IN> inputStream,
-			final Pattern<IN, ?> pattern,
+			@Nullable final Pattern<IN, ?> pattern,
+			@Nullable final DataStream<Pattern<IN, IN>> patternDataStream,
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final OutputTag<IN> lateDataOutputTag) {
+		Preconditions.checkArgument(pattern != null || patternDataStream != null);
+		Preconditions.checkArgument(!(pattern != null && patternDataStream != null));
 
 		this.inputStream = checkNotNull(inputStream);
-		this.pattern = checkNotNull(pattern);
+		this.pattern = pattern;
+		this.patternDataStream = patternDataStream;
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
 	}
@@ -87,11 +98,11 @@ final class PatternStreamBuilder<IN> {
 	}
 
 	PatternStreamBuilder<IN> withComparator(final EventComparator<IN> comparator) {
-		return new PatternStreamBuilder<>(inputStream, pattern, checkNotNull(comparator), lateDataOutputTag);
+		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, checkNotNull(comparator), lateDataOutputTag);
 	}
 
 	PatternStreamBuilder<IN> withLateDataOutputTag(final OutputTag<IN> lateDataOutputTag) {
-		return new PatternStreamBuilder<>(inputStream, pattern, comparator, checkNotNull(lateDataOutputTag));
+		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, comparator, checkNotNull(lateDataOutputTag));
 	}
 
 	/**
@@ -110,6 +121,58 @@ final class PatternStreamBuilder<IN> {
 		checkNotNull(outTypeInfo);
 		checkNotNull(processFunction);
 
+		// decide whether we build OneInputStream or TwoInputStream
+		if (pattern != null) {
+			return buildOneInputStream(outTypeInfo, processFunction);
+		} else if (patternDataStream != null) {
+			return buildTwoInputStream(outTypeInfo, processFunction);
+		} else {
+			throw new UnsupportedOperationException();
+		}
+	}
+
+	private <OUT, K> SingleOutputStreamOperator<OUT> buildTwoInputStream(
+			final TypeInformation<OUT> outTypeInfo,
+			final PatternProcessFunction<IN, OUT> processFunction) {
+		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
+		final boolean isProcessingTime = inputStream.getExecutionEnvironment().getStreamTimeCharacteristic() == TimeCharacteristic.ProcessingTime;
+
+		final CoCepOperator<IN, K, OUT> operator = new CoCepOperator<>(
+				inputSerializer,
+				isProcessingTime,
+				comparator,
+				AfterMatchSkipStrategy.skipPastLastEvent(),
+				processFunction,
+				lateDataOutputTag);
+
+		if (!(inputStream instanceof KeyedStream)) {
+			throw new UnsupportedOperationException();
+		}
+
+		final KeyedStream<IN, K> keyedStream = (KeyedStream<IN, K>) inputStream;
+
+		TwoInputTransformation<IN, Pattern<IN, IN>, OUT> transform = new TwoInputTransformation<>(
+				inputStream.getTransformation(),
+				patternDataStream.getTransformation(),
+				"CoCepOperator",
+				operator,
+				outTypeInfo,
+				inputStream.getExecutionEnvironment().getParallelism());
+
+		TypeInformation<?> keyType1 = keyedStream.getKeyType();
+		transform.setStateKeySelectors(keyedStream.getKeySelector(), null);
+		transform.setStateKeyType(keyType1);
+
+		SingleOutputStreamOperator<OUT> returnStream = new SingleOutputStreamOperator(getExecutionEnvironment(), transform);
+
+		getExecutionEnvironment().addOperator(transform);
+
+		return returnStream;
+	}
+
+	private <OUT, K> SingleOutputStreamOperator<OUT> buildOneInputStream(
+			final TypeInformation<OUT> outTypeInfo,
+			final PatternProcessFunction<IN, OUT> processFunction) {
 		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
 		final boolean isProcessingTime = inputStream.getExecutionEnvironment().getStreamTimeCharacteristic() == TimeCharacteristic.ProcessingTime;
 
@@ -117,29 +180,29 @@ final class PatternStreamBuilder<IN> {
 		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling);
 
 		final CepOperator<IN, K, OUT> operator = new CepOperator<>(
-			inputSerializer,
-			isProcessingTime,
-			nfaFactory,
-			comparator,
-			pattern.getAfterMatchSkipStrategy(),
-			processFunction,
-			lateDataOutputTag);
+				inputSerializer,
+				isProcessingTime,
+				nfaFactory,
+				comparator,
+				pattern.getAfterMatchSkipStrategy(),
+				processFunction,
+				lateDataOutputTag);
 
 		final SingleOutputStreamOperator<OUT> patternStream;
 		if (inputStream instanceof KeyedStream) {
 			KeyedStream<IN, K> keyedStream = (KeyedStream<IN, K>) inputStream;
 
 			patternStream = keyedStream.transform(
-				"CepOperator",
-				outTypeInfo,
-				operator);
+					"CepOperator",
+					outTypeInfo,
+					operator);
 		} else {
 			KeySelector<IN, Byte> keySelector = new NullByteKeySelector<>();
 
 			patternStream = inputStream.keyBy(keySelector).transform(
-				"GlobalCepOperator",
-				outTypeInfo,
-				operator
+					"GlobalCepOperator",
+					outTypeInfo,
+					operator
 			).forceNonParallel();
 		}
 
@@ -149,6 +212,10 @@ final class PatternStreamBuilder<IN> {
 	// ---------------------------------------- factory-like methods ---------------------------------------- //
 
 	static <IN> PatternStreamBuilder<IN> forStreamAndPattern(final DataStream<IN> inputStream, final Pattern<IN, ?> pattern) {
-		return new PatternStreamBuilder<>(inputStream, pattern, null, null);
+		return new PatternStreamBuilder<>(inputStream, pattern, null, null, null);
+	}
+
+	static <IN> PatternStreamBuilder<IN> forStreamAndPatternDataStream(final DataStream<IN> inputStream, final DataStream<Pattern<IN, IN>> patternDataStream) {
+		return new PatternStreamBuilder<>(inputStream, null, patternDataStream, null, null);
 	}
 }
