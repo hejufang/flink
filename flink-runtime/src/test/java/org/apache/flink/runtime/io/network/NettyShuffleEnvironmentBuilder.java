@@ -159,6 +159,7 @@ public class NettyShuffleEnvironmentBuilder {
 				compressionCodec,
 				maxBuffersPerChannel,
 				5,
+				false,
 				false),
 			taskManagerLocation,
 			new TaskEventDispatcher(),

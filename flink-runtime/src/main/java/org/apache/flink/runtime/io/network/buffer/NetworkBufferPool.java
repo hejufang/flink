@@ -45,6 +45,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -81,6 +82,11 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	private final Duration requestSegmentsTimeout;
 
+	private final boolean lazyAllocate;
+
+	// Track the number of segments that have been allocated.
+	private AtomicInteger numberOfAllocatedMemorySegments = new AtomicInteger(0);
+
 	private final AvailabilityHelper availabilityHelper = new AvailabilityHelper();
 
 	@VisibleForTesting
@@ -96,6 +102,18 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			int segmentSize,
 			int numberOfSegmentsToRequest,
 			Duration requestSegmentsTimeout) {
+		this(numberOfSegmentsToAllocate, segmentSize, numberOfSegmentsToRequest, requestSegmentsTimeout, false);
+	}
+
+	/**
+	 * Allocates all {@link MemorySegment} instances managed by this pool.
+	 */
+	public NetworkBufferPool(
+		int numberOfSegmentsToAllocate,
+		int segmentSize,
+		int numberOfSegmentsToRequest,
+		Duration requestSegmentsTimeout,
+		boolean lazyAllocate) {
 		this.totalNumberOfMemorySegments = numberOfSegmentsToAllocate;
 		this.memorySegmentSize = segmentSize;
 
@@ -106,8 +124,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		checkArgument(requestSegmentsTimeout.toMillis() > 0,
 				"The timeout for requesting exclusive buffers should be positive.");
 		this.requestSegmentsTimeout = requestSegmentsTimeout;
-
-		final long sizeInLong = (long) segmentSize;
+		this.lazyAllocate = lazyAllocate;
 
 		try {
 			this.availableMemorySegments = new ArrayDeque<>(numberOfSegmentsToAllocate);
@@ -117,9 +134,21 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 					+ numberOfSegmentsToAllocate + " - " + err.getMessage());
 		}
 
+		if (!lazyAllocate) {
+			allocateMemorySegmentsEager();
+		} else {
+			long maxNetworkBufferMB = (memorySegmentSize * totalNumberOfMemorySegments) >> 20;
+			LOG.info("Network buffer pool is run in lazy allocate mode, configed {} MB for network "
+					+ "buffer pool (number of memory segments: {}, bytes per segment: {})",
+				maxNetworkBufferMB, totalNumberOfMemorySegments, memorySegmentSize);
+		}
+	}
+
+	private void allocateMemorySegmentsEager() {
+		final long sizeInLong = (long) memorySegmentSize;
 		try {
-			for (int i = 0; i < numberOfSegmentsToAllocate; i++) {
-				availableMemorySegments.add(MemorySegmentFactory.allocateUnpooledOffHeapMemory(segmentSize, null));
+			for (int i = 0; i < totalNumberOfMemorySegments; i++) {
+				availableMemorySegments.add(MemorySegmentFactory.allocateUnpooledOffHeapMemory(memorySegmentSize, null));
 			}
 		}
 		catch (OutOfMemoryError err) {
@@ -127,8 +156,9 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 			// free some memory
 			availableMemorySegments.clear();
+			numberOfAllocatedMemorySegments.set(0);
 
-			long requiredMb = (sizeInLong * numberOfSegmentsToAllocate) >> 20;
+			long requiredMb = (sizeInLong * totalNumberOfMemorySegments) >> 20;
 			long allocatedMb = (sizeInLong * allocated) >> 20;
 			long missingMb = requiredMb - allocatedMb;
 
@@ -143,14 +173,49 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		long allocatedMb = (sizeInLong * availableMemorySegments.size()) >> 20;
 
 		LOG.info("Allocated {} MB for network buffer pool (number of memory segments: {}, bytes per segment: {}).",
-				allocatedMb, availableMemorySegments.size(), segmentSize);
+				allocatedMb, availableMemorySegments.size(), memorySegmentSize);
 	}
 
 	@Nullable
 	public MemorySegment requestMemorySegment() {
+		MemorySegment memorySegment = null;
 		synchronized (availableMemorySegments) {
-			return internalRequestMemorySegment();
+			memorySegment = internalRequestMemorySegment();
+			if (memorySegment != null) {
+				return memorySegment;
+			}
 		}
+
+		if (lazyAllocate) {
+			memorySegment = allocateMemorySegmentLazy();
+		}
+
+		return memorySegment;
+	}
+
+	public MemorySegment allocateMemorySegmentLazy() {
+		if (numberOfAllocatedMemorySegments.get() < totalNumberOfMemorySegments) {
+			if (numberOfAllocatedMemorySegments.incrementAndGet() <= totalNumberOfMemorySegments) {
+				try {
+					return MemorySegmentFactory.allocateUnpooledOffHeapMemory(memorySegmentSize, null);
+				} catch (OutOfMemoryError err) {
+					numberOfAllocatedMemorySegments.decrementAndGet();
+
+					long sizeInLong = (long) memorySegmentSize;
+					long configedMb = sizeInLong * totalNumberOfMemorySegments >> 20;
+					long allocatedMb = sizeInLong * numberOfAllocatedMemorySegments.get() >> 20;
+					long missingMb = configedMb - allocatedMb;
+					throw new OutOfMemoryError("Could not allocate enough memory segments for NetworkBufferPool " +
+						"(configed (Mb): " + configedMb +
+						", allocated (Mb): " + allocatedMb +
+						", missing (Mb): " + missingMb + "). Cause: " + err.getMessage());
+				}
+			} else {
+				numberOfAllocatedMemorySegments.decrementAndGet();
+			}
+		}
+
+		return null;
 	}
 
 	public void recycle(MemorySegment segment) {
@@ -178,12 +243,20 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 					throw new IllegalStateException("Buffer pool is destroyed.");
 				}
 
-				MemorySegment segment;
+				MemorySegment segment = null;
+
 				synchronized (availableMemorySegments) {
 					if ((segment = internalRequestMemorySegment()) == null) {
 						availableMemorySegments.wait(2000);
 					}
 				}
+
+				if (lazyAllocate) {
+					if (segment == null) {
+						segment = allocateMemorySegmentLazy();
+					}
+				}
+
 				if (segment != null) {
 					segments.add(segment);
 				}
@@ -263,6 +336,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			MemorySegment segment;
 			while ((segment = availableMemorySegments.poll()) != null) {
 				segment.free();
+				numberOfAllocatedMemorySegments.decrementAndGet();
 			}
 		}
 	}
@@ -285,6 +359,10 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		synchronized (factoryLock) {
 			return allBufferPools.size();
 		}
+	}
+
+	public int getNumberOfAllocatedMemorySegments() {
+		return numberOfAllocatedMemorySegments.get();
 	}
 
 	public int countBuffers() {

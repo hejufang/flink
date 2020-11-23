@@ -167,6 +167,9 @@ common:
   job.work.dir: ${hdfs.prefix}/${clusterName}/1.11/
   flink.partition-discovery.interval-millis: 600000 # default 10min for kafka partition auto discovery interval.
 
+  # smart-resource
+  taskmanager.network.memory.lazy-allocate: true
+
 flink:
   dc: cn
   clusterName: flink

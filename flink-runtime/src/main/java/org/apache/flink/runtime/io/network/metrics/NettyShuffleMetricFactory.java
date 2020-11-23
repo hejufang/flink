@@ -48,6 +48,7 @@ public class NettyShuffleMetricFactory {
 
 	private static final String METRIC_TOTAL_MEMORY_SEGMENT = "TotalMemorySegments";
 	private static final String METRIC_AVAILABLE_MEMORY_SEGMENT = "AvailableMemorySegments";
+	private static final String METRIC_ALLOCATED_MEMORY_SEGMENT = "AllocatedMemorySegments";
 
 	// task level metric group structure: Shuffle.Netty.<Input|Output>.Buffers
 
@@ -92,6 +93,8 @@ public class NettyShuffleMetricFactory {
 			networkBufferPool::getTotalNumberOfMemorySegments);
 		networkGroup.<Integer, Gauge<Integer>>gauge(METRIC_AVAILABLE_MEMORY_SEGMENT,
 			networkBufferPool::getNumberOfAvailableMemorySegments);
+		networkGroup.<Integer, Gauge<Integer>>gauge(METRIC_ALLOCATED_MEMORY_SEGMENT,
+			networkBufferPool::getNumberOfAllocatedMemorySegments);
 	}
 
 	public static MetricGroup createShuffleIOOwnerMetricGroup(MetricGroup parentGroup) {
