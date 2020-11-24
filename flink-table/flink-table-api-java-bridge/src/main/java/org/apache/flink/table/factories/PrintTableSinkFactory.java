@@ -35,6 +35,7 @@ import org.apache.flink.table.types.DataType;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 
@@ -151,11 +152,13 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 
 		private final DataStructureConverter converter;
 		private final PrintSinkOutputWriter<String> writer;
+		private final double printSampleRatio;
 
 		private RowDataPrintFunction(
 				DataStructureConverter converter, String printIdentifier, boolean stdErr, double printSampleRatio) {
 			this.converter = converter;
-			this.writer = new PrintSinkOutputWriter<>(printIdentifier, stdErr, printSampleRatio);
+			this.printSampleRatio = printSampleRatio;
+			this.writer = new PrintSinkOutputWriter<>(printIdentifier, stdErr);
 		}
 
 		@Override
@@ -167,9 +170,11 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 
 		@Override
 		public void invoke(RowData value, Context context) {
-			String rowKind = value.getRowKind().shortString();
-			Object data = converter.toExternal(value);
-			writer.write(rowKind + "(" + data + ")");
+			if (ThreadLocalRandom.current().nextDouble() < printSampleRatio) {
+				String rowKind = value.getRowKind().shortString();
+				Object data = converter.toExternal(value);
+				writer.write(rowKind + "(" + data + ")");
+			}
 		}
 	}
 }
