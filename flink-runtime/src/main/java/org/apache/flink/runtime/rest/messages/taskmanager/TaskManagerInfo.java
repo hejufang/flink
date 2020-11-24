@@ -235,8 +235,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			Objects.equals(resourceId, that.resourceId) &&
 			Objects.equals(address, that.address) &&
 			Objects.equals(hardwareDescription, that.hardwareDescription) &&
-			webShell == that.webShell &&
-			tmLog == that.tmLog;
+			Objects.equals(webShell, that.webShell) &&
+			Objects.equals(tmLog, that.tmLog);
 	}
 
 	@Override

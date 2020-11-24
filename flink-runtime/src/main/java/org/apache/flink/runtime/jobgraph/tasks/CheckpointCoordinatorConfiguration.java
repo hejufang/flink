@@ -184,7 +184,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isExactlyOnce == that.isExactlyOnce &&
 			isUnalignedCheckpointsEnabled == that.isUnalignedCheckpointsEnabled &&
 			checkpointRetentionPolicy == that.checkpointRetentionPolicy &&
-			checkpointSchedulerConfiguration == that.checkpointSchedulerConfiguration &&
+			Objects.equals(checkpointSchedulerConfiguration, that.checkpointSchedulerConfiguration) &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
 			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber;
 	}
@@ -234,7 +234,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		private CheckpointRetentionPolicy checkpointRetentionPolicy = CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION;
 		private boolean isExactlyOnce = true;
 		private boolean isPreferCheckpointForRecovery = true;
-		private CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration;
+		private CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration = CheckpointSchedulingStrategies.defaultStrategy();
 		private int tolerableCheckpointFailureNumber;
 		private boolean isUnalignedCheckpointsEnabled;
 

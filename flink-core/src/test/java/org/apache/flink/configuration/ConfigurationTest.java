@@ -345,8 +345,8 @@ public class ConfigurationTest extends TestLogger {
 		final Duration duration = Duration.ofMillis(3000);
 		configuration.set(durationConfigOption, duration);
 
-		assertEquals(listValues, configuration.toMap().get(listConfigOption.key()));
-		assertEquals(mapValues, configuration.toMap().get(mapConfigOption.key()));
+		assertEquals("\"" + listValues + "\"", configuration.toMap().get(listConfigOption.key()));
+		assertEquals("\"" + mapValues + "\"", configuration.toMap().get(mapConfigOption.key()));
 		assertEquals(duration.toNanos() + " ns", configuration.toMap().get(durationConfigOption.key()));
 	}
 

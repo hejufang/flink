@@ -525,9 +525,9 @@ public class TaskTest extends TestLogger {
 		expected.put(ExecutionState.DEPLOYING, initialTaskState);
 		expected.put(ExecutionState.FINISHED, initialTaskState);
 
-		expected.put(ExecutionState.CANCELED, ExecutionState.CANCELING);
-		expected.put(ExecutionState.CANCELING, ExecutionState.CANCELING);
-		expected.put(ExecutionState.FAILED, ExecutionState.CANCELING);
+		expected.put(ExecutionState.CANCELED, ExecutionState.FAILED);
+		expected.put(ExecutionState.CANCELING, ExecutionState.FAILED);
+		expected.put(ExecutionState.FAILED, ExecutionState.FAILED);
 
 		int producingStateCounter = 0;
 		for (ExecutionState state : ExecutionState.values()) {

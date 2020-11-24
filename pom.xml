@@ -1589,7 +1589,7 @@ under the License.
 						<log4j.configuration>${log4j.configuration}</log4j.configuration>
 						<hadoop.version>${hadoop.version}</hadoop.version>
 					</systemPropertyVariables>
-					<argLine>-Xms256m -Xmx2048m -Dmvn.forkNumber=${surefire.forkNumber} -XX:+UseG1GC</argLine>
+					<argLine>-Xms256m -Xmx2048m -XX:MaxPermSize=256m -Dmvn.forkNumber=${surefire.forkNumber} -XX:+UseG1GC</argLine>
 				</configuration>
 				<executions>
 					<!--execute all the unit tests-->

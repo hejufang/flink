@@ -302,7 +302,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	@Override
 	public void allocateSlotsAndDeploy(final List<ExecutionVertexDeploymentOption> executionVertexDeploymentOptions) {
-//		validateDeploymentOptions(executionVertexDeploymentOptions);
+		validateDeploymentOptions(executionVertexDeploymentOptions);
 
 		final Map<ExecutionVertexID, ExecutionVertexDeploymentOption> deploymentOptionsByVertex =
 			groupDeploymentOptionsByVertexId(executionVertexDeploymentOptions);
@@ -329,11 +329,15 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private void validateDeploymentOptions(final Collection<ExecutionVertexDeploymentOption> deploymentOptions) {
 		deploymentOptions.stream()
-			.map(ExecutionVertexDeploymentOption::getExecutionVertexId)
-			.map(this::getExecutionVertex)
-			.forEach(v -> checkState(
-				v.getExecutionState() == ExecutionState.CREATED,
-				"expected vertex %s to be in CREATED state, was: %s", v.getID(), v.getExecutionState()));
+			.forEach(deploymentOption -> {
+				ExecutionVertexID vertexID = deploymentOption.getExecutionVertexId();
+				ExecutionVertex vertex = getExecutionVertex(vertexID);
+				ExecutionState currentState = deploymentOption.getDeploymentOption().isDeployCopy() ?
+					vertex.getCopyExecution().getState() : vertex.getExecutionState();
+				checkState(
+					currentState == ExecutionState.CREATED,
+					"expected vertex %s to be in CREATED state, was: %s", vertexID, currentState);
+			});
 	}
 
 	private static Map<ExecutionVertexID, ExecutionVertexDeploymentOption> groupDeploymentOptionsByVertexId(
