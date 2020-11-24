@@ -37,15 +37,15 @@ public class ExecutionJobVertexTest {
 
 		// default minimum
 		ExecutionJobVertex executionJobVertex = createExecutionJobVertex(1, NOT_CONFIGURED);
-		Assert.assertEquals(128, executionJobVertex.getMaxParallelism());
+		Assert.assertEquals(1024, executionJobVertex.getMaxParallelism());
 
 		// test round up part 1
 		executionJobVertex = createExecutionJobVertex(171, NOT_CONFIGURED);
-		Assert.assertEquals(256, executionJobVertex.getMaxParallelism());
+		Assert.assertEquals(1024, executionJobVertex.getMaxParallelism());
 
 		// test round up part 2
 		executionJobVertex = createExecutionJobVertex(172, NOT_CONFIGURED);
-		Assert.assertEquals(512, executionJobVertex.getMaxParallelism());
+		Assert.assertEquals(1024, executionJobVertex.getMaxParallelism());
 
 		// test round up limit
 		executionJobVertex = createExecutionJobVertex(1 << 15, NOT_CONFIGURED);

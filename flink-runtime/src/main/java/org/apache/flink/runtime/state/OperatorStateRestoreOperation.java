@@ -70,7 +70,12 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 		this.registeredOperatorStates = registeredOperatorStates;
 		this.registeredBroadcastStates = registeredBroadcastStates;
 		this.stateHandles = stateHandles;
-		this.restoreThreads = threads;
+
+		if (threads <= 0) {
+			this.restoreThreads = 1;
+		} else {
+			this.restoreThreads = threads;
+		}
 	}
 
 	@Override
