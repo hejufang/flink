@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.nodes.physical.stream
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.transformations.OneInputTransformation
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkRelBuilder.PlannerNamedWindowProperty
@@ -323,6 +324,10 @@ abstract class StreamExecGroupWindowAggregateBase(
 
     if (emitStrategy.enabledEmitUnchanged) {
       newBuilder.enableEmitUnchanged()
+    }
+
+    if (config.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)) {
+      newBuilder.withBundleTrigger(AggregateUtil.createMiniBatchTrigger(config))
     }
 
     aggsHandler match {

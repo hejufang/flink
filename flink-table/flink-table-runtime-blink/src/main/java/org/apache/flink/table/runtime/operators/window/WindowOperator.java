@@ -25,6 +25,7 @@ import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Meter;
@@ -39,11 +40,14 @@ import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.operators.Triggerable;
+import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.RowDataUtil;
 import org.apache.flink.table.runtime.dataview.PerWindowStateDataViewStore;
 import org.apache.flink.table.runtime.generated.NamespaceAggsHandleFunctionBase;
+import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTrigger;
+import org.apache.flink.table.runtime.operators.bundle.trigger.BundleTriggerCallback;
 import org.apache.flink.table.runtime.operators.window.assigners.MergingWindowAssigner;
 import org.apache.flink.table.runtime.operators.window.assigners.PanedWindowAssigner;
 import org.apache.flink.table.runtime.operators.window.assigners.WindowAssigner;
@@ -57,7 +61,13 @@ import org.apache.flink.table.types.logical.LogicalType;
 
 import org.apache.commons.lang3.ArrayUtils;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -97,7 +107,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public abstract class WindowOperator<K, W extends Window>
 		extends AbstractStreamOperator<RowData>
-		implements OneInputStreamOperator<RowData, RowData>, Triggerable<K, W> {
+		implements OneInputStreamOperator<RowData, RowData>, Triggerable<K, W>, BundleTriggerCallback {
 
 	private static final long serialVersionUID = 1L;
 
@@ -159,6 +169,10 @@ public abstract class WindowOperator<K, W extends Window>
 	protected transient InternalValueState<K, W, RowData> previousState;
 
 	private transient TriggerContext triggerContext;
+
+	private BundleTrigger<RowData> bundleTrigger = null;
+
+	private transient Map<K, List<Tuple2<Long, RowData>>> bundle;
 
 	// ------------------------------------------------------------------------
 	// Metrics
@@ -230,6 +244,10 @@ public abstract class WindowOperator<K, W extends Window>
 
 	protected abstract void compileGeneratedCode();
 
+	public void setBundleTrigger(BundleTrigger<RowData> bundleTrigger) {
+		this.bundleTrigger = bundleTrigger;
+	}
+
 	@Override
 	public void open() throws Exception {
 		super.open();
@@ -297,10 +315,18 @@ public abstract class WindowOperator<K, W extends Window>
 				return internalTimerService.currentProcessingTime() - watermark;
 			}
 		});
+
+		if (bundleTrigger != null) {
+			bundle = new HashMap<>();
+			bundleTrigger.registerCallback(this);
+		}
 	}
 
 	@Override
 	public void close() throws Exception {
+		if (bundleTrigger != null) {
+			finishBundle();
+		}
 		super.close();
 		collector = null;
 		triggerContext = null;
@@ -320,6 +346,94 @@ public abstract class WindowOperator<K, W extends Window>
 	}
 
 	@Override
+	public void prepareSnapshotPreBarrier(long checkpointId) throws Exception {
+		if (bundleTrigger != null) {
+			finishBundle();
+		}
+		super.prepareSnapshotPreBarrier(checkpointId);
+	}
+
+	@Override
+	public void processWatermark(Watermark mark) throws Exception {
+		if (bundleTrigger != null) {
+			finishBundle();
+		}
+		super.processWatermark(mark);
+	}
+
+	@Override
+	public void finishBundle() throws Exception {
+		if (bundle.size() == 0) {
+			return; // quick check, in case of window_end triggers per key.
+		}
+		for (K key : bundle.keySet()) {
+			setCurrentKey(key);
+
+			Map<W, RowData> tempState = new HashMap<>();
+			Set<W> triggeredWindows = new HashSet<>();
+
+			for (Tuple2<Long, RowData> recordWithTimestamp : bundle.get(key)) {
+				long timestamp = recordWithTimestamp.f0;
+				RowData record = recordWithTimestamp.f1;
+
+				// the windows which the input row should be placed into
+				Collection<W> affectedWindows = windowFunction.assignStateNamespace(record, timestamp);
+				boolean isElementDropped = true;
+				for (W window : affectedWindows) {
+					isElementDropped = false;
+
+					RowData acc;
+					if (tempState.containsKey(window)) {
+						acc = tempState.get(window);
+					} else {
+						windowState.setCurrentNamespace(window);
+						acc = windowState.value();
+						if (acc == null) {
+							acc = windowAggregator.createAccumulators();
+						}
+					}
+					windowAggregator.setAccumulators(window, acc);
+
+					if (RowDataUtil.isAccumulateMsg(record)) {
+						windowAggregator.accumulate(record);
+					} else {
+						windowAggregator.retract(record);
+					}
+					acc = windowAggregator.getAccumulators();
+					tempState.put(window, acc);
+				}
+
+				Collection<W> actualWindows = windowFunction.assignActualWindows(record, timestamp);
+				for (W window : actualWindows) {
+					triggerContext.window = window;
+					boolean triggerResult = triggerContext.onElement(record, timestamp);
+					if (triggerResult) {
+						triggeredWindows.add(window);
+					}
+					// register a clean up timer for the window
+					registerCleanupTimer(window);
+				}
+
+				if (isElementDropped) {
+					// markEvent will increase numLateRecordsDropped
+					lateRecordsDroppedRate.markEvent();
+				}
+			}
+
+			for (W window : triggeredWindows) {
+				emitWindowResult(window);
+			}
+
+			// update state
+			for (Map.Entry<W, RowData> entry : tempState.entrySet()) {
+				windowState.setCurrentNamespace(entry.getKey());
+				windowState.update(entry.getValue());
+			}
+		}
+		bundle.clear();
+	}
+
+	@Override
 	public void processElement(StreamRecord<RowData> record) throws Exception {
 		RowData inputRow = record.getValue();
 		long startTimestamp = System.nanoTime();
@@ -328,6 +442,15 @@ public abstract class WindowOperator<K, W extends Window>
 			timestamp = inputRow.getLong(rowtimeIndex);
 		} else {
 			timestamp = internalTimerService.currentProcessingTime();
+		}
+
+		// mini-batch path.
+		if (bundleTrigger != null) {
+			K key = currentKey();
+			List<Tuple2<Long, RowData>> data = bundle.computeIfAbsent(key, k -> new ArrayList<>());
+			data.add(Tuple2.of(timestamp, inputRow));
+			bundleTrigger.onElement(inputRow);
+			return;
 		}
 
 		// the windows which the input row should be placed into
@@ -374,6 +497,10 @@ public abstract class WindowOperator<K, W extends Window>
 
 	@Override
 	public void onEventTime(InternalTimer<K, W> timer) throws Exception {
+		if (bundleTrigger != null) {
+			finishBundle();
+		}
+
 		setCurrentKey(timer.getKey());
 
 		triggerContext.window = timer.getNamespace();
@@ -391,6 +518,9 @@ public abstract class WindowOperator<K, W extends Window>
 	public void onProcessingTime(InternalTimer<K, W> timer) throws Exception {
 		if (functionsClosed) {
 			return;
+		}
+		if (bundleTrigger != null) {
+			finishBundle();
 		}
 
 		setCurrentKey(timer.getKey());
@@ -651,4 +781,7 @@ public abstract class WindowOperator<K, W extends Window>
 		return watermarkLatency;
 	}
 
+	public Map<K, List<Tuple2<Long, RowData>>> getBundle() {
+		return bundle;
+	}
 }

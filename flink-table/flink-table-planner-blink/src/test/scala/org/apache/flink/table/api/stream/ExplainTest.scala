@@ -131,6 +131,8 @@ class ExplainTest(extended: Boolean) extends TableTestBase {
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED, true)
     util.tableEnv.getConfig.getConfiguration.setString(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY, "3 s")
+    util.tableEnv.getConfig.getConfiguration.setLong(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE, 10);
     val table = util.tableEnv.sqlQuery(
       """
         |SELECT id1, T3.rowtime AS ts, text
