@@ -22,15 +22,11 @@ import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,7 +40,6 @@ import static org.apache.flink.connectors.rpc.util.ObjectUtil.generateSetMethodN
  * Factory of serialization runtime converter.
  */
 public class SerializationRuntimeConverterFactory {
-	private static final Logger LOG = LoggerFactory.getLogger(SerializationRuntimeConverterFactory.class);
 	public static SerializationRuntimeConverter createRowConverter(Class<?> requestClass, RowType rowType) {
 		Field[] fields = requestClass.getFields();
 		int len = rowType.getFieldCount();
@@ -52,36 +47,34 @@ public class SerializationRuntimeConverterFactory {
 		int convertIndex = 0; // The actually convert field index.
 		int actualFieldLength = fields.length - 1; // The java class which generate by thrift will add one more field.
 		SerializationRuntimeConverter[] converters = new SerializationRuntimeConverter[len];
-		for (int i = 0; i < actualFieldLength; i++) {
-			if (convertIndex == len) {
-				break;
-			}
-			if (fields[i].getName().equals(fieldNames.get(convertIndex))) {
-				Class<?> innerClass = fields[i].getType();
-				SerializationRuntimeConverter converter;
-				if (innerClass.isEnum()) {
-					converter = createEnumConverter(innerClass);
-				} else if (innerClass.equals(List.class) || innerClass.equals(Set.class)) {
-					converter = createObjectArrayConverter(fields[i], (ArrayType) rowType.getTypeAt(convertIndex));
-				} else if (innerClass.equals(Map.class)) {
-					converter = createMapConverter(fields[i], (MapType) rowType.getTypeAt(convertIndex));
-				} else if (isPrimitivePackageClass(innerClass) || innerClass.isPrimitive()){
-					converter = createPrimitiveConverter(innerClass);
-				} else {
-					converter = createRowConverter(innerClass, (RowType) rowType.getTypeAt(convertIndex));
+		Map<String, Method> setFieldMethods = new HashMap<>();
+		try {
+			for (int i = 0; i < actualFieldLength; i++) {
+				if (convertIndex == len) {
+					break;
 				}
-				converters[convertIndex++] = wrapIntoNullableConverter(converter);
+				if (fields[i].getName().equals(fieldNames.get(convertIndex))) {
+					Class<?> innerClass = fields[i].getType();
+					SerializationRuntimeConverter converter;
+					setFieldMethods.put(fieldNames.get(convertIndex),
+						requestClass.getMethod(generateSetMethodName(fieldNames.get(convertIndex)), innerClass));
+					if (innerClass.isEnum()) {
+						converter = createEnumConverter(innerClass);
+					} else if (innerClass.equals(List.class) || innerClass.equals(Set.class)) {
+						converter = createObjectArrayConverter(fields[i], (ArrayType) rowType.getTypeAt(convertIndex));
+					} else if (innerClass.equals(Map.class)) {
+						converter = createMapConverter(fields[i], (MapType) rowType.getTypeAt(convertIndex));
+					} else if (isPrimitivePackageClass(innerClass) || innerClass.isPrimitive()){
+						converter = createPrimitiveConverter(innerClass);
+					} else {
+						converter = createRowConverter(innerClass, (RowType) rowType.getTypeAt(convertIndex));
+					}
+					converters[convertIndex++] = wrapIntoNullableConverter(converter);
+				}
 			}
+		} catch (NoSuchMethodException e) {
+			throw new RuntimeException(String.format("Cannot find set method for %s", fieldNames.get(convertIndex)), e);
 		}
-		Map<String, Method> setFieldMethods =
-			Arrays.stream(fields).collect(HashMap::new, (setFieldMethodMap, field) -> {
-				try {
-					setFieldMethodMap.put(field.getName(),
-						requestClass.getMethod(generateSetMethodName(field.getName()), field.getType()));
-				} catch (NoSuchMethodException e) {
-					throw new RuntimeException(String.format("Cannot find set method for %s", field.getName()), e);
-				}
-			}, HashMap::putAll);
 		return (message) -> {
 			Object result = requestClass.newInstance();
 			int messageIndex = 0;
