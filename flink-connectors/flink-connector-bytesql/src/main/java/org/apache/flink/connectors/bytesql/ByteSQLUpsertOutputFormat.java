@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -159,7 +160,9 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 		for (int retryTimes = 1; retryTimes <= insertOptions.getMaxRetryTimes(); retryTimes++) {
 			recordBuffer.forEach(tuple -> keyToRows.put(getPrimaryKey(tuple.f1), tuple));
 			if (keyToRows.size() > 0) {
-				try (ByteSQLTransaction transaction = byteSQLDB.beginTransaction()) {
+				ByteSQLTransaction transaction = null;
+				try {
+					transaction = byteSQLDB.beginTransaction();
 					for (Map.Entry<Row, Tuple2<Boolean, Row>> entry : keyToRows.entrySet()) {
 						Row pk = entry.getKey();
 						Tuple2<Boolean, Row> tuple = entry.getValue();
@@ -178,8 +181,23 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 					return;
 				} catch (ByteSQLException e) {
 					LOG.error(String.format("ByteSQL execute error, retry times = %d", retryTimes), e);
+					// We should rollback explicitly as ByteSQL server is not dealing well with
+					// rollback when transaction fail.
+					if (transaction != null) {
+						try {
+							transaction.rollback();
+						} catch (ByteSQLException byteSQLException) {
+							LOG.info("This exception could be ignored as the server will clean up " +
+								"the transaction after rollback fails.", e);
+						}
+					}
 					if (!e.isRetryable() || retryTimes >= insertOptions.getMaxRetryTimes()) {
 						throw new RuntimeException("Execution of ByteSQL statement failed.", e);
+					}
+					try {
+						Thread.sleep(ThreadLocalRandom.current().nextInt(10) * 100L);
+					} catch (InterruptedException e2) {
+						throw new RuntimeException(e2);
 					}
 				}
 			} else {
