@@ -139,6 +139,11 @@ public class JobManagerOptions {
 							"here"))
 				).build());
 
+	public static final ConfigOption<Boolean> ALWAYS_REGION_FAILOVER_WHEN_NO_RESOURCE =
+		key("jobmanager.execution.region-failover.always-region-when-no-resource")
+			.defaultValue(false)
+			.withDescription("Always use region failover when no resource available.");
+
 	/**
 	 * The maximum number of failure execution attempts.
 	 */

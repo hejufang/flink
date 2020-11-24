@@ -82,7 +82,7 @@ public class FailoverStrategyLoader {
 					return new RestartAllStrategy.Factory();
 
 				case PIPELINED_REGION_RESTART_STRATEGY_NAME:
-					return new AdaptedRestartPipelinedRegionStrategyNG.Factory();
+					return new AdaptedRestartPipelinedRegionStrategyNG.Factory(config);
 
 				case LEGACY_PIPELINED_REGION_RESTART_STRATEGY_NAME:
 					return new RestartPipelinedRegionStrategy.Factory();

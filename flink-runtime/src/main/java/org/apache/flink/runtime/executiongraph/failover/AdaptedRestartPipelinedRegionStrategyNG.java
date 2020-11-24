@@ -19,6 +19,8 @@
 package org.apache.flink.runtime.executiongraph.failover;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -34,6 +36,7 @@ import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.scheduler.ExecutionVertexVersion;
 import org.apache.flink.runtime.scheduler.ExecutionVertexVersioner;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -75,28 +78,25 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 	/** The underlying new generation region failover strategy. */
 	private RestartPipelinedRegionStrategy restartPipelinedRegionStrategy;
 
+	private final boolean alwaysRegionFailoverWhenNoResourceException;
+
 	public AdaptedRestartPipelinedRegionStrategyNG(final ExecutionGraph executionGraph) {
+		this(executionGraph, null);
+	}
+
+	public AdaptedRestartPipelinedRegionStrategyNG(final ExecutionGraph executionGraph, final Configuration configuration) {
 		this.executionGraph = checkNotNull(executionGraph);
 		this.executionVertexVersioner = new ExecutionVertexVersioner();
+		if (configuration != null) {
+			this.alwaysRegionFailoverWhenNoResourceException = configuration.getBoolean(JobManagerOptions.ALWAYS_REGION_FAILOVER_WHEN_NO_RESOURCE);
+		} else {
+			this.alwaysRegionFailoverWhenNoResourceException = false;
+		}
 	}
 
 	@Override
 	public void onTaskFailure(final Execution taskExecution, final Throwable cause) {
-		if (!executionGraph.getRestartStrategy().canRestart()) {
-			// delegate the failure to a global fail that will check the restart strategy and not restart
-			LOG.info("Fail to pass the restart strategy validation in region failover. Fallback to fail global.");
-			failGlobal(cause);
-			return;
-		}
-
-		if (executionGraph.getSchedulingFuture() == null || !executionGraph.getSchedulingFuture().isDone()) {
-			LOG.info("Scheduling for ExecutionGraph not finished. Fallback to fail global.");
-			failGlobal(cause);
-			return;
-		}
-
-		if (!isLocalFailoverValid(executionGraph.getGlobalModVersion())) {
-			LOG.info("Skip current region failover as a global failover is ongoing.");
+		if (!canRegionRestart(cause)) {
 			return;
 		}
 
@@ -104,6 +104,27 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 
 		final Set<ExecutionVertexID> tasksToRestart = restartPipelinedRegionStrategy.getTasksNeedingRestart(vertexID, cause);
 		restartTasks(tasksToRestart);
+	}
+
+	private boolean canRegionRestart(final Throwable cause) {
+		if (!executionGraph.getRestartStrategy().canRestart()) {
+			// delegate the failure to a global fail that will check the restart strategy and not restart
+			LOG.info("Fail to pass the restart strategy validation in region failover. Fallback to fail global.");
+			failGlobal(cause);
+			return false;
+		}
+
+		if (executionGraph.getSchedulingFuture() == null || !executionGraph.getSchedulingFuture().isDone()) {
+			LOG.info("Scheduling for ExecutionGraph not finished. Fallback to fail global.");
+			failGlobal(cause);
+			return false;
+		}
+
+		if (!isLocalFailoverValid(executionGraph.getGlobalModVersion())) {
+			LOG.info("Skip current region failover as a global failover is ongoing.");
+			return false;
+		}
+		return true;
 	}
 
 	@VisibleForTesting
@@ -237,8 +258,18 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 					if (throwable != null) {
 						final Throwable strippedThrowable = ExceptionUtils.stripCompletionException(throwable);
 
-						if (!(strippedThrowable instanceof CancellationException)) {
-							// only fail if the scheduling future was not canceled
+						if (strippedThrowable instanceof CancellationException) {
+							return;
+						}
+						if (alwaysRegionFailoverWhenNoResourceException && strippedThrowable instanceof NoResourceAvailableException) {
+							if (canRegionRestart(strippedThrowable)) {
+								final Set<ExecutionVertexID> verticesToRestart = vertices.stream().map(ExecutionVertex::getID).collect(Collectors.toSet());
+								LOG.warn("catch NoResourceAvailableException while region failover, " +
+										"try to restart vertices {} by region restart again.", verticesToRestart);
+								restartTasks(verticesToRestart);
+							}
+						} else {
+							// only fail if the scheduling future was not canceled or not NoResourceAvailableException
 							failGlobal(strippedThrowable);
 						}
 					}
@@ -337,11 +368,18 @@ public class AdaptedRestartPipelinedRegionStrategyNG extends FailoverStrategy {
 	/**
 	 * Factory that instantiates the AdaptedRestartPipelinedRegionStrategyNG.
 	 */
-	public static class Factory implements FailoverStrategy.Factory {
+	public static class Factory extends AbstractFactory {
+		public Factory() {
+			super(null);
+		}
+
+		public Factory(Configuration config) {
+			super(config);
+		}
 
 		@Override
 		public FailoverStrategy create(final ExecutionGraph executionGraph) {
-			return new AdaptedRestartPipelinedRegionStrategyNG(executionGraph);
+			return new AdaptedRestartPipelinedRegionStrategyNG(executionGraph, getConfig());
 		}
 	}
 }

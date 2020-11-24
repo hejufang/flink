@@ -82,8 +82,8 @@ common:
 # Only restart tasks that may have been affected by the task failure, which typically includes
 # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
 
-  # TODO(zoudan):add region restart monitor
   jobmanager.execution.failover-strategy: region
+  jobmanager.execution.region-failover.always-region-when-no-resource: false
 
 #==============================================================================
 # Rest & web frontend
@@ -272,6 +272,7 @@ leser:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.jobmanager.enable: true
+  jobmanager.execution.region-failover.always-region-when-no-resource: true
 
 lobst:
   dc: cn
@@ -358,6 +359,7 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint/lq_lf
+  jobmanager.execution.region-failover.always-region-when-no-resource: true
 
 quoka:
   dc: cn
@@ -366,6 +368,7 @@ quoka:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint/lq_lf
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  jobmanager.execution.region-failover.always-region-when-no-resource: true
 
 quaga:
   dc: cn

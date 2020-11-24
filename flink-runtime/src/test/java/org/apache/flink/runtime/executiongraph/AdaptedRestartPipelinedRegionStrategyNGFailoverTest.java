@@ -19,12 +19,15 @@
 package org.apache.flink.runtime.executiongraph;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.failover.AdaptedRestartPipelinedRegionStrategyNG;
+import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
 import org.apache.flink.runtime.executiongraph.restart.FailingRestartStrategy;
 import org.apache.flink.runtime.executiongraph.restart.FixedDelayRestartStrategy;
 import org.apache.flink.runtime.executiongraph.restart.NoRestartStrategy;
@@ -41,6 +44,11 @@ import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
+import org.apache.flink.runtime.jobmaster.LogicalSlot;
+import org.apache.flink.runtime.jobmaster.SlotRequestId;
+import org.apache.flink.runtime.jobmaster.TestingLogicalSlot;
+import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.util.TestLogger;
@@ -48,12 +56,15 @@ import org.apache.flink.util.TestLogger;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
@@ -295,6 +306,83 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 	}
 
 	@Test
+	public void testFailRegionIfNoResourceErrorOnRestartTasks() throws Exception {
+		final JobGraph jobGraph = createStreamingJobGraph();
+		Configuration configuration = new Configuration();
+		configuration.setBoolean(JobManagerOptions.ALWAYS_REGION_FAILOVER_WHEN_NO_RESOURCE, true);
+
+		final Collection<CompletableFuture<LogicalSlot>> slotFutures = new ArrayList<>();
+		for (int i = 0; i < 4; i++) {
+			slotFutures.add(CompletableFuture.completedFuture(new TestingLogicalSlot()));
+		}
+		final ExecutionGraph eg = createExecutionGraph(
+				jobGraph,
+				new FixedDelayRestartStrategy(10, 0),
+				new IteratorTestingSlotProvider(slotFutures.iterator()),
+				configuration);
+
+		final Iterator<ExecutionVertex> vertexIterator = eg.getAllExecutionVertices().iterator();
+		final ExecutionVertex ev11 = vertexIterator.next();
+		final ExecutionVertex ev12 = vertexIterator.next();
+		final ExecutionVertex ev21 = vertexIterator.next();
+		final ExecutionVertex ev22 = vertexIterator.next();
+
+		final long globalModVersionBeforeFailure = eg.getGlobalModVersion();
+
+		// trigger task failure of ev11
+		// vertices { ev11, ev21 } should be affected
+		ev11.getMainExecution().fail(new Exception("Test Exception"));
+
+		manualMainThreadExecutor.triggerAll();
+		manualMainThreadExecutor.triggerScheduledTasks();
+
+		// verify vertex states and complete cancellation
+		assertVertexInState(ExecutionState.FAILED, ev11);
+		assertVertexInState(ExecutionState.DEPLOYING, ev12);
+		assertVertexInState(ExecutionState.CANCELING, ev21);
+		assertVertexInState(ExecutionState.DEPLOYING, ev22);
+		ev21.getMainExecution().completeCancelling();
+		manualMainThreadExecutor.triggerAll();
+		manualMainThreadExecutor.triggerScheduledTasks();
+
+		long globalModVersionAfterFailure = eg.getGlobalModVersion();
+
+		assertEquals(globalModVersionBeforeFailure, globalModVersionAfterFailure);
+
+		// verify vertex states
+		// in eager mode, all affected vertices should be scheduled in failover
+		assertVertexInState(ExecutionState.CANCELED, ev11);
+		assertVertexInState(ExecutionState.DEPLOYING, ev12);
+		assertVertexInState(ExecutionState.CANCELED, ev21);
+		assertVertexInState(ExecutionState.DEPLOYING, ev22);
+
+		// verify attempt number
+		assertEquals(1, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(1, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev22.getMainExecution().getAttemptNumber());
+
+		manualMainThreadExecutor.triggerAll();
+		manualMainThreadExecutor.triggerScheduledTasks();
+
+		globalModVersionAfterFailure = eg.getGlobalModVersion();
+		assertEquals(globalModVersionBeforeFailure, globalModVersionAfterFailure);
+
+		// verify vertex states
+		// in eager mode, all affected vertices should be scheduled in failover
+		assertVertexInState(ExecutionState.CANCELED, ev11);
+		assertVertexInState(ExecutionState.DEPLOYING, ev12);
+		assertVertexInState(ExecutionState.CANCELED, ev21);
+		assertVertexInState(ExecutionState.DEPLOYING, ev22);
+
+		// verify attempt number
+		assertEquals(2, ev11.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev12.getMainExecution().getAttemptNumber());
+		assertEquals(2, ev21.getMainExecution().getAttemptNumber());
+		assertEquals(0, ev22.getMainExecution().getAttemptNumber());
+	}
+
+	@Test
 	public void testCountingRestarts() throws Exception {
 		final JobGraph jobGraph = createStreamingJobGraph();
 		final ExecutionGraph eg = createExecutionGraph(jobGraph);
@@ -384,6 +472,18 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 	private ExecutionGraph createExecutionGraph(
 			final JobGraph jobGraph,
 			final RestartStrategy restartStrategy) throws Exception {
+		return createExecutionGraph(
+				jobGraph,
+				restartStrategy,
+				new TestingSlotProvider(slotRequestId -> CompletableFuture.completedFuture(new TestingLogicalSlot())),
+				null);
+	}
+
+	private ExecutionGraph createExecutionGraph(
+			final JobGraph jobGraph,
+			final RestartStrategy restartStrategy,
+			final SlotProvider slotProvider,
+			final Configuration configuration) throws Exception {
 
 		final PartitionTracker partitionTracker = new PartitionTrackerImpl(
 			jobGraph.getJobID(),
@@ -392,8 +492,9 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 
 		final ExecutionGraph eg = new ExecutionGraphTestUtils.TestingExecutionGraphBuilder(jobGraph)
 			.setRestartStrategy(restartStrategy)
-			.setFailoverStrategyFactory(TestAdaptedRestartPipelinedRegionStrategyNG::new)
+			.setFailoverStrategyFactory(new TestAdaptedRestartPipelinedRegionStrategyNG.Factory(configuration))
 			.setPartitionTracker(partitionTracker)
+			.setSlotProvider(slotProvider)
 			.build();
 
 		eg.start(componentMainThreadExecutor);
@@ -425,7 +526,11 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 		private Set<ExecutionVertexID> lastTasksToRestart;
 
 		TestAdaptedRestartPipelinedRegionStrategyNG(ExecutionGraph executionGraph) {
-			super(executionGraph);
+			this(executionGraph, null);
+		}
+
+		TestAdaptedRestartPipelinedRegionStrategyNG(ExecutionGraph executionGraph, Configuration configuration) {
+			super(executionGraph, configuration);
 			this.blockerFuture = CompletableFuture.completedFuture(null);
 		}
 
@@ -453,6 +558,40 @@ public class AdaptedRestartPipelinedRegionStrategyNGFailoverTest extends TestLog
 
 		Set<ExecutionVertexID> getLastTasksToCancel() {
 			return lastTasksToRestart;
+		}
+
+		public static class Factory extends AbstractFactory {
+			public Factory(Configuration config) {
+				super(config);
+			}
+
+			@Override
+			public FailoverStrategy create(final ExecutionGraph executionGraph) {
+				return new AdaptedRestartPipelinedRegionStrategyNG(executionGraph, getConfig());
+			}
+		}
+	}
+
+	private static final class IteratorTestingSlotProvider extends TestingSlotProvider {
+		private IteratorTestingSlotProvider(final Iterator<CompletableFuture<LogicalSlot>> slotIterator) {
+			super(new IteratorSlotFutureFunction(slotIterator));
+		}
+
+		private static class IteratorSlotFutureFunction implements Function<SlotRequestId, CompletableFuture<LogicalSlot>> {
+			final Iterator<CompletableFuture<LogicalSlot>> slotIterator;
+
+			IteratorSlotFutureFunction(Iterator<CompletableFuture<LogicalSlot>> slotIterator) {
+				this.slotIterator = slotIterator;
+			}
+
+			@Override
+			public CompletableFuture<LogicalSlot> apply(SlotRequestId slotRequestId) {
+				if (slotIterator.hasNext()) {
+					return slotIterator.next();
+				} else {
+					return FutureUtils.completedExceptionally(new NoResourceAvailableException("No more slots available."));
+				}
+			}
 		}
 	}
 }
