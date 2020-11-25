@@ -9,10 +9,10 @@ Calc(select=[a, b, c], where=[>(a, 10)])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Custom_Source_1
+	content : Source_Custom_Source
 
 	 : Operator
-		content : SourceConversion_tab_1
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator

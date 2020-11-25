@@ -11,21 +11,21 @@ LegacySink(name=[`default_catalog`.`default_database`.`MySink`], fields=[d, e])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Custom_Source_3
+	content : Source_Custom_Source
 
 	 : Operator
-		content : SourceConversion_tab_3
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a_b_wher_1
+			content : Calc_select_a_b_wher
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : SinkConversionToRow_1
+				content : SinkConversionToRow
 				ship_strategy : FORWARD
 
 				 : Data Sink
-					content : Sink_Unnamed_1
+					content : Sink_Unnamed
 					ship_strategy : FORWARD
 

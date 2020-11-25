@@ -101,7 +101,7 @@ class TableEnvironmentTest {
 
     val expected = TableTestUtil.readFromResource("/explain/testStreamTableEnvironmentExplain.out")
     val actual = tEnv.explainSql("insert into MySink select first from MyTable")
-    assertEquals(TableTestUtil.replaceStageId(expected), TableTestUtil.replaceStageId(actual))
+    assertEquals(replaceStageId(expected), replaceStageId(actual))
   }
 
   @Test

@@ -9,13 +9,13 @@ Calc(select=[a, b, c], where=[>(a, 10)], changelogMode=[I])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Custom_Source_2
+	content : Source_Custom_Source
 
 	 : Operator
-		content : SourceConversion_tab_2
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a_b_c_wh_1
+			content : Calc_select_a_b_c_wh
 			ship_strategy : FORWARD
 
