@@ -30,7 +30,7 @@
 
 	<files>
 		<!-- CEP -->
-		<file>
+<!--		<file>
 			<source>../flink-libraries/flink-cep/target/flink-cep_${scala.binary.version}-${project.version}.jar</source>
 			<outputDirectory>opt/</outputDirectory>
 			<destName>flink-cep_${scala.binary.version}-${project.version}.jar</destName>
@@ -42,7 +42,7 @@
 			<outputDirectory>opt/</outputDirectory>
 			<destName>flink-cep-scala_${scala.binary.version}-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
-		</file>
+		</file>-->
 
 		<!-- Gelly -->
 		<file>
