@@ -1104,6 +1104,27 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	/**
 	 * Request new containers if pending containers cannot satisfies pending slot requests.
+	 * @param resourceProfile resource profile for request.
+	 * @param numberOfTaskSlots slot number of one worker.
+	 * @param numberOfRequestedWorkers number of requested worker.
+	 */
+	protected void startNewWorkerIfNeeded(
+			ResourceProfile resourceProfile,
+			int numberOfTaskSlots,
+			int numberOfRequestedWorkers) {
+		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots);
+
+		int needWorkerNumber = numberRequiredWorkers - numberOfRequestedWorkers;
+		log.info("startNewWorkerIfNeeded, numberRequiredWorkers: {}, numberOfRequestedWorkers: {}",
+				numberRequiredWorkers, numberOfRequestedWorkers);
+
+		if (needWorkerNumber > 0) {
+			tryStartNewWorkers(resourceProfile, needWorkerNumber);
+		}
+	}
+
+	/**
+	 * Request new containers if pending containers cannot satisfies pending slot requests.
 	 */
 	protected void startNewWorkerIfNeeded(
 			ResourceProfile resourceProfile,

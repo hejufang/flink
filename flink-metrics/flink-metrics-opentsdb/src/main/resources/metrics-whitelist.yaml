@@ -104,10 +104,16 @@ non-global:
         skipDirty,
       # number of write failed in sink
         writeFailed,
-      # slow containers
-        releasedSlowContainers,
-        slowContainers,
+      # yarn containers
+        allocatedContainerNum,
+        startingContainerNum,
+        pendingRequestedContainerNum,
+        slowContainerNum,
+        totalRedundantContainerNum,
+        pendingRedundantContainerNum,
+        startingRedundantContainerNum,
         containerStartDurationMaxMs,
+        speculativeSlowContainerTimeoutMs,
       # recoverable individual failover
         numberOfTaskRecoveries,
         numberOfGlobalFailures,

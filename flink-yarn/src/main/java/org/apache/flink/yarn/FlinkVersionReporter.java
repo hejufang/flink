@@ -64,6 +64,7 @@ public class FlinkVersionReporter implements Runnable {
 		String dockerImage = this.flinkConfig.getString(YarnConfigKeys.DOCKER_IMAGE_KEY, null);
 		String dc = this.flinkConfig.getString(ConfigConstants.DC_KEY, null);
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
+		String cluster = this.flinkConfig.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
 
 		// calculate resources
 		double jmCore = ConfigurationUtils.getJobManagerVcore(flinkConfig);
@@ -119,6 +120,9 @@ public class FlinkVersionReporter implements Runnable {
 		}
 		if (flinkApi != null && !flinkApi.isEmpty()) {
 			tags = tags + "|flinkApi=" + flinkApi;
+		}
+		if (cluster != null && !cluster.isEmpty()) {
+			tags = tags + "|cluster=" + cluster;
 		}
 	}
 

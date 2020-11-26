@@ -28,6 +28,8 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
+import org.apache.flink.runtime.concurrent.FutureUtils;
+import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.failurerate.FailureRaterUtil;
@@ -40,10 +42,13 @@ import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
+import org.apache.flink.runtime.resourcemanager.ResourceManager;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerGateway;
+import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
+import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManagerBuilder;
 import org.apache.flink.runtime.resourcemanager.utils.MockResourceManagerRuntimeServices;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -53,10 +58,13 @@ import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorRegistrationSuccess;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.testutils.DirectScheduledExecutorService;
 import org.apache.flink.runtime.util.TestingFatalErrorHandler;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.util.function.RunnableWithException;
+import org.apache.flink.yarn.configuration.YarnConfigOptions;
+import org.apache.flink.yarn.slowcontainer.SlowContainerManagerImpl;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
 
@@ -86,8 +94,11 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.net.InetAddress;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -105,10 +116,13 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -139,6 +153,7 @@ public class YarnResourceManagerTest extends TestLogger {
 		flinkConfig = new Configuration();
 		flinkConfig.setInteger(ResourceManagerOptions.CONTAINERIZED_HEAP_CUTOFF_MIN, 100);
 		flinkConfig.setString(ConfigConstants.JOB_WORK_DIR_KEY, "file:///tmp/");
+		flinkConfig.setBoolean(YarnConfigOptions.NMCLINETASYNC_ENABLED, false);
 
 		File root = folder.getRoot();
 		File home = new File(root, "home");
@@ -271,8 +286,17 @@ public class YarnResourceManagerTest extends TestLogger {
 		}
 
 		Context(Configuration configuration) throws  Exception {
+			this(configuration, SlotManagerBuilder.newBuilder()
+					.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
+					.setTaskManagerRequestTimeout(Time.seconds(10))
+					.setSlotRequestTimeout(Time.seconds(10))
+					.setTaskManagerTimeout(Time.minutes(1))
+					.build());
+		}
+
+		Context(Configuration configuration, SlotManager slotManager) throws  Exception {
 			rpcService = new TestingRpcService();
-			rmServices = new MockResourceManagerRuntimeServices(rpcService, TIMEOUT);
+			rmServices = new MockResourceManagerRuntimeServices(rpcService, TIMEOUT, slotManager);
 
 			// resource manager
 			rmResourceID = ResourceID.generate();
@@ -390,13 +414,23 @@ public class YarnResourceManagerTest extends TestLogger {
 				// Callback from YARN when container is allocated.
 				Container testingContainer = mockContainer("container", 1234, 1, resourceManager.getContainerResource());
 
-				doReturn(Collections.singletonList(Collections.singletonList(resourceManager.getContainerRequest())))
+				List<List<AMRMClient.ContainerRequest>> pendingRequests = new ArrayList<>();
+				pendingRequests.add(Collections.singletonList(resourceManager.getContainerRequest()));
+
+				doReturn(pendingRequests)
 					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+
+				doAnswer(invocationOnMock -> {
+					if (!pendingRequests.isEmpty()) {
+						pendingRequests.remove(0);
+					}
+					return null;
+				}).when(mockResourceManagerClient).removeContainerRequest(any());
 
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
 				// wait for container to start
 				Thread.sleep(1000);
-				verify(mockResourceManagerClient).addContainerRequest(any(AMRMClient.ContainerRequest.class));
+				verify(mockResourceManagerClient).addContainerRequestList(anyList());
 				verify(mockNMClient).startContainer(eq(testingContainer), any(ContainerLaunchContext.class));
 
 				// Remote task executor registers with YarnResourceManager.
@@ -445,7 +479,7 @@ public class YarnResourceManagerTest extends TestLogger {
 
 				unregisterAndReleaseFuture.get();
 
-				verify(mockNMClient).stopContainer(any(ContainerId.class), any(NodeId.class));
+				verify(mockNMClient).stopContainer(any(ContainerId.class), any(NodeId.class), any(Integer.class));
 				verify(mockResourceManagerClient).releaseAssignedContainer(any(ContainerId.class));
 			});
 
@@ -497,7 +531,7 @@ public class YarnResourceManagerTest extends TestLogger {
 				resourceManager.onContainersAllocated(ImmutableList.of(testingContainer));
 				// wait for container to start
 				Thread.sleep(1000);
-				verify(mockResourceManagerClient).addContainerRequest(any(AMRMClient.ContainerRequest.class));
+				verify(mockResourceManagerClient).addContainerRequestList(anyList());
 				verify(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
 				verify(mockNMClient).startContainer(eq(testingContainer), any(ContainerLaunchContext.class));
 
@@ -506,12 +540,698 @@ public class YarnResourceManagerTest extends TestLogger {
 				ContainerStatus testingContainerStatus = mockContainerStatus(testingContainer.getId());
 
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
-				verify(mockResourceManagerClient, times(2)).addContainerRequest(any(AMRMClient.ContainerRequest.class));
+				verify(mockResourceManagerClient, times(2)).addContainerRequestList(anyList());
 
 				// Callback from YARN when container is Completed happened before global fail, pending request
 				// slot is already fulfilled by pending containers, no need to request new container.
 				resourceManager.onContainersCompleted(ImmutableList.of(testingContainerStatus));
-				verify(mockResourceManagerClient, times(2)).addContainerRequest(any(AMRMClient.ContainerRequest.class));
+				verify(mockResourceManagerClient, times(2)).addContainerRequestList(anyList());
+			});
+		}};
+	}
+
+	CompletableFuture<Acknowledge> registerTaskExecutor(Container container, ResourceManagerGateway rmGateway, TestingRpcService rpcService, HardwareDescription hardwareDescription, ResourceProfile resourceProfile) {
+		TaskExecutorGateway mockTaskExecutorGateWay = mock(TaskExecutorGateway.class);
+		when(mockTaskExecutorGateWay.requestSlot(any(SlotID.class), any(JobID.class), any(AllocationID.class), anyString(), any(ResourceManagerId.class), any()))
+				.thenReturn(CompletableFuture.completedFuture(Acknowledge.get()));
+		rpcService.registerGateway(container.getNodeId().getHost(), mockTaskExecutorGateWay);
+
+		ResourceID taskManagerResourceId = new ResourceID(container.getId().toString());
+		SlotReport slotReport = new SlotReport(
+				new SlotStatus(
+						new SlotID(taskManagerResourceId, 1),
+						resourceProfile));
+
+		return rmGateway
+				.registerTaskExecutor(
+						container.getNodeId().getHost(),
+						taskManagerResourceId,
+						container.getNodeId().getPort(),
+						hardwareDescription,
+						new TaskManagerLocation(taskManagerResourceId, InetAddress.getLoopbackAddress(), container.getNodeId().getPort()),
+						Time.seconds(10L))
+				.thenCompose(
+						(RegistrationResponse response) -> {
+							assertThat(response, instanceOf(TaskExecutorRegistrationSuccess.class));
+							final TaskExecutorRegistrationSuccess success = (TaskExecutorRegistrationSuccess) response;
+							return rmGateway.sendSlotReport(
+									taskManagerResourceId,
+									success.getRegistrationId(),
+									slotReport,
+									Time.seconds(10L));
+						});
+	}
+
+	/**
+	 * Tests slow containers detection.
+	 */
+	@Test
+	public void testSlowContainer() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		SlotManager slotManager = SlotManagerBuilder.newBuilder()
+				.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
+				.setTaskManagerRequestTimeout(Time.seconds(10))
+				.setSlotRequestTimeout(Time.seconds(10))
+				.setTaskManagerTimeout(Time.minutes(1))
+				.setNumInitialTaskManagers(11)
+				.build();
+		new Context(flinkConfig, slotManager) {{
+			// mock functions.
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			doAnswer(invocationOnMock -> {
+				List<AMRMClient.ContainerRequest> arg = invocationOnMock.getArgument(0);
+				for (int i = 0; i < arg.size(); i++) {
+					pendingRequests.add(resourceManager.getContainerRequest());
+				}
+				return null;
+			}).when(mockResourceManagerClient).addContainerRequestList(anyList());
+			doReturn(Collections.singletonList(pendingRequests))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+			doAnswer(invocationOnMock -> {
+				if (!pendingRequests.isEmpty()) {
+					pendingRequests.remove(0);
+				}
+				return null;
+			}).when(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+			runTest(() -> {
+				// prepare mock containers.
+				List<Container> testingContainers = new ArrayList<>();
+				for (int i = 0; i < 13; i++) {
+					testingContainers.add(mockContainer("container" + i, 1234 + i, 1 + i, resourceManager.getContainerResource()));
+				}
+
+				ResourceProfile yarnResourceProfile = ResourceManager.createWorkerSlotProfiles(flinkConfig)
+						.stream()
+						.findFirst()
+						.orElse(ResourceProfile.UNKNOWN);
+
+				// Request 11 containers.
+				CompletableFuture<?> registerSlotRequestFuture = resourceManager.runInMainThread(() -> {
+					for (int i = 0; i < 11; i++) {
+						rmServices.slotManager.registerSlotRequest(
+								new SlotRequest(new JobID(), new AllocationID(), resourceProfile1, taskHost));
+					}
+					return null;
+				});
+
+				// wait for the registerSlotRequest completion.
+				registerSlotRequestFuture.get();
+
+				// allocated 11 containers, 000001~000011.
+				resourceManager.onContainersAllocated(testingContainers.subList(0, 11));
+
+				Thread.sleep(1000);
+				verify(mockResourceManagerClient, times(1)).addContainerRequestList(anyList());
+				verify(mockResourceManagerClient, times(11)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+				// Remote task executor registers with YarnResourceManager.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+
+				List<CompletableFuture<Acknowledge>> registerSlotFutures = new ArrayList<>();
+				// register 9 container, 000001~000009.
+				for (int i = 0; i < 9; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				CompletableFuture<Integer> numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				final int numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(9, numberRegisteredSlots);
+
+				Thread.sleep(5000);
+				// requests 2 container for slow container(000010, 000011).
+				verify(mockResourceManagerClient, times(3)).addContainerRequestList(anyList());
+				// allocated 1 container. 000012
+				resourceManager.onContainersAllocated(testingContainers.subList(11, 12));
+
+				Thread.sleep(1000);
+				// slow container started. 000011, 000012
+				registerSlotFutures.clear();
+				for (int i = 10; i < 12; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				// wait all tm registered.
+				FutureUtils.combineAll(registerSlotFutures).get();
+
+				// verify slow container (000010) has released
+				verify(mockNMClient).stopContainer(any(ContainerId.class), any(NodeId.class), any(Integer.class));
+				verify(mockResourceManagerClient).releaseAssignedContainer(any(ContainerId.class));
+				// verify unallocated redundant container request has been removed.
+				verify(mockResourceManagerClient, times(13)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
+				assertEquals(slowContainerManager.getStartingContainerSize(), 0);
+				assertEquals(slowContainerManager.getStartingRedundantContainerSize(), 0);
+				assertEquals(slowContainerManager.getSlowContainerSize(), 0);
+				assertEquals(slowContainerManager.getPendingRedundantContainersNum(), 0);
+				assertEquals(resourceManager.getNumPendingContainerRequests(), 0);
+			});
+		}};
+	}
+
+	/**
+	 * 1. request 11 containers
+	 * 2. allocated 11 containers
+	 * 3. registered 9 containers
+	 * 4. verify request 2 containers by slow container manager
+	 * 5. allocated 1 container
+	 * 6. completed 1 container(not redundant)
+	 * 7. verify request 1 container by startNewWorkerIfNeeded
+	 * 8. completed 1 container(redundant)
+	 * 9. verify not request new container
+	 * 10. allocated 1 containers and registered 2 container(1 redundant)
+	 * 11. verify all starting containers are released and pending requests are removed
+	 */
+	@Test
+	public void testContainerCompletedWithSlowContainer() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		SlotManager slotManager = SlotManagerBuilder.newBuilder()
+				.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
+				.setTaskManagerRequestTimeout(Time.seconds(10))
+				.setSlotRequestTimeout(Time.seconds(10))
+				.setTaskManagerTimeout(Time.minutes(1))
+				.setNumInitialTaskManagers(11)
+				.build();
+		new Context(flinkConfig, slotManager) {{
+			// mock functions.
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			doAnswer(invocationOnMock -> {
+				List<AMRMClient.ContainerRequest> arg = invocationOnMock.getArgument(0);
+				for (int i = 0; i < arg.size(); i++) {
+					pendingRequests.add(resourceManager.getContainerRequest());
+				}
+				return null;
+			}).when(mockResourceManagerClient).addContainerRequestList(anyList());
+			doReturn(Collections.singletonList(pendingRequests))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+			doAnswer(invocationOnMock -> {
+				if (!pendingRequests.isEmpty()) {
+					pendingRequests.remove(0);
+				}
+				return null;
+			}).when(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+			runTest(() -> {
+				// prepare mock containers.
+				List<Container> testingContainers = new ArrayList<>();
+				for (int i = 0; i < 14; i++) {
+					testingContainers.add(mockContainer("container" + i, 1234 + i, 1 + i, resourceManager.getContainerResource()));
+				}
+
+				ResourceProfile yarnResourceProfile = ResourceManager.createWorkerSlotProfiles(flinkConfig)
+						.stream()
+						.findFirst()
+						.orElse(ResourceProfile.UNKNOWN);
+
+				// Request 11 containers.
+				CompletableFuture<?> registerSlotRequestFuture = resourceManager.runInMainThread(() -> {
+					for (int i = 0; i < 11; i++) {
+						rmServices.slotManager.registerSlotRequest(
+								new SlotRequest(new JobID(), new AllocationID(), resourceProfile1, taskHost));
+					}
+					return null;
+				});
+
+				// wait for the registerSlotRequest completion.
+				registerSlotRequestFuture.get();
+
+				// allocated 11 containers, 000001~000011.
+				resourceManager.onContainersAllocated(testingContainers.subList(0, 11));
+
+				Thread.sleep(1000);
+				verify(mockResourceManagerClient, times(1)).addContainerRequestList(anyList());
+				verify(mockResourceManagerClient, times(11)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+				// Remote task executor registers with YarnResourceManager.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+
+				List<CompletableFuture<Acknowledge>> registerSlotFutures = new ArrayList<>();
+				// register 9 container, 000001~000009.
+				for (int i = 0; i < 9; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				CompletableFuture<Integer> numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				final int numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(9, numberRegisteredSlots);
+
+				Thread.sleep(5000);
+				// requests 2 container for slow container(000010, 000011).
+				verify(mockResourceManagerClient, times(3)).addContainerRequestList(anyList());
+				// allocated 1 container. 000012
+				resourceManager.onContainersAllocated(testingContainers.subList(11, 12));
+
+				// container 000001 completed
+				resourceManager.runInMainThread(() -> {
+					resourceManager.onContainersCompleted(Collections.singletonList(mockContainerStatus(testingContainers.get(0).getId())));
+					return null;
+				}).get();
+
+				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
+
+				verify(mockResourceManagerClient, times(4)).addContainerRequestList(anyList());
+				assertEquals(slowContainerManager.getSlowContainerSize(), 2);
+				assertEquals(slowContainerManager.getStartingRedundantContainerSize(), 1);
+				assertEquals(slowContainerManager.getStartingContainerSize(), 3);
+				assertEquals(slowContainerManager.getPendingRedundantContainersNum(), 1);
+				assertEquals(resourceManager.getNumPendingContainerRequests(), 2);
+
+				// container 000010 completed
+				resourceManager.runInMainThread(() -> {
+					resourceManager.onContainersCompleted(Collections.singletonList(mockContainerStatus(testingContainers.get(9).getId())));
+					return null;
+				}).get();
+				// starting container completed, will request new one.
+				verify(mockResourceManagerClient, times(5)).addContainerRequestList(anyList());
+				assertEquals(slowContainerManager.getSlowContainerSize(), 1);
+				assertEquals(slowContainerManager.getStartingRedundantContainerSize(), 1);
+				assertEquals(slowContainerManager.getStartingContainerSize(), 2);
+				assertEquals(slowContainerManager.getPendingRedundantContainersNum(), 1);
+				assertEquals(resourceManager.getNumPendingContainerRequests(), 3);
+
+				// redundant container 000012 completed, will not request new one.
+				resourceManager.runInMainThread(() -> {
+					resourceManager.onContainersCompleted(Collections.singletonList(mockContainerStatus(testingContainers.get(11).getId())));
+					return null;
+				}).get();
+				verify(mockResourceManagerClient, times(5)).addContainerRequestList(anyList());
+				assertEquals(slowContainerManager.getSlowContainerSize(), 1);
+				assertEquals(slowContainerManager.getStartingRedundantContainerSize(), 0);
+				assertEquals(slowContainerManager.getStartingContainerSize(), 1);
+				assertEquals(slowContainerManager.getPendingRedundantContainersNum(), 1);
+				assertEquals(resourceManager.getNumPendingContainerRequests(), 3);
+
+				// allocated 2 container. 000013~000014
+				resourceManager.onContainersAllocated(testingContainers.subList(12, 14));
+
+				Thread.sleep(1000);
+				// slow container started. 000011, 000013, 000014
+				registerSlotFutures.clear();
+				for (Integer i : Arrays.asList(10, 12, 13)) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				// wait all tm registered.
+				FutureUtils.combineAll(registerSlotFutures).get();
+
+				// verify unallocated redundant container request has been removed.
+				verify(mockResourceManagerClient, times(15)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+				assertEquals(slowContainerManager.getStartingContainerSize(), 0);
+				assertEquals(slowContainerManager.getStartingRedundantContainerSize(), 0);
+				assertEquals(slowContainerManager.getSlowContainerSize(), 0);
+				assertEquals(resourceManager.getNumPendingContainerRequests(), 0);
+				assertThat(resourceManager.getNumberOfRegisteredTaskManagers().get(), Matchers.equalTo(11));
+			});
+		}};
+	}
+
+	/**
+	 * 1. request 11 containers
+	 * 2. allocated 11 containers
+	 * 3. registered 3 containers
+	 * 4. verify request 8 containers by slow container manager
+	 * 6. completed 1 registered container(not redundant)
+	 * 7. verify request 1 container by startNewWorkerIfNeeded
+	 */
+	@Test
+	public void testContainerCompletedWithTooManySlowContainer() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+				SlotManager slotManager = SlotManagerBuilder.newBuilder()
+				.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
+				.setTaskManagerRequestTimeout(Time.seconds(10))
+				.setSlotRequestTimeout(Time.seconds(10))
+				.setTaskManagerTimeout(Time.minutes(1))
+				.setNumInitialTaskManagers(11)
+				.build();
+		new Context(flinkConfig, slotManager) {{
+			// mock functions.
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			doAnswer(invocationOnMock -> {
+				List<AMRMClient.ContainerRequest> arg = invocationOnMock.getArgument(0);
+				for (int i = 0; i < arg.size(); i++) {
+					pendingRequests.add(resourceManager.getContainerRequest());
+				}
+				return null;
+			}).when(mockResourceManagerClient).addContainerRequestList(anyList());
+			doReturn(Collections.singletonList(pendingRequests))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+			doAnswer(invocationOnMock -> {
+				if (!pendingRequests.isEmpty()) {
+					pendingRequests.remove(0);
+				}
+				return null;
+			}).when(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+			runTest(() -> {
+				// prepare mock containers.
+				List<Container> testingContainers = new ArrayList<>();
+				for (int i = 0; i < 14; i++) {
+					testingContainers.add(mockContainer("container" + i, 1234 + i, 1 + i, resourceManager.getContainerResource()));
+				}
+
+				ResourceProfile yarnResourceProfile = ResourceManager.createWorkerSlotProfiles(flinkConfig)
+						.stream()
+						.findFirst()
+						.orElse(ResourceProfile.UNKNOWN);
+
+				// Request 11 containers.
+				CompletableFuture<?> registerSlotRequestFuture = resourceManager.runInMainThread(() -> {
+					for (int i = 0; i < 11; i++) {
+						rmServices.slotManager.registerSlotRequest(
+								new SlotRequest(new JobID(), new AllocationID(), resourceProfile1, taskHost));
+					}
+					return null;
+				});
+
+				// wait for the registerSlotRequest completion.
+				registerSlotRequestFuture.get();
+
+				// allocated 11 containers, 000001~000011.
+				resourceManager.onContainersAllocated(testingContainers.subList(0, 11));
+
+				Thread.sleep(1000);
+				verify(mockResourceManagerClient, times(1)).addContainerRequestList(anyList());
+				verify(mockResourceManagerClient, times(11)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+				// Remote task executor registers with YarnResourceManager.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+
+				List<CompletableFuture<Acknowledge>> registerSlotFutures = new ArrayList<>();
+				// register 3 container, 000001~000003.
+				for (int i = 0; i < 3; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				CompletableFuture<Integer> numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				final int numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(3, numberRegisteredSlots);
+
+				Thread.sleep(5000);
+				// requests 8 container for slow container(000010, 000011).
+				verify(mockResourceManagerClient, times(9)).addContainerRequestList(anyList());
+
+				// container 000001 completed
+				resourceManager.runInMainThread(() -> {
+					resourceManager.onContainersCompleted(Collections.singletonList(mockContainerStatus(testingContainers.get(0).getId())));
+					return null;
+				}).get();
+				verify(mockResourceManagerClient, times(10)).addContainerRequestList(anyList());
+				Thread.sleep(1000);
+
+				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
+				assertEquals(8, slowContainerManager.getSlowContainerSize());
+				assertEquals(0, slowContainerManager.getStartingRedundantContainerSize());
+				assertEquals(8, slowContainerManager.getStartingContainerSize());
+				assertEquals(8, slowContainerManager.getPendingRedundantContainersNum());
+				assertEquals(9, resourceManager.getNumPendingContainerRequests());
+			});
+		}};
+	}
+
+	/**
+	 * 1. request 5 containers
+	 * 2. allocated 5 containers
+	 * 3. registered 2 containers
+	 * 4. verify request 3 containers by slow container manager
+	 * 5. allocated 3 containers for redundant
+	 * 6. registered 3 containers (2 slow and 1 redundant)
+	 * 7. verify all starting containers are released
+	 * 8. completed 1 containers
+	 * 9. verify request 1 container by startNewWorkerIfNeeded
+	 */
+	@Test
+	public void testContainerCompletedAfterSlowContainerStarted() throws Exception {
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, 5000);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		SlotManager slotManager = SlotManagerBuilder.newBuilder()
+				.setScheduledExecutor(new ScheduledExecutorServiceAdapter(new DirectScheduledExecutorService()))
+				.setTaskManagerRequestTimeout(Time.seconds(10))
+				.setSlotRequestTimeout(Time.seconds(10))
+				.setTaskManagerTimeout(Time.minutes(1))
+				.setNumInitialTaskManagers(5)
+				.build();
+		new Context(flinkConfig, slotManager) {{
+			// mock functions.
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			doAnswer(invocationOnMock -> {
+				List<AMRMClient.ContainerRequest> arg = invocationOnMock.getArgument(0);
+				for (int i = 0; i < arg.size(); i++) {
+					pendingRequests.add(resourceManager.getContainerRequest());
+				}
+				return null;
+			}).when(mockResourceManagerClient).addContainerRequestList(anyList());
+			doReturn(Collections.singletonList(pendingRequests))
+					.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+			doAnswer(invocationOnMock -> {
+				if (!pendingRequests.isEmpty()) {
+					pendingRequests.remove(0);
+				}
+				return null;
+			}).when(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+			runTest(() -> {
+				// prepare mock containers.
+				List<Container> testingContainers = new ArrayList<>();
+				for (int i = 0; i < 14; i++) {
+					testingContainers.add(mockContainer("container" + i, 1234 + i, 1 + i, resourceManager.getContainerResource()));
+				}
+
+				ResourceProfile yarnResourceProfile = ResourceManager.createWorkerSlotProfiles(flinkConfig)
+						.stream()
+						.findFirst()
+						.orElse(ResourceProfile.UNKNOWN);
+
+				// Request 5 containers.
+				CompletableFuture<?> registerSlotRequestFuture = resourceManager.runInMainThread(() -> {
+					for (int i = 0; i < 5; i++) {
+						rmServices.slotManager.registerSlotRequest(
+								new SlotRequest(new JobID(), new AllocationID(), resourceProfile1, taskHost));
+					}
+					return null;
+				});
+
+				// wait for the registerSlotRequest completion.
+				registerSlotRequestFuture.get();
+
+				// allocated 5 containers, 000001~000005.
+				resourceManager.onContainersAllocated(testingContainers.subList(0, 5));
+
+				Thread.sleep(1000);
+				verify(mockResourceManagerClient, times(1)).addContainerRequestList(anyList());
+				verify(mockResourceManagerClient, times(5)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+				// Remote task executor registers with YarnResourceManager.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+
+				List<CompletableFuture<Acknowledge>> registerSlotFutures = new ArrayList<>();
+				// register 2 container, 000001~000002.
+				for (int i = 0; i < 2; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				CompletableFuture<Integer> numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				int numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(2, numberRegisteredSlots);
+
+				Thread.sleep(5000);
+				// requests 3 container for slow container.
+				verify(mockResourceManagerClient, times(4)).addContainerRequestList(anyList());
+
+				// allocated 3 containers, 000006~000008
+				resourceManager.onContainersAllocated(testingContainers.subList(5, 7));
+
+				// registered 3 containers, 000004~000006
+				registerSlotFutures.clear();
+				for (int i = 3; i < 6; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(5, numberRegisteredSlots);
+
+				// verify slow container manager states
+				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
+				assertEquals(0, slowContainerManager.getSlowContainerSize());
+				assertEquals(0, slowContainerManager.getStartingRedundantContainerSize());
+				assertEquals(0, slowContainerManager.getStartingContainerSize());
+				assertEquals(0, slowContainerManager.getPendingRedundantContainersNum());
+				assertEquals(0, resourceManager.getNumPendingContainerRequests());
+
+				// container 000001 completed
+				resourceManager.runInMainThread(() -> {
+					resourceManager.onContainersCompleted(Collections.singletonList(mockContainerStatus(testingContainers.get(0).getId())));
+					return null;
+				}).get();
+
+				Thread.sleep(1000);
+				verify(mockResourceManagerClient, times(5)).addContainerRequestList(anyList());
+
+				// Request 1 containers. simulate task failover
+				registerSlotRequestFuture = resourceManager.runInMainThread(() -> {
+					rmServices.slotManager.registerSlotRequest(
+							new SlotRequest(new JobID(), new AllocationID(), resourceProfile1, taskHost));
+					return null;
+				});
+				registerSlotRequestFuture.get();
+				verify(mockResourceManagerClient, times(5)).addContainerRequestList(anyList());
+
+				// allocated 1 container, 000009
+				resourceManager.onContainersAllocated(testingContainers.subList(8, 9));
+
+				// completed 1 container, 000009
+				resourceManager.runInMainThread(() -> {
+					resourceManager.onContainersCompleted(Collections.singletonList(mockContainerStatus(testingContainers.get(8).getId())));
+					return null;
+				}).get();
+				// verify request 1 container.
+				verify(mockResourceManagerClient, times(6)).addContainerRequestList(anyList());
+			});
+		}};
+	}
+
+	/**
+	 * 1. request 10 containers.
+	 * 2. allocated 10 containers.
+	 * 3. registered 3 containers.
+	 * 4. verify speculative slow container threshold not generate.
+	 * 5. register 6 containers.
+	 * 6. verify speculative slow container threshold has generate.
+	 */
+	@Test
+	public void testSlowContainerSpeculative() throws Exception {
+		long defaultSlowContainerTimeout = 120000;
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		new Context() {{
+			runTest(() -> {
+				// prepare mock containers.
+				List<Container> testingContainers = new ArrayList<>();
+				for (int i = 0; i < 14; i++) {
+					testingContainers.add(mockContainer("container" + i, 1234 + i, 1 + i, resourceManager.getContainerResource()));
+				}
+
+				ResourceProfile yarnResourceProfile = ResourceManager.createWorkerSlotProfiles(flinkConfig)
+						.stream()
+						.findFirst()
+						.orElse(ResourceProfile.UNKNOWN);
+
+				// mock functions.
+				List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+				doAnswer(invocationOnMock -> {
+					List<AMRMClient.ContainerRequest> arg = invocationOnMock.getArgument(0);
+					for (int i = 0; i < arg.size(); i++) {
+						pendingRequests.add(resourceManager.getContainerRequest());
+					}
+					return null;
+				}).when(mockResourceManagerClient).addContainerRequestList(anyList());
+				doReturn(Collections.singletonList(pendingRequests))
+						.when(mockResourceManagerClient).getMatchingRequests(any(Priority.class), anyString(), any(Resource.class));
+				doAnswer(invocationOnMock -> {
+					if (!pendingRequests.isEmpty()) {
+						pendingRequests.remove(0);
+					}
+					return null;
+				}).when(mockResourceManagerClient).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+				// Request 10 containers.
+				CompletableFuture<?> registerSlotRequestFuture = resourceManager.runInMainThread(() -> {
+					for (int i = 0; i < 10; i++) {
+						rmServices.slotManager.registerSlotRequest(
+								new SlotRequest(new JobID(), new AllocationID(), resourceProfile1, taskHost));
+					}
+					return null;
+				});
+
+				// wait for the registerSlotRequest completion.
+				registerSlotRequestFuture.get();
+
+				// allocated 10 containers, 000001~000010.
+				resourceManager.onContainersAllocated(testingContainers.subList(0, 10));
+
+				Thread.sleep(1000);
+				verify(mockResourceManagerClient, times(10)).addContainerRequestList(anyList());
+				verify(mockResourceManagerClient, times(10)).removeContainerRequest(any(AMRMClient.ContainerRequest.class));
+
+				// Remote task executor registers with YarnResourceManager.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+
+				List<CompletableFuture<Acknowledge>> registerSlotFutures = new ArrayList<>();
+				// register 3 container, 000001~000003.
+				for (int i = 0; i < 3; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				CompletableFuture<Integer> numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				int numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(3, numberRegisteredSlots);
+
+				Thread.sleep(2000);
+				// no slow container detected.
+				verify(mockResourceManagerClient, times(10)).addContainerRequestList(anyList());
+				// verify slow container manager states
+				SlowContainerManagerImpl slowContainerManager = (SlowContainerManagerImpl) resourceManager.getSlowContainerManager();
+				assertEquals(0, slowContainerManager.getSlowContainerSize());
+				assertEquals(0, slowContainerManager.getStartingRedundantContainerSize());
+				assertEquals(7, slowContainerManager.getStartingContainerSize());
+				assertEquals(0, slowContainerManager.getPendingRedundantContainersNum());
+				assertEquals(defaultSlowContainerTimeout, slowContainerManager.getSpeculativeSlowContainerTimeoutMs());
+				assertEquals(0, resourceManager.getNumPendingContainerRequests());
+
+				// register 6 container, 000004~000009.
+				for (int i = 3; i < 9; i++) {
+					Container container = testingContainers.get(i);
+					registerSlotFutures.add(registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, yarnResourceProfile));
+				}
+				numberRegisteredSlotsFuture = FutureUtils.combineAll(registerSlotFutures)
+						.handleAsync(
+								(acknowledges, throwable) -> rmServices.slotManager.getNumberRegisteredSlots(),
+								resourceManager.getMainThreadExecutorForTesting());
+
+				numberRegisteredSlots = numberRegisteredSlotsFuture.get();
+				assertEquals(9, numberRegisteredSlots);
+
+				Thread.sleep(2000);
+
+				// detected one slow container.
+				verify(mockResourceManagerClient, times(11)).addContainerRequestList(anyList());
+				// speculative slow container timeout generated.
+				assertNotEquals(defaultSlowContainerTimeout, slowContainerManager.getSpeculativeSlowContainerTimeoutMs());
+				// verify slow container manager states
+				assertEquals(1, slowContainerManager.getSlowContainerSize());
+				assertEquals(0, slowContainerManager.getStartingRedundantContainerSize());
+				assertEquals(1, slowContainerManager.getStartingContainerSize());
+				assertEquals(1, slowContainerManager.getPendingRedundantContainersNum());
+				assertEquals(1, resourceManager.getNumPendingContainerRequests());
 			});
 		}};
 	}
