@@ -37,11 +37,13 @@ import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.MultisetType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.RowType.RowField;
 import org.apache.flink.table.types.logical.StructuredType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 import org.apache.flink.table.types.logical.utils.LogicalTypeDefaultVisitor;
 import org.apache.flink.util.Preconditions;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -50,12 +52,33 @@ import java.util.stream.IntStream;
 import static org.apache.flink.table.types.extraction.ExtractionUtils.primitiveToWrapper;
 import static org.apache.flink.table.types.logical.utils.LogicalTypeChecks.getFieldNames;
 import static org.apache.flink.table.types.logical.utils.LogicalTypeUtils.toInternalConversionClass;
+import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
  * Utilities for handling {@link DataType}s.
  */
 @Internal
 public final class DataTypeUtils {
+	/**
+	 * Projects a (possibly nested) row data type by returning a new data type that only includes
+	 * fields of the given index paths.
+	 *
+	 * <p>Note: Index paths wouldn't allow for any nesting util nested projection push down is
+	 *  supported in planner.
+	 */
+	public static DataType projectRow(DataType dataType, int[][] indexPaths) {
+		final List<RowField> updatedFields = new ArrayList<>();
+		final List<DataType> updatedChildren = new ArrayList<>();
+		for (int[] indexPath : indexPaths) {
+			checkArgument(indexPath.length == 1, "Nested projection push down is not supported yet.");
+			updatedFields.add(((RowType) dataType.getLogicalType()).getFields().get(indexPath[0]));
+			updatedChildren.add(dataType.getChildren().get(indexPath[0]));
+		}
+		return new FieldsDataType(
+			new RowType(dataType.getLogicalType().isNullable(), updatedFields),
+			dataType.getConversionClass(),
+			updatedChildren);
+	}
 
 	/**
 	 * Checks whether a given data type is an internal data structure.

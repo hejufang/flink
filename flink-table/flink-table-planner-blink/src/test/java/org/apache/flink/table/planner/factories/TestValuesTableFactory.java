@@ -19,19 +19,25 @@
 package org.apache.flink.table.planner.factories;
 
 import org.apache.flink.api.common.ExecutionConfig;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.io.CollectionInputFormat;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.source.FromElementsFunction;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.RuntimeConverter;
+import org.apache.flink.table.connector.sink.DataStreamSinkProvider;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.OutputFormatProvider;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.connector.source.AsyncTableFunctionProvider;
+import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.InputFormatProvider;
 import org.apache.flink.table.connector.source.LookupTableSource;
@@ -55,6 +61,8 @@ import org.apache.flink.table.planner.factories.TestValuesRuntimeFunctions.Retra
 import org.apache.flink.table.planner.factories.TestValuesRuntimeFunctions.TestValuesLookupFunction;
 import org.apache.flink.table.planner.utils.JavaScalaConversionUtil;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.utils.DataTypeUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
@@ -240,12 +248,11 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		boolean isAsync = helper.getOptions().get(ASYNC_ENABLED);
 		String lookupFunctionClass = helper.getOptions().get(LOOKUP_FUNCTION_CLASS);
 		boolean nestedProjectionSupported = helper.getOptions().get(NESTED_PROJECTION_SUPPORTED);
-
+		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
 		if (sourceClass.equals("DEFAULT")) {
 			Collection<Row> data = registeredData.getOrDefault(dataId, Collections.emptyList());
-			TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 			return new TestValuesTableSource(
-				physicalSchema,
+				producedDataType,
 				changelogMode,
 				isBounded,
 				runtimeSource,
@@ -333,9 +340,12 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 	/**
 	 * Values {@link DynamicTableSource} for testing.
 	 */
-	private static class TestValuesTableSource implements ScanTableSource, LookupTableSource, SupportsProjectionPushDown {
+	private static class TestValuesTableSource implements
+			ScanTableSource,
+			LookupTableSource,
+			SupportsProjectionPushDown {
 
-		private TableSchema physicalSchema;
+		private DataType producedDataType;
 		private final ChangelogMode changelogMode;
 		private final boolean bounded;
 		private final String runtimeSource;
@@ -346,7 +356,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		private @Nullable int[] projectedFields;
 
 		private TestValuesTableSource(
-				TableSchema physicalSchema,
+				DataType producedDataType,
 				ChangelogMode changelogMode,
 				boolean bounded,
 				String runtimeSource,
@@ -355,7 +365,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				@Nullable String lookupFunctionClass,
 				boolean nestedProjectionSupported,
 				int[] projectedFields) {
-			this.physicalSchema = physicalSchema;
+			this.producedDataType = producedDataType;
 			this.changelogMode = changelogMode;
 			this.bounded = bounded;
 			this.runtimeSource = runtimeSource;
@@ -374,25 +384,45 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		@SuppressWarnings("unchecked")
 		@Override
 		public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
-			TypeSerializer<RowData> serializer = (TypeSerializer<RowData>) runtimeProviderContext
-				.createTypeInformation(physicalSchema.toRowDataType())
-				.createSerializer(new ExecutionConfig());
-			DataStructureConverter converter = runtimeProviderContext.createDataStructureConverter(physicalSchema.toRowDataType());
+			TypeInformation<RowData> type = (TypeInformation<RowData>) runtimeProviderContext
+				.createTypeInformation(producedDataType);
+			TypeSerializer<RowData> serializer = type.createSerializer(new ExecutionConfig());
+			DataStructureConverter converter = runtimeProviderContext.createDataStructureConverter(producedDataType);
 			converter.open(RuntimeConverter.Context.create(TestValuesTableFactory.class.getClassLoader()));
 			Collection<RowData> values = convertToRowData(data, projectedFields, converter);
 
-			if (runtimeSource.equals("SourceFunction")) {
-				try {
-					return SourceFunctionProvider.of(
-						new FromElementsFunction<>(serializer, values),
-						bounded);
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			} else if (runtimeSource.equals("InputFormat")) {
-				return InputFormatProvider.of(new CollectionInputFormat<>(values, serializer));
-			} else {
-				throw new IllegalArgumentException("Unsupported runtime source class: " + runtimeSource);
+			switch (runtimeSource) {
+				case "SourceFunction":
+					try {
+						return SourceFunctionProvider.of(
+								new FromElementsFunction<>(serializer, values),
+								bounded);
+					} catch (IOException e) {
+						throw new TableException("Fail to init source function", e);
+					}
+				case "InputFormat":
+					return InputFormatProvider.of(new CollectionInputFormat<>(values, serializer));
+				case "DataStream":
+					try {
+						FromElementsFunction<RowData> function = new FromElementsFunction<>(
+								serializer, values);
+						return new DataStreamScanProvider() {
+							@Override
+							public DataStream<RowData> produceDataStream(
+									StreamExecutionEnvironment execEnv) {
+								return execEnv.addSource(function, type);
+							}
+
+							@Override
+							public boolean isBounded() {
+								return bounded;
+							}
+						};
+					} catch (IOException e) {
+						throw new TableException("Fail to init data stream source", e);
+					}
+				default:
+					throw new IllegalArgumentException("Unsupported runtime source class: " + runtimeSource);
 			}
 		}
 
@@ -445,14 +475,14 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 
 		@Override
 		public void applyProjection(int[][] projectedFields) {
-			this.physicalSchema = TableSchemaUtils.projectSchema(physicalSchema, projectedFields);
+			this.producedDataType = DataTypeUtils.projectRow(producedDataType, projectedFields);
 			this.projectedFields = Arrays.stream(projectedFields).mapToInt(f -> f[0]).toArray();
 		}
 
 		@Override
 		public DynamicTableSource copy() {
 			return new TestValuesTableSource(
-				physicalSchema,
+				producedDataType,
 				changelogMode,
 				bounded,
 				runtimeSource,
@@ -602,18 +632,22 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			if (isInsertOnly) {
 				checkArgument(expectedNum == -1,
 					"Appending Sink doesn't support '" + SINK_EXPECTED_MESSAGES_NUM.key() + "' yet.");
-				if (runtimeSink.equals("SinkFunction")) {
-					return SinkFunctionProvider.of(
-						new AppendingSinkFunction(
-							tableName,
-							converter));
-				} else if (runtimeSink.equals("OutputFormat")) {
-					return OutputFormatProvider.of(
-						new AppendingOutputFormat(
-							tableName,
-							converter));
-				} else {
-					throw new IllegalArgumentException("Unsupported runtime sink class: " + runtimeSink);
+				switch (runtimeSink) {
+					case "SinkFunction":
+						return SinkFunctionProvider.of(
+								new AppendingSinkFunction(
+										tableName,
+										converter));
+					case "OutputFormat":
+						return OutputFormatProvider.of(
+								new AppendingOutputFormat(
+										tableName,
+										converter));
+					case "DataStream":
+						return (DataStreamSinkProvider) dataStream ->
+								dataStream.addSink(new AppendingSinkFunction(tableName, converter));
+					default:
+						throw new IllegalArgumentException("Unsupported runtime sink class: " + runtimeSink);
 				}
 			} else {
 				// we don't support OutputFormat for updating query in the TestValues connector

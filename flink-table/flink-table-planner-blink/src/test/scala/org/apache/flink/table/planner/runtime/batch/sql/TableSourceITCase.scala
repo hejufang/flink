@@ -199,6 +199,33 @@ class TableSourceITCase extends BatchTestBase {
   }
 
   @Test
+  def testDataStreamSource(): Unit = {
+    val dataId = TestValuesTableFactory.registerData(TestData.smallData3)
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE MyDataStreamTable (
+         |  `a` INT,
+         |  `b` BIGINT,
+         |  `c` STRING
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$dataId',
+         |  'bounded' = 'true',
+         |  'runtime-source' = 'DataStream'
+         |)
+         |""".stripMargin
+    )
+
+    checkResult(
+      "SELECT a, c FROM MyDataStreamTable",
+      Seq(
+        row(1, "Hi"),
+        row(2, "Hello"),
+        row(3, "Hello world"))
+    )
+  }
+
+  @Test
   def testAllDataTypes(): Unit = {
     val dataId = TestValuesTableFactory.registerData(TestData.fullDataTypesData)
     tEnv.executeSql(
