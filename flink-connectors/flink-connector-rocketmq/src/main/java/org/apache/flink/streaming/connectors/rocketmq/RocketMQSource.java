@@ -159,16 +159,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		Preconditions.checkArgument(!group.isEmpty(), "Consumer group can not be empty");
 
 		this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
-		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 
 		this.enableCheckpoint = ((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled();
 
-		if (offsetTable == null) {
-			offsetTable = new ConcurrentHashMap<>();
-		}
-		if (restoredOffsets == null) {
-			restoredOffsets = new ConcurrentHashMap<>();
-		}
 		if (pendingOffsetsToCommit == null) {
 			pendingOffsetsToCommit = new LinkedMap();
 		}
@@ -250,7 +243,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 								for (MessageExt msg : messages) {
 									OUT data = schema.deserialize(mq, msg);
 									if (schema.isEndOfStream(balancedMQ, data)) {
-										LOG.info("Sub task: {} received all assign message queue end message.", subTaskId);
+										LOG.info("Subtask: {} received all assign message queue end message.", subTaskId);
 										isSubTaskRunning = false;
 										break;
 									}
@@ -261,6 +254,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 										} else {
 											context.collectWithTimestamp(data, msg.getBornTimestamp());
 										}
+										putMessageQueueOffset(mq, msg.getQueueOffset() + 1);
 									}
 								}
 								found = true;
@@ -335,11 +329,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 	private long getMessageQueueOffset(MessageQueue mq) throws MQClientException {
 		Long offset = offsetTable.get(mq);
-		// restoredOffsets(unionOffsetStates) is the restored global union state;
-		// should only snapshot mqs that actually belong to us
-		if (restored && offset == null) {
-			offset = restoredOffsets.get(mq);
-		}
 
 		if (offset == null) {
 			String startupMode = props.getProperty(STARTUP_MODE, STARTUP_MODE_GROUP);
@@ -480,7 +469,10 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		// Given this, initializeState() is not only the place where different types of state are initialized,
 		// but also where state recovery logic is included.
 		LOG.debug("initialize State ...");
+		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 		this.taskRunningAggregateManager = ((StreamingRuntimeContext) getRuntimeContext()).getGlobalAggregateManager();
+		this.offsetTable = new ConcurrentHashMap<>();
+		this.restoredOffsets = new ConcurrentHashMap<>();
 
 		this.unionOffsetStates = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {
@@ -491,26 +483,26 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 				TASK_RUNNING_STATE, TypeInformation.of(new TypeHint<Boolean>() {
 			})));
 		}
-		this.restored = context.isRestored();
 
-		if (restored) {
+		if (context.isRestored()) {
 			hasSuccessfulCheckpoint = true;
-			if (restoredOffsets == null) {
-				restoredOffsets = new ConcurrentHashMap<>();
-			}
+
 			for (Tuple2<MessageQueue, Long> mqOffsets : unionOffsetStates.get()) {
 				if (!restoredOffsets.containsKey(mqOffsets.f0) || restoredOffsets.get(mqOffsets.f0) < mqOffsets.f1) {
 					restoredOffsets.put(mqOffsets.f0, mqOffsets.f1);
 				}
+			}
+			for (Map.Entry<MessageQueue, Long> entry : restoredOffsets.entrySet()) {
+				offsetTable.put(entry.getKey(), entry.getValue());
 			}
 			if (!schema.isStreamingMode()) {
 				for (Boolean storedRunningState : runningState.get()) {
 					isSubTaskRunning = storedRunningState && isSubTaskRunning;
 				}
 			}
-			LOG.info("Setting restore state in the consumer. Using the following offsets: {}", restoredOffsets);
+			LOG.info("Subtask {} Setting restore state in the consumer. Using the following offsets: {}", subTaskId, restoredOffsets);
 		} else {
-			LOG.info("No restore state for the consumer.");
+			LOG.info("Subtask {} No restore state for the consumer.", subTaskId);
 		}
 	}
 
