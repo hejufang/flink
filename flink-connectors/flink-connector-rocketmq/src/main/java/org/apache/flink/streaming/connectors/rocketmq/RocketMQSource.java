@@ -216,10 +216,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		pullConsumerScheduleService.setPullThreadNums(pullPoolSize);
 		pullConsumerScheduleService.registerPullTaskCallback(topic, new PullTaskCallback() {
-			private PullResult pullResult;
-
 			@Override
 			public void doPullTask(MessageQueue mq, PullTaskContext pullTaskContext) {
+				PullResult[] pullResults = new PullResult[1];
 				try {
 					long offset = getMessageQueueOffset(mq);
 					if (offset < 0) {
@@ -236,13 +235,14 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 						@Override
 						public void run() throws IOException {
 							try {
-								pullResult = consumer.pull(mq, tag, offset, pullBatchSize);
+								pullResults[0] = consumer.pull(mq, tag, offset, pullBatchSize);
 							} catch (Exception e) {
 								throw new FlinkRuntimeException(e);
 							}
 						}
 					}, strategy);
 					boolean found = false;
+					PullResult pullResult = pullResults[0];
 					switch (pullResult.getPullStatus()) {
 						case FOUND:
 							try {
