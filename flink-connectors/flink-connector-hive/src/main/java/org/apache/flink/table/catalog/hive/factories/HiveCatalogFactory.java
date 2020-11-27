@@ -19,6 +19,7 @@
 package org.apache.flink.table.catalog.hive.factories;
 
 import org.apache.flink.table.catalog.Catalog;
+import org.apache.flink.table.catalog.GeneralCachedCatalog;
 import org.apache.flink.table.catalog.hive.HiveCatalog;
 import org.apache.flink.table.catalog.hive.client.HiveShimLoader;
 import org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator;
@@ -28,6 +29,7 @@ import org.apache.flink.table.factories.CatalogFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,9 +39,21 @@ import java.util.Optional;
 import static org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator.CATALOG_HIVE_CONF_DIR;
 import static org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator.CATALOG_HIVE_VERSION;
 import static org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator.CATALOG_TYPE_VALUE_HIVE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ASYNC_RELOAD;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ENABLE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_EXECUTOR_SIZE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_MAXIMUM_SIZE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_REFRESH_INTERVAL;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_TTL;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_DEFAULT_DATABASE;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_TYPE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.DEFAULT_CATALOG_CACHE_ASYNC_RELOAD;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.DEFAULT_CATALOG_CACHE_ENABLE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.DEFAULT_CATALOG_CACHE_EXECUTOR_SIZE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.DEFAULT_CATALOG_CACHE_MAXIMUM_SIZE;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.DEFAULT_CATALOG_CACHE_REFRESH_INTERVAL;
+import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.DEFAULT_CATALOG_CACHE_TTL;
 
 /**
  * Catalog factory for {@link HiveCatalog}.
@@ -66,6 +80,18 @@ public class HiveCatalogFactory implements CatalogFactory {
 
 		properties.add(CATALOG_HIVE_VERSION);
 
+		properties.add(CATALOG_CACHE_ENABLE);
+
+		properties.add(CATALOG_CACHE_ASYNC_RELOAD);
+
+		properties.add(CATALOG_CACHE_EXECUTOR_SIZE);
+
+		properties.add(CATALOG_CACHE_TTL);
+
+		properties.add(CATALOG_CACHE_REFRESH_INTERVAL);
+
+		properties.add(CATALOG_CACHE_MAXIMUM_SIZE);
+
 		return properties;
 	}
 
@@ -73,15 +99,33 @@ public class HiveCatalogFactory implements CatalogFactory {
 	public Catalog createCatalog(String name, Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 
-		final String defaultDatabase =
-			descriptorProperties.getOptionalString(CATALOG_DEFAULT_DATABASE)
-				.orElse(HiveCatalog.DEFAULT_DB);
+		final String defaultDatabase = descriptorProperties.getOptionalString(CATALOG_DEFAULT_DATABASE)
+			.orElse(HiveCatalog.DEFAULT_DB);
+		final Optional<String> hiveConfDir = descriptorProperties
+			.getOptionalString(CATALOG_HIVE_CONF_DIR);
+		final String version = descriptorProperties.getOptionalString(CATALOG_HIVE_VERSION)
+			.orElse(HiveShimLoader.getHiveVersion());
 
-		final Optional<String> hiveConfDir = descriptorProperties.getOptionalString(CATALOG_HIVE_CONF_DIR);
-
-		final String version = descriptorProperties.getOptionalString(CATALOG_HIVE_VERSION).orElse(HiveShimLoader.getHiveVersion());
-
-		return new HiveCatalog(name, defaultDatabase, hiveConfDir.orElse(null), version);
+		final boolean cacheEnable = descriptorProperties.getOptionalBoolean(CATALOG_CACHE_ENABLE)
+			.orElse(DEFAULT_CATALOG_CACHE_ENABLE);
+		HiveCatalog hiveCatalog = new HiveCatalog(
+			name, defaultDatabase, hiveConfDir.orElse(null), version);
+		if (cacheEnable) {
+			int executorSize = descriptorProperties.getOptionalInt(CATALOG_CACHE_EXECUTOR_SIZE)
+				.orElse(DEFAULT_CATALOG_CACHE_EXECUTOR_SIZE);
+			Duration ttl = descriptorProperties.getOptionalDuration(CATALOG_CACHE_TTL)
+				.orElse(DEFAULT_CATALOG_CACHE_TTL);
+			Duration refresh = descriptorProperties.getOptionalDuration(CATALOG_CACHE_REFRESH_INTERVAL)
+				.orElse(DEFAULT_CATALOG_CACHE_REFRESH_INTERVAL);
+			boolean asyncReloadEnabled = descriptorProperties.getOptionalBoolean(CATALOG_CACHE_ASYNC_RELOAD)
+				.orElse(DEFAULT_CATALOG_CACHE_ASYNC_RELOAD);
+			long maxSize = descriptorProperties.getOptionalLong(CATALOG_CACHE_MAXIMUM_SIZE)
+				.orElse(DEFAULT_CATALOG_CACHE_MAXIMUM_SIZE);
+			return new GeneralCachedCatalog(
+				hiveCatalog, name, defaultDatabase, asyncReloadEnabled, executorSize, ttl, refresh, maxSize);
+		} else {
+			return hiveCatalog;
+		}
 	}
 
 	private static DescriptorProperties getValidatedProperties(Map<String, String> properties) {
