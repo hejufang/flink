@@ -383,7 +383,12 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 	 */
 	@Override
 	public CompletableFuture<?> getAvailableFuture() {
-		return availabilityHelper.getAvailableFuture();
+		if (!lazyAllocate) {
+			return availabilityHelper.getAvailableFuture();
+		} else {
+			// this should always be availabe because we use lazy mode
+			return AVAILABLE;
+		}
 	}
 
 	// ------------------------------------------------------------------------
