@@ -61,4 +61,7 @@ under the License.
 		<suppress
 			files="generated-sources[\\/]org[\\/]apache[\\/]flink[\\/]sql[\\/]parser[\\/]impl[\\/].*..java"
 			checks=".*"/>
+		<suppress
+			files="generated-sources[\\/]thrift[\\/]org[\\/]apache[\\/]flink[\\/]connectors[\\/]rpc[\\/]thrift[\\/].*..java"
+			checks=".*"/>
 </suppressions>
