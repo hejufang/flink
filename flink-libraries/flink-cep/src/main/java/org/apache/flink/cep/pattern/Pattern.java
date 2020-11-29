@@ -51,7 +51,7 @@ import java.io.Serializable;
  */
 public class Pattern<T, F extends T> implements Serializable {
 
-	private final String patternId;
+	private String patternId;
 
 	/** Name of the pattern. */
 	private final String name;
@@ -88,7 +88,7 @@ public class Pattern<T, F extends T> implements Serializable {
 		this.previous = previous;
 		this.quantifier = Quantifier.one(consumingStrategy);
 		this.afterMatchSkipStrategy = afterMatchSkipStrategy;
-		this.patternId = "default";
+		this.patternId = "unknown";
 	}
 
 	public Pattern<T, ? extends T> getPrevious() {
@@ -564,6 +564,10 @@ public class Pattern<T, F extends T> implements Serializable {
 
 	public String getPatternId() {
 		return patternId;
+	}
+
+	public void setPatternId(String patternId) {
+		this.patternId = patternId;
 	}
 
 	/**

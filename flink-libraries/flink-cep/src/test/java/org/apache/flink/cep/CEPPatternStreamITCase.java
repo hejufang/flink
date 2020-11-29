@@ -23,6 +23,9 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
+import org.apache.flink.cep.pattern.parser.CepEvent;
+import org.apache.flink.cep.pattern.parser.CepEventParser;
+import org.apache.flink.cep.test.TestData;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
@@ -64,7 +67,7 @@ public class CEPPatternStreamITCase {
 				Tuple2.of(new Event(5, "middle", 5.0), 100L)
 		).map(x -> x.f0).keyBy(Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternDataStream.broadcast()).select(
+		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
 				(PatternSelectFunction<Event, String>) pattern -> pattern.get("start").get(0).getId() + "," +
 						pattern.get("middle").get(0).getId() + "," +
 						pattern.get("end").get(0).getId());
@@ -79,7 +82,57 @@ public class CEPPatternStreamITCase {
 	}
 
 	@Test
-	public void testUpdatePatternStream() throws IOException {
+	public void testPatternJsonStream() throws IOException {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(2);
+
+		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream(TestData.PATTERN_DATA_1));
+		// (Event, timestamp)
+		DataStream<Event> input = env.addSource(new EventStream(
+				Tuple2.of(new Event(1, "start", 1.0), 5L),
+				Tuple2.of(new Event(2, "middle", 2.0), 4L),
+				Tuple2.of(new Event(2, "start", 2.0), 3L),
+				Tuple2.of(new Event(3, "start", 4.1), 5L),
+				Tuple2.of(new Event(1, "end", 4.0), 10L),
+				Tuple2.of(new Event(2, "end", 2.0), 8L),
+				Tuple2.of(new Event(1, "middle", 5.0), 7L),
+				Tuple2.of(new Event(3, "middle", 6.0), 9L),
+				Tuple2.of(new Event(3, "end", 7.0), 7L),
+				// last element for high final watermark
+				Tuple2.of(new Event(7, "middle", 5.0), 100L)))
+				.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
+
+					@Override
+					public long extractTimestamp(Tuple2<Event, Long> element, long currentTimestamp) {
+						return element.f1;
+					}
+
+					@Override
+					public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+						return new Watermark(lastElement.f1 - 5);
+					}
+
+				})
+				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+				.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new).select(
+				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId() + "," +
+						pattern1.get("middle").get(0).getId() + "," +
+						pattern1.get("end").get(0).getId());
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("1,1,1", "2,2,2"), resultList);
+	}
+
+	@Test
+	public void testPatternDataStream() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
@@ -135,7 +188,7 @@ public class CEPPatternStreamITCase {
 				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternDataStream.broadcast()).select(
+		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
 				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId() + "," +
 						pattern1.get("middle").get(0).getId() + "," +
 						pattern1.get("end").get(0).getId());
@@ -147,6 +200,23 @@ public class CEPPatternStreamITCase {
 		resultList.sort(String::compareTo);
 
 		assertEquals(Arrays.asList("1,1,1", "2,2,2"), resultList);
+	}
+
+	private static class TestCepEventParser extends CepEventParser {
+
+		@Override
+		public String get(String key, CepEvent data) {
+			if (key.equals("name")) {
+				return ((Event) data).getName();
+			} else {
+				throw new UnsupportedOperationException();
+			}
+		}
+
+		@Override
+		public CepEventParser duplicate() {
+			return new TestCepEventParser();
+		}
 	}
 
 	private static class EventStream implements SourceFunction<Tuple2<Event, Long>> {
@@ -167,6 +237,28 @@ public class CEPPatternStreamITCase {
 			for (Tuple2<Event, Long> event : data) {
 				ctx.collect(event);
 			}
+		}
+
+		@Override
+		public void cancel() {}
+	}
+
+	private static class PatternJsonStream implements SourceFunction<String> {
+
+		List<String> patternJsons = new ArrayList<>();
+
+		PatternJsonStream(String... jsons) {
+			this.patternJsons.addAll(Arrays.asList(jsons));
+		}
+
+		@Override
+		public void run(SourceContext<String> ctx) throws Exception {
+			for (String json : patternJsons) {
+				ctx.collect(json);
+			}
+
+			Thread.sleep(100);
+			EventStream.sendFlag = true;
 		}
 
 		@Override

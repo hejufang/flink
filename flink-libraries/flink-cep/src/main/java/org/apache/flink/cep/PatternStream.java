@@ -25,6 +25,7 @@ import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
 import org.apache.flink.cep.pattern.Pattern;
+import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.functions.co.CoMapFunction;
@@ -58,6 +59,10 @@ public class PatternStream<T> {
 
 	PatternStream(final DataStream<T> inputStream, final DataStream<Pattern<T, T>> patternDataStream) {
 		this(PatternStreamBuilder.forStreamAndPatternDataStream(inputStream, patternDataStream));
+	}
+
+	PatternStream(final DataStream<T> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
+		this(PatternStreamBuilder.forStreamAndPatternJsonStream(inputStream, patternJsonStream, factory));
 	}
 
 	PatternStream(final DataStream<T> inputStream, final Pattern<T, ?> pattern) {

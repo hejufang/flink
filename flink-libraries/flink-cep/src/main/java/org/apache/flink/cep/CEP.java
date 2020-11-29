@@ -19,6 +19,7 @@
 package org.apache.flink.cep;
 
 import org.apache.flink.cep.pattern.Pattern;
+import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.streaming.api.datastream.DataStream;
 
 /**
@@ -41,6 +42,10 @@ public class CEP {
 
 	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<Pattern<T, T>> patternDataStream) {
 		return new PatternStream<>(input, patternDataStream);
+	}
+
+	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<String> patternJsonStream, CepEventParserFactory factory) {
+		return new PatternStream<>(input, patternJsonStream, factory);
 	}
 
 	/**

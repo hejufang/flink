@@ -31,6 +31,8 @@ import org.apache.flink.cep.nfa.compiler.NFACompiler;
 import org.apache.flink.cep.operator.CepOperator;
 import org.apache.flink.cep.operator.CoCepOperator;
 import org.apache.flink.cep.pattern.Pattern;
+import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
+import org.apache.flink.cep.pattern.parser.PojoStreamToPatternStreamConverter;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
@@ -55,9 +57,17 @@ final class PatternStreamBuilder<IN> {
 
 	private final DataStream<IN> inputStream;
 
-	private final DataStream<Pattern<IN, IN>> patternDataStream;
+	@Nullable
+	private DataStream<Pattern<IN, IN>> patternDataStream;
 
+	@Nullable
+	private DataStream<String> patternJsonStream;
+
+	@Nullable
 	private final Pattern<IN, ?> pattern;
+
+	@Nullable
+	private final CepEventParserFactory cepEventParserFactory;
 
 	private final EventComparator<IN> comparator;
 
@@ -71,16 +81,32 @@ final class PatternStreamBuilder<IN> {
 			final DataStream<IN> inputStream,
 			@Nullable final Pattern<IN, ?> pattern,
 			@Nullable final DataStream<Pattern<IN, IN>> patternDataStream,
+			@Nullable final DataStream<String> patternJsonStream,
 			@Nullable final EventComparator<IN> comparator,
-			@Nullable final OutputTag<IN> lateDataOutputTag) {
-		Preconditions.checkArgument(pattern != null || patternDataStream != null);
-		Preconditions.checkArgument(!(pattern != null && patternDataStream != null));
+			@Nullable final OutputTag<IN> lateDataOutputTag,
+			@Nullable final CepEventParserFactory cepEventParserFactory) {
+		Preconditions.checkArgument(pattern != null || patternDataStream != null || patternJsonStream != null, "none streams for pattern.");
+
+		if (pattern != null) {
+			Preconditions.checkArgument(patternDataStream == null && patternJsonStream == null);
+		}
+
+		if (patternDataStream != null) {
+			Preconditions.checkArgument(pattern == null && patternJsonStream == null);
+		}
+
+		if (patternJsonStream != null) {
+			Preconditions.checkArgument(cepEventParserFactory != null);
+			Preconditions.checkArgument(pattern == null && patternDataStream == null);
+		}
 
 		this.inputStream = checkNotNull(inputStream);
 		this.pattern = pattern;
 		this.patternDataStream = patternDataStream;
+		this.patternJsonStream = patternJsonStream;
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
+		this.cepEventParserFactory = cepEventParserFactory;
 	}
 
 	TypeInformation<IN> getInputType() {
@@ -98,11 +124,11 @@ final class PatternStreamBuilder<IN> {
 	}
 
 	PatternStreamBuilder<IN> withComparator(final EventComparator<IN> comparator) {
-		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, checkNotNull(comparator), lateDataOutputTag);
+		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory);
 	}
 
 	PatternStreamBuilder<IN> withLateDataOutputTag(final OutputTag<IN> lateDataOutputTag) {
-		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, comparator, checkNotNull(lateDataOutputTag));
+		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory);
 	}
 
 	/**
@@ -126,6 +152,10 @@ final class PatternStreamBuilder<IN> {
 			return buildOneInputStream(outTypeInfo, processFunction);
 		} else if (patternDataStream != null) {
 			return buildTwoInputStream(outTypeInfo, processFunction);
+		} else if (patternJsonStream != null) {
+			// convert json stream to pattern data stream
+			patternDataStream = PojoStreamToPatternStreamConverter.convert(patternJsonStream, cepEventParserFactory);
+			return buildTwoInputStream(outTypeInfo, processFunction);
 		} else {
 			throw new UnsupportedOperationException();
 		}
@@ -134,6 +164,8 @@ final class PatternStreamBuilder<IN> {
 	private <OUT, K> SingleOutputStreamOperator<OUT> buildTwoInputStream(
 			final TypeInformation<OUT> outTypeInfo,
 			final PatternProcessFunction<IN, OUT> processFunction) {
+		Preconditions.checkState(patternDataStream != null, "cannot support dynamic update without pattern stream.");
+
 		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
 		final boolean isProcessingTime = inputStream.getExecutionEnvironment().getStreamTimeCharacteristic() == TimeCharacteristic.ProcessingTime;
 
@@ -153,7 +185,7 @@ final class PatternStreamBuilder<IN> {
 
 		TwoInputTransformation<IN, Pattern<IN, IN>, OUT> transform = new TwoInputTransformation<>(
 				inputStream.getTransformation(),
-				patternDataStream.getTransformation(),
+				patternDataStream.broadcast().getTransformation(),
 				"CoCepOperator",
 				operator,
 				outTypeInfo,
@@ -212,10 +244,14 @@ final class PatternStreamBuilder<IN> {
 	// ---------------------------------------- factory-like methods ---------------------------------------- //
 
 	static <IN> PatternStreamBuilder<IN> forStreamAndPattern(final DataStream<IN> inputStream, final Pattern<IN, ?> pattern) {
-		return new PatternStreamBuilder<>(inputStream, pattern, null, null, null);
+		return new PatternStreamBuilder<>(inputStream, pattern, null, null, null, null, null);
 	}
 
 	static <IN> PatternStreamBuilder<IN> forStreamAndPatternDataStream(final DataStream<IN> inputStream, final DataStream<Pattern<IN, IN>> patternDataStream) {
-		return new PatternStreamBuilder<>(inputStream, null, patternDataStream, null, null);
+		return new PatternStreamBuilder<>(inputStream, null, patternDataStream, null, null, null, null);
+	}
+
+	static <IN> PatternStreamBuilder<IN> forStreamAndPatternJsonStream(final DataStream<IN> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
+		return new PatternStreamBuilder<>(inputStream, null, null, patternJsonStream, null, null, factory);
 	}
 }
