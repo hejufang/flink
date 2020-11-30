@@ -34,7 +34,7 @@ common:
   high-availability.zookeeper.client.max-retry-attempts: 20 # default 3
   high-availability.zookeeper.client.connection-timeout: 60000 # default 15000ms
   high-availability.zookeeper.client.retry-wait: 20000 # default 5000ms
-  high-availability.zookeeper.client.session-timeout: 60000 # default 60000ms, be careful to change this.
+  high-availability.zookeeper.client.session-timeout: 180000 # default 60000ms, be careful to change this.
   zookeeper.sasl.disable: true
 
   yarn.application-attempts: 5
@@ -63,7 +63,7 @@ common:
   historyserver.archive.fs.dir: ${hdfs.prefix}/${clusterName}/1.9/completed-jobs
   historyserver.web.tmpdir: /opt/tmp/flink/historyserver/tmpdir
 
-  akka.ask.timeout: 60 s
+  akka.ask.timeout: 180 s
 
   containerized.jobmanager.heap-cutoff-ratio: 0.1
 
@@ -193,7 +193,7 @@ common:
 
   jobmanager.execution.schedule-task-fairly: false
 
-  heartbeat.timeout: 120000
+  heartbeat.timeout: 180000
   heartbeat.interval: 40000
 
   grafana.domain_url: "https://grafana.byted.org"
