@@ -37,6 +37,7 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
@@ -46,7 +47,6 @@ import javax.annotation.Nullable;
 
 import java.util.Map;
 
-import static org.apache.flink.streaming.api.environment.StreamExecutionEnvironment.getExecutionEnvironment;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -154,7 +154,7 @@ final class PatternStreamBuilder<IN> {
 			return buildTwoInputStream(outTypeInfo, processFunction);
 		} else if (patternJsonStream != null) {
 			// convert json stream to pattern data stream
-			patternDataStream = PojoStreamToPatternStreamConverter.convert(patternJsonStream, cepEventParserFactory);
+			this.patternDataStream = PojoStreamToPatternStreamConverter.convert(patternJsonStream, cepEventParserFactory);
 			return buildTwoInputStream(outTypeInfo, processFunction);
 		} else {
 			throw new UnsupportedOperationException();
@@ -195,9 +195,10 @@ final class PatternStreamBuilder<IN> {
 		transform.setStateKeySelectors(keyedStream.getKeySelector(), null);
 		transform.setStateKeyType(keyType1);
 
-		SingleOutputStreamOperator<OUT> returnStream = new SingleOutputStreamOperator(getExecutionEnvironment(), transform);
+		StreamExecutionEnvironment environment = inputStream.getExecutionEnvironment();
+		SingleOutputStreamOperator<OUT> returnStream = new SingleOutputStreamOperator(environment, transform);
 
-		getExecutionEnvironment().addOperator(transform);
+		environment.addOperator(transform);
 
 		return returnStream;
 	}

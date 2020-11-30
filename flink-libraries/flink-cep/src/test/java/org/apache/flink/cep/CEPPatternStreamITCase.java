@@ -226,6 +226,7 @@ public class CEPPatternStreamITCase {
 		private List<Tuple2<Event, Long>> data = new ArrayList<>();
 
 		EventStream(Tuple2<Event, Long>... elements) {
+			sendFlag = false;
 			data.addAll(Arrays.asList(elements));
 		}
 
@@ -257,7 +258,7 @@ public class CEPPatternStreamITCase {
 				ctx.collect(json);
 			}
 
-			Thread.sleep(100);
+			Thread.sleep(1000);
 			EventStream.sendFlag = true;
 		}
 

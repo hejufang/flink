@@ -246,6 +246,11 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	@Override
 	public void processElement1(StreamRecord<IN> element) throws Exception {
+		if (currentNFA == null) {
+			LOG.warn("Current pattern is not defined, drop records...");
+			return;
+		}
+
 		if (isProcessingTime) {
 			if (comparator == null) {
 				// there can be no out of order elements in processing time
