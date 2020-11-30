@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -107,6 +108,12 @@ public final class FactoryUtil {
 		.noDefaultValue()
 		.withDescription(
 			"The parallelism of connector.");
+
+	public static final ConfigOption<Duration> LOOKUP_LATER_JOIN_LATENCY_MS = ConfigOptions
+		.key("lookup.later-join-latency")
+		.durationType()
+		.defaultValue(Duration.ZERO)
+		.withDescription("Optional. Duration type, default Duration.ZERO means disable later join.");
 
 	public static final ConfigOption<Boolean> SINK_LOG_FAILURES_ONLY = ConfigOptions
 		.key("sink.log-failures-only")

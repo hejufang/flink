@@ -41,6 +41,7 @@ import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.externalresource.ExternalResourceInfoProvider;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
+import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -69,6 +70,7 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 	private final ProcessingTimeService processingTimeService;
 	private @Nullable KeyedStateStore keyedStateStore;
 	private final ExternalResourceInfoProvider externalResourceInfoProvider;
+	private OperatorStateBackend operatorStateBackend;
 
 	@VisibleForTesting
 	public StreamingRuntimeContext(
@@ -82,7 +84,8 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 			operator.getOperatorID(),
 			operator.getProcessingTimeService(),
 			operator.getKeyedStateStore(),
-			env.getExternalResourceInfoProvider());
+			env.getExternalResourceInfoProvider(),
+			operator.getOperatorStateBackend());
 	}
 
 	public StreamingRuntimeContext(
@@ -92,7 +95,8 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 			OperatorID operatorID,
 			ProcessingTimeService processingTimeService,
 			@Nullable KeyedStateStore keyedStateStore,
-			ExternalResourceInfoProvider externalResourceInfoProvider) {
+			ExternalResourceInfoProvider externalResourceInfoProvider,
+			@Nullable OperatorStateBackend operatorStateBackend) {
 		super(checkNotNull(env).getTaskInfo(),
 				env.getUserClassLoader(),
 				env.getExecutionConfig(),
@@ -105,10 +109,15 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 		this.processingTimeService = processingTimeService;
 		this.keyedStateStore = keyedStateStore;
 		this.externalResourceInfoProvider = externalResourceInfoProvider;
+		this.operatorStateBackend = operatorStateBackend;
 	}
 
 	public void setKeyedStateStore(@Nullable KeyedStateStore keyedStateStore) {
 		this.keyedStateStore = keyedStateStore;
+	}
+
+	public void setOperatorStateBackend(@Nullable OperatorStateBackend operatorStateBackend) {
+		this.operatorStateBackend = operatorStateBackend;
 	}
 
 	// ------------------------------------------------------------------------
@@ -242,5 +251,13 @@ public class StreamingRuntimeContext extends AbstractRuntimeUDFContext {
 	 */
 	public CheckpointingMode getCheckpointMode() {
 		return streamConfig.getCheckpointMode();
+	}
+
+	public <T> ListState<T> getOperatorListState(ListStateDescriptor<T> stateProperties) {
+		try {
+			return operatorStateBackend.getListState(stateProperties);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

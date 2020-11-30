@@ -31,11 +31,13 @@ public class JdbcLookupOptions implements Serializable {
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
+	private final long laterRetryMs;
 
-	public JdbcLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes) {
+	public JdbcLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, long laterRetryMs) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
+		this.laterRetryMs = laterRetryMs;
 	}
 
 	public long getCacheMaxSize() {
@@ -48,6 +50,10 @@ public class JdbcLookupOptions implements Serializable {
 
 	public int getMaxRetryTimes() {
 		return maxRetryTimes;
+	}
+
+	public long getLaterRetryMs() {
+		return laterRetryMs;
 	}
 
 	public static Builder builder() {
@@ -73,6 +79,7 @@ public class JdbcLookupOptions implements Serializable {
 		private long cacheMaxSize = -1L;
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES;
+		private long laterRetryMs = -1;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -98,8 +105,17 @@ public class JdbcLookupOptions implements Serializable {
 			return this;
 		}
 
+		/**
+		 * optional, set later retry times for jdbc connector.
+		 * Only old type of connector use this Builder, so this method is unused
+		 */
+		public Builder setLaterRetryMs(long laterRetryMs) {
+			this.laterRetryMs = laterRetryMs;
+			return this;
+		}
+
 		public JdbcLookupOptions build() {
-			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes);
+			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, laterRetryMs);
 		}
 	}
 }

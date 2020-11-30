@@ -224,7 +224,8 @@ public abstract class AbstractStreamOperator<OUT>
 			getOperatorID(),
 			getProcessingTimeService(),
 			null,
-			environment.getExternalResourceInfoProvider());
+			environment.getExternalResourceInfoProvider(),
+			null);
 
 		stateKeySelector1 = config.getStatePartitioner(0, getUserCodeClassloader());
 		stateKeySelector2 = config.getStatePartitioner(1, getUserCodeClassloader());
@@ -278,6 +279,7 @@ public abstract class AbstractStreamOperator<OUT>
 		timeServiceManager = context.internalTimerServiceManager();
 		stateHandler.initializeOperatorState(this);
 		runtimeContext.setKeyedStateStore(stateHandler.getKeyedStateStore().orElse(null));
+		runtimeContext.setOperatorStateBackend(stateHandler.getOperatorStateBackend());
 	}
 
 	/**

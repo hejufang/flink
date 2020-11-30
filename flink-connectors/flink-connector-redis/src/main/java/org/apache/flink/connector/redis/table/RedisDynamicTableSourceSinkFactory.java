@@ -70,6 +70,7 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VA
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VALUE_TYPE;
 import static org.apache.flink.table.factories.FactoryUtil.CONNECTOR;
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY_MS;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 
@@ -181,6 +182,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		optionalOptions.add(LOOKUP_CACHE_MAX_ROWS);
 		optionalOptions.add(LOOKUP_CACHE_TTL);
 		optionalOptions.add(LOOKUP_MAX_RETRIES);
+		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY_MS);
 		return optionalOptions;
 	}
 
@@ -202,7 +204,8 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		return new RedisLookupOptions(
 			readableConfig.get(LOOKUP_CACHE_MAX_ROWS),
 			readableConfig.get(LOOKUP_CACHE_TTL),
-			readableConfig.get(LOOKUP_MAX_RETRIES));
+			readableConfig.get(LOOKUP_MAX_RETRIES),
+			readableConfig.get(LOOKUP_LATER_JOIN_LATENCY_MS).toMillis());
 	}
 
 	private RedisInsertOptions getRedisInsertOptions(ReadableConfig readableConfig) {
