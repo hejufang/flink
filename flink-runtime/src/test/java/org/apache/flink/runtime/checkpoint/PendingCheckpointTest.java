@@ -28,6 +28,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.*;
+import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorageLocation;
 
 import org.junit.Assert;
@@ -387,12 +388,14 @@ public class PendingCheckpointTest {
 	private PendingCheckpoint createPendingCheckpoint(CheckpointProperties props, Executor executor) throws IOException {
 
 		final Path checkpointDir = new Path(tmpFolder.newFolder().toURI());
+		final FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		final FsCheckpointStorageLocation location = new FsCheckpointStorageLocation(
 				LocalFileSystem.getSharedInstance(),
 				checkpointDir, checkpointDir, checkpointDir,
 				CheckpointStorageLocationReference.getDefault(),
 				1024,
-				4096);
+				4096,
+				currentPeriodStatistic);
 
 		final Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>(ACK_TASKS);
 

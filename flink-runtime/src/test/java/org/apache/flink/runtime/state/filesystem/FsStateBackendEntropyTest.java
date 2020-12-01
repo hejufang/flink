@@ -23,6 +23,7 @@ import org.apache.flink.core.fs.EntropyInjectingFileSystem;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.fs.local.LocalFileSystem;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
@@ -58,7 +59,7 @@ public class FsStateBackendEntropyTest {
 		final String checkpointDirStr = checkpointDir.toString();
 
 		FsCheckpointStorage storage = new FsCheckpointStorage(
-				fs, checkpointDir, null, new JobID(), 1024, 4096);
+				fs, checkpointDir, null, new JobID(), 1024, 4096, new UnregisteredMetricsGroup());
 
 		FsCheckpointStorageLocation location = (FsCheckpointStorageLocation)
 				storage.initializeLocationForCheckpoint(96562);

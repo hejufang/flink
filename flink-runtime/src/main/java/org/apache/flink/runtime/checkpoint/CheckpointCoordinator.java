@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
@@ -40,6 +41,7 @@ import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.CheckpointTaskIdentifier;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
@@ -216,7 +218,8 @@ public class CheckpointCoordinator {
 			executor,
 			sharedStateRegistryFactory,
 			failureManager,
-			new GlobalCheckpointHandler());
+			new GlobalCheckpointHandler(),
+			UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
 	}
 
 	public CheckpointCoordinator(
@@ -232,7 +235,8 @@ public class CheckpointCoordinator {
 			Executor executor,
 			SharedStateRegistryFactory sharedStateRegistryFactory,
 			CheckpointFailureManager failureManager,
-			CheckpointHandler checkpointHandler) {
+			CheckpointHandler checkpointHandler,
+			MetricGroup metricGroup) {
 
 		// sanity checks
 		checkNotNull(checkpointStateBackend);
@@ -265,7 +269,7 @@ public class CheckpointCoordinator {
 		this.checkpointProperties = CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
 		try {
-			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobName);
+			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobName, metricGroup);
 			if (isPeriodicCheckpointingConfigured()) {
 				// do not create checkpoint directory if checkpoint is disabled
 				checkpointStorage.initializeLocation();

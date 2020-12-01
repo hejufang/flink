@@ -146,6 +146,7 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 		final FileSystem fs = LocalFileSystem.getSharedInstance();
 		final Path checkpointDir = randomTempPath();
 		final Path sharedStateDir = randomTempPath();
+		final FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 
 		FsCheckpointStorageLocation storageLocation = new FsCheckpointStorageLocation(
 				fs,
@@ -154,7 +155,8 @@ public class FsCheckpointStorageTest extends AbstractFileCheckpointStorageTestBa
 				randomTempPath(),
 				CheckpointStorageLocationReference.getDefault(),
 				FILE_SIZE_THRESHOLD,
-				WRITE_BUFFER_SIZE);
+				WRITE_BUFFER_SIZE,
+				currentPeriodStatistic);
 
 		assertNotEquals(storageLocation.getCheckpointDirectory(), storageLocation.getSharedStateDirectory());
 

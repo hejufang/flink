@@ -32,6 +32,7 @@ import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.accumulators.StringifiedAccumulatorResult;
@@ -763,7 +764,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			ioExecutor,
 			SharedStateRegistry.DEFAULT_FACTORY,
 			failureManager,
-			checkpointHandler);
+			checkpointHandler,
+			new UnregisteredMetricsGroup());
 
 		// register the master hooks on the checkpoint coordinator
 		for (MasterTriggerRestoreHook<?> hook : masterHooks) {

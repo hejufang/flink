@@ -390,7 +390,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			if (getEnvironment().getTaskManagerInfo().getConfiguration().getBoolean(
 				ConfigConstants.HDFS_DEPENDENCY_ENABLED, ConfigConstants.HDFS_DEPENDENCY_ENABLED_DEFAULT)) {
 				checkpointStorage = stateBackend.createCheckpointStorage(
-					getEnvironment().getJobID(), getEnvironment().getJobName());
+					getEnvironment().getJobID(), getEnvironment().getJobName(), getEnvironment().getMetricGroup());
 			}
 
 			// if the clock is not already set, then assign a default TimeServiceProvider
