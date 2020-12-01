@@ -250,8 +250,7 @@ class BatchExecRank(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val inputMix = translateToPlanMix(planner, 0)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
     val partitionBySortingKeys = partitionKey.toArray
     // The collation for the partition-by fields is inessential here, we only use the
@@ -286,6 +285,7 @@ class BatchExecRank(
       rankEnd,
       outputRankNumber)
 
+    val input = getTransformFromMix(inputMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

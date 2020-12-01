@@ -36,14 +36,13 @@ object CalcCodeGenerator {
   private[flink] def generateCalcOperator(
       ctx: CodeGeneratorContext,
       cluster: RelOptCluster,
-      inputTransform: Transformation[RowData],
+      inputType: RowType,
       outputType: RowType,
       config: TableConfig,
       calcProgram: RexProgram,
       condition: Option[RexNode],
       retainHeader: Boolean = false,
       opName: String): CodeGenOperatorFactory[RowData] = {
-    val inputType = inputTransform.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
     // filter out time attributes
     val inputTerm = CodeGenUtils.DEFAULT_INPUT1_TERM
     val processCode = generateProcessCode(

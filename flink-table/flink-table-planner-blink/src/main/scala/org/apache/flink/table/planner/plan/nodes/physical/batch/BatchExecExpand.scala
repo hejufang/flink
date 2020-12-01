@@ -84,9 +84,9 @@ class BatchExecExpand(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val inputTransform = getInputNodes.get(0).translateToPlan(planner)
-      .asInstanceOf[Transformation[RowData]]
-    val inputType = inputTransform.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
+    val inputTransformMix = translateToPlanMix(planner, 0)
+
+    val inputType = FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
 
     val ctx = CodeGeneratorContext(config)
@@ -97,6 +97,8 @@ class BatchExecExpand(
       config,
       projects,
       opName = "BatchExpand")
+
+    val inputTransform = getTransformFromMix(inputTransformMix)
 
     ExecNode.createOneInputTransformation(
       inputTransform,

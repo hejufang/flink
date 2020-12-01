@@ -364,8 +364,7 @@ class BatchExecOverAggregate(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val inputMix = translateToPlanMix(planner, 0)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
 
     //The generated sort is used for generating the comparator among partitions.
@@ -418,6 +417,7 @@ class BatchExecOverAggregate(
         genComparator,
         inputType.getChildren.forall(t => BinaryRowData.isInFixedLengthPart(t)))
     }
+    val input = getTransformFromMix(inputMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

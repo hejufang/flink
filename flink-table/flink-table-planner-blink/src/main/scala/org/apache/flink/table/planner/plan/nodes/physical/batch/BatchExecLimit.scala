@@ -21,6 +21,7 @@ import org.apache.flink.api.dag.Transformation
 import org.apache.flink.runtime.operators.DamBehavior
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory
 import org.apache.flink.table.data.RowData
+import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.delegation.BatchPlanner
 import org.apache.flink.table.planner.plan.cost.FlinkCost._
 import org.apache.flink.table.planner.plan.cost.FlinkCostFactory
@@ -28,6 +29,7 @@ import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode}
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.fetchToString
 import org.apache.flink.table.planner.plan.utils.SortUtil
 import org.apache.flink.table.runtime.operators.sort.LimitOperator
+import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 
 import org.apache.calcite.plan.{RelOptCluster, RelOptCost, RelOptPlanner, RelTraitSet}
 import org.apache.calcite.rel._
@@ -102,10 +104,11 @@ class BatchExecLimit(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
-    val inputType = input.getOutputType
+    val inputTransformMix = translateToPlanMix(planner, 0)
+    val inputType =
+      RowDataTypeInfo.of(FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType))
     val operator = new LimitOperator(isGlobal, limitStart, limitEnd)
+    val input = getTransformFromMix(inputTransformMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

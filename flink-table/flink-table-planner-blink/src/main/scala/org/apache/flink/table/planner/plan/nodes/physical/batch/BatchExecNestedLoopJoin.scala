@@ -129,14 +129,12 @@ class BatchExecNestedLoopJoin(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    val lInput = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
-    val rInput = getInputNodes.get(1).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val lInputMix = translateToPlanMix(planner, 0)
+    val rInputMix = translateToPlanMix(planner, 1)
 
     // get type
-    val lType = lInput.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
-    val rType = rInput.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
+    val lType = FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType)
+    val rType = FlinkTypeFactory.toLogicalRowType(getInputs.get(1).getRowType)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
 
     val op = new NestedLoopJoinCodeGenerator(
@@ -150,11 +148,14 @@ class BatchExecNestedLoopJoin(
       condition
     ).gen()
 
-    val parallelism = if (leftIsBuild) rInput.getParallelism else lInput.getParallelism
     val manageMem = if (singleRowJoin) 0 else {
       MemorySize.parse(planner.getTableConfig.getConfiguration.getString(
         ExecutionConfigOptions.TABLE_EXEC_RESOURCE_EXTERNAL_BUFFER_MEMORY)).getBytes
     }
+
+    val lInput = getTransformFromMix(lInputMix)
+    val rInput = getTransformFromMix(rInputMix)
+    val parallelism = if (leftIsBuild) rInput.getParallelism else lInput.getParallelism
     ExecNode.createTwoInputTransformation(
       lInput,
       rInput,

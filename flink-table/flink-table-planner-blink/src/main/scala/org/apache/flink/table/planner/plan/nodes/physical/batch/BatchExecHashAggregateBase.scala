@@ -119,11 +119,10 @@ abstract class BatchExecHashAggregateBase(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val inputTransformMix = translateToPlanMix(planner, 0)
     val ctx = CodeGeneratorContext(config)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
-    val inputType = FlinkTypeFactory.toLogicalRowType(inputRowType)
+    val inputType = FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType)
 
     val aggInfos = transformToBatchAggregateInfoList(
       aggCallToAggFunction.map(_._1), aggInputRowType)
@@ -140,6 +139,7 @@ abstract class BatchExecHashAggregateBase(
       ).genWithKeys()
     }
     val operator = new CodeGenOperatorFactory[RowData](generatedOperator)
+    val input = getTransformFromMix(inputTransformMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

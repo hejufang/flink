@@ -104,8 +104,7 @@ class BatchExecSort(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val inputMix = translateToPlanMix(planner, 0)
 
     val conf = planner.getTableConfig
     val inputType = FlinkTypeFactory.toLogicalRowType(getInput.getRowType)
@@ -121,6 +120,7 @@ class BatchExecSort(
 
     val sortMemory = MemorySize.parse(conf.getConfiguration.getString(
       ExecutionConfigOptions.TABLE_EXEC_RESOURCE_SORT_MEMORY)).getBytes
+    val input = getTransformFromMix(inputMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

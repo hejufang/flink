@@ -201,13 +201,11 @@ class BatchExecSortMergeJoin(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val leftInput = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
-    val rightInput = getInputNodes.get(1).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val leftInputMix = translateToPlanMix(planner, 0)
+    val rightInputMix = translateToPlanMix(planner, 1)
 
-    val leftType = leftInput.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
-    val rightType = rightInput.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
+    val leftType = FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType)
+    val rightType = FlinkTypeFactory.toLogicalRowType(getInputs.get(1).getRowType)
 
     val keyType = RowType.of(leftAllKey.map(leftType.getChildren.get(_)): _*)
 
@@ -242,7 +240,7 @@ class BatchExecSortMergeJoin(
     val operator = new SortMergeJoinOperator(
       externalBufferMemory.toDouble / managedMemory,
       flinkJoinType,
-      estimateOutputSize(getLeft) < estimateOutputSize(getRight),
+      estimateOutputSize(planner, getLeft) < estimateOutputSize(planner, getRight),
       condFunc,
       generateProjection(
         CodeGeneratorContext(config), "SMJProjection", leftType, keyType, leftAllKey),
@@ -255,6 +253,8 @@ class BatchExecSortMergeJoin(
       newSortGen(leftAllKey.indices.toArray, keyType).generateRecordComparator("KeyComparator"),
       filterNulls)
 
+    val leftInput = getTransformFromMix(leftInputMix)
+    val rightInput = getTransformFromMix(rightInputMix)
     ExecNode.createTwoInputTransformation(
       leftInput,
       rightInput,
@@ -265,8 +265,10 @@ class BatchExecSortMergeJoin(
       managedMemory)
   }
 
-  private def estimateOutputSize(relNode: RelNode): Double = {
-    val mq = relNode.getCluster.getMetadataQuery
-    mq.getAverageRowSize(relNode) * mq.getRowCount(relNode)
+  private def estimateOutputSize(planner: BatchPlanner, relNode: RelNode): Double = {
+    planner.synchronized {
+      val mq = relNode.getCluster.getMetadataQuery
+      mq.getAverageRowSize(relNode) * mq.getRowCount(relNode)
+    }
   }
 }

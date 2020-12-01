@@ -106,8 +106,7 @@ abstract class BatchExecSortWindowAggregateBase(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val inputMix = translateToPlanMix(planner, 0)
     val ctx = CodeGeneratorContext(planner.getTableConfig)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
     val inputType = FlinkTypeFactory.toLogicalRowType(inputRowType)
@@ -132,6 +131,7 @@ abstract class BatchExecSortWindowAggregateBase(
       generator.genWithKeys()
     }
     val operator = new CodeGenOperatorFactory[RowData](generatedOperator)
+    val input = getTransformFromMix(inputMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

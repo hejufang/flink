@@ -29,6 +29,7 @@ import org.apache.flink.util.Preconditions;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -101,11 +102,10 @@ public abstract class Transformation<T> {
 	public static final int DEFAULT_MANAGED_MEMORY_WEIGHT = 1;
 
 	// This is used to assign a unique ID to every Transformation
-	protected static Integer idCounter = 0;
+	protected static AtomicInteger idCounter = new AtomicInteger(0);
 
 	public static int getNewNodeId() {
-		idCounter++;
-		return idCounter;
+		return idCounter.incrementAndGet();
 	}
 
 	protected final int id;
