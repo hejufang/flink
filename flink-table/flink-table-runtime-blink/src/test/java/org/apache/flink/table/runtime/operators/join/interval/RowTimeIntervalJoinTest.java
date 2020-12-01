@@ -73,14 +73,14 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 
 		testHarness.processElement1(insertRecord(5L, "k1"));
 		testHarness.processElement2(insertRecord(15L, "k1"));
-		testHarness.processWatermark1(new Watermark(20));
-		testHarness.processWatermark2(new Watermark(20));
+		testHarness.processWatermark1(new Watermark(15));
+		testHarness.processWatermark2(new Watermark(15));
 		assertEquals(4, testHarness.numKeyedStateEntries());
 
 		testHarness.processElement1(insertRecord(35L, "k1"));
 
-		// The right rows with timestamp = 2 and 5 will be removed here.
-		// The left rows with timestamp = 2 and 15 will be removed here.
+		// The left rows with timestamp = 1, 2 and 5 will be removed here.
+		// The right rows with timestamp = 2 and 15 will be removed here.
 		testHarness.processWatermark1(new Watermark(38));
 		testHarness.processWatermark2(new Watermark(38));
 
@@ -89,8 +89,8 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		assertEquals(6, testHarness.numKeyedStateEntries());
 
 		// The right row with timestamp = 35 will be removed here.
-		testHarness.processWatermark1(new Watermark(61));
-		testHarness.processWatermark2(new Watermark(61));
+		testHarness.processWatermark1(new Watermark(50));
+		testHarness.processWatermark2(new Watermark(50));
 		assertEquals(4, testHarness.numKeyedStateEntries());
 
 		List<Object> expectedOutput = new ArrayList<>();
@@ -100,11 +100,11 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		expectedOutput.add(insertRecord(2L, "k1", 2L, "k1"));
 		expectedOutput.add(insertRecord(5L, "k1", 2L, "k1"));
 		expectedOutput.add(insertRecord(5L, "k1", 15L, "k1"));
-		expectedOutput.add(new Watermark(0));
+		expectedOutput.add(new Watermark(-5));
 		expectedOutput.add(insertRecord(35L, "k1", 15L, "k1"));
 		expectedOutput.add(new Watermark(18));
 		expectedOutput.add(insertRecord(40L, "k2", 39L, "k2"));
-		expectedOutput.add(new Watermark(41));
+		expectedOutput.add(new Watermark(30));
 
 		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
 		testHarness.close();
@@ -180,15 +180,15 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		assertEquals(2, testHarness.numEventTimeTimers());
 		assertEquals(4, testHarness.numKeyedStateEntries());
 
-		// The left row with timestamp = 1 will be padded and removed (14=1+5+1+((5+9)/2)).
-		testHarness.processWatermark1(new Watermark(14));
-		testHarness.processWatermark2(new Watermark(14));
+		// The right row with timestamp = 1 will be padded and removed (7=1+5+1).
+		testHarness.processWatermark1(new Watermark(7));
+		testHarness.processWatermark2(new Watermark(7));
 		assertEquals(1, testHarness.numEventTimeTimers());
 		assertEquals(2, testHarness.numKeyedStateEntries());
 
-		// The right row with timestamp = 1 will be removed (18=1+9+1+((5+9)/2)).
-		testHarness.processWatermark1(new Watermark(18));
-		testHarness.processWatermark2(new Watermark(18));
+		// The left row with timestamp = 1 will be removed (11=1+9+1).
+		testHarness.processWatermark1(new Watermark(11));
+		testHarness.processWatermark2(new Watermark(11));
 		assertEquals(0, testHarness.numEventTimeTimers());
 		assertEquals(0, testHarness.numKeyedStateEntries());
 
@@ -216,8 +216,8 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		List<Object> expectedOutput = new ArrayList<>();
 		// The timestamp 14 is set with the triggered timer.
 		expectedOutput.add(insertRecord(1L, "k1", null, null));
-		expectedOutput.add(new Watermark(5));
-		expectedOutput.add(new Watermark(9));
+		expectedOutput.add(new Watermark(-2));
+		expectedOutput.add(new Watermark(2));
 		expectedOutput.add(insertRecord(2L, "k1", null, null));
 		expectedOutput.add(insertRecord(20L, "k1", 25L, "k1"));
 		expectedOutput.add(insertRecord(21L, "k1", 25L, "k1"));
@@ -230,6 +230,49 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		expectedOutput.add(new Watermark(91));
 
 		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+		testHarness.close();
+	}
+
+	@Test
+	public void testFullOuterJoin() throws Exception {
+		RowTimeIntervalJoin joinProcessFunc = new RowTimeIntervalJoin(
+			FlinkJoinType.FULL, -10, 20, 0, rowType, rowType, generatedFunction, 0, 0);
+
+		KeyedTwoInputStreamOperatorTestHarness<RowData, RowData, RowData, RowData> testHarness = createTestHarness(
+			joinProcessFunc);
+
+		testHarness.open();
+		List<Object> expectedOutput = new ArrayList<>();
+
+		testHarness.processWatermark1(new Watermark(100));
+		testHarness.processWatermark2(new Watermark(100));
+		expectedOutput.add(new Watermark(80));
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+
+		testHarness.processElement1(insertRecord(102L, "k1"));
+		testHarness.processWatermark1(new Watermark(112));
+		testHarness.processWatermark2(new Watermark(112));
+		expectedOutput.add(new Watermark(92));
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+
+		testHarness.processWatermark1(new Watermark(113));
+		testHarness.processWatermark2(new Watermark(113));
+		expectedOutput.add(insertRecord(102L, "k1", null, null));
+		expectedOutput.add(new Watermark(93));
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+
+		testHarness.processElement2(insertRecord(130L, "k1"));
+		testHarness.processWatermark1(new Watermark(150));
+		testHarness.processWatermark2(new Watermark(150));
+		expectedOutput.add(new Watermark(130));
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+
+		testHarness.processWatermark1(new Watermark(151));
+		testHarness.processWatermark2(new Watermark(151));
+		expectedOutput.add(insertRecord(null, null, 130L, "k1"));
+		expectedOutput.add(new Watermark(131));
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+
 		testHarness.close();
 	}
 
@@ -248,15 +291,15 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		assertEquals(2, testHarness.numEventTimeTimers());
 		assertEquals(4, testHarness.numKeyedStateEntries());
 
-		// The left row with timestamp = 1 will be removed (14=1+5+1+((5+9)/2)).
-		testHarness.processWatermark1(new Watermark(14));
-		testHarness.processWatermark2(new Watermark(14));
+		// The left row with timestamp = 1 will be removed (7=1+5+1).
+		testHarness.processWatermark1(new Watermark(7));
+		testHarness.processWatermark2(new Watermark(7));
 		assertEquals(1, testHarness.numEventTimeTimers());
 		assertEquals(2, testHarness.numKeyedStateEntries());
 
-		// The right row with timestamp = 1 will be padded and removed (18=1+9+1+((5+9)/2)).
-		testHarness.processWatermark1(new Watermark(18));
-		testHarness.processWatermark2(new Watermark(18));
+		// The right row with timestamp = 1 will be padded and removed (11=1+9+1).
+		testHarness.processWatermark1(new Watermark(11));
+		testHarness.processWatermark2(new Watermark(11));
 		assertEquals(0, testHarness.numEventTimeTimers());
 		assertEquals(0, testHarness.numKeyedStateEntries());
 
@@ -282,10 +325,10 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		testHarness.processWatermark2(new Watermark(100));
 
 		List<Object> expectedOutput = new ArrayList<>();
-		expectedOutput.add(new Watermark(5));
+		expectedOutput.add(new Watermark(-2));
 		// The timestamp 18 is set with the triggered timer.
 		expectedOutput.add(insertRecord(null, null, 1L, "k2"));
-		expectedOutput.add(new Watermark(9));
+		expectedOutput.add(new Watermark(2));
 		expectedOutput.add(insertRecord(null, null, 2L, "k2"));
 		expectedOutput.add(insertRecord(20L, "k1", 25L, "k1"));
 		expectedOutput.add(insertRecord(21L, "k1", 25L, "k1"));
@@ -317,9 +360,9 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		assertEquals(2, testHarness.numEventTimeTimers());
 		assertEquals(4, testHarness.numKeyedStateEntries());
 
-		// The left row with timestamp = 1 will be padded and removed (14=1+5+1+((5+9)/2)).
-		testHarness.processWatermark1(new Watermark(14));
-		testHarness.processWatermark2(new Watermark(14));
+		// The left row with timestamp = 1 will be padded and removed (7=1+5+1).
+		testHarness.processWatermark1(new Watermark(7));
+		testHarness.processWatermark2(new Watermark(7));
 		assertEquals(1, testHarness.numEventTimeTimers());
 		assertEquals(2, testHarness.numKeyedStateEntries());
 
@@ -354,7 +397,7 @@ public class RowTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		List<Object> expectedOutput = new ArrayList<>();
 		// The timestamp 14 is set with the triggered timer.
 		expectedOutput.add(insertRecord(1L, "k1", null, null));
-		expectedOutput.add(new Watermark(5));
+		expectedOutput.add(new Watermark(-2));
 		// The timestamp 18 is set with the triggered timer.
 		expectedOutput.add(insertRecord(null, null, 1L, "k2"));
 		expectedOutput.add(new Watermark(9));

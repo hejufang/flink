@@ -398,11 +398,11 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 	 */
 	private void registerCleanUpTimer(Context ctx, long rowTime, boolean leftRow) throws IOException {
 		if (leftRow) {
-			long cleanUpTime = rowTime + leftRelativeSize + minCleanUpInterval + allowedLateness + 1;
+			long cleanUpTime = rowTime + leftRelativeSize + allowedLateness + 1;
 			registerTimer(ctx, cleanUpTime);
 			rightTimerState.update(cleanUpTime);
 		} else {
-			long cleanUpTime = rowTime + rightRelativeSize + minCleanUpInterval + allowedLateness + 1;
+			long cleanUpTime = rowTime + rightRelativeSize + allowedLateness + 1;
 			registerTimer(ctx, cleanUpTime);
 			leftTimerState.update(cleanUpTime);
 		}
