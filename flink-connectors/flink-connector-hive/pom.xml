@@ -36,9 +36,10 @@ under the License.
 	<packaging>jar</packaging>
 
 	<properties>
-		<hiverunner.version>3.2.1</hiverunner.version>
+		<hiverunner.version>4.0.0</hiverunner.version>
 		<reflections.version>0.9.8</reflections.version>
 		<derby.version>10.10.2.0</derby.version>
+		<jetty.version>7.6.0.v20120127</jetty.version>
 	</properties>
 
 	<!-- Overwrite hadoop dependency management from flink-parent to use locally defined Hadoop version -->
@@ -397,7 +398,6 @@ under the License.
 			<groupId>org.apache.hive</groupId>
 			<artifactId>hive-exec</artifactId>
 			<version>${hive.version}</version>
-			<scope>provided</scope>
 			<exclusions>
 				<exclusion>
 					<groupId>org.apache.hive</groupId>
@@ -526,6 +526,15 @@ under the License.
 			<artifactId>flink-table-common</artifactId>
 			<version>${project.version}</version>
 			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+
+		<!-- We add this to specific version of jetty-all as we have involved wrong version of
+		  jetty-all in flink-table-api-java. And this dependency must appear before flink-table-api-java -->
+		<dependency>
+			<groupId>org.eclipse.jetty.aggregate</groupId>
+			<artifactId>jetty-all</artifactId>
+			<version>${jetty.version}</version>
 			<scope>test</scope>
 		</dependency>
 

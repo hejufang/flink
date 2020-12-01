@@ -171,7 +171,7 @@ under the License.
 			Hive 2.3.4 relies on Hadoop 2.7.2 and later versions.
 			For Hadoop 2.7, the minor Hadoop version supported for flink-shaded-hadoop-2-uber is 2.7.5
 		-->
-		<hivemetastore.hadoop.version>2.6.0-cdh5.4.4-bd85</hivemetastore.hadoop.version>
+		<hivemetastore.hadoop.version>2.7.5</hivemetastore.hadoop.version>
 		<japicmp.referenceVersion>1.11.1</japicmp.referenceVersion>
 		<japicmp.outputDir>tools/japicmp-output</japicmp.outputDir>
 		<snakeyaml.version>1.19</snakeyaml.version>

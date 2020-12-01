@@ -148,6 +148,7 @@ public class HiveCatalog extends AbstractCatalog {
 	private final HiveShim hiveShim;
 
 	private HiveMetastoreClientWrapper client;
+	private final boolean allowedToModifyHiveMeta;
 
 	public HiveCatalog(String catalogName, @Nullable String defaultDatabase, @Nullable String hiveConfDir) {
 		this(catalogName, defaultDatabase, hiveConfDir, HiveShimLoader.getHiveVersion());
@@ -158,12 +159,13 @@ public class HiveCatalog extends AbstractCatalog {
 			defaultDatabase == null ? DEFAULT_DB : defaultDatabase,
 			createHiveConf(hiveConfDir),
 			hiveVersion,
+			false,
 			false);
 	}
 
 	@VisibleForTesting
 	protected HiveCatalog(String catalogName, String defaultDatabase, @Nullable HiveConf hiveConf, String hiveVersion,
-			boolean allowEmbedded) {
+			boolean allowEmbedded, boolean allowedToModifyHiveMeta) {
 		super(catalogName, defaultDatabase == null ? DEFAULT_DB : defaultDatabase);
 
 		this.hiveConf = hiveConf == null ? createHiveConf(null) : hiveConf;
@@ -177,7 +179,7 @@ public class HiveCatalog extends AbstractCatalog {
 		hiveShim = HiveShimLoader.loadHiveShim(hiveVersion);
 		// add this to hiveConf to make sure table factory and source/sink see the same Hive version as HiveCatalog
 		this.hiveConf.set(HiveCatalogValidator.CATALOG_HIVE_VERSION, hiveVersion);
-
+		this.allowedToModifyHiveMeta = allowedToModifyHiveMeta;
 		LOG.info("Created HiveCatalog '{}'", catalogName);
 	}
 
@@ -221,6 +223,7 @@ public class HiveCatalog extends AbstractCatalog {
 	public void open() throws CatalogException {
 		if (client == null) {
 			client = HiveMetastoreClientFactory.create(hiveConf, hiveVersion);
+			client.setAllowedToModifyHiveMeta(allowedToModifyHiveMeta);
 			LOG.info("Connected to Hive metastore");
 		}
 
