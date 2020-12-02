@@ -139,6 +139,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	/** Thin context passed to NFA that gives access to time related characteristics. */
 	private transient TimerService cepTimerService;
 
+	private boolean allowSingleMatchPerKey;
+
 	// ------------------------------------------------------------------------
 	// Metrics
 	// ------------------------------------------------------------------------
@@ -153,7 +155,8 @@ public class CoCepOperator<IN, KEY, OUT>
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final AfterMatchSkipStrategy afterMatchSkipStrategy,
 			final PatternProcessFunction<IN, OUT> function,
-			@Nullable final OutputTag<IN> lateDataOutputTag) {
+			@Nullable final OutputTag<IN> lateDataOutputTag,
+			boolean allowSingleMatchPerKey) {
 		super(function);
 
 		this.inputSerializer = Preconditions.checkNotNull(inputSerializer);
@@ -161,6 +164,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.isProcessingTime = isProcessingTime;
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
+		this.allowSingleMatchPerKey = allowSingleMatchPerKey;
 
 		if (afterMatchSkipStrategy == null) {
 			this.afterMatchSkipStrategy = AfterMatchSkipStrategy.noSkip();
@@ -229,7 +233,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		final boolean timeoutHandling = getUserFunction() instanceof TimedOutPartialMatchHandler;
 		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling);
 
-		final NFA<IN> nfa = nfaFactory.createNFA();
+		final NFA<IN> nfa = nfaFactory.createNFA(allowSingleMatchPerKey);
 		nfa.open(cepRuntimeContext, new Configuration());
 
 		// update currentNFA

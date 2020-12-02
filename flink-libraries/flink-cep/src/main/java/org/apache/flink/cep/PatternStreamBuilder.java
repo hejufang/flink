@@ -77,6 +77,8 @@ final class PatternStreamBuilder<IN> {
 	 */
 	private final OutputTag<IN> lateDataOutputTag;
 
+	private final boolean allowSingleMatchPerKey;
+
 	private PatternStreamBuilder(
 			final DataStream<IN> inputStream,
 			@Nullable final Pattern<IN, ?> pattern,
@@ -84,7 +86,8 @@ final class PatternStreamBuilder<IN> {
 			@Nullable final DataStream<String> patternJsonStream,
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final OutputTag<IN> lateDataOutputTag,
-			@Nullable final CepEventParserFactory cepEventParserFactory) {
+			@Nullable final CepEventParserFactory cepEventParserFactory,
+			final boolean allowSingleMatchPerKey) {
 		Preconditions.checkArgument(pattern != null || patternDataStream != null || patternJsonStream != null, "none streams for pattern.");
 
 		if (pattern != null) {
@@ -107,6 +110,7 @@ final class PatternStreamBuilder<IN> {
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
 		this.cepEventParserFactory = cepEventParserFactory;
+		this.allowSingleMatchPerKey = allowSingleMatchPerKey;
 	}
 
 	TypeInformation<IN> getInputType() {
@@ -124,11 +128,11 @@ final class PatternStreamBuilder<IN> {
 	}
 
 	PatternStreamBuilder<IN> withComparator(final EventComparator<IN> comparator) {
-		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory);
+		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory, allowSingleMatchPerKey);
 	}
 
 	PatternStreamBuilder<IN> withLateDataOutputTag(final OutputTag<IN> lateDataOutputTag) {
-		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory);
+		return new PatternStreamBuilder<>(inputStream, pattern, patternDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory, allowSingleMatchPerKey);
 	}
 
 	/**
@@ -175,7 +179,8 @@ final class PatternStreamBuilder<IN> {
 				comparator,
 				AfterMatchSkipStrategy.skipPastLastEvent(),
 				processFunction,
-				lateDataOutputTag);
+				lateDataOutputTag,
+				allowSingleMatchPerKey);
 
 		if (!(inputStream instanceof KeyedStream)) {
 			throw new UnsupportedOperationException();
@@ -245,14 +250,14 @@ final class PatternStreamBuilder<IN> {
 	// ---------------------------------------- factory-like methods ---------------------------------------- //
 
 	static <IN> PatternStreamBuilder<IN> forStreamAndPattern(final DataStream<IN> inputStream, final Pattern<IN, ?> pattern) {
-		return new PatternStreamBuilder<>(inputStream, pattern, null, null, null, null, null);
+		return new PatternStreamBuilder<>(inputStream, pattern, null, null, null, null, null, false);
 	}
 
 	static <IN> PatternStreamBuilder<IN> forStreamAndPatternDataStream(final DataStream<IN> inputStream, final DataStream<Pattern<IN, IN>> patternDataStream) {
-		return new PatternStreamBuilder<>(inputStream, null, patternDataStream, null, null, null, null);
+		return new PatternStreamBuilder<>(inputStream, null, patternDataStream, null, null, null, null, false);
 	}
 
-	static <IN> PatternStreamBuilder<IN> forStreamAndPatternJsonStream(final DataStream<IN> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
-		return new PatternStreamBuilder<>(inputStream, null, null, patternJsonStream, null, null, factory);
+	static <IN> PatternStreamBuilder<IN> forStreamAndPatternJsonStream(final DataStream<IN> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory, final boolean allowSingleMatchPerKey) {
+		return new PatternStreamBuilder<>(inputStream, null, null, patternJsonStream, null, null, factory, allowSingleMatchPerKey);
 	}
 }

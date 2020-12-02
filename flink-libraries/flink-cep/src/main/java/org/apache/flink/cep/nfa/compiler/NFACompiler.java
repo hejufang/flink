@@ -908,6 +908,10 @@ public class NFACompiler {
 	 */
 	public interface NFAFactory<T> extends Serializable {
 		NFA<T> createNFA();
+
+		default NFA<T> createNFA(boolean allowSingleMatchPerKey) {
+			return createNFA();
+		}
 	}
 
 	/**
@@ -941,7 +945,12 @@ public class NFACompiler {
 
 		@Override
 		public NFA<T> createNFA() {
-			return new NFA<>(patternId, states, windowTime, timeoutHandling);
+			return new NFA<>(patternId, states, windowTime, timeoutHandling, false);
+		}
+
+		@Override
+		public NFA<T> createNFA(boolean allowSingleMatchPerKey) {
+			return new NFA<>(patternId, states, windowTime, timeoutHandling, allowSingleMatchPerKey);
 		}
 	}
 }

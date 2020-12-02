@@ -106,15 +106,19 @@ public class NFA<T> {
 	 */
 	private final boolean handleTimeout;
 
+	private boolean allowSingleMatchPerKey;
+
 	public NFA(
 			final String patternId,
 			final Collection<State<T>> validStates,
 			final long windowTime,
-			final boolean handleTimeout) {
+			final boolean handleTimeout,
+			final boolean allowSingleMatchPerKey) {
 		this.patternId = patternId;
 		this.windowTime = windowTime;
 		this.handleTimeout = handleTimeout;
 		this.states = loadStates(validStates);
+		this.allowSingleMatchPerKey = allowSingleMatchPerKey;
 	}
 
 	public String getPatternId() {
@@ -649,7 +653,7 @@ public class NFA<T> {
 			}
 		}
 
-		if (isStartState(computationState)) {
+		if (isStartState(computationState) && !allowSingleMatchPerKey) {
 			int totalBranches = calculateIncreasingSelfState(
 					outgoingEdges.getTotalIgnoreBranches(),
 					outgoingEdges.getTotalTakeBranches());

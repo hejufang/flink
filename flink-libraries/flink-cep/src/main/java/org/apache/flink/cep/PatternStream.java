@@ -61,8 +61,8 @@ public class PatternStream<T> {
 		this(PatternStreamBuilder.forStreamAndPatternDataStream(inputStream, patternDataStream));
 	}
 
-	PatternStream(final DataStream<T> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
-		this(PatternStreamBuilder.forStreamAndPatternJsonStream(inputStream, patternJsonStream, factory));
+	PatternStream(final DataStream<T> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory, final boolean allowSingleMatchPerKey) {
+		this(PatternStreamBuilder.forStreamAndPatternJsonStream(inputStream, patternJsonStream, factory, allowSingleMatchPerKey));
 	}
 
 	PatternStream(final DataStream<T> inputStream, final Pattern<T, ?> pattern) {
