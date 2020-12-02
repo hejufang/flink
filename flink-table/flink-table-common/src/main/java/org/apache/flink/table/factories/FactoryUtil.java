@@ -74,14 +74,6 @@ public final class FactoryUtil {
 			"Uniquely identifies the connector of a dynamic table that is used for accessing data in " +
 			"an external system. Its value is used during table source and table sink discovery.");
 
-	public static final ConfigOption<Integer> SINK_PARALLELISM = ConfigOptions
-			.key("sink.parallelism")
-			.intType()
-			.noDefaultValue()
-			.withDescription("Defines a custom parallelism for the sink. "
-					+ "By default, if this option is not defined, the planner will derive the parallelism "
-					+ "for each statement individually by also considering the global configuration.");
-
 	public static final ConfigOption<String> KEY_FORMAT = ConfigOptions
 		.key("key.format")
 		.stringType()
@@ -105,7 +97,7 @@ public final class FactoryUtil {
 
 	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions.key("parallelism")
 		.intType()
-		.noDefaultValue()
+		.defaultValue(-1)
 		.withDescription(
 			"The parallelism of connector.");
 

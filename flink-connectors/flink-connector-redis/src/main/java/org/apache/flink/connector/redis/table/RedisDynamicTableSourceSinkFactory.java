@@ -215,9 +215,9 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			.setBufferMaxRows(readableConfig.get(SINK_BUFFER_FLUSH_MAX_ROWS))
 			.setBufferFlushInterval(readableConfig.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
 			.setLogFailuresOnly(readableConfig.get(SINK_LOG_FAILURES_ONLY))
-			.setSkipFormatKey(readableConfig.get(VALUE_FORMAT_SKIP_KEY));
+			.setSkipFormatKey(readableConfig.get(VALUE_FORMAT_SKIP_KEY))
+			.setParallelism(readableConfig.get(PARALLELISM));
 		readableConfig.getOptional(SINK_RECORD_TTL_SECONDS).ifPresent(builder::setTtlSeconds);
-		readableConfig.getOptional(PARALLELISM).ifPresent(builder::setParallelism);
 		return builder.build();
 	}
 
