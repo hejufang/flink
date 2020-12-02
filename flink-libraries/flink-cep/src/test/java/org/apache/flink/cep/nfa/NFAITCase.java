@@ -27,10 +27,10 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.Quantifier;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.utils.NFATestHarness;
 import org.apache.flink.cep.utils.TestSharedBuffer;
 import org.apache.flink.cep.utils.TestTimerService;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.TestLogger;
 
@@ -55,6 +55,7 @@ import static org.apache.flink.cep.utils.NFATestUtilities.compareMaps;
 import static org.apache.flink.cep.utils.NFATestUtilities.feedNFA;
 import static org.apache.flink.cep.utils.NFAUtils.compile;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyLong;
 
 /**
@@ -76,6 +77,34 @@ public class NFAITCase extends TestLogger {
 	@After
 	public void clear() throws Exception{
 		sharedBufferAccessor.close();
+	}
+
+	@Test
+	public void testPendingStateMatches() throws Exception {
+		Pattern<Event, ?> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("a");
+			}
+		}).notFollowedBy("end").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("b");
+			}
+		}).within(Time.milliseconds(10));
+
+		NFA<Event> nfa = compile(pattern, false, true);
+
+		NFAState nfaState = nfa.createInitialNFAState();
+		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).withNFAState(nfaState).withSharedBuffer(sharedBuffer).build();
+
+		nfaTestHarness.feedRecord(new StreamRecord<>(new Event(1, "a", 1.0), 1));
+		Collection<Map<String, List<Event>>> output = nfa.pendingStateMatches(sharedBufferAccessor, nfaState, 12);
+
+		assertEquals(0, nfaState.getPartialMatches().size());
+		assertEquals(1, output.size());
+		assertEquals(1, output.iterator().next().get("start").size());
+		assertTrue(sharedBuffer.isEmpty());
 	}
 
 	@Test

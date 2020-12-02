@@ -33,6 +33,7 @@ import org.apache.flink.util.TestLogger;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Sets;
 
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -90,7 +91,7 @@ public class NFACompilerTest extends TestLogger {
 		compile(invalidPattern, false);
 	}
 
-	@Test
+	@Ignore
 	public void testNFACompilerPatternEndsWithNotFollowedBy() {
 
 		// adjust the rule

@@ -23,7 +23,9 @@ import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.EventParserCondition;
 import org.apache.flink.cep.pattern.pojo.Event;
+import org.apache.flink.cep.pattern.pojo.PatternBody;
 import org.apache.flink.cep.pattern.pojo.PatternPojo;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.Collector;
 
@@ -31,6 +33,8 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMap
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 
 /**
  * Main implementation for convertion from {@link PatternPojo} to {@link Pattern}.
@@ -69,6 +73,9 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 			if (connectionType == Event.ConnectionType.FOLLOWED_BY) {
 				nextPattern = compositePattern.followedBy(afterEvent.getId())
 						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions().get(0)));
+			} else if (connectionType == Event.ConnectionType.NOT_FOLLOWED_BY) {
+				nextPattern = compositePattern.notFollowedBy(afterEvent.getId())
+						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions().get(0)));
 			} else {
 				throw new UnsupportedOperationException(String.format("ConnectionType %s is not supported.", connectionType));
 			}
@@ -78,6 +85,16 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 		}
 
 		// attributes
+		Map<PatternBody.AttributeType, String> attributes = pojo.getPattern().getAttributes();
+		for (Map.Entry<PatternBody.AttributeType, String> attr : attributes.entrySet()) {
+			switch (attr.getKey()) {
+				case WINDOW:
+					compositePattern.within(Time.milliseconds(Long.parseLong(attr.getValue())));
+					break;
+				default:
+					throw new UnsupportedOperationException(String.format("AttributeType %s is not supported.", attr.getKey()));
+			}
+		}
 
 		compositePattern.setPatternId(pojo.getId());
 		return compositePattern;

@@ -30,6 +30,7 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Tests for conversion from pojo to pattern.
@@ -37,7 +38,7 @@ import java.util.HashMap;
 public class ConvertFlatMapFunctionTest {
 
 	@Test
-	public void testBuildPattern() {
+	public void testFollowedByPattern() {
 		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
 
 		Event begin = new Event("begin", null, null, Collections.singletonList(new Condition("a", Condition.OpType.EQUAL, "a1")));
@@ -49,6 +50,24 @@ public class ConvertFlatMapFunctionTest {
 		Pattern<?, ?> result = function.buildPattern(pojo);
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
+	}
+
+	@Test
+	public void testNotFollowedByPattern() {
+		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
+
+		Event begin = new Event("begin", null, null, Collections.singletonList(new Condition("a", Condition.OpType.EQUAL, "a1")));
+		Event middle = new Event("middle", Event.ConnectionType.NOT_FOLLOWED_BY, "begin", Collections.singletonList(new Condition("b", Condition.OpType.EQUAL, "b1")));
+
+		Map<PatternBody.AttributeType, String> attrs = new HashMap<>();
+		attrs.put(PatternBody.AttributeType.WINDOW, "1000");
+
+		PatternBody body = new PatternBody(Arrays.asList(middle, begin), attrs);
+		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		Pattern<?, ?> result = function.buildPattern(pojo);
+
+		Assert.assertEquals("test_pattern", result.getPatternId());
+		Assert.assertEquals(1000, result.getWindowTime().toMilliseconds());
 	}
 
 	private static class TestCepEventParserFactory implements CepEventParserFactory {

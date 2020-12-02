@@ -29,7 +29,7 @@ import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.RichAndCondition;
 import org.apache.flink.cep.pattern.conditions.RichOrCondition;
 import org.apache.flink.cep.pattern.conditions.SubtypeCondition;
-import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;

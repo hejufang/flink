@@ -233,7 +233,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		final boolean timeoutHandling = getUserFunction() instanceof TimedOutPartialMatchHandler;
 		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling);
 
-		final NFA<IN> nfa = nfaFactory.createNFA(allowSingleMatchPerKey);
+		final NFA<IN> nfa = nfaFactory.createNFA();
 		nfa.open(cepRuntimeContext, new Configuration());
 
 		// update currentNFA
@@ -468,6 +468,13 @@ public class CoCepOperator<IN, KEY, OUT>
 	 */
 	private void advanceTime(NFAState nfaState, long timestamp) throws Exception {
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
+			// output pending states matches
+			Collection<Map<String, List<IN>>> pendingMatches = currentNFA.pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
+			if (!pendingMatches.isEmpty()) {
+				processMatchedSequences(pendingMatches, timestamp);
+			}
+
+			// output timeout patterns
 			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
 					currentNFA.advanceTime(sharedBufferAccessor, nfaState, timestamp);
 			if (!timedOut.isEmpty()) {

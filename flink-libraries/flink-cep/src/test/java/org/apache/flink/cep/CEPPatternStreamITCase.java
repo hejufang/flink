@@ -26,6 +26,7 @@ import org.apache.flink.cep.pattern.conditions.SimpleCondition;
 import org.apache.flink.cep.pattern.parser.CepEvent;
 import org.apache.flink.cep.pattern.parser.CepEventParser;
 import org.apache.flink.cep.test.TestData;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
@@ -200,6 +201,60 @@ public class CEPPatternStreamITCase {
 		resultList.sort(String::compareTo);
 
 		assertEquals(Arrays.asList("1,1,1", "2,2,2"), resultList);
+	}
+
+	@Test
+	public void testNotFollowedBy() throws IOException {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(2);
+
+		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).notFollowedBy("end").where(new SimpleCondition<Event>() {
+
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("end");
+			}
+		}).within(Time.milliseconds(10));
+
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream(pattern));
+
+		DataStream<Event> input = env.addSource(new EventStream(
+				Tuple2.of(new Event(1, "start", 1.0), 5L),
+				// last element for high final watermark
+				Tuple2.of(new Event(7, "middle", 5.0), 100L)))
+				.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
+
+					@Override
+					public long extractTimestamp(Tuple2<Event, Long> element, long currentTimestamp) {
+						return element.f1;
+					}
+
+					@Override
+					public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+						return new Watermark(lastElement.f1 - 5);
+					}
+
+				})
+				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+				.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
+				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId() + "");
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Collections.singletonList("1"), resultList);
 	}
 
 	private static class TestCepEventParser extends CepEventParser {

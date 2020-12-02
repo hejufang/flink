@@ -110,7 +110,8 @@ public class Event implements Serializable {
 	 */
 	public enum ConnectionType {
 
-		@JsonProperty("FOLLOWED_BY") FOLLOWED_BY("followedBy");
+		@JsonProperty("FOLLOWED_BY") FOLLOWED_BY("followedBy"),
+		@JsonProperty("NOT_FOLLOWED_BY") NOT_FOLLOWED_BY("notFollowedBy");
 
 		private final String name;
 

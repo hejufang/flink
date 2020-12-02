@@ -86,6 +86,23 @@ public class PatternBody implements Serializable {
 	 * Global attribute type.
 	 */
 	public enum AttributeType {
+		@JsonProperty("window") WINDOW("window");
 
+		private final String name;
+
+		AttributeType(String name) {
+			this.name = name;
+		}
+
+		public String getName() {
+			return this.name;
+		}
+
+		@Override
+		public String toString() {
+			return "ConnectionType{" +
+					"name='" + name + '\'' +
+					'}';
+		}
 	}
 }

@@ -31,7 +31,42 @@ import java.io.IOException;
 public class JsonTransfromTest {
 
 	@Test
-	public void testJsonTransform() throws IOException {
+	public void testNotFollowedBy() throws IOException {
+		String json = "{\n" +
+				"\t\"id\": \"rule_xx\",\n" +
+				"\t\"pattern\": {\n" +
+				"\t\t\"events\": [{\n" +
+				"\t\t\t\t\"id\": \"imp\",\n" +
+				"\t\t\t\t\"conditions\": [{\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"see iterm\"\n" +
+				"\t\t\t\t}]\n" +
+				"\t\t\t},\n" +
+				"\t\t\t{\n" +
+				"\t\t\t\t\"id\": \"purchase\",\n" +
+				"\t\t\t\t\"conditions\": [{\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"buy iterm\"\n" +
+				"\t\t\t\t}],\n" +
+				"\t\t\t\t\"connection\": \"NOT_FOLLOWED_BY\",\n" +
+				"\t\t\t\t\"after\": \"imp\"\n" +
+				"\t\t\t}\n" +
+				"\t\t],\n" +
+				"\t\t\"attributes\": {\n" +
+				"\t\t\t\"window\": 1000\n" +
+				"\t\t}\n" +
+				"\t}\n" +
+				"}";
+
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
+		Assert.assertEquals("1000", pattern.getPattern().getAttributes().get(PatternBody.AttributeType.WINDOW));
+	}
+
+	@Test
+	public void testFollowedBy() throws IOException {
 		String json = "{\n" +
 				"    \"id\": \"rule_xx\",\n" +
 				"    \"pattern\": {\n" +

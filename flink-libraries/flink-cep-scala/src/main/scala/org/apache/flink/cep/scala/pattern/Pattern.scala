@@ -23,7 +23,7 @@ import org.apache.flink.cep.pattern.conditions.IterativeCondition.{Context => JC
 import org.apache.flink.cep.pattern.conditions.{IterativeCondition, SimpleCondition}
 import org.apache.flink.cep.pattern.{MalformedPatternException, Quantifier, Pattern => JPattern}
 import org.apache.flink.cep.scala.conditions.Context
-import org.apache.flink.streaming.api.windowing.time.Time
+import org.apache.flink.cep.time.Time
 
 /**
   * Base class for a pattern definition.
