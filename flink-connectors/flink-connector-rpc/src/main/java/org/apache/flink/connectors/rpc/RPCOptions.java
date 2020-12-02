@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.rpc;
 
+import org.apache.flink.connectors.rpc.thrift.TransportType;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.RetryManager;
 
@@ -37,6 +38,7 @@ public class RPCOptions implements Serializable {
 	// thrift
 	private final String thriftServiceClass;
 	private final String thriftMethod;
+	private final TransportType transportType;
 	// connect
 	private final int connectTimeoutMs;
 	private final String responseValue;
@@ -57,6 +59,7 @@ public class RPCOptions implements Serializable {
 			String psm,
 			String thriftServiceClass,
 			String thriftMethod,
+			TransportType transportType,
 			int connectTimeoutMs,
 			String responseValue,
 			int connectionPoolSize,
@@ -72,6 +75,7 @@ public class RPCOptions implements Serializable {
 		this.psm = psm;
 		this.thriftServiceClass = thriftServiceClass;
 		this.thriftMethod = thriftMethod;
+		this.transportType = transportType;
 		this.connectTimeoutMs = connectTimeoutMs;
 		this.responseValue = responseValue;
 		this.connectionPoolSize = connectionPoolSize;
@@ -105,6 +109,10 @@ public class RPCOptions implements Serializable {
 
 	public String getThriftMethod() {
 		return thriftMethod;
+	}
+
+	public TransportType getTransportType() {
+		return transportType;
 	}
 
 	public int getConnectTimeoutMs() {
@@ -163,6 +171,7 @@ public class RPCOptions implements Serializable {
 		// thrift
 		private String thriftServiceClass = null;
 		private String thriftMethod = null;
+		private TransportType transportType = TransportType.Framed;
 		// connect
 		private int connectTimeoutMs = 10_000; // default 10s
 		private String responseValue = null;
@@ -206,6 +215,11 @@ public class RPCOptions implements Serializable {
 
 		public Builder setThriftMethod(String thriftMethod) {
 			this.thriftMethod = thriftMethod;
+			return this;
+		}
+
+		public Builder setTransportType(TransportType transportType) {
+			this.transportType = transportType;
 			return this;
 		}
 
@@ -265,6 +279,7 @@ public class RPCOptions implements Serializable {
 				psm,
 				thriftServiceClass,
 				thriftMethod,
+				transportType,
 				connectTimeoutMs,
 				responseValue,
 				connectionPoolSize,

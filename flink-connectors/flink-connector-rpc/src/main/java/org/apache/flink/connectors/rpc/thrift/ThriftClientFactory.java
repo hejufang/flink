@@ -42,16 +42,31 @@ public class ThriftClientFactory
 
 	private final int timeout;
 	private final String thriftServiceClass;
+	private final TransportType transportType;
 
-	public ThriftClientFactory(int timeout, String thriftServiceClass) {
+	public ThriftClientFactory(
+			int timeout,
+			String thriftServiceClass,
+			TransportType transportType) {
 		this.timeout = timeout;
 		this.thriftServiceClass = thriftServiceClass + CLIENT_CLASS_SUFFIX;
+		this.transportType = transportType;
 	}
 
 	@Override
 	public PooledObject<ThriftClient> makeObject(RPCDiscovery.HostPort key) throws Exception {
 		TSocket socket = new TSocket(key.getHost(), key.getPort(), timeout);
-		TTransport transport = new TFramedTransport(socket);
+		TTransport transport;
+		switch (transportType) {
+			case Buffered:
+				transport = socket;
+				break;
+			case Framed:
+				transport = new TFramedTransport(socket);
+				break;
+			default:
+				throw new IllegalArgumentException("Not support transport type " + transportType);
+		}
 		TProtocol protocol = new TBinaryProtocol(transport);
 		Class<?> c = Class.forName(thriftServiceClass);
 		TServiceClient serviceClient;

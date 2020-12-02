@@ -21,6 +21,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connectors.rpc.thrift.ThriftRowTypeInformationUtil;
 import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
+import org.apache.flink.connectors.rpc.thrift.TransportType;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.RPCValidator;
@@ -44,6 +45,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_CLASS;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_CONSTANT_VALUE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_SIZE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CLIENT_TRANSPORT;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CLUSTER;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONNECTION_POOL_SIZE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONSUL;
@@ -95,6 +97,7 @@ public class RPCTableFactory implements
 		// thrift
 		supportedProperties.add(CONNECTOR_THRIFT_SERVICE_CLASS);
 		supportedProperties.add(CONNECTOR_THRIFT_METHOD);
+		supportedProperties.add(CONNECTOR_CLIENT_TRANSPORT);
 
 		// connect
 		supportedProperties.add(CONNECTOR_TIMEOUT_MS);
@@ -165,6 +168,16 @@ public class RPCTableFactory implements
 		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
 		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_SERVICE_CLASS).ifPresent(builder::setThriftServiceClass);
 		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).ifPresent(builder::setThriftMethod);
+		descriptorProperties.getOptionalString(CONNECTOR_CLIENT_TRANSPORT).ifPresent(
+			transport -> {
+				try {
+					builder.setTransportType(TransportType.valueOf(transport));
+				} catch (IllegalArgumentException e) {
+					throw new FlinkRuntimeException(String.format("Unsupported transport type: %s, " +
+							"currently supported type: %s", transport, TransportType.getCollectionStr()), e);
+				}
+			}
+		);
 		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS).ifPresent(builder::setConnectTimeoutMs);
 		descriptorProperties.getOptionalString(CONNECTOR_RESPONSE_VALUE).ifPresent(builder::setResponseValue);
 		descriptorProperties.getOptionalInt(CONNECTOR_CONNECTION_POOL_SIZE).ifPresent(builder::setConnectionPoolSize);

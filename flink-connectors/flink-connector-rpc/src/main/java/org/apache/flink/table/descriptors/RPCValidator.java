@@ -28,6 +28,12 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_PSM = "connector.psm";
 	public static final String CONNECTOR_THRIFT_SERVICE_CLASS = "connector.thrift-service-class";
 	public static final String CONNECTOR_THRIFT_METHOD = "connector.thrift-method";
+	/**
+	 * Key for describing the transport of thrift client,
+	 * This should be consistent with transport of the server. Otherwise a SocketTimeoutException may be thrown
+	 * when the connector tries to connect to server.
+	 */
+	public static final String CONNECTOR_CLIENT_TRANSPORT = "connector.client.transport";
 
 	public static final String CONNECTOR_TIMEOUT_MS = "connector.connect-timeout-ms";
 	public static final String CONNECTOR_RESPONSE_VALUE = "connector.response-value";
@@ -55,6 +61,7 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_PSM, true, 1);
 		properties.validateString(CONNECTOR_THRIFT_SERVICE_CLASS, false, 1);
 		properties.validateString(CONNECTOR_THRIFT_METHOD, false, 1);
+		properties.validateString(CONNECTOR_CLIENT_TRANSPORT, true, 1);
 
 		properties.validateInt(CONNECTOR_TIMEOUT_MS, true, 1000, 600_000); // 1s ~ 10min
 		properties.validateString(CONNECTOR_RESPONSE_VALUE, true, 1);

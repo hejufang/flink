@@ -55,6 +55,7 @@ public class ThriftRPCClient implements Serializable {
 	private final Class<?> requestClass;
 	private final String serviceClassName;
 	private final String thriftMethod;
+	private final TransportType transportType;
 	private final String batchClassName;
 	private String batchListFieldName;
 	private final String batchConstantValue;
@@ -75,13 +76,14 @@ public class ThriftRPCClient implements Serializable {
 		this.serviceClassName = options.getThriftServiceClass();
 		this.requestClass = requestClass;
 		this.thriftMethod = options.getThriftMethod();
+		this.transportType = options.getTransportType();
 		this.batchClassName = options.getBatchClass();
 		this.batchConstantValue = options.getBatchConstantValue();
 		this.responseValue = options.getResponseValue();
 	}
 
 	public void open() {
-		ThriftClientFactory clientFactory = new ThriftClientFactory(connectTimeoutMs, serviceClassName);
+		ThriftClientFactory clientFactory = new ThriftClientFactory(connectTimeoutMs, serviceClassName, transportType);
 		GenericKeyedObjectPoolConfig<ThriftClientFactory.ThriftClient> config = new GenericKeyedObjectPoolConfig<>();
 		config.setMaxTotalPerKey(1);
 		config.setMaxTotal(connectionPoolSize);
@@ -110,7 +112,6 @@ public class ThriftRPCClient implements Serializable {
 		try {
 			thriftClient = clientPool.borrowObject(hostPort);
 			final TServiceClient serviceClient = thriftClient.getClient();
-			Object responseResult;
 			if (request.size() > 1) {
 				Preconditions.checkArgument(batchClassName.length() > 0,
 					"In batch scenario, connector.batch-class must set.");
