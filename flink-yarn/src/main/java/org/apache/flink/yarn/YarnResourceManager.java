@@ -1340,25 +1340,25 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private void startNewWorkerIfNeeded() {
 		if (slowContainerManager instanceof SlowContainerManagerImpl) {
-			int numberStartingWorkers = slowContainerManager.getStartingContainerSize() - slowContainerManager.getStartingRedundantContainerSize();
-			int numberPendingWorkers = numPendingContainerRequests - slowContainerManager.getPendingRedundantContainersNum();
-			int numberOfRequestedWorkersExceptSlowContainer = numberStartingWorkers + numberPendingWorkers;
-			log.info("Try to startNewWorkerIfNeeded, starting container size: {}, starting redundant containers size: {}, " +
-							"number pending requests: {}, number pending requests for redundant: {}.",
-					slowContainerManager.getStartingContainerSize(), slowContainerManager.getStartingRedundantContainerSize(),
-					numPendingContainerRequests, slowContainerManager.getPendingRedundantContainersNum());
+			log.info("Try to startNewWorkerIfNeeded, starting container size: {}, number pending requests: {}.",
+					slowContainerManager.getStartingContainerSize(), numPendingContainerRequests);
+
+			int numberRequestedNotStartedWorkers = slowContainerManager.getStartingContainerSize() + numPendingContainerRequests;
+			int numberRequestedNotStartedRedundantWorkers = slowContainerManager.getStartingRedundantContainerSize() + slowContainerManager.getPendingRedundantContainersNum();
+			int numberStartedRedundantWorkers = slowContainerManager.getTotalRedundantContainersNum() - numberRequestedNotStartedRedundantWorkers;
 
 			startNewWorkerIfNeeded(
 					ResourceProfile.UNKNOWN,
 					numberOfTaskSlots,
-					numberOfRequestedWorkersExceptSlowContainer);
+					numberRequestedNotStartedWorkers,
+					numberStartedRedundantWorkers,
+					numberRequestedNotStartedRedundantWorkers);
 		} else {
 			startNewWorkerIfNeeded(
 					ResourceProfile.UNKNOWN,
 					numPendingContainerRequests,
 					numberOfTaskSlots,
-					workerNodeMap.size(),
-					slowContainerManager.getSlowContainerSize());
+					workerNodeMap.size());
 		}
 	}
 

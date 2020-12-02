@@ -1104,19 +1104,34 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	/**
 	 * Request new containers if pending containers cannot satisfies pending slot requests.
-	 * @param resourceProfile resource profile for request.
-	 * @param numberOfTaskSlots slot number of one worker.
-	 * @param numberOfRequestedWorkers number of requested worker.
+	 * @param resourceProfile resource profile for request
+	 * @param numberOfTaskSlots slot number of one worker
+	 * @param numberRequestedNotStartedWorkers number of requested not started workers, this include redundant workers
+	 * @param numberStartedRedundantWorkers number of started redundant workers
+	 * @param numberRequestedNotStartedRedundantWorkers number of requested not started redundant workers
 	 */
 	protected void startNewWorkerIfNeeded(
 			ResourceProfile resourceProfile,
 			int numberOfTaskSlots,
-			int numberOfRequestedWorkers) {
-		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots);
-
-		int needWorkerNumber = numberRequiredWorkers - numberOfRequestedWorkers;
-		log.info("startNewWorkerIfNeeded, numberRequiredWorkers: {}, numberOfRequestedWorkers: {}",
-				numberRequiredWorkers, numberOfRequestedWorkers);
+			int numberRequestedNotStartedWorkers,
+			int numberStartedRedundantWorkers,
+			int numberRequestedNotStartedRedundantWorkers) {
+		/*
+		 * only origin workers need be consider here, so we should except all redundant workers.
+		 * getNumberRequiredTaskManagerSlots = all required slots - registered slots,  the registered slots include started workers,
+		 * so numberRequiredWorkers should plus numberStartedRedundantWorkers
+		 *
+		 * the numberRequestedNotStartedWorkers include numberRequestedNotStartedRedundantWorkers,
+		 * so numberRequestedNotStartedWorkers should subtract numberRequestedNotStartedRedundantWorkers.
+		 *
+		 * the origin needed worker number = all required worker - origin started worker - origin requested not started worker
+		 *                                     = all required slots - registered slots + numberStartedRedundantWorkers - (numberRequestedNotStartedWorkers - redundant requested not started worker)
+		 *                                     = numberRequiredWorkers - (numberRequestedNotStartedWorkers + numberRequestedNotStartedRedundantWorkers)
+		 */
+		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots) + numberStartedRedundantWorkers;
+		int needWorkerNumber = numberRequiredWorkers - (numberRequestedNotStartedWorkers - numberRequestedNotStartedRedundantWorkers);
+		log.info("startNewWorkerIfNeeded, numberRequiredWorkers: {}, numberOfRequestedWorkers: {}, numberStartedRedundantWorkers: {}, numberRequestedNotStartedRedundantWorkers: {}",
+				numberRequiredWorkers, numberRequestedNotStartedWorkers, numberStartedRedundantWorkers, numberRequestedNotStartedRedundantWorkers);
 
 		if (needWorkerNumber > 0) {
 			tryStartNewWorkers(resourceProfile, needWorkerNumber);
@@ -1130,15 +1145,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			ResourceProfile resourceProfile,
 			int pendingWorkers,
 			int numberOfTaskSlots,
-			int numberOfAllocatedWorkers,
-			int numberOfSlowWorkers) {
+			int numberOfAllocatedWorkers) {
 		int numberRequiredWorkers = (int) Math.ceil(getNumberRequiredTaskManagerSlots() / (double) numberOfTaskSlots);
 		// Get the number of workers that have allocated by Yarn, but not register to SlotManager, except the slow nodes.
-		int startingWorkers = Math.max(0, numberOfAllocatedWorkers - getTaskManagerRegistrationSize() - numberOfSlowWorkers);
+		int startingWorkers = Math.max(0, numberOfAllocatedWorkers - getTaskManagerRegistrationSize());
 		int needWorkerNumber = numberRequiredWorkers - pendingWorkers - startingWorkers;
 		log.info("startNewWorkerIfNeeded, numberRequiredWorkers: {}, " +
-			"pendingWorkers: {}, numberOfAllocatedWorkers: {}, numberOfSlowWorkers: {}, startingWorkers: {}",
-			numberRequiredWorkers, pendingWorkers, numberOfAllocatedWorkers, numberOfSlowWorkers, startingWorkers);
+			"pendingWorkers: {}, numberOfAllocatedWorkers: {}, startingWorkers: {}",
+			numberRequiredWorkers, pendingWorkers, numberOfAllocatedWorkers, startingWorkers);
 
 		if (needWorkerNumber > 0) {
 			tryStartNewWorkers(resourceProfile, needWorkerNumber);
