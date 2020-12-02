@@ -21,7 +21,6 @@ package org.apache.flink.streaming.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -30,20 +29,26 @@ import java.util.Map;
 public class UniqueNameGenerator {
 	private static final Logger LOG = LoggerFactory.getLogger(UniqueNameGenerator.class);
 	private static final String DELIMITER = "_";
-	private static final Map<String, Integer> prefixIndexMap = new HashMap<>();
 
 	/**
 	 * Get unique name for the specific origin name.
 	 * If the input prefix has been used before, we append an index suffix;
 	 * else, we just return the origin name itself as a unique name.
+	 *
+	 * @param originName original node name
+	 * @param prefixIndexMapPerJob a hashmap for recording node name and related index number
+	 * @return the unique stream node name which may be appended a unique index number,
+	 * 	       when there is a name conflict after truncating.
 	 * */
-	public static synchronized String appendSuffixIfNotUnique(String originName) {
-		Integer index = prefixIndexMap.get(originName);
+	public static String appendSuffixIfNotUnique(
+			String originName,
+			Map<String, Integer> prefixIndexMapPerJob) {
+		Integer index = prefixIndexMapPerJob.get(originName);
 		if (index == null) {
-			prefixIndexMap.put(originName, 0);
+			prefixIndexMapPerJob.put(originName, 0);
 			return originName;
 		}
-		prefixIndexMap.put(originName, ++index);
+		prefixIndexMapPerJob.put(originName, ++index);
 		String uniqueName = originName + DELIMITER + index;
 		LOG.info("Replace operator name: '{}' with unique name: '{}'", originName, uniqueName);
 		return uniqueName;

@@ -24,6 +24,7 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * This class defines methods to generate CheckpointScheduling Strategies. These configurations are
@@ -130,6 +131,24 @@ public final class CheckpointSchedulingStrategies {
 		protected CheckpointSchedulerConfiguration(Strategy strategy, EarlyCheckpointConfig earlyCheckpointConfig) {
 			this.strategy = strategy;
 			this.earlyCheckpointConfig = earlyCheckpointConfig;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			CheckpointSchedulerConfiguration that = (CheckpointSchedulerConfiguration) o;
+			return strategy == that.strategy &&
+				Objects.equals(earlyCheckpointConfig, that.earlyCheckpointConfig);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(strategy, earlyCheckpointConfig);
 		}
 	}
 
@@ -242,6 +261,24 @@ public final class CheckpointSchedulingStrategies {
 
 			this.retryInterval = retryInterval;
 			this.threshold = threshold;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			EarlyCheckpointConfig that = (EarlyCheckpointConfig) o;
+			return retryInterval == that.retryInterval &&
+				threshold == that.threshold;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(retryInterval, threshold);
 		}
 	}
 }

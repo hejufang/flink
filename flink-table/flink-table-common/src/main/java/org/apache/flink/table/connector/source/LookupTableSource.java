@@ -23,6 +23,8 @@ import org.apache.flink.types.RowKind;
 
 import java.io.Serializable;
 
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY_MS;
+
 /**
  * A {@link DynamicTableSource} that looks up rows of an external storage system by one or more keys
  * during runtime.
@@ -40,6 +42,7 @@ import java.io.Serializable;
  */
 @Experimental
 public interface LookupTableSource extends DynamicTableSource {
+	long DEFAULT_LATER_RETRY_MS = -1;
 
 	/**
 	 * Returns a provider of runtime implementation for reading the data.
@@ -97,5 +100,10 @@ public interface LookupTableSource extends DynamicTableSource {
 	 */
 	interface LookupRuntimeProvider {
 		// marker interface
+	}
+
+	default long getLaterJoinMs() {
+		// -1 means turn off later join.
+		return LOOKUP_LATER_JOIN_LATENCY_MS.defaultValue().toMillis();
 	}
 }

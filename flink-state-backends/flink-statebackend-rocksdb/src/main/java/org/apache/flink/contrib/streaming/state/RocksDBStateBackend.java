@@ -172,6 +172,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	 */
 	private long writeBatchSize;
 
+	private int nThreadOfOperatorStateBackend;
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -272,6 +274,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.defaultMetricOptions = new RocksDBNativeMetricOptions();
 		this.memoryConfiguration = new RocksDBMemoryConfiguration();
 		this.writeBatchSize = UNDEFINED_WRITE_BATCH_SIZE;
+		this.nThreadOfOperatorStateBackend = 1;
 	}
 
 	/**
@@ -307,6 +310,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		// configure incremental checkpoints
 		this.enableIncrementalCheckpointing = original.enableIncrementalCheckpointing.resolveUndefined(
 			config.get(CheckpointingOptions.INCREMENTAL_CHECKPOINTS));
+		this.nThreadOfOperatorStateBackend = config.get(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
 
 		if (original.numberOfTransferThreads == UNDEFINED_NUMBER_OF_TRANSFER_THREADS) {
 			this.numberOfTransferThreads = config.get(CHECKPOINT_TRANSFER_THREAD_NUM);
@@ -500,6 +504,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	@Override
 	public CheckpointStorage createCheckpointStorage(JobID jobId) throws IOException {
 		return checkpointStreamBackend.createCheckpointStorage(jobId);
+	}
+
+	@Override
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+		return checkpointStreamBackend.createCheckpointStorage(jobId, jobName);
 	}
 
 	// ------------------------------------------------------------------------
@@ -992,5 +1001,10 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		final Field initField = org.rocksdb.NativeLibraryLoader.class.getDeclaredField("initialized");
 		initField.setAccessible(true);
 		initField.setBoolean(null, false);
+	}
+
+	@Override
+	public void setOperatorStateRestoreThreads(int nThreads) {
+		this.nThreadOfOperatorStateBackend = nThreads;
 	}
 }

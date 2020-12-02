@@ -44,6 +44,8 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY_MS;
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -172,11 +174,6 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		.intType()
 		.defaultValue(3)
 		.withDescription("the max retry times if writing records to database failed.");
-	public static final ConfigOption<Integer> PARALLELISM = ConfigOptions
-		.key("parallelism")
-		.intType()
-		.defaultValue(-1)
-		.withDescription("parallelism of sink.");
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
@@ -250,7 +247,8 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		return new JdbcLookupOptions(
 			readableConfig.get(LOOKUP_CACHE_MAX_ROWS),
 			readableConfig.get(LOOKUP_CACHE_TTL).toMillis(),
-			readableConfig.get(LOOKUP_MAX_RETRIES));
+			readableConfig.get(LOOKUP_MAX_RETRIES),
+			readableConfig.get(LOOKUP_LATER_JOIN_LATENCY_MS).toMillis());
 	}
 
 	private JdbcExecutionOptions getJdbcExecutionOptions(ReadableConfig config) {
@@ -311,6 +309,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(SINK_BUFFER_FLUSH_INTERVAL);
 		optionalOptions.add(SINK_MAX_RETRIES);
 		optionalOptions.add(PARALLELISM);
+		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY_MS);
 		return optionalOptions;
 	}
 

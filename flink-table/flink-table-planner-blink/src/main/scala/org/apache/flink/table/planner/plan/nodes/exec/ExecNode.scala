@@ -54,10 +54,12 @@ trait ExecNode[E <: Planner, T] {
     * @param planner The [[Planner]] of the translated Table.
     */
   def translateToPlan(planner: E): Transformation[T] = {
-    if (transformation == null) {
-      transformation = translateToPlanInternal(planner)
+    this.synchronized {
+      if (transformation == null) {
+        transformation = translateToPlanInternal(planner)
+      }
+      transformation
     }
-    transformation
   }
 
   /**

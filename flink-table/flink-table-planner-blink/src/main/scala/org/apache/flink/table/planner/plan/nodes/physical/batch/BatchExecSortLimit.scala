@@ -22,6 +22,7 @@ import org.apache.flink.runtime.operators.DamBehavior
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.data.RowData
+import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.sort.ComparatorCodeGenerator
 import org.apache.flink.table.planner.delegation.BatchPlanner
 import org.apache.flink.table.planner.plan.cost.{FlinkCost, FlinkCostFactory}
@@ -129,9 +130,9 @@ class BatchExecSortLimit(
       throw new TableException("Not support limitEnd is max value now!")
     }
 
-    val input = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
-    val inputType = input.getOutputType.asInstanceOf[RowDataTypeInfo]
+    val inputMix = translateToPlanMix(planner, 0)
+    val inputType =
+      RowDataTypeInfo.of(FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType))
     val types = inputType.getLogicalTypes
 
     // generate comparator
@@ -141,6 +142,7 @@ class BatchExecSortLimit(
     // TODO If input is ordered, there is no need to use the heap.
     val operator = new SortLimitOperator(isGlobal, limitStart, limitEnd, genComparator)
 
+    val input = getTransformFromMix(inputMix)
     ExecNode.createOneInputTransformation(
       input,
       getRelDetailedDescription,

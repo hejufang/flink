@@ -704,6 +704,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		configuration.setString(HighAvailabilityOptions.HA_CLUSTER_ID, zkNamespace);
 
+		appContext.setCheckApplicationNameUnique(flinkConfiguration.getBoolean(YarnConfigOptions.YARN_CHECK_APP_NAME_UNIQUE));
+
 		if (HighAvailabilityMode.isHighAvailabilityModeActivated(configuration)) {
 			// activate re-execution of failed applications
 			appContext.setMaxAppAttempts(
@@ -992,7 +994,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
 
 		appContext.setApplicationName(customApplicationName);
-		appContext.setApplicationType(applicationType != null ? applicationType : "Apache Flink");
+		appContext.setApplicationType(applicationType != null ? applicationType : ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT);
 		appContext.setAMContainerSpec(amContainer);
 		appContext.setResource(capability);
 

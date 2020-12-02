@@ -24,7 +24,6 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
@@ -40,15 +39,13 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.FieldsDataType;
 import org.apache.flink.table.types.logical.RowType;
-import org.apache.flink.util.FlinkRuntimeException;
-
-import com.google.protobuf.Descriptors;
 
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.flink.formats.pb.PbFormatUtils.createDataType;
 import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
 import static org.apache.flink.formats.pb.PbOptions.PB_CLASS;
@@ -154,68 +151,6 @@ public class PbFormatFactory implements
 	@VisibleForTesting
 	static String fullKey(String key) {
 		return IDENTIFIER + "." + key;
-	}
-
-	@VisibleForTesting
-	static FieldsDataType createDataType(Descriptors.Descriptor root, boolean withWrapper) {
-		int size = root.getFields().size();
-		DataTypes.Field[] rowFields = new DataTypes.Field[size];
-
-		for (int i = 0; i < size; i++) {
-			Descriptors.FieldDescriptor field = root.getFields().get(i);
-			String fieldName = field.getName();
-			DataType dataType = createFieldDataType(field);
-			rowFields[i] = DataTypes.FIELD(fieldName, dataType);
-		}
-
-		FieldsDataType dataType = (FieldsDataType) DataTypes.ROW(rowFields);
-
-		if (withWrapper) {
-			dataType = (FieldsDataType) DataTypes.ROW(DataTypes.FIELD(PbConstant.FORMAT_PB_WRAPPER_NAME, dataType));
-		}
-
-		return dataType;
-	}
-
-	private static DataType createFieldDataType(Descriptors.FieldDescriptor field) {
-		Descriptors.FieldDescriptor.JavaType fieldType = field.getJavaType();
-
-		DataType dataType;
-		if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.MESSAGE)) {
-			if (field.isMapField()) {
-				return DataTypes.MAP(
-					createFieldDataType(field.getMessageType().findFieldByName(PbConstant.KEY)),
-					createFieldDataType(field.getMessageType().findFieldByName(PbConstant.VALUE)));
-			} else if (field.isRepeated()) {
-				return DataTypes.ARRAY(createDataType(field.getMessageType(), false));
-			} else {
-				return createDataType(field.getMessageType(), false);
-			}
-		} else {
-			if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.STRING)) {
-				dataType = DataTypes.STRING();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.LONG)) {
-				dataType = DataTypes.BIGINT();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.BOOLEAN)) {
-				dataType = DataTypes.BOOLEAN();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.INT)) {
-				dataType = DataTypes.INT();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.DOUBLE)) {
-				dataType = DataTypes.DOUBLE();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.FLOAT)) {
-				dataType = DataTypes.FLOAT();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.ENUM)) {
-				dataType = DataTypes.STRING();
-			} else if (fieldType.equals(Descriptors.FieldDescriptor.JavaType.BYTE_STRING)) {
-				dataType = DataTypes.BYTES();
-			} else {
-				throw new FlinkRuntimeException(String.format("Unsupported fieldType: %s.", fieldType));
-			}
-			if (field.isRepeated()) {
-				return DataTypes.ARRAY(dataType);
-			}
-			return dataType;
-		}
 	}
 
 	@Override

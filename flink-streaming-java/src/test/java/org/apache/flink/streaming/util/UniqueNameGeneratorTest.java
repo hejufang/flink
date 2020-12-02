@@ -20,6 +20,9 @@ package org.apache.flink.streaming.util;
 
 import org.junit.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -31,11 +34,12 @@ public class UniqueNameGeneratorTest {
 	public void testGetUniqueName() {
 		String map = "Map";
 		String flatmap = "FlatMap";
-		String uniqueName1 = UniqueNameGenerator.appendSuffixIfNotUnique(map);
-		String uniqueName2 = UniqueNameGenerator.appendSuffixIfNotUnique(map);
-		String uniqueName3 = UniqueNameGenerator.appendSuffixIfNotUnique(map);
-		String longUniqueName1 = UniqueNameGenerator.appendSuffixIfNotUnique(flatmap);
-		String longUniqueName2 = UniqueNameGenerator.appendSuffixIfNotUnique(flatmap);
+		Map<String, Integer> prefixIndexMap = new HashMap<>();
+		String uniqueName1 = UniqueNameGenerator.appendSuffixIfNotUnique(map, prefixIndexMap);
+		String uniqueName2 = UniqueNameGenerator.appendSuffixIfNotUnique(map, prefixIndexMap);
+		String uniqueName3 = UniqueNameGenerator.appendSuffixIfNotUnique(map, prefixIndexMap);
+		String longUniqueName1 = UniqueNameGenerator.appendSuffixIfNotUnique(flatmap, prefixIndexMap);
+		String longUniqueName2 = UniqueNameGenerator.appendSuffixIfNotUnique(flatmap, prefixIndexMap);
 		assertEquals(uniqueName1, map);
 		assertEquals(uniqueName2, map + "_1");
 		assertEquals(uniqueName3, map + "_2");

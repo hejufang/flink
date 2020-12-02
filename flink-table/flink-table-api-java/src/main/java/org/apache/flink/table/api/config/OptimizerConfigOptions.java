@@ -99,4 +99,22 @@ public class OptimizerConfigOptions {
 		key("table.optimizer.join-reorder-enabled")
 			.defaultValue(false)
 			.withDescription("Enables join reorder in optimizer. Default is disabled.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_ASYNC_MODE_ENABLED =
+		key("table.optimizer.async-mode.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to open the asynchronous mode for table planner or not, " +
+				"only for Blink planner, and parts of time-consuming operations " +
+				"in Blink planner will be asynchronously parallelized");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Integer> TABLE_OPTIMIZER_ASYNC_THREAD_NUMBER =
+		key("table.optimizer.async-mode.thread-number")
+			.intType()
+			.defaultValue(Runtime.getRuntime().availableProcessors() * 2)
+			.withDescription("Sets the size of Blink planner internal ExecutorService thread pool " +
+				"and only if " + TABLE_OPTIMIZER_ASYNC_MODE_ENABLED.key() + " is set true, " +
+				"this thread pool will actually be created with the related size");
 }

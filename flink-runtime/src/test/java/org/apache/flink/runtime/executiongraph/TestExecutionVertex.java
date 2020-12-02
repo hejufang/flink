@@ -20,6 +20,7 @@ package org.apache.flink.runtime.executiongraph;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.mockito.Mockito;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
@@ -51,5 +52,12 @@ public class TestExecutionVertex extends ExecutionVertex {
 	@Override
 	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocations() {
 		return preferredLocationFutures != null ? preferredLocationFutures : super.getPreferredLocations();
+	}
+
+	@Override
+	public Execution getCurrentExecutionAttempt() {
+		Execution execution = Mockito.spy(super.getCurrentExecutionAttempt());
+		Mockito.when(execution.getPreferredLocations()).thenReturn(getPreferredLocations());
+		return execution;
 	}
 }

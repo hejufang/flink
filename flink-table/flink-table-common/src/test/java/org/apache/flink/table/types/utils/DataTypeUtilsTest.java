@@ -37,6 +37,8 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.apache.flink.table.api.DataTypes.BOOLEAN;
+import static org.apache.flink.table.api.DataTypes.DOUBLE;
 import static org.apache.flink.table.api.DataTypes.FIELD;
 import static org.apache.flink.table.api.DataTypes.INT;
 import static org.apache.flink.table.api.DataTypes.ROW;
@@ -51,6 +53,49 @@ import static org.junit.Assert.assertTrue;
  * Tests for {@link DataTypeUtils}.
  */
 public class DataTypeUtilsTest {
+
+	@Test
+	public void testProjectRow() {
+		final DataType thirdLevelRow = ROW(
+			FIELD("c0", BOOLEAN()),
+			FIELD("c1", DOUBLE()),
+			FIELD("c2", INT())
+		);
+		final DataType secondLevelRow = ROW(
+			FIELD("b0", BOOLEAN()),
+			FIELD("b1", thirdLevelRow),
+			FIELD("b2", INT())
+		);
+		final DataType topLevelRow = ROW(
+			FIELD("a0", INT()),
+			FIELD("a1", secondLevelRow)
+		);
+
+		assertThat(
+			DataTypeUtils.projectRow(topLevelRow, new int[][]{{0}, {1}}),
+			equalTo(ROW(FIELD("a0", INT()), FIELD("a1", secondLevelRow))));
+
+		assertThat(
+			DataTypeUtils.projectRow(topLevelRow, new int[][]{{1}}),
+			equalTo(ROW(FIELD("a1", secondLevelRow))));
+
+		assertThat(
+			DataTypeUtils.projectRow(topLevelRow, new int[][]{}),
+			equalTo(ROW()));
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void testNestedProject() {
+		final DataType secondLevelRow = ROW(
+			FIELD("b0", BOOLEAN()),
+			FIELD("b1", INT())
+		);
+		final DataType topLevelRow = ROW(
+			FIELD("a0", INT()),
+			FIELD("a1", secondLevelRow)
+		);
+		DataTypeUtils.projectRow(topLevelRow, new int[][]{{1, 1}, {0}});
+	}
 
 	@Test
 	public void testIsInternalClass() {

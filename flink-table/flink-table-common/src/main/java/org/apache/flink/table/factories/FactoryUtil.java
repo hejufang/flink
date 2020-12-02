@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -72,6 +73,14 @@ public final class FactoryUtil {
 		.withDescription(
 			"Uniquely identifies the connector of a dynamic table that is used for accessing data in " +
 			"an external system. Its value is used during table source and table sink discovery.");
+
+	public static final ConfigOption<Integer> SINK_PARALLELISM = ConfigOptions
+			.key("sink.parallelism")
+			.intType()
+			.noDefaultValue()
+			.withDescription("Defines a custom parallelism for the sink. "
+					+ "By default, if this option is not defined, the planner will derive the parallelism "
+					+ "for each statement individually by also considering the global configuration.");
 
 	public static final ConfigOption<String> KEY_FORMAT = ConfigOptions
 		.key("key.format")
@@ -105,6 +114,12 @@ public final class FactoryUtil {
 		.noDefaultValue()
 		.withDescription(
 			"Source metadata.");
+
+	public static final ConfigOption<Duration> LOOKUP_LATER_JOIN_LATENCY_MS = ConfigOptions
+		.key("lookup.later-join-latency")
+		.durationType()
+		.defaultValue(Duration.ZERO)
+		.withDescription("Optional. Duration type, default Duration.ZERO means disable later join.");
 
 	public static final ConfigOption<Boolean> SINK_LOG_FAILURES_ONLY = ConfigOptions
 		.key("sink.log-failures-only")

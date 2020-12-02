@@ -47,6 +47,61 @@ constructFlinkClassPath() {
     echo "$FLINK_CLASSPATH""$FLINK_DIST"
 }
 
+# Get the classpath list by order, just support directory, not support file, processing logic is
+# consistent with JVM processing
+getClassPathListByOrder() {
+    dir=$1
+
+    # get the parent absolute file path
+    local parent_absolute_path=""
+    last_arr=${dir: -1}
+    last_two_arr=${dir: -2}
+    if [ "$last_two_arr" = "/*" ]; then
+        parent_absolute_path=${dir: 0: -1}
+        # avoid to traverse array use *
+        dir=$parent_absolute_path
+    elif [ "$last_arr" = "*" ]; then
+        new_dir="${dir: 0: -1}"
+        arr=(`echo "${new_dir}" | tr '/' ' '`)
+        arr_num=${#arr[@]}
+        last_arr_name=${arr[arr_num -1]}
+        parent_absolute_path=${new_dir: 0: ${#new_dir} - ${#last_arr_name}}
+    else
+        # if the dir does not contain "*", just use the file directly
+        echo "$dir"
+        return
+    fi
+
+    if [ ! -d "$parent_absolute_path" ]; then
+        # if parent_absolute_path does not exist, return the file directly
+        echo "$dir"
+    else
+        local class_path_by_order=""
+        for file_name in $(ls ${dir} | grep '\.jar$' | sort);do
+            if [[ $file_name = $parent_absolute_path* ]]; then
+                class_path_by_order=${class_path_by_order}:${file_name}
+            else
+	              class_path_by_order=${class_path_by_order}:${parent_absolute_path}${file_name}
+	          fi
+        done
+        echo ${class_path_by_order} | sed 's@^:@@'
+    fi
+}
+
+# sort the hadoop dependencies
+sortHadoopClasspath() {
+    hadoop_classpath="$INTERNAL_HADOOP_CLASSPATHS"
+    hadoop_classpath_by_order=""
+
+    hadoop_classpath_arr=(`echo "${hadoop_classpath}" | tr ":" " " | tr "*" "&"`)
+    for i in "${!hadoop_classpath_arr[@]}"; do
+        file_path="`echo "${hadoop_classpath_arr[$i]}" | tr "&" "*"`"
+        file_path_by_order=`getClassPathListByOrder "$file_path"`
+        hadoop_classpath_by_order=${hadoop_classpath_by_order}:${file_path_by_order}
+    done
+    echo ${hadoop_classpath_by_order} | sed 's@^:@@'
+}
+
 getUserJar() {
     local found=0
     for arg in $* ; do

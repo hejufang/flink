@@ -80,6 +80,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final int maxDelayMinutes;
 
+	private final boolean lazyAllocate;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -97,7 +99,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			String compressionCodec,
 			int maxBuffersPerChannel,
 			int maxDelayMinutes,
-			boolean isRecoverable) {
+			boolean isRecoverable,
+			boolean lazyAllocate) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -116,6 +119,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
 		this.maxDelayMinutes = maxDelayMinutes;
 		this.isRecoverable = isRecoverable;
+		this.lazyAllocate = lazyAllocate;
 	}
 
 	// ------------------------------------------------------------------------
@@ -188,6 +192,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return maxDelayMinutes;
 	}
 
+	public boolean isLazyAllocate() {
+		return lazyAllocate;
+	}
+
 	// ------------------------------------------------------------------------
 
 	/**
@@ -242,6 +250,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		String compressionCodec = configuration.getString(NettyShuffleEnvironmentOptions.SHUFFLE_COMPRESSION_CODEC);
 		int maxDelayMinutes = configuration.getInteger(NettyShuffleEnvironmentOptions.MAX_DELAY_MINUTES);
 		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
+		boolean lazyAllocate = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFERS_MEMORY_LAZY_ALLOCATE);
 
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
@@ -260,7 +269,8 @@ public class NettyShuffleEnvironmentConfiguration {
 			compressionCodec,
 			maxBuffersPerChannel,
 			maxDelayMinutes,
-			isRecoverable);
+			isRecoverable,
+			lazyAllocate);
 	}
 
 	/**

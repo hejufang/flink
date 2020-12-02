@@ -166,7 +166,7 @@ public class ResourceManagerFailureRaterTest {
 			UnregisteredMetricGroups.createUnregisteredResourceManagerMetricGroup(),
 			Time.minutes(5L),
 			RpcUtils.INF_TIMEOUT,
-			FailureRaterUtil.createFailureRater(new Configuration()));
+			FailureRaterUtil.createFailureRater(configuration));
 
 		resourceManager.start();
 

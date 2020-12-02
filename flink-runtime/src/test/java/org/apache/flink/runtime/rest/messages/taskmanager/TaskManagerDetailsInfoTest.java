@@ -65,7 +65,8 @@ public class TaskManagerDetailsInfoTest extends RestResponseMarshallingTestBase<
 			random.nextLong(),
 			random.nextLong(),
 			random.nextLong(),
-			garbageCollectorsInfo);
+			garbageCollectorsInfo,
+			random.nextLong());
 	}
 
 	static List<TaskManagerMetricsInfo.GarbageCollectorInfo> createRandomGarbageCollectorsInfo() {

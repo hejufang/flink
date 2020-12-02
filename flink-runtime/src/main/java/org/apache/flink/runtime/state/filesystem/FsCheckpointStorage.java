@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state.filesystem;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
@@ -28,9 +29,16 @@ import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamFactory.CheckpointStateOutputStream;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStreamFactory.FsCheckpointStateOutputStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -39,6 +47,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An implementation of durable checkpoint storage to file systems.
  */
 public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
+	private static final Logger LOG = LoggerFactory.getLogger(FsCheckpointStorage.class);
 
 	private final FileSystem fileSystem;
 
@@ -76,14 +85,36 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			JobID jobId,
 			int fileSizeThreshold,
 			int writeBufferSize) throws IOException {
+		this(fs,
+				checkpointBaseDirectory,
+				defaultSavepointDirectory,
+				jobId,
+				null,
+				null,
+				fileSizeThreshold,
+				writeBufferSize);
+	}
 
+	public FsCheckpointStorage(
+			FileSystem fs,
+			Path checkpointBaseDirectory,
+			@Nullable Path defaultSavepointDirectory,
+			JobID jobId,
+			@Nullable String jobName,
+			@Nullable String checkpointsNamespace,
+			int fileSizeThreshold,
+			int writeBufferSize) throws IOException {
 		super(jobId, defaultSavepointDirectory);
 
 		checkArgument(fileSizeThreshold >= 0);
 		checkArgument(writeBufferSize >= 0);
 
 		this.fileSystem = checkNotNull(fs);
-		this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointBaseDirectory, jobId);
+		if (jobName != null) {
+			this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointBaseDirectory, jobName, checkpointsNamespace);
+		} else {
+			this.checkpointsDirectory = getCheckpointDirectoryForJob(checkpointBaseDirectory, jobId);
+		}
 		this.sharedStateDirectory = new Path(checkpointsDirectory, CHECKPOINT_SHARED_STATE_DIR);
 		this.taskOwnedStateDirectory = new Path(checkpointsDirectory, CHECKPOINT_TASK_OWNED_STATE_DIR);
 		this.fileSizeThreshold = fileSizeThreshold;
@@ -182,5 +213,31 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	protected CheckpointStorageLocation createSavepointLocation(FileSystem fs, Path location) {
 		final CheckpointStorageLocationReference reference = encodePathAsReference(location);
 		return new FsCheckpointStorageLocation(fs, location, location, location, reference, fileSizeThreshold, writeBufferSize);
+	}
+
+	@Override
+	public List<String> findCompletedCheckpointPointer() throws IOException {
+		return Arrays.stream(fileSystem.listStatus(checkpointsDirectory))
+				.filter(fileStatus -> {
+					try {
+						return fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX)
+								&& fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+					} catch (IOException e) {
+						LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
+						return false;
+					}
+				})
+				.sorted(Comparator.comparingInt(
+						(FileStatus fileStatus) -> {
+							try {
+								return Integer.parseInt(
+										fileStatus.getPath().getName().substring(CHECKPOINT_DIR_PREFIX.length()));
+							} catch (Exception e) {
+								LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+								return Integer.MIN_VALUE;
+							}
+						}).reversed())
+				.map(fileStatus -> fileStatus.getPath().toString())
+				.collect(Collectors.toList());
 	}
 }

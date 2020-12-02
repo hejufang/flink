@@ -34,6 +34,7 @@
     "org.apache.flink.sql.parser.ddl.SqlAlterTableDropConstraint"
     "org.apache.flink.sql.parser.ddl.SqlAlterTableProperties"
     "org.apache.flink.sql.parser.ddl.SqlAlterTableRename"
+    "org.apache.flink.sql.parser.ddl.SqlAnalyzeTable"
     "org.apache.flink.sql.parser.ddl.SqlCreateCatalog"
     "org.apache.flink.sql.parser.ddl.SqlCreateDatabase"
     "org.apache.flink.sql.parser.ddl.SqlCreateFunction"
@@ -83,14 +84,19 @@
   # keyword, please also add it to 'nonReservedKeywords' section.
   # Please keep the keyword in alphabetical order if new keyword is added.
   keywords: [
+    "ANALYZE"
     "BYTES"
     "CATALOGS"
+    "COLUMNS"
     "COMMENT"
+    "COMPUTE"
     "DATABASES"
     "ENFORCED"
     "EXTENDED"
     "FUNCTIONS"
     "IF"
+    "LEGACY"
+    "NOSCAN"
     "OVERWRITE"
     "OVERWRITING"
     "PARTITIONED"
@@ -100,6 +106,7 @@
     "RENAME"
     "RESOURCES"
     "SCALA"
+    "STATISTICS"
     "STRING"
     "TABLES"
     "TEMPORAL"
@@ -230,6 +237,7 @@
     "LABEL"
     "LAST"
     "LENGTH"
+    "LEGACY"
     "LEVEL"
     "LIBRARY"
     "LOCATOR"
@@ -430,10 +438,15 @@
   # Please keep the keyword in alphabetical order if new keyword is added.
   nonReservedKeywordsToAdd: [
     # not in core, added in Flink
+    "ANALYZE"
+    "COLUMNS"
+    "COMPUTE"
     "ENFORCED"
     "IF"
+    "NOSCAN"
     "OVERWRITE"
     "OVERWRITING"
+    "STATISTICS"
     "PARTITIONED"
     "PARTITIONS"
   ]
@@ -462,6 +475,7 @@
     "SqlAlterTable()"
     "SqlShowViews()"
     "SqlAddResource()"
+    "SqlAnalyzeTable()"
   ]
 
   # List of methods for parsing custom literals.

@@ -71,7 +71,7 @@ public class DeserializationRuntimeConverterFactory {
 		}
 	}
 
-	private static DeserializationRuntimeConverter createRowConverter(
+	public static DeserializationRuntimeConverter createRowConverter(
 			RowType rowType,
 			Descriptors.GenericDescriptor genericDescriptor) {
 

@@ -893,13 +893,15 @@ public class StreamGraphGenerator {
 	}
 
 	public void replaceOperatorName() {
+		Map<String, Integer> prefixIndexMapPerJob = new HashMap<>();
 		for (StreamNode node : streamGraph.getStreamNodes()) {
 			String operatorName = node.getOperatorName();
 			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
 			if (operatorName.length() > OPERATOR_NAME_MAX_LENGTH) {
 				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
 			}
-			node.setOperatorName(UniqueNameGenerator.appendSuffixIfNotUnique(operatorName));
+			node.setOperatorName(
+				UniqueNameGenerator.appendSuffixIfNotUnique(operatorName, prefixIndexMapPerJob));
 		}
 	}
 }

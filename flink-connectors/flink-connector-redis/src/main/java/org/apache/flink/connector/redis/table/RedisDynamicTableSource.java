@@ -102,6 +102,11 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 		this.schema = TableSchemaUtils.projectSchema(schema, projectedFields);
 	}
 
+	@Override
+	public long getLaterJoinMs() {
+		return lookupOptions.getLaterRetryMs();
+	}
+
 	private static class ClientPoolProviderImpl implements ClientPoolProvider {
 		private static final long serialVersionUID = 1L;
 		@Override

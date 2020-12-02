@@ -67,10 +67,6 @@ class MiniBatchIntervalInferRule extends RelOptRule(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED)
 
     val updatedTrait = rel match {
-      case _: StreamExecGroupWindowAggregate =>
-        // TODO introduce mini-batch window aggregate later
-        MiniBatchIntervalTrait.NO_MINIBATCH
-
       case _: StreamExecWatermarkAssigner => MiniBatchIntervalTrait.NONE
 
       case _: StreamExecMiniBatchAssigner => MiniBatchIntervalTrait.NONE

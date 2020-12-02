@@ -43,7 +43,7 @@ import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpression
 import org.apache.flink.table.planner.plan.utils.{JoinTypeUtil, RelExplainUtil}
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
 import org.apache.flink.table.runtime.connector.source.LookupRuntimeProviderContext
-import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinRunner, LookupJoinWithCalcRunner}
+import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinRunner, LookupJoinWithCalcRetryRunner, LookupJoinWithCalcRunner, LookupJoinWithRetryRunner}
 import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.{fromDataTypeToLogicalType, fromLogicalTypeToDataType}
 import org.apache.flink.table.runtime.types.PlannerTypeUtils.isInteroperable
@@ -54,7 +54,6 @@ import org.apache.flink.table.types.DataType
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils.toInternalConversionClass
 import org.apache.flink.table.types.logical.{LogicalType, RowType, TypeInformationRawType}
 import org.apache.flink.types.Row
-
 import com.google.common.primitives.Primitives
 import org.apache.calcite.plan.{RelOptCluster, RelOptTable, RelTraitSet}
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField}
@@ -66,7 +65,6 @@ import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.validate.SqlValidatorUtil
 import org.apache.calcite.tools.RelBuilder
 import org.apache.calcite.util.mapping.IntPair
-
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
@@ -388,6 +386,13 @@ abstract class CommonLookupJoin(
         syncLookupFunction,
         env.getConfig.isObjectReuseEnabled)
 
+      val laterJoinMs = temporalTable match {
+        case t: TableSourceTable =>
+          val tableSource = t.tableSource.asInstanceOf[LookupTableSource]
+          tableSource.getLaterJoinMs
+        case _: LegacyTableSourceTable[_] =>
+          LookupTableSource.DEFAULT_LATER_RETRY_MS
+      }
       val ctx = CodeGeneratorContext(config)
       val processFunc = if (calcOnTemporalTable.isDefined) {
         // a projection or filter after table source scan
@@ -405,12 +410,23 @@ abstract class CommonLookupJoin(
           calcOnTemporalTable,
           tableSourceRowType)
 
-        new LookupJoinWithCalcRunner(
-          generatedFetcher,
-          generatedCalc,
-          generatedCollector,
-          leftOuterJoin,
-          rightRowType.getFieldCount)
+        if (laterJoinMs <= 0) {
+          new LookupJoinWithCalcRunner(
+            generatedFetcher,
+            generatedCalc,
+            generatedCollector,
+            leftOuterJoin,
+            rightRowType.getFieldCount)
+        } else {
+          new LookupJoinWithCalcRetryRunner(
+            generatedFetcher,
+            generatedCalc,
+            generatedCollector,
+            inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo],
+            leftOuterJoin,
+            rightRowType.getFieldCount,
+            laterJoinMs)
+        }
       } else {
         // right type is the same as table source row type, because no calc after temporal table
         val rightRowType = tableSourceRowType
@@ -421,11 +437,22 @@ abstract class CommonLookupJoin(
           resultRowType,
           remainingCondition,
           None)
-        new LookupJoinRunner(
-          generatedFetcher,
-          generatedCollector,
-          leftOuterJoin,
-          rightRowType.getFieldCount)
+
+        if (laterJoinMs <= 0) {
+          new LookupJoinRunner(
+            generatedFetcher,
+            generatedCollector,
+            leftOuterJoin,
+            rightRowType.getFieldCount)
+        } else {
+          new LookupJoinWithRetryRunner(
+            generatedFetcher,
+            generatedCollector,
+            inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo],
+            leftOuterJoin,
+            rightRowType.getFieldCount,
+            laterJoinMs)
+        }
       }
       SimpleOperatorFactory.of(new ProcessOperator(processFunc))
     }

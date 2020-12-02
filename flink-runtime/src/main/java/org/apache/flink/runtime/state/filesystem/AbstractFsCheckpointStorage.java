@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state.filesystem;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -72,6 +73,9 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 	/** The default location for savepoints. Null, if none is configured. */
 	@Nullable
 	private final Path defaultSavepointDirectory;
+
+	/** The all configuration. */
+	protected Configuration config;
 
 	/**
 	 * Creates a new checkpoint storage.
@@ -187,6 +191,14 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 	 */
 	protected static Path getCheckpointDirectoryForJob(Path baseCheckpointPath, JobID jobId) {
 		return new Path(baseCheckpointPath, jobId.toString());
+	}
+
+	protected static Path getCheckpointDirectoryForJob(Path baseCheckpointPath, String jobName, @Nullable String checkpointsNamespace) {
+		if (checkpointsNamespace != null) {
+			return new Path(new Path(baseCheckpointPath, jobName), checkpointsNamespace);
+		} else {
+			return new Path(baseCheckpointPath, jobName);
+		}
 	}
 
 	/**

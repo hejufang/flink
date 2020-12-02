@@ -56,7 +56,7 @@ public class PbRowDataDeserializationSchemaTest {
 
 	private static PbRowDataDeserializationSchema getDeserializationSchema(boolean withWrapper) {
 		Descriptors.Descriptor descriptor = PbUtils.validateAndGetDescriptor(TEST_PB_CLASS_NAME);
-		DataType dataType = PbFormatFactory.createDataType(descriptor, withWrapper);
+		DataType dataType = PbFormatUtils.createDataType(descriptor, withWrapper);
 
 		return PbRowDataDeserializationSchema.builder()
 			.setRowType((RowType) dataType.getLogicalType())

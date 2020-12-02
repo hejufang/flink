@@ -21,6 +21,8 @@ package org.apache.flink.runtime.state;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * This interface creates a {@link CheckpointStorageLocation} to which
@@ -57,6 +59,10 @@ public interface CheckpointStorageCoordinatorView {
 	 *                     the pointer could not be resolved due to an I/O error.
 	 */
 	CompletedCheckpointStorageLocation resolveCheckpoint(String externalPointer) throws IOException;
+
+	default List<String> findCompletedCheckpointPointer() throws IOException {
+		return Collections.emptyList();
+	}
 
 	/**
 	 * Initializes the necessary prerequisites for storage locations of checkpoints/savepoints.

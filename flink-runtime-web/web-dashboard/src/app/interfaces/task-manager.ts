@@ -68,6 +68,7 @@ interface Metrics {
   mappedUsed: number;
   mappedMax: number;
   memorySegmentsAvailable: number;
+  memorySegmentsAllocated: number;
   memorySegmentsTotal: number;
   garbageCollectors: GarbageCollectorsItem[];
 }

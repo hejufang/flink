@@ -77,7 +77,7 @@ class StreamExecCalc(
     val substituteStreamOperator = CalcCodeGenerator.generateCalcOperator(
       ctx,
       cluster,
-      inputTransform,
+      inputTransform.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType,
       outputType,
       config,
       calcProgram,

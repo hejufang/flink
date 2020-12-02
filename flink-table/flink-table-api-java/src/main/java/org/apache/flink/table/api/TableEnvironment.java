@@ -27,7 +27,9 @@ import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.descriptors.ConnectTableDescriptor;
 import org.apache.flink.table.descriptors.ConnectorDescriptor;
 import org.apache.flink.table.expressions.Expression;
+import org.apache.flink.table.functions.AggregateFunction;
 import org.apache.flink.table.functions.ScalarFunction;
+import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.table.module.Module;
 import org.apache.flink.table.sinks.TableSink;
@@ -375,6 +377,39 @@ public interface TableEnvironment {
 	 */
 	@Deprecated
 	void registerFunction(String name, ScalarFunction function);
+
+	/**
+	 * Registers a {@link TableFunction} under a unique name in the TableEnvironment's catalog.
+	 * Registered functions can be referenced in Table API and SQL queries.
+	 *
+	 * @param name The name under which the function is registered.
+	 * @param tableFunction The TableFunction to register.
+	 * @param <T> The type of the output row.
+	 *
+	 * @deprecated Use {@link #createTemporarySystemFunction(String, UserDefinedFunction)} instead. Please
+	 *             note that the new method also uses the new type system and reflective extraction logic. It
+	 *             might be necessary to update the function implementation as well. See the documentation of
+	 *             {@link TableFunction} for more information on the new function design.
+	 */
+	@Deprecated
+	default <T> void registerFunction(String name, TableFunction<T> tableFunction) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Registers an {@link AggregateFunction} under a unique name in the TableEnvironment's catalog.
+	 * Registered functions can be referenced in Table API and SQL queries.
+	 *
+	 * @param name The name under which the function is registered.
+	 * @param aggregateFunction The AggregateFunction to register.
+	 * @param <T> The type of the output value.
+	 * @param <ACC> The type of aggregate accumulator.
+	 * @deprecated Use {@link #createTemporarySystemFunction(String, UserDefinedFunction)} instead.
+	 */
+	@Deprecated
+	default <T, ACC> void registerFunction(String name, AggregateFunction<T, ACC> aggregateFunction) {
+		throw new UnsupportedOperationException();
+	}
 
 	/**
 	 * Registers a {@link UserDefinedFunction} class as a temporary system function.

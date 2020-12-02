@@ -49,6 +49,10 @@ public interface CompletedCheckpointStore {
 	 */
 	void addCheckpoint(CompletedCheckpoint checkpoint) throws Exception;
 
+	default void addCheckpointInOrder(CompletedCheckpoint checkpoint) throws Exception {
+		addCheckpoint(checkpoint);
+	}
+
 	/**
 	 * Returns the latest {@link CompletedCheckpoint} instance or <code>null</code> if none was
 	 * added.

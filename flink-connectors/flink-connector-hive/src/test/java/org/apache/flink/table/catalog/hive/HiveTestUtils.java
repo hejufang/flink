@@ -70,11 +70,11 @@ public class HiveTestUtils {
 
 	public static HiveCatalog createHiveCatalog(String name, String hiveVersion) {
 		return new HiveCatalog(name, null, createHiveConf(),
-				StringUtils.isNullOrWhitespaceOnly(hiveVersion) ? HiveShimLoader.getHiveVersion() : hiveVersion, true);
+				StringUtils.isNullOrWhitespaceOnly(hiveVersion) ? HiveShimLoader.getHiveVersion() : hiveVersion, true, true);
 	}
 
 	public static HiveCatalog createHiveCatalog(HiveConf hiveConf) {
-		return new HiveCatalog(CatalogTest.TEST_CATALOG_NAME, null, hiveConf, HiveShimLoader.getHiveVersion(), true);
+		return new HiveCatalog(CatalogTest.TEST_CATALOG_NAME, null, hiveConf, HiveShimLoader.getHiveVersion(), true, true);
 	}
 
 	public static HiveConf createHiveConf() {

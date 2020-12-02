@@ -1957,6 +1957,18 @@ class DashboardTemplate(object):
                     "tags": {
                         "jobname": "${jobname}"
                     }
+                },
+                {
+                    "aggregator": "sum",
+                    "currentTagKey": "",
+                    "currentTagValue": "",
+                    "downsampleAggregator": "avg",
+                    "downsampleFillPolicy": "none",
+                    "metric": "flink.taskmanager.Status.Network.AllocatedMemorySegments",
+                    "refId": "B",
+                    "tags": {
+                        "jobname": "${jobname}"
+                    }
                 }
             ]
         ''')

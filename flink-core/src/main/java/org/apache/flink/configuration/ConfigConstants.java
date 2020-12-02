@@ -2047,6 +2047,8 @@ public final class ConfigConstants {
 
 	public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
+	public static final String YARN_STREAMING_APPLICATION_TYPE_DEFAULT = "Apache Flink";
+
 	public static final String APPLICATION_NAME_KEY = "applicationName";
 	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
 

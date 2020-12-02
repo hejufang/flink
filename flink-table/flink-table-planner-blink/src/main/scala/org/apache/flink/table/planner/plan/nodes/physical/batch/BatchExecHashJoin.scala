@@ -190,14 +190,12 @@ class BatchExecHashJoin(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
 
-    val lInput = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
-    val rInput = getInputNodes.get(1).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val lInputMix = translateToPlanMix(planner, 0)
+    val rInputMix = translateToPlanMix(planner, 1)
 
     // get type
-    val lType = lInput.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
-    val rType = rInput.getOutputType.asInstanceOf[RowDataTypeInfo].toRowType
+    val lType = FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType)
+    val rType = FlinkTypeFactory.toLogicalRowType(getInputs.get(1).getRowType)
 
     val keyType = RowType.of(leftKeys.map(lType.getTypeAt): _*)
 
@@ -210,17 +208,23 @@ class BatchExecHashJoin(
     val rProj = generateProjection(
       CodeGeneratorContext(config), "HashJoinRightProjection", rType, keyType, rightKeys)
 
-    val (build, probe, bProj, pProj, bType, pType, reverseJoin) =
+    val (buildMix, probeMix, bProj, pProj, bType, pType, reverseJoin) =
       if (leftIsBuild) {
-        (lInput, rInput, lProj, rProj, lType, rType, false)
+        (lInputMix, rInputMix, lProj, rProj, lType, rType, false)
       } else {
-        (rInput, lInput, rProj, lProj, rType, lType, true)
+        (rInputMix, lInputMix, rProj, lProj, rType, lType, true)
       }
-    val mq = getCluster.getMetadataQuery
 
-    val buildRowSize = Util.first(mq.getAverageRowSize(buildRel), 24).toInt
-    val buildRowCount = Util.first(mq.getRowCount(buildRel), 200000).toLong
-    val probeRowCount = Util.first(mq.getRowCount(probeRel), 200000).toLong
+    // calcite RelOptCluster is not designed to be thread-safe
+
+    val (buildRowSize, buildRowCount, probeRowCount) = planner.synchronized {
+      val mq = getCluster.getMetadataQuery
+
+      (Util.first(mq.getAverageRowSize(buildRel), 24).toInt,
+       Util.first(mq.getRowCount(buildRel), 200000).toLong,
+       Util.first(mq.getRowCount(probeRel), 200000).toLong)
+    }
+
 
     // operator
     val operator = if (LongHashJoinGenerator.support(hashJoinType, keyType, filterNulls)) {
@@ -254,6 +258,9 @@ class BatchExecHashJoin(
 
     val managedMemory = MemorySize.parse(config.getConfiguration.getString(
       ExecutionConfigOptions.TABLE_EXEC_RESOURCE_HASH_JOIN_MEMORY)).getBytes
+
+    val build = getTransformFromMix(buildMix)
+    val probe = getTransformFromMix(probeMix)
     ExecNode.createTwoInputTransformation(
       build,
       probe,

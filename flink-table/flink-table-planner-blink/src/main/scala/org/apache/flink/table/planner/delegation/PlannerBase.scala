@@ -21,7 +21,7 @@ package org.apache.flink.table.planner.delegation
 import org.apache.flink.annotation.VisibleForTesting
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
-import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, OptimizerConfigOptions}
 import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException, TableSchema}
 import org.apache.flink.table.catalog._
 import org.apache.flink.table.connector.sink.DynamicTableSink
@@ -43,10 +43,12 @@ import org.apache.flink.table.planner.plan.reuse.SubplanReuser
 import org.apache.flink.table.planner.plan.utils.SameRelObjectShuttle
 import org.apache.flink.table.planner.sinks.DataStreamTableSink
 import org.apache.flink.table.planner.sinks.TableSinkUtils.{inferSinkPhysicalSchema, validateLogicalPhysicalTypesCompatible, validateSchemaAndApplyImplicitCast, validateTableSink}
-import org.apache.flink.table.planner.utils.JavaScalaConversionUtil
+import org.apache.flink.table.planner.utils.{JavaScalaConversionUtil, Logging}
 import org.apache.flink.table.sinks.TableSink
 import org.apache.flink.table.types.utils.LegacyTypeInfoDataTypeConverter
 import org.apache.flink.table.utils.TableSchemaUtils
+
+import org.apache.flink.shaded.byted.com.google.common.util.concurrent.{ListeningExecutorService, MoreExecutors}
 
 import org.apache.calcite.jdbc.CalciteSchemaBuilder.asRootSchema
 import org.apache.calcite.plan.{RelTrait, RelTraitDef}
@@ -54,7 +56,9 @@ import org.apache.calcite.rel.RelNode
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.tools.FrameworkConfig
 
+import java.lang.{Boolean => JBoolean}
 import java.util
+import java.util.concurrent.Executors
 import java.util.function.{Function => JFunction, Supplier => JSupplier}
 
 import _root_.scala.collection.JavaConversions._
@@ -79,7 +83,8 @@ abstract class PlannerBase(
     val functionCatalog: FunctionCatalog,
     val catalogManager: CatalogManager,
     isStreamingMode: Boolean)
-  extends Planner {
+  extends Planner
+  with Logging {
 
   // temporary utility until we don't use planner expressions anymore
   functionCatalog.setPlannerTypeInferenceUtil(PlannerTypeInferenceUtilImpl.INSTANCE)
@@ -109,6 +114,21 @@ abstract class PlannerBase(
       }
     }
   )
+
+  val asyncModeEnabled: Boolean =
+    getTableConfig.getConfiguration.get(OptimizerConfigOptions.TABLE_OPTIMIZER_ASYNC_MODE_ENABLED)
+
+  // common thread pool for Blink planner
+  val executorService: ListeningExecutorService = {
+    if (!asyncModeEnabled) {
+      null
+    } else {
+      val plannerExecutorSize =
+        getTableConfig.getConfiguration.get(
+          OptimizerConfigOptions.TABLE_OPTIMIZER_ASYNC_THREAD_NUMBER)
+      MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(plannerExecutorSize))
+    }
+  }
 
   @VisibleForTesting
   private[flink] val plannerContext: PlannerContext =
@@ -167,7 +187,13 @@ abstract class PlannerBase(
     val optimizedRelNodes = optimize(relNodes)
     val execNodes = translateToExecNodePlan(optimizedRelNodes)
     validateBeforeExecuteIfNeeded(execNodes)
-    translateToPlan(execNodes)
+
+    val startTime: Long = System.currentTimeMillis()
+    val transformations = translateToPlan(execNodes)
+    val endTime: Long = System.currentTimeMillis()
+    LOG.info(s"ExecNodes translateToPlan cost: ${endTime - startTime} ms in which async mode " +
+      s"is $asyncModeEnabled.\n")
+    transformations
   }
 
   protected def validateBeforeExecuteIfNeeded(execNodes: util.List[ExecNode[_, _]]): Unit = {

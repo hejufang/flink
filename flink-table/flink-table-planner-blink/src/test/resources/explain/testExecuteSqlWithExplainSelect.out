@@ -9,13 +9,13 @@ Calc(select=[a, b, c], where=[>(a, 10)])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source: Custom Source
+	content : Source_Custom_Source
 
 	 : Operator
-		content : SourceConversion(table=[default_catalog.default_database.MyTable, source: [CollectionTableSource(a, b, c)]], fields=[a, b, c])
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc(select=[a, b, c], where=[(a > 10)])
+			content : Calc_select_a_b_c_wh
 			ship_strategy : FORWARD
 

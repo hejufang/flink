@@ -24,17 +24,19 @@ import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala._
 import org.apache.flink.table.api.bridge.scala.internal.StreamTableEnvironmentImpl
 import org.apache.flink.table.planner.runtime.utils.StreamingWithStateTestBase.StateBackendMode
+import org.apache.flink.table.runtime.operators.window.AggregateWindowOperator
 import org.apache.flink.table.runtime.util.RowDataHarnessAssertor
-import org.apache.flink.table.runtime.util.StreamRecordUtils.{binaryRecord, binaryrow, insertRecord, row, updateAfterRecord, updateBeforeRecord}
+import org.apache.flink.table.runtime.util.StreamRecordUtils.{binaryrow, insertRecord, updateAfterRecord, updateBeforeRecord}
 import org.apache.flink.types.Row
+
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
-import org.junit.{Before, Test}
-
-import scala.collection.mutable
+import org.junit.{Assert, Before, Test}
 
 import java.lang.{Long => JLong}
 import java.util.concurrent.ConcurrentLinkedQueue
+
+import scala.collection.mutable
 
 @RunWith(classOf[Parameterized])
 class WindowOperatorHarnessTest(mode: StateBackendMode) extends HarnessTestBase(mode) {
@@ -48,7 +50,62 @@ class WindowOperatorHarnessTest(mode: StateBackendMode) extends HarnessTestBase(
   }
 
   @Test
-  def testProcTimeBoundedRowsOver(): Unit = {
+  def testMiniBatchTumbleWindow() : Unit = {
+    val data = new mutable.MutableList[(String, Long)]
+    val t = env.fromCollection(data).toTable(tEnv, 'b, 'c, 'proctime.proctime)
+    tEnv.registerTable("T", t)
+
+    tEnv.getConfig.getConfiguration.setBoolean("table.exec.mini-batch.enabled", true)
+    tEnv.getConfig.getConfiguration.setString("table.exec.mini-batch.allow-latency", "1 min")
+    tEnv.getConfig.getConfiguration.setLong("table.exec.mini-batch.size", 3)
+
+    val sql =
+      """
+        |SELECT
+        |  b,
+        |  COUNT(*)
+        |FROM T
+        |GROUP BY
+        |  b,
+        |  TUMBLE(proctime, INTERVAL '10' MINUTE)
+      """.stripMargin
+    val t1 = tEnv.sqlQuery(sql)
+
+    val testHarness = createHarnessTester(t1.toRetractStream[Row], "GroupWindowAggregate")
+    val assertor = new RowDataHarnessAssertor(
+      Array(Types.STRING, Types.LONG))
+
+    testHarness.open()
+
+    val windowOperator = testHarness.getOneInputOperator.asInstanceOf[AggregateWindowOperator[_, _]]
+
+    testHarness.setProcessingTime(0)
+
+    testHarness.processElement(new StreamRecord(
+      binaryrow("aaa", 1L: JLong, null)))
+    Assert.assertEquals(windowOperator.getBundle.size(), 1)
+    testHarness.processElement(new StreamRecord(
+      binaryrow("bbb", 10L: JLong, null)))
+    Assert.assertEquals(windowOperator.getBundle.size(), 2)
+    testHarness.processElement(new StreamRecord(
+      binaryrow("aaa", 2L: JLong, null)))
+    Assert.assertEquals(windowOperator.getBundle.size(), 0)
+    testHarness.processElement(new StreamRecord(
+      binaryrow("aaa", 3L: JLong, null)))
+    Assert.assertEquals(windowOperator.getBundle.size(), 1)
+    testHarness.setProcessingTime(10 * 60 * 1000 + 1000)
+    Assert.assertEquals(windowOperator.getBundle.size(), 0)
+
+    val expectedOutput = new ConcurrentLinkedQueue[Object]()
+    expectedOutput.add(insertRecord("aaa": String, 3L: JLong))
+    expectedOutput.add(insertRecord("bbb": String, 1L: JLong))
+    assertor.assertOutputEqualsSorted("result mismatch", expectedOutput, testHarness.getOutput)
+
+    testHarness.close()
+  }
+
+  @Test
+  def testEmitUnchanged(): Unit = {
 
     val data = new mutable.MutableList[(String, Long)]
     val t = env.fromCollection(data).toTable(tEnv, 'b, 'c, 'proctime.proctime)
@@ -123,7 +180,7 @@ class WindowOperatorHarnessTest(mode: StateBackendMode) extends HarnessTestBase(
 
     val expectedOutput = new ConcurrentLinkedQueue[Object]()
 
-    expectedOutput.add(insertRecord("aaa": String, 3: JLong))
+    expectedOutput.add(insertRecord("aaa": String, 3L: JLong))
     expectedOutput.add(insertRecord("bbb": String, 1L: JLong))
     expectedOutput.add(updateBeforeRecord("aaa": String, 3L: JLong))
     expectedOutput.add(updateAfterRecord("aaa": String, 6L: JLong))

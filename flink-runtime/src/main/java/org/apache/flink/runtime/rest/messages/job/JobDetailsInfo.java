@@ -173,8 +173,8 @@ public class JobDetailsInfo implements ResponseBody {
 			Objects.equals(jobVertexInfos, that.jobVertexInfos) &&
 			Objects.equals(jobVerticesPerState, that.jobVerticesPerState) &&
 			Objects.equals(jsonPlan, that.jsonPlan) &&
-			metric == that.metric &&
-			dtop == that.dtop;
+			Objects.equals(metric, that.metric) &&
+			Objects.equals(dtop, that.dtop);
 	}
 
 	@Override

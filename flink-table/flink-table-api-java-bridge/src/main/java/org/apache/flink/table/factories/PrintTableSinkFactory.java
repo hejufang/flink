@@ -35,6 +35,7 @@ import org.apache.flink.table.types.DataType;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
 
@@ -69,6 +70,11 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 			.defaultValue(false)
 			.withDescription("True, if the format should print to standard error instead of standard out.");
 
+	public static final ConfigOption<Double> PRINT_SAMPLE_RATIO = key("print-sample-ratio")
+		.doubleType()
+		.defaultValue(0.01)
+		.withDescription("It defines the sample ratio for print sink.");
+
 	@Override
 	public String factoryIdentifier() {
 		return IDENTIFIER;
@@ -84,6 +90,7 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(PRINT_IDENTIFIER);
 		options.add(STANDARD_ERROR);
+		options.add(PRINT_SAMPLE_RATIO);
 		return options;
 	}
 
@@ -95,7 +102,8 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		return new PrintSink(
 				context.getCatalogTable().getSchema().toPhysicalRowDataType(),
 				options.get(PRINT_IDENTIFIER),
-				options.get(STANDARD_ERROR));
+				options.get(STANDARD_ERROR),
+				options.get(PRINT_SAMPLE_RATIO));
 	}
 
 	private static class PrintSink implements DynamicTableSink {
@@ -103,11 +111,13 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		private final DataType type;
 		private final String printIdentifier;
 		private final boolean stdErr;
+		private final double printSampleRatio;
 
-		private PrintSink(DataType type, String printIdentifier, boolean stdErr) {
+		private PrintSink(DataType type, String printIdentifier, boolean stdErr, double printSampleRatio) {
 			this.type = type;
 			this.printIdentifier = printIdentifier;
 			this.stdErr = stdErr;
+			this.printSampleRatio = printSampleRatio;
 		}
 
 		@Override
@@ -118,12 +128,12 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		@Override
 		public SinkRuntimeProvider getSinkRuntimeProvider(DynamicTableSink.Context context) {
 			DataStructureConverter converter = context.createDataStructureConverter(type);
-			return SinkFunctionProvider.of(new RowDataPrintFunction(converter, printIdentifier, stdErr));
+			return SinkFunctionProvider.of(new RowDataPrintFunction(converter, printIdentifier, stdErr, printSampleRatio));
 		}
 
 		@Override
 		public DynamicTableSink copy() {
-			return new PrintSink(type, printIdentifier, stdErr);
+			return new PrintSink(type, printIdentifier, stdErr, printSampleRatio);
 		}
 
 		@Override
@@ -142,10 +152,12 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 
 		private final DataStructureConverter converter;
 		private final PrintSinkOutputWriter<String> writer;
+		private final double printSampleRatio;
 
 		private RowDataPrintFunction(
-				DataStructureConverter converter, String printIdentifier, boolean stdErr) {
+				DataStructureConverter converter, String printIdentifier, boolean stdErr, double printSampleRatio) {
 			this.converter = converter;
+			this.printSampleRatio = printSampleRatio;
 			this.writer = new PrintSinkOutputWriter<>(printIdentifier, stdErr);
 		}
 
@@ -158,9 +170,11 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 
 		@Override
 		public void invoke(RowData value, Context context) {
-			String rowKind = value.getRowKind().shortString();
-			Object data = converter.toExternal(value);
-			writer.write(rowKind + "(" + data + ")");
+			if (ThreadLocalRandom.current().nextDouble() < printSampleRatio) {
+				String rowKind = value.getRowKind().shortString();
+				Object data = converter.toExternal(value);
+				writer.write(rowKind + "(" + data + ")");
+			}
 		}
 	}
 }

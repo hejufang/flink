@@ -347,7 +347,7 @@ public class CheckpointConfig implements java.io.Serializable {
 	 */
 	public int getTolerableCheckpointFailureNumber() {
 		if (tolerableCheckpointFailureNumber == UNDEFINED_TOLERABLE_CHECKPOINT_NUMBER) {
-			return 0;
+			return UNLIMITED_TOLERABLE_FAILURE_NUMBER;
 		}
 		return tolerableCheckpointFailureNumber;
 	}

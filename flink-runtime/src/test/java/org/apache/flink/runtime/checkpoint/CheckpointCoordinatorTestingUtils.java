@@ -698,6 +698,7 @@ public class CheckpointCoordinatorTestingUtils {
 		public CheckpointCoordinator build() {
 			return new CheckpointCoordinator(
 				jobId,
+				"test",
 				checkpointCoordinatorConfiguration,
 				tasksToTrigger,
 				tasksToWaitFor,

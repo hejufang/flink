@@ -33,6 +33,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
 
+import static org.apache.flink.runtime.util.ZooKeeperUtils.ensureNamespace;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -76,11 +77,31 @@ public class ZooKeeperCheckpointIDCounter implements CheckpointIDCounter {
 	 * @param client      Curator ZooKeeper client
 	 * @param counterPath ZooKeeper path for the counter. It's sufficient to have a path per-job.
 	 */
-	public ZooKeeperCheckpointIDCounter(CuratorFramework client, String counterPath, LastStateConnectionStateListener connectionStateListener) {
-		this.client = checkNotNull(client, "Curator client");
+	public ZooKeeperCheckpointIDCounter(CuratorFramework client, String counterPath, LastStateConnectionStateListener connectionStateListener) throws Exception {
+		this(client, counterPath, connectionStateListener, client.getNamespace());
+	}
+
+	/**
+	 * Creates a {@link ZooKeeperCheckpointIDCounter} instance.
+	 *
+	 * @param client      Curator ZooKeeper client
+	 * @param counterPath ZooKeeper path for the counter. It's sufficient to have a path per-job.
+	 * @param zookeeperNamespace ZooKeeper namespace for the counter.
+	 */
+	public ZooKeeperCheckpointIDCounter(
+			CuratorFramework client,
+			String counterPath,
+			LastStateConnectionStateListener connectionStateListener,
+			String zookeeperNamespace) throws Exception {
+		zookeeperNamespace = ensureNamespace(client, zookeeperNamespace);
+		this.client = checkNotNull(client.usingNamespace(zookeeperNamespace), "Curator client");
+		LOG.info("Using namespace '{}'.", this.client.getNamespace());
+
 		this.counterPath = checkNotNull(counterPath, "Counter path");
 		this.sharedCount = new SharedCount(client, counterPath, 1);
 		this.connectionStateListener = connectionStateListener;
+
+		LOG.info("Initialized in '{}'.", counterPath);
 	}
 
 	@Override

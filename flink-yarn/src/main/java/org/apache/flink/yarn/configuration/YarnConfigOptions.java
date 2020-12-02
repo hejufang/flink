@@ -18,6 +18,7 @@
 
 package org.apache.flink.yarn.configuration;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ExternalResourceOptions;
 import org.apache.flink.configuration.SecurityOptions;
@@ -231,7 +232,7 @@ public class YarnConfigOptions {
 	public static final ConfigOption<String> APPLICATION_TYPE =
 			key("yarn.application.type")
 				.stringType()
-				.defaultValue("Apache Flink")
+				.defaultValue(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)
 				.withDescription("A custom type for your YARN application..");
 
 	public static final ConfigOption<String> NODE_LABEL =
@@ -296,6 +297,18 @@ public class YarnConfigOptions {
 			.booleanType()
 			.defaultValue(false)
 			.withDescription("Cleanup running containers on NMClient stop.");
+
+	public static final ConfigOption<Boolean> YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE =
+		key("yarn.conf.cluster_queue_name.enable")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Enable set cluster_queue_name to yarn conf.");
+
+	public static final ConfigOption<Boolean> YARN_CHECK_APP_NAME_UNIQUE =
+		key("yarn.check.application.name.unique")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Yarn check application name unique in cluster dimensions.");
 
 	/**
 	 * Yarn configuration key prefix.

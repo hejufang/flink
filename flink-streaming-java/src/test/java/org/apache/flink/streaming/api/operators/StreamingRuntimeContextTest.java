@@ -264,7 +264,8 @@ public class StreamingRuntimeContextTest {
 			operator.getOperatorID(),
 			operator.getProcessingTimeService(),
 			operator.getKeyedStateStore(),
-			ExternalResourceInfoProvider.NO_EXTERNAL_RESOURCES);
+			ExternalResourceInfoProvider.NO_EXTERNAL_RESOURCES,
+			operator.getOperatorStateBackend());
 	}
 
 	@SuppressWarnings("unchecked")

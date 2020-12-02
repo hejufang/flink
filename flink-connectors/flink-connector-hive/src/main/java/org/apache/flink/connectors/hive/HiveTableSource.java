@@ -557,10 +557,10 @@ public class HiveTableSource implements
 			explain += ", ProjectedFields: " + Arrays.toString(projectedFields);
 		}
 		if (isLimitPushDown) {
-			explain += String.format(", LimitPushDown %s, Limit %d", isLimitPushDown, limit);
+			explain += String.format(", LimitPushDown: %s, Limit: %d", isLimitPushDown, limit);
 		}
 		if (predicates != null) {
-			explain += ", " + predicates;
+			explain += ", Predicates: " + predicates;
 		}
 		return TableConnectorUtils.generateRuntimeName(getClass(), getTableSchema().getFieldNames()) + explain;
 	}

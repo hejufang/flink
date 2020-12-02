@@ -255,6 +255,7 @@ SqlCreate SqlCreateFunction(Span s, boolean replace, boolean isTemporary) :
     String functionLanguage = null;
     boolean ifNotExists = false;
     boolean isSystemFunction = false;
+    boolean isLegacy = false;
 }
 {
     (
@@ -265,6 +266,10 @@ SqlCreate SqlCreateFunction(Span s, boolean replace, boolean isTemporary) :
     |
         <FUNCTION>
         ifNotExists = IfNotExistsOpt()
+        functionIdentifier = CompoundIdentifier()
+    |
+        <LEGACY> <FUNCTION>
+        { isLegacy = true; }
         functionIdentifier = CompoundIdentifier()
     )
 
@@ -285,7 +290,7 @@ SqlCreate SqlCreateFunction(Span s, boolean replace, boolean isTemporary) :
     ]
     {
         return new SqlCreateFunction(s.pos(), functionIdentifier, functionClassName, functionLanguage,
-                ifNotExists, isTemporary, isSystemFunction);
+                ifNotExists, isTemporary, isSystemFunction, isLegacy);
     }
 }
 
@@ -765,6 +770,52 @@ SqlCreate SqlCreateTable(Span s, boolean replace, boolean isTemporary) :
     }
 }
 
+SqlAnalyzeTable SqlAnalyzeTable() :
+{
+    SqlParserPos startPos = getPos();
+    SqlIdentifier tableName;
+    SqlNodeList partitionList = null;
+    SqlNodeList columnList = null;
+    final List<SqlNode> tempColumnList = new ArrayList<SqlNode>();
+    boolean noScan = false;
+    Span span;
+}
+{
+    <ANALYZE> <TABLE>
+    tableName = CompoundIdentifier()
+    [
+        <PARTITION>
+        {
+            partitionList = new SqlNodeList(getPos());
+        }
+        PartitionSpecWithOptionalValueCommaList(partitionList)
+    ]
+    <COMPUTE> <STATISTICS>
+    [
+        LOOKAHEAD(2)
+        (
+            <FOR> <COLUMNS>
+            {
+                 span = span();
+            }
+            SimpleIdentifierCommaList(tempColumnList)
+            {
+                 columnList = new SqlNodeList(tempColumnList, span.addAll(tempColumnList).pos());
+            }
+        )
+        |
+        (
+            <FOR> <ALL> <COLUMNS>
+        )
+    ]
+    [
+        <NOSCAN> {noScan = true;}
+    ]
+    {
+        return new SqlAnalyzeTable(startPos.plus(getPos()), tableName, partitionList, columnList, noScan);
+    }
+}
+
 SqlAddResource SqlAddResource() :
 {
     SqlIdentifier resourceName = null;
@@ -945,6 +996,34 @@ SqlNode RichSqlInsert() :
         return new RichSqlInsert(s.end(source), keywordList, extendedKeywordList, table, source,
             columnList, partitionList);
     }
+}
+/**
+* Parses a partition specifications statement,
+* e.g. analyze table tableA partition(col1='val1', col2) compute statistics.
+*/
+void PartitionSpecWithOptionalValueCommaList(SqlNodeList list) :
+{
+    SqlIdentifier key;
+    SqlNode value;
+    SqlParserPos pos;
+}
+{
+    <LPAREN>
+    key = SimpleIdentifier()
+    { pos = getPos(); value = SqlIdentifier.STAR;}
+    [
+        <EQ> value = Literal()
+    ]
+    { list.add(new SqlProperty(key, value, pos.plus(getPos()))); }
+    (   <COMMA>
+        key = SimpleIdentifier()
+        { pos = getPos(); value = SqlIdentifier.STAR;}
+        [
+            <EQ> value = Literal()
+        ]
+        { list.add(new SqlProperty(key, value, pos.plus(getPos()))); }
+    )*
+    <RPAREN>
 }
 
 /**

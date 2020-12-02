@@ -46,6 +46,12 @@ public class CheckpointingOptions {
 			.defaultValue(1)
 			.withDescription("The maximum number of completed checkpoints to retain.");
 
+	/** The number of threads that used to restore operator states. */
+	public static final ConfigOption<Integer> OPERATOR_STATE_RESTORE_THREAD_NUM = ConfigOptions
+			.key("state.backend.operator.restore-thread-num")
+			.defaultValue(1)
+			.withDescription("The number of threads that used to restore operator states.");
+
 	/** Option whether the state backend should use an asynchronous snapshot method where
 	 * possible and configurable.
 	 *
@@ -136,6 +142,14 @@ public class CheckpointingOptions {
 			.withDescription("The default directory used for storing the data files and meta data of checkpoints " +
 				"in a Flink supported filesystem. The storage path must be accessible from all participating processes/nodes" +
 				"(i.e. all TaskManagers and JobManagers).");
+
+	/**
+	 * The namespace for checkpoints of one job.
+	 */
+	public static final ConfigOption<String> CHECKPOINTS_NAMESPACE = ConfigOptions
+			.key("state.checkpoints.namespace")
+			.defaultValue("default")
+			.withDescription("The namespace for checkpoints of one job.");
 
 	/** The minimum size of state data files. All state chunks smaller than that
 	 * are stored inline in the root checkpoint metadata file. */

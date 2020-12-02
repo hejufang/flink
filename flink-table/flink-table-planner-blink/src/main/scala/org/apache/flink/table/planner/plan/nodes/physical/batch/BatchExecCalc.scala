@@ -50,19 +50,20 @@ class BatchExecCalc(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val inputTransform = getInputNodes.get(0).translateToPlan(planner)
-        .asInstanceOf[Transformation[RowData]]
+    val inputTransformMix = translateToPlanMix(planner, 0)
+
     val condition = if (calcProgram.getCondition != null) {
       Some(calcProgram.expandLocalRef(calcProgram.getCondition))
     } else {
       None
     }
+    val inputType = FlinkTypeFactory.toLogicalRowType(getInputs.get(0).getRowType)
     val outputType = FlinkTypeFactory.toLogicalRowType(getRowType)
     val ctx = CodeGeneratorContext(config)
     val operator = CalcCodeGenerator.generateCalcOperator(
       ctx,
       cluster,
-      inputTransform,
+      inputType,
       outputType,
       config,
       calcProgram,
@@ -70,6 +71,7 @@ class BatchExecCalc(
       opName = "BatchCalc"
     )
 
+    val inputTransform = getTransformFromMix(inputTransformMix)
     ExecNode.createOneInputTransformation(
       inputTransform,
       getRelDetailedDescription,

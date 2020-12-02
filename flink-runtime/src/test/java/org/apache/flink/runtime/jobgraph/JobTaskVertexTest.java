@@ -91,6 +91,7 @@ public class JobTaskVertexTest {
 	public void testOutputFormat() {
 		try {
 			final InputOutputFormatVertex vertex = new InputOutputFormatVertex("Name");
+			vertex.setParallelism(1);
 
 			OperatorID operatorID = new OperatorID();
 			Configuration parameters = new Configuration();
@@ -120,7 +121,7 @@ public class JobTaskVertexTest {
 			assertEquals("Previous classloader was not restored.", ctxCl, Thread.currentThread().getContextClassLoader());
 
 			try {
-				copy.finalizeOnMaster(cl, new ExecutionInfo[0], null);
+				copy.finalizeOnMaster(cl, new ExecutionInfo[1], null);
 				fail("Did not throw expected exception.");
 			} catch (TestException e) {
 				// all good

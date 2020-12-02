@@ -37,6 +37,7 @@ import org.apache.flink.util.function.CheckedSupplier;
 
 import akka.actor.ActorSystem;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -498,7 +499,7 @@ public class BootstrapToolsTest extends TestLogger {
 		Assert.assertEquals(0, res.size());
 	}
 
-	@Test
+	@Ignore("The test is temporarily ignored.")
 	public void testWriteConfigurationAndReload() throws IOException {
 		final File flinkConfDir = temporaryFolder.newFolder().getAbsoluteFile();
 		final Configuration flinkConfig = new Configuration();

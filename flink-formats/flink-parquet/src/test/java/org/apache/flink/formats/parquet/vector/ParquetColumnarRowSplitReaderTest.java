@@ -211,7 +211,7 @@ public class ParquetColumnarRowSplitReaderTest {
 				new String[] {
 						"f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
 						"f8", "f9", "f10", "f11", "f12", "f13", "f14"},
-				VectorizedColumnBatch::new,
+				(readVectors, fieldsNotInParquet) -> new VectorizedColumnBatch(readVectors),
 				500,
 				new org.apache.hadoop.fs.Path(testPath.getPath()),
 				splitStart,
@@ -407,8 +407,8 @@ public class ParquetColumnarRowSplitReaderTest {
 				new Configuration(),
 				fieldTypes,
 				new String[] {"f7", "f2", "f4"},
-				VectorizedColumnBatch::new,
-				500,
+				(readVectors, fieldsNotInParquet) -> new VectorizedColumnBatch(readVectors),
+			500,
 				new org.apache.hadoop.fs.Path(testPath.getPath()),
 				0,
 				Long.MAX_VALUE);
