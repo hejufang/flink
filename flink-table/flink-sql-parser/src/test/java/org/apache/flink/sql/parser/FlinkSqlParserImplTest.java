@@ -43,6 +43,21 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testAnalyzeTable() {
+		String sql = "analyze table table1\n" +
+			"partition(ds='2020-11-30', hr)\n" +
+			"compute statistics\n" +
+			"for columns id, name\n" +
+			"noscan";
+		String expected = "ANALYZE TABLE `TABLE1`\n" +
+				"PARTITIONED (`DS` = '2020-11-30', `HR` = *)\n" +
+				"COMPUTE STATISTICS\n" +
+				"FOR COLUMNS `ID`, `NAME`\n" +
+				"NOSCAN";
+		sql(sql).ok(expected);
+	}
+
+	@Test
 	public void testAddResources() {
 		sql("add resources my_resource").ok("ADD RESOURCES `MY_RESOURCE`");
 	}

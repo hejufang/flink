@@ -32,6 +32,7 @@ import org.apache.flink.sql.parser.ddl.SqlAlterView;
 import org.apache.flink.sql.parser.ddl.SqlAlterViewAs;
 import org.apache.flink.sql.parser.ddl.SqlAlterViewProperties;
 import org.apache.flink.sql.parser.ddl.SqlAlterViewRename;
+import org.apache.flink.sql.parser.ddl.SqlAnalyzeTable;
 import org.apache.flink.sql.parser.ddl.SqlChangeColumn;
 import org.apache.flink.sql.parser.ddl.SqlCreateCatalog;
 import org.apache.flink.sql.parser.ddl.SqlCreateDatabase;
@@ -99,6 +100,7 @@ import org.apache.flink.table.operations.ddl.AlterTableRenameOperation;
 import org.apache.flink.table.operations.ddl.AlterViewAsOperation;
 import org.apache.flink.table.operations.ddl.AlterViewPropertiesOperation;
 import org.apache.flink.table.operations.ddl.AlterViewRenameOperation;
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
@@ -244,6 +246,8 @@ public class SqlToOperationConverter {
 			return Optional.of(converter.convertSqlQuery(validated));
 		} else if (validated instanceof SqlAddResource) {
 			return Optional.of(converter.convertAddResources((SqlAddResource) validated));
+		} else if (validated instanceof SqlAnalyzeTable) {
+			return Optional.of(converter.convertAnalyzeTable((SqlAnalyzeTable) validated));
 		} else {
 			return Optional.empty();
 		}
@@ -775,6 +779,16 @@ public class SqlToOperationConverter {
 	/** Convert ADD RESOURCES statement. */
 	private Operation convertAddResources(SqlAddResource sqlAddResource) {
 		return new AddResourcesOperation(sqlAddResource.getResourceName().getSimple());
+	}
+
+	/** Convert ANALYZE TABLE statement. */
+	private Operation convertAnalyzeTable(SqlAnalyzeTable sqlAnalyzeTable) {
+		UnresolvedIdentifier unresolvedIdentifier = UnresolvedIdentifier.of(sqlAnalyzeTable.fullTableName());
+		ObjectIdentifier identifier = catalogManager.qualifyIdentifier(unresolvedIdentifier);
+		Map<String, String> partitionWithValues = sqlAnalyzeTable.getPartitionWithValues();
+		List<String> columns = sqlAnalyzeTable.getColumnsInString();
+		boolean isNoScan = sqlAnalyzeTable.isNoScan();
+		return new AnalyzeTableOperation(identifier, partitionWithValues, columns, isNoScan);
 	}
 
 	/** Convert EXPLAIN statement. */

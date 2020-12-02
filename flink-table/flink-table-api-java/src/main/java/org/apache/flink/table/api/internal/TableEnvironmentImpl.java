@@ -115,6 +115,7 @@ import org.apache.flink.table.operations.ddl.AlterViewAsOperation;
 import org.apache.flink.table.operations.ddl.AlterViewOperation;
 import org.apache.flink.table.operations.ddl.AlterViewPropertiesOperation;
 import org.apache.flink.table.operations.ddl.AlterViewRenameOperation;
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
@@ -860,6 +861,9 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	private TableResult executeOperation(Operation operation) {
 		if (operation instanceof AddResourcesOperation) {
 			// There is no need to handle AddResourcesOperation in planner for now.
+			return TableResultImpl.TABLE_RESULT_OK;
+		} else if (operation instanceof AnalyzeTableOperation) {
+			// TODO: implement analyze table.
 			return TableResultImpl.TABLE_RESULT_OK;
 		} else if (operation instanceof ModifyOperation) {
 			return executeInternal(Collections.singletonList((ModifyOperation) operation));
