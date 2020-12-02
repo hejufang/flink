@@ -64,10 +64,10 @@ public class KafkaOptions {
 			.withDescription("Required consumer group in Kafka consumer, no need for Kafka producer");
 
 	public static final ConfigOption<String> PROPS_CLUSTER = ConfigOptions
-		.key("properties.cluster")
-		.stringType()
-		.noDefaultValue()
-		.withDescription("Required consumer group in Kafka consumer, no need for Kafka producer");
+			.key("properties.cluster")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Required consumer group in Kafka consumer, no need for Kafka producer");
 
 	// --------------------------------------------------------------------------------------------
 	// Scan specific options
@@ -106,28 +106,28 @@ public class KafkaOptions {
 			.withDescription("Optional kafka rate limit num.");
 
 	public static final ConfigOption<RateLimitingUnit> SCAN_RATE_LIMITING_UNIT = ConfigOptions
-		.key("scan.rate-limiting-unit")
-		.enumType(RateLimitingUnit.class)
-		.noDefaultValue()
-		.withDescription("Optional kafka rate limit num unit: BYTE or RECORD.");
+			.key("scan.rate-limiting-unit")
+			.enumType(RateLimitingUnit.class)
+			.noDefaultValue()
+			.withDescription("Optional kafka rate limit num unit: BYTE or RECORD.");
 
 	public static final ConfigOption<Long> SCAN_SOURCE_SAMPLE_INTERVAL = ConfigOptions
-		.key("scan.source-sample-interval")
-		.longType()
-		.noDefaultValue()
-		.withDescription("Optional source sample interval.");
+			.key("scan.source-sample-interval")
+			.longType()
+			.noDefaultValue()
+			.withDescription("Optional source sample interval.");
 
 	public static final ConfigOption<Long> SCAN_SOURCE_SAMPLE_NUM = ConfigOptions
-		.key("scan.source-sample-num")
-		.longType()
-		.noDefaultValue()
-		.withDescription("Optional source sample num.");
+			.key("scan.source-sample-num")
+			.longType()
+			.noDefaultValue()
+			.withDescription("Optional source sample num.");
 
 	public static final ConfigOption<Boolean> SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION = ConfigOptions
-		.key("scan.reset-to-earliest-for-new-partition")
-		.booleanType()
-		.noDefaultValue()
-		.withDescription("Optional reset to earliest for new partition.");
+			.key("scan.reset-to-earliest-for-new-partition")
+			.booleanType()
+			.noDefaultValue()
+			.withDescription("Optional reset to earliest for new partition.");
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
@@ -150,10 +150,10 @@ public class KafkaOptions {
 			.withDescription("Optional specific key field");
 
 	public static final ConfigOption<String> SINK_LOG_FAILURE_ONLY = ConfigOptions
-		.key("sink.log-failures-only")
-		.stringType()
-		.noDefaultValue()
-		.withDescription("Optional whether only log when write kafka failed.");
+			.key("sink.log-failures-only")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Optional whether only log when write kafka failed.");
 
 	// --------------------------------------------------------------------------------------------
 	// Option enumerations

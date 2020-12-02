@@ -57,10 +57,6 @@ public enum Metadata implements DynamicSourceMetadataFactory.DynamicSourceMetada
 		return metadata;
 	}
 
-	public Class<?> getDataClass() {
-		return dataClass;
-	}
-
 	@Override
 	public Class<?> getLogicalClass() {
 		return dataClass;

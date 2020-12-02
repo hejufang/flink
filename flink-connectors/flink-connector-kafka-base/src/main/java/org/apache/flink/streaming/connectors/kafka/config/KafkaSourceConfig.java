@@ -123,6 +123,7 @@ public class KafkaSourceConfig implements Serializable  {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval, scanSampleNum, partitionTopicList, kafkaResetNewPartition, withoutMetaDataType, metadataMap);
+		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval,
+			scanSampleNum, partitionTopicList, kafkaResetNewPartition, withoutMetaDataType, metadataMap);
 	}
 }
