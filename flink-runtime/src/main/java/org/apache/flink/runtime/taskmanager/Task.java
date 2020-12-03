@@ -151,6 +151,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** The job that the task belongs to. */
 	private final JobID jobId;
 
+	private final String jobName;
+
 	/** The vertex in the JobGraph whose code the task executes. */
 	private final JobVertexID vertexId;
 
@@ -330,6 +332,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				String.valueOf(slotAllocationId));
 
 		this.jobId = jobInformation.getJobId();
+		this.jobName = jobInformation.getJobName();
 		this.vertexId = taskInformation.getJobVertexId();
 		this.executionId  = Preconditions.checkNotNull(executionAttemptID);
 		this.allocationId = Preconditions.checkNotNull(slotAllocationId);
@@ -664,6 +667,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 			Environment env = new RuntimeEnvironment(
 				jobId,
+				jobName,
 				vertexId,
 				executionId,
 				executionConfig,

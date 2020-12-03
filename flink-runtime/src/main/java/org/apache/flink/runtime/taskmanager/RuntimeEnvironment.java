@@ -54,6 +54,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class RuntimeEnvironment implements Environment {
 
 	private final JobID jobId;
+	private final String jobName;
 	private final JobVertexID jobVertexId;
 	private final ExecutionAttemptID executionId;
 
@@ -96,6 +97,7 @@ public class RuntimeEnvironment implements Environment {
 
 	public RuntimeEnvironment(
 			JobID jobId,
+			String jobName,
 			JobVertexID jobVertexId,
 			ExecutionAttemptID executionId,
 			ExecutionConfig executionConfig,
@@ -123,6 +125,7 @@ public class RuntimeEnvironment implements Environment {
 			ExternalResourceInfoProvider externalResourceInfoProvider) {
 
 		this.jobId = checkNotNull(jobId);
+		this.jobName = jobName;
 		this.jobVertexId = checkNotNull(jobVertexId);
 		this.executionId = checkNotNull(executionId);
 		this.taskInfo = checkNotNull(taskInfo);
@@ -160,6 +163,11 @@ public class RuntimeEnvironment implements Environment {
 	@Override
 	public JobID getJobID() {
 		return jobId;
+	}
+
+	@Override
+	public String getJobName() {
+		return jobName;
 	}
 
 	@Override
