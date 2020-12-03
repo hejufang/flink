@@ -67,6 +67,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -130,7 +131,10 @@ public class StreamGraph implements Pipeline {
 	 * Remove all registered nodes etc.
 	 */
 	public void clear() {
-		streamNodes = new HashMap<>();
+		// We changed this to TreeMap to guarantee the order of StreamNode is stable,
+		// it's relied by StreamGraphGenerator#replaceOperatorName.
+		// If not, the operator name is not stable, which makes our tests not stable in planner.
+		streamNodes = new TreeMap<>();
 		virtualSelectNodes = new HashMap<>();
 		virtualSideOutputNodes = new HashMap<>();
 		virtualPartitionNodes = new HashMap<>();

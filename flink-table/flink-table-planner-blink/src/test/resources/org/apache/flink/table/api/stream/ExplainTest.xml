@@ -27,10 +27,10 @@ DataStreamScan(table=[[default_catalog, default_database, MyTable1]], fields=[a,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_14
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_14
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 ]]>
@@ -85,10 +85,10 @@ DataStreamScan(table=[[default_catalog, default_database, MyTable1]], fields=[a,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_1
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_1
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 ]]>
@@ -105,10 +105,10 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_21
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_21
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 ]]>
@@ -125,10 +125,10 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_8
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_8
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 ]]>
@@ -151,22 +151,22 @@ Calc(select=[EXPR$0])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_13
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_13
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a__2
+			content : Calc_select_a_
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : GroupAggregate_group_2
+				content : GroupAggregate_group
 				ship_strategy : HASH
 
 				 : Operator
-					content : Calc_select_EXPR_0__1
+					content : Calc_select_EXPR_0_
 					ship_strategy : FORWARD
 
 ]]>
@@ -185,14 +185,14 @@ Calc(select=[a, b, c], where=[=(MOD(a, 2), 0)])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_20
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_20
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a_b_c_wh_2
+			content : Calc_select_a_b_c_wh
 			ship_strategy : FORWARD
 
 ]]>
@@ -211,10 +211,10 @@ Calc(select=[a, b, c], where=[=(MOD(a, 2), 0)], changelogMode=[I]): rowcount = ,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_7
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_7
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
@@ -243,25 +243,25 @@ Calc(select=[a, b, c, e, f])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_17
+	content : Source_Collection_So
 
  : Data Source
-	content : Source_Collection_So_18
+	content : Source_Collection_So_1
 
 	 : Operator
-		content : SourceConversion_tab_17
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : SourceConversion_tab_18
+			content : SourceConversion_tab_1
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : Join_joinType_InnerJ_1
+				content : Join_joinType_InnerJ
 				ship_strategy : HASH
 
 				 : Operator
-					content : Calc_select_a_b_c_e__1
+					content : Calc_select_a_b_c_e_
 					ship_strategy : FORWARD
 
 ]]>
@@ -283,17 +283,17 @@ Union(all=[true], union=[a, b, c], changelogMode=[I]): rowcount = , cumulative c
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_2
+	content : Source_Collection_So
 
  : Data Source
-	content : Source_Collection_So_3
+	content : Source_Collection_So_1
 
 	 : Operator
-		content : SourceConversion_tab_2
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : SourceConversion_tab_3
+			content : SourceConversion_tab_1
 			ship_strategy : FORWARD
 
 ]]>
@@ -318,17 +318,17 @@ Calc(select=[a, b, c, e, f], changelogMode=[I]): rowcount = , cumulative cost = 
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_4
+	content : Source_Collection_So
 
  : Data Source
-	content : Source_Collection_So_5
+	content : Source_Collection_So_1
 
 	 : Operator
-		content : SourceConversion_tab_4
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : SourceConversion_tab_5
+			content : SourceConversion_tab_1
 			ship_strategy : FORWARD
 
 			 : Operator
@@ -375,50 +375,50 @@ LegacySink(name=[`default_catalog`.`default_database`.`upsertSink2`], fields=[a,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_25
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_25
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a__3
+			content : Calc_select_a_
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : GroupAggregate_group_3
+				content : GroupAggregate_group
 				ship_strategy : HASH
 
 				 : Operator
-					content : Calc_select_a_cnt_wh_2
+					content : Calc_select_a_cnt_wh
 					ship_strategy : FORWARD
 
 					 : Operator
-						content : SinkConversionToTupl_2
+						content : SinkConversionToTupl
 						ship_strategy : FORWARD
 
 						 : Operator
-							content : Map_2
+							content : Map
 							ship_strategy : FORWARD
 
 							 : Operator
-								content : Calc_select_a_cnt_wh_3
+								content : Calc_select_a_cnt_wh_1
 								ship_strategy : FORWARD
 
 								 : Operator
-									content : SinkConversionToTupl_3
+									content : SinkConversionToTupl_1
 									ship_strategy : FORWARD
 
 									 : Operator
-										content : Map_3
+										content : Map_1
 										ship_strategy : FORWARD
 
 										 : Data Sink
-											content : Sink_TestingUpsertTa_2
+											content : Sink_TestingUpsertTa
 											ship_strategy : FORWARD
 
 											 : Data Sink
-												content : Sink_TestingUpsertTa_3
+												content : Sink_TestingUpsertTa_1
 												ship_strategy : FORWARD
 
 ]]>
@@ -457,18 +457,18 @@ LegacySink(name=[`default_catalog`.`default_database`.`upsertSink2`], fields=[a,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_12
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_12
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a__1
+			content : Calc_select_a_
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : GroupAggregate_group_1
+				content : GroupAggregate_group
 				ship_strategy : HASH
 
 				 : Operator
@@ -521,22 +521,22 @@ LegacySink(name=[`default_catalog`.`default_database`.`appendSink`], fields=[a, 
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_24
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_24
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a_b_c_wh_3
+			content : Calc_select_a_b_c_wh
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : SinkConversionToRow_5
+				content : SinkConversionToRow
 				ship_strategy : FORWARD
 
 				 : Data Sink
-					content : Sink_TestingAppendTa_5
+					content : Sink_TestingAppendTa
 					ship_strategy : FORWARD
 
 ]]>
@@ -557,22 +557,22 @@ LegacySink(name=[`default_catalog`.`default_database`.`appendSink`], fields=[a, 
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_11
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_11
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_a_b_c_wh_1
+			content : Calc_select_a_b_c_wh
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : SinkConversionToRow_2
+				content : SinkConversionToRow
 				ship_strategy : FORWARD
 
 				 : Data Sink
-					content : Sink_TestingAppendTa_2
+					content : Sink_TestingAppendTa
 					ship_strategy : FORWARD
 
 ]]>
@@ -592,14 +592,14 @@ SortLimit(orderBy=[a ASC], offset=[0], fetch=[5], strategy=[AppendFastStrategy])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_19
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_19
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : SortLimit_orderBy_a__1
+			content : SortLimit_orderBy_a_
 			ship_strategy : GLOBAL
 
 ]]>
@@ -619,10 +619,10 @@ SortLimit(orderBy=[a ASC], offset=[0], fetch=[5], strategy=[AppendFastStrategy],
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_6
+	content : Source_Collection_So
 
 	 : Operator
-		content : SourceConversion_tab_6
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
@@ -682,13 +682,13 @@ LegacySink(name=[`default_catalog`.`default_database`.`appendSink2`], fields=[a,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_9
+	content : Source_Collection_So
 
  : Data Source
-	content : Source_Collection_So_10
+	content : Source_Collection_So_1
 
 	 : Operator
-		content : SourceConversion_tab_9
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
@@ -700,7 +700,7 @@ LegacySink(name=[`default_catalog`.`default_database`.`appendSink2`], fields=[a,
 				ship_strategy : FORWARD
 
 				 : Operator
-					content : SourceConversion_tab_10
+					content : SourceConversion_tab_1
 					ship_strategy : FORWARD
 
 					 : Operator
@@ -766,17 +766,17 @@ Union(all=[true], union=[a, b, c])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_15
+	content : Source_Collection_So
 
  : Data Source
-	content : Source_Collection_So_16
+	content : Source_Collection_So_1
 
 	 : Operator
-		content : SourceConversion_tab_15
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : SourceConversion_tab_16
+			content : SourceConversion_tab_1
 			ship_strategy : FORWARD
 
 ]]>
@@ -832,69 +832,69 @@ LegacySink(name=[`default_catalog`.`default_database`.`appendSink2`], fields=[a,
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So_22
+	content : Source_Collection_So
 
  : Data Source
-	content : Source_Collection_So_23
+	content : Source_Collection_So_1
 
 	 : Operator
-		content : SourceConversion_tab_22
+		content : SourceConversion_tab
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : WatermarkAssigner_ro_2
+			content : WatermarkAssigner_ro
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : MiniBatchAssigner_in_2
+				content : MiniBatchAssigner_in
 				ship_strategy : FORWARD
 
 				 : Operator
-					content : SourceConversion_tab_23
+					content : SourceConversion_tab_1
 					ship_strategy : FORWARD
 
 					 : Operator
-						content : WatermarkAssigner_ro_3
+						content : WatermarkAssigner_ro_1
 						ship_strategy : FORWARD
 
 						 : Operator
-							content : MiniBatchAssigner_in_3
+							content : MiniBatchAssigner_in_1
 							ship_strategy : FORWARD
 
 							 : Operator
-								content : IntervalJoin_joinTyp_1
+								content : IntervalJoin_joinTyp
 								ship_strategy : HASH
 
 								 : Operator
-									content : Calc_select_id1_rowt_2
+									content : Calc_select_id1_rowt
 									ship_strategy : FORWARD
 
 									 : Operator
-										content : GroupWindowAggregate_2
+										content : GroupWindowAggregate
 										ship_strategy : HASH
 
 										 : Operator
-											content : SinkConversionToRow_3
+											content : SinkConversionToRow
 											ship_strategy : FORWARD
 
 											 : Operator
-												content : Calc_select_id1_rowt_3
+												content : Calc_select_id1_rowt_1
 												ship_strategy : FORWARD
 
 												 : Operator
-													content : GroupWindowAggregate_3
+													content : GroupWindowAggregate_1
 													ship_strategy : HASH
 
 													 : Operator
-														content : SinkConversionToRow_4
+														content : SinkConversionToRow_1
 														ship_strategy : FORWARD
 
 														 : Data Sink
-															content : Sink_TestingAppendTa_3
+															content : Sink_TestingAppendTa
 															ship_strategy : FORWARD
 
 															 : Data Sink
-																content : Sink_TestingAppendTa_4
+																content : Sink_TestingAppendTa_1
 																ship_strategy : FORWARD
 
 ]]>

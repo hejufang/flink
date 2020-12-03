@@ -16,14 +16,14 @@ LegacySink(name=[`default_catalog`.`default_database`.`MySink2`], fields=[last])
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source: Custom File source
+	content : Source_Custom_File_s
 
 	 : Operator
-		content : CsvTableSource(read fields: first)
+		content : CsvTableSource_read_
 		ship_strategy : REBALANCE
 
 		 : Operator
-			content : SourceConversion(table=[default_catalog.default_database.MyTable, source: [CsvTableSource(read fields: first)]], fields=[first])
+			content : SourceConversion_tab
 			ship_strategy : FORWARD
 
 			 : Operator
@@ -35,29 +35,29 @@ LegacySink(name=[`default_catalog`.`default_database`.`MySink2`], fields=[last])
 					ship_strategy : REBALANCE
 
  : Data Source
-	content : Source: Custom File source
+	content : Source_Custom_File_s_1
 
 	 : Operator
-		content : CsvTableSource(read fields: last)
+		content : CsvTableSource_read__1
 		ship_strategy : REBALANCE
 
 		 : Operator
-			content : SourceConversion(table=[default_catalog.default_database.MyTable, source: [CsvTableSource(read fields: last)]], fields=[last])
+			content : SourceConversion_tab_1
 			ship_strategy : FORWARD
 
 			 : Operator
-				content : SinkConversionToRow
+				content : SinkConversionToRow_1
 				ship_strategy : FORWARD
 
 				 : Operator
-					content : Map
+					content : Map_1
 					ship_strategy : REBALANCE
 
 					 : Data Sink
-						content : Sink: CsvTableSink(first)
+						content : Sink_CsvTableSink_fi
 						ship_strategy : FORWARD
 
 						 : Data Sink
-							content : Sink: CsvTableSink(last)
+							content : Sink_CsvTableSink_la
 							ship_strategy : FORWARD
 
