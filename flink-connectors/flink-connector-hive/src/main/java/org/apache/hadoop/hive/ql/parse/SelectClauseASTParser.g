@@ -36,6 +36,9 @@ k=3;
       RecognitionException e) {
     gParent.errors.add(new ParseError(gParent, e, tokenNames));
   }
+  protected boolean useSQL11ReservedKeywordsForIdentifier() {
+    return gParent.useSQL11ReservedKeywordsForIdentifier();
+  }
 }
 
 @rulecatch {

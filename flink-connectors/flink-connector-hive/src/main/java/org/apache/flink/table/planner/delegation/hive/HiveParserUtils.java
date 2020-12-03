@@ -118,11 +118,14 @@ import static org.apache.hadoop.hive.ql.parse.HiveParserTypeCheckProcFactory.Def
 public class HiveParserUtils {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveParserUtils.class);
-
+	private static final String RUN_IN_IEDA_KEY = "RUN_IN_IDEA";
 	private static final Class immutableListClz = HiveReflectionUtils.tryGetClass("com.google.common.collect.ImmutableList");
 	private static final Class shadedImmutableListClz = HiveReflectionUtils.tryGetClass(
-			"org.apache.flink.calcite.shaded.com.google.common.collect.ImmutableList");
-	private static final boolean useShadedImmutableList = shadedImmutableListClz != null;
+		"org.apache.flink.calcite.shaded.com.google.common.collect.ImmutableList");
+
+	// set useShadedImmutableList to false if you want to
+	private static final boolean useShadedImmutableList =
+		!"true".equalsIgnoreCase(System.getenv(RUN_IN_IEDA_KEY));
 
 	private HiveParserUtils() {
 	}

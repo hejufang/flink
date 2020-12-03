@@ -245,6 +245,10 @@ public class GenericCachedCatalog extends AbstractCatalog  {
 		partitionColumnStatisticsCache.invalidateAll();
 	}
 
+	public AbstractCatalog getDelegate() {
+		return delegate;
+	}
+
 	@Override
 	public Optional<Factory> getFactory() {
 		return delegate.getFactory();

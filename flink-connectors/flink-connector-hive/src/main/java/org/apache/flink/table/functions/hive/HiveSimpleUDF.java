@@ -57,16 +57,14 @@ public class HiveSimpleUDF extends HiveScalarFunction<UDF> {
 	private transient GenericUDFUtils.ConversionHelper conversionHelper;
 	private transient HiveObjectConversion[] conversions;
 	private transient boolean allIdentityConverter;
-	private HiveShim hiveShim;
 
 	public HiveSimpleUDF(HiveFunctionWrapper<UDF> hiveFunctionWrapper, HiveShim hiveShim) {
-		super(hiveFunctionWrapper);
-		this.hiveShim = hiveShim;
+		super(hiveFunctionWrapper, hiveShim);
 		LOG.info("Creating HiveSimpleUDF from '{}'", this.hiveFunctionWrapper.getClassName());
 	}
 
 	@Override
-	public void openInternal() {
+	public void openInternal() throws UDFArgumentException {
 		LOG.info("Opening HiveSimpleUDF as '{}'", hiveFunctionWrapper.getClassName());
 
 		function = hiveFunctionWrapper.createFunction();
@@ -121,9 +119,10 @@ public class HiveSimpleUDF extends HiveScalarFunction<UDF> {
 
 	@Override
 	public DataType getHiveResultType(Object[] constantArguments, DataType[] argTypes) {
+		setArgumentTypesAndConstants(constantArguments, argTypes);
 		try {
 			List<TypeInfo> argTypeInfo = new ArrayList<>();
-			for (DataType argType : argTypes) {
+			for (DataType argType : this.argTypes) {
 				argTypeInfo.add(HiveTypeUtil.toHiveTypeInfo(argType, false));
 			}
 

@@ -32,6 +32,7 @@ import org.apache.flink.table.functions.ScalarFunction;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.functions.UserDefinedFunction;
 import org.apache.flink.table.module.Module;
+import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.types.AbstractDataType;
@@ -39,6 +40,7 @@ import org.apache.flink.table.types.DataType;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -1227,4 +1229,11 @@ public interface TableEnvironment {
 	 * and then submit as one job.
 	 */
 	StatementSet createStatementSet();
+
+	/**
+	 * Parse sql to Operations.
+	 * */
+	default List<Operation> parseToOperations(String statement) {
+		throw new UnsupportedOperationException();
+	}
 }

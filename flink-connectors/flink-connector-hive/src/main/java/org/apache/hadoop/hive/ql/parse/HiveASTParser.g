@@ -713,6 +713,13 @@ import org.apache.hadoop.hive.conf.HiveConf;
   public void setHiveConf(Configuration hiveConf) {
     this.hiveConf = hiveConf;
   }
+  protected boolean useSQL11ReservedKeywordsForIdentifier() {
+    if(hiveConf == null){
+      return false;
+    }
+
+    return !hiveConf.getBoolean("hive.support.sql11.reserved.keywords", false);
+  }
 }
 
 @rulecatch {

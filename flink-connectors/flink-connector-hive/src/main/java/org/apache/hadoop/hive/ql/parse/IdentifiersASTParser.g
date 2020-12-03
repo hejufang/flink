@@ -36,6 +36,9 @@ k=3;
       RecognitionException e) {
     gParent.errors.add(new ParseError(gParent, e, tokenNames));
   }
+  protected boolean useSQL11ReservedKeywordsForIdentifier() {
+    return gParent.useSQL11ReservedKeywordsForIdentifier();
+  }
 }
 
 @rulecatch {
@@ -235,7 +238,7 @@ functionName
     : // Keyword IF is also a function name
     functionIdentifier
     |
-    sql11ReservedKeywordsUsedAsFunctionName -> Identifier[$sql11ReservedKeywordsUsedAsFunctionName.start]
+    sql11ReservedKeywordsUsedAsCastFunctionName -> Identifier[$sql11ReservedKeywordsUsedAsCastFunctionName.start]
     ;
 
 castExpression
@@ -729,6 +732,9 @@ identifier
     :
     Identifier
     | nonReserved -> Identifier[$nonReserved.start]
+    // If it decides to support SQL11 reserved keywords, i.e., useSQL11ReservedKeywordsForIdentifier()=false,
+    // the sql11keywords in existing q tests will NOT be added back.
+    | {useSQL11ReservedKeywordsForIdentifier()}? sql11ReservedKeywordsUsedAsIdentifier -> Identifier[$sql11ReservedKeywordsUsedAsIdentifier.start]
     ;
 
 functionIdentifier
@@ -747,13 +753,11 @@ principalIdentifier
     | QuotedIdentifier
     ;
 
-// Here is what you have to do if you would like to add a new keyword.
-// Note that non reserved keywords are basically the keywords that can be used as identifiers.
-// (1) Add a new entry to HiveASTLexer, e.g., KW_TRUE : 'TRUE';
-// (2) If it is reserved, you do NOT need to change IdentifiersASTParser.g 
-//                        because all the KW_* are automatically not only keywords, but also reserved keywords.
-//                        However, you need to add a test to TestSQL11ReservedKeyWordsNegative.java.
-//     Otherwise it is non-reserved, you need to put them in the nonReserved list below.
+//The new version of nonReserved + sql11ReservedKeywordsUsedAsIdentifier = old version of nonReserved
+//Non reserved keywords are basically the keywords that can be used as identifiers.
+//All the KW_* are automatically not only keywords, but also reserved keywords.
+//That means, they can NOT be used as identifiers.
+//If you would like to use them as identifiers, put them in the nonReserved list below.
 //If you are not sure, please refer to the SQL2011 column in
 //http://www.postgresql.org/docs/9.5/static/sql-keywords-appendix.html
 nonReserved
@@ -800,8 +804,16 @@ nonReserved
 
 ;
 
-//The following SQL2011 reserved keywords are used as function name only, but not as identifiers.
-sql11ReservedKeywordsUsedAsFunctionName
+//The following SQL2011 reserved keywords are used as cast function name only, but not as identifiers.
+sql11ReservedKeywordsUsedAsCastFunctionName
     :
     KW_IF | KW_ARRAY | KW_MAP | KW_BIGINT | KW_BINARY | KW_BOOLEAN | KW_CURRENT_DATE | KW_CURRENT_TIMESTAMP | KW_DATE | KW_DOUBLE | KW_FLOAT | KW_GROUPING | KW_INT | KW_SMALLINT | KW_TIMESTAMP
+    ;
+
+//The following SQL2011 reserved keywords are used as identifiers in many q tests, they may be added back due to backward compatibility.
+//We are planning to remove the following whole list after several releases.
+//Thus, please do not change the following list unless you know what to do.
+sql11ReservedKeywordsUsedAsIdentifier
+    :
+    KW_DATE | KW_LIKE | KW_TIMESTAMP | KW_ALL | KW_USER | KW_TABLE | KW_GRANT | KW_LEFT | KW_RIGHT
     ;

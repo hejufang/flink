@@ -42,16 +42,14 @@ public class HiveGenericUDF extends HiveScalarFunction<GenericUDF> {
 	private static final Logger LOG = LoggerFactory.getLogger(HiveGenericUDF.class);
 
 	private transient GenericUDF.DeferredObject[] deferredObjects;
-	private HiveShim hiveShim;
 
 	public HiveGenericUDF(HiveFunctionWrapper<GenericUDF> hiveFunctionWrapper, HiveShim hiveShim) {
-		super(hiveFunctionWrapper);
-		this.hiveShim = hiveShim;
+		super(hiveFunctionWrapper, hiveShim);
 		LOG.info("Creating HiveGenericUDF from '{}'", hiveFunctionWrapper.getClassName());
 	}
 
 	@Override
-	public void openInternal() {
+	public void openInternal() throws UDFArgumentException {
 
 		LOG.info("Open HiveGenericUDF as {}", hiveFunctionWrapper.getClassName());
 
@@ -96,9 +94,10 @@ public class HiveGenericUDF extends HiveScalarFunction<GenericUDF> {
 	@Override
 	public DataType getHiveResultType(Object[] constantArguments, DataType[] argTypes) {
 		LOG.info("Getting result type of HiveGenericUDF from {}", hiveFunctionWrapper.getClassName());
+		setArgumentTypesAndConstants(constantArguments, argTypes);
 
 		try {
-			ObjectInspector[] argumentInspectors = HiveInspectors.toInspectors(hiveShim, constantArguments, argTypes);
+			ObjectInspector[] argumentInspectors = HiveInspectors.toInspectors(hiveShim, this.constantArguments, this.argTypes);
 
 			ObjectInspector resultObjectInspector =
 				hiveFunctionWrapper.createFunction().initializeAndFoldConstants(argumentInspectors);

@@ -361,6 +361,9 @@ public class HiveTableInputFormat extends HadoopInputFormatCommonBase<RowData, H
 			StorageDescriptor sd = partition.getStorageDescriptor();
 			JobConf newJobConf = new JobConf(jobConf);
 			InputFormat format = prepareInputFormat(fsRef, sd, newJobConf);
+			if (format == null) {
+				continue;
+			}
 			ReflectionUtils.setConf(format, newJobConf);
 			newJobConf.set(INPUT_DIR, sd.getLocation());
 			//TODO: we should consider how to calculate the splits according to minNumSplits in the future.

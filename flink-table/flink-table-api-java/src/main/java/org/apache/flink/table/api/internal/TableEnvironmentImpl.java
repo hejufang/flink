@@ -680,7 +680,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 
 	@Override
 	public String convertAnalyzeTableStatementToQuery(String statement) {
-		List<Operation> operations = parser.parse(statement);
+		List<Operation> operations = getParser().parse(statement);
 
 		if (operations.size() != 1 || !(operations.get(0) instanceof AnalyzeTableOperation)) {
 			throw new TableException(
@@ -754,10 +754,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		boolean hasModifyOperation = false;
 		Optional<TableResult> tableResultOptional = Optional.empty();
 		Optional<StatementSet> statementSetOptional = Optional.empty();
-		List<SqlNode> sqlNodes = parser.parseToSqlNodes(stmt);
+		List<SqlNode> sqlNodes = getParser().parseToSqlNodes(stmt);
 
 		for (int i = 0; i < sqlNodes.size(); i++) {
-			Operation operation = parser.convertSqlNodeToOperation(sqlNodes.get(i));
+			Operation operation = getParser().convertSqlNodeToOperation(sqlNodes.get(i));
 			if (operation instanceof ModifyOperation) {
 				statementSet.addOperation((ModifyOperation) operation);
 				hasModifyOperation = true;
@@ -832,6 +832,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		} catch (Exception e) {
 			throw new TableException("Failed to execute sql", e);
 		}
+	}
+
+	public List<Operation> parseToOperations(String statement) {
+		return getParser().parse(statement);
 	}
 
 	@Override

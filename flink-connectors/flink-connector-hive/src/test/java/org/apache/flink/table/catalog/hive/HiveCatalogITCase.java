@@ -398,17 +398,18 @@ public class HiveCatalogITCase {
 					"'connector.type' = 'filesystem'," +
 					"'connector.path' = 'file://" + path + "'," +
 					"'format.type' = 'csv')");
-			tEnv.executeSql("create table print_table (name String, age Int) with ('connector' = 'print')");
+			tEnv.executeSql("create table print_table (name String, age Int)" +
+				" with ('connector' = 'print', 'print-sample-ratio' = '1')");
 
-			TableEnvUtil.execInsertSqlAndWaitResult(tEnv, "insert into print_table select * from csv_table");
+			TableEnvUtil.execInsertSqlAndWaitResult(tEnv, "insert into print_table select * from csv_table order by age");
 
 			// assert query result
 			assertEquals("+I(1,1)\n+I(2,2)\n+I(3,3)\n", arrayOutputStream.toString());
 		} finally {
 			if (System.out != originalSystemOut) {
 				System.out.close();
+				System.setOut(originalSystemOut);
 			}
-			System.setOut(originalSystemOut);
 			tEnv.executeSql("DROP TABLE csv_table");
 			tEnv.executeSql("DROP TABLE print_table");
 		}

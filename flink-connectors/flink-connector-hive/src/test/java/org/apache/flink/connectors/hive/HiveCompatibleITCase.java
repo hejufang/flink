@@ -40,6 +40,8 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,6 +55,7 @@ import static org.junit.Assert.assertFalse;
  */
 @RunWith(FlinkStandaloneHiveRunner.class)
 public class HiveCompatibleITCase {
+	private static final Logger LOG = LoggerFactory.getLogger(HiveCompatibleITCase.class);
 
 	@HiveSQL(files = {})
 	private static HiveShell hiveShell;
@@ -61,50 +64,53 @@ public class HiveCompatibleITCase {
 	private static HiveMetastoreClientWrapper hmsClient;
 
 	private static final String[] QUERIES = new String[]{
-			"select x from foo order by x desc limit 1",
-			"select x,count(y),max(y) from foo group by x",
-			"select count(distinct i) from bar group by s",
-			"select max(c) from (select x,count(y) as c from foo group by x) t1",
-			"select count(x) from foo union all select i from bar",
-			"select x,sum(y) as s from foo group by x having min(y)>1",
-			"select s from foo join bar on foo.x=bar.i and foo.y=bar.i group by s order by s",
-			"select * from foo join (select max(i) as m from bar) a on foo.y=a.m",
-			"select * from foo left outer join bar on foo.y=bar.i",
-			"select * from foo right outer join bar on foo.y=bar.i",
-			"select * from foo full outer join bar on foo.y=bar.i",
-			"select * from foo where y in (select i from bar)",
-			"select * from foo left semi join bar on foo.y=bar.i",
-			"select (select count(x) from foo where foo.y=bar.i) from bar",
-			"select x from foo union select i from bar",
-			"select avg(salary) over (partition by dep) as avgsal from employee",
-			"select dep,name,salary from (select dep,name,salary,rank() over (partition by dep order by salary desc) as rnk from employee) a where rnk=1",
-			"select salary,sum(cnt) over (order by salary)/sum(cnt) over (order by salary ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) from (select salary,count(*) as cnt from employee group by salary) a",
-			"select i from bar except select x from foo",
-			"select x from foo intersect select i from bar",
-			"select x,y,grouping__id,sum(1) from foo group by x,y grouping sets ((x,y),(x))",
-			"select x,y,grouping(x),sum(1) from foo group by x,y grouping sets ((x,y),(x))",
-			"select src.key,src.`[k].*` from src",
-			"select * from (select a.value, a.* from (select * from src) a join (select * from src) b on a.key = b.key) t",
-			"select * from bar where i in (1,2,3)",
-			"select * from bar where i between 1 and 3",
-			"select 'x' as key_new , split(value,',') as value_new from src ORDER BY key_new ASC, value_new[0] ASC limit 20",
-			"select x from foo sort by x",
-			"select x from foo cluster by x",
-			"select x,y from foo distribute by abs(y)",
-			"select x,y from foo distribute by y sort by x desc",
-			"select f1.x,f1.y,f2.x,f2.y from (select * from foo order by x,y) f1 join (select * from foo order by x,y) f2",
-			"select sum(x) as s1 from foo group by y having s1 > 2 and avg(x) < 4",
-			"select sum(x) as s1,y as y1 from foo group by y having s1 > 2 and y1 < 4",
-			"select x,col1 from (select x,array(1,2,3) as arr from foo) f lateral view explode(arr) tbl1 as col1",
-			"select dep,count(1) from employee where salary<5000 and age>=38 and dep='Sales' group by dep"
+		"select COALESCE(i, s) as date from bar",
+		"select * from ( select i, true as a from bar) all",
+		"select i from bar where i != '1'",
+		"select x,count(y),max(y) from foo group by x",
+		"select count(distinct i) from bar group by s",
+		"select max(c) from (select x,count(y) as c from foo group by x) t1",
+		"select count(x) from foo union all select i from bar",
+		"select x,sum(y) as s from foo group by x having min(y)>1",
+		"select s from foo join bar on foo.x=bar.i and foo.y=bar.i group by s order by s",
+		"select * from foo join (select max(i) as m from bar) a on foo.y=a.m",
+		"select * from foo left outer join bar on foo.y=bar.i",
+		"select * from foo right outer join bar on foo.y=bar.i",
+		"select * from foo full outer join bar on foo.y=bar.i",
+		"select * from foo where y in (select i from bar)",
+		"select * from foo left semi join bar on foo.y=bar.i",
+		"select (select count(x) from foo where foo.y=bar.i) from bar",
+		"select x from foo union select i from bar",
+		"select avg(salary) over (partition by dep) as avgsal from employee",
+		"select dep,name,salary from (select dep,name,salary,rank() over (partition by dep order by salary desc) as rnk from employee) a where rnk=1",
+		"select salary,sum(cnt) over (order by salary)/sum(cnt) over (order by salary ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) from (select salary,count(*) as cnt from employee group by salary) a",
+		"select i from bar except select x from foo",
+		"select x from foo intersect select i from bar",
+		"select x,y,grouping__id,sum(1) from foo group by x,y grouping sets ((x,y),(x))",
+		"select x,y,grouping(x),sum(1) from foo group by x,y grouping sets ((x,y),(x))",
+		"select src.key,src.`[k].*` from src",
+		"select * from (select a.value, a.* from (select * from src) a join (select * from src) b on a.key = b.key) t",
+		"select * from bar where i in (1,2,3)",
+		"select * from bar where i between 1 and 3",
+		"select 'x' as key_new , split(value,',') as value_new from src ORDER BY key_new ASC, value_new[0] ASC limit 20",
+		"select x from foo sort by x",
+		"select x from foo cluster by x",
+		"select x,y from foo distribute by abs(y)",
+		"select x,y from foo distribute by y sort by x desc",
+		"select f1.x,f1.y,f2.x,f2.y from (select * from foo order by x,y) f1 join (select * from foo order by x,y) f2",
+		"select sum(x) as s1 from foo group by y having s1 > 2 and avg(x) < 4",
+		"select sum(x) as s1,y as y1 from foo group by y having s1 > 2 and y1 < 4",
+		"select x,col1 from (select x,array(1,2,3) as arr from foo) f lateral view explode(arr) tbl1 as col1",
+		"select dep,count(1) from employee where salary<5000 and age>=38 and dep='Sales' group by dep"
 	};
 
 	private static final String[] UPDATES = new String[]{
-			"insert into dest select 0,y from foo sort by y",
-			"insert into dest(y,x) select x,y from foo cluster by x",
-			"insert into dest(y) select y from foo sort by y limit 1",
-			"insert into destp select x,'0','00' from foo order by x limit 1",
-			"insert overwrite table destp partition(p='0',q) select 1,`value` from src sort by `value`"
+		"insert into dest select 0,y from foo sort by y",
+		"insert into dest(y,x) select x,y from foo cluster by x",
+		"insert into dest(y) select y from foo sort by y limit 1",
+		"insert into destp select x,'0','00' from foo order by x limit 1",
+		"insert overwrite table destp partition(p='0',q) select 1,`value` from src sort by `value`",
+		"insert into dest select * from src"
 	};
 
 	@BeforeClass
@@ -134,18 +140,18 @@ public class HiveCompatibleITCase {
 		hiveShell.insertInto("default", "baz").addRow(Arrays.asList(1, 2, 3), 3.0).commit();
 		hiveShell.insertInto("default", "src").addRow("1", "val1").addRow("2", "val2").addRow("3", "val3").commit();
 		hiveShell.insertInto("default", "employee")
-				.addRow(1, "A", "Management", 4500, 55)
-				.addRow(2, "B", "Management", 4400, 61)
-				.addRow(3, "C", "Management", 4000, 42)
-				.addRow(4, "D", "Production", 3700, 35)
-				.addRow(5, "E", "Production", 3500, 24)
-				.addRow(6, "F", "Production", 3600, 28)
-				.addRow(7, "G", "Production", 3800, 35)
-				.addRow(8, "H", "Production", 4000, 52)
-				.addRow(9, "I", "Service", 4100, 40)
-				.addRow(10, "J", "Sales", 4300, 36)
-				.addRow(11, "K", "Sales", 4100, 38)
-				.commit();
+			.addRow(1, "A", "Management", 4500, 55)
+			.addRow(2, "B", "Management", 4400, 61)
+			.addRow(3, "C", "Management", 4000, 42)
+			.addRow(4, "D", "Production", 3700, 35)
+			.addRow(5, "E", "Production", 3500, 24)
+			.addRow(6, "F", "Production", 3600, 28)
+			.addRow(7, "G", "Production", 3800, 35)
+			.addRow(8, "H", "Production", 4000, 52)
+			.addRow(9, "I", "Service", 4100, 40)
+			.addRow(10, "J", "Sales", 4300, 36)
+			.addRow(11, "K", "Sales", 4100, 38)
+			.commit();
 
 		List<String> dqlToRun = new ArrayList<>(Arrays.asList(QUERIES));
 		// add test cases specific to each version
@@ -165,7 +171,7 @@ public class HiveCompatibleITCase {
 		runExplain(tableEnv, "explain insert into dest select * from foo");
 		runExplain(tableEnv, "explain extended select * from foo");
 
-//		runUpdate("insert overwrite table destp partition(p='0',q) select 1,`value` from src sort by `value`", tableEnv);
+//		runUpdate("insert overwrite table dest select * from bar", tableEnv);
 //		runQuery("select dep,count(1) from employee where salary<5000 and age>=38 and dep='Sales' group by dep", tableEnv);
 		for (String query : dqlToRun) {
 			runQuery(query, tableEnv);
@@ -173,7 +179,6 @@ public class HiveCompatibleITCase {
 		for (String dml : UPDATES) {
 			runUpdate(dml, tableEnv);
 		}
-		System.out.println("finished");
 	}
 
 	private void runExplain(TableEnvironment tableEnv, String sql) {
@@ -183,16 +188,17 @@ public class HiveCompatibleITCase {
 	}
 
 	private void runQuery(String query, TableEnvironment tableEnv) throws Exception {
+		LOG.info("Try to run query: '{}'.", query);
 		org.apache.flink.table.api.Table resultTable = tableEnv.sqlQuery(query);
 		System.out.println(resultTable.explain());
 		System.out.println(Lists.newArrayList(resultTable.execute().collect()));
-		System.out.println("Successfully executed SQL: " + query);
+		LOG.info("Successfully executed SQL: '{}'.", query);
 	}
 
 	private void runUpdate(String dml, TableEnvironment tableEnv) throws Exception {
 		System.out.println(tableEnv.explainSql(dml));
 		TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, dml);
-		System.out.println("Successfully executed DML: " + dml);
+		LOG.info("Successfully executed DML: '{}'.", dml);
 	}
 
 	private TableEnvironment getTableEnvWithHiveCatalog(SqlDialect dialect) {

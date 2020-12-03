@@ -24,6 +24,8 @@ import org.apache.flink.table.catalog.hive.client.HiveShim;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.delegation.HiveParserASTBuilder;
 import org.apache.flink.table.planner.delegation.PlannerContext;
+import org.apache.flink.table.planner.delegation.hive.ConvertSqlFunctionCopier;
+import org.apache.flink.table.planner.delegation.hive.ConvertTableFunctionCopier;
 import org.apache.flink.table.planner.delegation.hive.HiveParserConstants;
 import org.apache.flink.table.planner.delegation.hive.HiveParserRexNodeConverter;
 import org.apache.flink.table.planner.delegation.hive.HiveParserUtils;
@@ -65,8 +67,6 @@ import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rex.ConvertSqlFunctionCopier;
-import org.apache.calcite.rex.ConvertTableFunctionCopier;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexCorrelVariable;
@@ -198,13 +198,15 @@ public class HiveParserCalcitePlanner {
 	public HiveParserCalcitePlanner(
 			HiveParserQueryState queryState,
 			PlannerContext plannerContext,
+			FlinkCalciteCatalogReader catalogReader,
+			FrameworkConfig frameworkConfig,
 			CatalogManager catalogManager,
 			HiveShim hiveShim) throws SemanticException {
 		this.catalogManager = catalogManager;
-		catalogReader = plannerContext.createCatalogReader(false, catalogManager.getCurrentCatalog(), catalogManager.getCurrentDatabase());
+		this.catalogReader = catalogReader;
 		flinkPlanner = plannerContext.createFlinkPlanner(catalogManager.getCurrentCatalog(), catalogManager.getCurrentDatabase());
 		this.plannerContext = plannerContext;
-		this.frameworkConfig = plannerContext.createFrameworkConfig();
+		this.frameworkConfig = frameworkConfig;
 		this.hiveAnalyzer = new HiveParserSemanticAnalyzer(queryState, hiveShim);
 	}
 
