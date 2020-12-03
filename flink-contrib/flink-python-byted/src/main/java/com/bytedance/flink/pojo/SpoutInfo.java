@@ -29,6 +29,7 @@ public class SpoutInfo implements Serializable {
 	private String script;
 	private String interpreter;
 	private int parallelism;
+	private int maxParallelism;
 	private String kafkaCluster;
 	private String kafkaTopic;
 	private List<String> outputFields;
@@ -85,6 +86,14 @@ public class SpoutInfo implements Serializable {
 
 	public void setParallelism(int parallelism) {
 		this.parallelism = parallelism;
+	}
+
+	public int getMaxParallelism() {
+		return maxParallelism;
+	}
+
+	public void setMaxParallelism(int maxParallelism) {
+		this.maxParallelism = maxParallelism;
 	}
 
 	public String getKafkaCluster() {

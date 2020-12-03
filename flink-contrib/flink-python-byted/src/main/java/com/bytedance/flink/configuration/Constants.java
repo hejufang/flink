@@ -73,6 +73,7 @@ public class Constants {
 	public static final String BOLT = "bolt";
 	public static final String BOLT_LIST = "bolt_list";
 	public static final String PARALLELISM = "thread_num";
+	public static final String MAX_PARALLELISM = "max_parallelism";
 	public static final String BOLT_NAME = "bolt_name";
 	public static final String GROUP_LIST = "group_list";
 	public static final String GROUP_TYPE = "group_type";

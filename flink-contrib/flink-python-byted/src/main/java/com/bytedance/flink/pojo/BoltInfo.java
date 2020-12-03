@@ -31,6 +31,7 @@ public class BoltInfo implements Serializable {
 	private String script;
 	private String interpreter;
 	private int parallelism;
+	private int maxParallelism;
 	private Map<String, Object> args;
 	private List<String> outputFields;
 	private List<Grouping> groupList;
@@ -92,6 +93,14 @@ public class BoltInfo implements Serializable {
 
 	public void setParallelism(int parallelism) {
 		this.parallelism = parallelism;
+	}
+
+	public int getMaxParallelism() {
+		return maxParallelism;
+	}
+
+	public void setMaxParallelism(int maxParallelism) {
+		this.maxParallelism = maxParallelism;
 	}
 
 	public Map<String, Object> getArgs() {

@@ -135,6 +135,9 @@ public class FlinkTopologyBuilder {
 			DataStreamSource<Tuple> source =
 				env.addSource(spoutWrapper, spoutName, getOutputType(outputFileds))
 					.setParallelism(spoutInfo.getParallelism());
+			if (spoutInfo.getMaxParallelism() > 0) {
+				source.setMaxParallelism(spoutInfo.getMaxParallelism());
+			}
 			if (spoutInfo.getSlotShareGroup() != null) {
 				source.slotSharingGroup(spoutInfo.getSlotShareGroup());
 			}
@@ -192,6 +195,9 @@ public class FlinkTopologyBuilder {
 				int parallelism = boltInfo.getParallelism();
 				SingleOutputStreamOperator<?> outputStream =
 					process(boltName, new ShellBolt(boltInfo), inputStreams).setParallelism(parallelism);
+				if (boltInfo.getMaxParallelism() > 0) {
+					outputStream.setMaxParallelism(boltInfo.getMaxParallelism());
+				}
 				if (boltInfo.getSlotShareGroup() != null) {
 					outputStream.slotSharingGroup(boltInfo.getSlotShareGroup());
 				}

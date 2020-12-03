@@ -215,6 +215,12 @@ public class ConfigParser {
 			}
 			spoutInfo.getArgs().put(Constants.PARALLELISM, spoutInfo.getParallelism());
 
+			if (map.containsKey(Constants.MAX_PARALLELISM)) {
+				spoutInfo.setMaxParallelism((int) map.get(Constants.MAX_PARALLELISM));
+			} else {
+				spoutInfo.setMaxParallelism((int) spoutArgs.getOrDefault(Constants.MAX_PARALLELISM, 0));
+			}
+
 			if (map.containsKey(Constants.SLOT_SHARE_GROUP)) {
 				spoutInfo.setSlotShareGroup((String) map.get(Constants.SLOT_SHARE_GROUP));
 			} else {
@@ -410,6 +416,12 @@ public class ConfigParser {
 				boltInfo.setParallelism((int) boltArgs.getOrDefault(Constants.PARALLELISM, 1));
 			}
 			boltInfo.getArgs().put(Constants.PARALLELISM, boltInfo.getParallelism());
+
+			if (map.containsKey(Constants.MAX_PARALLELISM)) {
+				boltInfo.setMaxParallelism((int) map.get(Constants.MAX_PARALLELISM));
+			} else {
+				boltInfo.setMaxParallelism((int) boltArgs.getOrDefault(Constants.MAX_PARALLELISM, 0));
+			}
 
 			// parse bolt name
 			if (map.containsKey(Constants.BOLT_NAME)) {
