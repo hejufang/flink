@@ -111,6 +111,12 @@ under the License.
 			<artifactId>aircompressor</artifactId>
 			<version>0.8</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.antlr</groupId>
+			<artifactId>antlr-runtime</artifactId>
+			<version>3.4</version>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -134,6 +140,7 @@ under the License.
 									<include>org.apache.thrift:libfb303</include>
 									<include>org.apache.orc:orc-core</include>
 									<include>io.airlift:aircompressor</include>
+									<include>org.antlr:antlr-runtime</include>
 								</includes>
 							</artifactSet>
 							<filters>

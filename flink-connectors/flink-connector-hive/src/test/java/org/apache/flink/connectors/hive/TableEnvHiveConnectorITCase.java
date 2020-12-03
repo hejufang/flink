@@ -222,8 +222,7 @@ public class TableEnvHiveConnectorITCase {
 			hiveShell.execute("insert into table db1.src1 values (1.0),(2.12),(5.123),(5.456),(123456789.12)");
 
 			// populate src2 with same data from Flink
-			TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into db1.src2 values (cast(1.0 as decimal(10,2))), (cast(2.12 as decimal(10,2))), " +
-					"(cast(5.123 as decimal(10,2))), (cast(5.456 as decimal(10,2))), (cast(123456789.12 as decimal(10,2)))");
+			TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into db1.src2 values (1.0),(2.12),(5.123),(5.456),(123456789.12)");
 			// verify src1 and src2 contain same data
 			verifyHiveQueryResult("select * from db1.src2", hiveShell.executeQuery("select * from db1.src1"));
 
@@ -274,7 +273,7 @@ public class TableEnvHiveConnectorITCase {
 			tableEnv.executeSql("create table db1.src (x int)");
 			HiveTestUtils.createTextTableInserter(hiveShell, "db1", "src").addRow(new Object[]{1}).addRow(new Object[]{2}).commit();
 			tableEnv.executeSql("create table db1.dest (x int) partitioned by (p1 string, p2 double)");
-			TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into db1.dest partition (p1='1''1', p2=1.1) select x from db1.src");
+			TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into db1.dest partition (p1='1\\'1', p2=1.1) select x from db1.src");
 			assertEquals(1, hiveCatalog.listPartitions(new ObjectPath("db1", "dest")).size());
 			verifyHiveQueryResult("select * from db1.dest", Arrays.asList("1\t1'1\t1.1", "2\t1'1\t1.1"));
 		} finally {
@@ -310,7 +309,8 @@ public class TableEnvHiveConnectorITCase {
 			tableEnv.executeSql("create table db1.src (x int, y string)");
 			HiveTestUtils.createTextTableInserter(hiveShell, "db1", "src").addRow(new Object[]{1, "a"}).addRow(new Object[]{2, "b"}).commit();
 			tableEnv.executeSql("create table db1.dest (x int) partitioned by (p1 double, p2 string)");
-			TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into db1.dest partition (p1=1.1) select x,y from db1.src");
+			// hive dialect requires dynamic partitions in the spec at the moment
+			TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into db1.dest partition (p1=1.1,p2) select x,y from db1.src");
 			assertEquals(2, hiveCatalog.listPartitions(new ObjectPath("db1", "dest")).size());
 			verifyHiveQueryResult("select * from db1.dest", Arrays.asList("1\t1.1\ta", "2\t1.1\tb"));
 		} finally {
@@ -680,8 +680,9 @@ public class TableEnvHiveConnectorITCase {
 				.addRow(new Object[]{1, "a"})
 				.commit();
 		tableEnv.executeSql("create table dest (x int) partitioned by (p1 int,p2 string)");
+		// hive dialect requires dynamic partitions in the spec at the moment
 		TableEnvUtil.execInsertSqlAndWaitResult(tableEnv,
-				"insert into dest partition (p1=1) select * from src");
+				"insert into dest partition (p1=1,p2) select * from src");
 		List<Row> results = Lists.newArrayList(tableEnv.sqlQuery("select * from dest").execute().collect());
 		assertEquals("[1,1,a]", results.toString());
 		tableEnv.executeSql("drop table if exists src");
@@ -693,7 +694,7 @@ public class TableEnvHiveConnectorITCase {
 		TableEnvironment tableEnv = getTableEnvWithHiveCatalog();
 		tableEnv.executeSql("create table dest (x int) partitioned by (p1 int,p2 string)");
 		TableEnvUtil.execInsertSqlAndWaitResult(tableEnv,
-				"insert into dest partition (p1=1) values(1, 'a')");
+				"insert into dest partition (p1=1,p2) values(1, 'a')");
 		List<Row> results = Lists.newArrayList(tableEnv.sqlQuery("select * from dest").execute().collect());
 		assertEquals("[1,1,a]", results.toString());
 		tableEnv.executeSql("drop table if exists dest");

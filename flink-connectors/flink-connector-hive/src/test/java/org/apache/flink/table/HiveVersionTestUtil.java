@@ -27,5 +27,7 @@ public class HiveVersionTestUtil {
 	public static final boolean HIVE_110_OR_LATER = HiveShimLoader.getHiveVersion().compareTo(HiveShimLoader.HIVE_VERSION_V1_1_0) >= 0;
 	public static final boolean HIVE_310_OR_LATER = HiveShimLoader.getHiveVersion().compareTo(HiveShimLoader.HIVE_VERSION_V3_1_0) >= 0;
 	public static final boolean HIVE_210_OR_LATER = HiveShimLoader.getHiveVersion().compareTo(HiveShimLoader.HIVE_VERSION_V2_1_0) >= 0;
+	public static final boolean HIVE_220_OR_LATER = HiveShimLoader.getHiveVersion().compareTo(HiveShimLoader.HIVE_VERSION_V2_2_0) >= 0;
+	public static final boolean HIVE_200_OR_LATER = HiveShimLoader.getHiveVersion().compareTo(HiveShimLoader.HIVE_VERSION_V2_0_0) >= 0;
 
 }

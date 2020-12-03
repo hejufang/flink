@@ -75,7 +75,7 @@ public class HiveModuleTest {
 				assertEquals(261, hiveModule.listFunctions().size());
 				break;
 			case HIVE_VERSION_V2_3_4:
-				assertEquals(279, hiveModule.listFunctions().size());
+				assertEquals(274, hiveModule.listFunctions().size());
 				break;
 			case HIVE_VERSION_V3_1_1:
 				assertEquals(298, hiveModule.listFunctions().size());

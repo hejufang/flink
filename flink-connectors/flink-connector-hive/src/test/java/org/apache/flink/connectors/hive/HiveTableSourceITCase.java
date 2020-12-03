@@ -248,6 +248,8 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 					.addRow(new Object[]{2}).commit("p1=2,p2='b'");
 			HiveTestUtils.createTextTableInserter(hiveShell, "db1", "part")
 					.addRow(new Object[]{3}).commit("p1=3,p2='c'");
+			// TODO: enable hive dialect with partition pruning
+			tableEnv.getConfig().setSqlDialect(SqlDialect.DEFAULT);
 			// test string partition columns with special characters
 			HiveTestUtils.createTextTableInserter(hiveShell, "db1", "part")
 					.addRow(new Object[]{4}).commit("p1=4,p2='c:2'");
@@ -321,6 +323,8 @@ public class HiveTableSourceITCase extends BatchAbstractTestBase {
 					.addRow(new Object[]{2}).commit("p1='2018-08-09',p2='2018-08-08 08:08:09'");
 			HiveTestUtils.createTextTableInserter(hiveShell, "db1", "part")
 					.addRow(new Object[]{3}).commit("p1='2018-08-10',p2='2018-08-08 08:08:10'");
+			// TODO: enable hive dialect with partition pruning
+			tableEnv.getConfig().setSqlDialect(SqlDialect.DEFAULT);
 
 			Table query = tableEnv.sqlQuery(
 					"select x from db1.part where p1>cast('2018-08-09' as date) and p2<>cast('2018-08-08 08:08:09' as timestamp)");

@@ -21,13 +21,13 @@ package org.apache.flink.table.planner.delegation
 import org.apache.flink.annotation.VisibleForTesting
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
-import org.apache.flink.table.api.config.{ExecutionConfigOptions, OptimizerConfigOptions}
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, TableConfigOptions}
 import org.apache.flink.table.api.{TableConfig, TableEnvironment, TableException, TableSchema}
 import org.apache.flink.table.catalog._
 import org.apache.flink.table.connector.sink.DynamicTableSink
 import org.apache.flink.table.delegation.{Executor, Parser, Planner}
 import org.apache.flink.table.descriptors.{ConnectorDescriptorValidator, DescriptorProperties}
-import org.apache.flink.table.factories.{FactoryUtil, TableFactoryUtil}
+import org.apache.flink.table.factories.{ComponentFactoryService, FactoryUtil, TableFactoryUtil}
 import org.apache.flink.table.operations.OutputConversionModifyOperation.UpdateMode
 import org.apache.flink.table.operations._
 import org.apache.flink.table.planner.JMap
@@ -170,7 +170,12 @@ abstract class PlannerBase(
     executor.asInstanceOf[ExecutorBase].getExecutionEnvironment
   }
 
-  override def getParser: Parser = parser
+  override def getParser: Parser = {
+    val parserProps = Map(TableConfigOptions.TABLE_SQL_DIALECT.key() ->
+      getTableConfig.getSqlDialect.name().toLowerCase)
+    ComponentFactoryService.find(classOf[BlinkParserFactory], parserProps)
+      .create(catalogManager, plannerContext)
+  }
 
   override def translate(
       modifyOperations: util.List[ModifyOperation]): util.List[Transformation[_]] = {

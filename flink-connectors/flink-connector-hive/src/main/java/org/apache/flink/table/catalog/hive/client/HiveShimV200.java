@@ -62,5 +62,4 @@ public class HiveShimV200 extends HiveShimV122 {
 				new Properties(),
 				conf);
 	}
-
 }

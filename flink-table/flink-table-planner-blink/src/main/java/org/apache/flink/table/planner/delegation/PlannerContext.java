@@ -128,7 +128,7 @@ public class PlannerContext {
 				rowType);
 	}
 
-	private FrameworkConfig createFrameworkConfig() {
+	public FrameworkConfig createFrameworkConfig() {
 		return Frameworks.newConfigBuilder()
 			.defaultSchema(rootSchema.plus())
 			.parserConfig(getSqlParserConfig())
@@ -193,7 +193,7 @@ public class PlannerContext {
 		return new CalciteParser(getSqlParserConfig());
 	}
 
-	private FlinkCalciteCatalogReader createCatalogReader(
+	public FlinkCalciteCatalogReader createCatalogReader(
 			boolean lenientCaseSensitivity,
 			String currentCatalog,
 			String currentDatabase) {
@@ -307,4 +307,7 @@ public class PlannerContext {
 				FlinkSqlOperatorTable.instance());
 	}
 
+	public RelOptCluster getCluster() {
+		return cluster;
+	}
 }
