@@ -949,8 +949,8 @@ class TableEnvironmentTest {
         | CAST((COUNT(1) - COUNT(`l`)) AS BIGINT),
         | CAST(AVG(CAST(CHAR_LENGTH(`l`) AS DOUBLE)) AS DOUBLE),
         | CAST(MAX(CHAR_LENGTH(`l`)) AS INTEGER),
-        | CAST(NULL AS INTEGER),
-        | CAST(NULL AS INTEGER),
+        | CAST(NULL AS UNKNOWN),
+        | CAST(NULL AS UNKNOWN),
         | CAST(COUNT(DISTINCT `m`) AS BIGINT),
         | CAST((COUNT(1) - COUNT(`m`)) AS BIGINT),
         | CAST(AVG(CAST(CHAR_LENGTH(`m`) AS DOUBLE)) AS DOUBLE),
@@ -961,8 +961,8 @@ class TableEnvironmentTest {
         | CAST((COUNT(1) - COUNT(`n`)) AS BIGINT),
         | CAST(16.0 AS DOUBLE),
         | CAST(16.0 AS INTEGER),
-        | CAST(NULL AS INTEGER),
-        | CAST(NULL AS INTEGER)
+        | CAST(NULL AS UNKNOWN),
+        | CAST(NULL AS UNKNOWN)
         |FROM
         | `default_catalog`.`default_database`.`AnalyzeTableWithAllColumn`
         |""".stripMargin
