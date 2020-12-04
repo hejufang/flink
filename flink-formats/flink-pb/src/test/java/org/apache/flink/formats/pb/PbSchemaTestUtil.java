@@ -23,9 +23,17 @@ import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.binary.BinaryStringData;
+import org.apache.flink.table.types.logical.ArrayType;
+import org.apache.flink.table.types.logical.FloatType;
+import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.MapType;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.VarCharType;
 
 import com.google.protobuf.ByteString;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -103,5 +111,38 @@ public class PbSchemaTestUtil {
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
 			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE})
 		);
+	}
+
+	public static RowData generateSelectedRowData() {
+		BinaryStringData binaryStringData = BinaryStringData.fromString(STRING_VALUE);
+		Map<BinaryStringData, Integer> expectedMapValue = new HashMap<>();
+		expectedMapValue.put(BinaryStringData.fromString("a"), 1);
+		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
+
+		return GenericRowData.of(
+			FLOAT_VALUE,
+			INT_VALUE,
+			binaryStringData,
+			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
+			new GenericArrayData(new Object[]{
+				GenericRowData.of(binaryStringData, new GenericMapData(expectedMapValue)),
+				GenericRowData.of(binaryStringData, new GenericMapData(expectedMapValue))})
+		);
+	}
+
+	public static RowType generateSelectedRowType() {
+		return RowType.of(
+			new LogicalType[]{
+				new FloatType(),
+				new IntType(),
+				new VarCharType(),
+				new ArrayType(new IntType()),
+				new ArrayType(new RowType(
+					Arrays.asList(
+						new RowType.RowField("stringTest", new VarCharType()),
+						new RowType.RowField("mapTest", new MapType(new VarCharType(), new IntType())))
+				))
+			},
+			new String[]{"floatTest", "intTest", "stringTest", "intArrayTest", "arrayTest"});
 	}
 }

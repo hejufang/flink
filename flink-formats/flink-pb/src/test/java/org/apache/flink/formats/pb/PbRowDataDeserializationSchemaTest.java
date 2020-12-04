@@ -21,11 +21,12 @@ package org.apache.flink.formats.pb;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.google.protobuf.Descriptors;
 import org.junit.Test;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 
@@ -41,8 +42,17 @@ public class PbRowDataDeserializationSchemaTest {
 		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
 		RowData rowData = PbSchemaTestUtil.generateRowData();
 
-		testDeserialization(getDeserializationSchema(false), pbBytes, rowData);
-		testDeserialization(getDeserializationSchema(true), pbBytes, GenericRowData.of(rowData));
+		testDeserialization(getDeserializationSchema(false, null), pbBytes, rowData);
+		testDeserialization(getDeserializationSchema(true, null), pbBytes, GenericRowData.of(rowData));
+	}
+
+	@Test
+	public void testDeserializeSelectedField() throws IOException {
+		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
+		RowData rowData = PbSchemaTestUtil.generateSelectedRowData();
+		RowType rowType = PbSchemaTestUtil.generateSelectedRowType();
+
+		testDeserialization(getDeserializationSchema(false, rowType), pbBytes, rowData);
 	}
 
 	private static void testDeserialization(
@@ -54,12 +64,17 @@ public class PbRowDataDeserializationSchemaTest {
 		assertArrayEquals(new Object[]{expectedResult}, new Object[]{deserializedResult});
 	}
 
-	private static PbRowDataDeserializationSchema getDeserializationSchema(boolean withWrapper) {
+	private static PbRowDataDeserializationSchema getDeserializationSchema(
+			boolean withWrapper,
+			@Nullable RowType selectedRowType) {
 		Descriptors.Descriptor descriptor = PbUtils.validateAndGetDescriptor(TEST_PB_CLASS_NAME);
-		DataType dataType = PbFormatUtils.createDataType(descriptor, withWrapper);
+		if (selectedRowType == null) {
+			selectedRowType =
+				(RowType) PbFormatUtils.createDataType(descriptor, withWrapper).getLogicalType();
+		}
 
 		return PbRowDataDeserializationSchema.builder()
-			.setRowType((RowType) dataType.getLogicalType())
+			.setRowType(selectedRowType)
 			.setResultTypeInfo(TypeInformation.of(RowData.class))
 			.setPbDescriptorClass(TEST_PB_CLASS_NAME)
 			.setWithWrapper(withWrapper)

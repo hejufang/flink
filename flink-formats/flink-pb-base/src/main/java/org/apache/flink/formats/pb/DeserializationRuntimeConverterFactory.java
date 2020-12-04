@@ -25,12 +25,14 @@ import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.MapType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,24 +85,51 @@ public class DeserializationRuntimeConverterFactory {
 		}
 		List<Descriptors.FieldDescriptor> fieldDescriptors = descriptor.getFields();
 
+		// get selected descriptors according to field names in rowType.
+		List<Descriptors.FieldDescriptor> selectedFieldDescriptors =
+			selectDescriptors(rowType, fieldDescriptors);
+
 		AtomicInteger index = new AtomicInteger();
 		final DeserializationRuntimeConverter[] fieldConverters = rowType.getFields().stream()
 			.map(RowType.RowField::getType)
 			.map((logicType) -> DeserializationRuntimeConverterFactory.createConverter(
-				logicType, fieldDescriptors.get(index.getAndIncrement())))
+				logicType, selectedFieldDescriptors.get(index.getAndIncrement())))
 			.toArray(DeserializationRuntimeConverter[]::new);
 		return (message) -> {
 			DynamicMessage dynamicMessage = (DynamicMessage) message;
 			int arity = fieldConverters.length;
 			GenericRowData row = new GenericRowData(arity);
-			for (int i = 0; i < fieldDescriptors.size(); i++) {
+			for (int i = 0; i < arity; i++) {
 				// We have to use fieldDescriptor here, so that DeserializationRuntimeConverter cannot be Serializable.
-				Descriptors.FieldDescriptor fieldDescriptor = fieldDescriptors.get(i);
+				Descriptors.FieldDescriptor fieldDescriptor = selectedFieldDescriptors.get(i);
 				Object convertField = fieldConverters[i].convert(dynamicMessage.getField(fieldDescriptor));
 				row.setField(i, convertField);
 			}
 			return row;
 		};
+	}
+
+	private static List<Descriptors.FieldDescriptor> selectDescriptors(
+			RowType selectedRowType,
+			List<Descriptors.FieldDescriptor> allFieldDescriptors) {
+		List<Descriptors.FieldDescriptor> selectedFieldDescriptors = new ArrayList<>();
+		for (RowType.RowField rowField : selectedRowType.getFields()) {
+			String fieldName = rowField.getName();
+			Descriptors.FieldDescriptor fieldDescriptor = null;
+			for (Descriptors.FieldDescriptor descriptorIter : allFieldDescriptors) {
+				if (fieldName.equals(descriptorIter.getName())) {
+					fieldDescriptor = descriptorIter;
+					break;
+				}
+			}
+			if (fieldDescriptor == null) {
+				throw new FlinkRuntimeException(
+					String.format("Field: '%s' not found in pb descriptor. " +
+						"Please check that you write the right field name.", fieldName));
+			}
+			selectedFieldDescriptors.add(fieldDescriptor);
+		}
+		return selectedFieldDescriptors;
 	}
 
 	private static DeserializationRuntimeConverter createArrayConverter(
