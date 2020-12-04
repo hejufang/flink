@@ -22,7 +22,7 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
@@ -32,6 +32,7 @@ import org.apache.flink.table.runtime.generated.GeneratedCollector;
 import org.apache.flink.table.runtime.generated.GeneratedFunction;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.function.ThrowingConsumer;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -46,7 +47,8 @@ public class LookupJoinWithRetryRunner extends LookupJoinRunner {
 
 	private final RowDataTypeInfo leftTypeInfo;
 	private final long latencyMs;
-	private transient ListState<Tuple2<RowData, Long>> listState;
+	private final int laterRetryTimes;
+	private transient ListState<Tuple3<RowData, Long, Integer>> listState;
 	private transient long minTriggerTimestamp = NO_CACHE_STATE;
 
 	public LookupJoinWithRetryRunner(
@@ -55,25 +57,27 @@ public class LookupJoinWithRetryRunner extends LookupJoinRunner {
 			RowDataTypeInfo leftRowTypeInfo,
 			boolean isLeftOuterJoin,
 			int tableFieldsCount,
-			long latencyMs) {
+			long latencyMs,
+			int laterRetryTimes) {
 		super(generatedFetcher, generatedCollector, isLeftOuterJoin, tableFieldsCount);
 		this.latencyMs = latencyMs;
 		this.leftTypeInfo = leftRowTypeInfo;
+		this.laterRetryTimes = laterRetryTimes;
 	}
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
-		TupleTypeInfo<Tuple2<RowData, Long>> tupleTypeInfo =
+		TupleTypeInfo<Tuple3<RowData, Long, Integer>> tupleTypeInfo =
 			new TupleTypeInfo<>(leftTypeInfo, BasicTypeInfo.LONG_TYPE_INFO);
 		if (getRuntimeContext() instanceof StreamingRuntimeContext) {
 			listState = ((StreamingRuntimeContext) getRuntimeContext())
 				.getOperatorListState(new ListStateDescriptor<>("LookUpJoinList", tupleTypeInfo));
-			Iterable<Tuple2<RowData, Long>> tuple2Iterable = listState.get();
-			if (tuple2Iterable == null || !tuple2Iterable.iterator().hasNext()) {
+			Iterable<Tuple3<RowData, Long, Integer>> tuple3Iterable = listState.get();
+			if (tuple3Iterable == null || !tuple3Iterable.iterator().hasNext()) {
 				minTriggerTimestamp = NO_CACHE_STATE;
 			} else {
-				minTriggerTimestamp = tuple2Iterable.iterator().next().f1;
+				minTriggerTimestamp = tuple3Iterable.iterator().next().f1;
 			}
 		} else {
 			throw new RuntimeException("Lookup join with retry only support streaming runtime context.");
@@ -82,35 +86,50 @@ public class LookupJoinWithRetryRunner extends LookupJoinRunner {
 
 	@Override
 	public void processElement(RowData in, Context ctx, Collector<RowData> out) throws Exception {
-		processCachedRows(out);
+		long curTimestamp = ctx.timerService().currentProcessingTime();
+		processCachedRows(out, curTimestamp);
+		processElement(in, out,
+			getNextTimestamp(ctx.timerService().currentProcessingTime()), laterRetryTimes, listState::add);
+	}
+
+	private void processElement(
+			RowData in,
+			Collector<RowData> out,
+			long nextTime,
+			int leftTimes,
+			ThrowingConsumer<Tuple3<RowData, Long, Integer>, Exception> consumer) throws Exception {
 		boolean isCollected = doJoin(in, out);
 		if (!isCollected) {
-			long nextTime = getNextTimestamp();
-			listState.add(new Tuple2<>(in, nextTime));
+			consumer.accept(new Tuple3<>(in, nextTime, leftTimes));
 			minTriggerTimestamp = Math.min(nextTime, minTriggerTimestamp);
 		}
 	}
 
 	// this stream may not a keyedStream so we can't use timeService to register timer
-	private void processCachedRows(Collector<RowData> out) throws Exception {
-		long curTimestamp = System.currentTimeMillis();
+	private void processCachedRows(Collector<RowData> out, long curTimestamp) throws Exception {
 		if (minTriggerTimestamp > curTimestamp) {
 			return;
 		}
-		Iterable<Tuple2<RowData, Long>> tuple2Iterable = listState.get();
-		if (tuple2Iterable == null) {
+		Iterable<Tuple3<RowData, Long, Integer>> tuple3Iterable = listState.get();
+		if (tuple3Iterable == null) {
 			minTriggerTimestamp = NO_CACHE_STATE;
 			return;
 		}
-		List<Tuple2<RowData, Long>> remainingData = new ArrayList<>();
-		Iterator<Tuple2<RowData, Long>> tuple2Iterator = tuple2Iterable.iterator();
-		while (tuple2Iterator.hasNext()) {
-			Tuple2<RowData, Long> tuple2 = tuple2Iterator.next();
-			if (tuple2.f1 <= curTimestamp) {
-				super.processElement(tuple2.f0, null, out);
+		long nextTimeStamp = getNextTimestamp(curTimestamp);
+		List<Tuple3<RowData, Long, Integer>> remainingData = new ArrayList<>();
+		Iterator<Tuple3<RowData, Long, Integer>> tuple3Iterator = tuple3Iterable.iterator();
+		while (tuple3Iterator.hasNext()) {
+			Tuple3<RowData, Long, Integer> tuple3 = tuple3Iterator.next();
+			if (tuple3.f1 <= curTimestamp) {
+				int leftRetryTimes = tuple3.f2 - 1;
+				if (leftRetryTimes == 0) {
+					super.processElement(tuple3.f0, null, out);
+				} else {
+					processElement(tuple3.f0, out, nextTimeStamp, leftRetryTimes, remainingData::add);
+				}
 			} else {
-				minTriggerTimestamp = Math.min(minTriggerTimestamp, tuple2.f1);
-				remainingData.add(tuple2);
+				minTriggerTimestamp = Math.min(minTriggerTimestamp, tuple3.f1);
+				remainingData.add(tuple3);
 			}
 		}
 
@@ -120,8 +139,8 @@ public class LookupJoinWithRetryRunner extends LookupJoinRunner {
 		}
 	}
 
-	private long getNextTimestamp() {
+	private long getNextTimestamp(long curTimestamp) {
 		// Reduce access of state
-		return System.currentTimeMillis() / 1000 * 1000 + latencyMs;
+		return curTimestamp / 1000 * 1000 + latencyMs;
 	}
 }

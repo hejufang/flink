@@ -19,6 +19,7 @@
 package org.apache.flink.connector.jdbc.internal.options;
 
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
+import org.apache.flink.table.factories.FactoryUtil;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -32,12 +33,14 @@ public class JdbcLookupOptions implements Serializable {
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
 	private final long laterRetryMs;
+	private final int laterRetryTimes;
 
-	public JdbcLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, long laterRetryMs) {
+	public JdbcLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, long laterRetryMs, int laterRetryTimes) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.laterRetryMs = laterRetryMs;
+		this.laterRetryTimes = laterRetryTimes;
 	}
 
 	public long getCacheMaxSize() {
@@ -56,6 +59,10 @@ public class JdbcLookupOptions implements Serializable {
 		return laterRetryMs;
 	}
 
+	public int getLaterRetryTimes() {
+		return laterRetryTimes;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -66,7 +73,9 @@ public class JdbcLookupOptions implements Serializable {
 			JdbcLookupOptions options = (JdbcLookupOptions) o;
 			return Objects.equals(cacheMaxSize, options.cacheMaxSize) &&
 				Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
-				Objects.equals(maxRetryTimes, options.maxRetryTimes);
+				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
+				Objects.equals(laterRetryMs, options.laterRetryMs) &&
+				Objects.equals(laterRetryTimes, options.laterRetryTimes);
 		} else {
 			return false;
 		}
@@ -80,6 +89,7 @@ public class JdbcLookupOptions implements Serializable {
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES;
 		private long laterRetryMs = -1;
+		private int laterRetryTimes = FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue();
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -114,8 +124,12 @@ public class JdbcLookupOptions implements Serializable {
 			return this;
 		}
 
+		public void setLaterRetryTimes(int laterRetryTimes) {
+			this.laterRetryTimes = laterRetryTimes;
+		}
+
 		public JdbcLookupOptions build() {
-			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, laterRetryMs);
+			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, laterRetryMs, laterRetryTimes);
 		}
 	}
 }

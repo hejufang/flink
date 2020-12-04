@@ -68,7 +68,6 @@ public class LookupJoinHarnessTest {
 			new VarCharType(VarCharType.MAX_LENGTH));
 
 	private static final long LATER_TIME_MS = 3000L;
-	private static final long LATER_OFFSET = 1000L;
 	private static final RowDataTypeInfo ROW_DATA_TYPE_INFO = new RowDataTypeInfo(new IntType(), new VarCharType());
 
 	private final RowDataHarnessAssertor assertor = new RowDataHarnessAssertor(new TypeInformation[]{
@@ -112,12 +111,42 @@ public class LookupJoinHarnessTest {
 			);
 
 		testHarness.open();
-
+		testHarness.setProcessingTime(0L);
 		testHarness.processElement(insertRecord(1, "a"));
 		testHarness.processElement(insertRecord(2, "b"));
 		testHarness.processElement(insertRecord(3, "c"));
 		testHarness.processElement(insertRecord(4, "d"));
-		Thread.sleep(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS);
+		testHarness.processElement(insertRecord(5, "e"));
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(insertRecord(3, "c", 3, "Jark"));
+		expectedOutput.add(insertRecord(3, "c", 3, "Jackson"));
+		expectedOutput.add(insertRecord(4, "d", 4, "Fabian"));
+		expectedOutput.add(insertRecord(1, "a", 1, "Julian"));
+
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+		testHarness.close();
+	}
+
+	@Test
+	public void testTemporalInnerJoinWithLaterRetry2Join() throws Exception {
+		OneInputStreamOperatorTestHarness<RowData, RowData> testHarness = createHarness(
+			JoinType.INNER_JOIN,
+			FilterOnTable.WITHOUT_FILTER,
+			LATER_TIME_MS,
+			ROW_DATA_TYPE_INFO,
+			2
+		);
+
+		testHarness.open();
+
+		testHarness.processElement(insertRecord(1, "a"));
+		testHarness.processElement(insertRecord(2, "b"));
+		testHarness.setProcessingTime(LATER_TIME_MS);
+		testHarness.processElement(insertRecord(3, "c"));
+		testHarness.processElement(insertRecord(4, "d"));
+		testHarness.setProcessingTime(LATER_TIME_MS * 2);
 		testHarness.processElement(insertRecord(5, "e"));
 
 		List<Object> expectedOutput = new ArrayList<>();
@@ -162,12 +191,12 @@ public class LookupJoinHarnessTest {
 			ROW_DATA_TYPE_INFO);
 
 		testHarness.open();
-
+		testHarness.setProcessingTime(0);
 		testHarness.processElement(insertRecord(1, "a"));
 		testHarness.processElement(insertRecord(2, "b"));
 		testHarness.processElement(insertRecord(3, "c"));
 		testHarness.processElement(insertRecord(4, "d"));
-		Thread.sleep(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS);
 		testHarness.processElement(insertRecord(5, "e"));
 
 		List<Object> expectedOutput = new ArrayList<>();
@@ -217,10 +246,10 @@ public class LookupJoinHarnessTest {
 
 		testHarness.processElement(insertRecord(1, "a"));
 		testHarness.processElement(insertRecord(2, "b"));
-		Thread.sleep(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS);
 		testHarness.processElement(insertRecord(3, "c"));
 		testHarness.processElement(insertRecord(5, "e"));
-		Thread.sleep(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS * 2);
 		testHarness.processElement(insertRecord(4, "d"));
 
 		List<Object> expectedOutput = new ArrayList<>();
@@ -272,10 +301,10 @@ public class LookupJoinHarnessTest {
 
 		testHarness.processElement(insertRecord(1, "a"));
 		testHarness.processElement(insertRecord(2, "b"));
-		Thread.sleep(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS);
 		testHarness.processElement(insertRecord(3, "c"));
 		testHarness.processElement(insertRecord(5, "e"));
-		Thread.sleep(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS);
 		testHarness.processElement(insertRecord(4, "d"));
 
 		List<Object> expectedOutput = new ArrayList<>();
@@ -299,13 +328,26 @@ public class LookupJoinHarnessTest {
 
 	@SuppressWarnings("unchecked")
 	private OneInputStreamOperatorTestHarness<RowData, RowData> createHarness(
+		JoinType joinType,
+		FilterOnTable filterOnTable,
+		long laterJoinMs,
+		RowDataTypeInfo rowType
+	) throws Exception {
+		return createHarness(joinType, filterOnTable, laterJoinMs, rowType, 1);
+	}
+
+	@SuppressWarnings("unchecked")
+	private OneInputStreamOperatorTestHarness<RowData, RowData> createHarness(
 			JoinType joinType,
 			FilterOnTable filterOnTable,
 			long laterJoinMs,
-			RowDataTypeInfo rowType
-			) throws Exception {
+			RowDataTypeInfo rowType,
+			int laterJoinRetryTimes) throws Exception {
 		boolean isLeftJoin = joinType == JoinType.LEFT_JOIN;
 		ProcessFunction<RowData, RowData> joinRunner;
+
+		/* Set retry times, because GeneratedFunctionWrapper only support construct without args */
+		TestingFetcherWithLaterFunction.laterRetryTimes = laterJoinRetryTimes;
 		if (filterOnTable == FilterOnTable.WITHOUT_FILTER) {
 			if (laterJoinMs <= 0) {
 				joinRunner = new LookupJoinRunner(
@@ -320,7 +362,8 @@ public class LookupJoinHarnessTest {
 					rowType,
 					isLeftJoin,
 					2,
-					laterJoinMs - LATER_OFFSET);
+					laterJoinMs,
+					laterJoinRetryTimes);
 			}
 		} else {
 			if (laterJoinMs <= 0) {
@@ -338,7 +381,8 @@ public class LookupJoinHarnessTest {
 					rowType,
 					isLeftJoin,
 					2,
-					laterJoinMs - LATER_OFFSET);
+					laterJoinMs,
+					laterJoinRetryTimes);
 			}
 		}
 
@@ -408,8 +452,10 @@ public class LookupJoinHarnessTest {
 
 		private final Map<Integer, Tuple2<Integer, List<GenericRowData>>> data = new HashMap<>();
 
+		public static int laterRetryTimes = 1;
+
 		public TestingFetcherWithLaterFunction() {
-			data.put(1, Tuple2.of(1, Collections.singletonList(
+			data.put(1, Tuple2.of(laterRetryTimes, Collections.singletonList(
 				GenericRowData.of(1, fromString("Julian")))));
 			data.put(3, Tuple2.of(0, Arrays.asList(
 				GenericRowData.of(3, fromString("Jark")),

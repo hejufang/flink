@@ -68,6 +68,8 @@ import org.apache.calcite.util.mapping.IntPair
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
 
+import org.apache.flink.table.factories.FactoryUtil
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -386,12 +388,13 @@ abstract class CommonLookupJoin(
         syncLookupFunction,
         env.getConfig.isObjectReuseEnabled)
 
-      val laterJoinMs = temporalTable match {
+      val (laterJoinMs, laterRetryTimes) = temporalTable match {
         case t: TableSourceTable =>
           val tableSource = t.tableSource.asInstanceOf[LookupTableSource]
-          tableSource.getLaterJoinMs
+          (tableSource.getLaterJoinMs, tableSource.getLaterJoinRetryTimes)
         case _: LegacyTableSourceTable[_] =>
-          LookupTableSource.DEFAULT_LATER_RETRY_MS
+          (FactoryUtil.LOOKUP_LATER_JOIN_LATENCY_MS.defaultValue().toMillis,
+            FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue().intValue())
       }
       val ctx = CodeGeneratorContext(config)
       val processFunc = if (calcOnTemporalTable.isDefined) {
@@ -425,7 +428,8 @@ abstract class CommonLookupJoin(
             inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo],
             leftOuterJoin,
             rightRowType.getFieldCount,
-            laterJoinMs)
+            laterJoinMs,
+            laterRetryTimes)
         }
       } else {
         // right type is the same as table source row type, because no calc after temporal table
@@ -451,7 +455,8 @@ abstract class CommonLookupJoin(
             inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo],
             leftOuterJoin,
             rightRowType.getFieldCount,
-            laterJoinMs)
+            laterJoinMs,
+            laterRetryTimes)
         }
       }
       SimpleOperatorFactory.of(new ProcessOperator(processFunc))

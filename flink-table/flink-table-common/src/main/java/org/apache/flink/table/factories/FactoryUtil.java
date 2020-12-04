@@ -107,6 +107,12 @@ public final class FactoryUtil {
 		.withDescription(
 			"Source metadata.");
 
+	public static final ConfigOption<Integer> LOOKUP_LATER_JOIN_RETRY_TIMES = ConfigOptions
+		.key("lookup.later-join-retry-times")
+		.intType()
+		.defaultValue(1)
+		.withDescription("Optional. Int value, later join retry times.");
+
 	public static final ConfigOption<Duration> LOOKUP_LATER_JOIN_LATENCY_MS = ConfigOptions
 		.key("lookup.later-join-latency")
 		.durationType()

@@ -98,6 +98,11 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 	}
 
 	@Override
+	public int getLaterJoinRetryTimes() {
+		return lookupOptions.getLaterRetryTimes();
+	}
+
+	@Override
 	public void applyProjection(int[][] projectedFields) {
 		this.schema = TableSchemaUtils.projectSchema(schema, projectedFields);
 	}

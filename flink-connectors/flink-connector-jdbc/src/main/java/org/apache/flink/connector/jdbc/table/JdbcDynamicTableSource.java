@@ -138,6 +138,11 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 	}
 
 	@Override
+	public int getLaterJoinRetryTimes() {
+		return lookupOptions.getLaterRetryTimes();
+	}
+
+	@Override
 	public void applyProjection(int[][] projectedFields) {
 		this.physicalSchema = TableSchemaUtils.projectSchema(physicalSchema, projectedFields);
 	}

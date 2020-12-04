@@ -39,14 +39,15 @@ public class LookupJoinWithCalcRetryRunner extends LookupJoinWithRetryRunner {
 	private transient Collector<RowData> calcCollector;
 
 	public LookupJoinWithCalcRetryRunner(
-		GeneratedFunction<FlatMapFunction<RowData, RowData>> generatedFetcher,
-		GeneratedFunction<FlatMapFunction<RowData, RowData>> generatedCalc,
-		GeneratedCollector<TableFunctionCollector<RowData>> generatedCollector,
-		RowDataTypeInfo rowDataTypeInfo,
-		boolean isLeftOuterJoin,
-		int tableFieldsCount,
-		long latencyMs) {
-		super(generatedFetcher, generatedCollector, rowDataTypeInfo, isLeftOuterJoin, tableFieldsCount, latencyMs);
+			GeneratedFunction<FlatMapFunction<RowData, RowData>> generatedFetcher,
+			GeneratedFunction<FlatMapFunction<RowData, RowData>> generatedCalc,
+			GeneratedCollector<TableFunctionCollector<RowData>> generatedCollector,
+			RowDataTypeInfo rowDataTypeInfo,
+			boolean isLeftOuterJoin,
+			int tableFieldsCount,
+			long latencyMs,
+			int laterJoinRetryTimes) {
+		super(generatedFetcher, generatedCollector, rowDataTypeInfo, isLeftOuterJoin, tableFieldsCount, latencyMs, laterJoinRetryTimes);
 		this.generatedCalc = generatedCalc;
 	}
 
