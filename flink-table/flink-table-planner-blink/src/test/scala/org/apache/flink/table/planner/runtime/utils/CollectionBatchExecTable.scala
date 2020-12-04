@@ -17,6 +17,8 @@
  */
 package org.apache.flink.table.planner.runtime.utils
 
+import java.sql.{Date, Time, Timestamp}
+
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api.{Table, TableEnvironment}
 import org.apache.flink.table.expressions.{Expression, ExpressionParser}
@@ -92,6 +94,55 @@ object CollectionBatchExecTable {
     data.+=((1, 1L, 0, "Hallo", 1L))
     data.+=((2, 2L, 1, "Hallo Welt", 2L))
     data.+=((2, 3L, 2, "Hallo Welt wie", 1L))
+    BatchTableEnvUtil.fromCollection(env, Random.shuffle(data), fields)
+  }
+
+  def get7TupleDataSet(env: TableEnvironment, fields: String = null): Table = {
+    val data = new mutable.MutableList[(Int, Long, Double, String, Date, Time, Timestamp)]
+    data.+=((1, 1L, 99.99, "Hi",
+      Date.valueOf("2017-10-10"),
+      Time.valueOf("22:23:24"),
+      Timestamp.valueOf("2017-10-12 02:00:00")))
+    data.+=((2, 2L, 89.89, "Hello",
+      Date.valueOf("2017-10-11"),
+      Time.valueOf("22:25:24"),
+      Timestamp.valueOf("2017-10-12 03:00:00")))
+    data.+=((3, 2L, 79.79, null,
+      Date.valueOf("2017-10-12"),
+      Time.valueOf("22:27:24"),
+      Timestamp.valueOf("2017-10-12 04:00:00")))
+    data.+=((4, 3L, 69.69, null,
+      Date.valueOf("2017-10-13"),
+      Time.valueOf("22:29:24"),
+      Timestamp.valueOf("2017-10-12 05:00:00")))
+    data.+=((5, 3L, 59.59, "I am fine.",
+      Date.valueOf("2017-10-14"),
+      Time.valueOf("22:31:24"),
+      Timestamp.valueOf("2017-10-12 06:00:00")))
+    data.+=((6, 3L, 49.49, "Luke Skywalker",
+      Date.valueOf("2017-10-15"),
+      Time.valueOf("22:33:24"),
+      Timestamp.valueOf("2017-10-12 07:00:00")))
+    data.+=((7, 4L, 59.59, "Comment#1",
+      Date.valueOf("2017-10-10"),
+      Time.valueOf("22:35:24"),
+      Timestamp.valueOf("2017-10-12 08:00:00")))
+    data.+=((8, 4L, 69.69, "Comment#2",
+      Date.valueOf("2017-10-11"),
+      Time.valueOf("22:23:24"),
+      Timestamp.valueOf("2017-10-12 09:00:00")))
+    data.+=((9, 4L, 79.79, "Comment#3",
+      Date.valueOf("2017-10-12"),
+      Time.valueOf("22:23:24"),
+      Timestamp.valueOf("2017-10-12 06:00:00")))
+    data.+=((10, 4L, 89.89, "Comment#4",
+      Date.valueOf("2017-10-13"),
+      Time.valueOf("22:25:24"),
+      Timestamp.valueOf("2017-10-12 06:00:00")))
+    data.+=((11, 5L, 99.99, "Comment#5",
+      Date.valueOf("2017-10-14"),
+      Time.valueOf("22:25:24"),
+      Timestamp.valueOf("2017-10-12 06:00:00")))
     BatchTableEnvUtil.fromCollection(env, Random.shuffle(data), fields)
   }
 

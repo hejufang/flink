@@ -18,9 +18,12 @@
 
 package org.apache.flink.table.planner.utils;
 
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataBase;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataString;
 import org.apache.flink.table.plan.stats.ColumnStats;
+import org.apache.flink.table.types.AtomicDataType;
+import org.apache.flink.table.types.logical.VarCharType;
 
 import org.junit.Test;
 
@@ -40,9 +43,15 @@ public class CatalogTableStatisticsConverterTest {
 	@Test
 	public void testConvertToColumnStatsMapWithNullColumnStatisticsData() {
 		Map<String, CatalogColumnStatisticsDataBase> columnStatisticsDataBaseMap = new HashMap<>();
-		columnStatisticsDataBaseMap.put("first", new CatalogColumnStatisticsDataString(10L, 5.2, 3L, 100L));
+		TableSchema schema = TableSchema.builder()
+			.field("first", new AtomicDataType(new VarCharType()))
+			.field("second", new AtomicDataType(new VarCharType()))
+			.build();
+		columnStatisticsDataBaseMap.put("first",
+			new CatalogColumnStatisticsDataString(10L, 5.2, 3L, 100L));
 		columnStatisticsDataBaseMap.put("second", null);
-		Map<String, ColumnStats> columnStatsMap = CatalogTableStatisticsConverter.convertToColumnStatsMap(columnStatisticsDataBaseMap);
+		Map<String, ColumnStats> columnStatsMap = CatalogTableStatisticsConverter
+			.convertToColumnStatsMap(columnStatisticsDataBaseMap, schema);
 		assertNotNull(columnStatsMap);
 		assertEquals(columnStatisticsDataBaseMap.size() - 1, columnStatsMap.size());
 		assertTrue(columnStatsMap.containsKey("first"));

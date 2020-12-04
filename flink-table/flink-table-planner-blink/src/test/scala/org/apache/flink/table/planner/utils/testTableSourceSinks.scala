@@ -22,7 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.common.io.InputFormat
 import org.apache.flink.api.common.typeinfo.{BasicTypeInfo, TypeInformation}
 import org.apache.flink.api.common.typeutils.TypeSerializer
-import org.apache.flink.api.java.io.{CollectionInputFormat, RowCsvInputFormat}
+import org.apache.flink.api.java.io.{CollectionInputFormat, CsvInputFormat, RowCsvInputFormat}
 import org.apache.flink.api.java.operators.DataSink
 import org.apache.flink.api.java.typeutils.RowTypeInfo
 import org.apache.flink.api.java.{DataSet, ExecutionEnvironment}
@@ -48,6 +48,8 @@ import org.apache.flink.table.sources._
 import org.apache.flink.table.sources.tsextractors.ExistingField
 import org.apache.flink.table.sources.wmstrategies.{AscendingTimestamps, PreserveWatermarks}
 import org.apache.flink.table.types.DataType
+import org.apache.flink.table.types.logical.LogicalType
+import org.apache.flink.table.types.utils.LogicalTypeDataTypeConverter
 import org.apache.flink.table.utils.{EncodingUtils, TableSchemaUtils}
 import org.apache.flink.types.Row
 
@@ -55,6 +57,10 @@ import _root_.java.io.{File, FileOutputStream, OutputStreamWriter}
 import _root_.java.util
 import _root_.java.util.Collections
 import _root_.java.util.function.BiConsumer
+
+import java.sql.Timestamp
+
+import org.apache.calcite.avatica.util.DateTimeUtils
 
 import _root_.scala.collection.JavaConversions._
 import _root_.scala.collection.JavaConverters._
@@ -122,6 +128,31 @@ object TestTableSourceSinks {
         new Schema().schema(schema))
       .createTemporaryTable(tableName)
     path
+  }
+
+  def createCsvTableSource(
+      data: Seq[Row],
+      fieldNames: Array[String],
+      fieldTypes: Array[LogicalType],
+      fieldDelim: String = CsvInputFormat.DEFAULT_FIELD_DELIMITER,
+      rowDelim: String = CsvInputFormat.DEFAULT_LINE_DELIMITER): CsvTableSource = {
+    val contents = data.map { r =>
+      (0 until r.getArity).map(i => r.getField(i)).map {
+        case null => ""
+        case t: Timestamp => DateTimeUtils.unixTimestampToString(t.getTime)
+        case f => f.toString
+      }.mkString(fieldDelim)
+    }.mkString(rowDelim)
+    val tempFilePath = writeToTempFile(contents, "testCsvTableSource", "tmp")
+    val builder = CsvTableSource.builder()
+      .path(tempFilePath)
+      .fieldDelimiter(fieldDelim)
+      .lineDelimiter(rowDelim)
+    fieldNames.zip(fieldTypes).foreach {
+      case (fieldName, fieldType) =>
+        builder.field(fieldName, LogicalTypeDataTypeConverter.toDataType(fieldType))
+    }
+    builder.build()
   }
 
   lazy val getPersonCsvPath = {

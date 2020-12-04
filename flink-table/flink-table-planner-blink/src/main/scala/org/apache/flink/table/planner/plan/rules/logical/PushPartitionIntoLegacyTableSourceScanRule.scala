@@ -227,9 +227,11 @@ class PushPartitionIntoLegacyTableSourceScanRule extends RelOptRule(
     val tablePath = objectIdentifier.toObjectPath
     val spec = new CatalogPartitionSpec(new util.LinkedHashMap[String, String](partSpec))
     try {
+      val tableSchema = catalog.getTable(tablePath).getSchema
       val tableStatistics = catalog.getPartitionStatistics(tablePath, spec)
       val columnStatistics = catalog.getPartitionColumnStatistics(tablePath, spec)
-      Some(CatalogTableStatisticsConverter.convertToTableStats(tableStatistics, columnStatistics))
+      Some(CatalogTableStatisticsConverter.convertToTableStats(
+        tableStatistics, columnStatistics, tableSchema))
     } catch {
       case _: PartitionNotExistException => None
     }

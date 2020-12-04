@@ -1268,6 +1268,10 @@ abstract class TableEnvImpl(
     explainInternal(operations, extraDetails: _*)
   }
 
+  override def convertAnalyzeTableStatementToQuery(statement: String): String = {
+    throw new TableException("Unsupported Analyze Table Sql in old planner.")
+  }
+
   protected def explainInternal(operations: JList[Operation], extraDetails: ExplainDetail*): String
 
   override def fromValues(values: Expression*): Table = {

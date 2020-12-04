@@ -20,19 +20,21 @@ package org.apache.flink.table.planner.delegation
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.table.api.internal.SelectTableSink
-import org.apache.flink.table.api.{ExplainDetail, TableConfig, TableException, TableSchema}
-import org.apache.flink.table.catalog.{CatalogManager, FunctionCatalog, ObjectIdentifier}
+import org.apache.flink.table.api.{ExplainDetail, TableConfig, TableEnvironment, TableException, TableSchema}
+import org.apache.flink.table.catalog.{Catalog, CatalogManager, FunctionCatalog, ObjectIdentifier, ObjectPath}
 import org.apache.flink.table.delegation.Executor
 import org.apache.flink.table.operations.{CatalogSinkModifyOperation, ModifyOperation, Operation, QueryOperation}
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation
 import org.apache.flink.table.planner.operations.PlannerQueryOperation
 import org.apache.flink.table.planner.plan.`trait`.FlinkRelDistributionTraitDef
 import org.apache.flink.table.planner.plan.nodes.exec.{BatchExecNode, ExecNode}
 import org.apache.flink.table.planner.plan.nodes.process.DAGProcessContext
 import org.apache.flink.table.planner.plan.optimize.{BatchCommonSubGraphBasedOptimizer, Optimizer}
 import org.apache.flink.table.planner.plan.reuse.DeadlockBreakupProcessor
+import org.apache.flink.table.planner.plan.stats.StatisticGenerator
 import org.apache.flink.table.planner.plan.utils.{ExecNodePlanDumper, FlinkRelOptUtil}
 import org.apache.flink.table.planner.sinks.BatchSelectTableSink
-import org.apache.flink.table.planner.utils.{DummyStreamExecutionEnvironment, ExecutorUtils, PlanUtil}
+import org.apache.flink.table.planner.utils.{DummyStreamExecutionEnvironment, ExecutorUtils, JavaScalaConversionUtil, PlanUtil, TableStatsConverter}
 
 import org.apache.calcite.plan.{ConventionTraitDef, RelTrait, RelTraitDef}
 import org.apache.calcite.rel.logical.LogicalTableModify
@@ -141,6 +143,33 @@ class BatchPlanner(
     sb.append(System.lineSeparator)
     sb.append(executionPlan)
     sb.toString()
+  }
+
+  override def generateQueryFromAnalyzeTableOperation(
+      tEnv: TableEnvironment,
+      analyzeTableOperation: AnalyzeTableOperation): String = {
+    val (statsSql, _) = StatisticGenerator.generateAnalyzeTableSql(
+      tEnv,
+      JavaScalaConversionUtil.toScala(analyzeTableOperation.getTableIdentifier.toList).toArray,
+      Option(JavaScalaConversionUtil.toScala(analyzeTableOperation.getColumnList).toArray),
+      Option(analyzeTableOperation.getPartitions.toMap))
+    statsSql
+  }
+
+  override def executeAnalyzeTable(
+      tEnv: TableEnvironment,
+      catalog: Catalog,
+      analyzeTableOperation: AnalyzeTableOperation): Unit = {
+    val tableStats = StatisticGenerator.generateTableStats(
+      tEnv,
+      JavaScalaConversionUtil.toScala(analyzeTableOperation.getTableIdentifier.toList).toArray,
+      Option(JavaScalaConversionUtil.toScala(analyzeTableOperation.getColumnList).toArray),
+      Option(analyzeTableOperation.getPartitions.toMap))
+    val catalogTableStatistics = TableStatsConverter.convertToCatalogTableStatistics(tableStats)
+    val catalogColumnStatistics = TableStatsConverter.convertToCatalogColumnStatistics(tableStats)
+    val tablePath = analyzeTableOperation.getTableIdentifier.toObjectPath
+    catalog.alterTableStatistics(tablePath, catalogTableStatistics, false)
+    catalog.alterTableColumnStatistics(tablePath, catalogColumnStatistics, false)
   }
 
   private def createDummyPlanner(): BatchPlanner = {

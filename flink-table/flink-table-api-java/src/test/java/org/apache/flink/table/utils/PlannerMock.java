@@ -20,12 +20,15 @@ package org.apache.flink.table.utils;
 
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.table.api.ExplainDetail;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.internal.SelectTableSink;
+import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.delegation.Parser;
 import org.apache.flink.table.delegation.Planner;
 import org.apache.flink.table.operations.ModifyOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation;
 
 import java.util.List;
 
@@ -53,6 +56,19 @@ public class PlannerMock implements Planner {
 	public String explain(List<Operation> operations, ExplainDetail... extraDetails) {
 		return null;
 	}
+
+	@Override
+	public String generateQueryFromAnalyzeTableOperation(
+			TableEnvironment tEnv,
+			AnalyzeTableOperation analyzeTableOperation) {
+		return null;
+	}
+
+	@Override
+	public void executeAnalyzeTable(
+			TableEnvironment tEnv,
+			Catalog catalog,
+			AnalyzeTableOperation analyzeTableOperation) {}
 
 	@Override
 	public String[] getCompletionHints(String statement, int position) {

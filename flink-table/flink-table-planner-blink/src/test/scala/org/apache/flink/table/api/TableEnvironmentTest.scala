@@ -23,23 +23,31 @@ import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.environment.LocalStreamEnvironment
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.table.api.bridge.scala.{StreamTableEnvironment, _}
-import org.apache.flink.table.catalog.{GenericInMemoryCatalog, ObjectPath}
+import org.apache.flink.table.catalog.{CatalogDatabaseImpl, CatalogTableImpl, GenericInMemoryCatalog, ObjectPath}
+import org.apache.flink.table.descriptors.DescriptorProperties
+import org.apache.flink.table.plan.stats.{ColumnStats, TableStats}
 import org.apache.flink.table.planner.operations.SqlConversionException
+import org.apache.flink.table.planner.plan.stats.StatisticGeneratorTest.assertTableStatsEquals
 import org.apache.flink.table.planner.runtime.stream.sql.FunctionITCase.TestUDF
 import org.apache.flink.table.planner.runtime.stream.table.FunctionITCase.SimpleScalarFunction
+import org.apache.flink.table.planner.runtime.utils.CollectionBatchExecTable
 import org.apache.flink.table.planner.utils.TableTestUtil.replaceStageId
-import org.apache.flink.table.planner.utils.{TableTestUtil, TestTableSourceSinks}
+import org.apache.flink.table.planner.utils.{CatalogTableStatisticsConverter, TableTestUtil, TestTableSourceSinks}
 import org.apache.flink.types.Row
 
 import org.apache.calcite.plan.RelOptUtil
 import org.apache.calcite.sql.SqlExplainLevel
+
 import org.junit.Assert.{assertEquals, assertFalse, assertTrue, fail}
 import org.junit.rules.ExpectedException
-import org.junit.{Rule, Test}
+import org.junit.{Ignore, Rule, Test}
 
-import _root_.java.util
+import java.sql.{Date, Time, Timestamp}
+
+import scala.collection.JavaConversions._
 
 import _root_.scala.collection.JavaConverters._
+import _root_.java.util
 
 class TableEnvironmentTest {
 
@@ -51,6 +59,7 @@ class TableEnvironmentTest {
 
   val env = new StreamExecutionEnvironment(new LocalStreamEnvironment())
   val tableEnv = StreamTableEnvironment.create(env, TableTestUtil.STREAM_SETTING)
+  val batchTableEnv = TableEnvironment.create(TableTestUtil.BATCH_SETTING)
 
   @Test
   def testScanNonExistTable(): Unit = {
@@ -805,6 +814,269 @@ class TableEnvironmentTest {
     checkData(
       util.Arrays.asList(Row.of("view1"), Row.of("view2")).iterator(),
       tableResult5.collect())
+  }
+
+  @Ignore("Whether we add `FOR ALL COLUMNS` or not, the resolved column list is always null now, " +
+    "can not calculate table statistic separately at present")
+  @Test
+  def testAnalyzeTableSqlWithoutColumn(): Unit = {
+    val createTableStmt =
+      """
+        |CREATE TABLE AnalyzeTableWithoutColumn (
+        |  a bigint,
+        |  b int,
+        |  c varchar
+        |) with (
+        |  'connector' = 'COLLECTION',
+        |  'is-bounded' = 'true'
+        |)
+      """.stripMargin
+    val createTableResult = batchTableEnv.executeSql(createTableStmt)
+    assertEquals(ResultKind.SUCCESS, createTableResult.getResultKind)
+    val analyzeTableSql = batchTableEnv.convertAnalyzeTableStatementToQuery(
+      "ANALYZE TABLE AnalyzeTableWithoutColumn COMPUTE STATISTICS")
+    val expectedSql =
+      """
+        |SELECT
+        | CAST(COUNT(1) AS BIGINT)
+        |FROM
+        | `default_catalog`.`default_database`.`AnalyzeTableWithoutColumn`
+        |""".stripMargin
+        .replaceAll("\n", " ")
+        .replaceAll(" {2}", " ").trim()
+    assertEquals(expectedSql, analyzeTableSql)
+  }
+
+  @Test
+  def testAnalyzeTableSqlWithAllColumn(): Unit = {
+    val createTableStmt =
+      """
+        |CREATE TABLE AnalyzeTableWithAllColumn (
+        |  a boolean,
+        |  b tinyint,
+        |  c smallint,
+        |  d integer,
+        |  e bigint,
+        |  f decimal(20, 18),
+        |  g float,
+        |  h double,
+        |  i date,
+        |  j time,
+        |  k timestamp,
+        |  l char,
+        |  m varchar,
+        |  n binary
+        |) with (
+        |  'connector' = 'COLLECTION',
+        |  'is-bounded' = 'true'
+        |)
+      """.stripMargin
+    val createTableResult = batchTableEnv.executeSql(createTableStmt)
+    assertEquals(ResultKind.SUCCESS, createTableResult.getResultKind)
+    val analyzeTableSql = batchTableEnv.convertAnalyzeTableStatementToQuery(
+      "ANALYZE TABLE AnalyzeTableWithAllColumn COMPUTE STATISTICS FOR ALL COLUMNS")
+    val expectedSql =
+      """
+        |SELECT
+        | CAST(COUNT(1) AS BIGINT),
+        | CAST(COUNT(DISTINCT `a`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`a`)) AS BIGINT),
+        | CAST(1.0 AS DOUBLE),
+        | CAST(1.0 AS INTEGER),
+        | CAST(MAX(`a`) AS BOOLEAN),
+        | CAST(MIN(`a`) AS BOOLEAN),
+        | CAST(COUNT(DISTINCT `b`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`b`)) AS BIGINT),
+        | CAST(1.0 AS DOUBLE),
+        | CAST(1.0 AS INTEGER),
+        | CAST(MAX(`b`) AS TINYINT),
+        | CAST(MIN(`b`) AS TINYINT),
+        | CAST(COUNT(DISTINCT `c`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`c`)) AS BIGINT),
+        | CAST(2.0 AS DOUBLE),
+        | CAST(2.0 AS INTEGER),
+        | CAST(MAX(`c`) AS SMALLINT),
+        | CAST(MIN(`c`) AS SMALLINT),
+        | CAST(COUNT(DISTINCT `d`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`d`)) AS BIGINT),
+        | CAST(4.0 AS DOUBLE),
+        | CAST(4.0 AS INTEGER),
+        | CAST(MAX(`d`) AS INTEGER),
+        | CAST(MIN(`d`) AS INTEGER),
+        | CAST(COUNT(DISTINCT `e`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`e`)) AS BIGINT),
+        | CAST(8.0 AS DOUBLE),
+        | CAST(8.0 AS INTEGER),
+        | CAST(MAX(`e`) AS BIGINT),
+        | CAST(MIN(`e`) AS BIGINT),
+        | CAST(COUNT(DISTINCT `f`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`f`)) AS BIGINT),
+        | CAST(12.0 AS DOUBLE),
+        | CAST(12.0 AS INTEGER),
+        | CAST(MAX(`f`) AS DECIMAL(20, 18)),
+        | CAST(MIN(`f`) AS DECIMAL(20, 18)),
+        | CAST(COUNT(DISTINCT `g`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`g`)) AS BIGINT),
+        | CAST(4.0 AS DOUBLE),
+        | CAST(4.0 AS INTEGER),
+        | CAST(MAX(`g`) AS FLOAT),
+        | CAST(MIN(`g`) AS FLOAT),
+        | CAST(COUNT(DISTINCT `h`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`h`)) AS BIGINT),
+        | CAST(8.0 AS DOUBLE),
+        | CAST(8.0 AS INTEGER),
+        | CAST(MAX(`h`) AS DOUBLE),
+        | CAST(MIN(`h`) AS DOUBLE),
+        | CAST(COUNT(DISTINCT `i`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`i`)) AS BIGINT),
+        | CAST(12.0 AS DOUBLE),
+        | CAST(12.0 AS INTEGER),
+        | CAST(MAX(`i`) AS DATE),
+        | CAST(MIN(`i`) AS DATE),
+        | CAST(COUNT(DISTINCT `j`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`j`)) AS BIGINT),
+        | CAST(12.0 AS DOUBLE),
+        | CAST(12.0 AS INTEGER),
+        | CAST(MAX(`j`) AS TIME),
+        | CAST(MIN(`j`) AS TIME),
+        | CAST(COUNT(DISTINCT `k`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`k`)) AS BIGINT),
+        | CAST(12.0 AS DOUBLE),
+        | CAST(12.0 AS INTEGER),
+        | CAST(MAX(`k`) AS TIMESTAMP),
+        | CAST(MIN(`k`) AS TIMESTAMP),
+        | CAST(COUNT(DISTINCT `l`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`l`)) AS BIGINT),
+        | CAST(AVG(CAST(CHAR_LENGTH(`l`) AS DOUBLE)) AS DOUBLE),
+        | CAST(MAX(CHAR_LENGTH(`l`)) AS INTEGER),
+        | CAST(NULL AS INTEGER),
+        | CAST(NULL AS INTEGER),
+        | CAST(COUNT(DISTINCT `m`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`m`)) AS BIGINT),
+        | CAST(AVG(CAST(CHAR_LENGTH(`m`) AS DOUBLE)) AS DOUBLE),
+        | CAST(MAX(CHAR_LENGTH(`m`)) AS INTEGER),
+        | CAST(MAX(`m`) AS VARCHAR),
+        | CAST(MIN(`m`) AS VARCHAR),
+        | CAST(COUNT(DISTINCT `n`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`n`)) AS BIGINT),
+        | CAST(16.0 AS DOUBLE),
+        | CAST(16.0 AS INTEGER),
+        | CAST(NULL AS INTEGER),
+        | CAST(NULL AS INTEGER)
+        |FROM
+        | `default_catalog`.`default_database`.`AnalyzeTableWithAllColumn`
+        |""".stripMargin
+        .replaceAll("\n", " ")
+        .replaceAll(" {2}", " ").trim()
+    assertEquals(expectedSql, analyzeTableSql)
+  }
+
+  @Test
+  def testAnalyzeTableSqlWithPartialColumn(): Unit = {
+    val createTableStmt =
+      """
+        |CREATE TABLE AnalyzeTableWithPartialColumn (
+        |  a boolean,
+        |  b tinyint,
+        |  c smallint,
+        |  d integer,
+        |  e bigint,
+        |  f decimal(20, 18),
+        |  g float,
+        |  h double,
+        |  i date,
+        |  j time,
+        |  k timestamp,
+        |  l char,
+        |  m varchar,
+        |  n binary
+        |) with (
+        |  'connector' = 'COLLECTION',
+        |  'is-bounded' = 'true'
+        |)
+      """.stripMargin
+    val createTableResult = batchTableEnv.executeSql(createTableStmt)
+    assertEquals(ResultKind.SUCCESS, createTableResult.getResultKind)
+    val analyzeTableSql = batchTableEnv.convertAnalyzeTableStatementToQuery(
+      "ANALYZE TABLE AnalyzeTableWithPartialColumn COMPUTE STATISTICS FOR COLUMNS f, j, m")
+    val expectedSql =
+      """
+        |SELECT
+        | CAST(COUNT(1) AS BIGINT),
+        | CAST(COUNT(DISTINCT `f`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`f`)) AS BIGINT),
+        | CAST(12.0 AS DOUBLE),
+        | CAST(12.0 AS INTEGER),
+        | CAST(MAX(`f`) AS DECIMAL(20, 18)),
+        | CAST(MIN(`f`) AS DECIMAL(20, 18)),
+        | CAST(COUNT(DISTINCT `j`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`j`)) AS BIGINT),
+        | CAST(12.0 AS DOUBLE),
+        | CAST(12.0 AS INTEGER),
+        | CAST(MAX(`j`) AS TIME),
+        | CAST(MIN(`j`) AS TIME),
+        | CAST(COUNT(DISTINCT `m`) AS BIGINT),
+        | CAST((COUNT(1) - COUNT(`m`)) AS BIGINT),
+        | CAST(AVG(CAST(CHAR_LENGTH(`m`) AS DOUBLE)) AS DOUBLE),
+        | CAST(MAX(CHAR_LENGTH(`m`)) AS INTEGER),
+        | CAST(MAX(`m`) AS VARCHAR),
+        | CAST(MIN(`m`) AS VARCHAR)
+        |FROM
+        | `default_catalog`.`default_database`.`AnalyzeTableWithPartialColumn`
+        |""".stripMargin
+        .replaceAll("\n", " ")
+        .replaceAll(" {2}", " ").trim()
+    assertEquals(expectedSql, analyzeTableSql)
+  }
+
+  @Test
+  def testExecuteAnalyzeTableSql(): Unit = {
+    batchTableEnv.registerCatalog("test_catalog", new GenericInMemoryCatalog("test_catalog"))
+    val ds = CollectionBatchExecTable.get7TupleDataSet(batchTableEnv, "a, b, c, d, e, f, g")
+    val properties = new DescriptorProperties()
+    val catalogDb = new CatalogDatabaseImpl(properties.asMap(), "#Comment db")
+    val catalogTable = new CatalogTableImpl(ds.getSchema, properties.asMap(), "#Comment table")
+    val tablePath = new ObjectPath("test_db", "TestExecuteAnalyzeTable")
+    val catalog = batchTableEnv.getCatalog("test_catalog").get()
+    catalog.createDatabase("test_db", catalogDb, false)
+    catalog.createTable(tablePath, catalogTable, false)
+    batchTableEnv.createTemporaryView("test_catalog.test_db.TestExecuteAnalyzeTable", ds)
+    val analyzeTableSql =
+      """
+        |ANALYZE TABLE test_catalog.test_db.TestExecuteAnalyzeTable
+        |COMPUTE STATISTICS FOR ALL COLUMNS
+        |""".stripMargin
+    batchTableEnv.executeSql(analyzeTableSql)
+
+    val catalogTableStatistics = catalog.getTableStatistics(tablePath)
+    val catalogColumnStatistics = catalog.getTableColumnStatistics(tablePath)
+    val tableStats = CatalogTableStatisticsConverter.convertToTableStats(
+      catalogTableStatistics, catalogColumnStatistics, ds.getSchema)
+
+    val expectedTableStats = new TableStats(11L, Map(
+      "a" -> ColumnStats.Builder.builder()
+        .setNdv(11L).setNullCount(0L).setAvgLen(4.0).setMaxLen(4).setMax(11).setMin(1).build(),
+      "b" -> ColumnStats.Builder.builder()
+        .setNdv(5L).setNullCount(0L).setAvgLen(8.0).setMaxLen(8).setMax(5L).setMin(1L).build(),
+      "c" -> ColumnStats.Builder.builder().setNdv(6L)
+        .setNullCount(0L).setAvgLen(8.0).setMaxLen(8).setMax(99.99d).setMin(49.49d).build(),
+      "d" -> ColumnStats.Builder.builder().setNdv(9L)
+        .setNullCount(2L).setAvgLen(76.0 / 9.0).setMaxLen(14)
+        .setMax("Luke Skywalker").setMin("Comment#1").build(),
+      "e" -> ColumnStats.Builder.builder().setNdv(6L)
+        .setNullCount(0L).setAvgLen(12.0).setMaxLen(12)
+        .setMax(Date.valueOf("2017-10-15"))
+        .setMin(Date.valueOf("2017-10-10")).build(),
+      "f" -> ColumnStats.Builder.builder().setNdv(7L)
+        .setNullCount(0L).setAvgLen(12.0).setMaxLen(12)
+        .setMax(Time.valueOf("22:35:24"))
+        .setMin(Time.valueOf("22:23:24")).build(),
+      "g" -> ColumnStats.Builder.builder()
+        .setNdv(8L).setNullCount(0L).setAvgLen(12.0).setMaxLen(12)
+        .setMax(Timestamp.valueOf("2017-10-12 17:00:00"))
+        .setMin(Timestamp.valueOf("2017-10-12 10:00:00")).build()
+    ))
+    assertTableStatsEquals(expectedTableStats, tableStats)
   }
 
   @Test

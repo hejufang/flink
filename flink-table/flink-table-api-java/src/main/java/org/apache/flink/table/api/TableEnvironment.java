@@ -905,6 +905,15 @@ public interface TableEnvironment {
 	String explainSql(String statement, ExplainDetail... extraDetails);
 
 	/**
+	 * Return the underlying actual analyze table SQL statement,
+	 * but not execute it which is actually in {@link TableEnvironment#executeSql(String)}.
+	 *
+	 * @param statement Analyze table statement.
+	 * @return the underlying select sql statement.
+	 */
+	String convertAnalyzeTableStatementToQuery(String statement);
+
+	/**
 	 * Returns completion hints for the given statement at the given cursor position.
 	 * The completion happens case insensitively.
 	 *

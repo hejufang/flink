@@ -110,9 +110,10 @@ class DatabaseCalciteSchema extends FlinkSchema {
 			ObjectIdentifier objectIdentifier) {
 		final ObjectPath tablePath = objectIdentifier.toObjectPath();
 		try {
+			TableSchema schema = catalog.getTable(tablePath).getSchema();
 			CatalogTableStatistics tableStatistics = catalog.getTableStatistics(tablePath);
 			CatalogColumnStatistics columnStatistics = catalog.getTableColumnStatistics(tablePath);
-			return convertToTableStats(tableStatistics, columnStatistics);
+			return convertToTableStats(tableStatistics, columnStatistics, schema);
 		} catch (TableNotExistException e) {
 			throw new ValidationException(format(
 				"Could not get statistic for table: [%s, %s, %s]",

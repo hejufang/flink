@@ -20,9 +20,10 @@ package org.apache.flink.table.planner.delegation
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.table.api.internal.SelectTableSink
-import org.apache.flink.table.api.{ExplainDetail, TableConfig, TableException, TableSchema}
-import org.apache.flink.table.catalog.{CatalogManager, FunctionCatalog, ObjectIdentifier}
+import org.apache.flink.table.api.{ExplainDetail, TableConfig, TableEnvironment, TableException, TableSchema}
+import org.apache.flink.table.catalog.{Catalog, CatalogManager, FunctionCatalog, ObjectIdentifier}
 import org.apache.flink.table.delegation.Executor
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation
 import org.apache.flink.table.operations.{CatalogSinkModifyOperation, ModifyOperation, Operation, QueryOperation}
 import org.apache.flink.table.planner.operations.PlannerQueryOperation
 import org.apache.flink.table.planner.plan.`trait`._
@@ -132,6 +133,19 @@ class StreamPlanner(
     sb.append(System.lineSeparator)
     sb.append(executionPlan)
     sb.toString()
+  }
+
+  override def generateQueryFromAnalyzeTableOperation(
+      tEnv: TableEnvironment,
+      analyzeTableOperation: AnalyzeTableOperation): String = {
+    throw new TableException(s"Unsupported Analyze Table Sql in stream planner.")
+  }
+
+  override def executeAnalyzeTable(
+      tEnv: TableEnvironment,
+      catalog: Catalog,
+      analyzeTableOperation: AnalyzeTableOperation): Unit = {
+    throw new TableException(s"Unsupported Analyze Table Sql in stream planner.")
   }
 
   private def createDummyPlanner(): StreamPlanner = {

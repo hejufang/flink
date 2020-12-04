@@ -21,11 +21,14 @@ package org.apache.flink.table.delegation;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.table.api.ExplainDetail;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.internal.SelectTableSink;
+import org.apache.flink.table.catalog.Catalog;
 import org.apache.flink.table.operations.ModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation;
 
 import java.util.List;
 
@@ -94,6 +97,25 @@ public interface Planner {
 	 *   e.g. estimated cost, changelog mode for streaming
 	 */
 	String explain(List<Operation> operations, ExplainDetail... extraDetails);
+
+	/**
+	 * Return the underlying actual analyze table SQL statement.
+	 *
+	 * @param analyzeTableOperation AnalyzeTableOperation.
+	 * @param tEnv TableEnvironment
+	 * @return the underlying select sql statement.
+	 */
+	String generateQueryFromAnalyzeTableOperation(
+		TableEnvironment tEnv, AnalyzeTableOperation analyzeTableOperation);
+
+	/**
+	 * Execute the analyze table SQL statement.
+	 *
+	 * @param analyzeTableOperation AnalyzeTableOperation.
+	 * @param tEnv TableEnvironment.
+	 */
+	void executeAnalyzeTable(
+		TableEnvironment tEnv, Catalog catalog, AnalyzeTableOperation analyzeTableOperation);
 
 	/**
 	 * Returns completion hints for the given statement at the given cursor position.

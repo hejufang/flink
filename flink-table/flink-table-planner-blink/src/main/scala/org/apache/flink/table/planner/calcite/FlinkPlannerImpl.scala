@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.calcite
 
+import org.apache.flink.sql.parser.ddl.SqlAnalyzeTable
 import org.apache.flink.sql.parser.ExtendedSqlNode
 import org.apache.flink.sql.parser.dql.{SqlRichDescribeTable, SqlShowCatalogs, SqlShowDatabases, SqlShowFunctions, SqlShowTables, SqlShowViews}
 import org.apache.flink.table.api.{TableException, ValidationException}
@@ -129,7 +130,8 @@ class FlinkPlannerImpl(
         || sqlNode.isInstanceOf[SqlShowTables]
         || sqlNode.isInstanceOf[SqlShowFunctions]
         || sqlNode.isInstanceOf[SqlShowViews]
-        || sqlNode.isInstanceOf[SqlRichDescribeTable]) {
+        || sqlNode.isInstanceOf[SqlRichDescribeTable]
+        || sqlNode.isInstanceOf[SqlAnalyzeTable]) {
         return sqlNode
       }
       sqlNode match {

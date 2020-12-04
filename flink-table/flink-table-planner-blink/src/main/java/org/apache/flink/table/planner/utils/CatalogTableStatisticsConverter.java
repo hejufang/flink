@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.utils;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.table.api.TableException;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatistics;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataBase;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataBinary;
@@ -29,23 +30,35 @@ import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataDouble;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataLong;
 import org.apache.flink.table.catalog.stats.CatalogColumnStatisticsDataString;
 import org.apache.flink.table.catalog.stats.CatalogTableStatistics;
+import org.apache.flink.table.catalog.stats.GenericCatalogColumnStatisticsData;
 import org.apache.flink.table.plan.stats.ColumnStats;
 import org.apache.flink.table.plan.stats.TableStats;
+import org.apache.flink.table.runtime.functions.SqlDateTimeUtils;
+import org.apache.flink.table.types.DataType;
 
 import org.apache.calcite.avatica.util.DateTimeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Utility class for converting {@link CatalogTableStatistics} and {@link CatalogColumnStatistics} to {@link TableStats}.
  */
 public class CatalogTableStatisticsConverter {
 
+	private static final Logger LOG = LoggerFactory.getLogger(CatalogTableStatisticsConverter.class);
+
 	public static TableStats convertToTableStats(
 			CatalogTableStatistics tableStatistics,
-			CatalogColumnStatistics columnStatistics) {
+			CatalogColumnStatistics columnStatistics,
+			TableSchema schema) {
 		long rowCount;
 		if (tableStatistics != null && tableStatistics.getRowCount() >= 0) {
 			rowCount = tableStatistics.getRowCount();
@@ -55,7 +68,8 @@ public class CatalogTableStatisticsConverter {
 
 		Map<String, ColumnStats> columnStatsMap;
 		if (columnStatistics != null) {
-			columnStatsMap = convertToColumnStatsMap(columnStatistics.getColumnStatisticsData());
+			columnStatsMap = convertToColumnStatsMap(
+				columnStatistics.getColumnStatisticsData(), schema);
 		} else {
 			columnStatsMap = new HashMap<>();
 		}
@@ -64,19 +78,30 @@ public class CatalogTableStatisticsConverter {
 
 	@VisibleForTesting
 	public static Map<String, ColumnStats> convertToColumnStatsMap(
-			Map<String, CatalogColumnStatisticsDataBase> columnStatisticsData) {
+			Map<String, CatalogColumnStatisticsDataBase> columnStatisticsData,
+			TableSchema schema) {
 		Map<String, ColumnStats> columnStatsMap = new HashMap<>();
 		for (Map.Entry<String, CatalogColumnStatisticsDataBase> entry : columnStatisticsData.entrySet()) {
-			if (entry.getValue() != null) {
-				ColumnStats columnStats = convertToColumnStats(entry.getValue());
-				columnStatsMap.put(entry.getKey(), columnStats);
+			if (entry.getValue() == null) {
+				continue;
+			}
+			String fieldName = entry.getKey();
+			Optional<DataType> fieldType = schema.getFieldDataType(fieldName);
+			if (fieldType.isPresent()) {
+				ColumnStats columnStats = convertToColumnStats(entry.getValue(), fieldType.get());
+				if (columnStats != null) {
+					columnStatsMap.put(fieldName, columnStats);
+				}
+			} else {
+				LOG.warn(fieldName + " is not found in TableSchema: " + schema);
 			}
 		}
 		return columnStatsMap;
 	}
 
 	private static ColumnStats convertToColumnStats(
-			CatalogColumnStatisticsDataBase columnStatisticsData) {
+			CatalogColumnStatisticsDataBase columnStatisticsData,
+			DataType fieldType) {
 		Long ndv = null;
 		Long nullCount = columnStatisticsData.getNullCount();
 		Double avgLen = null;
@@ -127,18 +152,82 @@ public class CatalogTableStatisticsConverter {
 			if (dateData.getMin() != null) {
 				min = Date.valueOf(DateTimeUtils.unixDateToString((int) dateData.getMin().getDaysSinceEpoch()));
 			}
+		} else if (columnStatisticsData instanceof GenericCatalogColumnStatisticsData) {
+			boolean hasValue = false;
+			Map<String, String> properties = columnStatisticsData.getProperties();
+			if (properties.containsKey(TableStatsConverter.NDV)) {
+				ndv = Long.valueOf(properties.get(TableStatsConverter.NDV));
+				hasValue = true;
+			}
+			nullCount = null;
+			if (properties.containsKey(TableStatsConverter.NULL_COUNT)) {
+				nullCount = Long.valueOf(properties.get(TableStatsConverter.NULL_COUNT));
+				hasValue = true;
+			}
+			if (properties.containsKey(TableStatsConverter.MAX_LEN)) {
+				maxLen = Integer.valueOf(properties.get(TableStatsConverter.MAX_LEN));
+				hasValue = true;
+			}
+			if (properties.containsKey(TableStatsConverter.AVG_LEN)) {
+				avgLen = Double.valueOf(properties.get(TableStatsConverter.AVG_LEN));
+				hasValue = true;
+			}
+			if (properties.containsKey(TableStatsConverter.MAX_VALUE)) {
+				max = convertToComparable(properties.get(TableStatsConverter.MAX_VALUE), fieldType);
+				hasValue = true;
+			}
+			if (properties.containsKey(TableStatsConverter.MIN_VALUE)) {
+				min = convertToComparable(properties.get(TableStatsConverter.MIN_VALUE), fieldType);
+				hasValue = true;
+			}
+			if (!hasValue) {
+				return null;
+			}
 		} else {
 			throw new TableException("Unsupported CatalogColumnStatisticsDataBase: " +
 					columnStatisticsData.getClass().getCanonicalName());
 		}
 		return ColumnStats.Builder
-				.builder()
-				.setNdv(ndv)
-				.setNullCount(nullCount)
-				.setAvgLen(avgLen)
-				.setMaxLen(maxLen)
-				.setMax(max)
-				.setMin(min)
-				.build();
+			.builder()
+			.setNdv(ndv)
+			.setNullCount(nullCount)
+			.setAvgLen(avgLen)
+			.setMaxLen(maxLen)
+			.setMax(max)
+			.setMin(min)
+			.build();
+	}
+
+	private static Comparable<?> convertToComparable(String value, DataType dataType) {
+		switch (dataType.getLogicalType().getTypeRoot()) {
+			case TINYINT:
+				return Byte.valueOf(value);
+			case SMALLINT:
+				return Short.valueOf(value);
+			case INTEGER:
+				return Integer.valueOf(value);
+			case BIGINT:
+				return Long.valueOf(value);
+			case FLOAT:
+				return Float.valueOf(value);
+			case DOUBLE:
+				return Double.valueOf(value);
+			case DECIMAL:
+				return BigDecimal.valueOf(Double.valueOf(value));
+			case BOOLEAN:
+				return Boolean.valueOf(value);
+			case DATE:
+				return Date.valueOf(value);
+			case VARCHAR:
+				return String.valueOf(value);
+			case TIME_WITHOUT_TIME_ZONE:
+				return Time.valueOf(value);
+			case TIMESTAMP_WITHOUT_TIME_ZONE:
+			case TIMESTAMP_WITH_TIME_ZONE:
+			case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+				return new Timestamp(SqlDateTimeUtils.toTimestamp(value, "yyyy-MM-dd'T'HH:mm"));
+			default:
+				return null;
+		}
 	}
 }

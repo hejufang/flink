@@ -31,6 +31,7 @@ import org.apache.flink.table.executor.StreamExecutor
 import org.apache.flink.table.explain.PlanJsonParser
 import org.apache.flink.table.expressions.{ExpressionBridge, PlannerExpression, PlannerExpressionConverter, PlannerTypeInferenceUtilImpl}
 import org.apache.flink.table.factories.{TableFactoryUtil, TableSinkFactoryContextImpl}
+import org.apache.flink.table.operations.ddl.AnalyzeTableOperation
 import org.apache.flink.table.operations.OutputConversionModifyOperation.UpdateMode
 import org.apache.flink.table.operations._
 import org.apache.flink.table.plan.StreamOptimizer
@@ -178,6 +179,19 @@ class StreamPlanner(
       s"== Physical Execution Plan ==" +
       System.lineSeparator +
       s"$sqlPlan"
+  }
+
+  override def generateQueryFromAnalyzeTableOperation(
+      tEnv: TableEnvironment,
+      analyzeTableOperation: AnalyzeTableOperation): String = {
+    throw new TableException(s"Unsupported Analyze Table Sql in stream planner.")
+  }
+
+  override def executeAnalyzeTable(
+      tEnv: TableEnvironment,
+      catalog: Catalog,
+      analyzeTableOperation: AnalyzeTableOperation): Unit = {
+    throw new TableException(s"Unsupported Analyze Table Sql in stream planner.")
   }
 
   override def getCompletionHints(

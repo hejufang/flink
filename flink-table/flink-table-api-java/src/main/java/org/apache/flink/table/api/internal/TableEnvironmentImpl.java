@@ -681,6 +681,18 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	}
 
 	@Override
+	public String convertAnalyzeTableStatementToQuery(String statement) {
+		List<Operation> operations = parser.parse(statement);
+
+		if (operations.size() != 1 || !(operations.get(0) instanceof AnalyzeTableOperation)) {
+			throw new TableException(
+				"Unsupported SQL query! analyzeTableSql() only accepts a single SQL query or .");
+		}
+		return planner.generateQueryFromAnalyzeTableOperation(
+			this, (AnalyzeTableOperation) operations.get(0));
+	}
+
+	@Override
 	public String explainInternal(List<Operation> operations, ExplainDetail... extraDetails) {
 		return planner.explain(operations, extraDetails);
 	}
@@ -863,7 +875,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			// There is no need to handle AddResourcesOperation in planner for now.
 			return TableResultImpl.TABLE_RESULT_OK;
 		} else if (operation instanceof AnalyzeTableOperation) {
-			// TODO: implement analyze table.
+			AnalyzeTableOperation analyzeTableOperation = (AnalyzeTableOperation) operation;
+			Catalog catalog = getCatalogOrThrowException(
+				analyzeTableOperation.getTableIdentifier().getCatalogName());
+			planner.executeAnalyzeTable(this, catalog, analyzeTableOperation);
 			return TableResultImpl.TABLE_RESULT_OK;
 		} else if (operation instanceof ModifyOperation) {
 			return executeInternal(Collections.singletonList((ModifyOperation) operation));
