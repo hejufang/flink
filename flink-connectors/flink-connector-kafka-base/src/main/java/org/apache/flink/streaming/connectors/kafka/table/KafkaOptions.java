@@ -35,6 +35,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -128,6 +129,13 @@ public class KafkaOptions {
 			.booleanType()
 			.noDefaultValue()
 			.withDescription("Optional reset to earliest for new partition.");
+
+	public static final ConfigOption<Duration> SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL = ConfigOptions
+		.key("scan.manually-commit-offsets-interval")
+		.durationType()
+		.noDefaultValue()
+		.withDescription("Optional commit offset interval.");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------

@@ -234,6 +234,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	/** Sample num in each turn. */
 	protected long sampleNum = 1;
+
+	protected long manualCommitInterval = -1;
+
 	// ------------------------------------------------------------------------
 	//  internal metrics
 	// ------------------------------------------------------------------------
@@ -828,7 +831,13 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				offsetCommitMode,
 				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
 				useMetrics,
-				new BytedKafkaConfig(rateLimitingUnit, sampleInterval, sampleNum));
+				new BytedKafkaConfig(rateLimitingUnit, sampleInterval, sampleNum, manualCommitInterval));
+
+		if (restoredState != null) {
+			LOG.info("Consumer subtask {} has already recovered from a successful checkpoint.",
+				getRuntimeContext().getIndexOfThisSubtask());
+			kafkaFetcher.setHasSuccessfulCheckpoint();
+		}
 
 		if (!running) {
 			return;
@@ -1119,6 +1128,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				}
 
 				fetcher.commitInternalOffsetsToKafka(offsets, offsetCommitCallback);
+				fetcher.setHasSuccessfulCheckpoint();
 			} catch (Exception e) {
 				if (running) {
 					throw e;
@@ -1257,6 +1267,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public void setSampleNum(long sampleNum) {
 		this.sampleNum = sampleNum;
+	}
+
+	public long getManualCommitInterval() {
+		return manualCommitInterval;
+	}
+
+	public void setManualCommitInterval(long manualCommitInterval) {
+		this.manualCommitInterval = manualCommitInterval;
 	}
 
 	/**

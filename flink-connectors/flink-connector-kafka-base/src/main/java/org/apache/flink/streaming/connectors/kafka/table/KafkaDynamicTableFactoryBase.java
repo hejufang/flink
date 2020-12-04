@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_CLUSTER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PROPS_GROUP_ID;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_UNIT;
@@ -190,6 +191,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_SOURCE_SAMPLE_NUM);
 		options.add(SCAN_SOURCE_SAMPLE_INTERVAL);
 		options.add(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+		options.add(SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL);
+
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
@@ -213,6 +216,9 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_NUM).ifPresent(sourceConfig::setScanSampleNum);
 		readableConfig.getOptional(FactoryUtil.SOURCE_METADATA_COLUMN).ifPresent(
 			metaDataInfo -> validateAndSetMetaInfo(metaDataInfo, tableSchema, sourceConfig)
+		);
+		readableConfig.getOptional(SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL).ifPresent(
+			d -> sourceConfig.setManualCommitInterval(d.toMillis())
 		);
 
 		return sourceConfig;

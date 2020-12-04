@@ -37,6 +37,7 @@ public class KafkaSourceConfig implements Serializable  {
 	private Boolean kafkaResetNewPartition;
 	private DataType withoutMetaDataType;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
+	private long manualCommitInterval;
 
 	public long getRateLimitNumber() {
 		return rateLimitNumber;
@@ -102,6 +103,14 @@ public class KafkaSourceConfig implements Serializable  {
 		this.metadataMap = metadataMap;
 	}
 
+	public long getManualCommitInterval() {
+		return manualCommitInterval;
+	}
+
+	public void setManualCommitInterval(long manualCommitInterval) {
+		this.manualCommitInterval = manualCommitInterval;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -118,12 +127,13 @@ public class KafkaSourceConfig implements Serializable  {
 			Objects.equals(partitionTopicList, that.partitionTopicList) &&
 			Objects.equals(kafkaResetNewPartition, that.kafkaResetNewPartition) &&
 			Objects.equals(withoutMetaDataType, that.withoutMetaDataType) &&
-			Objects.equals(metadataMap, that.metadataMap);
+			Objects.equals(metadataMap, that.metadataMap) &&
+			Objects.equals(manualCommitInterval, that.manualCommitInterval);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval,
-			scanSampleNum, partitionTopicList, kafkaResetNewPartition, withoutMetaDataType, metadataMap);
+		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval, scanSampleNum,
+			partitionTopicList, kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval);
 	}
 }

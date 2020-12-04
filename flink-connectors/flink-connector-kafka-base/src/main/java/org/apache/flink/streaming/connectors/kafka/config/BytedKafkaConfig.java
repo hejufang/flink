@@ -26,11 +26,17 @@ public class BytedKafkaConfig {
 	private final RateLimitingUnit rateLimitingUnit;
 	private final long sampleInterval;
 	private final long sampleNum;
+	private final long manualCommitInterval;
 
-	public BytedKafkaConfig(RateLimitingUnit rateLimitingUnit, long sampleInterval, long sampleNum) {
+	public BytedKafkaConfig(
+			RateLimitingUnit rateLimitingUnit,
+			long sampleInterval,
+			long sampleNum,
+			long manualCommitInterval) {
 		this.rateLimitingUnit = rateLimitingUnit;
 		this.sampleInterval = sampleInterval;
 		this.sampleNum = sampleNum;
+		this.manualCommitInterval = manualCommitInterval;
 	}
 
 	public RateLimitingUnit getRateLimitingUnit() {
@@ -43,5 +49,9 @@ public class BytedKafkaConfig {
 
 	public long getSampleNum() {
 		return sampleNum;
+	}
+
+	public long getManualCommitInterval() {
+		return manualCommitInterval;
 	}
 }

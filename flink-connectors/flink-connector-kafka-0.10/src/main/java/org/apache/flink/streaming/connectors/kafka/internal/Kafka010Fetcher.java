@@ -69,6 +69,10 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 	/** The schema to convert between Kafka's byte messages, and Flink's objects. */
 	private final KafkaDeserializationSchema<T> deserializer;
 
+	/** The lock that guarantees that record emission and state updates are atomic,
+	 * from the view of taking a checkpoint. */
+	private final Object checkpointLock;
+
 	/** The handover of data and exceptions between the consumer thread and the task thread. */
 	private final Handover handover;
 
@@ -77,6 +81,12 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 	/** Flag to mark the main work loop as alive. */
 	private volatile boolean running = true;
+
+	private long lastCommitTimestamp = 0L;
+
+	private final long manualCommitInterval;
+
+	private final KafkaCommitCallback manualCommitCallback;
 
 	public Kafka010Fetcher(
 			SourceContext<T> sourceContext,
@@ -106,6 +116,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 		this.deserializer = deserializer;
 		this.handover = new Handover();
+		this.manualCommitInterval = bytedKafkaConfig.getManualCommitInterval();
+		this.checkpointLock = sourceContext.getCheckpointLock();
 
 		this.consumerThread = new KafkaConsumerThread(
 				LOG,
@@ -119,6 +131,20 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				subtaskMetricGroup,
 				rateLimiter,
 				bytedKafkaConfig);
+
+		if (manualCommitInterval > 0) {
+			LOG.info("Begin commit offsets manually after first successful checkpoint.");
+		}
+		this.manualCommitCallback = new KafkaCommitCallback() {
+			@Override
+			public void onSuccess() {
+			}
+
+			@Override
+			public void onException(Throwable cause) {
+				LOG.warn("Fail to commit offsets manually.", cause);
+			}
+		};
 	}
 
 	// ------------------------------------------------------------------------
@@ -164,6 +190,16 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 						}
 					}
 				}
+
+				// commit offsets manually
+				if (manualCommitInterval > 0) {
+					final long currTimestamp = System.currentTimeMillis();
+					if (currTimestamp - lastCommitTimestamp > manualCommitInterval
+						&& !consumerThread.isCommitInProgress()) {
+						commitKafkaOffsetsManually();
+						lastCommitTimestamp = currTimestamp;
+					}
+				}
 			}
 		}
 		finally {
@@ -179,6 +215,19 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 			// may be the result of a wake-up interruption after an exception.
 			// we ignore this here and only restore the interruption state
 			Thread.currentThread().interrupt();
+		}
+	}
+
+	/**
+	 * Commit offsets manually instead of waiting for checkpoint (only available after first checkpoint).
+	 */
+	public void commitKafkaOffsetsManually() throws Exception {
+		if (getHasSuccessfulCheckpoint().get()) {
+			synchronized (checkpointLock) {
+				// acquire checkpointLock to avoid contention with notifyCheckpointComplete
+				final HashMap<KafkaTopicPartition, Long> partitionOffsets = snapshotCurrentState();
+				commitInternalOffsetsToKafka(partitionOffsets, manualCommitCallback);
+			}
 		}
 	}
 

@@ -342,6 +342,10 @@ public class KafkaConsumerThread<T> extends Thread {
 		}
 	}
 
+	public boolean isCommitInProgress() {
+		return commitInProgress;
+	}
+
 	/**
 	 * Shuts this thread down, waking up the thread gracefully if blocked (without Thread.interrupt() calls).
 	 */

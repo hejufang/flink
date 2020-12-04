@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITTED_OFFSETS_METRICS_GAUGE;
@@ -70,6 +71,8 @@ public abstract class AbstractFetcher<T, KPH> {
 
 	/** The source context to emit records and watermarks to. */
 	protected final SourceContext<T> sourceContext;
+
+	private final AtomicBoolean hasSuccessfulCheckpoint;
 
 	/**
 	 * Wrapper around our SourceContext for allowing the {@link org.apache.flink.api.common.eventtime.WatermarkGenerator}
@@ -203,6 +206,8 @@ public abstract class AbstractFetcher<T, KPH> {
 
 			periodicEmitter.start();
 		}
+
+		hasSuccessfulCheckpoint = new AtomicBoolean(false);
 	}
 
 	/**
@@ -572,5 +577,13 @@ public abstract class AbstractFetcher<T, KPH> {
 			// schedule the next watermark
 			timerService.registerTimer(timerService.getCurrentProcessingTime() + interval, this);
 		}
+	}
+
+	public AtomicBoolean getHasSuccessfulCheckpoint() {
+		return hasSuccessfulCheckpoint;
+	}
+
+	public void setHasSuccessfulCheckpoint() {
+		hasSuccessfulCheckpoint.compareAndSet(false, true);
 	}
 }
