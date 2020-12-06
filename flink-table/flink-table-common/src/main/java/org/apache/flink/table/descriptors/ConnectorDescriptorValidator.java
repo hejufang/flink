@@ -79,6 +79,11 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	 */
 	public static final String METADATA_FIELD_INDEX_MAPPING = "metadata.field-index.mapping";
 
+	/**
+	 * Key for field names of primary keys, delimited by ','.
+	 */
+	public static final String CONNECTOR_KEY_FIELDS = "connector.key.fields";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateString(CONNECTOR_TYPE, false, 1);

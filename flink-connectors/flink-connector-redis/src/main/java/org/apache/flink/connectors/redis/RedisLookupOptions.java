@@ -38,11 +38,19 @@ public class RedisLookupOptions implements Serializable {
 
 	private final boolean cacheNullValue;
 
-	private RedisLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, boolean cacheNullValue) {
+	private final String keyField;
+
+	public RedisLookupOptions(
+			long cacheMaxSize,
+			long cacheExpireMs,
+			int maxRetryTimes,
+			boolean cacheNullValue,
+			String keyField) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.cacheNullValue = cacheNullValue;
+		this.keyField = keyField;
 	}
 
 	public long getCacheMaxSize() {
@@ -61,6 +69,10 @@ public class RedisLookupOptions implements Serializable {
 		return cacheNullValue;
 	}
 
+	public String getKeyField() {
+		return keyField;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -72,7 +84,8 @@ public class RedisLookupOptions implements Serializable {
 			return Objects.equals(cacheMaxSize, options.cacheMaxSize) &&
 					Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
 					Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
-					Objects.equals(cacheNullValue, options.cacheNullValue);
+					Objects.equals(cacheNullValue, options.cacheNullValue) &&
+					Objects.equals(keyField, options.keyField);
 		} else {
 			return false;
 		}
@@ -86,6 +99,7 @@ public class RedisLookupOptions implements Serializable {
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private boolean cacheNullValue = true;
+		private String keyField;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -116,8 +130,13 @@ public class RedisLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setKeyField(String keyField) {
+			this.keyField = keyField;
+			return this;
+		}
+
 		public RedisLookupOptions build() {
-			return new RedisLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, cacheNullValue);
+			return new RedisLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, cacheNullValue, keyField);
 		}
 	}
 

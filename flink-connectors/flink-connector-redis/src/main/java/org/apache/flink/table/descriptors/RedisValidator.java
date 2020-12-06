@@ -20,9 +20,13 @@ package org.apache.flink.table.descriptors;
 
 import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisMode;
+import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.ValidationException;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+
+import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 
 /**
  * The validator for redis.
@@ -72,5 +76,24 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_LOG_FAILURES_ONLY, true);
 		properties.validateBoolean(CONNECTOR_SKIP_FORMAT_KEY, true);
 		properties.validateInt(CONNECTOR_LATER_JOIN_LATENCY_MS, true, 1000);
+		validateKeyField(properties);
+	}
+
+	protected void validateKeyField(DescriptorProperties properties) {
+		properties.validateString(CONNECTOR_KEY_FIELDS, true, 1);
+		properties.getOptionalString(CONNECTOR_KEY_FIELDS).ifPresent(
+			keyFieldString -> {
+				String[] fieldArray = keyFieldString.split(",");
+				if (fieldArray.length > 1) {
+					throw new ValidationException(String.format("%d primary keys are set. Only 1 primary key can " +
+						"be set in Abase / Redis connector.", fieldArray.length));
+				}
+				TableSchema tableSchema = properties.getTableSchema(SCHEMA);
+				if (!tableSchema.getFieldNameIndex(fieldArray[0]).isPresent()) {
+					throw new ValidationException(String.format("The declared key field doesn't exist. " +
+						"The schema is %s", String.join(", ", tableSchema.getFieldNames())));
+				}
+			}
+		);
 	}
 }

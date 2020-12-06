@@ -24,6 +24,7 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisUtils;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.types.Row;
@@ -42,6 +43,7 @@ import redis.clients.jedis.exceptions.JedisException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +102,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
 	private final boolean cacheNullValue;
+	private final int keyFieldIndex;
 
 	private transient Cache<Row, Row> cache;
 
@@ -138,6 +141,15 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
 		this.maxRetryTimes = lookupOptions.getMaxRetryTimes();
 		this.cacheNullValue = lookupOptions.isCacheNullValue();
+		//Check if the lookup key set by user is equal to the real lookup key.
+		if (lookupOptions.getKeyField() == null) {
+			this.keyFieldIndex = -1;
+		} else if (lookupOptions.getKeyField().equals(keyNames[0])) {
+			this.keyFieldIndex = nameList.indexOf(keyNames[0]);
+		} else {
+			throw new ValidationException(String.format("The set lookup key is not equal to the real " +
+				"lookup key. The former is %s, the latter is %s", lookupOptions.getKeyField(), keyNames[0]));
+		}
 
 		this.deserializationSchema = deserializationSchema;
 	}
@@ -261,6 +273,14 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		Row row = null;
 		if (value != null) {
 			row = deserializationSchema.deserialize(value);
+		}
+		if (keyFieldIndex >= 0) {
+			List<Object> valueList = new ArrayList<>();
+			for (int i = 0; i < row.getArity(); i++) {
+				valueList.add(row.getField(i));
+			}
+			valueList.add(keyFieldIndex, convertByteArrayToFieldType(key, keyTypes[0]));
+			return Row.of(valueList.toArray(new Object[0]));
 		}
 		return row;
 	}

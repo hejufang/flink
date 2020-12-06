@@ -327,8 +327,9 @@ public class RedisOptions {
 			return this;
 		}
 
-		public void setLaterJoinLatencyMs(int laterJoinLatencyMs) {
+		public RedisOptionsBuilder setLaterJoinLatencyMs(int laterJoinLatencyMs) {
 			this.laterJoinLatencyMs = laterJoinLatencyMs;
+			return this;
 		}
 
 		public RedisOptions build() {

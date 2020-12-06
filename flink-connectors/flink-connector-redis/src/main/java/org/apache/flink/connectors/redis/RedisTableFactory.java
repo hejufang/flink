@@ -32,12 +32,14 @@ import org.apache.flink.table.factories.StreamTableSinkFactory;
 import org.apache.flink.table.factories.StreamTableSourceFactory;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.table.sources.StreamTableSource;
+import org.apache.flink.table.utils.PropertyUtils;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,7 @@ import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_SET;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_STRING;
 import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.connectors.util.Constant.REDIS_INCR_VALID_DATATYPE;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_CACHE_NULL_VALUE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -128,6 +131,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
 		properties.add(CONNECTOR_LATER_JOIN_LATENCY_MS);
+		properties.add(CONNECTOR_KEY_FIELDS);
 
 		// format wildcard
 		properties.add(FORMAT + ".*");
@@ -143,10 +147,20 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 	public StreamTableSource<Row> createStreamTableSource(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		DeserializationSchema<Row> deserializationSchema = null;
+		TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
 		if (properties.containsKey(FormatDescriptorValidator.FORMAT_TYPE)) {
 			if (properties.containsKey(CONNECTOR_DATA_TYPE)) {
 				throw new FlinkRuntimeException("Can't configure the format.type and " +
 					"connector.redis-data-type at the same time.");
+			}
+			if (properties.containsKey(CONNECTOR_KEY_FIELDS)) {
+				String keyFieldName = properties.get(CONNECTOR_KEY_FIELDS);
+				Map<String, String> newProperties = new HashMap<>(properties);
+				tableSchema.getFieldNameIndex(keyFieldName).ifPresent(
+					fieldIndex ->
+						PropertyUtils.removeFieldProperties(newProperties, Collections.singletonList(fieldIndex))
+				);
+				properties = newProperties;
 			}
 			deserializationSchema = TableConnectorUtils.getDeserializationSchema(properties,
 				this.getClass().getClassLoader());
@@ -155,7 +169,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		return RedisTableSource.builder()
 				.setOptions(getRedisOptions(descriptorProperties))
 				.setLookupOptions(getRedisLookupOptions(descriptorProperties))
-				.setSchema(descriptorProperties.getTableSchema(SCHEMA))
+				.setSchema(tableSchema)
 				.setDeserializationSchema(deserializationSchema)
 				.build();
 	}
@@ -340,6 +354,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 				s -> builder.setCacheExpireMs(s.toMillis()));
 		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_CACHE_NULL_VALUE).ifPresent(builder::setCacheNullValue);
+		descriptorProperties.getOptionalString(CONNECTOR_KEY_FIELDS).ifPresent(builder::setKeyField);
 
 		return builder.build();
 	}

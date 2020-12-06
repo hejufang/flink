@@ -98,6 +98,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.METADATA_FIELDS_MAPPING;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -576,7 +577,8 @@ public class SqlToOperationConverter {
 
 			// Adding metadata related fields for pb format.
 			Set<String> metadataFields = null;
-			if (propertiesMap.containsKey(METADATA_FIELDS_MAPPING)) {
+			if (propertiesMap.containsKey(METADATA_FIELDS_MAPPING) ||
+				propertiesMap.containsKey(CONNECTOR_KEY_FIELDS)) {
 				metadataFields = new HashSet<>();
 				// setup table columns
 				SqlNodeList columnList = sqlCreateTable.getColumnList();
