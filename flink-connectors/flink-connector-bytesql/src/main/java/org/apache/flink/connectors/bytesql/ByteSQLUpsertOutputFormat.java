@@ -161,16 +161,20 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 			recordBuffer.forEach(tuple -> keyToRows.put(getPrimaryKey(tuple.f1), tuple));
 			if (keyToRows.size() > 0) {
 				ByteSQLTransaction transaction = null;
+				String sql;
 				try {
 					transaction = byteSQLDB.beginTransaction();
 					for (Map.Entry<Row, Tuple2<Boolean, Row>> entry : keyToRows.entrySet()) {
 						Row pk = entry.getKey();
 						Tuple2<Boolean, Row> tuple = entry.getValue();
-						String sql;
 						if (tuple.f0) {
 							sql = ByteSQLUtils.generateActualSql(upsertSQL, tuple.f1);
-						} else {
+						} else if (pkFields.length == 0){
+							//Temporary fix, see INFOI-14662.
 							sql = ByteSQLUtils.generateActualSql(deleteSQL, pk);
+						}
+						else {
+							continue;
 						}
 						transaction.rawQuery(sql);
 					}
