@@ -19,7 +19,7 @@
 package org.apache.flink.table.catalog.hive.factories;
 
 import org.apache.flink.table.catalog.Catalog;
-import org.apache.flink.table.catalog.GeneralCachedCatalog;
+import org.apache.flink.table.catalog.GenericCachedCatalog;
 import org.apache.flink.table.catalog.hive.HiveCatalog;
 import org.apache.flink.table.catalog.hive.client.HiveShimLoader;
 import org.apache.flink.table.catalog.hive.descriptors.HiveCatalogValidator;
@@ -121,7 +121,7 @@ public class HiveCatalogFactory implements CatalogFactory {
 				.orElse(DEFAULT_CATALOG_CACHE_ASYNC_RELOAD);
 			long maxSize = descriptorProperties.getOptionalLong(CATALOG_CACHE_MAXIMUM_SIZE)
 				.orElse(DEFAULT_CATALOG_CACHE_MAXIMUM_SIZE);
-			return new GeneralCachedCatalog(
+			return new GenericCachedCatalog(
 				hiveCatalog, name, defaultDatabase, asyncReloadEnabled, executorSize, ttl, refresh, maxSize);
 		} else {
 			return hiveCatalog;

@@ -74,7 +74,7 @@ import static org.apache.flink.util.ExceptionUtils.throwIfUnchecked;
  *       2. update related cache.
  * </pre>
  */
-public class GeneralCachedCatalog extends AbstractCatalog  {
+public class GenericCachedCatalog extends AbstractCatalog  {
 
 	private final AbstractCatalog delegate;
 
@@ -95,7 +95,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 	private final LoadingCache<String, CatalogDatabase> databaseCache;
 	// K: databaseName, V: tableName list
 	private final LoadingCache<String, List<String>> tableNamesCache;
-	// K: databaseName + objectName, V: CatalogBaseTable
+	// K: databaseName + tableName, V: CatalogBaseTable
 	private final LoadingCache<ObjectPath, CatalogBaseTable> tableCache;
 	// K: databaseName, V: viewName list
 	private final LoadingCache<String, List<String>> viewNamesCache;
@@ -124,7 +124,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 	private final LoadingCache<Tuple2<ObjectPath, CatalogPartitionSpec>, CatalogColumnStatistics>
 			partitionColumnStatisticsCache;
 
-	public GeneralCachedCatalog(
+	public GenericCachedCatalog(
 			AbstractCatalog delegateCatalog,
 			String catalogName,
 			String database,
@@ -144,7 +144,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 			maximumSize);
 	}
 
-	private GeneralCachedCatalog(
+	private GenericCachedCatalog(
 			AbstractCatalog delegateCatalog,
 			String catalogName,
 			String database,
@@ -319,8 +319,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.createDatabase(name, database, ignoreIfExists);
 		} finally {
-			databaseNamesCache.refresh(delegate.getName());
-			databaseCache.invalidate(name);
+			invalidateDatabaseCache(name);
 		}
 	}
 
@@ -330,8 +329,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.dropDatabase(name, ignoreIfNotExists);
 		} finally {
-			databaseNamesCache.refresh(delegate.getName());
-			databaseCache.invalidate(name);
+			invalidateDatabaseCache(name);
 		}
 	}
 
@@ -341,8 +339,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.dropDatabase(name, ignoreIfNotExists, cascade);
 		} finally {
-			databaseNamesCache.refresh(delegate.getName());
-			databaseCache.invalidate(name);
+			invalidateDatabaseCache(name);
 		}
 	}
 
@@ -352,7 +349,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.alterDatabase(name, newDatabase, ignoreIfNotExists);
 		} finally {
-			databaseCache.invalidate(name);
+			invalidateDatabaseCache(name);
 		}
 	}
 
@@ -427,10 +424,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.dropTable(tablePath, ignoreIfNotExists);
 		} finally {
-			tableNamesCache.refresh(tablePath.getDatabaseName());
-			tableCache.invalidate(tablePath);
-			tableStatisticsCache.invalidate(tablePath);
-			columnStatisticsCache.invalidate(tablePath);
+			invalidateTableCache(tablePath);
 		}
 	}
 
@@ -440,10 +434,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.renameTable(tablePath, newTableName, ignoreIfNotExists);
 		} finally {
-			tableNamesCache.refresh(tablePath.getDatabaseName());
-			tableCache.invalidate(tablePath);
-			tableStatisticsCache.invalidate(tablePath);
-			columnStatisticsCache.invalidate(tablePath);
+			invalidateTableCache(tablePath);
 		}
 	}
 
@@ -453,8 +444,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.createTable(tablePath, table, ignoreIfExists);
 		} finally {
-			tableNamesCache.refresh(tablePath.getDatabaseName());
-			tableCache.invalidate(tablePath);
+			invalidateTableCache(tablePath);
 		}
 	}
 
@@ -464,7 +454,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.alterTable(tablePath, newTable, ignoreIfNotExists);
 		} finally {
-			tableCache.invalidate(tablePath);
+			invalidateTableCache(tablePath);
 		}
 	}
 
@@ -492,8 +482,8 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 	@Override
 	public List<CatalogPartitionSpec> listPartitions(
 			ObjectPath tablePath,
-			CatalogPartitionSpec partitionSpec)
-			throws TableNotExistException, TableNotPartitionedException, CatalogException {
+			CatalogPartitionSpec partitionSpec) throws TableNotExistException,
+			TableNotPartitionedException, CatalogException {
 		return delegate.listPartitions(tablePath, partitionSpec);
 	}
 
@@ -502,9 +492,8 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 			ObjectPath tablePath,
 			List<Expression> filters)
 			throws TableNotExistException, TableNotPartitionedException, CatalogException {
-		Tuple2<ObjectPath, List<Expression>> key = new Tuple2<>(tablePath, filters);
 		try {
-			return partitionSpecsFilterCache.get(key);
+			return partitionSpecsFilterCache.get(new Tuple2<>(tablePath, filters));
 		} catch (ExecutionException | UncheckedExecutionException e) {
 			throwIfInstanceOf(e.getCause(), TableNotExistException.class);
 			throwAnotherIfInstanceOf(e.getCause(), CatalogEntryNotExistException.class,
@@ -526,9 +515,8 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 	public CatalogPartition getPartition(
 			ObjectPath tablePath,
 			CatalogPartitionSpec partitionSpec) throws PartitionNotExistException, CatalogException {
-		Tuple2<ObjectPath, CatalogPartitionSpec> key = new Tuple2<>(tablePath, partitionSpec);
 		try {
-			return partitionCache.get(key);
+			return partitionCache.get(new Tuple2<>(tablePath, partitionSpec));
 		} catch (ExecutionException | UncheckedExecutionException e) {
 			throwIfInstanceOf(e.getCause(), PartitionNotExistException.class);
 			throwAnotherIfInstanceOf(e.getCause(), CatalogEntryNotExistException.class,
@@ -556,15 +544,12 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 			ObjectPath tablePath,
 			CatalogPartitionSpec partitionSpec,
 			CatalogPartition partition,
-			boolean ignoreIfExists)
-			throws TableNotExistException, TableNotPartitionedException,
+			boolean ignoreIfExists) throws TableNotExistException, TableNotPartitionedException,
 			PartitionSpecInvalidException, PartitionAlreadyExistsException, CatalogException {
 		try {
 			delegate.createPartition(tablePath, partitionSpec, partition, ignoreIfExists);
 		} finally {
-			partitionSpecsCache.refresh(tablePath);
-			partitionSpecsFilterCache.invalidateAll();
-			partitionCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
+			invalidatePartitionCache(tablePath, partitionSpec);
 		}
 	}
 
@@ -576,9 +561,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.dropPartition(tablePath, partitionSpec, ignoreIfNotExists);
 		} finally {
-			partitionSpecsCache.refresh(tablePath);
-			partitionSpecsFilterCache.invalidateAll();
-			partitionCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
+			invalidatePartitionCache(tablePath, partitionSpec);
 		}
 	}
 
@@ -591,9 +574,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.alterPartition(tablePath, partitionSpec, newPartition, ignoreIfNotExists);
 		} finally {
-			partitionSpecsCache.refresh(tablePath);
-			partitionSpecsFilterCache.invalidateAll();
-			partitionCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
+			invalidatePartitionCache(tablePath, partitionSpec);
 		}
 	}
 
@@ -651,8 +632,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.createFunction(functionPath, function, ignoreIfExists);
 		} finally {
-			functionNamesCache.refresh(functionPath.getDatabaseName());
-			functionCache.invalidate(functionPath);
+			invalidateFunctionCache(functionPath);
 		}
 	}
 
@@ -674,8 +654,7 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		try {
 			delegate.dropFunction(functionPath, ignoreIfNotExists);
 		} finally {
-			functionNamesCache.refresh(functionPath.getDatabaseName());
-			functionCache.invalidate(functionPath);
+			invalidateFunctionCache(functionPath);
 		}
 	}
 
@@ -723,9 +702,8 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 	public CatalogTableStatistics getPartitionStatistics(
 			ObjectPath tablePath,
 			CatalogPartitionSpec partitionSpec) throws PartitionNotExistException, CatalogException {
-		Tuple2<ObjectPath, CatalogPartitionSpec> key = new Tuple2<>(tablePath, partitionSpec);
 		try {
-			return partitionStatisticsCache.get(key);
+			return partitionStatisticsCache.get(new Tuple2<>(tablePath, partitionSpec));
 		} catch (ExecutionException | UncheckedExecutionException e) {
 			throwIfInstanceOf(e.getCause(), PartitionNotExistException.class);
 			throwAnotherIfInstanceOf(e.getCause(), CatalogEntryNotExistException.class,
@@ -746,9 +724,8 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 	public CatalogColumnStatistics getPartitionColumnStatistics(
 			ObjectPath tablePath,
 			CatalogPartitionSpec partitionSpec) throws PartitionNotExistException, CatalogException {
-		Tuple2<ObjectPath, CatalogPartitionSpec> key = new Tuple2<>(tablePath, partitionSpec);
 		try {
-			return partitionColumnStatisticsCache.get(key);
+			return partitionColumnStatisticsCache.get(new Tuple2<>(tablePath, partitionSpec));
 		} catch (ExecutionException | UncheckedExecutionException e) {
 			throwIfInstanceOf(e.getCause(), PartitionNotExistException.class);
 			throwAnotherIfInstanceOf(e.getCause(), CatalogEntryNotExistException.class,
@@ -816,6 +793,87 @@ public class GeneralCachedCatalog extends AbstractCatalog  {
 		} finally {
 			partitionColumnStatisticsCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
 		}
+	}
+
+	protected void invalidateDatabaseCache(String dbName) {
+		databaseNamesCache.invalidate(delegate.getName());
+		databaseCache.invalidate(dbName);
+		tableNamesCache.invalidate(dbName);
+		tableCache.asMap().keySet().stream()
+				.filter(key -> key.getDatabaseName().equals(dbName))
+				.forEach(tableCache::invalidate);
+		viewNamesCache.asMap().keySet().stream()
+				.filter(key -> key.equals(dbName))
+				.forEach(viewNamesCache::invalidate);
+		partitionSpecsCache.asMap().keySet().stream()
+				.filter(key -> key.getDatabaseName().equals(dbName))
+				.forEach(partitionSpecsCache::invalidate);
+		partitionSpecsFilterCache.asMap().keySet().stream()
+				.filter(key -> key.f0.getDatabaseName().equals(dbName))
+				.forEach(partitionSpecsFilterCache::invalidate);
+		partitionCache.asMap().keySet().stream()
+				.filter(key -> key.f0.getDatabaseName().equals(dbName))
+				.forEach(partitionCache::invalidate);
+		functionNamesCache.asMap().keySet().stream()
+				.filter(key -> key.equals(dbName))
+				.forEach(functionNamesCache::invalidate);
+		functionCache.asMap().keySet().stream()
+				.filter(key -> key.getDatabaseName().equals(dbName))
+				.forEach(functionCache::invalidate);
+
+		tableStatisticsCache.asMap().keySet().stream()
+				.filter(key -> key.getDatabaseName().equals(dbName))
+				.forEach(tableStatisticsCache::invalidate);
+		columnStatisticsCache.asMap().keySet().stream()
+				.filter(key -> key.getDatabaseName().equals(dbName))
+				.forEach(columnStatisticsCache::invalidate);
+		partitionStatisticsCache.asMap().keySet().stream()
+				.filter(key -> key.f0.getDatabaseName().equals(dbName))
+				.forEach(partitionStatisticsCache::invalidate);
+		partitionColumnStatisticsCache.asMap().keySet().stream()
+				.filter(key -> key.f0.getDatabaseName().equals(dbName))
+				.forEach(partitionStatisticsCache::invalidate);
+	}
+
+	protected void invalidateTableCache(ObjectPath tablePath) {
+		tableNamesCache.invalidate(tablePath.getDatabaseName());
+		tableCache.invalidate(tablePath);
+		partitionSpecsCache.asMap().keySet().stream()
+				.filter(key -> key.equals(tablePath))
+				.forEach(partitionSpecsCache::invalidate);
+		partitionSpecsFilterCache.asMap().keySet().stream()
+				.filter(key -> key.f0.equals(tablePath))
+				.forEach(partitionSpecsFilterCache::invalidate);
+		partitionCache.asMap().keySet().stream()
+				.filter(key -> key.f0.equals(tablePath))
+				.forEach(partitionCache::invalidate);
+
+		tableStatisticsCache.invalidate(tablePath);
+		columnStatisticsCache.invalidate(tablePath);
+		partitionStatisticsCache.asMap().keySet().stream()
+				.filter(key -> key.f0.equals(tablePath))
+				.forEach(partitionStatisticsCache::invalidate);
+		partitionColumnStatisticsCache.asMap().keySet().stream()
+				.filter(key -> key.f0.equals(tablePath))
+				.forEach(partitionColumnStatisticsCache::invalidate);
+	}
+
+	protected void invalidatePartitionCache(
+			ObjectPath tablePath,
+			CatalogPartitionSpec partitionSpec) {
+		partitionSpecsCache.invalidate(tablePath);
+		partitionSpecsFilterCache.invalidateAll();
+		partitionCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
+
+		tableStatisticsCache.invalidate(tablePath);
+		columnStatisticsCache.invalidate(tablePath);
+		partitionStatisticsCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
+		partitionColumnStatisticsCache.invalidate(new Tuple2<>(tablePath, partitionSpec));
+	}
+
+	protected void invalidateFunctionCache(ObjectPath functionPath) {
+		functionNamesCache.invalidate(functionPath.getDatabaseName());
+		functionCache.invalidate(functionPath);
 	}
 
 	private static CacheBuilder<Object, Object> newCacheBuilder(
