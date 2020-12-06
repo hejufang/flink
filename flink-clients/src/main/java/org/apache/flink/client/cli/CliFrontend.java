@@ -232,6 +232,9 @@ public class CliFrontend {
 		clientMetricGroup = createClientMetricGroup(metricRegistry, effectiveConfiguration);
 		registerMetrics();
 
+		// reload system properties
+		putSystemProperties(effectiveConfiguration);
+
 		jobStartEventMessagesWaitJobId.add(new WarehouseJobStartEventMessage(
 				WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_PROGRAM, WarehouseJobStartEventMessage.EVENT_ACTION_START));
 
