@@ -58,6 +58,12 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testCreateLegacyFunction() {
+		sql("create legacy function my_func as 'com.test.MyClass'")
+			.ok("CREATE LEGACY FUNCTION `MY_FUNC` AS 'com.test.MyClass'");
+	}
+
+	@Test
 	public void testAddResources() {
 		sql("add resources my_resource").ok("ADD RESOURCES `MY_RESOURCE`");
 	}

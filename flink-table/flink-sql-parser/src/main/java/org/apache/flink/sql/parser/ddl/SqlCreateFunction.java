@@ -109,6 +109,9 @@ public class SqlCreateFunction extends SqlCreate {
 		if (isSystemFunction) {
 			writer.keyword("SYSTEM");
 		}
+		if (isLegacy) {
+			writer.keyword("LEGACY");
+		}
 		writer.keyword("FUNCTION");
 		if (ifNotExists) {
 			writer.keyword("IF NOT EXISTS");
