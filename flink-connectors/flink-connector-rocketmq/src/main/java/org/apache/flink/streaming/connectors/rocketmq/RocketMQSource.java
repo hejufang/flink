@@ -238,34 +238,25 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 					PullResult pullResult = pullResults[0];
 					switch (pullResult.getPullStatus()) {
 						case FOUND:
-							try {
-								List<MessageExt> messages = pullResult.getMsgFoundList();
-								for (MessageExt msg : messages) {
-									OUT data = schema.deserialize(mq, msg);
-									if (schema.isEndOfStream(balancedMQ, data)) {
-										LOG.info("Subtask: {} received all assign message queue end message.", subTaskId);
-										isSubTaskRunning = false;
-										break;
-									}
-									// output and state update are atomic
-									synchronized (lock) {
-										if (data == null) {
-											skipDirty.inc();
-										} else {
-											context.collectWithTimestamp(data, msg.getBornTimestamp());
-										}
-										putMessageQueueOffset(mq, msg.getQueueOffset() + 1);
-									}
+							List<MessageExt> messages = pullResult.getMsgFoundList();
+							for (MessageExt msg : messages) {
+								OUT data = schema.deserialize(mq, msg);
+								if (schema.isEndOfStream(balancedMQ, data)) {
+									LOG.info("Subtask: {} received all assign message queue end message.", subTaskId);
+									isSubTaskRunning = false;
+									break;
 								}
-								found = true;
-							} catch (Throwable t) {
-								// We catch all error here and close the source.
-								// Otherwise, MQPullConsumerScheduleService will catch all error
-								// and we cannot get the error and fail the job.
-								LOG.error("Failed to process data from source.", t);
-								asyncError = t;
-								close();
+								// output and state update are atomic
+								synchronized (lock) {
+									if (data == null) {
+										skipDirty.inc();
+									} else {
+										context.collectWithTimestamp(data, msg.getBornTimestamp());
+									}
+									putMessageQueueOffset(mq, msg.getQueueOffset() + 1);
+								}
 							}
+							found = true;
 							break;
 						case NO_MATCHED_MSG:
 							LOG.debug("No matched message after offset {} for queue {}", offset, mq);
@@ -289,6 +280,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 						pullTaskContext.setPullNextDelayTimeMillis(delayWhenMessageNotFound);
 					}
 				} catch (Exception e) {
+					// We catch all error here and close the source.
+					// Otherwise, MQPullConsumerScheduleService will catch all error
+					// and we cannot get the error and fail the job.
 					LOG.error("Failed to consume data from source.", e);
 					asyncError = e;
 				}
