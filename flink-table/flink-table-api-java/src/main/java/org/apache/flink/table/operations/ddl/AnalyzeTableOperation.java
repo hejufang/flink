@@ -34,16 +34,19 @@ public class AnalyzeTableOperation implements Operation {
 	private final ObjectIdentifier tableIdentifier;
 	private final Map<String, String> partitions;
 	private final List<String> columnList;
+	private final boolean forAllColumns;
 	private final boolean noScan;
 
 	public AnalyzeTableOperation(
 			ObjectIdentifier tableIdentifier,
 			Map<String, String> partitions,
 			List<String> columnList,
+			boolean forAllColumns,
 			boolean noScan) {
 		this.tableIdentifier = tableIdentifier;
 		this.partitions = partitions;
 		this.columnList = columnList;
+		this.forAllColumns = forAllColumns;
 		this.noScan = noScan;
 	}
 
@@ -59,6 +62,10 @@ public class AnalyzeTableOperation implements Operation {
 		return partitions;
 	}
 
+	public boolean isForAllColumns() {
+		return forAllColumns;
+	}
+
 	public boolean isNoScan() {
 		return noScan;
 	}
@@ -69,6 +76,7 @@ public class AnalyzeTableOperation implements Operation {
 		params.put("tableIdentifier", tableIdentifier);
 		params.put("partitions", partitions);
 		params.put("columnList", columnList);
+		params.put("forAllColumns", forAllColumns);
 		params.put("noScan", noScan);
 		return OperationUtils.formatWithChildren(
 			"ANALYZE TABLE",

@@ -778,6 +778,7 @@ SqlAnalyzeTable SqlAnalyzeTable() :
     SqlNodeList columnList = null;
     final List<SqlNode> tempColumnList = new ArrayList<SqlNode>();
     boolean noScan = false;
+    boolean forAllColumns = false;
     Span span;
 }
 {
@@ -805,14 +806,15 @@ SqlAnalyzeTable SqlAnalyzeTable() :
         )
         |
         (
-            <FOR> <ALL> <COLUMNS>
+            <FOR> <ALL> <COLUMNS> { forAllColumns = true; }
+        )
+        |
+        (
+            <NOSCAN> { noScan = true; }
         )
     ]
-    [
-        <NOSCAN> {noScan = true;}
-    ]
     {
-        return new SqlAnalyzeTable(startPos.plus(getPos()), tableName, partitionList, columnList, noScan);
+        return new SqlAnalyzeTable(startPos.plus(getPos()), tableName, partitionList, columnList, forAllColumns, noScan);
     }
 }
 
@@ -1010,14 +1012,14 @@ void PartitionSpecWithOptionalValueCommaList(SqlNodeList list) :
 {
     <LPAREN>
     key = SimpleIdentifier()
-    { pos = getPos(); value = SqlIdentifier.STAR;}
+    { pos = getPos(); value = SqlLiteral.createCharString("*", getPos());}
     [
         <EQ> value = Literal()
     ]
     { list.add(new SqlProperty(key, value, pos.plus(getPos()))); }
     (   <COMMA>
         key = SimpleIdentifier()
-        { pos = getPos(); value = SqlIdentifier.STAR;}
+        { pos = getPos(); value = SqlLiteral.createCharString("*", getPos());}
         [
             <EQ> value = Literal()
         ]

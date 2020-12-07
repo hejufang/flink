@@ -54,6 +54,8 @@ public class SqlAnalyzeTable extends SqlCall implements ExtendedSqlNode {
 
 	private final SqlNodeList columnList;
 
+	private final boolean forAllColumns;
+
 	private final boolean noScan;
 
 	public SqlAnalyzeTable(
@@ -61,11 +63,13 @@ public class SqlAnalyzeTable extends SqlCall implements ExtendedSqlNode {
 			SqlIdentifier tableName,
 			SqlNodeList partitionList,
 			SqlNodeList columnList,
+			boolean forAllColumns,
 			boolean noScan) {
 		super(pos);
 		this.tableName = tableName;
 		this.partitionList = partitionList;
 		this.columnList = columnList;
+		this.forAllColumns = forAllColumns;
 		this.noScan = noScan;
 	}
 
@@ -115,6 +119,10 @@ public class SqlAnalyzeTable extends SqlCall implements ExtendedSqlNode {
 		return map;
 	}
 
+	public boolean isForAllColumns() {
+		return forAllColumns;
+	}
+
 	public boolean isNoScan() {
 		return noScan;
 	}
@@ -144,32 +152,31 @@ public class SqlAnalyzeTable extends SqlCall implements ExtendedSqlNode {
 		tableName.unparse(writer, leftPrec, rightPrec);
 		if (sqlNodeListNotNullOrEmpty(partitionList)) {
 			writer.newlineAndIndent();
-			writer.keyword("PARTITIONED");
+			writer.keyword("PARTITION");
 			SqlWriter.Frame partitionFrame = writer.startList("(", ")");
 			partitionList.unparse(writer, leftPrec, rightPrec);
 			writer.endList(partitionFrame);
-			writer.newlineAndIndent();
 		}
 
+		writer.newlineAndIndent();
 		writer.keyword("COMPUTE");
 		writer.keyword("STATISTICS");
 
-		if (sqlNodeListNotNullOrEmpty(columnList)) {
+		if (this.noScan) {
+			writer.newlineAndIndent();
+			writer.keyword("NOSCAN");
+		} else if (sqlNodeListNotNullOrEmpty(columnList)) {
 			writer.newlineAndIndent();
 			writer.keyword("FOR");
 			writer.keyword("COLUMNS");
 			SqlWriter.Frame partitionFrame = writer.startList("", "");
 			columnList.unparse(writer, leftPrec, rightPrec);
 			writer.endList(partitionFrame);
-		} else {
+		} else if (forAllColumns) {
+			writer.newlineAndIndent();
 			writer.keyword("FOR");
 			writer.keyword("ALL");
 			writer.keyword("COLUMNS");
-		}
-		writer.newlineAndIndent();
-
-		if (this.noScan) {
-			writer.keyword("NOSCAN");
 		}
 	}
 

@@ -44,17 +44,45 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 
 	@Test
 	public void testAnalyzeTable() {
-		String sql = "analyze table table1\n" +
+		String sql1 = "analyze table table1\n" +
+			"compute statistics";
+		String expected1 = "ANALYZE TABLE `TABLE1`\n" +
+			"COMPUTE STATISTICS";
+		sql(sql1).ok(expected1);
+
+		String sql2 = "analyze table table1\n" +
+			"compute statistics\n" +
+			"noscan";
+		String expected2 = "ANALYZE TABLE `TABLE1`\n" +
+			"COMPUTE STATISTICS\n" +
+			"NOSCAN";
+		sql(sql2).ok(expected2);
+
+		String sql3 = "analyze table table1\n" +
+			"compute statistics\n" +
+			"for all columns";
+		String expected3 = "ANALYZE TABLE `TABLE1`\n" +
+			"COMPUTE STATISTICS\n" +
+			"FOR ALL COLUMNS";
+		sql(sql3).ok(expected3);
+
+		String sql4 = "analyze table table1\n" +
+			"partition(hr, ds='2020-11-30')\n" +
+			"compute statistics";
+		String expected4 = "ANALYZE TABLE `TABLE1`\n" +
+			"PARTITION (`HR` = '*', `DS` = '2020-11-30')\n" +
+			"COMPUTE STATISTICS";
+		sql(sql4).ok(expected4);
+
+		String sql5 = "analyze table table1\n" +
 			"partition(ds='2020-11-30', hr)\n" +
 			"compute statistics\n" +
-			"for columns id, name\n" +
-			"noscan";
-		String expected = "ANALYZE TABLE `TABLE1`\n" +
-				"PARTITIONED (`DS` = '2020-11-30', `HR` = *)\n" +
-				"COMPUTE STATISTICS\n" +
-				"FOR COLUMNS `ID`, `NAME`\n" +
-				"NOSCAN";
-		sql(sql).ok(expected);
+			"for columns id, name";
+		String expected5 = "ANALYZE TABLE `TABLE1`\n" +
+			"PARTITION (`DS` = '2020-11-30', `HR` = '*')\n" +
+			"COMPUTE STATISTICS\n" +
+			"FOR COLUMNS `ID`, `NAME`";
+		sql(sql5).ok(expected5);
 	}
 
 	@Test

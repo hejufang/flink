@@ -802,8 +802,9 @@ public class SqlToOperationConverter {
 		ObjectIdentifier identifier = catalogManager.qualifyIdentifier(unresolvedIdentifier);
 		Map<String, String> partitionWithValues = sqlAnalyzeTable.getPartitionWithValues();
 		List<String> columns = sqlAnalyzeTable.getColumnsInString();
+		boolean isForAllColumns = sqlAnalyzeTable.isForAllColumns();
 		boolean isNoScan = sqlAnalyzeTable.isNoScan();
-		return new AnalyzeTableOperation(identifier, partitionWithValues, columns, isNoScan);
+		return new AnalyzeTableOperation(identifier, partitionWithValues, columns, isForAllColumns, isNoScan);
 	}
 
 	/** Convert EXPLAIN statement. */
