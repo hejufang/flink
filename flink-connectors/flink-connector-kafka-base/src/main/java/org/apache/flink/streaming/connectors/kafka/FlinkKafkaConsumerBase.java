@@ -114,7 +114,10 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	 * The default interval to execute partition discovery,
 	 * in milliseconds ({@code Long.MIN_VALUE}, i.e. disabled by default).
 	 */
-	public static final long PARTITION_DISCOVERY_DISABLED = Long.MIN_VALUE;
+	public static final long PARTITION_DISCOVERY_DISABLED = -1L;
+
+	/** The default interval to execute partition discovery in milliseconds. */
+	public static final long PARTITION_DISCOVERY_INTERVAL_DEFAULT = 600000;
 
 	/** Boolean configuration key to disable metrics tracking. **/
 	public static final String KEY_DISABLE_METRICS = "flink.disable-metrics";
@@ -292,7 +295,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			discoveryIntervalMillis == PARTITION_DISCOVERY_DISABLED || discoveryIntervalMillis >= 0,
 			"Cannot define a negative value for the topic / partition discovery interval.");
 		this.discoveryIntervalMillis = discoveryIntervalMillis;
-		this.properties = props;
+		this.properties = props != null ? props : new Properties();
 		this.useMetrics = useMetrics;
 	}
 
@@ -667,12 +670,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 						subscribedPartitionsToStartOffsets.put(
 							partitionToOffset.getKey(),
 							(partitionToOffset.getValue() == null)
-									// if an offset cannot be retrieved for a partition with the given timestamp,
-									// we default to using the latest offset for the partition
-									? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
-									// since the specified offsets represent the next record to read, we subtract
-									// it by one so that the initial state of the consumer will be correct
-									: partitionToOffset.getValue() - 1);
+								// if an offset cannot be retrieved for a partition with the given timestamp,
+								// we default to using the latest offset for the partition
+								? KafkaTopicPartitionStateSentinel.LATEST_OFFSET
+								// since the specified offsets represent the next record to read, we subtract
+								// it by one so that the initial state of the consumer will be correct
+								: partitionToOffset.getValue() - 1);
 					}
 
 					break;
@@ -719,7 +722,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 						}
 					}
 					break;
-			}
+				}
 
 			if (!subscribedPartitionsToStartOffsets.isEmpty()) {
 				switch (startupMode) {

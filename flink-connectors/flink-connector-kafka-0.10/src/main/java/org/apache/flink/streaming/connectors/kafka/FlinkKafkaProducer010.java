@@ -29,10 +29,15 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartiti
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.internals.BatchRandomPartitioner;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -429,5 +434,15 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 			transformation.setSlotSharingGroup(slotSharingGroup);
 			return this;
 		}
+	}
+
+	@Override
+	protected Map<String, Object> getProducerDefaultConfig() {
+		return ImmutableMap.of(
+			ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000L,
+			ProducerConfig.RETRIES_CONFIG, 10,
+			ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000,
+			ProducerConfig.LINGER_MS_CONFIG, 5000L,
+			ProducerConfig.PARTITIONER_CLASS_CONFIG, BatchRandomPartitioner.class.getName());
 	}
 }

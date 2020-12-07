@@ -21,14 +21,17 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDiscoverer;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.PartitionInfo;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -55,7 +58,14 @@ public class KafkaPartitionDiscoverer extends AbstractPartitionDiscoverer {
 
 	@Override
 	protected void initializeConnections() {
-		this.kafkaConsumer = new KafkaConsumer<>(kafkaProperties);
+		try {
+			this.kafkaConsumer = new KafkaConsumer<>(kafkaProperties);
+		} catch (KafkaException e) {
+			String propertiesMessage = kafkaProperties.entrySet().stream()
+				.map(entry -> "[key=" + entry.getKey() + ",value=" + entry.getValue() + "]")
+				.collect(Collectors.joining(", "));
+			throw new FlinkRuntimeException("Init KafkaConsumer failed. The properties : " + propertiesMessage, e);
+		}
 	}
 
 	@Override

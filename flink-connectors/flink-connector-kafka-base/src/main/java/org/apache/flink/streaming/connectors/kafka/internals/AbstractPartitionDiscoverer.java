@@ -19,8 +19,10 @@ package org.apache.flink.streaming.connectors.kafka.internals;
 
 import org.apache.flink.annotation.Internal;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -42,6 +44,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public abstract class AbstractPartitionDiscoverer {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractPartitionDiscoverer.class);
+	private static final int DISCOVER_RETRY_TIME = 5;
 
 	/** Describes whether we are discovering partitions for fixed topics or a topic pattern. */
 	private final KafkaTopicsDescriptor topicsDescriptor;
@@ -123,52 +127,54 @@ public abstract class AbstractPartitionDiscoverer {
 	 */
 	public List<KafkaTopicPartition> discoverPartitions() throws WakeupException, ClosedException {
 		if (!closed && !wakeup) {
-			try {
-				List<KafkaTopicPartition> newDiscoveredPartitions;
-
-				// (1) get all possible partitions, based on whether we are subscribed to fixed topics or a topic pattern
-				if (topicsDescriptor.isFixedTopics()) {
-					newDiscoveredPartitions = getAllPartitionsForTopics(topicsDescriptor.getFixedTopics());
-				} else {
-					List<String> matchedTopics = getAllTopics();
-
-					// retain topics that match the pattern
-					Iterator<String> iter = matchedTopics.iterator();
-					while (iter.hasNext()) {
-						if (!topicsDescriptor.isMatchingTopic(iter.next())) {
-							iter.remove();
-						}
-					}
-
-					if (matchedTopics.size() != 0) {
-						// get partitions only for matched topics
-						newDiscoveredPartitions = getAllPartitionsForTopics(matchedTopics);
+			List<KafkaTopicPartition> newDiscoveredPartitions = null;
+			for (int retry = 1; retry <= DISCOVER_RETRY_TIME; retry++) {
+				try {
+					// (1) get all possible partitions, based on whether we are subscribed to fixed
+					// topics or a topic pattern.
+					if (topicsDescriptor.isFixedTopics()) {
+						newDiscoveredPartitions = getAllPartitionsForTopics(topicsDescriptor.getFixedTopics());
 					} else {
-						newDiscoveredPartitions = null;
-					}
-				}
+						List<String> matchedTopics = getAllTopics();
 
-				// (2) eliminate partition that are old partitions or should not be subscribed by this subtask
-				if (newDiscoveredPartitions == null || newDiscoveredPartitions.isEmpty()) {
-					throw new RuntimeException("Unable to retrieve any partitions with KafkaTopicsDescriptor: " + topicsDescriptor);
-				} else {
-					Iterator<KafkaTopicPartition> iter = newDiscoveredPartitions.iterator();
-					KafkaTopicPartition nextPartition;
-					while (iter.hasNext()) {
-						nextPartition = iter.next();
-						if (!setAndCheckDiscoveredPartition(nextPartition)) {
-							iter.remove();
+						// retain topics that match the pattern
+						matchedTopics.removeIf(s -> !topicsDescriptor.isMatchingTopic(s));
+
+						if (matchedTopics.size() != 0) {
+							// get partitions only for matched topics
+							newDiscoveredPartitions = getAllPartitionsForTopics(matchedTopics);
+						} else {
+							newDiscoveredPartitions = null;
 						}
 					}
+					// (2) eliminate partition that are old partitions or should not be subscribed by this subtask
+					if (newDiscoveredPartitions == null || newDiscoveredPartitions.isEmpty()) {
+						throw new RuntimeException("Unable to retrieve any partitions with KafkaTopicsDescriptor: "
+							+ topicsDescriptor);
+					} else {
+						newDiscoveredPartitions
+							.removeIf(kafkaTopicPartition -> !setAndCheckDiscoveredPartition(kafkaTopicPartition));
+					}
+					return newDiscoveredPartitions;
+				} catch (Exception e) {
+					if (e instanceof WakeupException) {
+						// the actual topic / partition metadata fetching methods
+						// may be woken up midway; reset the wakeup flag and rethrow.
+						wakeup = false;
+						throw e;
+					}
+					LOG.error(String.format("Partition discovery error, retry times = %d", retry), e);
+					if (retry >= DISCOVER_RETRY_TIME) {
+						throw new RuntimeException("Partition discovery failed.", e);
+					}
+					try {
+						Thread.sleep(1000 * retry);
+					} catch (InterruptedException e1) {
+						throw new RuntimeException(e1);
+					}
 				}
-
-				return newDiscoveredPartitions;
-			} catch (WakeupException e) {
-				// the actual topic / partition metadata fetching methods
-				// may be woken up midway; reset the wakeup flag and rethrow
-				wakeup = false;
-				throw e;
 			}
+			return newDiscoveredPartitions;
 		} else if (!closed && wakeup) {
 			// may have been woken up before the method call
 			wakeup = false;

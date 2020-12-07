@@ -220,7 +220,7 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumerBase<T> {
 				deserializer,
 				getLong(
 					checkNotNull(props, "props"),
-					KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS, PARTITION_DISCOVERY_DISABLED),
+					KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS, PARTITION_DISCOVERY_INTERVAL_DEFAULT),
 				!getBoolean(props, KEY_DISABLE_METRICS, false), props);
 
 		this.properties = props;

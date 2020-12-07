@@ -166,6 +166,12 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		}
 
 		this.topicPartitionsMap = new HashMap<>();
+		getProducerDefaultConfig().forEach((key, value) -> {
+			if (!producerConfig.containsKey(key)) {
+				LOG.info("Add default configuration: {} = {}", key, value);
+				producerConfig.put(key, value);
+			}
+		});
 	}
 
 	// ---------------------------------- Properties --------------------------
@@ -410,5 +416,9 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		synchronized (pendingRecordsLock) {
 			return pendingRecords;
 		}
+	}
+
+	protected Map<String, Object> getProducerDefaultConfig() {
+		return new HashMap<>();
 	}
 }
