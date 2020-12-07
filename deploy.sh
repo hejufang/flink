@@ -17,4 +17,4 @@
 # limitations under the License.
 ################################################################################
 
-mvn clean deploy -U -DskipTests -Pinclude-hadoop
+mvn clean deploy -U -DskipTests -Pinclude-hadoop -Pdocs-and-source
