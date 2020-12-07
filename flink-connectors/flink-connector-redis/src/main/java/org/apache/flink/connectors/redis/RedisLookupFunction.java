@@ -18,6 +18,8 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
@@ -97,6 +99,9 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final Integer getResourceMaxRetries;
 	private final RedisDataType redisDataType;
 
+	private final long rateLimit;
+	private transient FlinkConnectorRateLimiter rateLimiter;
+
 	// <------------------------- lookup options --------------------------->
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
@@ -136,6 +141,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		this.minIdleConnections = options.getMinIdleConnections();
 		this.getResourceMaxRetries = options.getGetResourceMaxRetries();
 		this.redisDataType = options.getRedisDataType();
+		this.rateLimit = lookupOptions.getRateLimit();
 
 		this.cacheMaxSize = lookupOptions.getCacheMaxSize();
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
@@ -180,6 +186,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		}
 
 		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
+
+		if (rateLimit > 0) {
+			rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rateLimit);
+			rateLimiter.open(context.getRuntimeContext());
+		}
 	}
 
 	/**
@@ -196,6 +208,10 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				}
 				return;
 			}
+		}
+
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
 		}
 
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
@@ -377,6 +393,9 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		}
 		if (clientPool != null) {
 			clientPool.close();
+		}
+		if (rateLimiter != null) {
+			rateLimiter.close();
 		}
 	}
 

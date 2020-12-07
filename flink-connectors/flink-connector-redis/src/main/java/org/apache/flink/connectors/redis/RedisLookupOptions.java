@@ -25,7 +25,7 @@ import java.util.Objects;
  * Options for the Redis lookup.
  */
 public class RedisLookupOptions implements Serializable {
-	private static final int DEFAULT_MAX_RETRY_TIMES = 3;
+	private static final int DEFAULT_MAX_RETRY_TIMES = 4;
 
 	/**
 	 * Specifies the maximum number of entries the cache may contain.
@@ -40,17 +40,21 @@ public class RedisLookupOptions implements Serializable {
 
 	private final String keyField;
 
-	public RedisLookupOptions(
+	private final long rateLimit;
+
+	private RedisLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
 			int maxRetryTimes,
 			boolean cacheNullValue,
-			String keyField) {
+			String keyField,
+			long rateLimit) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.cacheNullValue = cacheNullValue;
 		this.keyField = keyField;
+		this.rateLimit = rateLimit;
 	}
 
 	public long getCacheMaxSize() {
@@ -73,6 +77,10 @@ public class RedisLookupOptions implements Serializable {
 		return keyField;
 	}
 
+	public long getRateLimit() {
+		return rateLimit;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -85,7 +93,8 @@ public class RedisLookupOptions implements Serializable {
 					Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
 					Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 					Objects.equals(cacheNullValue, options.cacheNullValue) &&
-					Objects.equals(keyField, options.keyField);
+					Objects.equals(keyField, options.keyField) &&
+					Objects.equals(rateLimit, options.rateLimit);
 		} else {
 			return false;
 		}
@@ -100,6 +109,7 @@ public class RedisLookupOptions implements Serializable {
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private boolean cacheNullValue = true;
 		private String keyField;
+		private long rateLimit = -1L; // -1 means to disable rate limit
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -135,8 +145,19 @@ public class RedisLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setRateLimit(long rateLimit) {
+			this.rateLimit = rateLimit;
+			return this;
+		}
+
 		public RedisLookupOptions build() {
-			return new RedisLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, cacheNullValue, keyField);
+			return new RedisLookupOptions(
+				cacheMaxSize,
+				cacheExpireMs,
+				maxRetryTimes,
+				cacheNullValue,
+				keyField,
+				rateLimit);
 		}
 	}
 

@@ -57,6 +57,8 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
 	public static final String CONNECTOR_LATER_JOIN_LATENCY_MS = "connector.later-join-latency-ms";
 
+	public static final String CONNECTOR_RATE_LIMIT = "connector.global-rate-limit";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateValue(CONNECTOR_TYPE, REDIS, false);
@@ -76,6 +78,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_LOG_FAILURES_ONLY, true);
 		properties.validateBoolean(CONNECTOR_SKIP_FORMAT_KEY, true);
 		properties.validateInt(CONNECTOR_LATER_JOIN_LATENCY_MS, true, 1000);
+		properties.validateLong(CONNECTOR_RATE_LIMIT, true, 1);
 		validateKeyField(properties);
 	}
 

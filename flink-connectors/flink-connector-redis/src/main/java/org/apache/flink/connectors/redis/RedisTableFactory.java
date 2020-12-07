@@ -76,6 +76,7 @@ import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MAX_TO
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MIN_IDLE_CONNECTIONS;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_MODE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_PSM;
+import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_RATE_LIMIT;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_SKIP_FORMAT_KEY;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_TABLE;
 import static org.apache.flink.table.descriptors.RedisValidator.CONNECTOR_TIMEOUT_MS;
@@ -121,6 +122,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_LOG_FAILURES_ONLY);
 		properties.add(CONNECTOR_SKIP_FORMAT_KEY);
 		properties.add(CONNECTOR_LOOKUP_CACHE_NULL_VALUE);
+		properties.add(CONNECTOR_RATE_LIMIT);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -355,6 +357,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_CACHE_NULL_VALUE).ifPresent(builder::setCacheNullValue);
 		descriptorProperties.getOptionalString(CONNECTOR_KEY_FIELDS).ifPresent(builder::setKeyField);
+		descriptorProperties.getOptionalLong(CONNECTOR_RATE_LIMIT).ifPresent(builder::setRateLimit);
 
 		return builder.build();
 	}
