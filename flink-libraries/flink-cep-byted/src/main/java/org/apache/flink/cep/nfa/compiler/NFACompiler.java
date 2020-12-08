@@ -75,14 +75,14 @@ public class NFACompiler {
 	public static <T> NFAFactory<T> compileFactory(
 		final Pattern<T, ?> pattern,
 		boolean timeoutHandling,
-		boolean allowSingleMatchPerKey) {
+		boolean allowSinglePartialMatchPerKey) {
 		if (pattern == null) {
 			// return a factory for empty NFAs
-			return new NFAFactoryImpl<>(pattern.getPatternId(), 0, Collections.<State<T>>emptyList(), timeoutHandling, allowSingleMatchPerKey);
+			return new NFAFactoryImpl<>(pattern.getPatternId(), 0, Collections.<State<T>>emptyList(), timeoutHandling, allowSinglePartialMatchPerKey);
 		} else {
 			final NFAFactoryCompiler<T> nfaFactoryCompiler = new NFAFactoryCompiler<>(pattern);
 			nfaFactoryCompiler.compileFactory();
-			return new NFAFactoryImpl<>(pattern.getPatternId(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSingleMatchPerKey);
+			return new NFAFactoryImpl<>(pattern.getPatternId(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSinglePartialMatchPerKey);
 		}
 	}
 
@@ -942,25 +942,25 @@ public class NFACompiler {
 		private final long windowTime;
 		private final Collection<State<T>> states;
 		private final boolean timeoutHandling;
-		private final boolean allowSingleMatchPerKey;
+		private final boolean allowSinglePartialMatchPerKey;
 
 		private NFAFactoryImpl(
 				String patternId,
 				long windowTime,
 				Collection<State<T>> states,
 				boolean timeoutHandling,
-				boolean allowSingleMatchPerKey) {
+				boolean allowSinglePartialMatchPerKey) {
 
 			this.patternId = patternId;
 			this.windowTime = windowTime;
 			this.states = states;
 			this.timeoutHandling = timeoutHandling;
-			this.allowSingleMatchPerKey = allowSingleMatchPerKey;
+			this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
 		}
 
 		@Override
 		public NFA<T> createNFA() {
-			return new NFA<>(patternId, states, windowTime, timeoutHandling, allowSingleMatchPerKey);
+			return new NFA<>(patternId, states, windowTime, timeoutHandling, allowSinglePartialMatchPerKey);
 		}
 	}
 }

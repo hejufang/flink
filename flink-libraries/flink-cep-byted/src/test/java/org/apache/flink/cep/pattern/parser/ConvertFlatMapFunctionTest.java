@@ -70,6 +70,22 @@ public class ConvertFlatMapFunctionTest {
 		Assert.assertEquals(1000, result.getWindowTime().toMilliseconds());
 	}
 
+	@Test
+	public void testAllowSinglePartialMatchPerKeyPattern() {
+		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
+
+		Event begin = new Event("begin", null, null, Collections.singletonList(new Condition("a", Condition.OpType.EQUAL, "a1")));
+		Map<PatternBody.AttributeType, String> attrs = new HashMap<>();
+		attrs.put(PatternBody.AttributeType.ALLOW_SINGLE_PARTIAL_MATCH_PER_KEY, "true");
+
+		PatternBody body = new PatternBody(Collections.singletonList(begin), attrs);
+		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		Pattern<?, ?> result = function.buildPattern(pojo);
+
+		Assert.assertEquals("test_pattern", result.getPatternId());
+		Assert.assertTrue(result.isAllowSinglePartialMatchPerKey());
+	}
+
 	private static class TestCepEventParserFactory implements CepEventParserFactory {
 
 		@Override

@@ -55,7 +55,8 @@ public class JsonTransfromTest {
 				"\t\t\t}\n" +
 				"\t\t],\n" +
 				"\t\t\"attributes\": {\n" +
-				"\t\t\t\"window\": 1000\n" +
+				"\t\t\t\"window\": 1000,\n" +
+				"\t\t\t\"allowSinglePartialMatchPerKey\": true\n" +
 				"\t\t}\n" +
 				"\t}\n" +
 				"}";
@@ -63,6 +64,7 @@ public class JsonTransfromTest {
 		ObjectMapper objectMapper = new ObjectMapper();
 		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
 		Assert.assertEquals("1000", pattern.getPattern().getAttributes().get(PatternBody.AttributeType.WINDOW));
+		Assert.assertTrue(Boolean.parseBoolean(pattern.getPattern().getAttributes().get(PatternBody.AttributeType.ALLOW_SINGLE_PARTIAL_MATCH_PER_KEY)));
 	}
 
 	@Test

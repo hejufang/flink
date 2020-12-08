@@ -86,7 +86,8 @@ public class PatternBody implements Serializable {
 	 * Global attribute type.
 	 */
 	public enum AttributeType {
-		@JsonProperty("window") WINDOW("window");
+		@JsonProperty("window") WINDOW("window"),
+		@JsonProperty("allowSinglePartialMatchPerKey") ALLOW_SINGLE_PARTIAL_MATCH_PER_KEY("allowSinglePartialMatchPerKey");
 
 		private final String name;
 

@@ -79,6 +79,8 @@ public class Pattern<T, F extends T> implements Serializable {
 
 	private final AfterMatchSkipStrategy afterMatchSkipStrategy;
 
+	private boolean allowSinglePartialMatchPerKey = false;
+
 	protected Pattern(
 		final String name,
 		final Pattern<T, ? extends T> previous,
@@ -89,6 +91,14 @@ public class Pattern<T, F extends T> implements Serializable {
 		this.quantifier = Quantifier.one(consumingStrategy);
 		this.afterMatchSkipStrategy = afterMatchSkipStrategy;
 		this.patternId = "unknown";
+	}
+
+	public boolean isAllowSinglePartialMatchPerKey() {
+		return allowSinglePartialMatchPerKey;
+	}
+
+	public void setAllowSinglePartialMatchPerKey(boolean allowSinglePartialMatchPerKey) {
+		this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
 	}
 
 	public Pattern<T, ? extends T> getPrevious() {

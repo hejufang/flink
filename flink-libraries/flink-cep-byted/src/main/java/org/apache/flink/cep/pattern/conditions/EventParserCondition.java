@@ -40,6 +40,7 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 	@Override
 	public boolean filter(IN value, Context<IN> ctx) throws Exception {
 		if (condition.getOp().equals(Condition.OpType.EQUAL)) {
+			// TODO consider null values
 			return cepEventParser.get(condition.getKey(), (CepEvent) value).equals(condition.getValue());
 		} else {
 			throw new UnsupportedOperationException(String.format("Op %s is not supported.", condition.getOp().toString()));

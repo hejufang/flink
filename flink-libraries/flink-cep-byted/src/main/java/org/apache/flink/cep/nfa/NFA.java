@@ -53,6 +53,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Stack;
@@ -106,19 +107,19 @@ public class NFA<T> {
 	 */
 	private final boolean handleTimeout;
 
-	private final boolean allowSingleMatchPerKey;
+	private final boolean allowSinglePartialMatchPerKey;
 
 	public NFA(
 			final String patternId,
 			final Collection<State<T>> validStates,
 			final long windowTime,
 			final boolean handleTimeout,
-			final boolean allowSingleMatchPerKey) {
+			final boolean allowSinglePartialMatchPerKey) {
 		this.patternId = patternId;
 		this.windowTime = windowTime;
 		this.handleTimeout = handleTimeout;
 		this.states = loadStates(validStates);
-		this.allowSingleMatchPerKey = allowSingleMatchPerKey;
+		this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
 	}
 
 	public String getPatternId() {
@@ -150,6 +151,16 @@ public class NFA<T> {
 
 	private State<T> getState(ComputationState state) {
 		return states.get(state.getCurrentStateName());
+	}
+
+	private State<T> getStartState() {
+		for (State<T> state : states.values()) {
+			if (state.isStart()) {
+				return state;
+			}
+		}
+
+		return null;
 	}
 
 	private boolean isStartState(ComputationState state) {
@@ -261,6 +272,10 @@ public class NFA<T> {
 			} else {
 				newPartialMatches.add(computationState);
 			}
+		}
+
+		if (allowSinglePartialMatchPerKey && newPartialMatches.isEmpty()) {
+			newPartialMatches.add(ComputationState.createStartState(Objects.requireNonNull(getStartState()).getName()));
 		}
 
 		nfaState.setNewPartialMatches(newPartialMatches);
@@ -396,8 +411,11 @@ public class NFA<T> {
 			}
 		}
 
-		nfaState.setNewPartialMatches(newPartialMatches);
+		if (allowSinglePartialMatchPerKey && newPartialMatches.isEmpty()) {
+			newPartialMatches.add(ComputationState.createStartState(Objects.requireNonNull(getStartState()).getName()));
+		}
 
+		nfaState.setNewPartialMatches(newPartialMatches);
 		return result;
 	}
 
@@ -681,7 +699,7 @@ public class NFA<T> {
 			}
 		}
 
-		if (isStartState(computationState) && !allowSingleMatchPerKey) {
+		if (isStartState(computationState) && !allowSinglePartialMatchPerKey) {
 			int totalBranches = calculateIncreasingSelfState(
 					outgoingEdges.getTotalIgnoreBranches(),
 					outgoingEdges.getTotalTakeBranches());

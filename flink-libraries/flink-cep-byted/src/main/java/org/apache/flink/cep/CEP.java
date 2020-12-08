@@ -45,11 +45,7 @@ public class CEP {
 	}
 
 	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<String> patternJsonStream, CepEventParserFactory factory) {
-		return new PatternStream<>(input, patternJsonStream, factory, false);
-	}
-
-	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<String> patternJsonStream, CepEventParserFactory factory, boolean allowSingleMatchPerKey) {
-		return new PatternStream<>(input, patternJsonStream, factory, allowSingleMatchPerKey);
+		return new PatternStream<>(input, patternJsonStream, factory);
 	}
 
 	/**

@@ -51,7 +51,7 @@ import static org.junit.Assert.assertEquals;
 public class NFATest extends TestLogger {
 
 	@Test
-	public void testAllowSingleMatchPerKey() throws Exception {
+	public void testAllowSinglePartialMatchPerKey() throws Exception {
 		List<StreamRecord<Event>> streamEvents = new ArrayList<>();
 		streamEvents.add(new StreamRecord<>(new Event(1, "start", 1.0), 1L));
 

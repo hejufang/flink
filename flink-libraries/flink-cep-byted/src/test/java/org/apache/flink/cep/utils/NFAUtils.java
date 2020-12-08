@@ -42,8 +42,8 @@ public class NFAUtils {
 		return factory.createNFA();
 	}
 
-	public static <T> NFA<T> compile(Pattern<T, ?> pattern, boolean timeoutHandling, boolean allowSingleMatchPerKey) {
-		NFACompiler.NFAFactory<T> factory = compileFactory(pattern, timeoutHandling, allowSingleMatchPerKey);
+	public static <T> NFA<T> compile(Pattern<T, ?> pattern, boolean timeoutHandling, boolean allowSinglePartialMatchPerKey) {
+		NFACompiler.NFAFactory<T> factory = compileFactory(pattern, timeoutHandling, allowSinglePartialMatchPerKey);
 		return factory.createNFA();
 	}
 

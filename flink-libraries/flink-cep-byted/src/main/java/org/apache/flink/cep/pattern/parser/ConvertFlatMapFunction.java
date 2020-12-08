@@ -91,6 +91,9 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 				case WINDOW:
 					compositePattern.within(Time.milliseconds(Long.parseLong(attr.getValue())));
 					break;
+				case ALLOW_SINGLE_PARTIAL_MATCH_PER_KEY:
+					compositePattern.setAllowSinglePartialMatchPerKey(Boolean.parseBoolean(attr.getValue()));
+					break;
 				default:
 					throw new UnsupportedOperationException(String.format("AttributeType %s is not supported.", attr.getKey()));
 			}
