@@ -18,22 +18,22 @@
 
 package org.apache.flink.connectors.bytesql;
 
-import com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType;
-import com.bytedance.infra.bytesql4j.ByteSQLProtos.QueryResponse.ColumnDef;
-import com.bytedance.infra.bytesql4j.ByteSQLProtos.QueryResponse.ResultRow;
-import com.bytedance.infra.bytesql4j.ByteSQLProtos.QueryResponse.ResultSet;
+import com.bytedance.infra.bytesql4j.proto.ColumnType;
+import com.bytedance.infra.bytesql4j.proto.QueryResponse.ColumnDef;
+import com.bytedance.infra.bytesql4j.proto.QueryResponse.ResultRow;
+import com.bytedance.infra.bytesql4j.proto.QueryResponse.ResultSet;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 
-import static com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType.kColumnTypeBool;
-import static com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType.kColumnTypeDatetime;
-import static com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType.kColumnTypeFloat32;
-import static com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType.kColumnTypeFloat64;
-import static com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType.kColumnTypeInt8;
-import static com.bytedance.infra.bytesql4j.ByteSQLProtos.ColumnType.kColumnTypeString;
+import static com.bytedance.infra.bytesql4j.proto.ColumnType.kColumnTypeBool;
+import static com.bytedance.infra.bytesql4j.proto.ColumnType.kColumnTypeDatetime;
+import static com.bytedance.infra.bytesql4j.proto.ColumnType.kColumnTypeFloat32;
+import static com.bytedance.infra.bytesql4j.proto.ColumnType.kColumnTypeFloat64;
+import static com.bytedance.infra.bytesql4j.proto.ColumnType.kColumnTypeInt8;
+import static com.bytedance.infra.bytesql4j.proto.ColumnType.kColumnTypeString;
 
 /**
  * ResultSet for byteSQL.

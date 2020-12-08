@@ -38,8 +38,8 @@ import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 
 import com.bytedance.infra.bytesql4j.ByteSQLDB;
 import com.bytedance.infra.bytesql4j.ByteSQLOption;
-import com.bytedance.infra.bytesql4j.ByteSQLProtos;
 import com.bytedance.infra.bytesql4j.exception.ByteSQLException;
+import com.bytedance.infra.bytesql4j.proto.QueryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,10 +147,9 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 
 			try {
 				long startRequest = System.currentTimeMillis();
-				ByteSQLProtos.QueryResponse response = byteSQLDB.rawQuery(sql);
+				QueryResponse response = byteSQLDB.rawQuery(sql);
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
-
 				List<Row> rows = ByteSQLUtils.convertResponseToRows(response, rowConverter);
 				rows.forEach(this::collect);
 				if (cache != null) {
