@@ -2105,6 +2105,8 @@ public final class ConfigConstants {
 	/** Config partition key for kafka. */
 	public static final String PARTITION_LIST_KEY = "partition_list";
 
+	public static final String WRITE_FAILED_COUNTER = "writeFailed";
+
 	/**
 	 * Not instantiable.
 	 */

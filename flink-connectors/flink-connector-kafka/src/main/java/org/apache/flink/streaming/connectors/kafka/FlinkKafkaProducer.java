@@ -31,9 +31,11 @@ import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.base.TypeSerializerSingleton;
 import org.apache.flink.api.java.ClosureCleaner;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -257,6 +259,11 @@ public class FlinkKafkaProducer<IN>
 	 * Flag indicating whether to accept failures (and log them), or to fail on failures.
 	 */
 	private boolean logFailuresOnly;
+
+	/**
+	 * Metrics to save the number of write failed.
+	 */
+	protected transient Counter writeFailedCounter;
 
 	/**
 	 * Semantic chosen for this instance.
@@ -770,12 +777,14 @@ public class FlinkKafkaProducer<IN>
 	@Override
 	public void open(Configuration configuration) throws Exception {
 		if (logFailuresOnly) {
+			writeFailedCounter = getRuntimeContext().getMetricGroup().counter(ConfigConstants.WRITE_FAILED_COUNTER);
 			callback = new Callback() {
 				@Override
 				public void onCompletion(RecordMetadata metadata, Exception e) {
 					if (e != null) {
 						LOG.error("Error while sending record to Kafka: " + e.getMessage(), e);
 					}
+					writeFailedCounter.inc();
 					acknowledgeMessage();
 				}
 			};

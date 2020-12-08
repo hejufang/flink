@@ -22,7 +22,9 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.java.ClosureCleaner;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -122,6 +124,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	/** The callback than handles error propagation or logging callbacks. */
 	protected transient Callback callback;
+
+	/**
+	 * Metrics to save the number of write failed.
+	 */
+	protected transient Counter writeFailedCounter;
 
 	/** Errors encountered in the async producer are stored here. */
 	protected transient volatile Exception asyncException;
@@ -250,12 +257,15 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		}
 
 		if (logFailuresOnly) {
+			this.writeFailedCounter =
+				getRuntimeContext().getMetricGroup().counter(ConfigConstants.WRITE_FAILED_COUNTER);
 			callback = new Callback() {
 				@Override
 				public void onCompletion(RecordMetadata metadata, Exception e) {
 					if (e != null) {
 						LOG.error("Error while sending record to Kafka: " + e.getMessage(), e);
 					}
+					writeFailedCounter.inc();
 					acknowledgeMessage();
 				}
 			};
