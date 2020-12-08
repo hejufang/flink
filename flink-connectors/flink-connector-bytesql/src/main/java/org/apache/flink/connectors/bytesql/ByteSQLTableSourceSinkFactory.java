@@ -45,6 +45,7 @@ import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_LOOK
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_PASSWORD;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_IGNORE_NULL_COLUMNS;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_PRIMARY_KEY_INDICES;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_TABLE;
@@ -111,6 +112,7 @@ public class ByteSQLTableSourceSinkFactory implements StreamTableSourceFactory<R
 		properties.add(CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL);
 		properties.add(CONNECTOR_SINK_MAX_RETRIES);
 		properties.add(CONNECTOR_SINK_PRIMARY_KEY_INDICES);
+		properties.add(CONNECTOR_SINK_IGNORE_NULL_COLUMNS);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -154,6 +156,7 @@ public class ByteSQLTableSourceSinkFactory implements StreamTableSourceFactory<R
 		descriptorProperties.getOptionalInt(CONNECTOR_SINK_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setParallelism);
 		builder.setKeyFieldIndices(getKeyFieldIndices(descriptorProperties));
+		descriptorProperties.getOptionalBoolean(CONNECTOR_SINK_IGNORE_NULL_COLUMNS).ifPresent(builder::setIgnoreNull);
 		return builder.build();
 	}
 

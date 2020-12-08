@@ -33,18 +33,21 @@ public class ByteSQLInsertOptions implements Serializable {
 	private final int maxRetryTimes;
 	private final int parallelism;
 	private final int[] keyFieldIndices;
+	private final boolean ignoreNull;
 
 	private ByteSQLInsertOptions(
 			int bufferFlushMaxRows,
 			long bufferFlushIntervalMills,
 			int maxRetryTimes,
 			int parallelism,
-			int[] keyFieldIndices) {
+			int[] keyFieldIndices,
+			boolean ignoreNull) {
 		this.bufferFlushMaxRows = bufferFlushMaxRows;
 		this.bufferFlushIntervalMills = bufferFlushIntervalMills;
 		this.maxRetryTimes = maxRetryTimes;
 		this.parallelism = parallelism;
 		this.keyFieldIndices = keyFieldIndices;
+		this.ignoreNull = ignoreNull;
 	}
 
 	public int getBufferFlushMaxRows() {
@@ -67,6 +70,10 @@ public class ByteSQLInsertOptions implements Serializable {
 		return keyFieldIndices;
 	}
 
+	public boolean isIgnoreNull() {
+		return ignoreNull;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -79,7 +86,8 @@ public class ByteSQLInsertOptions implements Serializable {
 				Objects.equals(bufferFlushIntervalMills, options.bufferFlushIntervalMills) &&
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 				Objects.equals(parallelism, options.parallelism) &&
-				Arrays.equals(keyFieldIndices, options.keyFieldIndices);
+				Arrays.equals(keyFieldIndices, options.keyFieldIndices) &&
+				(ignoreNull == options.ignoreNull);
 		} else {
 			return false;
 		}
@@ -94,6 +102,7 @@ public class ByteSQLInsertOptions implements Serializable {
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private int parallelism;
 		private int[] keyFieldIndices;
+		private boolean ignoreNull;
 
 		/**
 		 * optional, flush max size (includes all append, upsert and delete records),
@@ -130,13 +139,19 @@ public class ByteSQLInsertOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setIgnoreNull(boolean ignoreNull) {
+			this.ignoreNull = ignoreNull;
+			return this;
+		}
+
 		public ByteSQLInsertOptions build() {
 			return new ByteSQLInsertOptions(
 				bufferFlushMaxRows,
 				bufferFlushIntervalMills,
 				maxRetryTimes,
 				parallelism,
-				keyFieldIndices);
+				keyFieldIndices,
+				ignoreNull);
 		}
 	}
 }

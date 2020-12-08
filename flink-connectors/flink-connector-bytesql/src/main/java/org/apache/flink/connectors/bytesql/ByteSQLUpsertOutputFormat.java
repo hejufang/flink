@@ -18,6 +18,7 @@
 
 package org.apache.flink.connectors.bytesql;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
@@ -31,6 +32,7 @@ import com.bytedance.infra.bytesql4j.ByteSQLDB;
 import com.bytedance.infra.bytesql4j.ByteSQLOption;
 import com.bytedance.infra.bytesql4j.ByteSQLTransaction;
 import com.bytedance.infra.bytesql4j.exception.ByteSQLException;
+import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +47,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * OutputFormat for {@link ByteSQLUpsertTableSink}.
@@ -60,9 +63,17 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 	private final String upsertSQL;
 	private final String deleteSQL;
 	private final boolean isAppendOnly;
+	private final String[] fieldNames;
 
 	private transient ByteSQLDB byteSQLDB;
 	private transient List<Tuple2<Boolean, Row>> recordBuffer;
+	/**
+	 * Delete/retract messages cannot be merged with insert messages if null values are set to be ignore.
+	 * Therefore we use a tuple as the value of map.
+	 * f0 of the tuple is a flag that means a delete should be executed before the value f1 (if exist) being insert.
+	 * f1 of the tuple is the value that will be inserted if it's not null.
+	 * For detail for setting the tuple, see {@link #addRow}.
+	 */
 	private transient Map<Row, Tuple2<Boolean, Row>> keyToRows;
 	private transient int batchCount = 0;
 	private transient ScheduledExecutorService scheduler;
@@ -89,6 +100,7 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 		}
 		this.upsertSQL = ByteSQLUtils.getUpsertStatement(options.getTableName(), fieldNames);
 		this.isAppendOnly = isAppendOnly;
+		this.fieldNames = fieldNames;
 	}
 
 	@Override
@@ -158,30 +170,36 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 	public synchronized void flush() {
 		checkFlushException();
 		for (int retryTimes = 1; retryTimes <= insertOptions.getMaxRetryTimes(); retryTimes++) {
-			recordBuffer.forEach(tuple -> keyToRows.put(getPrimaryKey(tuple.f1), tuple));
+			recordBuffer.forEach(addRow(keyToRows));
 			if (keyToRows.size() > 0) {
 				ByteSQLTransaction transaction = null;
-				String sql;
+				String sql = "undefined";
 				try {
 					transaction = byteSQLDB.beginTransaction();
 					for (Map.Entry<Row, Tuple2<Boolean, Row>> entry : keyToRows.entrySet()) {
 						Row pk = entry.getKey();
 						Tuple2<Boolean, Row> tuple = entry.getValue();
 						if (tuple.f0) {
-							sql = ByteSQLUtils.generateActualSql(upsertSQL, tuple.f1);
-						} else if (pkFields.length == 0){
-							//Temporary fix, see INFOI-14662.
-							sql = ByteSQLUtils.generateActualSql(deleteSQL, pk);
+							if (pkFields.length == 0) {
+								//Temporary fix, see INFOI-14662.
+								sql = ByteSQLUtils.generateActualSql(deleteSQL, pk);
+								transaction.rawQuery(sql);
+							}
 						}
-						else {
-							continue;
+						if (tuple.f1 != null) {
+							if (insertOptions.isIgnoreNull()) {
+								sql = generateUpsertSQLWithoutNull(tuple.f1);
+							} else {
+								sql = ByteSQLUtils.generateActualSql(upsertSQL, tuple.f1);
+							}
+							transaction.rawQuery(sql);
 						}
-						transaction.rawQuery(sql);
 					}
 					transaction.commit();
 					keyToRows.clear();
 					recordBuffer.clear();
 					batchCount = 0;
+					sql = "undefined";
 					return;
 				} catch (ByteSQLException e) {
 					LOG.error(String.format("ByteSQL execute error, retry times = %d", retryTimes), e);
@@ -196,7 +214,8 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 						}
 					}
 					if (!e.isRetryable() || retryTimes >= insertOptions.getMaxRetryTimes()) {
-						throw new RuntimeException("Execution of ByteSQL statement failed.", e);
+						throw new RuntimeException(String.format("Execution of ByteSQL statement " +
+							"failed. The sql is %s.", sql), e);
 					}
 					try {
 						Thread.sleep(ThreadLocalRandom.current().nextInt(10) * 100L);
@@ -208,6 +227,92 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 				return;
 			}
 		}
+	}
+
+	/**
+	 * Generate a sql that ignore the null values.
+	 */
+	@VisibleForTesting
+	protected String generateUpsertSQLWithoutNull(Row row) throws ByteSQLException {
+		List<Object> fields = new ArrayList<>(row.getArity());
+		List<String> fieldNameList = new ArrayList<>(row.getArity());
+		int i = 0;
+		while (i < row.getArity()) {
+			if (row.getField(i) != null) {
+				fields.add(row.getField(i));
+				fieldNameList.add(fieldNames[i]);
+			}
+			i++;
+		}
+		String upsertFormatter = ByteSQLUtils
+			.getUpsertStatement(options.getTableName(), fieldNameList.toArray(new String[]{}));
+		return ByteSQLUtils.generateActualSql(upsertFormatter, Row.of(fields.toArray()));
+	}
+
+	/**
+	 * Update the keyToRow map.
+	 * For a given key, a initial tuple will depend on the first incoming message:
+	 * 1. delete -> tuple(true, null);
+	 * 2. update -> tuple(false, update row);
+	 * After initialization, per each message coming, the tuple will be update:
+	 * 1. tuple(true, null), delete -> tuple(true, null);
+	 * 2. tuple(true, null), update -> tuple(true, update row);
+	 * 3. tuple(false, update row), delete -> tuple(true, null);
+	 * 4. tuple(false, update row), update -> tuple(false, update row(merged if null is ignored));
+	 * 5. tuple(true, update row), delete -> tuple(true, null);
+	 * 6. tuple(true, update row), update ->  tuple(true, update row(merged if null is ignored)).
+	 */
+	@VisibleForTesting
+	protected Consumer<Tuple2<Boolean, Row>> addRow(Map<Row, Tuple2<Boolean, Row>> keyToRows) {
+		if (insertOptions.isIgnoreNull()) {
+			return (tuple) -> {
+				Row primaryKey = getPrimaryKey(tuple.f1);
+				if (!tuple.f0) {
+					//if a newly coming message is delete, then ignore all former operation.
+					keyToRows.put(primaryKey, new Tuple2<>(true, null));
+				} else if (keyToRows.containsKey(primaryKey)) {
+					Tuple2<Boolean, Row> value = keyToRows.get(primaryKey);
+					value.f1 = mergeRow(tuple.f1, value.f1);
+				} else {
+					keyToRows.put(primaryKey, new Tuple2<>(false, tuple.f1));
+				}
+			};
+		} else {
+			return (tuple) -> keyToRows.put(getPrimaryKey(tuple.f1), getKeyToRowsValue(tuple));
+		}
+	}
+
+	/**
+	 * Merge two to-update row to one row. For each field, just get last not null value of two
+	 * rows. If some values of both rows are null, then the merged values are null too.
+	 * The oldRow can be a null row. Meanwhile, the newRow won't be null as only incoming
+	 * not null rows will need this function.
+	 */
+	@VisibleForTesting
+	protected static Row mergeRow(Row newRow, Row oldRow) {
+		if (oldRow == null){
+			return newRow;
+		} else {
+			Object[] mergedRowValues = new Object[newRow.getArity()];
+			int i = 0;
+			while (i < newRow.getArity()) {
+				mergedRowValues[i] = ObjectUtils.firstNonNull(newRow.getField(i), oldRow.getField(i));
+				i++;
+			}
+			return Row.of(mergedRowValues);
+		}
+	}
+
+	/**
+	 * Transform a incoming message to tuple for {@link #keyToRows}.
+	 */
+	private Tuple2<Boolean, Row> getKeyToRowsValue(Tuple2<Boolean, Row> row) {
+		if (row.f0) {
+			row.f0 = false;
+		} else {
+			row.f1 = null;
+		}
+		return row;
 	}
 
 	@Override

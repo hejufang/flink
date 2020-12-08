@@ -39,6 +39,7 @@ public class ByteSQLValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL = "connector.sink.buffer-flush.interval";
 	public static final String CONNECTOR_SINK_PRIMARY_KEY_INDICES = "connector.sink.primary-key-indices";
 	public static final String CONNECTOR_SINK_MAX_RETRIES = "connector.sink.max-retries";
+	public static final String CONNECTOR_SINK_IGNORE_NULL_COLUMNS = "connector.sink.ignore-null-columns";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -73,5 +74,6 @@ public class ByteSQLValidator extends ConnectorDescriptorValidator {
 		properties.validateDuration(CONNECTOR_SINK_BUFFER_FLUSH_INTERVAL, true, 1);
 		properties.validateInt(CONNECTOR_SINK_MAX_RETRIES, true);
 		properties.validateString(CONNECTOR_SINK_PRIMARY_KEY_INDICES, true);
+		properties.validateBoolean(CONNECTOR_SINK_IGNORE_NULL_COLUMNS, true);
 	}
 }
