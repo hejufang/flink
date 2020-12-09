@@ -83,7 +83,7 @@ public class CheckpointFailureManager {
 		this.failureCheckpointIdsInByte = ConcurrentHashMap.newKeySet();
 		this.reporter = reporter;
 		this.metricGroup = metricGroup;
-		this.metricGroup.gauge(CONTINUOUS_CHECKPOINT_COUNT, () -> continuousFailureCheckpointCountInByte);
+		this.metricGroup.gauge(CONTINUOUS_FAILURE_CHECKPOINT_COUNT, () -> continuousFailureCheckpointCountInByte);
 	}
 
 	/**
