@@ -91,6 +91,9 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SOURCE_SAMPLE_INTERVAL = "connector.source-sample-interval";
 	public static final String CONNECTOR_SOURCE_SAMPLE_NUM = "connector.source-sample-num";
 
+	// Disable currentOffsetsRate metrics
+	public static final String DISABLE_CURRENT_OFFSET_RATE_METRICS = "disableCurrentOffsetsRateMetrics";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -158,6 +161,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		properties.validateLong(CONNECTOR_RELATIVE_OFFSET, true);
 		properties.validateLong(CONNECTOR_SPECIFIC_TIMESTAMP, true);
 		properties.validateBoolean(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION, true);
+		properties.validateBoolean(DISABLE_CURRENT_OFFSET_RATE_METRICS, true);
 	}
 
 	private void validateKafkaProperties(DescriptorProperties properties) {

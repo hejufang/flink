@@ -63,6 +63,10 @@ public class RocketMQConfig {
 	public static final String ACCESS_KEY = "access.key";
 	public static final String SECRET_KEY = "secret.key";
 
+	// Metrics
+	public static final String TOPIC_METRICS_GROUP = "topic";
+	public static final String CONSUMER_GROUP_METRICS_GROUP = "group";
+
 	// Consumer related config
 	public static final String CONSUMER_GROUP = "consumer.group"; // Required
 	public static final String CONSUMER_TOPIC = "consumer.topic"; // Required

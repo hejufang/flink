@@ -46,6 +46,9 @@ public class KafkaTopicPartitionState<KPH> {
 	/** The offset of the Kafka partition that has been committed. */
 	private volatile long committedOffset;
 
+	/** The records num of the Kafka partition that has been consumed. */
+	private volatile long consumerRecordsNum = 0L;
+
 	// ------------------------------------------------------------------------
 
 	public KafkaTopicPartitionState(KafkaTopicPartition partition, KPH kafkaPartitionHandle) {
@@ -104,6 +107,14 @@ public class KafkaTopicPartitionState<KPH> {
 
 	public final long getCommittedOffset() {
 		return committedOffset;
+	}
+
+	public long getConsumerRecordsNum() {
+		return consumerRecordsNum;
+	}
+
+	public void consumerRecordsNumInc() {
+		this.consumerRecordsNum++;
 	}
 
 	// ------------------------------------------------------------------------

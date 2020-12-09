@@ -25,6 +25,9 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MeterView;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -69,6 +72,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONNECTOR_TYPE_VALUE_ROCKETMQ;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_GROUP_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_EARLIEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_LATEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.CONSUMER_OFFSET_TIMESTAMP;
@@ -80,6 +85,7 @@ import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STAR
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_GROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_LATEST;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.STARTUP_MODE_TIMESTAMP;
+import static org.apache.flink.streaming.connectors.rocketmq.RocketMQConfig.TOPIC_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getInteger;
 import static org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils.getLong;
 
@@ -96,7 +102,9 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private static final String TASK_RUNNING_STATE = "task_running_state";
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
+	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	private transient Counter skipDirty;
+	private transient MeterView recordsNumMeterView;
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
 	private AllocateMessageQueueStrategyParallelism parallelismStrategy;
 	private DefaultMQPullConsumer consumer;
@@ -185,7 +193,13 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		RocketMQConfig.buildConsumerConfigs(props, consumer);
-		this.skipDirty = getRuntimeContext().getMetricGroup().counter("skipDirty");
+		MetricGroup metricGroup = getRuntimeContext().getMetricGroup()
+			.addGroup(TOPIC_METRICS_GROUP, this.topic)
+			.addGroup(CONSUMER_GROUP_METRICS_GROUP, this.group)
+			.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, CONNECTOR_TYPE_VALUE_ROCKETMQ);
+
+		this.skipDirty = metricGroup.counter("skipDirty");
+		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		this.retryTimes = getInteger(props, CONSUMER_RETRY_TIMES, CONSUMER_RETRY_TIMES_DEFAULT);
 	}
 
@@ -252,6 +266,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 										skipDirty.inc();
 									} else {
 										context.collectWithTimestamp(data, msg.getBornTimestamp());
+										recordsNumMeterView.markEvent();
 									}
 									putMessageQueueOffset(mq, msg.getQueueOffset() + 1);
 								}

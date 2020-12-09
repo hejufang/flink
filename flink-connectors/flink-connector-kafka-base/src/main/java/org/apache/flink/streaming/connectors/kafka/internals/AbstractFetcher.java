@@ -23,6 +23,7 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.metrics.View;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
@@ -32,17 +33,21 @@ import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
+import org.apache.flink.table.descriptors.KafkaValidator;
 import org.apache.flink.util.SerializedValue;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +57,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITTED_OFFSETS_METRICS_GAUGE;
+import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CONSUMER_RECORDS_METRICS_RATE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CURRENT_OFFSETS_METRICS_GAUGE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CURRENT_OFFSETS_METRICS_RATE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.LEGACY_COMMITTED_OFFSETS_METRICS_GROUP;
@@ -59,6 +65,7 @@ import static org.apache.flink.streaming.connectors.kafka.internals.metrics.Kafk
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.OFFSETS_BY_PARTITION_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.OFFSETS_BY_TOPIC_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.TOPIC_PARTITIONS;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TYPE_VALUE_KAFKA;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -74,6 +81,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 @Internal
 public abstract class AbstractFetcher<T, KPH> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractFetcher.class);
 
 	private static final int NO_TIMESTAMPS_WATERMARKS = 0;
 	private static final int PERIODIC_WATERMARKS = 1;
@@ -139,6 +148,11 @@ public abstract class AbstractFetcher<T, KPH> {
 	private final boolean useMetrics;
 
 	/**
+	 * Disable the metrics of CurrentOffsetsRate.
+	 */
+	private final boolean disableCurrentOffsetsRateMetrics;
+
+	/**
 	 * The metric group which all metrics for the consumer should be registered to.
 	 * This metric group is defined under the user scope {@link KafkaConsumerMetricConstants#KAFKA_CONSUMER_METRICS_GROUP}.
 	 */
@@ -177,6 +191,7 @@ public abstract class AbstractFetcher<T, KPH> {
 		this.topicAndPartitions = consumerMetricGroup.gauge(TOPIC_PARTITIONS, new TopicAndPartitionsGauge(
 				properties.getProperty(ConsumerConfig.CLUSTER_NAME_CONFIG),
 				properties.getProperty(ConsumerConfig.GROUP_ID_CONFIG)));
+		this.disableCurrentOffsetsRateMetrics = Boolean.parseBoolean(properties.getProperty(KafkaValidator.DISABLE_CURRENT_OFFSET_RATE_METRICS));
 
 		// figure out what we watermark mode we will be using
 		this.watermarksPeriodic = watermarksPeriodic;
@@ -386,6 +401,7 @@ public abstract class AbstractFetcher<T, KPH> {
 				synchronized (checkpointLock) {
 					sourceContext.collect(record);
 					partitionState.setOffset(offset);
+					partitionState.consumerRecordsNumInc();
 				}
 			} else if (timestampWatermarkMode == PERIODIC_WATERMARKS) {
 				emitRecordWithTimestampAndPeriodicWatermark(record, partitionState, offset, Long.MIN_VALUE);
@@ -422,6 +438,7 @@ public abstract class AbstractFetcher<T, KPH> {
 				synchronized (checkpointLock) {
 					sourceContext.collectWithTimestamp(record, timestamp);
 					partitionState.setOffset(offset);
+					partitionState.consumerRecordsNumInc();
 				}
 			} else if (timestampWatermarkMode == PERIODIC_WATERMARKS) {
 				emitRecordWithTimestampAndPeriodicWatermark(record, partitionState, offset, timestamp);
@@ -433,6 +450,7 @@ public abstract class AbstractFetcher<T, KPH> {
 			skipDirty.inc();
 			synchronized (checkpointLock) {
 				partitionState.setOffset(offset);
+				partitionState.consumerRecordsNumInc();
 			}
 		}
 	}
@@ -461,6 +479,7 @@ public abstract class AbstractFetcher<T, KPH> {
 		synchronized (checkpointLock) {
 			sourceContext.collectWithTimestamp(record, timestamp);
 			partitionState.setOffset(offset);
+			partitionState.consumerRecordsNumInc();
 		}
 	}
 
@@ -484,6 +503,7 @@ public abstract class AbstractFetcher<T, KPH> {
 		synchronized (checkpointLock) {
 			sourceContext.collectWithTimestamp(record, timestamp);
 			partitionState.setOffset(offset);
+			partitionState.consumerRecordsNumInc();
 		}
 
 		// if we also have a new per-partition watermark, check if that is also a
@@ -649,13 +669,21 @@ public abstract class AbstractFetcher<T, KPH> {
 
 			MetricGroup topicPartitionGroup = consumerMetricGroup
 				.addGroup(OFFSETS_BY_TOPIC_METRICS_GROUP, ktp.getTopic())
-				.addGroup(OFFSETS_BY_PARTITION_METRICS_GROUP, Integer.toString(ktp.getPartition()));
+				.addGroup(OFFSETS_BY_PARTITION_METRICS_GROUP, Integer.toString(ktp.getPartition()))
+				.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, CONNECTOR_TYPE_VALUE_KAFKA)
+				.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
 
 			OffsetGauge currentOffsetGauge = new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET);
 			topicPartitionGroup.gauge(CURRENT_OFFSETS_METRICS_GAUGE, currentOffsetGauge);
 			topicPartitionGroup.gauge(COMMITTED_OFFSETS_METRICS_GAUGE, new OffsetGauge(ktp, OffsetGaugeType.COMMITTED_OFFSET));
 
-			topicPartitionGroup.meter(CURRENT_OFFSETS_METRICS_RATE, new OffsetMeterView(currentOffsetGauge, 60));
+			// disable currentOffsetsRate
+			if (disableCurrentOffsetsRateMetrics) {
+				LOG.info("Disable currentOffsetsRate metrics.");
+			} else {
+				topicPartitionGroup.meter(CURRENT_OFFSETS_METRICS_RATE, new OffsetMeterView(currentOffsetGauge, 60));
+			}
+			topicPartitionGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new OffsetMeterView(new RecordsNumGauge(ktp), 60));
 
 			legacyCurrentOffsetsMetricGroup.gauge(getLegacyOffsetsMetricsGaugeName(ktp), new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET));
 			legacyCommittedOffsetsMetricGroup.gauge(getLegacyOffsetsMetricsGaugeName(ktp), new OffsetGauge(ktp, OffsetGaugeType.COMMITTED_OFFSET));
@@ -763,15 +791,32 @@ public abstract class AbstractFetcher<T, KPH> {
 		}
 	}
 
-	private static class OffsetMeterView implements Meter, View {
+	/**
+	 * Gauge for getting the offset of a KafkaTopicPartitionState.
+	 */
+	private static class RecordsNumGauge implements Gauge<Long> {
 
-		private final OffsetGauge gauge;
+		private final KafkaTopicPartitionState<?> ktp;
+
+		RecordsNumGauge(KafkaTopicPartitionState<?> ktp) {
+			this.ktp = ktp;
+		}
+
+		@Override
+		public Long getValue() {
+			return ktp.getConsumerRecordsNum();
+		}
+	}
+
+	private static class OffsetMeterView<T extends Gauge<Long>> implements Meter, View {
+
+		private final T gauge;
 		private final int timeSpanInSeconds;
 		private final long[] values;
 		private int time = 0;
 		private double currentRate = 0.0;
 
-		public OffsetMeterView(OffsetGauge gauge, int timeSpanInSeconds) {
+		public OffsetMeterView(T gauge, int timeSpanInSeconds) {
 			this.gauge = gauge;
 			this.timeSpanInSeconds = Math.max(
 				timeSpanInSeconds - (timeSpanInSeconds % UPDATE_INTERVAL_SECONDS),
@@ -802,6 +847,9 @@ public abstract class AbstractFetcher<T, KPH> {
 			// update after one cycle
 			if (values[(time + 1) % values.length] > 0) {
 				currentRate =  ((double) (values[time] - values[(time + 1) % values.length]) / timeSpanInSeconds);
+				if (currentRate < 0) {
+					LOG.warn("[metrics] OffsetMeterView: {}.", Arrays.asList(values));
+				}
 			}
 		}
 	}

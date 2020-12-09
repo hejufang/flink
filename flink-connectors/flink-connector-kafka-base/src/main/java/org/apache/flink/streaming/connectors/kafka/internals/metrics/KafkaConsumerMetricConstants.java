@@ -54,6 +54,8 @@ public class KafkaConsumerMetricConstants {
 
 	public static final String CURRENT_OFFSETS_METRICS_RATE = "currentOffsetsRate";
 
+	public static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
+
 	// ------------------------------------------------------------------------
 	//  Legacy metrics
 	// ------------------------------------------------------------------------

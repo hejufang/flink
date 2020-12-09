@@ -87,6 +87,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_STARTU
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TEAM;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TOPIC;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_TYPE_VALUE_KAFKA;
+import static org.apache.flink.table.descriptors.KafkaValidator.DISABLE_CURRENT_OFFSET_RATE_METRICS;
 import static org.apache.flink.table.descriptors.KafkaValidator.METADATA_FIELDS_MAPPING;
 import static org.apache.flink.table.descriptors.KafkaValidator.METADATA_FIELD_INDEX_MAPPING;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_CLASS;
@@ -156,6 +157,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_SOURCE_SAMPLE_INTERVAL);
 		properties.add(CONNECTOR_SOURCE_SAMPLE_NUM);
 		properties.add(METADATA_FIELDS_MAPPING);
+		properties.add(DISABLE_CURRENT_OFFSET_RATE_METRICS);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -338,6 +340,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			.ifPresent(mf -> configurations.put(METADATA_FIELD_INDEX_MAPPING, mf));
 		descriptorProperties.getOptionalBoolean(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(value ->
 			configurations.put(CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION, String.valueOf(value)));
+		descriptorProperties.getOptionalBoolean(DISABLE_CURRENT_OFFSET_RATE_METRICS).ifPresent(value ->
+			configurations.put(DISABLE_CURRENT_OFFSET_RATE_METRICS, String.valueOf(value)));
 		descriptorProperties.getOptionalString(CONNECTOR_SOURCE_PARTITION_RANGE).ifPresent(value ->
 			configurations.put(CONNECTOR_SOURCE_PARTITION_RANGE, value));
 		return configurations;
