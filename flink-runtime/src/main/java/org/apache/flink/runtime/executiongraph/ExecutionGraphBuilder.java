@@ -481,7 +481,8 @@ public class ExecutionGraphBuilder {
 				completedCheckpoints,
 				rootBackend,
 				checkpointStatsTracker,
-				checkpointHandler);
+				checkpointHandler,
+				metrics);
 		}
 
 		jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(

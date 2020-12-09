@@ -18,6 +18,8 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.blacklist.reporter.NoOpBlacklistReporterImpl;
 import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
@@ -43,6 +45,8 @@ public class CheckpointFailureManager {
 
 	public static final int UNLIMITED_TOLERABLE_FAILURE_NUMBER = Integer.MAX_VALUE;
 
+	private static final String CONTINUOUS_CHECKPOINT_COUNT = "numberOfContinuousCheckpointFailure";
+
 	private final int tolerableCpFailureNumber;
 	private final FailJobCallback failureCallback;
 	private final AtomicInteger continuousFailureCounter;
@@ -53,12 +57,21 @@ public class CheckpointFailureManager {
 
 	private final RemoteBlacklistReporter reporter;
 
+	private final MetricGroup metricGroup;
+
+	// only count failures defined in bytedance
+	private final AtomicInteger continuousCheckpointCountInByte = new AtomicInteger(0);
+
 	@VisibleForTesting
 	public CheckpointFailureManager(int tolerableCpFailureNumber, FailJobCallback failureCallback) {
-		this(tolerableCpFailureNumber, failureCallback, new NoOpBlacklistReporterImpl());
+		this(tolerableCpFailureNumber, failureCallback, new NoOpBlacklistReporterImpl(), new UnregisteredMetricsGroup());
 	}
 
-	public CheckpointFailureManager(int tolerableCpFailureNumber, FailJobCallback failureCallback, RemoteBlacklistReporter reporter) {
+	public CheckpointFailureManager(
+			int tolerableCpFailureNumber,
+			FailJobCallback failureCallback,
+			RemoteBlacklistReporter reporter,
+			MetricGroup metricGroup) {
 		checkArgument(tolerableCpFailureNumber >= 0,
 				"The tolerable checkpoint failure number is illegal, " +
 						"it must be greater than or equal to 0 .");
@@ -67,6 +80,8 @@ public class CheckpointFailureManager {
 		this.failureCallback = checkNotNull(failureCallback);
 		this.countedCheckpointIds = ConcurrentHashMap.newKeySet();
 		this.reporter = reporter;
+		this.metricGroup = metricGroup;
+		this.metricGroup.gauge(CONTINUOUS_CHECKPOINT_COUNT, () -> continuousCheckpointCountInByte);
 	}
 
 	/**
@@ -82,6 +97,7 @@ public class CheckpointFailureManager {
 		// always fail the job if token expired happens on JM's side
 		checkTokenProblemInTraces(exception);
 
+		checkContinuousCheckpointCount(exception);
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
@@ -112,6 +128,7 @@ public class CheckpointFailureManager {
 			reporter.reportFailure(executionAttemptID, exception, System.currentTimeMillis());
 		}
 
+		checkContinuousCheckpointCount(exception);
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
@@ -145,6 +162,18 @@ public class CheckpointFailureManager {
 			t = t.getCause();
 		}
 		return false;
+	}
+
+	private void checkContinuousCheckpointCount(CheckpointException exception) {
+		switch (exception.getCheckpointFailureReason()) {
+			case CHECKPOINT_ASYNC_EXCEPTION:
+			case CHECKPOINT_SYNC_EXCEPTION:
+			case CHECKPOINT_EXPIRED:
+			case FINALIZE_CHECKPOINT_FAILURE:
+			case CHECKPOINT_DECLINED:
+				continuousCheckpointCountInByte.incrementAndGet();
+				break;
+		}
 	}
 
 	public void checkFailureCounter(
@@ -210,6 +239,7 @@ public class CheckpointFailureManager {
 
 	private void clearCount() {
 		continuousFailureCounter.set(0);
+		continuousCheckpointCountInByte.set(0);
 		countedCheckpointIds.clear();
 	}
 

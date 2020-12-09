@@ -31,6 +31,7 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.JobException;
@@ -712,6 +713,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		return false;
 	}
 
+	@VisibleForTesting
 	public void enableCheckpointing(
 			CheckpointCoordinatorConfiguration chkConfig,
 			List<ExecutionJobVertex> verticesToTrigger,
@@ -723,6 +725,22 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			StateBackend checkpointStateBackend,
 			CheckpointStatsTracker statsTracker,
 			CheckpointHandler checkpointHandler) {
+		enableCheckpointing(chkConfig, verticesToTrigger, verticesToWaitFor, verticesToCommitTo, masterHooks,
+				checkpointIDCounter, checkpointStore, checkpointStateBackend, statsTracker, checkpointHandler, new UnregisteredMetricsGroup());
+	}
+
+	public void enableCheckpointing(
+			CheckpointCoordinatorConfiguration chkConfig,
+			List<ExecutionJobVertex> verticesToTrigger,
+			List<ExecutionJobVertex> verticesToWaitFor,
+			List<ExecutionJobVertex> verticesToCommitTo,
+			List<MasterTriggerRestoreHook<?>> masterHooks,
+			CheckpointIDCounter checkpointIDCounter,
+			CompletedCheckpointStore checkpointStore,
+			StateBackend checkpointStateBackend,
+			CheckpointStatsTracker statsTracker,
+			CheckpointHandler checkpointHandler,
+			MetricGroup metricGroup) {
 
 		checkState(state == JobStatus.CREATED, "Job must be in CREATED state");
 		checkState(checkpointCoordinator == null, "checkpointing already enabled");
@@ -745,7 +763,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				public void failJobDueToTaskFailure(Throwable cause, ExecutionAttemptID failingTask) {
 					getJobMasterMainThreadExecutor().execute(() -> failGlobalIfExecutionIsStillRunning(cause, failingTask));
 				}
-			}, remoteBlacklistReporter);
+			}, remoteBlacklistReporter, metricGroup);
 
 		// temporary fix
 		failureManager.setFailOnInvalidTokens(chkConfig.isFailOnInvalidTokens());
