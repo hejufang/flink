@@ -22,6 +22,8 @@ import org.apache.flink.cep.pattern.parser.CepEvent;
 import org.apache.flink.cep.pattern.parser.CepEventParser;
 import org.apache.flink.cep.pattern.pojo.Condition;
 
+import java.util.List;
+
 /**
  * New condition for cep2.0.
  * @param <IN>
@@ -30,20 +32,25 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 
 	private final CepEventParser cepEventParser;
 
-	private final Condition condition;
+	private final List<Condition> conditions;
 
-	public EventParserCondition(CepEventParser cepEventParser, Condition condition) {
+	public EventParserCondition(CepEventParser cepEventParser, List<Condition> conditions) {
 		this.cepEventParser = cepEventParser;
-		this.condition = condition;
+		this.conditions = conditions;
 	}
 
 	@Override
-	public boolean filter(IN value, Context<IN> ctx) throws Exception {
-		if (condition.getOp().equals(Condition.OpType.EQUAL)) {
-			// TODO consider null values
-			return cepEventParser.get(condition.getKey(), (CepEvent) value).equals(condition.getValue());
-		} else {
-			throw new UnsupportedOperationException(String.format("Op %s is not supported.", condition.getOp().toString()));
+	public boolean filter(IN event, Context<IN> ctx) throws Exception {
+		for (Condition condition : conditions) {
+			if (condition.getOp().equals(Condition.OpType.EQUAL)) {
+				final String value = cepEventParser.get(condition.getKey(), (CepEvent) event);
+				if (value == null || !value.equals(condition.getValue())) {
+					return false;
+				}
+			} else {
+				throw new UnsupportedOperationException(String.format("Op %s is not supported.", condition.getOp().toString()));
+			}
 		}
+		return true;
 	}
 }

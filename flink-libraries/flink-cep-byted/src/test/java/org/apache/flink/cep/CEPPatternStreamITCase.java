@@ -23,8 +23,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
-import org.apache.flink.cep.pattern.parser.CepEvent;
-import org.apache.flink.cep.pattern.parser.CepEventParser;
+import org.apache.flink.cep.pattern.parser.TestCepEventParser;
 import org.apache.flink.cep.test.TestData;
 import org.apache.flink.cep.time.Time;
 import org.apache.flink.streaming.api.TimeCharacteristic;
@@ -314,23 +313,6 @@ public class CEPPatternStreamITCase {
 		resultList.sort(String::compareTo);
 
 		assertEquals(Arrays.asList("1,1", "1,1"), resultList);
-	}
-
-	private static class TestCepEventParser extends CepEventParser {
-
-		@Override
-		public String get(String key, CepEvent data) {
-			if (key.equals("name")) {
-				return ((Event) data).getName();
-			} else {
-				throw new UnsupportedOperationException();
-			}
-		}
-
-		@Override
-		public CepEventParser duplicate() {
-			return new TestCepEventParser();
-		}
 	}
 
 	private static class EventStream implements SourceFunction<Tuple2<Event, Long>> {

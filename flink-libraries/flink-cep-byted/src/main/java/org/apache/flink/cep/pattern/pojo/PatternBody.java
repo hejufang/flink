@@ -22,6 +22,7 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCre
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,7 +46,11 @@ public class PatternBody implements Serializable {
 			@JsonProperty(FIELD_EVENTS) List<Event> events,
 			@JsonProperty(FIELD_ATTRIBUTES) Map<AttributeType, String> attributes) {
 		this.events = events;
-		this.attributes = attributes;
+		if (attributes == null) {
+			this.attributes = new HashMap<>();
+		} else {
+			this.attributes = attributes;
+		}
 	}
 
 	public List<Event> getEvents() {

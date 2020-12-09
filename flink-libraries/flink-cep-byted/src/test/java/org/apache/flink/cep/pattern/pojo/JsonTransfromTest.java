@@ -31,6 +31,47 @@ import java.io.IOException;
 public class JsonTransfromTest {
 
 	@Test
+	public void testMultipleCondition() throws IOException {
+		String json = "{\n" +
+				"\t\"id\": \"rule_xx\",\n" +
+				"\t\"pattern\": {\n" +
+				"\t\t\"events\": [{\n" +
+				"\t\t\t\t\"id\": \"imp\",\n" +
+				"\t\t\t\t\"conditions\": [{\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"see iterm\"\n" +
+				"\t\t\t\t}]\n" +
+				"\t\t\t},\n" +
+				"\t\t\t{\n" +
+				"\t\t\t\t\"id\": \"purchase\",\n" +
+				"\t\t\t\t\"conditions\": [{\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"buy iterm\"\n" +
+				"\t\t\t\t}, {\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"take iterm\"\n" +
+				"\t\t\t\t}],\n" +
+				"\t\t\t\t\"connection\": \"NOT_FOLLOWED_BY\",\n" +
+				"\t\t\t\t\"after\": \"imp\"\n" +
+				"\t\t\t}\n" +
+				"\t\t],\n" +
+				"\t\t\"attributes\": {\n" +
+				"\t\t\t\"window\": 1000,\n" +
+				"\t\t\t\"allowSinglePartialMatchPerKey\": true\n" +
+				"\t\t}\n" +
+				"\t}\n" +
+				"}";
+
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
+		Assert.assertEquals(1, pattern.getBeginEvent().getConditions().size());
+		Assert.assertEquals(2, pattern.getEventAfter(pattern.getBeginEvent()).getConditions().size());
+	}
+
+	@Test
 	public void testNotFollowedBy() throws IOException {
 		String json = "{\n" +
 				"\t\"id\": \"rule_xx\",\n" +
@@ -95,9 +136,7 @@ public class JsonTransfromTest {
 				"                \"connection\": \"FOLLOWED_BY\",\n" +
 				"                \"after\": \"imp\"\n" +
 				"            }\n" +
-				"        ],\n" +
-				"        \"attributes\": {\n" +
-				"        }\n" +
+				"        ]\n" +
 				"    }\n" +
 				"}";
 
@@ -106,6 +145,7 @@ public class JsonTransfromTest {
 
 		Assert.assertEquals("rule_xx", pattern.getId());
 		Assert.assertEquals(2, pattern.getPattern().getEvents().size());
+		Assert.assertEquals(0, pattern.getPattern().getAttributes().size());
 		Assert.assertEquals(Event.ConnectionType.FOLLOWED_BY, pattern.getPattern().getEvents().get(1).getConnection());
 	}
 }

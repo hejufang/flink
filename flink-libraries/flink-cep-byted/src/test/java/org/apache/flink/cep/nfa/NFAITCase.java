@@ -101,7 +101,8 @@ public class NFAITCase extends TestLogger {
 		nfaTestHarness.feedRecord(new StreamRecord<>(new Event(1, "a", 1.0), 1));
 		Collection<Map<String, List<Event>>> output = nfa.pendingStateMatches(sharedBufferAccessor, nfaState, 12);
 
-		assertEquals(0, nfaState.getPartialMatches().size());
+		assertEquals(1, nfaState.getPartialMatches().size());
+		assertEquals("start", nfaState.getPartialMatches().poll().getCurrentStateName());
 		assertEquals(1, output.size());
 		assertEquals(1, output.iterator().next().get("start").size());
 		assertTrue(sharedBuffer.isEmpty());

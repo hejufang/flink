@@ -18,30 +18,27 @@
 
 package org.apache.flink.cep.pattern.parser;
 
-import org.apache.flink.cep.pattern.pojo.PatternPojo;
-import org.apache.flink.util.Preconditions;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.Serializable;
+import org.apache.flink.cep.Event;
 
 /**
- * Checker for the legality of pattern. We may add more rules here.
+ * TestCepEventParser.
  */
-public class LegalPatternPojoChecker implements Serializable {
+public class TestCepEventParser extends CepEventParser {
 
-	private static final Logger LOG = LoggerFactory.getLogger(LegalPatternPojoChecker.class);
-
-	public static boolean isPatternPojoLegal(PatternPojo pojo) {
-		try {
-			Preconditions.checkArgument(pojo.getEvents().size() > 0);
-			Preconditions.checkArgument(pojo.getBeginEvent() != null);
-			Preconditions.checkArgument(pojo.getEvents().stream().allMatch(event -> event.getConditions().size() > 0));
-			return true;
-		} catch (Throwable t) {
-			LOG.warn("PatternPojo {} is illegal.", pojo, t);
-			return false;
+	@Override
+	public String get(String key, CepEvent data) {
+		Event event = (Event) data;
+		if (key.equals("name")) {
+			return event.getName();
+		} else if (key.equals("id")) {
+			return String.valueOf(event.getId());
+		} else {
+			throw new UnsupportedOperationException();
 		}
+	}
+
+	@Override
+	public CepEventParser duplicate() {
+		return new TestCepEventParser();
 	}
 }
