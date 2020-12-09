@@ -23,7 +23,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.BytedKafkaConsumer;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.PartitionInfo;
 
@@ -44,7 +44,7 @@ public class KafkaPartitionDiscoverer extends AbstractPartitionDiscoverer {
 
 	private final Properties kafkaProperties;
 
-	private KafkaConsumer<?, ?> kafkaConsumer;
+	private BytedKafkaConsumer<?, ?> kafkaConsumer;
 
 	public KafkaPartitionDiscoverer(
 		KafkaTopicsDescriptor topicsDescriptor,
@@ -59,7 +59,7 @@ public class KafkaPartitionDiscoverer extends AbstractPartitionDiscoverer {
 	@Override
 	protected void initializeConnections() {
 		try {
-			this.kafkaConsumer = new KafkaConsumer<>(kafkaProperties);
+			this.kafkaConsumer = new BytedKafkaConsumer<>(kafkaProperties);
 		} catch (KafkaException e) {
 			String propertiesMessage = kafkaProperties.entrySet().stream()
 				.map(entry -> "[key=" + entry.getKey() + ",value=" + entry.getValue() + "]")
@@ -83,6 +83,7 @@ public class KafkaPartitionDiscoverer extends AbstractPartitionDiscoverer {
 		final List<KafkaTopicPartition> partitions = new LinkedList<>();
 
 		try {
+			kafkaConsumer.subscribe(topics);
 			for (String topic : topics) {
 				final List<PartitionInfo> kafkaPartitions = kafkaConsumer.partitionsFor(topic);
 

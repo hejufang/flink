@@ -22,7 +22,9 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.kafka.clients.consumer.ConsumerGroupMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.BytedKafkaProducer;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
@@ -37,6 +39,7 @@ import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.ProducerFencedException;
 import org.apache.kafka.common.requests.FindCoordinatorRequest;
+import org.apache.kafka.common.utils.ProducerIdAndEpoch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +62,7 @@ import java.util.concurrent.TimeUnit;
 public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaInternalProducer.class);
 
-	protected final KafkaProducer<K, V> kafkaProducer;
+	protected final BytedKafkaProducer<K, V> kafkaProducer;
 
 	// This lock and closed flag are introduced to workaround KAFKA-6635. Because the bug is only fixed in
 	// Kafka 2.3.0, we need this workaround before Kafka dependency is bumped to 2.3.0 to avoid deadlock
@@ -73,7 +76,7 @@ public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
 
 	public FlinkKafkaInternalProducer(Properties properties) {
 		transactionalId = properties.getProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
-		kafkaProducer = new KafkaProducer<>(properties);
+		kafkaProducer = new BytedKafkaProducer<>(properties);
 		producerClosingLock = new Object();
 		closed = false;
 	}
@@ -200,16 +203,15 @@ public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
 
 			Object transactionManager = getValue(kafkaProducer, "transactionManager");
 			synchronized (transactionManager) {
-				Object nextSequence = getValue(transactionManager, "nextSequence");
+				Object topicPartitionBookkeeper =
+					getValue(transactionManager, "topicPartitionBookkeeper");
 
 				invoke(transactionManager,
 					"transitionTo",
 					getEnum("org.apache.kafka.clients.producer.internals.TransactionManager$State.INITIALIZING"));
-				invoke(nextSequence, "clear");
+				invoke(topicPartitionBookkeeper, "reset");
 
-				Object producerIdAndEpoch = getValue(transactionManager, "producerIdAndEpoch");
-				setValue(producerIdAndEpoch, "producerId", producerId);
-				setValue(producerIdAndEpoch, "epoch", epoch);
+				invoke(transactionManager, "setProducerIdAndEpoch", new ProducerIdAndEpoch(producerId, epoch));
 
 				invoke(transactionManager,
 					"transitionTo",
@@ -333,4 +335,10 @@ public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
 		}
 	}
 
+	@Override
+	public void sendOffsetsToTransaction(Map<TopicPartition, OffsetAndMetadata> map, ConsumerGroupMetadata consumerGroupMetadata) throws ProducerFencedException {
+		synchronized (producerClosingLock) {
+			kafkaProducer.sendOffsetsToTransaction(map, consumerGroupMetadata);
+		}
+	}
 }

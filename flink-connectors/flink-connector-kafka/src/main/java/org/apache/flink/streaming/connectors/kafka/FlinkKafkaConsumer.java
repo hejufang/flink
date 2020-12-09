@@ -24,6 +24,7 @@ import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
+import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internal.KafkaFetcher;
 import org.apache.flink.streaming.connectors.kafka.internal.KafkaPartitionDiscoverer;
 import org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher;
@@ -31,9 +32,11 @@ import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDi
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.PropertiesUtil;
 import org.apache.flink.util.SerializedValue;
 
+import org.apache.kafka.clients.consumer.BytedKafkaConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
@@ -47,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.PropertiesUtil.getBoolean;
@@ -189,7 +193,7 @@ public class FlinkKafkaConsumer<T> extends FlinkKafkaConsumerBase<T> {
 			getLong(
 				checkNotNull(props, "props"),
 				KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS, PARTITION_DISCOVERY_INTERVAL_DEFAULT),
-			!getBoolean(props, KEY_DISABLE_METRICS, false));
+			!getBoolean(props, KEY_DISABLE_METRICS, false), props);
 
 		this.properties = props;
 		setDeserializer(this.properties);
@@ -284,6 +288,38 @@ public class FlinkKafkaConsumer<T> extends FlinkKafkaConsumerBase<T> {
 			}
 
 		}
+		return result;
+	}
+
+	@Override
+	protected Map<KafkaTopicPartition, Long> fetchOffsetsWithStartupMode(List<KafkaTopicPartition> partitions, StartupMode startupMode) {
+		final Map<KafkaTopicPartition, Long> result = new HashMap<>(partitions.size());
+		final List<TopicPartition> topicPartitions = partitions.stream()
+			.map(partition -> new TopicPartition(partition.getTopic(), partition.getPartition()))
+			.collect(Collectors.toList());
+
+		// use a short-lived consumer to fetch the offsets;
+		// this is ok because this is a one-time operation that happens only on startup
+		try (BytedKafkaConsumer<?, ?> consumer = new BytedKafkaConsumer(properties)) {
+			consumer.assign(topicPartitions);
+			if (startupMode == StartupMode.LATEST) {
+				consumer.seekToEnd(topicPartitions);
+			} else if (startupMode == StartupMode.EARLIEST) {
+				consumer.seekToBeginning(topicPartitions);
+			} else if (startupMode == StartupMode.GROUP_OFFSETS) {
+				// do nothing.
+			} else {
+				// This only happens when we add a new StartupMode and forget to deal with it.
+				throw new FlinkRuntimeException("StartupMode must be EARLIEST or GROUP_OFFSETS or LATEST " +
+					"to fetch offsets");
+			}
+
+			for (int i = 0; i < partitions.size(); ++i) {
+				long offset = consumer.position(topicPartitions.get(i));
+				result.put(partitions.get(i), offset);
+			}
+		}
+
 		return result;
 	}
 

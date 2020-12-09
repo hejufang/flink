@@ -1258,7 +1258,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			Collection<KafkaTopicPartition> partitions,
 			long timestamp);
 
-	private Map<KafkaTopicPartition, Long> fetchOffsetsWithStartupMode(
+	protected Map<KafkaTopicPartition, Long> fetchOffsetsWithStartupMode(
 			List<KafkaTopicPartition> partitions,
 			StartupMode startupMode) {
 		final Map<KafkaTopicPartition, Long> result = new HashMap<>(partitions.size());

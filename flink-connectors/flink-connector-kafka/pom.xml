@@ -37,6 +37,7 @@ under the License.
 
 	<properties>
 		<kafka.version>2.2.0</kafka.version>
+		<kafka.client.version>2.5.0-bd-0.2.3.0-transaction-flink</kafka.client.version>
 	</properties>
 
 	<dependencies>
@@ -73,7 +74,7 @@ under the License.
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
-			<version>${kafka.version}</version>
+			<version>${kafka.client.version}</version>
 		</dependency>
 
 		<!-- Table ecosystem -->

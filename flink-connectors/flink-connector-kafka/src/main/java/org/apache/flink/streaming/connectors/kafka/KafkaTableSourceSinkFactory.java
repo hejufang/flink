@@ -27,6 +27,9 @@ import org.apache.flink.table.descriptors.KafkaValidator;
 import org.apache.flink.table.sources.RowtimeAttributeDescriptor;
 import org.apache.flink.types.Row;
 
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.IsolationLevel;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +64,10 @@ public class KafkaTableSourceSinkFactory extends KafkaTableSourceSinkFactoryBase
 		Long relativeOffset,
 		Long timestamp,
 		Map<String, String> configuration) {
+		if (!properties.containsKey(ConsumerConfig.ISOLATION_LEVEL_CONFIG)) {
+			properties.put(ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+				IsolationLevel.READ_COMMITTED.toString().toLowerCase());
+		}
 
 		return new KafkaTableSource(
 			schema,
@@ -92,5 +99,12 @@ public class KafkaTableSourceSinkFactory extends KafkaTableSourceSinkFactoryBase
 			properties,
 			partitioner,
 			serializationSchema);
+	}
+
+	@Override
+	public List<String> supportedProperties() {
+		List<String> properties = super.supportedProperties();
+		properties.add(KafkaValidator.CONNECTOR_SINK_SEMANTIC);
+		return properties;
 	}
 }

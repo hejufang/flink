@@ -73,6 +73,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_PROPERTIES = "connector.properties";
 	public static final String CONNECTOR_PROPERTIES_KEY = "key";
 	public static final String CONNECTOR_PROPERTIES_VALUE = "value";
+	public static final String CONNECTOR_SINK_SEMANTIC = "connector.sink-semantic";
 	public static final String CONNECTOR_SINK_PARTITIONER = "connector.sink-partitioner";
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_FIXED = "fixed";
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN = "round-robin";

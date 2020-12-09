@@ -30,6 +30,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import org.apache.kafka.clients.consumer.BytedKafkaConsumer;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
@@ -101,7 +102,7 @@ public class KafkaConsumerThread extends Thread {
 	private final MetricGroup consumerMetricGroup;
 
 	/** Reference to the Kafka consumer, once it is created. */
-	private volatile KafkaConsumer<byte[], byte[]> consumer;
+	private volatile BytedKafkaConsumer<byte[], byte[]> consumer;
 
 	/** This lock is used to isolate the consumer for partition reassignment. */
 	private final Object consumerReassignmentLock;
@@ -383,7 +384,7 @@ public class KafkaConsumerThread extends Thread {
 		// since the reassignment may introduce several Kafka blocking calls that cannot be interrupted,
 		// the consumer needs to be isolated from external wakeup calls in setOffsetsToCommit() and shutdown()
 		// until the reassignment is complete.
-		final KafkaConsumer<byte[], byte[]> consumerTmp;
+		final BytedKafkaConsumer<byte[], byte[]> consumerTmp;
 		synchronized (consumerReassignmentLock) {
 			consumerTmp = this.consumer;
 			this.consumer = null;
@@ -399,7 +400,6 @@ public class KafkaConsumerThread extends Thread {
 				new ArrayList<>(newPartitions.size() + oldPartitionAssignmentsToPosition.size());
 			newPartitionAssignments.addAll(oldPartitionAssignmentsToPosition.keySet());
 			newPartitionAssignments.addAll(convertKafkaPartitions(newPartitions));
-
 			// reassign with the new partitions
 			consumerTmp.assign(newPartitionAssignments);
 			reassignmentStarted = true;
@@ -492,8 +492,8 @@ public class KafkaConsumerThread extends Thread {
 	}
 
 	@VisibleForTesting
-	KafkaConsumer<byte[], byte[]> getConsumer(Properties kafkaProperties) {
-		return new KafkaConsumer<>(kafkaProperties);
+	BytedKafkaConsumer<byte[], byte[]> getConsumer(Properties kafkaProperties) {
+		return new BytedKafkaConsumer<>(kafkaProperties);
 	}
 
 	// ------------------------------------------------------------------------

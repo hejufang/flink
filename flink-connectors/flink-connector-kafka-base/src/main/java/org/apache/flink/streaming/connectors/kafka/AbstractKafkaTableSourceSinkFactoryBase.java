@@ -76,6 +76,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_P
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_FIXED;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROUND_ROBIN;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_SEMANTIC;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_PARTITION_RANGE;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_SAMPLE_INTERVAL;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SOURCE_SAMPLE_NUM;
@@ -414,6 +415,7 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 		properties.add(CONNECTOR_TEAM);
 		properties.add(CONNECTOR_OWNER);
 		properties.add(CONNECTOR_GROUP_ID);
+		properties.add(CONNECTOR_SINK_SEMANTIC);
 		return properties;
 	}
 

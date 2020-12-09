@@ -178,6 +178,11 @@ public class FlinkKafkaProducer<IN>
 	public static final String KEY_DISABLE_METRICS = "flink.disable-metrics";
 
 	/**
+	 * Configuration key for semantic.
+	 */
+	public static final String SINK_SEMANTIC = "sink-semantic";
+
+	/**
 	 * Descriptor of the transactional IDs list.
 	 * Note: This state is serialized by Kryo Serializer and it has compatibility problem that will be removed later.
 	 * Please use NEXT_TRANSACTIONAL_ID_HINT_DESCRIPTOR_V2.
@@ -492,7 +497,7 @@ public class FlinkKafkaProducer<IN>
 			serializationSchema,
 			producerConfig,
 			customPartitioner,
-			FlinkKafkaProducer.Semantic.AT_LEAST_ONCE,
+			Semantic.valueOf(producerConfig.getProperty(SINK_SEMANTIC, Semantic.EXACTLY_ONCE.name()).toUpperCase()),
 			DEFAULT_KAFKA_PRODUCERS_POOL_SIZE);
 	}
 
@@ -660,11 +665,6 @@ public class FlinkKafkaProducer<IN>
 			this.producerConfig.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
 		} else {
 			LOG.warn("Overwriting the '{}' is not recommended", ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
-		}
-
-		// eagerly ensure that bootstrap servers are set.
-		if (!this.producerConfig.containsKey(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
-			throw new IllegalArgumentException(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG + " must be supplied in the producer config properties.");
 		}
 
 		if (!producerConfig.containsKey(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG)) {
