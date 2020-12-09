@@ -60,7 +60,8 @@ public class CheckpointFailureManager {
 	private final MetricGroup metricGroup;
 
 	// only count failures defined in bytedance
-	private final AtomicInteger continuousCheckpointCountInByte = new AtomicInteger(0);
+	private final Set<Long> failureCheckpointIdsInByte;
+	private final AtomicInteger continuousFailureCheckpointCountInByte = new AtomicInteger(0);
 
 	@VisibleForTesting
 	public CheckpointFailureManager(int tolerableCpFailureNumber, FailJobCallback failureCallback) {
@@ -79,9 +80,10 @@ public class CheckpointFailureManager {
 		this.continuousFailureCounter = new AtomicInteger(0);
 		this.failureCallback = checkNotNull(failureCallback);
 		this.countedCheckpointIds = ConcurrentHashMap.newKeySet();
+		this.failureCheckpointIdsInByte = ConcurrentHashMap.newKeySet();
 		this.reporter = reporter;
 		this.metricGroup = metricGroup;
-		this.metricGroup.gauge(CONTINUOUS_CHECKPOINT_COUNT, () -> continuousCheckpointCountInByte);
+		this.metricGroup.gauge(CONTINUOUS_CHECKPOINT_COUNT, () -> continuousFailureCheckpointCountInByte);
 	}
 
 	/**
@@ -97,7 +99,7 @@ public class CheckpointFailureManager {
 		// always fail the job if token expired happens on JM's side
 		checkTokenProblemInTraces(exception);
 
-		checkContinuousCheckpointCount(exception);
+		checkContinuousCheckpointCount(exception, checkpointId);
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
@@ -128,7 +130,7 @@ public class CheckpointFailureManager {
 			reporter.reportFailure(executionAttemptID, exception, System.currentTimeMillis());
 		}
 
-		checkContinuousCheckpointCount(exception);
+		checkContinuousCheckpointCount(exception, checkpointId);
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
@@ -164,14 +166,16 @@ public class CheckpointFailureManager {
 		return false;
 	}
 
-	private void checkContinuousCheckpointCount(CheckpointException exception) {
+	private void checkContinuousCheckpointCount(CheckpointException exception, long checkpointId) {
 		switch (exception.getCheckpointFailureReason()) {
 			case CHECKPOINT_ASYNC_EXCEPTION:
 			case CHECKPOINT_SYNC_EXCEPTION:
 			case CHECKPOINT_EXPIRED:
 			case FINALIZE_CHECKPOINT_FAILURE:
 			case CHECKPOINT_DECLINED:
-				continuousCheckpointCountInByte.incrementAndGet();
+				if (failureCheckpointIdsInByte.add(checkpointId)) {
+					continuousFailureCheckpointCountInByte.incrementAndGet();
+				}
 				break;
 		}
 	}
@@ -239,7 +243,7 @@ public class CheckpointFailureManager {
 
 	private void clearCount() {
 		continuousFailureCounter.set(0);
-		continuousCheckpointCountInByte.set(0);
+		continuousFailureCheckpointCountInByte.set(0);
 		countedCheckpointIds.clear();
 	}
 
