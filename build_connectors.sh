@@ -25,7 +25,7 @@ cd flink-connectors
 cp flink-connector-clickhouse/target/flink-connector-clickhouse-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-jdbc/target/flink-jdbc_2.11-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-sql-connector-kafka-0.10/target/flink-sql-connector-kafka-0.10_2.11-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
-cp flink-connectors/flink-sql-connector-kafka/target/flink-sql-connector-kafka_2.11-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
+cp flink-sql-connector-kafka/target/flink-sql-connector-kafka_2.11-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-redis/target/flink-connector-redis-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-print/target/flink-connector-print-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
 cp flink-connector-filesystem/target/flink-connector-filesystem_2.11-1.9.1-byted-SNAPSHOT.jar ../output/runtime_files
