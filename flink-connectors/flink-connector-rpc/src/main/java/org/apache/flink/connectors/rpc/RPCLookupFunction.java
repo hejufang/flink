@@ -27,8 +27,11 @@ import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
 import org.apache.flink.connectors.rpc.util.ObjectUtil;
 import org.apache.flink.connectors.rpc.util.SecUtil;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
@@ -71,6 +74,9 @@ public class RPCLookupFunction extends TableFunction<Row> {
 	private transient DeserializationRuntimeConverter deserializationRuntimeConverter;
 	private transient Cache<Row, Row> cache;
 	private transient Field baseField;
+	private transient Meter lookupRequestPerSecond;
+	private transient Meter lookupFailurePerSecond;
+	private transient Histogram requestDelayMs;
 
 	public RPCLookupFunction(
 			TypeInformation<Row> typeInformation,
@@ -103,6 +109,10 @@ public class RPCLookupFunction extends TableFunction<Row> {
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
+
 		List<String> nameList = Arrays.asList(fieldNames);
 		int[] indices = Arrays.stream(lookupFieldNames).mapToInt(nameList::indexOf).toArray();
 		List<LogicalType> logicalTypes = this.dataType.getLogicalType().getChildren();
@@ -145,12 +155,19 @@ public class RPCLookupFunction extends TableFunction<Row> {
 
 		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {
 			try {
+				lookupRequestPerSecond.markEvent();
+
 				Object requestObject = serializationRuntimeConverter.convert(requestValue);
 				if (baseField != null) {
 					ObjectUtil.setPsm(requestObject, baseField, psm);
 				}
 				List<Object> requestList = Collections.singletonList(requestObject);
+
+				long startRequest = System.currentTimeMillis();
 				Object responseObject = thriftRPCClient.sendRequest(requestList);
+				long requestDelay = System.currentTimeMillis() - startRequest;
+				requestDelayMs.update(requestDelay);
+
 				Row responseValue = (Row) deserializationRuntimeConverter.convert(responseObject);
 				Row result = assembleRow(fieldNames, lookupFieldNames, lookupFieldValue, responseValue);
 				collect(result);
@@ -159,6 +176,8 @@ public class RPCLookupFunction extends TableFunction<Row> {
 				}
 				break;
 			} catch (Exception e) {
+				lookupFailurePerSecond.markEvent();
+
 				LOG.error(String.format("RPC get response error, retry times = %d", retry), e);
 				if (retry >= rpcLookupOptions.getMaxRetryTimes()) {
 					throw new FlinkRuntimeException("Execution of RPC get response failed.", e);

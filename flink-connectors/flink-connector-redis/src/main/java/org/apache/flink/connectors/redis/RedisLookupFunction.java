@@ -26,9 +26,12 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connectors.util.RedisDataType;
 import org.apache.flink.connectors.util.RedisUtils;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -110,6 +113,9 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private final int keyFieldIndex;
 
 	private transient Cache<Row, Row> cache;
+	private transient Meter lookupRequestPerSecond;
+	private transient Meter lookupFailurePerSecond;
+	private transient Histogram requestDelayMs;
 
 	public RedisLookupFunction(
 			RedisOptions options,
@@ -192,6 +198,10 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			rateLimiter.setRate(rateLimit);
 			rateLimiter.open(context.getRuntimeContext());
 		}
+
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
 	}
 
 	/**
@@ -216,8 +226,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			try {
+				lookupRequestPerSecond.markEvent();
+
 				Row row;
 				String key = String.valueOf(keys[0]);
+
+				long startRequest = System.currentTimeMillis();
 				if (deserializationSchema != null) {
 					row = lookupWithSchema(key);
 				} else {
@@ -244,6 +258,9 @@ public class RedisLookupFunction extends TableFunction<Row> {
 								REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
 					}
 				}
+				long requestDelay = System.currentTimeMillis() - startRequest;
+				requestDelayMs.update(requestDelay);
+
 				if (row != null) {
 					collect(row);
 				}
@@ -256,6 +273,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				}
 				return;
 			} catch (Exception e) {
+				lookupFailurePerSecond.markEvent();
+
 				LOG.error(String.format("Redis executeBatch error, retry times = %d", retry), e);
 				if (retry >= maxRetryTimes) {
 					throw new RuntimeException("Execution of Redis statement failed.", e);

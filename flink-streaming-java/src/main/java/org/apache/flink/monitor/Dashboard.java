@@ -304,6 +304,21 @@ public class Dashboard {
 		return lookupJoinHitRateRow;
 	}
 
+	private String renderLookupRow(List<String> operators, String target, String metric) {
+		List<String> metricRows = new ArrayList<>();
+		for (String o : operators) {
+			Map<String, String> targetValues = new HashMap<>(2);
+			targetValues.put("operator", o);
+			targetValues.put("jobname", formatJobName);
+			metricRows.add(renderString(target, targetValues));
+		}
+		String targets = String.join(",", metricRows);
+		Map<String, String> values = new HashMap<>(2);
+		values.put("targets", targets);
+		values.put("datasource", dataSource);
+		return renderString(metric, values);
+	}
+
 	private String renderOperatorLatencyRow(List<String> operators) {
 		String operatorLatencyTarget = Template.OPERATOR_LATENCY_TARGET;
 		List<String> recordNumList = new ArrayList<>();
@@ -365,6 +380,7 @@ public class Dashboard {
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> sinks = Utils.getSinks(streamGraph);
 		List <String> tasks = Utils.getTasks(jobGraph);
+		List<String> lookupOperators = Utils.filterLookupOperators(operators);
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
 		JSONArray rocketmqConfigArray = Utils.getRocketMQConfigurations();
@@ -382,7 +398,26 @@ public class Dashboard {
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
 		rows.add(renderRecordsSinkSkippedRow(sinks));
-		rows.add(renderLookupHitRateRow(Utils.filterLookupOperators(operators)));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_HIT_RATE_TARGET,
+			Template.LOOKUP_JOIN_HIT_RATE));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_REQUEST_PER_SECOND_TARGET,
+			Template.LOOKUP_JOIN_REQUEST_PER_SECOND));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_FAILURE_PER_SECOND_TARGET,
+			Template.LOOKUP_JOIN_FAILURE_PER_SECOND));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_REQUEST_DELAY_P99_TARGET,
+			Template.LOOKUP_JOIN_REQUEST_DELAY_P99));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_REQUEST_DELAY_P999_TARGET,
+			Template.LOOKUP_JOIN_REQUEST_DELAY_P999));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderPoolUsageRow(tasks));
 		rows.add(renderGcRow());

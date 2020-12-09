@@ -23,10 +23,13 @@ import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.connectors.bytesql.internal.ByteSQLRowConverter;
 import org.apache.flink.connectors.bytesql.utils.ByteSQLUtils;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.descriptors.ByteSQLLookupOptions;
 import org.apache.flink.table.descriptors.ByteSQLOptions;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 
@@ -62,6 +65,9 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 	private final String query;
 	private transient ByteSQLDB byteSQLDB;
 	private transient Cache<Row, List<Row>> cache;
+	private transient Meter lookupRequestPerSecond;
+	private transient Meter lookupFailurePerSecond;
+	private transient Histogram requestDelayMs;
 
 	public ByteSQLLookupFunction(
 			ByteSQLOptions options,
@@ -109,6 +115,9 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
 	}
 
 	public void eval(Object... keys) {
@@ -134,8 +143,14 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 
 	private void doLookup(String sql, Row keyRow) {
 		for (int retry = 1; retry <= lookupOptions.getMaxRetryTimes(); retry++) {
+			lookupRequestPerSecond.markEvent();
+
 			try {
+				long startRequest = System.currentTimeMillis();
 				ByteSQLProtos.QueryResponse response = byteSQLDB.rawQuery(sql);
+				long requestDelay = System.currentTimeMillis() - startRequest;
+				requestDelayMs.update(requestDelay);
+
 				List<Row> rows = ByteSQLUtils.convertResponseToRows(response, rowConverter);
 				rows.forEach(this::collect);
 				if (cache != null) {
@@ -143,6 +158,8 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 				}
 				break;
 			} catch (ByteSQLException e) {
+				lookupFailurePerSecond.markEvent();
+
 				LOG.error(String.format("ByteSQL execute error, retry times = %d", retry), e);
 				if (!e.isRetryable() || retry >= lookupOptions.getMaxRetryTimes()) {
 					throw new RuntimeException("Execution of ByteSQL statement failed.", e);

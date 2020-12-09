@@ -20,8 +20,11 @@ package org.apache.flink.connectors.bytable;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connectors.bytable.util.BytableReadWriteHelper;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -54,6 +57,9 @@ public class BytableLookupFunction extends TableFunction<Row> {
 	private transient Table table;
 
 	private transient Cache<Row, Row> cache;
+	private transient Meter lookupRequestPerSecond;
+	private transient Meter lookupFailurePerSecond;
+	private transient Histogram requestDelayMs;
 
 	public BytableLookupFunction(
 			BytableTableSchema bytableTableSchema,
@@ -77,6 +83,10 @@ public class BytableLookupFunction extends TableFunction<Row> {
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
+
 		initBytableClient();
 		this.readHelper = new BytableReadWriteHelper(bytableTableSchema);
 	}
@@ -96,14 +106,22 @@ public class BytableLookupFunction extends TableFunction<Row> {
 		}
 
 		for (int retry = 1; retry <= bytableLookupOptions.getMaxRetryTimes(); retry++) {
+			lookupRequestPerSecond.markEvent();
+
 			try {
+				long startRequest = System.currentTimeMillis();
 				Row row = readHelper.getReadResult(table, keys[0]);
+				long requestDelay = System.currentTimeMillis() - startRequest;
+				requestDelayMs.update(requestDelay);
+
 				collect(row);
 				if (cache != null) {
 					cache.put(keyRow, row);
 				}
 				break;
 			} catch (Exception e) {
+				lookupFailurePerSecond.markEvent();
+
 				LOG.error(String.format("Bytable execute read error, retry times = %d", retry), e);
 				if (retry >= bytableLookupOptions.getMaxRetryTimes()) {
 					throw new RuntimeException("Execution of Bytable read failed.", e);
