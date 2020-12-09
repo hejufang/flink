@@ -304,7 +304,7 @@ public class LookupJoinHarnessTest {
 		testHarness.setProcessingTime(LATER_TIME_MS);
 		testHarness.processElement(insertRecord(3, "c"));
 		testHarness.processElement(insertRecord(5, "e"));
-		testHarness.setProcessingTime(LATER_TIME_MS);
+		testHarness.setProcessingTime(LATER_TIME_MS * 2);
 		testHarness.processElement(insertRecord(4, "d"));
 
 		List<Object> expectedOutput = new ArrayList<>();
