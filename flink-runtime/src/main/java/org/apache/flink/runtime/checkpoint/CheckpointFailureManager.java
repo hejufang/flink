@@ -45,7 +45,7 @@ public class CheckpointFailureManager {
 
 	public static final int UNLIMITED_TOLERABLE_FAILURE_NUMBER = Integer.MAX_VALUE;
 
-	private static final String CONTINUOUS_CHECKPOINT_COUNT = "numberOfContinuousCheckpointFailure";
+	private static final String CONTINUOUS_FAILURE_CHECKPOINT_COUNT = "numberOfContinuousCheckpointFailure";
 
 	private final int tolerableCpFailureNumber;
 	private final FailJobCallback failureCallback;
