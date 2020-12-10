@@ -37,10 +37,13 @@ public class RPCLookupOptions implements Serializable {
 
 	private final int maxRetryTimes;
 
-	private RPCLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes) {
+	private final RPCRequestFailureStrategy requestFailureStrategy;
+
+	private RPCLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, RPCRequestFailureStrategy requestFailureStrategy) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
+		this.requestFailureStrategy = requestFailureStrategy;
 	}
 
 	public long getCacheMaxSize() {
@@ -55,6 +58,10 @@ public class RPCLookupOptions implements Serializable {
 		return maxRetryTimes;
 	}
 
+	public RPCRequestFailureStrategy getRequestFailureStrategy() {
+		return requestFailureStrategy;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -65,7 +72,8 @@ public class RPCLookupOptions implements Serializable {
 			RPCLookupOptions options = (RPCLookupOptions) o;
 			return Objects.equals(cacheMaxSize, options.cacheMaxSize)
 				&& Objects.equals(cacheExpireMs, options.cacheExpireMs)
-				&& Objects.equals(maxRetryTimes, options.maxRetryTimes);
+				&& Objects.equals(maxRetryTimes, options.maxRetryTimes)
+				&& Objects.equals(requestFailureStrategy, options.requestFailureStrategy);
 		} else {
 			return false;
 		}
@@ -78,6 +86,7 @@ public class RPCLookupOptions implements Serializable {
 		private long cacheMaxSize = -1L;
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
+		private RPCRequestFailureStrategy requestFailureStrategy = RPCRequestFailureStrategy.TASK_FAILURE;
 
 		private Builder() {
 		}
@@ -106,8 +115,17 @@ public class RPCLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setRequestFailureStrategy(RPCRequestFailureStrategy strategy){
+			this.requestFailureStrategy = strategy;
+			return this;
+		}
+
 		public RPCLookupOptions build() {
-			return new RPCLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes);
+			return new RPCLookupOptions(
+				cacheMaxSize,
+				cacheExpireMs,
+				maxRetryTimes,
+				requestFailureStrategy);
 		}
 	}
 

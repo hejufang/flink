@@ -180,7 +180,22 @@ public class RPCLookupFunction extends TableFunction<Row> {
 
 				LOG.error(String.format("RPC get response error, retry times = %d", retry), e);
 				if (retry >= rpcLookupOptions.getMaxRetryTimes()) {
-					throw new FlinkRuntimeException("Execution of RPC get response failed.", e);
+					RPCRequestFailureStrategy strategy = rpcLookupOptions.getRequestFailureStrategy();
+					if (null == strategy) {
+						//request failure strategy defaults to task-failure
+						throw new FlinkRuntimeException("Execution of RPC get response failed.", e);
+					}
+					switch (strategy){
+						case TASK_FAILURE:
+							throw new FlinkRuntimeException("Execution of RPC get response failed.", e);
+						case EMIT_EMPTY:
+							//failure strategy is emit-empty
+							//do not collect anything so join result will be null
+							return;
+						default:
+							throw new IllegalArgumentException("Unexpected request failure strategy: " +
+								strategy.getDisplayName());
+					}
 				}
 				try {
 					Thread.sleep(1000 * retry);

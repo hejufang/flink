@@ -17,6 +17,8 @@
 
 package org.apache.flink.table.descriptors;
 
+import org.apache.flink.connectors.rpc.RPCRequestFailureStrategy;
+
 /**
  * Validator for RPC Connector.
  */
@@ -51,6 +53,8 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_LOOKUP_CACHE_TTL = "connector.lookup.cache.ttl";
 	public static final String CONNECTOR_LOOKUP_MAX_RETRIES = "connector.lookup.max-retries";
 
+	public static final String CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY = "connector.lookup.request-failure-strategy";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		super.validate(properties);
@@ -80,6 +84,8 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_LOOKUP_MAX_RETRIES, true, 1);
 
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
-	}
 
+		properties.validateEnumValues(CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY, true,
+			RPCRequestFailureStrategy.getAllDisplayNames());
+	}
 }

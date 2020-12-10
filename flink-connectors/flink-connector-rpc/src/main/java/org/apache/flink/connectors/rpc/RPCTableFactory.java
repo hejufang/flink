@@ -55,6 +55,7 @@ import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_IS_DIMEN
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_PSM;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RESPONSE_VALUE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RPC_TYPE;
@@ -121,6 +122,7 @@ public class RPCTableFactory implements
 		supportedProperties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
 		supportedProperties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		supportedProperties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+		supportedProperties.add(CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY);
 
 		// parallelism
 		supportedProperties.add(CONNECTOR_PARALLELISM);
@@ -156,7 +158,7 @@ public class RPCTableFactory implements
 		return descriptorProperties;
 	}
 
-	private RPCOptions getRPCOptions(DescriptorProperties descriptorProperties) {
+	RPCOptions getRPCOptions(DescriptorProperties descriptorProperties) {
 		RPCOptions.Builder builder = RPCOptions.builder();
 
 		RetryManager.Strategy retryStrategy = getRetryStrategy(descriptorProperties);
@@ -190,13 +192,17 @@ public class RPCTableFactory implements
 		return builder.build();
 	}
 
-	private RPCLookupOptions getRPCLookupOptions(DescriptorProperties descriptorProperties) {
+	RPCLookupOptions getRPCLookupOptions(DescriptorProperties descriptorProperties) {
 		final RPCLookupOptions.Builder builder = RPCLookupOptions.builder();
 
 		descriptorProperties.getOptionalLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS).ifPresent(builder::setCacheMaxSize);
 		descriptorProperties.getOptionalDuration(CONNECTOR_LOOKUP_CACHE_TTL).ifPresent(
 			s -> builder.setCacheExpireMs(s.toMillis()));
 		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
+		descriptorProperties.getOptionalString(CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY).ifPresent(
+			//already validate in RPCValidator
+			strategy -> builder.setRequestFailureStrategy(RPCRequestFailureStrategy.getEnumByDisplayName(strategy))
+		);
 
 		return builder.build();
 	}
