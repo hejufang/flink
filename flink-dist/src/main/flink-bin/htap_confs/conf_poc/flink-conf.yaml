@@ -82,3 +82,5 @@ common:
   akka.client.timeout: 300 s
   akka.ask.timeout: 300 s
   web.timeout: 300000
+
+  env.java.home: /opt/tiger/jdk/jdk1.8
