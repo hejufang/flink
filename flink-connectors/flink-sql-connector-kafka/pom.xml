@@ -88,6 +88,67 @@ under the License.
 									<pattern>com.bytedance.commons</pattern>
 									<shadedPattern>org.apache.flink.kafka.shaded.com.bytedance.commons</shadedPattern>
 								</relocation>
+								<!-- Any class in artifactId flink-connector-kafka-base that import `org.apache.kafka.*` should be shaded. -->
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducerBase</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducerBase</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.KafkaContextAware</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.KafkaContextAware</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.internals.AbstractFetcher</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.internals.FeatureStoreSchemaWrapper</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.internals.FeatureStoreSchemaWrapper</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapper</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapper</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapperWithMetadata</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapperWithMetadata</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionLeader</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionLeader</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.util.serialization.JSONKeyValueDeserializationSchema</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.util.serialization.JSONKeyValueDeserializationSchema</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.util.serialization.KeyedDeserializationSchema</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.util.serialization.KeyedDeserializationSchema</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.streaming.util.serialization.TypeInformationKeyValueSerializationSchema</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.streaming.util.serialization.TypeInformationKeyValueSerializationSchema</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.table.descriptors.KafkaValidator</pattern>
+									<shadedPattern>org.apache.flink.kafka.shaded.org.apache.flink.table.descriptors.KafkaValidator</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>
