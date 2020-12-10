@@ -946,6 +946,9 @@ public class HiveCatalog extends AbstractCatalog {
 	 * Get field names from field schemas.
 	 */
 	public static List<String> getFieldNames(List<FieldSchema> fieldSchemas) {
+		if (fieldSchemas.isEmpty()) {
+			return Collections.emptyList();
+		}
 		List<String> names = new ArrayList<>(fieldSchemas.size());
 		for (FieldSchema fs : fieldSchemas) {
 			names.add(fs.getName());

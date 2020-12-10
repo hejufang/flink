@@ -21,8 +21,6 @@ package org.apache.flink.table.functions.hive;
 import org.apache.flink.annotation.Internal;
 
 import org.apache.hadoop.hive.ql.exec.UDF;
-import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
-import org.apache.hadoop.hive.ql.udf.SettableUDF;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.io.Serializable;
@@ -58,22 +56,17 @@ public class HiveFunctionWrapper<UDFType> implements Serializable {
 	 *
 	 * @return a Hive function instance
 	 */
-	public UDFType createFunction() throws UDFArgumentException {
+	public UDFType createFunction() {
 		if (instance != null) {
 			return instance;
 		} else {
 			UDFType func = null;
 			try {
-				func = (UDFType) Thread.currentThread().getContextClassLoader().loadClass(className).newInstance();
+				func = getUDFClass().newInstance();
 			} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
 				throw new FlinkHiveUDFException(
 					String.format("Failed to create function from %s", className), e);
 			}
-
-			if (func instanceof SettableUDF) {
-				((SettableUDF) func).setTypeInfo(typeInfo);
-			}
-
 			if (!(func instanceof UDF)) {
 				// We cache the function if it is not the Simple UDF,
 				// as we always have to create new instance for Simple UDF.
@@ -100,7 +93,7 @@ public class HiveFunctionWrapper<UDFType> implements Serializable {
 	 * @throws ClassNotFoundException thrown when the class is not found in classpath
 	 */
 	public Class<UDFType> getUDFClass() throws ClassNotFoundException {
-		return (Class<UDFType>) Class.forName(className);
+		return (Class<UDFType>) Thread.currentThread().getContextClassLoader().loadClass(className);
 	}
 }
 

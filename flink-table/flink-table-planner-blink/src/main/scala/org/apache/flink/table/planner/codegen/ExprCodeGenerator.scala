@@ -821,9 +821,13 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
       expr.literalValue match {
         case None => null
         case Some(literal) =>
-          getConverterForDataType(fromLogicalTypeToDataType(expr.resultType))
-              .asInstanceOf[DataFormatConverter[AnyRef, AnyRef]
-              ].toExternal(literal.asInstanceOf[AnyRef])
+          if (expr.resultType.getTypeRoot == LogicalTypeRoot.NULL) {
+            null
+          } else {
+            getConverterForDataType(fromLogicalTypeToDataType(expr.resultType))
+                .asInstanceOf[DataFormatConverter[AnyRef, AnyRef]
+                ].toExternal(literal.asInstanceOf[AnyRef])
+          }
       }
     }.toArray
   }

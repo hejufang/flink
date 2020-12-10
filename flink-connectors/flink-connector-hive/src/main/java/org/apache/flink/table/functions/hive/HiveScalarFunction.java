@@ -20,20 +20,19 @@ package org.apache.flink.table.functions.hive;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.catalog.hive.client.HiveShim;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.ScalarFunction;
-import org.apache.flink.table.functions.hive.conversion.HiveInspectors;
 import org.apache.flink.table.functions.hive.util.HiveFunctionUtil;
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
 import org.apache.flink.table.types.DataType;
 
-import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.ql.exec.UDF;
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
+
+import java.util.Arrays;
 
 /**
  * Abstract class to provide more information for Hive {@link UDF} and {@link GenericUDF} functions.
@@ -59,24 +58,8 @@ public abstract class HiveScalarFunction<UDFType> extends ScalarFunction impleme
 
 	@Override
 	public void setArgumentTypesAndConstants(Object[] constantArguments, DataType[] argTypes) {
-		this.constantArguments = new Object[constantArguments.length];
-		this.argTypes = new DataType[argTypes.length];
-		for (int i = 0; i < argTypes.length; i++) {
-			// we always use string type for string constant arg because that's what hive UDFs expect
-			if (constantArguments[i] instanceof String) {
-				// the const string arg may not comply with the type, e.g. it can exceed the length parameter
-				Object hiveObject = HiveInspectors.getConversion(
-						HiveInspectors.toInspectors(hiveShim, new Object[]{constantArguments[i]}, new DataType[]{argTypes[i]})[0],
-						argTypes[i].getLogicalType(),
-						hiveShim).toHiveObject(constantArguments[i]);
-				this.constantArguments[i] = hiveObject instanceof HiveChar ?
-						((HiveChar) hiveObject).getStrippedValue() : hiveObject.toString();
-				this.argTypes[i] = DataTypes.STRING();
-			} else {
-				this.constantArguments[i] = constantArguments[i];
-				this.argTypes[i] = argTypes[i];
-			}
-		}
+		this.constantArguments = Arrays.copyOf(constantArguments, constantArguments.length);
+		this.argTypes = Arrays.copyOf(argTypes, argTypes.length);
 	}
 
 	@Override

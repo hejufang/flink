@@ -100,6 +100,24 @@ public class HiveDialectITCase {
 	}
 
 	@Test
+	public void testCreateTableAs() throws Exception {
+		tableEnv.executeSql("create table src (x int,y string)");
+		tableEnv.executeSql("create table tbl1 as select x from src group by x");
+		Table hiveTable = hiveCatalog.getHiveTable(new ObjectPath("default", "tbl1"));
+		assertEquals(1, hiveTable.getSd().getCols().size());
+		assertEquals("x", hiveTable.getSd().getCols().get(0).getName());
+		assertEquals("int", hiveTable.getSd().getCols().get(0).getType());
+		tableEnv.executeSql("create table default.tbl2 stored as orc as select x,max(y) as m from src group by x order by x limit 1");
+		hiveTable = hiveCatalog.getHiveTable(new ObjectPath("default", "tbl2"));
+		assertEquals(2, hiveTable.getSd().getCols().size());
+		assertEquals("x", hiveTable.getSd().getCols().get(0).getName());
+		assertEquals("m", hiveTable.getSd().getCols().get(1).getName());
+		assertEquals(OrcSerde.class.getName(), hiveTable.getSd().getSerdeInfo().getSerializationLib());
+		assertEquals(OrcInputFormat.class.getName(), hiveTable.getSd().getInputFormat());
+		assertEquals(OrcOutputFormat.class.getName(), hiveTable.getSd().getOutputFormat());
+	}
+
+	@Test
 	public void testCreateDatabase() throws Exception {
 		tableEnv.executeSql("create database db1 comment 'db1 comment'");
 		Database db = hiveCatalog.getHiveDatabase("db1");
@@ -156,7 +174,7 @@ public class HiveDialectITCase {
 		assertEquals("v1", hiveTable.getParameters().get("k1"));
 		assertFalse(hiveTable.getParameters().containsKey(SqlCreateHiveTable.TABLE_LOCATION_URI));
 
-		tableEnv.executeSql("create table tbl2 (s struct<ts:timestamp,bin:binary>) stored as orc");
+		tableEnv.executeSql("create table default.tbl2 (s struct<ts:timestamp,bin:binary>) stored as orc");
 		hiveTable = hiveCatalog.getHiveTable(new ObjectPath("default", "tbl2"));
 		assertEquals(TableType.MANAGED_TABLE.toString(), hiveTable.getTableType());
 		assertEquals(OrcSerde.class.getName(), hiveTable.getSd().getSerdeInfo().getSerializationLib());
@@ -185,6 +203,9 @@ public class HiveDialectITCase {
 		tableEnv.executeSql("create table if not exists tbl5 (m map<bigint,string>)");
 		hiveTable = hiveCatalog.getHiveTable(new ObjectPath("default", "tbl5"));
 		assertEquals(createdTimeForTableExists, hiveTable.getCreateTime());
+
+		tableEnv.executeSql("describe tbl5");
+		tableEnv.executeSql("describe extended default.`tbl5`");
 	}
 
 	@Test
@@ -212,10 +233,10 @@ public class HiveDialectITCase {
 		// non-partitioned dest table
 		tableEnv.executeSql("create table dest (x int)");
 		waitForJobFinish(tableEnv.executeSql("insert into dest select x from src"));
-		List<Row> results = queryResult(tableEnv.sqlQuery("select * from dest"));
+		List<Row> results = queryResult(tableEnv.sqlQuery("select * from dest order by x"));
 		assertEquals("[1, 2, 3]", results.toString());
 		waitForJobFinish(tableEnv.executeSql("insert overwrite dest values (3),(4),(5)"));
-		results = queryResult(tableEnv.sqlQuery("select * from dest"));
+		results = queryResult(tableEnv.sqlQuery("select * from dest order by x"));
 		assertEquals("[3, 4, 5]", results.toString());
 
 		// partitioned dest table

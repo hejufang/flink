@@ -491,21 +491,22 @@ public final class FunctionCatalog {
 			FunctionIdentifier.normalizeObjectIdentifier(oi), new InlineCatalogFunction(functionDefinition));
 	}
 
-	private void registerTemporarySystemFunction(
+	public void registerTemporarySystemFunction(
 			String name,
 			CatalogFunction function,
 			boolean ignoreIfExists) {
 		final String normalizedName = FunctionIdentifier.normalizeName(name);
 
-		try {
-			validateAndPrepareFunction(function);
-		} catch (Throwable t) {
-			throw new ValidationException(
-				String.format(
-					"Could not register temporary system function '%s' due to implementation errors.",
-					name),
-				t);
-		}
+		// the validation is commented out to support hive temp functions. it can be added back once hive functions migrate to new type inference
+//		try {
+//			validateAndPrepareFunction(function);
+//		} catch (Throwable t) {
+//			throw new ValidationException(
+//				String.format(
+//					"Could not register temporary system function '%s' due to implementation errors.",
+//					name),
+//				t);
+//		}
 
 		if (!tempSystemFunctions.containsKey(normalizedName)) {
 			tempSystemFunctions.put(normalizedName, function);
@@ -551,24 +552,14 @@ public final class FunctionCatalog {
 		// 1. Temporary functions
 		// 2. Catalog functions
 		ObjectIdentifier normalizedIdentifier = FunctionIdentifier.normalizeObjectIdentifier(oi);
-		CatalogFunction potentialResult = tempCatalogFunctions.get(normalizedIdentifier);
-
-		if (potentialResult != null) {
-			return Optional.of(
-				new FunctionLookup.Result(
-					FunctionIdentifier.of(oi),
-					getFunctionDefinition(oi.getObjectName(), potentialResult)
-				)
-			);
-		}
-
+		CatalogFunction tempFunction = tempCatalogFunctions.get(normalizedIdentifier);
 		Optional<Catalog> catalogOptional = catalogManager.getCatalog(oi.getCatalogName());
 
 		if (catalogOptional.isPresent()) {
 			Catalog catalog = catalogOptional.get();
 			try {
-				CatalogFunction catalogFunction = catalog.getFunction(
-					new ObjectPath(oi.getDatabaseName(), oi.getObjectName()));
+				CatalogFunction catalogFunction = tempFunction != null ? tempFunction : catalog.getFunction(
+						new ObjectPath(oi.getDatabaseName(), oi.getObjectName()));
 
 				FunctionDefinition fd;
 				if (catalog.getFunctionDefinitionFactory().isPresent() &&
@@ -585,6 +576,13 @@ public final class FunctionCatalog {
 			} catch (FunctionNotExistException e) {
 				// Ignore
 			}
+		} else if (tempFunction != null) {
+			return Optional.of(
+					new FunctionLookup.Result(
+							FunctionIdentifier.of(oi),
+							getFunctionDefinition(oi.getObjectName(), tempFunction)
+					)
+			);
 		}
 
 		return Optional.empty();
@@ -654,11 +652,11 @@ public final class FunctionCatalog {
 	/**
 	 * The CatalogFunction which holds a instantiated UDF.
 	 */
-	private static class InlineCatalogFunction implements CatalogFunction {
+	public static class InlineCatalogFunction implements CatalogFunction {
 
 		private final FunctionDefinition definition;
 
-		InlineCatalogFunction(FunctionDefinition definition) {
+		public InlineCatalogFunction(FunctionDefinition definition) {
 			this.definition = definition;
 		}
 

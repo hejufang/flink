@@ -21,11 +21,13 @@ package org.apache.flink.table.planner.delegation.hive;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
@@ -55,26 +57,42 @@ public class ConvertTableFunctionCopier extends ConvertSqlFunctionCopier {
 		if (isHiveCalciteSqlFn(operator)) {
 			// explicitly use USER_DEFINED_TABLE_FUNCTION since Hive can set USER_DEFINED_FUNCTION for UDTF
 			SqlOperator convertedOperator = convertOperator(operator, SqlFunctionCategory.USER_DEFINED_TABLE_FUNCTION);
-			// create RexCorrelVariable
-			CorrelationId correlId = cluster.createCorrel();
+			List<RexNode> convertedOperands = new ArrayList<>();
 			RelDataTypeFactory.Builder dataTypeBuilder = cluster.getTypeFactory().builder();
 			dataTypeBuilder.addAll(leftRel.getRowType().getFieldList());
 			dataTypeBuilder.addAll(call.getType().getFieldList());
-			RexNode correlRex = builder.makeCorrel(dataTypeBuilder.uniquify().build(), correlId);
-			// create RexFieldAccess
-			List<RexNode> convertedOperands = new ArrayList<>();
+			RelDataType correlType = dataTypeBuilder.uniquify().build();
+			InputRefConverter inputRefConverter = new InputRefConverter(correlType, cluster);
 			for (RexNode operand : call.getOperands()) {
-				if (operand instanceof RexInputRef) {
-					convertedOperands.add(builder.makeFieldAccess(correlRex, ((RexInputRef) operand).getIndex()));
-				} else if (operand instanceof RexLiteral) {
-					convertedOperands.add(operand);
-				} else {
-					throw new IllegalArgumentException(String.format("RexCall %s has unsupported operand %s", call, operand));
-				}
+				convertedOperands.add(operand.accept(inputRefConverter));
 			}
 			// create RexCall
 			return builder.makeCall(call.getType(), convertedOperator, convertedOperands);
 		}
 		return super.visitCall(call);
+	}
+
+	/**
+	 * A converter to convert RexInputRef to RexFieldAccess.
+	 */
+	private static class InputRefConverter extends RexShuttle {
+		private final RelDataType correlType;
+		private final RelOptCluster cluster;
+		private final RexBuilder builder;
+
+		private InputRefConverter(RelDataType correlType, RelOptCluster cluster) {
+			this.correlType = correlType;
+			this.cluster = cluster;
+			this.builder = cluster.getRexBuilder();
+		}
+
+		@Override
+		public RexNode visitInputRef(RexInputRef inputRef) {
+			// create RexCorrelVariable
+			CorrelationId correlId = cluster.createCorrel();
+			RexNode correlRex = builder.makeCorrel(correlType, correlId);
+			// create RexFieldAccess
+			return builder.makeFieldAccess(correlRex, inputRef.getIndex());
+		}
 	}
 }

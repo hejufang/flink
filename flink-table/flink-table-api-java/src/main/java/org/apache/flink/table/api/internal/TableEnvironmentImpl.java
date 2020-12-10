@@ -122,6 +122,7 @@ import org.apache.flink.table.operations.ddl.CreateCatalogOperation;
 import org.apache.flink.table.operations.ddl.CreateDatabaseOperation;
 import org.apache.flink.table.operations.ddl.CreateLegacyFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTableOperation;
+import org.apache.flink.table.operations.ddl.CreateTempSystemCatalogFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTempSystemFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateTemporalTableFunctionOperation;
 import org.apache.flink.table.operations.ddl.CreateViewOperation;
@@ -672,6 +673,9 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public String explainSql(String statement, ExplainDetail... extraDetails) {
 		List<Operation> operations = getParser().parse(statement);
 
+		if (operations.isEmpty()) {
+			return "";
+		}
 		if (operations.size() != 1) {
 			throw new TableException("Unsupported SQL query! explainSql() only accepts a single SQL query.");
 		}
@@ -729,11 +733,18 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public TableResult executeSql(String statement) {
 		List<Operation> operations = getParser().parse(statement);
 
-		if (operations.size() != 1) {
-			throw new TableException(UNSUPPORTED_QUERY_IN_EXECUTE_SQL_MSG);
+		if (operations.isEmpty()) {
+			return TableResultImpl.TABLE_RESULT_OK;
 		}
-
-		return executeOperation(operations.get(0));
+		if (operations.size() == 1) {
+			return executeOperation(operations.get(0));
+		} else if (operations.size() == 2) {
+			if (operations.get(0) instanceof CreateTableOperation) {
+				executeOperation(operations.get(0));
+				return executeOperation(operations.get(1));
+			}
+		}
+		throw new TableException(UNSUPPORTED_QUERY_IN_EXECUTE_SQL_MSG);
 	}
 
 	@Override
@@ -860,6 +871,7 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 				operation instanceof AlterDatabaseOperation ||
 				operation instanceof CreateCatalogFunctionOperation ||
 				operation instanceof CreateTempSystemFunctionOperation ||
+				operation instanceof CreateTempSystemCatalogFunctionOperation ||
 				operation instanceof DropCatalogFunctionOperation ||
 				operation instanceof DropTempSystemFunctionOperation ||
 				operation instanceof AlterCatalogFunctionOperation ||
@@ -1111,6 +1123,8 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			return createCatalogFunction((CreateCatalogFunctionOperation) operation);
 		} else if (operation instanceof CreateTempSystemFunctionOperation) {
 			return createSystemFunction((CreateTempSystemFunctionOperation) operation);
+		} else if (operation instanceof CreateTempSystemCatalogFunctionOperation) {
+			return createSystemCatalogFunction((CreateTempSystemCatalogFunctionOperation) operation);
 		} else if (operation instanceof DropCatalogFunctionOperation) {
 			return dropCatalogFunction((DropCatalogFunctionOperation) operation);
 		} else if (operation instanceof DropTempSystemFunctionOperation) {
@@ -1532,6 +1546,22 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			throw e;
 		}  catch (FunctionNotExistException e) {
 			throw new ValidationException(e.getMessage(), e);
+		} catch (Exception e) {
+			throw new TableException(exMsg, e);
+		}
+	}
+
+	private TableResult createSystemCatalogFunction(CreateTempSystemCatalogFunctionOperation operation) {
+		String exMsg = getDDLOpExecuteErrorMsg(operation.asSummaryString());
+		try {
+			functionCatalog.registerTemporarySystemFunction(
+					operation.getFunctionName(),
+					operation.getCatalogFunction(),
+					operation.ifNotExists()
+			);
+			return TableResultImpl.TABLE_RESULT_OK;
+		} catch (ValidationException e) {
+			throw e;
 		} catch (Exception e) {
 			throw new TableException(exMsg, e);
 		}

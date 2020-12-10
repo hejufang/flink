@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.functions.utils;
 
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
@@ -56,7 +57,7 @@ public class HiveFunctionUtils {
 		try {
 			// See hive HiveFunction
 			Method method = getSetArgsMethod(function);
-			method.invoke(function, constantArguments, TypeConversions.fromLogicalToDataType(argTypes));
+			method.invoke(function, constantArguments, TypeConversions.fromLogicalToDataType(fixNullType(argTypes)));
 			return function;
 		} catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
 			throw new RuntimeException(e);
@@ -71,10 +72,22 @@ public class HiveFunctionUtils {
 			Method method = function.getClass()
 					.getMethod("getHiveResultType", Object[].class, DataType[].class);
 			DataType resultType = (DataType) method.invoke(
-					function, constantArguments, TypeConversions.fromLogicalToDataType(argTypes));
+					function, constantArguments, TypeConversions.fromLogicalToDataType(fixNullType(argTypes)));
 			return typeFactory.createFieldTypeFromLogicalType(fromDataTypeToLogicalType(resultType));
 		} catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	private static LogicalType[] fixNullType(LogicalType[] argTypes) {
+		LogicalType[] res = new LogicalType[argTypes.length];
+		for (int i = 0; i < res.length; i++) {
+			if (argTypes[i] == null) {
+				res[i] = DataTypes.NULL().getLogicalType();
+			} else {
+				res[i] = argTypes[i];
+			}
+		}
+		return res;
 	}
 }

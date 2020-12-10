@@ -203,7 +203,12 @@ tableSample
 tableSource
 @init { gParent.pushMsg("table source", state); }
 @after { gParent.popMsg(state); }
-    : tabname=tableName props=tableProperties? ts=tableSample? (KW_AS? alias=identifier)?
+    : tabname=tableName
+        ((tableProperties) => props=tableProperties)?
+        ((tableSample) => ts=tableSample)?
+        ((KW_AS) => (KW_AS alias=Identifier)
+        |
+        (Identifier) => (alias=Identifier))?
     -> ^(TOK_TABREF $tabname $props? $ts? $alias?)
     ;
 
