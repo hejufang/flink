@@ -2087,10 +2087,83 @@ public final class ConfigConstants {
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
 	public static final String FLINK_JOB_API_KEY = "flink.job_api";
 	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
+
 	public static final String DASHBOARD_DATA_SOURCE_KEY = "dashboard.data_source";
 	public static final String DASHBOARD_DATA_SOURCE_DEFAULT = "bytetsd";
 	public static final String JOB_META_DB_NAME_KEY = "jobmeta.db.name";
 	public static final String JOB_META_DB_NAME_VALUE = "dayu";
+
+	public static final String FLINK_OWNER_KEY = "owner";
+	public static final String FLINK_OWNER_DEFAULT = "null";
+
+	public static final String FLINK_PSM_TEMPLATE = "inf.flink.%s";
+	public static final String FLINK_TEAM_TEMPLATE = "inf.flink.%s";
+
+	// ---------------------------- Hdfs Btrace ------------------------------
+	public static final String HDFS_BTRACE_TAGS_KEY = "YARN_APP_TAGS";
+	public static final String HDFS_BTRACE_TAGS_VALUE = "platform=%s";
+	public static final String HDFS_BTRACE_PLATFORM = "hdfs.btrace.platform";
+	public static final String HDFS_BTRACE_PLATFORM_DEFAULT = "flink";
+
+	// ---------------------------- Serializer Buffer ------------------------------
+	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
+	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;
+
+	// ------------------- Yarn Container Local Directories ------------------------
+	public static final String CONTAINER_LOCAL_DIRS = "flink.yarn.container.local.dir";
+	public static final String CONTAINER_CURRENT_WORKING_DIR = "flink.yarn.container.current.dir";
+	public static final String CONTAINER_ID = "flink.yarn.container.id";
+
+	public static final String FLINK_ROCKSDB_DISK = "flink.rocksdb.disk";
+	public static final String FLINK_ROCKSDB_SSD = "flink.rocksdb.ssd";
+
+	// ---------------------------- Kafka Configurations ---------------------------
+	/** Configuration key for subset of subscribed partition list. */
+	public static final String PARTITION_LIST_OLD_KEY = "partition.list";
+	public static final String PARTITION_LIST_KEY = "partition_list";
+
+	// ---------------------------- Data Warehouse ---------------------------
+	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_KEY = "warehouse.channel";
+	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT = "flink_dw_metrics";
+
+	// ---------------------------- Log4j Configurations --------------------------
+	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
+	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "yarn_container_level_log";
+
+	// ---------------------------- Config For SmartResources ---------------------------
+	public static final String SMART_RESOURCES_ADJUST_CHECK_API_KEY = "smart-resources.adjust-check-api";
+	public static final String SMART_RESOURCES_ADJUST_CHECK_BACKOFF_MS_KEY = "smart-resources.adjust-check-backoff-ms";
+	public static final int SMART_RESOURCES_ADJUST_CHECK_BACKOFF_MS_DEFAULT = 60 * 1000;
+	public static final String SMART_RESOURCES_ADJUST_CHECK_TIMEOUT_MS_KEY = "smart-resources.adjust-check-timeout-ms";
+	public static final int SMART_RESOURCES_ADJUST_CHECK_TIMEOUT_MS_DEFAULT = 5000;
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_KEY = "smart-resources.cpu-estimate-mode";
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_FLOOR = "floor";
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_ROUND = "round";
+	public static final String SMART_RESOURCES_CPU_ESTIMATE_MODE_CEIL = "ceil";
+	public static final String SMART_RESOURCES_CPU_RESERVE_RATIO = "smart-resources.cpu-reserve-ratio";
+	public static final double SMART_RESOURCES_CPU_RESERVE_RATIO_DEFAULT = 0.2;
+	public static final String SMART_RESOURCES_DISABLE_MEM_ADJUST_KEY = "smart-resources.disable-mem-adjust";
+	public static final boolean SMART_RESOURCES_DISABLE_MEM_ADJUST_DEFAULT = false;
+	// TODO (@libenchao): fix durtion typo.
+	public static final String SMART_RESOURCES_DURTION_MINUTES_KEY = "smart-resources.durtion.minutes";
+	public static final int SMART_RESOURCES_DURTION_MINUTES_DEFAULT = 24 * 60;
+	public static final int SMART_RESOURCES_DURTION_MINUTES_MIN = 60;
+	public static final String SMART_RESOURCES_ENABLE_KEY = "smart-resources.enable_on_runtime";
+	public static final boolean SMART_RESOURCES_ENABLE_DEFAULT = false;
+	public static final String SMART_RESOURCES_ENABLE_OLD_KEY = "smart-resources.enable";
+	public static final String SMART_RESOURCES_MEM_RESERVE_RATIO = "smart-resources.mem-reserve-ratio";
+	public static final double SMART_RESOURCES_MEM_RESERVE_RATIO_DEFAULT = 0.2;
+	public static final String SMART_RESOURCES_MEM_MAX_MB_KEY = "smart-resources.mem-max-mb";
+	public static final int SMART_RESOURCES_MEM_MAX_MB_DEFAULT = 60 * 1024;
+	public static final String SMART_RESOURCES_SERVICE_NAME_KEY = "smart-resources.service-name";
+	public static final boolean SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_DEFAULT = false;
+	public static final String SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_KEY = "smart-resources.cpu-adjust-double.enable";
+
+	public static final String HDFS_DEPENDENCY_ENABLED = "hdfs.dependency.enabled";
+	public static final boolean HDFS_DEPENDENCY_ENABLED_DEFAULT = true;
+
+	public static final String YARN_APPLICATION_TYPE = "yarn.application.type";
+	public static final String YARN_STREAMING_APPLICATION_TYPE_DEFAULT = "Apache Flink";
 
 	public static final String SAVE_META_ENABLED = "save-meta.enabled";
 	public static final String SAVE_META_ENABLED_DEFAULT = "false";

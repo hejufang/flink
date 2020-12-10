@@ -82,6 +82,7 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.util.BtraceUtil;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
@@ -986,6 +987,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			LOG.warn("Unable to parse dc.");
 		}
 
+		Utils.setHdfsBtrace(configuration, appMasterEnv);
+		BtraceUtil.attachToEnv(appMasterEnv, null);
 		amContainer.setEnvironment(appMasterEnv);
 
 		// Set up resource type requirements for ApplicationMaster

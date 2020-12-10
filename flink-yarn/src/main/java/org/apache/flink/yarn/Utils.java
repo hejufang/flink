@@ -18,6 +18,7 @@
 
 package org.apache.flink.yarn;
 
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
@@ -44,6 +45,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
+import org.apache.hadoop.yarn.util.BtraceUtil;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.slf4j.Logger;
@@ -486,6 +488,8 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, keytabPrincipal);
 		}
 
+		Utils.setHdfsBtrace(flinkConfig, containerEnv);
+		BtraceUtil.attachToEnv(containerEnv, null);
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.
@@ -532,6 +536,13 @@ public final class Utils {
 	static boolean isRemotePath(String path) throws IOException {
 		org.apache.flink.core.fs.Path flinkPath = new org.apache.flink.core.fs.Path(path);
 		return flinkPath.getFileSystem().isDistributedFS();
+	}
+
+	public static void setHdfsBtrace(
+			org.apache.flink.configuration.Configuration flinkConfiguration,
+			Map<String, String> env) {
+		final String btracePlatform = flinkConfiguration.getString(ConfigConstants.HDFS_BTRACE_PLATFORM, ConfigConstants.HDFS_BTRACE_PLATFORM_DEFAULT);
+		env.put(ConfigConstants.HDFS_BTRACE_TAGS_KEY, String.format(ConfigConstants.HDFS_BTRACE_TAGS_VALUE, btracePlatform));
 	}
 
 	private static List<YarnLocalResourceDescriptor> decodeYarnLocalResourceDescriptorListFromString(String resources) throws Exception {
