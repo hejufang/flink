@@ -132,6 +132,10 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @return Callback for the {@link CompletedCheckpoint} instance to notify about disposal.
 	 */
 	CompletedCheckpointStats.DiscardCallback reportCompletedCheckpoint(String externalPointer) {
+		return reportCompletedCheckpoint(externalPointer, currentStateSize);
+	}
+
+	CompletedCheckpointStats.DiscardCallback reportCompletedCheckpoint(String externalPointer, long totalStateSize) {
 		CompletedCheckpointStats completed = new CompletedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
@@ -140,8 +144,9 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 			new HashMap<>(taskStats),
 			currentNumAcknowledgedSubtasks,
 			currentStateSize,
+			totalStateSize,
 			latestAcknowledgedSubtask,
-				externalPointer);
+			externalPointer);
 
 		trackerCallback.reportCompletedCheckpoint(completed);
 

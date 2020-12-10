@@ -207,12 +207,17 @@ public class CheckpointingStatistics implements ResponseBody {
 		 */
 		public static final String FIELD_NAME_STATE_SIZE = "state_size";
 
+		public static final String FIELD_NAME_TOTAL_STATE_SIZE = "total_state_size";
+
 		public static final String FIELD_NAME_DURATION = "end_to_end_duration";
 
 		public static final String FIELD_NAME_ALIGNMENT_BUFFERED = "alignment_buffered";
 
 		@JsonProperty(FIELD_NAME_STATE_SIZE)
 		private final MinMaxAvgStatistics stateSize;
+
+		@JsonProperty(FIELD_NAME_TOTAL_STATE_SIZE)
+		private final MinMaxAvgStatistics totalStateSize;
 
 		@JsonProperty(FIELD_NAME_DURATION)
 		private final MinMaxAvgStatistics duration;
@@ -223,15 +228,21 @@ public class CheckpointingStatistics implements ResponseBody {
 		@JsonCreator
 		public Summary(
 				@JsonProperty(FIELD_NAME_STATE_SIZE) MinMaxAvgStatistics stateSize,
+				@JsonProperty(FIELD_NAME_TOTAL_STATE_SIZE) MinMaxAvgStatistics totalStateSize,
 				@JsonProperty(FIELD_NAME_DURATION) MinMaxAvgStatistics duration,
 				@JsonProperty(FIELD_NAME_ALIGNMENT_BUFFERED) MinMaxAvgStatistics alignmentBuffered) {
 			this.stateSize = stateSize;
+			this.totalStateSize = totalStateSize;
 			this.duration = duration;
 			this.alignmentBuffered = alignmentBuffered;
 		}
 
 		public MinMaxAvgStatistics getStateSize() {
 			return stateSize;
+		}
+
+		public MinMaxAvgStatistics getTotalStateSize() {
+			return totalStateSize;
 		}
 
 		public MinMaxAvgStatistics getDuration() {
@@ -248,13 +259,14 @@ public class CheckpointingStatistics implements ResponseBody {
 			}
 			Summary summary = (Summary) o;
 			return Objects.equals(stateSize, summary.stateSize) &&
+				Objects.equals(totalStateSize, summary.totalStateSize) &&
 				Objects.equals(duration, summary.duration) &&
 				Objects.equals(alignmentBuffered, summary.alignmentBuffered);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(stateSize, duration, alignmentBuffered);
+			return Objects.hash(stateSize, totalStateSize, duration, alignmentBuffered);
 		}
 	}
 

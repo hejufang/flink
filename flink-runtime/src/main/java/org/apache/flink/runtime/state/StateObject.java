@@ -64,4 +64,13 @@ public interface StateObject extends Serializable {
 	 * @return Size of the state in bytes.
 	 */
 	long getStateSize();
+
+	/**
+	 * Returns the actual total size of the current state in bytes.
+	 *
+	 * @return Actual total size of the state in bytes.
+	 */
+	default long getTotalStateSize() {
+		return getStateSize();
+	}
 }

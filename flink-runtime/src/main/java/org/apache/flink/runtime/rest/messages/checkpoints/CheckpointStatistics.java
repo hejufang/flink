@@ -73,6 +73,8 @@ public class CheckpointStatistics implements ResponseBody {
 	 */
 	public static final String FIELD_NAME_STATE_SIZE = "state_size";
 
+	public static final String FIELD_NAME_TOTAL_STATE_SIZE = "total_state_size";
+
 	public static final String FIELD_NAME_DURATION = "end_to_end_duration";
 
 	public static final String FIELD_NAME_ALIGNMENT_BUFFERED = "alignment_buffered";
@@ -101,6 +103,9 @@ public class CheckpointStatistics implements ResponseBody {
 	@JsonProperty(FIELD_NAME_STATE_SIZE)
 	private final long stateSize;
 
+	@JsonProperty(FIELD_NAME_TOTAL_STATE_SIZE)
+	private final long totalStateSize;
+
 	@JsonProperty(FIELD_NAME_DURATION)
 	private final long duration;
 
@@ -125,6 +130,7 @@ public class CheckpointStatistics implements ResponseBody {
 			@JsonProperty(FIELD_NAME_TRIGGER_TIMESTAMP) long triggerTimestamp,
 			@JsonProperty(FIELD_NAME_LATEST_ACK_TIMESTAMP) long latestAckTimestamp,
 			@JsonProperty(FIELD_NAME_STATE_SIZE) long stateSize,
+			@JsonProperty(FIELD_NAME_TOTAL_STATE_SIZE) long totalStateSize,
 			@JsonProperty(FIELD_NAME_DURATION) long duration,
 			@JsonProperty(FIELD_NAME_ALIGNMENT_BUFFERED) long alignmentBuffered,
 			@JsonProperty(FIELD_NAME_NUM_SUBTASKS) int numSubtasks,
@@ -136,6 +142,7 @@ public class CheckpointStatistics implements ResponseBody {
 		this.triggerTimestamp = triggerTimestamp;
 		this.latestAckTimestamp = latestAckTimestamp;
 		this.stateSize = stateSize;
+		this.totalStateSize = totalStateSize;
 		this.duration = duration;
 		this.alignmentBuffered = alignmentBuffered;
 		this.numSubtasks = numSubtasks;
@@ -165,6 +172,10 @@ public class CheckpointStatistics implements ResponseBody {
 
 	public long getStateSize() {
 		return stateSize;
+	}
+
+	public long getTotalStateSize() {
+		return totalStateSize;
 	}
 
 	public long getDuration() {
@@ -198,6 +209,7 @@ public class CheckpointStatistics implements ResponseBody {
 			triggerTimestamp == that.triggerTimestamp &&
 			latestAckTimestamp == that.latestAckTimestamp &&
 			stateSize == that.stateSize &&
+			totalStateSize == that.totalStateSize &&
 			duration == that.duration &&
 			alignmentBuffered == that.alignmentBuffered &&
 			numSubtasks == that.numSubtasks &&
@@ -208,7 +220,7 @@ public class CheckpointStatistics implements ResponseBody {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, status, savepoint, triggerTimestamp, latestAckTimestamp, stateSize, duration, alignmentBuffered, numSubtasks, numAckSubtasks, checkpointStatisticsPerTask);
+		return Objects.hash(id, status, savepoint, triggerTimestamp, latestAckTimestamp, stateSize, totalStateSize, duration, alignmentBuffered, numSubtasks, numAckSubtasks, checkpointStatisticsPerTask);
 	}
 
 	// -------------------------------------------------------------------------
@@ -252,6 +264,7 @@ public class CheckpointStatistics implements ResponseBody {
 				completedCheckpointStats.getTriggerTimestamp(),
 				completedCheckpointStats.getLatestAckTimestamp(),
 				completedCheckpointStats.getStateSize(),
+				completedCheckpointStats.getTotalStateSize(),
 				completedCheckpointStats.getEndToEndDuration(),
 				0,
 				completedCheckpointStats.getNumberOfSubtasks(),
@@ -326,6 +339,7 @@ public class CheckpointStatistics implements ResponseBody {
 			@JsonProperty(FIELD_NAME_TRIGGER_TIMESTAMP) long triggerTimestamp,
 			@JsonProperty(FIELD_NAME_LATEST_ACK_TIMESTAMP) long latestAckTimestamp,
 			@JsonProperty(FIELD_NAME_STATE_SIZE) long stateSize,
+			@JsonProperty(FIELD_NAME_TOTAL_STATE_SIZE) long totalStateSize,
 			@JsonProperty(FIELD_NAME_DURATION) long duration,
 			@JsonProperty(FIELD_NAME_ALIGNMENT_BUFFERED) long alignmentBuffered,
 			@JsonProperty(FIELD_NAME_NUM_SUBTASKS) int numSubtasks,
@@ -340,6 +354,7 @@ public class CheckpointStatistics implements ResponseBody {
 				triggerTimestamp,
 				latestAckTimestamp,
 				stateSize,
+				totalStateSize,
 				duration,
 				alignmentBuffered,
 				numSubtasks,
@@ -419,6 +434,7 @@ public class CheckpointStatistics implements ResponseBody {
 				triggerTimestamp,
 				latestAckTimestamp,
 				stateSize,
+				-1L,
 				duration,
 				alignmentBuffered,
 				numSubtasks,
@@ -485,6 +501,7 @@ public class CheckpointStatistics implements ResponseBody {
 				triggerTimestamp,
 				latestAckTimestamp,
 				stateSize,
+				-1L,
 				duration,
 				alignmentBuffered,
 				numSubtasks,

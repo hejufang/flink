@@ -89,6 +89,15 @@ public abstract class AbstractCheckpointStats implements Serializable {
 	public abstract long getStateSize();
 
 	/**
+	 * Returns the actual total size of the current state.
+	 *
+	 * @return The actual total size of the current state.
+	 */
+	public long getTotalStateSize() {
+		return getStateSize();
+	}
+
+	/**
 	 * Returns the latest acknowledged subtask stats or <code>null</code> if
 	 * none was acknowledged yet.
 	 *

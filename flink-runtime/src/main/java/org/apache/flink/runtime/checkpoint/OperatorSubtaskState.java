@@ -260,6 +260,15 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 		return stateSize;
 	}
 
+	@Override
+	public long getTotalStateSize() {
+		long totalStateSize = managedOperatorState.getStateSize();
+		totalStateSize += rawOperatorState.getStateSize();
+		totalStateSize += managedKeyedState.getStateSize();
+		totalStateSize += rawKeyedState.getStateSize();
+		return totalStateSize;
+	}
+
 	// --------------------------------------------------------------------------------------------
 
 	@Override

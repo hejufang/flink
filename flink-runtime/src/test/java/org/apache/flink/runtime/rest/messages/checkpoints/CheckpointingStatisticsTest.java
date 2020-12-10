@@ -43,7 +43,8 @@ public class CheckpointingStatisticsTest extends RestResponseMarshallingTestBase
 		final CheckpointingStatistics.Summary summary = new CheckpointingStatistics.Summary(
 			new MinMaxAvgStatistics(1L, 1L, 1L),
 			new MinMaxAvgStatistics(2L, 2L, 2L),
-			new MinMaxAvgStatistics(3L, 3L, 3L));
+			new MinMaxAvgStatistics(3L, 3L, 3L),
+			new MinMaxAvgStatistics(4L, 4L, 4L));
 
 		final Map<JobVertexID, TaskCheckpointStatistics> checkpointStatisticsPerTask = new HashMap<>(2);
 
@@ -78,6 +79,7 @@ public class CheckpointingStatisticsTest extends RestResponseMarshallingTestBase
 			42L,
 			41L,
 			1337L,
+			1337L,
 			1L,
 			0L,
 			10,
@@ -92,6 +94,7 @@ public class CheckpointingStatisticsTest extends RestResponseMarshallingTestBase
 			true,
 			11L,
 			10L,
+			43L,
 			43L,
 			1L,
 			0L,

@@ -26,6 +26,7 @@ export interface CheckPointInterface {
   };
   summary: {
     state_size: CheckPointMinMaxAvgStatisticsInterface;
+    total_state_size: CheckPointMinMaxAvgStatisticsInterface;
     end_to_end_duration: CheckPointMinMaxAvgStatisticsInterface;
     alignment_buffered: CheckPointMinMaxAvgStatisticsInterface;
   };
@@ -39,6 +40,7 @@ export interface CheckPointInterface {
       trigger_timestamp: number;
       latest_ack_timestamp: number;
       state_size: number;
+      total_state_size: number;
       end_to_end_duration: number;
       alignment_buffered: number;
       num_subtasks: number;
@@ -64,6 +66,7 @@ export interface CheckPointHistoryInterface {
   trigger_timestamp: number;
   latest_ack_timestamp: number;
   state_size: number;
+  total_state_size: number;
   end_to_end_duration: number;
   alignment_buffered: number;
   num_subtasks: number;
@@ -84,6 +87,7 @@ export interface CheckPointCompletedStatisticsInterface {
   trigger_timestamp: number;
   latest_ack_timestamp: number;
   state_size: number;
+  total_state_size: number;
   end_to_end_duration: number;
   alignment_buffered: number;
   num_subtasks: number;
@@ -123,6 +127,7 @@ export interface CheckPointDetailInterface {
   trigger_timestamp: number;
   latest_ack_timestamp: number;
   state_size: number;
+  total_state_size: number;
   end_to_end_duration: number;
   external_path: string;
   discarded: boolean;
