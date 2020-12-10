@@ -106,6 +106,7 @@ public class CheckpointingStatisticsHandler extends AbstractExecutionGraphHandle
 
 			final CompletedCheckpointStatsSummary checkpointStatsSummary = checkpointStatsSnapshot.getSummaryStats();
 			final MinMaxAvgStats stateSize = checkpointStatsSummary.getStateSizeStats();
+			final MinMaxAvgStats totalStateSize = checkpointStatsSummary.getTotalStateSize();
 			final MinMaxAvgStats duration = checkpointStatsSummary.getEndToEndDurationStats();
 			final MinMaxAvgStats alignment = checkpointStatsSummary.getAlignmentBufferedStats();
 
@@ -114,6 +115,10 @@ public class CheckpointingStatisticsHandler extends AbstractExecutionGraphHandle
 					stateSize.getMinimum(),
 					stateSize.getMaximum(),
 					stateSize.getAverage()),
+				new MinMaxAvgStatistics(
+					totalStateSize.getMinimum(),
+					totalStateSize.getMaximum(),
+					totalStateSize.getAverage()),
 				new MinMaxAvgStatistics(
 					duration.getMinimum(),
 					duration.getMaximum(),

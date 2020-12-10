@@ -32,6 +32,9 @@ public class CompletedCheckpointStatsSummary implements Serializable {
 	/** State size statistics for all completed checkpoints. */
 	private final MinMaxAvgStats stateSize;
 
+	/** The actual total state size statistics for all completed checkpoints. */
+	private final MinMaxAvgStats totalStateSize;
+
 	/** Duration statistics for all completed checkpoints. */
 	private final MinMaxAvgStats duration;
 
@@ -39,15 +42,17 @@ public class CompletedCheckpointStatsSummary implements Serializable {
 	private final MinMaxAvgStats alignmentBuffered;
 
 	CompletedCheckpointStatsSummary() {
-		this(new MinMaxAvgStats(), new MinMaxAvgStats(), new MinMaxAvgStats());
+		this(new MinMaxAvgStats(), new MinMaxAvgStats(), new MinMaxAvgStats(), new MinMaxAvgStats());
 	}
 
 	private CompletedCheckpointStatsSummary(
 			MinMaxAvgStats stateSize,
+			MinMaxAvgStats totalStateSize,
 			MinMaxAvgStats duration,
 			MinMaxAvgStats alignmentBuffered) {
 
 		this.stateSize = checkNotNull(stateSize);
+		this.totalStateSize = checkNotNull(totalStateSize);
 		this.duration = checkNotNull(duration);
 		this.alignmentBuffered = checkNotNull(alignmentBuffered);
 	}
@@ -59,6 +64,7 @@ public class CompletedCheckpointStatsSummary implements Serializable {
 	 */
 	void updateSummary(CompletedCheckpointStats completed) {
 		stateSize.add(completed.getStateSize());
+		totalStateSize.add(completed.getTotalStateSize());
 		duration.add(completed.getEndToEndDuration());
 		alignmentBuffered.add(completed.getAlignmentBuffered());
 	}
@@ -71,6 +77,7 @@ public class CompletedCheckpointStatsSummary implements Serializable {
 	CompletedCheckpointStatsSummary createSnapshot() {
 		return new CompletedCheckpointStatsSummary(
 				stateSize.createSnapshot(),
+				totalStateSize.createSnapshot(),
 				duration.createSnapshot(),
 				alignmentBuffered.createSnapshot());
 	}
@@ -82,6 +89,15 @@ public class CompletedCheckpointStatsSummary implements Serializable {
 	 */
 	public MinMaxAvgStats getStateSizeStats() {
 		return stateSize;
+	}
+
+	/**
+	 * Returns the summary stats for the actual state size of completed checkpoints.
+	 *
+	 * @return Summary stats for the actual state size.
+	 */
+	public MinMaxAvgStats getTotalStateSize() {
+		return totalStateSize;
 	}
 
 	/**

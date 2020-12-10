@@ -41,6 +41,9 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	/** Total checkpoint state size over all subtasks. */
 	private final long stateSize;
 
+	/** The actual total size of the current state. */
+	private final long totalStateSize;
+
 	/** Buffered bytes during alignment over all subtasks. */
 	private final long alignmentBuffered;
 
@@ -82,10 +85,54 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 			SubtaskStateStats latestAcknowledgedSubtask,
 			String externalPointer) {
 
+		this(checkpointId,
+			triggerTimestamp,
+			finishTimestamp,
+			props,
+			totalSubtaskCount,
+			taskStats,
+			numAcknowledgedSubtasks,
+			stateSize,
+			stateSize,
+			alignmentBuffered,
+			latestAcknowledgedSubtask,
+			externalPointer);
+	}
+
+	/**
+	 * Creates a tracker for a {@link CompletedCheckpoint}.
+	 *
+	 * @param checkpointId ID of the checkpoint.
+	 * @param triggerTimestamp Timestamp when the checkpoint was triggered.
+	 * @param props Checkpoint properties of the checkpoint.
+	 * @param totalSubtaskCount Total number of subtasks for the checkpoint.
+	 * @param taskStats Task stats for each involved operator.
+	 * @param numAcknowledgedSubtasks Number of acknowledged subtasks.
+	 * @param stateSize The state size that has changed over all subtasks.
+	 * @param totalStateSize The actual size of the current state.
+	 * @param alignmentBuffered Buffered bytes during alignment over all subtasks.
+	 * @param latestAcknowledgedSubtask The latest acknowledged subtask stats.
+	 * @param externalPointer Optional external path if persisted externally.
+	 */
+	CompletedCheckpointStats(
+		long checkpointId,
+		long triggerTimestamp,
+		long finishTimestamp,
+		CheckpointProperties props,
+		int totalSubtaskCount,
+		Map<JobVertexID, TaskStateStats> taskStats,
+		int numAcknowledgedSubtasks,
+		long stateSize,
+		long totalStateSize,
+		long alignmentBuffered,
+		SubtaskStateStats latestAcknowledgedSubtask,
+		String externalPointer) {
+
 		super(checkpointId, triggerTimestamp, props, totalSubtaskCount, taskStats);
 		checkArgument(numAcknowledgedSubtasks == totalSubtaskCount, "Did not acknowledge all subtasks.");
 		checkArgument(stateSize >= 0, "Negative state size");
 		this.stateSize = stateSize;
+		this.totalStateSize = totalStateSize;
 		this.alignmentBuffered = alignmentBuffered;
 		this.latestAcknowledgedSubtask = checkNotNull(latestAcknowledgedSubtask);
 		this.externalPointer = externalPointer;
@@ -110,6 +157,11 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	@Override
 	public long getStateSize() {
 		return stateSize;
+	}
+
+	@Override
+	public long getTotalStateSize() {
+		return totalStateSize;
 	}
 
 	@Override

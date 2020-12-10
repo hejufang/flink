@@ -88,6 +88,15 @@ public abstract class AbstractCheckpointStats implements Serializable {
 	public abstract long getStateSize();
 
 	/**
+	 * Returns the actual total size of the current state.
+	 *
+	 * @return The actual total size of the current state.
+	 */
+	public long getTotalStateSize() {
+		return getStateSize();
+	}
+
+	/**
 	 * Returns the total buffered bytes during alignment over all subtasks.
 	 *
 	 * <p>Can return <code>-1</code> if the runtime did not report this.

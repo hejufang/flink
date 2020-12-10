@@ -192,6 +192,16 @@ public class CompletedCheckpoint implements Serializable {
 		return result;
 	}
 
+	public long getTotalStateSize() {
+		long result = 0L;
+
+		for (OperatorState operatorState : operatorStates.values()) {
+			result += operatorState.getTotalStateSize();
+		}
+
+		return result;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Shared State
 	// ------------------------------------------------------------------------

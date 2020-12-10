@@ -311,7 +311,7 @@ public class PendingCheckpoint {
 					// Finalize the statsCallback and give the completed checkpoint a
 					// callback for discards.
 					CompletedCheckpointStats.DiscardCallback discardCallback =
-							statsCallback.reportCompletedCheckpoint(finalizedLocation.getExternalPointer(), finishTimestamp);
+							statsCallback.reportCompletedCheckpoint(finalizedLocation.getExternalPointer(), finishTimestamp, completed.getTotalStateSize());
 					completed.setDiscardCallback(discardCallback);
 				}
 
