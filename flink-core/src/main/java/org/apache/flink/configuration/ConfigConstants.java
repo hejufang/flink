@@ -2146,6 +2146,12 @@ public final class ConfigConstants {
 	public static final String FLINK_PSM_TEMPLATE = "inf.flink.%s";
 	public static final String FLINK_TEAM_TEMPLATE = "inf.flink.%s";
 
+	// ---------------------------- Hdfs Btrace ------------------------------
+	public static final String HDFS_BTRACE_TAGS_KEY = "YARN_APP_TAGS";
+	public static final String HDFS_BTRACE_TAGS_VALUE = "platform=%s";
+	public static final String HDFS_BTRACE_PLATFORM = "hdfs.btrace.platform";
+	public static final String HDFS_BTRACE_PLATFORM_DEFAULT = "flink";
+
 	// ---------------------------- Serializer Buffer ------------------------------
 	public static final String PRUNE_BUFFER_THRESHOLD = "prune.buffer.threshold";
 	public static final int PRUNE_BUFFER_THRESHOLD_DEFAULT = 1 * 1024 * 1024;

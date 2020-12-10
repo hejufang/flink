@@ -661,6 +661,7 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.ENV_CORE_DUMP_PROC_NAME, jobName);
 		}
 
+		Utils.setHdfsBtrace(flinkConfig, containerEnv);
 		setIpv6Env(flinkConfig, containerEnv);
 
 		// Add environment params to TM appMasterEnv for docker mode.
@@ -730,6 +731,13 @@ public final class Utils {
 			ldLibraryPath = LD_LIBRARY_PATH_DEFAULT;
 		}
 		env.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH, ldLibraryPath);
+	}
+
+	public static void setHdfsBtrace(
+			org.apache.flink.configuration.Configuration flinkConfiguration,
+			Map<String, String> env) {
+		final String btracePlatform = flinkConfiguration.getString(ConfigConstants.HDFS_BTRACE_PLATFORM, ConfigConstants.HDFS_BTRACE_PLATFORM_DEFAULT);
+		env.put(ConfigConstants.HDFS_BTRACE_TAGS_KEY, String.format(ConfigConstants.HDFS_BTRACE_TAGS_VALUE, btracePlatform));
 	}
 
 	public static void setIpv6Env(
