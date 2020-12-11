@@ -50,6 +50,7 @@ import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
 import static org.apache.flink.formats.pb.PbOptions.PB_CLASS;
 import static org.apache.flink.formats.pb.PbOptions.SINK_WITH_SIZE_HEADER;
+import static org.apache.flink.formats.pb.PbOptions.SIZE_HEADER_WITH_LITTLE_ENDIAN;
 import static org.apache.flink.formats.pb.PbOptions.SKIP_BYTES;
 import static org.apache.flink.formats.pb.PbOptions.WITH_WRAPPER;
 
@@ -111,6 +112,7 @@ public class PbFormatFactory implements
 		final String pbClass = formatOptions.get(PB_CLASS);
 		final boolean withWrapper = formatOptions.get(WITH_WRAPPER);
 		final boolean sinkWithSizeHeader = formatOptions.get(SINK_WITH_SIZE_HEADER);
+		final boolean sizeHeaderWithLittleEndian = formatOptions.get(SIZE_HEADER_WITH_LITTLE_ENDIAN);
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -124,6 +126,7 @@ public class PbFormatFactory implements
 					.setPbDescriptorClass(pbClass)
 					.setWithWrapper(withWrapper)
 					.setSinkWithSizeHeader(sinkWithSizeHeader)
+					.setSizeHeaderWithLittleEndian(sizeHeaderWithLittleEndian)
 					.build();
 			}
 
@@ -169,7 +172,9 @@ public class PbFormatFactory implements
 		options.add(SKIP_BYTES);
 		options.add(WITH_WRAPPER);
 		options.add(IGNORE_PARSE_ERRORS);
+		options.add(SINK_WITH_SIZE_HEADER);
 		options.add(IS_AD_INSTANCE_FORMAT);
+		options.add(SIZE_HEADER_WITH_LITTLE_ENDIAN);
 		return options;
 	}
 }

@@ -60,4 +60,10 @@ public class PbOptions {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Optional flag whether add size before serialized bytes.");
+
+	public static final ConfigOption<Boolean> SIZE_HEADER_WITH_LITTLE_ENDIAN = ConfigOptions
+		.key("size-header-with-little-endian")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional flag whether the size header is little endian.");
 }

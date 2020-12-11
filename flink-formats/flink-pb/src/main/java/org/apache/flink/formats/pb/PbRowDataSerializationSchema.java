@@ -27,6 +27,7 @@ import org.apache.flink.util.Preconditions;
 import com.google.protobuf.DynamicMessage;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * Deserialization RowData to pb bytes.
@@ -39,12 +40,14 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 	private final RowType pbTypeInfo;
 	private transient SerializationRuntimeConverter runtimeConverter;
 	private transient ByteBuffer byteBuffer;
+	private final boolean sizeHeaderWithLittleEndian;
 
 	private PbRowDataSerializationSchema(
 			RowType rowType,
 			String pbDescriptorClass,
 			boolean withWrapper,
-			boolean sinkWithSizeHeader) {
+			boolean sinkWithSizeHeader,
+			boolean sizeHeaderWithLittleEndian) {
 		this.withWrapper = withWrapper;
 		this.sinkWithSizeHeader = sinkWithSizeHeader;
 		this.pbDescriptorClass = pbDescriptorClass;
@@ -57,11 +60,14 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 		} else {
 			pbTypeInfo = rowType;
 		}
+		this.sizeHeaderWithLittleEndian = sizeHeaderWithLittleEndian;
 	}
 
 	@Override
 	public void open(InitializationContext context) {
-		byteBuffer = ByteBuffer.allocate(Long.BYTES);
+		ByteOrder byteOrder =
+			sizeHeaderWithLittleEndian ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
+		byteBuffer = ByteBuffer.allocate(Long.BYTES).order(byteOrder);
 		runtimeConverter = SerializationRuntimeConverterFactory.createConverter(pbTypeInfo,
 			PbUtils.validateAndGetDescriptor(pbDescriptorClass));
 	}
@@ -97,6 +103,7 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 		private String pbDescriptorClass;
 		private boolean withWrapper;
 		private boolean sinkWithSizeHeader;
+		private boolean sizeHeaderWithLittleEndian;
 
 		private Builder() {}
 
@@ -120,6 +127,11 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 			return this;
 		}
 
+		public Builder setSizeHeaderWithLittleEndian(boolean sizeHeaderWithLittleEndian) {
+			this.sizeHeaderWithLittleEndian = sizeHeaderWithLittleEndian;
+			return this;
+		}
+
 		public PbRowDataSerializationSchema build() {
 			Preconditions.checkNotNull(rowType, "rowType is cannot be null!");
 			Preconditions.checkNotNull(pbDescriptorClass, "pbDescriptorClass is cannot be null!");
@@ -127,7 +139,8 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 				rowType,
 				pbDescriptorClass,
 				withWrapper,
-				sinkWithSizeHeader);
+				sinkWithSizeHeader,
+				sizeHeaderWithLittleEndian);
 		}
 	}
 }
