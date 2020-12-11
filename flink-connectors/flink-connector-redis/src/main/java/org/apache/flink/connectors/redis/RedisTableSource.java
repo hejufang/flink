@@ -34,7 +34,6 @@ import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -89,8 +88,6 @@ public class RedisTableSource implements
 
 	@Override
 	public TableFunction<Row> getLookupFunction(String[] lookupKeys) {
-		checkArgument(lookupKeys.length == 1, "Abase/Redis connector can only " +
-			"accept one lookup key.");
 		return RedisLookupFunction.builder()
 				.setOptions(options)
 				.setLookupOptions(lookupOptions)
