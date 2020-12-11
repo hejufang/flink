@@ -107,6 +107,7 @@ non-global:
         totalNumberOfCheckpoints,
         syncDuration,
         asyncDuration,
+        numberOfContinuousCheckpointFailure,
       # Blacklist
         numTaskManagersInBlacklist,
       # number of skipped records in source
