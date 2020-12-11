@@ -73,6 +73,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_CACHE_SIZE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.USE_MEMORY_CACHE;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
@@ -563,6 +565,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 		ExecutionConfig executionConfig = env.getExecutionConfig();
 		StreamCompressionDecorator keyGroupCompressionDecorator = getCompressionDecorator(executionConfig);
+		boolean useMemoryCache = env.getTaskManagerInfo().getConfiguration().getBoolean(USE_MEMORY_CACHE);
+		int maxCacheSize = env.getTaskManagerInfo().getConfiguration().getInteger(MAX_CACHE_SIZE);
 		RocksDBKeyedStateBackendBuilder<K> builder = new RocksDBKeyedStateBackendBuilder<>(
 			operatorIdentifier,
 			env.getUserClassLoader(),
@@ -585,7 +589,9 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setEnableTtlCompactionFilter(isTtlCompactionFilterEnabled())
 			.setNumberOfTransferingThreads(getNumberOfTransferingThreads())
 			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
-			.setNativeMetricOptions(getMemoryWatcherOptions());
+			.setNativeMetricOptions(getMemoryWatcherOptions())
+			.setUseMemoryCache(useMemoryCache)
+			.setMaxCacheSize(maxCacheSize);
 		return builder.build();
 	}
 

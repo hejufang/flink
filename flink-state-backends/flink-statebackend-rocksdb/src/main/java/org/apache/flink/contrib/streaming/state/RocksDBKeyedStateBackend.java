@@ -189,7 +189,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	 * to store state. The different k/v states that we have don't each have their own RocksDB
 	 * instance. They all write to this instance but to their own column family.
 	 */
-	protected final RocksDB db;
+	protected final AbstractRocksDBDelegate db;
 
 	// mark whether this backend is already disposed and prevent duplicate disposing
 	private boolean disposed = false;
@@ -205,7 +205,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		TypeSerializer<K> keySerializer,
 		ExecutionConfig executionConfig,
 		TtlTimeProvider ttlTimeProvider,
-		RocksDB db,
+		AbstractRocksDBDelegate db,
 		LinkedHashMap<String, RocksDbKvStateInfo> kvStateInformation,
 		int keyGroupPrefixBytes,
 		CloseableRegistry cancelStreamRegistry,

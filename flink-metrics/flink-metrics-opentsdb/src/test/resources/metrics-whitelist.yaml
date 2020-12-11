@@ -121,5 +121,12 @@ non-global:
         descheduledContainers,
         deschedulerReceivedInfo,
         deschedulerHandleResult,
-        deschedulerDurationMs
+        deschedulerDurationMs,
+      # state
+        cacheHitCount,
+        cacheMissCount,
+        cacheRequestCount,
+        cacheEvictCount,
+        cacheLoadTime,
+        cacheHitRate
     ]

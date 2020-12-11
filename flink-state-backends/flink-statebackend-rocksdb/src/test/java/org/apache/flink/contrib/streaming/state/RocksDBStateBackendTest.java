@@ -241,7 +241,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				allCreatedCloseables.add(rocksIterator);
 				return rocksIterator;
 			}
-		}).when(keyedStateBackend.db).newIterator(any(ColumnFamilyHandle.class), any(ReadOptions.class));
+		}).when(keyedStateBackend.db.db()).newIterator(any(ColumnFamilyHandle.class), any(ReadOptions.class));
 
 		doAnswer(new Answer<Object>() {
 
@@ -261,7 +261,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				allCreatedCloseables.add(snapshot);
 				return snapshot;
 			}
-		}).when(keyedStateBackend.db).createColumnFamily(any(ColumnFamilyDescriptor.class));
+		}).when(keyedStateBackend.db.db()).createColumnFamily(any(ColumnFamilyDescriptor.class));
 
 		for (int i = 0; i < 100; ++i) {
 			keyedStateBackend.setCurrentKey(i);
@@ -326,7 +326,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 			RunnableFuture<SnapshotResult<KeyedStateHandle>> snapshot =
 				keyedStateBackend.snapshot(0L, 0L, testStreamFactory, CheckpointOptions.forCheckpointWithDefaultLocation());
 
-			RocksDB spyDB = keyedStateBackend.db;
+			RocksDB spyDB = keyedStateBackend.db.db();
 
 			if (!enableIncrementalCheckpointing) {
 				verify(spyDB, times(1)).getSnapshot();
@@ -589,7 +589,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		}
 
 		assertNotNull(null, keyedStateBackend.db);
-		RocksDB spyDB = keyedStateBackend.db;
+		RocksDB spyDB = keyedStateBackend.db.db();
 
 		if (!enableIncrementalCheckpointing) {
 			verify(spyDB, times(1)).getSnapshot();

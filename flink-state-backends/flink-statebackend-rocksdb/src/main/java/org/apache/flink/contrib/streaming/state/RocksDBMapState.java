@@ -507,6 +507,16 @@ class RocksDBMapState<K, N, UK, UV>
 		private final DataInputDeserializer dataInputView;
 
 		RocksDBMapIterator(
+			final AbstractRocksDBDelegate db,
+			final byte[] keyPrefixBytes,
+			final TypeSerializer<UK> keySerializer,
+			final TypeSerializer<UV> valueSerializer,
+			DataInputDeserializer dataInputView) {
+
+			this(db.db(), keyPrefixBytes, keySerializer, valueSerializer, dataInputView);
+		}
+
+		RocksDBMapIterator(
 			final RocksDB db,
 			final byte[] keyPrefixBytes,
 			final TypeSerializer<UK> keySerializer,

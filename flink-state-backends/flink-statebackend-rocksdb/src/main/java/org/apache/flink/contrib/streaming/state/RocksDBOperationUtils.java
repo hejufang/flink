@@ -88,6 +88,10 @@ public class RocksDBOperationUtils {
 		return new RocksIteratorWrapper(db.newIterator(columnFamilyHandle));
 	}
 
+	public static RocksIteratorWrapper getRocksIterator(AbstractRocksDBDelegate dbWrapper, ColumnFamilyHandle columnFamilyHandle) {
+		return new RocksIteratorWrapper(dbWrapper.db().newIterator(columnFamilyHandle));
+	}
+
 	public static void registerKvStateInformation(
 		Map<String, RocksDBKeyedStateBackend.RocksDbKvStateInfo> kvStateInformation,
 		RocksDBNativeMetricMonitor nativeMetricMonitor,
@@ -115,6 +119,14 @@ public class RocksDBOperationUtils {
 		ColumnFamilyDescriptor columnFamilyDescriptor = createColumnFamilyDescriptor(
 			metaInfoBase, columnFamilyOptionsFactory, ttlCompactFiltersManager);
 		return new RocksDBKeyedStateBackend.RocksDbKvStateInfo(createColumnFamily(columnFamilyDescriptor, db), metaInfoBase);
+	}
+
+	public static RocksDBKeyedStateBackend.RocksDbKvStateInfo createStateInfo(
+		RegisteredStateMetaInfoBase metaInfoBase,
+		AbstractRocksDBDelegate db,
+		Function<String, ColumnFamilyOptions> columnFamilyOptionsFactory,
+		@Nullable RocksDbTtlCompactFiltersManager ttlCompactFiltersManager) {
+		return createStateInfo(metaInfoBase, db.db(), columnFamilyOptionsFactory, ttlCompactFiltersManager);
 	}
 
 	/**

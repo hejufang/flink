@@ -55,6 +55,16 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.withDescription("The maximum number of open files that can be used by the DB, '-1' means no limit. " +
 				"RocksDB has default configuration as '5000'.");
 
+	public static final ConfigOption<Boolean> USE_MEMORY_CACHE =
+		key("state.backend.rocksdb.use.memory.cache")
+			.defaultValue(false)
+			.withDescription("Whether use memory as cache.");
+
+	public static final ConfigOption<Integer> MAX_CACHE_SIZE =
+		key("state.backend.rocksdb.cache.max.size")
+			.defaultValue(10000)
+			.withDescription("The maximum number of data in memory cache.");
+
 	//--------------------------------------------------------------------------
 	// Provided configurable ColumnFamilyOptions within Flink
 	//--------------------------------------------------------------------------

@@ -67,6 +67,10 @@ public class RocksDBWriteBatchWrapper implements AutoCloseable {
 		this.batch = new WriteBatch(this.capacity * PER_RECORD_BYTES);
 	}
 
+	public RocksDBWriteBatchWrapper(@Nonnull AbstractRocksDBDelegate rocksDBDelegate, @Nullable WriteOptions options) {
+		this(rocksDBDelegate.db(), options, 500);
+	}
+
 	public void put(
 		@Nonnull ColumnFamilyHandle handle,
 		@Nonnull byte[] key,

@@ -115,6 +115,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
 
+	private boolean useMemoryCache;
+	private int maxCacheSize;
+
 	public RocksDBKeyedStateBackendBuilder(
 		String operatorIdentifier,
 		ClassLoader userCodeClassLoader,
@@ -230,6 +233,16 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		return this;
 	}
 
+	public RocksDBKeyedStateBackendBuilder<K> setUseMemoryCache(boolean useMemoryCache) {
+		this.useMemoryCache = useMemoryCache;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setMaxCacheSize(int maxCacheSize) {
+		this.maxCacheSize = maxCacheSize;
+		return this;
+	}
+
 	private static void checkAndCreateDirectory(File directory) throws IOException {
 		if (directory.exists()) {
 			if (!directory.isDirectory()) {
@@ -337,6 +350,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			keyGroupRange,
 			numberOfKeyGroups
 		);
+		AbstractRocksDBDelegate rocksDBDelegate = useMemoryCache ?
+			new CachedRocksDBDelegate(db, metricGroup, maxCacheSize) : new DirectRocksDBDelegate(db);
 		return new RocksDBKeyedStateBackend<>(
 			this.userCodeClassLoader,
 			this.instanceBasePath,
@@ -346,7 +361,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			this.keySerializerProvider.currentSchemaSerializer(),
 			this.executionConfig,
 			this.ttlTimeProvider,
-			db,
+			rocksDBDelegate,
 			kvStateInformation,
 			keyGroupPrefixBytes,
 			cancelStreamRegistryForBackend,
