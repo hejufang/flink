@@ -22,6 +22,7 @@ common:
   stream-partitioner.default: rescale
   
   state.backend: rocksdb
+  state.backend.rocksdb.checkpoint.transfer.thread.num: 4
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.9/flink/fs_checkpoint_dir
   state.checkpoints.num-retained: 3
 
