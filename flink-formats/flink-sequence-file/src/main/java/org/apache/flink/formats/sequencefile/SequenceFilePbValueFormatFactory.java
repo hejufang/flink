@@ -46,13 +46,18 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.apache.flink.formats.sequencefile.SequenceFileOptions.IGNORE_PARSE_ERRORS;
-import static org.apache.flink.formats.sequencefile.SequenceFileOptions.PB_CLASS;
+import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
+import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
+import static org.apache.flink.formats.pb.PbOptions.PB_CLASS;
+import static org.apache.flink.formats.pb.PbOptions.SINK_WITH_SIZE_HEADER;
+import static org.apache.flink.formats.pb.PbOptions.SKIP_BYTES;
+import static org.apache.flink.formats.pb.PbOptions.WITH_WRAPPER;
 
 /**
  * FormatFactory for sequence file.
@@ -65,15 +70,22 @@ public class SequenceFilePbValueFormatFactory implements FileSystemFormatFactory
 
 	@Override
 	public InputFormat<RowData, ?> createReader(ReaderContext context) {
-		String pbDescriptorClass = context.getFormatOptions().get(PB_CLASS);
+		String pbClass = context.getFormatOptions().get(PB_CLASS);
+		int skipBytes = context.getFormatOptions().get(SKIP_BYTES);
+		boolean withWrapper = context.getFormatOptions().get(WITH_WRAPPER);
 		boolean ignoreParseErrors = context.getFormatOptions().get(IGNORE_PARSE_ERRORS);
+		boolean isAdInstanceFormat = context.getFormatOptions().get(IS_AD_INSTANCE_FORMAT);
 
-		PbRowDataDeserializationSchema pbRowDeserializationSchema = PbRowDataDeserializationSchema.builder()
-			.setRowType(context.getFormatRowType())
-			.setResultTypeInfo(new GenericTypeInfo(GenericRowData.class))
-			.setPbDescriptorClass(pbDescriptorClass)
-			.setIgnoreParseErrors(ignoreParseErrors)
-			.build();
+		PbRowDataDeserializationSchema pbRowDeserializationSchema =
+			PbRowDataDeserializationSchema.builder()
+				.setPbDescriptorClass(pbClass)
+				.setRowType(context.getFormatRowType())
+				.setResultTypeInfo(new GenericTypeInfo(GenericRowData.class))
+				.setSkipBytes(skipBytes)
+				.setWithWrapper(withWrapper)
+				.setAdInstanceFormat(isAdInstanceFormat)
+				.setIgnoreParseErrors(ignoreParseErrors)
+				.build();
 		return new SequenceFilePbValueInputFormat(pbRowDeserializationSchema, context, ignoreParseErrors);
 	}
 
@@ -92,7 +104,11 @@ public class SequenceFilePbValueFormatFactory implements FileSystemFormatFactory
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> options = new HashSet<>();
+		options.add(SKIP_BYTES);
+		options.add(WITH_WRAPPER);
 		options.add(IGNORE_PARSE_ERRORS);
+		options.add(SINK_WITH_SIZE_HEADER);
+		options.add(IS_AD_INSTANCE_FORMAT);
 		return options;
 	}
 
@@ -100,8 +116,9 @@ public class SequenceFilePbValueFormatFactory implements FileSystemFormatFactory
 	public TableSchema getTableSchema(Map<String, String> formatOptions) {
 		String oldKey = fullKey(PB_CLASS.key());
 		String pbClass = formatOptions.get(oldKey);
-		formatOptions.put("pb." + PB_CLASS.key(), pbClass);
-		return new PbFormatFactory().getTableSchema(formatOptions);
+		Map<String, String> newFormatOptions = new HashMap<>(formatOptions);
+		newFormatOptions.put("pb." + PB_CLASS.key(), pbClass);
+		return new PbFormatFactory().getTableSchema(newFormatOptions);
 	}
 
 	@VisibleForTesting
