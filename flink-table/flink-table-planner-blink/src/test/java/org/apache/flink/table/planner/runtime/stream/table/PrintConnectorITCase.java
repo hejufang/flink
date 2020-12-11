@@ -93,6 +93,7 @@ public class PrintConnectorITCase extends StreamingTestBase {
 						"f11 row<n0 int, n1 string>" +
 						") with (" +
 						"'connector' = 'print'," +
+						"'print-sample-ratio' = '1'," +
 						"'print-identifier' = '%s'," +
 						"'standard-error'='%b')",
 				"test_print", standardError));

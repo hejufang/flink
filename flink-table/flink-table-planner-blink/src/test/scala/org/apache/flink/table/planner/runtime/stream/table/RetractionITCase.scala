@@ -126,6 +126,8 @@ class RetractionITCase(mode: StateBackendMode) extends StreamingWithStateTestBas
       (7, 8L)
     )
 
+    // parallelism > 1 cannot guarantee the input order for the second agg operator.
+    env.setParallelism(1)
     val stream = env.fromCollection(data)
     val table = stream.toTable(tEnv, 'pk, 'value)
     val resultTable = table

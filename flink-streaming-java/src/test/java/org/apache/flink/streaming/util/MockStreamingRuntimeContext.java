@@ -23,6 +23,7 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.operators.testutils.MockEnvironment;
 import org.apache.flink.runtime.operators.testutils.MockEnvironmentBuilder;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
@@ -55,14 +56,33 @@ public class MockStreamingRuntimeContext extends StreamingRuntimeContext {
 		int subtaskIndex,
 		IOManager ioManager) {
 
-		super(
-			new MockStreamOperator(),
+		this(
+			isCheckpointingEnabled,
+			numParallelSubtasks,
+			subtaskIndex,
 			new MockEnvironmentBuilder()
 				.setTaskName("mockTask")
 				.setManagedMemorySize(4 * MemoryManager.DEFAULT_PAGE_SIZE)
 				.setIOManager(ioManager)
 				.build(),
-			new HashMap<>());
+			new MockStreamOperator());
+	}
+
+	private MockStreamingRuntimeContext(
+			boolean isCheckpointingEnabled,
+			int numParallelSubtasks,
+			int subtaskIndex,
+			MockEnvironment mockEnvironment,
+			MockStreamOperator operator) {
+		super(
+			mockEnvironment,
+			new HashMap<>(),
+			operator.getMetricGroup(),
+			operator.getOperatorID(),
+			operator.getProcessingTimeService(),
+			operator.getKeyedStateStore(),
+			mockEnvironment.getExternalResourceInfoProvider(),
+			null);
 
 		this.isCheckpointingEnabled = isCheckpointingEnabled;
 		this.numParallelSubtasks = numParallelSubtasks;
