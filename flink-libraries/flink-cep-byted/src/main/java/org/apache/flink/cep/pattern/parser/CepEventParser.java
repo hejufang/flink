@@ -25,7 +25,7 @@ import java.io.Serializable;
  */
 public abstract class CepEventParser implements Serializable {
 
-	public abstract String get(String key, CepEvent data);
+	public abstract Object get(String key, CepEvent data);
 
 	public abstract CepEventParser duplicate();
 }

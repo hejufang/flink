@@ -16,31 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.cep.pattern.parser;
+package org.apache.flink.cep.pattern.conditions.comparators;
 
-import org.apache.flink.cep.Event;
+import java.io.Serializable;
 
 /**
- * TestCepEventParser.
+ *
+ * @param <T>
  */
-public class TestCepEventParser extends CepEventParser {
+public abstract class ConditionComparator<T> implements Serializable {
 
-	@Override
-	public Object get(String key, CepEvent data) {
-		Event event = (Event) data;
-		if (key.equals("name")) {
-			return event.getName();
-		} else if (key.equals("id")) {
-			return event.getId();
-		} else if (key.equals("price")) {
-			return event.getPrice();
-		} else {
-			throw new UnsupportedOperationException();
-		}
-	}
+	public abstract boolean isEqual(T o1, T o2);
 
-	@Override
-	public CepEventParser duplicate() {
-		return new TestCepEventParser();
-	}
+	public abstract boolean isGreater(T o1, T o2);
+
+	public abstract boolean isLess(T o1, T o2);
+
+	public abstract T castValue(Object obj);
 }

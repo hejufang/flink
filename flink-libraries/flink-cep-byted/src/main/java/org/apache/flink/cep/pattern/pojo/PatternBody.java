@@ -46,11 +46,7 @@ public class PatternBody implements Serializable {
 			@JsonProperty(FIELD_EVENTS) List<Event> events,
 			@JsonProperty(FIELD_ATTRIBUTES) Map<AttributeType, String> attributes) {
 		this.events = events;
-		if (attributes == null) {
-			this.attributes = new HashMap<>();
-		} else {
-			this.attributes = attributes;
-		}
+		this.attributes = attributes == null ? new HashMap<>() : attributes;
 	}
 
 	public List<Event> getEvents() {

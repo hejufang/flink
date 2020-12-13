@@ -33,6 +33,17 @@ import java.util.Arrays;
 public class CondtionsTest {
 
 	@Test
+	public void testGreaterCondition() throws Exception {
+		Condition c1 = new Condition("id", Condition.OpType.GREATER, "1", Condition.ValueType.DOUBLE, null);
+		Condition c2 = new Condition("price", Condition.OpType.GREATER, "1", Condition.ValueType.DOUBLE, null);
+		final EventParserCondition<Event> condition = new EventParserCondition<>(new TestCepEventParser(), Arrays.asList(c1, c2));
+
+		Assert.assertTrue(condition.filter(new Event(2, "x", 1.5), new TestContext()));
+		Assert.assertFalse(condition.filter(new Event(0, "x", 2.0), new TestContext()));
+		Assert.assertFalse(condition.filter(new Event(2, "x", 0.5), new TestContext()));
+	}
+
+	@Test
 	public void testMultipleConditions() throws Exception {
 		Condition c1 = new Condition("id", Condition.OpType.EQUAL, "1");
 		Condition c2 = new Condition("name", Condition.OpType.EQUAL, "2");

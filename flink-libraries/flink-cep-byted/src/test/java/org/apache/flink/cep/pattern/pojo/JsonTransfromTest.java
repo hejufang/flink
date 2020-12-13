@@ -31,6 +31,42 @@ import java.io.IOException;
 public class JsonTransfromTest {
 
 	@Test
+	public void testNumberCompareCondition() throws IOException {
+		String json = "{\n" +
+				"\t\"id\": \"rule_xx\",\n" +
+				"\t\"pattern\": {\n" +
+				"\t\t\"events\": [{\n" +
+				"\t\t\t\t\"id\": \"imp\",\n" +
+				"\t\t\t\t\"conditions\": [{\n" +
+				"\t\t\t\t\t\"key\": \"amount\",\n" +
+				"\t\t\t\t\t\"op\": \">\",\n" +
+				"\t\t\t\t\t\"value\": \"1.0\",\n" +
+				"                    \"type\": \"long\"\n" +
+				"\t\t\t\t}]\n" +
+				"\t\t\t},\n" +
+				"\t\t\t{\n" +
+				"\t\t\t\t\"id\": \"purchase\",\n" +
+				"\t\t\t\t\"conditions\": [{\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"buy iterm\"\n" +
+				"\t\t\t\t}, {\n" +
+				"\t\t\t\t\t\"key\": \"eventName\",\n" +
+				"\t\t\t\t\t\"op\": \"=\",\n" +
+				"\t\t\t\t\t\"value\": \"take iterm\"\n" +
+				"\t\t\t\t}],\n" +
+				"\t\t\t\t\"connection\": \"NOT_FOLLOWED_BY\",\n" +
+				"\t\t\t\t\"after\": \"imp\"\n" +
+				"\t\t\t}\n" +
+				"\t\t]\n" +
+				"\t}\n" +
+				"}\n";
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
+		Assert.assertEquals(Condition.ValueType.LONG, pattern.getBeginEvent().getConditions().get(0).getType());
+	}
+
+	@Test
 	public void testMultipleCondition() throws IOException {
 		String json = "{\n" +
 				"\t\"id\": \"rule_xx\",\n" +
@@ -65,6 +101,7 @@ public class JsonTransfromTest {
 				"\t}\n" +
 				"}";
 
+		System.out.println(json);
 		ObjectMapper objectMapper = new ObjectMapper();
 		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
 		Assert.assertEquals(1, pattern.getBeginEvent().getConditions().size());
