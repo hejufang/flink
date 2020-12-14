@@ -30,6 +30,8 @@ import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.EventComparator;
+import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
+import org.apache.flink.cep.functions.MultiplePatternTimedOutPartialMatchHandler;
 import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
 import org.apache.flink.cep.nfa.NFA;
@@ -81,7 +83,7 @@ import java.util.stream.Stream;
  */
 @Internal
 public class CoCepOperator<IN, KEY, OUT>
-		extends AbstractUdfStreamOperator<OUT, PatternProcessFunction<IN, OUT>>
+		extends AbstractUdfStreamOperator<OUT, MultiplePatternProcessFunction<IN, OUT>>
 		implements TwoInputStreamOperator<IN, Pattern<IN, IN>, OUT>, Triggerable<KEY, VoidNamespace> {
 
 	private static final long serialVersionUID = -1243854353417L;
@@ -152,7 +154,7 @@ public class CoCepOperator<IN, KEY, OUT>
 			final boolean isProcessingTime,
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final AfterMatchSkipStrategy afterMatchSkipStrategy,
-			final PatternProcessFunction<IN, OUT> function,
+			final MultiplePatternProcessFunction<IN, OUT> function,
 			@Nullable final OutputTag<IN> lateDataOutputTag) {
 		super(function);
 
@@ -454,7 +456,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
 			Collection<Map<String, List<IN>>> patterns =
 					currentNFA.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
-			processMatchedSequences(patterns, timestamp);
+			processMatchedSequences(currentNFA.getPatternId(), patterns, timestamp);
 		}
 	}
 
@@ -467,36 +469,36 @@ public class CoCepOperator<IN, KEY, OUT>
 			// output pending states matches
 			Collection<Map<String, List<IN>>> pendingMatches = currentNFA.pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
 			if (!pendingMatches.isEmpty()) {
-				processMatchedSequences(pendingMatches, timestamp);
+				processMatchedSequences(currentNFA.getPatternId(), pendingMatches, timestamp);
 			}
 
 			// output timeout patterns
 			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
 					currentNFA.advanceTime(sharedBufferAccessor, nfaState, timestamp);
 			if (!timedOut.isEmpty()) {
-				processTimedOutSequences(timedOut);
+				processTimedOutSequences(currentNFA.getPatternId(), timedOut);
 			}
 		}
 	}
 
-	private void processMatchedSequences(Iterable<Map<String, List<IN>>> matchingSequences, long timestamp) throws Exception {
-		PatternProcessFunction<IN, OUT> function = getUserFunction();
+	private void processMatchedSequences(String patternId, Iterable<Map<String, List<IN>>> matchingSequences, long timestamp) throws Exception {
+		MultiplePatternProcessFunction<IN, OUT> function = getUserFunction();
 		setTimestamp(timestamp);
 		for (Map<String, List<IN>> matchingSequence : matchingSequences) {
-			function.processMatch(matchingSequence, context, collector);
+			function.processMatch(Tuple2.of(patternId, matchingSequence), context, collector);
 		}
 	}
 
-	private void processTimedOutSequences(Collection<Tuple2<Map<String, List<IN>>, Long>> timedOutSequences) throws Exception {
-		PatternProcessFunction<IN, OUT> function = getUserFunction();
-		if (function instanceof TimedOutPartialMatchHandler) {
+	private void processTimedOutSequences(String patternId, Collection<Tuple2<Map<String, List<IN>>, Long>> timedOutSequences) throws Exception {
+		MultiplePatternProcessFunction<IN, OUT> function = getUserFunction();
+		if (function instanceof MultiplePatternTimedOutPartialMatchHandler) {
 
 			@SuppressWarnings("unchecked")
-			TimedOutPartialMatchHandler<IN> timeoutHandler = (TimedOutPartialMatchHandler<IN>) function;
+			MultiplePatternTimedOutPartialMatchHandler<IN> timeoutHandler = (MultiplePatternTimedOutPartialMatchHandler<IN>) function;
 
 			for (Tuple2<Map<String, List<IN>>, Long> matchingSequence : timedOutSequences) {
 				setTimestamp(matchingSequence.f1);
-				timeoutHandler.processTimedOutMatch(matchingSequence.f0, context);
+				timeoutHandler.processTimedOutMatch(Tuple2.of(patternId, matchingSequence.f0), context);
 			}
 		}
 	}
@@ -532,7 +534,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	 *          Event time</li>
 	 *  </ul>
 	 */
-	private class ContextFunctionImpl implements PatternProcessFunction.Context {
+	private class ContextFunctionImpl implements MultiplePatternProcessFunction.Context {
 
 		private Long timestamp;
 

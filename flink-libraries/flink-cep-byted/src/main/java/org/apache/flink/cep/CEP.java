@@ -40,12 +40,12 @@ public class CEP {
 		return new PatternStream<>(input, pattern);
 	}
 
-	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<Pattern<T, T>> patternDataStream) {
-		return new PatternStream<>(input, patternDataStream);
+	public static <T> MultiplePatternStream<T> pattern(DataStream<T> input, DataStream<Pattern<T, T>> patternDataStream) {
+		return new MultiplePatternStream<>(input, patternDataStream);
 	}
 
-	public static <T> PatternStream<T> pattern(DataStream<T> input, DataStream<String> patternJsonStream, CepEventParserFactory factory) {
-		return new PatternStream<>(input, patternJsonStream, factory);
+	public static <T> MultiplePatternStream<T> pattern(DataStream<T> input, DataStream<String> patternJsonStream, CepEventParserFactory factory) {
+		return new MultiplePatternStream<>(input, patternJsonStream, factory);
 	}
 
 	/**

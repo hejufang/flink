@@ -68,9 +68,11 @@ public class CEPPatternStreamITCase {
 		).map(x -> x.f0).keyBy(Event::getId);
 
 		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
-				(PatternSelectFunction<Event, String>) pattern -> pattern.get("start").get(0).getId() + "," +
-						pattern.get("middle").get(0).getId() + "," +
-						pattern.get("end").get(0).getId());
+				(MultiplePatternSelectFunction<Event, String>)
+						pattern -> pattern.f0 + "," +
+						pattern.f1.get("start").get(0).getId() + "," +
+						pattern.f1.get("middle").get(0).getId() + "," +
+						pattern.f1.get("end").get(0).getId());
 
 		List<String> resultList = new ArrayList<>();
 
@@ -118,9 +120,11 @@ public class CEPPatternStreamITCase {
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
 		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new).select(
-				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId() + "," +
-						pattern1.get("middle").get(0).getId() + "," +
-						pattern1.get("end").get(0).getId());
+				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+						pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getId() + "," +
+						pattern1.f1.get("middle").get(0).getId() + "," +
+						pattern1.f1.get("end").get(0).getId());
 
 		List<String> resultList = new ArrayList<>();
 
@@ -128,7 +132,7 @@ public class CEPPatternStreamITCase {
 
 		resultList.sort(String::compareTo);
 
-		assertEquals(Arrays.asList("1,1,1", "2,2,2"), resultList);
+		assertEquals(Arrays.asList("test_pattern,1,1,1", "test_pattern,2,2,2"), resultList);
 	}
 
 	@Test
@@ -189,9 +193,11 @@ public class CEPPatternStreamITCase {
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
 		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
-				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId() + "," +
-						pattern1.get("middle").get(0).getId() + "," +
-						pattern1.get("end").get(0).getId());
+				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+						pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getId() + "," +
+						pattern1.f1.get("middle").get(0).getId() + "," +
+						pattern1.f1.get("end").get(0).getId());
 
 		List<String> resultList = new ArrayList<>();
 
@@ -199,7 +205,7 @@ public class CEPPatternStreamITCase {
 
 		resultList.sort(String::compareTo);
 
-		assertEquals(Arrays.asList("1,1,1", "2,2,2"), resultList);
+		assertEquals(Arrays.asList("unknown,1,1,1", "unknown,2,2,2"), resultList);
 	}
 
 	@Test
@@ -245,7 +251,9 @@ public class CEPPatternStreamITCase {
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
 		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
-				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId() + "");
+				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+						pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getId() + "");
 
 		List<String> resultList = new ArrayList<>();
 
@@ -253,7 +261,7 @@ public class CEPPatternStreamITCase {
 
 		resultList.sort(String::compareTo);
 
-		assertEquals(Collections.singletonList("1"), resultList);
+		assertEquals(Collections.singletonList("unknown,1"), resultList);
 	}
 
 	@Test
@@ -303,8 +311,10 @@ public class CEPPatternStreamITCase {
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
 		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
-				(PatternSelectFunction<Event, String>) pattern1 -> pattern1.get("start").get(0).getId()
-						+ "," + pattern1.get("end").get(0).getId());
+				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+						pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getId() + "," +
+						pattern1.f1.get("end").get(0).getId());
 
 		List<String> resultList = new ArrayList<>();
 
@@ -312,7 +322,7 @@ public class CEPPatternStreamITCase {
 
 		resultList.sort(String::compareTo);
 
-		assertEquals(Arrays.asList("1,1", "1,1"), resultList);
+		assertEquals(Arrays.asList("unknown,1,1", "unknown,1,1"), resultList);
 	}
 
 	private static class EventStream implements SourceFunction<Tuple2<Event, Long>> {
