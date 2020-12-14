@@ -65,6 +65,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @PublicEvolving
 public class HtapCatalog extends AbstractReadOnlyCatalog {
 
+	public static final String DEFAULT_DB = "default";
 	private static final Logger LOG = LoggerFactory.getLogger(HtapCatalog.class);
 
 	private final HtapTableFactory tableFactory = new HtapTableFactory();
