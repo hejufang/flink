@@ -113,6 +113,12 @@ public final class FactoryUtil {
 		.defaultValue(1)
 		.withDescription("Optional. Int value, later join retry times.");
 
+	public static final ConfigOption<Boolean> LOOKUP_CACHE_NULL_VALUE = ConfigOptions
+		.key("lookup.cache-null-value")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("Optional. Lookup cache null value.");
+
 	public static final ConfigOption<Duration> LOOKUP_LATER_JOIN_LATENCY_MS = ConfigOptions
 		.key("lookup.later-join-latency")
 		.durationType()

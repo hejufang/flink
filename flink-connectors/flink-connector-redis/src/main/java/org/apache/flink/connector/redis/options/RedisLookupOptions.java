@@ -38,12 +38,21 @@ public class RedisLookupOptions implements Serializable {
 
 	private final int laterRetryTimes;
 
-	public RedisLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, long laterRetryMs, int laterRetryTimes) {
+	private final boolean cacheNull;
+
+	public RedisLookupOptions(
+			long cacheMaxSize,
+			long cacheExpireMs,
+			int maxRetryTimes,
+			long laterRetryMs,
+			int laterRetryTimes,
+			boolean cacheNull) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.laterRetryMs = laterRetryMs;
 		this.laterRetryTimes = laterRetryTimes;
+		this.cacheNull = cacheNull;
 	}
 
 	public long getCacheMaxSize() {
@@ -66,6 +75,10 @@ public class RedisLookupOptions implements Serializable {
 		return laterRetryTimes;
 	}
 
+	public boolean isCacheNull() {
+		return cacheNull;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof RedisLookupOptions) {
@@ -74,7 +87,8 @@ public class RedisLookupOptions implements Serializable {
 				Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 				Objects.equals(laterRetryMs, options.laterRetryMs) &&
-				Objects.equals(laterRetryTimes, options.laterRetryTimes);
+				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
+				Objects.equals(cacheNull, options.cacheNull);
 		} else {
 			return false;
 		}

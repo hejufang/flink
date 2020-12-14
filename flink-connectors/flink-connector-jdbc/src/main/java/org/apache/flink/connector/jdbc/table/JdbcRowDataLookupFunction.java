@@ -73,6 +73,7 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 	private final JdbcDialect jdbcDialect;
 	private final JdbcRowConverter jdbcRowConverter;
 	private final JdbcRowConverter lookupKeyRowConverter;
+	private final boolean cacheNull;
 
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
@@ -102,6 +103,7 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 		this.cacheMaxSize = lookupOptions.getCacheMaxSize();
 		this.cacheExpireMs = lookupOptions.getCacheExpireMs();
 		this.maxRetryTimes = lookupOptions.getMaxRetryTimes();
+		this.cacheNull = lookupOptions.isCacheNull();
 		this.query = options.getDialect().getSelectFromStatement(
 			options.getTableName(), fieldNames, keyNames);
 		this.jdbcDialect = JdbcDialects.get(dbURL)
@@ -158,6 +160,9 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 							collect(row);
 						}
 						rows.trimToSize();
+						if (rows.isEmpty() && !cacheNull) {
+							continue;
+						}
 						cache.put(keyRow, rows);
 					}
 				}

@@ -143,7 +143,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 				if (row != null) {
 					collect(row);
 				}
-				if (cache != null) {
+				if (cache != null && (row != null || lookupOptions.isCacheNull())) {
 					cache.put(keyRow, row == null ? EMPTY_ROW : row);
 				}
 				return;

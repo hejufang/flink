@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_NULL_VALUE;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY_MS;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
@@ -250,7 +251,8 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 			readableConfig.get(LOOKUP_CACHE_TTL).toMillis(),
 			readableConfig.get(LOOKUP_MAX_RETRIES),
 			readableConfig.get(LOOKUP_LATER_JOIN_LATENCY_MS).toMillis(),
-			readableConfig.get(LOOKUP_LATER_JOIN_RETRY_TIMES));
+			readableConfig.get(LOOKUP_LATER_JOIN_RETRY_TIMES),
+			readableConfig.get(LOOKUP_CACHE_NULL_VALUE));
 	}
 
 	private JdbcExecutionOptions getJdbcExecutionOptions(ReadableConfig config) {
@@ -313,6 +315,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(PARALLELISM);
 		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY_MS);
 		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
+		optionalOptions.add(LOOKUP_CACHE_NULL_VALUE);
 		return optionalOptions;
 	}
 

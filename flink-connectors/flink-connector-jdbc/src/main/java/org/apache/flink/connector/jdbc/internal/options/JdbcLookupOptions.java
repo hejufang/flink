@@ -34,13 +34,21 @@ public class JdbcLookupOptions implements Serializable {
 	private final int maxRetryTimes;
 	private final long laterRetryMs;
 	private final int laterRetryTimes;
+	private final boolean cacheNull;
 
-	public JdbcLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, long laterRetryMs, int laterRetryTimes) {
+	public JdbcLookupOptions(
+			long cacheMaxSize,
+			long cacheExpireMs,
+			int maxRetryTimes,
+			long laterRetryMs,
+			int laterRetryTimes,
+			boolean cacheNull) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.laterRetryMs = laterRetryMs;
 		this.laterRetryTimes = laterRetryTimes;
+		this.cacheNull = cacheNull;
 	}
 
 	public long getCacheMaxSize() {
@@ -63,6 +71,10 @@ public class JdbcLookupOptions implements Serializable {
 		return laterRetryTimes;
 	}
 
+	public boolean isCacheNull() {
+		return cacheNull;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -75,7 +87,8 @@ public class JdbcLookupOptions implements Serializable {
 				Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 				Objects.equals(laterRetryMs, options.laterRetryMs) &&
-				Objects.equals(laterRetryTimes, options.laterRetryTimes);
+				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
+				Objects.equals(cacheNull, options.cacheNull);
 		} else {
 			return false;
 		}
@@ -90,6 +103,7 @@ public class JdbcLookupOptions implements Serializable {
 		private int maxRetryTimes = JdbcExecutionOptions.DEFAULT_MAX_RETRY_TIMES;
 		private long laterRetryMs = -1;
 		private int laterRetryTimes = FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue();
+		private boolean cacheNull = FactoryUtil.LOOKUP_CACHE_NULL_VALUE.defaultValue();
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -124,12 +138,17 @@ public class JdbcLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setCacheNull(boolean cacheNull) {
+			this.cacheNull = cacheNull;
+			return this;
+		}
+
 		public void setLaterRetryTimes(int laterRetryTimes) {
 			this.laterRetryTimes = laterRetryTimes;
 		}
 
 		public JdbcLookupOptions build() {
-			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, laterRetryMs, laterRetryTimes);
+			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, laterRetryMs, laterRetryTimes, cacheNull);
 		}
 	}
 }
