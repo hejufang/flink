@@ -32,6 +32,7 @@ public class RocketMQConfig<T> {
 	private int delayLevel;
 	private String tag;
 	private int sendBatchSize;
+	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -95,5 +96,13 @@ public class RocketMQConfig<T> {
 
 	public void setSendBatchSize(int sendBatchSize) {
 		this.sendBatchSize = sendBatchSize;
+	}
+
+	public RocketMQOptions.AssignQueueStrategy getAssignQueueStrategy() {
+		return assignQueueStrategy;
+	}
+
+	public void setAssignQueueStrategy(RocketMQOptions.AssignQueueStrategy assignQueueStrategy) {
+		this.assignQueueStrategy = assignQueueStrategy;
 	}
 }

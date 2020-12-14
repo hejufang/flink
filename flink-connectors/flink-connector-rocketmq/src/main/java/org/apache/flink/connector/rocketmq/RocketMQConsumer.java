@@ -31,6 +31,7 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.function.SupplierWithException;
 
 import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.mqproxy.proto.MessageQueuePb;
@@ -46,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +84,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private String tag;
 	private Map<String, String> props;
 	private RocketMQDeserializationSchema<T> schema;
+	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 
 	private transient DefaultMQPullConsumer consumer;
 	private transient List<MessageQueuePb> assignedMessageQueuePbs;
@@ -105,6 +108,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.group = config.getGroup();
 		this.topic = config.getTopic();
 		this.tag = config.getTag();
+		this.assignQueueStrategy = config.getAssignQueueStrategy();
 	}
 
 	@Override
@@ -158,12 +162,21 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			consumer.setSubExpr(tag);
 		}
 		consumer.start();
-		assignMessageQueues();
+
+		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
+			assignMessageQueues(this::allocFixedMessageQueue);
+		} else if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.ROUND_ROBIN) {
+			assignMessageQueues(this::allocRoundRobinMessageQueues);
+		}
+
 		for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
 			resetOffset(messageQueuePb);
 		}
 
-		updateThread = createUpdateThread();
+		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
+			updateThread = createUpdateThread();
+		}
+
 		while (running) {
 			PollResult pollResult;
 			synchronized (consumer) {
@@ -196,8 +209,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		}
 	}
 
-	private void assignMessageQueues() throws InterruptedException {
-		List<MessageQueuePb> currentMessageQueues = allocMessageQueue();
+	private void assignMessageQueues(
+			SupplierWithException<List<MessageQueuePb>, InterruptedException> supplier) throws InterruptedException {
+		List<MessageQueuePb> currentMessageQueues = supplier.get();
 		if (tryReplaceOld(currentMessageQueues)) {
 			synchronized (consumer) {
 				consumer.assign(currentMessageQueues);
@@ -218,7 +232,23 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		return false;
 	}
 
-	private List<MessageQueuePb> allocMessageQueue() throws InterruptedException {
+	private List<MessageQueuePb> allocRoundRobinMessageQueues() throws InterruptedException {
+		QueryTopicQueuesResult queryTopicQueuesResult = consumer.queryTopicQueues(topic);
+		validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
+		List<MessageQueuePb> queuePbList = new ArrayList<>(queryTopicQueuesResult.getMessageQueues());
+		// brokerName with queueId represent a min consumer unit in rocketMQ like kafka partition
+		queuePbList.sort(
+			Comparator.comparing(MessageQueuePb::getBrokerName).thenComparingInt(MessageQueuePb::getQueueId));
+		List<MessageQueuePb> resultQueues = new ArrayList<>();
+		for (int i = 0; i < queuePbList.size(); i++) {
+			if ((i % parallelism) == subTaskId) {
+				resultQueues.add(queuePbList.get(i));
+			}
+		}
+		return resultQueues;
+	}
+
+	private List<MessageQueuePb> allocFixedMessageQueue() throws InterruptedException {
 		QueryTopicQueuesResult queryTopicQueuesResult = consumer.queryTopicQueues(topic);
 		validateResponse(queryTopicQueuesResult.getErrorCode(), queryTopicQueuesResult.getErrorMsg());
 		List<MessageQueuePb> messageQueuePbList = new ArrayList<>();
@@ -318,7 +348,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				while (running) {
 					try {
 						Thread.sleep(5 * 60 * 1000);
-						assignMessageQueues();
+						assignMessageQueues(() -> allocFixedMessageQueue());
 					} catch (InterruptedException e) {
 						LOG.info("Receive interrupted exception.");
 					}

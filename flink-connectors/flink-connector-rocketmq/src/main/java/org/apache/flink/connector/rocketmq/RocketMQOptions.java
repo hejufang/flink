@@ -41,6 +41,17 @@ public abstract class RocketMQOptions {
 	public static final String SCAN_STARTUP_MODE_VALUE_TIMESTAMP = "timestamp";
 	public static final String SCAN_STARTUP_MODE_FROM_TIMESTAMP = "startup-mode.from.timestamp";
 
+	/**
+	 *  Assign queue strategy.
+	 *  */
+	public enum AssignQueueStrategy {
+		ROUND_ROBIN,
+		/**
+		 * Assign queue to different task by hash code.
+		 */
+		FIXED
+	}
+
 	public static final ConfigOption<String> TOPIC = ConfigOptions
 			.key("topic")
 			.stringType()
@@ -81,6 +92,12 @@ public abstract class RocketMQOptions {
 			.longType()
 			.noDefaultValue()
 			.withDescription("Optional timestamp used in case of \"timestamp\" startup mode");
+
+	public static final ConfigOption<AssignQueueStrategy> SCAN_ASSIGN_QUEUE_STRATEGY = ConfigOptions
+			.key("scan.queue-assign-strategy")
+			.enumType(AssignQueueStrategy.class)
+			.defaultValue(AssignQueueStrategy.FIXED)
+			.withDescription("Optional assign queue strategy");
 
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options

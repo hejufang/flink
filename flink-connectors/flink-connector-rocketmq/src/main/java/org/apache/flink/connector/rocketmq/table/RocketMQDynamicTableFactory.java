@@ -49,6 +49,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.GROUP;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL00;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL18;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.PROPERTIES_PREFIX;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_ASSIGN_QUEUE_STRATEGY;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_SIZE;
@@ -117,6 +118,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(TOPIC);
 		options.add(SCAN_STARTUP_MODE);
 		options.add(SCAN_STARTUP_TIMESTAMP_MILLIS);
+		options.add(SCAN_ASSIGN_QUEUE_STRATEGY);
 		options.add(SINK_BATCH_SIZE);
 		options.add(SINK_DELAY_LEVEL_FIELD);
 		options.add(SINK_TOPIC_SELECTOR);
@@ -160,6 +162,7 @@ public class RocketMQDynamicTableFactory implements
 					String.format("You must set `%s` when use RocketMQ consumer.", TOPIC.key()))));
 			rocketMQConfig.setTag(config.get(TAG));
 			rocketMQConfig.setSendBatchSize(config.get(SINK_BATCH_SIZE));
+			rocketMQConfig.setAssignQueueStrategy(config.get(SCAN_ASSIGN_QUEUE_STRATEGY));
 		}
 
 		return rocketMQConfig;
