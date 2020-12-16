@@ -414,10 +414,6 @@ public class Dashboard {
 			lookupOperators,
 			Template.LOOKUP_JOIN_REQUEST_DELAY_P99_TARGET,
 			Template.LOOKUP_JOIN_REQUEST_DELAY_P99));
-		rows.add(renderLookupRow(
-			lookupOperators,
-			Template.LOOKUP_JOIN_REQUEST_DELAY_P999_TARGET,
-			Template.LOOKUP_JOIN_REQUEST_DELAY_P999));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderPoolUsageRow(tasks));
 		rows.add(renderGcRow());
