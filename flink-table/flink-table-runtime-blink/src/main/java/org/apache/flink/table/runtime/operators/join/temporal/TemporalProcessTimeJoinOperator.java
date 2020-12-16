@@ -88,9 +88,11 @@ public class TemporalProcessTimeJoinOperator
 		BaseRow leftSideRow = element.getValue();
 		outRow.setHeader(leftSideRow.getHeader());
 
-		if (rightSideRow == null && isLeftOuterJoin) {
-			outRow.replace(leftSideRow, nullRightRow);
-			collector.collect(outRow);
+		if (rightSideRow == null) {
+			if (isLeftOuterJoin) {
+				outRow.replace(leftSideRow, nullRightRow);
+				collector.collect(outRow);
+			}
 			return;
 		}
 
