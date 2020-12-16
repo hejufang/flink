@@ -24,6 +24,7 @@ import org.apache.flink.api.java.io.jdbc.dialect.JDBCDialects;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -33,7 +34,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class JDBCOptions implements Serializable {
 	private static final long serialVersionUID = 7376055590583414158L;
 	private static final String BYTEDANCE_MYSQL_URL_TEMPLATE = "jdbc:mysql:///%s?db_consul=%s" +
-		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
+		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true&serverTimezone=%s" +
+		"&zeroDateTimeBehavior=CONVERT_TO_NULL";
 	public static final int VALID_CONNECTION_TIMEOUT_SEC = 10;
 
 	private String dbURL;
@@ -275,7 +277,7 @@ public class JDBCOptions implements Serializable {
 
 			if (dbURL == null) {
 				if (useBytedanceMysql) {
-					this.dbURL = String.format(BYTEDANCE_MYSQL_URL_TEMPLATE, dbname, consul, psm);
+					this.dbURL = String.format(BYTEDANCE_MYSQL_URL_TEMPLATE, dbname, consul, psm, TimeZone.getDefault().getID());
 				} else {
 					throw new RuntimeException("Can't init db url, because " +
 						"dbUrl == null & useBytedanceMysql is false");
