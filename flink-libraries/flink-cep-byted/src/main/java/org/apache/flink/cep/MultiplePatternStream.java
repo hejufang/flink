@@ -21,7 +21,6 @@ package org.apache.flink.cep;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
-import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -67,7 +66,7 @@ public class MultiplePatternStream<T> {
 	public <R> SingleOutputStreamOperator<R> process(final MultiplePatternProcessFunction<T, R> patternProcessFunction) {
 		final TypeInformation<R> returnType = TypeExtractor.getUnaryOperatorReturnType(
 				patternProcessFunction,
-				PatternProcessFunction.class,
+				MultiplePatternProcessFunction.class,
 				0,
 				1,
 				TypeExtractor.NO_INDEX,

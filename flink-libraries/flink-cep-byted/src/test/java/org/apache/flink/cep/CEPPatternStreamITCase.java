@@ -21,6 +21,7 @@ package org.apache.flink.cep;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
 import org.apache.flink.cep.pattern.parser.TestCepEventParser;
@@ -33,6 +34,7 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.util.Collector;
 
 import org.junit.Test;
 
@@ -41,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 
@@ -192,12 +195,17 @@ public class CEPPatternStreamITCase {
 				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
-				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
-						pattern1.f0 + "," +
-						pattern1.f1.get("start").get(0).getId() + "," +
-						pattern1.f1.get("middle").get(0).getId() + "," +
-						pattern1.f1.get("end").get(0).getId());
+		DataStream<String> result = CEP.pattern(input, patternDataStream)
+				.process(new MultiplePatternProcessFunction<Event, String>() {
+					@Override
+					public void processMatch(Tuple2<String, Map<String, List<Event>>> match, Context ctx, Collector<String> out) throws Exception {
+						String res = match.f0 + "," +
+								match.f1.get("start").get(0).getId() + "," +
+								match.f1.get("middle").get(0).getId() + "," +
+								match.f1.get("end").get(0).getId();
+						out.collect(res);
+					}
+				});
 
 		List<String> resultList = new ArrayList<>();
 
