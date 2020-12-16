@@ -371,8 +371,7 @@ class CodeGeneratorContext(val tableConfig: TableConfig) {
       clazz: Class[_],
       outRecordTerm: String,
       outRecordWriterTerm: Option[String] = None): Unit = {
-    val statement = generateRecordStatement(t, clazz, outRecordTerm, outRecordWriterTerm)
-    reusableMemberStatements.add(statement)
+    val statement = generateRecordStatement(t, clazz, outRecordTerm, outRecordWriterTerm, this)
   }
 
   /**

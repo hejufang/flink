@@ -141,9 +141,10 @@ class DistinctAggCodeGen(
       Seq()
     } else {
       val Seq(mapViewTerm, accTerm) = newNames("mapview", "distinct_acc")
+      ctx.addReusableMember(s"$MAP_VIEW $mapViewTerm;")
       val code =
         s"""
-           |$MAP_VIEW $mapViewTerm = new $MAP_VIEW();
+           |$mapViewTerm = new $MAP_VIEW();
            |$BINARY_GENERIC $accTerm = ${genToInternal(ctx, externalAccType, mapViewTerm)};
          """.stripMargin
 

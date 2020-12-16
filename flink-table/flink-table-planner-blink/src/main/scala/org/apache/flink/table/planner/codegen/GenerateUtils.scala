@@ -216,7 +216,8 @@ object GenerateUtils {
       t: LogicalType,
       clazz: Class[_],
       recordTerm: String,
-      recordWriterTerm: Option[String] = None): String = {
+      recordWriterTerm: Option[String] = None,
+      ctx: CodeGeneratorContext): String = {
     t match {
       case rt: RowType if clazz == classOf[BinaryRow] =>
         val writerTerm = recordWriterTerm.getOrElse(
@@ -224,19 +225,24 @@ object GenerateUtils {
         )
         val binaryRowWriter = className[BinaryRowWriter]
         val typeTerm = clazz.getCanonicalName
+        ctx.addReusableMember(s"$typeTerm $recordTerm = new $typeTerm(${rt.getFieldCount});")
+        ctx.addReusableMember(s"$binaryRowWriter $writerTerm = new $binaryRowWriter($recordTerm);")
         s"""
-           |final $typeTerm $recordTerm = new $typeTerm(${rt.getFieldCount});
-           |final $binaryRowWriter $writerTerm = new $binaryRowWriter($recordTerm);
+           |$recordTerm = new $typeTerm(${rt.getFieldCount});
+           |$writerTerm = new $binaryRowWriter($recordTerm);
            |""".stripMargin.trim
       case rt: RowType if classOf[ObjectArrayRow].isAssignableFrom(clazz) =>
         val typeTerm = clazz.getCanonicalName
-        s"final $typeTerm $recordTerm = new $typeTerm(${rt.getFieldCount});"
+        ctx.addReusableMember(s"$typeTerm $recordTerm = new $typeTerm(${rt.getFieldCount});")
+        s"$recordTerm = new $typeTerm(${rt.getFieldCount});"
       case _: RowType if clazz == classOf[JoinedRow] =>
         val typeTerm = clazz.getCanonicalName
-        s"final $typeTerm $recordTerm = new $typeTerm();"
+        ctx.addReusableMember(s"$typeTerm $recordTerm = new $typeTerm();")
+        s"$recordTerm = new $typeTerm();"
       case _ =>
         val typeTerm = boxedTypeTermForType(t)
-        s"final $typeTerm $recordTerm = new $typeTerm();"
+        ctx.addReusableMember(s"$typeTerm $recordTerm = new $typeTerm();")
+        s"$recordTerm = new $typeTerm();"
     }
   }
 

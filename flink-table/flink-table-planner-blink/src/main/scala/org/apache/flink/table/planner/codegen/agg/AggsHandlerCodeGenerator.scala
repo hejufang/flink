@@ -426,6 +426,7 @@ class AggsHandlerCodeGenerator(
         public final class $functionName
           implements $NAMESPACE_AGGS_HANDLER_FUNCTION<$namespaceClassName> {
 
+          private $namespaceClassName $NAMESPACE_TERM;
           ${ctx.reuseMemberCode()}
 
           public $functionName(Object[] references) throws Exception {
@@ -449,14 +450,14 @@ class AggsHandlerCodeGenerator(
 
           @Override
           public void merge(Object ns, $BASE_ROW $MERGED_ACC_TERM) throws Exception {
-            $namespaceClassName $NAMESPACE_TERM = ($namespaceClassName) ns;
+            $NAMESPACE_TERM = ($namespaceClassName) ns;
             $mergeCode
           }
 
           @Override
           public void setAccumulators(Object ns, $BASE_ROW $ACC_TERM)
           throws Exception {
-            $namespaceClassName $NAMESPACE_TERM = ($namespaceClassName) ns;
+            $NAMESPACE_TERM = ($namespaceClassName) ns;
             $setAccumulatorsCode
           }
 
@@ -472,13 +473,13 @@ class AggsHandlerCodeGenerator(
 
           @Override
           public $BASE_ROW getValue(Object ns) throws Exception {
-            $namespaceClassName $NAMESPACE_TERM = ($namespaceClassName) ns;
+            $NAMESPACE_TERM = ($namespaceClassName) ns;
             $getValueCode
           }
 
           @Override
           public void cleanup(Object ns) throws Exception {
-            $namespaceClassName $NAMESPACE_TERM = ($namespaceClassName) ns;
+            $NAMESPACE_TERM = ($namespaceClassName) ns;
             ${ctx.reuseCleanupCode()}
           }
 

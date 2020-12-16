@@ -306,9 +306,8 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
     }
 
     val outRowInitCode = if (!outRowAlreadyExists) {
-      val initCode = generateRecordStatement(returnType, returnTypeClazz, outRow, outRowWriter)
+      val initCode = generateRecordStatement(returnType, returnTypeClazz, outRow, outRowWriter, ctx)
       if (reusedOutRow) {
-        ctx.addReusableMember(initCode)
         NO_CODE
       } else {
         initCode
