@@ -124,6 +124,12 @@ public class KafkaOptions {
 			.noDefaultValue()
 			.withDescription("Optional source sample num.");
 
+	public static final ConfigOption<Long> SCAN_RELATIVE_OFFSET = ConfigOptions
+			.key("scan.relative-offset")
+			.longType()
+			.noDefaultValue()
+			.withDescription("Optional. Kafka relative offset.");
+
 	public static final ConfigOption<Boolean> SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION = ConfigOptions
 			.key("scan.reset-to-earliest-for-new-partition")
 			.booleanType()

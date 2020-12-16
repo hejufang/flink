@@ -55,6 +55,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCA
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_NUM;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_UNIT;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RELATIVE_OFFSET;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_SOURCE_SAMPLE_INTERVAL;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_SOURCE_SAMPLE_NUM;
@@ -192,6 +193,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_SOURCE_SAMPLE_INTERVAL);
 		options.add(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION);
 		options.add(SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL);
+		options.add(SCAN_RELATIVE_OFFSET);
 
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
@@ -220,6 +222,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		readableConfig.getOptional(SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL).ifPresent(
 			d -> sourceConfig.setManualCommitInterval(d.toMillis())
 		);
+		readableConfig.getOptional(SCAN_RELATIVE_OFFSET).ifPresent(sourceConfig::setRelativeOffset);
 
 		return sourceConfig;
 	}

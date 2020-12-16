@@ -1422,4 +1422,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		}
 		return result;
 	}
+
+	public void setRelativeOffset(Long relativeOffset) {
+		if (startupMode != StartupMode.EARLIEST
+			&& startupMode != StartupMode.GROUP_OFFSETS
+			&& startupMode != StartupMode.LATEST) {
+			throw new FlinkRuntimeException("Relative offset should be only when StartupMode is " +
+				"EARLIEST or GROUP_OFFSETS or LATEST");
+		}
+		this.relativeOffset = relativeOffset;
+	}
 }
