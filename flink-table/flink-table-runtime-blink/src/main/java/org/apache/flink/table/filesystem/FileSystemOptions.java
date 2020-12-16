@@ -185,4 +185,12 @@ public class FileSystemOptions {
 					.defaultValue("_SUCCESS")
 					.withDescription("The file name for success-file partition commit policy," +
 							" default is '_SUCCESS'.");
+
+	public static final ConfigOption<CompressCodec> COMPRESS_CODEC =
+			key("compress.codec")
+					.enumType(CompressCodec.class)
+					.defaultValue(CompressCodec.Default)
+					.withDescription("The codec for decoding the file before deserialize it using the format." +
+							"This configuration only works for new line delimited encoded files.(New line is not " +
+							"encoded by the codec");
 }

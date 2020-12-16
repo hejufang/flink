@@ -19,6 +19,7 @@
 package org.apache.flink.table.filesystem;
 
 import org.apache.flink.api.common.io.InputFormat;
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.io.CollectionInputFormat;
 import org.apache.flink.configuration.DelegatingConfiguration;
@@ -31,6 +32,7 @@ import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
+import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
@@ -52,6 +54,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.apache.flink.table.filesystem.FileSystemOptions.COMPRESS_CODEC;
+
 /**
  * File system table source.
  */
@@ -59,13 +63,17 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 		ScanTableSource,
 		SupportsProjectionPushDown {
 
+	private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
 	private int[][] projectedFields;
 	private List<Map<String, String>> remainingPartitions;
 	private List<ResolvedExpression> filters;
 	private Long limit;
 
-	public FileSystemTableSource(DynamicTableFactory.Context context) {
+	public FileSystemTableSource(
+			DynamicTableFactory.Context context,
+			DecodingFormat<DeserializationSchema<RowData>> decodingFormat) {
 		super(context);
+		this.decodingFormat = decodingFormat;
 	}
 
 	private FileSystemTableSource(
@@ -73,8 +81,9 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 			int[][] projectedFields,
 			List<Map<String, String>> remainingPartitions,
 			List<ResolvedExpression> filters,
-			Long limit) {
-		this(context);
+			Long limit,
+			DecodingFormat<DeserializationSchema<RowData>> decodingFormat) {
+		this(context, decodingFormat);
 		this.projectedFields = projectedFields;
 		this.remainingPartitions = remainingPartitions;
 		this.filters = filters;
@@ -90,9 +99,9 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 					.fromDataTypeToTypeInfo(getProducedDataType());
 				// Avoid using ContinuousFileMonitoringFunction
 				return execEnv.addSource(
-					new InputFormatSourceFunction<>(getInputFormat(), typeInfo),
-					String.format("Filesystem(%s)", tableIdentifier),
-					typeInfo);
+						new InputFormatSourceFunction<>(getInputFormat(runtimeProviderContext), typeInfo),
+						String.format("Filesystem(%s)", tableIdentifier),
+						typeInfo);
 			}
 
 			@Override
@@ -102,63 +111,71 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 		};
 	}
 
-	private InputFormat<RowData, ?> getInputFormat() {
+	private InputFormat<RowData, ?> getInputFormat(ScanContext runtimeProviderContext) {
 		// When this table has no partition, just return a empty source.
 		if (!partitionKeys.isEmpty() && getOrFetchPartitions().isEmpty()) {
 			return new CollectionInputFormat<>(new ArrayList<>(), null);
 		}
+		if (decodingFormat != null) {
+			DeserializationSchema<RowData> deserializationSchema =
+				decodingFormat.createRuntimeDecoder(runtimeProviderContext, getProducedDataType());
+			return new NewLineDelimitedInputFormat(
+				deserializationSchema,
+				tableOptions.get(COMPRESS_CODEC),
+				new Path[]{path});
+		} else {
+			FileSystemFormatFactory formatFactory = createFormatFactory(tableOptions);
+			return formatFactory.createReader(new FileSystemFormatFactory.ReaderContext() {
 
-		FileSystemFormatFactory formatFactory = createFormatFactory(tableOptions);
-		return formatFactory.createReader(new FileSystemFormatFactory.ReaderContext() {
-
-			@Override
-			public TableSchema getSchema() {
-				return schema;
-			}
-
-			@Override
-			public ReadableConfig getFormatOptions() {
-				return new DelegatingConfiguration(tableOptions, formatFactory.factoryIdentifier() + ".");
-			}
-
-			@Override
-			public List<String> getPartitionKeys() {
-				return partitionKeys;
-			}
-
-			@Override
-			public String getDefaultPartName() {
-				return defaultPartName;
-			}
-
-			@Override
-			public Path[] getPaths() {
-				if (partitionKeys.isEmpty()) {
-					return new Path[] {path};
-				} else {
-					return getOrFetchPartitions().stream()
-						.map(FileSystemTableSource.this::toFullLinkedPartSpec)
-						.map(PartitionPathUtils::generatePartitionPath)
-						.map(n -> new Path(path, n))
-						.toArray(Path[]::new);
+				@Override
+				public TableSchema getSchema() {
+					return schema;
 				}
-			}
 
-			@Override
-			public int[] getProjectFields() {
-				return readFields();
-			}
+				@Override
+				public ReadableConfig getFormatOptions() {
+					return new DelegatingConfiguration(tableOptions, formatFactory.factoryIdentifier() + ".");
+				}
 
-			@Override
-			public long getPushedDownLimit() {
-				return limit == null ? Long.MAX_VALUE : limit;
-			}
+				@Override
+				public List<String> getPartitionKeys() {
+					return partitionKeys;
+				}
 
-			@Override
-			public List<ResolvedExpression> getPushedDownFilters() {
-				return filters == null ? Collections.emptyList() : filters;
-			}
-		});
+				@Override
+				public String getDefaultPartName() {
+					return defaultPartName;
+				}
+
+				@Override
+				public Path[] getPaths() {
+					if (partitionKeys.isEmpty()) {
+						return new Path[]{path};
+					} else {
+						return getOrFetchPartitions().stream()
+							.map(FileSystemTableSource.this::toFullLinkedPartSpec)
+							.map(PartitionPathUtils::generatePartitionPath)
+							.map(n -> new Path(path, n))
+							.toArray(Path[]::new);
+					}
+				}
+
+				@Override
+				public int[] getProjectFields() {
+					return readFields();
+				}
+
+				@Override
+				public long getPushedDownLimit() {
+					return limit == null ? Long.MAX_VALUE : limit;
+				}
+
+				@Override
+				public List<ResolvedExpression> getPushedDownFilters() {
+					return filters == null ? Collections.emptyList() : filters;
+				}
+			});
+		}
 	}
 
 	@Override
@@ -195,7 +212,7 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 
 	@Override
 	public FileSystemTableSource copy() {
-		return new FileSystemTableSource(context, projectedFields, remainingPartitions, filters, limit);
+		return new FileSystemTableSource(context, projectedFields, remainingPartitions, filters, limit, decodingFormat);
 	}
 
 	@Override

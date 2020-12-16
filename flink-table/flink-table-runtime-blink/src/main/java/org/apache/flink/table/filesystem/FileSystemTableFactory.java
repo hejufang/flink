@@ -18,9 +18,14 @@
 
 package org.apache.flink.table.filesystem;
 
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.DeserializationFormatFactory;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -28,6 +33,8 @@ import org.apache.flink.table.factories.TableFactory;
 
 import java.util.HashSet;
 import java.util.Set;
+
+import static org.apache.flink.table.filesystem.FileSystemOptions.COMPRESS_CODEC;
 
 /**
  * File system {@link TableFactory}.
@@ -56,8 +63,16 @@ public class FileSystemTableFactory implements
 
 	@Override
 	public DynamicTableSource createDynamicTableSource(Context context) {
-		validate(FactoryUtil.createTableFactoryHelper(this, context));
-		return new FileSystemTableSource(context);
+		FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
+		validate(helper);
+		final ReadableConfig config = helper.getOptions();
+		DecodingFormat<DeserializationSchema<RowData>> decodingFormat = null;
+		if (config.getOptional(COMPRESS_CODEC).isPresent()) {
+			decodingFormat = helper.discoverDecodingFormat(
+				DeserializationFormatFactory.class,
+				FactoryUtil.FORMAT);
+		}
+		return new FileSystemTableSource(context, decodingFormat);
 	}
 
 	private void validate(FactoryUtil.TableFactoryHelper helper) {
@@ -89,6 +104,7 @@ public class FileSystemTableFactory implements
 		options.add(FileSystemOptions.SINK_PARTITION_COMMIT_POLICY_KIND);
 		options.add(FileSystemOptions.SINK_PARTITION_COMMIT_POLICY_CLASS);
 		options.add(FileSystemOptions.SINK_PARTITION_COMMIT_SUCCESS_FILE_NAME);
+		options.add(COMPRESS_CODEC);
 		return options;
 	}
 }
