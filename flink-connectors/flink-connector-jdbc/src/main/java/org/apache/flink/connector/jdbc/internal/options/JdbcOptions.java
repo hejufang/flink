@@ -25,6 +25,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -35,7 +36,8 @@ public class JdbcOptions extends JdbcConnectionOptions {
 
 	private static final long serialVersionUID = 1L;
 	private static final String BYTEDANCE_MYSQL_URL_TEMPLATE = "jdbc:mysql:///%s?db_consul=%s" +
-		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true";
+		"&psm=%s&useUnicode=true&characterEncoding=utf-8&auth_enable=true&serverTimezone=%s" +
+		"&zeroDateTimeBehavior=CONVERT_TO_NULL";
 
 	public static final int CONNECTION_CHECK_TIMEOUT_SECONDS = 60;
 
@@ -214,7 +216,7 @@ public class JdbcOptions extends JdbcConnectionOptions {
 
 			if (dbURL == null) {
 				if (useBytedanceMysql) {
-					this.dbURL = String.format(BYTEDANCE_MYSQL_URL_TEMPLATE, dbname, consul, psm);
+					this.dbURL = String.format(BYTEDANCE_MYSQL_URL_TEMPLATE, dbname, consul, psm, TimeZone.getDefault().getID());
 				} else {
 					throw new FlinkRuntimeException("Can't init db url, because " +
 						"dbUrl == null & useBytedanceMysql is false");
