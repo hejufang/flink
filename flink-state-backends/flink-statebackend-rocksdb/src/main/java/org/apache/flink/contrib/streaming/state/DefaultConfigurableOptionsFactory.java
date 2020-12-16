@@ -27,6 +27,7 @@ import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
+import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
 import org.rocksdb.PlainTableConfig;
 import org.rocksdb.TableFormatConfig;
@@ -43,6 +44,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOOMFILTER_ENABLED;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPACTION_STYLE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPRESSION_TYPE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_OPEN_FILES;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_SIZE_LEVEL_BASE;
@@ -103,6 +105,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 
 		if (isOptionConfigured(MIN_WRITE_BUFFER_NUMBER_TO_MERGE)) {
 			currentOptions.setMinWriteBufferNumberToMerge(getMinWriteBufferNumberToMerge());
+		}
+
+		if (isOptionConfigured(COMPRESSION_TYPE)) {
+			currentOptions.setCompressionType(getCompressionType());
 		}
 
 		TableFormatConfig tableFormatConfig = currentOptions.tableFormatConfig();
@@ -183,6 +189,19 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 
 	public DefaultConfigurableOptionsFactory setCompactionStyle(CompactionStyle compactionStyle) {
 		setInternal(COMPACTION_STYLE.key(), compactionStyle.name());
+		return this;
+	}
+
+	//--------------------------------------------------------------------------
+	// The type of compression for DB.
+	//--------------------------------------------------------------------------
+
+	private CompressionType getCompressionType() {
+		return CompressionType.valueOf(getInternal(COMPRESSION_TYPE.key()).toUpperCase());
+	}
+
+	public DefaultConfigurableOptionsFactory setCompressionType(CompressionType compressionType) {
+		setInternal(COMPRESSION_TYPE.key(), compressionType.name());
 		return this;
 	}
 
@@ -325,7 +344,8 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 		MAX_WRITE_BUFFER_NUMBER.key(),
 		MIN_WRITE_BUFFER_NUMBER_TO_MERGE.key(),
 		BLOCK_SIZE.key(),
-		BLOCK_CACHE_SIZE.key()
+		BLOCK_CACHE_SIZE.key(),
+		COMPRESSION_TYPE.key()
 	};
 
 	private static final Set<String> POSITIVE_INT_CONFIG_SET = new HashSet<>(Arrays.asList(
@@ -347,6 +367,9 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 	));
 
 	private static final Set<String> COMPACTION_STYLE_SET = Arrays.stream(CompactionStyle.values())
+		.map(c -> c.name().toLowerCase()).collect(Collectors.toSet());
+
+	private static final Set<String> COMPRESSION_TYPE_SET = Arrays.stream(CompressionType.values())
 		.map(c -> c.name().toLowerCase()).collect(Collectors.toSet());
 
 	/**
@@ -404,6 +427,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 			value = value.toLowerCase();
 			Preconditions.checkArgument(COMPACTION_STYLE_SET.contains(value),
 				"Compression type: " + value + " is not recognized with legal types: " + String.join(", ", COMPACTION_STYLE_SET));
+		} else if (key.equals(COMPRESSION_TYPE.key())) {
+			value = value.toLowerCase();
+			Preconditions.checkArgument(COMPRESSION_TYPE_SET.contains(value),
+				"Compression type: " + value + " is not recognized with legal types: " + String.join(", ", COMPRESSION_TYPE_SET));
 		}
 		return true;
 	}
