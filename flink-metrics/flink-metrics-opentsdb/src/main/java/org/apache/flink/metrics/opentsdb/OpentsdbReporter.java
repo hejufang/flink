@@ -18,6 +18,7 @@
 
 package org.apache.flink.metrics.opentsdb;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
@@ -31,9 +32,10 @@ import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
 import org.apache.flink.yarn.YarnConfigKeys;
 
+import org.apache.flink.shaded.byted.org.yaml.snakeyaml.Yaml;
+
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -75,104 +77,15 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	// *************************************************************************
 
 	private static final String GLOBAL_PREFIX = "job";
-	private static final String FULL_RESTARTS_METRIC = "fullRestarts";
-	private static final String CURRENT_OFFSETS_RATE_METRIC = "currentOffsetsRate";
-	private static final String FAILED_CHECKPOINTS_METRIC = "numberOfFailedCheckpoints";
-	private static final String NUMBER_OF_CHECKPOINTS_METRIC = "totalNumberOfCheckpoints";
-	private static final String NUMBER_OF_SPECULATION = "numberOfSpeculation";
-	private static final String NUMBER_OF_SUCCESSFUL_SPECULATION = "numberOfSuccessfulSpeculation";
-	private static final String NUMBER_OF_RECOVERABLE_JOBS = "numberOfRecoverableJobs";
-	private static final String NUMBER_OF_RECOVERABLE_TASKS = "numberOfTaskRecoveries";
-	private static final String NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES = "numberOfGlobalFailures";
 
 	// 全局 metric
-	private final Set<String> globalNeededMetrics = new HashSet<>(Arrays.asList(
-			FULL_RESTARTS_METRIC,
-			CURRENT_OFFSETS_RATE_METRIC,
-			FAILED_CHECKPOINTS_METRIC,
-			NUMBER_OF_CHECKPOINTS_METRIC,
-			NUMBER_OF_SPECULATION,
-			NUMBER_OF_SUCCESSFUL_SPECULATION,
-			NUMBER_OF_RECOVERABLE_JOBS,
-			NUMBER_OF_RECOVERABLE_TASKS,
-			NUMBER_OF_RECOVERABLE_GLOBAL_FAILURES));
+	private final Set<String> globalNeededMetrics = new HashSet<>();
 
 	// dashboard metric
-	private final Set<String> neededMetrics = new HashSet<>(Arrays.asList(
-			// job info
-			"downtime",
-			"fullRestarts",
-			"restartingTime",
-			"numRunningJobs",
-			// TaskManager / Slot
-			"numRegisteredTaskManagers",
-			"taskSlotsTotal",
-			"taskSlotsAvailable",
-			// Memory
-			"Used",
-			"Committed",
-			"Max",
-			// GC
-			"Count",
-			"Time",
-			// Task In/Out Queue
-			"inputQueueLength",
-			"outputQueueLength",
-			// Task In/Out Pool Usage
-			"inPoolUsage",
-			"outPoolUsage",
-			// In/Out Record Number
-			"numRecordsInPerSecond",
-			"numRecordsOutPerSecond",
-			"numRecordsDropped",
-			// late Records Dropped
-			"numLateRecordsDropped",
-			// hitRate for dimension tables
-			"hitRate",
-			// latency
-			"latency",
-			// kafka offset
-			"currentOffsets",
-			"commit-rate",
-			// kafka latency
-			"fetch-latency-avg",
-			"fetch-latency-max",
-			// Network Memory
-			"TotalMemorySegments",
-			"AvailableMemorySegments",
-			"AllocatedMemorySegments",
-			// speuclation
-			"numberOfSpeculation",
-			"numberOfSuccessfulSpeculation",
-			// CPU
-			"Load",
-			// Checkpoints
-			"numberOfTriggerFailedCheckpoints",
-			"lastCheckpointDuration",
-			"numberOfFailedCheckpoints",
-			"totalNumberOfCheckpoints",
-			// Blacklist
-			"numTaskManagersInBlacklist",
-			// number of skipped records in source
-			"skipDirty",
-			// slow containers
-			"releasedSlowContainers",
-			"slowContainers",
-			"containerStartDurationMaxMs",
-			// recoverable individual failover
-			"numberOfTaskRecoveries",
-			"numberOfGlobalFailures",
-			"numberOfRecoverableJobs",
-			"blackedHost",
-			// sql gateway, use above latency
-			"gateway_throughput",
-			"session_count",
-			"job_count",
-			"result_count",
-			"query_phase_latency"
-	));
+	private final Set<String> nonGlobalNeededMetrics = new HashSet<>();
+	private final Set<String> nonGlobalContainsNeededMetrics = new HashSet<>();
 
-	private Map<String, String> globalMetricNames = new HashMap<>();
+	private final Map<String, String> globalMetricNames = new HashMap<>();
 
 	@Override
 	public void open(MetricConfig config) {
@@ -180,9 +93,34 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		this.client = new RateLimitedMetricsClient(this.prefix, config);
 		this.jobName = config.getString("jobname", "flink");
 		log.info("prefix = {} jobName = {}", this.prefix, this.jobName);
+		loadAllMetrics();
 
 		this.region = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_DC);
 		this.cluster = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_CLUSTER);
+	}
+
+	@VisibleForTesting
+	@SuppressWarnings("unchecked")
+	public void loadAllMetrics() {
+		Yaml yaml = new Yaml();
+		Map<String, Object> metrics = yaml.load(getClass().getClassLoader().getResourceAsStream("metrics-whitelist.yaml"));
+
+		// load global metrics
+		Map<String, Object> global = (Map<String, Object>) metrics.get("global");
+		List<String> globalMetrics = (List<String>) global.get("name");
+		globalNeededMetrics.addAll(globalMetrics);
+
+		// load non-global metrics
+		Map<String, Object> nonGlobal = (Map<String, Object>) metrics.get("non-global");
+		List<String> nonGlobalMetrics = (List<String>) nonGlobal.get("name");
+		nonGlobalNeededMetrics.addAll(nonGlobalMetrics);
+		// load non-global prefix metrics
+		List<String> nonGlobalContainsMetrics = (List<String>) nonGlobal.get("substring");
+		nonGlobalContainsNeededMetrics.addAll(nonGlobalContainsMetrics);
+	}
+
+	private boolean filterByContaines(String name) {
+		return nonGlobalContainsNeededMetrics.stream().anyMatch(name::contains);
 	}
 
 	@Override
@@ -196,7 +134,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		}
 
 		synchronized (this) {
-			if (!neededMetrics.contains(metricName) && !globalNeededMetrics.contains(metricName)) {
+			if (!nonGlobalNeededMetrics.contains(metricName) && !globalNeededMetrics.contains(metricName) && !filterByContaines(name)) {
 				// 去除不需要的 metrics
 				return;
 			}
@@ -510,5 +448,17 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	public String getPrefix() {
 		return prefix;
+	}
+
+	public Set<String> getGlobalNeededMetrics() {
+		return globalNeededMetrics;
+	}
+
+	public Set<String> getNonGlobalNeededMetrics() {
+		return nonGlobalNeededMetrics;
+	}
+
+	public Set<String> getNonGlobalContainsNeededMetrics() {
+		return nonGlobalContainsNeededMetrics;
 	}
 }
