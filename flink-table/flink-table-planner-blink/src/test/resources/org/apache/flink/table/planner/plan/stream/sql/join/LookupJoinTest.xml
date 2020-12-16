@@ -350,4 +350,31 @@ Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, id, n
 ]]>
     </Resource>
   </TestCase>
+
+  <TestCase name="testJoinTemporalTableWithArrayConstantCondition">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN temporalTest FOR SYSTEM_TIME AS OF T.proctime AS D
+ON D.intArray = Array[1] and D.strArray = Array['test']
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], rowtime=[$4], id=[$5], name=[$6], age=[$7], strArray=[$8], intArray=[$9])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{3}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, MyTable]])
+   +- LogicalFilter(condition=[AND(=(CAST($4):INTEGER NOT NULL ARRAY, ARRAY(1)), =($3, CAST(ARRAY(_UTF-16LE'test')):VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY NOT NULL))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, temporalTest, source: [TestTemporalTable(id, name, age, strArray, intArray)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+		<![CDATA[
+Calc(select=[a, b, c, PROCTIME_MATERIALIZE(proctime) AS proctime, rowtime, id, name, age, CAST(CAST(ARRAY(_UTF-16LE'test'))) AS strArray, intArray])
++- LookupJoin(table=[TestTemporalTable(id, name, age, strArray, intArray)], joinType=[InnerJoin], async=[false], lookup=[intArray=ARRAY(1), strArray=ARRAY(_UTF-16LE'test')], where=[AND(=(CAST(intArray), ARRAY(1)), =(strArray, CAST(ARRAY(_UTF-16LE'test'))))], select=[a, b, c, proctime, rowtime, id, name, age, CAST(CAST(ARRAY(_UTF-16LE'test'))) AS strArray, intArray, CAST(intArray) AS intArray0])
+   +- DataStreamScan(table=[[default_catalog, default_database, MyTable]], fields=[a, b, c, proctime, rowtime])
+]]>
+    </Resource>
+  </TestCase>
 </Root>

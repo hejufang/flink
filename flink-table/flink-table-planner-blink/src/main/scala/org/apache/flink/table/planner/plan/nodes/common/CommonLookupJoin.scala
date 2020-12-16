@@ -54,7 +54,7 @@ import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.`type`.{RelDataType, RelDataTypeField}
 import org.apache.calcite.rel.core.{JoinInfo, JoinRelType}
 import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
-import org.apache.calcite.rex._
+import org.apache.calcite.rex.{RexCall, _}
 import org.apache.calcite.sql.SqlKind
 import org.apache.calcite.sql.fun.SqlStdOperatorTable
 import org.apache.calcite.sql.validate.SqlValidatorUtil
@@ -171,6 +171,8 @@ abstract class CommonLookupJoin(
         s"${tableFieldNames(tableField)}=${inputFieldNames(inputField)}"
       case (tableField, ConstantLookupKey(_, literal)) =>
         s"${tableFieldNames(tableField)}=${RelExplainUtil.literalToString(literal)}"
+      case (tableField, ArrayConstantLookupKey(_, arrayCall)) =>
+        s"${tableFieldNames(tableField)}=${getExpressionString(arrayCall, List.empty, None)}"
     }.mkString(", ")
     val selection = calcOnTemporalTable match {
       case Some(calc) =>
@@ -538,8 +540,9 @@ abstract class CommonLookupJoin(
   }
 
   /**
-    * Analyze potential lookup keys (including [[ConstantLookupKey]] and [[FieldRefLookupKey]])
-    * of the temporal table from the join condition and calc program on the temporal table.
+    * Analyze potential lookup keys (including [[ConstantLookupKey]], [[ArrayConstantLookupKey]]
+    * and [[FieldRefLookupKey]]) of the temporal table from the join condition and calc program
+    * on the temporal table.
     *
     * @param rexBuilder the RexBuilder
     * @param joinKeyPairs join key pairs from left input field index to temporal table field index
@@ -552,7 +555,7 @@ abstract class CommonLookupJoin(
       temporalTableSchema: TableSchema,
       calcOnTemporalTable: Option[RexProgram]): Map[Int, LookupKey] = {
     // field_index_in_table_source => constant_lookup_key
-    val constantLookupKeys = new mutable.HashMap[Int, ConstantLookupKey]
+    val constantLookupKeys = new mutable.HashMap[Int, LookupKey]
     // analyze constant lookup keys
     if (calcOnTemporalTable.isDefined && null != calcOnTemporalTable.get.getCondition) {
       val program = calcOnTemporalTable.get
@@ -597,7 +600,7 @@ abstract class CommonLookupJoin(
 
   private def extractConstantFieldsFromEquiCondition(
       condition: RexNode,
-      constantFieldMap: mutable.HashMap[Int, ConstantLookupKey]): Unit = condition match {
+      constantFieldMap: mutable.HashMap[Int, LookupKey]): Unit = condition match {
     case c: RexCall if c.getKind == SqlKind.AND =>
       c.getOperands.asScala.foreach(r => extractConstantField(r, constantFieldMap))
     case rex: RexNode => extractConstantField(rex, constantFieldMap)
@@ -606,16 +609,41 @@ abstract class CommonLookupJoin(
 
   private def extractConstantField(
       pred: RexNode,
-      constantFieldMap: mutable.HashMap[Int, ConstantLookupKey]): Unit = pred match {
+      constantFieldMap: mutable.HashMap[Int, LookupKey]): Unit = pred match {
     case c: RexCall if c.getKind == SqlKind.EQUALS =>
       val left = c.getOperands.get(0)
       val right = c.getOperands.get(1)
-      val (inputRef, literal) = (left, right) match {
-        case (literal: RexLiteral, ref: RexInputRef) => (ref, literal)
-        case (ref: RexInputRef, literal: RexLiteral) => (ref, literal)
+      val (index, lookupKey) = (left, right) match {
+        case (literal: RexLiteral, ref: RexInputRef) =>
+          (ref.getIndex,
+            ConstantLookupKey(FlinkTypeFactory.toLogicalType(ref.getType), literal))
+        case (ref: RexInputRef, literal: RexLiteral) =>
+          (ref.getIndex,
+            ConstantLookupKey(FlinkTypeFactory.toLogicalType(ref.getType), literal))
+        case (ref: RexInputRef, call: RexCall) =>
+          call.getKind match {
+            case SqlKind.CAST
+                if call.getOperands.get(0).getKind == SqlKind.ARRAY_VALUE_CONSTRUCTOR =>
+              val arrayConstructor = call.getOperands.get(0).asInstanceOf[RexCall]
+              (ref.getIndex, ArrayConstantLookupKey(
+                FlinkTypeFactory.toLogicalType(arrayConstructor.getType), arrayConstructor))
+            case _ => return
+          }
+        case (refCast: RexCall, constant)
+          if refCast.getOperands.get(0).isInstanceOf[RexInputRef] =>
+          val ref = refCast.getOperands.get(0).asInstanceOf[RexInputRef]
+          constant match {
+            case literal: RexLiteral =>
+              (ref.getIndex,
+                ConstantLookupKey(FlinkTypeFactory.toLogicalType(constant.getType), literal))
+            case arrayConstructor: RexCall
+              if arrayConstructor.getKind == SqlKind.ARRAY_VALUE_CONSTRUCTOR =>
+              (ref.getIndex, ArrayConstantLookupKey(
+                FlinkTypeFactory.toLogicalType(arrayConstructor.getType), arrayConstructor))
+            case _ => return
+          }
       }
-      val dataType = FlinkTypeFactory.toLogicalType(inputRef.getType)
-      constantFieldMap.put(inputRef.getIndex, ConstantLookupKey(dataType, literal))
+      constantFieldMap.put(index, lookupKey)
     case _ => // ignore
   }
 
@@ -662,6 +690,22 @@ abstract class CommonLookupJoin(
         incompatibleConditions += condition
       }
     }
+
+    // Check the constant Type
+    allLookupKeys.foreach{ item =>
+      val (rightType, constantNode) = item._2 match {
+        case ConstantLookupKey(dataType, literal) => (dataType, literal)
+        case ArrayConstantLookupKey(dataType, array) => (dataType, array)
+        case _ => return
+      }
+      val leftType = tableSourceRowType.getTypeAt(item._1)
+      if (!isInteroperable(leftType, rightType)) {
+        val fieldName = tableSourceRowType.getFieldNames.get(item._1)
+        val condition = s"$fieldName[$leftType]=${constantNode.toString}[$rightType]"
+        incompatibleConditions += condition
+      }
+    }
+
     if (incompatibleConditions.nonEmpty) {
       throw new TableException(s"Temporal table join requires equivalent condition " +
         s"of the same type, but the condition is ${incompatibleConditions.mkString(", ")}")

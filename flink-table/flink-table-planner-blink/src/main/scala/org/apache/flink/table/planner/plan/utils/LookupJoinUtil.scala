@@ -20,7 +20,7 @@ package org.apache.flink.table.planner.plan.utils
 
 import org.apache.flink.table.types.logical.LogicalType
 
-import org.apache.calcite.rex.RexLiteral
+import org.apache.calcite.rex.{RexCall, RexLiteral}
 
 /**
   * Utilities for temporal table join
@@ -38,6 +38,13 @@ object LookupJoinUtil {
     * @param literal the literal value
     */
   case class ConstantLookupKey(dataType: LogicalType, literal: RexLiteral) extends LookupKey
+
+  /**
+   * A [[LookupKey]] whose value is array constant.
+   * @param dataType the field type in TableSource
+   * @param array the array value constructor call
+   */
+  case class ArrayConstantLookupKey(dataType: LogicalType, array: RexCall) extends LookupKey
 
   /**
     * A [[LookupKey]] whose value comes from left table field.

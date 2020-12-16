@@ -28,7 +28,7 @@ import org.apache.flink.table.functions.{AsyncTableFunction, TableFunction}
 import org.apache.flink.table.planner.utils.TableTestBase
 import org.apache.flink.table.runtime.typeutils.BaseRowTypeInfo
 import org.apache.flink.table.sources._
-import org.apache.flink.table.types.logical.{IntType, TimestampType, VarCharType}
+import org.apache.flink.table.types.logical.{ArrayType, IntType, TimestampType, VarCharType}
 import org.apache.flink.types.Row
 
 import org.junit.Assert.{assertTrue, fail}
@@ -225,6 +225,23 @@ class LookupJoinTest extends TableTestBase with Serializable {
   }
 
   @Test
+  def testJoinOnDifferentTypesBetweenFieldAndConstant(): Unit = {
+    expectExceptionThrown(
+      "SELECT * FROM MyTable AS T JOIN temporalTest "
+        + "FOR SYSTEM_TIME AS OF T.proctime AS D ON D.id = cast(1 as bigint)",
+      "Temporal table join requires equivalent condition of the same type, " +
+        "but the condition is id[INT]=1:BIGINT[BIGINT NOT NULL]",
+      classOf[TableException])
+
+    expectExceptionThrown(
+      "SELECT * FROM MyTable AS T JOIN temporalTest "
+        + "FOR SYSTEM_TIME AS OF T.proctime AS D ON D.intArray = Array[cast(1 as bigint)]",
+      "Temporal table join requires equivalent condition of the same type, but " +
+        "the condition is intArray[ARRAY<INT>]=ARRAY(1:BIGINT)[ARRAY<BIGINT NOT NULL> NOT NULL]",
+      classOf[TableException])
+  }
+
+  @Test
   def testJoinInvalidNonTemporalTable(): Unit = {
     // can't follow a period specification
     expectExceptionThrown(
@@ -391,6 +408,18 @@ class LookupJoinTest extends TableTestBase with Serializable {
     streamUtil.verifyPlan(sql)
   }
 
+  @Test
+  def testJoinTemporalTableWithArrayConstantCondition(): Unit = {
+    val sql =
+      """
+        |SELECT * FROM MyTable AS T
+        |JOIN temporalTest FOR SYSTEM_TIME AS OF T.proctime AS D
+        |ON D.intArray = Array[1] and D.strArray = Array['test']
+      """.stripMargin
+
+    streamUtil.verifyPlan(sql)
+  }
+
   // ==========================================================================================
 
   private def expectExceptionThrown(
@@ -424,8 +453,9 @@ class LookupJoinTest extends TableTestBase with Serializable {
 class TestTemporalTable
   extends LookupableTableSource[BaseRow] {
 
-  val fieldNames: Array[String] = Array("id", "name", "age")
-  val fieldTypes: Array[TypeInformation[_]] = Array(Types.INT, Types.STRING, Types.INT)
+  val fieldNames: Array[String] = Array("id", "name", "age", "strArray", "intArray")
+  val fieldTypes: Array[TypeInformation[_]] = Array(Types.INT, Types.STRING, Types.INT,
+    Types.OBJECT_ARRAY(Types.STRING), Types.OBJECT_ARRAY(Types.INT))
 
   override def getLookupFunction(lookupKeys: Array[String]): TableFunction[BaseRow] = {
     throw new UnsupportedOperationException("This TableSource is only used for unit test, " +
@@ -441,7 +471,8 @@ class TestTemporalTable
 
   override def getReturnType: TypeInformation[BaseRow] = {
     new BaseRowTypeInfo(
-      Array(new IntType(), new VarCharType(VarCharType.MAX_LENGTH), new IntType()),
+      Array(new IntType(), new VarCharType(VarCharType.MAX_LENGTH), new IntType(),
+        new ArrayType(new VarCharType(VarCharType.MAX_LENGTH)), new ArrayType(new IntType())),
       fieldNames)
   }
 

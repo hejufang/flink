@@ -30,7 +30,7 @@ import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.CodeGenUtils._
 import org.apache.flink.table.planner.codegen.GenerateUtils._
 import org.apache.flink.table.planner.codegen.Indenter.toISC
-import org.apache.flink.table.planner.plan.utils.LookupJoinUtil.{ConstantLookupKey, FieldRefLookupKey, LookupKey}
+import org.apache.flink.table.planner.plan.utils.LookupJoinUtil.{ArrayConstantLookupKey, ConstantLookupKey, FieldRefLookupKey, LookupKey}
 import org.apache.flink.table.runtime.collector.{TableFunctionCollector, TableFunctionResultFuture}
 import org.apache.flink.table.runtime.generated.{GeneratedCollector, GeneratedFunction, GeneratedResultFuture}
 import org.apache.flink.table.runtime.operators.join.lookup.DelegatingResultFuture
@@ -183,6 +183,9 @@ object LookupJoinCodeGenerator {
             index,
             nullableInput = false,
             fieldCopy)
+        case Some(ArrayConstantLookupKey(_, array)) =>
+          val exprGenerator = new ExprCodeGenerator(ctx, false)
+          exprGenerator.visitCall(array)
         case None =>
           throw new CodeGenException("This should never happen!")
       }
