@@ -89,13 +89,6 @@ under the License.
 											<include>*:*</include>
 										</includes>
 									</artifactSet>
-									<relocations>
-										<!-- relocate the protobuf dependencies -->
-										<relocation>
-											<pattern>com.google.protobuf</pattern>
-											<shadedPattern>org.apache.flink.pb.shaded.com.google.protobuf</shadedPattern>
-										</relocation>
-									</relocations>
 								</configuration>
 							</execution>
 						</executions>
