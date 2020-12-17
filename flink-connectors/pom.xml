@@ -34,6 +34,7 @@ under the License.
 		<kafka010.byted.version>0.10.1.2-bd1.6.9</kafka010.byted.version>
 		<kafka.base.version>0.10.1.1</kafka.base.version>
 		<mysql.version>1.2.6-RELEASE</mysql.version>
+		<databus.version>1.2.0-SNAPSHOT</databus.version>
 	</properties>
 
 	<artifactId>flink-connectors</artifactId>
@@ -69,6 +70,7 @@ under the License.
 		<module>flink-connector-htap</module>
 		<module>flink-connector-doris</module>
 		<module>flink-connector-rocketmq</module>
+		<module>flink-connector-databus</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

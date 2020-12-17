@@ -138,6 +138,27 @@ public final class FactoryUtil {
 		.noDefaultValue()
 		.withDescription("Optional specific key fields.");
 
+	public static final ConfigOption<String> RETRY_STRATEGY = ConfigOptions
+		.key("retry-strategy")
+		.stringType()
+		.noDefaultValue()
+		.withDescription(
+			"Retry strategy, optionals: 'exponential-backoff', 'fixed-delay'.");
+
+	public static final ConfigOption<Integer> RETRY_MAX_TIMES = ConfigOptions
+		.key("retry-max-times")
+		.intType()
+		.defaultValue(3)
+		.withDescription(
+			"Max retry times.");
+
+	public static final ConfigOption<Integer> RETRY_INIT_DELAY_MS = ConfigOptions
+		.key("retry-init-delay-ms")
+		.intType()
+		.defaultValue(1000)
+		.withDescription(
+			"Initial delay time before retrying.");
+
 	private static final String FORMAT_KEY = "format";
 
 	private static final String FORMAT_SUFFIX = ".format";

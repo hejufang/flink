@@ -91,6 +91,13 @@ public final class ChangelogMode {
 		return Objects.hash(kinds);
 	}
 
+	@Override
+	public String toString() {
+		return "ChangelogMode{" +
+			"kinds=" + kinds +
+			'}';
+	}
+
 	// --------------------------------------------------------------------------------------------
 
 	/**
