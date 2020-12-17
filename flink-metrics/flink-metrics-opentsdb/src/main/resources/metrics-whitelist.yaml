@@ -126,5 +126,11 @@ non-global:
         result_count,
         query_phase_latency,
       # sink log-failures count
-        writeFailed
+        writeFailed,
+      # interval-join left && right side dropped
+        numLeftSideRecordsDropped,
+        numRightSideRecordsDropped,
+      # interval-join left && right side expire dropped
+        numLeftExpireRecordsDropped,
+        numRightExpireRecordsDropped
     ]

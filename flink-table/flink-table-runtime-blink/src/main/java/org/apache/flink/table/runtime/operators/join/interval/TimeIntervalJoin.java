@@ -28,6 +28,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ListTypeInfo;
 import org.apache.flink.api.java.typeutils.TupleTypeInfo;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.co.KeyedCoProcessFunction;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.runtime.generated.GeneratedFunction;
@@ -53,6 +54,11 @@ import java.util.Map;
  */
 abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData, RowData, RowData> {
 	private static final Logger LOGGER = LoggerFactory.getLogger(TimeIntervalJoin.class);
+	private static final String LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME = "numLeftSideRecordsDropped";
+	private static final String LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME = "numRightSideRecordsDropped";
+	private static final String LEFT_TIMEOUT_DROPPED_METRIC_NAME = "numLeftExpireRecordsDropped";
+	private static final String RIGHT_TIMEOUT_DROPPED_METRIC_NAME = "numRightExpireRecordsDropped";
+
 	private final FlinkJoinType joinType;
 	protected final long leftRelativeSize;
 	protected final long rightRelativeSize;
@@ -79,6 +85,11 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 	private transient ValueState<Long> leftTimerState;
 	// state to record the timer on the right stream. 0 means no timer set
 	private transient ValueState<Long> rightTimerState;
+
+	private transient Counter leftSideDropped;
+	private transient Counter rightSideDropped;
+	private transient Counter leftExpireDropped;
+	private transient Counter rightExpireDropped;
 
 	// Points in time until which the respective cache has been cleaned.
 	private long leftExpirationTime = 0L;
@@ -147,6 +158,10 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 		rightTimerState = getRuntimeContext().getState(rightValueStateDescriptor);
 
 		paddingUtil = new OuterJoinPaddingUtil(leftType.getArity(), rightType.getArity());
+		leftSideDropped = getRuntimeContext().getMetricGroup().counter(LATE_ELEMENTS_LEFT_DROPPED_METRIC_NAME);
+		rightSideDropped = getRuntimeContext().getMetricGroup().counter(LATE_ELEMENTS_RIGHT_DROPPED_METRIC_NAME);
+		leftExpireDropped = getRuntimeContext().getMetricGroup().counter(LEFT_TIMEOUT_DROPPED_METRIC_NAME);
+		rightExpireDropped = getRuntimeContext().getMetricGroup().counter(RIGHT_TIMEOUT_DROPPED_METRIC_NAME);
 	}
 
 	@Override
@@ -194,12 +209,18 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 				}
 				// Clean up the expired right cache row, clean the cache while join
 				if (rightTime <= rightExpirationTime) {
+					List<Tuple2<RowData, Boolean>> rightRows = rightEntry.getValue();
 					if (joinType.isRightOuter()) {
-						List<Tuple2<RowData, Boolean>> rightRows = rightEntry.getValue();
 						rightRows.forEach((Tuple2<RowData, Boolean> tuple) -> {
 							if (!tuple.f1) {
 								// Emit a null padding result if the right row has never been successfully joined.
 								joinCollector.collect(paddingUtil.padRight(tuple.f0));
+							}
+						});
+					} else {
+						rightRows.forEach((Tuple2<RowData, Boolean> tuple) -> {
+							if (!tuple.f1) {
+								rightExpireDropped.inc();
 							}
 						});
 					}
@@ -226,6 +247,8 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 		} else if (!emitted && joinType.isLeftOuter()) {
 			// Emit a null padding result if the left row is not cached and successfully joined.
 			joinCollector.collect(paddingUtil.padLeft(leftRow));
+		} else if (!emitted) {
+			leftSideDropped.inc();
 		}
 	}
 
@@ -271,12 +294,18 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 				}
 
 				if (leftTime <= leftExpirationTime) {
+					List<Tuple2<RowData, Boolean>> leftRows = leftEntry.getValue();
 					if (joinType.isLeftOuter()) {
-						List<Tuple2<RowData, Boolean>> leftRows = leftEntry.getValue();
 						leftRows.forEach((Tuple2<RowData, Boolean> tuple) -> {
 							if (!tuple.f1) {
 								// Emit a null padding result if the left row has never been successfully joined.
 								joinCollector.collect(paddingUtil.padLeft(tuple.f0));
+							}
+						});
+					} else {
+						leftRows.forEach((Tuple2<RowData, Boolean> tuple) -> {
+							if (!tuple.f1) {
+								leftExpireDropped.inc();
 							}
 						});
 					}
@@ -303,6 +332,8 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 		} else if (!emitted && joinType.isRightOuter()) {
 			// Emit a null padding result if the right row is not cached and successfully joined.
 			joinCollector.collect(paddingUtil.padRight(rightRow));
+		} else if (!emitted) {
+			rightSideDropped.inc();
 		}
 	}
 
@@ -322,7 +353,8 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 					rightCache,
 					leftTimerState,
 					ctx,
-					false
+					false,
+					rightExpireDropped
 			);
 		}
 
@@ -335,7 +367,8 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 					leftCache,
 					rightTimerState,
 					ctx,
-					true
+					true,
+					leftExpireDropped
 			);
 		}
 	}
@@ -392,7 +425,8 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 			MapState<Long, List<Tuple2<RowData, Boolean>>> rowCache,
 			ValueState<Long> timerState,
 			OnTimerContext ctx,
-			boolean removeLeft) throws Exception {
+			boolean removeLeft,
+			Counter expireCounter) throws Exception {
 		Iterator<Map.Entry<Long, List<Tuple2<RowData, Boolean>>>> iterator = rowCache.iterator();
 
 		long earliestTimestamp = -1L;
@@ -403,8 +437,8 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 			Map.Entry<Long, List<Tuple2<RowData, Boolean>>> entry = iterator.next();
 			Long rowTime = entry.getKey();
 			if (rowTime <= expirationTime) {
+				List<Tuple2<RowData, Boolean>> rows = entry.getValue();
 				if (removeLeft && joinType.isLeftOuter()) {
-					List<Tuple2<RowData, Boolean>> rows = entry.getValue();
 					rows.forEach((Tuple2<RowData, Boolean> tuple) -> {
 						if (!tuple.f1) {
 							// Emit a null padding result if the row has never been successfully joined.
@@ -412,11 +446,16 @@ abstract class TimeIntervalJoin extends KeyedCoProcessFunction<RowData, RowData,
 						}
 					});
 				} else if (!removeLeft && joinType.isRightOuter()) {
-					List<Tuple2<RowData, Boolean>> rows = entry.getValue();
 					rows.forEach((Tuple2<RowData, Boolean> tuple) -> {
 						if (!tuple.f1) {
 							// Emit a null padding result if the row has never been successfully joined.
 							collector.collect(paddingUtil.padRight(tuple.f0));
+						}
+					});
+				} else {
+					rows.forEach((Tuple2<RowData, Boolean> tuple) -> {
+						if (!tuple.f1) {
+							expireCounter.inc();
 						}
 					});
 				}
