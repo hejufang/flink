@@ -748,13 +748,13 @@ public class KafkaConsumerThread extends Thread {
 
 		Map<TopicPartition, List<ConsumerRecord<byte[], byte[]>>> sampledRecords = new HashMap<>();
 		long sampleLen, leftToConsume;
-		List<ConsumerRecord<byte[], byte[]>> tmpList = new ArrayList<>();
+		List<ConsumerRecord<byte[], byte[]>> tmpList;
 		for (TopicPartition partition : toProcessPartitions) {
 			List<ConsumerRecord<byte[], byte[]>> candidates = records.records(partition);
 			if (candidates.size() == 0) {
 				continue;
 			}
-			tmpList.clear();
+			tmpList = new ArrayList<>();
 			sampleLen = toConsumeMap.getOrDefault(partition, sampleNum);
 			leftToConsume = sampleInSegment(candidates, tmpList, sampleLen);
 			if (leftToConsume > 0){
