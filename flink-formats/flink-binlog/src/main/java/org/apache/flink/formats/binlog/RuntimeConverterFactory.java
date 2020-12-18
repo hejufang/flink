@@ -22,6 +22,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.CharType;
 import org.apache.flink.table.types.logical.DateType;
+import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.DoubleType;
 import org.apache.flink.table.types.logical.FloatType;
 import org.apache.flink.table.types.logical.IntType;
@@ -39,6 +40,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -57,11 +59,14 @@ import static org.apache.flink.formats.binlog.BinlogOptions.BODY;
 import static org.apache.flink.formats.binlog.BinlogOptions.CHAR;
 import static org.apache.flink.formats.binlog.BinlogOptions.DATE;
 import static org.apache.flink.formats.binlog.BinlogOptions.DATETIME;
+import static org.apache.flink.formats.binlog.BinlogOptions.DECIMAL;
 import static org.apache.flink.formats.binlog.BinlogOptions.DOUBLE;
 import static org.apache.flink.formats.binlog.BinlogOptions.ENTRY;
 import static org.apache.flink.formats.binlog.BinlogOptions.FLOAT;
 import static org.apache.flink.formats.binlog.BinlogOptions.HEADER;
 import static org.apache.flink.formats.binlog.BinlogOptions.INT;
+import static org.apache.flink.formats.binlog.BinlogOptions.LONGTEXT;
+import static org.apache.flink.formats.binlog.BinlogOptions.MEDIUMTEXT;
 import static org.apache.flink.formats.binlog.BinlogOptions.MESSAGE;
 import static org.apache.flink.formats.binlog.BinlogOptions.NAME_COLUMN;
 import static org.apache.flink.formats.binlog.BinlogOptions.NULL_COLUMN;
@@ -85,6 +90,7 @@ public class RuntimeConverterFactory {
 	public static final Map<String, Descriptors.FieldDescriptor> FIELD_DESCRIPTORS = initFieldDescriptors();
 	public static final Map<String, Descriptors.Descriptor> DESCRIPTORS = initDescriptors();
 	private static final Map<String, Class<? extends LogicalType>> JDBC_TO_FLINK_TYPE = getJdbcToFlinkType();
+	private static final Map<String, Class<? extends LogicalType>> JDBC_TO_COMPATIBLE_TYPE = getJdbcToCompatibleType();
 	private static final String ZERO_TIMESTAMP_STR = "0000-00-00 00:00:00";
 
 	/**
@@ -194,11 +200,27 @@ public class RuntimeConverterFactory {
 		if (expectedTypeInfo == null) {
 			throw new IllegalArgumentException(String.format("Unsupported jdbc type: %s.", jdbcTypeName));
 		}
-		if (!expectedTypeInfo.isInstance(logicalType)) {
+		if (!expectedTypeInfo.isInstance(logicalType) && !isCompatibleType(jdbcTypeName, logicalType)) {
 			throw new IllegalArgumentException(
 				String.format("Expect flink type for jdbc type '%s' is %s, but we get '%s' parsed from DDL, " +
 					"field name: %s, inner column name %s.", jdbcTypeName, expectedTypeInfo, logicalType, fieldName, innerName));
 		}
+	}
+
+	private static boolean isCompatibleType(String jdbcTypeName, LogicalType logicalType) {
+		Class<? extends LogicalType> expectedTypeInfo = JDBC_TO_COMPATIBLE_TYPE.get(jdbcTypeName);
+		return expectedTypeInfo != null && expectedTypeInfo.isInstance(logicalType);
+	}
+
+	private static Map<String, Class<? extends LogicalType>> getJdbcToCompatibleType() {
+		Map<String, Class<? extends LogicalType>> map = new HashMap<>();
+
+		map.put(TINYINT, SmallIntType.class);
+		map.put(SMALLINT, IntType.class);
+		map.put(INT, BigIntType.class);
+		map.put(BIGINT, DecimalType.class);
+
+		return map;
 	}
 
 	private static Map<String, Class<? extends LogicalType>> getJdbcToFlinkType() {
@@ -217,6 +239,9 @@ public class RuntimeConverterFactory {
 		map.put(TIME, TimeType.class);
 		map.put(TIMESTAMP, TimestampType.class);
 		map.put(DATETIME, TimestampType.class);
+		map.put(LONGTEXT, VarCharType.class);
+		map.put(MEDIUMTEXT, VarCharType.class);
+		map.put(DECIMAL, DecimalType.class);
 		return map;
 	}
 
@@ -252,6 +277,8 @@ public class RuntimeConverterFactory {
 			// Timestamp.valueOf will throw an exception if the value of o is
 			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
 			return o -> ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o);
+		} else if (logicalType instanceof DecimalType) {
+			return o -> new BigDecimal((String) o);
 		} else {
 			throw new IllegalArgumentException(
 				String.format("Unsupported type for 'value' column: %s.", logicalType));

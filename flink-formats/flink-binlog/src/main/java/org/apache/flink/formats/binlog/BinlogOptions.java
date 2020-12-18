@@ -63,6 +63,9 @@ public class BinlogOptions {
 	public static final String TIME = "time";
 	public static final String TIMESTAMP = "timestamp";
 	public static final String DATETIME = "datetime";
+	public static final String MEDIUMTEXT = "mediumtext";
+	public static final String LONGTEXT = "longtext";
+	public static final String DECIMAL = "decimal";
 
 	// --------------- values in binlog end --------------------
 	public static final ConfigOption<String> TARGET_TABLE = ConfigOptions
