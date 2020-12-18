@@ -70,6 +70,7 @@ import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_L
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RATE_LIMITING_UNIT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RELATIVE_OFFSET;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
+import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_CLASS;
 import static org.apache.flink.table.descriptors.KafkaValidator.CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM;
@@ -345,6 +346,8 @@ public abstract class AbstractKafkaTableSourceSinkFactoryBase<T> implements
 			configurations.put(DISABLE_CURRENT_OFFSET_RATE_METRICS, String.valueOf(value)));
 		descriptorProperties.getOptionalString(CONNECTOR_SOURCE_PARTITION_RANGE).ifPresent(value ->
 			configurations.put(CONNECTOR_SOURCE_PARTITION_RANGE, value));
+		descriptorProperties.getOptionalBoolean(CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT).ifPresent(value ->
+			configurations.put(CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT, String.valueOf(value)));
 		return configurations;
 	}
 

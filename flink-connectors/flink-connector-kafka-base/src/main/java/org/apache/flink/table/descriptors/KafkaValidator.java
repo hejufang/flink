@@ -80,6 +80,8 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_ROW_FIELDS_HASH = "row-fields-hash";
 	public static final String CONNECTOR_SINK_PARTITIONER_VALUE_CUSTOM = "custom";
 	public static final String CONNECTOR_SINK_PARTITIONER_CLASS = "connector.sink-partitioner-class";
+	public static final String CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT =
+		"connector.sink-ignore-transaction-timeout-error";
 
 	// Rate limiting configurations
 	public static final String CONNECTOR_RATE_LIMITING_NUM = "connector.rate-limiting-num";
@@ -105,6 +107,7 @@ public class KafkaValidator extends ConnectorDescriptorValidator {
 		properties.validateString(CONNECTOR_TEAM, false, 1, Integer.MAX_VALUE);
 		properties.validateString(CONNECTOR_PSM, false, 1, Integer.MAX_VALUE);
 		properties.validateString(CONNECTOR_OWNER, false, 1, Integer.MAX_VALUE);
+		properties.validateBoolean(CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT, true);
 
 		validateRateLimiting(properties);
 

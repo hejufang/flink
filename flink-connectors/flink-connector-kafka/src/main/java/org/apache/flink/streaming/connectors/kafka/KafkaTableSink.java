@@ -23,8 +23,10 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.descriptors.KafkaValidator;
 import org.apache.flink.types.Row;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -49,11 +51,17 @@ public class KafkaTableSink extends KafkaTableSinkBase {
 		String topic,
 		Properties properties,
 		SerializationSchema<Row> serializationSchema,
-		Optional<FlinkKafkaPartitioner<Row>> partitioner) {
-		return new FlinkKafkaProducer<>(
+		Optional<FlinkKafkaPartitioner<Row>> partitioner,
+		Map<String, String> configurations) {
+		FlinkKafkaProducer<Row> kafkaProducer = new FlinkKafkaProducer<>(
 			topic,
 			new KeyedSerializationSchemaWrapper<>(serializationSchema),
 			properties,
 			partitioner);
+		if (Boolean.parseBoolean(configurations.getOrDefault(
+			KafkaValidator.CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT, null))) {
+			kafkaProducer.ignoreFailuresAfterTransactionTimeout();
+		}
+		return kafkaProducer;
 	}
 }

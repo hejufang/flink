@@ -55,7 +55,8 @@ public class Kafka010TableSink extends KafkaTableSinkBase {
 			String topic,
 			Properties properties,
 			SerializationSchema<Row> serializationSchema,
-			Optional<FlinkKafkaPartitioner<Row>> partitioner) {
+			Optional<FlinkKafkaPartitioner<Row>> partitioner,
+			Map<String, String> configurations) {
 		return new FlinkKafkaProducer010<>(
 			topic,
 			serializationSchema,

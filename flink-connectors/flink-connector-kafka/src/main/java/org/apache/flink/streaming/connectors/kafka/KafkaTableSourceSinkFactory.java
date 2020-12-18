@@ -105,6 +105,7 @@ public class KafkaTableSourceSinkFactory extends KafkaTableSourceSinkFactoryBase
 	public List<String> supportedProperties() {
 		List<String> properties = super.supportedProperties();
 		properties.add(KafkaValidator.CONNECTOR_SINK_SEMANTIC);
+		properties.add(KafkaValidator.CONNECTOR_SINK_IGNORE_TRANSACTION_TIMEOUT);
 		return properties;
 	}
 }

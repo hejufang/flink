@@ -49,7 +49,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
  * A version-agnostic Kafka {@link AppendStreamTableSink}.
  *
  * <p>The version-specific Kafka consumers need to extend this class and
- * override {@link #createKafkaProducer(String, Properties, SerializationSchema, Optional)}}.
+ * override {@link #createKafkaProducer(String, Properties, SerializationSchema, Optional, Map)}}.
  */
 @Internal
 public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
@@ -111,7 +111,8 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 		String topic,
 		Properties properties,
 		SerializationSchema<Row> serializationSchema,
-		Optional<FlinkKafkaPartitioner<Row>> partitioner);
+		Optional<FlinkKafkaPartitioner<Row>> partitioner,
+		Map<String, String> configurations);
 
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
@@ -119,7 +120,8 @@ public abstract class KafkaTableSinkBase implements AppendStreamTableSink<Row> {
 			topic,
 			properties,
 			serializationSchema,
-			partitioner);
+			partitioner,
+			configurations);
 		if (kafkaProducer instanceof FlinkKafkaProducerBase
 			&& configurations.containsKey(CONNECTOR_LOG_FAILURES_ONLY)) {
 			boolean logFailuresOnly =

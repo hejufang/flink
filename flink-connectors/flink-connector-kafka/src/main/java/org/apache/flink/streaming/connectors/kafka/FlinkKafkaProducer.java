@@ -678,6 +678,9 @@ public class FlinkKafkaProducer<IN>
 		// See KAFKA-6119 (affects versions 0.11.0.0 and 0.11.0.1):
 		// The KafkaProducer may not throw an exception if the transaction failed to commit
 		if (semantic == FlinkKafkaProducer.Semantic.EXACTLY_ONCE) {
+			if (!this.producerConfig.containsKey(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG)) {
+				this.producerConfig.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+			}
 			final Object object = this.producerConfig.get(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG);
 			final long transactionTimeout;
 			if (object instanceof String && StringUtils.isNumeric((String) object)) {
