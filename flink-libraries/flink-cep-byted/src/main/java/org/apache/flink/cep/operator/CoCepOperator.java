@@ -20,7 +20,10 @@ package org.apache.flink.cep.operator;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.util.FunctionUtils;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
@@ -29,6 +32,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.cep.EventComparator;
 import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.functions.MultiplePatternTimedOutPartialMatchHandler;
@@ -73,6 +77,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -100,6 +105,7 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	///////////////			State			//////////////
 
+	private static final String PATTERN_STATE_NAME = "patternStateName";
 	private static final String NFA_STATE_NAME = "nfaStateName";
 	private static final String EVENT_QUEUE_STATE_NAME = "eventQueuesStateName";
 
@@ -110,6 +116,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	private transient InternalTimerService<VoidNamespace> timerService;
 
 	private transient NFA<IN> currentNFA;
+
+	private ListState<Pattern> currentPatternState;
 
 	/**
 	 * The last seen watermark. This will be used to
@@ -187,6 +195,11 @@ public class CoCepOperator<IN, KEY, OUT>
 				new ValueStateDescriptor<>(
 						NFA_STATE_NAME,
 						new NFAStateSerializer()));
+		currentPatternState = context.getOperatorStateStore().getUnionListState(
+				new ListStateDescriptor<>(PATTERN_STATE_NAME, new KryoSerializer<>(Pattern.class, new ExecutionConfig())));
+		if (currentPatternState.get().iterator().hasNext()) {
+			currentPatternState.update(Collections.singletonList(currentPatternState.get().iterator().next()));
+		}
 
 		partialMatches = new SharedBuffer<>(context.getKeyedStateStore(), inputSerializer);
 
@@ -222,20 +235,33 @@ public class CoCepOperator<IN, KEY, OUT>
 				return timerService.currentProcessingTime() - watermark;
 			}
 		});
+
+		if (currentPatternState.get().iterator().hasNext()) {
+			Pattern<IN, IN> pattern = currentPatternState.get().iterator().next();
+			if (pattern != null) {
+				NFA<IN> existingNFA = compileNFA(pattern);
+				existingNFA.open(cepRuntimeContext, new Configuration());
+				this.currentNFA = existingNFA;
+			}
+		}
 	}
 
 	@Override
 	public void processElement2(StreamRecord<Pattern<IN, IN>> element) throws Exception {
 		final Pattern<IN, IN> pattern = element.getValue();
-
-		final boolean timeoutHandling = getUserFunction() instanceof TimedOutPartialMatchHandler;
-		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling, pattern.isAllowSinglePartialMatchPerKey());
-
-		final NFA<IN> nfa = nfaFactory.createNFA();
+		final NFA<IN> nfa = compileNFA(pattern);
 		nfa.open(cepRuntimeContext, new Configuration());
 
 		// update currentNFA
 		this.currentNFA = nfa;
+		this.currentPatternState.clear();
+		this.currentPatternState.update(Collections.singletonList(pattern));
+	}
+
+	private NFA<IN> compileNFA(Pattern<IN, IN> pattern) {
+		final boolean timeoutHandling = getUserFunction() instanceof TimedOutPartialMatchHandler;
+		final NFACompiler.NFAFactory<IN> nfaFactory = NFACompiler.compileFactory(pattern, timeoutHandling, pattern.isAllowSinglePartialMatchPerKey());
+		return nfaFactory.createNFA();
 	}
 
 	@Override
