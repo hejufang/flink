@@ -60,8 +60,12 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 	@SuppressWarnings("unchecked")
 	@VisibleForTesting
 	public Pattern<IN, IN> buildPattern(PatternPojo pojo) {
+
+		// used to generate the unique state name
+		int conditionPos = 0;
+
 		final Pattern<IN, IN> begin = (Pattern<IN, IN>) Pattern.begin(pojo.getBeginEvent().getId())
-				.where(new EventParserCondition<>(cepEventParser.duplicate(), pojo.getBeginEvent().getConditions()));
+				.where(new EventParserCondition<>(cepEventParser.duplicate(), pojo.getBeginEvent().getConditions(), pojo.getId() + "-" + conditionPos++));
 
 		Pattern<IN, IN> compositePattern = begin;
 		Event tempEvent = pojo.getBeginEvent();
@@ -72,10 +76,10 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 			Pattern<IN, IN> nextPattern;
 			if (connectionType == Event.ConnectionType.FOLLOWED_BY) {
 				nextPattern = compositePattern.followedBy(afterEvent.getId())
-						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions()));
+						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions(), pojo.getId() + "-" + conditionPos++));
 			} else if (connectionType == Event.ConnectionType.NOT_FOLLOWED_BY) {
 				nextPattern = compositePattern.notFollowedBy(afterEvent.getId())
-						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions()));
+						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions(), pojo.getId() + "-" + conditionPos++));
 			} else {
 				throw new UnsupportedOperationException(String.format("ConnectionType %s is not supported.", connectionType));
 			}

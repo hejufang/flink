@@ -18,6 +18,8 @@
 
 package org.apache.flink.cep.pattern.conditions.comparators;
 
+import javax.annotation.Nullable;
+
 /**
  *
  */
@@ -47,15 +49,27 @@ public class Comparators {
 		public Double castValue(Object obj) {
 			if (obj instanceof String) {
 				return Double.valueOf((String) obj);
-			} else if (obj instanceof Integer) {
-				return Double.valueOf((Integer) obj);
 			} else if (obj instanceof Float) {
 				return Double.valueOf((Float) obj);
 			} else if (obj instanceof Double) {
 				return (Double) obj;
+			} else if (obj instanceof Integer) {
+				return Double.valueOf((Integer) obj);
+			} else if (obj instanceof Long) {
+				return Double.valueOf((Long) obj);
 			} else {
 				throw new UnsupportedOperationException();
 			}
+		}
+
+		@Override
+		public Double plus(@Nullable Double base, Object obj) {
+			return (base == null ? defaultValue() : base) + castValue(obj);
+		}
+
+		@Override
+		public Double defaultValue() {
+			return 0.0;
 		}
 	}
 
@@ -90,6 +104,16 @@ public class Comparators {
 			} else {
 				throw new UnsupportedOperationException();
 			}
+		}
+
+		@Override
+		public Long plus(Long base, Object obj) {
+			return (base == null ? defaultValue() : base) + castValue(obj);
+		}
+
+		@Override
+		public Long defaultValue() {
+			return 0L;
 		}
 	}
 

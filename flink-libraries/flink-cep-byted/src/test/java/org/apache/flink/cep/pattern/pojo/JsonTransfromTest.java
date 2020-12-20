@@ -31,6 +31,57 @@ import java.io.IOException;
 public class JsonTransfromTest {
 
 	@Test
+	public void testAggregationCondition() throws IOException {
+		String json = "{\n" +
+				"        \"id\": \"rule_xx\",\n" +
+				"        \"pattern\": {\n" +
+				"                \"events\": [{\n" +
+				"                                \"id\": \"imp\",\n" +
+				"                                \"conditions\": [{\n" +
+				"                                        \"key\": \"amount\",\n" +
+				"                                        \"op\": \">\",\n" +
+				"                                        \"value\": \"1.0\",\n" +
+				"                                        \"aggregation\": \"sum\",\n" +
+				"                                        \"type\": \"long\",\n" +
+				"                                        \"filters\": [{\n" +
+				"                                                        \"key\": \"eventName\",\n" +
+				"                                                        \"op\": \"=\",\n" +
+				"                                                        \"value\": \"a\"\n" +
+				"                                                },\n" +
+				"                                                {\n" +
+				"                                                        \"key\": \"id\",\n" +
+				"                                                        \"op\": \"=\",\n" +
+				"                                                        \"value\": \"1\"\n" +
+				"                                                }\n" +
+				"                                        ]\n" +
+				"                                }]\n" +
+				"                        },\n" +
+				"                        {\n" +
+				"                                \"id\": \"purchase\",\n" +
+				"                                \"conditions\": [{\n" +
+				"                                        \"key\": \"eventName\",\n" +
+				"                                        \"op\": \"=\",\n" +
+				"                                        \"value\": \"buy iterm\"\n" +
+				"                                }, {\n" +
+				"                                        \"key\": \"eventName\",\n" +
+				"                                        \"op\": \"=\",\n" +
+				"                                        \"value\": \"take iterm\"\n" +
+				"                                }],\n" +
+				"                                \"connection\": \"NOT_FOLLOWED_BY\",\n" +
+				"                                \"after\": \"imp\"\n" +
+				"                        }\n" +
+				"                ]\n" +
+				"        }\n" +
+				"}";
+		System.out.println(json);
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
+		Assert.assertEquals(Condition.ValueType.LONG, pattern.getBeginEvent().getConditions().get(0).getType());
+		Assert.assertEquals(Condition.AggregationType.SUM, pattern.getBeginEvent().getConditions().get(0).getAggregation());
+		Assert.assertEquals(2, pattern.getBeginEvent().getConditions().get(0).getFilters().size());
+	}
+
+	@Test
 	public void testNumberCompareCondition() throws IOException {
 		String json = "{\n" +
 				"\t\"id\": \"rule_xx\",\n" +
@@ -61,6 +112,7 @@ public class JsonTransfromTest {
 				"\t\t]\n" +
 				"\t}\n" +
 				"}\n";
+		System.out.println(json);
 		ObjectMapper objectMapper = new ObjectMapper();
 		PatternPojo pattern = objectMapper.readValue(json, PatternPojo.class);
 		Assert.assertEquals(Condition.ValueType.LONG, pattern.getBeginEvent().getConditions().get(0).getType());

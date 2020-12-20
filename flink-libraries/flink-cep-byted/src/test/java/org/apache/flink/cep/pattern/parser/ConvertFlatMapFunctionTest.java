@@ -27,6 +27,7 @@ import org.apache.flink.cep.pattern.pojo.PatternPojo;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,6 +37,20 @@ import java.util.Map;
  * Tests for conversion from pojo to pattern.
  */
 public class ConvertFlatMapFunctionTest {
+
+	@Test
+	public void testAggregationPattern() {
+		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
+
+		Event begin = new Event("begin", null, null, Collections.singletonList(
+				new Condition("a", Condition.OpType.EQUAL, "2", Condition.ValueType.LONG, Condition.AggregationType.SUM, new ArrayList<>())));
+
+		PatternBody body = new PatternBody(Collections.singletonList(begin), new HashMap<>());
+		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		Pattern<?, ?> result = function.buildPattern(pojo);
+
+		Assert.assertEquals("test_pattern", result.getPatternId());
+	}
 
 	@Test
 	public void testFollowedByPattern() {

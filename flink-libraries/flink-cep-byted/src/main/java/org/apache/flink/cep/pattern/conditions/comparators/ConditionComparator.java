@@ -18,6 +18,8 @@
 
 package org.apache.flink.cep.pattern.conditions.comparators;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 
 /**
@@ -33,4 +35,12 @@ public abstract class ConditionComparator<T> implements Serializable {
 	public abstract boolean isLess(T o1, T o2);
 
 	public abstract T castValue(Object obj);
+
+	public T plus(@Nullable T base, Object obj) {
+		throw new UnsupportedOperationException();
+	}
+
+	public T defaultValue() {
+		throw new UnsupportedOperationException();
+	}
 }

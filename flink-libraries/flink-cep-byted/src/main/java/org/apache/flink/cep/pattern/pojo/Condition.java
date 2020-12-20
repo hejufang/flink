@@ -24,6 +24,8 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCre
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -36,6 +38,7 @@ public class Condition implements Serializable {
 	public static final String FIELD_VALUE = "value";
 	public static final String FIELD_TYPE = "type";
 	public static final String FIELD_AGGREGATION = "aggregation";
+	public static final String FIELD_FILTERS = "filters";
 
 	@JsonProperty(FIELD_KEY)
 	private final String key;
@@ -52,9 +55,12 @@ public class Condition implements Serializable {
 	@JsonProperty(FIELD_AGGREGATION)
 	private final AggregationType aggregation;
 
+	@JsonProperty(FIELD_FILTERS)
+	private final List<Condition> filters;
+
 	@VisibleForTesting
 	public Condition(String key, Condition.OpType op, String value) {
-		this(key, op, value, null, null);
+		this(key, op, value, null, null, null);
 	}
 
 	@JsonCreator
@@ -63,12 +69,16 @@ public class Condition implements Serializable {
 			@JsonProperty(FIELD_OP) Condition.OpType op,
 			@JsonProperty(FIELD_VALUE) String value,
 			@JsonProperty(FIELD_TYPE) ValueType type,
-			@JsonProperty(FIELD_AGGREGATION) AggregationType aggregation) {
+			@JsonProperty(FIELD_AGGREGATION) AggregationType aggregation,
+			@JsonProperty(FIELD_FILTERS) List<Condition> filters) {
 		this.key = key;
 		this.op = op;
 		this.value = value;
 		this.type = type == null ? ValueType.STRING : type;
+		// set constraints
 		this.aggregation = aggregation == null ? AggregationType.NONE : aggregation;
+		// set constraints
+		this.filters = filters == null ? Collections.emptyList() : filters;
 	}
 
 	public String getKey() {
@@ -91,6 +101,10 @@ public class Condition implements Serializable {
 		return type;
 	}
 
+	public List<Condition> getFilters() {
+		return filters;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -104,12 +118,13 @@ public class Condition implements Serializable {
 				op == condition.op &&
 				Objects.equals(value, condition.value) &&
 				type == condition.type &&
-				aggregation == condition.aggregation;
+				aggregation == condition.aggregation &&
+				Objects.equals(filters, condition.filters);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(key, op, value, type, aggregation);
+		return Objects.hash(key, op, value, type, aggregation, filters);
 	}
 
 	@Override
@@ -120,6 +135,7 @@ public class Condition implements Serializable {
 				", value='" + value + '\'' +
 				", type=" + type +
 				", aggregation=" + aggregation +
+				", filters=" + filters +
 				'}';
 	}
 

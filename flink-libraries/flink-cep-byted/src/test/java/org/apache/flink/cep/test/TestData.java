@@ -65,4 +65,58 @@ public class TestData {
 			"        \"attributes\": {}\n" +
 			"    }\n" +
 			"}";
+
+	public static final String SUM_PATTERN_1 = "{\n" +
+			"        \"id\": \"test_agg\",\n" +
+			"        \"pattern\": {\n" +
+			"                \"events\": [{\n" +
+			"                        \"id\": \"imp\",\n" +
+			"                        \"conditions\": [{\n" +
+			"                                \"key\": \"price\",\n" +
+			"                                \"op\": \">\",\n" +
+			"                                \"value\": \"5.0\",\n" +
+			"                                \"aggregation\": \"sum\",\n" +
+			"                                \"type\": \"double\",\n" +
+			"                                \"filters\": [{\n" +
+			"                                                \"key\": \"name\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"buy\"\n" +
+			"                                        },\n" +
+			"                                        {\n" +
+			"                                                \"key\": \"id\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"1\"\n" +
+			"                                        }\n" +
+			"                                ]\n" +
+			"                        }]\n" +
+			"                }]\n" +
+			"        }\n" +
+			"}";
+
+	public static final String COUNT_PATTERN_1 = "{\n" +
+			"        \"id\": \"test_count\",\n" +
+			"        \"pattern\": {\n" +
+			"                \"events\": [{\n" +
+			"                        \"id\": \"imp\",\n" +
+			"                        \"conditions\": [{\n" +
+			"                                \"key\": \"id\",\n" +
+			"                                \"op\": \">\",\n" +
+			"                                \"value\": \"2\",\n" +
+			"                                \"aggregation\": \"count\",\n" +
+			"                                \"type\": \"long\",\n" +
+			"                                \"filters\": [{\n" +
+			"                                                \"key\": \"name\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"buy\"\n" +
+			"                                        },\n" +
+			"                                        {\n" +
+			"                                                \"key\": \"id\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"1\"\n" +
+			"                                        }\n" +
+			"                                ]\n" +
+			"                        }]\n" +
+			"                }]\n" +
+			"        }\n" +
+			"}";
 }
