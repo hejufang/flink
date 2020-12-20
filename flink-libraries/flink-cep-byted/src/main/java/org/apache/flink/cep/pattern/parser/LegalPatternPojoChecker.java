@@ -18,6 +18,7 @@
 
 package org.apache.flink.cep.pattern.parser;
 
+import org.apache.flink.cep.pattern.pojo.Condition;
 import org.apache.flink.cep.pattern.pojo.PatternPojo;
 import org.apache.flink.util.Preconditions;
 
@@ -38,10 +39,18 @@ public class LegalPatternPojoChecker implements Serializable {
 			Preconditions.checkArgument(pojo.getEvents().size() > 0);
 			Preconditions.checkArgument(pojo.getBeginEvent() != null);
 			Preconditions.checkArgument(pojo.getEvents().stream().allMatch(event -> event.getConditions().size() > 0));
+			Preconditions.checkArgument(pojo.getEvents().stream().allMatch(
+					event -> event.getConditions().stream().allMatch(LegalPatternPojoChecker::isConditionLegal)));
 			return true;
 		} catch (Throwable t) {
 			LOG.warn("PatternPojo {} is illegal.", pojo, t);
 			return false;
 		}
+	}
+
+	private static boolean isConditionLegal(Condition condition) {
+		Preconditions.checkArgument(condition.getFilters().isEmpty()
+				|| (condition.getFilters().size() > 0 && !condition.getAggregation().equals(Condition.AggregationType.NONE)));
+		return true;
 	}
 }

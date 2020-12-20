@@ -119,4 +119,30 @@ public class TestData {
 			"                }]\n" +
 			"        }\n" +
 			"}";
+
+	public static final String ILLEGAL_PATTERN_1 = "{\n" +
+			"        \"id\": \"test_count\",\n" +
+			"        \"pattern\": {\n" +
+			"                \"events\": [{\n" +
+			"                        \"id\": \"imp\",\n" +
+			"                        \"conditions\": [{\n" +
+			"                                \"key\": \"id\",\n" +
+			"                                \"op\": \">\",\n" +
+			"                                \"value\": \"2\",\n" +
+			"                                \"type\": \"long\",\n" +
+			"                                \"filters\": [{\n" +
+			"                                                \"key\": \"name\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"buy\"\n" +
+			"                                        },\n" +
+			"                                        {\n" +
+			"                                                \"key\": \"id\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"1\"\n" +
+			"                                        }\n" +
+			"                                ]\n" +
+			"                        }]\n" +
+			"                }]\n" +
+			"        }\n" +
+			"}\n";
 }

@@ -75,9 +75,7 @@ public class Condition implements Serializable {
 		this.op = op;
 		this.value = value;
 		this.type = type == null ? ValueType.STRING : type;
-		// set constraints
 		this.aggregation = aggregation == null ? AggregationType.NONE : aggregation;
-		// set constraints
 		this.filters = filters == null ? Collections.emptyList() : filters;
 	}
 
