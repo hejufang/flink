@@ -19,73 +19,62 @@ under the License.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
+		<artifactId>flink-formats</artifactId>
 		<groupId>org.apache.flink</groupId>
-		<artifactId>flink-parent</artifactId>
 		<version>1.11-byted-SNAPSHOT</version>
 		<relativePath>..</relativePath>
 	</parent>
 
-	<properties>
-		<flink.format.parquet.version>1.10.0</flink.format.parquet.version>
-	</properties>
-
-	<artifactId>flink-formats</artifactId>
-	<name>flink-formats</name>
-	<packaging>pom</packaging>
-
-	<modules>
-		<module>flink-avro</module>
-		<module>flink-json</module>
-		<module>flink-avro-confluent-registry</module>
-		<module>flink-parquet</module>
-		<module>flink-sequence-file</module>
-		<module>flink-compress</module>
-		<module>flink-csv</module>
-		<module>flink-orc</module>
-		<module>flink-orc-nohive</module>
-		<module>flink-hadoop-bulk</module>
-		<module>flink-pb</module>
-		<module>flink-pb-base</module>
-		<module>flink-binlog</module>
-		<module>flink-bytes</module>
-	</modules>
-
-	<!-- override these root dependencies as 'provided', so they don't end up
-		in the jars-with-dependencies (uber jars) of formats and
-		user programs that depend on the formats -->
+	<artifactId>flink-bytes</artifactId>
+	<name>flink-bytes</name>
 
 	<dependencies>
 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-common</artifactId>
+			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
-
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-test-utils-junit</artifactId>
+			<artifactId>flink-table-runtime-blink_${scala.binary.version}</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
 	<profiles>
-
 		<!-- Create SQL Client uber jars by default -->
 		<profile>
 			<id>sql-jars</id>
-			<activation>
-				<property>
-					<name>!skipSqlJars</name>
-				</property>
-			</activation>
-			<modules>
-				<module>flink-sql-orc</module>
-				<module>flink-sql-parquet</module>
-			</modules>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-shade-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>shade-flink</id>
+								<phase>package</phase>
+								<goals>
+									<goal>shade</goal>
+								</goals>
+								<configuration>
+									<artifactSet>
+										<includes>
+											<include>*:*</include>
+										</includes>
+									</artifactSet>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
 		</profile>
 	</profiles>
 
