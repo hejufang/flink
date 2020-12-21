@@ -83,8 +83,8 @@ public class ProcTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 
 		// Test for +20 boundary (13 + 20 = 33).
 		testHarness.setProcessingTime(33);
-		assertEquals(4, testHarness.numKeyedStateEntries());
-		assertEquals(2, testHarness.numProcessingTimeTimers());
+		assertEquals(2, testHarness.numKeyedStateEntries());
+		assertEquals(1, testHarness.numProcessingTimeTimers());
 
 		testHarness.processElement1(insertRecord(1L, "1a33"));
 		testHarness.processElement1(insertRecord(2L, "2a33"));
@@ -141,21 +141,24 @@ public class ProcTimeIntervalJoinTest extends TimeIntervalStreamJoinTestBase {
 		// The left row (key = 1) with timestamp = 1 will be eagerly removed here.
 		testHarness.processElement2(insertRecord(1L, "1b12"));
 
-		// We add a delay (relativeWindowSize / 2) for cleaning up state.
-		// No timers will be triggered here.
-		testHarness.setProcessingTime(13);
+		// Trigger the timer registered by the left row (key = 1) with timestamp = 1
+		// (1 + 10 + 0 + 1 = 12).
+		// The left row (key = 1) with timestamp = 3 will removed here.
+		testHarness.setProcessingTime(12);
 		assertEquals(4, testHarness.numKeyedStateEntries());
 		assertEquals(2, testHarness.numProcessingTimeTimers());
 
-		// Trigger the timer registered by the left row (key = 1) with timestamp = 1
-		// (1 + 10 + 2 + 0 + 1 = 14).
-		// The left row (key = 1) with timestamp = 3 will removed here.
-		testHarness.setProcessingTime(14);
+		// Trigger the timer registered by the left row (key = 2) with timestamp = 2
+		// (2 + 10 + 0 + 1 = 13).
+		// The left row (key = 2) with timestamp = 2 will removed here.
+		testHarness.setProcessingTime(13);
 		assertEquals(2, testHarness.numKeyedStateEntries());
 		assertEquals(1, testHarness.numProcessingTimeTimers());
 
-		// Clean up the left row (key = 2) with timestamp = 2.
-		testHarness.setProcessingTime(16);
+		// Trigger the timer registered by the left row (key = 1) with timestamp = 3
+		// (3 + 10 + 0 + 1 = 14).
+		// Clean up the left row (key = 1) with timestamp = 3.
+		testHarness.setProcessingTime(14);
 		assertEquals(0, testHarness.numKeyedStateEntries());
 		assertEquals(0, testHarness.numProcessingTimeTimers());
 
