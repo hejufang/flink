@@ -19,10 +19,9 @@ package org.apache.flink.connectors.htap.connector.reader;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
-import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 
-import com.bytedance.htap.HtapClient;
 import com.bytedance.htap.HtapScanToken;
+import com.bytedance.htap.client.HtapStorageClient;
 import com.bytedance.htap.meta.HtapTable;
 import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
@@ -42,62 +41,50 @@ public class HtapReader implements AutoCloseable {
 	private static final Logger LOG = LoggerFactory.getLogger(HtapReader.class);
 	private static final int SCAN_TOKEN_BATCH_SIZE_BYTES = 1 << 20;
 
-	private final HtapTableInfo tableInfo;
+	private final HtapTable table;
 	private final HtapReaderConfig readerConfig;
 	private final List<HtapFilterInfo> tableFilters;
 	private final List<String> tableProjections;
 
-	private final transient HtapClient client;
-	private final transient HtapTable table;
+	private final HtapStorageClient client;
 
-	public HtapReader(HtapTableInfo tableInfo, HtapReaderConfig readerConfig) throws Exception {
-		this(tableInfo, readerConfig, new ArrayList<>(), null);
+	public HtapReader(HtapTable table, HtapReaderConfig readerConfig) throws Exception {
+		this(table, readerConfig, new ArrayList<>(), null);
 	}
 
 	public HtapReader(
-			HtapTableInfo tableInfo,
+			HtapTable table,
 			HtapReaderConfig readerConfig,
 			List<HtapFilterInfo> tableFilters) throws Exception {
-		this(tableInfo, readerConfig, tableFilters, null);
+		this(table, readerConfig, tableFilters, null);
 	}
 
 	public HtapReader(
-			HtapTableInfo tableInfo,
+			HtapTable table,
 			HtapReaderConfig readerConfig,
 			List<HtapFilterInfo> tableFilters,
 			List<String> tableProjections) throws IOException {
-		this.tableInfo = tableInfo;
+		this.table = table;
 		this.readerConfig = readerConfig;
 		this.tableFilters = tableFilters;
 		this.tableProjections = tableProjections;
-
-		this.client = obtainClient();
-		this.table = obtainTable();
+		this.client = obtainStorageClient();
 	}
 
-	private HtapClient obtainClient() throws IOException {
+	private HtapStorageClient obtainStorageClient() throws IOException {
 		try {
 			int processId = getProcessId();
 			String logStoreLogDir = readerConfig.getLogStoreLogDir() + "/" + processId;
 			String pageStoreLogDir = readerConfig.getPageStoreLogDir() + "/" + processId;
 			LOG.info("Obtain client with log path: logStorage({}), pageStorage({})",
 				logStoreLogDir, pageStoreLogDir);
-			return new HtapClient(readerConfig.getMetaHosts(), readerConfig.getMetaPort(),
-				readerConfig.getInstanceId(), readerConfig.getByteStoreLogPath(),
-				readerConfig.getByteStoreDataPath(), logStoreLogDir, pageStoreLogDir);
+			return new HtapStorageClient(readerConfig.getInstanceId(),
+				readerConfig.getByteStoreLogPath(), readerConfig.getByteStoreDataPath(),
+				logStoreLogDir, pageStoreLogDir);
 		} catch (Exception e) {
-			throw new IOException("create htap client failed for table: " + tableInfo.getName(), e);
+			throw new IOException("create htap storage client failed for table: " +
+				table.getName(), e);
 		}
-	}
-
-	private HtapTable obtainTable() {
-		String tableName = tableInfo.getName();
-		if (client.tableExists(tableName)) {
-			return client.getTable(tableName);
-		}
-		// TODO: support Htap native exception
-		throw new UnsupportedOperationException(tableName +
-			" not exists and is marketed to not be created");
 	}
 
 	private int getProcessId() {
@@ -107,7 +94,7 @@ public class HtapReader implements AutoCloseable {
 	public HtapReaderIterator scanner(byte[] token, int partitionId) throws IOException {
 		try {
 			return new HtapReaderIterator(
-				HtapScanToken.deserializeIntoScanner(token, partitionId, client));
+				HtapScanToken.deserializeIntoScanner(token, partitionId, client, table));
 		} catch (Exception e) {
 			throw new IOException("build HtapReaderIterator error", e);
 		}
@@ -117,7 +104,8 @@ public class HtapReader implements AutoCloseable {
 			List<HtapFilterInfo> tableFilters,
 			List<String> tableProjections,
 			int rowLimit) {
-		HtapScanToken.HtapScanTokenBuilder tokenBuilder = client.newScanTokenBuilder(table);
+		HtapScanToken.HtapScanTokenBuilder tokenBuilder =
+			new HtapScanToken.HtapScanTokenBuilder(table);
 
 		if (tableProjections != null) {
 			tokenBuilder.projectedColumnNames(tableProjections);

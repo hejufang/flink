@@ -22,6 +22,7 @@ import org.apache.flink.connectors.htap.batch.HtapRowInputFormat;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
+import org.apache.flink.connectors.htap.table.utils.HtapMetaUtils;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
@@ -39,6 +40,8 @@ import org.apache.flink.types.Row;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
+import com.bytedance.htap.client.HtapMetaClient;
+import com.bytedance.htap.meta.HtapTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +100,13 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 
 	@Override
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment env) {
-		HtapRowInputFormat inputFormat = new HtapRowInputFormat(readerConfig, tableInfo,
+		// TM should not access meta service, so we get metadata here and propagate it out.
+		HtapMetaClient metaClient = HtapMetaUtils.getMetaClient(
+			readerConfig.getMetaHosts(), readerConfig.getMetaPort());
+		HtapTable table = readerConfig.getCheckPointLSN() == -1L ?
+			metaClient.getTable(tableInfo.getName()) :
+			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
+		HtapRowInputFormat inputFormat = new HtapRowInputFormat(readerConfig, table,
 			predicates == null ? Collections.emptyList() : predicates,
 			projectedFields == null ? null : Lists.newArrayList(projectedFields));
 		return env.createInput(inputFormat,

@@ -43,6 +43,8 @@ public class HtapReaderConfig implements Serializable {
 	private final String logStoreLogDir;
 	private final String pageStoreLogDir;
 
+	private final long checkPointLSN;
+
 	private int rowLimit = -1;
 
 	public HtapReaderConfig(
@@ -52,7 +54,8 @@ public class HtapReaderConfig implements Serializable {
 			String byteStoreLogPath,
 			String byteStoreDataPath,
 			String logStoreLogDir,
-			String pageStoreLogDir) {
+			String pageStoreLogDir,
+			long checkPointLSN) {
 		this.metaHost = checkNotNull(metaHost, "Htap meta host cannot be null");
 		this.metaPort = checkNotNull(metaPort, "Htap meta port cannot be null");
 		this.instanceId = checkNotNull(instanceId, "Htap instanceId cannot be null");
@@ -60,6 +63,7 @@ public class HtapReaderConfig implements Serializable {
 		this.byteStoreDataPath = checkNotNull(byteStoreDataPath, "ByteStore DataPath cannot be null");
 		this.logStoreLogDir = checkNotNull(logStoreLogDir, "LogStore LogDir cannot be null");
 		this.pageStoreLogDir = checkNotNull(pageStoreLogDir, "PageStore LogDir cannot be null");
+		this.checkPointLSN = checkNotNull(checkPointLSN, "CheckPointLSN cannot be null");
 	}
 
 	public void setRowLimit(int rowLimit) {
@@ -98,6 +102,10 @@ public class HtapReaderConfig implements Serializable {
 		return pageStoreLogDir;
 	}
 
+	public long getCheckPointLSN() {
+		return checkPointLSN;
+	}
+
 	@Override
 	public String toString() {
 		return new ToStringBuilder(this)
@@ -109,6 +117,7 @@ public class HtapReaderConfig implements Serializable {
 				.append("logStoreLogDir", logStoreLogDir)
 				.append("pageStoreLogDir", pageStoreLogDir)
 				.append("rowLimit", rowLimit)
+				.append("checkPointLSN", checkPointLSN)
 				.toString();
 	}
 }

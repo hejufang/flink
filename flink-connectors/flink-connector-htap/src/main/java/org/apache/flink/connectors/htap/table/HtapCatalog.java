@@ -19,6 +19,7 @@
 package org.apache.flink.connectors.htap.table;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.connectors.htap.table.utils.HtapMetaUtils;
 import org.apache.flink.connectors.htap.table.utils.HtapTableUtils;
 import org.apache.flink.table.catalog.CatalogDatabase;
 import org.apache.flink.table.catalog.CatalogDatabaseImpl;
@@ -40,8 +41,7 @@ import org.apache.flink.util.StringUtils;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
-import com.bytedance.htap.HtapClient;
-import com.bytedance.htap.meta.ColumnSchema;
+import com.bytedance.htap.client.HtapMetaClient;
 import com.bytedance.htap.meta.HtapTable;
 import com.bytedance.htap.meta.HtapTableStatistics;
 import org.slf4j.Logger;
@@ -52,7 +52,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -60,7 +59,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- * Catalog for reading and creating Htap tables.
+ * Catalog for reading and creating Htap tables, which is not thread-safe.
  */
 @PublicEvolving
 public class HtapCatalog extends AbstractReadOnlyCatalog {
@@ -68,16 +67,20 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	public static final String DEFAULT_DB = "default";
 	private static final Logger LOG = LoggerFactory.getLogger(HtapCatalog.class);
 
-	private final HtapTableFactory tableFactory = new HtapTableFactory();
 	private final String htapMetaHost;
 	private final int htapMetaPort;
 	private final String instanceId;
-	private final HtapClient htapClient;
+	private final HtapMetaClient metaClient;
 
 	private final String byteStoreLogPath;
 	private final String byteStoreDataPath;
 	private final String logStoreLogDir;
 	private final String pageStoreLogDir;
+
+	// The currentCheckPointLSN binding with a single SQL statement life cycle,
+	// each HTAP SQL need to call updateCurrentCheckPointLSN explicitly prior to actutal execution.
+	// If updateCurrentCheckPointLSN is not called, just use latest checkpoint lsn which maybe inconstant.
+	private long currentCheckPointLSN = -1L;
 
 	public HtapCatalog(
 			String catalogName,
@@ -97,12 +100,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		this.byteStoreDataPath = byteStoreDataPath;
 		this.logStoreLogDir = logStoreLogDir;
 		this.pageStoreLogDir = pageStoreLogDir;
-		try {
-			this.htapClient = new HtapClient(htapMetaHost, htapMetaPort, byteStoreLogPath, instanceId,
-				logStoreLogDir, byteStoreDataPath, pageStoreLogDir);
-		} catch (Exception e) {
-			throw new CatalogException("failed to create htap client", e);
-		}
+		this.metaClient = HtapMetaUtils.getMetaClient(htapMetaHost, htapMetaPort);
 	}
 
 	public HtapCatalog(
@@ -123,11 +121,13 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	}
 
 	public HtapTableFactory getHtapTableFactory() {
-		return tableFactory;
+		return new HtapTableFactory(currentCheckPointLSN);
 	}
 
 	private HtapTable getHtapTable(ObjectPath tablePath) throws CatalogException {
-		HtapTable htapTable = htapClient.getTable(tablePath.getObjectName());
+		HtapTable htapTable = currentCheckPointLSN == -1L ?
+			metaClient.getTable(tablePath.getObjectName()) :
+			metaClient.getTable(tablePath.getObjectName(), currentCheckPointLSN);
 		if (htapTable == null) {
 			throw new CatalogException(String.format(
 				"Failed to get table %s from the HTAP Metaservice",
@@ -142,10 +142,20 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	@Override
 	public void close() {
 		try {
-			htapClient.close();
+			metaClient.close();
 		} catch (Exception e) {
 			LOG.error("error while closing htap client", e);
 		}
+	}
+
+	public long getCurrentCheckPointLSN() {
+		return currentCheckPointLSN;
+	}
+
+	public long updateCurrentCheckPointLSN() {
+		// get the latest checkpointLSN
+		currentCheckPointLSN = metaClient.getCheckpointLSN();
+		return currentCheckPointLSN;
 	}
 
 	public ObjectPath getObjectPath(String tableName) {
@@ -157,13 +167,17 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			throws CatalogException {
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(databaseName),
 			"databaseName cannot be null or empty");
-		return htapClient.listTables();
+		return currentCheckPointLSN == -1L ?
+			metaClient.listTables() :
+			metaClient.listTables(currentCheckPointLSN);
 	}
 
 	@Override
 	public boolean tableExists(ObjectPath tablePath) {
 		checkNotNull(tablePath);
-		return htapClient.tableExists(tablePath.getObjectName());
+		return currentCheckPointLSN == -1L ?
+			metaClient.tableExists(tablePath.getObjectName()) :
+			metaClient.tableExists(tablePath.getObjectName(), currentCheckPointLSN);
 	}
 
 	@Override
@@ -175,17 +189,15 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		}
 
 		String tableName = tablePath.getObjectName();
-		HtapTable htapTable = htapClient.getTable(tableName);
+		HtapTable htapTable = getHtapTable(tablePath);
 		CatalogTableImpl table = new CatalogTableImpl(
 			HtapTableUtils.htapToFlinkSchema(htapTable.getSchema()),
-			createTableProperties(tableName, htapTable.getSchema().getPrimaryKeyColumns()),
+			createTableProperties(tableName),
 			tableName);
 		return table;
 	}
 
-	protected Map<String, String> createTableProperties(
-			String tableName,
-			List<ColumnSchema> primaryKeyColumns) {
+	protected Map<String, String> createTableProperties(String tableName) {
 		Map<String, String> props = new HashMap<>();
 		props.put(CONNECTOR_TYPE, HTAP);
 		props.put(HtapTableFactory.HTAP_META_HOST, htapMetaHost);
@@ -195,11 +207,6 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		props.put(HtapTableFactory.HTAP_BYTESTORE_DATAPATH, byteStoreDataPath);
 		props.put(HtapTableFactory.HTAP_LOGSTORE_LOGDIR, logStoreLogDir);
 		props.put(HtapTableFactory.HTAP_PAGESTORE_LOGDIR, pageStoreLogDir);
-		String primaryKeyNames = primaryKeyColumns
-			.stream()
-			.map(ColumnSchema::getName)
-			.collect(Collectors.joining(","));
-		props.put(HtapTableFactory.HTAP_PRIMARY_KEY_COLS, primaryKeyNames);
 		props.put(HtapTableFactory.HTAP_TABLE, tableName);
 		return props;
 	}

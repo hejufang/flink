@@ -23,7 +23,6 @@ import org.apache.flink.api.common.io.RichInputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
-import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 import org.apache.flink.connectors.htap.connector.reader.HtapInputSplit;
 import org.apache.flink.connectors.htap.connector.reader.HtapReader;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
@@ -31,6 +30,7 @@ import org.apache.flink.connectors.htap.connector.reader.HtapReaderIterator;
 import org.apache.flink.core.io.InputSplitAssigner;
 import org.apache.flink.types.Row;
 
+import com.bytedance.htap.meta.HtapTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +51,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private static final Logger LOG = LoggerFactory.getLogger(HtapRowInputFormat.class);
 
 	private final HtapReaderConfig readerConfig;
-	private final HtapTableInfo tableInfo;
+	private final HtapTable table;
 
 	private final List<HtapFilterInfo> tableFilters;
 	private final List<String> tableProjections;
@@ -61,24 +61,24 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private transient HtapReader htapReader;
 	private transient HtapReaderIterator resultIterator;
 
-	public HtapRowInputFormat(HtapReaderConfig readerConfig, HtapTableInfo tableInfo) {
-		this(readerConfig, tableInfo, new ArrayList<>(), null);
+	public HtapRowInputFormat(HtapReaderConfig readerConfig, HtapTable table) {
+		this(readerConfig, table, new ArrayList<>(), null);
 	}
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
-			HtapTableInfo tableInfo,
+			HtapTable table,
 			List<String> tableProjections) {
-		this(readerConfig, tableInfo, new ArrayList<>(), tableProjections);
+		this(readerConfig, table, new ArrayList<>(), tableProjections);
 	}
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
-			HtapTableInfo tableInfo,
+			HtapTable table,
 			List<HtapFilterInfo> tableFilters,
 			List<String> tableProjections) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
-		this.tableInfo = checkNotNull(tableInfo, "tableInfo could not be null");
+		this.table = checkNotNull(table, "table could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
 		this.tableProjections = tableProjections;
 	}
@@ -96,7 +96,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	}
 
 	private void createHtapReader() throws IOException {
-		htapReader = new HtapReader(tableInfo, readerConfig, tableFilters, tableProjections);
+		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections);
 	}
 
 	@Override

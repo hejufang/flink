@@ -69,7 +69,12 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public static final String HTAP_BYTESTORE_DATAPATH = "htap.bytestore-datapath";
 	public static final String HTAP_LOGSTORE_LOGDIR = "htap.logstore-logdir";
 	public static final String HTAP_PAGESTORE_LOGDIR = "htap.pagestore-logdir";
-	public static final String HTAP_PRIMARY_KEY_COLS = "htap.primary-key-columns";
+
+	private final long checkPointLSN;
+
+	public HtapTableFactory(long checkPointLSN) {
+		this.checkPointLSN = checkPointLSN;
+	}
 
 	@Override
 	public Map<String, String> requiredContext() {
@@ -89,7 +94,6 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		properties.add(HTAP_BYTESTORE_DATAPATH);
 		properties.add(HTAP_LOGSTORE_LOGDIR);
 		properties.add(HTAP_PAGESTORE_LOGDIR);
-		properties.add(HTAP_PRIMARY_KEY_COLS);
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_DATA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -154,7 +158,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		String pageStoreLogDir = props.get(HTAP_PAGESTORE_LOGDIR);
 		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, props);
 		HtapReaderConfig readerConfig = new HtapReaderConfig(metaHost, metaPort, instanceId,
-			byteStoreLogPath, byteStoreDataPath, logStoreLogDir, pageStoreLogDir);
+			byteStoreLogPath, byteStoreDataPath, logStoreLogDir, pageStoreLogDir, checkPointLSN);
 		return new HtapTableSource(readerConfig, tableInfo, schema, null, null, false);
 	}
 }
