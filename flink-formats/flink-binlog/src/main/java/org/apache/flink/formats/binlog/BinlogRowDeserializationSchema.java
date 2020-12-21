@@ -75,9 +75,9 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 	private static final Logger LOG = LoggerFactory.getLogger(BinlogRowDeserializationSchema.class);
 
 	private static final Map<String, Class<? extends LogicalType>> FIXED_TYPE_INFO = initFixedTypeInfo();
-	private final Map<String, RuntimeConverterFactory.RuntimeConverter> runtimeConverterMap;
-	private final DeserializationRuntimeConverter headerRuntimeConverter;
-	private final DeserializationRuntimeConverter bodyRuntimeConverter;
+	private transient Map<String, RuntimeConverterFactory.RuntimeConverter> runtimeConverterMap;
+	private transient DeserializationRuntimeConverter headerRuntimeConverter;
+	private transient DeserializationRuntimeConverter bodyRuntimeConverter;
 
 	private final RowType rowType;
 	private final TypeInformation<RowData> resultTypeInfo;
@@ -93,12 +93,16 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 		this.resultTypeInfo = resultTypeInfo;
 		this.ignoreParseErrors = ignoreParseErrors;
 		this.targetTablePattern = Pattern.compile(targetTable);
+		checkTypes();
+	}
+
+	@Override
+	public void open(InitializationContext context) throws Exception {
 		this.headerRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(
 			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(BINLOG_HEADER)), DRCEntry.EntryHeader.getDescriptor());
 		this.bodyRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(
 			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(BINLOG_BODY)), DRCEntry.EntryBody.getDescriptor());
 		this.runtimeConverterMap = RuntimeConverterFactory.createConverter(this.rowType);
-		checkTypes();
 	}
 
 	@Override

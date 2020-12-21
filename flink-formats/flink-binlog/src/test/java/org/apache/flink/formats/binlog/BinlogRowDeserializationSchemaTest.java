@@ -58,6 +58,7 @@ public class BinlogRowDeserializationSchemaTest {
 		RowType rowType = createRowType();
 		BinlogRowDeserializationSchema schema =
 			new BinlogRowDeserializationSchema(rowType, null, "flink_type_test", false);
+		schema.open(null);
 		RowData rowData = schema.deserialize(TEST_MESSAGE);
 		int fieldNum = 2;
 		String newText = "this is zhangyunfan binlog test";
