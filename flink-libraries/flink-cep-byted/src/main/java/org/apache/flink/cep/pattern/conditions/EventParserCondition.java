@@ -18,8 +18,10 @@
 
 package org.apache.flink.cep.pattern.conditions;
 
+import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.pattern.conditions.comparators.Comparators;
 import org.apache.flink.cep.pattern.conditions.comparators.ConditionComparator;
@@ -32,6 +34,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -71,17 +74,27 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 				final Condition.ValueType valueType = condition.getType();
 				switch (valueType) {
 					case DOUBLE:
-						// not right in multiple pattern scenario
-						this.descriptors.put(i, new ValueStateDescriptor<>(this.uniqueId + "-" + i, Double.class));
+						ValueStateDescriptor<Double> doubleDesc = new ValueStateDescriptor<>(this.uniqueId + "-" + i, Double.class);
+						doubleDesc.enableTimeToLive(defaultTtlConfig());
+						this.descriptors.put(i, doubleDesc);
 						break;
 					case LONG:
-						this.descriptors.put(i, new ValueStateDescriptor<>(this.uniqueId + "-" + i, Long.class));
+						ValueStateDescriptor<Long> longDesc = new ValueStateDescriptor<>(this.uniqueId + "-" + i, Long.class);
+						longDesc.enableTimeToLive(defaultTtlConfig());
+						this.descriptors.put(i, longDesc);
 						break;
 					default:
 						throw new UnsupportedOperationException();
 				}
 			}
 		}
+	}
+
+	private StateTtlConfig defaultTtlConfig() {
+		return StateTtlConfig.newBuilder(Time.of(30, TimeUnit.DAYS))
+				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
+				.build();
 	}
 
 	@Override
