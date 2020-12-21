@@ -130,4 +130,18 @@ public class ByteSQLUpsertOutputFormatTest {
 		expectedMap.put(Row.of(0), new Tuple2<>(true, null));
 		assertEquals(expectedMap, keyToRows);
 	}
+
+	@Test
+	public void testGetKeyToRowsValue() {
+		// insert message
+		Tuple2<Boolean, Row> originTuple1 = new Tuple2<>(true, Row.of(0, "a", "b"));
+		Tuple2<Boolean, Row> outputTuple1 = ByteSQLUpsertOutputFormat.getKeyToRowsValue(originTuple1);
+		Tuple2<Boolean, Row> expectedTuple1 = new Tuple2<>(false, Row.of(0, "a", "b"));
+		assertEquals(expectedTuple1, outputTuple1);
+		// delete message
+		Tuple2<Boolean, Row> originTuple2 = new Tuple2<>(false, Row.of(0, "a", "b"));
+		Tuple2<Boolean, Row> outputTuple2 = ByteSQLUpsertOutputFormat.getKeyToRowsValue(originTuple2);
+		Tuple2<Boolean, Row> expectedTuple2 = new Tuple2<>(true, null);
+		assertEquals(expectedTuple2, outputTuple2);
+	}
 }

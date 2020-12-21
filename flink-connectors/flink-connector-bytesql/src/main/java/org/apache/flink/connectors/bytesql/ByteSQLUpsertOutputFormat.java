@@ -170,6 +170,7 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 	public synchronized void flush() {
 		checkFlushException();
 		for (int retryTimes = 1; retryTimes <= insertOptions.getMaxRetryTimes(); retryTimes++) {
+			keyToRows.clear();
 			recordBuffer.forEach(addRow(keyToRows));
 			if (keyToRows.size() > 0) {
 				ByteSQLTransaction transaction = null;
@@ -306,13 +307,13 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 	/**
 	 * Transform a incoming message to tuple for {@link #keyToRows}.
 	 */
-	private Tuple2<Boolean, Row> getKeyToRowsValue(Tuple2<Boolean, Row> row) {
+	@VisibleForTesting
+	protected static Tuple2<Boolean, Row> getKeyToRowsValue(Tuple2<Boolean, Row> row) {
 		if (row.f0) {
-			row.f0 = false;
+			return new Tuple2<>(false, row.f1);
 		} else {
-			row.f1 = null;
+			return new Tuple2<>(true, null);
 		}
-		return row;
 	}
 
 	@Override
