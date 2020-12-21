@@ -24,6 +24,7 @@ import { JobManagerLogDetailComponent } from './log-detail/job-manager-log-detai
 import { JobManagerLogListComponent } from './log-list/job-manager-log-list.component';
 import { JobManagerLogsComponent } from './logs/job-manager-logs.component';
 import { JobManagerStdoutComponent } from './stdout/job-manager-stdout.component';
+import { JobManagerSmartResourceComponent } from "./sr/job-manager-sr.component";
 
 const routes: Routes = [
   {
@@ -63,6 +64,13 @@ const routes: Routes = [
         component: JobManagerLogDetailComponent,
         data: {
           path: 'log'
+        }
+      },
+      {
+        path: 'sr',
+        component: JobManagerSmartResourceComponent,
+        data: {
+          path: 'sr'
         }
       },
       {

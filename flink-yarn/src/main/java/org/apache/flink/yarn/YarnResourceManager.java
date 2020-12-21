@@ -24,6 +24,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -36,6 +37,7 @@ import org.apache.flink.runtime.failurerate.FailureRater;
 import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
 import org.apache.flink.runtime.io.network.partition.ResourceManagerPartitionTrackerFactory;
+import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
@@ -50,6 +52,9 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
+import org.apache.flink.yarn.smartresources.ContainerResources;
+import org.apache.flink.yarn.smartresources.SmartResourceManager;
+import org.apache.flink.yarn.smartresources.UpdateContainersResources;
 
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
@@ -62,6 +67,9 @@ import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.UpdateContainerError;
+import org.apache.hadoop.yarn.api.records.UpdateContainerRequest;
+import org.apache.hadoop.yarn.api.records.UpdatedContainer;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
@@ -77,6 +85,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -133,6 +142,13 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	private final boolean cleanupRunningContainersOnStop;
 
+	private final int defaultTaskManagerMemoryMB;
+
+	private final double defaultCpus;
+
+	private SmartResourceManager smartResourceManager;
+	private Thread containerResourcesUpdater;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -180,6 +196,16 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 		yarnHeartbeatIntervalMillis = yarnHeartbeatIntervalMS;
 		containerRequestHeartbeatIntervalMillis = flinkConfig.getInteger(YarnConfigOptions.CONTAINER_REQUEST_HEARTBEAT_INTERVAL_MILLISECONDS);
+
+		this.defaultTaskManagerMemoryMB = TaskExecutorProcessUtils.processSpecFromConfig(flinkConfig).getFlinkMemory().getTotalFlinkMemorySize().getMebiBytes();
+		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, flinkConfig.getInteger(
+			TaskManagerOptions.NUM_TASK_SLOTS));
+
+		// init the SmartResource
+		this.smartResourceManager = new SmartResourceManager(flinkConfig);
+		this.smartResourceManager.setYarnResourceManager(this);
+		this.containerResourcesUpdater = new Thread(this::containerResourcesUpdaterProc);
+		this.containerResourcesUpdater.start();
 
 		this.webInterfaceUrl = webInterfaceUrl;
 
@@ -305,6 +331,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		// shut down all components
 		Throwable firstException = null;
 
+		if (containerResourcesUpdater != null) {
+			containerResourcesUpdater.interrupt();
+		}
+
 		if (resourceManagerClient != null) {
 			try {
 				resourceManagerClient.stop();
@@ -322,6 +352,12 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 
 		return getStopTerminationFutureOrCompletedExceptionally(firstException);
+	}
+
+	@Override
+	public void onStart() throws Exception {
+		super.onStart();
+		initTargetContainerResources();
 	}
 
 	@Override
@@ -568,6 +604,22 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		onFatalError(error);
 	}
 
+	@Override
+	public void onContainersUpdated(List<UpdatedContainer> containers) {
+		runAsync(() -> {
+			log.info("Received ContainersUpdate {}", containers);
+			smartResourceManager.containersUpdated(containers);
+		});
+	}
+
+	@Override
+	public void onContainersUpdateError(List<UpdateContainerError> updateContainerErrors) {
+		runAsync(() -> {
+			log.error("Received ContainersUpdateError {}", updateContainerErrors);
+			smartResourceManager.containersUpdateError(updateContainerErrors);
+		});
+	}
+
 	// ------------------------------------------------------------------------
 	//  NMClientAsync CallbackHandler methods
 	// ------------------------------------------------------------------------
@@ -773,5 +825,117 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			log.error("Error while get relay log, fallback to default log.", e);
 			return super.getTaskManagerLogUrl(resourceID, host);
 		}
+	}
+
+	// ------------------------------------------------------------------------
+	//	Smart Resources
+	// ------------------------------------------------------------------------
+
+	@Override
+	public CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(Time timeout) {
+		Map<SmartResourcesStats.Resources, Integer> containerStats = new HashMap<>();
+		List<Container> containers = workerNodeMap.values()
+			.stream()
+			.map(YarnWorkerNode::getContainer)
+			.collect(Collectors.toList());
+		for (Container container : containers) {
+			SmartResourcesStats.Resources resources =
+				new SmartResourcesStats.Resources(
+					container.getResource().getMemorySize(),
+					container.getResource().getVirtualCoresDecimal());
+			containerStats.put(resources, containerStats.getOrDefault(resources, 0) + 1);
+		}
+		List<SmartResourcesStats.ResourcesCount> resourcesCounts = containerStats.entrySet().stream()
+			.map(entry -> new SmartResourcesStats.ResourcesCount(
+				entry.getKey().getMemoryMB(),
+				entry.getKey().getVcores(),
+				entry.getValue()))
+			.collect(Collectors.toList());
+		smartResourceManager.getSmartResourcesStats().setContainersStats(resourcesCounts);
+		return CompletableFuture.completedFuture(smartResourceManager.getSmartResourcesStats());
+	}
+
+	/**
+	 * Init the default container resource.
+	 */
+	private void initTargetContainerResources() {
+		int containerMemorySizeMB = this.defaultTaskManagerMemoryMB;
+		double vcores = this.defaultCpus;
+
+		containerMemorySizeMB = new Double(Math.ceil(containerMemorySizeMB / 1024.0)).intValue() * 1024;
+
+		smartResourceManager.setTargetResources(new ContainerResources(containerMemorySizeMB, vcores));
+		smartResourceManager.getSmartResourcesStats().setInitialResources(new SmartResourcesStats.Resources(containerMemorySizeMB, vcores));
+	}
+
+	private void containerResourcesUpdaterProc() {
+		Thread.currentThread().setName("ContainerResourcesUpdaterProc");
+
+		while (true) {
+			try {
+				Thread.sleep(60000);
+			} catch (InterruptedException e) {
+				return;
+			}
+			try {
+				final UpdateContainersResources updateContainersResources = smartResourceManager.calculateContainerResource();
+				runAsync(() -> smartResourceManager.updateContainersResources(updateContainersResources));
+			} catch (InterruptedException e) {
+				log.info("estimate application resources interrupted");
+				return;
+			} catch (Throwable e) {
+				log.warn("estimate application resources error", e);
+				if (e.getMessage() != null && e.getMessage().contains("The duration of the application is too short")) {
+					try {
+						Thread.sleep(SmartResourceManager.CONTAINER_SKIP_UPDATE_TIME_MS);
+					} catch (InterruptedException e1) {
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Request to update resource of container through rm client.
+	 *
+	 * @param container container need to update resource
+	 * @param request   update container request
+	 */
+	public void requestContainerUpdate(Container container, UpdateContainerRequest request) {
+		resourceManagerClient.requestContainerUpdate(container, request);
+	}
+
+	/**
+	 *
+	 * @param container
+	 */
+	public void updateContainerResourceAsync(Container container) {
+		nodeManagerClient.updateContainerResourceAsync(container);
+	}
+
+	public ConcurrentMap<ResourceID, YarnWorkerNode> getWorkerNodeMap() {
+		return workerNodeMap;
+	}
+
+	public ResourceID getResourceID(Container container) {
+		return new ResourceID(container.getId().toString());
+	}
+
+	@Override
+	public void onContainerResourceUpdated(ContainerId containerId, Resource resource) {
+		log.info("Update container resource success {}", containerId);
+		Container updatedContainer = smartResourceManager.getWaitNMUpdate().get(containerId);
+		Container oldContainer = workerNodeMap.get(getResourceID(updatedContainer)).getContainer();
+		workerNodeMap.put(getResourceID(updatedContainer), new YarnWorkerNode(updatedContainer));
+		smartResourceManager.getWaitNMUpdate().remove(containerId);
+		log.info("[NM] succeed update {} resources from ({} MB, {} vcores) to {({} MB, {} vcores)}",
+			containerId, oldContainer.getResource().getMemorySize(), oldContainer.getResource().getVirtualCores(),
+			updatedContainer.getResource().getMemorySize(), updatedContainer.getResource().getVirtualCores());
+	}
+
+	@Override
+	public void onUpdateContainerResourceError(ContainerId containerId, Throwable t) {
+		log.error("Update container resource error {}", containerId, t);
 	}
 }

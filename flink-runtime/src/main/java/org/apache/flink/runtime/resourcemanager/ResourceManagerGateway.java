@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.partition.ClusterPartitionManager;
 import org.apache.flink.runtime.jobmaster.JobMaster;
 import org.apache.flink.runtime.jobmaster.JobMasterId;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.dump.MetricQueryService;
 import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.rest.messages.LogInfo;
@@ -139,13 +140,13 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 
 	/**
 	 * Gets the currently registered number of TaskManagers.
-	 * 
+	 *
 	 * @return The future to the number of registered TaskManagers.
 	 */
 	CompletableFuture<Integer> getNumberOfRegisteredTaskManagers();
 
 	/**
-	 * Sends the heartbeat to resource manager from task manager
+	 * Sends the heartbeat to resource manager from task manager.
 	 *
 	 * @param heartbeatOrigin unique id of the task manager
 	 * @param heartbeatPayload payload from the originating TaskManager
@@ -153,7 +154,7 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	void heartbeatFromTaskManager(final ResourceID heartbeatOrigin, final TaskExecutorHeartbeatPayload heartbeatPayload);
 
 	/**
-	 * Sends the heartbeat to resource manager from job manager
+	 * Sends the heartbeat to resource manager from job manager.
 	 *
 	 * @param heartbeatOrigin unique id of the job manager
 	 */
@@ -273,4 +274,8 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	 * @return Future containing the thread dump information
 	 */
 	CompletableFuture<ThreadDumpInfo> requestThreadDump(ResourceID taskManagerId, @RpcTimeout Time timeout);
+
+	default CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(@RpcTimeout Time timeout) {
+		throw new UnsupportedOperationException();
+	}
 }

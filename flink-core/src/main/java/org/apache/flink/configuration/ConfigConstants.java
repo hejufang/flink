@@ -2052,6 +2052,8 @@ public final class ConfigConstants {
 	public static final String APPLICATION_NAME_KEY = "applicationName";
 	public static final String APPLICATION_NAME_DEFAULT = "NoAppName";
 
+	public static final String APPLICATION_ID_KEY = "applicationID";
+
 	public static final String DC_KEY = "dc";
 	public static final String DC_DEFAULT = "cn";
 	public static final String CLUSTER_NAME_KEY = "clusterName";

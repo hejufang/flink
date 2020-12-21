@@ -20,6 +20,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BASE_URL } from 'config';
 import { map } from 'rxjs/operators';
+import { SmartResourceResponse } from "../interfaces/smart-resource";
 
 @Injectable({
   providedIn: 'root'
@@ -76,6 +77,13 @@ export class JobManagerService {
           };
         })
       );
+  }
+
+  /**
+   * Load smart-resource info
+   */
+  loadSr() {
+    return this.httpClient.get<SmartResourceResponse>(`${BASE_URL}/sr`)
   }
 
   constructor(private httpClient: HttpClient) {}
