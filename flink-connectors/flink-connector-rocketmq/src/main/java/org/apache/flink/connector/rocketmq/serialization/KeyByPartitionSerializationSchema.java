@@ -17,18 +17,30 @@
 
 package org.apache.flink.connector.rocketmq.serialization;
 
-import java.io.Serializable;
+import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.RowData;
+
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
- * KeyValueSerializationSchema.
+ * KeyByPartitionSerializationSchema.
  */
-public interface KeyValueSerializationSchema<T> extends Serializable {
+public class KeyByPartitionSerializationSchema extends KeyValueSerializationSchemaWrapper<RowData> {
+	private final int[] keyByFields;
 
-	byte[] serializeKey(T tuple);
+	public KeyByPartitionSerializationSchema(
+			SerializationSchema<RowData> serializationSchema,
+			int[] keyByFields) {
+		super(serializationSchema);
+		this.keyByFields = keyByFields;
+	}
 
-	byte[] serializeValue(T tuple);
-
-	default String getPartitionKey(T tuple) {
-		return null;
+	@Override
+	public String getPartitionKey(RowData tuple) {
+		GenericRowData rowData = (GenericRowData) tuple;
+		return Arrays.stream(keyByFields).mapToObj(
+			i -> rowData.getField(i).toString()).collect(Collectors.joining());
 	}
 }

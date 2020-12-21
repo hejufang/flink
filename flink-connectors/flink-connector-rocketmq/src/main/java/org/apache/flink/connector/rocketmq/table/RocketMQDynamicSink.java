@@ -20,6 +20,7 @@ package org.apache.flink.connector.rocketmq.table;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQProducer;
+import org.apache.flink.connector.rocketmq.serialization.KeyByPartitionSerializationSchema;
 import org.apache.flink.connector.rocketmq.serialization.KeyValueSerializationSchemaWrapper;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.EncodingFormat;
@@ -60,7 +61,7 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 	@Override
 	public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
 		KeyValueSerializationSchemaWrapper<RowData> keyValueSerializationSchemaWrapper =
-			new KeyValueSerializationSchemaWrapper<>(encodingFormat.createRuntimeEncoder(context, consumedDataType));
+			getSchemaByConfig(encodingFormat.createRuntimeEncoder(context, consumedDataType), rocketMQConfig);
 		final RocketMQProducer<RowData> rocketMQProducer =
 			new RocketMQProducer<RowData>(keyValueSerializationSchemaWrapper, props, rocketMQConfig);
 		return SinkFunctionProvider.of(rocketMQProducer);
@@ -76,4 +77,13 @@ public class RocketMQDynamicSink implements DynamicTableSink {
 		return CONNECTOR_TYPE_VALUE_ROCKETMQ;
 	}
 
+	private static KeyValueSerializationSchemaWrapper<RowData> getSchemaByConfig(
+			SerializationSchema<RowData> serializationSchema,
+			RocketMQConfig<RowData> rocketMQConfig) {
+		if (rocketMQConfig.getKeyByFields() != null) {
+			return new KeyByPartitionSerializationSchema(serializationSchema, rocketMQConfig.getKeyByFields());
+		} else {
+			return new KeyValueSerializationSchemaWrapper<>(serializationSchema);
+		}
+	}
 }

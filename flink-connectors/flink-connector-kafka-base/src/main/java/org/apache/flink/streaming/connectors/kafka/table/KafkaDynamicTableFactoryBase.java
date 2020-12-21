@@ -64,12 +64,12 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCA
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER_FIELD;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.TOPIC;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getFlinkKafkaPartitioner;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getKafkaProperties;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getStartupOptions;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.validateTableOptions;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_PARTITIONER_FIELD;
 
 /**
  * Factory for creating configured instances of

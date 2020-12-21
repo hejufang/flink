@@ -132,6 +132,12 @@ public final class FactoryUtil {
 		.withDescription(
 			"Flag indicating whether to ignore failures (and log them), or to fail on failures");
 
+	public static final ConfigOption<String> SINK_PARTITIONER_FIELD = ConfigOptions
+		.key("sink.partition-fields")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional specific key fields.");
+
 	private static final String FORMAT_KEY = "format";
 
 	private static final String FORMAT_SUFFIX = ".format";

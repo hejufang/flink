@@ -44,6 +44,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+import static org.apache.flink.table.factories.FactoryUtil.SINK_PARTITIONER_FIELD;
+
 /** Option utils for Kafka table source sink. */
 public class KafkaOptions {
 	private KafkaOptions() {}
@@ -156,12 +158,6 @@ public class KafkaOptions {
 					+ "\"round-robin\": (a Flink partition is distributed to Kafka partitions round-robin),\n"
 					+ "\"row-fields-hash\": (a Flink partition is partitioned by specific field)\n"
 					+ "\"custom class name\": (use a custom FlinkKafkaPartitioner subclass)");
-
-	public static final ConfigOption<String> SINK_PARTITIONER_FIELD = ConfigOptions
-			.key("sink.keyby-fields")
-			.stringType()
-			.noDefaultValue()
-			.withDescription("Optional specific key field");
 
 	public static final ConfigOption<String> SINK_LOG_FAILURE_ONLY = ConfigOptions
 			.key("sink.log-failures-only")

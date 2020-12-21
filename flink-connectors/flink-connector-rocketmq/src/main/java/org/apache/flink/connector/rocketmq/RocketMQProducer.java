@@ -106,6 +106,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		byte[] k = serializationSchema.serializeKey(input);
 		String key = k != null ? new String(k, StandardCharsets.UTF_8) : "";
 		byte[] value = serializationSchema.serializeValue(input);
+		String partitionKey = serializationSchema.getPartitionKey(input);
 
 		Preconditions.checkNotNull(topic, "the message topic is null");
 		Preconditions.checkNotNull(value, "the message body is null");
@@ -113,6 +114,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		Message msg = new Message(topic, value);
 		msg.setKeys(key);
 		msg.setTags(tag);
+		msg.setPartitionKey(partitionKey);
 
 		int delayLevel = messageDelayLevel;
 		if (msgDelayLevelSelector != null) {

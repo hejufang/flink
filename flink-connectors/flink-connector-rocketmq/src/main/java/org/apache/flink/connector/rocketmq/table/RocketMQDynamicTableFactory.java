@@ -122,6 +122,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_BATCH_SIZE);
 		options.add(SINK_DELAY_LEVEL_FIELD);
 		options.add(SINK_TOPIC_SELECTOR);
+		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
 		return options;
 	}
 
@@ -156,6 +157,11 @@ public class RocketMQDynamicTableFactory implements
 						String.format("Unsupported topic selector: %s, supported selector: %s",
 							topicSelectorType, Collections.singleton(DEFAULT_TOPIC_SELECTOR)));
 			}
+
+			config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).ifPresent(
+				keyByFields ->
+					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
+			);
 		} else {
 			rocketMQConfig.setTopic(config.getOptional(TOPIC).orElseThrow(
 				() -> new FlinkRuntimeException(
