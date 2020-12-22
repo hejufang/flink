@@ -33,6 +33,7 @@ public class PatternPojo implements Serializable {
 
 	public static final String FIELD_ID = "id";
 	public static final String FIELD_PATTERN = "pattern";
+	public static final String FIELD_STATUS = "status";
 
 	@JsonProperty(FIELD_ID)
 	private final String id;
@@ -40,12 +41,21 @@ public class PatternPojo implements Serializable {
 	@JsonProperty(FIELD_PATTERN)
 	private PatternBody pattern;
 
+	@JsonProperty(FIELD_STATUS)
+	private StatusType status;
+
 	@JsonCreator
 	public PatternPojo(
 			@JsonProperty(FIELD_ID) String id,
-			@JsonProperty(FIELD_PATTERN) PatternBody pattern) {
+			@JsonProperty(FIELD_PATTERN) PatternBody pattern,
+			@JsonProperty(FIELD_STATUS) StatusType status) {
 		this.id = id;
 		this.pattern = pattern;
+		this.status = status == null ? StatusType.ENABLED : status;
+	}
+
+	public StatusType getStatus() {
+		return status;
 	}
 
 	public String getId() {
@@ -87,21 +97,41 @@ public class PatternPojo implements Serializable {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		PatternPojo pattern1 = (PatternPojo) o;
-		return Objects.equals(id, pattern1.id) &&
-				Objects.equals(pattern, pattern1.pattern);
+		PatternPojo that = (PatternPojo) o;
+		return Objects.equals(id, that.id) &&
+				Objects.equals(pattern, that.pattern) &&
+				status == that.status;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, pattern);
+		return Objects.hash(id, pattern, status);
 	}
 
 	@Override
 	public String toString() {
-		return "Pattern{" +
+		return "PatternPojo{" +
 				"id='" + id + '\'' +
 				", pattern=" + pattern +
+				", status=" + status +
 				'}';
+	}
+
+	/**
+	 * StatusType.
+	 */
+	public enum StatusType {
+		@JsonProperty("enabled") ENABLED("enabled"),
+		@JsonProperty("disabled") DISABLED("disabled");
+
+		private final String status;
+
+		StatusType(String status) {
+			this.status = status;
+		}
+
+		public String getStatus() {
+			return this.status;
+		}
 	}
 }

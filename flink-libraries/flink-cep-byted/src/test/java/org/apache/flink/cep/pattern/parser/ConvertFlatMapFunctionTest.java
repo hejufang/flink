@@ -23,10 +23,14 @@ import org.apache.flink.cep.pattern.pojo.Condition;
 import org.apache.flink.cep.pattern.pojo.Event;
 import org.apache.flink.cep.pattern.pojo.PatternBody;
 import org.apache.flink.cep.pattern.pojo.PatternPojo;
+import org.apache.flink.cep.test.TestData;
+
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -39,6 +43,16 @@ import java.util.Map;
 public class ConvertFlatMapFunctionTest {
 
 	@Test
+	public void testDisabledPattern() throws IOException {
+		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojo pojo = objectMapper.readValue(TestData.DISABLED_PATTERN_1, PatternPojo.class);
+		Pattern<?, ?> result = function.buildPattern(pojo);
+		Assert.assertNotNull(result.getPatternId());
+		Assert.assertTrue(result.isDisabled());
+	}
+
+	@Test
 	public void testAggregationPattern() {
 		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
 
@@ -46,7 +60,7 @@ public class ConvertFlatMapFunctionTest {
 				new Condition("a", Condition.OpType.EQUAL, "2", Condition.ValueType.LONG, Condition.AggregationType.SUM, new ArrayList<>())));
 
 		PatternBody body = new PatternBody(Collections.singletonList(begin), new HashMap<>());
-		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
 		Pattern<?, ?> result = function.buildPattern(pojo);
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
@@ -61,7 +75,7 @@ public class ConvertFlatMapFunctionTest {
 		Event end = new Event("end", Event.ConnectionType.FOLLOWED_BY, "middle", Collections.singletonList(new Condition("c", Condition.OpType.EQUAL, "c1")));
 
 		PatternBody body = new PatternBody(Arrays.asList(end, middle, begin), new HashMap<>());
-		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
 		Pattern<?, ?> result = function.buildPattern(pojo);
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
@@ -78,7 +92,7 @@ public class ConvertFlatMapFunctionTest {
 		attrs.put(PatternBody.AttributeType.WINDOW, "1000");
 
 		PatternBody body = new PatternBody(Arrays.asList(middle, begin), attrs);
-		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
 		Pattern<?, ?> result = function.buildPattern(pojo);
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
@@ -94,7 +108,7 @@ public class ConvertFlatMapFunctionTest {
 		attrs.put(PatternBody.AttributeType.ALLOW_SINGLE_PARTIAL_MATCH_PER_KEY, "true");
 
 		PatternBody body = new PatternBody(Collections.singletonList(begin), attrs);
-		PatternPojo pojo = new PatternPojo("test_pattern", body);
+		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
 		Pattern<?, ?> result = function.buildPattern(pojo);
 
 		Assert.assertEquals("test_pattern", result.getPatternId());

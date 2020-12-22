@@ -60,6 +60,12 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 	@SuppressWarnings("unchecked")
 	@VisibleForTesting
 	public Pattern<IN, IN> buildPattern(PatternPojo pojo) {
+		if (pojo.getStatus().equals(PatternPojo.StatusType.DISABLED)) {
+			final Pattern<IN, IN> disabledPattern = Pattern.begin("ignored");
+			disabledPattern.setPatternId(pojo.getId());
+			disabledPattern.setDisabled(true);
+			return disabledPattern;
+		}
 
 		// used to generate the unique state name
 		int conditionPos = 0;

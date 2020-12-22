@@ -81,6 +81,8 @@ public class Pattern<T, F extends T> implements Serializable {
 
 	private boolean allowSinglePartialMatchPerKey = false;
 
+	private boolean disabled = false;
+
 	protected Pattern(
 		final String name,
 		final Pattern<T, ? extends T> previous,
@@ -99,6 +101,14 @@ public class Pattern<T, F extends T> implements Serializable {
 
 	public void setAllowSinglePartialMatchPerKey(boolean allowSinglePartialMatchPerKey) {
 		this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
+	}
+
+	public boolean isDisabled() {
+		return disabled;
+	}
+
+	public void setDisabled(boolean disabled) {
+		this.disabled = disabled;
 	}
 
 	public Pattern<T, ? extends T> getPrevious() {

@@ -145,4 +145,9 @@ public class TestData {
 			"                }]\n" +
 			"        }\n" +
 			"}\n";
+
+	public static final String DISABLED_PATTERN_1 = "{\n" +
+			"        \"id\": \"test_count\",\n" +
+			"        \"status\": \"disabled\"\n" +
+			"}";
 }

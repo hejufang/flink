@@ -249,6 +249,14 @@ public class CoCepOperator<IN, KEY, OUT>
 	@Override
 	public void processElement2(StreamRecord<Pattern<IN, IN>> element) throws Exception {
 		final Pattern<IN, IN> pattern = element.getValue();
+
+		if (pattern.isDisabled()) {
+			// disable this pattern
+			this.currentPatternState.clear();
+			this.computationStates.clear();
+			return;
+		}
+
 		final NFA<IN> nfa = compileNFA(pattern);
 		nfa.open(cepRuntimeContext, new Configuration());
 

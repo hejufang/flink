@@ -36,6 +36,12 @@ public class LegalPatternPojoChecker implements Serializable {
 
 	public static boolean isPatternPojoLegal(PatternPojo pojo) {
 		try {
+			Preconditions.checkArgument(pojo.getId() != null);
+			if (pojo.getStatus().equals(PatternPojo.StatusType.DISABLED)) {
+				// ignore all checks if the pattern is disabled
+				return true;
+			}
+
 			Preconditions.checkArgument(pojo.getEvents().size() > 0);
 			Preconditions.checkArgument(pojo.getBeginEvent() != null);
 			Preconditions.checkArgument(pojo.getEvents().stream().allMatch(event -> event.getConditions().size() > 0));
