@@ -39,7 +39,7 @@ constructFlinkClassPath() {
         exit 1
     fi
 
-    jar_dependencies_classpath=`getJarDependencies`
+    jar_dependencies_classpath=`getJarDependencies $*`
     if [ "$jar_dependencies_classpath" != "" ]; then
         FLINK_CLASSPATH="$jar_dependencies_classpath:$FLINK_CLASSPATH"
     fi
@@ -132,13 +132,38 @@ getDynamicFiles() {
     done
 }
 
-getJarDependencies() {
-    # get jarDependencies from config file
-    local jar_dependencies=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependecies" 2>&1`
+# support `flink.external.jar.dependecies` in dynamics parameters
+getDynamicsExternalJarDependencies() {
+    local found=0
+    for arg in $* ; do
+        if [[ $found = 1 && $arg =~ "flink.external.jar.dependecies=" ]]; then
+            length=`expr length "flink.external.jar.dependecies="`
+            echo ${arg:$length}
+            break
+        fi
+        found=0
 
-    if [ ${#jar_dependencies} -eq 0 ]; then
+        if [[ $arg == "-yD" ]]; then
+            found=1
+        fi
+    done
+}
+
+getJarDependencies() {
+    local jar_dependencies_from_dynamics_parameters=`getDynamicsExternalJarDependencies $*`
+    # get jarDependencies from config file
+    local jar_dependencies_from_flink_config=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependecies" 2>&1`
+
+    # if all exist, use jar_dependencies_from_dynamics_parameters
+    local jar_dependencies="";
+    if [ -n "$jar_dependencies_from_dynamics_parameters" ]; then
+        jar_dependencies="$jar_dependencies_from_dynamics_parameters"
+    elif [ -n "$jar_dependencies_from_flink_config" ]; then
+        jar_dependencies="$jar_dependencies_from_flink_config"
+    else
         return
     fi
+
     jar_dependencies_array=${jar_dependencies//,/ }
 
     # get Jar dependencies through jar_dependencies value

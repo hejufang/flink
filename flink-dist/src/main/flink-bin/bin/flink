@@ -43,7 +43,7 @@ if [ "$FLINK_IDENT_STRING" = "" ]; then
         FLINK_IDENT_STRING="$USER"
 fi
 
-CC_CLASSPATH=`constructFlinkClassPath`
+CC_CLASSPATH=`constructFlinkClassPath $*`
 DYNAMIC_FILES=`getDynamicFiles $*`
 if [ "$DYNAMIC_FILES" != "" ]; then
         DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
