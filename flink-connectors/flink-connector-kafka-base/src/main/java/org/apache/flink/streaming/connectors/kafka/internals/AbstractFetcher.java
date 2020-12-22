@@ -47,7 +47,6 @@ import javax.annotation.Nonnull;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -848,7 +847,7 @@ public abstract class AbstractFetcher<T, KPH> {
 			if (values[(time + 1) % values.length] > 0) {
 				currentRate =  ((double) (values[time] - values[(time + 1) % values.length]) / timeSpanInSeconds);
 				if (currentRate < 0) {
-					LOG.warn("[metrics] OffsetMeterView: {}.", Arrays.asList(values));
+					LOG.warn("[metrics] last offset: {}, current offset: {}", values[(time + 1) % values.length], values[time]);
 				}
 			}
 		}

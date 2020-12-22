@@ -58,6 +58,9 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN = Pattern.compile(
 		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\S+)");
 
+	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2 = Pattern.compile(
+		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\w+)\\.(\\w+)\\.(\\w+)\\.(\\S+)");
+
 	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
 	private static final Pattern JOB_MANAGER_PATTERN = Pattern.compile(
@@ -327,6 +330,19 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					tags.add(new TagKv("topic", topic));
 					tags.add(new TagKv("partition", partition));
 
+					Matcher taskAndKafkaMatcher2 = TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2.matcher(taskManagerMetricName);
+					if (taskAndKafkaMatcher2.find()) {
+						String connectorType = taskAndKafkaMatcher2.group(6);
+						String flinkVersionAndQuota = taskAndKafkaMatcher2.group(8);
+						String[] flinkVersionAndQuotaArray = flinkVersionAndQuota.split("\\.");
+						String flinkVersion = flinkVersionAndQuota.substring(0,
+							flinkVersionAndQuota.length() - flinkVersionAndQuotaArray[flinkVersionAndQuotaArray.length - 1].length() - 1);
+						quota = flinkVersionAndQuotaArray[flinkVersionAndQuotaArray.length - 1];
+
+						tags.add(new TagKv("flinkVersion", flinkVersion));
+						tags.add(new TagKv("connectorType", connectorType));
+					}
+
 					String metricName =
 						"taskmanager." + jobAndSource + ".KafkaConsumer." + quota;
 					metricName = metricName.replace("..", ".");
@@ -455,6 +471,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	public String getRegion() {
 		return region;
+	}
+
+	public String getCluster() {
+		return cluster;
 	}
 
 	public String getPrefix() {
