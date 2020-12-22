@@ -55,7 +55,7 @@ public class MultiplePatternStream<T> {
 		this(MultiplePatternStreamBuilder.forStreamAndPattern(inputStream, pattern));
 	}
 
-	MultiplePatternStream<T> withComparator(final EventComparator<T> comparator) {
+	public MultiplePatternStream<T> withComparator(final EventComparator<T> comparator) {
 		return new MultiplePatternStream<>(builder.withComparator(comparator));
 	}
 
