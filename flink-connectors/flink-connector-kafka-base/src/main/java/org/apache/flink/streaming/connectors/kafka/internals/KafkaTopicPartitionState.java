@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.connectors.kafka.internals;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.SimpleCounter;
 
 /**
  * The state that the Flink Kafka Consumer holds for each Kafka partition.
@@ -46,6 +47,9 @@ public class KafkaTopicPartitionState<T, KPH> {
 	/** The offset of the Kafka partition that has been committed. */
 	private volatile long committedOffset;
 
+	/** The records num of the Kafka partition that has been consumed. */
+	private volatile SimpleCounter consumerRecordsNumCounter;
+
 	// ------------------------------------------------------------------------
 
 	public KafkaTopicPartitionState(KafkaTopicPartition partition, KPH kafkaPartitionHandle) {
@@ -53,6 +57,7 @@ public class KafkaTopicPartitionState<T, KPH> {
 		this.kafkaPartitionHandle = kafkaPartitionHandle;
 		this.offset = KafkaTopicPartitionStateSentinel.OFFSET_NOT_SET;
 		this.committedOffset = KafkaTopicPartitionStateSentinel.OFFSET_NOT_SET;
+		this.consumerRecordsNumCounter = new SimpleCounter();
 	}
 
 	// ------------------------------------------------------------------------
@@ -96,6 +101,14 @@ public class KafkaTopicPartitionState<T, KPH> {
 
 	public final boolean isOffsetDefined() {
 		return offset != KafkaTopicPartitionStateSentinel.OFFSET_NOT_SET;
+	}
+
+	public SimpleCounter getConsumerRecordsNumCounter() {
+		return consumerRecordsNumCounter;
+	}
+
+	public void consumerRecordsNumCounterInc() {
+		consumerRecordsNumCounter.inc();
 	}
 
 	public final void setCommittedOffset(long offset) {

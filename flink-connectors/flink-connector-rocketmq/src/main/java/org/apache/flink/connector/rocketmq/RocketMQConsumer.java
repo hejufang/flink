@@ -25,6 +25,9 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
+import org.apache.flink.metrics.MeterView;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -78,6 +81,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final int DEFAULT_SLEEP_TIME = 100;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
 	private static final String OFFSETS_STATE_NAME = "rmq-topic-offset-states";
+	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
+	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";
 	private String cluster;
 	private String topic;
 	private String group;
@@ -86,6 +91,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private RocketMQDeserializationSchema<T> schema;
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 
+	private transient MeterView recordsNumMeterView;
 	private transient DefaultMQPullConsumer consumer;
 	private transient List<MessageQueuePb> assignedMessageQueuePbs;
 	private transient Set<MessageQueue> assignedMessageQueueSet;
@@ -121,6 +127,14 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 		this.offsetTable = new ConcurrentHashMap<>();
 		this.restoredOffsets = new HashMap<>();
+
+		MetricGroup metricGroup = getRuntimeContext().getMetricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
+			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
+			.addGroup(RocketMQOptions.CONSUMER_GROUP_METRICS_GROUP, this.group)
+			.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, RocketMQOptions.CONNECTOR_TYPE_VALUE_ROCKETMQ)
+			.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
+
+		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 	}
 
 	@Override
@@ -187,6 +201,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
 					T rowData = schema.deserialize(messageQueue, messageExt);
 					ctx.collect(rowData);
+					this.recordsNumMeterView.markEvent();
 					offsetTable.put(messageQueue, messageExt.getMaxOffset());
 				}
 				if (pollResult.getMsgList().size() == 0) {

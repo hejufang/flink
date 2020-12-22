@@ -126,6 +126,7 @@ public class KafkaShuffleFetcher<T> extends KafkaFetcher<T> {
 					sourceContext.collectWithTimestamp(
 						elementAsRecord.value,
 						elementAsRecord.timestamp == null ? record.timestamp() : elementAsRecord.timestamp);
+					partition.consumerRecordsNumCounterInc();
 					partition.setOffset(record.offset());
 				}
 			} else if (element.isWatermark()) {

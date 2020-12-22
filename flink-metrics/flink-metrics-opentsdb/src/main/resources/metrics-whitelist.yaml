@@ -25,6 +25,7 @@ global:
         fullRestarts,
         noResourceAvailableException,
         currentOffsetsRate,
+        consumerRecordsRate,
         numberOfFailedCheckpoints,
         totalNumberOfCheckpoints,
         numberOfSpeculation,

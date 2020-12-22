@@ -41,6 +41,9 @@ public abstract class RocketMQOptions {
 	public static final String SCAN_STARTUP_MODE_VALUE_TIMESTAMP = "timestamp";
 	public static final String SCAN_STARTUP_MODE_FROM_TIMESTAMP = "startup-mode.from.timestamp";
 
+	// metrics
+	public static final String TOPIC_METRICS_GROUP = "topic";
+	public static final String CONSUMER_GROUP_METRICS_GROUP = "group";
 	/**
 	 *  Assign queue strategy.
 	 *  */

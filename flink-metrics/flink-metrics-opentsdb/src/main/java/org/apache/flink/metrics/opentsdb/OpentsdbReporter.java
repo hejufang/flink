@@ -27,6 +27,7 @@ import org.apache.flink.metrics.Meter;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricConfig;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.reporter.AbstractReporter;
 import org.apache.flink.metrics.reporter.Scheduled;
@@ -54,6 +55,9 @@ import static org.apache.flink.metrics.opentsdb.utils.Utils.formatMetricsName;
 public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN = Pattern.compile(
 		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\S+)");
+
+	private static final Pattern TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2 = Pattern.compile(
+		"taskmanager\\.(\\S+)\\.(\\d+)\\.KafkaConsumer\\.topic\\.(\\S+)\\.partition\\.(\\d+)\\.(\\w+)\\.(\\w+)\\.(\\w+)\\.(\\S+)");
 
 	private static final Pattern KAFKA_CONSUMER_PATTERN = Pattern.compile("taskmanager\\." +
 			"(.+)\\.KafkaConsumer\\.(.+)\\.([^-]+)_(\\d+)");
@@ -274,6 +278,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		tags.add(new TagKv("jobname", this.jobName));
 		tags.add(new TagKv("region", this.region));
 		tags.add(new TagKv("cluster", this.cluster));
+		tags.add(new TagKv(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE));
 		if (key.contains("jobmanager")) {
 			Matcher m = JOB_MANAGER_PATTERN.matcher(key);
 			if (m.find()) {
@@ -315,6 +320,16 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 					tags.add(new TagKv("taskid", taskId));
 					tags.add(new TagKv("topic", topic));
 					tags.add(new TagKv("partition", partition));
+
+					Matcher taskAndKafkaMatcher2 = TASK_MANAGER_AND_KAFKA_CONSUMER_PATTERN_2.matcher(taskManagerMetricName);
+					if (taskAndKafkaMatcher2.find()) {
+						String connectorType = taskAndKafkaMatcher2.group(6);
+						String flinkVersionAndQuota = taskAndKafkaMatcher2.group(8);
+						String[] flinkVersionAndQuotaArray = flinkVersionAndQuota.split("\\.");
+						quota = flinkVersionAndQuotaArray[flinkVersionAndQuotaArray.length - 1];
+
+						tags.add(new TagKv(MetricsConstants.METRICS_CONNECTOR_TYPE, connectorType));
+					}
 
 					String metricName =
 						"taskmanager." + jobAndSource + ".KafkaConsumer." + quota;
@@ -444,6 +459,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	public String getRegion() {
 		return region;
+	}
+
+	public String getCluster() {
+		return cluster;
 	}
 
 	public String getPrefix() {

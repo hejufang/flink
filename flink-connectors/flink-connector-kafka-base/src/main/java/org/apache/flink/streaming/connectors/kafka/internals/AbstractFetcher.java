@@ -23,7 +23,9 @@ import org.apache.flink.api.common.eventtime.WatermarkOutput;
 import org.apache.flink.api.common.eventtime.WatermarkOutputMultiplexer;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.MetricsConstants;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants;
@@ -43,6 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.COMMITTED_OFFSETS_METRICS_GAUGE;
+import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CONSUMER_RECORDS_METRICS_RATE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.CURRENT_OFFSETS_METRICS_GAUGE;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.LEGACY_COMMITTED_OFFSETS_METRICS_GROUP;
 import static org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants.LEGACY_CURRENT_OFFSETS_METRICS_GROUP;
@@ -355,6 +358,7 @@ public abstract class AbstractFetcher<T, KPH> {
 			while ((record = records.poll()) != null) {
 				long timestamp = partitionState.extractTimestamp(record, kafkaEventTimestamp);
 				sourceContext.collectWithTimestamp(record, timestamp);
+				partitionState.consumerRecordsNumCounterInc();
 
 				// this might emit a watermark, so do it after emitting the record
 				partitionState.onEvent(record, timestamp);
@@ -477,10 +481,15 @@ public abstract class AbstractFetcher<T, KPH> {
 		for (KafkaTopicPartitionState<T, KPH> ktp : partitionOffsetStates) {
 			MetricGroup topicPartitionGroup = consumerMetricGroup
 				.addGroup(OFFSETS_BY_TOPIC_METRICS_GROUP, ktp.getTopic())
-				.addGroup(OFFSETS_BY_PARTITION_METRICS_GROUP, Integer.toString(ktp.getPartition()));
+				.addGroup(OFFSETS_BY_PARTITION_METRICS_GROUP, Integer.toString(ktp.getPartition()))
+				.addGroup(MetricsConstants.METRICS_CONNECTOR_TYPE, "kafka")
+				.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
 
 			topicPartitionGroup.gauge(CURRENT_OFFSETS_METRICS_GAUGE, new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET));
 			topicPartitionGroup.gauge(COMMITTED_OFFSETS_METRICS_GAUGE, new OffsetGauge(ktp, OffsetGaugeType.COMMITTED_OFFSET));
+
+			// consumerRecordsRate will replace currentOffsetsRate
+			topicPartitionGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(ktp.getConsumerRecordsNumCounter(), 60));
 
 			legacyCurrentOffsetsMetricGroup.gauge(getLegacyOffsetsMetricsGaugeName(ktp), new OffsetGauge(ktp, OffsetGaugeType.CURRENT_OFFSET));
 			legacyCommittedOffsetsMetricGroup.gauge(getLegacyOffsetsMetricsGaugeName(ktp), new OffsetGauge(ktp, OffsetGaugeType.COMMITTED_OFFSET));
@@ -514,7 +523,7 @@ public abstract class AbstractFetcher<T, KPH> {
 
 		@Override
 		public Long getValue() {
-			switch(gaugeType) {
+			switch (gaugeType) {
 				case COMMITTED_OFFSET:
 					return ktp.getCommittedOffset();
 				case CURRENT_OFFSET:
@@ -524,6 +533,7 @@ public abstract class AbstractFetcher<T, KPH> {
 			}
 		}
 	}
+
  	// ------------------------------------------------------------------------
 
 	/**
