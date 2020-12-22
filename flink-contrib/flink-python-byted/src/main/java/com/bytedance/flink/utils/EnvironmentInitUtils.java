@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +51,7 @@ import java.util.zip.ZipFile;
 public class EnvironmentInitUtils {
 	private static final Logger LOG = LoggerFactory.getLogger(EnvironmentInitUtils.class);
 	private static final ConcurrentMap<String, Object> resourcesLockMap = new ConcurrentHashMap<>();
+	private static final List<String> FORCE_REPLACE_ENV = Arrays.asList("SEC_KV_AUTH");
 
 	/**
 	 * @param runtimeConfig runtime configuration.
@@ -240,7 +242,10 @@ public class EnvironmentInitUtils {
 	public static Map<String, String> mergeEnviroment(Map<String, String> baseEnv,
 		Map<String, String> env) {
 		for (Map.Entry<String, String> entry : env.entrySet()) {
-			if (baseEnv.containsKey(entry.getKey())) {
+			// Some environments are added on Python side, for some reason we need add a default environment on Java side,
+			// but the value of these environments cannot be merged, such as SEC_KV_AUTH which need be a integer.
+			// So only merge environments which not in FORCE_REPLACE_ENV.
+			if (!FORCE_REPLACE_ENV.contains(entry.getKey()) && baseEnv.containsKey(entry.getKey())) {
 				baseEnv.put(entry.getKey(), baseEnv.get(entry.getKey()) + ":" + entry.getValue());
 			} else {
 				baseEnv.put(entry.getKey(), entry.getValue());
