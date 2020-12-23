@@ -127,7 +127,7 @@ public class InternalTimerServiceSerializationProxy<K> extends PostVersionedIORe
 		String serviceName, InternalTimersSnapshot<?, ?> restoredTimersSnapshot) {
 		final TypeSerializer<K> keySerializer = (TypeSerializer<K>) restoredTimersSnapshot.getKeySerializerSnapshot().restoreSerializer();
 		final TypeSerializer<N> namespaceSerializer = (TypeSerializer<N>) restoredTimersSnapshot.getNamespaceSerializerSnapshot().restoreSerializer();
-		TimerSerializer<K, N> timerSerializer = new TimerSerializer<>(keySerializer, namespaceSerializer);
+		TimerSerializer<K, N> timerSerializer = new TimerSerializer<>(keySerializer, namespaceSerializer, timerServicesManager.isSerializePayload());
 		return timerServicesManager.registerOrGetTimerService(serviceName, timerSerializer);
 	}
 }

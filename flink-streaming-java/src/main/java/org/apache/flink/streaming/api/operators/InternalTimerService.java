@@ -71,4 +71,34 @@ public interface InternalTimerService<N> {
 	 * set the key context for the timers key before invoking the action.
 	 */
 	void forEachProcessingTimeTimer(BiConsumerWithException<N, Long, Exception> consumer) throws Exception;
+
+	/**
+	 * Registers a timer to be fired when processing time passes the given time. The namespace
+	 * and payload you pass here will be provided when the timer fires.
+	 */
+	default void registerProcessingTimeTimer(N namespace, long time, byte[] payload) {
+		registerProcessingTimeTimer(namespace, time);
+	}
+
+	/**
+	 * Deletes the timer for the given key、 payload and namespace.
+	 */
+	default void deleteProcessingTimeTimer(N namespace, long time, byte[] payload) {
+		deleteProcessingTimeTimer(namespace, time);
+	}
+
+	/**
+	 * Registers a timer to be fired when event time watermark passes the given time. The namespace
+	 * and payload you pass here will be provided when the timer fires.
+	 */
+	default void registerEventTimeTimer(N namespace, long time, byte[] payload) {
+		registerEventTimeTimer(namespace, time);
+	}
+
+	/**
+	 * Deletes the timer for the given key、 payload and namespace.
+	 */
+	default void deleteEventTimeTimer(N namespace, long time, byte[] payload) {
+		deleteEventTimeTimer(namespace, time);
+	}
 }

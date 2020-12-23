@@ -240,7 +240,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 			keyedStatedBackend,
 			processingTimeService,
 			keyedStatedBackend.requiresLegacySynchronousTimerSnapshots(),
-			filterOutdatedTimer);
+			filterOutdatedTimer,
+			environment.getExecutionConfig().isUseNewTimerMechanism());
 
 		// and then initialize the timer services
 		for (KeyGroupStatePartitionStreamProvider streamProvider : rawKeyedStates) {

@@ -18,6 +18,8 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.streaming.api.SimpleTimerService;
@@ -26,6 +28,8 @@ import org.apache.flink.streaming.api.TimerService;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.OutputTag;
+
+import java.io.IOException;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -143,6 +147,8 @@ public class KeyedProcessOperator<K, IN, OUT>
 
 		private final TimerService timerService;
 
+		private final DataInputDeserializer dataInputView;
+
 		private TimeDomain timeDomain;
 
 		private InternalTimer<K, VoidNamespace> timer;
@@ -150,6 +156,7 @@ public class KeyedProcessOperator<K, IN, OUT>
 		OnTimerContextImpl(KeyedProcessFunction<K, IN, OUT> function, TimerService timerService) {
 			function.super();
 			this.timerService = checkNotNull(timerService);
+			this.dataInputView = new DataInputDeserializer();
 		}
 
 		@Override
@@ -181,6 +188,17 @@ public class KeyedProcessOperator<K, IN, OUT>
 		@Override
 		public K getCurrentKey() {
 			return timer.getKey();
+		}
+
+		@Override
+		public <T> T getPayLoad(TypeSerializer<T> serializer) throws IOException {
+			if (timer.getPayload().length > 0) {
+				dataInputView.setBuffer(timer.getPayload());
+				T payload = serializer.deserialize(dataInputView);
+				dataInputView.releaseArrays();
+				return payload;
+			}
+			return null;
 		}
 	}
 }

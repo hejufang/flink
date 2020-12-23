@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeutils.CompositeTypeSerializerUtil;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.base.array.BytePrimitiveArraySerializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.util.MathUtils;
@@ -56,11 +57,18 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 	@Nonnull
 	private final TypeSerializer<N> namespaceSerializer;
 
+	/** Serializer for the payload. */
+	@Nonnull
+	private final TypeSerializer<byte[]> payloadSerializer;
+
 	/** The bytes written for one timer, or -1 if variable size. */
 	private final int length;
 
 	/** True iff the serialized type (and composite objects) are immutable. */
 	private final boolean immutableType;
+
+	/** True iff we need serialize the payload. */
+	private final boolean serializePayload;
 
 	public TimerSerializer(
 		@Nonnull TypeSerializer<K> keySerializer,
@@ -69,19 +77,35 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 			keySerializer,
 			namespaceSerializer,
 			computeTotalByteLength(keySerializer, namespaceSerializer),
-			keySerializer.isImmutableType() && namespaceSerializer.isImmutableType());
+			keySerializer.isImmutableType() && namespaceSerializer.isImmutableType(),
+			false);
+	}
+
+	public TimerSerializer(
+		@Nonnull TypeSerializer<K> keySerializer,
+		@Nonnull TypeSerializer<N> namespaceSerializer,
+		boolean serializePayload) {
+		this(
+			keySerializer,
+			namespaceSerializer,
+			serializePayload ? -1 : computeTotalByteLength(keySerializer, namespaceSerializer),
+			!serializePayload,
+			serializePayload);
 	}
 
 	private TimerSerializer(
 		@Nonnull TypeSerializer<K> keySerializer,
 		@Nonnull TypeSerializer<N> namespaceSerializer,
 		int length,
-		boolean immutableType) {
+		boolean immutableType,
+		boolean serializePayload) {
 
 		this.keySerializer = keySerializer;
 		this.namespaceSerializer = namespaceSerializer;
+		this.payloadSerializer = BytePrimitiveArraySerializer.INSTANCE;
 		this.length = length;
 		this.immutableType = immutableType;
+		this.serializePayload = serializePayload;
 	}
 
 	private static int computeTotalByteLength(
@@ -116,7 +140,8 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 				keySerializerDuplicate,
 				namespaceSerializerDuplicate,
 				length,
-				immutableType);
+				immutableType,
+				serializePayload);
 		}
 	}
 
@@ -141,7 +166,12 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 			namespaceDuplicate = namespaceSerializer.copy(from.getNamespace());
 		}
 
-		return new TimerHeapInternalTimer<>(from.getTimestamp(), keyDuplicate, namespaceDuplicate);
+		if (serializePayload) {
+			byte[] payload = payloadSerializer.copy(from.getPayload());
+			return new TimerHeapInternalTimer<>(from.getTimestamp(), keyDuplicate, namespaceDuplicate, payload);
+		} else {
+			return new TimerHeapInternalTimer<>(from.getTimestamp(), keyDuplicate, namespaceDuplicate);
+		}
 	}
 
 	@Override
@@ -159,6 +189,9 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 		target.writeLong(MathUtils.flipSignBit(record.getTimestamp()));
 		keySerializer.serialize(record.getKey(), target);
 		namespaceSerializer.serialize(record.getNamespace(), target);
+		if (serializePayload) {
+			payloadSerializer.serialize(record.getPayload(), target);
+		}
 	}
 
 	@Override
@@ -166,7 +199,12 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 		long timestamp = MathUtils.flipSignBit(source.readLong());
 		K key = keySerializer.deserialize(source);
 		N namespace = namespaceSerializer.deserialize(source);
-		return new TimerHeapInternalTimer<>(timestamp, key, namespace);
+		if (serializePayload) {
+			byte[] payload = payloadSerializer.deserialize(source);
+			return new TimerHeapInternalTimer<>(timestamp, key, namespace, payload);
+		} else {
+			return new TimerHeapInternalTimer<>(timestamp, key, namespace);
+		}
 	}
 
 	@Override
@@ -181,6 +219,9 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 		target.writeLong(source.readLong());
 		keySerializer.copy(source, target);
 		namespaceSerializer.copy(source, target);
+		if (serializePayload) {
+			payloadSerializer.copy(source, target);
+		}
 	}
 
 	@Override
@@ -193,7 +234,8 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 		}
 		TimerSerializer<?, ?> that = (TimerSerializer<?, ?>) o;
 		return Objects.equals(keySerializer, that.keySerializer) &&
-			Objects.equals(namespaceSerializer, that.namespaceSerializer);
+			Objects.equals(namespaceSerializer, that.namespaceSerializer) &&
+			serializePayload == that.serializePayload;
 	}
 
 	@Override
@@ -214,6 +256,10 @@ public class TimerSerializer<K, N> extends TypeSerializer<TimerHeapInternalTimer
 	@Nonnull
 	public TypeSerializer<N> getNamespaceSerializer() {
 		return namespaceSerializer;
+	}
+
+	public boolean isSerializePayload() {
+		return serializePayload;
 	}
 
 	/**

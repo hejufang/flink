@@ -20,10 +20,13 @@ package org.apache.flink.streaming.api.functions;
 
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.functions.AbstractRichFunction;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.streaming.api.TimeDomain;
 import org.apache.flink.streaming.api.TimerService;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+
+import java.io.IOException;
 
 /**
  * A keyed function that processes elements of a stream.
@@ -131,6 +134,14 @@ public abstract class KeyedProcessFunction<K, I, O> extends AbstractRichFunction
 		 */
 		@Override
 		public abstract K getCurrentKey();
+
+		/**
+		 * Get payload of the firing timer.
+		 * This method might return null if the timer's payload is empty.
+		 */
+		public <T> T getPayLoad(TypeSerializer<T> serializer) throws IOException {
+			return null;
+		}
 	}
 
 }

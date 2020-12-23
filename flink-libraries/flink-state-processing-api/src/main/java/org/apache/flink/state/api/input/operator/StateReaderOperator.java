@@ -95,7 +95,8 @@ public abstract class StateReaderOperator<F extends Function, KEY, N, OUT> imple
 	}
 
 	protected final InternalTimerService<N> getInternalTimerService(String name) {
-		TimerSerializer<KEY, N> timerSerializer = new TimerSerializer<>(keySerializer, namespaceSerializer);
+		boolean serializePayload = executionConfig.isUseNewTimerMechanism();
+		TimerSerializer<KEY, N> timerSerializer = new TimerSerializer<>(keySerializer, namespaceSerializer, serializePayload);
 		return timerServiceManager.getInternalTimerService(name, timerSerializer, VoidTriggerable.instance());
 	}
 

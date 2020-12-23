@@ -78,13 +78,16 @@ public class InternalTimeServiceManager<K> {
 
 	private final boolean filterOutdatedTimer;
 
+	private final boolean serializePayload;
+
 	InternalTimeServiceManager(
 		KeyGroupRange localKeyGroupRange,
 		KeyContext keyContext,
 		PriorityQueueSetFactory priorityQueueSetFactory,
 		ProcessingTimeService processingTimeService,
 		boolean useLegacySynchronousSnapshots,
-		boolean filterOutdatedTimer) {
+		boolean filterOutdatedTimer,
+		boolean serializePayload) {
 
 		this.localKeyGroupRange = Preconditions.checkNotNull(localKeyGroupRange);
 		this.priorityQueueSetFactory = Preconditions.checkNotNull(priorityQueueSetFactory);
@@ -92,6 +95,7 @@ public class InternalTimeServiceManager<K> {
 		this.processingTimeService = Preconditions.checkNotNull(processingTimeService);
 		this.useLegacySynchronousSnapshots = useLegacySynchronousSnapshots;
 		this.filterOutdatedTimer = filterOutdatedTimer;
+		this.serializePayload = serializePayload;
 
 		this.timerServices = new HashMap<>();
 	}
@@ -105,7 +109,7 @@ public class InternalTimeServiceManager<K> {
 
 		TypeSerializer<K> keySerializer = keyedStateBackend.getKeySerializer();
 		// the following casting is to overcome type restrictions.
-		TimerSerializer<K, N> timerSerializer = new TimerSerializer<>(keySerializer, namespaceSerializer);
+		TimerSerializer<K, N> timerSerializer = new TimerSerializer<>(keySerializer, namespaceSerializer, serializePayload);
 		return getInternalTimerService(name, timerSerializer, triggerable);
 	}
 
@@ -221,6 +225,10 @@ public class InternalTimeServiceManager<K> {
 				keyGroupIdx);
 
 		serializationProxy.read(stream);
+	}
+
+	public boolean isSerializePayload() {
+		return serializePayload;
 	}
 
 	////////////////////			Methods used ONLY IN TESTS				////////////////////

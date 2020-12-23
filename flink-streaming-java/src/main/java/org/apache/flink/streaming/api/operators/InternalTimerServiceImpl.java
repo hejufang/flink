@@ -270,6 +270,36 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 		}
 	}
 
+	@Override
+	public void registerProcessingTimeTimer(N namespace, long time, byte[] payload) {
+		InternalTimer<K, N> oldHead = processingTimeTimersQueue.peek();
+		if (processingTimeTimersQueue.add(new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace, payload))) {
+			long nextTriggerTime = oldHead != null ? oldHead.getTimestamp() : Long.MAX_VALUE;
+			// check if we need to re-schedule our timer to earlier
+			if (time < nextTriggerTime) {
+				if (nextTimer != null) {
+					nextTimer.cancel(false);
+				}
+				nextTimer = processingTimeService.registerTimer(time, this::onProcessingTime);
+			}
+		}
+	}
+
+	@Override
+	public void deleteProcessingTimeTimer(N namespace, long time, byte[] payload) {
+		processingTimeTimersQueue.remove(new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace, payload));
+	}
+
+	@Override
+	public void registerEventTimeTimer(N namespace, long time, byte[] payload) {
+		eventTimeTimersQueue.add(new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace, payload));
+	}
+
+	@Override
+	public void deleteEventTimeTimer(N namespace, long time, byte[] payload) {
+		eventTimeTimersQueue.remove(new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace, payload));
+	}
+
 	private void onProcessingTime(long time) throws Exception {
 		// null out the timer in case the Triggerable calls registerProcessingTimeTimer()
 		// inside the callback.

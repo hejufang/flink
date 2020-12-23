@@ -19,6 +19,9 @@
 package org.apache.flink.streaming.api;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+
+import java.io.IOException;
 
 /**
  * Interface for working with time and timers.
@@ -75,4 +78,34 @@ public interface TimerService {
 	 * it is removed from the current keyed context.
 	 */
 	void deleteEventTimeTimer(long time);
+
+	/**
+	 * Registers a timer to be fired when processing time passes the given time.
+	 */
+	default <SK> void registerProcessingTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		registerProcessingTimeTimer(time);
+	}
+
+	/**
+	 * Registers a timer to be fired when the event time watermark passes the given time.
+	 */
+	default <SK> void registerEventTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		registerEventTimeTimer(time);
+	}
+
+	/**
+	 * Deletes the processing-time timer with the given trigger time and subKey. This method has only an effect if such a timer
+	 * was previously registered and did not already expire.
+	 */
+	default <SK> void deleteProcessingTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		deleteProcessingTimeTimer(time);
+	}
+
+	/**
+	 * Deletes the event-time timer with the given trigger time and subKey. This method has only an effect if such a timer
+	 * was previously registered and did not already expire.
+	 */
+	default <SK> void deleteEventTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		deleteEventTimeTimer(time);
+	}
 }

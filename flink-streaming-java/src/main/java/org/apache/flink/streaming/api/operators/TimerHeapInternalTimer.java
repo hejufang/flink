@@ -24,6 +24,8 @@ import org.apache.flink.runtime.state.heap.HeapPriorityQueueSet;
 
 import javax.annotation.Nonnull;
 
+import java.util.Arrays;
+
 /**
  * Implementation of {@link InternalTimer} to use with a {@link HeapPriorityQueueSet}.
  *
@@ -32,6 +34,7 @@ import javax.annotation.Nonnull;
  */
 @Internal
 public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, HeapPriorityQueueElement {
+	private static final byte[] EMPTY_PAYLOAD = new byte[0];
 
 	/** The key for which the timer is scoped. */
 	@Nonnull
@@ -44,6 +47,8 @@ public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, 
 	/** The expiration timestamp. */
 	private final long timestamp;
 
+	private final byte[] payload;
+
 	/**
 	 * This field holds the current physical index of this timer when it is managed by a timer heap so that we can
 	 * support fast deletes.
@@ -51,9 +56,14 @@ public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, 
 	private transient int timerHeapIndex;
 
 	public TimerHeapInternalTimer(long timestamp, @Nonnull K key, @Nonnull N namespace) {
+		this(timestamp, key, namespace, EMPTY_PAYLOAD);
+	}
+
+	TimerHeapInternalTimer(long timestamp, @Nonnull K key, @Nonnull N namespace, @Nonnull byte[] payload) {
 		this.timestamp = timestamp;
 		this.key = key;
 		this.namespace = namespace;
+		this.payload = payload;
 		this.timerHeapIndex = NOT_CONTAINED;
 	}
 
@@ -74,6 +84,12 @@ public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, 
 		return namespace;
 	}
 
+	@Nonnull
+	@Override
+	public byte[] getPayload() {
+		return payload;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -84,7 +100,8 @@ public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, 
 			InternalTimer<?, ?> timer = (InternalTimer<?, ?>) o;
 			return timestamp == timer.getTimestamp()
 				&& key.equals(timer.getKey())
-				&& namespace.equals(timer.getNamespace());
+				&& namespace.equals(timer.getNamespace())
+				&& Arrays.equals(payload, timer.getPayload());
 		}
 
 		return false;
@@ -113,6 +130,7 @@ public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, 
 		int result = (int) (timestamp ^ (timestamp >>> 32));
 		result = 31 * result + key.hashCode();
 		result = 31 * result + namespace.hashCode();
+		result = 31 * result + Arrays.hashCode(payload);
 		return result;
 	}
 
@@ -122,6 +140,7 @@ public final class TimerHeapInternalTimer<K, N> implements InternalTimer<K, N>, 
 				"timestamp=" + timestamp +
 				", key=" + key +
 				", namespace=" + namespace +
+				", payload=" + Arrays.toString(payload) +
 				'}';
 	}
 

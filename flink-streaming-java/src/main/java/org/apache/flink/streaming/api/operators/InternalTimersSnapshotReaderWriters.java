@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSerializationUtil;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
+import org.apache.flink.api.common.typeutils.base.array.BytePrimitiveArraySerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.runtime.DataInputViewStream;
 import org.apache.flink.core.memory.ByteArrayOutputStreamWithPos;
@@ -360,15 +361,20 @@ public class InternalTimersSnapshotReaderWriters {
 
 		private static final long serialVersionUID = 1119562170939152304L;
 
+		private static final long MAGIC_PREFIX = -1234567890987654321L;
+
 		@Nonnull
 		private final TypeSerializer<K> keySerializer;
 
 		@Nonnull
 		private final TypeSerializer<N> namespaceSerializer;
 
+		private final TypeSerializer<byte[]> payloadSerializer;
+
 		LegacyTimerSerializer(@Nonnull TypeSerializer<K> keySerializer, @Nonnull TypeSerializer<N> namespaceSerializer) {
 			this.keySerializer = keySerializer;
 			this.namespaceSerializer = namespaceSerializer;
+			this.payloadSerializer = BytePrimitiveArraySerializer.INSTANCE;
 		}
 
 		@Override
@@ -399,7 +405,7 @@ public class InternalTimersSnapshotReaderWriters {
 
 		@Override
 		public TimerHeapInternalTimer<K, N> copy(TimerHeapInternalTimer<K, N> from) {
-			return new TimerHeapInternalTimer<>(from.getTimestamp(), from.getKey(), from.getNamespace());
+			return new TimerHeapInternalTimer<>(from.getTimestamp(), from.getKey(), from.getNamespace(), from.getPayload());
 		}
 
 		@Override
@@ -417,6 +423,8 @@ public class InternalTimersSnapshotReaderWriters {
 		public void serialize(TimerHeapInternalTimer<K, N> record, DataOutputView target) throws IOException {
 			keySerializer.serialize(record.getKey(), target);
 			namespaceSerializer.serialize(record.getNamespace(), target);
+			LongSerializer.INSTANCE.serialize(MAGIC_PREFIX, target);
+			payloadSerializer.serialize(record.getPayload(), target);
 			LongSerializer.INSTANCE.serialize(record.getTimestamp(), target);
 		}
 
@@ -424,8 +432,14 @@ public class InternalTimersSnapshotReaderWriters {
 		public TimerHeapInternalTimer<K, N> deserialize(DataInputView source) throws IOException {
 			K key = keySerializer.deserialize(source);
 			N namespace = namespaceSerializer.deserialize(source);
-			Long timestamp = LongSerializer.INSTANCE.deserialize(source);
-			return new TimerHeapInternalTimer<>(timestamp, key, namespace);
+			Long magicPrefixOrTimestamp = LongSerializer.INSTANCE.deserialize(source);
+			if (magicPrefixOrTimestamp.equals(MAGIC_PREFIX)) {
+				byte[] payload = payloadSerializer.deserialize(source);
+				Long timestamp = LongSerializer.INSTANCE.deserialize(source);
+				return new TimerHeapInternalTimer<>(timestamp, key, namespace, payload);
+			} else {
+				return new TimerHeapInternalTimer<>(magicPrefixOrTimestamp, key, namespace);
+			}
 		}
 
 		@Override
@@ -437,7 +451,14 @@ public class InternalTimersSnapshotReaderWriters {
 		public void copy(DataInputView source, DataOutputView target) throws IOException {
 			keySerializer.copy(source, target);
 			namespaceSerializer.copy(source, target);
-			LongSerializer.INSTANCE.copy(source, target);
+			Long magicPrefixOrTimestamp = LongSerializer.INSTANCE.deserialize(source);
+			if (magicPrefixOrTimestamp.equals(MAGIC_PREFIX)) {
+				target.writeLong(MAGIC_PREFIX);
+				payloadSerializer.copy(source, target);
+				LongSerializer.INSTANCE.copy(source, target);
+			} else {
+				target.writeLong(magicPrefixOrTimestamp);
+			}
 		}
 
 		@Override

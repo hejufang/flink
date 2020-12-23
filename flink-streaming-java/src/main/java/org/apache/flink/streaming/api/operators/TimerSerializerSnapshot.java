@@ -21,6 +21,10 @@ package org.apache.flink.streaming.api.operators;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.typeutils.CompositeTypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+
+import java.io.IOException;
 
 /**
  * Snapshot class for the {@link TimerSerializer}.
@@ -28,7 +32,11 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 @Internal
 public class TimerSerializerSnapshot<K, N> extends CompositeTypeSerializerSnapshot<TimerHeapInternalTimer<K, N>, TimerSerializer<K, N>> {
 
-	private static final int VERSION = 2;
+//	private static final int VERSION = 2;
+	/** Upgrade this version to determine whether the TimerSerializer serialized the payload. */
+	private static final int VERSION = 3;
+
+	private boolean serializePayload;
 
 	public TimerSerializerSnapshot() {
 		super(TimerSerializer.class);
@@ -36,6 +44,7 @@ public class TimerSerializerSnapshot<K, N> extends CompositeTypeSerializerSnapsh
 
 	public TimerSerializerSnapshot(TimerSerializer<K, N> timerSerializer) {
 		super(timerSerializer);
+		serializePayload = timerSerializer.isSerializePayload();
 	}
 
 	@Override
@@ -51,11 +60,30 @@ public class TimerSerializerSnapshot<K, N> extends CompositeTypeSerializerSnapsh
 		@SuppressWarnings("unchecked")
 		final TypeSerializer<N> namespaceSerializer = (TypeSerializer<N>) nestedSerializers[1];
 
-		return new TimerSerializer<>(keySerializer, namespaceSerializer);
+		return new TimerSerializer<>(keySerializer, namespaceSerializer, serializePayload);
 	}
 
 	@Override
 	protected TypeSerializer<?>[] getNestedSerializers(TimerSerializer<K, N> outerSerializer) {
 		return new TypeSerializer<?>[] { outerSerializer.getKeySerializer(), outerSerializer.getNamespaceSerializer() };
+	}
+
+	@Override
+	protected void writeOuterSnapshot(DataOutputView out) throws IOException {
+		out.writeBoolean(serializePayload);
+	}
+
+	@Override
+	protected void readOuterSnapshot(int readOuterSnapshotVersion, DataInputView in, ClassLoader userCodeClassLoader) throws IOException {
+		if (readOuterSnapshotVersion < VERSION) {
+			serializePayload = false;
+		} else {
+			serializePayload = in.readBoolean();
+		}
+	}
+
+	@Override
+	protected boolean isOuterSnapshotCompatible(TimerSerializer<K, N> newSerializer) {
+		return serializePayload == newSerializer.isSerializePayload();
 	}
 }
