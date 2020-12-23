@@ -236,7 +236,7 @@ public class CEPPatternStreamITCase {
 			}
 		}).within(Time.milliseconds(10));
 
-		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream(pattern));
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
 
 		DataStream<Event> input = env.addSource(new EventStream(
 				Tuple2.of(new Event(1, "start", 1.0), 5L),
@@ -258,7 +258,9 @@ public class CEPPatternStreamITCase {
 				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
+		DataStream<String> result = CEP.pattern(input, patternDataStream)
+				.withInitialPatterns(Collections.singletonList(pattern))
+				.select(
 				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
 						pattern1.f0 + "," +
 						pattern1.f1.get("start").get(0).getId() + "");
@@ -293,7 +295,7 @@ public class CEPPatternStreamITCase {
 		});
 		pattern.setAllowSinglePartialMatchPerKey(true);
 
-		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream(pattern));
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
 
 		DataStream<Event> input = env.addSource(new EventStream(
 				Tuple2.of(new Event(1, "start", 1.0), 5L),
@@ -318,7 +320,9 @@ public class CEPPatternStreamITCase {
 				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternDataStream).select(
+		DataStream<String> result = CEP.pattern(input, patternDataStream)
+				.withInitialPatterns(Collections.singletonList(pattern))
+				.select(
 				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
 						pattern1.f0 + "," +
 						pattern1.f1.get("start").get(0).getId() + "," +
@@ -339,7 +343,7 @@ public class CEPPatternStreamITCase {
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
-		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream(TestData.SUM_PATTERN_1));
+		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream());
 
 		DataStream<Event> input = env.addSource(new EventStream(
 				Tuple2.of(new Event(1, "buy", 1.0), 5L),
@@ -364,7 +368,9 @@ public class CEPPatternStreamITCase {
 				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new).select(
+		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new)
+				.withInitialPatternJsons(Collections.singletonList(TestData.SUM_PATTERN_1))
+				.select(
 				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
 						pattern1.f0 + "," + pattern1.f1.get("imp").get(0).getId());
 
@@ -383,7 +389,7 @@ public class CEPPatternStreamITCase {
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 		env.setParallelism(2);
 
-		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream(TestData.SUM_PATTERN_1));
+		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream());
 
 		DataStream<Event> input = env.addSource(new EventStream(
 				Tuple2.of(new Event(1, "buy", 1.0), 5L),
@@ -408,7 +414,9 @@ public class CEPPatternStreamITCase {
 				.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
-		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new).select(
+		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new)
+				.withInitialPatternJsons(Arrays.asList(TestData.SUM_PATTERN_1))
+				.select(
 				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
 						pattern1.f0 + "," + pattern1.f1.get("imp").get(0).getId());
 

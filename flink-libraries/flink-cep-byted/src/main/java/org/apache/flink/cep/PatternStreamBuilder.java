@@ -24,22 +24,16 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.functions.NullByteKeySelector;
-import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
-import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.nfa.compiler.NFACompiler;
 import org.apache.flink.cep.operator.CepOperator;
-import org.apache.flink.cep.operator.CoCepOperator;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
-import org.apache.flink.cep.pattern.parser.PojoStreamToPatternStreamConverter;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
@@ -154,67 +148,6 @@ final class PatternStreamBuilder<IN> {
 		} else {
 			throw new UnsupportedOperationException("Please use MutiplePatternSelectFunction to output the results.");
 		}
-	}
-
-	<OUT, K> SingleOutputStreamOperator<OUT> build(
-			final TypeInformation<OUT> outTypeInfo,
-			final MultiplePatternProcessFunction<IN, OUT> processFunction) {
-
-		checkNotNull(outTypeInfo);
-		checkNotNull(processFunction);
-
-		if (patternDataStream != null) {
-			return buildTwoInputStream(outTypeInfo, processFunction);
-		} else if (patternJsonStream != null) {
-			// convert json stream to pattern data stream
-			this.patternDataStream = PojoStreamToPatternStreamConverter.convert(patternJsonStream, cepEventParserFactory);
-			return buildTwoInputStream(outTypeInfo, processFunction);
-		} else {
-			throw new UnsupportedOperationException();
-		}
-	}
-
-	private <OUT, K> SingleOutputStreamOperator<OUT> buildTwoInputStream(
-			final TypeInformation<OUT> outTypeInfo,
-			final MultiplePatternProcessFunction<IN, OUT> processFunction) {
-		Preconditions.checkState(patternDataStream != null, "cannot support dynamic update without pattern stream.");
-
-		final TypeSerializer<IN> inputSerializer = inputStream.getType().createSerializer(inputStream.getExecutionConfig());
-		final boolean isProcessingTime = inputStream.getExecutionEnvironment().getStreamTimeCharacteristic() == TimeCharacteristic.ProcessingTime;
-
-		final CoCepOperator<IN, K, OUT> operator = new CoCepOperator<>(
-				inputSerializer,
-				isProcessingTime,
-				comparator,
-				AfterMatchSkipStrategy.skipPastLastEvent(),
-				processFunction,
-				lateDataOutputTag
-		);
-
-		if (!(inputStream instanceof KeyedStream)) {
-			throw new UnsupportedOperationException();
-		}
-
-		final KeyedStream<IN, K> keyedStream = (KeyedStream<IN, K>) inputStream;
-
-		TwoInputTransformation<IN, Pattern<IN, IN>, OUT> transform = new TwoInputTransformation<>(
-				inputStream.getTransformation(),
-				patternDataStream.broadcast().getTransformation(),
-				"CoCepOperator",
-				operator,
-				outTypeInfo,
-				inputStream.getExecutionEnvironment().getParallelism());
-
-		TypeInformation<?> keyType1 = keyedStream.getKeyType();
-		transform.setStateKeySelectors(keyedStream.getKeySelector(), null);
-		transform.setStateKeyType(keyType1);
-
-		StreamExecutionEnvironment environment = inputStream.getExecutionEnvironment();
-		SingleOutputStreamOperator<OUT> returnStream = new SingleOutputStreamOperator(environment, transform);
-
-		environment.addOperator(transform);
-
-		return returnStream;
 	}
 
 	private <OUT, K> SingleOutputStreamOperator<OUT> buildOneInputStream(

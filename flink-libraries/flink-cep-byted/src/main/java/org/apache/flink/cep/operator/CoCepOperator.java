@@ -149,6 +149,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	/** Thin context passed to NFA that gives access to time related characteristics. */
 	private transient TimerService cepTimerService;
 
+	private List<Pattern<IN, IN>> initialPatterns;
+
 	// ------------------------------------------------------------------------
 	// Metrics
 	// ------------------------------------------------------------------------
@@ -163,7 +165,8 @@ public class CoCepOperator<IN, KEY, OUT>
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final AfterMatchSkipStrategy afterMatchSkipStrategy,
 			final MultiplePatternProcessFunction<IN, OUT> function,
-			@Nullable final OutputTag<IN> lateDataOutputTag) {
+			@Nullable final OutputTag<IN> lateDataOutputTag,
+			final List<Pattern<IN, IN>> initialPatterns) {
 		super(function);
 
 		this.inputSerializer = Preconditions.checkNotNull(inputSerializer);
@@ -171,6 +174,9 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.isProcessingTime = isProcessingTime;
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
+
+		Preconditions.checkArgument(initialPatterns.size() <= 1);
+		this.initialPatterns = initialPatterns;
 
 		if (afterMatchSkipStrategy == null) {
 			this.afterMatchSkipStrategy = AfterMatchSkipStrategy.noSkip();
@@ -243,6 +249,12 @@ public class CoCepOperator<IN, KEY, OUT>
 				existingNFA.open(cepRuntimeContext, new Configuration());
 				this.currentNFA = existingNFA;
 			}
+		} else if (initialPatterns.size() > 0) {
+			// initialize the initial patterns
+			Pattern<IN, IN> pattern = initialPatterns.get(0);
+			NFA<IN> initialNFA = compileNFA(pattern);
+			initialNFA.open(cepRuntimeContext, new Configuration());
+			this.currentNFA = initialNFA;
 		}
 	}
 

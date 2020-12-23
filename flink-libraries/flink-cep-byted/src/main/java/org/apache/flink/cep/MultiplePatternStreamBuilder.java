@@ -26,6 +26,7 @@ import org.apache.flink.cep.nfa.aftermatch.AfterMatchSkipStrategy;
 import org.apache.flink.cep.operator.CoCepOperator;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
+import org.apache.flink.cep.pattern.parser.PatternConverter;
 import org.apache.flink.cep.pattern.parser.PojoStreamToPatternStreamConverter;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -36,7 +37,18 @@ import org.apache.flink.streaming.api.transformations.TwoInputTransformation;
 import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -45,6 +57,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <IN>
  */
 public class MultiplePatternStreamBuilder<IN> {
+	private static final Logger LOG = LoggerFactory.getLogger(MultiplePatternStreamBuilder.class);
 
 	private final DataStream<IN> inputStream;
 
@@ -65,13 +78,16 @@ public class MultiplePatternStreamBuilder<IN> {
 	 */
 	private final OutputTag<IN> lateDataOutputTag;
 
+	private final List<Pattern<IN, IN>> initialPatterns;
+
 	private MultiplePatternStreamBuilder(
 			final DataStream<IN> inputStream,
 			@Nullable final DataStream<Pattern<IN, IN>> patternDataStream,
 			@Nullable final DataStream<String> patternJsonStream,
 			@Nullable final EventComparator<IN> comparator,
 			@Nullable final OutputTag<IN> lateDataOutputTag,
-			@Nullable final CepEventParserFactory cepEventParserFactory) {
+			@Nullable final CepEventParserFactory cepEventParserFactory,
+			final List<Pattern<IN, IN>> initialPatterns) {
 		Preconditions.checkArgument(patternDataStream != null || patternJsonStream != null, "none streams for pattern.");
 
 		if (patternDataStream != null) {
@@ -88,6 +104,7 @@ public class MultiplePatternStreamBuilder<IN> {
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
 		this.cepEventParserFactory = cepEventParserFactory;
+		this.initialPatterns = initialPatterns;
 	}
 
 	TypeInformation<IN> getInputType() {
@@ -105,11 +122,38 @@ public class MultiplePatternStreamBuilder<IN> {
 	}
 
 	MultiplePatternStreamBuilder<IN> withComparator(final EventComparator<IN> comparator) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, checkNotNull(comparator), lateDataOutputTag, cepEventParserFactory, initialPatterns);
 	}
 
 	MultiplePatternStreamBuilder<IN> withLateDataOutputTag(final OutputTag<IN> lateDataOutputTag) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, checkNotNull(lateDataOutputTag), cepEventParserFactory, initialPatterns);
+	}
+
+	MultiplePatternStreamBuilder<IN> withInitialPatternJsons(List<String> jsons) {
+		ObjectMapper objectMapper = new ObjectMapper();
+		List<Pattern<IN, IN>> patterns = new ArrayList<>();
+		for (String json : jsons) {
+			try {
+				Optional<Pattern<IN, IN>> patternOpt = PatternConverter.buildPattern(objectMapper, json, cepEventParserFactory.create());
+				if (patternOpt.isPresent()) {
+					Pattern<IN, IN> pattern = patternOpt.get();
+					if (!pattern.isDisabled()) {
+						patterns.add(pattern);
+					} else {
+						LOG.warn("Fail to initialized with disabled pattern.");
+					}
+				} else {
+					LOG.error("Fail to parse initial pattern {}.", json);
+				}
+			} catch (IOException e) {
+				LOG.error("Fail to parse initial pattern {}.", json);
+			}
+		}
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, checkNotNull(patterns));
+	}
+
+	MultiplePatternStreamBuilder<IN> withInitialPatterns(List<Pattern<IN, IN>> patterns) {
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, patternJsonStream, comparator, lateDataOutputTag, cepEventParserFactory, checkNotNull(patterns));
 	}
 
 	<OUT, K> SingleOutputStreamOperator<OUT> build(
@@ -144,7 +188,8 @@ public class MultiplePatternStreamBuilder<IN> {
 				comparator,
 				AfterMatchSkipStrategy.skipPastLastEvent(),
 				processFunction,
-				lateDataOutputTag
+				lateDataOutputTag,
+				initialPatterns
 		);
 
 		if (!(inputStream instanceof KeyedStream)) {
@@ -176,14 +221,14 @@ public class MultiplePatternStreamBuilder<IN> {
 	// ---------------------------------------- factory-like methods ---------------------------------------- //
 
 	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPattern(final DataStream<IN> inputStream, final Pattern<IN, ?> pattern) {
-		return new MultiplePatternStreamBuilder<>(inputStream, null, null, null, null, null);
+		return new MultiplePatternStreamBuilder<>(inputStream, null, null, null, null, null, Collections.emptyList());
 	}
 
 	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPatternDataStream(final DataStream<IN> inputStream, final DataStream<Pattern<IN, IN>> patternDataStream) {
-		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, null, null, null, null);
+		return new MultiplePatternStreamBuilder<>(inputStream, patternDataStream, null, null, null, null, Collections.emptyList());
 	}
 
 	static <IN> MultiplePatternStreamBuilder<IN> forStreamAndPatternJsonStream(final DataStream<IN> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
-		return new MultiplePatternStreamBuilder<>(inputStream, null, patternJsonStream, null, null, factory);
+		return new MultiplePatternStreamBuilder<>(inputStream, null, patternJsonStream, null, null, factory, Collections.emptyList());
 	}
 }

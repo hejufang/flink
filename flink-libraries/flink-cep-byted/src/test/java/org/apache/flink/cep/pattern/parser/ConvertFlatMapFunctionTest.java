@@ -44,47 +44,40 @@ public class ConvertFlatMapFunctionTest {
 
 	@Test
 	public void testDisabledPattern() throws IOException {
-		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
 		ObjectMapper objectMapper = new ObjectMapper();
 		PatternPojo pojo = objectMapper.readValue(TestData.DISABLED_PATTERN_1, PatternPojo.class);
-		Pattern<?, ?> result = function.buildPattern(pojo);
+		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
 		Assert.assertNotNull(result.getPatternId());
 		Assert.assertTrue(result.isDisabled());
 	}
 
 	@Test
 	public void testAggregationPattern() {
-		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
-
 		Event begin = new Event("begin", null, null, Collections.singletonList(
 				new Condition("a", Condition.OpType.EQUAL, "2", Condition.ValueType.LONG, Condition.AggregationType.SUM, new ArrayList<>())));
 
 		PatternBody body = new PatternBody(Collections.singletonList(begin), new HashMap<>());
 		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
-		Pattern<?, ?> result = function.buildPattern(pojo);
+		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
 	}
 
 	@Test
 	public void testFollowedByPattern() {
-		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
-
 		Event begin = new Event("begin", null, null, Collections.singletonList(new Condition("a", Condition.OpType.EQUAL, "a1")));
 		Event middle = new Event("middle", Event.ConnectionType.FOLLOWED_BY, "begin", Collections.singletonList(new Condition("b", Condition.OpType.EQUAL, "b1")));
 		Event end = new Event("end", Event.ConnectionType.FOLLOWED_BY, "middle", Collections.singletonList(new Condition("c", Condition.OpType.EQUAL, "c1")));
 
 		PatternBody body = new PatternBody(Arrays.asList(end, middle, begin), new HashMap<>());
 		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
-		Pattern<?, ?> result = function.buildPattern(pojo);
+		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
 	}
 
 	@Test
 	public void testNotFollowedByPattern() {
-		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
-
 		Event begin = new Event("begin", null, null, Collections.singletonList(new Condition("a", Condition.OpType.EQUAL, "a1")));
 		Event middle = new Event("middle", Event.ConnectionType.NOT_FOLLOWED_BY, "begin", Collections.singletonList(new Condition("b", Condition.OpType.EQUAL, "b1")));
 
@@ -93,7 +86,7 @@ public class ConvertFlatMapFunctionTest {
 
 		PatternBody body = new PatternBody(Arrays.asList(middle, begin), attrs);
 		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
-		Pattern<?, ?> result = function.buildPattern(pojo);
+		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
 		Assert.assertEquals(1000, result.getWindowTime().toMilliseconds());
@@ -101,15 +94,13 @@ public class ConvertFlatMapFunctionTest {
 
 	@Test
 	public void testAllowSinglePartialMatchPerKeyPattern() {
-		ConvertFlatMapFunction<?> function = new ConvertFlatMapFunction<>(new TestCepEventParserFactory());
-
 		Event begin = new Event("begin", null, null, Collections.singletonList(new Condition("a", Condition.OpType.EQUAL, "a1")));
 		Map<PatternBody.AttributeType, String> attrs = new HashMap<>();
 		attrs.put(PatternBody.AttributeType.ALLOW_SINGLE_PARTIAL_MATCH_PER_KEY, "true");
 
 		PatternBody body = new PatternBody(Collections.singletonList(begin), attrs);
 		PatternPojo pojo = new PatternPojo("test_pattern", body, null);
-		Pattern<?, ?> result = function.buildPattern(pojo);
+		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
 
 		Assert.assertEquals("test_pattern", result.getPatternId());
 		Assert.assertTrue(result.isAllowSinglePartialMatchPerKey());

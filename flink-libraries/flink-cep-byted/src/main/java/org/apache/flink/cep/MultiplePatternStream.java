@@ -27,6 +27,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.util.OutputTag;
 
+import java.util.List;
+
 import static org.apache.flink.cep.PatternProcessFunctionBuilder.fromFlatSelect;
 import static org.apache.flink.cep.PatternProcessFunctionBuilder.fromSelect;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -61,6 +63,14 @@ public class MultiplePatternStream<T> {
 
 	public MultiplePatternStream<T> sideOutputLateData(OutputTag<T> lateDataOutputTag) {
 		return new MultiplePatternStream<>(builder.withLateDataOutputTag(lateDataOutputTag));
+	}
+
+	public MultiplePatternStream<T> withInitialPatternJsons(List<String> jsons) {
+		return new MultiplePatternStream<>(builder.withInitialPatternJsons(jsons));
+	}
+
+	public MultiplePatternStream<T> withInitialPatterns(List<Pattern<T, T>> patterns) {
+		return new MultiplePatternStream<>(builder.withInitialPatterns(patterns));
 	}
 
 	public <R> SingleOutputStreamOperator<R> process(final MultiplePatternProcessFunction<T, R> patternProcessFunction) {
