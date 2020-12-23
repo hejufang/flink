@@ -40,6 +40,7 @@ import org.junit.After;
 import org.junit.Before;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -186,6 +187,8 @@ public class KubernetesHighAvailabilityTestBase extends TestLogger {
 				.setWatchConfigMapsFunction((ignore, handler) -> {
 					final CompletableFuture<FlinkKubeClient.WatchCallbackHandler<KubernetesConfigMap>> future =
 						CompletableFuture.completedFuture(handler);
+					handler.onAdded(Collections.singletonList(
+						new TestingFlinkKubeClient.MockKubernetesConfigMap(LEADER_CONFIGMAP_NAME)));
 					configMapCallbackFutures.add(future);
 					final TestingFlinkKubeClient.MockKubernetesWatch watch =
 						new TestingFlinkKubeClient.MockKubernetesWatch();
