@@ -58,4 +58,10 @@ public interface InternalTimer<K, N> extends PriorityComparable<InternalTimer<?,
 	 */
 	@Nonnull
 	N getNamespace();
+
+	/**
+	 * Returns the payload that is bound to this timer.
+	 */
+	@Nonnull
+	byte[] getPayload();
 }

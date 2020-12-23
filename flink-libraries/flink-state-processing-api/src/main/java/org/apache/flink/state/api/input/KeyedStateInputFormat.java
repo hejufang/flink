@@ -195,7 +195,8 @@ public class KeyedStateInputFormat<K, OUT> extends RichInputFormat<OUT, KeyGroup
 	@SuppressWarnings("unchecked")
 	private InternalTimerService<VoidNamespace> restoreTimerService(StreamOperatorStateContext context) {
 		InternalTimeServiceManager<K> timeServiceManager = (InternalTimeServiceManager<K>) context.internalTimerServiceManager();
-		TimerSerializer<K, VoidNamespace> timerSerializer = new TimerSerializer<>(keySerializer, VoidNamespaceSerializer.INSTANCE);
+		boolean serializePayload = getRuntimeContext().getExecutionConfig().isUseNewTimerMechanism();
+		TimerSerializer<K, VoidNamespace> timerSerializer = new TimerSerializer<>(keySerializer, VoidNamespaceSerializer.INSTANCE, serializePayload);
 		return timeServiceManager.getInternalTimerService(USER_TIMERS_NAME, timerSerializer, VoidTriggerable.instance());
 	}
 

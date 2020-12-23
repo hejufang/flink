@@ -163,6 +163,9 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	/** The default input dependency constraint to schedule tasks. */
 	private InputDependencyConstraint defaultInputDependencyConstraint = InputDependencyConstraint.ANY;
 
+	/** This flag defines if we use new timer mechanism. Default: false */
+	private boolean useNewTimerMechanism = false;
+
 	// ------------------------------- User code values --------------------------------------------
 
 	private GlobalJobParameters globalJobParameters;
@@ -772,6 +775,30 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 	 */
 	public void setGlobalJobParameters(GlobalJobParameters globalJobParameters) {
 		this.globalJobParameters = globalJobParameters;
+	}
+
+	/**
+	 * Enables the new timer mechanism.
+	 *
+	 * @return The ExecutionConfig object, to allow for function chaining.
+	 */
+	public ExecutionConfig enableNewTimerMechanism() {
+		this.useNewTimerMechanism = true;
+		return this;
+	}
+
+	/**
+	 * Disables the new timer mechanism.
+	 *
+	 * @return The ExecutionConfig object, to allow for function chaining.
+	 */
+	public ExecutionConfig disableNewTimerMechanism() {
+		this.useNewTimerMechanism = false;
+		return this;
+	}
+
+	public boolean isUseNewTimerMechanism() {
+		return useNewTimerMechanism;
 	}
 
 	// --------------------------------------------------------------------------------------------

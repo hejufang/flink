@@ -19,8 +19,12 @@
 package org.apache.flink.streaming.api;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
+
+import java.io.IOException;
 
 /**
  * Implementation of {@link TimerService} that uses a {@link InternalTimerService}.
@@ -62,5 +66,33 @@ public class SimpleTimerService implements TimerService {
 	@Override
 	public void deleteEventTimeTimer(long time) {
 		internalTimerService.deleteEventTimeTimer(VoidNamespace.INSTANCE, time);
+	}
+
+	@Override
+	public <SK> void registerProcessingTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		DataOutputSerializer outputView = new DataOutputSerializer(1024);
+		serializer.serialize(subKey, outputView);
+		internalTimerService.registerProcessingTimeTimer(VoidNamespace.INSTANCE, time, outputView.getCopyOfBuffer());
+	}
+
+	@Override
+	public <SK> void registerEventTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		DataOutputSerializer outputView = new DataOutputSerializer(1024);
+		serializer.serialize(subKey, outputView);
+		internalTimerService.registerEventTimeTimer(VoidNamespace.INSTANCE, time, outputView.getCopyOfBuffer());
+	}
+
+	@Override
+	public <SK> void deleteProcessingTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		DataOutputSerializer outputView = new DataOutputSerializer(1024);
+		serializer.serialize(subKey, outputView);
+		internalTimerService.deleteProcessingTimeTimer(VoidNamespace.INSTANCE, time, outputView.getCopyOfBuffer());
+	}
+
+	@Override
+	public <SK> void deleteEventTimeTimer(long time, SK subKey, TypeSerializer<SK> serializer) throws IOException {
+		DataOutputSerializer outputView = new DataOutputSerializer(1024);
+		serializer.serialize(subKey, outputView);
+		internalTimerService.deleteEventTimeTimer(VoidNamespace.INSTANCE, time, outputView.getCopyOfBuffer());
 	}
 }
