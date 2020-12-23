@@ -17,12 +17,16 @@
 
 package org.apache.flink.connector.rocketmq.serialization;
 
+import org.apache.flink.api.common.serialization.SerializationSchema;
+
 import java.io.Serializable;
 
 /**
  * KeyValueSerializationSchema.
  */
 public interface KeyValueSerializationSchema<T> extends Serializable {
+	default void open(SerializationSchema.InitializationContext context) throws Exception {
+	}
 
 	byte[] serializeKey(T tuple);
 

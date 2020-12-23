@@ -38,6 +38,11 @@ public class RocketMQDeserializationSchemaWrapper<T> implements RocketMQDeserial
 	}
 
 	@Override
+	public void open(DeserializationSchema.InitializationContext context) throws Exception {
+		deserializationSchema.open(context);
+	}
+
+	@Override
 	public boolean isEndOfStream(Set<MessageQueue> balancedMQ, T nextElement) {
 		return deserializationSchema.isEndOfStream(nextElement);
 	}

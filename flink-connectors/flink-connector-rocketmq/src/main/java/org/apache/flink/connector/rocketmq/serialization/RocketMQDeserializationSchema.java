@@ -18,6 +18,7 @@
 package org.apache.flink.connector.rocketmq.serialization;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.util.Collector;
 
@@ -68,4 +69,7 @@ public interface RocketMQDeserializationSchema<T> extends Serializable, ResultTy
 	 * @return True is run in streaming mode.
 	 */
 	boolean isStreamingMode();
+
+	default void open(DeserializationSchema.InitializationContext context) throws Exception {
+	}
 }

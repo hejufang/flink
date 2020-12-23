@@ -79,6 +79,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		// TODO: use props construct producer.
 		producer = new DefaultMQProducer(cluster, group, getRocketMQProperties(props));
 		producer.start();
+		serializationSchema.open(() -> getRuntimeContext().getMetricGroup());
 	}
 
 	@Override

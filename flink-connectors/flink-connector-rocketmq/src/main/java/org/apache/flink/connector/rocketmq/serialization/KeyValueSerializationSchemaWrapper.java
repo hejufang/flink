@@ -32,6 +32,11 @@ public class KeyValueSerializationSchemaWrapper<T> implements KeyValueSerializat
 	}
 
 	@Override
+	public void open(SerializationSchema.InitializationContext context) throws Exception {
+		serializationSchema.open(context);
+	}
+
+	@Override
 	public byte[] serializeKey(T tuple) {
 		return null;
 	}

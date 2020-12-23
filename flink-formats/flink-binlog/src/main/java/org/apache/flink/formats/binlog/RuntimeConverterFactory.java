@@ -18,6 +18,7 @@
 
 package org.apache.flink.formats.binlog;
 
+import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.CharType;
@@ -278,7 +279,11 @@ public class RuntimeConverterFactory {
 			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
 			return o -> ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o);
 		} else if (logicalType instanceof DecimalType) {
-			return o -> new BigDecimal((String) o);
+			return o -> {
+				DecimalType decimalType = (DecimalType) logicalType;
+				return DecimalData.fromBigDecimal(new BigDecimal((String) o),
+					decimalType.getPrecision(), decimalType.getScale());
+			};
 		} else {
 			throw new IllegalArgumentException(
 				String.format("Unsupported type for 'value' column: %s.", logicalType));

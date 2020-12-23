@@ -19,6 +19,7 @@
 package org.apache.flink.formats.binlog;
 
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
@@ -74,10 +75,11 @@ public class BinlogRowDeserializationSchemaTest {
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "This is a test varchar.");
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "mediumtext");
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "longtext");
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), new BigDecimal("1.23456789e+09"));
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
+			DecimalData.fromBigDecimal(new BigDecimal("1.23456789e+09"), 10, 0));
 		assertTestRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), null, Integer.MAX_VALUE + 1L, true);
 		assertTestRow((GenericRowData) rowData.getRow(fieldNum, TEST_FIELD_NUM), null,
-			new BigDecimal(Long.MAX_VALUE).add(BigDecimal.ONE), true);
+			DecimalData.fromBigDecimal(new BigDecimal(Long.MAX_VALUE).add(BigDecimal.ONE), 19, 0), true);
 	}
 
 	private RowType createRowType() {
@@ -103,7 +105,7 @@ public class BinlogRowDeserializationSchemaTest {
 		rowFields.add(new RowType.RowField("longtext_test", getInnerRowType(VarCharType::new)));
 		rowFields.add(new RowType.RowField("decimal_test", getInnerRowType(DecimalType::new)));
 		rowFields.add(new RowType.RowField("test_unsigned_int", getInnerRowType(BigIntType::new)));
-		rowFields.add(new RowType.RowField("test_unsigned_long", getInnerRowType(DecimalType::new)));
+		rowFields.add(new RowType.RowField("test_unsigned_long", getInnerRowType(() -> new DecimalType(19))));
 		return new RowType(rowFields);
 	}
 

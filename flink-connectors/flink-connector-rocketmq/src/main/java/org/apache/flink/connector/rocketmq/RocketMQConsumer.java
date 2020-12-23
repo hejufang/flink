@@ -78,7 +78,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final long serialVersionUID = 1L;
 
 	private static final int FETCH_BATCH_SIZE = 100;
-	private static final int DEFAULT_SLEEP_TIME = 100;
+	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
 	private static final String OFFSETS_STATE_NAME = "rmq-topic-offset-states";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
@@ -135,6 +135,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			.addGroup(MetricsConstants.METRICS_FLINK_VERSION, MetricsConstants.FLINK_VERSION_VALUE);
 
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
+		schema.open(() -> getRuntimeContext().getMetricGroup());
 	}
 
 	@Override
@@ -205,7 +206,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					offsetTable.put(messageQueue, messageExt.getMaxOffset());
 				}
 				if (pollResult.getMsgList().size() == 0) {
-					Thread.sleep(DEFAULT_SLEEP_TIME);
+					Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
 				}
 			} else {
 				LOG.warn("Receive error code is {}, error msg is {}.", pollResult.getErrorCode(), pollResult.getErrorMsg());
