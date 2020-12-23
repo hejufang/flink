@@ -207,6 +207,7 @@ public class MultiplePatternStreamBuilder<IN> {
 				inputStream.getExecutionEnvironment().getParallelism());
 
 		TypeInformation<?> keyType1 = keyedStream.getKeyType();
+		transform.setUid("cep-co-operator");
 		transform.setStateKeySelectors(keyedStream.getKeySelector(), null);
 		transform.setStateKeyType(keyType1);
 
