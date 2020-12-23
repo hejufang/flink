@@ -22,6 +22,7 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
+import org.apache.flink.connector.rocketmq.RocketMQMetadata;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.selector.DefaultTopicSelector;
 import org.apache.flink.table.api.TableSchema;
@@ -31,6 +32,7 @@ import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
@@ -40,6 +42,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -57,6 +60,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DELAY_LEV
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_TOPIC_SELECTOR;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TAG;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
+import static org.apache.flink.table.factories.FactoryUtil.SOURCE_METADATA_COLUMNS;
 
 /**
  * RocketMQDynamicTableFactory.
@@ -123,6 +127,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_DELAY_LEVEL_FIELD);
 		options.add(SINK_TOPIC_SELECTOR);
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
+		options.add(SOURCE_METADATA_COLUMNS);
 		return options;
 	}
 
@@ -162,6 +167,10 @@ public class RocketMQDynamicTableFactory implements
 				keyByFields ->
 					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
 			);
+			config.getOptional(SOURCE_METADATA_COLUMNS).ifPresent(
+				metadataInfo ->
+					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema)
+			);
 		} else {
 			rocketMQConfig.setTopic(config.getOptional(TOPIC).orElseThrow(
 				() -> new FlinkRuntimeException(
@@ -172,5 +181,22 @@ public class RocketMQDynamicTableFactory implements
 		}
 
 		return rocketMQConfig;
+	}
+
+	private void validateAndSetMetadata(String metaInfo, RocketMQConfig<RowData> config, TableSchema schema) {
+		DynamicSourceMetadataFactory dynamicSourceMetadataFactory = new DynamicSourceMetadataFactory() {
+			@Override
+			protected DynamicSourceMetadata findMetadata(String name) {
+				return RocketMQMetadata.findByName(name);
+			}
+
+			@Override
+			protected String getMetadataValues() {
+				return RocketMQMetadata.getValuesString();
+			}
+		};
+		Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap =
+			dynamicSourceMetadataFactory.parseWithSchema(metaInfo, schema);
+		config.setMetadataMap(metadataMap);
 	}
 }

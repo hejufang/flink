@@ -101,7 +101,7 @@ public final class FactoryUtil {
 		.withDescription(
 			"The parallelism of connector.");
 
-	public static final ConfigOption<String> SOURCE_METADATA_COLUMN = ConfigOptions.key("scan.metadata-fields-mapping")
+	public static final ConfigOption<String> SOURCE_METADATA_COLUMNS = ConfigOptions.key("scan.metadata-fields-mapping")
 		.stringType()
 		.noDefaultValue()
 		.withDescription(

@@ -30,9 +30,8 @@ import java.util.stream.Collectors;
 
 /**
  * DynamicSourceMetadataFactory that parse and validate metadata.
- * @param <T> Record from
  */
-public abstract class DynamicSourceMetadataFactory<T> implements Serializable {
+public abstract class DynamicSourceMetadataFactory implements Serializable {
 	/**
 	 * DynamicSourceMetadata.
 	 */

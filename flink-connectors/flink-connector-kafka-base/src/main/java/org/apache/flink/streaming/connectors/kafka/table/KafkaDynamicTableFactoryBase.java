@@ -41,8 +41,6 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -198,7 +196,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
-		options.add(FactoryUtil.SOURCE_METADATA_COLUMN);
+		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		return options;
 	}
 
@@ -216,7 +214,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		readableConfig.getOptional(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(sourceConfig::setKafkaResetNewPartition);
 		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_INTERVAL).ifPresent(sourceConfig::setScanSampleInterval);
 		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_NUM).ifPresent(sourceConfig::setScanSampleNum);
-		readableConfig.getOptional(FactoryUtil.SOURCE_METADATA_COLUMN).ifPresent(
+		readableConfig.getOptional(FactoryUtil.SOURCE_METADATA_COLUMNS).ifPresent(
 			metaDataInfo -> validateAndSetMetaInfo(metaDataInfo, tableSchema, sourceConfig)
 		);
 		readableConfig.getOptional(SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL).ifPresent(
@@ -236,7 +234,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 	}
 
 	private void validateAndSetMetaInfo(String metaInfo, TableSchema tableSchema, KafkaSourceConfig sourceConfig) {
-		DynamicSourceMetadataFactory<ConsumerRecord<byte[], byte[]>> factory = new DynamicSourceMetadataFactory<ConsumerRecord<byte[], byte[]>>() {
+		DynamicSourceMetadataFactory factory = new DynamicSourceMetadataFactory() {
 			@Override
 			protected DynamicSourceMetadata findMetadata(String name) {
 				return Metadata.findByName(name);

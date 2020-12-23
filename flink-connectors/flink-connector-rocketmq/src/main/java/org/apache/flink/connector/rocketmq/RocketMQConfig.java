@@ -19,6 +19,9 @@ package org.apache.flink.connector.rocketmq;
 
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
+import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
+
+import java.util.Map;
 
 /**
  * RocketMQConfig.
@@ -34,6 +37,7 @@ public class RocketMQConfig<T> {
 	private int sendBatchSize;
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 	private int[] keyByFields;
+	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -113,5 +117,13 @@ public class RocketMQConfig<T> {
 
 	public void setKeyByFields(int[] keyByFields) {
 		this.keyByFields = keyByFields;
+	}
+
+	public Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> getMetadataMap() {
+		return metadataMap;
+	}
+
+	public void setMetadataMap(Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap) {
+		this.metadataMap = metadataMap;
 	}
 }

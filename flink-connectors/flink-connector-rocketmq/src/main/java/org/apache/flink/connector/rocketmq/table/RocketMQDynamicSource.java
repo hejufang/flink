@@ -20,6 +20,7 @@ package org.apache.flink.connector.rocketmq.table;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumer;
+import org.apache.flink.connector.rocketmq.RocketMQMetadata;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchemaWrapper;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -27,8 +28,15 @@ import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
+import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.util.Collector;
+import org.apache.flink.util.FlinkRuntimeException;
+
+import com.bytedance.mqproxy.proto.MessageExt;
+import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 
 import java.util.Map;
 
@@ -61,7 +69,7 @@ public class RocketMQDynamicSource implements ScanTableSource {
 	public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
 		DeserializationSchema<RowData> schema = decodingFormat.createRuntimeDecoder(runtimeProviderContext, outputDataType);
 		RocketMQConsumer<RowData> consumer =
-			new RocketMQConsumer<>(new RocketMQDeserializationSchemaWrapper<>(schema), props, rocketMQConfig);
+			new RocketMQConsumer<>(createDeserializationSchema(schema), props, rocketMQConfig);
 		return SourceFunctionProvider.of(consumer, false);
 	}
 
@@ -73,5 +81,72 @@ public class RocketMQDynamicSource implements ScanTableSource {
 	@Override
 	public String asSummaryString() {
 		return RocketMQOptions.CONNECTOR_TYPE_VALUE_ROCKETMQ;
+	}
+
+	private RocketMQDeserializationSchemaWrapper<RowData> createDeserializationSchema(
+			DeserializationSchema<RowData> schema) {
+		if (rocketMQConfig.getMetadataMap() != null) {
+			return new RocketMQWithMetadataDeserializationSchema(
+				outputDataType.getChildren().size(), schema, rocketMQConfig.getMetadataMap());
+		} else {
+			return new RocketMQDeserializationSchemaWrapper<>(schema);
+		}
+	}
+
+	private static final class RocketMQWithMetadataDeserializationSchema
+			extends RocketMQDeserializationSchemaWrapper<RowData> {
+		private final int outFieldNum;
+		private final Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
+
+		public RocketMQWithMetadataDeserializationSchema(
+				int outFieldNum,
+				DeserializationSchema<RowData> deserializationSchema,
+				Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap) {
+			super(deserializationSchema);
+			assert deserializationSchema.getProducedType().getArity() + metadataMap.size() == outFieldNum;
+			this.metadataMap = metadataMap;
+			this.outFieldNum = outFieldNum;
+		}
+
+		@Override
+		public RowData deserialize(MessageQueue messageQueue, MessageExt record) throws Exception {
+			return addMetadata(record, super.deserialize(messageQueue, record));
+		}
+
+		@Override
+		public void deserialize(byte[] message, Collector<RowData> out) throws Exception {
+			throw new FlinkRuntimeException("Shouldn't reach here.");
+		}
+
+		private RowData addMetadata(MessageExt record, RowData rowData) {
+			GenericRowData oldRowData = (GenericRowData) rowData;
+			GenericRowData newRowData = new GenericRowData(outFieldNum);
+			for (int i = 0, j = 0; i < rowData.getArity(); i++) {
+				RocketMQMetadata metadata = (RocketMQMetadata) this.metadataMap.get(i);
+				if (metadata != null) {
+					newRowData.setField(i, getMetadata(record, metadata));
+				} else {
+					newRowData.setField(i, oldRowData.getField(j++));
+				}
+			}
+			return rowData;
+		}
+
+		private Object getMetadata(MessageExt record, RocketMQMetadata metadata) {
+			switch (metadata) {
+				case OFFSET:
+					return record.getQueueOffset();
+				case TIMESTAMP:
+					return record.getBornTimestamp();
+				case QUEUE_ID:
+					return (long) record.getMessageQueue().getQueueId();
+				case BROKER_NAME:
+					return record.getMessageQueue().getBrokerName();
+				case MESSAGE_ID:
+					return record.getMsgId();
+				default:
+					throw new FlinkRuntimeException("Unsupported metadata: " + metadata.getMetadata());
+			}
+		}
 	}
 }
