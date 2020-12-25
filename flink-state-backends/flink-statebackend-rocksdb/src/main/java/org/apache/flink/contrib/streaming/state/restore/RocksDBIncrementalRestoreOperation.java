@@ -190,7 +190,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				transferRemoteStateToLocalDirectory(tmpRestoreInstancePath, stateHandle));
 		} catch (Throwable t) {
 			error = true;
-			LOG.error("Fail to restore state from rocksdb directory {}.", tmpRestoreInstancePath.toString());
+			LOG.error("Fail to restore state from rocksdb directory {}.", tmpRestoreInstancePath.toString(), t);
+			throw t;
 		} finally {
 			// do not clean the directory when error occurs
 			if (!error) {
