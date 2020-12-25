@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Assign message queues by parallelim num.
@@ -59,6 +60,8 @@ public class AllocateMessageQueueStrategyParallelism implements AllocateMessageQ
 				assignMessageQueues.add(messageQueue);
 			}
 		}
+		LOG.info("SubTaskId {}, assigned queues {}", subTaskId,
+			mqAll.stream().map(MessageQueue::toString).collect(Collectors.joining(",")));
 		return assignMessageQueues;
 	}
 

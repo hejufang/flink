@@ -244,7 +244,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 							try {
 								pullResults[0] = consumer.pull(mq, tag, offset, pullBatchSize);
 							} catch (Exception e) {
-								throw new FlinkRuntimeException(e);
+								throw new FlinkRuntimeException("Failed to pull data from " + mq.toString(), e);
 							}
 						}
 					}, strategy);
