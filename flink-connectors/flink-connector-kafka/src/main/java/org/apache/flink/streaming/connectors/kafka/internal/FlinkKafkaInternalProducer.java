@@ -77,6 +77,7 @@ public class FlinkKafkaInternalProducer<K, V> implements Producer<K, V> {
 	public FlinkKafkaInternalProducer(Properties properties) {
 		transactionalId = properties.getProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
 		kafkaProducer = new BytedKafkaProducer<>(properties);
+		kafkaProducer.initProducer();
 		producerClosingLock = new Object();
 		closed = false;
 	}
