@@ -25,6 +25,8 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
@@ -41,7 +43,9 @@ import org.apache.flink.runtime.heartbeat.HeartbeatServices;
 import org.apache.flink.runtime.heartbeat.HeartbeatTarget;
 import org.apache.flink.runtime.heartbeat.NoOpHeartbeatManager;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServices;
+import org.apache.flink.runtime.io.network.netty.exception.RemoteTransportException;
 import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
+import org.apache.flink.runtime.io.network.partition.PartitionException;
 import org.apache.flink.runtime.io.network.partition.PartitionTrackerFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -208,6 +212,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final JobMasterPartitionTracker partitionTracker;
 
+	private final RemoteBlacklistReporter remoteBlacklistReporter;
+
 	// ------------------------------------------------------------------------
 
 	public JobMaster(
@@ -270,6 +276,13 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		this.shuffleMaster = checkNotNull(shuffleMaster);
 
+		this.remoteBlacklistReporter = BlacklistUtil.createRemoteBlacklistReporter(
+				jobMasterConfiguration.getConfiguration(),
+				jobGraph.getJobID(),
+				rpcTimeout);
+		this.remoteBlacklistReporter.addIgnoreExceptionClass(RemoteTransportException.class);
+		this.remoteBlacklistReporter.addIgnoreExceptionClass(PartitionException.class);
+
 		this.jobManagerJobMetricGroup = jobMetricGroupFactory.create(jobGraph);
 		this.schedulerNG = createScheduler(jobManagerJobMetricGroup);
 		this.jobStatusListener = null;
@@ -300,7 +313,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			jobManagerJobMetricGroup,
 			jobMasterConfiguration.getSlotRequestTimeout(),
 			shuffleMaster,
-			partitionTracker);
+			partitionTracker,
+			remoteBlacklistReporter);
 	}
 
 	//----------------------------------------------------------------------------------------------
@@ -361,6 +375,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		// shut down will internally release all registered slots
 		slotPool.close();
+
+		remoteBlacklistReporter.close();
 
 		return CompletableFuture.completedFuture(null);
 	}
@@ -772,6 +788,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		// start the slot pool make sure the slot pool now accepts messages for this leader
 		slotPool.start(getFencingToken(), getAddress(), getMainThreadExecutor());
 		scheduler.start(getMainThreadExecutor());
+		remoteBlacklistReporter.start(getFencingToken(), getMainThreadExecutor());
 
 		//TODO: Remove once the ZooKeeperLeaderRetrieval returns the stored address upon start
 		// try to reconnect to previously known leader
@@ -828,6 +845,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 		// the slot pool stops receiving messages and clears its pooled slots
 		slotPool.suspend();
+
+		remoteBlacklistReporter.suspend();
 
 		// disconnect from resource manager:
 		closeResourceManagerConnection(cause);
@@ -1019,6 +1038,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 			slotPool.connectToResourceManager(resourceManagerGateway);
 
+			remoteBlacklistReporter.connectToResourceManager(resourceManagerGateway);
+
 			resourceManagerHeartbeatManager.monitorTarget(resourceManagerResourceId, new HeartbeatTarget<Void>() {
 				@Override
 				public void receiveHeartbeat(ResourceID resourceID, Void payload) {
@@ -1063,6 +1084,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		ResourceManagerGateway resourceManagerGateway = establishedResourceManagerConnection.getResourceManagerGateway();
 		resourceManagerGateway.disconnectJobManager(jobGraph.getJobID(), cause);
 		slotPool.disconnectResourceManager();
+		remoteBlacklistReporter.disconnectResourceManager();
 	}
 
 	//----------------------------------------------------------------------------------------------

@@ -136,15 +136,15 @@ common:
   yarn.gang-scheduler.max-retry-times: 5
   yarn.gang-scheduler.downgrade-timeout-ms: 1800000
 
-  # blacklist
-  blacklist.enabled: true
-  blacklist.job.max-task-failure-per-host: 2
-  blacklist.session.max-job-failure-per-host: 2
-  blacklist.session.max-taskmanager-failure-per-host: 2
-  blacklist.job-blacklist-length: 10
-  blacklist.session-blacklist-length: 10
-  blacklist.failure-timeout: "60 min"
-  blacklist.check-interval: "5 min"
+# blacklist
+  blacklist.taskmanager.enabled: true
+  blacklist.task.enabled: true
+  blacklist.max-task-failure-num-per-host: 5
+  blacklist.max-taskmanager-failure-num-per-host: 2
+  blacklist.task-blacklist-max-length: 10
+  blacklist.taskmanager-blacklist-max-length: 50
+  blacklist.failure-timeout: "20 min"
+  blacklist.check-interval: "1 min"
 
   # Table & SQL configurations.
   # validate before execute, e.g. hive permission check.

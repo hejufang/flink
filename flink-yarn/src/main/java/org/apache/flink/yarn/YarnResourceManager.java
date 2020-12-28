@@ -25,6 +25,8 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
@@ -43,6 +45,7 @@ import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
+import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
@@ -52,6 +55,8 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
+import org.apache.flink.yarn.exceptions.ContainerCompletedException;
+import org.apache.flink.yarn.exceptions.ExpectedContainerCompletedException;
 import org.apache.flink.yarn.smartresources.ContainerResources;
 import org.apache.flink.yarn.smartresources.SmartResourceManager;
 import org.apache.flink.yarn.smartresources.UpdateContainersResources;
@@ -86,6 +91,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -149,6 +155,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private SmartResourceManager smartResourceManager;
 	private Thread containerResourcesUpdater;
 
+	private final Set<String> yarnBlackedHosts;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -180,6 +188,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			failureRater);
 		this.yarnConfig = new YarnConfiguration();
 		Utils.updateYarnConfig(this.yarnConfig, this.flinkConfig);
+
+		blacklistReporter.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
 
 		this.workerNodeMap = new ConcurrentHashMap<>();
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(
@@ -231,6 +241,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			WorkerSpecContainerResourceAdapter.MatchingStrategy.IGNORE_VCORE;
 
 		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
+		this.yarnBlackedHosts = new HashSet<>();
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(
@@ -407,6 +418,38 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		return workerNodeMap.get(resourceID);
 	}
 
+	@Override
+	public void onBlacklistUpdated() {
+		Map<String, HostFailure> newBlackedHosts = blacklistTracker.getBlackedHosts();
+
+		Set<String> blacklistAddition = new HashSet<>(newBlackedHosts.keySet());
+		blacklistAddition.removeAll(yarnBlackedHosts);
+
+		Set<String> blacklistRemoval = new HashSet<>(yarnBlackedHosts);
+		blacklistRemoval.removeAll(newBlackedHosts.keySet());
+
+		yarnBlackedHosts.clear();
+		yarnBlackedHosts.addAll(newBlackedHosts.keySet());
+		resourceManagerClient.updateBlacklist(new ArrayList<>(blacklistAddition), new ArrayList<>(blacklistRemoval));
+		log.info("BlacklistUpdated, yarnBlackedHosts: {}, blacklistAddition: {}, blacklistRemoval: {}",
+				yarnBlackedHosts, blacklistAddition, blacklistRemoval);
+
+		// release all blacked containers.
+		newBlackedHosts.keySet().forEach(hostname -> {
+			Set<ResourceID> resourceIDS = blacklistTracker.getBlackedResources(BlacklistUtil.FailureType.TASK, hostname);
+			resourceIDS.forEach(resourceID -> {
+				if (workerNodeMap.containsKey(resourceID)) {
+					WorkerRegistration<YarnWorkerNode> registration = getTaskExecutors().get(resourceID);
+					if (registration != null) {
+						releaseResource(
+								registration.getInstanceID(),
+								new Exception("worker " + resourceID + " in blacklist."));
+					}
+				}
+			});
+		});
+	}
+
 	// ------------------------------------------------------------------------
 	//  AMRMClientAsync CallbackHandler methods
 	// ------------------------------------------------------------------------
@@ -434,7 +477,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 								yarnWorkerNode.getContainer().getNodeId().getHost(),
 								containerStatus.getExitStatus(),
 								containerStatus.getDiagnostics());
-						recordWorkerFailure();
+						ContainerCompletedException containerCompletedException = ContainerCompletedException.fromExitCode(
+								containerStatus.getExitStatus(),
+								containerStatus.getDiagnostics());
+						recordWorkerFailure(yarnWorkerNode.getContainer().getNodeId().getHost(), resourceId, containerCompletedException);
 						// Container completed unexpectedly ~> start a new one
 						requestYarnContainerIfRequired();
 					}
@@ -490,8 +536,12 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		int numAccepted = 0;
 		while (containerIterator.hasNext() && pendingWorkerSpecIterator.hasNext()) {
-			final WorkerResourceSpec workerResourceSpec = pendingWorkerSpecIterator.next();
 			final Container container = containerIterator.next();
+			if (yarnBlackedHosts.contains(container.getNodeId().getHost())) {
+				returnBlackedContainer(container);
+				continue;
+			}
+			final WorkerResourceSpec workerResourceSpec = pendingWorkerSpecIterator.next();
 			final AMRMClient.ContainerRequest pendingRequest = pendingRequestsIterator.next();
 			final ResourceID resourceId = getContainerResourceId(container);
 			log.info("Received new container: {} on {}", container.getId(), container.getNodeId().getHost());
@@ -541,17 +591,25 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		final ResourceID resourceId = new ResourceID(containerId.toString());
 		// release the failed container
-		workerNodeMap.remove(resourceId);
-		resourceManagerClient.releaseAssignedContainer(containerId);
-		notifyAllocatedWorkerStopped(resourceId);
-		// and ask for a new one
-		recordWorkerFailure();
-		requestYarnContainerIfRequired();
+		YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
+		if (yarnWorkerNode != null) {
+			resourceManagerClient.releaseAssignedContainer(containerId);
+			notifyAllocatedWorkerStopped(resourceId);
+			// and ask for a new one
+			recordWorkerFailure(yarnWorkerNode.getContainer().getNodeId().getHost(), resourceId, throwable);
+			requestYarnContainerIfRequired();
+		}
 	}
 
 	private void returnExcessContainer(Container excessContainer) {
 		log.info("Returning excess container {}.", excessContainer.getId());
 		resourceManagerClient.releaseAssignedContainer(excessContainer.getId());
+	}
+
+	private void returnBlackedContainer(Container container) {
+		log.info("Returning blacked container {}.", container.getId());
+		resourceManagerClient.releaseAssignedContainer(container.getId());
+		requestYarnContainerIfRequired();
 	}
 
 	private void removeContainerRequest(AMRMClient.ContainerRequest pendingContainerRequest, WorkerResourceSpec workerResourceSpec) {

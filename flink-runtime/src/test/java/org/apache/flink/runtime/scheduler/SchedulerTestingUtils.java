@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.blob.VoidBlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
@@ -513,7 +514,8 @@ public class SchedulerTestingUtils {
 				executionVertexOperations,
 				executionVertexVersioner,
 				executionSlotAllocatorFactory,
-				new NoOpSpeculationStrategy.Factory());
+				new NoOpSpeculationStrategy.Factory(),
+				BlacklistUtil.createNoOpRemoteBlacklistReporter());
 		}
 	}
 }

@@ -430,6 +430,10 @@ public abstract class SchedulerBase implements SchedulerNG {
 		return executionGraph.getAllVertices().get(jobVertexId);
 	}
 
+	public Optional<Execution> getExecution(final ExecutionAttemptID executionAttemptID) {
+		return Optional.ofNullable(executionGraph.getRegisteredExecutions().get(executionAttemptID));
+	}
+
 	protected JobGraph getJobGraph() {
 		return jobGraph;
 	}
@@ -507,16 +511,16 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	@Override
 	public final boolean updateTaskExecutionState(final TaskExecutionState taskExecutionState) {
-		final Optional<ExecutionVertexID> executionVertexId = getExecutionVertexId(taskExecutionState.getID());
+		final Optional<Execution> execution = getExecution(taskExecutionState.getID());
 		final boolean isCopyExecution = isCopyExecution(taskExecutionState.getID());
 
 		boolean updateSuccess = executionGraph.updateState(taskExecutionState);
 
 		if (updateSuccess) {
-			checkState(executionVertexId.isPresent());
+			checkState(execution.isPresent());
 
-			if (isNotifiable(executionVertexId.get(), taskExecutionState, isCopyExecution)) {
-				updateTaskExecutionStateInternal(executionVertexId.get(), taskExecutionState);
+			if (isNotifiable(getExecutionVertexId(execution.get()), taskExecutionState, isCopyExecution)) {
+				updateTaskExecutionStateInternal(getExecutionVertexId(execution.get()), taskExecutionState, execution.get().getAssignedResourceLocation());
 			}
 			return true;
 		} else {
@@ -564,7 +568,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		return false;
 	}
 
-	protected void updateTaskExecutionStateInternal(final ExecutionVertexID executionVertexId, final TaskExecutionState taskExecutionState) {
+	protected void updateTaskExecutionStateInternal(final ExecutionVertexID executionVertexId, final TaskExecutionState taskExecutionState, @Nullable final TaskManagerLocation taskManagerLocation) {
 	}
 
 	@Override

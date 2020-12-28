@@ -94,7 +94,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 			fatalErrorHandler,
 			resourceManagerMetricGroup,
 			AkkaUtils.getTimeoutAsTime(flinkConfig),
-			failureRater);
+			failureRater,
+			flinkConfig);
 
 		this.flinkConfig = flinkConfig;
 		this.env = env;

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.resourcemanager;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -278,4 +279,24 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	default CompletableFuture<SmartResourcesStats> requestSmartResourcesStats(@RpcTimeout Time timeout) {
 		throw new UnsupportedOperationException();
 	}
+
+	default void clearBlacklist(
+			JobID jobID,
+			JobMasterId jobMasterId,
+			@RpcTimeout Time timeout) { }
+
+	default void onTaskFailure(
+			JobID jobID,
+			JobMasterId jobMasterId,
+			BlacklistUtil.FailureType failureType,
+			String hostname,
+			ResourceID taskManagerId,
+			Throwable cause,
+			long timestamp,
+			@RpcTimeout Time timeout) { }
+
+	default void addIgnoreExceptionClass(
+			JobID jobID,
+			JobMasterId jobMasterId,
+			Class<? extends Throwable> exceptionClass) { }
 }

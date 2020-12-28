@@ -22,6 +22,11 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.blacklist.BlacklistActions;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.reporter.BlacklistReporter;
+import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -139,6 +144,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final ResourceManagerPartitionTracker clusterPartitionTracker;
 
+	protected final BlacklistTracker blacklistTracker;
+
+	protected final BlacklistReporter blacklistReporter;
+
 	private final ClusterInformation clusterInformation;
 
 	private final ResourceManagerMetricGroup resourceManagerMetricGroup;
@@ -164,6 +173,34 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private CompletableFuture<Void> clearStateFuture = CompletableFuture.completedFuture(null);
 
 	public ResourceManager(
+			RpcService rpcService,
+			ResourceID resourceId,
+			HighAvailabilityServices highAvailabilityServices,
+			HeartbeatServices heartbeatServices,
+			SlotManager slotManager,
+			ResourceManagerPartitionTrackerFactory clusterPartitionTrackerFactory,
+			JobLeaderIdService jobLeaderIdService,
+			ClusterInformation clusterInformation,
+			FatalErrorHandler fatalErrorHandler,
+			ResourceManagerMetricGroup resourceManagerMetricGroup,
+			Time rpcTimeout,
+			FailureRater failureRater) {
+		this(rpcService,
+				resourceId,
+				highAvailabilityServices,
+				heartbeatServices,
+				slotManager,
+				clusterPartitionTrackerFactory,
+				jobLeaderIdService,
+				clusterInformation,
+				fatalErrorHandler,
+				resourceManagerMetricGroup,
+				rpcTimeout,
+				failureRater,
+				new Configuration());
+	}
+
+	public ResourceManager(
 		RpcService rpcService,
 		ResourceID resourceId,
 		HighAvailabilityServices highAvailabilityServices,
@@ -175,7 +212,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		FatalErrorHandler fatalErrorHandler,
 		ResourceManagerMetricGroup resourceManagerMetricGroup,
 		Time rpcTimeout,
-		FailureRater failureRater) {
+		FailureRater failureRater,
+		Configuration flinkConfig) {
 
 		super(rpcService, AkkaRpcServiceUtils.createRandomName(RESOURCE_MANAGER_NAME), null);
 
@@ -205,6 +243,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					throw new CompletionException(throwable);
 				})
 		);
+
+		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig, resourceManagerMetricGroup);
+		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
 	}
 
 
@@ -268,6 +309,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		try {
 			slotManager.close();
+		} catch (Exception e) {
+			exception = ExceptionUtils.firstOrSuppressed(e, exception);
+		}
+
+		try {
+			blacklistTracker.close();
 		} catch (Exception e) {
 			exception = ExceptionUtils.firstOrSuppressed(e, exception);
 		}
@@ -708,6 +755,74 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	}
 
+	@Override
+	public void clearBlacklist(JobID jobID, JobMasterId jobMasterId, Time timeout) {
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobID);
+		if (jobManagerRegistration != null) {
+			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
+				blacklistTracker.clearAll();
+			} else {
+				log.warn("The job leader's id {} does not match the received id {}.",
+						jobManagerRegistration.getJobMasterId(), jobMasterId);
+			}
+		} else {
+			log.warn("Could not find registered job manager for job {}.", jobID);
+		}
+	}
+
+	@Override
+	public void onTaskFailure(
+			JobID jobID,
+			JobMasterId jobMasterId,
+			BlacklistUtil.FailureType failureType,
+			String hostname,
+			ResourceID taskManagerId,
+			Throwable cause,
+			long timestamp,
+			Time timeout) {
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobID);
+		if (jobManagerRegistration != null) {
+			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
+				final WorkerRegistration<WorkerType> taskExecutor = taskExecutors.get(taskManagerId);
+
+				if (taskExecutor == null) {
+					log.debug("Blacklist will not update, because taskExecutor {} not exists.", taskManagerId);
+				} else {
+					blacklistTracker.onFailure(
+							failureType,
+							taskExecutor.getTaskExecutorGateway().getHostname(),
+							taskManagerId,
+							cause,
+							timestamp);
+				}
+			} else {
+				log.warn("The job leader's id {} does not match the received id {}.",
+						jobManagerRegistration.getJobMasterId(), jobMasterId);
+			}
+		} else {
+			log.warn("Could not find registered job manager for job {}.", jobID);
+		}
+	}
+
+	@Override
+	public void addIgnoreExceptionClass(JobID jobID, JobMasterId jobMasterId, Class<? extends Throwable> exceptionClass) {
+		JobManagerRegistration jobManagerRegistration = jobManagerRegistrations.get(jobID);
+		if (jobManagerRegistration != null) {
+			if (jobManagerRegistration.getJobMasterId().equals(jobMasterId)) {
+				blacklistTracker.addIgnoreExceptionClass(exceptionClass);
+			} else {
+				log.warn("The job leader's id {} does not match the received id {}.",
+						jobManagerRegistration.getJobMasterId(), jobMasterId);
+			}
+		} else {
+			log.warn("Could not find registered job manager for job {}.", jobID);
+		}
+	}
+
+	public Map<ResourceID, WorkerRegistration<WorkerType>> getTaskExecutors() {
+		return taskExecutors;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Internal methods
 	// ------------------------------------------------------------------------
@@ -879,6 +994,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				new RuntimeException(String.format("Maximum number of failed workers %f"
 					+ " is detected in Resource Manager", failureRater.getCurrentFailureRate()))));
 
+		}
+	}
+
+	protected void recordWorkerFailure(String hostname, ResourceID resourceID, Throwable cause) {
+		recordWorkerFailure();
+		try {
+			blacklistReporter.onFailure(hostname, resourceID, cause, System.currentTimeMillis());
+		} catch (Exception e) {
+			log.warn("Report failure to blacklist error.", e);
 		}
 	}
 
@@ -1068,6 +1192,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		startHeartbeatServices();
 
 		slotManager.start(getFencingToken(), getMainThreadExecutor(), new ResourceActionsImpl());
+		blacklistTracker.start(getMainThreadExecutor(), new BlacklistActionsImpl());
 	}
 
 	/**
@@ -1084,6 +1209,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				setFencingToken(null);
 
 				slotManager.suspend();
+
+				blacklistTracker.clearAll();
 
 				stopHeartbeatServices();
 
@@ -1198,6 +1325,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		slotManager.setFailUnfulfillableRequest(failUnfulfillableRequest);
 	}
 
+	public void onBlacklistUpdated() {
+		log.info("Received onBlacklistUpdated, but nothing can do.");
+	}
+
 	// ------------------------------------------------------------------------
 	//  Static utility classes
 	// ------------------------------------------------------------------------
@@ -1225,6 +1356,14 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			if (jobManagerRegistration != null) {
 				jobManagerRegistration.getJobManagerGateway().notifyAllocationFailure(allocationId, cause);
 			}
+		}
+	}
+
+	private class BlacklistActionsImpl implements BlacklistActions {
+		@Override
+		public void notifyBlacklistUpdated() {
+			validateRunsInMainThread();
+			onBlacklistUpdated();
 		}
 	}
 

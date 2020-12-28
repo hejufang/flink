@@ -22,6 +22,7 @@ package org.apache.flink.runtime.scheduler;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.concurrent.FutureUtils;
@@ -49,6 +50,7 @@ import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategy;
 import org.apache.flink.runtime.scheduler.strategy.SchedulingStrategyFactory;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -95,6 +97,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final Set<ExecutionVertexID> verticesWaitingForRestart;
 
+	protected final RemoteBlacklistReporter remoteBlacklistReporter;
+
 	DefaultScheduler(
 		final Logger log,
 		final JobGraph jobGraph,
@@ -116,7 +120,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		final ExecutionVertexOperations executionVertexOperations,
 		final ExecutionVertexVersioner executionVertexVersioner,
 		final ExecutionSlotAllocatorFactory executionSlotAllocatorFactory,
-		final SpeculationStrategy.Factory speculationStrategyFactory) throws Exception {
+		final SpeculationStrategy.Factory speculationStrategyFactory,
+		final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
 
 		super(
 			log,
@@ -158,6 +163,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever());
 
 		this.verticesWaitingForRestart = new HashSet<>();
+		this.remoteBlacklistReporter = remoteBlacklistReporter;
 	}
 
 	// ------------------------------------------------------------------------
@@ -177,19 +183,20 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	}
 
 	@Override
-	protected void updateTaskExecutionStateInternal(final ExecutionVertexID executionVertexId, final TaskExecutionState taskExecutionState) {
+	protected void updateTaskExecutionStateInternal(final ExecutionVertexID executionVertexId, final TaskExecutionState taskExecutionState, @Nullable final TaskManagerLocation taskManagerLocation) {
 		schedulingStrategy.onExecutionStateChange(executionVertexId, taskExecutionState.getExecutionState());
-		maybeHandleTaskFailure(taskExecutionState, executionVertexId);
+		maybeHandleTaskFailure(taskExecutionState, executionVertexId, taskManagerLocation);
 	}
 
-	private void maybeHandleTaskFailure(final TaskExecutionState taskExecutionState, final ExecutionVertexID executionVertexId) {
+	private void maybeHandleTaskFailure(final TaskExecutionState taskExecutionState, final ExecutionVertexID executionVertexId, @Nullable final TaskManagerLocation taskManagerLocation) {
 		if (taskExecutionState.getExecutionState() == ExecutionState.FAILED) {
 			final Throwable error = taskExecutionState.getError(userCodeLoader);
-			handleTaskFailure(executionVertexId, error);
+			handleTaskFailure(executionVertexId, error, taskManagerLocation);
 		}
 	}
 
-	private void handleTaskFailure(final ExecutionVertexID executionVertexId, @Nullable final Throwable error) {
+	private void handleTaskFailure(final ExecutionVertexID executionVertexId, @Nullable final Throwable error, @Nullable final TaskManagerLocation taskManagerLocation) {
+		tryReportBlacklist(taskManagerLocation, error);
 		setGlobalFailureCause(error);
 		notifyCoordinatorsAboutTaskFailure(executionVertexId, error);
 		final FailureHandlingResult failureHandlingResult = executionFailureHandler.getFailureHandlingResult(executionVertexId, error);
@@ -210,6 +217,20 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		log.info("Trying to recover from a global failure.", error);
 		final FailureHandlingResult failureHandlingResult = executionFailureHandler.getGlobalFailureHandlingResult(error);
 		maybeRestartTasks(failureHandlingResult);
+	}
+
+	private void tryReportBlacklist(TaskManagerLocation taskManagerLocation, Throwable error) {
+		try {
+			if (taskManagerLocation != null) {
+				remoteBlacklistReporter.onFailure(taskManagerLocation.getFQDNHostname(), taskManagerLocation.getResourceID(), error, System.currentTimeMillis());
+			} else if (error instanceof NoResourceAvailableException) {
+				remoteBlacklistReporter.clearBlacklist();
+			} else {
+				log.info("taskManagerLocation is null, not report to blacklist.");
+			}
+		} catch (Throwable t) {
+			log.info("Error while report failure to blacklist tracker", t);
+		}
 	}
 
 	private void maybeRestartTasks(final FailureHandlingResult failureHandlingResult) {
