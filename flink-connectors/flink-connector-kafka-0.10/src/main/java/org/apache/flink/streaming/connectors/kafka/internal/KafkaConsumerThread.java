@@ -488,6 +488,16 @@ public class KafkaConsumerThread<T> extends Thread {
 					// to the committed group offset, so we do not need to do it.
 
 					newPartitionState.setOffset(consumerTmp.position(newPartitionState.getKafkaPartitionHandle()) - 1);
+				} else if (newPartitionState.getOffset() == KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION) {
+					OffsetAndMetadata offsetAndMetadata = consumerTmp.committed(newPartitionState.getKafkaPartitionHandle());
+					long offset;
+					if (offsetAndMetadata == null) {
+						consumerTmp.seekToBeginning(Collections.singletonList(newPartitionState.getKafkaPartitionHandle()));
+						offset = consumerTmp.position(newPartitionState.getKafkaPartitionHandle());
+					} else {
+						offset = offsetAndMetadata.offset();
+					}
+					newPartitionState.setOffset(offset - 1);
 				} else {
 					consumerTmp.seek(newPartitionState.getKafkaPartitionHandle(), newPartitionState.getOffset() + 1);
 				}
