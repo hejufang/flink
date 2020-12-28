@@ -140,5 +140,9 @@ non-global:
         cacheRequestCount,
         cacheEvictCount,
         cacheLoadTime,
-        cacheHitRate
+        cacheHitRate,
+        cacheDeleteCount,
+        cacheEvictWithWriteDiskCount,
+        cacheLoadWithInvalidDataCount,
+        totalDiskOperationCount
     ]
