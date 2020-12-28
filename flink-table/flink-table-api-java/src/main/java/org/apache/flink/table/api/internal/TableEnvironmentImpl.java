@@ -91,6 +91,7 @@ import org.apache.flink.table.operations.ExplainOperation;
 import org.apache.flink.table.operations.ModifyOperation;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
+import org.apache.flink.table.operations.SetOperation;
 import org.apache.flink.table.operations.ShowCatalogsOperation;
 import org.apache.flink.table.operations.ShowDatabasesOperation;
 import org.apache.flink.table.operations.ShowFunctionsOperation;
@@ -1176,6 +1177,10 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			}
 		} else if (operation instanceof QueryOperation) {
 			return executeInternal((QueryOperation) operation);
+		} else if (operation instanceof SetOperation) {
+			SetOperation setOperation = (SetOperation) operation;
+			this.getConfig().getConfiguration().setString(setOperation.getName(), setOperation.getValue());
+			return TableResultImpl.TABLE_RESULT_OK;
 		} else {
 			throw new TableException(UNSUPPORTED_QUERY_IN_EXECUTE_SQL_MSG);
 		}

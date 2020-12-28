@@ -81,6 +81,7 @@ import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.DescribeTableOperation;
 import org.apache.flink.table.operations.ExplainOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.SetOperation;
 import org.apache.flink.table.operations.ShowCatalogsOperation;
 import org.apache.flink.table.operations.ShowDatabasesOperation;
 import org.apache.flink.table.operations.ShowFunctionsOperation;
@@ -134,6 +135,7 @@ import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlSetOption;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlParser;
@@ -250,6 +252,8 @@ public class SqlToOperationConverter {
 			return Optional.of(converter.convertAddResources((SqlAddResource) validated));
 		} else if (validated instanceof SqlAnalyzeTable) {
 			return Optional.of(converter.convertAnalyzeTable((SqlAnalyzeTable) validated));
+		} else if (validated instanceof SqlSetOption) {
+			return Optional.of(converter.convertSet((SqlSetOption) validated));
 		} else {
 			return Optional.empty();
 		}
@@ -805,6 +809,12 @@ public class SqlToOperationConverter {
 		boolean isForAllColumns = sqlAnalyzeTable.isForAllColumns();
 		boolean isNoScan = sqlAnalyzeTable.isNoScan();
 		return new AnalyzeTableOperation(identifier, partitionWithValues, columns, isForAllColumns, isNoScan);
+	}
+
+	private Operation convertSet(SqlSetOption sqlSetOption) {
+		String name = sqlSetOption.getName().toString();
+		String value = sqlSetOption.getValue().toString();
+		return new SetOperation(name, value);
 	}
 
 	/** Convert EXPLAIN statement. */
