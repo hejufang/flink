@@ -17,7 +17,7 @@
  */
 package org.apache.flink.table.planner.codegen
 
-import org.apache.flink.api.common.functions.FlatMapFunction
+import org.apache.flink.api.common.functions.{FlatMapFunction, MapFunction}
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.java.typeutils.RowTypeInfo
 import org.apache.flink.configuration.Configuration
@@ -105,6 +105,46 @@ object LookupJoinCodeGenerator {
       ctx,
       "LookupFunction",
       classOf[FlatMapFunction[RowData, RowData]],
+      body,
+      returnType,
+      inputType)
+  }
+
+
+  def generateLookupKeyConvertFunction(
+      config: TableConfig,
+      typeFactory: FlinkTypeFactory,
+      inputType: LogicalType,
+      returnType: LogicalType,
+      tableReturnTypeInfo: TypeInformation[_],
+      lookupKeyInOrder: Array[Int],
+      allLookupFields: Map[Int, LookupKey],
+      enableObjectReuse: Boolean)
+  : GeneratedFunction[MapFunction[RowData, Array[Object]]]={
+    val ctx = CodeGeneratorContext(config)
+    val (prepareCode, parameters, nullInParameters) = prepareParameters(
+      ctx,
+      typeFactory,
+      inputType,
+      lookupKeyInOrder,
+      allLookupFields,
+      tableReturnTypeInfo.isInstanceOf[RowTypeInfo],
+      enableObjectReuse)
+
+    val body =
+    s"""
+       |$prepareCode
+       |if ($nullInParameters){
+       |  return null;
+       |}else{
+       |  return new Object[]{$parameters};
+       |}
+      """.stripMargin
+
+    FunctionCodeGenerator.generateFunction(
+      ctx,
+      "ConvertLookupKeyFunction",
+      classOf[MapFunction[RowData, Array[Object]]],
       body,
       returnType,
       inputType)
