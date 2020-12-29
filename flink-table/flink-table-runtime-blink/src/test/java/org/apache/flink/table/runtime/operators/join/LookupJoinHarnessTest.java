@@ -20,19 +20,27 @@ package org.apache.flink.table.runtime.operators.join;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.typeutils.RowTypeInfo;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.operators.ProcessOperator;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
 import org.apache.flink.table.dataformat.BaseRow;
 import org.apache.flink.table.dataformat.BinaryString;
 import org.apache.flink.table.dataformat.GenericRow;
 import org.apache.flink.table.dataformat.JoinedRow;
+import org.apache.flink.table.functions.MiniBatchTableFunction;
 import org.apache.flink.table.runtime.collector.TableFunctionCollector;
 import org.apache.flink.table.runtime.generated.GeneratedCollectorWrapper;
 import org.apache.flink.table.runtime.generated.GeneratedFunctionWrapper;
+import org.apache.flink.table.runtime.operators.bundle.ListBundleOperator;
+import org.apache.flink.table.runtime.operators.bundle.trigger.CountBundleTrigger;
+import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinBundleFunction;
+import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinBundleWithCalcFunction;
 import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinRunner;
 import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinWithCalcRetryRunner;
 import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinWithCalcRunner;
@@ -40,18 +48,25 @@ import org.apache.flink.table.runtime.operators.join.lookup.LookupJoinWithRetryR
 import org.apache.flink.table.runtime.typeutils.BaseRowSerializer;
 import org.apache.flink.table.runtime.typeutils.BaseRowTypeInfo;
 import org.apache.flink.table.runtime.util.BaseRowHarnessAssertor;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.table.types.utils.TypeConversions;
+import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.table.dataformat.BinaryString.fromString;
 import static org.apache.flink.table.runtime.util.StreamRecordUtils.record;
@@ -60,6 +75,17 @@ import static org.apache.flink.table.runtime.util.StreamRecordUtils.record;
  * Harness tests for {@link LookupJoinRunner} and {@link LookupJoinWithCalcRunner}.
  */
 public class LookupJoinHarnessTest {
+
+	private static final TypeInformation MINI_BATCH_PRODUCE_TYPE_INFO =
+		new RowTypeInfo(Types.INT, Types.STRING);
+	private static final RowType MINI_BATCH_TABLE_SOURCE_ROW_TYPE;
+
+	static{
+		DataType dataType = TypeConversions.fromLegacyInfoToDataType(
+			new RowTypeInfo(Types.INT, Types.STRING)
+		);
+		MINI_BATCH_TABLE_SOURCE_ROW_TYPE = (RowType) TypeConversions.fromDataToLogicalType(dataType);
+	}
 
 	private final TypeSerializer<BaseRow> inSerializer = new BaseRowSerializer(
 		new ExecutionConfig(),
@@ -196,6 +222,157 @@ public class LookupJoinHarnessTest {
 		testHarness.close();
 	}
 
+	@Test
+	public void testMiniBatchLeftJoin() throws Exception {
+		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createMiniBatchHarness(
+			JoinType.LEFT_JOIN,
+			FilterOnTable.WITHOUT_FILTER,
+			5,
+			new TestMiniBatchTableFunction());
+		testHarness.open();
+		// batch 0
+		testHarness.processElement(record(null, "a"));
+		testHarness.processElement(record(1, "a"));
+		testHarness.processElement(record(null, "a"));
+		testHarness.processElement(record(1, "a"));
+		testHarness.processElement(record(null, "a"));
+		// batch 1
+		testHarness.processElement(record(2, "b"));
+		testHarness.processElement(record(3, "c"));
+		testHarness.processElement(record(4, "d"));
+		testHarness.processElement(record(5, "e"));
+		testHarness.processElement(record(2, "b"));
+		//batch 3, test last non-full batch before close
+		testHarness.processElement(record(6, "e"));
+		// must close it to let the last batch run
+		testHarness.close();
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(record(null, "a", null, null));
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+		expectedOutput.add(record(null, "a", null, null));
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+		expectedOutput.add(record(null, "a", null, null));
+		expectedOutput.add(record(2, "b", null, null));
+		expectedOutput.add(record(3, "c", 3, "Jark"));
+		expectedOutput.add(record(3, "c", 3, "Jackson"));
+		expectedOutput.add(record(4, "d", 4, "Fabian"));
+		expectedOutput.add(record(5, "e", null, null));
+		expectedOutput.add(record(2, "b", null, null));
+		expectedOutput.add(record(6, "e", null, null));
+
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+	}
+
+	@Test
+	public void testMiniBatchInnerJoin() throws Exception {
+		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createMiniBatchHarness(
+			JoinType.INNER_JOIN,
+			FilterOnTable.WITHOUT_FILTER,
+			3,
+			new TestMiniBatchTableFunction());
+		testHarness.open();
+		// batch 0
+		testHarness.processElement(record(null, "a"));
+		testHarness.processElement(record(null, "a"));
+		testHarness.processElement(record(1, "a"));
+		//batch 1
+		testHarness.processElement(record(2, "b"));
+		testHarness.processElement(record(3, "c"));
+		testHarness.processElement(record(4, "d"));
+		//batch 2, test last non-full batch before close
+		testHarness.processElement(record(5, "e"));
+		// must close it to let the last batch run
+		testHarness.close();
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+		expectedOutput.add(record(3, "c", 3, "Jark"));
+		expectedOutput.add(record(3, "c", 3, "Jackson"));
+		expectedOutput.add(record(4, "d", 4, "Fabian"));
+
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+	}
+
+	@Test
+	public void testMiniBatchIntervalInnerJoin() throws Exception {
+		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createMiniBatchHarness(
+			JoinType.INNER_JOIN,
+			FilterOnTable.WITHOUT_FILTER,
+			2,
+			new TestMiniBatchTableFunction());
+		testHarness.open();
+		//batch 1
+		testHarness.processElement(record(1, "a"));
+		testHarness.processElement(record(2, "b"));
+		//batch 2
+		testHarness.processElement(record(3, "c"));
+		testHarness.processElement(record(4, "d"));
+		//batch 3, test last non-full batch before close
+		testHarness.processElement(record(1, "a"));
+		//mini batch interval will finish bundle
+		testHarness.processWatermark(System.currentTimeMillis());
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+		expectedOutput.add(record(3, "c", 3, "Jark"));
+		expectedOutput.add(record(3, "c", 3, "Jackson"));
+		expectedOutput.add(record(4, "d", 4, "Fabian"));
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+
+		List<Object> resultList = testHarness.getOutput().stream()
+			//remove watermark from outputList
+			.filter(x -> x instanceof StreamRecord)
+			.collect(Collectors.toList());
+		assertor.assertOutputEquals("output wrong.", expectedOutput, resultList);
+		testHarness.close();
+	}
+
+	@Test
+	public void testMiniBatchInnerJoinWithFilter() throws Exception {
+		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createMiniBatchHarness(
+			JoinType.INNER_JOIN,
+			FilterOnTable.WITH_FILTER,
+			2,
+			new TestMiniBatchTableFunction());
+		testHarness.open();
+		//batch 1
+		testHarness.processElement(record(1, "a"));
+		testHarness.processElement(record(2, "b"));
+		//batch 2
+		testHarness.processElement(record(3, "c"));
+		testHarness.processElement(record(4, "d"));
+		//batch 3, test last non-full batch before close
+		testHarness.processElement(record(5, "e"));
+		// must close it to let the last batch run
+		testHarness.close();
+
+		List<Object> expectedOutput = new ArrayList<>();
+		expectedOutput.add(record(1, "a", 1, "Julian"));
+		expectedOutput.add(record(3, "c", 3, "Jackson"));
+		expectedOutput.add(record(4, "d", 4, "Fabian"));
+
+		assertor.assertOutputEquals("output wrong.", expectedOutput, testHarness.getOutput());
+	}
+
+	@Test(expected = FlinkRuntimeException.class)
+	public void testMiniBatchInnerJoinThrowWrongResultCount() throws Exception {
+		OneInputStreamOperatorTestHarness<BaseRow, BaseRow> testHarness = createMiniBatchHarness(
+			JoinType.INNER_JOIN,
+			FilterOnTable.WITH_FILTER,
+			2,
+			new TestMiniBatchTableFunctionWrongResultCount());
+		testHarness.open();
+		//batch 1
+		try {
+			testHarness.processElement(record(1, "a"));
+			testHarness.processElement(record(2, "b"));
+		} finally {
+			testHarness.close();
+		}
+	}
+
+
 	// ---------------------------------------------------------------------------------
 
 	private OneInputStreamOperatorTestHarness<BaseRow, BaseRow> createHarness(
@@ -251,6 +428,45 @@ public class LookupJoinHarnessTest {
 		return new OneInputStreamOperatorTestHarness<>(
 			operator,
 			inSerializer);
+	}
+
+	private OneInputStreamOperatorTestHarness<BaseRow, BaseRow> createMiniBatchHarness(
+			JoinType joinType,
+			FilterOnTable filterOnTable,
+			int batchSize,
+			MiniBatchTableFunction function) throws Exception {
+		if (filterOnTable == FilterOnTable.WITHOUT_FILTER) {
+			LookupJoinBundleFunction bundleFunction = new LookupJoinBundleFunction(
+				new GeneratedFunctionWrapper(new TestMiniBatchKeyConverterFunction()),
+				new GeneratedCollectorWrapper(new TestingFetcherCollector()),
+				function,
+				MINI_BATCH_TABLE_SOURCE_ROW_TYPE,
+				MINI_BATCH_PRODUCE_TYPE_INFO,
+				joinType == JoinType.LEFT_JOIN,
+				2);
+			ListBundleOperator<BaseRow, BaseRow> bundleOperator = new ListBundleOperator<>(
+				bundleFunction,
+				new CountBundleTrigger(batchSize));
+			return new OneInputStreamOperatorTestHarness<>(
+				bundleOperator,
+				inSerializer);
+		} else {
+			LookupJoinBundleWithCalcFunction bundleFunction = new LookupJoinBundleWithCalcFunction(
+				new GeneratedFunctionWrapper(new TestMiniBatchKeyConverterFunction()),
+				new GeneratedFunctionWrapper(new CalculateOnTemporalTable()),
+				new GeneratedCollectorWrapper(new TestingFetcherCollector()),
+				function,
+				MINI_BATCH_TABLE_SOURCE_ROW_TYPE,
+				MINI_BATCH_PRODUCE_TYPE_INFO,
+				joinType == JoinType.LEFT_JOIN,
+				2);
+			ListBundleOperator<BaseRow, BaseRow> bundleOperator = new ListBundleOperator<>(
+				bundleFunction,
+				new CountBundleTrigger(batchSize));
+			return new OneInputStreamOperatorTestHarness<>(
+				bundleOperator,
+				inSerializer);
+		}
 	}
 
 	/**
@@ -331,6 +547,78 @@ public class LookupJoinHarnessTest {
 			BinaryString name = value.getString(1);
 			if (name.getSizeInBytes() >= 6) {
 				out.collect(value);
+			}
+		}
+	}
+
+	/**
+	 * Test class for mini batch lookup fetch which extends {@link TestMiniBatchTableFunction }.
+	 */
+	public static final class TestMiniBatchTableFunction extends MiniBatchTableFunction<Row> {
+		private static final Map<Integer, List<Row>> data = new HashMap<>();
+
+		public TestMiniBatchTableFunction() {
+			data.put(1, Collections.singletonList(
+				Row.of(1, "Julian")));
+			data.put(3, Arrays.asList(
+				Row.of(3, "Jark"),
+				Row.of(3, "Jackson")));
+			data.put(4, Collections.singletonList(
+				Row.of(4, "Fabian")));
+		}
+
+		@Override
+		public int batchSize() {
+			return 2;
+		}
+
+		@Override
+		public List<Collection<Row>> eval(List<Object[]> keySequenceList) {
+			List<Collection<Row>> resultRows = new ArrayList<>();
+			for (Object[] keys : keySequenceList) {
+				if (!data.containsKey(keys[0])) {
+					resultRows.add(null);
+				} else {
+					List<Row> joinedRows = data.get(keys[0]);
+					Collection<Row> rows = new ArrayList<>();
+					for (Row joinedRow : joinedRows) {
+						rows.add(joinedRow);
+					}
+					resultRows.add(rows);
+				}
+			}
+			return resultRows;
+		}
+	}
+
+	/**
+	 * Test class for mini batch lookup fetch which extends {@link TestMiniBatchTableFunction }.
+	 * It returns empty result.
+	 */
+	public static final class TestMiniBatchTableFunctionWrongResultCount
+		extends MiniBatchTableFunction<BaseRow> {
+
+		public static long serialVersionUID = 1L;
+
+		@Override
+		public List<Collection<BaseRow>> eval(List<Object[]> keySequenceList) {
+			return new ArrayList<>();
+		}
+	}
+
+	/**
+	 * Test class for mini batch key converter function. Convert RowData to Object[] keys.
+	 */
+	public static final class TestMiniBatchKeyConverterFunction implements MapFunction<BaseRow, Object[]> {
+
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		public Object[] map(BaseRow value){
+			if (value.isNullAt(0)) {
+				return null;
+			} else {
+				return new Object[]{value.getInt(0)};
 			}
 		}
 	}

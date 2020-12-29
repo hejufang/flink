@@ -21,6 +21,7 @@ import org.apache.flink.api.common.typeinfo.{BasicTypeInfo, TypeInformation}
 import org.apache.flink.api.java.typeutils.RowTypeInfo
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api.Types
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.scala._
 import org.apache.flink.table.planner.runtime.utils.UserDefinedFunctionTestUtils.TestAddWithOpen
 import org.apache.flink.table.planner.runtime.utils.{InMemoryLookupableTableSource, StreamingTestBase, TestingAppendSink}
@@ -63,6 +64,14 @@ class LookupJoinITCase extends StreamingTestBase {
     .field("age", Types.INT)
     .field("id", Types.LONG)
     .field("name", Types.STRING)
+    .build()
+
+  val userBatchTableSource = InMemoryLookupableTableSource.builder()
+    .data(userData)
+    .field("age", Types.INT)
+    .field("id", Types.LONG)
+    .field("name", Types.STRING)
+    .enableMiniBatch()
     .build()
 
   val userLaterTableSource = InMemoryLookupableTableSource.builder()
@@ -568,6 +577,100 @@ class LookupJoinITCase extends StreamingTestBase {
       "9,Hello world!,11,5")
     assertEquals(expected.sorted, sink.getAppendResults.sorted)
     assertEquals(0, userTableSource.getResourceCounter)
+  }
+
+  @Test
+  def testBatchJoinTemporalTable(): Unit = {
+    tEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED, true)
+    tEnv.getConfig.getConfiguration.setLong(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE, 2L)
+    tEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY, "10s")
+
+    val streamTable = env.fromCollection(data)
+      .toTable(tEnv, 'id, 'len, 'content, 'proctime.proctime)
+    tEnv.registerTable("T", streamTable)
+
+    tEnv.registerTableSource("userTable", userBatchTableSource)
+
+    val sql = "SELECT T.id, T.len, T.content, D.name FROM T JOIN userTable " +
+      "for system_time as of T.proctime AS D ON T.id = D.id"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,12,Julian,Julian",
+      "2,15,Hello,Jark",
+      "3,15,Fabian,Fabian")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+    assertEquals(0, userBatchTableSource.getResourceCounter)
+  }
+
+  @Test
+  def testBatchLeftJoinTemporalTable(): Unit = {
+    tEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED, true)
+    tEnv.getConfig.getConfiguration.setLong(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE, 2L)
+    tEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY, "10s")
+
+    val streamTable = env.fromCollection(data)
+      .toTable(tEnv, 'id, 'len, 'content, 'proctime.proctime)
+    tEnv.registerTable("T", streamTable)
+
+    tEnv.registerTableSource("userTable", userBatchTableSource)
+
+    val sql = "SELECT T.id, T.len, D.name, D.age FROM T LEFT JOIN userTable " +
+      "for system_time as of T.proctime AS D ON T.id = D.id"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "1,12,Julian,11",
+      "2,15,Jark,22",
+      "3,15,Fabian,33",
+      "8,11,null,null",
+      "9,12,null,null")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+    assertEquals(0, userBatchTableSource.getResourceCounter)
+  }
+
+  @Test
+  def testBatchLeftJoinTemporalTableOnNullableKey():Unit = {
+    tEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED, true)
+    tEnv.getConfig.getConfiguration.setLong(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_SIZE, 2L)
+    tEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY, "10s")
+
+    implicit val tpe: TypeInformation[Row] = dataRowType
+    val streamTable = env.fromCollection(dataWithNull)
+      .toTable(tEnv, 'id, 'len, 'content, 'proctime.proctime)
+    tEnv.registerTable("T", streamTable)
+
+    tEnv.registerTableSource("userTable", userBatchTableSource)
+
+    val sql = "SELECT T.id, T.len, D.name FROM T LEFT OUTER JOIN userTable " +
+      "for system_time as of T.proctime AS D ON T.id = D.id"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sql).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "null,15,null",
+      "3,15,Fabian",
+      "null,11,null",
+      "9,12,null")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+    assertEquals(0, userBatchTableSource.getResourceCounter)
   }
 
 }

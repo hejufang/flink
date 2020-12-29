@@ -22,12 +22,11 @@ import org.apache.flink.annotation.VisibleForTesting
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.java.typeutils.RowTypeInfo
 import org.apache.flink.table.api.TableSchema
-import org.apache.flink.table.functions.{AsyncTableFunction, FunctionContext, TableFunction}
-import org.apache.flink.table.planner.runtime.utils.InMemoryLookupableTableSource.{InMemoryAsyncLookupFunction, InMemoryLookupFunction}
+import org.apache.flink.table.functions.{AsyncTableFunction, FunctionContext, MiniBatchTableFunction, TableFunction}
+import org.apache.flink.table.planner.runtime.utils.InMemoryLookupableTableSource.{InMemoryAsyncLookupFunction, InMemoryBatchLookupFunction, InMemoryLookupFunction}
 import org.apache.flink.table.sources._
 import org.apache.flink.types.Row
 import org.apache.flink.util.Preconditions
-
 import java.util
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
@@ -36,6 +35,7 @@ import java.util.function.{Consumer, Supplier}
 
 import scala.annotation.varargs
 import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 /**
@@ -46,13 +46,18 @@ class InMemoryLookupableTableSource(
     fieldTypes: Array[TypeInformation[_]],
     data: List[Row],
     asyncEnabled: Boolean,
-    laterJoinLatency: Int = -1)
+    laterJoinLatency: Int = -1,
+    miniBatchEnabled: Boolean = false)
   extends LookupableTableSource[Row] {
 
   val resourceCounter = new AtomicInteger(0)
 
   override def getLookupFunction(lookupKeys: Array[String]): TableFunction[Row] = {
-    new InMemoryLookupFunction(convertDataToMap(lookupKeys), resourceCounter)
+    if (!miniBatchEnabled) {
+      new InMemoryLookupFunction(convertDataToMap(lookupKeys), resourceCounter)
+    } else {
+      new InMemoryBatchLookupFunction(convertDataToMap(lookupKeys), resourceCounter)
+    }
   }
 
   override def getAsyncLookupFunction(lookupKeys: Array[String]): AsyncTableFunction[Row] = {
@@ -138,6 +143,7 @@ object InMemoryLookupableTableSource {
     private var data: List[Product] = _
     private var asyncEnabled: Boolean = false
     private var laterJoinLatency: Int = -1
+    private var miniBatchEnabled: Boolean = false
 
     /**
       * Sets table data for the table source.
@@ -176,6 +182,11 @@ object InMemoryLookupableTableSource {
       this
     }
 
+    def enableMiniBatch(): Builder = {
+      this.miniBatchEnabled = true
+      this
+    }
+
     /**
       * Apply the current values and constructs a newly-created [[InMemoryLookupableTableSource]].
       *
@@ -194,7 +205,8 @@ object InMemoryLookupableTableSource {
         fieldTypes,
         rowData,
         asyncEnabled,
-        laterJoinLatency
+        laterJoinLatency,
+        miniBatchEnabled
       )
     }
   }
@@ -226,6 +238,40 @@ object InMemoryLookupableTableSource {
       resourceCounter.decrementAndGet()
     }
   }
+
+  /**
+   * A lookup function which find matched rows with the given fields.
+   */
+  private class InMemoryBatchLookupFunction(
+      data: Map[Row, List[Row]],
+      resourceCounter: AtomicInteger)
+    extends MiniBatchTableFunction[Row] {
+
+    override def open(context: FunctionContext): Unit = {
+      resourceCounter.incrementAndGet()
+    }
+
+    @varargs
+    def eval(inputs: AnyRef*): Unit = {
+      throw new IllegalStateException()
+    }
+
+    override def close(): Unit = {
+      resourceCounter.decrementAndGet()
+    }
+
+    override def eval(keySequenceList: util.List[Array[AnyRef]])
+        : util.List[util.Collection[Row]] = {
+      keySequenceList.map(keys => {
+        val keyRow = Row.of(keys: _*)
+        data.get(keyRow) match {
+          case Some(list) => list.asJavaCollection
+          case None => null
+        }
+      }).toList
+    }
+  }
+
 
   /**
     * An async lookup function which find matched rows with the given fields.
