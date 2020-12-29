@@ -39,6 +39,7 @@ import redis.clients.jedis.exceptions.JedisException;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -66,6 +67,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private static final String THREAD_POOL_NAME = "redis-sink-function";
 	private transient Counter writeFailed;
 	private transient ArrayDeque<Tuple2<Boolean, Row>> recordDeque;
+	/**
+	 * 	A buffer that stores reduced insert values, the mapping is [KEY, VALUE].
+	 * 	Note that the buffer only works for {@link RedisDataType#STRING}.
+	 */
+	private transient Map<Object, Object> reduceBuffer;
 	private transient SpringDbPool springDbPool;
 	private transient ClientPool clientPool;
 	private transient int batchCount = 0;
@@ -96,6 +102,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private RedisMode mode;
 	private RedisDataType redisDataType;
 	private int parallelism;
+	private boolean needBufferReduce;
 
 	public int getParallelism() {
 		return parallelism;
@@ -113,7 +120,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	@Override
 	public void open(int taskNumber, int numTasks) throws IOException {
 		recordDeque = new ArrayDeque<>();
-
+		reduceBuffer = new HashMap<>();
 		if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
 			LOG.info("Storage is {}, init abase client pool.", STORAGE_ABASE);
 			springDbPool = RedisUtils.getAbaseClientPool(cluster, psm, table, serverUpdatePeriod, timeout, forceConnectionsSetting,
@@ -165,8 +172,15 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			throw new RuntimeException("Only rows with more than 2 fields (including 2)" +
 				" can be sunk into redis.");
 		}
-
-		recordDeque.add(tuple2);
+		if (record.getField(0) == null) {
+			throw new FlinkRuntimeException(
+				String.format("Redis key can't be null. record: %s", record));
+		}
+		if (needBufferReduce) {
+			addToReduceBuffer(tuple2);
+		} else {
+			recordDeque.add(tuple2);
+		}
 		batchCount++;
 		if (batchCount == batchSize) {
 			flush();
@@ -184,21 +198,11 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 				} else {
 					pipeline = jedis.pipelined();
 				}
-				Tuple2<Boolean, Row>  tuple2;
-				ArrayDeque<Tuple2<Boolean, Row>> tempQueue = recordDeque.clone();
-				while ((tuple2 = tempQueue.poll()) != null) {
-					Row record = tuple2.f1;
-					if (record.getField(0) == null) {
-						throw new FlinkRuntimeException(
-							String.format("Redis key can't be null. record: %s", record));
-					}
-					if (serializationSchema != null) {
-						writeWithSchema(pipeline, record);
-					} else if (INCR_MODE.equalsIgnoreCase(mode.getMode())) {
-						incr(pipeline, record);
-					} else if (INSERT_MODE.equalsIgnoreCase(mode.getMode())) {
-						insert(pipeline, record);
-					}
+				if (needBufferReduce) {
+					executeBatchWithBufferReduce(pipeline);
+				} else {
+					ArrayDeque<Tuple2<Boolean, Row>> tempQueue = recordDeque.clone();
+					executeBatch(pipeline, tempQueue);
 				}
 				List resultList = pipeline.syncAndReturnAll();
 				for (Object o : resultList) {
@@ -214,6 +218,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					}
 				}
 				recordDeque.clear();
+				reduceBuffer.clear();
 				batchCount = 0;
 				return;
 			} catch (Exception e) {
@@ -239,8 +244,54 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		}
 	}
 
-	private void writeWithSchema(Pipeline pipeline, Row record) {
+	private void addToReduceBuffer(Tuple2<Boolean, Row> tuple2) {
+		Row record = tuple2.f1;
 		Object key = record.getField(0);
+		Object value;
+		if (serializationSchema != null) {
+			key = key.toString().getBytes();
+			value = serializeValue(record);
+		} else {
+			value = record.getField(1);
+		}
+		reduceBuffer.put(key, value);
+	}
+
+	private void executeBatchWithBufferReduce(Pipeline pipeline) {
+		reduceBuffer.forEach((key, value) -> {
+			if (value == null) {
+				deleteKey(pipeline, key);
+				return;
+			}
+			if (ttlSeconds > 0) {
+				if (key instanceof byte[] && value instanceof byte[]) {
+					pipeline.setex((byte[]) key, ttlSeconds, (byte[]) value);
+				} else {
+					pipeline.setex(key.toString(), ttlSeconds, value.toString());
+				}
+			} else {
+				if (key instanceof byte[] && value instanceof byte[]) {
+					pipeline.set((byte[]) key, (byte[]) value);
+				} else {
+					pipeline.set(key.toString(), value.toString());
+				}
+			}
+		});
+	}
+
+	private void executeBatch(Pipeline pipeline, ArrayDeque<Tuple2<Boolean, Row>> rowArray) {
+		Tuple2<Boolean, Row>  tuple2;
+		while ((tuple2 = rowArray.poll()) != null) {
+			Row record = tuple2.f1;
+			if (INCR_MODE.equalsIgnoreCase(mode.getMode())) {
+				incr(pipeline, record);
+			} else if (INSERT_MODE.equalsIgnoreCase(mode.getMode())) {
+				insert(pipeline, record);
+			}
+		}
+	}
+
+	private byte[] serializeValue(Row record) {
 		if (skipFormatKey) {
 			int[] fields = new int[record.getArity() - 1];
 			for (int i = 0; i < fields.length; i++) {
@@ -248,18 +299,7 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			}
 			record = Row.project(record, fields);
 		}
-		byte[] valueBytes = serializationSchema.serialize(record);
-		byte[] keyBytes;
-		if (key instanceof byte[]) {
-			keyBytes = (byte[]) key;
-		} else {
-			keyBytes = key.toString().getBytes();
-		}
-		if (ttlSeconds > 0) {
-			pipeline.setex(keyBytes, ttlSeconds, valueBytes);
-		} else {
-			pipeline.set(keyBytes, valueBytes);
-		}
+		return serializationSchema.serialize(record);
 	}
 
 	private void incr(Pipeline pipeline, Row row) {
@@ -336,9 +376,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 
 	private void insert(Pipeline pipeline, Row record) {
 		switch (redisDataType.getType()) {
-			case REDIS_DATATYPE_STRING:
-				writeString(pipeline, record);
-				break;
 			case REDIS_DATATYPE_HASH:
 				writeHash(pipeline, record);
 				break;
@@ -356,29 +393,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 				throw new FlinkRuntimeException(String.format("Unsupported data type, " +
 						"currently supported type: %s, %s, %s, %s, %s", REDIS_DATATYPE_STRING,
 					REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
-		}
-	}
-
-	private void writeString(Pipeline pipeline, Row record) {
-		Object key = record.getField(0);
-		Object value = record.getField(1);
-		if (value == null) {
-			deleteKey(pipeline, key);
-			return;
-		}
-		if (ttlSeconds > 0) {
-			if (key instanceof byte[] && value instanceof byte[]) {
-				pipeline.setex((byte[]) key, ttlSeconds, (byte[]) value);
-			} else {
-				pipeline.setex(key.toString(), ttlSeconds, value.toString());
-			}
-		} else {
-			if (key instanceof byte[] && value instanceof byte[]) {
-				pipeline.set((byte[]) key, (byte[]) value);
-			} else {
-				pipeline.set(key.toString(), value.toString());
-			}
-
 		}
 	}
 
@@ -544,6 +558,9 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			format.parallelism = options.getParallelism();
 			format.serializationSchema = this.serializationSchema;
 			format.skipFormatKey = options.isSkipFormatKey();
+			// todo: Will support REDIS_DATATYPE_HASH in the future.
+			format.needBufferReduce = serializationSchema != null || (INSERT_MODE.equalsIgnoreCase(format.mode.getMode())
+				&& REDIS_DATATYPE_STRING.equals(format.redisDataType.getType()));
 
 			if (format.cluster == null) {
 				LOG.info("cluster was not supplied.");
