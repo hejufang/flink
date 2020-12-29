@@ -1555,15 +1555,23 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			final TaskExecutionState taskExecutionState) {
 		final ExecutionAttemptID executionAttemptID = taskExecutionState.getID();
 
-		CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
+		try {
+			CompletableFuture<Acknowledge> futureAcknowledge = jobMasterGateway.updateTaskExecutionState(taskExecutionState);
 
-		futureAcknowledge.whenCompleteAsync(
-			(ack, throwable) -> {
-				if (throwable != null) {
-					failTask(executionAttemptID, throwable);
-				}
-			},
-			getMainThreadExecutor());
+			futureAcknowledge.whenCompleteAsync(
+				(ack, throwable) -> {
+					if (throwable != null) {
+						failTask(executionAttemptID, throwable);
+					}
+				},
+				getMainThreadExecutor());
+		} catch (Throwable t) {
+			// we should always let JM know tasks' state, otherwise there might occur some serious problem.
+			// For example, a task fails but JM didn't receive the notification so that the task will never be
+			// redeployed.
+			log.error("Catch exception when send update task execution state message to job master, ", t);
+			onFatalError(t);
+		}
 	}
 
 	private void unregisterTaskAndNotifyFinalState(
