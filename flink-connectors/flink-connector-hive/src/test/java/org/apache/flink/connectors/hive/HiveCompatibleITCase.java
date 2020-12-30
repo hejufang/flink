@@ -64,6 +64,8 @@ public class HiveCompatibleITCase {
 	private static HiveMetastoreClientWrapper hmsClient;
 
 	private static final String[] QUERIES = new String[]{
+		"set spark.sql.parquet.adaptiveFileSplit=true; select * from bar",
+		"select * from bar where cast(i as bigint) = s",
 		"select COALESCE(i, s) as date from bar",
 		"select * from ( select i, true as a from bar) all",
 		"select i from bar where i != '1'",

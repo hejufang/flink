@@ -123,6 +123,7 @@ import java.util.stream.Collectors;
 public class HiveParser extends ParserImpl {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveParser.class);
+	private static final String SET_CMD = "set";
 
 	// need to maintain the ASTNode types for DDLs
 	private static final Set<Integer> DDL_NODES;
@@ -190,6 +191,7 @@ public class HiveParser extends ParserImpl {
 		HiveConf hiveConf = hiveCatalog.getHiveConf();
 		hiveConf.setVar(HiveConf.ConfVars.DYNAMICPARTITIONINGMODE, "nonstrict");
 		hiveConf.set("hive.allow.udf.load.on.demand", "false");
+		hiveConf.set("hive.mapred.mode", "nonstrict");
 		HiveShim hiveShim = HiveShimLoader.loadHiveShim(hiveCatalog.getHiveVersion());
 		try {
 			// creates SessionState
@@ -213,8 +215,34 @@ public class HiveParser extends ParserImpl {
 		}
 	}
 
+	/**
+	 * Handle Hive set command.
+	 *
+	 * @return flag that whether this is a set command and we have processed it.
+	 * */
+	private static boolean handleSetCommand(String cmd, HiveConf hiveConf) {
+		String[] tokens = cmd.trim().split("\\s+");
+		if (!SET_CMD.equalsIgnoreCase(tokens[0])) {
+			return false;
+		}
+		String commandArgs = cmd.substring(tokens[0].length()).trim();
+		String[] split = commandArgs.split("=");
+		if (split.length == 2) {
+			String key = split[0];
+			String value = split[1];
+			LOG.info("Execute set statement '{}'. Set {} = {} in hiveConf.", cmd, key, value);
+			hiveConf.set(key, value);
+			return true;
+		}
+		return false;
+	}
+
 	private List<Operation> processCmd(String cmd, HiveConf hiveConf, HiveShim hiveShim) {
 		try {
+			boolean hasProcessed = handleSetCommand(cmd, hiveConf);
+			if (hasProcessed) {
+				return Collections.emptyList();
+			}
 			final HiveParserContext context = new HiveParserContext(hiveConf);
 			// parse statement to get AST
 			final ASTNode node = HiveASTParseUtils.parse(cmd, context);
