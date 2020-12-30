@@ -21,6 +21,7 @@ package org.apache.flink.table.runtime.operators.join.lookup;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.util.FunctionUtils;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.JoinedRowData;
@@ -45,6 +46,7 @@ public class LookupJoinRunner extends ProcessFunction<RowData, RowData> {
 	protected transient TableFunctionCollector<RowData> collector;
 	private transient GenericRowData nullRow;
 	private transient JoinedRowData outRow;
+	private transient Counter counter;
 
 	public LookupJoinRunner(
 			GeneratedFunction<FlatMapFunction<RowData, RowData>> generatedFetcher,
@@ -70,16 +72,20 @@ public class LookupJoinRunner extends ProcessFunction<RowData, RowData> {
 
 		this.nullRow = new GenericRowData(tableFieldsCount);
 		this.outRow = new JoinedRowData();
+		this.counter = getRuntimeContext().getMetricGroup().counter("lookUpNullCounter");
 	}
 
 	@Override
 	public void processElement(RowData in, Context ctx, Collector<RowData> out) throws Exception {
 		boolean isCollected = doJoin(in, out);
 
-		if (isLeftOuterJoin && !isCollected) {
-			outRow.replace(in, nullRow);
-			outRow.setRowKind(in.getRowKind());
-			out.collect(outRow);
+		if (!isCollected) {
+			counter.inc();
+			if (isLeftOuterJoin) {
+				outRow.replace(in, nullRow);
+				outRow.setRowKind(in.getRowKind());
+				out.collect(outRow);
+			}
 		}
 	}
 

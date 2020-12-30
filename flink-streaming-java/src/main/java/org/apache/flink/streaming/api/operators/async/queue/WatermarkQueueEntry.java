@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.operators.async.queue;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.util.Preconditions;
@@ -40,7 +41,7 @@ class WatermarkQueueEntry<OUT> implements StreamElementQueueEntry<OUT> {
 	}
 
 	@Override
-	public void emitResult(TimestampedCollector<OUT> output) {
+	public void emitResult(TimestampedCollector<OUT> output, Counter counter) {
 		output.emitWatermark(watermark);
 	}
 

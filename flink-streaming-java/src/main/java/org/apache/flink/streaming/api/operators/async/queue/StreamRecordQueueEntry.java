@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.operators.async.queue;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.async.AsyncFunction;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
@@ -59,8 +60,11 @@ class StreamRecordQueueEntry<OUT> implements StreamElementQueueEntry<OUT> {
 	}
 
 	@Override
-	public void emitResult(TimestampedCollector<OUT> output) {
+	public void emitResult(TimestampedCollector<OUT> output, Counter counter) {
 		output.setTimestamp(inputRecord);
+		if (completedElements.size() == 0) {
+			counter.inc();
+		}
 		for (OUT r : completedElements) {
 			output.collect(r);
 		}

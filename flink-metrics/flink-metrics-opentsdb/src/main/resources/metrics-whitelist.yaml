@@ -120,6 +120,9 @@ non-global:
         deschedulerReceivedInfo,
         deschedulerHandleResult,
         deschedulerDurationMs,
+      # lookup join null count
+        asyncLookupNullCounter,
+        lookUpNullCounter,
       # sql gateway, use above latency
         gateway_throughput,
         session_count,

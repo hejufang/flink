@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.operators.async.queue;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
@@ -45,7 +46,7 @@ interface StreamElementQueueEntry<OUT> extends ResultFuture<OUT> {
 	 *
 	 * @param output the output into which to emit.
 	 */
-	void emitResult(TimestampedCollector<OUT> output);
+	void emitResult(TimestampedCollector<OUT> output, Counter counter);
 
 	/**
 	 * The input element for this queue entry, for which the calculation is performed asynchronously.

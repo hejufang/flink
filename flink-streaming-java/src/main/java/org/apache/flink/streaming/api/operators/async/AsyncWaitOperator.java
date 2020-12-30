@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.datastream.AsyncDataStream;
@@ -134,13 +135,13 @@ public class AsyncWaitOperator<IN, OUT>
 
 		this.inStreamElementSerializer = new StreamElementSerializer<>(
 			getOperatorConfig().<IN>getTypeSerializerIn1(getUserCodeClassloader()));
-
+		Counter counter = getRuntimeContext().getMetricGroup().counter("asyncLookupNullCounter");
 		switch (outputMode) {
 			case ORDERED:
-				queue = new OrderedStreamElementQueue<>(capacity);
+				queue = new OrderedStreamElementQueue<>(capacity, counter);
 				break;
 			case UNORDERED:
-				queue = new UnorderedStreamElementQueue<>(capacity);
+				queue = new UnorderedStreamElementQueue<>(capacity, counter);
 				break;
 			default:
 				throw new IllegalStateException("Unknown async mode: " + outputMode + '.');

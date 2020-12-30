@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.operators.async.queue;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -62,13 +63,16 @@ public final class UnorderedStreamElementQueue<OUT> implements StreamElementQueu
 
 	private int numberOfEntries;
 
-	public UnorderedStreamElementQueue(int capacity) {
+	private final Counter counter;
+
+	public UnorderedStreamElementQueue(int capacity, Counter counter) {
 		Preconditions.checkArgument(capacity > 0, "The capacity must be larger than 0.");
 
 		this.capacity = capacity;
 		// most likely scenario are 4 segments <elements, watermark, elements, watermark>
 		this.segments = new ArrayDeque<>(4);
 		this.numberOfEntries = 0;
+		this.counter = counter;
 	}
 
 	@Override
@@ -147,7 +151,7 @@ public final class UnorderedStreamElementQueue<OUT> implements StreamElementQueu
 			return;
 		}
 		final Segment currentSegment = segments.getFirst();
-		numberOfEntries -= currentSegment.emitCompleted(output);
+		numberOfEntries -= currentSegment.emitCompleted(output, counter);
 
 		// remove any segment if there are further segments, if not leave it as an optimization even if empty
 		if (segments.size() > 1 && currentSegment.isEmpty()) {
@@ -255,12 +259,13 @@ public final class UnorderedStreamElementQueue<OUT> implements StreamElementQueu
 		 *
 		 * @return the number of popped input elements.
 		 */
-		int emitCompleted(TimestampedCollector<OUT> output) {
+		int emitCompleted(TimestampedCollector<OUT> output, Counter counter) {
 			final StreamElementQueueEntry<OUT> completedEntry = completedElements.poll();
 			if (completedEntry == null) {
+				counter.inc();
 				return 0;
 			}
-			completedEntry.emitResult(output);
+			completedEntry.emitResult(output, counter);
 			return 1;
 		}
 

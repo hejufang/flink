@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.api.operators.async.queue;
 
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -61,9 +62,9 @@ public class StreamElementQueueTest extends TestLogger {
 	private StreamElementQueue<Integer> createStreamElementQueue(int capacity) {
 		switch (outputMode) {
 			case ORDERED:
-				return new OrderedStreamElementQueue<>(capacity);
+				return new OrderedStreamElementQueue<>(capacity, new SimpleCounter());
 			case UNORDERED:
-				return new UnorderedStreamElementQueue<>(capacity);
+				return new UnorderedStreamElementQueue<>(capacity, new SimpleCounter());
 			default:
 				throw new IllegalStateException("Unknown output mode: " + outputMode);
 		}

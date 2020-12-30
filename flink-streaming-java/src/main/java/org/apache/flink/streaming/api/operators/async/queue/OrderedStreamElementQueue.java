@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.api.operators.async.queue;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -52,11 +53,14 @@ public final class OrderedStreamElementQueue<OUT> implements StreamElementQueue<
 	/** Queue for the inserted StreamElementQueueEntries. */
 	private final Queue<StreamElementQueueEntry<OUT>> queue;
 
-	public OrderedStreamElementQueue(int capacity) {
+	private final Counter counter;
+
+	public OrderedStreamElementQueue(int capacity, Counter emptyCounter) {
 		Preconditions.checkArgument(capacity > 0, "The capacity must be larger than 0.");
 
 		this.capacity = capacity;
 		this.queue = new ArrayDeque<>(capacity);
+		this.counter = emptyCounter;
 	}
 
 	@Override
@@ -68,7 +72,7 @@ public final class OrderedStreamElementQueue<OUT> implements StreamElementQueue<
 	public void emitCompletedElement(TimestampedCollector<OUT> output) {
 		if (hasCompletedElements()) {
 			final StreamElementQueueEntry<OUT> head = queue.poll();
-			head.emitResult(output);
+			head.emitResult(output, counter);
 		}
 	}
 

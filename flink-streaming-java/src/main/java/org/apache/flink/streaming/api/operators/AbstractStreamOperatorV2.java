@@ -350,6 +350,9 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 
 	@VisibleForTesting
 	public OperatorStateBackend getOperatorStateBackend() {
+		if (stateHandler == null) {
+			return null;
+		}
 		return stateHandler.getOperatorStateBackend();
 	}
 
@@ -409,9 +412,6 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 	}
 
 	public Optional<KeyedStateStore> getKeyedStateStore() {
-		if (stateHandler == null) {
-			return Optional.empty();
-		}
 		return stateHandler.getKeyedStateStore();
 	}
 

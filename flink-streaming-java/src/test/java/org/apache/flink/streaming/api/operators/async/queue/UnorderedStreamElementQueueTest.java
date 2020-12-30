@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.api.operators.async.queue;
 
+import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.streaming.api.functions.async.ResultFuture;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -41,7 +42,7 @@ public class UnorderedStreamElementQueueTest extends TestLogger {
 	 */
 	@Test
 	public void testCompletionOrder() {
-		final UnorderedStreamElementQueue<Integer> queue = new UnorderedStreamElementQueue<>(8);
+		final UnorderedStreamElementQueue<Integer> queue = new UnorderedStreamElementQueue<>(8, new SimpleCounter());
 
 		ResultFuture<Integer> record1 = putSuccessfully(queue, new StreamRecord<>(1, 0L));
 		ResultFuture<Integer> record2 = putSuccessfully(queue, new StreamRecord<>(2, 1L));
