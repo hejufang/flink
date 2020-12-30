@@ -22,6 +22,9 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.runtime.functions.SqlDateTimeUtils;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.BooleanType;
@@ -40,10 +43,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -65,16 +68,20 @@ public class BinlogRowDeserializationSchemaTest {
 		String newText = "this is zhangyunfan binlog test";
 
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), 4);
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), new Date(1586275200000L));
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), new Time(9420000));
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), new Timestamp(1586313838000L));
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), newText);
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
+			SqlDateTimeUtils.dateToInternal(new Date(1586275200000L)));
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
+			SqlDateTimeUtils.timeToInternal(new Time(9420000)));
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
+			TimestampData.fromTimestamp(new Timestamp(1586313838000L)));
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), StringData.fromString(newText));
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), (byte) 1);
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), (short) 127);
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), 1586313838000L);
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "This is a test varchar.");
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "mediumtext");
-		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), "longtext");
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
+			StringData.fromString("This is a test varchar."));
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), StringData.fromString("mediumtext"));
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), StringData.fromString("longtext"));
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
 			DecimalData.fromBigDecimal(new BigDecimal("1.23456789e+09"), 10, 0));
 		assertTestRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), null, Integer.MAX_VALUE + 1L, true);

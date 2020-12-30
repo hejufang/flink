@@ -20,6 +20,9 @@ package org.apache.flink.formats.binlog;
 
 import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
+import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.runtime.functions.SqlDateTimeUtils;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.CharType;
 import org.apache.flink.table.types.logical.DateType;
@@ -255,9 +258,9 @@ public class RuntimeConverterFactory {
 			return null;
 		}
 		if (logicalType instanceof VarCharType) {
-			return o -> o;
+			return o -> StringData.fromString((String) o);
 		} if (logicalType instanceof CharType) {
-			return o -> o;
+			return o -> StringData.fromString((String) o);
 		} else if (logicalType instanceof TinyIntType) {
 			return o -> Byte.valueOf((String) o);
 		} else if (logicalType instanceof SmallIntType) {
@@ -271,13 +274,14 @@ public class RuntimeConverterFactory {
 		} else if (logicalType instanceof DoubleType) {
 			return o -> Double.valueOf((String) o);
 		} else if (logicalType instanceof DateType) {
-			return o -> Date.valueOf((String) o);
+			return o -> SqlDateTimeUtils.dateToInternal(Date.valueOf((String) o));
 		} else if (logicalType instanceof TimeType) {
-			return o -> Time.valueOf((String) o);
+			return o -> SqlDateTimeUtils.timeToInternal(Time.valueOf((String) o));
 		} else if (logicalType instanceof TimestampType) {
 			// Timestamp.valueOf will throw an exception if the value of o is
 			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
-			return o -> ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o);
+			return o -> TimestampData.fromTimestamp(
+				ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o));
 		} else if (logicalType instanceof DecimalType) {
 			return o -> {
 				DecimalType decimalType = (DecimalType) logicalType;
