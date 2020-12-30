@@ -64,6 +64,12 @@ class BatchExecLegacyTableSourceScan(
           with BatchPhysicalRel
           with BatchExecNode[RowData]{
 
+  def copy(
+      traitSet: RelTraitSet,
+      tableSourceTable: LegacyTableSourceTable[_]): BatchExecLegacyTableSourceScan = {
+    new BatchExecLegacyTableSourceScan(cluster, traitSet, tableSourceTable)
+  }
+
   override def copy(traitSet: RelTraitSet, inputs: util.List[RelNode]): RelNode = {
     new BatchExecLegacyTableSourceScan(cluster, traitSet, tableSourceTable)
   }

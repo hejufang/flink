@@ -410,6 +410,7 @@ object FlinkBatchRuleSets {
     RemoveRedundantLocalSortAggRule.WITHOUT_SORT,
     RemoveRedundantLocalSortAggRule.WITH_SORT,
     RemoveRedundantLocalHashAggRule.INSTANCE,
+    PushLocalAggIntoLegacyTableSourceScanRule.INSTANCE,
     // over agg
     BatchExecOverAggregateRule.INSTANCE,
     // window agg

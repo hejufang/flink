@@ -132,4 +132,22 @@ class LegacyTableSourceTable[T](
       catalogTable,
       dynamicOptions)
   }
+
+  /**
+   * Creates a copy of this table, changing the rowType
+   *
+   * @param newRowType new row type
+   * @return New TableSourceTable instance with new row type
+   */
+  def copy(newRowType: RelDataType): LegacyTableSourceTable[T] = {
+    new LegacyTableSourceTable[T](
+      relOptSchema,
+      tableIdentifier,
+      newRowType,
+      statistic,
+      tableSource.asInstanceOf[TableSource[T]],
+      isStreamingMode,
+      catalogTable,
+      dynamicOptions)
+  }
 }

@@ -1,0 +1,204 @@
+<?xml version="1.0" ?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to you under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<Root>
+  <TestCase name="testCanPushDownWithGroup">
+    <Resource name="sql">
+      <![CDATA[
+SELECT
+  min(id),
+  max(amount),
+  sum(price),
+  avg(price),
+  count(1),
+  name
+FROM MyTable
+  group by name
+]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[$1], EXPR$1=[$2], EXPR$2=[$3], EXPR$3=[$4], EXPR$4=[$5], name=[$0])
++- LogicalAggregate(group=[{0}], EXPR$0=[MIN($1)], EXPR$1=[MAX($2)], EXPR$2=[SUM($3)], EXPR$3=[AVG($3)], EXPR$4=[COUNT()])
+   +- LogicalProject(name=[$0], id=[$1], amount=[$2], price=[$3], $f4=[1])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[EXPR$0, EXPR$1, EXPR$2, EXPR$3, EXPR$4, name])
++- HashAggregate(isMerge=[true], groupBy=[name], select=[name, Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_SUM(sum$2) AS EXPR$2, Final_AVG(sum$3, count$4) AS EXPR$3, Final_COUNT(count1$5) AS EXPR$4])
+   +- Exchange(distribution=[hash[name]])
+      +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[true], groupSet=[name], aggregators=[(aggFunc: LongMinAggFunction, argNames: id) (aggFunc: IntMaxAggFunction, argNames: amount) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: price) (aggFunc: Count1AggFunction, argNames: )], producedDataType=[ROW<`name` STRING, `min$0` BIGINT, `max$1` INT, `sum$2` DOUBLE, `sum$3` DOUBLE, `count$4` BIGINT, `count1$5` BIGINT> NOT NULL]]]], fields=[name, min$0, max$1, sum$2, sum$3, count$4, count1$5])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testCanPushDownWithoutGroup">
+    <Resource name="sql">
+      <![CDATA[
+SELECT
+  min(id),
+  max(amount),
+  max(name),
+  sum(price),
+  avg(price),
+  count(id)
+FROM MyTable
+]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MIN($0)], EXPR$1=[MAX($1)], EXPR$2=[MAX($2)], EXPR$3=[SUM($3)], EXPR$4=[AVG($3)], EXPR$5=[COUNT($0)])
++- LogicalProject(id=[$1], amount=[$2], name=[$0], price=[$3])
+   +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+SortAggregate(isMerge=[true], select=[Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_MAX(max$2) AS EXPR$2, Final_SUM(sum$3) AS EXPR$3, Final_AVG(sum$4, count$5) AS EXPR$4, Final_COUNT(count$6) AS EXPR$5])
++- Exchange(distribution=[single])
+   +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[true], groupSet=[], aggregators=[(aggFunc: LongMinAggFunction, argNames: id) (aggFunc: IntMaxAggFunction, argNames: amount) (aggFunc: StringMaxAggFunction, argNames: name) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: id)], producedDataType=[ROW<`min$0` BIGINT, `max$1` INT, `max$2` STRING, `sum$3` DOUBLE, `sum$4` DOUBLE, `count$5` BIGINT, `count$6` BIGINT> NOT NULL]]]], fields=[min$0, max$1, max$2, sum$3, sum$4, count$5, count$6])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testCannotPushDownWithColumnExpression">
+    <Resource name="sql">
+      <![CDATA[
+SELECT
+  min(amount + price),
+  max(amount),
+  sum(price),
+  count(id),
+  name
+FROM MyTable
+  group by name
+]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[$1], EXPR$1=[$2], EXPR$2=[$3], EXPR$3=[$4], name=[$0])
++- LogicalAggregate(group=[{0}], EXPR$0=[MIN($1)], EXPR$1=[MAX($2)], EXPR$2=[SUM($3)], EXPR$3=[COUNT($4)])
+   +- LogicalProject(name=[$0], $f1=[+($2, $3)], amount=[$2], price=[$3], id=[$1])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[EXPR$0, EXPR$1, EXPR$2, EXPR$3, name])
++- HashAggregate(isMerge=[true], groupBy=[name], select=[name, Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_SUM(sum$2) AS EXPR$2, Final_COUNT(count$3) AS EXPR$3])
+   +- Exchange(distribution=[hash[name]])
+      +- LocalHashAggregate(groupBy=[name], select=[name, Partial_MIN($f1) AS min$0, Partial_MAX(amount) AS max$1, Partial_SUM(price) AS sum$2, Partial_COUNT(id) AS count$3])
+         +- Calc(select=[name, +(amount, price) AS $f1, amount, price, id])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testCannotPushDownWithUnsupportedAggFunction">
+    <Resource name="sql">
+      <![CDATA[
+SELECT
+  min(id),
+  max(amount),
+  sum(price),
+  count(distinct id),
+  name
+FROM MyTable
+  group by name
+]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[$1], EXPR$1=[$2], EXPR$2=[$3], EXPR$3=[$4], name=[$0])
++- LogicalAggregate(group=[{0}], EXPR$0=[MIN($1)], EXPR$1=[MAX($2)], EXPR$2=[SUM($3)], EXPR$3=[COUNT(DISTINCT $1)])
+   +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[EXPR$0, EXPR$1, EXPR$2, EXPR$3, name])
++- HashAggregate(isMerge=[true], groupBy=[name], select=[name, Final_MIN(min$0) AS EXPR$0, Final_MIN(min$1) AS EXPR$1, Final_MIN(min$2) AS EXPR$2, Final_COUNT(count$3) AS EXPR$3])
+   +- Exchange(distribution=[hash[name]])
+      +- LocalHashAggregate(groupBy=[name], select=[name, Partial_MIN(EXPR$0) FILTER $g_1 AS min$0, Partial_MIN(EXPR$1) FILTER $g_1 AS min$1, Partial_MIN(EXPR$2) FILTER $g_1 AS min$2, Partial_COUNT(id) FILTER $g_0 AS count$3])
+         +- Calc(select=[name, id, EXPR$0, EXPR$1, EXPR$2, =(CASE(=($e, 0:BIGINT), 0:BIGINT, 1:BIGINT), 0) AS $g_0, =(CASE(=($e, 0:BIGINT), 0:BIGINT, 1:BIGINT), 1) AS $g_1])
+            +- HashAggregate(isMerge=[true], groupBy=[name, id, $e], select=[name, id, $e, Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_SUM(sum$2) AS EXPR$2])
+               +- Exchange(distribution=[hash[name, id, $e]])
+                  +- LocalHashAggregate(groupBy=[name, id, $e], select=[name, id, $e, Partial_MIN(id_0) AS min$0, Partial_MAX(amount) AS max$1, Partial_SUM(price) AS sum$2])
+                     +- Expand(projects=[name, id, amount, price, $e, id_0], projects=[{name, id, amount, price, 0 AS $e, id AS id_0}, {name, null AS id, amount, price, 1 AS $e, id AS id_0}])
+                        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testCannotPushDownWithWindowAggFunction">
+    <Resource name="sql">
+      <![CDATA[
+SELECT
+  id,
+  amount,
+  sum(price) over (partition by name),
+  name
+FROM MyTable
+]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(id=[$1], amount=[$2], EXPR$2=[CASE(>(COUNT($3) OVER (PARTITION BY $0 RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING), 0), $SUM0($3) OVER (PARTITION BY $0 RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING), null:DOUBLE)], name=[$0])
++- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[id, amount, CASE(>(w0$o0, 0:BIGINT), w0$o1, null:DOUBLE) AS EXPR$2, name])
++- OverAggregate(partitionBy=[name], window#0=[COUNT(price) AS w0$o0, $SUM0(price) AS w0$o1 RANG BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING], select=[name, id, amount, price, w0$o0, w0$o1])
+   +- Sort(orderBy=[name ASC])
+      +- Exchange(distribution=[hash[name]])
+         +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testCannotPushDownWithPredicates">
+    <Resource name="sql">
+      <![CDATA[
+SELECT
+  min(id),
+  max(amount),
+  sum(price),
+  count(id),
+  name
+FROM MyTable WHERE id > 100
+  group by name
+]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(EXPR$0=[$1], EXPR$1=[$2], EXPR$2=[$3], EXPR$3=[$4], name=[$0])
++- LogicalAggregate(group=[{0}], EXPR$0=[MIN($1)], EXPR$1=[MAX($2)], EXPR$2=[SUM($3)], EXPR$3=[COUNT($1)])
+   +- LogicalFilter(condition=[>($1, 100)])
+      +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[EXPR$0, EXPR$1, EXPR$2, EXPR$3, name])
++- HashAggregate(isMerge=[true], groupBy=[name], select=[name, Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_SUM(sum$2) AS EXPR$2, Final_COUNT(count$3) AS EXPR$3])
+   +- Exchange(distribution=[hash[name]])
+      +- LocalHashAggregate(groupBy=[name], select=[name, Partial_MIN(id) AS min$0, Partial_MAX(amount) AS max$1, Partial_SUM(price) AS sum$2, Partial_COUNT(id) AS count$3])
+         +- Calc(select=[name, id, amount, price], where=[>(id, 100)])
+            +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[false], groupSet=[null], aggregators=[null], producedDataType=[ROW<`name` STRING, `id` BIGINT, `amount` INT, `price` DOUBLE>]]]], fields=[name, id, amount, price])
+]]>
+    </Resource>
+  </TestCase>
+</Root>

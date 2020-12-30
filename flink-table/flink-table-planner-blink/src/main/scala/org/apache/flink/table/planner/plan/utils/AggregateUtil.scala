@@ -20,7 +20,7 @@ package org.apache.flink.table.planner.plan.utils
 import org.apache.flink.api.common.typeinfo.Types
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.{DataTypes, TableConfig, TableException}
-import org.apache.flink.table.data.{RowData, StringData, DecimalData, TimestampData}
+import org.apache.flink.table.data.{DecimalData, RowData, StringData, TimestampData}
 import org.apache.flink.table.dataview.MapViewTypeInfo
 import org.apache.flink.table.expressions.ExpressionUtils.extractValue
 import org.apache.flink.table.expressions._
@@ -31,7 +31,7 @@ import org.apache.flink.table.planner.calcite.{FlinkTypeFactory, FlinkTypeSystem
 import org.apache.flink.table.planner.dataview.DataViewUtils.useNullSerializerForStateViewFieldsFromAccType
 import org.apache.flink.table.planner.dataview.{DataViewSpec, MapViewSpec}
 import org.apache.flink.table.planner.expressions.{PlannerProctimeAttribute, PlannerRowtimeAttribute, PlannerWindowEnd, PlannerWindowStart}
-import org.apache.flink.table.planner.functions.aggfunctions.DeclarativeAggregateFunction
+import org.apache.flink.table.planner.functions.aggfunctions.{CountAggFunction, DeclarativeAggregateFunction, SumAggFunction}
 import org.apache.flink.table.planner.functions.sql.{FlinkSqlOperatorTable, SqlFirstLastValueAggFunction, SqlListAggFunction}
 import org.apache.flink.table.planner.functions.utils.AggSqlFunction
 import org.apache.flink.table.planner.functions.utils.UserDefinedFunctionUtils._
@@ -53,9 +53,11 @@ import org.apache.calcite.sql.{SqlKind, SqlRankFunction}
 import org.apache.calcite.tools.RelBuilder
 import org.apache.flink.table.planner.plan.metadata.FlinkRelMetadataQuery
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamPhysicalRel
-
 import java.time.Duration
 import java.util
+
+import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction.{ByteAvgAggFunction, DoubleAvgAggFunction, FloatAvgAggFunction, IntAvgAggFunction, LongAvgAggFunction, ShortAvgAggFunction}
+import org.apache.flink.table.planner.functions.aggfunctions.SumAggFunction.{ByteSumAggFunction, DoubleSumAggFunction, FloatSumAggFunction, IntSumAggFunction, LongSumAggFunction, ShortSumAggFunction}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -192,6 +194,22 @@ object AggregateUtil extends Enumeration {
       needRetractionArray,
       needInputCount = needRetraction,
       isStateBackendDataViews = true)
+  }
+
+  def deriveSumAndCountFromAvg(
+      avgAggFunction: UserDefinedFunction): (SumAggFunction, CountAggFunction) = {
+    avgAggFunction match {
+      case _: ByteAvgAggFunction => (new ByteSumAggFunction, new CountAggFunction)
+      case _: ShortAvgAggFunction => (new ShortSumAggFunction, new CountAggFunction)
+      case _: IntAvgAggFunction => (new IntSumAggFunction, new CountAggFunction)
+      case _: LongAvgAggFunction => (new LongSumAggFunction, new CountAggFunction)
+      case _: FloatAvgAggFunction => (new FloatSumAggFunction, new CountAggFunction)
+      case _: DoubleAvgAggFunction => (new DoubleSumAggFunction, new CountAggFunction)
+      case _ => {
+        throw new TableException(s"Avg aggregate function does not support: ''$avgAggFunction''" +
+          s"Please re-check the function or data type.")
+      }
+    }
   }
 
   def transformToBatchAggregateFunctions(

@@ -36,7 +36,7 @@ import org.apache.flink.table.descriptors.{CustomConnectorDescriptor, Descriptor
 import org.apache.flink.table.expressions.ApiExpressionUtils.unresolvedCall
 import org.apache.flink.table.expressions.{CallExpression, Expression, FieldReferenceExpression, ValueLiteralExpression}
 import org.apache.flink.table.factories.{StreamTableSourceFactory, TableSinkFactory, TableSourceFactory}
-import org.apache.flink.table.functions.BuiltInFunctionDefinitions
+import org.apache.flink.table.functions.{BuiltInFunctionDefinitions, FunctionDefinition}
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions.AND
 import org.apache.flink.table.planner.plan.hint.OptionsHintTest.IS_BOUNDED
 import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
@@ -65,6 +65,7 @@ import org.apache.calcite.avatica.util.DateTimeUtils
 import _root_.scala.collection.JavaConversions._
 import _root_.scala.collection.JavaConverters._
 import _root_.scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 object TestTableSourceSinks {
   def createPersonCsvTemporaryTable(tEnv: TableEnvironment, tableName: String): Unit = {
@@ -736,6 +737,224 @@ class TestFilterableTableSourceFactory extends StreamTableSourceFactory[Row] {
   override def requiredContext(): JMap[String, String] = {
     val context = new util.HashMap[String, String]()
     context.put(CONNECTOR_TYPE, "TestFilterableSource")
+    context
+  }
+
+  override def supportedProperties(): JList[String] = {
+    val supported = new JArrayList[String]()
+    supported.add("*")
+    supported
+  }
+}
+
+/**
+ * A data source that implements some very basic aggregation in-memory in order to test
+ * aggregate push-down logic.
+ *
+ * @param isBounded whether this is a bounded source.
+ * @param schema the TableSchema for the source.
+ * @param data the data that aggregation is applied to in order to get the final dataset.
+ * @param producedDataType the producetd data type for the source
+ * @param groupSet: the group set of all aggregate functions.
+ * @param aggregateFields the aggregates feilds for each aggregate function.
+ * @param aggregateFunctions the aggregate functions.
+ * @param aggregatePushedDown whether aggregates have been pushed down yet.
+ */
+class TestAggregatableTableSource(
+    override val isBounded: Boolean,
+    schema: TableSchema,
+    data: Seq[Row],
+    producedDataType: DataType,
+    groupSet: Array[Int] = null,
+    aggregateFields: JList[Array[Int]] = null,
+    aggregateFunctions: JList[FunctionDefinition] = Seq(),
+    val aggregatePushedDown: Boolean = false)
+  extends StreamTableSource[Row]
+  with AggregatableTableSource[Row] {
+
+  override def getDataStream(execEnv: StreamExecutionEnvironment): DataStream[Row] = {
+    execEnv.fromCollection[Row](
+      applyAggregatesToRows(data).asJava,
+      fromDataTypeToTypeInfo(getProducedDataType).asInstanceOf[RowTypeInfo])
+      .setParallelism(1).setMaxParallelism(1)
+  }
+
+  override def explainSource(): String = {
+    val aggregateFunctionsStr = aggregateFunctions.zipWithIndex.map {
+      case (aggFunc, index) => {
+        val aggArgsStr = for (fieldIndex <- aggregateFields(index)) yield
+          schema.getFieldName(fieldIndex).get
+        s"(aggFunc: ${aggFunc.toString}, argNames: ${aggArgsStr.mkString(" ")})"
+      }
+    }
+    var groupSetStr = "null"
+    if (groupSet != null) {
+      groupSetStr = (for (groupIndex <- groupSet) yield
+        schema.getFieldName(groupIndex).get).mkString(" ")
+    }
+    s"aggregatePushedDown=[$aggregatePushedDown], groupSet=[$groupSetStr], aggregators=[" +
+      s"${if (aggregateFunctions.size() == 0) "null" else aggregateFunctionsStr.mkString(" ")}], " +
+      s"producedDataType=[${getProducedDataType.toString}]"
+  }
+
+  override def getProducedDataType: DataType = producedDataType
+
+  override def getTableSchema: TableSchema = schema
+
+  override def applyAggregates(
+      aggregateFunctions: JList[FunctionDefinition],
+      aggregateFields: JList[Array[Int]],
+      groupSet: Array[Int],
+      aggOutputDataType: DataType): TableSource[Row] = {
+    val aggregatesToUse = new mutable.ListBuffer[FunctionDefinition]()
+    val iterator = aggregateFunctions.iterator()
+    while (iterator.hasNext) {
+      val aggFunction = iterator.next()
+      val canPushDown = aggFunction match {
+        case _: org.apache.flink.table.planner.functions.aggfunctions.MinAggFunction => true
+        case _: org.apache.flink.table.planner.functions.aggfunctions.MaxAggFunction => true
+        case _: org.apache.flink.table.planner.functions.aggfunctions.SumAggFunction => true
+        case _: org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction => true
+        case _: org.apache.flink.table.planner.functions.aggfunctions.CountAggFunction => true
+        case _: org.apache.flink.table.planner.functions.aggfunctions.Count1AggFunction => true
+        case _ => false
+      }
+      if (canPushDown) {
+        aggregatesToUse += aggFunction
+        iterator.remove()
+      }
+    }
+    new TestAggregatableTableSource(
+      isBounded,
+      schema,
+      data,
+      aggOutputDataType,
+      groupSet,
+      aggregateFields,
+      aggregatesToUse,
+      aggregatePushedDown = true)
+  }
+
+  override def isAggregatePushedDown: Boolean = aggregatePushedDown
+
+  private def applyAggregatesToRows(rows: Seq[Row]): Seq[Row] = {
+    if (!isAggregatePushedDown) {
+      return rows
+    }
+    if (groupSet != null && groupSet.length > 0) {
+      // has group by, group firstly
+      var buffer: Map[Row, ListBuffer[Row]] = Map()
+      data.foreach(row => {
+        val bufferKey = new Row(groupSet.length)
+        for (index <- groupSet.indices) bufferKey.setField(index, row.getField(groupSet(index)))
+        buffer.get(bufferKey) match {
+          case Some(rows) => rows += row
+          case None => {
+            val listBuffer = new ListBuffer[Row]()
+            listBuffer += row
+            buffer += (bufferKey -> listBuffer)
+          }
+        }
+
+      })
+      // accumulate values
+      val result = new ListBuffer[Row]()
+      for ((groupSet, bufferRows) <- buffer) {
+        result += Row.join(groupSet, accumulateRows(bufferRows))
+      }
+      result
+    } else {
+      // no group by, just accumulate directly
+      Seq(accumulateRows(rows))
+    }
+  }
+
+  private def accumulateRows(rows: Seq[Row]): Row = {
+    val row = new Row(aggregateFunctions.length)
+    aggregateFunctions.zipWithIndex.foreach {
+      case (aggFunc, index) => {
+        val argIndexArray = aggregateFields.get(index)
+        aggFunc match {
+          case _: org.apache.flink.table.planner.functions.aggfunctions.MinAggFunction =>
+            // should just use max on long type, for this test table, it's 'id' column
+            row.setField(index, rows.map(_.getField(argIndexArray(0)).asInstanceOf[Long]).min)
+          case _: org.apache.flink.table.planner.functions.aggfunctions.MaxAggFunction =>
+            // should just use max on int type, for this test table, it's 'amount' column
+            row.setField(index, rows.map(_.getField(argIndexArray(0)).asInstanceOf[Int]).max)
+          case _: org.apache.flink.table.planner.functions.aggfunctions.SumAggFunction |
+               _: org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction =>
+            // should just use sum/avg on double type, for this test table, it's 'price' column
+            row.setField(index, rows.map(_.getField(argIndexArray(0)).asInstanceOf[Double]).sum)
+          case _: org.apache.flink.table.planner.functions.aggfunctions.CountAggFunction |
+               _: org.apache.flink.table.planner.functions.aggfunctions.Count1AggFunction =>
+            row.setField(index, rows.length.asInstanceOf[Number].longValue())
+        }
+      }
+    }
+    row
+  }
+}
+
+object TestAggregatableTableSource {
+
+  val defaultSchema: TableSchema = TableSchema.builder()
+    .field("name", DataTypes.STRING)
+    .field("id", DataTypes.BIGINT)
+    .field("amount", DataTypes.INT)
+    .field("price", DataTypes.DOUBLE)
+    .build()
+
+  val defaultRows: Seq[Row] = {
+    Seq(
+      row("Apple", 1L, 5, 0.5),
+      row("Apple", 2L, 5, 0.6),
+      row("Apple", 3L, 5, 0.7),
+      row("banana", 4L, 5, 0.8),
+      row("banana", 5L, 5, 0.9),
+      row("banana", 6L, 5, 1.0))
+  }
+
+  def createTemporaryTable(
+      tEnv: TableEnvironment,
+      schema: TableSchema,
+      tableName: String,
+      isBounded: Boolean = true,
+      data: List[Row] = null): Unit = {
+
+    val desc = new CustomConnectorDescriptor("TestAggregatableSource", 1, false)
+    if (isBounded) {
+      desc.property("is-bounded", "true")
+    }
+    if (data != null && data.nonEmpty) {
+      desc.property("data", EncodingUtils.encodeObjectToString(data))
+    }
+
+    tEnv.connect(desc)
+      .withSchema(new Schema().schema(schema))
+      .createTemporaryTable(tableName)
+  }
+}
+
+/** Table source factory to find and create [[TestAggregatableTableSource]]. */
+class TestAggregatableTableSourceFactory extends StreamTableSourceFactory[Row] {
+  override def createStreamTableSource(properties: JMap[String, String])
+  : StreamTableSource[Row] = {
+    val descriptorProps = new DescriptorProperties()
+    descriptorProps.putProperties(properties)
+    val isBounded = descriptorProps.getOptionalBoolean("is-bounded").orElse(false)
+    val schema = descriptorProps.getTableSchema(Schema.SCHEMA)
+    val serializedRows = descriptorProps.getOptionalString("data").orElse(null)
+    val rows = if (serializedRows != null) {
+      EncodingUtils.decodeStringToObject(serializedRows, classOf[List[Row]])
+    } else {
+      TestAggregatableTableSource.defaultRows
+    }
+    new TestAggregatableTableSource(isBounded, schema, rows, schema.toRowDataType)
+  }
+
+  override def requiredContext(): JMap[String, String] = {
+    val context = new util.HashMap[String, String]()
+    context.put(CONNECTOR_TYPE, "TestAggregatableSource")
     context
   }
 
