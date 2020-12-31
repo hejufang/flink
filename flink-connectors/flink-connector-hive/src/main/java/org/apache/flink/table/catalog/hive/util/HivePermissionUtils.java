@@ -145,14 +145,16 @@ public class HivePermissionUtils {
 
 			// Permission for all users(we treat psm as a user with a prefix PSM_REFIX).
 			for (HivePermissionResponse.Permission permission : permissionOfMultiUsers) {
+				String columnsWithoutPermission = null;
 				// Permission for all datasources (hive/clickhouse), here we just get permissions for hive.
 				for (HivePermissionResponse.PermissionInfo permissionInfo : permission.getPri()) {
 					if (permissionInfo.isAuthorized()) {
 						return Tuple2.of(true, null);
 					} else {
-						return Tuple2.of(false, permissionInfo.getColumns());
+						columnsWithoutPermission = permissionInfo.getColumns();
 					}
 				}
+				return Tuple2.of(false, columnsWithoutPermission);
 			}
 			return Tuple2.of(false, null);
 		} catch (JsonProcessingException e) {
