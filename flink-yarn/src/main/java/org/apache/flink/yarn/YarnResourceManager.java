@@ -111,6 +111,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	private static final Priority RM_REQUEST_PRIORITY = Priority.newInstance(1);
 
+	private static final int YARN_MEM_MIN_MB = 1024;
+
 	/** YARN container map. Package private for unit test purposes. */
 	private final ConcurrentMap<ResourceID, YarnWorkerNode> workerNodeMap;
 	/** Environment variable name of the final container id used by the YarnResourceManager.
@@ -221,9 +223,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		this.workerSpecContainerResourceAdapter = new WorkerSpecContainerResourceAdapter(
 			flinkConfig,
-			yarnConfig.getInt(
-				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
-				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB),
+			Math.max(
+					yarnConfig.getInt(
+							YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_MB,
+							YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_MB),
+					YARN_MEM_MIN_MB),
 			yarnConfig.getInt(
 				YarnConfiguration.RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES,
 				YarnConfiguration.DEFAULT_RM_SCHEDULER_MINIMUM_ALLOCATION_VCORES),

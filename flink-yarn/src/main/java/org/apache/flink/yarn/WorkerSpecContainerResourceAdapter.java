@@ -122,8 +122,8 @@ class WorkerSpecContainerResourceAdapter {
 		final TaskExecutorProcessSpec taskExecutorProcessSpec =
 			TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec);
 		final InternalContainerResource internalContainerResource = new InternalContainerResource(
-			taskExecutorProcessSpec.getTotalProcessMemorySize().getMebiBytes(),
-			taskExecutorProcessSpec.getCpuCores().getValue().intValue(),
+			normalize(taskExecutorProcessSpec.getTotalProcessMemorySize().getMebiBytes(), minMemMB),
+			normalize(taskExecutorProcessSpec.getCpuCores().getValue().intValue(), minVcore),
 			externalResourceConfigs);
 
 		if (resourceWithinMaxAllocation(internalContainerResource)) {
@@ -144,6 +144,9 @@ class WorkerSpecContainerResourceAdapter {
 	 * Normalize to the minimum integer that is greater or equal to 'value' and is positive integer multiple of 'unitValue'.
 	 */
 	private int normalize(final int value, final int unitValue) {
+		if (unitValue <= 0) {
+			return value;
+		}
 		return Math.max(MathUtils.divideRoundUp(value, unitValue), 1) * unitValue;
 	}
 
