@@ -14,3 +14,4 @@
 # limitations under the License.
 
 org.apache.flink.formats.binlog.BinlogRowFormatFactory
+org.apache.flink.formats.binlog.DRCRowFormatFactory

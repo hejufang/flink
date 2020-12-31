@@ -57,9 +57,9 @@ public class BinlogRowFormatFactory implements
 	public TableSchema getTableSchema(Map<String, String> formatOptions) {
 		TableSchema.Builder tableBuilder = TableSchema.builder();
 		DataType headerDataType = PbFormatUtils.createDataType(DRCEntry.EntryHeader.getDescriptor(), false);
-		tableBuilder.field(BINLOG_HEADER, headerDataType);
+		tableBuilder.field(getBinlogHeaderName(), headerDataType);
 		DataType bodyDataType = PbFormatUtils.createDataType(DRCEntry.EntryBody.getDescriptor(), false);
-		tableBuilder.field(BINLOG_BODY, bodyDataType);
+		tableBuilder.field(getBinlogBodyName(), bodyDataType);
 		return tableBuilder.build();
 	}
 
@@ -67,7 +67,7 @@ public class BinlogRowFormatFactory implements
 	public DecodingFormat<DeserializationSchema<RowData>> createDecodingFormat(
 			DynamicTableFactory.Context context,
 			ReadableConfig formatOptions) {
-		final String tableName = formatOptions.get(TARGET_TABLE);
+		final String tableName = getTargetTable(formatOptions);
 		final boolean ignoreErrors = formatOptions.get(IGNORE_PARSER_ERROR);
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
@@ -79,6 +79,8 @@ public class BinlogRowFormatFactory implements
 						.setRowType((RowType) producedDataType.getLogicalType())
 						.setIgnoreParseErrors(ignoreErrors)
 						.setResultTypeInfo((TypeInformation<RowData>) context.createTypeInformation(producedDataType))
+						.setBinlogBodyName(getBinlogBodyName())
+						.setBinlogHeaderName(getBinlogHeaderName())
 						.build();
 			}
 
@@ -102,5 +104,17 @@ public class BinlogRowFormatFactory implements
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		return Collections.singleton(IGNORE_PARSER_ERROR);
+	}
+
+	protected String getBinlogHeaderName() {
+		return BINLOG_HEADER;
+	}
+
+	protected String getBinlogBodyName() {
+		return BINLOG_BODY;
+	}
+
+	protected String getTargetTable(ReadableConfig formatOptions) {
+		return formatOptions.get(TARGET_TABLE);
 	}
 }

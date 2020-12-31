@@ -61,7 +61,8 @@ public class BinlogRowDeserializationSchemaTest {
 	public void testDeserialization() throws Exception {
 		RowType rowType = createRowType();
 		BinlogRowDeserializationSchema schema =
-			new BinlogRowDeserializationSchema(rowType, null, "flink_type_test", false);
+			new BinlogRowDeserializationSchema(rowType, null, "flink_type_test",
+				false, BinlogOptions.BINLOG_HEADER, BinlogOptions.BINLOG_BODY);
 		schema.open(null);
 		RowData rowData = schema.deserialize(TEST_MESSAGE);
 		int fieldNum = 2;

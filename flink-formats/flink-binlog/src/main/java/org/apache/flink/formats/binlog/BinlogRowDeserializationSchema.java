@@ -46,8 +46,6 @@ import java.util.regex.Pattern;
 
 import static org.apache.flink.formats.binlog.BinlogOptions.AFTER_PREFIX;
 import static org.apache.flink.formats.binlog.BinlogOptions.BEFORE_PREFIX;
-import static org.apache.flink.formats.binlog.BinlogOptions.BINLOG_BODY;
-import static org.apache.flink.formats.binlog.BinlogOptions.BINLOG_HEADER;
 import static org.apache.flink.formats.binlog.BinlogOptions.BODY;
 import static org.apache.flink.formats.binlog.BinlogOptions.ENTRY;
 import static org.apache.flink.formats.binlog.BinlogOptions.HEADER;
@@ -83,25 +81,35 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 	private final TypeInformation<RowData> resultTypeInfo;
 	private final boolean ignoreParseErrors;
 	private final Pattern targetTablePattern;
+	private final String binlogHeaderName;
+	private final String binlogBodyName;
 
 	public BinlogRowDeserializationSchema(
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
 			String targetTable,
-			boolean ignoreParseErrors) {
+			boolean ignoreParseErrors,
+			String binlogHeaderName,
+			String binlogBodyName) {
 		this.rowType = rowType;
 		this.resultTypeInfo = resultTypeInfo;
 		this.ignoreParseErrors = ignoreParseErrors;
-		this.targetTablePattern = Pattern.compile(targetTable);
+		if (targetTable != null) {
+			this.targetTablePattern = Pattern.compile(targetTable);
+		} else {
+			this.targetTablePattern = null;
+		}
+		this.binlogHeaderName = binlogHeaderName;
+		this.binlogBodyName = binlogBodyName;
 		checkTypes();
 	}
 
 	@Override
 	public void open(InitializationContext context) throws Exception {
 		this.headerRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(
-			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(BINLOG_HEADER)), DRCEntry.EntryHeader.getDescriptor());
+			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(binlogHeaderName)), DRCEntry.EntryHeader.getDescriptor());
 		this.bodyRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(
-			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(BINLOG_BODY)), DRCEntry.EntryBody.getDescriptor());
+			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(binlogBodyName)), DRCEntry.EntryBody.getDescriptor());
 		this.runtimeConverterMap = RuntimeConverterFactory.createConverter(this.rowType);
 	}
 
@@ -119,7 +127,7 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 
 			// filter the target data.
 			String tableName = (String) header.getField(FIELD_DESCRIPTORS.get(TABLE));
-			if (!targetTablePattern.matcher(tableName).matches()) {
+			if (targetTablePattern != null && !targetTablePattern.matcher(tableName).matches()) {
 				// return null if the data are not from the target table.
 				return null;
 			}
@@ -197,7 +205,7 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 		List<String> fieldNames = rowType.getFieldNames();
 		for (int i = 0; i < rowType.getFieldCount(); i++) {
 			String typeName = fieldNames.get(i);
-			if (BINLOG_HEADER.equals(typeName) || BINLOG_BODY.equals(typeName)) {
+			if (binlogHeaderName.equals(typeName) || binlogBodyName.equals(typeName)) {
 				continue;
 			}
 			LogicalType typeInformation = rowType.getTypeAt(i);
@@ -252,6 +260,8 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 		private TypeInformation<RowData> resultTypeInfo;
 		private String targetTable;
 		private boolean ignoreParseErrors;
+		private String binlogHeaderName;
+		private String binlogBodyName;
 
 		private Builder() {
 		}
@@ -276,8 +286,19 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 			return this;
 		}
 
+		public Builder setBinlogHeaderName(String binlogHeaderName) {
+			this.binlogHeaderName = binlogHeaderName;
+			return this;
+		}
+
+		public Builder setBinlogBodyName(String binlogBodyName) {
+			this.binlogBodyName = binlogBodyName;
+			return this;
+		}
+
 		public BinlogRowDeserializationSchema build() {
-			return new BinlogRowDeserializationSchema(rowType, resultTypeInfo, targetTable, ignoreParseErrors);
+			return new BinlogRowDeserializationSchema(rowType,
+				resultTypeInfo, targetTable, ignoreParseErrors, binlogHeaderName, binlogBodyName);
 		}
 	}
 }
