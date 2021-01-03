@@ -58,6 +58,7 @@ public class MultiplePatternSelectAdapter<IN, OUT> extends MultiplePatternProces
 	public void processMatch(
 			final Tuple2<String, Map<String, List<IN>>> match,
 			final Context ctx,
+			final Object key,
 			final Collector<OUT> out) throws Exception {
 		out.collect(selectFunction.select(match));
 	}

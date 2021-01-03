@@ -555,7 +555,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		MultiplePatternProcessFunction<IN, OUT> function = getUserFunction();
 		setTimestamp(timestamp);
 		for (Map<String, List<IN>> matchingSequence : matchingSequences) {
-			function.processMatch(Tuple2.of(patternId, matchingSequence), context, collector);
+			function.processMatch(Tuple2.of(patternId, matchingSequence), context, getCurrentKey(), collector);
 		}
 	}
 
@@ -568,7 +568,7 @@ public class CoCepOperator<IN, KEY, OUT>
 
 			for (Tuple2<Map<String, List<IN>>, Long> matchingSequence : timedOutSequences) {
 				setTimestamp(matchingSequence.f1);
-				timeoutHandler.processTimedOutMatch(Tuple2.of(patternId, matchingSequence.f0), context);
+				timeoutHandler.processTimedOutMatch(Tuple2.of(patternId, matchingSequence.f0), getCurrentKey(), context);
 			}
 		}
 	}

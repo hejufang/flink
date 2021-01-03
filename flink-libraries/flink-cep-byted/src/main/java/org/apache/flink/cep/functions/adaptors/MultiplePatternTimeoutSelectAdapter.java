@@ -69,6 +69,7 @@ public class MultiplePatternTimeoutSelectAdapter<IN, OUT, T>
 	@Override
 	public void processTimedOutMatch(
 			final Tuple2<String, Map<String, List<IN>>> match,
+			final Object key,
 			final Context ctx) throws Exception {
 
 		final T timedOutPatternResult = timeoutFunction.timeout(match, ctx.timestamp());
