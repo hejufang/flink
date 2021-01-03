@@ -22,15 +22,13 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.util.FunctionUtils;
-import org.apache.flink.api.common.state.ListState;
-import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
-import org.apache.flink.api.common.state.ValueState;
-import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.cep.EventComparator;
@@ -74,13 +72,14 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -109,15 +108,15 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final String NFA_STATE_NAME = "nfaStateName";
 	private static final String EVENT_QUEUE_STATE_NAME = "eventQueuesStateName";
 
-	private transient ValueState<NFAState> computationStates;
 	private transient MapState<Long, List<IN>> elementQueueState;
-	private transient SharedBuffer<IN> partialMatches;
+	private transient MapState<String, NFAState> computationStates;
+	private Map<String, SharedBuffer<IN>> partialMatches;
 
 	private transient InternalTimerService<VoidNamespace> timerService;
 
-	private transient NFA<IN> currentNFA;
+	private Map<String, NFA<IN>> usingNFAs;
 
-	private ListState<Pattern> currentPatternState;
+	private BroadcastState<String, Pattern> patternStates;
 
 	/**
 	 * The last seen watermark. This will be used to
@@ -175,8 +174,8 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
 
-		Preconditions.checkArgument(initialPatterns.size() <= 1);
 		this.initialPatterns = initialPatterns;
+		this.usingNFAs = new HashMap<>();
 
 		if (afterMatchSkipStrategy == null) {
 			this.afterMatchSkipStrategy = AfterMatchSkipStrategy.noSkip();
@@ -197,17 +196,13 @@ public class CoCepOperator<IN, KEY, OUT>
 		super.initializeState(context);
 
 		// initializeState through the provided context
-		computationStates = context.getKeyedStateStore().getState(
-				new ValueStateDescriptor<>(
-						NFA_STATE_NAME,
-						new NFAStateSerializer()));
-		currentPatternState = context.getOperatorStateStore().getUnionListState(
-				new ListStateDescriptor<>(PATTERN_STATE_NAME, new KryoSerializer<>(Pattern.class, new ExecutionConfig())));
-		if (currentPatternState.get().iterator().hasNext()) {
-			currentPatternState.update(Collections.singletonList(currentPatternState.get().iterator().next()));
-		}
+		computationStates = context.getKeyedStateStore().getMapState(
+				new MapStateDescriptor<>(NFA_STATE_NAME, new StringSerializer(), new NFAStateSerializer()));
 
-		partialMatches = new SharedBuffer<>(context.getKeyedStateStore(), inputSerializer);
+		patternStates = context.getOperatorStateStore().getBroadcastState(
+				new MapStateDescriptor<>(PATTERN_STATE_NAME, new StringSerializer(), new KryoSerializer<>(Pattern.class, new ExecutionConfig())));
+		partialMatches = new HashMap<>();
+//		partialMatches = new SharedBuffer<>(context.getKeyedStateStore(), inputSerializer);
 
 		elementQueueState = context.getKeyedStateStore().getMapState(
 				new MapStateDescriptor<>(
@@ -242,19 +237,20 @@ public class CoCepOperator<IN, KEY, OUT>
 			}
 		});
 
-		if (currentPatternState.get().iterator().hasNext()) {
-			Pattern<IN, IN> pattern = currentPatternState.get().iterator().next();
+		Iterator<Map.Entry<String, Pattern>> iter = patternStates.iterator();
+		while (iter.hasNext()) {
+			Pattern<IN, IN> pattern = (Pattern<IN, IN>) iter.next();
 			if (pattern != null) {
-				NFA<IN> existingNFA = compileNFA(pattern);
-				existingNFA.open(cepRuntimeContext, new Configuration());
-				this.currentNFA = existingNFA;
+				initializeNewPattern(pattern);
 			}
-		} else if (initialPatterns.size() > 0) {
-			// initialize the initial patterns
-			Pattern<IN, IN> pattern = initialPatterns.get(0);
-			NFA<IN> initialNFA = compileNFA(pattern);
-			initialNFA.open(cepRuntimeContext, new Configuration());
-			this.currentNFA = initialNFA;
+		}
+
+		if (initialPatterns.size() > 0) {
+			for (Pattern<IN, IN> pattern : initialPatterns) {
+				if (!this.usingNFAs.containsKey(pattern.getPatternId())) {
+					initializeNewPattern(pattern);
+				}
+			}
 		}
 	}
 
@@ -264,18 +260,26 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		if (pattern.isDisabled()) {
 			// disable this pattern
-			this.currentPatternState.clear();
-			this.computationStates.clear();
+			this.patternStates.remove(pattern.getPatternId());
+			this.computationStates.remove(pattern.getPatternId());
 			return;
 		}
 
+		// update currentNFA
+		if (this.usingNFAs.containsKey(pattern.getPatternId())) {
+			this.usingNFAs.get(pattern.getPatternId()).close();
+		}
+		initializeNewPattern(pattern);
+	}
+
+	private void initializeNewPattern(Pattern<IN, IN> pattern) throws Exception {
+		String patternId = pattern.getPatternId();
 		final NFA<IN> nfa = compileNFA(pattern);
 		nfa.open(cepRuntimeContext, new Configuration());
 
-		// update currentNFA
-		this.currentNFA = nfa;
-		this.currentPatternState.clear();
-		this.currentPatternState.update(Collections.singletonList(pattern));
+		this.usingNFAs.put(patternId, nfa);
+		this.patternStates.put(patternId, pattern);
+		this.partialMatches.put(patternId, new SharedBuffer<>(getKeyedStateStore(), inputSerializer));
 	}
 
 	private NFA<IN> compileNFA(Pattern<IN, IN> pattern) {
@@ -287,14 +291,16 @@ public class CoCepOperator<IN, KEY, OUT>
 	@Override
 	public void close() throws Exception {
 		super.close();
-		if (currentNFA != null) {
-			currentNFA.close();
+		for (Map.Entry<String, NFA<IN>> nfa: usingNFAs.entrySet()) {
+			if (nfa.getValue() != null) {
+				nfa.getValue().close();
+			}
 		}
 	}
 
 	@Override
 	public void processElement1(StreamRecord<IN> element) throws Exception {
-		if (currentNFA == null) {
+		if (this.usingNFAs.isEmpty()) {
 			LOG.warn("Current pattern is not defined, drop records...");
 			return;
 		}
@@ -302,11 +308,17 @@ public class CoCepOperator<IN, KEY, OUT>
 		if (isProcessingTime) {
 			if (comparator == null) {
 				// there can be no out of order elements in processing time
-				NFAState nfaState = getNFAState();
-				long timestamp = getProcessingTimeService().getCurrentProcessingTime();
-				advanceTime(nfaState, timestamp);
-				processEvent(nfaState, element.getValue(), timestamp);
-				updateNFA(nfaState);
+				// iterate all patterns
+
+				Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+				while (iter.hasNext()) {
+					Map.Entry<String, Pattern> entry = iter.next();
+					NFAState nfaState = getNFAState(entry.getKey());
+					long timestamp = getProcessingTimeService().getCurrentProcessingTime();
+					advanceTime(nfaState, timestamp);
+					processEvent(nfaState, element.getValue(), timestamp);
+					updateNFA(nfaState);
+				}
 			} else {
 				long currentTime = timerService.currentProcessingTime();
 				bufferEvent(element.getValue(), currentTime);
@@ -387,31 +399,36 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		// STEP 1
 		PriorityQueue<Long> sortedTimestamps = getSortedTimestamps();
-		NFAState nfaState = getNFAState();
 
 		// STEP 2
 		while (!sortedTimestamps.isEmpty() && sortedTimestamps.peek() <= timerService.currentWatermark()) {
 			long timestamp = sortedTimestamps.poll();
-			advanceTime(nfaState, timestamp);
-			try (Stream<IN> elements = sort(elementQueueState.get(timestamp))) {
-				elements.forEachOrdered(
-						event -> {
-							try {
-								processEvent(nfaState, event, timestamp);
-							} catch (Exception e) {
-								throw new RuntimeException(e);
-							}
+
+			try (Stream<IN> data = sort(elementQueueState.get(timestamp))) {
+				final List<IN> elements = data.collect(Collectors.toList());
+				Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+				while (iter.hasNext()) {
+					Map.Entry<String, Pattern> entry = iter.next();
+					advanceTime(getNFAState(entry.getKey()), timestamp);
+
+					for (IN event : elements) {
+						try {
+							processEvent(getNFAState(entry.getKey()), event, timestamp);
+						} catch (Exception e) {
+							throw new RuntimeException(e);
 						}
-				);
+					}
+				}
 			}
 			elementQueueState.remove(timestamp);
 		}
 
-		// STEP 3
-		advanceTime(nfaState, timerService.currentWatermark());
-
-		// STEP 4
-		updateNFA(nfaState);
+		Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+		while (iter.hasNext()) {
+			NFAState nfaState = getNFAState(iter.next().getKey());
+			advanceTime(nfaState, timerService.currentWatermark());
+			updateNFA(nfaState);
+		}
 
 		if (!sortedTimestamps.isEmpty() || !partialMatches.isEmpty()) {
 			saveRegisterWatermarkTimer();
@@ -431,28 +448,35 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		// STEP 1
 		PriorityQueue<Long> sortedTimestamps = getSortedTimestamps();
-		NFAState nfa = getNFAState();
 
 		// STEP 2
 		while (!sortedTimestamps.isEmpty()) {
 			long timestamp = sortedTimestamps.poll();
-			advanceTime(nfa, timestamp);
-			try (Stream<IN> elements = sort(elementQueueState.get(timestamp))) {
-				elements.forEachOrdered(
-						event -> {
-							try {
-								processEvent(nfa, event, timestamp);
-							} catch (Exception e) {
-								throw new RuntimeException(e);
-							}
+			try (Stream<IN> data = sort(elementQueueState.get(timestamp))) {
+				final List<IN> elements = data.collect(Collectors.toList());
+				Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+				while (iter.hasNext()) {
+					Map.Entry<String, Pattern> entry = iter.next();
+					advanceTime(getNFAState(entry.getKey()), timestamp);
+
+					for (IN event : elements) {
+						try {
+							processEvent(getNFAState(entry.getKey()), event, timestamp);
+						} catch (Exception e) {
+							throw new RuntimeException(e);
 						}
-				);
+					}
+				}
 			}
 			elementQueueState.remove(timestamp);
 		}
 
 		// STEP 3
-		updateNFA(nfa);
+		Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+		while (iter.hasNext()) {
+			NFAState nfaState = getNFAState(iter.next().getKey());
+			updateNFA(nfaState);
+		}
 	}
 
 	private Stream<IN> sort(Collection<IN> elements) {
@@ -464,21 +488,21 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.lastWatermark = timestamp;
 	}
 
-	private NFAState getNFAState() throws IOException {
-		NFAState nfaState = computationStates.value();
-		if (nfaState != null && currentNFA.getPatternId().equals(nfaState.getPatternId())) {
+	private NFAState getNFAState(String patternId) throws Exception {
+		NFAState nfaState = computationStates.get(patternId);
+		if (nfaState != null && usingNFAs.get(patternId).getPatternId().equals(nfaState.getPatternId())) {
 			return nfaState;
 		} else {
-			Preconditions.checkArgument(currentNFA != null, "The pattern is not defined. Please check your pattern data stream if using broadcast.");
-			computationStates.update(currentNFA.createInitialNFAState());
-			return computationStates.value();
+			Preconditions.checkArgument(usingNFAs.get(patternId) != null, "The pattern is not defined. Please check your pattern data stream if using broadcast.");
+			computationStates.put(patternId, usingNFAs.get(patternId).createInitialNFAState());
+			return computationStates.get(patternId);
 		}
 	}
 
-	private void updateNFA(NFAState nfaState) throws IOException {
+	private void updateNFA(NFAState nfaState) throws Exception {
 		if (nfaState.isStateChanged()) {
 			nfaState.resetStateChanged();
-			computationStates.update(nfaState);
+			computationStates.put(nfaState.getPatternId(), nfaState);
 		}
 	}
 
@@ -499,10 +523,10 @@ public class CoCepOperator<IN, KEY, OUT>
 	 * @param timestamp The timestamp of the event
 	 */
 	private void processEvent(NFAState nfaState, IN event, long timestamp) throws Exception {
-		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
+		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
 			Collection<Map<String, List<IN>>> patterns =
-					currentNFA.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
-			processMatchedSequences(currentNFA.getPatternId(), patterns, timestamp);
+					usingNFAs.get(nfaState.getPatternId()).process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
+			processMatchedSequences(nfaState.getPatternId(), patterns, timestamp);
 		}
 	}
 
@@ -511,18 +535,18 @@ public class CoCepOperator<IN, KEY, OUT>
 	 * <b>lower</b> than the given timestamp should be passed to the nfa, This can lead to pruning and timeouts.
 	 */
 	private void advanceTime(NFAState nfaState, long timestamp) throws Exception {
-		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.getAccessor()) {
+		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
 			// output pending states matches
-			Collection<Map<String, List<IN>>> pendingMatches = currentNFA.pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
+			Collection<Map<String, List<IN>>> pendingMatches = usingNFAs.get(nfaState.getPatternId()).pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
 			if (!pendingMatches.isEmpty()) {
-				processMatchedSequences(currentNFA.getPatternId(), pendingMatches, timestamp);
+				processMatchedSequences(nfaState.getPatternId(), pendingMatches, timestamp);
 			}
 
 			// output timeout patterns
 			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
-					currentNFA.advanceTime(sharedBufferAccessor, nfaState, timestamp);
+					usingNFAs.get(nfaState.getPatternId()).advanceTime(sharedBufferAccessor, nfaState, timestamp);
 			if (!timedOut.isEmpty()) {
-				processTimedOutSequences(currentNFA.getPatternId(), timedOut);
+				processTimedOutSequences(nfaState.getPatternId(), timedOut);
 			}
 		}
 	}

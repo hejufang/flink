@@ -120,6 +120,39 @@ public class TestData {
 			"        }\n" +
 			"}";
 
+	public static final String FOLLOWEDBY_PATTERN = "{\n" +
+			"    \"id\": \"pattern_followedby\",\n" +
+			"    \"pattern\": {\n" +
+			"        \"events\": [\n" +
+			"            {\n" +
+			"                \"id\": \"start\",\n" +
+			"                \"conditions\": [\n" +
+			"                    {\n" +
+			"                        \"key\": \"name\",\n" +
+			"                        \"op\": \"=\",\n" +
+			"                        \"value\": \"buy\"\n" +
+			"                    }\n" +
+			"                ]\n" +
+			"            },\n" +
+			"            {\n" +
+			"                \"id\": \"middle\",\n" +
+			"                \"connection\": \"FOLLOWED_BY\",\n" +
+			"                \"after\": \"start\",\n" +
+			"                \"conditions\": [\n" +
+			"                    {\n" +
+			"                        \"key\": \"name\",\n" +
+			"                        \"op\": \"=\",\n" +
+			"                        \"value\": \"middle\"\n" +
+			"                    }\n" +
+			"                ]\n" +
+			"            }\n" +
+			"        ],\n" +
+			"        \"attributes\": {\n" +
+			"                \"allowSinglePartialMatchPerKey\": true\n" +
+			"        }\n" +
+			"    }\n" +
+			"}";
+
 	public static final String ILLEGAL_PATTERN_1 = "{\n" +
 			"        \"id\": \"test_count\",\n" +
 			"        \"pattern\": {\n" +
