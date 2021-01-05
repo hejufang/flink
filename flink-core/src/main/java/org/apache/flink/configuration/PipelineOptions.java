@@ -184,6 +184,22 @@ public class PipelineOptions {
 					" class:org.example.ExampleClass2,serializer:org.example.ExampleSerializer2"))
 				.build());
 
+	public static final ConfigOption<List<String>> KRYO_REGISTERED_SERIALIZERS =
+		key("pipeline.registered-kryo-serializers")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription(Description.builder()
+				.text("Semicolon separated list of pairs of class names and Kryo serializers class names to be used" +
+					" as Kryo registered serializes")
+				.linebreak()
+				.linebreak()
+				.text("Example:")
+				.linebreak()
+				.add(TextElement.code("class:org.example.ExampleClass,serializer:org.example.ExampleSerializer1;" +
+					" class:org.example.ExampleClass2,serializer:org.example.ExampleSerializer2"))
+				.build());
+
 	public static final ConfigOption<List<String>> KRYO_REGISTERED_CLASSES =
 		key("pipeline.registered-kryo-types")
 			.stringType()

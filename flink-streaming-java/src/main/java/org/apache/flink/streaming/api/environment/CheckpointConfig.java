@@ -62,6 +62,9 @@ public class CheckpointConfig implements java.io.Serializable {
 
 	public static final int UNDEFINED_TOLERABLE_CHECKPOINT_NUMBER = -1;
 
+	/** The default interval of checkpoint if enable: 30 seconds. */
+	public static final long DEFAULT_INTERVAL_CHECKPOINT_ENABLED = 30 * 1000L;
+
 	// ------------------------------------------------------------------------
 
 	/** Checkpointing mode (exactly-once vs. at-least-once). */
@@ -530,6 +533,19 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * @param configuration a configuration to read the values from
 	 */
 	public void configure(ReadableConfig configuration) {
+		configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_ENABLE)
+			.ifPresent(e -> {
+				if (e) {
+					setCheckpointInterval(DEFAULT_INTERVAL_CHECKPOINT_ENABLED);
+					setCheckpointingMode(DEFAULT_MODE);
+					setCheckpointTimeout(DEFAULT_TIMEOUT);
+					setMinPauseBetweenCheckpoints(DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS);
+					setMaxConcurrentCheckpoints(DEFAULT_MAX_CONCURRENT_CHECKPOINTS);
+					setTolerableCheckpointFailureNumber(UNLIMITED_TOLERABLE_FAILURE_NUMBER);
+					setCheckpointSchedulingStrategy(DEFAULT_SCHEDULER);
+					setPreferCheckpointForRecovery(false);
+				}
+			});
 		configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_MODE)
 			.ifPresent(this::setCheckpointingMode);
 		configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL)

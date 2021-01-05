@@ -1201,6 +1201,10 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			.map(s -> parseKryoSerializersWithExceptionHandling(classLoader, s))
 			.ifPresent(s -> this.defaultKryoSerializerClasses = s);
 
+		configuration.getOptional(PipelineOptions.KRYO_REGISTERED_SERIALIZERS)
+			.map(s -> parseKryoSerializersWithExceptionHandling(classLoader, s))
+			.ifPresent(s -> this.registeredTypesWithKryoSerializerClasses = s);
+
 		configuration.getOptional(PipelineOptions.POJO_REGISTERED_CLASSES)
 			.map(c -> loadClasses(c, classLoader, "Could not load pojo type to be registered."))
 			.ifPresent(c -> this.registeredPojoTypes = c);

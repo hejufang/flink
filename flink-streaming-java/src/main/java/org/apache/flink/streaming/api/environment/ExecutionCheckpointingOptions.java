@@ -35,6 +35,12 @@ import java.time.Duration;
  */
 @PublicEvolving
 public class ExecutionCheckpointingOptions {
+	public static final ConfigOption<Boolean> CHECKPOINTING_ENABLE =
+		ConfigOptions.key("execution.checkpointing.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Enable checkpointing with default config value.");
+
 	public static final ConfigOption<CheckpointingMode> CHECKPOINTING_MODE =
 		ConfigOptions.key("execution.checkpointing.mode")
 		.enumType(CheckpointingMode.class)

@@ -272,6 +272,29 @@ public class ExecutionConfigTest extends TestLogger {
 	}
 
 	@Test
+	public void testLoadingRegisteredKryoSerializersFromConfiguration() {
+		ExecutionConfig configFromSetters = new ExecutionConfig();
+		configFromSetters.registerTypeWithKryoSerializer(ExecutionConfigTest.class, TestSerializer1.class);
+		configFromSetters.registerTypeWithKryoSerializer(TestSerializer1.class, TestSerializer2.class);
+
+		ExecutionConfig configFromConfiguration = new ExecutionConfig();
+
+		Configuration configuration = new Configuration();
+		configuration.setString(
+			"pipeline.registered-kryo-serializers",
+			"class:org.apache.flink.api.common.ExecutionConfigTest," +
+				"serializer:org.apache.flink.api.common.ExecutionConfigTest$TestSerializer1;" +
+				"class:org.apache.flink.api.common.ExecutionConfigTest$TestSerializer1," +
+				"serializer:org.apache.flink.api.common.ExecutionConfigTest$TestSerializer2");
+
+
+		// mutate config according to configuration
+		configFromConfiguration.configure(configuration, Thread.currentThread().getContextClassLoader());
+
+		assertThat(configFromConfiguration, equalTo(configFromSetters));
+	}
+
+	@Test
 	public void testNotOverridingRegisteredKryoTypesWithDefaultsFromConfiguration() {
 		ExecutionConfig config = new ExecutionConfig();
 		config.registerKryoType(ExecutionConfigTest.class);
