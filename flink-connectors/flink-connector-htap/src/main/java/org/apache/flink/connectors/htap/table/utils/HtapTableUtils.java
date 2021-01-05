@@ -20,6 +20,7 @@ package org.apache.flink.connectors.htap.table.utils;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.expressions.CallExpression;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.expressions.FieldReferenceExpression;
@@ -36,9 +37,11 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * HtapTableUtils.
@@ -46,6 +49,7 @@ import java.util.Optional;
 public class HtapTableUtils {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapTableUtils.class);
+	private static final String SEPARATOR = "/";
 
 	// TODO: schema and props can be put into HtapTableInfo for extension
 	public static HtapTableInfo createTableInfo(
@@ -54,6 +58,27 @@ public class HtapTableUtils {
 			Map<String, String> props) {
 		HtapTableInfo tableInfo = HtapTableInfo.forTable(tableName);
 		return tableInfo;
+	}
+
+	/**
+	 * Convert tableName to HtapTable format, which like `databaseName/tableName`.
+	 */
+	public static String convertToHtapTableName(ObjectPath tablePath) {
+		return String.format("%s/%s", tablePath.getDatabaseName(), tablePath.getObjectName());
+	}
+
+	/**
+	 * Extract database names from Htap tableNames, Htap tableNames have particular
+	 * format which like `databaseName/tableName`.
+	 */
+	public static Set<String> extractDatabaseName(List<String> htapTableNames) {
+		Set<String> databases = new HashSet<>();
+		for (String tableName : htapTableNames) {
+			if (tableName.contains(SEPARATOR)) {
+				databases.add(tableName.split(SEPARATOR)[0]);
+			}
+		}
+		return databases;
 	}
 
 	public static TableSchema htapToFlinkSchema(Schema schema) {

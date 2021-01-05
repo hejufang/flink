@@ -141,7 +141,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 
 	@Override
 	public HtapTableSource createTableSource(ObjectPath tablePath, CatalogTable table) {
-		String tableName = tablePath.getObjectName();
+		String tableName = HtapTableUtils.convertToHtapTableName(tablePath);
 		return createTableSource(tableName, table.getSchema(), table.getProperties());
 	}
 

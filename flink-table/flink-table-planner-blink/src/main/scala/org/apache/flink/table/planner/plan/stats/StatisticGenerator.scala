@@ -70,7 +70,11 @@ object StatisticGenerator extends Logging {
       tableEnv, tablePath, fieldsToAnalyze, partitionsToAnalyze)
 
     val table = tableEnv.sqlQuery(statsSql)
-    val results: JList[Row] = CollectResultUtil.collect(table, s"Analyze TableStats for $tableName")
+    val results: JList[Row] = CollectResultUtil.collect(
+      table,
+      s"Analyze TableStats for $tableName",
+      tableEnv.getCurrentCatalog,
+      tableEnv.getCurrentDatabase)
     if (results.size != 1) {
       throw new TableException("Analyze table has no computed result")
     }
