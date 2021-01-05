@@ -25,6 +25,7 @@ import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
@@ -743,7 +744,7 @@ public final class Utils {
 	public static void setIpv6Env(
 			org.apache.flink.configuration.Configuration flinkConfiguration,
 			Map<String, String> env) {
-		if (!flinkConfiguration.getBoolean(ConfigConstants.IPV6_ENABLED_KEY, ConfigConstants.IPV6_ENABLED_VALUE)) {
+		if (!IPv6Util.ipv6Enabled(flinkConfiguration)) {
 			// unset the ipv6 environments when disable ipv6.
 			String oldUnsetEnvs = env.get(YarnConfigKeys.ENV_RUNTIME_UNSET);
 			String newUnsetEnvs;

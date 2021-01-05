@@ -46,9 +46,11 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.taskexecutor.TaskManagerServices;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
 import org.apache.hadoop.fs.FileSystem;
@@ -1826,6 +1828,11 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/gc.log");
 		javaOpts += " " + "-XX:ErrorFile=" + flinkConfiguration.getString(ConfigConstants.FLINK_JVM_ERROR_FILE_KEY,
 				ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/hs_err_pid%p.log");
+
+		String ipv6JavaOpt = IPv6Util.getIpv6JavaOpt(flinkConfiguration, javaOpts);
+		if (!StringUtils.isNullOrWhitespaceOnly(ipv6JavaOpt)) {
+			javaOpts += " " + ipv6JavaOpt;
+		}
 
 		// Set up the container launch context for the application master
 		ContainerLaunchContext amContainer = Records.newRecord(ContainerLaunchContext.class);

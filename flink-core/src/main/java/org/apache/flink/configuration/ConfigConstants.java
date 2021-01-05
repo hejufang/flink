@@ -2223,6 +2223,7 @@ public final class ConfigConstants {
 
 	public static final String IPV6_ENABLED_KEY = "ipv6.enabled";
 	public static final boolean IPV6_ENABLED_VALUE = false;
+	public static final String IPV6_SUPPORTED_CLUSTER_KEY = "ipv6.supported.cluster";
 
 	/**
 	 * Not instantiable.

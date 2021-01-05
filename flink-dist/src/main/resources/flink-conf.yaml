@@ -215,6 +215,10 @@ common:
   # smart-resource
   taskmanager.network.memory.lazy-allocate: true
 
+  # ipv6
+  ipv6.enabled: false
+  ipv6.supported.cluster: leser,quoka,quaga,hippo
+
 flink:
   dc: cn
   clusterName: flink

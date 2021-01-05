@@ -27,6 +27,7 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.NetUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelException;
@@ -494,6 +495,11 @@ public class BootstrapTools {
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
 			javaOpts += " -Djava.security.krb5.conf=krb5.conf";
+		}
+
+		String ipv6JavaOpt = IPv6Util.getIpv6JavaOpt(flinkConfig, javaOpts);
+		if (!StringUtils.isBlank(ipv6JavaOpt)) {
+			javaOpts += " " + ipv6JavaOpt;
 		}
 		startCommandValues.put("jvmopts", javaOpts);
 
