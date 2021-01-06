@@ -23,6 +23,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteOptions;
 
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
@@ -115,7 +116,8 @@ public class RocksDBIncrementalCheckpointUtils {
 
 		for (ColumnFamilyHandle columnFamilyHandle : columnFamilyHandles) {
 			try (RocksIteratorWrapper iteratorWrapper = RocksDBOperationUtils.getRocksIterator(db, columnFamilyHandle);
-				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(db)) {
+				WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
+				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(db, writeOptions)) {
 
 				iteratorWrapper.seek(beginKeyBytes);
 

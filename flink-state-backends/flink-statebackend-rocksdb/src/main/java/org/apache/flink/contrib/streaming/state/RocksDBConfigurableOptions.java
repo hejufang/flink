@@ -58,6 +58,18 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.withDescription("The maximum number of concurrent background flush and compaction jobs. " +
 				"RocksDB has default configuration as '1'.");
 
+	public static final ConfigOption<String> MAX_BACKGROUND_FLUSH_THREADS =
+		key("state.backend.rocksdb.flush.thread.num")
+			.noDefaultValue()
+			.withDescription("The maximum number of concurrent background flush jobs. " +
+				"RocksDB has default configuration as '-1'.");
+
+	public static final ConfigOption<String> MAX_BACKGROUND_COMPACTION_THREADS =
+		key("state.backend.rocksdb.compaction.thread.num")
+			.noDefaultValue()
+			.withDescription("The maximum number of concurrent background compaction jobs. " +
+				"RocksDB has default configuration as '-1'.");
+
 	public static final ConfigOption<String> MAX_OPEN_FILES =
 		key("state.backend.rocksdb.files.open")
 			.noDefaultValue()

@@ -45,6 +45,8 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOOMFILTER_ENABLED;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPACTION_STYLE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPRESSION_TYPE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_COMPACTION_THREADS;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_FLUSH_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_OPEN_FILES;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_SIZE_LEVEL_BASE;
@@ -72,6 +74,14 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 
 		if (isOptionConfigured(MAX_OPEN_FILES)) {
 			currentOptions.setMaxOpenFiles(getMaxOpenFiles());
+		}
+
+		if (isOptionConfigured(MAX_BACKGROUND_FLUSH_THREADS)) {
+			currentOptions.setMaxBackgroundFlushes(getMaxBackgroundFlushThreads());
+		}
+
+		if (isOptionConfigured(MAX_BACKGROUND_COMPACTION_THREADS)) {
+			currentOptions.setMaxBackgroundCompactions(getMaxBackgroundCompactionThreads());
 		}
 
 		return currentOptions;
@@ -163,6 +173,26 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 	public DefaultConfigurableOptionsFactory setMaxBackgroundThreads(int totalThreadCount) {
 		Preconditions.checkArgument(totalThreadCount > 0);
 		configuredOptions.put(MAX_BACKGROUND_THREADS.key(), String.valueOf(totalThreadCount));
+		return this;
+	}
+
+	private int getMaxBackgroundFlushThreads() {
+		return Integer.parseInt(getInternal(MAX_BACKGROUND_FLUSH_THREADS.key()));
+	}
+
+	private DefaultConfigurableOptionsFactory setMaxBackgroundFlushThreads(int flushThreadCount) {
+		Preconditions.checkArgument(flushThreadCount > 0);
+		configuredOptions.put(MAX_BACKGROUND_FLUSH_THREADS.key(), String.valueOf(flushThreadCount));
+		return this;
+	}
+
+	private int getMaxBackgroundCompactionThreads() {
+		return Integer.parseInt(getInternal(MAX_BACKGROUND_COMPACTION_THREADS.key()));
+	}
+
+	private DefaultConfigurableOptionsFactory setMaxBackgroundCompactionThreads(int compactionThreadCount) {
+		Preconditions.checkArgument(compactionThreadCount > 0);
+		configuredOptions.put(MAX_BACKGROUND_COMPACTION_THREADS.key(), String.valueOf(compactionThreadCount));
 		return this;
 	}
 
@@ -334,6 +364,8 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 		// configurable DBOptions
 		MAX_BACKGROUND_THREADS.key(),
 		MAX_OPEN_FILES.key(),
+		MAX_BACKGROUND_FLUSH_THREADS.key(),
+		MAX_BACKGROUND_COMPACTION_THREADS.key(),
 
 		// configurable ColumnFamilyOptions
 		COMPACTION_STYLE.key(),
