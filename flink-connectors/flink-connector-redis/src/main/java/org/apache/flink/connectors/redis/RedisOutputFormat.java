@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.redis;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -39,6 +40,7 @@ import redis.clients.jedis.exceptions.JedisException;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -166,24 +168,27 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	@Override
 	public synchronized void writeRecord(Tuple2<Boolean, Row> tuple2) {
 		checkFlushException();
-		Row record = tuple2.f1;
-		int fieldSize = record.getArity();
-		if (fieldSize < 2) {
-			throw new RuntimeException("Only rows with more than 2 fields (including 2)" +
-				" can be sunk into redis.");
-		}
-		if (record.getField(0) == null) {
-			throw new FlinkRuntimeException(
-				String.format("Redis key can't be null. record: %s", record));
-		}
-		if (needBufferReduce) {
-			addToReduceBuffer(tuple2);
-		} else {
-			recordDeque.add(tuple2);
-		}
-		batchCount++;
-		if (batchCount == batchSize) {
-			flush();
+		// Just ignore the delete messages.
+		if (tuple2.f0) {
+			Row record = tuple2.f1;
+			int fieldSize = record.getArity();
+			if (fieldSize < 2) {
+				throw new RuntimeException("Only rows with more than 2 fields (including 2)" +
+					" can be sunk into redis.");
+			}
+			if (record.getField(0) == null) {
+				throw new FlinkRuntimeException(
+					String.format("Redis key can't be null. record: %s", record));
+			}
+			if (needBufferReduce) {
+				addToReduceBuffer(tuple2, reduceBuffer);
+			} else {
+				recordDeque.add(tuple2);
+			}
+			batchCount++;
+			if (batchCount == batchSize) {
+				flush();
+			}
 		}
 	}
 
@@ -244,17 +249,22 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 		}
 	}
 
-	private void addToReduceBuffer(Tuple2<Boolean, Row> tuple2) {
+	@VisibleForTesting
+	protected void addToReduceBuffer(Tuple2<Boolean, Row> tuple2, Map<Object, Object> reduceBuffer) {
 		Row record = tuple2.f1;
 		Object key = record.getField(0);
 		Object value;
 		if (serializationSchema != null) {
-			key = key.toString().getBytes();
 			value = serializeValue(record);
 		} else {
 			value = record.getField(1);
 		}
-		reduceBuffer.put(key, value);
+		if (key instanceof byte[]) {
+			// In case map treats two byte arrays with totally same values as different key.
+			reduceBuffer.put(new ByteArrayWrapper((byte[]) key), value);
+		} else {
+			reduceBuffer.put(key, value);
+		}
 	}
 
 	private void executeBatchWithBufferReduce(Pipeline pipeline) {
@@ -263,18 +273,19 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 				deleteKey(pipeline, key);
 				return;
 			}
-			if (ttlSeconds > 0) {
-				if (key instanceof byte[] && value instanceof byte[]) {
-					pipeline.setex((byte[]) key, ttlSeconds, (byte[]) value);
-				} else {
-					pipeline.setex(key.toString(), ttlSeconds, value.toString());
-				}
+			byte[] keyBytes;
+			if (key instanceof byte[]) {
+				keyBytes = (byte[]) key;
+			} else if (key instanceof ByteArrayWrapper){
+				keyBytes = ((ByteArrayWrapper) key).data;
 			} else {
-				if (key instanceof byte[] && value instanceof byte[]) {
-					pipeline.set((byte[]) key, (byte[]) value);
-				} else {
-					pipeline.set(key.toString(), value.toString());
-				}
+				keyBytes = key.toString().getBytes();
+			}
+			byte[] valueBytes = (value instanceof byte[]) ? (byte[]) value : value.toString().getBytes();
+			if (ttlSeconds > 0) {
+				pipeline.setex(keyBytes, ttlSeconds, valueBytes);
+			} else {
+				pipeline.set(keyBytes, valueBytes);
 			}
 		});
 	}
@@ -388,11 +399,10 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			case REDIS_DATATYPE_ZSET:
 				writeZSet(pipeline, record);
 				break;
-
 			default:
 				throw new FlinkRuntimeException(String.format("Unsupported data type, " +
-						"currently supported type: %s, %s, %s, %s, %s", REDIS_DATATYPE_STRING,
-					REDIS_DATATYPE_HASH, REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
+						"currently supported type: %s, %s, %s, %s", REDIS_DATATYPE_HASH,
+					REDIS_DATATYPE_LIST, REDIS_DATATYPE_SET, REDIS_DATATYPE_ZSET));
 		}
 	}
 
@@ -569,6 +579,30 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 				LOG.info("psm was not supplied.");
 			}
 			return format;
+		}
+	}
+
+	private static final class ByteArrayWrapper {
+		private final byte[] data;
+
+		public ByteArrayWrapper(byte[] data) {
+			if (data == null) {
+				throw new NullPointerException();
+			}
+			this.data = data;
+		}
+
+		@Override
+		public boolean equals(Object other) {
+			if (!(other instanceof ByteArrayWrapper)) {
+				return false;
+			}
+			return Arrays.equals(data, ((ByteArrayWrapper) other).data);
+		}
+
+		@Override
+		public int hashCode() {
+			return Arrays.hashCode(data);
 		}
 	}
 }
