@@ -54,6 +54,7 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.WriteOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -297,7 +298,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			try (RestoredDBInstance tmpRestoreDBInfo = restoreDBInstanceFromStateHandle(
 				(IncrementalRemoteKeyedStateHandle) rawStateHandle,
 				temporaryRestoreInstancePath);
-				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(this.db, writeBatchSize)) {
+				WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
+				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(this.db, writeOptions, writeBatchSize)) {
 
 				List<ColumnFamilyDescriptor> tmpColumnFamilyDescriptors = tmpRestoreDBInfo.columnFamilyDescriptors;
 				List<ColumnFamilyHandle> tmpColumnFamilyHandles = tmpRestoreDBInfo.columnFamilyHandles;
