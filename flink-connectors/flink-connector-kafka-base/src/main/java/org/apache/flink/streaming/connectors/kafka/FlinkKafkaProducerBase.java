@@ -35,6 +35,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationS
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
+import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.SerializableObject;
 
@@ -138,6 +139,8 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	/** Number of unacknowledged records. */
 	protected long pendingRecords;
+
+	protected RowKindSinkFilter<IN> rowKindSinkFilter;
 
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
@@ -294,6 +297,10 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		// propagate asynchronous errors
 		checkErroneous();
 
+		if (!filter(next)) {
+			return;
+		}
+
 		byte[] serializedKey = schema.serializeKey(next);
 		byte[] serializedValue = schema.serializeValue(next);
 		String targetTopic = schema.getTargetTopic(next);
@@ -430,5 +437,14 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	protected Map<String, Object> getProducerDefaultConfig() {
 		return new HashMap<>();
+	}
+
+	public FlinkKafkaProducerBase<IN> setRowKindSinkFilter(RowKindSinkFilter<IN> rowKindSinkFilter) {
+		this.rowKindSinkFilter = rowKindSinkFilter;
+		return this;
+	}
+
+	boolean filter(IN in) {
+		return rowKindSinkFilter == null || rowKindSinkFilter.filter(in);
 	}
 }

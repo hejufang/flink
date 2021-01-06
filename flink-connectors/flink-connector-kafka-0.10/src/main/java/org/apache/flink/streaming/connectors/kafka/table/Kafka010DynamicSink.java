@@ -26,6 +26,7 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartiti
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.functions.RowDataSinkFilter;
 import org.apache.flink.table.types.DataType;
 
 import java.util.Optional;
@@ -69,6 +70,7 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 			partitioner.orElse(null));
 		boolean logFailureOnly = Boolean.parseBoolean(otherProperties.getProperty(SINK_LOG_FAILURE_ONLY.key(), "false"));
 		flinkKafkaProducerBase.setLogFailuresOnly(logFailureOnly);
+		flinkKafkaProducerBase.setRowKindSinkFilter(RowDataSinkFilter.createIncludeInsertAndUpdateAfterFilter());
 		return flinkKafkaProducerBase;
 	}
 
