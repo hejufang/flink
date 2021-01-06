@@ -261,10 +261,7 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * @param maxConcurrentCheckpoints The maximum number of concurrent checkpoint attempts.
 	 */
 	public void setMaxConcurrentCheckpoints(int maxConcurrentCheckpoints) {
-		if (maxConcurrentCheckpoints < 1) {
-			throw new IllegalArgumentException("The maximum number of concurrent attempts must be at least one.");
-		}
-		this.maxConcurrentCheckpoints = maxConcurrentCheckpoints;
+		this.maxConcurrentCheckpoints = DEFAULT_MAX_CONCURRENT_CHECKPOINTS;
 	}
 
 	/**
