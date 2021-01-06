@@ -307,9 +307,11 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		if (isSubTaskRunning) {
 			try {
 				pullConsumerScheduleService.start();
-				isSubTaskRunning = checkRunnable();
-				if (!isSubTaskRunning) {
-					pullConsumerScheduleService.shutdown();
+				if (!schema.isStreamingMode()) {
+					isSubTaskRunning = checkRunnable();
+					if (!isSubTaskRunning) {
+						pullConsumerScheduleService.shutdown();
+					}
 				}
 			} catch (MQClientException e) {
 				throw new RuntimeException(e);
@@ -323,7 +325,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		try {
 			List<MessageQueue> messageQueues = parallelismStrategy.allocate(consumer.getConsumerGroup(),
 				null, new ArrayList<>(consumer.fetchSubscribeMessageQueues(topic)), null);
-			return CollectionUtils.isNotEmpty(messageQueues) || schema.isStreamingMode();
+			return CollectionUtils.isNotEmpty(messageQueues);
 		} catch (Exception e) {
 			throw new IllegalStateException(String.format("%d check balance mq failed.", subTaskId), e);
 		}
