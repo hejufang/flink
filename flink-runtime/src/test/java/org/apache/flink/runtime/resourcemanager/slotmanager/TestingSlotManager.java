@@ -89,6 +89,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public ResourceProfile getDefaultResource() {
+		return ResourceProfile.ZERO;
+	}
+
+	@Override
 	public ResourceProfile getFreeResourceOf(InstanceID instanceID) {
 		return ResourceProfile.ZERO;
 	}

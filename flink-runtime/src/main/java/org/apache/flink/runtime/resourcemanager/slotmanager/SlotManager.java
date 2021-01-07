@@ -68,6 +68,8 @@ public interface SlotManager extends AutoCloseable {
 
 	ResourceProfile getFreeResourceOf(InstanceID instanceID);
 
+	ResourceProfile getDefaultResource();
+
 	int getNumberPendingSlotRequests();
 
 	/**

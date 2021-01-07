@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
@@ -36,7 +35,6 @@ import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.rpc.RpcService;
 import org.apache.flink.util.FlinkException;
-import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
@@ -62,8 +60,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	/** Flink configuration uploaded by client. */
 	protected final Configuration flinkClientConfig;
 
-	private final PendingWorkerCounter requestedNotAllocatedWorkerCounter;
-	private final PendingWorkerCounter requestedNotRegisteredWorkerCounter;
+	private final WorkerResourceSpecCounter requestedNotAllocatedWorkerCounter;
+	private final WorkerResourceSpecCounter requestedNotRegisteredWorkerCounter;
 
 	/** Maps from worker's resource id to its resource spec. */
 	private final Map<ResourceID, WorkerResourceSpec> allocatedNotRegisteredWorkerResourceSpecs;
@@ -103,8 +101,8 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 		// Load the flink config uploaded by flink client
 		this.flinkClientConfig = loadClientConfiguration();
 
-		requestedNotAllocatedWorkerCounter = new PendingWorkerCounter();
-		requestedNotRegisteredWorkerCounter = new PendingWorkerCounter();
+		requestedNotAllocatedWorkerCounter = new WorkerResourceSpecCounter();
+		requestedNotRegisteredWorkerCounter = new WorkerResourceSpecCounter();
 		allocatedNotRegisteredWorkerResourceSpecs = new HashMap<>();
 	}
 
@@ -181,7 +179,7 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	 * Notify that a worker with the given resource spec has been registered.
 	 * @param resourceID id of the registered worker resource
 	 */
-	private void notifyAllocatedWorkerRegistered(ResourceID resourceID) {
+	protected void notifyAllocatedWorkerRegistered(ResourceID resourceID) {
 		WorkerResourceSpec workerResourceSpec = allocatedNotRegisteredWorkerResourceSpecs.remove(resourceID);
 		if (workerResourceSpec == null) {
 			// ignore workers from previous attempt
@@ -222,43 +220,6 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 
 		public int getNumNotRegistered() {
 			return numNotRegistered;
-		}
-	}
-
-	/**
-	 * Utility class for counting pending workers per {@link WorkerResourceSpec}.
-	 */
-	@VisibleForTesting
-	static class PendingWorkerCounter {
-		private final Map<WorkerResourceSpec, Integer> pendingWorkerNums;
-
-		PendingWorkerCounter() {
-			pendingWorkerNums = new HashMap<>();
-		}
-
-		int getTotalNum() {
-			return pendingWorkerNums.values().stream().reduce(0, Integer::sum);
-		}
-
-		int getNum(final WorkerResourceSpec workerResourceSpec) {
-			return pendingWorkerNums.getOrDefault(Preconditions.checkNotNull(workerResourceSpec), 0);
-		}
-
-		int increaseAndGet(final WorkerResourceSpec workerResourceSpec) {
-			return pendingWorkerNums.compute(
-				Preconditions.checkNotNull(workerResourceSpec),
-				(ignored, num) -> num != null ? num + 1 : 1);
-		}
-
-		int decreaseAndGet(final WorkerResourceSpec workerResourceSpec) {
-			final Integer newValue = pendingWorkerNums.compute(
-				Preconditions.checkNotNull(workerResourceSpec),
-				(ignored, num) -> {
-					Preconditions.checkState(num != null && num > 0,
-						"Cannot decrease, no pending worker of spec %s.", workerResourceSpec);
-					return num == 1 ? null : num - 1;
-				});
-			return newValue != null ? newValue : 0;
 		}
 	}
 }

@@ -39,7 +39,7 @@ public class YarnTestUtils {
 
 	static boolean isHadoopVersionGreaterThanOrEquals(final int major, final int minor) {
 		final String[] splitVersion = VersionInfo.getVersion().split("\\.");
-		final int[] versions = Arrays.stream(splitVersion).mapToInt(Integer::parseInt).toArray();
+		final int[] versions = Arrays.stream(splitVersion).limit(2).mapToInt(Integer::parseInt).toArray();
 		return versions[0] >= major && versions[1] >= minor;
 	}
 

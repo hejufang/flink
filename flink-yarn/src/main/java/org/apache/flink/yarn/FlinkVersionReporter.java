@@ -56,6 +56,8 @@ public class FlinkVersionReporter implements Runnable {
 		String dc = this.flinkConfig.getString(ConfigConstants.DC_KEY, null);
 		String flinkApi = this.flinkConfig.getString(ConfigConstants.FLINK_JOB_API_KEY, "DataSet");
 		String applicationType = this.flinkConfig.getString(YarnConfigOptions.APPLICATION_TYPE);
+		String cluster = this.flinkConfig.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
+
 		EnvironmentInformation.RevisionInformation rev =
 			EnvironmentInformation.getRevisionInformation();
 		String commitId = rev.commitId;
@@ -96,6 +98,9 @@ public class FlinkVersionReporter implements Runnable {
 		}
 		if (applicationType != null && !applicationType.isEmpty()) {
 			tags = tags + "|appType=" + formatTag(applicationType);
+		}
+		if (cluster != null && !cluster.isEmpty()) {
+			tags = tags + "|cluster=" + cluster;
 		}
 	}
 

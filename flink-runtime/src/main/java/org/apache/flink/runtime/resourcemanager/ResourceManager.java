@@ -150,7 +150,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	private final ClusterInformation clusterInformation;
 
-	private final ResourceManagerMetricGroup resourceManagerMetricGroup;
+	protected final ResourceManagerMetricGroup resourceManagerMetricGroup;
 
 	private final FailureRater failureRater;
 
@@ -247,8 +247,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.blacklistTracker = BlacklistUtil.createBlacklistTracker(flinkConfig, resourceManagerMetricGroup);
 		this.blacklistReporter = BlacklistUtil.createLocalBlacklistReporter(flinkConfig, blacklistTracker);
 	}
-
-
 
 	// ------------------------------------------------------------------------
 	//  RPC lifecycle methods

@@ -240,6 +240,11 @@ public class SlotManagerImpl implements SlotManager {
 		return getResourceFromNumSlots(getNumberFreeSlotsOf(instanceID));
 	}
 
+	@Override
+	public ResourceProfile getDefaultResource() {
+		return defaultSlotResourceProfile;
+	}
+
 	private ResourceProfile getResourceFromNumSlots(int numSlots) {
 		if (numSlots < 0 || defaultSlotResourceProfile == null) {
 			return ResourceProfile.UNKNOWN;
