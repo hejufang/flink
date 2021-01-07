@@ -226,6 +226,8 @@ flink:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+
 
 dw:
   dc: cn
@@ -234,6 +236,7 @@ dw:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 lepad:
   dc: cn
@@ -242,6 +245,7 @@ lepad:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 larva:
   dc: cn
@@ -278,6 +282,7 @@ leser:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   jobmanager.execution.region-failover.always-region-when-no-resource: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 lobst:
   dc: cn
@@ -307,6 +312,7 @@ hyrax:
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 horse:
   dc: cn
@@ -315,6 +321,7 @@ horse:
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 hibis:
   dc: cn
@@ -374,6 +381,7 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   jobmanager.execution.region-failover.always-region-when-no-resource: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 quaga:
   dc: cn
@@ -442,6 +450,7 @@ marmt:
   docker.region: Aliyun_VA
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
 
 macaw:
   dc: va
@@ -461,6 +470,7 @@ macaw:
   docker.region: Aliyun_VA
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
 
 grila:
   dc: i18n_gcp
@@ -518,6 +528,7 @@ alisg:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
 
 sloth:
   dc: sg
@@ -535,6 +546,7 @@ sloth:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
 
 boe:
   dc: vm
