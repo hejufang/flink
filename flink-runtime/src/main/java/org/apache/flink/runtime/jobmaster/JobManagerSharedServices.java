@@ -55,6 +55,8 @@ public class JobManagerSharedServices {
 
 	private final ScheduledExecutorService scheduledExecutorService;
 
+	private final ScheduledExecutorService ioExecutorService;
+
 	private final LibraryCacheManager libraryCacheManager;
 
 	private final RestartStrategyFactory restartStrategyFactory;
@@ -74,7 +76,26 @@ public class JobManagerSharedServices {
 			BackPressureStatsTracker backPressureStatsTracker,
 			@Nonnull BlobWriter blobWriter) {
 
+		this(scheduledExecutorService,
+			scheduledExecutorService,
+			libraryCacheManager,
+			restartStrategyFactory,
+			stackTraceSampleCoordinator,
+			backPressureStatsTracker,
+			blobWriter);
+	}
+
+	public JobManagerSharedServices(
+		ScheduledExecutorService scheduledExecutorService,
+		ScheduledExecutorService ioExecutorService,
+		LibraryCacheManager libraryCacheManager,
+		RestartStrategyFactory restartStrategyFactory,
+		StackTraceSampleCoordinator stackTraceSampleCoordinator,
+		BackPressureStatsTracker backPressureStatsTracker,
+		@Nonnull BlobWriter blobWriter) {
+
 		this.scheduledExecutorService = checkNotNull(scheduledExecutorService);
+		this.ioExecutorService = ioExecutorService;
 		this.libraryCacheManager = checkNotNull(libraryCacheManager);
 		this.restartStrategyFactory = checkNotNull(restartStrategyFactory);
 		this.stackTraceSampleCoordinator = checkNotNull(stackTraceSampleCoordinator);
@@ -84,6 +105,10 @@ public class JobManagerSharedServices {
 
 	public ScheduledExecutorService getScheduledExecutorService() {
 		return scheduledExecutorService;
+	}
+
+	public ScheduledExecutorService getIOExecutorService() {
+		return ioExecutorService;
 	}
 
 	public LibraryCacheManager getLibraryCacheManager() {
@@ -163,6 +188,10 @@ public class JobManagerSharedServices {
 				config.getInteger(JobManagerOptions.JOB_MANAGER_FUTURE_EXECUTOR_THREADS_NUM),
 				new ExecutorThreadFactory("jobmanager-future"));
 
+		final ScheduledExecutorService ioExecutor = Executors.newScheduledThreadPool(
+			config.getInteger(JobManagerOptions.JOB_MANAGER_IO_EXECUTOR_THREADS_NUM),
+			new ExecutorThreadFactory("jobmanager-io"));
+
 		final StackTraceSampleCoordinator stackTraceSampleCoordinator =
 			new StackTraceSampleCoordinator(futureExecutor, timeout.toMillis());
 		final int cleanUpInterval = config.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
@@ -181,6 +210,7 @@ public class JobManagerSharedServices {
 
 		return new JobManagerSharedServices(
 			futureExecutor,
+			ioExecutor,
 			libraryCacheManager,
 			RestartStrategyFactory.createRestartStrategyFactory(config),
 			stackTraceSampleCoordinator,

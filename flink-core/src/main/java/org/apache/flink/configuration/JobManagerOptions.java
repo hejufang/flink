@@ -275,6 +275,11 @@ public class JobManagerOptions {
 			.defaultValue(4)
 			.withDescription("Number of threads used in futureExecutor in JobManager.");
 
+	public static final ConfigOption<Integer> JOB_MANAGER_IO_EXECUTOR_THREADS_NUM =
+		key("jobmanager.io-executor.threads.num")
+			.defaultValue(64)
+			.withDescription("Number of threads used in futureExecutor in JobManager.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {
