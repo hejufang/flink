@@ -21,6 +21,7 @@ package org.apache.flink.runtime.jobmaster;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.blob.BlobServer;
@@ -53,6 +54,8 @@ public class JobManagerSharedServices {
 
 	private final ScheduledExecutorService scheduledExecutorService;
 
+	private final ScheduledExecutorService ioExecutorService;
+
 	private final LibraryCacheManager libraryCacheManager;
 
 	private final BackPressureRequestCoordinator backPressureSampleCoordinator;
@@ -69,7 +72,24 @@ public class JobManagerSharedServices {
 			BackPressureStatsTracker backPressureStatsTracker,
 			@Nonnull BlobWriter blobWriter) {
 
+		this(scheduledExecutorService,
+			scheduledExecutorService,
+			libraryCacheManager,
+			backPressureSampleCoordinator,
+			backPressureStatsTracker,
+			blobWriter);
+	}
+
+	public JobManagerSharedServices(
+		ScheduledExecutorService scheduledExecutorService,
+		ScheduledExecutorService ioExecutorService,
+		LibraryCacheManager libraryCacheManager,
+		BackPressureRequestCoordinator backPressureSampleCoordinator,
+		BackPressureStatsTracker backPressureStatsTracker,
+		@Nonnull BlobWriter blobWriter) {
+
 		this.scheduledExecutorService = checkNotNull(scheduledExecutorService);
+		this.ioExecutorService = checkNotNull(ioExecutorService);
 		this.libraryCacheManager = checkNotNull(libraryCacheManager);
 		this.backPressureSampleCoordinator = checkNotNull(backPressureSampleCoordinator);
 		this.backPressureStatsTracker = checkNotNull(backPressureStatsTracker);
@@ -78,6 +98,10 @@ public class JobManagerSharedServices {
 
 	public ScheduledExecutorService getScheduledExecutorService() {
 		return scheduledExecutorService;
+	}
+
+	public ScheduledExecutorService getIOExecutorService() {
+		return ioExecutorService;
 	}
 
 	public LibraryCacheManager getLibraryCacheManager() {
@@ -163,6 +187,10 @@ public class JobManagerSharedServices {
 			futureExecutor,
 			akkaTimeout.toMillis() + numSamples * delayBetweenSamples);
 
+		final ScheduledExecutorService ioExecutor = Executors.newScheduledThreadPool(
+			config.getInteger(JobManagerOptions.JOB_MANAGER_IO_EXECUTOR_THREADS_NUM),
+			new ExecutorThreadFactory("jobmanager-io"));
+
 		final int cleanUpInterval = config.getInteger(WebOptions.BACKPRESSURE_CLEANUP_INTERVAL);
 		final BackPressureStatsTrackerImpl backPressureStatsTracker = new BackPressureStatsTrackerImpl(
 			coordinator,
@@ -177,6 +205,7 @@ public class JobManagerSharedServices {
 
 		return new JobManagerSharedServices(
 			futureExecutor,
+			ioExecutor,
 			libraryCacheManager,
 			coordinator,
 			backPressureStatsTracker,

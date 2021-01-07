@@ -839,7 +839,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		final String taskManagerLocationInfo = retrieveTaskManagerLocation(executionAttemptID);
 
 		if (checkpointCoordinator != null) {
-			ioExecutor.execute(() -> {
+			futureExecutor.execute(() -> {
 				try {
 					checkpointCoordinator.receiveAcknowledgeMessage(ackMessage, taskManagerLocationInfo);
 				} catch (Throwable t) {
@@ -864,7 +864,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		final String taskManagerLocationInfo = retrieveTaskManagerLocation(decline.getTaskExecutionId());
 
 		if (checkpointCoordinator != null) {
-			ioExecutor.execute(() -> {
+			futureExecutor.execute(() -> {
 				try {
 					checkpointCoordinator.receiveDeclineMessage(decline, taskManagerLocationInfo);
 				} catch (Exception e) {

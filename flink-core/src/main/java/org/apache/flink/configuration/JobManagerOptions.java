@@ -357,6 +357,11 @@ public class JobManagerOptions {
 					.defaultValue(false)
 					.withDescription("Whether let client shutdown the cluster or not.");
 
+	public static final ConfigOption<Integer> JOB_MANAGER_IO_EXECUTOR_THREADS_NUM =
+		key("jobmanager.io-executor.threads.num")
+			.defaultValue(64)
+			.withDescription("Number of threads used in futureExecutor in JobManager.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

@@ -159,6 +159,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 
 	private final ScheduledExecutorService scheduledExecutorService;
 
+	private final ScheduledExecutorService ioExecutorService;
+
 	private final OnCompletionActions jobCompletionActions;
 
 	private final FatalErrorHandler fatalErrorHandler;
@@ -243,6 +245,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.highAvailabilityServices = checkNotNull(highAvailabilityService);
 		this.blobWriter = jobManagerSharedServices.getBlobWriter();
 		this.scheduledExecutorService = jobManagerSharedServices.getScheduledExecutorService();
+		this.ioExecutorService = jobManagerSharedServices.getIOExecutorService();
 		this.jobCompletionActions = checkNotNull(jobCompletionActions);
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 		this.userCodeLoader = checkNotNull(userCodeLoader);
@@ -302,7 +305,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			log,
 			jobGraph,
 			backPressureStatsTracker,
-			scheduledExecutorService,
+			ioExecutorService,
 			jobMasterConfiguration.getConfiguration(),
 			scheduler,
 			scheduledExecutorService,
