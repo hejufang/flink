@@ -198,7 +198,7 @@ public class CEPPatternStreamITCase {
 		DataStream<String> result = CEP.pattern(input, patternDataStream)
 				.process(new MultiplePatternProcessFunction<Event, String>() {
 					@Override
-					public void processMatch(Tuple2<String, Map<String, List<Event>>> match, Context ctx, Object key, Collector<String> out) throws Exception {
+					public void processMatch(Tuple2<String, Map<String, List<Event>>> match, Context ctx, Collector<String> out) throws Exception {
 						String res = match.f0 + "," +
 								match.f1.get("start").get(0).getId() + "," +
 								match.f1.get("middle").get(0).getId() + "," +

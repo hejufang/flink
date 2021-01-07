@@ -78,7 +78,6 @@ public class MultiplePatternTimeoutFlatSelectAdapter<IN, OUT, T>
 	@Override
 	public void processTimedOutMatch(
 			Tuple2<String, Map<String, List<IN>>> match,
-			Object key,
 			Context ctx) throws Exception {
 		sideCollector.setCtx(ctx);
 		flatTimeoutFunction.timeout(match, ctx.timestamp(), sideCollector);

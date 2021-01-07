@@ -31,6 +31,5 @@ public interface MultiplePatternTimedOutPartialMatchHandler<IN> {
 
 	void processTimedOutMatch(
 			final Tuple2<String, Map<String, List<IN>>> match,
-			final Object key,
 			final MultiplePatternProcessFunction.Context ctx) throws Exception;
 }
