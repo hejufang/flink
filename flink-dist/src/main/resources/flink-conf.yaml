@@ -182,6 +182,7 @@ flink:
   high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 dw:
   dc: cn
@@ -189,6 +190,7 @@ dw:
   high-availability.zookeeper.quorum: 10.11.43.39:2184,10.11.43.66:2184,10.224.152.92:2184,10.224.71.64:2184,10.224.71.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 lepad:
   dc: cn
@@ -196,6 +198,7 @@ lepad:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 larva:
   dc: cn
@@ -231,6 +234,7 @@ leser:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 lobst:
   dc: cn
@@ -259,6 +263,7 @@ hyrax:
   high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 horse:
   dc: cn
@@ -266,6 +271,7 @@ horse:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 hibis:
   dc: cn
@@ -323,6 +329,7 @@ quoka:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
   cluster.evenly-spread-out-slots: true
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
 quaga:
   dc: cn
@@ -391,6 +398,7 @@ marmt:
   docker.region: Aliyun_VA
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
 
 macaw:
   dc: va
@@ -410,6 +418,7 @@ macaw:
   docker.region: Aliyun_VA
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
 
 grila:
   dc: i18n_gcp
@@ -466,6 +475,7 @@ alisg:
   docker.server: 10.8.27.231:8002
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
 
 sloth:
   dc: sg
@@ -483,6 +493,7 @@ sloth:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
+  metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
 
 boe:
   dc: vm
