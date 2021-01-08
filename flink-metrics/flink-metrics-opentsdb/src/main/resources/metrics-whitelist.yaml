@@ -144,5 +144,12 @@ non-global:
         cacheDeleteCount,
         cacheEvictWithWriteDiskCount,
         cacheLoadWithInvalidDataCount,
-        totalDiskOperationCount
+        totalDiskOperationCount,
+      # jm threadPool usage
+        numPendingIOTask,
+        numRunningIOTask,
+        ioThreadPoolUsage,
+        numPendingFutureTask,
+        numRunningFutureTask,
+        futureThreadPoolUsage
     ]
