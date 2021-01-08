@@ -19,6 +19,8 @@
 package org.apache.flink.table.data.vector.heap;
 
 import org.apache.flink.table.data.vector.writable.WritableBytesVector;
+import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 
 import java.util.Arrays;
 
@@ -83,6 +85,11 @@ public class HeapBytesVector extends AbstractHeapVector implements WritableBytes
 
 	@Override
 	public void appendBytes(int elementNum, byte[] sourceBuf, int start, int length) {
+		if (length > Integer.MAX_VALUE - elementsAppended) {
+			throw new FlinkRuntimeException(
+				String.format("Size of buffer will exceed the max length of byte[], which is " +
+					"Integer.MAX_VALUE. elementsAppended = %s, length = %s,", elementsAppended, length));
+		}
 		reserve(elementsAppended + length);
 		System.arraycopy(sourceBuf, start, buffer, elementsAppended, length);
 		this.start[elementNum] = elementsAppended;
@@ -104,15 +111,22 @@ public class HeapBytesVector extends AbstractHeapVector implements WritableBytes
 
 	private void reserve(int requiredCapacity) {
 		if (requiredCapacity > capacity) {
-			int newCapacity = requiredCapacity * 2;
-				try {
-					byte[] newData = new byte[newCapacity];
-					System.arraycopy(buffer, 0, newData, 0, elementsAppended);
-					buffer = newData;
-					capacity = newCapacity;
-				} catch (OutOfMemoryError outOfMemoryError) {
-					throw new UnsupportedOperationException(requiredCapacity + " cannot be satisfied.", outOfMemoryError);
-				}
+			int newCapacity;
+			if (requiredCapacity > Integer.MAX_VALUE >> 1) {
+				newCapacity = Integer.MAX_VALUE;
+			} else {
+				newCapacity = requiredCapacity << 1;
+			}
+			Preconditions.checkState(newCapacity >= 0,
+				String.format("Capacity must be greater than or equal to zero, but get '%s'.", capacity));
+			try {
+				byte[] newData = new byte[newCapacity];
+				System.arraycopy(buffer, 0, newData, 0, elementsAppended);
+				buffer = newData;
+				capacity = newCapacity;
+			} catch (OutOfMemoryError outOfMemoryError) {
+				throw new UnsupportedOperationException(requiredCapacity + " cannot be satisfied.", outOfMemoryError);
+			}
 		}
 	}
 
