@@ -25,10 +25,14 @@ import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,9 +44,13 @@ import java.util.stream.Collectors;
  */
 @Internal
 public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepartitioner<OperatorStateHandle> {
+	private static final Logger LOG = LoggerFactory.getLogger(RoundRobinOperatorStateRepartitioner.class);
 
+	public static final int CACHE_MAX_SIZE = 16;
 	public static final OperatorStateRepartitioner<OperatorStateHandle> INSTANCE = new RoundRobinOperatorStateRepartitioner();
 	private static final boolean OPTIMIZE_MEMORY_USE = false;
+
+	private final Map<Integer, List<List<OperatorStateHandle>>> unionStatesCache = new MaxSizeHashMap<>(CACHE_MAX_SIZE);
 
 	@Override
 	public List<List<OperatorStateHandle>> repartitionState(
@@ -62,6 +70,12 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 
 		// We only round-robin repartition UNION state if new parallelism equals to the old one.
 		if (newParallelism == oldParallelism) {
+			LOG.info("Repartition union states, hashCode = {}.", previousParallelSubtaskStates.hashCode());
+			final int hashCode = previousParallelSubtaskStates.hashCode();
+			if (unionStatesCache.containsKey(hashCode)) {
+				LOG.info("Skip the union states re-assignment because of cache contains hashCode {}.", hashCode);
+				return unionStatesCache.get(hashCode);
+			}
 			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionStates = collectUnionStates(previousParallelSubtaskStates);
 
 			if (unionStates.isEmpty()) {
@@ -71,7 +85,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			// Initialize
 			mergeMapList = initMergeMapList(previousParallelSubtaskStates);
 
-			repartitionUnionState(unionStates, mergeMapList);
+			fastRepartitionUnionState(unionStates, mergeMapList);
 		} else {
 
 			// Reorganize: group by (State Name -> StreamStateHandle + Offsets)
@@ -214,7 +228,12 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> nameToUnionState =
 				nameToStateByMode.getByMode(OperatorStateHandle.Mode.UNION);
 
-		repartitionUnionState(nameToUnionState, mergeMapList);
+		if (nameToStateByMode.getByMode(OperatorStateHandle.Mode.BROADCAST).isEmpty()) {
+			// we can use the fast repartition if we don't have broadcast state
+			fastRepartitionUnionState(nameToUnionState, mergeMapList);
+		} else {
+			repartitionUnionState(nameToUnionState, mergeMapList);
+		}
 
 		// Now we also add the state handles marked for uniform broadcast to all parallel instances
 		Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> nameToBroadcastState =
@@ -318,6 +337,37 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 	}
 
 	/**
+	 * A faster version of {@link #repartitionUnionState} under some specific circumstances.
+	 */
+	private void fastRepartitionUnionState(
+			Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> unionState,
+			List<Map<StreamStateHandle, OperatorStateHandle>> mergeMapList) {
+		LOG.info("Choose fastRepartitionUnionState which may reuse the operatorStateHandles.");
+		Map<StreamStateHandle, OperatorStreamStateHandle> unionStateCache = new HashMap<>(1024);
+		for (Map.Entry<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> e :
+				unionState.entrySet()) {
+			for (Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo> handleWithMetaInfo : e.getValue()) {
+				if (!unionStateCache.containsKey(handleWithMetaInfo.f0)) {
+					unionStateCache.put(handleWithMetaInfo.f0, new OperatorStreamStateHandle(
+							new HashMap<>(unionState.size()), handleWithMetaInfo.f0));
+				}
+				unionStateCache.get(handleWithMetaInfo.f0).getStateNameToPartitionOffsets()
+						.put(e.getKey(), handleWithMetaInfo.f1);
+			}
+		}
+
+		for (Map<StreamStateHandle, OperatorStateHandle> mergeMap : mergeMapList) {
+			for (Map.Entry<StreamStateHandle, OperatorStreamStateHandle> entry : unionStateCache.entrySet()) {
+				if (!mergeMap.containsKey(entry.getKey())) {
+					mergeMap.put(entry.getKey(), entry.getValue());
+				} else {
+					mergeMap.get(entry.getKey()).getStateNameToPartitionOffsets().putAll(entry.getValue().getStateNameToPartitionOffsets());
+				}
+			}
+		}
+	}
+
+	/**
 	 * Repartition UNION state.
 	 */
 	private void repartitionUnionState(
@@ -388,6 +438,19 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		public Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> getByMode(
 				OperatorStateHandle.Mode mode) {
 			return byMode.get(mode);
+		}
+	}
+
+	private static class MaxSizeHashMap<K, V> extends LinkedHashMap<K, V> {
+		private final int maxSize;
+
+		public MaxSizeHashMap(int maxSize) {
+			this.maxSize = maxSize;
+		}
+
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+			return size() > maxSize;
 		}
 	}
 }
