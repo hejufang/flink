@@ -609,7 +609,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			env.getExecutionConfig(),
 			asyncSnapshots,
 			stateHandles,
-			cancelStreamRegistry).build();
+			cancelStreamRegistry).setRestoreThreads(nThreadOfOperatorStateBackend).build();
 	}
 
 	private OptionsFactory configureOptionsFactory(
