@@ -117,7 +117,7 @@ public class CheckpointingStatisticsTest extends RestResponseMarshallingTestBase
 			9,
 			Collections.emptyMap(),
 			100L,
-			"Test failure");
+			"Test failure", "Test failure");
 
 		CheckpointingStatistics.RestoredCheckpointStatistics restored = new CheckpointingStatistics.RestoredCheckpointStatistics(
 			4L,

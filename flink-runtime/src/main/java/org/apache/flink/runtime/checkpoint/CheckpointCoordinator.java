@@ -1768,6 +1768,14 @@ public class CheckpointCoordinator {
 		}
 	}
 
+	private CheckpointException wrapWithCheckpointException(CheckpointFailureReason reason, Throwable cause) {
+		if (cause instanceof CheckpointException) {
+			return (CheckpointException) cause;
+		} else {
+			return new CheckpointException(reason, cause);
+		}
+	}
+
 	private void checkAndResetCheckpointScheduler() {
 		if (!shutdown && periodicScheduling && !checkpointScheduler.isScheduling()) {
 			synchronized (lock) {

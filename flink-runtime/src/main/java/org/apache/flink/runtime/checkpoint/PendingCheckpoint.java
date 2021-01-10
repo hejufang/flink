@@ -490,7 +490,7 @@ public class PendingCheckpoint {
 	 */
 	public void abort(CheckpointFailureReason reason, @Nullable Throwable cause) {
 		try {
-			failureCause = new CheckpointException(reason, cause);
+			failureCause = wrapWithCheckpointException(reason, cause);
 			onCompletionPromise.completeExceptionally(failureCause);
 			reportFailedCheckpoint(failureCause);
 			assertAbortSubsumedForced(reason);
@@ -504,6 +504,14 @@ public class PendingCheckpoint {
 	 */
 	public void abort(CheckpointFailureReason reason) {
 		abort(reason, null);
+	}
+
+	private CheckpointException wrapWithCheckpointException(CheckpointFailureReason reason, Throwable cause) {
+		if (cause instanceof CheckpointException) {
+			return (CheckpointException) cause;
+		} else {
+			return new CheckpointException(reason, cause);
+		}
 	}
 
 	private void assertAbortSubsumedForced(CheckpointFailureReason reason) {
