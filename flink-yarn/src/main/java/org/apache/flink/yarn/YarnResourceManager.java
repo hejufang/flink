@@ -259,10 +259,13 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.fatalOnGangFailed = true;
 
 		// init the SmartResource
-		this.smartResourceManager = new SmartResourceManager(flinkConfig);
+		this.smartResourceManager = new SmartResourceManager(flinkConfig, env);
 		this.smartResourceManager.setYarnResourceManager(this);
-		this.containerResourcesUpdater = new Thread(this::containerResourcesUpdaterProc);
-		this.containerResourcesUpdater.start();
+		if (smartResourceManager.getSmartResourcesEnable()) {
+			this.containerResourcesUpdater = new Thread(this::containerResourcesUpdaterProc);
+			this.containerResourcesUpdater.start();
+			log.info("SmartResource started.");
+		}
 
 		containerStartDurationMaxMs = -1;
 
@@ -314,6 +317,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	@VisibleForTesting
 	public SlowContainerManager getSlowContainerManager() {
 		return slowContainerManager;
+	}
+
+	@VisibleForTesting
+	SmartResourceManager getSmartResourceManager() {
+		return smartResourceManager;
 	}
 
 	protected AMRMClientAsync<AMRMClient.ContainerRequest> createAndStartResourceManagerClient(

@@ -23,6 +23,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.configuration.SmartResourceOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
@@ -528,6 +529,29 @@ public class YarnResourceManagerTest extends TestLogger {
 				resourceManager.deregisterApplication(ApplicationStatus.SUCCEEDED, null);
 				assertFalse("YARN application directory was not removed", Files.exists(applicationDir.toPath()));
 			});
+		}};
+	}
+
+	/**
+	 * Init SmartResource tests.
+	 */
+	@Test
+	public void testSmartResource() throws Exception {
+		// disable SmartResource
+		new Context(flinkConfig, null) {{
+			assertEquals(false, resourceManager.getSmartResourceManager().getSmartResourcesEnable());
+		}};
+
+		// enable SmartResource
+		Configuration configuration = new Configuration();
+		configuration.addAll(flinkConfig);
+		configuration.setBoolean(SmartResourceOptions.SMART_RESOURCES_ENABLE, true);
+		configuration.setString(ConfigConstants.DC_KEY, "cn");
+		configuration.setString(ConfigConstants.CLUSTER_NAME_KEY, "lf");
+		configuration.setString(SmartResourceOptions.SMART_RESOURCES_SERVICE_NAME, "smart-resource-service-name");
+		configuration.setString("applicationName", "test-job_matt");
+		new Context(configuration, null) {{
+			assertEquals(true, resourceManager.getSmartResourceManager().getSmartResourcesEnable());
 		}};
 	}
 

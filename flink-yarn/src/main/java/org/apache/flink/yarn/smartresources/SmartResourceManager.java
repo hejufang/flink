@@ -85,6 +85,7 @@ public class SmartResourceManager {
 	private SmartResourcesStats smartResourcesStats;
 	private boolean disableMemAdjust = false;
 	private boolean srCpuAdjustDoubleEnable = false;
+	private boolean smartResourcesEnable;
 	private int srMemMaxMB;
 	private String srCpuEstimateMode;
 	private String srAdjustCheckApi;
@@ -116,9 +117,9 @@ public class SmartResourceManager {
 	/**
 	 * Init the config of smart-resource.
 	 */
-	public SmartResourceManager(Configuration flinkConfig) {
+	public SmartResourceManager(Configuration flinkConfig, Map<String, String> env) {
 		smartResourcesStats = new SmartResourcesStats();
-		boolean smartResourcesEnable = flinkConfig.getBoolean(SmartResourceOptions.SMART_RESOURCES_ENABLE);
+		smartResourcesEnable = flinkConfig.getBoolean(SmartResourceOptions.SMART_RESOURCES_ENABLE);
 		if (!smartResourcesEnable) {
 			smartResourcesEnable = flinkConfig.getBoolean(SmartResourceOptions.SMART_RESOURCES_ENABLE_OLD);
 		}
@@ -139,6 +140,9 @@ public class SmartResourceManager {
 			this.cluster = flinkConfig.getString(ConfigConstants.CLUSTER_NAME_KEY, null);
 			Preconditions.checkNotNull(this.cluster, "SmartResources enabled and get cluster failed");
 			this.applicationID = System.getenv(YarnConfigKeys.ENV_APP_ID);
+			if (StringUtils.isNullOrWhitespaceOnly(applicationID)) {
+				this.applicationID = env.get(YarnConfigKeys.ENV_APP_ID);
+			}
 			Preconditions.checkNotNull(this.applicationID, "SmartResources enabled and get applicationID failed");
 			String applicationNameWithUser = flinkConfig.getString("applicationName", null);
 			Preconditions.checkNotNull(applicationNameWithUser, "SmartResources enabled and get applicationName failed");
@@ -215,6 +219,10 @@ public class SmartResourceManager {
 		}
 
 		return true;
+	}
+
+	public boolean getSmartResourcesEnable() {
+		return smartResourcesEnable;
 	}
 
 	public void setYarnResourceManager(YarnResourceManager yarnResourceManager) {

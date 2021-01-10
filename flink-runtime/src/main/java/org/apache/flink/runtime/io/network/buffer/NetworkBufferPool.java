@@ -193,11 +193,13 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 		return memorySegment;
 	}
 
-	public MemorySegment allocateMemorySegmentLazy() {
+	private MemorySegment allocateMemorySegmentLazy() {
 		if (numberOfAllocatedMemorySegments.get() < totalNumberOfMemorySegments) {
 			if (numberOfAllocatedMemorySegments.incrementAndGet() <= totalNumberOfMemorySegments) {
 				try {
-					return MemorySegmentFactory.allocateUnpooledOffHeapMemory(memorySegmentSize, null);
+					MemorySegment segment = MemorySegmentFactory.allocateUnpooledOffHeapMemory(memorySegmentSize, null);
+					LOG.debug("Allocated a segment success with memorySegmentSize: {}.", memorySegmentSize);
+					return segment;
 				} catch (OutOfMemoryError err) {
 					numberOfAllocatedMemorySegments.decrementAndGet();
 
@@ -247,13 +249,14 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 				synchronized (availableMemorySegments) {
 					if ((segment = internalRequestMemorySegment()) == null) {
-						availableMemorySegments.wait(2000);
-					}
-				}
-
-				if (lazyAllocate) {
-					if (segment == null) {
-						segment = allocateMemorySegmentLazy();
+						if (lazyAllocate) {
+							segment = allocateMemorySegmentLazy();
+							if (segment == null) {
+								availableMemorySegments.wait(2000);
+							}
+						} else {
+							availableMemorySegments.wait(2000);
+						}
 					}
 				}
 
@@ -262,6 +265,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 				}
 
 				if (segments.size() >= numberOfSegmentsToRequest) {
+					LOG.debug("Requested {} segments success", numberOfSegmentsToRequest);
 					break;
 				}
 
