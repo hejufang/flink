@@ -18,10 +18,19 @@
 
 package org.apache.flink.cep.test;
 
+import org.junit.Test;
+
 /**
  * TestData for cep2.0, we may add more data in the future.
  */
 public class TestData {
+
+	@Test
+	public void testPrint() {
+		System.out.println(PATTERN_DATA_1);
+		System.out.println("---");
+		System.out.println(COUNT_PATTERN_1);
+	}
 
 	public static final String PATTERN_DATA_1 = "{\n" +
 			"    \"id\": \"test_pattern\",\n" +
@@ -120,6 +129,66 @@ public class TestData {
 			"        }\n" +
 			"}";
 
+	public static final String COUNT_PATTERN_2 = "{\n" +
+			"        \"id\": \"test_agg\",\n" +
+			"        \"pattern\": {\n" +
+			"                \"events\": [{\n" +
+			"                        \"id\": \"imp\",\n" +
+			"                        \"conditions\": [{\n" +
+			"                                \"key\": \"id\",\n" +
+			"                                \"op\": \">\",\n" +
+			"                                \"value\": \"1\",\n" +
+			"                                \"aggregation\": \"count\",\n" +
+			"                                \"type\": \"long\",\n" +
+			"                                \"filters\": [{\n" +
+			"                                                \"key\": \"name\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"imp\"\n" +
+			"                                        },\n" +
+			"                                        {\n" +
+			"                                                \"key\": \"id\",\n" +
+			"                                                \"op\": \"=\",\n" +
+			"                                                \"value\": \"1\"\n" +
+			"                                        }\n" +
+			"                                ]\n" +
+			"                        }]\n" +
+			"                }]\n" +
+			"        }\n" +
+			"}";
+
+	public static final String FOLLOWEDBY_PATTERN = "{\n" +
+			"    \"id\": \"pattern_followedby\",\n" +
+			"    \"pattern\": {\n" +
+			"        \"events\": [\n" +
+			"            {\n" +
+			"                \"id\": \"start\",\n" +
+			"                \"conditions\": [\n" +
+			"                    {\n" +
+			"                        \"key\": \"name\",\n" +
+			"                        \"op\": \"=\",\n" +
+			"                        \"value\": \"buy\"\n" +
+			"                    }\n" +
+			"                ]\n" +
+			"            },\n" +
+			"            {\n" +
+			"                \"id\": \"middle\",\n" +
+			"                \"connection\": \"FOLLOWED_BY\",\n" +
+			"                \"after\": \"start\",\n" +
+			"                \"conditions\": [\n" +
+			"                    {\n" +
+			"                        \"key\": \"name\",\n" +
+			"                        \"op\": \"=\",\n" +
+			"                        \"value\": \"middle\"\n" +
+			"                    }\n" +
+			"                ]\n" +
+			"            }\n" +
+			"        ],\n" +
+			"        \"attributes\": {\n" +
+			"                \"allowSinglePartialMatchPerKey\": true\n" +
+			"        }\n" +
+			"    }\n" +
+			"}";
+
 	public static final String ILLEGAL_PATTERN_1 = "{\n" +
 			"        \"id\": \"test_count\",\n" +
 			"        \"pattern\": {\n" +
@@ -146,8 +215,10 @@ public class TestData {
 			"        }\n" +
 			"}\n";
 
-	public static final String DISABLED_PATTERN_1 = "{\n" +
-			"        \"id\": \"test_count\",\n" +
-			"        \"status\": \"disabled\"\n" +
-			"}";
+	public static String disablePattern(String patternId) {
+		return "{\n" +
+				"        \"id\": \"" + patternId + "\",\n" +
+				"        \"status\": \"disabled\"\n" +
+				"}";
+	}
 }

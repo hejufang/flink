@@ -35,6 +35,8 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.cep.utils.CEPUtils.generateUniqueId;
+
 /**
  * PatternConverter.
  */
@@ -52,10 +54,12 @@ public class PatternConverter implements Serializable {
 	}
 
 	public static <IN> Pattern<IN, IN> buildPattern(PatternPojo pojo, CepEventParser cepEventParser) {
+		String patternId = pojo.getId();
+		int hash = pojo.hashCode();
 
 		if (pojo.getStatus().equals(PatternPojo.StatusType.DISABLED)) {
 			final Pattern<IN, IN> disabledPattern = Pattern.begin("ignored");
-			disabledPattern.setPatternId(pojo.getId());
+			disabledPattern.setPatternMeta(pojo.getId(), -1);
 			disabledPattern.setDisabled(true);
 			return disabledPattern;
 		}
@@ -64,7 +68,7 @@ public class PatternConverter implements Serializable {
 		int conditionPos = 0;
 
 		final Pattern<IN, IN> begin = (Pattern<IN, IN>) Pattern.begin(pojo.getBeginEvent().getId())
-				.where(new EventParserCondition<>(cepEventParser.duplicate(), pojo.getBeginEvent().getConditions(), pojo.getId() + "-" + conditionPos++));
+				.where(new EventParserCondition<>(cepEventParser.duplicate(), pojo.getBeginEvent().getConditions(), generateUniqueId(patternId, hash) + "-" + conditionPos++));
 
 		Pattern<IN, IN> compositePattern = begin;
 		Event tempEvent = pojo.getBeginEvent();
@@ -75,10 +79,10 @@ public class PatternConverter implements Serializable {
 			Pattern<IN, IN> nextPattern;
 			if (connectionType == Event.ConnectionType.FOLLOWED_BY) {
 				nextPattern = compositePattern.followedBy(afterEvent.getId())
-						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions(), pojo.getId() + "-" + conditionPos++));
+						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions(), generateUniqueId(patternId, hash) + "-" + conditionPos++));
 			} else if (connectionType == Event.ConnectionType.NOT_FOLLOWED_BY) {
 				nextPattern = compositePattern.notFollowedBy(afterEvent.getId())
-						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions(), pojo.getId() + "-" + conditionPos++));
+						.where(new EventParserCondition<>(cepEventParser.duplicate(), afterEvent.getConditions(), generateUniqueId(patternId, hash) + "-" + conditionPos++));
 			} else {
 				throw new UnsupportedOperationException(String.format("ConnectionType %s is not supported.", connectionType));
 			}
@@ -87,8 +91,9 @@ public class PatternConverter implements Serializable {
 			tempEvent = afterEvent;
 		}
 
-		// attributes
+		// attributes, set a few default values here for most cases
 		Map<PatternBody.AttributeType, String> attributes = pojo.getPattern().getAttributes();
+		compositePattern.setAllowSinglePartialMatchPerKey(true);
 		for (Map.Entry<PatternBody.AttributeType, String> attr : attributes.entrySet()) {
 			switch (attr.getKey()) {
 				case WINDOW:
@@ -102,7 +107,8 @@ public class PatternConverter implements Serializable {
 			}
 		}
 
-		compositePattern.setPatternId(pojo.getId());
+		compositePattern.setPatternMeta(patternId, hash);
+		LOG.info("Receive a new pattern json(id={}, hash={})", patternId, hash);
 		return compositePattern;
 	}
 }

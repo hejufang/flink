@@ -122,7 +122,7 @@ public class Condition implements Serializable {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(key, op, value, type, aggregation, filters);
+		return Objects.hash(key, op.getName(), value, type.getName(), aggregation.getName(), filters);
 	}
 
 	@Override

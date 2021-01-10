@@ -38,7 +38,6 @@ import org.apache.flink.cep.time.Time;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -77,12 +76,13 @@ public class NFACompiler {
 		boolean timeoutHandling,
 		boolean allowSinglePartialMatchPerKey) {
 		if (pattern == null) {
+			throw new UnsupportedOperationException();
 			// return a factory for empty NFAs
-			return new NFAFactoryImpl<>(pattern.getPatternId(), 0, Collections.<State<T>>emptyList(), timeoutHandling, allowSinglePartialMatchPerKey);
+//			return new NFAFactoryImpl<>(pattern.getPatternId(), pattern0, Collections.<State<T>>emptyList(), timeoutHandling, allowSinglePartialMatchPerKey);
 		} else {
 			final NFAFactoryCompiler<T> nfaFactoryCompiler = new NFAFactoryCompiler<>(pattern);
 			nfaFactoryCompiler.compileFactory();
-			return new NFAFactoryImpl<>(pattern.getPatternId(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSinglePartialMatchPerKey);
+			return new NFAFactoryImpl<>(pattern.getPatternId(), pattern.getHash(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSinglePartialMatchPerKey);
 		}
 	}
 
@@ -939,6 +939,7 @@ public class NFACompiler {
 		private static final long serialVersionUID = 8939783698296714379L;
 
 		private final String patternId;
+		private final int hash;
 		private final long windowTime;
 		private final Collection<State<T>> states;
 		private final boolean timeoutHandling;
@@ -946,12 +947,14 @@ public class NFACompiler {
 
 		private NFAFactoryImpl(
 				String patternId,
+				int hash,
 				long windowTime,
 				Collection<State<T>> states,
 				boolean timeoutHandling,
 				boolean allowSinglePartialMatchPerKey) {
 
 			this.patternId = patternId;
+			this.hash = hash;
 			this.windowTime = windowTime;
 			this.states = states;
 			this.timeoutHandling = timeoutHandling;
@@ -960,7 +963,7 @@ public class NFACompiler {
 
 		@Override
 		public NFA<T> createNFA() {
-			return new NFA<>(patternId, states, windowTime, timeoutHandling, allowSinglePartialMatchPerKey);
+			return new NFA<>(patternId, hash, states, windowTime, timeoutHandling, allowSinglePartialMatchPerKey);
 		}
 	}
 }

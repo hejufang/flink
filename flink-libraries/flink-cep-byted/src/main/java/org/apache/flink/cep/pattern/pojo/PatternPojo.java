@@ -105,7 +105,7 @@ public class PatternPojo implements Serializable {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, pattern, status);
+		return Objects.hash(id, pattern, status.getStatus());
 	}
 
 	@Override

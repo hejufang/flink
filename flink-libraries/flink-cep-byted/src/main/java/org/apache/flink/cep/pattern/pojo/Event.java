@@ -92,7 +92,7 @@ public class Event implements Serializable {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, connection, after, conditions);
+		return Objects.hash(id, connection == null ? -1 : connection.getName(), after, conditions);
 	}
 
 	@Override

@@ -34,6 +34,8 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.cep.utils.CEPUtils.defaultTtlConfig;
+
 /**
  * A shared buffer implementation which stores values under according state. Additionally, the values can be
  * versioned such that it is possible to retrieve their predecessor element in the buffer.
@@ -69,23 +71,32 @@ public class SharedBuffer<V> {
 	private Map<NodeId, Lockable<SharedBufferNode>> entryCache = new HashMap<>();
 
 	public SharedBuffer(KeyedStateStore stateStore, TypeSerializer<V> valueSerializer) {
-		this.eventsBuffer = stateStore.getMapState(
-			new MapStateDescriptor<>(
+		this(null, stateStore, valueSerializer);
+	}
+
+	public SharedBuffer(String uniqueId, KeyedStateStore stateStore, TypeSerializer<V> valueSerializer) {
+		final MapStateDescriptor<EventId, Lockable<V>> eventsDescriptor = new MapStateDescriptor<>(
 				eventsStateName,
 				EventId.EventIdSerializer.INSTANCE,
-				new Lockable.LockableTypeSerializer<>(valueSerializer)));
-
-		this.entries = stateStore.getMapState(
-			new MapStateDescriptor<>(
+				new Lockable.LockableTypeSerializer<>(valueSerializer));
+		final MapStateDescriptor<NodeId, Lockable<SharedBufferNode>> entriesDescriptor = new MapStateDescriptor<>(
 				entriesStateName,
 				new NodeId.NodeIdSerializer(),
-				new Lockable.LockableTypeSerializer<>(new SharedBufferNode.SharedBufferNodeSerializer())));
-
-		this.eventsCount = stateStore.getMapState(
-			new MapStateDescriptor<>(
+				new Lockable.LockableTypeSerializer<>(new SharedBufferNode.SharedBufferNodeSerializer()));
+		final MapStateDescriptor<Long, Integer> eventsCountDescriptor = new MapStateDescriptor<>(
 				eventsCountStateName,
 				LongSerializer.INSTANCE,
-				IntSerializer.INSTANCE));
+				IntSerializer.INSTANCE);
+
+		// add ttl for multiple patterns
+		if (uniqueId != null) {
+			eventsDescriptor.enableTimeToLive(defaultTtlConfig());
+			entriesDescriptor.enableTimeToLive(defaultTtlConfig());
+			eventsCountDescriptor.enableTimeToLive(defaultTtlConfig());
+		}
+		this.eventsBuffer = stateStore.getMapState(eventsDescriptor);
+		this.entries = stateStore.getMapState(entriesDescriptor);
+		this.eventsCount = stateStore.getMapState(eventsCountDescriptor);
 	}
 
 	/**

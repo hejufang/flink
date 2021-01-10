@@ -18,14 +18,18 @@
 
 package org.apache.flink.cep.pattern.pojo;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * For {@link PatternPojo}.
@@ -72,7 +76,12 @@ public class PatternBody implements Serializable {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(events, attributes);
+		// transform attributes to list
+		final List<Tuple2<String, String>> attributesList = attributes.entrySet().stream().sorted(Comparator.comparing(o ->
+				o.getKey().getName())).map(entry -> Tuple2.of(entry.getKey().getName(), entry.getValue())).collect(Collectors.toList());
+		return Objects.hash(
+				events,
+				attributesList);
 	}
 
 	@Override

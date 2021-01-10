@@ -50,6 +50,7 @@ public abstract class MultiplePatternProcessFunction<IN, OUT> extends AbstractRi
 	public abstract void processMatch(
 			final Tuple2<String, Map<String, List<IN>>> match,
 			final Context ctx,
+			final Object key,
 			final Collector<OUT> out) throws Exception;
 
 	/**

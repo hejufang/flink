@@ -67,7 +67,7 @@ public class NFATest extends TestLogger {
 					}
 				});
 
-		NFA<Event> nfa = new NFA<>("default", Arrays.asList(startState, endState), 0, false, true);
+		NFA<Event> nfa = new NFA<>("default", -1, Arrays.asList(startState, endState), 0, false, true);
 		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).build();
 		nfaTestHarness.consumeRecords(streamEvents);
 
@@ -127,7 +127,7 @@ public class NFATest extends TestLogger {
 		expectedPatterns.add(firstPattern);
 		expectedPatterns.add(secondPattern);
 
-		NFA<Event> nfa = new NFA<>("default", states, 0, false, false);
+		NFA<Event> nfa = new NFA<>("default", -1, states, 0, false, false);
 		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).build();
 
 		Collection<Map<String, List<Event>>> actualPatterns = nfaTestHarness.consumeRecords(streamEvents);
@@ -377,7 +377,7 @@ public class NFATest extends TestLogger {
 		states.add(endState);
 		states.add(endingState);
 
-		return new NFA<>("default", states, 2L, false, false);
+		return new NFA<>("default", -1, states, 2L, false, false);
 	}
 
 }

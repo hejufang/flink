@@ -54,7 +54,11 @@ public class ConvertFlatMapFunction<IN> extends RichFlatMapFunction<String, Patt
 
 	@Override
 	public void flatMap(String json, Collector<Pattern<IN, IN>> out) throws Exception {
-		Optional<Pattern<IN, IN>> pattern = PatternConverter.buildPattern(objectMapper, json, cepEventParser);
-		pattern.ifPresent(out::collect);
+		try {
+			Optional<Pattern<IN, IN>> pattern = PatternConverter.buildPattern(objectMapper, json, cepEventParser);
+			pattern.ifPresent(out::collect);
+		} catch (Throwable t) {
+			LOG.warn("Fail to parse pattern. {}", json, t);
+		}
 	}
 }

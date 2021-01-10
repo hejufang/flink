@@ -16,17 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.cep.pattern.parser;
+package org.apache.flink.cep.utils;
 
-import org.apache.flink.cep.pattern.Pattern;
-import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.api.common.state.StateTtlConfig;
+import org.apache.flink.api.common.time.Time;
+
+import java.util.concurrent.TimeUnit;
 
 /**
- * Converter from {@link org.apache.flink.cep.pattern.pojo.PatternPojo} to {@link Pattern}.
+ * CepUtils.
  */
-public class PojoStreamToPatternStreamConverter {
+public class CEPUtils {
+	public static StateTtlConfig defaultTtlConfig() {
+		return StateTtlConfig.newBuilder(Time.of(1, TimeUnit.DAYS))
+				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
+				.build();
+	}
 
-	public static <IN> DataStream<Pattern<IN, IN>> convert(DataStream<String> patternJsonStream, CepEventParserFactory cepEventParserFactory) {
-		return patternJsonStream.<Pattern<IN, IN>>flatMap(new ConvertFlatMapFunction<>(cepEventParserFactory)).setParallelism(1);
+	public static String generateUniqueId(String patternId, int hash) {
+		return patternId + "_" + String.valueOf(hash);
 	}
 }

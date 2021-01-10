@@ -45,7 +45,7 @@ public class ConvertFlatMapFunctionTest {
 	@Test
 	public void testDisabledPattern() throws IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
-		PatternPojo pojo = objectMapper.readValue(TestData.DISABLED_PATTERN_1, PatternPojo.class);
+		PatternPojo pojo = objectMapper.readValue(TestData.disablePattern("test_agg"), PatternPojo.class);
 		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
 		Assert.assertNotNull(result.getPatternId());
 		Assert.assertTrue(result.isDisabled());

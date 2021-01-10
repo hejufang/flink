@@ -53,6 +53,8 @@ public class Pattern<T, F extends T> implements Serializable {
 
 	private String patternId;
 
+	private int hash;
+
 	/** Name of the pattern. */
 	private final String name;
 
@@ -586,8 +588,13 @@ public class Pattern<T, F extends T> implements Serializable {
 		return patternId;
 	}
 
-	public void setPatternId(String patternId) {
+	public int getHash() {
+		return hash;
+	}
+
+	public void setPatternMeta(String patternId, int hash) {
 		this.patternId = patternId;
+		this.hash = hash;
 	}
 
 	/**

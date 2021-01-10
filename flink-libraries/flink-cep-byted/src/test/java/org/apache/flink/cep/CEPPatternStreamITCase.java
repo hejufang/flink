@@ -198,7 +198,7 @@ public class CEPPatternStreamITCase {
 		DataStream<String> result = CEP.pattern(input, patternDataStream)
 				.process(new MultiplePatternProcessFunction<Event, String>() {
 					@Override
-					public void processMatch(Tuple2<String, Map<String, List<Event>>> match, Context ctx, Collector<String> out) throws Exception {
+					public void processMatch(Tuple2<String, Map<String, List<Event>>> match, Context ctx, Object key, Collector<String> out) throws Exception {
 						String res = match.f0 + "," +
 								match.f1.get("start").get(0).getId() + "," +
 								match.f1.get("middle").get(0).getId() + "," +
@@ -430,18 +430,19 @@ public class CEPPatternStreamITCase {
 	}
 
 	@Test
-	public void testDisabledPattern() throws IOException {
+	public void testMultiplePatterns() throws IOException {
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.setParallelism(2);
+		env.setParallelism(1);
 
-		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream(TestData.SUM_PATTERN_1, TestData.DISABLED_PATTERN_1));
+		DataStream<String> patternJsonStream = env.addSource(new PatternJsonStream(TestData.FOLLOWEDBY_PATTERN, TestData.COUNT_PATTERN_1));
 
 		DataStream<Event> input = env.addSource(new EventStream(
 				Tuple2.of(new Event(1, "buy", 1.0), 5L),
 				Tuple2.of(new Event(2, "end", 1.0), 6L),
 				Tuple2.of(new Event(1, "buy", 3.0), 7L),
 				Tuple2.of(new Event(1, "buy", 5.0), 8L),
+				Tuple2.of(new Event(1, "middle", 2.0), 9L),
 				// last element for high final watermark
 				Tuple2.of(new Event(7, "middle", 5.0), 100L)))
 				.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
@@ -461,8 +462,13 @@ public class CEPPatternStreamITCase {
 				.keyBy((KeySelector<Event, Integer>) Event::getId);
 
 		DataStream<String> result = CEP.pattern(input, patternJsonStream, TestCepEventParser::new).select(
-				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
-						pattern1.f0 + "," + pattern1.f1.get("imp").get(0).getId());
+				(MultiplePatternSelectFunction<Event, String>) pattern -> {
+					if (pattern.f0.equals("pattern_followedby")) {
+						return pattern.f0 + "," + pattern.f1.get("start").get(0).getId();
+					} else {
+						return pattern.f0 + "," + pattern.f1.get("imp").get(0).getId();
+					}
+				});
 
 		List<String> resultList = new ArrayList<>();
 
@@ -470,7 +476,7 @@ public class CEPPatternStreamITCase {
 
 		resultList.sort(String::compareTo);
 
-		assertEquals(Collections.emptyList(), resultList);
+		assertEquals(Arrays.asList("pattern_followedby,1", "test_count,1"), resultList);
 	}
 
 	private static class EventStream implements SourceFunction<Tuple2<Event, Long>> {

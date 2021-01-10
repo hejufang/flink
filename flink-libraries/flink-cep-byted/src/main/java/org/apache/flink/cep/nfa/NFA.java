@@ -35,6 +35,7 @@ import org.apache.flink.cep.nfa.sharedbuffer.EventId;
 import org.apache.flink.cep.nfa.sharedbuffer.NodeId;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
+import org.apache.flink.cep.pattern.conditions.EventParserCondition;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.time.TimerService;
@@ -87,6 +88,8 @@ public class NFA<T> {
 
 	private final String patternId;
 
+	private final int hash;
+
 	/**
 	 * A set of all the valid NFA states, as returned by the
 	 * {@link NFACompiler NFACompiler}.
@@ -111,11 +114,13 @@ public class NFA<T> {
 
 	public NFA(
 			final String patternId,
+			final int hash,
 			final Collection<State<T>> validStates,
 			final long windowTime,
 			final boolean handleTimeout,
 			final boolean allowSinglePartialMatchPerKey) {
 		this.patternId = patternId;
+		this.hash = hash;
 		this.windowTime = windowTime;
 		this.handleTimeout = handleTimeout;
 		this.states = loadStates(validStates);
@@ -124,6 +129,10 @@ public class NFA<T> {
 
 	public String getPatternId() {
 		return patternId;
+	}
+
+	public int getHash() {
+		return hash;
 	}
 
 	private Map<String, State<T>> loadStates(final Collection<State<T>> validStates) {
@@ -146,7 +155,7 @@ public class NFA<T> {
 				startingStates.add(ComputationState.createStartState(state.getName()));
 			}
 		}
-		return new NFAState(patternId, startingStates);
+		return new NFAState(patternId, hash, startingStates);
 	}
 
 	private State<T> getState(ComputationState state) {
@@ -205,6 +214,17 @@ public class NFA<T> {
 				IterativeCondition condition = transition.getCondition();
 				FunctionUtils.setFunctionRuntimeContext(condition, cepRuntimeContext);
 				FunctionUtils.openFunction(condition, conf);
+			}
+		}
+	}
+
+	public void clearStateWhenOutput() {
+		for (State<T> state : getStates()) {
+			for (StateTransition<T> transition : state.getStateTransitions()) {
+				IterativeCondition condition = transition.getCondition();
+				if (condition instanceof EventParserCondition) {
+					((EventParserCondition<?>) condition).clearStateWhenOutput();
+				}
 			}
 		}
 	}

@@ -18,10 +18,8 @@
 
 package org.apache.flink.cep.pattern.conditions;
 
-import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
-import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cep.pattern.conditions.comparators.Comparators;
 import org.apache.flink.cep.pattern.conditions.comparators.ConditionComparator;
@@ -34,9 +32,10 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.flink.cep.utils.CEPUtils.defaultTtlConfig;
 
 /**
  * New condition for cep2.0.
@@ -52,9 +51,9 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 
 	private final Map<Condition.ValueType, ConditionComparator> comparators;
 
-	private final Map<Integer, ValueStateDescriptor<?>> descriptors;
+	private transient Map<Integer, ValueStateDescriptor<?>> descriptors;
 
-	private final Map<Integer, ValueState<?>> states;
+	private transient Map<Integer, ValueState<?>> states;
 
 	public EventParserCondition(CepEventParser cepEventParser, List<Condition> conditions, String uniqueId) {
 		this.cepEventParser = cepEventParser;
@@ -65,6 +64,11 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 				Tuple2.of(Condition.ValueType.DOUBLE, new Comparators.DoubleComparator()),
 				Tuple2.of(Condition.ValueType.LONG, new Comparators.LongComparator())
 		).collect(Collectors.toMap(t -> t.f0, t -> t.f1));
+	}
+
+	@Override
+	public void open(Configuration parameters) throws Exception {
+		super.open(parameters);
 		this.descriptors = new HashMap<>();
 		this.states = new HashMap<>();
 
@@ -88,18 +92,7 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 				}
 			}
 		}
-	}
 
-	private StateTtlConfig defaultTtlConfig() {
-		return StateTtlConfig.newBuilder(Time.of(30, TimeUnit.DAYS))
-				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
-				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
-				.build();
-	}
-
-	@Override
-	public void open(Configuration parameters) throws Exception {
-		super.open(parameters);
 		for (int i = 0; i < conditions.size(); i++) {
 			if (this.descriptors.get(i) != null) {
 				this.states.put(i, getRuntimeContext().getState(descriptors.get(i)));
@@ -171,5 +164,9 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 				throw new UnsupportedOperationException(String.format("Op %s is not supported.", condition.getOp().toString()));
 		}
 		return true;
+	}
+
+	public void clearStateWhenOutput() {
+		states.values().forEach(ValueState::clear);
 	}
 }

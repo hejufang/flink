@@ -214,7 +214,7 @@ public class CepOperator<IN, KEY, OUT>
 				@Override
 				public void process(Object key, ValueState<MigratedNFA<IN>> state) throws Exception {
 					MigratedNFA<IN> oldState = state.value();
-					computationStates.update(new NFAState("default", oldState.getComputationStates()));
+					computationStates.update(new NFAState("default", -1, oldState.getComputationStates()));
 					org.apache.flink.cep.nfa.SharedBuffer<IN> sharedBuffer = oldState.getSharedBuffer();
 					partialMatches.init(sharedBuffer.getEventsBuffer(), sharedBuffer.getPages());
 					state.clear();
