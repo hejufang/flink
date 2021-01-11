@@ -535,7 +535,7 @@ object AggCodeGenHelper {
     val exprCodegen = new ExprCodeGenerator(ctx, false).bindInput(inputType, inputTerm = inputTerm)
 
     // flat map to get flat agg buffers.
-    aggregates.zipWithIndex.flatMap {
+    val aggregateCodes = aggregates.zipWithIndex.flatMap {
       case (agg: DeclarativeAggregateFunction, aggIndex) =>
         val idx = auxGrouping.length + aggIndex
         agg.mergeExpressions.map(_.accept(ResolveReference(
@@ -574,7 +574,9 @@ object AggCodeGenHelper {
            |${aggBufferNames(aggIndex)(0)} = ${genToInternal(ctx, externalAccT, tmpAcc)};
            |${aggBufVar.nullTerm} = ${aggBufferNames(aggIndex)(0)}IsNull || ${inputExpr.nullTerm};
          """.stripMargin
-    } mkString "\n"
+    }
+
+    GenerateUtils.trySplitCodeIfNecessary(ctx, aggregateCodes.toArray[String])
   }
 
   /**
@@ -595,7 +597,7 @@ object AggCodeGenHelper {
     val exprCodegen = new ExprCodeGenerator(ctx, false).bindInput(inputType, inputTerm = inputTerm)
 
     // flat map to get flat agg buffers.
-    aggCallToAggFunction.zipWithIndex.flatMap {
+    val aggregateInnerCodesAndFilter = aggCallToAggFunction.zipWithIndex.flatMap {
       case (aggCallToAggFun, aggIndex) =>
         val idx = auxGrouping.length + aggIndex
         val aggCall = aggCallToAggFun._1
@@ -649,18 +651,35 @@ object AggCodeGenHelper {
              |  ${aggBufVar.nullTerm} = false;
            """.stripMargin
         (innerCode, aggCall.filterArg)
-    }.map({
-      case (innerCode, filterArg) =>
-        if (filterArg >= 0) {
-          s"""
-             |if ($inputTerm.getBoolean($filterArg)) {
-             | $innerCode
-             |}
-          """.stripMargin
+    }
+
+    val totalLen = aggregateInnerCodesAndFilter.map(_._1.length).sum
+    val maxCodeLength = ctx.tableConfig.getMaxGeneratedCodeLength
+    val needSplit = if (totalLen > maxCodeLength) {
+      ctx.setCodeSplit()
+      true
+    } else {
+      false
+    }
+    aggregateInnerCodesAndFilter.map({
+      case (innerCode, filterArg) => {
+        val newInnerCode = if (needSplit) {
+          GenerateUtils.splitCodeBlock(ctx, innerCode, "split")
         } else {
           innerCode
         }
-    }) mkString "\n"
+
+        if (filterArg >= 0) {
+          s"""
+             |if ($inputTerm.getBoolean($filterArg)) {
+             | $newInnerCode
+             |}
+          """.stripMargin
+        } else {
+          newInnerCode
+        }
+      }
+    }).mkString("\n")
   }
 
   /**

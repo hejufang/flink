@@ -23,6 +23,7 @@ import org.apache.flink.api.scala._
 import org.apache.flink.streaming.api.environment.LocalStreamEnvironment
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.table.api.bridge.scala.{StreamTableEnvironment, _}
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.catalog.{CatalogDatabaseImpl, CatalogTableImpl, GenericInMemoryCatalog, ObjectPath}
 import org.apache.flink.table.descriptors.DescriptorProperties
 import org.apache.flink.table.plan.stats.{ColumnStats, TableStats}
@@ -1031,6 +1032,9 @@ class TableEnvironmentTest {
 
   @Test
   def testExecuteAnalyzeTableSql(): Unit = {
+    // for testing analyze table in code split scenario
+    batchTableEnv.getConfig.getConfiguration.setInteger(
+      TableConfigOptions.MAX_LENGTH_GENERATED_CODE, 10)
     batchTableEnv.registerCatalog("test_catalog", new GenericInMemoryCatalog("test_catalog"))
     val ds = CollectionBatchExecTable.get7TupleDataSet(batchTableEnv, "a, b, c, d, e, f, g")
     val properties = new DescriptorProperties()

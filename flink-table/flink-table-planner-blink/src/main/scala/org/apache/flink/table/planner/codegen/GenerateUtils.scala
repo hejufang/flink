@@ -918,4 +918,40 @@ object GenerateUtils {
     compares.mkString
   }
 
+  def splitCodeBlock(
+      ctx: CodeGeneratorContext,
+      generatedCode: String,
+      newSplitMethodName: String): String = {
+    val splitMethodName = newName(newSplitMethodName)
+    val method =
+      s"""
+         |private void $splitMethodName() throws Exception {
+         |  $generatedCode
+         |}
+         |""".stripMargin
+    ctx.addReusableMember(method)
+    s"$splitMethodName();"
+  }
+
+  def trySplitCodeIfNecessary(
+      ctx: CodeGeneratorContext,
+      generatedCodes: Array[String],
+      methodName: String = null): String = {
+    val totalLen = generatedCodes.map(_.length).sum
+    val maxCodeLength = ctx.tableConfig.getMaxGeneratedCodeLength
+    if (totalLen > maxCodeLength) {
+      val newSplitMethodName = new StringBuilder("split")
+      if (methodName != null) {
+        ctx.setCodeSplit(methodName)
+        newSplitMethodName.append("_" + methodName)
+      } else {
+        ctx.setCodeSplit()
+      }
+      generatedCodes.map(generatedCode => {
+        splitCodeBlock(ctx, generatedCode, newSplitMethodName.toString)
+      }).mkString("\n")
+    } else {
+      generatedCodes.mkString("\n")
+    }
+  }
 }

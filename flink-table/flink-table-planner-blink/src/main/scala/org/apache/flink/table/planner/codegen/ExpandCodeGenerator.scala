@@ -59,7 +59,7 @@ object ExpandCodeGenerator {
       processCodes += OperatorCodeGenerator.generateCollect(projectionResultExpr.resultTerm)
     }
 
-    val processCode = processCodes.mkString("\n")
+    val processCode = GenerateUtils.trySplitCodeIfNecessary(ctx, processCodes.toArray[String])
 
     val genOperator = OperatorCodeGenerator.generateOneInputStreamOperator[RowData, RowData](
       ctx,

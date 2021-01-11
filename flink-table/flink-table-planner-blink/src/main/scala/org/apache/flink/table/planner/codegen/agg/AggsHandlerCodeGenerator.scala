@@ -851,7 +851,7 @@ class AggsHandlerCodeGenerator(
     // bind input1 as accumulators
     val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
         .bindInput(accTypeInfo, inputTerm = ACC_TERM)
-    val body = splitExpressionsIfNecessary(
+    val body = GenerateUtils.trySplitCodeIfNecessary(ctx,
       aggBufferCodeGens.map(_.setAccumulator(exprGenerator)), methodName)
 
     s"""
@@ -866,8 +866,8 @@ class AggsHandlerCodeGenerator(
     ctx.startNewLocalVariableStatement(methodName)
 
     val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
-    val body = splitExpressionsIfNecessary(aggBufferCodeGens.map(_.resetAccumulator(exprGenerator)),
-      methodName)
+    val body = GenerateUtils.trySplitCodeIfNecessary(ctx,
+      aggBufferCodeGens.map(_.resetAccumulator(exprGenerator)), methodName)
 
     s"""
        |${ctx.reuseLocalVariableCode(methodName)}
@@ -886,7 +886,7 @@ class AggsHandlerCodeGenerator(
       // bind input1 as inputRow
       val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
           .bindInput(inputType, inputTerm = ACCUMULATE_INPUT_TERM)
-      val body = splitExpressionsIfNecessary(
+      val body = GenerateUtils.trySplitCodeIfNecessary(ctx,
         aggActionCodeGens.map(_.accumulate(exprGenerator)), methodName)
       s"""
          |${ctx.reuseLocalVariableCode(methodName)}
@@ -910,7 +910,7 @@ class AggsHandlerCodeGenerator(
       // bind input1 as inputRow
       val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
           .bindInput(inputType, inputTerm = RETRACT_INPUT_TERM)
-      val body = splitExpressionsIfNecessary(
+      val body = GenerateUtils.trySplitCodeIfNecessary(ctx,
         aggActionCodeGens.map(_.retract(exprGenerator)), methodName)
       s"""
          |${ctx.reuseLocalVariableCode(methodName)}
@@ -945,7 +945,7 @@ class AggsHandlerCodeGenerator(
       // bind input1 as otherAcc
       val exprGenerator = new ExprCodeGenerator(ctx, INPUT_NOT_NULL)
           .bindInput(mergedAccType, inputTerm = MERGED_ACC_TERM)
-      val body = splitExpressionsIfNecessary(
+      val body = GenerateUtils.trySplitCodeIfNecessary(ctx,
         aggActionCodeGens.map(_.merge(exprGenerator)), methodName)
       s"""
          |${ctx.reuseLocalVariableCode(methodName)}
@@ -955,27 +955,6 @@ class AggsHandlerCodeGenerator(
     } else {
       genThrowException(
         "This function not require merge method, but the merge method is called.")
-    }
-  }
-
-  private def splitExpressionsIfNecessary(exprs: Array[String], methodName: String): String = {
-    val totalLen = exprs.map(_.length).sum
-    val maxCodeLength = ctx.tableConfig.getMaxGeneratedCodeLength
-    if (totalLen > maxCodeLength) {
-      ctx.setCodeSplit(methodName)
-      exprs.map(expr => {
-        val splitMethodName = newName("split_" + methodName)
-        val method =
-          s"""
-             |private void $splitMethodName() throws Exception {
-             |  $expr
-             |}
-             |""".stripMargin
-        ctx.addReusableMember(method)
-        s"$splitMethodName();"
-      }).mkString("\n")
-    } else {
-      exprs.mkString("\n")
     }
   }
 
