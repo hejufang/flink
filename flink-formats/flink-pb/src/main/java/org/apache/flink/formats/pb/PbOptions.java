@@ -31,6 +31,18 @@ public class PbOptions {
 		.noDefaultValue()
 		.withDescription("pb class");
 
+	public static final ConfigOption<String> PB_CONTENT = ConfigOptions
+		.key("pb-content")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("proto file content");
+
+	public static final ConfigOption<String> PB_ENTRY_CLASS_NAME = ConfigOptions
+		.key("pb-entry-class-name")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("entry class name in proto file ");
+
 	public static final ConfigOption<Integer> SKIP_BYTES = ConfigOptions
 		.key("skip-bytes")
 		.intType()

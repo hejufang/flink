@@ -19,6 +19,7 @@
 
 package org.apache.flink.formats.pb;
 
+import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
@@ -26,6 +27,8 @@ import org.apache.flink.table.types.logical.RowType;
 
 import com.google.protobuf.Descriptors;
 import org.junit.Test;
+
+import java.io.IOException;
 
 import static org.apache.flink.formats.pb.PbSchemaTestUtil.TEST_PB_CLASS_NAME;
 import static org.junit.Assert.assertArrayEquals;
@@ -35,12 +38,19 @@ import static org.junit.Assert.assertArrayEquals;
  */
 public class PbRowDataSerializationSchemaTest {
 	@Test
-	public void testSerialize() {
+	public void testSerialize() throws IOException {
 		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
 		RowData rowData = PbSchemaTestUtil.generateRowData();
 
-		testSerialize(getSerializationSchema(false), rowData, pbBytes);
-		testSerialize(getSerializationSchema(true), GenericRowData.of(rowData), pbBytes);
+		testSerialize(getSerializationSchema(false, true), rowData, pbBytes);
+		testSerialize(getSerializationSchema(true, true), GenericRowData.of(rowData), pbBytes);
+
+		// Fields order in schema inferred from proto file are not the same with
+		// the order in schema inferred from pb class.
+		//So the expected row are the same fields with different order.
+		RowData rowDataForProtoFile = PbSchemaTestUtil.generateRowDataForProtoFile();
+		testSerialize(getSerializationSchema(false, false), rowDataForProtoFile, pbBytes);
+		testSerialize(getSerializationSchema(true, false), GenericRowData.of(rowDataForProtoFile), pbBytes);
 	}
 
 	private static void testSerialize(
@@ -52,13 +62,25 @@ public class PbRowDataSerializationSchemaTest {
 		assertArrayEquals(expectedResult, serializedResult);
 	}
 
-	private static PbRowDataSerializationSchema getSerializationSchema(boolean withWrapper) {
-		Descriptors.Descriptor descriptor = PbUtils.validateAndGetDescriptor(TEST_PB_CLASS_NAME);
+	private static PbRowDataSerializationSchema getSerializationSchema(
+			boolean withWrapper,
+			boolean withPbClassFullName) throws IOException {
+		Descriptors.Descriptor descriptor;
+		String pbClassName = null;
+		ProtoFile protoFile = null;
+		if (withPbClassFullName) {
+			pbClassName = TEST_PB_CLASS_NAME;
+		} else {
+			protoFile = PbSchemaTestUtil.getProtoFile();
+		}
+		descriptor = PbUtils.validateAndGetDescriptor(pbClassName, protoFile);
+
 		DataType dataType = PbFormatUtils.createDataType(descriptor, withWrapper);
 
 		return PbRowDataSerializationSchema.builder()
 			.setRowType((RowType) dataType.getLogicalType())
-			.setPbDescriptorClass(TEST_PB_CLASS_NAME)
+			.setPbDescriptorClass(pbClassName)
+			.setProtoFile(protoFile)
 			.setWithWrapper(withWrapper)
 			.build();
 	}

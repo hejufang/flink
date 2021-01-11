@@ -18,6 +18,8 @@
 
 package org.apache.flink.formats.pb;
 
+import org.apache.flink.formats.pb.proto.ProtoFile;
+import org.apache.flink.formats.pb.proto.ProtoFileUtils;
 import org.apache.flink.table.api.ValidationException;
 
 import com.google.protobuf.Descriptors;
@@ -26,7 +28,18 @@ import com.google.protobuf.Descriptors;
  * Pb util class.
  */
 public class PbUtils {
-	public static Descriptors.Descriptor validateAndGetDescriptor(String className) {
+	public static Descriptors.Descriptor validateAndGetDescriptor(String className, ProtoFile protoFile) {
+		if (className != null) {
+			return validateAndGetDescriptorByClassName(className);
+		}
+		return getDescriptorByPbContent(protoFile);
+	}
+
+	public static Descriptors.Descriptor getDescriptorByPbContent(ProtoFile protoFile) {
+		return ProtoFileUtils.parseDescriptorFromProtoFile(protoFile);
+	}
+
+	public static Descriptors.Descriptor validateAndGetDescriptorByClassName(String className) {
 		try {
 			Class<?> pbClass = Class.forName(className);
 			return (Descriptors.Descriptor) pbClass.getMethod(PbConstant.PB_METHOD_GET_DESCRIPTOR).invoke(null);

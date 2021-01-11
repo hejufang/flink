@@ -18,6 +18,7 @@
 
 package org.apache.flink.formats.pb;
 
+import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.GenericRowData;
@@ -33,6 +34,9 @@ import org.apache.flink.table.types.logical.VarCharType;
 
 import com.google.protobuf.ByteString;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +45,8 @@ import java.util.Map;
  * Pb schema test util class.
  */
 public class PbSchemaTestUtil {
+	public static final String PROTO_FILE = "TestPb.proto";
+	public static final String ENTRY_CLASS_NAME = "Container";
 	public static final String TEST_PB_CLASS_NAME = "org.apache.flink.formats.pb.TestPb$Container";
 	private static final int INT_VALUE = 1;
 	private static final long LONG_VALUE = 100L;
@@ -113,6 +119,33 @@ public class PbSchemaTestUtil {
 		);
 	}
 
+	public static RowData generateRowDataForProtoFile() {
+		BinaryStringData binaryStringData = BinaryStringData.fromString(STRING_VALUE);
+
+		Map<BinaryStringData, Integer> expectedMapValue = new HashMap<>();
+		expectedMapValue.put(BinaryStringData.fromString("a"), 1);
+		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
+		byte[] bytesValue = STRING_VALUE.getBytes();
+
+		return GenericRowData.of(
+			BinaryStringData.fromString(""),
+			INT_VALUE,
+			INT_VALUE,
+			LONG_VALUE,
+			binaryStringData,
+			BOOL_VALUE,
+			DOUBLE_VALUE,
+			FLOAT_VALUE,
+			BinaryStringData.fromString(ENUM_VALUE.toString()),
+			new GenericArrayData(new Object[]{
+				GenericRowData.of(binaryStringData, new GenericMapData(expectedMapValue)),
+				GenericRowData.of(binaryStringData, new GenericMapData(expectedMapValue))}),
+			bytesValue,
+			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
+			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE})
+		);
+	}
+
 	public static RowData generateSelectedRowData() {
 		BinaryStringData binaryStringData = BinaryStringData.fromString(STRING_VALUE);
 		Map<BinaryStringData, Integer> expectedMapValue = new HashMap<>();
@@ -144,5 +177,17 @@ public class PbSchemaTestUtil {
 				))
 			},
 			new String[]{"floatTest", "intTest", "stringTest", "intArrayTest", "arrayTest"});
+	}
+
+	public static ProtoFile getProtoFile() throws IOException {
+		String content = readFileContent();
+		return new ProtoFile(ENTRY_CLASS_NAME, content);
+	}
+
+	private static String readFileContent() throws IOException {
+		String filePath =
+			PbSchemaTestUtil.class.getClassLoader().getResource(PbSchemaTestUtil.PROTO_FILE).getPath();
+		byte[] encoded = Files.readAllBytes(Paths.get(filePath));
+		return new String(encoded);
 	}
 }

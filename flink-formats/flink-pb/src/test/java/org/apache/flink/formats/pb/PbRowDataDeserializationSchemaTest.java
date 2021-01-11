@@ -19,6 +19,7 @@
 package org.apache.flink.formats.pb;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
@@ -42,8 +43,15 @@ public class PbRowDataDeserializationSchemaTest {
 		byte[] pbBytes = PbSchemaTestUtil.generatePbBytes();
 		RowData rowData = PbSchemaTestUtil.generateRowData();
 
-		testDeserialization(getDeserializationSchema(false, null), pbBytes, rowData);
-		testDeserialization(getDeserializationSchema(true, null), pbBytes, GenericRowData.of(rowData));
+		testDeserialization(getDeserializationSchema(false, true, null), pbBytes, rowData);
+		testDeserialization(getDeserializationSchema(true, true, null), pbBytes, GenericRowData.of(rowData));
+
+		// Fields order in schema inferred from proto file are not the same with
+		// the order in schema inferred from pb class.
+		//So the expected row are the same fields with different order.
+		RowData rowDataForProtoFile = PbSchemaTestUtil.generateRowDataForProtoFile();
+		testDeserialization(getDeserializationSchema(false, false, null), pbBytes, rowDataForProtoFile);
+		testDeserialization(getDeserializationSchema(true, false, null), pbBytes, GenericRowData.of(rowDataForProtoFile));
 	}
 
 	@Test
@@ -52,7 +60,8 @@ public class PbRowDataDeserializationSchemaTest {
 		RowData rowData = PbSchemaTestUtil.generateSelectedRowData();
 		RowType rowType = PbSchemaTestUtil.generateSelectedRowType();
 
-		testDeserialization(getDeserializationSchema(false, rowType), pbBytes, rowData);
+		testDeserialization(getDeserializationSchema(false, true, rowType), pbBytes, rowData);
+		testDeserialization(getDeserializationSchema(false, false, rowType), pbBytes, rowData);
 	}
 
 	private static void testDeserialization(
@@ -66,8 +75,17 @@ public class PbRowDataDeserializationSchemaTest {
 
 	private static PbRowDataDeserializationSchema getDeserializationSchema(
 			boolean withWrapper,
-			@Nullable RowType selectedRowType) {
-		Descriptors.Descriptor descriptor = PbUtils.validateAndGetDescriptor(TEST_PB_CLASS_NAME);
+			boolean withPbClassFullName,
+			@Nullable RowType selectedRowType) throws IOException {
+		Descriptors.Descriptor descriptor;
+		String pbClassName = null;
+		ProtoFile protoFile = null;
+		if (withPbClassFullName) {
+			pbClassName = TEST_PB_CLASS_NAME;
+		} else {
+			protoFile = PbSchemaTestUtil.getProtoFile();
+		}
+		descriptor = PbUtils.validateAndGetDescriptor(pbClassName, protoFile);
 		if (selectedRowType == null) {
 			selectedRowType =
 				(RowType) PbFormatUtils.createDataType(descriptor, withWrapper).getLogicalType();
@@ -76,7 +94,8 @@ public class PbRowDataDeserializationSchemaTest {
 		return PbRowDataDeserializationSchema.builder()
 			.setRowType(selectedRowType)
 			.setResultTypeInfo(TypeInformation.of(RowData.class))
-			.setPbDescriptorClass(TEST_PB_CLASS_NAME)
+			.setPbDescriptorClass(pbClassName)
+			.setProtoFile(protoFile)
 			.setWithWrapper(withWrapper)
 			.build();
 	}

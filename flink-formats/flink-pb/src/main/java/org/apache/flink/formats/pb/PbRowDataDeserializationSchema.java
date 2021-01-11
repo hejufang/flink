@@ -22,6 +22,7 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.pb.DeserializationRuntimeConverterFactory.DeserializationRuntimeConverter;
+import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * Deserialization schema from PB to Flink types.
@@ -51,6 +53,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 	/** Type information describing the result type. */
 	private final TypeInformation<RowData> resultTypeInfo;
 	private final String pbDescriptorClass;
+	private final ProtoFile protoFile;
 	private final int skipBytes;
 	private final boolean withWrapper;
 	private final boolean isAdInstanceFormat;
@@ -65,6 +68,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 			RowType rowType,
 			TypeInformation<RowData> resultTypeInfo,
 			String pbDescriptorClass,
+			ProtoFile protoFile,
 			int skipBytes,
 			boolean withWrapper,
 			boolean isAdInstanceFormat,
@@ -72,6 +76,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 
 		this.resultTypeInfo = resultTypeInfo;
 		this.pbDescriptorClass = pbDescriptorClass;
+		this.protoFile = protoFile;
 		this.skipBytes = skipBytes;
 		this.withWrapper = withWrapper;
 		this.isAdInstanceFormat = isAdInstanceFormat;
@@ -86,7 +91,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 
 	@Override
 	public void open(InitializationContext context) {
-		pbDescriptor = PbUtils.validateAndGetDescriptor(pbDescriptorClass);
+		pbDescriptor = PbUtils.validateAndGetDescriptor(pbDescriptorClass, protoFile);
 		runtimeConverter = DeserializationRuntimeConverterFactory.createConverter(pbTypeInfo, pbDescriptor);
 	}
 
@@ -159,6 +164,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 	 */
 	public static class Builder {
 		private String pbDescriptorClass;
+		private ProtoFile protoFile;
 		private RowType rowType;
 		private TypeInformation<RowData> resultTypeInfo;
 		private int skipBytes = 0;
@@ -171,6 +177,11 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 
 		public Builder setPbDescriptorClass(String pbDescriptorClass) {
 			this.pbDescriptorClass = pbDescriptorClass;
+			return this;
+		}
+
+		public Builder setProtoFile(ProtoFile protoFile) {
+			this.protoFile = protoFile;
 			return this;
 		}
 
@@ -205,6 +216,8 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 		}
 
 		public PbRowDataDeserializationSchema build() {
+			checkState(pbDescriptorClass != null || protoFile != null,
+				"'pbDescriptorClass' and 'protoFile' can not be null at the same time.");
 			checkNotNull(resultTypeInfo, "resultTypeInfo cannot be null!");
 			checkNotNull(rowType, "rowType cannot be null!");
 
@@ -212,6 +225,7 @@ public class PbRowDataDeserializationSchema implements DeserializationSchema<Row
 				this.rowType,
 				this.resultTypeInfo,
 				this.pbDescriptorClass,
+				this.protoFile,
 				this.skipBytes,
 				this.withWrapper,
 				this.isAdInstanceFormat,

@@ -37,6 +37,8 @@ under the License.
 
 	<properties>
 		<protobuf.version>3.7.0</protobuf.version>
+		<wire-schema.version>3.1.0</wire-schema.version>
+		<pb.shade.prefix>org.apache.flink.shaded.pb</pb.shade.prefix>
 	</properties>
 
 	<dependencies>
@@ -65,6 +67,12 @@ under the License.
 			<artifactId>protobuf-java</artifactId>
 			<version>${protobuf.version}</version>
 		</dependency>
+
+		<dependency>
+			<groupId>com.squareup.wire</groupId>
+			<artifactId>wire-schema</artifactId>
+			<version>${wire-schema.version}</version>
+		</dependency>
 	</dependencies>
 
 	<profiles>
@@ -89,6 +97,24 @@ under the License.
 											<include>*:*</include>
 										</includes>
 									</artifactSet>
+									<relocations>
+										<relocation>
+											<pattern>com.google.common</pattern>
+											<shadedPattern>${pb.shade.prefix}.com.google.common</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>kotlin</pattern>
+											<shadedPattern>${pb.shade.prefix}.kotlin</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>${pb.shade.prefix}.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.squareup.wire</pattern>
+											<shadedPattern>${pb.shade.prefix}.com.squareup.wire</shadedPattern>
+										</relocation>
+									</relocations>
 								</configuration>
 							</execution>
 						</executions>

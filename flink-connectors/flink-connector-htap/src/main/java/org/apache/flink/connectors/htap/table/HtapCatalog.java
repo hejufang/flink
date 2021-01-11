@@ -21,6 +21,7 @@ package org.apache.flink.connectors.htap.table;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connectors.htap.table.utils.HtapMetaUtils;
 import org.apache.flink.connectors.htap.table.utils.HtapTableUtils;
+import org.apache.flink.table.catalog.AbstractReadOnlyCatalog;
 import org.apache.flink.table.catalog.CatalogDatabase;
 import org.apache.flink.table.catalog.CatalogDatabaseImpl;
 import org.apache.flink.table.catalog.CatalogFunction;

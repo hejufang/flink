@@ -20,6 +20,7 @@ package org.apache.flink.formats.pb;
 
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.formats.pb.SerializationRuntimeConverterFactory.SerializationRuntimeConverter;
+import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Preconditions;
@@ -29,6 +30,8 @@ import com.google.protobuf.DynamicMessage;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
+import static org.apache.flink.util.Preconditions.checkState;
+
 /**
  * Deserialization RowData to pb bytes.
  */
@@ -37,6 +40,7 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 	private final boolean withWrapper;
 	private final boolean sinkWithSizeHeader;
 	private final String pbDescriptorClass;
+	private final ProtoFile protoFile;
 	private final RowType pbTypeInfo;
 	private transient SerializationRuntimeConverter runtimeConverter;
 	private transient ByteBuffer byteBuffer;
@@ -45,12 +49,14 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 	private PbRowDataSerializationSchema(
 			RowType rowType,
 			String pbDescriptorClass,
+			ProtoFile protoFile,
 			boolean withWrapper,
 			boolean sinkWithSizeHeader,
 			boolean sizeHeaderWithLittleEndian) {
 		this.withWrapper = withWrapper;
 		this.sinkWithSizeHeader = sinkWithSizeHeader;
 		this.pbDescriptorClass = pbDescriptorClass;
+		this.protoFile = protoFile;
 		if (this.withWrapper) {
 			int index = rowType.getFieldIndex(PbConstant.FORMAT_PB_WRAPPER_NAME);
 			Preconditions.checkState(index >= 0,
@@ -69,7 +75,7 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 			sizeHeaderWithLittleEndian ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN;
 		byteBuffer = ByteBuffer.allocate(Long.BYTES).order(byteOrder);
 		runtimeConverter = SerializationRuntimeConverterFactory.createConverter(pbTypeInfo,
-			PbUtils.validateAndGetDescriptor(pbDescriptorClass));
+			PbUtils.validateAndGetDescriptor(pbDescriptorClass, protoFile));
 	}
 
 	@Override
@@ -101,6 +107,7 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 	public static class Builder {
 		RowType rowType;
 		private String pbDescriptorClass;
+		private ProtoFile protoFile;
 		private boolean withWrapper;
 		private boolean sinkWithSizeHeader;
 		private boolean sizeHeaderWithLittleEndian;
@@ -114,6 +121,11 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 
 		public Builder setPbDescriptorClass(String pbDescriptorClass) {
 			this.pbDescriptorClass = pbDescriptorClass;
+			return this;
+		}
+
+		public Builder setProtoFile(ProtoFile protoFile) {
+			this.protoFile = protoFile;
 			return this;
 		}
 
@@ -134,10 +146,12 @@ public class PbRowDataSerializationSchema implements SerializationSchema<RowData
 
 		public PbRowDataSerializationSchema build() {
 			Preconditions.checkNotNull(rowType, "rowType is cannot be null!");
-			Preconditions.checkNotNull(pbDescriptorClass, "pbDescriptorClass is cannot be null!");
+			checkState(pbDescriptorClass != null || protoFile != null,
+				"'pbDescriptorClass' and 'protoFile' can not be null at the same time.");
 			return new PbRowDataSerializationSchema(
 				rowType,
 				pbDescriptorClass,
+				protoFile,
 				withWrapper,
 				sinkWithSizeHeader,
 				sizeHeaderWithLittleEndian);

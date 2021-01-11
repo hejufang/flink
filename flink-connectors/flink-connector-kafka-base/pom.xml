@@ -88,6 +88,34 @@ under the License.
 			<version>${kafka.version}</version>
 		</dependency>
 
+		<dependency>
+			<groupId>com.bytedance</groupId>
+			<artifactId>schema-registry-rest-client</artifactId>
+			<version>1.0-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>slf4j-api</artifactId>
+					<groupId>org.slf4j</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>guava</artifactId>
+					<groupId>com.google.guava</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>snakeyaml</artifactId>
+					<groupId>org.yaml</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>spring-core</artifactId>
+					<groupId>org.springframework</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>spring-retry</artifactId>
+					<groupId>org.springframework.retry</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
 		<!-- test dependencies -->
 
 		<dependency>

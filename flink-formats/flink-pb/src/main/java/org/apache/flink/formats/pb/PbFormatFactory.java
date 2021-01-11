@@ -24,6 +24,7 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
@@ -49,6 +50,8 @@ import static org.apache.flink.formats.pb.PbFormatUtils.createDataType;
 import static org.apache.flink.formats.pb.PbOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.pb.PbOptions.IS_AD_INSTANCE_FORMAT;
 import static org.apache.flink.formats.pb.PbOptions.PB_CLASS;
+import static org.apache.flink.formats.pb.PbOptions.PB_CONTENT;
+import static org.apache.flink.formats.pb.PbOptions.PB_ENTRY_CLASS_NAME;
 import static org.apache.flink.formats.pb.PbOptions.SINK_WITH_SIZE_HEADER;
 import static org.apache.flink.formats.pb.PbOptions.SIZE_HEADER_WITH_LITTLE_ENDIAN;
 import static org.apache.flink.formats.pb.PbOptions.SKIP_BYTES;
@@ -71,10 +74,13 @@ public class PbFormatFactory implements
 		FactoryUtil.validateFactoryOptions(this, formatOptions);
 
 		final String pbClass = formatOptions.get(PB_CLASS);
+		final String pbContent = formatOptions.get(PB_CONTENT);
+		final String pbEntryClassName = formatOptions.get(PB_ENTRY_CLASS_NAME);
 		final int skipBytes = formatOptions.get(SKIP_BYTES);
 		final boolean withWrapper = formatOptions.get(WITH_WRAPPER);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
 		final boolean isAdInstanceFormat = formatOptions.get(IS_AD_INSTANCE_FORMAT);
+		final ProtoFile protoFile = new ProtoFile(pbEntryClassName, pbContent);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
@@ -89,6 +95,7 @@ public class PbFormatFactory implements
 
 				return PbRowDataDeserializationSchema.builder()
 					.setPbDescriptorClass(pbClass)
+					.setProtoFile(protoFile)
 					.setRowType(rowType)
 					.setResultTypeInfo(rowDataTypeInfo)
 					.setSkipBytes(skipBytes)
@@ -110,9 +117,12 @@ public class PbFormatFactory implements
 		FactoryUtil.validateFactoryOptions(this, formatOptions);
 
 		final String pbClass = formatOptions.get(PB_CLASS);
+		final String pbContent = formatOptions.get(PB_CONTENT);
+		final String pbEntryClassName = formatOptions.get(PB_ENTRY_CLASS_NAME);
 		final boolean withWrapper = formatOptions.get(WITH_WRAPPER);
 		final boolean sinkWithSizeHeader = formatOptions.get(SINK_WITH_SIZE_HEADER);
 		final boolean sizeHeaderWithLittleEndian = formatOptions.get(SIZE_HEADER_WITH_LITTLE_ENDIAN);
+		final ProtoFile protoFile = new ProtoFile(pbEntryClassName, pbContent);
 
 		return new EncodingFormat<SerializationSchema<RowData>>() {
 			@Override
@@ -124,6 +134,7 @@ public class PbFormatFactory implements
 				return PbRowDataSerializationSchema.builder()
 					.setRowType(rowType)
 					.setPbDescriptorClass(pbClass)
+					.setProtoFile(protoFile)
 					.setWithWrapper(withWrapper)
 					.setSinkWithSizeHeader(sinkWithSizeHeader)
 					.setSizeHeaderWithLittleEndian(sizeHeaderWithLittleEndian)
@@ -142,7 +153,7 @@ public class PbFormatFactory implements
 		final String pbClass = formatOptions.get(fullKey(PB_CLASS.key()));
 		final boolean withWrapper = Boolean.parseBoolean(formatOptions.get(fullKey(WITH_WRAPPER.key())));
 		FieldsDataType fieldsDataType =
-			createDataType(PbUtils.validateAndGetDescriptor(pbClass), withWrapper);
+			createDataType(PbUtils.validateAndGetDescriptor(pbClass, null), withWrapper);
 
 		RowType rowType = (RowType) fieldsDataType.getLogicalType();
 		return TableSchema.builder()
@@ -163,12 +174,15 @@ public class PbFormatFactory implements
 
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
-		return Collections.singleton(PB_CLASS);
+		return Collections.emptySet();
 	}
 
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		Set<ConfigOption<?>> options = new HashSet<>();
+		options.add(PB_CLASS);
+		options.add(PB_CONTENT);
+		options.add(PB_ENTRY_CLASS_NAME);
 		options.add(SKIP_BYTES);
 		options.add(WITH_WRAPPER);
 		options.add(IGNORE_PARSE_ERRORS);

@@ -64,6 +64,14 @@ under the License.
 									<include>com.google.guava:guava</include>
 									<include>com.bytedance:metrics4j</include>
 									<include>io.dropwizard.metrics:metrics-core</include>
+									<include>com.bytedance:schema-registry-rest-client</include>
+									<include>com.bytedance:schema-registry-common</include>
+									<include>org.springframework.cloud:spring-cloud-circuitbreaker-spring-retry</include>
+									<include>org.springframework.retry:spring-retry</include>
+									<include>com.squareup.okhttp3:okhttp</include>
+									<include>org.apache.commons:commons-lang3</include>
+									<include>commons-collections:commons-collections</include>
+									<include>com.fasterxml.jackson.core:jackson-databind</include>
 								</includes>
 							</artifactSet>
 							<filters>
@@ -95,6 +103,22 @@ under the License.
 								<relocation>
 									<pattern>com.codahale.metrics</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.com.codahale.metrics</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.commons</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okhttp3</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.okhttp3</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.springframework</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.springframework</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.fasterxml.jackson</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.fasterxml.jackson</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>
