@@ -32,8 +32,6 @@ import org.apache.thrift.transport.TTransport;
 
 import java.lang.reflect.Constructor;
 
-import static org.apache.flink.connectors.rpc.thrift.ThriftRPCClient.CLIENT_CLASS_SUFFIX;
-
 /**
  * A thrift ClientFactory for managing ThriftClient's life cycle.
  */
@@ -41,15 +39,15 @@ public class ThriftClientFactory
 		implements KeyedPooledObjectFactory<RPCDiscovery.HostPort, ThriftClientFactory.ThriftClient> {
 
 	private final int timeout;
-	private final String thriftServiceClass;
+	private final String thriftClientClass;
 	private final TransportType transportType;
 
 	public ThriftClientFactory(
 			int timeout,
-			String thriftServiceClass,
+			String thriftClientClass,
 			TransportType transportType) {
 		this.timeout = timeout;
-		this.thriftServiceClass = thriftServiceClass + CLIENT_CLASS_SUFFIX;
+		this.thriftClientClass = thriftClientClass;
 		this.transportType = transportType;
 	}
 
@@ -68,7 +66,7 @@ public class ThriftClientFactory
 				throw new IllegalArgumentException("Not support transport type " + transportType);
 		}
 		TProtocol protocol = new TBinaryProtocol(transport);
-		Class<?> c = Class.forName(thriftServiceClass);
+		Class<?> c = Class.forName(thriftClientClass);
 		TServiceClient serviceClient;
 		try {
 			Constructor<?> constructor = c.getDeclaredConstructor(TProtocol.class);

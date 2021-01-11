@@ -49,13 +49,23 @@ public class RPCTableSource implements
 
 	@Override
 	public TableFunction<Row> getLookupFunction(String[] lookupFieldNames) {
-		return new RPCLookupFunction(
-			tableSchema.toRowType(),
-			tableSchema.getFieldNames(),
-			lookupFieldNames,
-			rpcOptions,
-			rpcLookupOptions,
-			tableSchema.toRowDataType());
+		if (rpcLookupOptions.useBatchLookup()) {
+			return new RPCBatchedLookupFunction(
+				tableSchema.toRowType(),
+				tableSchema.getFieldNames(),
+				lookupFieldNames,
+				rpcOptions,
+				rpcLookupOptions,
+				tableSchema.toRowDataType());
+		} else {
+			return new RPCLookupFunction(
+				tableSchema.toRowType(),
+				tableSchema.getFieldNames(),
+				lookupFieldNames,
+				rpcOptions,
+				rpcLookupOptions,
+				tableSchema.toRowDataType());
+		}
 	}
 
 	@Override

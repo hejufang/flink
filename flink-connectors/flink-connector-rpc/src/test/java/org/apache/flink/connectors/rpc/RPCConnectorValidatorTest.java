@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.rpc;
 
+import org.apache.flink.connectors.rpc.thriftexample.SimpleDimMiddlewareService;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.RPCValidator;
@@ -26,34 +27,29 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_CONSUL;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_IS_DIMENSION_TABLE;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_METHOD;
+import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_SERVICE_CLASS;
 import static org.junit.Assert.assertEquals;
 
 /**
  * Unit Tests for RPC connector params.
  */
 public class RPCConnectorValidatorTest {
-	public static void fillInEssentialParams(Map<String, String> paramMap) {
-		paramMap.put("connector.type", "rpc");
-		paramMap.put("connector.is-dimension-table", "true");
-		paramMap.put("connector.consul", "***.***.***");
-		paramMap.put("connector.thrift-service-class", "com.thrift.HelloWordService");
-		paramMap.put("connector.thrift-method", "connector.thrift-method");
-	}
-
-	@Test
-	public void testValidateProperties() {
-		Map<String, String> paramMap = new HashMap<>();
-		fillInEssentialParams(paramMap);
-		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
-		descriptorProperties.putProperties(paramMap);
-		new RPCValidator().validate(descriptorProperties);
-		new RPCTableFactory().getRPCLookupOptions(descriptorProperties);
+	public static void fillInSimpleParams(Map<String, String> map) {
+		map.put(CONNECTOR_TYPE, "rpc");
+		map.put(CONNECTOR_CONSUL, "xx");
+		map.put(CONNECTOR_IS_DIMENSION_TABLE, "true");
+		map.put(CONNECTOR_THRIFT_SERVICE_CLASS, SimpleDimMiddlewareService.class.getName());
+		map.put(CONNECTOR_THRIFT_METHOD, "GetDimInfos");
 	}
 
 	@Test(expected = ValidationException.class)
 	public void testIncorrectRequestFailureStrategyProperties() {
 		Map<String, String> paramMap = new HashMap<>();
-		fillInEssentialParams(paramMap);
+		fillInSimpleParams(paramMap);
 		//This is incorrect
 		paramMap.put("connector.lookup.request-failure-strategy", "incorrect-param");
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
@@ -65,7 +61,7 @@ public class RPCConnectorValidatorTest {
 	@Test
 	public void testTaskFailureProperties() {
 		Map<String, String> paramMap = new HashMap<>();
-		fillInEssentialParams(paramMap);
+		fillInSimpleParams(paramMap);
 		paramMap.put("connector.lookup.request-failure-strategy", "task-failure");
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
 		descriptorProperties.putProperties(paramMap);
@@ -77,7 +73,7 @@ public class RPCConnectorValidatorTest {
 	@Test
 	public void testEmitEmptyProperties() {
 		Map<String, String> paramMap = new HashMap<>();
-		fillInEssentialParams(paramMap);
+		fillInSimpleParams(paramMap);
 		paramMap.put("connector.lookup.request-failure-strategy", "emit-empty");
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
 		descriptorProperties.putProperties(paramMap);
@@ -89,7 +85,7 @@ public class RPCConnectorValidatorTest {
 	@Test
 	public void testDefaultRequestFailureStrategyProperties() {
 		Map<String, String> paramMap = new HashMap<>();
-		fillInEssentialParams(paramMap);
+		fillInSimpleParams(paramMap);
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
 		descriptorProperties.putProperties(paramMap);
 		new RPCValidator().validate(descriptorProperties);

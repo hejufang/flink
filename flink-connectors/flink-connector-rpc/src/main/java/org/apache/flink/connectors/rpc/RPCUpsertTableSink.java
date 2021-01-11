@@ -35,10 +35,12 @@ public class RPCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	private final RPCOptions options;
 	private final TableSchema tableSchema;
+	private final RPCSinkOptions rpcSinkOptions;
 
-	public RPCUpsertTableSink(RPCOptions options, TableSchema tableSchema) {
+	public RPCUpsertTableSink(RPCOptions options, RPCSinkOptions rpcSinkOptions, TableSchema tableSchema) {
 		this.options = Preconditions.checkNotNull(options);
 		this.tableSchema = Preconditions.checkNotNull(tableSchema);
+		this.rpcSinkOptions = rpcSinkOptions;
 	}
 
 	@Override
@@ -64,9 +66,9 @@ public class RPCUpsertTableSink implements UpsertStreamTableSink<Row> {
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Tuple2<Boolean, Row>> dataStream) {
 		DataStreamSink<Tuple2<Boolean, Row>> resultStream = dataStream
-			.addSink(new RPCSinkFunction(options, (RowType) tableSchema.toRowDataType().getLogicalType()));
-		if (options.getSinkParallelism() > 0) {
-			resultStream.setParallelism(options.getSinkParallelism());
+			.addSink(new RPCSinkFunction(options, rpcSinkOptions, (RowType) tableSchema.toRowDataType().getLogicalType()));
+		if (rpcSinkOptions.getSinkParallelism() > 0) {
+			resultStream.setParallelism(rpcSinkOptions.getSinkParallelism());
 		}
 		return resultStream;
 	}
@@ -78,6 +80,6 @@ public class RPCUpsertTableSink implements UpsertStreamTableSink<Row> {
 
 	@Override
 	public TableSink<Tuple2<Boolean, Row>> configure(String[] fieldNames, TypeInformation<?>[] fieldTypes) {
-		return new RPCUpsertTableSink(options, tableSchema);
+		return new RPCUpsertTableSink(options, rpcSinkOptions, tableSchema);
 	}
 }

@@ -32,18 +32,28 @@ public class RPCLookupOptions implements Serializable {
 	 * Specifies the maximum number of entries the cache may contain.
 	 */
 	private final long cacheMaxSize;
-
 	private final long cacheExpireMs;
-
 	private final int maxRetryTimes;
-
 	private final RPCRequestFailureStrategy requestFailureStrategy;
+	private final boolean useBatchLookup;
+	private final String requestListFieldName;
+	private final String responseListFieldName;
 
-	private RPCLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, RPCRequestFailureStrategy requestFailureStrategy) {
+	private RPCLookupOptions(
+			long cacheMaxSize,
+			long cacheExpireMs,
+			int maxRetryTimes,
+			RPCRequestFailureStrategy requestFailureStrategy,
+			boolean useBatchLookup,
+			String requestListFieldName,
+			String responseListFieldName) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.requestFailureStrategy = requestFailureStrategy;
+		this.useBatchLookup = useBatchLookup;
+		this.requestListFieldName = requestListFieldName;
+		this.responseListFieldName = responseListFieldName;
 	}
 
 	public long getCacheMaxSize() {
@@ -62,21 +72,44 @@ public class RPCLookupOptions implements Serializable {
 		return requestFailureStrategy;
 	}
 
+	public boolean useBatchLookup() {
+		return useBatchLookup;
+	}
+
+	public String getRequestListFieldName() {
+		return requestListFieldName;
+	}
+
+	public String getResponseListFieldName() {
+		return responseListFieldName;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
 
 	@Override
 	public boolean equals(Object o) {
-		if (o instanceof RPCLookupOptions) {
-			RPCLookupOptions options = (RPCLookupOptions) o;
-			return Objects.equals(cacheMaxSize, options.cacheMaxSize)
-				&& Objects.equals(cacheExpireMs, options.cacheExpireMs)
-				&& Objects.equals(maxRetryTimes, options.maxRetryTimes)
-				&& Objects.equals(requestFailureStrategy, options.requestFailureStrategy);
-		} else {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
+		RPCLookupOptions that = (RPCLookupOptions) o;
+		return cacheMaxSize == that.cacheMaxSize &&
+			cacheExpireMs == that.cacheExpireMs &&
+			maxRetryTimes == that.maxRetryTimes &&
+			useBatchLookup == that.useBatchLookup &&
+			requestFailureStrategy == that.requestFailureStrategy &&
+			requestListFieldName.equals(that.requestListFieldName) &&
+			responseListFieldName.equals(that.responseListFieldName);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(cacheMaxSize, cacheExpireMs, maxRetryTimes, requestFailureStrategy,
+			useBatchLookup, requestListFieldName, responseListFieldName);
 	}
 
 	/**
@@ -87,6 +120,9 @@ public class RPCLookupOptions implements Serializable {
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private RPCRequestFailureStrategy requestFailureStrategy = RPCRequestFailureStrategy.TASK_FAILURE;
+		private boolean useBatchLookup = false;
+		private String requestListFieldName;
+		private String responseListFieldName;
 
 		private Builder() {
 		}
@@ -120,12 +156,30 @@ public class RPCLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setBatchLookup(boolean useBatchLookup) {
+			this.useBatchLookup = useBatchLookup;
+			return this;
+		}
+
+		public Builder setRequestListFieldName(String requestListFieldName) {
+			this.requestListFieldName = requestListFieldName;
+			return this;
+		}
+
+		public Builder setResponseListFieldName(String responseListFieldName) {
+			this.responseListFieldName = responseListFieldName;
+			return this;
+		}
+
 		public RPCLookupOptions build() {
 			return new RPCLookupOptions(
 				cacheMaxSize,
 				cacheExpireMs,
 				maxRetryTimes,
-				requestFailureStrategy);
+				requestFailureStrategy,
+				useBatchLookup,
+				requestListFieldName,
+				responseListFieldName);
 		}
 	}
 
