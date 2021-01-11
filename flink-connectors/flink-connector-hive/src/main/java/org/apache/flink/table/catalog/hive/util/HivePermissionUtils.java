@@ -143,20 +143,25 @@ public class HivePermissionUtils {
 				objectMapper.readValue(jsonStr, HivePermissionResponse.class);
 			List<HivePermissionResponse.Permission> permissionOfMultiUsers = response.getPri();
 
+			String columnsWithoutPermission = null;
 			// Permission for all users(we treat psm as a user with a prefix PSM_REFIX).
 			for (HivePermissionResponse.Permission permission : permissionOfMultiUsers) {
-				String columnsWithoutPermission = null;
-				// Permission for all datasources (hive/clickhouse), here we just get permissions for hive.
-				for (HivePermissionResponse.PermissionInfo permissionInfo : permission.getPri()) {
-					if (permissionInfo.isAuthorized()) {
-						return Tuple2.of(true, null);
-					} else {
-						columnsWithoutPermission = permissionInfo.getColumns();
-					}
+				List<HivePermissionResponse.PermissionInfo> permissionInfos = permission.getPri();
+				// Permission for all datasources (hive/clickhouse), here we just get permissions
+				// for hive, so the size of permissionInfos must be one.
+				if (permissionInfos.size() != 1) {
+					throw new FlinkRuntimeException(String.format("The size of permissionInfos " +
+						"must be one, because we only request for one datasources 'hive', " +
+						"but we get %s, and the whole response is %s", permissionInfos.size(), response));
 				}
-				return Tuple2.of(false, columnsWithoutPermission);
+				HivePermissionResponse.PermissionInfo permissionInfo = permissionInfos.get(0);
+				if (permissionInfo.isAuthorized()) {
+					return Tuple2.of(true, null);
+				} else {
+					columnsWithoutPermission = permissionInfo.getColumns();
+				}
 			}
-			return Tuple2.of(false, null);
+			return Tuple2.of(false, columnsWithoutPermission);
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException(
 				String.format("Failed to parse hive permission response, jsonStr = %s.", jsonStr), e);
