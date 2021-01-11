@@ -92,6 +92,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
@@ -172,6 +173,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 */
 	private CompletableFuture<Void> clearStateFuture = CompletableFuture.completedFuture(null);
 
+	private boolean waitingFatal;
+	private String fatalMessage;
+
 	public ResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -226,6 +230,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		this.fatalErrorHandler = checkNotNull(fatalErrorHandler);
 		this.resourceManagerMetricGroup = checkNotNull(resourceManagerMetricGroup);
 		this.failureRater = checkNotNull(failureRater);
+		this.waitingFatal = false;
 
 		this.jobManagerRegistrations = new HashMap<>(4);
 		this.jmResourceIdRegistrations = new HashMap<>(4);
@@ -565,10 +570,19 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	public CompletableFuture<Acknowledge> deregisterApplication(
 			final ApplicationStatus finalStatus,
 			@Nullable final String diagnostics) {
-		log.info("Shut down cluster because application is in {}, diagnostics {}.", finalStatus, diagnostics);
+		ApplicationStatus applicationStatus = finalStatus;
+		String errMsg = diagnostics;
+
+		if (finalStatus != ApplicationStatus.FAILED && waitingFatal) {
+			applicationStatus = ApplicationStatus.FAILED;
+			errMsg = fatalMessage;
+			log.info("ResourceManager is waiting fatal, transform appStatus from {} to {}", finalStatus, applicationStatus);
+		} else {
+			log.info("Shut down cluster because application is in {}, diagnostics {}.", applicationStatus, errMsg);
+		}
 
 		try {
-			internalDeregisterApplication(finalStatus, diagnostics);
+			internalDeregisterApplication(applicationStatus, errMsg);
 		} catch (ResourceManagerException e) {
 			log.warn("Could not properly shutdown the application.", e);
 		}
@@ -664,7 +678,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				numberSlots,
 				numberFreeSlots,
 				totalResource,
-				freeResource));
+				freeResource,
+				waitingFatal,
+				fatalMessage));
 	}
 
 	@Override
@@ -1134,6 +1150,16 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		fatalErrorHandler.onFatalError(t);
 	}
 
+	protected void onFatalError(String fatalMessage, int waitTime) {
+		this.fatalMessage = fatalMessage;
+		this.waitingFatal = true;
+		try {
+			deregisterApplication(ApplicationStatus.FAILED, fatalMessage).get(waitTime, TimeUnit.MILLISECONDS);
+		} catch (Exception ignored) {}
+
+		onFatalError(new Exception(fatalMessage));
+	}
+
 	// ------------------------------------------------------------------------
 	//  Leader Contender
 	// ------------------------------------------------------------------------
@@ -1301,6 +1327,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	@VisibleForTesting
 	public abstract boolean startNewWorker(WorkerResourceSpec workerResourceSpec);
 
+	public boolean startNewWorkers(WorkerResourceSpec workerResourceSpec, int resourceNumber) {
+		return false;
+	}
+
 	/**
 	 * Callback when a worker was started.
 	 * @param resourceID The worker resource id
@@ -1344,6 +1374,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		public boolean allocateResource(WorkerResourceSpec workerResourceSpec) {
 			validateRunsInMainThread();
 			return tryStartNewWorker(workerResourceSpec);
+		}
+
+		@Override
+		public boolean allocateResources(WorkerResourceSpec workerResourceSpec, int resourceNumber) {
+			validateRunsInMainThread();
+			return startNewWorkers(workerResourceSpec, resourceNumber);
 		}
 
 		@Override
@@ -1467,6 +1503,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	protected Map<WorkerResourceSpec, Integer> getRequiredResources() {
 		return slotManager.getRequiredResources();
+	}
+
+	protected WorkerResourceSpec getDefaultWorkerResourceSpec() {
+		return slotManager.getDefaultWorkerResourceSpec();
 	}
 }
 

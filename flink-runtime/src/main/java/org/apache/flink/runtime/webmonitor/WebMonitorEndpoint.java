@@ -34,6 +34,7 @@ import org.apache.flink.runtime.rest.handler.RestHandlerConfiguration;
 import org.apache.flink.runtime.rest.handler.RestHandlerSpecification;
 import org.apache.flink.runtime.rest.handler.cluster.ClusterConfigHandler;
 import org.apache.flink.runtime.rest.handler.cluster.ClusterOverviewHandler;
+import org.apache.flink.runtime.rest.handler.cluster.ClusterResourceOverviewHandler;
 import org.apache.flink.runtime.rest.handler.cluster.DashboardConfigHandler;
 import org.apache.flink.runtime.rest.handler.cluster.JobManagerCustomLogHandler;
 import org.apache.flink.runtime.rest.handler.cluster.JobManagerLogFileHandler;
@@ -91,6 +92,7 @@ import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagerThreadDumpHa
 import org.apache.flink.runtime.rest.handler.taskmanager.TaskManagersHandler;
 import org.apache.flink.runtime.rest.messages.ClusterConfigurationInfoHeaders;
 import org.apache.flink.runtime.rest.messages.ClusterOverviewHeaders;
+import org.apache.flink.runtime.rest.messages.ClusterResourceOverviewHeaders;
 import org.apache.flink.runtime.rest.messages.DashboardConfigurationHeaders;
 import org.apache.flink.runtime.rest.messages.JobAccumulatorsHeaders;
 import org.apache.flink.runtime.rest.messages.JobCancellationHeaders;
@@ -229,6 +231,12 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 			timeout,
 			responseHeaders,
 			ClusterOverviewHeaders.getInstance());
+
+		ClusterResourceOverviewHandler clusterResourceOverviewHandler = new ClusterResourceOverviewHandler(
+			leaderRetriever,
+			timeout,
+			responseHeaders,
+			ClusterResourceOverviewHeaders.getInstance());
 
 		SmartResourceHandler smartResourceHandler = new SmartResourceHandler(
 			leaderRetriever,
@@ -598,6 +606,7 @@ public class WebMonitorEndpoint<T extends RestfulGateway> extends RestServerEndp
 		}
 
 		handlers.add(Tuple2.of(clusterOverviewHandler.getMessageHeaders(), clusterOverviewHandler));
+		handlers.add(Tuple2.of(clusterResourceOverviewHandler.getMessageHeaders(), clusterResourceOverviewHandler));
 		handlers.add(Tuple2.of(smartResourceHandler.getMessageHeaders(), smartResourceHandler));
 		handlers.add(Tuple2.of(clusterConfigurationHandler.getMessageHeaders(), clusterConfigurationHandler));
 		handlers.add(Tuple2.of(dashboardConfigHandler.getMessageHeaders(), dashboardConfigHandler));

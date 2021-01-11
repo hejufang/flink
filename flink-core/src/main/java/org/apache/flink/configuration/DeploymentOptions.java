@@ -42,6 +42,12 @@ public class DeploymentOptions {
 					.defaultValue(false)
 					.withDescription("Specifies if the pipeline is submitted in attached or detached mode.");
 
+	public static final ConfigOption<Boolean> WAIT_RUNNING_IF_DETACHED =
+			key("execution.wait-running-on-detached")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Specifies if the pipeline is submitted in attached or detached mode.");
+
 	public static final ConfigOption<Boolean> SHUTDOWN_IF_ATTACHED =
 			key("execution.shutdown-on-attached-exit")
 					.booleanType()

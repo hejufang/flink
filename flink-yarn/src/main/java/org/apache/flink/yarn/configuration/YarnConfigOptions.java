@@ -161,17 +161,18 @@ public class YarnConfigOptions {
 	/**
 	 * A non-negative integer indicating the priority for submitting a Flink YARN application. It will only take effect
 	 * if YARN priority scheduling setting is enabled. Larger integer corresponds with higher priority. If priority is
-	 * negative or set to '-1'(default), Flink will unset yarn priority setting and use cluster default priority.
+	 * negative or set to '-1', Flink will set yarn priority to 0.
 	 *
 	 * @see <a href="https://hadoop.apache.org/docs/r2.8.5/hadoop-yarn/hadoop-yarn-site/CapacityScheduler.html">YARN Capacity Scheduling Doc</a>
 	 */
 	public static final ConfigOption<Integer> APPLICATION_PRIORITY =
 		key("yarn.application.priority")
-			.defaultValue(-1)
+			.intType()
+			.defaultValue(0)
 			.withDescription("A non-negative integer indicating the priority for submitting a Flink YARN application. It" +
 				" will only take effect if YARN priority scheduling setting is enabled. Larger integer corresponds" +
-				" with higher priority. If priority is negative or set to '-1'(default), Flink will unset yarn priority" +
-				" setting and use cluster default priority. Please refer to YARN's official documentation for specific" +
+				" with higher priority. If priority is negative or set to '-1', Flink will set yarn priority" +
+				" to 0. Please refer to YARN's official documentation for specific" +
 				" settings required to enable priority scheduling for the targeted YARN version.");
 
 	/**
@@ -289,6 +290,100 @@ public class YarnConfigOptions {
 			.noDefaultValue()
 			.withDescription("If configured, Flink will add this key to the resource profile of container request to Yarn. " +
 				"The value will be set to the value of " + ExternalResourceOptions.EXTERNAL_RESOURCE_AMOUNT.key() + ".");
+
+	public static final ConfigOption<String> NODE_SATISFY_ATTRIBUTES_EXPRESSION =
+			key("yarn.node-satisfy-attributes-expression")
+					.noDefaultValue()
+					.withDescription("The expression of node attributes, such as has_gpu,is_gemini,pod...");
+
+	// ------------------------------------------------------------------------
+	/**
+	 * Use GangScheduler when allocate containers from Yarn.
+	 */
+	public static final ConfigOption<Boolean> GANG_SCHEDULER =
+		key("yarn.gang-scheduler.enable")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Use GangScheduler when allocate containers from Yarn.");
+
+	public static final ConfigOption<Boolean> GANG_SCHEDULER_JOB_MANAGER =
+		key("yarn.gang-scheduler.jobmanager.enable")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Use GangScheduler when allocate job manager from Yarn.");
+
+	/**
+	 * Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores.
+	 */
+	public static final ConfigOption<Float> GANG_NODE_SKIP_HIGH_LOAD =
+		key("yarn.gang-scheduler.node-skip-high-load")
+			.floatType()
+			.defaultValue(1.2f)
+			.withDescription("Skip nodes which load > GANG_NODE_SKIP_HIGH_LOAD * node_cores.");
+
+	/**
+	 * The weight of container-decentralized-average in GANG Scheduler.
+	 * 0 means disable this constraints.
+	 */
+	public static final ConfigOption<Integer> GANG_CONTAINER_DECENTRALIZED_AVERAGE_WEIGHT =
+		key("yarn.gang-scheduler.container-decentralized-average-weight")
+			.intType()
+			.defaultValue(0)
+			.withDescription("The weight of container-decentralized-average in GANG Scheduler." +
+				"0 means disable this constraints.");
+	/**
+	 * The weight of node-quota-usage-average in GANG Scheduler.
+	 * 0 means disable this constraints.
+	 */
+	public static final ConfigOption<Integer> GANG_NODE_QUOTA_USAGE_AVERAGE_WEIGHT =
+		key("yarn.gang-scheduler.node-quota-usage-average-weight")
+			.intType()
+			.defaultValue(1)
+			.withDescription("The weight of node-quota-usage-average in GANG Scheduler." +
+				"0 means disable this constraints.");
+
+	/**
+	 * Wait time before exit when GangScheduler fatal.
+	 */
+	public static final ConfigOption<Integer> WAIT_TIME_BEFORE_GANG_FATAL_MS =
+		key("yarn.gang-scheduler.wait-time-before-fatal-ms")
+			.intType()
+			.defaultValue(300000)
+			.withDescription("Wait time before exit when GangScheduler fatal.");
+
+	/**
+	 * Wait time before retry by GangScheduler.
+	 */
+	public static final ConfigOption<Integer> WAIT_TIME_BEFORE_GANG_RETRY_MS =
+		key("yarn.gang-scheduler.wait-time-before-retry-ms")
+			.intType()
+			.defaultValue(1000)
+			.withDescription("Wait time before retry by GangScheduler.");
+
+	/**
+	 * Max retry times by GangScheduler, downgrade to fairScheduler in DOWNGRADE_TIMEOUT when retry times exceeds it.
+	 */
+	public static final ConfigOption<Integer> GANG_MAX_RETRY_TIMES =
+		key("yarn.gang-scheduler.max-retry-times")
+			.intType()
+			.defaultValue(5)
+			.withDescription("Max retry times by GangScheduler, downgrade to fairScheduler if exceeds");
+
+	public static final ConfigOption<Boolean> GANG_DOWNGRADE_ON_FAILED =
+			key("yarn.gang-scheduler.gang-downgrade-on-failed")
+					.defaultValue(true)
+					.withDescription("Whether downgrade to FairScheduler when Gang Failed too many times." +
+							"true downgrade to FairScheduler." +
+							"false exit application.");
+
+	/**
+	 * Back to GangScheduler after downgrade timeout. Only work when gang scheduler enabled.
+	 */
+	public static final ConfigOption<Integer> GANG_DOWNGRADE_TIMEOUT_MS =
+		key("yarn.gang-scheduler.downgrade-timeout-ms")
+			.intType()
+			.defaultValue(1800000)
+			.withDescription("Back to GangScheduler after downgrade timeout.");
 
 	// ------------------------------------------------------------------------
 

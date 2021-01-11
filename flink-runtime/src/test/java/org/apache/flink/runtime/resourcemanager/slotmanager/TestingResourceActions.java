@@ -64,6 +64,11 @@ public class TestingResourceActions implements ResourceActions {
 	}
 
 	@Override
+	public boolean allocateResources(WorkerResourceSpec workerResourceSpec, int workerNumber) {
+		return false;
+	}
+
+	@Override
 	public void notifyAllocationFailure(JobID jobId, AllocationID allocationId, Exception cause) {
 		notifyAllocationFailureConsumer.accept(Tuple3.of(jobId, allocationId, cause));
 	}

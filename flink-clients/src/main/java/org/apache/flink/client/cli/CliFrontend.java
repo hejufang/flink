@@ -29,6 +29,7 @@ import org.apache.flink.client.deployment.ClusterClientFactory;
 import org.apache.flink.client.deployment.ClusterClientServiceLoader;
 import org.apache.flink.client.deployment.ClusterDescriptor;
 import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
+import org.apache.flink.client.deployment.GangScheduleFailedException;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.deployment.application.cli.ApplicationClusterDeployer;
 import org.apache.flink.client.program.ClusterClient;
@@ -81,6 +82,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -954,14 +956,19 @@ public class CliFrontend {
 		if (t.getCause() instanceof InvalidProgramException) {
 			System.err.println(t.getCause().getMessage());
 			StackTraceElement[] trace = t.getCause().getStackTrace();
-			for (StackTraceElement ele: trace) {
+			for (StackTraceElement ele : trace) {
 				System.err.println("\t" + ele);
 				if (ele.getMethodName().equals("main")) {
 					break;
 				}
 			}
 		} else {
-			t.printStackTrace();
+			Optional<GangScheduleFailedException> gangScheduleFailedException  = ExceptionUtils.findThrowable(t, GangScheduleFailedException.class);
+			if (gangScheduleFailedException.isPresent()) {
+				System.err.println(gangScheduleFailedException.get().getMessage());
+			} else {
+				t.printStackTrace();
+			}
 		}
 		return 1;
 	}

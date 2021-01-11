@@ -1728,6 +1728,9 @@ public class StreamExecutionEnvironment {
 
 			if (configuration.getBoolean(DeploymentOptions.ATTACHED)) {
 				jobExecutionResult = jobClient.getJobExecutionResult(userClassloader).get();
+			} else if (configuration.getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
+				jobClient.waitAllTaskRunningOrClusterFailed().get();
+				jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
 			} else {
 				jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
 			}

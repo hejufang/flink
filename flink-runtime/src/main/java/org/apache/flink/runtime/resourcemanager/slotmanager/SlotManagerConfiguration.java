@@ -49,6 +49,9 @@ public class SlotManagerConfiguration {
 	private final int numSlotsPerWorker;
 	private final int maxSlotNum;
 
+	private final int numInitialTaskManagers;
+	private final boolean initialTaskManager;
+
 	public SlotManagerConfiguration(
 			Time taskManagerRequestTimeout,
 			Time slotRequestTimeout,
@@ -58,6 +61,28 @@ public class SlotManagerConfiguration {
 			WorkerResourceSpec defaultWorkerResourceSpec,
 			int numSlotsPerWorker,
 			int maxSlotNum) {
+		this(taskManagerRequestTimeout,
+				slotRequestTimeout,
+				taskManagerTimeout,
+				waitResultConsumedBeforeRelease, slotMatchingStrategy,
+				defaultWorkerResourceSpec,
+				numSlotsPerWorker,
+				maxSlotNum,
+				0,
+				false);
+	}
+
+	public SlotManagerConfiguration(
+			Time taskManagerRequestTimeout,
+			Time slotRequestTimeout,
+			Time taskManagerTimeout,
+			boolean waitResultConsumedBeforeRelease,
+			SlotMatchingStrategy slotMatchingStrategy,
+			WorkerResourceSpec defaultWorkerResourceSpec,
+			int numSlotsPerWorker,
+			int maxSlotNum,
+			int numInitialTaskManagers,
+			boolean initialTaskManager) {
 
 		this.taskManagerRequestTimeout = Preconditions.checkNotNull(taskManagerRequestTimeout);
 		this.slotRequestTimeout = Preconditions.checkNotNull(slotRequestTimeout);
@@ -69,6 +94,8 @@ public class SlotManagerConfiguration {
 		Preconditions.checkState(maxSlotNum > 0);
 		this.numSlotsPerWorker = numSlotsPerWorker;
 		this.maxSlotNum = maxSlotNum;
+		this.numInitialTaskManagers = numInitialTaskManagers;
+		this.initialTaskManager = initialTaskManager;
 	}
 
 	public Time getTaskManagerRequestTimeout() {
@@ -103,6 +130,14 @@ public class SlotManagerConfiguration {
 		return maxSlotNum;
 	}
 
+	public int getNumInitialTaskManagers() {
+		return numInitialTaskManagers;
+	}
+
+	public boolean isInitialTaskManager() {
+		return initialTaskManager;
+	}
+
 	public static SlotManagerConfiguration fromConfiguration(
 			Configuration configuration,
 			WorkerResourceSpec defaultWorkerResourceSpec) throws ConfigurationException {
@@ -130,6 +165,10 @@ public class SlotManagerConfiguration {
 
 		int maxSlotNum = configuration.getInteger(ResourceManagerOptions.MAX_SLOT_NUM);
 
+		int numInitialTaskManagers = configuration.getInteger(TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS);
+
+		boolean initialTaskManager = configuration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START);
+
 		return new SlotManagerConfiguration(
 			rpcTimeout,
 			slotRequestTimeout,
@@ -138,7 +177,9 @@ public class SlotManagerConfiguration {
 			slotMatchingStrategy,
 			defaultWorkerResourceSpec,
 			numSlotsPerWorker,
-			maxSlotNum);
+			maxSlotNum,
+			numInitialTaskManagers,
+			initialTaskManager);
 	}
 
 	private static Time getSlotRequestTimeout(final Configuration configuration) {

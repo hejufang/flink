@@ -125,7 +125,10 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 			jobExecutionResult = jobExecutionResultFuture.get();
 			System.out.println(jobExecutionResult);
-		} else {
+		} else if (getConfiguration().getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
+			jobClient.waitAllTaskRunningOrClusterFailed().get();
+			jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
+		}  else {
 			jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
 		}
 

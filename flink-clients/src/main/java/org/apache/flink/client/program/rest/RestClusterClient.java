@@ -34,6 +34,7 @@ import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.client.JobSubmissionException;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
+import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.highavailability.ClientHighAvailabilityServices;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -141,7 +142,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 
 	private final RestClusterClientConfiguration restClusterClientConfiguration;
 
-	private final Configuration configuration;
+	protected final Configuration configuration;
 
 	private final RestClient restClient;
 
@@ -271,6 +272,30 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 	@Override
 	public CompletableFuture<JobStatus> getJobStatus(JobID jobId) {
 		return getJobDetails(jobId).thenApply(JobDetailsInfo::getJobStatus);
+	}
+
+	@Override
+	public CompletableFuture<Void> waitAllTaskRunningOrClusterFailed(JobID jobId) {
+		return pollResourceAsync(
+				() -> {
+					final JobDetailsHeaders detailsHeaders = JobDetailsHeaders.getInstance();
+					final JobMessageParameters params = new JobMessageParameters();
+					params.jobPathParameter.resolve(jobId);
+					return sendRequest(detailsHeaders, params);
+				},
+				new CompletableFuture<>(),
+				jobDetailsInfo -> {
+					Collection<JobDetailsInfo.JobVertexDetailsInfo> jobVertexDetailsInfos = jobDetailsInfo.getJobVertexInfos();
+					String infoMsg = "current job info: {";
+					for (JobDetailsInfo.JobVertexDetailsInfo jobVertexDetailsInfo : jobVertexDetailsInfos) {
+						infoMsg += "(" + jobVertexDetailsInfo.getName() + ":"  + jobVertexDetailsInfo.getExecutionState() + "); ";
+					}
+					infoMsg += "}";
+					LOG.info(infoMsg);
+					return jobDetailsInfo.getJobVertexInfos().stream().allMatch(jobVertexDetailsInfo -> jobVertexDetailsInfo.getExecutionState().equals(ExecutionState.RUNNING));
+				},
+				0
+		).thenApply(jobDetailsInfo -> null);
 	}
 
 	/**
@@ -612,6 +637,28 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		return resultFuture;
 	}
 
+	protected  <R> CompletableFuture<R> pollResourceAsync (
+			final Supplier<CompletableFuture<R>> resourceFutureSupplier,
+			final CompletableFuture<R> resultFuture,
+			final Predicate<R> predicate,
+			final long attempt) {
+		resourceFutureSupplier.get().whenComplete((r, t) -> {
+			if (t != null) {
+				resultFuture.completeExceptionally(t);
+			} else {
+				if (predicate.test(r)) {
+					resultFuture.complete(r);
+				} else {
+					retryExecutorService.schedule(() -> {
+						pollResourceAsync(resourceFutureSupplier, resultFuture, predicate, attempt + 1);
+					}, restClusterClientConfiguration.getRetryDelay(), TimeUnit.MILLISECONDS);
+				}
+			}
+		});
+
+		return resultFuture;
+	}
+
 	// ======================================
 	// Legacy stuff we actually implement
 	// ======================================
@@ -643,7 +690,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 	}
 
 	@VisibleForTesting
-	<M extends MessageHeaders<EmptyRequestBody, P, EmptyMessageParameters>, P extends ResponseBody> CompletableFuture<P>
+	protected <M extends MessageHeaders<EmptyRequestBody, P, EmptyMessageParameters>, P extends ResponseBody> CompletableFuture<P>
 			sendRequest(M messageHeaders) {
 		return sendRequest(messageHeaders, EmptyMessageParameters.getInstance(), EmptyRequestBody.getInstance());
 	}
@@ -655,7 +702,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 			messageHeaders, messageParameters, request, isConnectionProblemOrServiceUnavailable());
 	}
 
-	private <M extends MessageHeaders<R, P, U>, U extends MessageParameters, R extends RequestBody, P extends ResponseBody> CompletableFuture<P>
+	protected  <M extends MessageHeaders<R, P, U>, U extends MessageParameters, R extends RequestBody, P extends ResponseBody> CompletableFuture<P>
 			sendRetriableRequest(M messageHeaders, U messageParameters, R request, Predicate<Throwable> retryPredicate) {
 		return sendRetriableRequest(messageHeaders, messageParameters, request, Collections.emptyList(), retryPredicate);
 	}
@@ -671,7 +718,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		}), retryPredicate);
 	}
 
-	private <C> CompletableFuture<C> retry(
+	protected <C> CompletableFuture<C> retry(
 			CheckedSupplier<CompletableFuture<C>> operation,
 			Predicate<Throwable> retryPredicate) {
 		return FutureUtils.retryWithDelay(

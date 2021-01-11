@@ -45,6 +45,14 @@ public interface ResourceActions {
 	boolean allocateResource(WorkerResourceSpec workerResourceSpec);
 
 	/**
+	 * Requests to allocate a resource with the given {@link WorkerResourceSpec}.
+	 *
+	 * @param workerResourceSpec for the to be allocated worker
+	 * @return whether the resource can be allocated
+	 */
+	boolean allocateResources(WorkerResourceSpec workerResourceSpec, int workerNumber);
+
+	/**
 	 * Notifies that an allocation failure has occurred.
 	 *
 	 * @param jobId to which the allocation belonged

@@ -27,7 +27,6 @@ import org.apache.flink.client.deployment.ClusterRetrieveException;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.ClusterClientProvider;
-import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigUtils;
 import org.apache.flink.configuration.Configuration;
@@ -41,6 +40,7 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.configuration.SecurityOptions;
+import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.plugin.PluginConfig;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
@@ -65,6 +65,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.service.Service;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
@@ -76,6 +77,8 @@ import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.QueueInfo;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.SchedulerType;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.api.records.YarnClusterMetrics;
 import org.apache.hadoop.yarn.client.api.YarnClient;
@@ -360,7 +363,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 			return () -> {
 				try {
-					return new RestClusterClient<>(flinkConfiguration, report.getApplicationId());
+					return new YarnRestClusterClient(flinkConfiguration, report.getApplicationId(), null);
 				} catch (Exception e) {
 					throw new RuntimeException("Couldn't retrieve Yarn cluster", e);
 				}
@@ -503,6 +506,15 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		flinkConfiguration.setString(ClusterEntrypoint.EXECUTION_MODE, executionMode.toString());
 
+		if (flinkConfiguration.getBoolean(TaskManagerOptions.INITIAL_TASK_MANAGER_ON_START)) {
+			if (jobGraph != null) {
+				int numTaskManagers = (jobGraph.calcMinRequiredSlotsNum() + clusterSpecification.getSlotsPerTaskManager() - 1) / clusterSpecification.getSlotsPerTaskManager();
+				flinkConfiguration.setInteger(
+						TaskManagerOptions.NUM_INITIAL_TASK_MANAGERS,
+						numTaskManagers);
+			}
+		}
+
 		ApplicationReport report = startAppMaster(
 				flinkConfiguration,
 				applicationName,
@@ -522,7 +534,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		return () -> {
 			try {
-				return new RestClusterClient<>(flinkConfiguration, report.getApplicationId());
+				return new YarnRestClusterClient(flinkConfiguration, report.getApplicationId(), jobGraph);
 			} catch (Exception e) {
 				throw new RuntimeException("Error while creating RestClusterClient.", e);
 			}
@@ -999,13 +1011,29 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		appContext.setApplicationName(customApplicationName);
 		appContext.setApplicationType(applicationType != null ? applicationType : ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT);
 		appContext.setAMContainerSpec(amContainer);
-		appContext.setResource(capability);
 
 		// Set priority for application
 		int priorityNum = flinkConfiguration.getInteger(YarnConfigOptions.APPLICATION_PRIORITY);
+		Priority priority;
 		if (priorityNum >= 0) {
-			Priority priority = Priority.newInstance(priorityNum);
-			appContext.setPriority(priority);
+			priority = Priority.newInstance(priorityNum);
+		} else {
+			priority = Priority.newInstance(YarnConfigOptions.APPLICATION_PRIORITY.defaultValue());
+		}
+
+		ResourceRequest resourceRequest = appContext.getAMContainerResourceRequest();
+		if (resourceRequest == null) {
+			resourceRequest = ResourceRequest.newInstance(priority, "*", capability, 1);
+			appContext.setAMContainerResourceRequest(resourceRequest);
+		} else {
+			resourceRequest.setPriority(priority);
+			resourceRequest.setCapability(capability);
+		}
+
+		if (configuration.getBoolean(YarnConfigOptions.GANG_SCHEDULER_JOB_MANAGER)) {
+			LOG.info("Using yarn gang schedule for Application Master.");
+			resourceRequest.setSchedulerType(SchedulerType.GANG_SCHEDULER);
+			resourceRequest.setAsynchronousScheduling(false);
 		}
 
 		if (yarnQueue != null) {
@@ -1024,6 +1052,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		LOG.info("Waiting for the cluster to be allocated");
 		final long startTime = System.currentTimeMillis();
+		long preTime = startTime;
 		ApplicationReport report;
 		YarnApplicationState lastAppState = YarnApplicationState.NEW;
 		loop: while (true) {
@@ -1053,13 +1082,14 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 					if (appState != lastAppState) {
 						LOG.info("Deploying cluster, current state " + appState);
 					}
-					if (System.currentTimeMillis() - startTime > 60000) {
-						LOG.info("Deployment took more than 60 seconds. Please check if the requested resources are available in the YARN cluster");
+					if (System.currentTimeMillis() - preTime > 60000) {
+						preTime = System.currentTimeMillis();
+						LOG.info("Deployment took more than {} seconds. Please check if the requested resources are available in the YARN cluster",
+								(preTime - startTime) / 1000);
 					}
-
 			}
 			lastAppState = appState;
-			Thread.sleep(250);
+			Thread.sleep(1000);
 		}
 
 		// since deployment was successful, remove the hook
@@ -1113,6 +1143,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	 */
 	private void failSessionDuringDeployment(YarnClient yarnClient, YarnClientApplication yarnApplication) {
 		LOG.info("Killing YARN application");
+
+		if (yarnClient.isInState(Service.STATE.STOPPED)) {
+			LOG.info("yarn client already stopped.");
+			return;
+		}
 
 		try {
 			yarnClient.killApplication(yarnApplication.getNewApplicationResponse().getApplicationId());

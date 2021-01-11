@@ -44,6 +44,10 @@ public interface JobClient {
 	 */
 	CompletableFuture<JobStatus> getJobStatus();
 
+	default CompletableFuture<Void> waitAllTaskRunningOrClusterFailed() {
+		return CompletableFuture.completedFuture(null);
+	}
+
 	/**
 	 * Cancels the associated job.
 	 */

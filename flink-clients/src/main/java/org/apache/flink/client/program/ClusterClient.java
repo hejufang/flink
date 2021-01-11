@@ -99,6 +99,10 @@ public interface ClusterClient<T> extends AutoCloseable {
 	 */
 	CompletableFuture<JobStatus> getJobStatus(JobID jobId);
 
+	default CompletableFuture<Void> waitAllTaskRunningOrClusterFailed(JobID jobId) {
+		return CompletableFuture.completedFuture(null);
+	}
+
 	/**
 	 * Request the {@link JobResult} for the given {@link JobID}.
 	 *

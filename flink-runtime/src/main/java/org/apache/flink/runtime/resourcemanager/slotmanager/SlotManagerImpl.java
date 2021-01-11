@@ -92,6 +92,12 @@ public class SlotManagerImpl implements SlotManager {
 	/** Index of all currently free slots. */
 	private final LinkedHashMap<SlotID, TaskManagerSlot> freeSlots;
 
+	/** Number of task managers. */
+	private final int numInitialTaskManagers;
+
+	/** Initial task managers on slot manager start. */
+	private final boolean initialTaskManager;
+
 	/** All currently registered task managers. */
 	private final HashMap<InstanceID, TaskManagerRegistration> taskManagerRegistrations;
 
@@ -163,6 +169,8 @@ public class SlotManagerImpl implements SlotManager {
 		this.defaultSlotResourceProfile = generateDefaultSlotResourceProfile(defaultWorkerResourceSpec, numSlotsPerWorker);
 		this.slotManagerMetricGroup = Preconditions.checkNotNull(slotManagerMetricGroup);
 		this.maxSlotNum = slotManagerConfiguration.getMaxSlotNum();
+		this.numInitialTaskManagers = slotManagerConfiguration.getNumInitialTaskManagers();
+		this.initialTaskManager = slotManagerConfiguration.isInitialTaskManager();
 
 		slots = new HashMap<>(16);
 		freeSlots = new LinkedHashMap<>(16);
@@ -245,6 +253,11 @@ public class SlotManagerImpl implements SlotManager {
 		return defaultSlotResourceProfile;
 	}
 
+	@Override
+	public WorkerResourceSpec getDefaultWorkerResourceSpec() {
+		return defaultWorkerResourceSpec;
+	}
+
 	private ResourceProfile getResourceFromNumSlots(int numSlots) {
 		if (numSlots < 0 || defaultSlotResourceProfile == null) {
 			return ResourceProfile.UNKNOWN;
@@ -286,6 +299,12 @@ public class SlotManagerImpl implements SlotManager {
 		this.resourceManagerId = Preconditions.checkNotNull(newResourceManagerId);
 		mainThreadExecutor = Preconditions.checkNotNull(newMainThreadExecutor);
 		resourceActions = Preconditions.checkNotNull(newResourceActions);
+
+		if (initialTaskManager && numInitialTaskManagers > 0) {
+			// initial slot manager with enough task managers.
+			LOG.info("start to init {} workers.", numInitialTaskManagers);
+			initialResources(numInitialTaskManagers);
+		}
 
 		started = true;
 
@@ -967,6 +986,17 @@ public class SlotManagerImpl implements SlotManager {
 
 		return Optional.of(Preconditions.checkNotNull(pendingTaskManagerSlot,
 			"At least one pending slot should be created."));
+	}
+
+	private void initialResources(int resourceNumber) {
+		if (!resourceActions.allocateResources(defaultWorkerResourceSpec, resourceNumber)) {
+			return;
+		}
+
+		for (int i = 0; i < numSlotsPerWorker * resourceNumber; ++i) {
+			final PendingTaskManagerSlot additionalPendingTaskManagerSlot = new PendingTaskManagerSlot(defaultSlotResourceProfile);
+			pendingSlots.put(additionalPendingTaskManagerSlot.getTaskManagerSlotId(), additionalPendingTaskManagerSlot);
+		}
 	}
 
 	private void assignPendingTaskManagerSlot(PendingSlotRequest pendingSlotRequest, PendingTaskManagerSlot pendingTaskManagerSlot) {

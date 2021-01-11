@@ -52,6 +52,7 @@ import org.apache.flink.runtime.jobmaster.factories.DefaultJobManagerJobMetricGr
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.webmonitor.ClusterOverview;
+import org.apache.flink.runtime.messages.webmonitor.ClusterResourceOverview;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.messages.webmonitor.JobsOverview;
 import org.apache.flink.runtime.messages.webmonitor.MultipleJobsDetails;
@@ -498,6 +499,12 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 				final JobsOverview allJobsOverview = JobsOverview.create(runningJobsStatus).combine(completedJobsOverview);
 				return new ClusterOverview(resourceOverview, allJobsOverview);
 			});
+	}
+
+	@Override
+	public CompletableFuture<ClusterResourceOverview> requestClusterResourceOverview(Time timeout) {
+		CompletableFuture<ResourceOverview> resourceOverview = runResourceManagerCommand(resourceManagerGateway -> resourceManagerGateway.requestResourceOverview(timeout));
+		return resourceOverview.thenApply(ClusterResourceOverview::new);
 	}
 
 	@Override

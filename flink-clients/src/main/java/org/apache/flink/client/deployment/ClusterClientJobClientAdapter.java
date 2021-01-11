@@ -69,6 +69,13 @@ public class ClusterClientJobClientAdapter<ClusterID> implements JobClient, Coor
 	}
 
 	@Override
+	public CompletableFuture<Void> waitAllTaskRunningOrClusterFailed() {
+		return bridgeClientRequest(
+				clusterClientProvider,
+				(clusterClient -> clusterClient.waitAllTaskRunningOrClusterFailed(jobID)));
+	}
+
+	@Override
 	public CompletableFuture<Void> cancel() {
 		return bridgeClientRequest(
 				clusterClientProvider,

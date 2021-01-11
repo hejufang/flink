@@ -94,6 +94,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public WorkerResourceSpec getDefaultWorkerResourceSpec() {
+		return getRequiredResourcesSupplier.get().keySet().stream().findFirst().orElse(null);
+	}
+
+	@Override
 	public ResourceProfile getFreeResourceOf(InstanceID instanceID) {
 		return ResourceProfile.ZERO;
 	}

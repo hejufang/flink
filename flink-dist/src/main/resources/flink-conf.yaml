@@ -128,6 +128,7 @@ common:
 
   # Gang scheduler
   yarn.gang-scheduler.enable: false
+  yarn.gang-scheduler.jobmanager.enable: false
   yarn.gang-scheduler.node-skip-high-load: 2.5
   yarn.gang-scheduler.container-decentralized-average-weight: 10
   yarn.gang-scheduler.node-quota-usage-average-weight: 1

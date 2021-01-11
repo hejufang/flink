@@ -53,6 +53,7 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.exceptions.ContainerCompletedException;
@@ -66,16 +67,27 @@ import org.apache.flink.yarn.smartresources.SmartResourceManager;
 import org.apache.flink.yarn.smartresources.UpdateContainersResources;
 
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.protocolrecords.ConstraintContent;
+import org.apache.hadoop.yarn.api.protocolrecords.GlobalConstraint;
+import org.apache.hadoop.yarn.api.protocolrecords.GlobalConstraints;
+import org.apache.hadoop.yarn.api.protocolrecords.NodeSatisfyAttributesContent;
+import org.apache.hadoop.yarn.api.protocolrecords.NodeSkipHighLoadContent;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.records.ConstraintType;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
+import org.apache.hadoop.yarn.api.records.ExecutionTypeRequest;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
+import org.apache.hadoop.yarn.api.records.GangSchedulerNotifyContent;
 import org.apache.hadoop.yarn.api.records.NodeReport;
+import org.apache.hadoop.yarn.api.records.NotifyMsg;
+import org.apache.hadoop.yarn.api.records.NotifyMsgType;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.SchedulerType;
 import org.apache.hadoop.yarn.api.records.UpdateContainerError;
 import org.apache.hadoop.yarn.api.records.UpdateContainerRequest;
 import org.apache.hadoop.yarn.api.records.UpdatedContainer;
@@ -169,6 +181,19 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	private final Set<String> yarnBlackedHosts;
 
+	/**
+	 * Fatal on GangScheduler failed allocate containers.
+	 * Only be true when first allocate after YarnResourceManager started.
+	 */
+	private boolean fatalOnGangFailed;
+	private final int gangMaxRetryTimes;
+	private int gangCurrentRetryTimes;
+	private long gangLastDowngradeTimestamp;
+	private final int gangDowngradeTimeoutMilli;
+	private final boolean gangDowngradeOnFailed;
+	private final boolean gangSchedulerEnabled;
+	private final String nodeAttributesExpression;
+
 	public YarnResourceManager(
 			RpcService rpcService,
 			ResourceID resourceId,
@@ -222,6 +247,16 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.defaultTaskManagerMemoryMB = TaskExecutorProcessUtils.processSpecFromConfig(flinkConfig).getFlinkMemory().getTotalFlinkMemorySize().getMebiBytes();
 		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, flinkConfig.getInteger(
 			TaskManagerOptions.NUM_TASK_SLOTS));
+
+		this.gangSchedulerEnabled = flinkConfig.getBoolean(YarnConfigOptions.GANG_SCHEDULER);
+		this.gangCurrentRetryTimes = 0;
+		this.gangLastDowngradeTimestamp = -1;
+		this.gangMaxRetryTimes = flinkConfig.getInteger(YarnConfigOptions.GANG_MAX_RETRY_TIMES);
+		this.gangDowngradeTimeoutMilli = flinkConfig.getInteger(YarnConfigOptions.GANG_DOWNGRADE_TIMEOUT_MS);
+		this.gangDowngradeOnFailed = flinkConfig.getBoolean(YarnConfigOptions.GANG_DOWNGRADE_ON_FAILED);
+		this.nodeAttributesExpression = flinkConfig.getString(YarnConfigOptions.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
+
+		this.fatalOnGangFailed = true;
 
 		// init the SmartResource
 		this.smartResourceManager = new SmartResourceManager(flinkConfig);
@@ -323,7 +358,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		log.info("Recovered {} containers from previous attempts ({}).", containersFromPreviousAttempts.size(), containersFromPreviousAttempts);
 
-		long ts = System.currentTimeMillis();
+		fatalOnGangFailed = containersFromPreviousAttempts.isEmpty();
+
 		for (final Container container : containersFromPreviousAttempts) {
 			ResourceID resourceID = new ResourceID(container.getId().toString());
 			workerNodeMap.put(resourceID, new YarnWorkerNode(container));
@@ -445,7 +481,12 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public boolean startNewWorker(WorkerResourceSpec workerResourceSpec) {
-		return requestYarnContainer(workerResourceSpec);
+		return startNewWorkers(workerResourceSpec, 1);
+	}
+
+	@Override
+	public boolean startNewWorkers(WorkerResourceSpec workerResourceSpec, int resourceNumber) {
+		return requestYarnContainers(workerResourceSpec, resourceNumber);
 	}
 
 	@VisibleForTesting
@@ -524,6 +565,48 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	}
 
 	@Override
+	public void onNotifyMsg(NotifyMsg msg) {
+		if (msg.getNotifyMsgType() == NotifyMsgType.MSG_TYPE_GANG_SCHEDULE_FAILED) {
+			log.info("Received MSG_TYPE_GANG_SCHEDULE_FAILED message, {}", msg);
+			GangSchedulerNotifyContent gangSchedulerNotifyContent = msg.getNotifyContent().getGangSchedulerNotifyContent();
+			if (!fatalOnGangFailed) {
+				// todo gang does not support different resource Type.
+				if (getNumRequestedNotAllocatedWorkers() >= gangSchedulerNotifyContent.getRequestedContainerNum()) {
+					runAsync(() -> {
+							removeContainerRequest(getDefaultWorkerResourceSpec(), gangSchedulerNotifyContent.getRequestedContainerNum());
+							if (++gangCurrentRetryTimes > gangMaxRetryTimes) {
+								if (gangDowngradeOnFailed) {
+									// gang scheduler failed too many times, downgrade to fair scheduler.
+									gangLastDowngradeTimestamp = System.currentTimeMillis();
+								} else {
+									String fatalMessage = "Request container by GangScheduler failed more than "
+											+ gangCurrentRetryTimes + " times, " + gangSchedulerNotifyContent;
+									onFatalError(new RuntimeException(fatalMessage));
+								}
+							}
+							if (blacklistTracker != null) {
+								blacklistTracker.clearAll();
+							}
+							scheduleRunAsync(
+								this::requestYarnContainerIfRequired,
+								flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_RETRY_MS),
+								TimeUnit.MILLISECONDS);
+						}
+					);
+				} else {
+					log.info("Failed containerRequests:{} more than pending:{}. It is AMRMClient auto request, ignore.",
+						gangSchedulerNotifyContent.getRequestedContainerNum(), getNumRequestedNotAllocatedWorkers());
+				}
+			} else {
+				String fatalMessage = "Request new container by GangScheduler failed, " + gangSchedulerNotifyContent;
+				onFatalError(fatalMessage, flinkConfig.getInteger(YarnConfigOptions.WAIT_TIME_BEFORE_GANG_FATAL_MS));
+			}
+		} else {
+			log.warn("Unknown onNotifyMsg type, {}", msg);
+		}
+	}
+
+	@Override
 	public void onContainersCompleted(final List<ContainerStatus> statuses) {
 		runAsync(() -> {
 				log.warn("YARN ResourceManager reported {} containers completed.", statuses.size());
@@ -556,6 +639,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public void onContainersAllocated(List<Container> containers) {
+		fatalOnGangFailed = false;
 		runAsync(() -> {
 			log.info("Received {} containers.", containers.size());
 
@@ -844,20 +928,36 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 	}
 
-	private boolean requestYarnContainer(WorkerResourceSpec workerResourceSpec) {
+	private boolean requestYarnContainers(WorkerResourceSpec workerResourceSpec, int workerNumber) {
 		Optional<Resource> containerResourceOptional = getContainerResource(workerResourceSpec);
 
-		if (containerResourceOptional.isPresent()) {
-			AMRMClient.ContainerRequest containerRequest = getContainerRequest(containerResourceOptional.get());
-			resourceManagerClient.addContainerRequest(containerRequest);
+		if (containerResourceOptional.isPresent() && workerNumber > 0) {
+			boolean useGang = gangSchedulerEnabled;
+			if (gangSchedulerEnabled) {
+				if (System.currentTimeMillis() - gangLastDowngradeTimestamp < gangDowngradeTimeoutMilli) {
+					useGang = false;
+				} else if (gangLastDowngradeTimestamp > 0) {
+					gangCurrentRetryTimes = 0;
+					gangLastDowngradeTimestamp = -1;
+				}
+			}
+			log.info("Allocate {} containers, Using gang scheduler: {}", workerNumber, useGang);
+			ArrayList<AMRMClient.ContainerRequest> containerRequests = new ArrayList<>();
+			for (int i = 0; i < workerNumber; i++) {
+				containerRequests.add(getContainerRequest(containerResourceOptional.get(), useGang));
+			}
+			resourceManagerClient.addContainerRequestList(containerRequests);
 
 			// make sure we transmit the request fast and receive fast news of granted allocations
 			resourceManagerClient.setHeartbeatInterval(containerRequestHeartbeatIntervalMillis);
-			int numPendingWorkers = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
+			int numPendingWorkers = 0;
+			for (int i = 0; i < workerNumber; i++) {
+				numPendingWorkers = notifyNewWorkerRequested(workerResourceSpec).getNumNotAllocated();
+			}
 
 			log.info("Requesting new TaskExecutor container with resource {}, resourceRequest {}. Number pending workers of this resource is {}.",
 				workerResourceSpec,
-				containerRequest,
+				containerRequests.get(0),
 				numPendingWorkers);
 			return true;
 		} else {
@@ -868,11 +968,70 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	@Nonnull
 	@VisibleForTesting
 	AMRMClient.ContainerRequest getContainerRequest(Resource containerResource) {
-		return new AMRMClient.ContainerRequest(
-			containerResource,
-			null,
-			null,
-			RM_REQUEST_PRIORITY);
+		return getContainerRequest(containerResource, false);
+	}
+
+	private AMRMClient.ContainerRequest getContainerRequest(Resource containerResource, boolean useGang) {
+		AMRMClient.ContainerRequest containerRequest;
+		if (useGang) {
+			List<GlobalConstraint> hardConstraints = new ArrayList<>();
+			// ----set hard constraints----
+			if (flinkConfig.getFloat(YarnConfigOptions.GANG_NODE_SKIP_HIGH_LOAD) > 0) {
+				// ----skip high load----
+				GlobalConstraint load = GlobalConstraint.newInstance(ConstraintType.NODE_SKIP_HIGH_LOAD);
+				NodeSkipHighLoadContent nodeSkipHighLoadContent = NodeSkipHighLoadContent.newInstance(
+					flinkConfig.getFloat(YarnConfigOptions.GANG_NODE_SKIP_HIGH_LOAD));
+				ConstraintContent cc = ConstraintContent.newInstance();
+				cc.setNodeSkipHighLoadContent(nodeSkipHighLoadContent);
+				load.setConstraintContent(cc);
+				hardConstraints.add(load);
+			}
+
+			if (!StringUtils.isNullOrWhitespaceOnly(nodeAttributesExpression)) {
+				// ----select node with attributes----
+				GlobalConstraint attributes = GlobalConstraint.newInstance(ConstraintType.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
+				NodeSatisfyAttributesContent attributesContent = NodeSatisfyAttributesContent.newInstance(nodeAttributesExpression);
+				ConstraintContent cc1 = ConstraintContent.newInstance();
+				cc1.setNodeSatisfyAttributesContent(attributesContent);
+				attributes.setConstraintContent(cc1);
+				hardConstraints.add(attributes);
+			}
+
+			// ----set soft constraints----
+			List<GlobalConstraint> softConstraints = new ArrayList<>();
+			if (flinkConfig.getInteger(YarnConfigOptions.GANG_CONTAINER_DECENTRALIZED_AVERAGE_WEIGHT) > 0) {
+				// ----set decentralize container----
+				GlobalConstraint decentralizeContainer = GlobalConstraint.newInstance(
+					ConstraintType.GLOBAL_MAKE_CONTAINER_DECENTRALIZED_AVERAGE);
+				decentralizeContainer.setConstraintWeight(
+					flinkConfig.getInteger(YarnConfigOptions.GANG_CONTAINER_DECENTRALIZED_AVERAGE_WEIGHT));
+				softConstraints.add(decentralizeContainer);
+			}
+
+			if (flinkConfig.getInteger(YarnConfigOptions.GANG_NODE_QUOTA_USAGE_AVERAGE_WEIGHT) > 0) {
+				// ----set quota avg----
+				GlobalConstraint quotaAvg = GlobalConstraint.newInstance(
+					ConstraintType.GLOBAL_MAKE_NODE_QUOTA_USAGE_AVERAGE);
+				quotaAvg.setConstraintWeight(
+					flinkConfig.getInteger(YarnConfigOptions.GANG_NODE_QUOTA_USAGE_AVERAGE_WEIGHT));
+				softConstraints.add(quotaAvg);
+			}
+
+			GlobalConstraints globalConstraints = GlobalConstraints.newInstance(hardConstraints, softConstraints);
+			containerRequest = new AMRMClient.ContainerRequest(containerResource, null, null,
+				RM_REQUEST_PRIORITY, 0, true, null, null,
+				ExecutionTypeRequest.newInstance(), SchedulerType.GANG_SCHEDULER, false, globalConstraints);
+		} else {
+			containerRequest = new AMRMClient.ContainerRequest(
+				containerResource,
+				null,
+				null,
+				RM_REQUEST_PRIORITY,
+				true,
+				null,
+				nodeAttributesExpression);
+		}
+		return containerRequest;
 	}
 
 	private ContainerLaunchContext createTaskExecutorLaunchContext(
