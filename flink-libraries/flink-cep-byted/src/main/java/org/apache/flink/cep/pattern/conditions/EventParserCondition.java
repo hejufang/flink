@@ -150,6 +150,24 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 					return false;
 				}
 				break;
+			case IN:
+				boolean satisfied = false;
+				for (String o : compareValue.split(",")) {
+					if (comparator.isEqual(comparator.castValue(aggValue), comparator.castValue(o))) {
+						satisfied = true;
+						break;
+					}
+				}
+
+				if (!satisfied) {
+					return false;
+				}
+				break;
+			case NOT_EQUAL:
+				if (comparator.isEqual(comparator.castValue(aggValue), comparator.castValue(compareValue))) {
+					return false;
+				}
+				break;
 			case GREATER:
 				if (!comparator.isGreater(comparator.castValue(aggValue), comparator.castValue(compareValue))) {
 					return false;
@@ -157,6 +175,16 @@ public class EventParserCondition<IN> extends RichIterativeCondition<IN> {
 				break;
 			case LESS:
 				if (!comparator.isLess(comparator.castValue(aggValue), comparator.castValue(compareValue))) {
+					return false;
+				}
+				break;
+			case GREATER_EQUAL:
+				if (comparator.isLess(comparator.castValue(aggValue), comparator.castValue(compareValue))) {
+					return false;
+				}
+				break;
+			case LESS_EQUAL:
+				if (comparator.isGreater(comparator.castValue(aggValue), comparator.castValue(compareValue))) {
 					return false;
 				}
 				break;

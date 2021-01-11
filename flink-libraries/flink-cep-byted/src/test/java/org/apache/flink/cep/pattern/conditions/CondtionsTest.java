@@ -33,6 +33,30 @@ import java.util.Arrays;
 public class CondtionsTest {
 
 	@Test
+	public void testNotEqual() throws Exception {
+		Condition c1 = new Condition("id", Condition.OpType.NOT_EQUAL, "1", Condition.ValueType.STRING, null, null);
+		final EventParserCondition<Event> condition = new EventParserCondition<>(new TestCepEventParser(), Arrays.asList(c1), "-1");
+		Assert.assertFalse(condition.filter(new Event(1, "x", 1.0), new TestContext()));
+		Assert.assertTrue(condition.filter(new Event(2, "x", 1.0), new TestContext()));
+	}
+
+	@Test
+	public void testInCondition() throws Exception {
+		Condition c1 = new Condition("id", Condition.OpType.IN, "1,3,5", Condition.ValueType.DOUBLE, null, null);
+		final EventParserCondition<Event> condition = new EventParserCondition<>(new TestCepEventParser(), Arrays.asList(c1), "-1");
+		Assert.assertFalse(condition.filter(new Event(2, "x", 1.0), new TestContext()));
+		Assert.assertTrue(condition.filter(new Event(5, "x", 1.0), new TestContext()));
+	}
+
+	@Test
+	public void testLessAndEqualCondition() throws Exception {
+		Condition c2 = new Condition("price", Condition.OpType.GREATER_EQUAL, "1", Condition.ValueType.DOUBLE, null, null);
+		final EventParserCondition<Event> condition = new EventParserCondition<>(new TestCepEventParser(), Arrays.asList(c2), "-1");
+		Assert.assertTrue(condition.filter(new Event(2, "x", 1.0), new TestContext()));
+		Assert.assertFalse(condition.filter(new Event(2, "x", 0.9), new TestContext()));
+	}
+
+	@Test
 	public void testGreaterCondition() throws Exception {
 		Condition c1 = new Condition("id", Condition.OpType.GREATER, "1", Condition.ValueType.DOUBLE, null, null);
 		Condition c2 = new Condition("price", Condition.OpType.GREATER, "1", Condition.ValueType.DOUBLE, null, null);

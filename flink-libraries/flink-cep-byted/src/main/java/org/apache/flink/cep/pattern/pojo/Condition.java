@@ -142,8 +142,12 @@ public class Condition implements Serializable {
 	 */
 	public enum OpType {
 		@JsonProperty("=") EQUAL("="),
+		@JsonProperty("in") IN("in"),
+		@JsonProperty("!=") NOT_EQUAL("!="),
 		@JsonProperty(">") GREATER(">"),
-		@JsonProperty("<") LESS("<");
+		@JsonProperty("<") LESS("<"),
+		@JsonProperty(">=") GREATER_EQUAL(">="),
+		@JsonProperty("<=") LESS_EQUAL("<=");
 
 		private final String name;
 
