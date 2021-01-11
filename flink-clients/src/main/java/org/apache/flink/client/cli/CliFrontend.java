@@ -46,11 +46,15 @@ import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
+import org.apache.flink.runtime.state.CheckpointStorage;
+import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.util.EnvironmentInformation;
+import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
@@ -99,6 +103,7 @@ public class CliFrontend {
 	private static final String ACTION_CANCEL = "cancel";
 	private static final String ACTION_STOP = "stop";
 	private static final String ACTION_SAVEPOINT = "savepoint";
+	private static final String ACTION_CHECKPOINT = "checkpoint";
 
 	// configuration dir parameters
 	private static final String CONFIG_DIRECTORY_FALLBACK_1 = "../conf";
@@ -260,7 +265,7 @@ public class CliFrontend {
 	 *
 	 * @param args Original arguments.
 	 */
-	public String[] setJobName(String[] args) {
+	public String[] setJobName(String[] args) throws CliArgsException {
 		boolean metricsJobNameExist = false;
 		int jobNameIndex = -2;
 		int clusterNameIndex = -2;
@@ -281,6 +286,10 @@ public class CliFrontend {
 			clusterName = args[clusterNameIndex];
 		} else {
 			clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY);
+		}
+
+		if (clusterName == null) {
+			throw new CliArgsException("Cluster name is not specified !");
 		}
 
 		System.setProperty(ConfigConstants.CLUSTER_NAME_KEY, clusterName);
@@ -758,6 +767,79 @@ public class CliFrontend {
 		logAndSysout("Savepoint '" + savepointPath + "' disposed.");
 	}
 
+	/**
+	 * Executes the CHECKPOINT action.
+	 *
+	 * @param args Command line arguments for the savepoint action.
+	 */
+	protected void checkpoint(String[] args) throws Exception {
+		LOG.info("Running 'checkpoint' command.");
+		args = setJobName(args);
+		final Options commandOptions = CliFrontendParser.getCheckpointCommandOptions();
+
+		final Options commandLineOptions = CliFrontendParser.mergeOptions(commandOptions, customCommandLineOptions);
+
+		final CommandLine commandLine = CliFrontendParser.parse(commandLineOptions, args, false);
+
+		final CheckpointOptions checkpointOptions = new CheckpointOptions(commandLine);
+
+		// evaluate help flag
+		if (checkpointOptions.isPrintHelp()) {
+			CliFrontendParser.printHelpForCheckpoint(customCommandLines);
+			return;
+		}
+
+		final CustomCommandLine activeCommandLine = validateAndGetActiveCommandLine(commandLine);
+
+		String[] cleanedArgs = checkpointOptions.getArgs();
+		final JobID jobId;
+
+		if (cleanedArgs.length >= 1) {
+			String jobIdString = cleanedArgs[0];
+			jobId = parseJobId(jobIdString);
+		} else {
+			jobId = null;
+		}
+
+		if (checkpointOptions.isAnalyzation()) {
+			final String path = checkpointOptions.getMetadataPath();
+			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
+			infos.forEach(System.out::println);
+		} else {
+			String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+			if (jobName == null && jobId == null) {
+				throw new CliArgsException("Missing JobID and JobName. Specify one of them.");
+			}
+
+			clearCheckpoints(activeCommandLine, commandLine, jobId, jobName, checkpointOptions.getCheckpointID());
+		}
+	}
+
+	private void clearCheckpoints(
+			CustomCommandLine customCommandLine,
+			CommandLine commandLine,
+			JobID jobID,
+			String jobName,
+			int checkpointID) throws Exception {
+
+		jobID = jobID == null ? JobID.generate() : jobID;
+
+		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
+
+		// clear checkpoints on zookeeper.
+		ZooKeeperUtils.clearCheckpoints(effectiveConfiguration, jobID, jobName, checkpointID);
+
+		// clear checkpoints on HDFS.
+		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobName);
+		if (checkpointID > 0) {
+			checkpointStorage.clearCheckpointPointers(checkpointID);
+		} else {
+			checkpointStorage.clearAllCheckpointPointers();
+		}
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Interaction with programs and JobManager
 	// --------------------------------------------------------------------------------------------
@@ -999,6 +1081,9 @@ public class CliFrontend {
 					return 0;
 				case ACTION_SAVEPOINT:
 					savepoint(params);
+					return 0;
+				case ACTION_CHECKPOINT:
+					checkpoint(params);
 					return 0;
 				case "-h":
 				case "--help":

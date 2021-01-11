@@ -19,6 +19,7 @@
 package org.apache.flink.client.cli;
 
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.util.FlinkException;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -48,5 +49,10 @@ public class DefaultCLI extends AbstractCustomCommandLine {
 	@Override
 	public void addGeneralOptions(Options baseOptions) {
 		super.addGeneralOptions(baseOptions);
+	}
+
+	@Override
+	public Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException {
+		return applyCommandLineOptionsToConfiguration(commandLine);
 	}
 }

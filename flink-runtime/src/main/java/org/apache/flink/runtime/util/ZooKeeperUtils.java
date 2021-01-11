@@ -32,6 +32,7 @@ import org.apache.flink.runtime.checkpoint.ZooKeeperCheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.ZooKeeperCompletedCheckpointStore;
 import org.apache.flink.runtime.highavailability.HighAvailabilityServicesUtils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.jobmanager.ZooKeeperJobGraphStore;
 import org.apache.flink.runtime.leaderelection.ZooKeeperLeaderElectionService;
@@ -508,6 +509,32 @@ public class ZooKeeperUtils {
 				String message = "Unsupported ACL option: [" + aclMode + "] provided";
 				LOG.error(message);
 				throw new IllegalConfigurationException(message);
+			}
+		}
+	}
+
+	/**
+	 * Clear checkpoint path in ZooKeeper.
+	 * @param configuration The configuration of the job
+	 * @param jobID The jobID
+	 * @param jobName The name of Job
+	 * @param checkpointID The Checkpoint id to clear
+	 * @throws Exception ZK errors
+	 */
+	public static void clearCheckpoints(Configuration configuration, JobID jobID, String jobName, int checkpointID) throws Exception {
+		Executor executor = Executors.directExecutor();
+		try (CuratorFramework zkCli = ZooKeeperUtils.startCuratorFramework(configuration)) {
+			CompletedCheckpointStore completedCheckpointStore = ZooKeeperUtils.createCompletedCheckpoints(
+					zkCli,
+					configuration,
+					jobID,
+					jobName,
+					1,
+					executor);
+			if (checkpointID > 0) {
+				completedCheckpointStore.clearCheckpoints(checkpointID);
+			} else {
+				completedCheckpointStore.clearAllCheckpoints();
 			}
 		}
 	}

@@ -329,6 +329,10 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		baseOptions.addOption(applicationId);
 	}
 
+	public Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException{
+		return applyCommandLineOptionsToConfiguration(commandLine);
+	}
+
 	@Override
 	public Configuration applyCommandLineOptionsToConfiguration(CommandLine commandLine) throws FlinkException {
 		// we ignore the addressOption because it can only contain "yarn-cluster"

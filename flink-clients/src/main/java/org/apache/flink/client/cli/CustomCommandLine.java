@@ -55,6 +55,10 @@ public interface CustomCommandLine {
 	 */
 	void addGeneralOptions(Options baseOptions);
 
+	default Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException {
+		return null;
+	}
+
 	/**
 	 * Override configuration settings by specified command line options.
 	 *

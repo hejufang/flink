@@ -64,6 +64,10 @@ public interface CheckpointStorageCoordinatorView {
 		return Collections.emptyList();
 	}
 
+	default void clearAllCheckpointPointers() throws IOException { }
+
+	default void clearCheckpointPointers(int checkpointID) throws IOException { }
+
 	/**
 	 * Initializes the necessary prerequisites for storage locations of checkpoints/savepoints.
 	 *

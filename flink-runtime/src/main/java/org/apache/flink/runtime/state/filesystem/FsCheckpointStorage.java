@@ -245,4 +245,25 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				.map(fileStatus -> fileStatus.getPath().toString())
 				.collect(Collectors.toList());
 	}
+
+	@Override
+	public void clearAllCheckpointPointers() throws IOException {
+		fileSystem.delete(checkpointsDirectory, true);
+		LOG.info("Checkpoints Directory {} deleted.", checkpointsDirectory);
+	}
+
+	@Override
+	public void clearCheckpointPointers(int checkpointID) throws IOException {
+		Path checkpointPath = new Path(checkpointsDirectory, CHECKPOINT_DIR_PREFIX + checkpointID);
+		if (fileSystem.exists(checkpointPath)) {
+			LOG.info("Trying to delete checkpoint {}.", checkpointPath);
+			Path metaFilePath = new Path(checkpointPath, METADATA_FILE_NAME);
+			if (fileSystem.exists(metaFilePath)) {
+				fileSystem.delete(metaFilePath, false);
+			}
+			fileSystem.delete(checkpointPath, true);
+		} else {
+			LOG.info("Checkpoint path {} not found.", checkpointPath);
+		}
+	}
 }
