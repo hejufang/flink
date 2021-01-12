@@ -65,6 +65,7 @@ import java.util.Objects;
 
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.formats.json.TimeFormats.ISO8601_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIME_FORMAT;
@@ -110,7 +111,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 
 	/** The interval between each time the error being logged. As logging all errors may cost a lot. */
 	private final long logErrorInterval;
-	private long lastLogErrorTimestamp = -1;
+	private long lastLogErrorTimestamp;
 
 	public JsonRowDataDeserializationSchema(
 			RowType rowType,
@@ -125,7 +126,7 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			ignoreParseErrors,
 			false,
 			timestampFormat,
-			-1,
+			LOG_ERROR_RECORDS_INTERVAL.defaultValue().toMillis(),
 			new HashMap<>());
 	}
 
