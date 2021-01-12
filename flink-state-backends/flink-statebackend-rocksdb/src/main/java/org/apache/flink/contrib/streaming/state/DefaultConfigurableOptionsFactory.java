@@ -28,6 +28,7 @@ import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
 import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
+import org.rocksdb.InfoLogLevel;
 import org.rocksdb.PlainTableConfig;
 import org.rocksdb.TableFormatConfig;
 
@@ -43,6 +44,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPACTION_STYLE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPRESSION_TYPE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.LOG_LEVEL;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_COMPACTION_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_FLUSH_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_THREADS;
@@ -73,6 +75,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 		if (isOptionConfigured(MAX_OPEN_FILES)) {
 			currentOptions.setMaxOpenFiles(getMaxOpenFiles());
+		}
+
+		if (isOptionConfigured(LOG_LEVEL)) {
+			currentOptions.setInfoLogLevel(getLogLevel());
 		}
 
 		if (isOptionConfigured(MAX_BACKGROUND_FLUSH_THREADS)) {
@@ -210,6 +216,19 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 	public DefaultConfigurableOptionsFactory setMaxOpenFiles(int maxOpenFiles) {
 		configuredOptions.put(MAX_OPEN_FILES.key(), String.valueOf(maxOpenFiles));
+		return this;
+	}
+
+	// --------------------------------------------------------------------------
+	// The log level for DB.
+	// --------------------------------------------------------------------------
+
+	private InfoLogLevel getLogLevel() {
+		return InfoLogLevel.valueOf(getInternal(LOG_LEVEL.key()).toUpperCase());
+	}
+
+	public DefaultConfigurableOptionsFactory setLogLevel(InfoLogLevel logLevel) {
+		setInternal(LOG_LEVEL.key(), logLevel.name());
 		return this;
 	}
 
@@ -368,6 +387,7 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		// configurable DBOptions
 		MAX_BACKGROUND_THREADS,
 		MAX_OPEN_FILES,
+		LOG_LEVEL,
 		MAX_BACKGROUND_FLUSH_THREADS,
 		MAX_BACKGROUND_COMPACTION_THREADS,
 		USE_FSYNC,
