@@ -85,6 +85,7 @@ common:
 
   jobmanager.execution.failover-strategy: region
   jobmanager.execution.region-failover.always-region-when-no-resource: false
+  jobmanager.execution.status-dutation-ms: 30000
 
 #==============================================================================
 # Rest & web frontend

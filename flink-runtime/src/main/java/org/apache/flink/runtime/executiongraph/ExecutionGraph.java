@@ -185,6 +185,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class ExecutionGraph implements AccessExecutionGraph {
 
+	private static final int EXECUTION_FAIL_STATUS = 0;
+	private static final int EXECUTION_RUNNING_STATUS = 1;
 	/** In place updater for the execution graph's current state. Avoids having to use an
 	 * AtomicReference and thus makes the frequent read access a bit faster. */
 	private static final AtomicReferenceFieldUpdater<ExecutionGraph, JobStatus> STATE_UPDATER =
@@ -289,6 +291,15 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private final Counter noResourceAvailableExceptionCounter = new SimpleCounter();
 
+	/** Count all Execution failover. Used by other Gauges and does not register to metric group. */
+	private final Counter numberOfExecutionFailCounter = new SimpleCounter();
+
+	/** store the Execution status. Used by djuge the final status of Execution. */
+	private HashMap<Long, Integer> timeStampStatusMap = new HashMap<Long, Integer>();
+
+	/** Mark the status of all EexcutionVertex. Used by other Gauges and register to metric group. */
+	private int executionStatus;
+
 	// ------ Configuration of the Execution -------
 
 	/** Flag to indicate whether the scheduler may queue tasks for execution, or needs to be able
@@ -361,6 +372,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
 
 	private final MessageSet<WarehouseJobStartEventMessage> eventMessageSet;
+
+	private int executionStatusDuration = 30000;
 
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
@@ -866,6 +879,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.jsonPlan = jsonPlan;
 	}
 
+	public void setExecutionStatusDuration(int executionStatusDuration) {
+		this.executionStatusDuration = executionStatusDuration;
+	}
+
 	@Override
 	public String getJsonPlan() {
 		return jsonPlan;
@@ -927,6 +944,39 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public Counter getNoResourceAvailableExceptionCounter() {
 		return noResourceAvailableExceptionCounter;
+	}
+
+	public long getExecutionFailNum() {
+		return numberOfExecutionFailCounter.getCount();
+	}
+
+	public int getExecutionStatus() {
+		int finalState = executionStatus;
+		Long currentTime = System.currentTimeMillis();
+		for (Iterator<Map.Entry<Long, Integer>> it = timeStampStatusMap.entrySet().iterator(); it.hasNext();) {
+			Map.Entry<Long, Integer> entry = it.next();
+			Long timestamp = entry.getKey();
+			if (timestamp >= currentTime - executionStatusDuration && timestamp <= currentTime) {
+				if (entry.getValue() == EXECUTION_FAIL_STATUS) {
+					finalState = EXECUTION_FAIL_STATUS;
+				}
+			} else {
+				it.remove();
+			}
+		}
+		return finalState;
+	}
+
+	private void updateExecutionStatus(int executionStatus) {
+		this.executionStatus = executionStatus;
+		long currentTime = System.currentTimeMillis();
+		if (timeStampStatusMap.containsKey(currentTime)) {
+			if (executionStatus == EXECUTION_FAIL_STATUS) {
+				timeStampStatusMap.put(currentTime, executionStatus);
+			}
+		} else {
+			timeStampStatusMap.put(currentTime, executionStatus);
+		}
 	}
 
 	@Override
@@ -1585,6 +1635,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		numberOfRestartsCounter.inc();
 	}
 
+	private void incrementExecutionFail() {
+		numberOfExecutionFailCounter.inc();
+	}
+
 	public void incrementNoResourceAvailableException() {
 		noResourceAvailableExceptionCounter.inc();
 	}
@@ -1996,6 +2050,13 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		if (newExecutionState == ExecutionState.FAILED) {
 			final Throwable ex = error != null ? error : new FlinkException("Unknown Error (missing cause)");
 
+			// Update execution fail status
+			LOG.info("Execution status switch to FAIL");
+			updateExecutionStatus(EXECUTION_FAIL_STATUS);
+
+			// Add failover num
+			incrementExecutionFail();
+
 			// by filtering out late failure calls, we can save some work in
 			// avoiding redundant local failover
 			if (execution.getGlobalModVersion() == globalModVersion) {
@@ -2020,6 +2081,13 @@ public class ExecutionGraph implements AccessExecutionGraph {
 					LOG.warn("Error in failover strategy - falling back to global restart", t);
 					failGlobal(ex);
 				}
+			}
+		} else if (newExecutionState == ExecutionState.RUNNING) {
+			if (tasks.values().stream().allMatch(executionJobVertex ->
+				executionJobVertex.getAggregateState().equals(ExecutionState.RUNNING) ||
+					executionJobVertex.getAggregateState().equals(ExecutionState.FINISHED))) {
+				LOG.info("Execution status switch to RUNNING");
+				updateExecutionStatus(EXECUTION_RUNNING_STATUS);
 			}
 		}
 	}

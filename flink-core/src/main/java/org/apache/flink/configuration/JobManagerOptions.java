@@ -280,6 +280,14 @@ public class JobManagerOptions {
 			.defaultValue(64)
 			.withDescription("Number of threads used in futureExecutor in JobManager.");
 
+	/**
+	 * The config parameter defining the failover monitor duration in milliseconds.
+	 * */
+	public static final ConfigOption<Integer> EXECUTION_STATUS_DURATION_MS =
+		key("jobmanager.execution.status-dutation-ms")
+			.defaultValue(30000)
+			.withDescription("the failover monitor duration in milliseconds.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {
