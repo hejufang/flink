@@ -65,7 +65,8 @@ public class ArchivedExecutionConfigBuilder {
 			restartStrategyDescription != null ? restartStrategyDescription : "default",
 			parallelism,
 			objectReuseEnabled,
-			globalJobParameters != null ? globalJobParameters : Collections.<String, String>emptyMap()
+			globalJobParameters != null ? globalJobParameters : Collections.<String, String>emptyMap(),
+			Collections.emptyMap()
 		);
 	}
 }

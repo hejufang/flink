@@ -33,7 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -215,25 +217,6 @@ public class Utils {
 		return jsonArray;
 	}
 
-	private static void saveMeta(StreamGraph streamGraph, JobGraph jobGraph) {
-		String jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,
-			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
-		if ("pyFlink".equals(jobType)) {
-			return;
-		}
-		try {
-			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph);
-			if (jobMeta.saveToDB()) {
-				LOG.info("Succeed in save job meta to database.");
-			} else {
-				LOG.warn("Failed to save job meta to database.");
-			}
-		} catch (Throwable e) {
-			LOG.warn("Failed to save job meta to database.", e);
-		}
-
-	}
-
 	private static void registerDashboard(StreamGraph streamGraph, JobGraph jobGraph) {
 		String clusterName = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
 				ConfigConstants.CLUSTER_NAME_DEFAULT);
@@ -270,13 +253,33 @@ public class Utils {
 		}
 	}
 
-	public static void saveMetaAndRegisterDashboard(StreamGraph streamGraph) {
-		JobGraph jobGraph = streamGraph.getJobGraph();
-		if (Boolean.parseBoolean(
-				System.getProperty(
-						ConfigConstants.SAVE_META_ENABLED, ConfigConstants.SAVE_META_ENABLED_DEFAULT))) {
-			saveMeta(streamGraph, jobGraph);
+	public static Map<String, String> getMetaData(StreamGraph streamGraph, JobGraph jobGraph) {
+		Map<String, String> metaData = new HashMap<>();
+		try {
+			JobMeta jobMeta = new JobMeta(streamGraph, jobGraph);
+			metaData.put("dc", jobMeta.getDc());
+			metaData.put("cluster", jobMeta.getCluster());
+			metaData.put("job_type", jobMeta.getJobType());
+			metaData.put("version", jobMeta.getVersion());
+			metaData.put("job_name", jobMeta.getJobName());
+			metaData.put("tasks", jobMeta.getTasks());
+			metaData.put("operators", jobMeta.getOperators());
+			metaData.put("operatorsButSources", jobMeta.getOperatorsButSources());
+			metaData.put("sources", jobMeta.getSources());
+			metaData.put("sinks", jobMeta.getSinks());
+			metaData.put("topics", jobMeta.getTopics());
+			metaData.put("modify_time", jobMeta.getModifyTime());
+			metaData.put("application_name", jobMeta.getApplicationName());
+			metaData.put("owner", jobMeta.getUser());
+			metaData.put("data_source", jobMeta.getDataSource());
+		} catch (Throwable e) {
+			LOG.warn("Failed to save job meta to database.", e);
 		}
+		return metaData;
+	}
+
+	public static void registerDashboard(StreamGraph streamGraph) {
+		JobGraph jobGraph = streamGraph.getJobGraph();
 		if (Boolean.parseBoolean(
 				System.getProperty(
 						ConfigConstants.REGISTER_DASHBOARD_ENABLED, ConfigConstants.REGISTER_DASHBOARD_ENABLED_DEFAULT))) {

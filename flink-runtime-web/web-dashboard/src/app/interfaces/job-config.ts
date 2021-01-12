@@ -27,5 +27,8 @@ export interface JobConfigInterface {
     'user-config': {
       [key: string]: string;
     };
+    'system-config': {
+      [key: string]: string;
+    };
   };
 }

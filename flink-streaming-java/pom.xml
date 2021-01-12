@@ -67,12 +67,6 @@ under the License.
 			<version>3.5</version>
 		</dependency>
 
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-shaded-mysql</artifactId>
-			<version>${mysql.version}-${flink.shaded.version}</version>
-		</dependency>
-
 		<!-- todo use shaded jackson -->
 		<dependency>
 			<groupId>com.googlecode.json-simple</groupId>

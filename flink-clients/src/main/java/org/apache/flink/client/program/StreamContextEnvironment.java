@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.monitor.utils.Utils.saveMetaAndRegisterDashboard;
+import static org.apache.flink.monitor.utils.Utils.registerDashboard;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -75,7 +75,7 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
 
-		saveMetaAndRegisterDashboard(streamGraph);
+		registerDashboard(streamGraph);
 
 		final JobClient jobClient = executeAsync(streamGraph);
 		final List<JobListener> jobListeners = getJobListeners();

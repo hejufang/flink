@@ -62,3 +62,20 @@
     </tbody>
   </nz-table>
 </nz-card>
+<nz-card nzType="inner" nzTitle="System Configuration">
+  <nz-table
+          *ngIf="config"
+          class="no-border small"
+          [nzData]="listOfSystemConfig"
+          [nzSize]="'small'"
+          [nzFrontPagination]="false"
+          [nzWidthConfig]="['50%','50%']"
+          [nzShowPagination]="false">
+    <tbody>
+    <tr *ngFor="let config of listOfSystemConfig">
+      <td>{{ config.key }}</td>
+      <td>{{ config.value }}</td>
+    </tr>
+    </tbody>
+  </nz-table>
+</nz-card>

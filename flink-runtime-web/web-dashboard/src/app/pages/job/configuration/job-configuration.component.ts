@@ -30,6 +30,7 @@ import { JobService } from 'services';
 export class JobConfigurationComponent implements OnInit {
   config: JobConfigInterface;
   listOfUserConfig: Array<{ key: string; value: string }> = [];
+  listOfSystemConfig: Array<{ key: string; value: string }> = [];
 
   constructor(private jobService: JobService, private cdr: ChangeDetectorRef) {}
 
@@ -45,6 +46,15 @@ export class JobConfigurationComponent implements OnInit {
         });
       }
       this.listOfUserConfig = array;
+      const systemConfig = this.config['execution-config']['system-config'];
+      const systemConfigArray = [];
+      for (const key in systemConfig) {
+        systemConfigArray.push({
+          key,
+          value: systemConfig[key]
+        });
+      }
+      this.listOfSystemConfig = systemConfigArray;
       this.cdr.markForCheck();
     });
   }

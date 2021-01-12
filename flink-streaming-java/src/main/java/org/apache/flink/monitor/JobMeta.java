@@ -22,118 +22,110 @@ import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 
-import org.apache.flink.shaded.byted.com.bytedance.commons.consul.Discovery;
-
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
 
 /**
  * Class for saving job meta to database.
  */
 public class JobMeta {
-	private static final Logger LOG = LoggerFactory.getLogger(JobMeta.class);
-	private static final String JDBC_DRIVER = "org.apache.flink.shaded.com.mysql.cj.jdbc.Driver";
-	private static final String CONF_FILE = "conf/flink_jobmeta_ss_db.conf";
-	private static final String DB_CONF_PREFIX = "mysql.%s";
-	private static final String HOST_KEY = "ss_write_host";
-	private static final String PORT_KEY = "ss_write_port";
-	private static final String DATABASE_KEY = "ss_db_name";
-	private static final String USER_KEY = "ss_write_user";
-	private static final String PASSWORD_KEY = "ss_write_password";
-	private StreamGraph streamGraph;
-	private JobGraph jobGraph;
+	private final String dc;
+	private final String cluster;
+	private final String applicationName;
+	private final String jobName;
+	private final String tasks;
+	private final String operators;
+	private final String operatorsButSources;
+	private final String sources;
+	private final String sinks;
+	private final String user;
+	private final String jobType;
+	private final String version = "1.11";
+	private final String modifyTime;
+	private final String topics;
+	private final String dataSource;
 
 	public JobMeta(StreamGraph streamGraph, JobGraph jobGraph) {
-		this.streamGraph = streamGraph;
-		this.jobGraph = jobGraph;
-	}
-
-	public boolean saveToDB() {
-		String dc = System.getProperty(ConfigConstants.DC_KEY,
+		dc = System.getProperty(ConfigConstants.DC_KEY,
 			ConfigConstants.DC_DEFAULT);
-		String cluster = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
+		cluster = System.getProperty(ConfigConstants.CLUSTER_NAME_KEY,
 			ConfigConstants.CLUSTER_NAME_DEFAULT);
-		String applicationName = System.getProperty(ConfigConstants.APPLICATION_NAME_KEY,
+		applicationName = System.getProperty(ConfigConstants.APPLICATION_NAME_KEY,
 			ConfigConstants.APPLICATION_NAME_DEFAULT);
-		String jobName = streamGraph.getJobName();
-		String tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
-		String operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
-		if ("".equals(dc) || "".equals(cluster) || "".equals(jobName)) {
-			LOG.warn("Failed to save job meta to database, " +
-				"because there is no available dc, cluster or jobName.");
-			LOG.info("dc = {}", dc);
-			LOG.info("cluster = {}", cluster);
-			LOG.info("jobName = {}", jobName);
-			return false;
-		}
-		String user = System.getProperty(ConfigConstants.FLINK_OWNER_KEY,
+		jobName = streamGraph.getJobName();
+		tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
+		operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
+		user = System.getProperty(ConfigConstants.FLINK_OWNER_KEY,
 			ConfigConstants.FLINK_OWNER_DEFAULT);
-		Map<String, String> mysqlConfig = getMysqlConfig();
-		String url = String.format("jdbc:mysql://%s:%s/%s",
-			mysqlConfig.get("host"), mysqlConfig.get("port"), mysqlConfig.get("database"));
-		String sql = "INSERT INTO flink_job_meta(dc, cluster, job_type, version, job_name, tasks, " +
-			"operators, topics, modify_time, application_name, owner) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		String modifyTime = df.format(new Date());
-		try {
-			Class.forName(JDBC_DRIVER);
-		} catch (ClassNotFoundException e) {
-			LOG.warn("Failed to load jdbc driver: {}.", JDBC_DRIVER);
-		}
-		try (Connection con = DriverManager.getConnection(url, mysqlConfig.get("user"),
-			mysqlConfig.get("password")); PreparedStatement preState = con.prepareStatement(sql)) {
-			preState.setString(1, dc);
-			preState.setString(2, cluster);
-			preState.setString(3, "Flink");
-			preState.setString(4, "1.5");
-			preState.setString(5, jobName);
-			preState.setString(6, tasks);
-			preState.setString(7, operators);
-			preState.setString(8, Utils.getKafkaTopics().toJSONString());
-			preState.setString(9, modifyTime);
-			preState.setString(10, applicationName);
-			preState.setString(11, user);
-			int rowAffected = preState.executeUpdate();
-			return rowAffected == 1;
-		} catch (SQLException e) {
-			LOG.error("Failed to save job meta.", e);
-		}
-		return false;
+		modifyTime = df.format(new Date());
+		topics = Utils.getKafkaTopics().toJSONString();
+		dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
+				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
+		operatorsButSources = Utils.list2JSONArray(Utils.getOperatersExceptSources(streamGraph)).toJSONString();
+		sources = Utils.list2JSONArray(Utils.getSources(streamGraph)).toJSONString();
+		sinks = Utils.list2JSONArray(Utils.getSinks(streamGraph)).toJSONString();
+		jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,
+			ConfigConstants.FLINK_JOB_TYPE_DEFAULT);
 	}
 
-	public HashMap<String, String> getMysqlConfig() {
-		HashMap<String, String> result = new HashMap<>();
-		String dbName = System.getProperty(ConfigConstants.JOB_META_DB_NAME_KEY,
-			ConfigConstants.JOB_META_DB_NAME_VALUE);
-		Config config = ConfigFactory.parseResources(JobMeta.class.getClassLoader(), CONF_FILE);
-		Config dbConfig = config.getConfig(String.format(DB_CONF_PREFIX, dbName));
-		String hostsUri = dbConfig.getString(HOST_KEY);
-		String hostsStr = new Discovery().translateUri(hostsUri);
-		String[] hosts = hostsStr.split(",");
-		Random rand = new Random();
-		int r = rand.nextInt(hosts.length);
-		String host = hosts[r];
-		String port = dbConfig.getString(PORT_KEY);
-		String user = dbConfig.getString(USER_KEY);
-		String database = dbConfig.getString(DATABASE_KEY);
-		String password = dbConfig.getString(PASSWORD_KEY);
-		result.put("host", host);
-		result.put("port", port);
-		result.put("user", user);
-		result.put("database", database);
-		result.put("password", password);
-		return result;
+	public String getDc() {
+		return dc;
+	}
+
+	public String getCluster() {
+		return cluster;
+	}
+
+	public String getApplicationName() {
+		return applicationName;
+	}
+
+	public String getJobName() {
+		return jobName;
+	}
+
+	public String getTasks() {
+		return tasks;
+	}
+
+	public String getOperators() {
+		return operators;
+	}
+
+	public String getOperatorsButSources() {
+		return operatorsButSources;
+	}
+
+	public String getSources() {
+		return sources;
+	}
+
+	public String getSinks() {
+		return sinks;
+	}
+
+	public String getUser() {
+		return user;
+	}
+
+	public String getJobType() {
+		return jobType;
+	}
+
+	public String getVersion() {
+		return version;
+	}
+
+	public String getModifyTime() {
+		return modifyTime;
+	}
+
+	public String getTopics() {
+		return topics;
+	}
+
+	public String getDataSource() {
+		return dataSource;
 	}
 }

@@ -19,12 +19,14 @@ package org.apache.flink.streaming.api.graph;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.functions.Function;
 import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
+import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
@@ -191,7 +193,11 @@ public class StreamingJobGraphGenerator {
 
 		// set the ExecutionConfig last when it has been finalized
 		try {
-			jobGraph.setExecutionConfig(streamGraph.getExecutionConfig());
+			ExecutionConfig executionConfig = streamGraph.getExecutionConfig();
+			for (Map.Entry<String, String> meta : Utils.getMetaData(streamGraph, jobGraph).entrySet()) {
+				executionConfig.getSystemParameters().setString(meta.getKey(), meta.getValue());
+			}
+			jobGraph.setExecutionConfig(executionConfig);
 		}
 		catch (IOException e) {
 			throw new IllegalConfigurationException("Could not serialize the ExecutionConfig." +
