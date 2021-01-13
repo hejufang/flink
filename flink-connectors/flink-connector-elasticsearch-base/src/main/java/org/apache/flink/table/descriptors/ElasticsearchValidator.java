@@ -53,7 +53,8 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_FAILURE_HANDLER = "connector.failure-handler";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_FAIL = "fail";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE = "ignore";
-	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_RETRY = "retry-rejected";
+	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_REJECTED = "retry-rejected";
+	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_COMMON = "retry-common";
 	public static final String CONNECTOR_FAILURE_HANDLER_VALUE_CUSTOM = "custom";
 	public static final String CONNECTOR_FAILURE_HANDLER_CLASS = "connector.failure-handler-class";
 	public static final String CONNECTOR_FLUSH_ON_CHECKPOINT = "connector.flush-on-checkpoint";
@@ -125,7 +126,8 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		final Map<String, Consumer<String>> failureHandlerValidators = new HashMap<>();
 		failureHandlerValidators.put(CONNECTOR_FAILURE_HANDLER_VALUE_FAIL, noValidation());
 		failureHandlerValidators.put(CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE, noValidation());
-		failureHandlerValidators.put(CONNECTOR_FAILURE_HANDLER_VALUE_RETRY, noValidation());
+		failureHandlerValidators.put(CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_REJECTED, noValidation());
+		failureHandlerValidators.put(CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_COMMON, noValidation());
 		failureHandlerValidators.put(CONNECTOR_FAILURE_HANDLER_VALUE_CUSTOM,
 			key -> properties.validateString(CONNECTOR_FAILURE_HANDLER_CLASS, false, 1));
 		properties.validateEnum(CONNECTOR_FAILURE_HANDLER, true, failureHandlerValidators);

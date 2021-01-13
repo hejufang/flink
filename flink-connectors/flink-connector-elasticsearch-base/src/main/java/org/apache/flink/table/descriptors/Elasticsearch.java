@@ -177,7 +177,7 @@ public class Elasticsearch extends ConnectorDescriptor {
 	 * <p>This strategy re-adds requests that have failed due to queue capacity saturation.
 	 */
 	public Elasticsearch failureHandlerRetryRejected() {
-		internalProperties.putString(CONNECTOR_FAILURE_HANDLER, ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_RETRY);
+		internalProperties.putString(CONNECTOR_FAILURE_HANDLER, ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_REJECTED);
 		return this;
 	}
 

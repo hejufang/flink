@@ -25,6 +25,7 @@ import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTa
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption;
 import org.apache.flink.streaming.connectors.elasticsearch.util.IgnoringFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.NoOpFailureHandler;
+import org.apache.flink.streaming.connectors.elasticsearch.util.RetryCommonFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExecutionFailureHandler;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.descriptors.DescriptorProperties;
@@ -79,7 +80,8 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_CUSTOM;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_FAIL;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE;
-import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_RETRY;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_COMMON;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_REJECTED;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FLUSH_ON_CHECKPOINT;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_GLOBAL_RATE_LIMIT;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_HOSTS;
@@ -281,8 +283,10 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 				return new NoOpFailureHandler();
 			case CONNECTOR_FAILURE_HANDLER_VALUE_IGNORE:
 				return new IgnoringFailureHandler();
-			case CONNECTOR_FAILURE_HANDLER_VALUE_RETRY:
+			case CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_REJECTED:
 				return new RetryRejectedExecutionFailureHandler();
+			case CONNECTOR_FAILURE_HANDLER_VALUE_RETRY_COMMON:
+				return new RetryCommonFailureHandler();
 			case CONNECTOR_FAILURE_HANDLER_VALUE_CUSTOM:
 				final Class<? extends ActionRequestFailureHandler> clazz = descriptorProperties
 					.getClass(CONNECTOR_FAILURE_HANDLER_CLASS, ActionRequestFailureHandler.class);
