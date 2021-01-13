@@ -209,15 +209,15 @@ public class CheckpointFailureManager {
 			case CHECKPOINT_DECLINED_INPUT_END_OF_STREAM:
 
 			case EXCEPTION:
-			case CHECKPOINT_ASYNC_EXCEPTION:
 			case CHECKPOINT_SYNC_EXCEPTION:
-			case CHECKPOINT_EXPIRED:
 			case TASK_CHECKPOINT_FAILURE:
 			case TRIGGER_CHECKPOINT_FAILURE:
 			case FINALIZE_CHECKPOINT_FAILURE:
 				//ignore
 				break;
 
+			case CHECKPOINT_ASYNC_EXCEPTION:
+			case CHECKPOINT_EXPIRED:
 			case CHECKPOINT_DECLINED:
 				//we should make sure one checkpoint only be counted once
 				if (countedCheckpointIds.add(checkpointId)) {
