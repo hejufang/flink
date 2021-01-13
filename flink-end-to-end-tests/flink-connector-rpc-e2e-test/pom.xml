@@ -35,7 +35,6 @@ under the License.
 			<artifactId>flink-connector-rpc</artifactId>
 			<version>${project.version}</version>
 			<scope>test</scope>
-			<type>test-jar</type>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>

@@ -25,8 +25,8 @@ import org.apache.flink.table.api.scala._
 import org.apache.flink.table.planner.runtime.utils.{StreamingTestBase, TestingAppendSink}
 import org.apache.flink.types.Row
 
-import org.apache.thrift.server.{TServer, TSimpleServer}
-import org.apache.thrift.transport.{TFramedTransport, TServerTransport}
+import org.apache.flink.connectors.rpc.shaded.org.apache.thrift.server.{TServer, TSimpleServer}
+import org.apache.flink.connectors.rpc.shaded.org.apache.thrift.transport.{TFramedTransport, TServerTransport}
 import org.junit.Assert.assertEquals
 import org.junit.{After, Before, Test}
 import org.slf4j.LoggerFactory

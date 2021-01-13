@@ -19,7 +19,7 @@
 package org.apache.flink.connectors.rpc.e2e
 
 import org.apache.commons.lang3.RandomUtils
-import org.apache.thrift.transport.TServerSocket
+import org.apache.flink.connectors.rpc.shaded.org.apache.thrift.transport.TServerSocket
 
 import java.io.IOException
 import java.net.BindException
