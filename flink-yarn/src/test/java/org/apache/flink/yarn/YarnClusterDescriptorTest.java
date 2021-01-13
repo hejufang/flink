@@ -30,6 +30,7 @@ import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessSpec;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessUtils;
+import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
@@ -156,6 +157,42 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			}
 		} finally {
 			clusterDescriptor.close();
+		}
+	}
+
+	@Test(expected = FlinkException.class)
+	public void testGetFlinkExternalJarDependenciesWithoutFlinkHomeEnv() throws Exception{
+		Configuration configuration = new Configuration();
+		configuration.setString(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES, "format/test-1.jar,/connector/test-2.jar");
+
+		YarnClusterDescriptor clusterDescriptor = createYarnClusterDescriptor(configuration);
+		log.info("flinkExternalJarFiles: {}", clusterDescriptor.getFlinkExternalJarDependencies(configuration));
+	}
+
+	@Test
+	public void testGetFlinkExternalJarDependencies() {
+		Configuration configuration = new Configuration();
+		configuration.setString(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES, "format/test-1.jar,/connector/test-2.jar");
+
+		Map<String, String> env = new HashMap<>(1);
+		env.put(ConfigConstants.ENV_FLINK_HOME_DIR, "/tmp/flink");
+		CommonTestUtils.setEnv(env);
+
+		YarnClusterDescriptor clusterDescriptor = createYarnClusterDescriptor(configuration);
+
+		try {
+			List<File> flinkExternalJarFiles = clusterDescriptor.getFlinkExternalJarDependencies(configuration);
+			List<String> flinkExternalJarFilePaths = new ArrayList<>();
+			for (File file: flinkExternalJarFiles) {
+				flinkExternalJarFilePaths.add(file.getPath());
+			}
+			log.info("flinkExternalJarFilePaths: {}", flinkExternalJarFilePaths);
+
+			assertEquals(true, flinkExternalJarFilePaths.contains("/tmp/flink/format/test-1.jar"));
+			assertEquals(true, flinkExternalJarFilePaths.contains("/tmp/flink/connector/test-2.jar"));
+		} catch (FlinkException e) {
+			log.error("Get the flinkExternalJarDependencies failed", e);
+			Assert.fail();
 		}
 	}
 

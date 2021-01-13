@@ -137,7 +137,7 @@ getDynamicsExternalJarDependencies() {
     local found=0
     for arg in $* ; do
         if [[ $found = 1 && $arg =~ "flink.external.jar.dependecies=" ]]; then
-            length=`expr length "flink.external.jar.dependecies="`
+            length=`expr length "flink.external.jar.dependencies="`
             echo ${arg:$length}
             break
         fi
@@ -152,7 +152,7 @@ getDynamicsExternalJarDependencies() {
 getJarDependencies() {
     local jar_dependencies_from_dynamics_parameters=`getDynamicsExternalJarDependencies $*`
     # get jarDependencies from config file
-    local jar_dependencies_from_flink_config=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependecies" 2>&1`
+    local jar_dependencies_from_flink_config=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "flink.external.jar.dependencies" 2>&1`
 
     # if all exist, use jar_dependencies_from_dynamics_parameters
     local jar_dependencies="";
@@ -345,6 +345,7 @@ LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_NATIVE_LIB:$HADOOP_LZO_LIB:$SS_SO_LIB
 export FLINK_CONF_DIR
 export FLINK_BIN_DIR
 export FLINK_PLUGINS_DIR
+export FLINK_HOME
 # export /lib dir to access it during deployment of the Yarn staging files
 export FLINK_LIB_DIR
 # export /opt dir to access it for the SQL client

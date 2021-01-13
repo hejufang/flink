@@ -2077,6 +2077,8 @@ public final class ConfigConstants {
 
 	public static final String FILES = "files";
 
+	public static final String FLINK_EXTERNAL_JAR_DEPENDENCIES = "flink.external.jar.dependencies";
+
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
 

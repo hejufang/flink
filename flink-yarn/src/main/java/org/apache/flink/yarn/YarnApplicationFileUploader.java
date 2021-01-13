@@ -49,11 +49,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -239,25 +241,39 @@ class YarnApplicationFileUploader implements AutoCloseable {
 			} else {
 				final File file = new File(shipFile.toUri().getPath());
 				if (file.isDirectory()) {
+					final TreeMap<Path, Path> localAndRelativePathMap = new TreeMap<Path, Path>(new Comparator<Path>() {
+						@Override
+						public int compare(Path o1, Path o2) {
+							return o1.toString().compareTo(o2.toString());
+						}
+					});
+
 					final java.nio.file.Path shipPath = file.toPath();
 					final java.nio.file.Path parentPath = shipPath.getParent();
 					Files.walkFileTree(shipPath, new SimpleFileVisitor<java.nio.file.Path>() {
 						@Override
 						public FileVisitResult visitFile(java.nio.file.Path file, BasicFileAttributes attrs) {
-							localPaths.add(new Path(file.toUri()));
-							relativePaths.add(new Path(localResourcesDirectory, parentPath.relativize(file).toString()));
+							localAndRelativePathMap.put(new Path(file.toUri()), new Path(localResourcesDirectory, parentPath.relativize(file).toString()));
 							return FileVisitResult.CONTINUE;
 						}
 					});
+					LOG.info("The <localPath, relativePath> map from the directory({}) is {}.", file.toString(), localAndRelativePathMap);
+					for (Path localPath: localAndRelativePathMap.keySet()) {
+						localPaths.add(localPath);
+						relativePaths.add(localAndRelativePathMap.get(localPath));
+					}
 					continue;
 				}
 			}
 			localPaths.add(shipFile);
 			relativePaths.add(new Path(localResourcesDirectory, shipFile.getName()));
 		}
+		LOG.debug("shipFiles: {}, localPaths: {}, relativePaths: {}", shipFiles, localPaths, relativePaths);
 
-		final Set<String> archives = new HashSet<>();
-		final Set<String> resources = new HashSet<>();
+		final Set<String> archivesAndResources = new HashSet<>();
+		final List<String> archives = new ArrayList<>();
+		final List<String> resources = new ArrayList<>();
+
 		for (int i = 0; i < localPaths.size(); i++) {
 			final Path localPath = localPaths.get(i);
 			final Path relativePath = relativePaths.get(i);
@@ -272,19 +288,25 @@ class YarnApplicationFileUploader implements AutoCloseable {
 
 				if (!resourceDescriptor.alreadyRegisteredAsLocalResource()) {
 					if (key.endsWith("jar")) {
-						archives.add(relativePath.toString());
+						if (!archivesAndResources.contains(relativePath.toString())) {
+							archives.add(relativePath.toString());
+							archivesAndResources.add(relativePath.toString());
+						}
 					} else {
-						resources.add(relativePath.getParent().toString());
+						if (!archivesAndResources.contains(relativePath.getParent().toString())) {
+							resources.add(relativePath.getParent().toString());
+							archivesAndResources.add(relativePath.getParent().toString());
+						}
 					}
 				}
 			}
 		}
 
-		// construct classpath, we always want resource directories to go first, we also sort
-		// both resources and archives in order to make classpath deterministic
+		// construct classpath, we always want resource directories to go first
 		final ArrayList<String> classPaths = new ArrayList<>();
-		resources.stream().sorted().forEach(classPaths::add);
-		archives.stream().sorted().forEach(classPaths::add);
+		resources.stream().forEach(classPaths::add);
+		archives.stream().forEach(classPaths::add);
+		LOG.debug("resources: {}, archives: {}, classPaths: {}", resources, archives, classPaths);
 		return classPaths;
 	}
 

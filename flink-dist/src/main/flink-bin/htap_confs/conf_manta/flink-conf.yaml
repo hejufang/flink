@@ -54,7 +54,7 @@ common:
   # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
   jobmanager.execution.failover-strategy: region
   # External jars we needed, use ',' to separator different jars.
-  flink.external.jar.dependecies: connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,hive/flink-hive-udf-0.0.1.jar
+  flink.external.jar.dependencies: connectors/flink-sql-connector-hive-1.2.2-bd31_2.11-1.11-byted-SNAPSHOT.jar,hive/flink-hive-udf-0.0.1.jar
 
   cluster.evenly-spread-out-slots: true
 

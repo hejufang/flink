@@ -105,6 +105,7 @@ import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -117,6 +118,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.ConfigConstants.DEFAULT_FLINK_USR_LIB_DIR;
+import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_HOME_DIR;
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.runtime.entrypoint.component.FileJobGraphRetriever.JOB_GRAPH_FILE_PATH;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -188,6 +190,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		checkNotNull(configuration);
 
 		final List<File> files = ConfigUtils.decodeListFromConfig(configuration, YarnConfigOptions.SHIP_DIRECTORIES, File::new);
+		LOG.debug("SHIP_DIRECTORIES: {}", files);
 		return files.isEmpty() ? Optional.empty() : Optional.of(files);
 	}
 
@@ -641,6 +644,43 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 	}
 
+	/**
+	 * Get the jar files from flink.external.jar.dependecnies configuration.
+	 */
+	@VisibleForTesting
+	List<File> getFlinkExternalJarDependencies(Configuration configuration) throws FlinkException {
+		List<File> flinkExternalJarFiles = new ArrayList<>();
+		// Add the jars of flink.external.jar.dependecies to work dir and classpath
+		String flinkExternalJarDependencies = configuration.getString(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES, null);
+		LOG.info("flinkExternalJarDependencies = {}", flinkExternalJarDependencies);
+		if (flinkExternalJarDependencies != null) {
+			String flinkHome = System.getenv().get(ENV_FLINK_HOME_DIR);
+			if (flinkHome != null) {
+				String [] flinkExternalJarDependenciesArray = flinkExternalJarDependencies.split(",");
+				for (String flinkExternalJar: flinkExternalJarDependenciesArray) {
+					if (flinkExternalJar.startsWith("/")) {
+						flinkExternalJarFiles.add(new File(flinkHome + flinkExternalJar));
+					} else {
+						flinkExternalJarFiles.add(new File(flinkHome + "/" + flinkExternalJar));
+					}
+				}
+			} else {
+				String errorMsg = String.format("Environment variable '%s' not set, it will lead the variable '%s' fail to take effect.",
+					ENV_FLINK_LIB_DIR, ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES);
+				LOG.error(errorMsg);
+				throw new FlinkException(errorMsg);
+			}
+		}
+		return flinkExternalJarFiles;
+	}
+
+	private void addFileToListWhileNotExistSet(Set<File> fileSet, List<File> fileList, File file) {
+		if (!fileSet.contains(file)) {
+			fileSet.add(file);
+			fileList.add(file);
+		}
+	}
+
 	private ApplicationReport startAppMaster(
 			Configuration configuration,
 			String applicationName,
@@ -683,13 +723,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// The files need to be shipped and added to classpath.
 		Set<File> systemShipFiles = new HashSet<>(shipFiles.size());
+		// The list need to ensure order.
+		List<File> systemShipFileList = new ArrayList<>();
+
 		for (File file : shipFiles) {
-			systemShipFiles.add(file.getAbsoluteFile());
+			addFileToListWhileNotExistSet(systemShipFiles, systemShipFileList, file.getAbsoluteFile());
 		}
 
 		final String logConfigFilePath = configuration.getString(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE);
+		LOG.debug("logConfigFilePath: {}", logConfigFilePath);
 		if (logConfigFilePath != null) {
-			systemShipFiles.add(new File(logConfigFilePath));
+			addFileToListWhileNotExistSet(systemShipFiles, systemShipFileList, new File(logConfigFilePath));
 		}
 
 		// Add user files to work dir, and also to CLASSPATH.
@@ -698,8 +742,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		if (userFiles != null) {
 			String [] userFileArray = userFiles.split(";");
 			for (String userFile: userFileArray) {
-				systemShipFiles.add(new File(userFile));
+				addFileToListWhileNotExistSet(systemShipFiles, systemShipFileList, new File(userFile));
 			}
+		}
+
+		// Add the jars of flink.external.jar.dependecies to work dir and classpath
+		List<File> flinkExternalJarFiles = getFlinkExternalJarDependencies(configuration);
+		if (flinkExternalJarFiles.size() > 0) {
+			for (File file : flinkExternalJarFiles) {
+				addFileToListWhileNotExistSet(systemShipFiles, systemShipFileList, file);
+			}
+			LOG.info("flinkExternalJarFiles: {}", flinkExternalJarFiles.toString());
 		}
 
 		// Set-up ApplicationSubmissionContext for the application
@@ -741,6 +794,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		final List<URI> jarUrls = ConfigUtils.decodeListFromConfig(configuration, PipelineOptions.JARS, URI::create);
+		LOG.debug("jarUrls: {}", jarUrls);
 		if (jarUrls != null && YarnApplicationClusterEntryPoint.class.getName().equals(yarnClusterEntrypoint)) {
 			userJarFiles.addAll(jarUrls.stream().map(Path::new).collect(Collectors.toSet()));
 		}
@@ -761,14 +815,15 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 
 		if (providedLibDirs == null || providedLibDirs.isEmpty()) {
-			addLibFoldersToShipFiles(systemShipFiles);
+			addLibFoldersToShipFiles(systemShipFileList);
 		}
+		LOG.debug("systemShipFileList: {}", systemShipFileList);
 
 		// Register all files in provided lib dirs as local resources with public visibility
 		// and upload the remaining dependencies as local resources with APPLICATION visibility.
 		final List<String> systemClassPaths = fileUploader.registerProvidedLocalResources();
 		final List<String> uploadedDependencies = fileUploader.registerMultipleLocalResources(
-			systemShipFiles.stream().map(e -> new Path(e.toURI())).collect(Collectors.toSet()),
+			systemShipFileList.stream().map(e -> new Path(e.toURI())).collect(Collectors.toList()),
 			Path.CUR_DIR);
 		systemClassPaths.addAll(uploadedDependencies);
 
@@ -791,9 +846,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		if (userJarInclusion == YarnConfigOptions.UserJarInclusion.ORDER) {
 			systemClassPaths.addAll(userClassPaths);
 		}
+		LOG.debug("systemClassPaths: {}", systemClassPaths);
 
 		// normalize classpath by sorting
-		Collections.sort(systemClassPaths);
+		//Collections.sort(systemClassPaths);
+		// just sort user jars.
 		Collections.sort(userClassPaths);
 
 		// classpath assembler
@@ -868,6 +925,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				classPathBuilder.append(userClassPath).append(File.pathSeparator);
 			}
 		}
+		LOG.info("classPathBuilder: {}", classPathBuilder.toString());
 
 		//To support Yarn Secure Integration Test Scenario
 		//In Integration test setup, the Yarn containers created by YarnMiniCluster does not have the Yarn site XML
