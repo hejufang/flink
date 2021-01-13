@@ -61,9 +61,11 @@ import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchU
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_INTERVAL;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_ACTIONS;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.BULK_FLUSH_MAX_SIZE;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.CONNECT_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.DISABLE_FLUSH_ON_CHECKPOINT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.ENABLE_BYTE_ES_GDPR;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.REST_PATH_PREFIX;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.SOCKET_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchUpsertTableSinkBase.SinkOption.URI;
 
 /**
@@ -273,6 +275,12 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 
 		Optional.ofNullable(sinkOptions.get(BULK_FLUSH_BACKOFF_DELAY))
 			.ifPresent(v -> builder.setBulkFlushBackoffDelay(Long.valueOf(v)));
+
+		Optional.ofNullable(sinkOptions.get(CONNECT_TIMEOUT))
+			.ifPresent(v -> builder.setConnectTimeout(Integer.parseInt(v)));
+
+		Optional.ofNullable(sinkOptions.get(SOCKET_TIMEOUT))
+			.ifPresent(v -> builder.setSocketTimeout(Integer.parseInt(v)));
 
 		if (psm.isPresent()) {
 			boolean enableGdpr = Boolean.parseBoolean(sinkOptions.getOrDefault(ENABLE_BYTE_ES_GDPR, "false"));

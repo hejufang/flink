@@ -508,7 +508,9 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 		URI,
 
 		/** support to use GDPR for ByteES. */
-		ENABLE_BYTE_ES_GDPR
+		ENABLE_BYTE_ES_GDPR,
+		SOCKET_TIMEOUT,
+		CONNECT_TIMEOUT
 	}
 
 	/**

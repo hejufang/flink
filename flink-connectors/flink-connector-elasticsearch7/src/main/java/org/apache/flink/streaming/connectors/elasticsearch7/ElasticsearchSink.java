@@ -227,6 +227,14 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 			this.globalRateLimit = globalRateLimit;
 		}
 
+		public void setConnectTimeout(int timeout) {
+			this.bulkRequestsConfig.put(CONFIG_CONNECT_TIMEOUT,  String.valueOf(timeout));
+		}
+
+		public void setSocketTimeout(int timeout) {
+			this.bulkRequestsConfig.put(CONFIG_SOCKET_TIMEOUT,  String.valueOf(timeout));
+		}
+
 		/**
 		 * Creates the Elasticsearch sink.
 		 *

@@ -79,6 +79,8 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_BYTE_ES_MODE = "connector.byte-es-mode";
 	public static final String CONNECTOR_BYTE_ES_ENABLE_GDPR = "connector.byte-es.enable-gdpr";
 	public static final String CONNECTOR_USER_DEFINED_PARAMS = "connector.user-defined-params";
+	public static final String CONNECTOR_CONNECTION_TIMEOUT_MS = "connector.connection-timeout-ms";
+	public static final String CONNECTOR_SOCKET_TIMEOUT_MS = "connector.socket-timeout-ms";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -90,6 +92,8 @@ public class ElasticsearchValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_BYTE_ES_ENABLE_GDPR, true);
 		properties.validateBoolean(CONNECTOR_IGNORE_INVALID_DATA, true);
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
+		properties.validateInt(CONNECTOR_CONNECTION_TIMEOUT_MS, true, 1);
+		properties.validateInt(CONNECTOR_SOCKET_TIMEOUT_MS, true, 1);
 		validateVersion(properties);
 		validateHosts(properties);
 		validateGeneralProperties(properties);

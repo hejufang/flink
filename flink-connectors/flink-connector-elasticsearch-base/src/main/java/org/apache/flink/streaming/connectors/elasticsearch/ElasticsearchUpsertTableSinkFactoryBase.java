@@ -73,6 +73,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_MAX_RETRY_TIMEOUT;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_PASSWORD;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_PATH_PREFIX;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_TIMEOUT_MS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_CONNECTION_USERNAME;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_DOCUMENT_TYPE;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_FAILURE_HANDLER;
@@ -93,6 +94,7 @@ import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTO
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_DELIMITER;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_FIELD_INDICES;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_KEY_NULL_LITERAL;
+import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_SOCKET_TIMEOUT_MS;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_TYPE_VALUE_ELASTICSEARCH;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_URI;
 import static org.apache.flink.table.descriptors.ElasticsearchValidator.CONNECTOR_USER_DEFINED_PARAMS;
@@ -184,6 +186,10 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 
 		// format wildcard
 		properties.add(FORMAT + ".*");
+
+		// timeout
+		properties.add(CONNECTOR_CONNECTION_TIMEOUT_MS);
+		properties.add(CONNECTOR_SOCKET_TIMEOUT_MS);
 
 		return properties;
 	}
@@ -353,6 +359,8 @@ public abstract class ElasticsearchUpsertTableSinkFactoryBase implements StreamT
 		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_PASSWORD, SinkOption.PASSWORD);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_URI, SinkOption.URI);
 		mapSinkOption(descriptorProperties, options, CONNECTOR_BYTE_ES_ENABLE_GDPR, SinkOption.ENABLE_BYTE_ES_GDPR);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_CONNECTION_TIMEOUT_MS, SinkOption.CONNECT_TIMEOUT);
+		mapSinkOption(descriptorProperties, options, CONNECTOR_SOCKET_TIMEOUT_MS, SinkOption.SOCKET_TIMEOUT);
 
 		return options;
 	}
