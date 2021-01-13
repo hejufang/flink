@@ -700,21 +700,22 @@ public class StateAssignmentOperation {
 			Map<OperatorInstanceID, List<OperatorStateHandle>> newRawOperatorState) {
 		int fragments = 0;
 		OperatorInstanceID firstInstance = OperatorInstanceID.of(0, operatorID);
-		if (newManagedOperatorState.get(firstInstance) != null) {
-			fragments += newManagedOperatorState.get(firstInstance)
-				.stream()
-				.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
-				.mapToInt(stateMeta -> stateMeta.getOffsets().length)
-				.sum();
-		}
-		if (newRawOperatorState.get(firstInstance) != null) {
-			fragments += newRawOperatorState.get(firstInstance)
-				.stream()
-				.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
-				.mapToInt(stateMeta -> stateMeta.getOffsets().length)
-				.sum();
-		}
+
+		List<OperatorStateHandle> managedOperatorStateHandles = newManagedOperatorState.getOrDefault(firstInstance, Collections.EMPTY_LIST);
+		fragments += managedOperatorStateHandles
+			.stream()
+			.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
+			.mapToInt(stateMeta -> stateMeta.getOffsets().length)
+			.sum();
+
+		List<OperatorStateHandle> rawOperatorStateHandles = newRawOperatorState.getOrDefault(firstInstance, Collections.EMPTY_LIST);
+		fragments += rawOperatorStateHandles
+			.stream()
+			.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
+			.mapToInt(stateMeta -> stateMeta.getOffsets().length)
+			.sum();
+
 		LOG.info("A total of {} OperatorStateHandles are generated for operator instance[{}], including a total of {} fragments.",
-			newManagedOperatorState.size() + newRawOperatorState.size(), firstInstance, fragments);
+			managedOperatorStateHandles.size() + rawOperatorStateHandles.size(), firstInstance, fragments);
 	}
 }
