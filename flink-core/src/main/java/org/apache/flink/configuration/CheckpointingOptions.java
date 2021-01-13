@@ -64,8 +64,14 @@ public class CheckpointingOptions {
 	/** The number of threads that used to restore operator states. */
 	public static final ConfigOption<Integer> OPERATOR_STATE_RESTORE_THREAD_NUM = ConfigOptions
 			.key("state.backend.operator.restore-thread-num")
-			.defaultValue(1)
+			.defaultValue(5)
 			.withDescription("The number of threads that used to restore operator states.");
+
+	/** Whether union state aggregation is enabled. */
+	public static final ConfigOption<Boolean> UNION_STATE_AGGREGATION_ENABLED = ConfigOptions
+		.key("state.checkpoints.union-state.aggregation.enable")
+		.defaultValue(false)
+		.withDescription(" Whether union state aggregation is enabled.");
 
 	/** Option whether the state backend should use an asynchronous snapshot method where
 	 * possible and configurable.

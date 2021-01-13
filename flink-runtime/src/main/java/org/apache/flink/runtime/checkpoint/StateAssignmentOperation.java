@@ -43,6 +43,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -61,16 +63,33 @@ public class StateAssignmentOperation {
 	private final long restoreCheckpointId;
 	private final boolean allowNonRestoredState;
 
+	private final UnionStateAggregator unionStateAggregator;
+
 	public StateAssignmentOperation(
 		long restoreCheckpointId,
 		Map<JobVertexID, ExecutionJobVertex> tasks,
 		Map<OperatorID, OperatorState> operatorStates,
 		boolean allowNonRestoredState) {
 
+		this(restoreCheckpointId,
+			tasks,
+			operatorStates,
+			allowNonRestoredState,
+			new NonUnionStateAggregator());
+	}
+
+	public StateAssignmentOperation(
+		long restoreCheckpointId,
+		Map<JobVertexID, ExecutionJobVertex> tasks,
+		Map<OperatorID, OperatorState> operatorStates,
+		boolean allowNonRestoredState,
+		UnionStateAggregator unionStateAggregator) {
+
 		this.restoreCheckpointId = restoreCheckpointId;
 		this.tasks = Preconditions.checkNotNull(tasks);
 		this.operatorStates = Preconditions.checkNotNull(operatorStates);
 		this.allowNonRestoredState = allowNonRestoredState;
+		this.unionStateAggregator = unionStateAggregator;
 	}
 
 	public void assignStates() {
@@ -155,7 +174,8 @@ public class StateAssignmentOperation {
 			newParallelism,
 			operatorIDs,
 			newManagedOperatorStates,
-			newRawOperatorStates);
+			newRawOperatorStates,
+			unionStateAggregator);
 
 		Map<OperatorInstanceID, List<KeyedStateHandle>> newManagedKeyedState =
 			new HashMap<>(expectedNumberOfSubTasks);
@@ -326,6 +346,22 @@ public class StateAssignmentOperation {
 			Map<OperatorInstanceID, List<OperatorStateHandle>> newManagedOperatorStates,
 			Map<OperatorInstanceID, List<OperatorStateHandle>> newRawOperatorStates) {
 
+		reDistributePartitionableStates(
+			oldOperatorStates,
+			newParallelism,
+			newOperatorIDs, 
+			newManagedOperatorStates,
+			newRawOperatorStates,
+			new NonUnionStateAggregator());
+	}
+	public static void reDistributePartitionableStates(
+			List<OperatorState> oldOperatorStates,
+			int newParallelism,
+			List<OperatorID> newOperatorIDs,
+			Map<OperatorInstanceID, List<OperatorStateHandle>> newManagedOperatorStates,
+			Map<OperatorInstanceID, List<OperatorStateHandle>> newRawOperatorStates,
+			UnionStateAggregator unionStateAggregator) {
+
 		//TODO: rewrite this method to only use OperatorID
 		checkState(newOperatorIDs.size() == oldOperatorStates.size(),
 			"This method still depends on the order of the new and old operators");
@@ -343,19 +379,25 @@ public class StateAssignmentOperation {
 
 			OperatorID operatorID = newOperatorIDs.get(operatorIndex);
 
-			newManagedOperatorStates.putAll(applyRepartitioner(
+			Map<OperatorInstanceID, List<OperatorStateHandle>> newManagedOperatorState = applyRepartitioner(
 				operatorID,
 				opStateRepartitioner,
 				oldManagedOperatorStates.get(operatorIndex),
 				oldParallelism,
-				newParallelism));
+				newParallelism,
+				unionStateAggregator);
+			newManagedOperatorStates.putAll(newManagedOperatorState);
 
-			newRawOperatorStates.putAll(applyRepartitioner(
+			Map<OperatorInstanceID, List<OperatorStateHandle>> newRawOperatorState = applyRepartitioner(
 				operatorID,
 				opStateRepartitioner,
 				oldRawOperatorStates.get(operatorIndex),
 				oldParallelism,
-				newParallelism));
+				newParallelism,
+				unionStateAggregator);
+			newRawOperatorStates.putAll(newRawOperatorState);
+
+			logOperatorState(operatorID, newManagedOperatorState, newRawOperatorState);
 		}
 	}
 
@@ -580,13 +622,15 @@ public class StateAssignmentOperation {
 		OperatorStateRepartitioner opStateRepartitioner,
 		List<List<OperatorStateHandle>> chainOpParallelStates,
 		int oldParallelism,
-		int newParallelism) {
+		int newParallelism,
+		UnionStateAggregator unionStateAggregator) {
 
 		List<List<OperatorStateHandle>> states = applyRepartitioner(
 			opStateRepartitioner,
 			chainOpParallelStates,
 			oldParallelism,
-			newParallelism);
+			newParallelism,
+			unionStateAggregator);
 
 		Map<OperatorInstanceID, List<OperatorStateHandle>> result = new HashMap<>(states.size());
 
@@ -613,7 +657,8 @@ public class StateAssignmentOperation {
 		OperatorStateRepartitioner opStateRepartitioner,
 		List<List<OperatorStateHandle>> chainOpParallelStates,
 		int oldParallelism,
-		int newParallelism) {
+		int newParallelism,
+		UnionStateAggregator unionStateAggregator) {
 
 		if (chainOpParallelStates == null) {
 			return Collections.emptyList();
@@ -622,7 +667,8 @@ public class StateAssignmentOperation {
 		return opStateRepartitioner.repartitionState(
 			chainOpParallelStates,
 			oldParallelism,
-			newParallelism);
+			newParallelism,
+			unionStateAggregator);
 		}
 
 	/**
@@ -646,5 +692,29 @@ public class StateAssignmentOperation {
 		}
 
 		return subtaskKeyedStateHandles;
+	}
+
+	private static void logOperatorState(
+			OperatorID operatorID,
+			Map<OperatorInstanceID, List<OperatorStateHandle>> newManagedOperatorState,
+			Map<OperatorInstanceID, List<OperatorStateHandle>> newRawOperatorState) {
+		int fragments = 0;
+		OperatorInstanceID firstInstance = OperatorInstanceID.of(0, operatorID);
+		if (newManagedOperatorState.get(firstInstance) != null) {
+			fragments += newManagedOperatorState.get(firstInstance)
+				.stream()
+				.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
+				.mapToInt(stateMeta -> stateMeta.getOffsets().length)
+				.sum();
+		}
+		if (newRawOperatorState.get(firstInstance) != null) {
+			fragments += newRawOperatorState.get(firstInstance)
+				.stream()
+				.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
+				.mapToInt(stateMeta -> stateMeta.getOffsets().length)
+				.sum();
+		}
+		LOG.info("A total of {} OperatorStateHandles are generated for operator instance[{}], including a total of {} fragments.",
+			newManagedOperatorState.size() + newRawOperatorState.size(), firstInstance, fragments);
 	}
 }

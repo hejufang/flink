@@ -67,6 +67,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	private boolean failOnInvalidTokens;
 
+	private boolean aggregateUnionState;
+
 	@VisibleForTesting
 	public CheckpointCoordinatorConfiguration(
 		long checkpointInterval,
@@ -162,6 +164,14 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.failOnInvalidTokens = failOnInvalidTokens;
 	}
 
+	public boolean isAggregateUnionState() {
+		return aggregateUnionState;
+	}
+
+	public void setAggregateUnionState(boolean aggregateUnionState) {
+		this.aggregateUnionState = aggregateUnionState;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -180,7 +190,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			checkpointSchedulerConfiguration == that.checkpointSchedulerConfiguration &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
 			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber &&
-			failOnInvalidTokens == that.failOnInvalidTokens;
+			failOnInvalidTokens == that.failOnInvalidTokens &&
+			aggregateUnionState == that.aggregateUnionState;
 	}
 
 	@Override
@@ -195,7 +206,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isPreferCheckpointForRecovery,
 				checkpointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber,
-				failOnInvalidTokens);
+				failOnInvalidTokens,
+				aggregateUnionState);
 	}
 
 	@Override
@@ -208,6 +220,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			", checkpointRetentionPolicy=" + checkpointRetentionPolicy +
 			", tolerableCheckpointFailureNumber=" + tolerableCheckpointFailureNumber +
 			", failOnInvalidTokens=" + failOnInvalidTokens +
+			", aggregateUnionState=" + aggregateUnionState +
 			'}';
 	}
 }

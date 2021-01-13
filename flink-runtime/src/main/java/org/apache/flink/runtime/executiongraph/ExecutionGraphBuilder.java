@@ -474,6 +474,9 @@ public class ExecutionGraphBuilder {
 			final boolean failOnInvalidTokens = jobManagerConfig.getBoolean(CheckpointingOptions.CHECKPOINT_FAIL_ON_INVALID_TOKENS);
 			chkConfig.setFailOnInvalidTokens(failOnInvalidTokens);
 
+			final boolean aggregateUnionState = jobManagerConfig.getBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED);
+			chkConfig.setAggregateUnionState(aggregateUnionState);
+
 			executionGraph.enableCheckpointing(
 				chkConfig,
 				triggerVertices,
