@@ -18,7 +18,7 @@
 
 package org.apache.flink.connectors.rpc.e2e
 
-import org.apache.flink.connectors.rpc.thriftexample.{BatchDimMiddlewareService, GetDimInfosBatchRequest, GetDimInfosBatchResponse, GetDimInfosRequest, GetDimInfosResponse}
+import org.apache.flink.connectors.rpc.thriftexample.{BatchDimMiddlewareService, GetDimInfosBatchRequest, GetDimInfosBatchResponse, GetDimInfosRequest}
 
 import java.util
 

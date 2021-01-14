@@ -71,7 +71,6 @@ under the License.
 		<module>flink-plugins-test</module>
 		<module>flink-tpch-test</module>
 		<module>flink-elasticsearch7-test</module>
-		<module>flink-connector-rpc-e2e-test</module>
 	</modules>
 
 	<!-- See main pom.xml for explanation of profiles -->
@@ -91,6 +90,17 @@ under the License.
 			</activation>
 			<modules>
 				<module>flink-streaming-kinesis-test</module>
+			</modules>
+		</profile>
+		<profile>
+			<id>sql-jars</id>
+			<activation>
+				<property>
+					<name>sql-jars</name>
+				</property>
+			</activation>
+			<modules>
+				<module>flink-connector-rpc-e2e-test</module>
 			</modules>
 		</profile>
 	</profiles>

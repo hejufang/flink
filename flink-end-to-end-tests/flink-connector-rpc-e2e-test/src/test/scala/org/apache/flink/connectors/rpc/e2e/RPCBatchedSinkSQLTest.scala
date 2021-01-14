@@ -25,7 +25,7 @@ import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.table.api.EnvironmentSettings
 import org.apache.flink.table.api.scala._
-import org.apache.flink.table.planner.runtime.utils.{StreamTestSink, StreamingTestBase}
+import org.apache.flink.table.planner.runtime.utils.StreamingTestBase
 import org.apache.flink.types.Row
 
 import org.apache.flink.connectors.rpc.shaded.org.apache.thrift.server.{TServer, TSimpleServer}
