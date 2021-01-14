@@ -58,20 +58,7 @@ under the License.
 						<configuration>
 							<artifactSet>
 								<includes>
-									<include>org.apache.kafka:*</include>
-									<include>org.apache.flink:flink-connector-kafka-base_${scala.binary.version}</include>
-									<include>org.apache.flink:flink-connector-kafka-0.10_${scala.binary.version}</include>
-									<include>com.google.guava:guava</include>
-									<include>com.bytedance:metrics4j</include>
-									<include>io.dropwizard.metrics:metrics-core</include>
-									<include>com.bytedance:schema-registry-rest-client</include>
-									<include>com.bytedance:schema-registry-common</include>
-									<include>org.springframework.cloud:spring-cloud-circuitbreaker-spring-retry</include>
-									<include>org.springframework.retry:spring-retry</include>
-									<include>com.squareup.okhttp3:okhttp</include>
-									<include>org.apache.commons:commons-lang3</include>
-									<include>commons-collections:commons-collections</include>
-									<include>com.fasterxml.jackson.core:jackson-databind</include>
+									<include>*:*</include>
 								</includes>
 							</artifactSet>
 							<filters>
@@ -86,8 +73,22 @@ under the License.
 										<exclude>NOTICE</exclude>
 									</excludes>
 								</filter>
+								<filter>
+									<artifact>*</artifact>
+									<excludes>
+										<exclude>log4j.properties</exclude>
+										<exclude>log4j-test.properties</exclude>
+										<exclude>META-INF/*.SF</exclude>
+										<exclude>META-INF/*.DSA</exclude>
+										<exclude>META-INF/*.RSA</exclude>
+									</excludes>
+								</filter>
 							</filters>
 							<relocations>
+								<!-- we relocation all dependencies except listed two:
+									1. org.intellij.java : we do not find what this jar is and why we dependency on it.
+									2. javax : We think this should not be relocated.
+								-->
 								<relocation>
 									<pattern>org.apache.kafka</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.kafka</shadedPattern>
@@ -97,8 +98,8 @@ under the License.
 									<shadedPattern>org.apache.flink.kafka010.shaded.com.google.common</shadedPattern>
 								</relocation>
 								<relocation>
-									<pattern>com.bytedance.metrics</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.com.bytedance.metrics</shadedPattern>
+									<pattern>com.bytedance</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.bytedance</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.codahale.metrics</pattern>
@@ -119,6 +120,58 @@ under the License.
 								<relocation>
 									<pattern>com.fasterxml.jackson</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.com.fasterxml.jackson</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>okio</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.okio</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>kotlin</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.kotlin</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>net.jpountz</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.net.jpountz</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.xerial.snappy</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.xerial.snappy</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.byted.infsec</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.byted.infsec</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.bouncycastle</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.bouncycastle</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.auth0.jwt</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.auth0.jwt</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.thrift</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.thrift</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.http</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.http</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.github</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.github</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.wealoha.thrift</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.wealoha.thrift</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.sun</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.sun</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.json.simple</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.json.simple</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>

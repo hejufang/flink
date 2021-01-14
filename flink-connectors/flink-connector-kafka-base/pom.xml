@@ -113,6 +113,10 @@ under the License.
 					<artifactId>spring-retry</artifactId>
 					<groupId>org.springframework.retry</groupId>
 				</exclusion>
+				<exclusion>
+					<artifactId>logback-classic</artifactId>
+					<groupId>ch.qos.logback</groupId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 
