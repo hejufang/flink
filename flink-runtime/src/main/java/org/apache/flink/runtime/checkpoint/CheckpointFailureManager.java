@@ -152,12 +152,14 @@ public class CheckpointFailureManager {
 		}
 	}
 
-	private boolean isTokenProblemInTraces(Throwable throwable) {
+	@VisibleForTesting
+	public boolean isTokenProblemInTraces(Throwable throwable) {
 		Throwable t = throwable;
 		while (t != null) {
 			if (t instanceof RemoteException) {
 				String remoteClassName = ((RemoteException) t).getClassName();
-				if (remoteClassName.equals("org.apache.hadoop.security.token.SecretManager$InvalidToken")) {
+				if (remoteClassName.equals("org.apache.hadoop.security.token.SecretManager$InvalidToken")
+					|| (t.getMessage().contains("token") && t.getMessage().contains("expire"))) {
 					return true;
 				}
 			}
