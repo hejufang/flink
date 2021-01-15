@@ -70,12 +70,12 @@ public class Utils {
 		return defaultProperties;
 	}
 
-	private static Map<String, String> filterFlinkProperties(Map<String, String> propertiesInKafka) {
+	private static Map<String, String> filterFlinkProperties(Map<String, Object> propertiesInKafka) {
 		Map<String, String> flinkProperties = new HashMap<>();
 		propertiesInKafka.entrySet().stream()
 			.filter(entry -> entry.getKey().startsWith(FLINK_PROPERTY_PREFIX))
 			.forEach(entry ->
-				flinkProperties.put(entry.getKey().substring(FLINK_PROPERTY_PREFIX.length()), entry.getValue()));
+				flinkProperties.put(entry.getKey().substring(FLINK_PROPERTY_PREFIX.length()), entry.getValue().toString()));
 		return flinkProperties;
 	}
 
