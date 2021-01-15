@@ -33,7 +33,6 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.HighAvailabilityOptions;
-import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.PipelineOptions;
@@ -281,28 +280,6 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		}
 		if (this.flinkConfiguration == null) {
 			throw new YarnDeploymentException("Flink configuration object has not been set");
-		}
-
-		// Check if we don't exceed YARN's maximum virtual cores.
-		final int numYarnMaxVcores = yarnClusterInformationRetriever.getMaxVcores();
-
-		int configuredAmVcores = flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES);
-		if (configuredAmVcores > numYarnMaxVcores) {
-			throw new IllegalConfigurationException(
-					String.format("The number of requested virtual cores for application master %d" +
-									" exceeds the maximum number of virtual cores %d available in the Yarn Cluster.",
-							configuredAmVcores, numYarnMaxVcores));
-		}
-
-		int configuredVcores = flinkConfiguration.getInteger(YarnConfigOptions.VCORES, clusterSpecification.getSlotsPerTaskManager());
-		// don't configure more than the maximum configured number of vcores
-		if (configuredVcores > numYarnMaxVcores) {
-			throw new IllegalConfigurationException(
-					String.format("The number of requested virtual cores per node %d" +
-									" exceeds the maximum number of virtual cores %d available in the Yarn Cluster." +
-									" Please note that the number of virtual cores is set to the number of task slots by default" +
-									" unless configured in the Flink config with '%s.'",
-							configuredVcores, numYarnMaxVcores, YarnConfigOptions.VCORES.key()));
 		}
 
 		// check if required Hadoop environment variables are set. If not, warn user
