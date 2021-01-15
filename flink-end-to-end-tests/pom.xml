@@ -92,17 +92,6 @@ under the License.
 				<module>flink-streaming-kinesis-test</module>
 			</modules>
 		</profile>
-		<profile>
-			<id>sql-jars</id>
-			<activation>
-				<property>
-					<name>sql-jars</name>
-				</property>
-			</activation>
-			<modules>
-				<module>flink-connector-rpc-e2e-test</module>
-			</modules>
-		</profile>
 	</profiles>
 
 	<build>

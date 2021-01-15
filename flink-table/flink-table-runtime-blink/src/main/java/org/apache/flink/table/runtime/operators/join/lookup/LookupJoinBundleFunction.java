@@ -29,7 +29,6 @@ import org.apache.flink.table.dataformat.GenericRow;
 import org.apache.flink.table.dataformat.JoinedRow;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.MiniBatchTableFunction;
-import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.runtime.collector.TableFunctionCollector;
 import org.apache.flink.table.runtime.context.ExecutionContext;
 import org.apache.flink.table.runtime.generated.GeneratedCollector;
@@ -112,7 +111,7 @@ public class LookupJoinBundleFunction implements ListBundleFunction<BaseRow, Bas
 		FunctionUtils.setFunctionRuntimeContext(keyConverter, ctx.getRuntimeContext());
 		FunctionUtils.openFunction(keyConverter, new Configuration());
 
-		((TableFunction<Row>) tableFunction).open(new FunctionContext(ctx.getRuntimeContext()));
+		tableFunction.open(new FunctionContext(ctx.getRuntimeContext()));
 
 		this.nullRow = new GenericRow(tableFieldsCount);
 		this.outRow = new JoinedRow();
@@ -193,7 +192,7 @@ public class LookupJoinBundleFunction implements ListBundleFunction<BaseRow, Bas
 			FunctionUtils.closeFunction(collector);
 		}
 		if (tableFunction != null) {
-			((TableFunction<Row>) tableFunction).close();
+			tableFunction.close();
 		}
 	}
 }

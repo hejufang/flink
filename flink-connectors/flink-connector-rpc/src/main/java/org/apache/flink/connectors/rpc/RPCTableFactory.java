@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.connectors.rpc.thrift.ThriftRPCClient.CLIENT_CLASS_SUFFIX;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_CLASS;
@@ -56,15 +57,11 @@ import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_C
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_PSM;
-import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_REQUEST_LIST_NAME;
-import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RESPONSE_LIST_NAME;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RESPONSE_VALUE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_RPC_TYPE;
-import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_TEST_HOST_PORT;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_METHOD;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_THRIFT_SERVICE_CLASS;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_TIMEOUT_MS;
-import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_USE_BATCH_LOOKUP;
 import static org.apache.flink.table.descriptors.RPCValidator.RPC;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA_NAME;
@@ -74,10 +71,13 @@ import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_MAX_TIMES;
 import static org.apache.flink.table.utils.RetryUtils.CONNECTOR_RETRY_STRATEGY;
 import static org.apache.flink.table.utils.RetryUtils.getRetryStrategy;
 
-/** The factory for creating {@link RPCUpsertTableSink} or {@link RPCTableSource}. */
+/**
+ * The factory for creating {@link RPCUpsertTableSink} or {@link RPCTableSource}.
+ */
 public class RPCTableFactory implements
 		StreamTableSourceFactory<Row>,
 		StreamTableSinkFactory<Tuple2<Boolean, Row>> {
+
 	@Override
 	public Map<String, String> requiredContext() {
 		Map<String, String> requiredContext = new HashMap<>(1);
@@ -94,7 +94,6 @@ public class RPCTableFactory implements
 		supportedProperties.add(CONNECTOR_CLUSTER);
 		supportedProperties.add(CONNECTOR_CONSUL_INTERVAL);
 		supportedProperties.add(CONNECTOR_PSM);
-		supportedProperties.add(CONNECTOR_TEST_HOST_PORT);
 
 		// thrift
 		supportedProperties.add(CONNECTOR_THRIFT_SERVICE_CLASS);
@@ -112,8 +111,6 @@ public class RPCTableFactory implements
 		supportedProperties.add(CONNECTOR_BATCH_SIZE);
 		supportedProperties.add(CONNECTOR_FLUSH_TIMEOUT_MS);
 		supportedProperties.add(CONNECTOR_BATCH_CONSTANT_VALUE);
-		supportedProperties.add(CONNECTOR_REQUEST_LIST_NAME);
-		supportedProperties.add(CONNECTOR_RESPONSE_LIST_NAME);
 
 		// retry
 		supportedProperties.add(CONNECTOR_RETRY_STRATEGY);
@@ -126,9 +123,8 @@ public class RPCTableFactory implements
 		supportedProperties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		supportedProperties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
 		supportedProperties.add(CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY);
-		supportedProperties.add(CONNECTOR_USE_BATCH_LOOKUP);
 
-		// used in sink parallelism
+		// parallelism
 		supportedProperties.add(CONNECTOR_PARALLELISM);
 
 		// schema
@@ -152,8 +148,7 @@ public class RPCTableFactory implements
 		final DescriptorProperties descriptorProperties = getValidatedProperties(properties);
 		RPCOptions rpcOptions = getRPCOptions(descriptorProperties);
 		final TableSchema tableSchema = descriptorProperties.getTableSchema(SCHEMA);
-		RPCSinkOptions rpcSinkOptions = getRPCSinkOptions(descriptorProperties);
-		return new RPCUpsertTableSink(rpcOptions, rpcSinkOptions, tableSchema);
+		return new RPCUpsertTableSink(rpcOptions, tableSchema);
 	}
 
 	private static DescriptorProperties getValidatedProperties(Map<String, String> properties) {
@@ -166,11 +161,13 @@ public class RPCTableFactory implements
 	RPCOptions getRPCOptions(DescriptorProperties descriptorProperties) {
 		RPCOptions.Builder builder = RPCOptions.builder();
 
+		RetryManager.Strategy retryStrategy = getRetryStrategy(descriptorProperties);
+		builder.setRetryStrategy(retryStrategy);
+
 		descriptorProperties.getOptionalString(CONNECTOR_CONSUL).ifPresent(builder::setConsul);
 		descriptorProperties.getOptionalString(CONNECTOR_CLUSTER).ifPresent(builder::setCluster);
 		descriptorProperties.getOptionalInt(CONNECTOR_CONSUL_INTERVAL).ifPresent(builder::setConsulIntervalSeconds);
 		descriptorProperties.getOptionalString(CONNECTOR_PSM).ifPresent(builder::setPsm);
-		descriptorProperties.getOptionalString(CONNECTOR_TEST_HOST_PORT).ifPresent(builder::setTestHostPort);
 		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_SERVICE_CLASS).ifPresent(builder::setThriftServiceClass);
 		descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).ifPresent(builder::setThriftMethod);
 		descriptorProperties.getOptionalString(CONNECTOR_CLIENT_TRANSPORT).ifPresent(
@@ -179,41 +176,22 @@ public class RPCTableFactory implements
 					builder.setTransportType(TransportType.valueOf(transport));
 				} catch (IllegalArgumentException e) {
 					throw new FlinkRuntimeException(String.format("Unsupported transport type: %s, " +
-						"currently supported type: %s", transport, TransportType.getCollectionStr()), e);
+							"currently supported type: %s", transport, TransportType.getCollectionStr()), e);
 				}
 			}
 		);
 		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS).ifPresent(builder::setConnectTimeoutMs);
-		descriptorProperties.getOptionalInt(CONNECTOR_CONNECTION_POOL_SIZE).ifPresent(builder::setConnectionPoolSize);
-		descriptorProperties.getOptionalString(CONNECTOR_BATCH_CONSTANT_VALUE).ifPresent(builder::setBatchConstantValue);
-		descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).ifPresent(builder::setBatchSize);
-
-		return builder.build();
-	}
-
-	/**
-	 * only used in sink RPC function 1.0.
-	 *
-	 * @param descriptorProperties
-	 * @return
-	 */
-	RPCSinkOptions getRPCSinkOptions(DescriptorProperties descriptorProperties) {
-		final RPCSinkOptions.Builder builder = RPCSinkOptions.builder();
-		RetryManager.Strategy retryStrategy = getRetryStrategy(descriptorProperties);
-		builder.setRetryStrategy(retryStrategy);
 		descriptorProperties.getOptionalString(CONNECTOR_RESPONSE_VALUE).ifPresent(builder::setResponseValue);
-		descriptorProperties.getOptionalString(CONNECTOR_BATCH_CLASS).ifPresent(builder::setRequestBatchClass);
+		descriptorProperties.getOptionalInt(CONNECTOR_CONNECTION_POOL_SIZE).ifPresent(builder::setConnectionPoolSize);
+		descriptorProperties.getOptionalString(CONNECTOR_BATCH_CLASS).ifPresent(builder::setBatchClass);
+		descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).ifPresent(builder::setBatchSize);
 		descriptorProperties.getOptionalInt(CONNECTOR_FLUSH_TIMEOUT_MS).ifPresent(builder::setFlushTimeoutMs);
+		descriptorProperties.getOptionalString(CONNECTOR_BATCH_CONSTANT_VALUE).ifPresent(builder::setBatchConstantValue);
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM).ifPresent(builder::setSinkParallelism);
+
 		return builder.build();
 	}
 
-	/**
-	 * only used in RPC function 1.0.
-	 *
-	 * @param descriptorProperties
-	 * @return
-	 */
 	RPCLookupOptions getRPCLookupOptions(DescriptorProperties descriptorProperties) {
 		final RPCLookupOptions.Builder builder = RPCLookupOptions.builder();
 
@@ -225,9 +203,6 @@ public class RPCTableFactory implements
 			//already validate in RPCValidator
 			strategy -> builder.setRequestFailureStrategy(RPCRequestFailureStrategy.getEnumByDisplayName(strategy))
 		);
-		descriptorProperties.getOptionalBoolean(CONNECTOR_USE_BATCH_LOOKUP).ifPresent(builder::setBatchLookup);
-		descriptorProperties.getOptionalString(CONNECTOR_REQUEST_LIST_NAME).ifPresent(builder::setRequestListFieldName);
-		descriptorProperties.getOptionalString(CONNECTOR_RESPONSE_LIST_NAME).ifPresent(builder::setResponseListFieldName);
 
 		return builder.build();
 	}
@@ -237,50 +212,29 @@ public class RPCTableFactory implements
 		int batchSize = descriptorProperties.getOptionalInt(CONNECTOR_BATCH_SIZE).orElse(1);
 		String serviceClassName = descriptorProperties
 			.getOptionalString(CONNECTOR_THRIFT_SERVICE_CLASS).orElse("");
+		String methodName = descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).orElse("");
 		Preconditions.checkArgument(serviceClassName.length() > 0,
 			"connector.thrift-service-class must set.");
-		Class<?> thriftClientClass = ThriftUtil.getThriftClientClass(serviceClassName);
-		String methodName = descriptorProperties.getOptionalString(CONNECTOR_THRIFT_METHOD).orElse("");
 		Preconditions.checkArgument(methodName.length() > 0, "connector.thrift-method must set.");
+		serviceClassName += CLIENT_CLASS_SUFFIX;
 		Class<?> requestClass;
-		Class<?> responseClass;
-		boolean useBatchLookup = descriptorProperties.getOptionalBoolean(CONNECTOR_USE_BATCH_LOOKUP).orElse(false);
-		boolean isInDimensionMode = descriptorProperties.getOptionalBoolean(CONNECTOR_IS_DIMENSION_TABLE).orElse(false);
-
-		if (isInDimensionMode) {
-			if (useBatchLookup) {
-				Class<?> outerRequestClass = ThriftUtil.getParameterClassOfMethod(
-					thriftClientClass.getName(), methodName);
-				Class<?> outerResponseClass = ThriftUtil.getReturnClassOfMethod(
-					thriftClientClass.getName(), methodName);
-				String requestListFieldName = descriptorProperties.getString(CONNECTOR_REQUEST_LIST_NAME);
-				String responseListFieldName = descriptorProperties.getString(CONNECTOR_RESPONSE_LIST_NAME);
-				requestClass = ThriftUtil.getComponentClassOfListFieldName(outerRequestClass, requestListFieldName);
-				responseClass = ThriftUtil.getComponentClassOfListFieldName(outerResponseClass, responseListFieldName);
-			} else {
-				requestClass = ThriftUtil.getParameterClassOfMethod(thriftClientClass.getName(), methodName);
-				responseClass = ThriftUtil.getReturnClassOfMethod(thriftClientClass.getName(), methodName);
+		if (batchSize == 1) {
+			requestClass = ThriftUtil.getParameterClassOfMethod(serviceClassName, methodName);
+		} else {
+			String batchClassName = descriptorProperties.getOptionalString(CONNECTOR_BATCH_CLASS).orElse("");
+			Preconditions.checkArgument(batchClassName.length() > 0,
+				"In batch scenario, connector.batch-class must set.");
+			try {
+				requestClass = Class.forName(batchClassName);
+			} catch (ClassNotFoundException e) {
+				throw new FlinkRuntimeException(String.format("Can't find class : %s", batchClassName), e);
 			}
+		}
+		if (descriptorProperties.getOptionalBoolean(CONNECTOR_IS_DIMENSION_TABLE).orElse(false)) {
+			Class<?> responseClass = ThriftUtil.getReturnClassOfMethod(serviceClassName, methodName);
 			return ThriftRowTypeInformationUtil.generateDimensionRowTypeInformation(requestClass, responseClass);
 		} else {
-			//sink mode
-			if (batchSize == 1) {
-				requestClass = ThriftUtil.getParameterClassOfMethod(thriftClientClass.getName(), methodName);
-			} else {
-				requestClass = findBatchClass(descriptorProperties, CONNECTOR_BATCH_CLASS);
-			}
 			return ThriftRowTypeInformationUtil.generateRowTypeInformation(requestClass);
-		}
-	}
-
-	private static Class findBatchClass(DescriptorProperties props, String key) {
-		String batchClassName = props.getOptionalString(key).orElse("");
-		Preconditions.checkArgument(batchClassName.length() > 0,
-			"In batch scenario, " + key + " must set.");
-		try {
-			return Class.forName(batchClassName);
-		} catch (ClassNotFoundException e) {
-			throw new FlinkRuntimeException(String.format("Can't find class : %s", batchClassName), e);
 		}
 	}
 }

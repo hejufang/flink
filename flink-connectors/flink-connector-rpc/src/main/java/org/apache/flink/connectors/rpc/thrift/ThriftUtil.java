@@ -35,8 +35,6 @@ import java.util.Set;
  */
 public class ThriftUtil {
 
-	public static final String CLIENT_CLASS_SUFFIX = "$Client";
-
 	/**
 	 * In batch situation, get the field name of the request list.
 	 * @param requestClass The final class to invoke in batch method.
@@ -57,33 +55,18 @@ public class ThriftUtil {
 		throw new FlinkRuntimeException("Failed find the list field which used for accumulate batch.");
 	}
 
-	public static Class<?> getComponentClassOfListFieldName(Class<?> outerClass, String fieldName) {
-		try {
-			Field field = outerClass.getField(fieldName);
-			if (field.getType().equals(List.class)) {
-				ParameterizedType listInnerType = (ParameterizedType) field.getGenericType();
-				Type[] listActualTypeArguments = listInnerType.getActualTypeArguments();
-				return Class.forName(listActualTypeArguments[0].getTypeName());
-			} else {
-				throw new IllegalArgumentException("The field name of " + fieldName + " must be List type.");
-			}
-		} catch (Exception ex) {
-			throw new FlinkRuntimeException(ex);
-		}
-	}
-
 	/**
 	 * Get the thrift service method response class.
-	 * @param thriftClientClassName the full name of the service java class which generate by thrift.
+	 * @param serviceClassName the full name of the service java class which generate by thrift.
 	 * @param methodName the method in service which will be execute.
 	 * @return the response class of method.
 	 */
-	public static Class<?> getReturnClassOfMethod(String thriftClientClassName, String methodName) {
+	public static Class<?> getReturnClassOfMethod(String serviceClassName, String methodName) {
 		Class<?> serviceClass;
 		try {
-			serviceClass = Class.forName(thriftClientClassName);
+			serviceClass = Class.forName(serviceClassName);
 		} catch (ClassNotFoundException e) {
-			throw new FlinkRuntimeException(String.format("Can't find class : %s", thriftClientClassName), e);
+			throw new FlinkRuntimeException(String.format("Can't find class : %s", serviceClassName), e);
 		}
 		Method[] methods = serviceClass.getDeclaredMethods();
 		for (Method method : methods) {
@@ -92,23 +75,23 @@ public class ThriftUtil {
 			}
 		}
 		throw new FlinkRuntimeException(String.format("Can't find method : %s in service : %s",
-			methodName, thriftClientClassName));
+			methodName, serviceClassName));
 	}
 
 	/**
 	 * Get the thrift service method parameter class. In practice, it always be a request struct.
 	 * So we just support one parameter at now.
-	 * @param thriftClientClassName the full name of the service java class which generate by thrift.
+	 * @param serviceClassName the full name of the service java class which generate by thrift.
 	 * @param methodName the method in service which will be execute.
 	 * @return the parameter class in method.
 	 */
-	public static Class<?> getParameterClassOfMethod(String thriftClientClassName, String methodName) {
+	public static Class<?> getParameterClassOfMethod(String serviceClassName, String methodName) {
 		Class<?> parameterClass;
 		Class<?> serviceClass;
 		try {
-			serviceClass = Class.forName(thriftClientClassName);
+			serviceClass = Class.forName(serviceClassName);
 		} catch (ClassNotFoundException e) {
-			throw new FlinkRuntimeException(String.format("Can't find class : %s", thriftClientClassName), e);
+			throw new FlinkRuntimeException(String.format("Can't find class : %s", serviceClassName), e);
 		}
 		Method[] methods = serviceClass.getDeclaredMethods();
 		Parameter[] params = new Parameter[0];
@@ -134,24 +117,6 @@ public class ThriftUtil {
 			return null;
 		}
 		return constructInstanceWithString(innerRequestClass, constantValue, null, null);
-	}
-
-	public static Object constructInstanceWithInnerList(
-		Class<?> requestClass,
-		String batchListFieldName,
-		List<Object> requestObjList) throws Exception {
-		Object result = requestClass.newInstance();
-		Field field = requestClass.getField(batchListFieldName);
-		field.set(result, requestObjList);
-		return result;
-	}
-
-	public static List<Object> getInnerListFromInstance(
-			Object responseObject,
-			Class<?> responseClass,
-			String batchListFieldName) throws Exception {
-		Field field = responseClass.getField(batchListFieldName);
-		return (List<Object>) field.get(responseObject);
 	}
 
 	/**
@@ -220,13 +185,5 @@ public class ThriftUtil {
 			|| classType.equals(Double.class)
 			|| classType.equals(String.class)
 			|| classType.equals(ByteBuffer.class);
-	}
-
-	public static Class<?> getThriftClientClass(String thriftServiceClassName) {
-		try {
-			return Class.forName(thriftServiceClassName + CLIENT_CLASS_SUFFIX);
-		} catch (ClassNotFoundException e) {
-			throw new FlinkRuntimeException(e);
-		}
 	}
 }

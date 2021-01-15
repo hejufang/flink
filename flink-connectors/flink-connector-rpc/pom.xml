@@ -38,7 +38,7 @@ under the License.
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-table-runtime-blink_${scala.binary.version}</artifactId>
+			<artifactId>flink-table-runtime-blink_2.11</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
 		</dependency>
@@ -63,7 +63,7 @@ under the License.
 				<version>0.1.11</version>
 				<configuration>
 					<generator>java</generator>
-					<thriftSourceRoot>src/test/thrift</thriftSourceRoot>
+					<thriftSourceRoot>src/test/resources/thrift</thriftSourceRoot>
 				</configuration>
 				<executions>
 					<execution>

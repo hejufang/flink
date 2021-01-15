@@ -27,7 +27,6 @@ import org.apache.flink.table.planner.runtime.utils.InMemoryLookupableTableSourc
 import org.apache.flink.table.sources._
 import org.apache.flink.types.Row
 import org.apache.flink.util.Preconditions
-
 import java.util
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
@@ -246,7 +245,7 @@ object InMemoryLookupableTableSource {
   private class InMemoryBatchLookupFunction(
       data: Map[Row, List[Row]],
       resourceCounter: AtomicInteger)
-    extends TableFunction[Row] with MiniBatchTableFunction[Row] {
+    extends MiniBatchTableFunction[Row] {
 
     override def open(context: FunctionContext): Unit = {
       resourceCounter.incrementAndGet()

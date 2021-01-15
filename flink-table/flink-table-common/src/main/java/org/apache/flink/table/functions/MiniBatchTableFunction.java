@@ -29,8 +29,8 @@ import java.util.List;
  * @param <T> The output data type
  */
 @PublicEvolving
-public interface MiniBatchTableFunction<T>{
-	default int batchSize() {
+public abstract class MiniBatchTableFunction<T> extends TableFunction<T> {
+	public int batchSize() {
 		return -1;
 	}
 
@@ -43,5 +43,5 @@ public interface MiniBatchTableFunction<T>{
 	 * Each key sequence can emit multiple rows if more than one row are joined.
 	 * If one key sequence cannot find any matched result, the corresponding collection should be null or empty.
 	 */
-	List<Collection<T>> eval(List<Object[]> keySequenceList);
+	public abstract List<Collection<T>> eval(List<Object[]> keySequenceList);
 }
