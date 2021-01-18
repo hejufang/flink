@@ -994,7 +994,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// https://github.com/apache/hadoop/blob/trunk/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-site/src/site/markdown/YarnApplicationSecurity.md#identity-on-an-insecure-cluster-hadoop_user_name
 		appMasterEnv.put(YarnConfigKeys.ENV_HADOOP_USER_NAME, UserGroupInformation.getCurrentUser().getUserName());
-		String partitionList = configuration.getString(ConfigConstants.PARTITION_LIST_KEY, null);
+		String partitionList = configuration.getString(ConfigConstants.PARTITION_OLD_LIST_KEY, null);
+		partitionList = configuration.getString(ConfigConstants.PARTITION_LIST_KEY, partitionList);
 		if (partitionList != null && !partitionList.isEmpty()) {
 			appMasterEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
 			LOG.info("{} = {}", ConfigConstants.PARTITION_LIST_KEY, partitionList);

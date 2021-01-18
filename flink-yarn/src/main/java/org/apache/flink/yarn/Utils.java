@@ -490,6 +490,14 @@ public final class Utils {
 
 		Utils.setHdfsBtrace(flinkConfig, containerEnv);
 		BtraceUtil.attachToEnv(containerEnv, null);
+
+		String partitionList = env.get(ConfigConstants.PARTITION_LIST_KEY);
+		if (partitionList != null && !partitionList.isEmpty()) {
+			containerEnv.put(ConfigConstants.PARTITION_LIST_KEY, partitionList);
+			LOG.info("Set {} in container environment = {}",
+				ConfigConstants.PARTITION_LIST_KEY, partitionList);
+		}
+
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.

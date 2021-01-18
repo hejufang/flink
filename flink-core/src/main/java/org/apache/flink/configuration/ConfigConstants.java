@@ -2114,6 +2114,7 @@ public final class ConfigConstants {
 	public static final String KAFKA_SERVER_URL_DEFAUL = "http://kafka-config.byted.org";
 
 	/** Config partition key for kafka. */
+	public static final String PARTITION_OLD_LIST_KEY = "partition.list";
 	public static final String PARTITION_LIST_KEY = "partition_list";
 
 	public static final String WRITE_FAILED_COUNTER = "writeFailed";
