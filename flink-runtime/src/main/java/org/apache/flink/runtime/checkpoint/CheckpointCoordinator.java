@@ -662,12 +662,16 @@ public class CheckpointCoordinator {
 
 					pendingCheckpoints.put(checkpointID, checkpoint);
 
-					// schedule the timer that will clean up the expired checkpoints
-					ScheduledFuture<?> cancellerHandle = checkpointScheduler.scheduleTimeoutCanceller(canceller);
+					if (!advanceToEndOfTime) {
+						// schedule the timer that will clean up the expired checkpoints
+						ScheduledFuture<?> cancellerHandle = checkpointScheduler.scheduleTimeoutCanceller(canceller);
 
-					if (!checkpoint.setCancellerHandle(cancellerHandle)) {
-						// checkpoint is already disposed!
-						cancellerHandle.cancel(false);
+						if (!checkpoint.setCancellerHandle(cancellerHandle)) {
+							// checkpoint is already disposed!
+							cancellerHandle.cancel(false);
+						}
+					} else {
+						LOG.info("Do not expire the checkpoint {} @ {} for job {} because of stop-with-savepoint.", checkpointID, timestamp, job);
 					}
 
 					// trigger the master hooks for the checkpoint

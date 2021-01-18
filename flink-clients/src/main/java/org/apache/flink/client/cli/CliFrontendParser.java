@@ -273,6 +273,7 @@ public class CliFrontendParser {
 	static Options getStopCommandOptions() {
 		return buildGeneralOptions(new Options())
 				.addOption(STOP_WITH_SAVEPOINT_PATH)
+				.addOption(CLUSTER_NAME_OPTION)
 				.addOption(STOP_AND_DRAIN);
 	}
 
