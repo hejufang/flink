@@ -41,7 +41,8 @@ global:
         checkpointWriteFileRate,
         checkpointWriteFileLatency,
         checkpointCloseFileLatency,
-        numberOfContinuousCheckpointFailure
+        numberOfContinuousCheckpointFailure,
+        jobStartupCheckpointRestoreDelay
     ]
 
 non-global:
@@ -155,5 +156,6 @@ non-global:
         ioThreadPoolUsage,
         numPendingFutureTask,
         numRunningFutureTask,
-        futureThreadPoolUsage
+        futureThreadPoolUsage,
+        jobStartupCheckpointRestoreDelay
     ]

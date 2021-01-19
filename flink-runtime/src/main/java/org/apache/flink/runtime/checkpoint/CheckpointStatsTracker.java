@@ -106,6 +106,9 @@ public class CheckpointStatsTracker {
 	@Nullable
 	private volatile CompletedCheckpointStats latestCompletedCheckpoint;
 
+	/** Checkpoint restoring delay of one job startup */
+	private long jobStartupCheckpointRestoreDelay = -1;
+
 	/**
 	 * Creates a new checkpoint stats tracker.
 	 *
@@ -152,6 +155,18 @@ public class CheckpointStatsTracker {
 	 */
 	public CheckpointCoordinatorConfiguration getJobCheckpointingConfiguration() {
 		return jobCheckpointingConfiguration;
+	}
+
+	/**
+	 * Set value of checkpoint restore delay when a job starts.
+	 * @param jobStartupCheckpointRestoreDelay
+	 */
+	public void setJobStartupCheckpointRestoreDelay(long jobStartupCheckpointRestoreDelay) {
+		this.jobStartupCheckpointRestoreDelay = jobStartupCheckpointRestoreDelay;
+	}
+
+	public long getJobStartupCheckpointRestoreDelay() {
+		return jobStartupCheckpointRestoreDelay;
 	}
 
 	/**
@@ -379,6 +394,8 @@ public class CheckpointStatsTracker {
 
 	static final String WAREHOUSE_FAILED_CHECKPOINTS = "warehouseFailedCheckpoints";
 
+	static final String JOB_STARTUP_CHECKPOINT_RESTORE_DELAY = "jobStartupCheckpointRestoreDelay";
+
 	static final TagGauge failedCheckpointsTagGauge = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
 
 	static final MessageSet<WarehouseCheckpointMessage> messageSet = new MessageSet<>(MessageType.CHECKPOINT);
@@ -400,6 +417,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
 		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, failedCheckpointsTagGauge);
 		metricGroup.gauge(WAREHOUSE_FAILED_CHECKPOINTS, messageSet);
+		metricGroup.gauge(JOB_STARTUP_CHECKPOINT_RESTORE_DELAY, this::getJobStartupCheckpointRestoreDelay);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {

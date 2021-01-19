@@ -193,6 +193,12 @@ public class CheckpointCoordinator {
 
 	private final boolean aggregateUnionState;
 
+	/** Timestamp of start restoring checkpoints when job starts */
+	private long startSchedulingTimestamp;
+
+	/** number of subtasks to restore checkpoint */
+	private int numRestoreTasks;
+
 	// --------------------------------------------------------------------------------------------
 
 	@VisibleForTesting
@@ -288,6 +294,8 @@ public class CheckpointCoordinator {
 		} catch (Throwable t) {
 			throw new RuntimeException("Failed to start checkpoint ID counter: " + t.getMessage(), t);
 		}
+
+		numRestoreTasks = tasksToWaitFor.length;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -752,6 +760,9 @@ public class CheckpointCoordinator {
 			}
 
 			initializations.add(message.getIdentifier());
+			if (initializations.size() == numRestoreTasks) {
+				statsTracker.setJobStartupCheckpointRestoreDelay(System.currentTimeMillis() - startSchedulingTimestamp);
+			}
 		}
 	}
 
@@ -1372,6 +1383,7 @@ public class CheckpointCoordinator {
 	// --------------------------------------------------------------------------------------------
 
 	public void startCheckpointScheduler() {
+		startSchedulingTimestamp = System.currentTimeMillis();
 		synchronized (lock) {
 			if (shutdown) {
 				throw new IllegalArgumentException("Checkpoint coordinator is shut down");
