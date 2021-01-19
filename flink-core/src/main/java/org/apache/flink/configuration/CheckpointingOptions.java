@@ -70,7 +70,7 @@ public class CheckpointingOptions {
 	/** Whether union state aggregation is enabled. */
 	public static final ConfigOption<Boolean> UNION_STATE_AGGREGATION_ENABLED = ConfigOptions
 		.key("state.checkpoints.union-state.aggregation.enable")
-		.defaultValue(false)
+		.defaultValue(true)
 		.withDescription(" Whether union state aggregation is enabled.");
 
 	/** Option whether the state backend should use an asynchronous snapshot method where
@@ -188,7 +188,7 @@ public class CheckpointingOptions {
 	 * are stored inline in the root checkpoint metadata file. */
 	public static final ConfigOption<Integer> FS_SMALL_FILE_THRESHOLD = ConfigOptions
 			.key("state.backend.fs.memory-threshold")
-			.defaultValue(1024)
+			.defaultValue(2048)
 			.withDescription("The minimum size of state data files. All state chunks smaller than that are stored" +
 				" inline in the root checkpoint metadata file.");
 
