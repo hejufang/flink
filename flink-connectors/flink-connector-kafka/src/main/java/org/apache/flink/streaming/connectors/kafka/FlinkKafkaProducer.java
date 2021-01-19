@@ -39,6 +39,7 @@ import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.TwoPhaseCommitSinkFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.kafka.internal.FlinkKafkaInternalProducer;
@@ -48,6 +49,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaSerializationS
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.TemporaryClassLoaderContext;
@@ -100,7 +102,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @PublicEvolving
 public class FlinkKafkaProducer<IN>
-	extends TwoPhaseCommitSinkFunction<IN, FlinkKafkaProducer.KafkaTransactionState, FlinkKafkaProducer.KafkaTransactionContext> {
+	extends TwoPhaseCommitSinkFunction<IN, FlinkKafkaProducer.KafkaTransactionState, FlinkKafkaProducer.KafkaTransactionContext>
+	implements SpecificParallelism {
 
 	/**
 	 *  Semantics that can be chosen.
@@ -285,6 +288,8 @@ public class FlinkKafkaProducer<IN>
 
 	/** Cache of metrics to replace already registered metrics instead of overwriting existing ones. */
 	private final Map<String, KafkaMetricMutableWrapper> previouslyCreatedMetrics = new HashMap<>();
+
+	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 
 	/**
 	 * Creates a FlinkKafkaProducer for a given topic. The sink produces a DataStream to
@@ -1783,5 +1788,14 @@ public class FlinkKafkaProducer<IN>
 				super(NextTransactionalIdHintSerializer::new);
 			}
 		}
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
+	}
+
+	public void setParallelism(int parallelism) {
+		this.parallelism = parallelism;
 	}
 }

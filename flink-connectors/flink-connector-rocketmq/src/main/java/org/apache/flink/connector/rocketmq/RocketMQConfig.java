@@ -20,6 +20,7 @@ package org.apache.flink.connector.rocketmq;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
+import org.apache.flink.table.factories.FactoryUtil;
 
 import java.util.Map;
 
@@ -38,6 +39,7 @@ public class RocketMQConfig<T> {
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
 	private int[] keyByFields;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
+	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -125,5 +127,13 @@ public class RocketMQConfig<T> {
 
 	public void setMetadataMap(Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap) {
 		this.metadataMap = metadataMap;
+	}
+
+	public int getParallelism() {
+		return parallelism;
+	}
+
+	public void setParallelism(int parallelism) {
+		this.parallelism = parallelism;
 	}
 }

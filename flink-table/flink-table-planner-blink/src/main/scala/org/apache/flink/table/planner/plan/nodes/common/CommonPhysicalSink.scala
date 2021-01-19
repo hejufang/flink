@@ -24,13 +24,13 @@ import org.apache.flink.api.dag.Transformation
 import org.apache.flink.api.java.typeutils.InputTypeConfigurable
 import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.functions.SpecificParallelism
 import org.apache.flink.streaming.api.functions.sink.OutputFormatSinkFunction
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory
 import org.apache.flink.streaming.api.transformations.SinkTransformation
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.catalog.{CatalogTable, ObjectIdentifier}
-import org.apache.flink.table.connector.SpecificParallelism
 import org.apache.flink.table.connector.sink.{DataStreamSinkProvider, DynamicTableSink, OutputFormatProvider, SinkFunctionProvider}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory

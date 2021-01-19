@@ -29,12 +29,14 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.functions.RowKindSinkFilter;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.SerializableObject;
@@ -71,7 +73,9 @@ import static java.util.Objects.requireNonNull;
  * @param <IN> Type of the messages to write into Kafka.
  */
 @Internal
-public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> implements CheckpointedFunction {
+public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> implements
+		CheckpointedFunction,
+		SpecificParallelism {
 
 	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaProducerBase.class);
 
@@ -141,6 +145,8 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	protected long pendingRecords;
 
 	protected RowKindSinkFilter<IN> rowKindSinkFilter;
+
+	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
@@ -446,5 +452,14 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	boolean filter(IN in) {
 		return rowKindSinkFilter == null || rowKindSinkFilter.filter(in);
+	}
+
+	public void setParallelism(int parallelism) {
+		this.parallelism = parallelism;
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 }

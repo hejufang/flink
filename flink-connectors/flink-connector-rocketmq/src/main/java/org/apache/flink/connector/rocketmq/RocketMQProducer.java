@@ -24,6 +24,7 @@ import org.apache.flink.connector.rocketmq.serialization.KeyValueSerializationSc
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.util.Preconditions;
 
@@ -42,7 +43,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQPro
 /**
  * RocketMQProducer.
  */
-public class RocketMQProducer<T> extends RichSinkFunction<T> implements CheckpointedFunction {
+public class RocketMQProducer<T> extends RichSinkFunction<T> implements CheckpointedFunction, SpecificParallelism {
 	private static final long serialVersionUID = 1L;
 
 	private KeyValueSerializationSchema<T> serializationSchema;
@@ -53,6 +54,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private Map<String, String> props;
 	private final TopicSelector<T> topicSelector;
 	private int messageDelayLevel = MSG_DELAY_LEVEL_DEFAULT;
+	private int parallelism;
 	private final MsgDelayLevelSelector<T> msgDelayLevelSelector;
 
 	private transient DefaultMQProducer producer;
@@ -70,6 +72,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.batchSize = rocketMQConfig.getSendBatchSize();
 		this.topicSelector = rocketMQConfig.getTopicSelector();
 		this.msgDelayLevelSelector = rocketMQConfig.getMsgDelayLevelSelector();
+		this.parallelism = rocketMQConfig.getParallelism();
 	}
 
 	@Override
@@ -132,5 +135,10 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		if (producer != null) {
 			producer.shutdown();
 		}
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 }

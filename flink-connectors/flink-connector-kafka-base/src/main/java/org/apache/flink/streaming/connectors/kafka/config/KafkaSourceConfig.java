@@ -39,6 +39,7 @@ public class KafkaSourceConfig implements Serializable  {
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private long manualCommitInterval;
 	private Long relativeOffset;
+	private Integer parallelism;
 
 	public long getRateLimitNumber() {
 		return rateLimitNumber;
@@ -120,6 +121,14 @@ public class KafkaSourceConfig implements Serializable  {
 		this.relativeOffset = relativeOffset;
 	}
 
+	public Integer getParallelism() {
+		return parallelism;
+	}
+
+	public void setParallelism(Integer parallelism) {
+		this.parallelism = parallelism;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -138,12 +147,14 @@ public class KafkaSourceConfig implements Serializable  {
 			Objects.equals(withoutMetaDataType, that.withoutMetaDataType) &&
 			Objects.equals(metadataMap, that.metadataMap) &&
 			Objects.equals(manualCommitInterval, that.manualCommitInterval) &&
-			Objects.equals(relativeOffset, that.relativeOffset);
+			Objects.equals(relativeOffset, that.relativeOffset) &&
+			Objects.equals(parallelism, that.parallelism);
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval, scanSampleNum, partitionTopicList,
-			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset);
+			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset,
+			parallelism);
 	}
 }

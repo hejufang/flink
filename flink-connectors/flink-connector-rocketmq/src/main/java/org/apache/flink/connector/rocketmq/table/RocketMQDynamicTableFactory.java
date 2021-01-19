@@ -128,6 +128,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_TOPIC_SELECTOR);
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
 		options.add(SOURCE_METADATA_COLUMNS);
+		options.add(FactoryUtil.PARALLELISM);
 		return options;
 	}
 
@@ -136,7 +137,7 @@ public class RocketMQDynamicTableFactory implements
 
 		rocketMQConfig.setGroup(config.get(GROUP));
 		rocketMQConfig.setCluster(config.get(CLUSTER));
-
+		rocketMQConfig.setParallelism(config.get(FactoryUtil.PARALLELISM));
 		if (isSink) {
 			Optional<String> delayFieldOption = config.getOptional(SINK_DELAY_LEVEL_FIELD);
 			if (delayFieldOption.isPresent()) {

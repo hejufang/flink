@@ -44,6 +44,7 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 import org.apache.flink.streaming.connectors.kafka.config.BytedKafkaConfig;
@@ -59,6 +60,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.streaming.runtime.operators.util.AssignerWithPunctuatedWatermarksAdapter;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.SerializedValue;
@@ -101,7 +103,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFunction<T> implements
 		CheckpointListener,
 		ResultTypeQueryable<T>,
-		CheckpointedFunction {
+		CheckpointedFunction,
+		SpecificParallelism {
 
 	private static final long serialVersionUID = -6272159445203409112L;
 
@@ -237,6 +240,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	protected long manualCommitInterval = -1;
 
+	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 	// ------------------------------------------------------------------------
 	//  internal metrics
 	// ------------------------------------------------------------------------
@@ -1431,5 +1435,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				"EARLIEST or GROUP_OFFSETS or LATEST");
 		}
 		this.relativeOffset = relativeOffset;
+	}
+
+	public void setParallelism(int parallelism) {
+		this.parallelism = parallelism;
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 }

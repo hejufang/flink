@@ -32,6 +32,7 @@ import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.function.SupplierWithException;
@@ -74,7 +75,8 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQPro
 public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implements
 		CheckpointListener,
 		ResultTypeQueryable<T>,
-		CheckpointedFunction {
+		CheckpointedFunction,
+		SpecificParallelism {
 	private static final long serialVersionUID = 1L;
 
 	private static final int FETCH_BATCH_SIZE = 100;
@@ -90,6 +92,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private Map<String, String> props;
 	private RocketMQDeserializationSchema<T> schema;
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
+	private int parallelism;
 
 	private transient MeterView recordsNumMeterView;
 	private transient DefaultMQPullConsumer consumer;
@@ -101,7 +104,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient boolean isRestored;
 	private transient Map<MessageQueue, Long> offsetTable;
 	private transient Map<MessageQueue, Long> restoredOffsets;
-	private transient int parallelism;
 	private transient int subTaskId;
 
 	public RocketMQConsumer(
@@ -115,6 +117,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.topic = config.getTopic();
 		this.tag = config.getTag();
 		this.assignQueueStrategy = config.getAssignQueueStrategy();
+		this.parallelism = config.getParallelism();
 	}
 
 	@Override
@@ -123,7 +126,12 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.consumer = new DefaultMQPullConsumer(cluster, topic, group, getRocketMQProperties(props));
 		this.consumer.setAutoCommit(true);
 		this.consumer.setInstanceName(topic + "_" + getRuntimeContext().getIndexOfThisSubtask());
-		this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
+		if (this.parallelism > 0) {
+			assert this.parallelism == getRuntimeContext().getNumberOfParallelSubtasks();
+		} else {
+			this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
+		}
+
 		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 		this.offsetTable = new ConcurrentHashMap<>();
 		this.restoredOffsets = new HashMap<>();
@@ -374,5 +382,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		thread.setDaemon(true);
 		thread.setName("RocketMQ_partition_discovery_thread: " + subTaskId);
 		return thread;
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 }

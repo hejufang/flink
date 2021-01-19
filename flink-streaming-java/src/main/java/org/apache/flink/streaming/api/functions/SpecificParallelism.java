@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.connector;
+package org.apache.flink.streaming.api.functions;
 
 /**
  * This interface is an optional interface for sources and sinks.

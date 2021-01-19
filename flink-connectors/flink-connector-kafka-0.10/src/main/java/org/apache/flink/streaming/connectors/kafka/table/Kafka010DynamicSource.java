@@ -108,6 +108,9 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 				consumerBase.disableResetToEarliestForNewPartition();
 			}
 		}
+		if (kafkaSourceConfig.getParallelism() != null) {
+			consumerBase.setParallelism(kafkaSourceConfig.getParallelism());
+		}
 		return consumerBase;
 	}
 

@@ -25,6 +25,7 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartiti
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 
 import java.util.Optional;
@@ -59,11 +60,16 @@ public class KafkaDynamicSink extends KafkaDynamicSinkBase {
 			SerializationSchema<RowData> serializationSchema,
 			Optional<FlinkKafkaPartitioner<RowData>> partitioner,
 			Properties otherProperties) {
-		return new FlinkKafkaProducer<>(
+		FlinkKafkaProducer<RowData> kafkaProducer = new FlinkKafkaProducer<>(
 				topic,
 				serializationSchema,
 				properties,
 				partitioner);
+		if (otherProperties.containsKey(FactoryUtil.PARALLELISM.key())) {
+			kafkaProducer.setParallelism(
+				Integer.parseInt(otherProperties.getProperty(FactoryUtil.PARALLELISM.key())));
+		}
+		return kafkaProducer;
 	}
 
 	@Override

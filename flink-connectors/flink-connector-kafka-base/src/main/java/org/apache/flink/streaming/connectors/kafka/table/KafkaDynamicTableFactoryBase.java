@@ -197,6 +197,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_PARTITIONER);
 		options.add(SINK_PARTITIONER_FIELD);
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
+		options.add(FactoryUtil.PARALLELISM);
 		return options;
 	}
 
@@ -221,6 +222,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			d -> sourceConfig.setManualCommitInterval(d.toMillis())
 		);
 		readableConfig.getOptional(SCAN_RELATIVE_OFFSET).ifPresent(sourceConfig::setRelativeOffset);
+		readableConfig.getOptional(FactoryUtil.PARALLELISM).ifPresent(sourceConfig::setParallelism);
 
 		return sourceConfig;
 	}
@@ -230,6 +232,9 @@ public abstract class KafkaDynamicTableFactoryBase implements
 
 		String logFailuresOnly = properties.getOrDefault(SINK_LOG_FAILURE_ONLY.key(), "false");
 		otherProperties.put(SINK_LOG_FAILURE_ONLY.key(), logFailuresOnly);
+		if (properties.containsKey(FactoryUtil.PARALLELISM.key())) {
+			otherProperties.put(FactoryUtil.PARALLELISM.key(), properties.get(FactoryUtil.PARALLELISM.key()));
+		}
 		return otherProperties;
 	}
 

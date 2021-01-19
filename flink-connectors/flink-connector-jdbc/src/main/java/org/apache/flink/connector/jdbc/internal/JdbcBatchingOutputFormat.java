@@ -30,7 +30,7 @@ import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.utils.JdbcUtils;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
-import org.apache.flink.table.connector.SpecificParallelism;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Preconditions;
 
