@@ -27,6 +27,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 public class PojoStreamToPatternStreamConverter {
 
 	public static <IN> DataStream<Pattern<IN, IN>> convert(DataStream<String> patternJsonStream, CepEventParserFactory cepEventParserFactory) {
-		return patternJsonStream.<Pattern<IN, IN>>flatMap(new ConvertFlatMapFunction<>(cepEventParserFactory)).setParallelism(1);
+		return patternJsonStream.<Pattern<IN, IN>>flatMap(new ConvertFlatMapFunction<>(cepEventParserFactory)).setParallelism(1).uid("pattern-converter");
 	}
 }
