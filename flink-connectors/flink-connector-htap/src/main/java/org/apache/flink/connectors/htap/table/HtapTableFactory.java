@@ -159,6 +159,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, props);
 		HtapReaderConfig readerConfig = new HtapReaderConfig(metaHost, metaPort, instanceId,
 			byteStoreLogPath, byteStoreDataPath, logStoreLogDir, pageStoreLogDir, checkPointLSN);
-		return new HtapTableSource(readerConfig, tableInfo, schema, null, null, false);
+		return new HtapTableSource(readerConfig, tableInfo, schema, null, null,
+			null, null, null, null, false);
 	}
 }

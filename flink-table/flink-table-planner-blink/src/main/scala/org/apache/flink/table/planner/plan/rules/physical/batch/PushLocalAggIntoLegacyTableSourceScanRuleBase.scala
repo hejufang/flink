@@ -18,28 +18,28 @@
 
 package org.apache.flink.table.planner.plan.rules.physical.batch
 
-import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecExchange, BatchExecGroupAggregateBase, BatchExecLegacyTableSourceScan, BatchExecLocalHashAggregate, BatchExecLocalSortAggregate}
-import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, LegacyTableSourceTable}
-import org.apache.flink.table.sources.AggregatableTableSource
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.functions.FunctionDefinition
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction
+import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecExchange, BatchExecGroupAggregateBase, BatchExecLegacyTableSourceScan}
+import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, LegacyTableSourceTable}
 import org.apache.flink.table.planner.plan.stats.FlinkStatistic
 import org.apache.flink.table.planner.plan.utils.AggregateUtil
+import org.apache.flink.table.sources.AggregatableTableSource
 import org.apache.flink.table.types.DataType
 import org.apache.flink.table.types.utils.TypeConversions
 
-import org.apache.calcite.plan.RelOptRule._
-import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
+import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall, RelOptRuleOperand}
 import org.apache.calcite.sql.SqlKind
 
 import java.util
 
 /**
- * Planner rule that tries to push a local aggregator into a [[AggregatableTableSource]]
- * The following aggregation pattern will not be pushed down:
+ * Planner rule that tries to push a local aggregator into an [[AggregatableTableSource]].
+ *
+ * Note: the following aggregation pattern will not be pushed down:
  *   1. If expression is involved in Aggregate or Group by,
  *      e.g. max (col1 + col2) or group by (col1 + col2), aggregate will not be pushed down.
  *   2. Push down all or nothing, that is, if there are more than one aggregate,
@@ -50,26 +50,21 @@ import java.util
  *   5. Agg Function with predicates which can not be pushed down to the underlying connector.
  *   6. WindowAggregate Function
  */
-class PushLocalAggIntoLegacyTableSourceScanRule extends RelOptRule(
-  operand(classOf[BatchExecExchange],
-    operand(classOf[BatchExecGroupAggregateBase],
-      operand(classOf[BatchExecLegacyTableSourceScan], none))),
-  "PushLocalAggIntoLegacyTableSourceScanRule") {
+abstract class PushLocalAggIntoLegacyTableSourceScanRuleBase(
+    operand: RelOptRuleOperand,
+    description: String)
+extends RelOptRule(operand, description) {
 
-  override def matches(call: RelOptRuleCall): Boolean = {
+  protected def isMatch(
+      call: RelOptRuleCall,
+      aggregate: BatchExecGroupAggregateBase,
+      scan: BatchExecLegacyTableSourceScan): Boolean = {
     val config = call.getPlanner.getContext.unwrap(classOf[FlinkContext]).getTableConfig
     if (!config.getConfiguration.getBoolean(
       OptimizerConfigOptions.TABLE_OPTIMIZER_SOURCE_AGGREGATE_PUSHDOWN_ENABLED)) {
       return false
     }
 
-    call.rels(1) match {
-      case _: BatchExecLocalHashAggregate =>
-      case _: BatchExecLocalSortAggregate =>
-      case _ => return false
-    }
-
-    val aggregate = call.rels(1).asInstanceOf[BatchExecGroupAggregateBase]
     if (aggregate.isFinal || aggregate.getAggCallList.size < 1) return false
 
     for (aggCall <- aggregate.getAggCallList) {
@@ -82,7 +77,6 @@ class PushLocalAggIntoLegacyTableSourceScanRule extends RelOptRule(
       }
     }
 
-    val scan = call.rels(2).asInstanceOf[BatchExecLegacyTableSourceScan]
     scan.getTable.unwrap(classOf[LegacyTableSourceTable[_]]) match {
       case table: LegacyTableSourceTable[_] =>
         table.tableSource match {
@@ -93,13 +87,7 @@ class PushLocalAggIntoLegacyTableSourceScanRule extends RelOptRule(
     }
   }
 
-  override def onMatch(call: RelOptRuleCall): Unit = {
-    val localAgg = call.rels(1).asInstanceOf[BatchExecGroupAggregateBase]
-    val oldScan = call.rels(2).asInstanceOf[BatchExecLegacyTableSourceScan]
-    pushLocalAggregateIntoScan(call, localAgg, oldScan)
-  }
-
-  private def pushLocalAggregateIntoScan(
+  protected def pushLocalAggregateIntoScan(
       call: RelOptRuleCall,
       localAgg: BatchExecGroupAggregateBase,
       scan: BatchExecLegacyTableSourceScan): Unit = {
@@ -175,8 +163,4 @@ class PushLocalAggIntoLegacyTableSourceScanRule extends RelOptRule(
     val newStatistic = FlinkStatistic.builder().statistic(statistic).tableStats(null).build()
     tableSourceTable.copy(newTableSource, newStatistic)
   }
-}
-
-object PushLocalAggIntoLegacyTableSourceScanRule {
-  val INSTANCE = new PushLocalAggIntoLegacyTableSourceScanRule
 }

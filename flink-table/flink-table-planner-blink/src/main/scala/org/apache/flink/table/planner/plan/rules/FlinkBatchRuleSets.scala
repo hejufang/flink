@@ -410,7 +410,6 @@ object FlinkBatchRuleSets {
     RemoveRedundantLocalSortAggRule.WITHOUT_SORT,
     RemoveRedundantLocalSortAggRule.WITH_SORT,
     RemoveRedundantLocalHashAggRule.INSTANCE,
-    PushLocalAggIntoLegacyTableSourceScanRule.INSTANCE,
     // over agg
     BatchExecOverAggregateRule.INSTANCE,
     // window agg
@@ -438,6 +437,8 @@ object FlinkBatchRuleSets {
     */
   val PHYSICAL_REWRITE: RuleSet = RuleSets.ofList(
     EnforceLocalHashAggRule.INSTANCE,
-    EnforceLocalSortAggRule.INSTANCE
+    EnforceLocalSortAggRule.INSTANCE,
+    PushLocalAggWithoutSortIntoLegacyTableSourceScanRule.INSTANCE,
+    PushLocalAggWithSortIntoLegacyTableSourceScanRule.INSTANCE
   )
 }

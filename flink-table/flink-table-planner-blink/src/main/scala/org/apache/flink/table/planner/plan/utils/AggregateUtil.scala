@@ -31,7 +31,7 @@ import org.apache.flink.table.planner.calcite.{FlinkTypeFactory, FlinkTypeSystem
 import org.apache.flink.table.planner.dataview.DataViewUtils.useNullSerializerForStateViewFieldsFromAccType
 import org.apache.flink.table.planner.dataview.{DataViewSpec, MapViewSpec}
 import org.apache.flink.table.planner.expressions.{PlannerProctimeAttribute, PlannerRowtimeAttribute, PlannerWindowEnd, PlannerWindowStart}
-import org.apache.flink.table.planner.functions.aggfunctions.{CountAggFunction, DeclarativeAggregateFunction, SumAggFunction}
+import org.apache.flink.table.planner.functions.aggfunctions.{CountAggFunction, DeclarativeAggregateFunction, Sum0AggFunction}
 import org.apache.flink.table.planner.functions.sql.{FlinkSqlOperatorTable, SqlFirstLastValueAggFunction, SqlListAggFunction}
 import org.apache.flink.table.planner.functions.utils.AggSqlFunction
 import org.apache.flink.table.planner.functions.utils.UserDefinedFunctionUtils._
@@ -57,7 +57,7 @@ import java.time.Duration
 import java.util
 
 import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction.{ByteAvgAggFunction, DoubleAvgAggFunction, FloatAvgAggFunction, IntAvgAggFunction, LongAvgAggFunction, ShortAvgAggFunction}
-import org.apache.flink.table.planner.functions.aggfunctions.SumAggFunction.{ByteSumAggFunction, DoubleSumAggFunction, FloatSumAggFunction, IntSumAggFunction, LongSumAggFunction, ShortSumAggFunction}
+import org.apache.flink.table.planner.functions.aggfunctions.Sum0AggFunction.{ByteSum0AggFunction, DoubleSum0AggFunction, FloatSum0AggFunction, IntSum0AggFunction, LongSum0AggFunction, ShortSum0AggFunction}
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable
@@ -197,14 +197,14 @@ object AggregateUtil extends Enumeration {
   }
 
   def deriveSumAndCountFromAvg(
-      avgAggFunction: UserDefinedFunction): (SumAggFunction, CountAggFunction) = {
+      avgAggFunction: UserDefinedFunction): (Sum0AggFunction, CountAggFunction) = {
     avgAggFunction match {
-      case _: ByteAvgAggFunction => (new ByteSumAggFunction, new CountAggFunction)
-      case _: ShortAvgAggFunction => (new ShortSumAggFunction, new CountAggFunction)
-      case _: IntAvgAggFunction => (new IntSumAggFunction, new CountAggFunction)
-      case _: LongAvgAggFunction => (new LongSumAggFunction, new CountAggFunction)
-      case _: FloatAvgAggFunction => (new FloatSumAggFunction, new CountAggFunction)
-      case _: DoubleAvgAggFunction => (new DoubleSumAggFunction, new CountAggFunction)
+      case _: ByteAvgAggFunction => (new ByteSum0AggFunction, new CountAggFunction)
+      case _: ShortAvgAggFunction => (new ShortSum0AggFunction, new CountAggFunction)
+      case _: IntAvgAggFunction => (new IntSum0AggFunction, new CountAggFunction)
+      case _: LongAvgAggFunction => (new LongSum0AggFunction, new CountAggFunction)
+      case _: FloatAvgAggFunction => (new FloatSum0AggFunction, new CountAggFunction)
+      case _: DoubleAvgAggFunction => (new DoubleSum0AggFunction, new CountAggFunction)
       case _ => {
         throw new TableException(s"Avg aggregate function does not support: ''$avgAggFunction''" +
           s"Please re-check the function or data type.")

@@ -285,7 +285,8 @@ public class HtapTypeUtils {
 		public Object visit(DoubleType doubleType) {
 			// If operator is not `=`, literal is `DecimalType`,
 			// so we should cast it down to `Double`
-			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof DecimalType) {
+			if (valueLiteralExpression.getOutputDataType()
+				.getLogicalType() instanceof DecimalType) {
 				BigDecimal value = valueLiteralExpression.getValueAs(BigDecimal.class)
 					.orElse(null);
 				if (value != null) {
@@ -313,7 +314,8 @@ public class HtapTypeUtils {
 						extracted = LocalDate.parse(extractedStr);
 					} catch (DateTimeParseException ignored) {
 						// do nothing here, extracted is still null.
-						LOG.warn("LocalDate cannot be parsed from Literal: {}", extractedStr, ignored);
+						LOG.warn("LocalDate cannot be parsed from Literal: {}",
+							extractedStr, ignored);
 					}
 				}
 			} else {
@@ -331,7 +333,7 @@ public class HtapTypeUtils {
 		@Override
 		public Object visit(TimestampType timestampType) {
 			// If operator is `=`, literal of expression is `CharType` and we should transform it
-			// to java.time.LocalTime or java.sql.Timestamp.
+			// to java.time.LocalDateTime or java.sql.Timestamp.
 			// If operator is not `=`, literal is auto casted by flink and we can just take it.
 			Object extracted = null;
 			if (valueLiteralExpression.getOutputDataType().getLogicalType() instanceof CharType) {
@@ -376,7 +378,8 @@ public class HtapTypeUtils {
 					} catch (DateTimeParseException ignored) {
 						// The hour of `java.time.LocalTime` should be between 0 to 23,
 						// so we ignore it if hour is larger than 23.
-						LOG.warn("LocalTime cannot be parsed from Literal: {}", extractedStr, ignored);
+						LOG.warn("LocalTime cannot be parsed from Literal: {}",
+							extractedStr, ignored);
 					}
 				}
 			} else {
@@ -394,6 +397,42 @@ public class HtapTypeUtils {
 		@Override
 		protected Object defaultMethod(LogicalType logicalType) {
 			return valueLiteralExpression.getValueAs(dataType.getConversionClass()).orElse(null);
+		}
+	}
+
+	/**
+	 * Convert a Long value to a Byte value.
+	 * @throws IllegalArgumentException if the Long value is out of Byte's valid range.
+	 */
+	public static Byte convertToByte(Long value) {
+		if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
+			return value.byteValue();
+		} else {
+			throw new IllegalArgumentException("Can not convert Long to Byte");
+		}
+	}
+
+	/**
+	 * Convert a Long value to a Short value.
+	 * @throws IllegalArgumentException if the Long value is out of Short's valid range.
+	 */
+	public static Short convertToShort(Long value) {
+		if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
+			return value.shortValue();
+		} else {
+			throw new IllegalArgumentException("Can not convert Long to Short");
+		}
+	}
+
+	/**
+	 * Convert a Long value to a Integer value.
+	 * @throws IllegalArgumentException if the Long value is out of Integer's valid range.
+	 */
+	public static Integer convertToInt(Long value) {
+		if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
+			return value.intValue();
+		} else {
+			throw new IllegalArgumentException("Can not convert Long to Integer");
 		}
 	}
 }

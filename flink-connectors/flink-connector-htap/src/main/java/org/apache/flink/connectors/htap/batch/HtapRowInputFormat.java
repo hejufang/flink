@@ -22,12 +22,15 @@ import org.apache.flink.api.common.io.DefaultInputSplitAssigner;
 import org.apache.flink.api.common.io.RichInputFormat;
 import org.apache.flink.api.common.io.statistics.BaseStatistics;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connectors.htap.connector.HtapAggregateInfo;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.connector.reader.HtapInputSplit;
 import org.apache.flink.connectors.htap.connector.reader.HtapReader;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderIterator;
+import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.core.io.InputSplitAssigner;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 
 import com.bytedance.htap.meta.HtapTable;
@@ -35,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -55,6 +58,10 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	private final List<HtapFilterInfo> tableFilters;
 	private final List<String> tableProjections;
+	private final List<HtapAggregateInfo> tableAggregates;
+	private final List<String> groupByColumns;
+	private final List<FlinkAggregateFunction> aggregateFunctions;
+	private final DataType outputDataType;
 
 	private boolean endReached;
 
@@ -62,25 +69,37 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private transient HtapReaderIterator resultIterator;
 
 	public HtapRowInputFormat(HtapReaderConfig readerConfig, HtapTable table) {
-		this(readerConfig, table, new ArrayList<>(), null);
+		this(readerConfig, table, Collections.emptyList(), Collections.emptyList(),
+			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null);
 	}
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
 			HtapTable table,
 			List<String> tableProjections) {
-		this(readerConfig, table, new ArrayList<>(), tableProjections);
+		this(readerConfig, table, Collections.emptyList(), tableProjections,
+			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null);
 	}
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
 			HtapTable table,
 			List<HtapFilterInfo> tableFilters,
-			List<String> tableProjections) {
+			List<String> tableProjections,
+			List<HtapAggregateInfo> tableAggregates,
+			List<String> groupByColumns,
+			List<FlinkAggregateFunction> aggregateFunctions,
+			DataType outputDataType) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.table = checkNotNull(table, "table could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
-		this.tableProjections = tableProjections;
+		this.tableProjections = checkNotNull(
+				tableProjections, "tableProjections could not be null");
+		this.tableAggregates = checkNotNull(tableAggregates, "tableAggregates could not be null");
+		this.groupByColumns = checkNotNull(groupByColumns, "groupByColumns could not be null");
+		this.aggregateFunctions = checkNotNull(
+				aggregateFunctions, "aggregateFunctions could not be null");
+		this.outputDataType = outputDataType;
 	}
 
 	@Override
@@ -96,7 +115,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	}
 
 	private void createHtapReader() throws IOException {
-		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections);
+		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
+			tableAggregates, groupByColumns, aggregateFunctions, outputDataType);
 	}
 
 	@Override
