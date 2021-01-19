@@ -46,6 +46,7 @@ import java.util.Properties;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_ASYNC_MODE_ENABLED;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_BATCH_FLUSH_ENABLED;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_BATCH_SIZE;
+import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_BROKER_QUEUE_LIST;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_CONSUMER_GROUP;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_CONSUMER_OFFSET_FROM_TIMESTAMP;
 import static org.apache.flink.streaming.connectors.rocketmq.table.descriptors.RocketMQValidator.CONNECTOR_CONSUMER_OFFSET_RESET_TO;
@@ -127,6 +128,7 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		properties.add(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED);
 		properties.add(CONNECTOR_KEYBY_FIELDS);
 		properties.add(CONNECTOR_DELAY_FIELD);
+		properties.add(CONNECTOR_BROKER_QUEUE_LIST);
 		properties.add(CONNECTOR_ROCKETMQ_PROPERTIES + ".*");
 
 		// schema
@@ -300,6 +302,8 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 			.ifPresent(v -> configurations.put(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED, String.valueOf(v)));
 		descriptorProperties.getOptionalString(CONNECTOR_DELAY_FIELD)
 			.ifPresent(d -> configurations.put(CONNECTOR_DELAY_FIELD, d));
+		descriptorProperties.getOptionalString(CONNECTOR_BROKER_QUEUE_LIST)
+			.ifPresent(b -> configurations.put(CONNECTOR_BROKER_QUEUE_LIST, b));
 		return configurations;
 	}
 

@@ -17,6 +17,7 @@
 
 package org.apache.flink.streaming.connectors.rocketmq.table.descriptors;
 
+import org.apache.flink.streaming.connectors.rocketmq.RocketMQUtils;
 import org.apache.flink.table.descriptors.ConnectorDescriptorValidator;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 
@@ -60,6 +61,7 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_BATCH_SIZE = "connector.batch-size";
 	public static final String CONNECTOR_ASYNC_MODE_ENABLED = "connector.async-mode-enabled";
 	public static final String CONNECTOR_DELAY_FIELD = "connector.delay-level-field";
+	public static final String CONNECTOR_BROKER_QUEUE_LIST = "connector.broker-queue-list";
 
 	public static final String CONNECTOR_FORCE_AUTO_COMMIT_ENABLED = "connector.force-auto-commit-enabled";
 	@Override
@@ -91,5 +93,11 @@ public class RocketMQValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_FORCE_AUTO_COMMIT_ENABLED, true);
 		properties.validateString(CONNECTOR_KEYBY_FIELDS, true, 1);
 		properties.validateString(CONNECTOR_DELAY_FIELD, true, 1);
+		properties.validateString(CONNECTOR_BROKER_QUEUE_LIST, true, 1);
+
+		String brokerQueueList =
+			properties.getOptionalString(CONNECTOR_BROKER_QUEUE_LIST).orElse(null);
+
+		RocketMQUtils.parseCluster2QueueList(brokerQueueList);
 	}
 }

@@ -39,6 +39,7 @@ import org.apache.flink.streaming.connectors.rocketmq.aggregate.SubTaskRunningSt
 import org.apache.flink.streaming.connectors.rocketmq.aggregate.TaskStateAggFunction;
 import org.apache.flink.streaming.connectors.rocketmq.serialization.RocketMQDeserializationSchema;
 import org.apache.flink.streaming.connectors.rocketmq.strategy.AllocateMessageQueueStrategyParallelism;
+import org.apache.flink.streaming.connectors.rocketmq.strategy.FixedMessageQueueStrategy;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -47,6 +48,7 @@ import org.apache.flink.util.RetryManager;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.map.LinkedMap;
+import org.apache.rocketmq.client.consumer.AllocateMessageQueueStrategy;
 import org.apache.rocketmq.client.consumer.DefaultMQPullConsumer;
 import org.apache.rocketmq.client.consumer.MQPullConsumerScheduleService;
 import org.apache.rocketmq.client.consumer.PullResult;
@@ -65,6 +67,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -106,7 +109,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private transient Counter skipDirty;
 	private transient MeterView recordsNumMeterView;
 	private transient MQPullConsumerScheduleService pullConsumerScheduleService;
-	private AllocateMessageQueueStrategyParallelism parallelismStrategy;
+	private transient AllocateMessageQueueStrategy parallelismStrategy;
 	private DefaultMQPullConsumer consumer;
 	private RocketMQDeserializationSchema<OUT> schema;
 	private RunningChecker runningChecker;
@@ -130,6 +133,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private String group;
 	/** If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled. */
 	private boolean forceAutoCommitEnabled;
+	private String brokerQueueList;
 	/** Weather there is an successful checkpoint. */
 	private transient volatile boolean hasSuccessfulCheckpoint;
 	private transient volatile boolean restored;
@@ -188,7 +192,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		defaultMQPullConsumer.setMessageModel(MessageModel.CLUSTERING);
 		pullConsumerScheduleService.setDefaultMQPullConsumer(defaultMQPullConsumer);
 		consumer = pullConsumerScheduleService.getDefaultMQPullConsumer();
-		parallelismStrategy = new AllocateMessageQueueStrategyParallelism(parallelism, subTaskId);
+		parallelismStrategy = getAllocStrategy(parallelism, subTaskId, cluster);
 		consumer.setAllocateMessageQueueStrategy(parallelismStrategy);
 
 		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
@@ -590,6 +594,29 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		if (isTaskRunning) {
 			processingTimeService.registerTimer(processingTimeService.getCurrentProcessingTime()
 				+ TaskStateAggFunction.DEFAULT_AGG_INTERVAL, this);
+		}
+	}
+
+	public void setBrokerQueueList(String brokerQueueList) {
+		this.brokerQueueList = brokerQueueList;
+	}
+
+	private AllocateMessageQueueStrategy getAllocStrategy(int parallelismNum, int subTaskId, String cluster) {
+		Map<String, List<MessageQueue>> map = RocketMQUtils.parseCluster2QueueList(brokerQueueList);
+		List<MessageQueue> queues = map.get(cluster);
+		if (queues == null) {
+			LOG.info("Cluster {} not specific queues.", cluster);
+			return new AllocateMessageQueueStrategyParallelism(parallelismNum, subTaskId);
+		} else {
+			List<MessageQueue> sortedQueue = new ArrayList<>(queues);
+			sortedQueue.sort(MessageQueue::compareTo);
+			Set<MessageQueue> queuesInCurTask = new HashSet<>();
+			for (int i = 0; i < sortedQueue.size(); i++) {
+				if (i % parallelismNum == subTaskId) {
+					queuesInCurTask.add(sortedQueue.get(i));
+				}
+			}
+			return new FixedMessageQueueStrategy(queuesInCurTask, subTaskId);
 		}
 	}
 }

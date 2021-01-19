@@ -649,6 +649,13 @@ public final class Utils {
 				ConfigConstants.PARTITION_LIST_KEY, partitionList);
 		}
 
+		String rocketMQBrokerQueueList = env.get(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+		if (rocketMQBrokerQueueList != null && rocketMQBrokerQueueList.isEmpty()) {
+			containerEnv.put(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, rocketMQBrokerQueueList);
+			LOG.info("Set {} in container environment = {}",
+				ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, rocketMQBrokerQueueList);
+		}
+
 		if (remoteKeytabPath != null && remoteKeytabPrincipal != null) {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PATH, remoteKeytabPath);
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, remoteKeytabPrincipal);

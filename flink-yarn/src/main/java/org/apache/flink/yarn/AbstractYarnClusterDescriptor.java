@@ -1073,6 +1073,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			LOG.info("{} = {}", ConfigConstants.PARTITION_LIST_KEY, partitionList);
 		}
 
+		String brokerQueueList = configuration.getString(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, null);
+		if (brokerQueueList != null) {
+			appMasterEnv.put(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+			LOG.info("{} = {}", ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+		}
+
 		appMasterEnv.put(YarnConfigKeys.ENV_SPT_NOENV, SPT_NOENV);
 
 		String dc = configuration.getString(ConfigConstants.DC_KEY, null);

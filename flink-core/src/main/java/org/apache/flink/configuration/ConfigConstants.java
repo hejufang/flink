@@ -2169,6 +2169,13 @@ public final class ConfigConstants {
 	public static final String PARTITION_LIST_OLD_KEY = "partition.list";
 	public static final String PARTITION_LIST_KEY = "partition_list";
 
+	// ---------------------------- RocketMQ Configurations ---------------------------
+	/**
+	 * This will be get from system environment in AbstractYarnClusterDescriptor#startAppMaster,
+	 * and set it to container system in org.apache.flink.yarn.Utils. And it will be used in rocketMQ connector.
+	 */
+	public static final String ROCKETMQ_BROKER_QUEUE_LIST_KEY = "rocketmq_broker_queue_list";
+
 	// ---------------------------- Data Warehouse ---------------------------
 	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_KEY = "warehouse.channel";
 	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT = "flink_dw_metrics";
