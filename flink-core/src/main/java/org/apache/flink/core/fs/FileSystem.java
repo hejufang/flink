@@ -51,6 +51,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
@@ -359,8 +360,17 @@ public abstract class FileSystem {
 		return FileSystemSafetyNet.wrapWithSafetyNetWhenActivated(getUnguardedFileSystem(uri));
 	}
 
+	public static FileSystem get(URI uri, boolean useVipConf) throws IOException {
+		return FileSystemSafetyNet.wrapWithSafetyNetWhenActivated(getUnguardedFileSystem(uri, useVipConf));
+	}
+
 	@Internal
 	public static FileSystem getUnguardedFileSystem(final URI fsUri) throws IOException {
+		return getUnguardedFileSystem(fsUri, false);
+	}
+
+	@Internal
+	public static FileSystem getUnguardedFileSystem(final URI fsUri, final boolean useVipConf) throws IOException {
 		checkNotNull(fsUri, "file system URI");
 
 		LOCK.lock();
@@ -411,7 +421,7 @@ public abstract class FileSystem {
 						+ uri.toString() + "'. Hint: Did you forget a slash? (correct path would be '" + supposedUri + "')");
 			}
 
-			final FSKey key = new FSKey(uri.getScheme(), uri.getAuthority());
+			final FSKey key = new FSKey(uri.getScheme(), uri.getAuthority(), useVipConf);
 
 			// See if there is a file system object in the cache
 			{
@@ -435,12 +445,12 @@ public abstract class FileSystem {
 			if (factory != null) {
 				ClassLoader classLoader = factory.getClassLoader();
 				try (TemporaryClassLoaderContext classLoaderContext = new TemporaryClassLoaderContext(classLoader)) {
-					fs = factory.create(uri);
+					fs = factory.create(uri, useVipConf);
 				}
 			}
 			else {
 				try {
-					fs = FALLBACK_FACTORY.create(uri);
+					fs = FALLBACK_FACTORY.create(uri, useVipConf);
 				}
 				catch (UnsupportedFileSystemSchemeException e) {
 					throw new UnsupportedFileSystemSchemeException(
@@ -1094,42 +1104,46 @@ public abstract class FileSystem {
 		@Nullable
 		private final String authority;
 
+		private boolean useVipConf;
+
 		/**
 		 * Creates a file system key from a given scheme and an authority.
 		 *
 		 * @param scheme     The scheme of the file system
 		 * @param authority  The authority of the file system
 		 */
-		public FSKey(String scheme, @Nullable String authority) {
+		public FSKey(String scheme, @Nullable String authority, boolean useVipConf) {
 			this.scheme = checkNotNull(scheme, "scheme");
 			this.authority = authority;
+			this.useVipConf = useVipConf;
 		}
 
 		@Override
-		public boolean equals(final Object obj) {
-			if (obj == this) {
+		public boolean equals(Object o) {
+			if (this == o) {
 				return true;
 			}
-			else if (obj != null && obj.getClass() == FSKey.class) {
-				final FSKey that = (FSKey) obj;
-				return this.scheme.equals(that.scheme) &&
-						(this.authority == null ? that.authority == null :
-								(that.authority != null && this.authority.equals(that.authority)));
-			}
-			else {
+			if (o == null || getClass() != o.getClass()) {
 				return false;
 			}
+			FSKey fsKey = (FSKey) o;
+			return useVipConf == fsKey.useVipConf &&
+					Objects.equals(scheme, fsKey.scheme) &&
+					Objects.equals(authority, fsKey.authority);
 		}
 
 		@Override
 		public int hashCode() {
-			return 31 * scheme.hashCode() +
-					(authority == null ? 17 : authority.hashCode());
+			return Objects.hash(scheme, authority, useVipConf);
 		}
 
 		@Override
 		public String toString() {
-			return scheme + "://" + (authority != null ? authority : "");
+			return "FSKey{" +
+					"scheme='" + scheme + '\'' +
+					", authority='" + authority + '\'' +
+					", useVipConf=" + useVipConf +
+					'}';
 		}
 	}
 }

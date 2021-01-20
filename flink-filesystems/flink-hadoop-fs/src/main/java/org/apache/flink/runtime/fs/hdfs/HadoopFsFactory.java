@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.FileSystemFactory;
 import org.apache.flink.core.fs.LimitedConnectionsFileSystem;
 import org.apache.flink.core.fs.LimitedConnectionsFileSystem.ConnectionLimitingSettings;
 import org.apache.flink.core.fs.UnsupportedFileSystemSchemeException;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.util.HadoopUtils;
 
 import org.slf4j.Logger;
@@ -67,6 +68,11 @@ public class HadoopFsFactory implements FileSystemFactory {
 
 	@Override
 	public FileSystem create(URI fsUri) throws IOException {
+		return create(fsUri, false);
+	}
+
+	@Override
+	public FileSystem create(URI fsUri, boolean useVipConf) throws IOException {
 		checkNotNull(fsUri, "fsUri");
 
 		final String scheme = fsUri.getScheme();
@@ -110,6 +116,17 @@ public class HadoopFsFactory implements FileSystemFactory {
 			LOG.debug("Instantiating for file system scheme {} Hadoop File System {}", scheme, fsClass.getName());
 
 			final org.apache.hadoop.fs.FileSystem hadoopFs = fsClass.newInstance();
+			if (useVipConf) {
+				String ipPort;
+				if (hadoopConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key()) == null) {
+					ipPort = HdfsConfigOptions.HDFS_VIP_IP_PORT.defaultValue();
+				} else {
+					ipPort = hadoopConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key());
+				}
+
+				LOG.info("Hadoop is using vip conf on {}.", ipPort);
+				org.apache.hadoop.fs.FileSystem.SetVipConf(hadoopConfig, ipPort);
+			}
 
 			// -- (4) create the proper URI to initialize the file system
 
