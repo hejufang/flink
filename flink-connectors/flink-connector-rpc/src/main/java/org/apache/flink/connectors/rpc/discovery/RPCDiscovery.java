@@ -31,9 +31,18 @@ import java.util.stream.Collectors;
  */
 public class RPCDiscovery {
 
-	private static final Discovery discovery = new Discovery();
+	private static volatile Discovery discovery;
+
+	private static synchronized void init() {
+		if (discovery == null) {
+			discovery = new Discovery();
+		}
+	}
 
 	public static List<HostPort> getHostPorts(String consul, String cluster, int limit) {
+		if (discovery == null) {
+			init();
+		}
 		Preconditions.checkArgument(limit > 0, "limit should > 0");
 		List<HostPort> hostPorts = discovery.translateOne(consul).stream()
 			.filter(serviceNode -> {

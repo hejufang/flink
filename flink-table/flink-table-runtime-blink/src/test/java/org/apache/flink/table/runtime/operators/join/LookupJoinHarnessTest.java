@@ -34,6 +34,7 @@ import org.apache.flink.table.dataformat.BinaryString;
 import org.apache.flink.table.dataformat.GenericRow;
 import org.apache.flink.table.dataformat.JoinedRow;
 import org.apache.flink.table.functions.MiniBatchTableFunction;
+import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.runtime.collector.TableFunctionCollector;
 import org.apache.flink.table.runtime.generated.GeneratedCollectorWrapper;
 import org.apache.flink.table.runtime.generated.GeneratedFunctionWrapper;
@@ -554,7 +555,8 @@ public class LookupJoinHarnessTest {
 	/**
 	 * Test class for mini batch lookup fetch which extends {@link TestMiniBatchTableFunction }.
 	 */
-	public static final class TestMiniBatchTableFunction extends MiniBatchTableFunction<Row> {
+	public static final class TestMiniBatchTableFunction extends TableFunction<Row>
+		implements MiniBatchTableFunction<Row> {
 		private static final Map<Integer, List<Row>> data = new HashMap<>();
 
 		public TestMiniBatchTableFunction() {
@@ -595,9 +597,8 @@ public class LookupJoinHarnessTest {
 	 * Test class for mini batch lookup fetch which extends {@link TestMiniBatchTableFunction }.
 	 * It returns empty result.
 	 */
-	public static final class TestMiniBatchTableFunctionWrongResultCount
-		extends MiniBatchTableFunction<BaseRow> {
-
+	public static final class TestMiniBatchTableFunctionWrongResultCount extends TableFunction<Row>
+		implements MiniBatchTableFunction<BaseRow> {
 		public static long serialVersionUID = 1L;
 
 		@Override

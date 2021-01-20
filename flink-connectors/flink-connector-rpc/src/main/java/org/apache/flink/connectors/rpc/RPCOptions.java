@@ -19,7 +19,6 @@ package org.apache.flink.connectors.rpc;
 
 import org.apache.flink.connectors.rpc.thrift.TransportType;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.util.RetryManager;
 
 import java.io.Serializable;
 
@@ -35,56 +34,43 @@ public class RPCOptions implements Serializable {
 	private final String cluster;
 	private final int consulIntervalSeconds;
 	private final String psm;
+	private final String testHostPort;
 	// thrift
 	private final String thriftServiceClass;
 	private final String thriftMethod;
 	private final TransportType transportType;
 	// connect
 	private final int connectTimeoutMs;
-	private final String responseValue;
 	private final int connectionPoolSize;
-	// batch
-	private final String batchClass;
-	private final int batchSize;
-	private final int flushTimeoutMs;
-	private final String batchConstantValue;
 
-	private final RetryManager.Strategy retryStrategy;
-	private final int sinkParallelism;
+	private String batchConstantValue;
+	private final int batchSize;
 
 	private RPCOptions(
 			String consul,
 			String cluster,
 			int consulIntervalSeconds,
 			String psm,
+			String testHostPort,
 			String thriftServiceClass,
 			String thriftMethod,
 			TransportType transportType,
 			int connectTimeoutMs,
-			String responseValue,
 			int connectionPoolSize,
-			String batchClass,
-			int batchSize,
-			int flushTimeoutMs,
 			String batchConstantValue,
-			RetryManager.Strategy retryStrategy,
-			int sinkParallelism) {
+			int batchSize) {
 		this.consul = consul;
 		this.cluster = cluster;
 		this.consulIntervalSeconds = consulIntervalSeconds;
 		this.psm = psm;
+		this.testHostPort = testHostPort;
 		this.thriftServiceClass = thriftServiceClass;
 		this.thriftMethod = thriftMethod;
 		this.transportType = transportType;
 		this.connectTimeoutMs = connectTimeoutMs;
-		this.responseValue = responseValue;
 		this.connectionPoolSize = connectionPoolSize;
-		this.batchClass = batchClass;
-		this.batchSize = batchSize;
-		this.flushTimeoutMs = flushTimeoutMs;
 		this.batchConstantValue = batchConstantValue;
-		this.retryStrategy = retryStrategy;
-		this.sinkParallelism = sinkParallelism;
+		this.batchSize = batchSize;
 	}
 
 	public String getConsul() {
@@ -119,36 +105,20 @@ public class RPCOptions implements Serializable {
 		return connectTimeoutMs;
 	}
 
-	public String getResponseValue() {
-		return responseValue;
-	}
-
 	public int getConnectionPoolSize() {
 		return connectionPoolSize;
 	}
 
-	public String getBatchClass() {
-		return batchClass;
-	}
-
-	public int getBatchSize() {
-		return batchSize;
-	}
-
-	public int getFlushTimeoutMs() {
-		return flushTimeoutMs;
+	public String getTestHostPort() {
+		return testHostPort;
 	}
 
 	public String getBatchConstantValue() {
 		return batchConstantValue;
 	}
 
-	public RetryManager.Strategy getRetryStrategy() {
-		return retryStrategy;
-	}
-
-	public int getSinkParallelism() {
-		return sinkParallelism;
+	public int getBatchSize() {
+		return batchSize;
 	}
 
 	/**
@@ -164,26 +134,20 @@ public class RPCOptions implements Serializable {
 	 */
 	public static class Builder {
 		// consul
-		private String consul = null;
-		private String cluster = null;
+		private String consul;
+		private String cluster;
 		private int consulIntervalSeconds = 600; // default 10 min
 		private String psm;
+		private String testHostPort;
 		// thrift
-		private String thriftServiceClass = null;
-		private String thriftMethod = null;
+		private String thriftServiceClass;
+		private String thriftMethod;
 		private TransportType transportType = TransportType.Framed;
 		// connect
 		private int connectTimeoutMs = 10_000; // default 10s
-		private String responseValue = null;
 		private int connectionPoolSize = 4; // default 4 connections
-		// batch
-		private String batchClass = null;
-		private int batchSize = 1; // default no batch
-		private int flushTimeoutMs = -1; // default no flush timeout
-		private String batchConstantValue = null;
-
-		private RetryManager.Strategy retryStrategy;
-		private int sinkParallelism = -1; // default -1, not set.
+		private String batchConstantValue;
+		private int batchSize = 1;
 
 		private Builder() {
 		}
@@ -228,28 +192,13 @@ public class RPCOptions implements Serializable {
 			return this;
 		}
 
-		public Builder setResponseValue(String responseValue) {
-			this.responseValue = responseValue;
-			return this;
-		}
-
 		public Builder setConnectionPoolSize(int connectionPoolSize) {
 			this.connectionPoolSize = connectionPoolSize;
 			return this;
 		}
 
-		public Builder setBatchClass(String batchClass) {
-			this.batchClass = batchClass;
-			return this;
-		}
-
-		public Builder setBatchSize(int batchSize) {
-			this.batchSize = batchSize;
-			return this;
-		}
-
-		public Builder setFlushTimeoutMs(int flushTimeoutMs) {
-			this.flushTimeoutMs = flushTimeoutMs;
+		public Builder setTestHostPort(String testHostPort) {
+			this.testHostPort = testHostPort;
 			return this;
 		}
 
@@ -258,13 +207,8 @@ public class RPCOptions implements Serializable {
 			return this;
 		}
 
-		public Builder setRetryStrategy(RetryManager.Strategy retryStrategy) {
-			this.retryStrategy = retryStrategy;
-			return this;
-		}
-
-		public Builder setSinkParallelism(int sinkParallelism) {
-			this.sinkParallelism = sinkParallelism;
+		public Builder setBatchSize(int batchSize) {
+			this.batchSize = batchSize;
 			return this;
 		}
 
@@ -277,18 +221,14 @@ public class RPCOptions implements Serializable {
 				cluster,
 				consulIntervalSeconds,
 				psm,
+				testHostPort,
 				thriftServiceClass,
 				thriftMethod,
 				transportType,
 				connectTimeoutMs,
-				responseValue,
 				connectionPoolSize,
-				batchClass,
-				batchSize,
-				flushTimeoutMs,
 				batchConstantValue,
-				retryStrategy,
-				sinkParallelism
+				batchSize
 			);
 		}
 	}

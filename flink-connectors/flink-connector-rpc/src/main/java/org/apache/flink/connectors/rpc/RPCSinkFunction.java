@@ -23,6 +23,7 @@ import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverter;
 import org.apache.flink.connectors.rpc.thrift.SerializationRuntimeConverterFactory;
 import org.apache.flink.connectors.rpc.thrift.ThriftRPCClient;
 import org.apache.flink.connectors.rpc.thrift.ThriftUtil;
+import org.apache.flink.connectors.rpc.util.JsonUtil;
 import org.apache.flink.connectors.rpc.util.ObjectUtil;
 import org.apache.flink.connectors.rpc.util.SecUtil;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
@@ -35,6 +36,10 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.RetryManager;
 
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonParser;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,8 +51,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.connectors.rpc.thrift.ThriftRPCClient.CLIENT_CLASS_SUFFIX;
-
 /**
  * RPC SinkFunction handles each record, and buffers them if necessary.
  */
@@ -56,7 +59,8 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	private static final long serialVersionUID = 1L;
 	private static final Logger LOG = LoggerFactory.getLogger(RPCSinkFunction.class);
 
-	private final RPCOptions options;
+	private final RPCOptions rpcOptions;
+	private final RPCSinkOptions rpcSinkOptions;
 	private final Class<?> requestClass;
 	private RetryManager.Strategy retryStrategy;
 	private final ThriftRPCClient thriftRPCClient;
@@ -68,15 +72,31 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	private transient ScheduledFuture<?> scheduledFuture;
 	private transient SerializationRuntimeConverter runtimeConverter;
 	private transient Field baseField;
-
 	private String psm;
 
-	public RPCSinkFunction(RPCOptions options, RowType rowType) {
+	private final ObjectMapper objectMapper = new ObjectMapper().disable(JsonParser.Feature.ALLOW_MISSING_VALUES);
+
+	public RPCSinkFunction(RPCOptions rpcOptions, RPCSinkOptions rpcSinkOptions, RowType rowType) {
+		Class<?> serviceClientClass = ThriftUtil.getThriftClientClass(rpcOptions.getThriftServiceClass());
 		this.requestClass = ThriftUtil.getParameterClassOfMethod(
-			options.getThriftServiceClass() + CLIENT_CLASS_SUFFIX, options.getThriftMethod());
-		this.options = options;
-		this.thriftRPCClient = new ThriftRPCClient(options, requestClass);
+			serviceClientClass.getName(), rpcOptions.getThriftMethod());
+		this.rpcOptions = rpcOptions;
+		this.rpcSinkOptions = rpcSinkOptions;
+		if (rpcSinkOptions.getRequestBatchClass() != null) {
+			Class<?> requestBatchClass;
+			try {
+				requestBatchClass = Class.forName(rpcSinkOptions.getRequestBatchClass());
+			} catch (ClassNotFoundException e) {
+				throw new FlinkRuntimeException(e);
+			}
+			this.thriftRPCClient = new ThriftRPCClient(rpcOptions,
+				ThriftUtil.getFieldNameOfRequestList(requestClass, requestBatchClass));
+		} else {
+			this.thriftRPCClient = new ThriftRPCClient(rpcOptions, null);
+		}
+
 		this.rowType = rowType;
+		this.psm = rpcOptions.getPsm();
 	}
 
 	@Override
@@ -91,11 +111,11 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
-		if (options.getBatchClass() == null) {
+		if (rpcSinkOptions.getRequestBatchClass() == null) {
 			runtimeConverter = SerializationRuntimeConverterFactory.createRowConverter(requestClass, rowType);
 		} else {
 			runtimeConverter = SerializationRuntimeConverterFactory
-				.createRowConverter(Class.forName(options.getBatchClass()), rowType);
+				.createRowConverter(Class.forName(rpcSinkOptions.getRequestBatchClass()), rowType);
 		}
 		if (psm == null) {
 			psm = SecUtil.getIdentityFromToken().PSM;
@@ -110,11 +130,11 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 		thriftRPCClient.open();
 
 		requestList = new ArrayList<>();
-		if (options.getRetryStrategy() != null) {
-			this.retryStrategy = options.getRetryStrategy().copy();
+		if (rpcSinkOptions.getRetryStrategy() != null) {
+			this.retryStrategy = rpcSinkOptions.getRetryStrategy().copy();
 		}
 
-		if (options.getFlushTimeoutMs() > 0) {
+		if (rpcSinkOptions.getFlushTimeoutMs() > 0) {
 			this.scheduler = Executors.newScheduledThreadPool(
 				1, new ExecutorThreadFactory("rpc-sink-function"));
 			this.scheduledFuture = this.scheduler.scheduleWithFixedDelay(() -> {
@@ -128,7 +148,7 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 						flushException = e;
 					}
 				}
-			}, options.getFlushTimeoutMs(), options.getFlushTimeoutMs(), TimeUnit.MILLISECONDS);
+			}, rpcSinkOptions.getFlushTimeoutMs(), rpcSinkOptions.getFlushTimeoutMs(), TimeUnit.MILLISECONDS);
 		}
 
 	}
@@ -165,7 +185,7 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 			ObjectUtil.setPsm(requestValue, baseField, psm);
 		}
 		requestList.add(requestValue);
-		if (requestList.size() >= options.getBatchSize()) {
+		if (requestList.size() >= rpcOptions.getBatchSize()) {
 			flush();
 		}
 	}
@@ -184,8 +204,30 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 
 	private synchronized void sendRequest() {
 		Object response = thriftRPCClient.sendRequest(requestList);
-		thriftRPCClient.checkResponse(response);
+		checkResponse(response);
 		requestList.clear();
+	}
+
+	/**
+	 * This method is used for judge whether the rpc sink is success.
+	 * It will map the response object to json string. If user provide expected response value
+	 * which is also json format, it will judge whether method response contains all user provide
+	 * json field value. If user doesn't provide response value, we suppose sink always success.
+	 * @param response the rpc method response object.
+	 */
+	public void checkResponse(Object response) {
+		String responseJson;
+		try {
+			responseJson = objectMapper.writeValueAsString(response);
+		} catch (JsonProcessingException e) {
+			throw new FlinkRuntimeException(String.format("Mapping response object : %s to json string failed.",
+				response), e);
+		}
+		if (rpcSinkOptions.getResponseValue() != null &&
+			!JsonUtil.isSecondJsonCoversFirstJson(rpcSinkOptions.getResponseValue(), responseJson)) {
+			throw new FlinkRuntimeException(
+				String.format("Send request failed. The response value is : %s.", responseJson));
+		}
 	}
 
 	private void checkFlushException() {
