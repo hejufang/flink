@@ -19,7 +19,7 @@
 
 rm -rf output
 
-mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars
+mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars -Pdocs-and-source
 
 # copy flink-1.11 to output
 mkdir -p output/deploy/flink-1.11
