@@ -23,6 +23,7 @@ import org.apache.flink.api.common.functions.util.PrintSinkOutputWriter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
@@ -38,6 +39,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 
 /**
  * Print table sink factory writing every row to the standard output or standard error stream.
@@ -91,6 +93,7 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		options.add(PRINT_IDENTIFIER);
 		options.add(STANDARD_ERROR);
 		options.add(PRINT_SAMPLE_RATIO);
+		options.add(PARALLELISM);
 		return options;
 	}
 
@@ -103,7 +106,8 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 				context.getCatalogTable().getSchema().toPhysicalRowDataType(),
 				options.get(PRINT_IDENTIFIER),
 				options.get(STANDARD_ERROR),
-				options.get(PRINT_SAMPLE_RATIO));
+				options.get(PRINT_SAMPLE_RATIO),
+				options.get(PARALLELISM));
 	}
 
 	private static class PrintSink implements DynamicTableSink {
@@ -112,12 +116,19 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		private final String printIdentifier;
 		private final boolean stdErr;
 		private final double printSampleRatio;
+		private final int parallelism;
 
-		private PrintSink(DataType type, String printIdentifier, boolean stdErr, double printSampleRatio) {
+		private PrintSink(
+				DataType type,
+				String printIdentifier,
+				boolean stdErr,
+				double printSampleRatio,
+				int parallelism) {
 			this.type = type;
 			this.printIdentifier = printIdentifier;
 			this.stdErr = stdErr;
 			this.printSampleRatio = printSampleRatio;
+			this.parallelism = parallelism;
 		}
 
 		@Override
@@ -128,12 +139,13 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 		@Override
 		public SinkRuntimeProvider getSinkRuntimeProvider(DynamicTableSink.Context context) {
 			DataStructureConverter converter = context.createDataStructureConverter(type);
-			return SinkFunctionProvider.of(new RowDataPrintFunction(converter, printIdentifier, stdErr, printSampleRatio));
+			return SinkFunctionProvider.of(new RowDataPrintFunction(
+				converter, printIdentifier, stdErr, printSampleRatio, parallelism));
 		}
 
 		@Override
 		public DynamicTableSink copy() {
-			return new PrintSink(type, printIdentifier, stdErr, printSampleRatio);
+			return new PrintSink(type, printIdentifier, stdErr, printSampleRatio, parallelism);
 		}
 
 		@Override
@@ -146,19 +158,26 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 	 * Implementation of the SinkFunction converting {@link RowData} to string and
 	 * passing to {@link PrintSinkFunction}.
 	 */
-	private static class RowDataPrintFunction extends RichSinkFunction<RowData> {
+	private static class RowDataPrintFunction extends RichSinkFunction<RowData>
+			implements SpecificParallelism {
 
 		private static final long serialVersionUID = 1L;
 
 		private final DataStructureConverter converter;
 		private final PrintSinkOutputWriter<String> writer;
 		private final double printSampleRatio;
+		private final int parallelism;
 
 		private RowDataPrintFunction(
-				DataStructureConverter converter, String printIdentifier, boolean stdErr, double printSampleRatio) {
+				DataStructureConverter converter,
+				String printIdentifier,
+				boolean stdErr,
+				double printSampleRatio,
+				int parallelism) {
 			this.converter = converter;
 			this.printSampleRatio = printSampleRatio;
 			this.writer = new PrintSinkOutputWriter<>(printIdentifier, stdErr);
+			this.parallelism = parallelism;
 		}
 
 		@Override
@@ -175,6 +194,11 @@ public class PrintTableSinkFactory implements DynamicTableSinkFactory {
 				Object data = converter.toExternal(value);
 				writer.write(rowKind + "(" + data + ")");
 			}
+		}
+
+		@Override
+		public int getParallelism() {
+			return parallelism;
 		}
 	}
 }
