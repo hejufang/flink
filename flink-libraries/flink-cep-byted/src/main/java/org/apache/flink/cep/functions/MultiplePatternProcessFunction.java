@@ -20,6 +20,7 @@ package org.apache.flink.cep.functions;
 
 import org.apache.flink.api.common.functions.AbstractRichFunction;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.time.TimeContext;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
@@ -53,6 +54,10 @@ public abstract class MultiplePatternProcessFunction<IN, OUT> extends AbstractRi
 			final Object key,
 			final Collector<OUT> out) throws Exception;
 
+	public void processUnMatch(final IN event, final Context ctx, final Object key, final Collector<OUT> out) {}
+
+	public void processNewPattern(final Pattern<IN, IN> pattern) {}
+
 	/**
 	 * Gives access to time related characteristics as well as enables emitting elements to side outputs.
 	 */
@@ -64,5 +69,7 @@ public abstract class MultiplePatternProcessFunction<IN, OUT> extends AbstractRi
 		 * @param value The record to emit.
 		 */
 		<X> void output(final OutputTag<X> outputTag, final X value);
+
+		Pattern currentPattern();
 	}
 }

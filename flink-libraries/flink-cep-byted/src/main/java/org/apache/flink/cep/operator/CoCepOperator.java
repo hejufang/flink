@@ -298,6 +298,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.usingNFAs.put(patternId, nfa);
 		this.patternStates.put(patternId, pattern);
 		this.partialMatches.put(patternId, new SharedBuffer<>(generateUniqueId(patternId, hash), getKeyedStateStore(), inputSerializer));
+		this.userFunction.processNewPattern(pattern);
 	}
 
 	private NFA<IN> compileNFA(Pattern<IN, IN> pattern) {
@@ -546,6 +547,9 @@ public class CoCepOperator<IN, KEY, OUT>
 			Collection<Map<String, List<IN>>> patterns =
 					usingNFAs.get(nfaState.getPatternId()).process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
 			processMatchedSequences(nfaState.getPatternId(), patterns, timestamp);
+			if (patterns.isEmpty()) {
+				getUserFunction().processUnMatch(event, context, getCurrentKey(), collector);
+			}
 		}
 	}
 
@@ -572,7 +576,7 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	private void processMatchedSequences(String patternId, Iterable<Map<String, List<IN>>> matchingSequences, long timestamp) throws Exception {
 		MultiplePatternProcessFunction<IN, OUT> function = getUserFunction();
-		setTimestamp(timestamp);
+		setContext(timestamp, patternStates.get(patternId));
 		for (Map<String, List<IN>> matchingSequence : matchingSequences) {
 			usingNFAs.get(patternId).clearStateWhenOutput();
 			function.processMatch(Tuple2.of(patternId, matchingSequence), context, getCurrentKey(), collector);
@@ -587,19 +591,20 @@ public class CoCepOperator<IN, KEY, OUT>
 			MultiplePatternTimedOutPartialMatchHandler<IN> timeoutHandler = (MultiplePatternTimedOutPartialMatchHandler<IN>) function;
 
 			for (Tuple2<Map<String, List<IN>>, Long> matchingSequence : timedOutSequences) {
-				setTimestamp(matchingSequence.f1);
+				setContext(matchingSequence.f1, patternStates.get(patternId));
 				usingNFAs.get(patternId).clearStateWhenOutput();
 				timeoutHandler.processTimedOutMatch(Tuple2.of(patternId, matchingSequence.f0), getCurrentKey(), context);
 			}
 		}
 	}
 
-	private void setTimestamp(long timestamp) {
+	private void setContext(long timestamp, Pattern<IN, IN> pattern) {
 		if (!isProcessingTime) {
 			collector.setAbsoluteTimestamp(timestamp);
 		}
 
 		context.setTimestamp(timestamp);
+		context.setCurrentPattern(pattern);
 	}
 
 	/**
@@ -628,6 +633,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	private class ContextFunctionImpl implements MultiplePatternProcessFunction.Context {
 
 		private Long timestamp;
+		private Pattern<IN, IN> currentPattern;
 
 		@Override
 		public <X> void output(final OutputTag<X> outputTag, final X value) {
@@ -640,8 +646,17 @@ public class CoCepOperator<IN, KEY, OUT>
 			output.collect(outputTag, record);
 		}
 
+		void setCurrentPattern(Pattern<IN, IN> pattern) {
+			this.currentPattern = pattern;
+		}
+
 		void setTimestamp(long timestamp) {
 			this.timestamp = timestamp;
+		}
+
+		@Override
+		public Pattern<IN, IN> currentPattern() {
+			return currentPattern;
 		}
 
 		@Override

@@ -31,7 +31,7 @@ under the License.
     </parent>
 
     <artifactId>flink-cep-byted_${scala.binary.version}</artifactId>
-    <version>1.9.1-byted-0.1-SNAPSHOT</version>
+    <version>1.9.1-byted-0.2-SNAPSHOT</version>
     <name>flink-cep</name>
     <packaging>jar</packaging>
 
