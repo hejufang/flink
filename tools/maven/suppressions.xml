@@ -64,4 +64,13 @@ under the License.
 		<suppress
 			files="generated-sources[\\/]thrift[\\/]org[\\/]apache[\\/]flink[\\/]connectors[\\/]rpc[\\/]thrift[\\/].*..java"
 			checks=".*"/>
+		<suppress
+			files="generated-sources[\\/]thrift[\\/]org[\\/]apache[\\/]flink[\\/]connectors[\\/]rpc[\\/]thriftexample[\\/].*..java"
+			checks=".*"/>
+		<suppress
+			files="generated-test-sources[\\/]thrift[\\/]org[\\/]apache[\\/]flink[\\/]connectors[\\/]rpc[\\/]thrift[\\/].*..java"
+			checks=".*"/>
+		<suppress
+			files="generated-test-sources[\\/]thrift[\\/]org[\\/]apache[\\/]flink[\\/]connectors[\\/]rpc[\\/]thriftexample[\\/].*..java"
+			checks=".*"/>
 </suppressions>
