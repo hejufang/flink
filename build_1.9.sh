@@ -20,7 +20,7 @@
 rm -rf output
 
 # compile current branch
-mvn clean -U package -DskipTests -Pinclude-hadoop
+mvn clean -U package -DskipTests -Pinclude-hadoop -Pdocs-and-source
 # copy flink-1.9 to output
 mkdir -p output
 rm -rf flink-dist/target/flink-1.9.1-byted-SNAPSHOT-bin/flink-1.9.1-byted-SNAPSHOT/opt
