@@ -134,10 +134,6 @@ under the License.
 									<shadedPattern>org.apache.flink.kafka010.shaded.net.jpountz</shadedPattern>
 								</relocation>
 								<relocation>
-									<pattern>org.xerial.snappy</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.org.xerial.snappy</shadedPattern>
-								</relocation>
-								<relocation>
 									<pattern>org.byted.infsec</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.byted.infsec</shadedPattern>
 								</relocation>
