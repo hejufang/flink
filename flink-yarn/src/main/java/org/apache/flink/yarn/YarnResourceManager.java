@@ -368,6 +368,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		blacklistReporter.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
 
 		this.env = env;
+		Utils.initRemoteFileStatusCache(this.yarnConfig, this.env);
 		this.workerNodeMap = new ConcurrentHashMap<>();
 		final int yarnHeartbeatIntervalMS = flinkConfig.getInteger(
 				YarnConfigOptions.HEARTBEAT_DELAY_SECONDS) * 1000;

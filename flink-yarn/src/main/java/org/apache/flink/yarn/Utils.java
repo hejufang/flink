@@ -68,12 +68,14 @@ import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.NETWORK_BOUNDED_BLOCKING_SUBPARTITION_TYPE;
@@ -116,6 +118,42 @@ public final class Utils {
 
 	/** Initialize this variable at the first time containFlinkShuffleService() method been called. */
 	private static Boolean containFlinkShuffleService = null;
+
+	private static final Map<Path, FileStatus> remoteFileStatusCache = new ConcurrentHashMap<>();
+
+	public static void initRemoteFileStatusCache(YarnConfiguration yarnConfig, Map<String, String> env) {
+		try {
+			List<String> remoteFiles = new ArrayList<>();
+			remoteFiles.add(env.get(YarnConfigKeys.KEYTAB_PATH));
+			remoteFiles.add(env.get(YarnConfigKeys.ENV_KRB5_PATH));
+			remoteFiles.add(env.get(YarnConfigKeys.ENV_YARN_SITE_XML_PATH));
+			remoteFiles.add(env.get(YarnConfigKeys.FLINK_JAR_PATH));
+
+			final String shipListString = env.get(YarnConfigKeys.ENV_CLIENT_SHIP_FILES);
+			if (shipListString != null) {
+				for (String pathStr : shipListString.split(",")) {
+					if (!pathStr.isEmpty()) {
+						String[] keyAndPath = pathStr.split("=");
+						if (keyAndPath.length > 1) {
+							remoteFiles.add(keyAndPath[1]);
+						}
+					}
+				}
+			}
+
+			for (String remoteFile : remoteFiles) {
+				if (remoteFile == null) {
+					continue;
+				}
+				Path path = new Path(remoteFile);
+				FileSystem fs = path.getFileSystem(yarnConfig);
+				remoteFileStatusCache.put(path, fs.getFileStatus(path));
+				LOG.info("Add {} file status to cache", remoteFile);
+			}
+		} catch (IOException e) {
+			LOG.error("Error while init remote file status cache.", e);
+		}
+	}
 
 	/**
 	 * See documentation.
@@ -283,13 +321,28 @@ public final class Utils {
 
 	private static LocalResource registerLocalResource(FileSystem fs, Path remoteRsrcPath) throws IOException {
 		LocalResource localResource = Records.newRecord(LocalResource.class);
-		FileStatus jarStat = fs.getFileStatus(remoteRsrcPath);
-		localResource.setResource(ConverterUtils.getYarnUrlFromURI(remoteRsrcPath.toUri()));
-		localResource.setSize(jarStat.getLen());
-		localResource.setTimestamp(jarStat.getModificationTime());
-		localResource.setType(LocalResourceType.FILE);
-		localResource.setVisibility(LocalResourceVisibility.APPLICATION);
-		return localResource;
+		try {
+			FileStatus jarStat = remoteFileStatusCache.computeIfAbsent(remoteRsrcPath, path -> {
+				LOG.info("put status for {} to cache", remoteRsrcPath);
+				try {
+					return fs.getFileStatus(remoteRsrcPath);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			});
+			localResource.setResource(ConverterUtils.getYarnUrlFromURI(remoteRsrcPath.toUri()));
+			localResource.setSize(jarStat.getLen());
+			localResource.setTimestamp(jarStat.getModificationTime());
+			localResource.setType(LocalResourceType.FILE);
+			localResource.setVisibility(LocalResourceVisibility.APPLICATION);
+			return localResource;
+		} catch (RuntimeException e) {
+			if (e.getCause() instanceof IOException) {
+				throw (IOException) e.getCause();
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	public static void setTokensFor(ContainerLaunchContext amContainer, List<Path> paths, Configuration conf) throws IOException {
@@ -534,8 +587,10 @@ public final class Utils {
 			taskManagerLocalResources.put("flink.jar", flinkJar);
 		}
 
-		if (isInDockerMode && isDockerImageIncludeUserLib) {
-			LOG.info("Do not need to add flink-conf.yaml in docker mode.");
+		boolean envIncludeFlinkConf = flinkConfig.getBoolean(YarnConfigOptions.ENV_INCLUDE_FLINK_CONF);
+
+		if (envIncludeFlinkConf || (isInDockerMode && isDockerImageIncludeUserLib)) {
+			LOG.info("Do not need to add flink-conf.yaml.");
 			ConfigUtils.writeFlinkConfigIntoEnv(containerEnv, taskManagerConfig);
 		} else {
 			// register conf with local fs

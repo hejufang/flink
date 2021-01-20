@@ -403,6 +403,11 @@ public class YarnConfigOptions {
 			.defaultValue(true)
 			.withDescription("Enable set cluster_queue_name to yarn conf.");
 
+	public static final ConfigOption<Boolean> ENV_INCLUDE_FLINK_CONF =
+		key("yarn.env-include-flink-conf")
+			.defaultValue(false)
+			.withDescription("Environment include flink config to avoid uploading to hdfs while starting each container.");
+
 
 	/**
 	 * Yarn configuration key prefix.
