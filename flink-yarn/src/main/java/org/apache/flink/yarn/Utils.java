@@ -272,12 +272,20 @@ public final class Utils {
 			Path remoteRsrcPath,
 			long resourceSize,
 			long resourceModificationTime) {
+		return registerLocalResource(remoteRsrcPath, resourceSize, resourceModificationTime, LocalResourceVisibility.APPLICATION);
+	}
+
+	public static LocalResource registerLocalResource(
+			Path remoteRsrcPath,
+			long resourceSize,
+			long resourceModificationTime,
+			LocalResourceVisibility resourceVisibility) {
 		LocalResource localResource = Records.newRecord(LocalResource.class);
 		localResource.setResource(ConverterUtils.getYarnUrlFromURI(remoteRsrcPath.toUri()));
 		localResource.setSize(resourceSize);
 		localResource.setTimestamp(resourceModificationTime);
 		localResource.setType(LocalResourceType.FILE);
-		localResource.setVisibility(LocalResourceVisibility.APPLICATION);
+		localResource.setVisibility(resourceVisibility);
 		return localResource;
 	}
 
@@ -290,6 +298,11 @@ public final class Utils {
 		localResource.setType(LocalResourceType.FILE);
 		localResource.setVisibility(LocalResourceVisibility.APPLICATION);
 		return localResource;
+	}
+
+	private static LocalResource registerLocalResource(FileSystem fs, Path remoteRsrcPath, LocalResourceVisibility localResourceVisibility) throws IOException {
+		FileStatus jarStat = fs.getFileStatus(remoteRsrcPath);
+		return registerLocalResource(remoteRsrcPath, jarStat.getLen(), jarStat.getModificationTime(), localResourceVisibility);
 	}
 
 	public static void setTokensFor(ContainerLaunchContext amContainer, List<Path> paths, Configuration conf) throws IOException {
@@ -409,6 +422,10 @@ public final class Utils {
 		return result;
 	}
 
+	public static boolean isFlinkDistJar(String fileName) {
+		return fileName.startsWith("flink-dist") && fileName.endsWith("jar");
+	}
+
 	/**
 	 * Creates the launch context, which describes how to bring up a TaskExecutor / TaskManager process in
 	 * an allocated YARN container.
@@ -464,6 +481,8 @@ public final class Utils {
 		String shipListString = env.get(YarnConfigKeys.ENV_CLIENT_SHIP_FILES);
 		require(shipListString != null, "Environment variable %s not set", YarnConfigKeys.ENV_CLIENT_SHIP_FILES);
 
+		String providedShipListString = env.get(YarnConfigKeys.ENV_CLIENT_PROVIDED_SHIP_FILES);
+
 		String yarnClientUsername = env.get(YarnConfigKeys.ENV_HADOOP_USER_NAME);
 		require(yarnClientUsername != null, "Environment variable %s not set", YarnConfigKeys.ENV_HADOOP_USER_NAME);
 
@@ -514,6 +533,24 @@ public final class Utils {
 
 		Map<String, LocalResource> taskManagerLocalResources = new HashMap<>();
 
+		boolean providedFlinkJar = false;
+
+		// prepare additional provided files to be shipped
+		if (providedShipListString != null) {
+			for (String pathStr : providedShipListString.split(",")) {
+				if (!pathStr.isEmpty()) {
+					String[] keyAndPath = pathStr.split("=");
+					require(keyAndPath.length == 2, "Invalid entry in ship file list: %s", pathStr);
+					Path path = new Path(keyAndPath[1]);
+					LocalResource resource = registerLocalResource(path.getFileSystem(yarnConfig), path, LocalResourceVisibility.PUBLIC);
+					taskManagerLocalResources.put(keyAndPath[0], resource);
+					if (isFlinkDistJar(path.getName())) {
+						providedFlinkJar = true;
+					}
+				}
+			}
+		}
+
 		boolean isInDockerMode =
 			flinkConfig.getBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, false);
 		boolean isDockerImageIncludeLib =
@@ -523,7 +560,7 @@ public final class Utils {
 
 		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Do not need to add flink.jar in docker mode.");
-		} else {
+		} else if (!providedFlinkJar) {
 			// register Flink Jar with remote HDFS
 			final LocalResource flinkJar;
 			{
@@ -739,6 +776,11 @@ public final class Utils {
 			ldLibraryPath = LD_LIBRARY_PATH_DEFAULT;
 		}
 		env.put(YarnConfigKeys.ENV_LD_LIBRARY_PATH, ldLibraryPath);
+	}
+
+	static boolean isRemotePath(String path) throws IOException {
+		org.apache.flink.core.fs.Path flinkPath = new org.apache.flink.core.fs.Path(path);
+		return flinkPath.getFileSystem().isDistributedFS();
 	}
 
 	public static void setHdfsBtrace(
