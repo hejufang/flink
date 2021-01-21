@@ -34,7 +34,7 @@ under the License.
 		<dependency>
 			<groupId>com.bytedance.infra</groupId>
 			<artifactId>bytesql4j</artifactId>
-			<version>1.1.1</version>
+			<version>1.1.7</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
@@ -70,6 +70,25 @@ under the License.
 										<relocation>
 											<pattern>com.bytedance</pattern>
 											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.bytedance</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>io.grpc</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.io.grpc</shadedPattern>
+											<excludes>
+												<exclude>io.grpc.netty.shaded.io.grpc.netty.NettyChannelProvider</exclude>
+											</excludes>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.google</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.commons</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.org.apache.commons</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
