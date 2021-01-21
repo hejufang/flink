@@ -2060,6 +2060,7 @@ public final class ConfigConstants {
 	public static final String CLUSTER_NAME_DEFAULT = "flink";
 
 	public static final String JOB_NAME_KEY = "jobName";
+	public static final String JOB_NAME_DEFAULT = "unknown";
 	public static final String HDFS_PREFIX_KEY = "hdfs.prefix";
 	public static final String DATA_SOURCE_KEY = "dataSource";
 	public static final String DATA_SOURCE_DEFAULT = "bytetsd";
@@ -2089,6 +2090,9 @@ public final class ConfigConstants {
 	public static final String FLINK_JOB_TYPE_KEY = "flink.job_type";
 	public static final String FLINK_JOB_API_KEY = "flink.job_api";
 	public static final String FLINK_JOB_TYPE_DEFAULT = "JavaFlink";
+
+	public static final String FLINK_PSM_TEMPLATE = "inf.flink.%s";
+	public static final String FLINK_TEAM_TEMPLATE = "inf.flink.%s";
 
 	public static final String DASHBOARD_DATA_SOURCE_KEY = "dashboard.data_source";
 	public static final String DASHBOARD_DATA_SOURCE_DEFAULT = "bytetsd";

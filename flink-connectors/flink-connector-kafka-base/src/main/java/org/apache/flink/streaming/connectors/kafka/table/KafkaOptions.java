@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
@@ -198,6 +199,9 @@ public class KafkaOptions {
 	// Other keywords.
 	private static final String PARTITION = "partition";
 	private static final String OFFSET = "offset";
+	private static final String KAFKA_OWNER = "owner";
+	private static final String KAFKA_PSM = "psm";
+	private static final String KAFKA_TEAM = "team";
 
 	// --------------------------------------------------------------------------------------------
 	// Validation
@@ -320,6 +324,23 @@ public class KafkaOptions {
 						kafkaProperties.put(subKey, value);
 					});
 		}
+
+		String owner = System.getProperty(ConfigConstants.FLINK_OWNER_KEY,
+			ConfigConstants.FLINK_OWNER_DEFAULT);
+		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY,
+			ConfigConstants.JOB_NAME_DEFAULT);
+		if (!kafkaProperties.containsKey(KAFKA_OWNER)) {
+			kafkaProperties.put(KAFKA_OWNER, owner);
+		}
+
+		if (!kafkaProperties.containsKey(KAFKA_TEAM)) {
+			kafkaProperties.put(KAFKA_TEAM, String.format(ConfigConstants.FLINK_TEAM_TEMPLATE, owner));
+		}
+
+		if (!kafkaProperties.containsKey(KAFKA_PSM)) {
+			kafkaProperties.put(KAFKA_PSM, String.format(ConfigConstants.FLINK_PSM_TEMPLATE, jobName));
+		}
+
 		return kafkaProperties;
 	}
 
