@@ -37,12 +37,6 @@ common:
   # The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
   taskmanager.numberOfTaskSlots: 4
 
-  # The parallelism used for programs that did not specify and other parallelism.
-  parallelism.default: 400
-
-  table.exec.hive.infer-source-parallelism: false
-  table.exec.hive.infer-source-parallelism.max: 400
-
   #metrics
   metrics.reporters: opentsdb_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
