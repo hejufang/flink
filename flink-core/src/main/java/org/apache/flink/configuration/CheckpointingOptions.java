@@ -260,4 +260,9 @@ public class CheckpointingOptions {
 		.key("checkpoint.fail-on-invalid-tokens")
 		.defaultValue(false)
 		.withDescription("Whether the job will fail on invalid tokens.");
+
+	public static final ConfigOption<Boolean> CLIENT_CHECKPOINT_VERIFICATION_ENABLE = ConfigOptions
+		.key("checkpoint.client-checkpoint-verification-enable")
+		.defaultValue(false)
+		.withDescription("Verify the validation of latest checkpoint at client.");
 }

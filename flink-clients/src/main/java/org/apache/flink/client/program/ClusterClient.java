@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobSubmissionResult;
 import org.apache.flink.api.common.Plan;
+import org.apache.flink.client.cli.CheckpointVerifier;
 import org.apache.flink.client.deployment.ClusterDeploymentException;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
@@ -342,11 +343,14 @@ public abstract class ClusterClient<T> {
 			List<URL> libraries, List<URL> classpaths, ClassLoader classLoader, SavepointRestoreSettings savepointSettings)
 			throws ProgramInvocationException {
 		JobGraph job = getJobGraph(flinkConfig, compiledPlan, libraries, classpaths, savepointSettings);
+
+		CheckpointVerifier.verify(job, classLoader, highAvailabilityServices, flinkConfig);
+
 		simplifyVerticeName(job);
 		return submitJob(job, classLoader);
 	}
 
-		public static void simplifyVerticeName(JobGraph job) {
+	public static void simplifyVerticeName(JobGraph job) {
 		Iterable<JobVertex> vertices = job.getVertices();
 		for (JobVertex vertex: vertices) {
 			String vertexName = vertex.getName();

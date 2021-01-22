@@ -402,6 +402,8 @@ public class CliFrontend {
 				final JobGraph jobGraph = PackagedProgramUtils.createJobGraph(flinkPlan, program, effectiveConfiguration);
 				final String jobIdString = jobGraph.getJobID().toString();
 
+				CheckpointVerifier.verify(jobGraph, ClassLoader.getSystemClassLoader(), null, effectiveConfiguration);
+
 				addMessageWithJobId(jobIdString);
 				jobStartEventMessageSet.addMessage(new Message<>(new WarehouseJobStartEventMessage(
 						WarehouseJobStartEventMessage.EVENT_MODULE_CLIENT, null, null, jobIdString, 0, WarehouseJobStartEventMessage.EVENT_TYPE_BUILD_JOB_GRAPH, WarehouseJobStartEventMessage.EVENT_ACTION_FINISH)));
