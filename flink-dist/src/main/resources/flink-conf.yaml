@@ -195,6 +195,7 @@ common:
   bytedance.streaming.jobmanager.execution.schedule-task-fairly: true
   bytedance.streaming.jobmanager.partition.release-during-job-execution: false
   bytedance.streaming.cluster.evenly-spread-out-slots: true
+  bytedance.streaming.execution.wait-running-on-detached: true
 
 flink:
   dc: cn
