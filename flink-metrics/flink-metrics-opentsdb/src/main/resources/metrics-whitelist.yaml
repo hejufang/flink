@@ -112,6 +112,10 @@ non-global:
         syncDuration,
         asyncDuration,
         numberOfContinuousCheckpointFailure,
+        jobStartupCheckpointRestoreDelay,
+        taskStartupRestoreDuration,
+        keyedStateRestoreDuration,
+        operatorStateRestoreDuration,
       # Blacklist
         numTaskManagersInBlacklist,
       # number of skipped records in source
@@ -156,6 +160,5 @@ non-global:
         ioThreadPoolUsage,
         numPendingFutureTask,
         numRunningFutureTask,
-        futureThreadPoolUsage,
-        jobStartupCheckpointRestoreDelay
+        futureThreadPoolUsage
     ]

@@ -151,6 +151,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	/** Checkpoint metric name for the duration of checkpoint, asynchronous stage. */
 	private static final String METRIC_CHECKPOINT_ASYNC_DURATION = "asyncDuration";
 
+	/** Checkpoint metric name for the duration of checkpoint restore, operators' checkpoint restore. */
+	private static final String METRIC_CHECKPOINT_STARTUP_RESTORE_DURATION = "taskStartupRestoreDuration";
 	// ------------------------------------------------------------------------
 
 	/**
@@ -222,6 +224,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	private final MetricGroup checkpointMetricGroup;
 	private final DurationGauge latestSyncDurationMillisGauge;
 	private final DurationGauge latestAsyncDurationMillisGauge;
+	private final DurationGauge startupRestoreDurationMillisGauge;
 
 	// ------------------------------------------------------------------------
 
@@ -273,9 +276,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.checkpointMetricGroup = getEnvironment().getMetricGroup().addGroup(METRIC_GROUP_CHECKPOINT);
 		this.latestSyncDurationMillisGauge = new DurationGauge();
 		this.latestAsyncDurationMillisGauge = new DurationGauge();
+		this.startupRestoreDurationMillisGauge = new DurationGauge();
 
 		checkpointMetricGroup.gauge(METRIC_CHECKPOINT_SYNC_DURATION, latestSyncDurationMillisGauge);
 		checkpointMetricGroup.gauge(METRIC_CHECKPOINT_ASYNC_DURATION, latestAsyncDurationMillisGauge);
+		checkpointMetricGroup.gauge(METRIC_CHECKPOINT_STARTUP_RESTORE_DURATION, startupRestoreDurationMillisGauge);
 	}
 
 	// ------------------------------------------------------------------------
@@ -911,11 +916,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 		StreamOperator<?>[] allOperators = operatorChain.getAllOperators();
 
+		long restoreStartTimestamp = System.currentTimeMillis();
 		for (StreamOperator<?> operator : allOperators) {
 			if (null != operator) {
 				operator.initializeState();
 			}
 		}
+		startupRestoreDurationMillisGauge.setDuration(System.currentTimeMillis() - restoreStartTimestamp);
 	}
 
 	// ------------------------------------------------------------------------

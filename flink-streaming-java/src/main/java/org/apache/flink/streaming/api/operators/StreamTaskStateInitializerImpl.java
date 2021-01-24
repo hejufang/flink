@@ -90,6 +90,14 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 
 	private final TtlTimeProvider ttlTimeProvider;
 
+	/** Operator's checkpoint point restore duration: KeyedStateBackend restore part. */
+	private static final String METRIC_OPERATOR_KEYED_STATE_RESTORE_DURATION = "keyedStateRestoreDuration";
+	private long keyedStateRestoreDuration = -1;
+
+	/** Operator's checkpoint point restore duration: OperatorStateBackend restore part. */
+	private static final String METRIC_OPERATOR_OPERATOR_STATE_RESTORE_DURATION = "operatorStateRestoreDuration";
+	private long operatorStateRestoreDuration = -1;
+
 	public StreamTaskStateInitializerImpl(
 			Environment environment,
 			StateBackend stateBackend,
@@ -107,6 +115,14 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 		this.stateBackend = Preconditions.checkNotNull(stateBackend);
 		this.processingTimeService = processingTimeService;
 		this.ttlTimeProvider = ttlTimeProvider;
+	}
+
+	public long getKeyedStateRestoreDuration() {
+		return keyedStateRestoreDuration;
+	}
+
+	public long getOperatorStateRestoreDuration() {
+		return operatorStateRestoreDuration;
 	}
 
 	// -----------------------------------------------------------------------------------------------------------------
@@ -139,21 +155,32 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 		CloseableIterable<StatePartitionStreamProvider> rawOperatorStateInputs = null;
 		InternalTimeServiceManager<?> timeServiceManager;
 
+		/**
+		 * <code>metricGroup</code> is actually a {@link org.apache.flink.runtime.metrics.groups.OperatorMetricGroup},
+		 * which is a registry group for {@link keyedStateRestoreDuration} and {@link operatorStateRestoreDuration}.
+		 */
+		metricGroup.gauge(METRIC_OPERATOR_KEYED_STATE_RESTORE_DURATION, this::getKeyedStateRestoreDuration);
+		metricGroup.gauge(METRIC_OPERATOR_OPERATOR_STATE_RESTORE_DURATION, this::getOperatorStateRestoreDuration);
+
 		try {
 
 			// -------------- Keyed State Backend --------------
+			long keyedStateRestoreStartTimestamp = System.currentTimeMillis();
 			keyedStatedBackend = keyedStatedBackend(
 				keySerializer,
 				operatorIdentifierText,
 				prioritizedOperatorSubtaskStates,
 				streamTaskCloseableRegistry,
 				metricGroup);
+			keyedStateRestoreDuration = System.currentTimeMillis() - keyedStateRestoreStartTimestamp;
 
 			// -------------- Operator State Backend --------------
+			long operatorStateRestoreStartTimestamp = System.currentTimeMillis();
 			operatorStateBackend = operatorStateBackend(
 				operatorIdentifierText,
 				prioritizedOperatorSubtaskStates,
 				streamTaskCloseableRegistry);
+			operatorStateRestoreDuration = System.currentTimeMillis() - operatorStateRestoreStartTimestamp;
 
 			// -------------- Raw State Streams --------------
 			rawKeyedStateInputs = rawKeyedStateInputs(
