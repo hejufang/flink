@@ -21,6 +21,7 @@ package org.apache.flink.formats.pb;
 import org.apache.flink.formats.pb.proto.ProtoFile;
 import org.apache.flink.formats.pb.proto.ProtoFileUtils;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.util.Preconditions;
 
 import com.google.protobuf.Descriptors;
 
@@ -29,6 +30,8 @@ import com.google.protobuf.Descriptors;
  */
 public class PbUtils {
 	public static Descriptors.Descriptor validateAndGetDescriptor(String className, ProtoFile protoFile) {
+		Preconditions.checkState(className != null || protoFile != null,
+			"className and protoFile can not be null at the same time.");
 		if (className != null) {
 			return validateAndGetDescriptorByClassName(className);
 		}

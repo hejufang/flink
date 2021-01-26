@@ -19,12 +19,31 @@
 package org.apache.flink.table.connector.format;
 
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Table schema inferrable interface.
+ * Implementing {@link TableSchemaInferrable} just means the format can infer schema,
+ * doesn't mean it must do it. In another word, the format may have
+ * two types of usage: infer schema vs user provide schema.
+ * Hence, we return a `Optional` to indicate whether it chooses to infer or not.
  */
 public interface TableSchemaInferrable {
-	TableSchema getTableSchema(Map<String, String> formatOptions);
+	/**
+	 * This method is deprecated, Use {@link #getOptionalTableSchema} instead.
+	 */
+	@Deprecated
+	default TableSchema getTableSchema(Map<String, String> formatOptions) {
+		return getOptionalTableSchema(formatOptions)
+			.orElseThrow(() -> new FlinkRuntimeException(
+				"Cannot infer table schema with formatOptions: " + formatOptions));
+	}
+
+	/**
+	 * Get optional table schema.
+	 */
+	Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions);
 }

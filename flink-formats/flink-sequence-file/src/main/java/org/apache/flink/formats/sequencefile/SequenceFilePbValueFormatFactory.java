@@ -113,12 +113,12 @@ public class SequenceFilePbValueFormatFactory implements FileSystemFormatFactory
 	}
 
 	@Override
-	public TableSchema getTableSchema(Map<String, String> formatOptions) {
+	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
 		String oldKey = fullKey(PB_CLASS.key());
 		String pbClass = formatOptions.get(oldKey);
 		Map<String, String> newFormatOptions = new HashMap<>(formatOptions);
 		newFormatOptions.put("pb." + PB_CLASS.key(), pbClass);
-		return new PbFormatFactory().getTableSchema(newFormatOptions);
+		return new PbFormatFactory().getOptionalTableSchema(newFormatOptions);
 	}
 
 	@VisibleForTesting

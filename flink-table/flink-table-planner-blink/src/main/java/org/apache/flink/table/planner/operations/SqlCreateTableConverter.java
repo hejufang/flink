@@ -121,11 +121,6 @@ class SqlCreateTableConverter {
 			.filter(SqlTableConstraint::isPrimaryKey)
 			.findAny();
 
-		TableSchema inferredTableSchema = inferTableSchema(mergedOptions).orElse(null);
-		if (inferredTableSchema != null) {
-			sourceTableSchema = mergeOriginTableSchemaWithInferredOne(sourceTableSchema, inferredTableSchema);
-		}
-
 		TableSchema mergedSchema = mergeTableLikeUtil.mergeTables(
 			mergingStrategies,
 			sourceTableSchema,
@@ -139,6 +134,12 @@ class SqlCreateTableConverter {
 			sqlCreateTable.getPartitionKeyList(),
 			mergingStrategies
 		);
+
+		TableSchema inferredTableSchema = inferTableSchema(mergedOptions).orElse(null);
+		if (inferredTableSchema != null) {
+			mergedSchema = mergeOriginTableSchemaWithInferredOne(mergedSchema, inferredTableSchema);
+		}
+
 		verifyPartitioningColumnsExist(mergedSchema, partitionKeys);
 
 		String tableComment = sqlCreateTable.getComment()
@@ -155,6 +156,8 @@ class SqlCreateTableConverter {
 			TableSchema originTableSchema,
 			TableSchema inferredTableSchema) {
 		TableSchema.Builder builder = TableSchema.builder().copy(originTableSchema);
+		// we remove all physical columns in originTableSchema, but keep all computed columns.
+		builder.removePhysicalColumns();
 		inferredTableSchema.getTableColumns().forEach(builder::add);
 		return builder.build();
 	}
@@ -169,8 +172,9 @@ class SqlCreateTableConverter {
 				format).orElse(null);
 
 		if ((deserializationFormatFactory instanceof TableSchemaInferrable)) {
-			return Optional.of(
-				((TableSchemaInferrable) deserializationFormatFactory).getTableSchema(options));
+			TableSchemaInferrable tableSchemaInferrable =
+				(TableSchemaInferrable) deserializationFormatFactory;
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 
 		SerializationFormatFactory serializationFormatFactory =
@@ -180,8 +184,9 @@ class SqlCreateTableConverter {
 				format).orElse(null);
 
 		if ((serializationFormatFactory instanceof TableSchemaInferrable)) {
-			return Optional.of(
-				((TableSchemaInferrable) serializationFormatFactory).getTableSchema(options));
+			TableSchemaInferrable tableSchemaInferrable =
+				(TableSchemaInferrable) serializationFormatFactory;
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 
 		FileSystemFormatFactory fileSystemFormatFactory =
@@ -191,8 +196,9 @@ class SqlCreateTableConverter {
 				format).orElse(null);
 
 		if ((fileSystemFormatFactory instanceof TableSchemaInferrable)) {
-			return Optional.of(
-				((TableSchemaInferrable) fileSystemFormatFactory).getTableSchema(options));
+			TableSchemaInferrable tableSchemaInferrable =
+				(TableSchemaInferrable) fileSystemFormatFactory;
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 
 		return Optional.empty();

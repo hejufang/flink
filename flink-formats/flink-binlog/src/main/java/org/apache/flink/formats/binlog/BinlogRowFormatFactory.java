@@ -38,6 +38,7 @@ import com.bytedance.binlog.DRCEntry;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.formats.binlog.BinlogOptions.BINLOG_BODY;
@@ -54,13 +55,14 @@ public class BinlogRowFormatFactory implements
 	private static final String IDENTIFIER = "binlog";
 
 	@Override
-	public TableSchema getTableSchema(Map<String, String> formatOptions) {
+	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
 		TableSchema.Builder tableBuilder = TableSchema.builder();
 		DataType headerDataType = PbFormatUtils.createDataType(DRCEntry.EntryHeader.getDescriptor(), false);
 		tableBuilder.field(getBinlogHeaderName(), headerDataType);
 		DataType bodyDataType = PbFormatUtils.createDataType(DRCEntry.EntryBody.getDescriptor(), false);
 		tableBuilder.field(getBinlogBodyName(), bodyDataType);
-		return tableBuilder.build();
+		TableSchema tableSchema = tableBuilder.build();
+		return Optional.of(tableSchema);
 	}
 
 	@Override

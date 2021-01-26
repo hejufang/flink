@@ -44,6 +44,7 @@ import org.apache.flink.table.types.logical.RowType;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.formats.pb.PbFormatUtils.createDataType;
@@ -149,17 +150,21 @@ public class PbFormatFactory implements
 	}
 
 	@Override
-	public TableSchema getTableSchema(Map<String, String> formatOptions) {
+	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
 		final String pbClass = formatOptions.get(fullKey(PB_CLASS.key()));
+		if (pbClass == null || pbClass.isEmpty()) {
+			return Optional.empty();
+		}
 		final boolean withWrapper = Boolean.parseBoolean(formatOptions.get(fullKey(WITH_WRAPPER.key())));
 		FieldsDataType fieldsDataType =
 			createDataType(PbUtils.validateAndGetDescriptor(pbClass, null), withWrapper);
 
 		RowType rowType = (RowType) fieldsDataType.getLogicalType();
-		return TableSchema.builder()
+		TableSchema tableSchema = TableSchema.builder()
 			.fields(rowType.getFieldNames().toArray(new String[0]),
 				fieldsDataType.getChildren().toArray(new DataType[0]))
 			.build();
+		return Optional.of(tableSchema);
 	}
 
 	@VisibleForTesting
