@@ -132,11 +132,11 @@ getDynamicFiles() {
     done
 }
 
-# support `flink.external.jar.dependecies` in dynamics parameters
+# support `flink.external.jar.dependencies` in dynamics parameters
 getDynamicsExternalJarDependencies() {
     local found=0
     for arg in $* ; do
-        if [[ $found = 1 && $arg =~ "flink.external.jar.dependecies=" ]]; then
+        if [[ $found = 1 && $arg =~ "flink.external.jar.dependencies=" ]]; then
             length=`expr length "flink.external.jar.dependencies="`
             echo ${arg:$length}
             break

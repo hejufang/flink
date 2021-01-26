@@ -627,7 +627,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	@VisibleForTesting
 	List<File> getFlinkExternalJarDependencies(Configuration configuration) throws FlinkException {
 		List<File> flinkExternalJarFiles = new ArrayList<>();
-		// Add the jars of flink.external.jar.dependecies to work dir and classpath
+		// Add the jars of flink.external.jar.dependencies to work dir and classpath
 		String flinkExternalJarDependencies = configuration.getString(ConfigConstants.FLINK_EXTERNAL_JAR_DEPENDENCIES, null);
 		LOG.info("flinkExternalJarDependencies = {}", flinkExternalJarDependencies);
 		if (flinkExternalJarDependencies != null) {
@@ -723,7 +723,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			}
 		}
 
-		// Add the jars of flink.external.jar.dependecies to work dir and classpath
+		// Add the jars of flink.external.jar.dependencies to work dir and classpath
 		List<File> flinkExternalJarFiles = getFlinkExternalJarDependencies(configuration);
 		if (flinkExternalJarFiles.size() > 0) {
 			for (File file : flinkExternalJarFiles) {
