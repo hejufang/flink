@@ -265,6 +265,8 @@ class RelNodeBlockPlanBuilder private(config: TableConfig) {
 
   private val isUnionAllAsBreakPointDisabled = config.getConfiguration.getBoolean(
     RelNodeBlockPlanBuilder.TABLE_OPTIMIZER_UNIONALL_AS_BREAKPOINT_DISABLED)
+  private val windowAsBreakPoint = config.getConfiguration.getBoolean(
+    RelNodeBlockPlanBuilder.TABLE_OPTIMIZER_WINDOW_AS_BREAKPOINT)
 
   /**
     * Decompose the [[RelNode]] plan into many [[RelNodeBlock]]s,
@@ -321,7 +323,11 @@ class RelNodeBlockPlanBuilder private(config: TableConfig) {
     case _: TableFunctionScan | _: Snapshot => false
     case union: Union if union.all => !isUnionAllAsBreakPointDisabled
     case project: Project =>
-      project.getProjects.forall(p => !WindowPropertiesRules.hasGroupFunction(p))
+      if (windowAsBreakPoint) {
+        project.getProjects.forall(p => !WindowPropertiesRules.hasGroupFunction(p))
+      } else {
+        project.getProjects.forall(p => !hasWindowGroup(p))
+      }
     case agg: Aggregate =>
       agg.getInput match {
         case project: Project =>
@@ -392,6 +398,11 @@ object RelNodeBlockPlanBuilder {
     key("table.optimizer.union-all-as-breakpoint-disabled")
         .defaultValue(JBoolean.valueOf(false))
         .withDescription("Disable union-all node as breakpoint when constructing common sub-graph.")
+
+  val TABLE_OPTIMIZER_WINDOW_AS_BREAKPOINT: ConfigOption[JBoolean] =
+    key("table.optimizer.window-as-breakpoint")
+      .defaultValue(JBoolean.valueOf(true))
+      .withDescription("Whether window is a valid breakpoint.")
 
   // It is a experimental config, will may be removed later.
   @Experimental
