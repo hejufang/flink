@@ -84,7 +84,6 @@ public class HadoopFsFactory implements FileSystemFactory {
 			// -- (1) get the loaded Hadoop config (or fall back to one loaded from the classpath)
 
 			final org.apache.hadoop.conf.Configuration hadoopConfig;
-			org.apache.hadoop.conf.Configuration vipConfig = null;
 			if (this.hadoopConfig != null) {
 				hadoopConfig = this.hadoopConfig;
 			}
@@ -118,22 +117,15 @@ public class HadoopFsFactory implements FileSystemFactory {
 
 			final org.apache.hadoop.fs.FileSystem hadoopFs = fsClass.newInstance();
 			if (useVipConf) {
-				if (flinkConfig != null) {
-					vipConfig = HadoopUtils.getHadoopConfiguration(flinkConfig);
-				} else {
-					LOG.info("flink config is not specified, use default hadoop config.");
-					vipConfig = new org.apache.hadoop.conf.Configuration();
-				}
-
 				String ipPort;
-				if (vipConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key()) == null) {
+				if (hadoopConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key()) == null) {
 					ipPort = HdfsConfigOptions.HDFS_VIP_IP_PORT.defaultValue();
 				} else {
-					ipPort = vipConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key());
+					ipPort = hadoopConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key());
 				}
 
 				LOG.info("Hadoop is using vip conf on {}.", ipPort);
-				org.apache.hadoop.fs.FileSystem.SetVipConf(vipConfig, ipPort);
+				org.apache.hadoop.fs.FileSystem.SetVipConf(hadoopConfig, ipPort);
 			}
 
 			// -- (4) create the proper URI to initialize the file system
@@ -181,7 +173,7 @@ public class HadoopFsFactory implements FileSystemFactory {
 			// -- (5) configure the Hadoop file system
 
 			try {
-				hadoopFs.initialize(initUri, useVipConf ? vipConfig : hadoopConfig);
+				hadoopFs.initialize(initUri, hadoopConfig);
 			}
 			catch (UnknownHostException e) {
 				String message = "The Hadoop file system's authority (" + initUri.getAuthority() +
