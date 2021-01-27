@@ -159,6 +159,13 @@ public class FlinkConfMountDecorator extends AbstractKubernetesStepDecorator {
 			propertiesMap.forEach((k, v) -> {
 				out.print(k);
 				out.print(": ");
+				// Couldn't start with '%' in value while loading configuration in snakeyaml.
+				// Using '"' to modify the value.
+				if (v.startsWith("%")) {
+					out.println("\"" + v + "\"");
+				} else {
+					out.println(v);
+				}
 				out.println(v);
 			});
 

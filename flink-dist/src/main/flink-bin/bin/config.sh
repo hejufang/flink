@@ -522,7 +522,9 @@ fi
 
 # export hadoop env explicitly otherwise JM/TM can't find it (only for standalone)
 export HADOOP_CONF_DIR
-export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
+if [ -f "$HADOOP_HOME/bin/hadoop" ]; then
+    export HADOOP_CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath`
+fi
 
 INTERNAL_HADOOP_CLASSPATHS="${HADOOP_CLASSPATH}:${HADOOP_CONF_DIR}:${YARN_CONF_DIR}"
 
