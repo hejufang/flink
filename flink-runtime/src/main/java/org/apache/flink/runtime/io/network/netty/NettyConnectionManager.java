@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
@@ -58,6 +59,17 @@ public class NettyConnectionManager implements ConnectionManager {
 
 		this.nettyProtocol = new NettyProtocol(checkNotNull(partitionProvider),
 			checkNotNull(taskEventPublisher), isCreditBased, nettyConfig);
+	}
+
+	public NettyConnectionManager(
+		ResultPartitionProvider partitionProvider,
+		TaskEventPublisher taskEventPublisher,
+		NettyConfig nettyConfig,
+		boolean isCreditBased,
+		MetricGroup metricGroup) {
+
+		this(partitionProvider, taskEventPublisher, nettyConfig, isCreditBased);
+		this.client.registerConnectRetryTimesMetrics(metricGroup);
 	}
 
 	@Override

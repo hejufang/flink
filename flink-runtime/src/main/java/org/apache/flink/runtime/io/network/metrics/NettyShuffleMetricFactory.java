@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.metrics;
 
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
@@ -69,6 +70,11 @@ public class NettyShuffleMetricFactory {
 	private static final String METRIC_INPUT_POOL_USAGE = "inPoolUsage";
 	private static final String METRIC_INPUT_FLOATING_BUFFERS_USAGE = "inputFloatingBuffersUsage";
 	private static final String METRIC_INPUT_EXCLUSIVE_BUFFERS_USAGE = "inputExclusiveBuffersUsage";
+
+	// task level connect metrics: Shuffle.Netty.
+
+	private static final String METRIC_CONNECT_SUCCESS_RETRY_TIMES = "connectSuccessRetryTimes";
+	private static final String METRIC_CONNECT_FAIL_RETRY_TIMES = "connectFailRetryTimes";
 
 	private NettyShuffleMetricFactory() {
 	}
@@ -196,5 +202,16 @@ public class NettyShuffleMetricFactory {
 		} else {
 			buffersGroup.gauge(METRIC_INPUT_POOL_USAGE, new InputBufferPoolUsageGauge(inputGates));
 		}
+	}
+
+	public static void registerConnectRetryTimesMetrics(
+			MetricGroup metricGroup,
+			Counter connectSuccessRetryTimesCounter,
+			Counter connectFailRetryTimesCounter) {
+		metricGroup.addGroup(METRIC_GROUP_SHUFFLE);
+		metricGroup.addGroup(METRIC_GROUP_SHUFFLE);
+
+		metricGroup.counter(METRIC_CONNECT_SUCCESS_RETRY_TIMES, connectSuccessRetryTimesCounter);
+		metricGroup.counter(METRIC_CONNECT_FAIL_RETRY_TIMES, connectFailRetryTimesCounter);
 	}
 }

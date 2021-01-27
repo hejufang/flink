@@ -194,6 +194,12 @@ public class NettyShuffleEnvironmentOptions {
 			.withDeprecatedKeys("taskmanager.net.client.connectTimeoutSec")
 			.withDescription("The Netty client connection timeout.");
 
+	public static final ConfigOption<Integer> CLIENT_CONNECT_MAX_RETRY_TIMES =
+		key("taskmanager.network.netty.client.connectMaxRetryTimes")
+			.defaultValue(3)
+			.withDeprecatedKeys("taskmanager.net.client.connectMaxRetryTimes")
+			.withDescription("The Netty client connection max retry time while having some exceptions.");
+
 	public static final ConfigOption<Integer> SEND_RECEIVE_BUFFER_SIZE =
 		key("taskmanager.network.netty.sendReceiveBufferSize")
 			.defaultValue(0) // default: 0 => Netty's default

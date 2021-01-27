@@ -41,6 +41,8 @@ global:
         checkpointWriteFileRate,
         checkpointWriteFileLatency,
         checkpointCloseFileLatency,
+        connectSuccessRetryTimes,
+        connectFailRetryTimes,
         numberOfContinuousCheckpointFailure,
         jobStartupCheckpointRestoreDelay
     ]

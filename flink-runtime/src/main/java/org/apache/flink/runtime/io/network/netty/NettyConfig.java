@@ -135,6 +135,10 @@ public class NettyConfig {
 		return config.getInteger(NettyShuffleEnvironmentOptions.SEND_RECEIVE_BUFFER_SIZE);
 	}
 
+	public int getMaxRetryTimes() {
+		return config.getInteger(NettyShuffleEnvironmentOptions.CLIENT_CONNECT_MAX_RETRY_TIMES);
+	}
+
 	public TransportType getTransportType() {
 		String transport = config.getString(NettyShuffleEnvironmentOptions.TRANSPORT_TYPE);
 

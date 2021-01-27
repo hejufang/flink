@@ -18,6 +18,11 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.runtime.io.network.metrics.NettyShuffleMetricFactory;
+
 import org.apache.flink.shaded.netty4.io.netty.bootstrap.Bootstrap;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelException;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
@@ -50,6 +55,10 @@ class NettyClient {
 	private NettyProtocol protocol;
 
 	private Bootstrap bootstrap;
+
+	private Counter connectSuccessRetryTimesCounter = new SimpleCounter();
+
+	private Counter connectFailRetryTimesCounter = new SimpleCounter();
 
 	@Nullable
 	private SSLHandlerFactory clientSSLFactory;
@@ -121,6 +130,11 @@ class NettyClient {
 		LOG.info("Successful initialization (took {} ms).", duration);
 	}
 
+	void registerConnectRetryTimesMetrics(MetricGroup metricGroup) {
+		NettyShuffleMetricFactory.registerConnectRetryTimesMetrics(metricGroup, connectSuccessRetryTimesCounter, connectFailRetryTimesCounter);
+		LOG.debug("Register connectRetryTimesMetrics success.");
+	}
+
 	NettyConfig getConfig() {
 		return config;
 	}
@@ -188,6 +202,10 @@ class NettyClient {
 			}
 		});
 
+		return doConnect(serverSocketAddress);
+	}
+
+	ChannelFuture doConnect(final InetSocketAddress serverSocketAddress) {
 		try {
 			return bootstrap.connect(serverSocketAddress);
 		}
@@ -196,8 +214,7 @@ class NettyClient {
 					e.getCause().getMessage().equals("Too many open files")) ||
 				(e.getCause() instanceof ChannelException &&
 						e.getCause().getCause() instanceof java.net.SocketException &&
-						e.getCause().getCause().getMessage().equals("Too many open files")))
-			{
+						e.getCause().getCause().getMessage().equals("Too many open files"))) {
 				throw new ChannelException(
 						"The operating system does not offer enough file handles to open the network connection. " +
 								"Please increase the number of available file handles.", e.getCause());
@@ -206,5 +223,19 @@ class NettyClient {
 				throw e;
 			}
 		}
+	}
+
+	public int getMaxRetryTimes() {
+		return config.getMaxRetryTimes();
+	}
+
+	public void connectSuccessRetryTimesInc (int retryTimes) {
+		connectSuccessRetryTimesCounter.inc(retryTimes);
+		LOG.debug("The connectSuccessRetryTimesCounter value update to {}.", connectSuccessRetryTimesCounter.getCount());
+	}
+
+	public void connectFailRetryTimesInc (int retryTimes) {
+		connectFailRetryTimesCounter.inc(retryTimes);
+		LOG.debug("The connectFailRetryTimesCounter value update to {}.", connectFailRetryTimesCounter.getCount());
 	}
 }
