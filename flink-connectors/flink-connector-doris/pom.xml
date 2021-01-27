@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-doris</artifactId>
 
 	<properties>
-		<doris.version>1.0.12</doris.version>
+		<doris.version>1.0.14</doris.version>
 		<shading.prefix>org.apache.flink.doris.shaded</shading.prefix>
 	</properties>
 
@@ -116,6 +116,14 @@ under the License.
 										<relocation>
 											<pattern>com.fasterxml.jackson</pattern>
 											<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.auth0.jwt</pattern>
+											<shadedPattern>${shading.prefix}.com.auth0.jwt</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.byted.infsec</pattern>
+											<shadedPattern>${shading.prefix}.org.byted.infsec</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
