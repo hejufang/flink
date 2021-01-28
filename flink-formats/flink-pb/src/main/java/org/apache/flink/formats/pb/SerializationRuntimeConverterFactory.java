@@ -33,7 +33,10 @@ import com.google.protobuf.MapEntry;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Factory of serialization runtime converter.
@@ -112,17 +115,23 @@ public class SerializationRuntimeConverterFactory {
 			descriptor = ((Descriptors.FieldDescriptor) genericDescriptor).getMessageType();
 		}
 
+		List<RowType.RowField> fields = rowType.getFields();
 		List<Descriptors.FieldDescriptor> fieldDescriptors = descriptor.getFields();
 
+		// The order of fieldDescriptors and fields is not ensured to be the same,
+		// so we have to reorder them.
+		List<Descriptors.FieldDescriptor> reorderFieldDescriptors =
+			reorderFieldDescriptors(fieldDescriptors, fields);
+
 		AtomicInteger converterIndex = new AtomicInteger();
-		final SerializationRuntimeConverter[] fieldConverters = rowType.getFields().stream()
+		final SerializationRuntimeConverter[] fieldConverters = fields.stream()
 			.map(RowType.RowField::getType)
 			.map((logicType) -> SerializationRuntimeConverterFactory.createConverter(
-				logicType, fieldDescriptors.get(converterIndex.getAndIncrement())))
+				logicType, reorderFieldDescriptors.get(converterIndex.getAndIncrement())))
 			.toArray(SerializationRuntimeConverter[]::new);
 
 		AtomicInteger getterIndex = new AtomicInteger();
-		final RowData.FieldGetter[] fieldGetters = rowType.getFields().stream()
+		final RowData.FieldGetter[] fieldGetters = fields.stream()
 			.map(RowType.RowField::getType)
 			.map(fieldType -> RowData.createFieldGetter(fieldType, getterIndex.getAndIncrement()))
 			.toArray(RowData.FieldGetter[]::new);
@@ -134,11 +143,31 @@ public class SerializationRuntimeConverterFactory {
 				Object field = fieldGetters[i].getFieldOrNull(row);
 				if (field != null) {
 					// We have to use fieldDescriptor here, so that SerializationRuntimeConverter cannot be Serializable.
-					dynamicMessageBuilder.setField(fieldDescriptors.get(i), fieldConverters[i].convert(field));
+					dynamicMessageBuilder.setField(reorderFieldDescriptors.get(i), fieldConverters[i].convert(field));
 				}
 			}
 			return dynamicMessageBuilder.build();
 		};
+	}
+
+	/**
+	 * Return the field descriptor list with the same order with fields according to filed names.
+	 */
+	private static List<Descriptors.FieldDescriptor> reorderFieldDescriptors(
+			List<Descriptors.FieldDescriptor> fieldDescriptors,
+			List<RowType.RowField> fields) {
+		Map<String, Descriptors.FieldDescriptor> fieldMap =
+			fieldDescriptors.stream().collect(
+				Collectors.toMap(Descriptors.FieldDescriptor::getJsonName, Function.identity()));
+		return fields.stream()
+			.map(RowType.RowField::getName)
+			.map(name -> {
+				Descriptors.FieldDescriptor fieldDescriptor = fieldMap.get(name);
+				if (fieldDescriptor == null) {
+					throw new FlinkRuntimeException("Cannot find fieldDescriptor with name: " + name);
+				}
+				return fieldDescriptor;
+			}).collect(Collectors.toList());
 	}
 
 	private static SerializationRuntimeConverter createArrayConverter(
