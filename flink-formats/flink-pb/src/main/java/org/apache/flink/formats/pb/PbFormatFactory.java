@@ -150,7 +150,9 @@ public class PbFormatFactory implements
 	}
 
 	@Override
-	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
+	public Optional<TableSchema> getOptionalTableSchema(
+			Map<String, String> formatOptions,
+			TableSchema originTableSchema) {
 		final String pbClass = formatOptions.get(fullKey(PB_CLASS.key()));
 		if (pbClass == null || pbClass.isEmpty()) {
 			return Optional.empty();

@@ -135,9 +135,9 @@ class SqlCreateTableConverter {
 			mergingStrategies
 		);
 
-		TableSchema inferredTableSchema = inferTableSchema(mergedOptions).orElse(null);
-		if (inferredTableSchema != null) {
-			mergedSchema = mergeOriginTableSchemaWithInferredOne(mergedSchema, inferredTableSchema);
+		Optional<TableSchema> inferredTableSchema = inferTableSchema(mergedOptions, mergedSchema);
+		if (inferredTableSchema.isPresent()) {
+			mergedSchema = mergeOriginTableSchemaWithInferredOne(mergedSchema, inferredTableSchema.get());
 		}
 
 		verifyPartitioningColumnsExist(mergedSchema, partitionKeys);
@@ -162,7 +162,7 @@ class SqlCreateTableConverter {
 		return builder.build();
 	}
 
-	private Optional<TableSchema> inferTableSchema(Map<String, String> options) {
+	private Optional<TableSchema> inferTableSchema(Map<String, String> options, TableSchema mergedSchema) {
 
 		String format = options.get(FORMAT);
 		DeserializationFormatFactory deserializationFormatFactory =
@@ -174,7 +174,7 @@ class SqlCreateTableConverter {
 		if ((deserializationFormatFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) deserializationFormatFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options);
+			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
 		}
 
 		SerializationFormatFactory serializationFormatFactory =
@@ -186,7 +186,7 @@ class SqlCreateTableConverter {
 		if ((serializationFormatFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) serializationFormatFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options);
+			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
 		}
 
 		FileSystemFormatFactory fileSystemFormatFactory =
@@ -198,7 +198,7 @@ class SqlCreateTableConverter {
 		if ((fileSystemFormatFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) fileSystemFormatFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options);
+			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
 		}
 
 		return Optional.empty();

@@ -209,6 +209,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				for (MessageExt messageExt: pollResult.getMsgList()) {
 					MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
 					T rowData = schema.deserialize(messageQueue, messageExt);
+					if (rowData == null) {
+						continue;
+					}
 					ctx.collect(rowData);
 					this.recordsNumMeterView.markEvent();
 					offsetTable.put(messageQueue, messageExt.getMaxOffset());
