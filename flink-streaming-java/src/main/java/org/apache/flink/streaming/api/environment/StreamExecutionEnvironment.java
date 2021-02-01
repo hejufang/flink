@@ -1718,9 +1718,6 @@ public class StreamExecutionEnvironment {
 	 */
 	@Internal
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
-
-		registerDashboard(streamGraph);
-
 		final JobClient jobClient = executeAsync(streamGraph);
 
 		try {
@@ -1821,6 +1818,7 @@ public class StreamExecutionEnvironment {
 			"Cannot find compatible factory for specified execution.target (=%s)",
 			configuration.get(DeploymentOptions.TARGET));
 
+		registerDashboard(streamGraph);
 		CompletableFuture<JobClient> jobClientFuture = executorFactory
 			.getExecutor(configuration)
 			.execute(streamGraph, configuration);

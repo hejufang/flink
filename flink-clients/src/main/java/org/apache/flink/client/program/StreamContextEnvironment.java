@@ -74,9 +74,6 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 	@Override
 	public JobExecutionResult execute(StreamGraph streamGraph) throws Exception {
-
-		registerDashboard(streamGraph);
-
 		final JobClient jobClient = executeAsync(streamGraph);
 		final List<JobListener> jobListeners = getJobListeners();
 
@@ -138,6 +135,7 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 	@Override
 	public JobClient executeAsync(StreamGraph streamGraph) throws Exception {
 		validateAllowedExecution();
+		registerDashboard(streamGraph);
 		final JobClient jobClient = super.executeAsync(streamGraph);
 
 		if (!suppressSysout) {

@@ -22,6 +22,7 @@ import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.util.StringUtils;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -49,12 +50,16 @@ public class Dashboard {
 	private JobGraph jobGraph;
 	private StreamGraph streamGraph;
 
-	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph,
-		JobGraph jobGraph) {
+	public Dashboard(String clusterName, String dataSource, StreamGraph streamGraph, JobGraph jobGraph) {
 		this.clusterName = clusterName;
 		this.streamGraph = streamGraph;
 		this.jobGraph = jobGraph;
-		this.jobName = jobGraph.getName();
+		String jobNameFromProperty = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (StringUtils.isNullOrWhitespaceOnly(jobNameFromProperty)) {
+			this.jobName = jobGraph.getName();
+		} else {
+			this.jobName = jobNameFromProperty;
+		}
 		this.formatJobName = formatMetricsName(jobGraph.getName());
 		this.dataSource = dataSource;
 	}
