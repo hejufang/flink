@@ -664,7 +664,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				CheckpointTasks tasksForCheckpoint = new CheckpointTasks(
 					collectExecutionVertices(triggerVertices),
 					collectExecutionVertices(triggerVertices),
-					collectExecutionVertices(triggerVertices));
+					collectExecutionVertices(splitVertices.f1));
 				return new PendingTriggerFactory(
 					this.getJobID(),
 					tasksForCheckpoint,
