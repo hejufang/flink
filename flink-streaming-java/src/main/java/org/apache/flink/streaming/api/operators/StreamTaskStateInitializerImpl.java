@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.metrics.MetricGroup;
@@ -169,7 +170,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 			streamTaskCloseableRegistry.registerCloseable(rawOperatorStateInputs);
 
 			// -------------- Internal Timer Service Manager --------------
-			timeServiceManager = internalTimeServiceManager(keyedStatedBackend, keyContext, processingTimeService, rawKeyedStateInputs);
+			boolean filterOutdatedTimer = environment.getTaskManagerInfo().getConfiguration().getBoolean(CoreOptions.FILTER_OUTDATED_TIMER);
+			timeServiceManager = internalTimeServiceManager(keyedStatedBackend, keyContext, processingTimeService, rawKeyedStateInputs, filterOutdatedTimer);
 
 			// -------------- Preparing return value --------------
 
@@ -216,6 +218,16 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 		ProcessingTimeService processingTimeService,
 		Iterable<KeyGroupStatePartitionStreamProvider> rawKeyedStates) throws Exception {
 
+		return internalTimeServiceManager(keyedStatedBackend, keyContext, processingTimeService, rawKeyedStates, false);
+	}
+
+	protected <K> InternalTimeServiceManager<K> internalTimeServiceManager(
+		AbstractKeyedStateBackend<K> keyedStatedBackend,
+		KeyContext keyContext, //the operator
+		ProcessingTimeService processingTimeService,
+		Iterable<KeyGroupStatePartitionStreamProvider> rawKeyedStates,
+		boolean filterOutdatedTimer) throws Exception {
+
 		if (keyedStatedBackend == null) {
 			return null;
 		}
@@ -227,7 +239,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 			keyContext,
 			keyedStatedBackend,
 			processingTimeService,
-			keyedStatedBackend.requiresLegacySynchronousTimerSnapshots());
+			keyedStatedBackend.requiresLegacySynchronousTimerSnapshots(),
+			filterOutdatedTimer);
 
 		// and then initialize the timer services
 		for (KeyGroupStatePartitionStreamProvider streamProvider : rawKeyedStates) {

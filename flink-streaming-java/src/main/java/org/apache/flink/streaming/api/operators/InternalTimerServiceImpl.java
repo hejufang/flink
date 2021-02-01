@@ -94,12 +94,33 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 	/** The restored timers snapshot, if any. */
 	private InternalTimersSnapshot<K, N> restoredTimersSnapshot;
 
+	private final boolean filterOutdatedTimer;
+
+	private final long serviceInitTime;
+
 	InternalTimerServiceImpl(
 		KeyGroupRange localKeyGroupRange,
 		KeyContext keyContext,
 		ProcessingTimeService processingTimeService,
 		KeyGroupedInternalPriorityQueue<TimerHeapInternalTimer<K, N>> processingTimeTimersQueue,
 		KeyGroupedInternalPriorityQueue<TimerHeapInternalTimer<K, N>> eventTimeTimersQueue) {
+
+		this(
+			localKeyGroupRange,
+			keyContext,
+			processingTimeService,
+			processingTimeTimersQueue,
+			eventTimeTimersQueue,
+			false);
+	}
+
+	InternalTimerServiceImpl(
+		KeyGroupRange localKeyGroupRange,
+		KeyContext keyContext,
+		ProcessingTimeService processingTimeService,
+		KeyGroupedInternalPriorityQueue<TimerHeapInternalTimer<K, N>> processingTimeTimersQueue,
+		KeyGroupedInternalPriorityQueue<TimerHeapInternalTimer<K, N>> eventTimeTimersQueue,
+		boolean filterOutdatedTimer) {
 
 		this.keyContext = checkNotNull(keyContext);
 		this.processingTimeService = checkNotNull(processingTimeService);
@@ -113,6 +134,8 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 			startIdx = Math.min(keyGroupIdx, startIdx);
 		}
 		this.localKeyGroupRangeStartIdx = startIdx;
+		this.filterOutdatedTimer = filterOutdatedTimer;
+		this.serviceInitTime = System.currentTimeMillis();
 	}
 
 	/**
@@ -256,8 +279,10 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 
 		while ((timer = processingTimeTimersQueue.peek()) != null && timer.getTimestamp() <= time) {
 			processingTimeTimersQueue.poll();
-			keyContext.setCurrentKey(timer.getKey());
-			triggerTarget.onProcessingTime(timer);
+			if (!filterOutdatedTimer || timer.getTimestamp() >= serviceInitTime) {
+				keyContext.setCurrentKey(timer.getKey());
+				triggerTarget.onProcessingTime(timer);
+			}
 		}
 
 		if (timer != null && nextTimer == null) {

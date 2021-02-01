@@ -314,6 +314,12 @@ public class CoreOptions {
 		.defaultValue(DefaultPartitioner.RESCALE)
 		.withDescription("Default partitioner for StreamGraph.");
 
+	public static final ConfigOption<Boolean> FILTER_OUTDATED_TIMER = ConfigOptions
+		.key("timer.recover.filter-outdated")
+		.defaultValue(false)
+		.withDescription("After the task is restored, whether it is necessary to trigger the " +
+			"timer that may have been triggered.");
+
 	// ------------------------------------------------------------------------
 	//  file systems
 	// ------------------------------------------------------------------------

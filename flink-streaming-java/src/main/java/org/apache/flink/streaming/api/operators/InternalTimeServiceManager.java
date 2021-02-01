@@ -76,17 +76,22 @@ public class InternalTimeServiceManager<K> {
 
 	private final boolean useLegacySynchronousSnapshots;
 
+	private final boolean filterOutdatedTimer;
+
 	InternalTimeServiceManager(
 		KeyGroupRange localKeyGroupRange,
 		KeyContext keyContext,
 		PriorityQueueSetFactory priorityQueueSetFactory,
-		ProcessingTimeService processingTimeService, boolean useLegacySynchronousSnapshots) {
+		ProcessingTimeService processingTimeService,
+		boolean useLegacySynchronousSnapshots,
+		boolean filterOutdatedTimer) {
 
 		this.localKeyGroupRange = Preconditions.checkNotNull(localKeyGroupRange);
 		this.priorityQueueSetFactory = Preconditions.checkNotNull(priorityQueueSetFactory);
 		this.keyContext = Preconditions.checkNotNull(keyContext);
 		this.processingTimeService = Preconditions.checkNotNull(processingTimeService);
 		this.useLegacySynchronousSnapshots = useLegacySynchronousSnapshots;
+		this.filterOutdatedTimer = filterOutdatedTimer;
 
 		this.timerServices = new HashMap<>();
 	}
@@ -130,7 +135,8 @@ public class InternalTimeServiceManager<K> {
 				keyContext,
 				processingTimeService,
 				createTimerPriorityQueue(PROCESSING_TIMER_PREFIX + name, timerSerializer),
-				createTimerPriorityQueue(EVENT_TIMER_PREFIX + name, timerSerializer));
+				createTimerPriorityQueue(EVENT_TIMER_PREFIX + name, timerSerializer),
+				filterOutdatedTimer);
 
 			timerServices.put(name, timerService);
 		}
