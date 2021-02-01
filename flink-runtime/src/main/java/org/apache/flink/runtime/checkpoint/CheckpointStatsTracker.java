@@ -202,6 +202,14 @@ public class CheckpointStatsTracker {
 			long checkpointId,
 			long triggerTimestamp,
 			CheckpointProperties props) {
+		return reportPendingCheckpoint(checkpointId, triggerTimestamp, props, totalSubtaskCount);
+	}
+
+	PendingCheckpointStats reportPendingCheckpoint(
+			long checkpointId,
+			long triggerTimestamp,
+			CheckpointProperties props,
+			int numNeedAcknowledgedSubtasks) {
 
 		ConcurrentHashMap<JobVertexID, TaskStateStats> taskStateStats = createEmptyTaskStateStatsMap();
 
@@ -209,7 +217,7 @@ public class CheckpointStatsTracker {
 				checkpointId,
 				triggerTimestamp,
 				props,
-				totalSubtaskCount,
+				numNeedAcknowledgedSubtasks,
 				taskStateStats,
 				new PendingCheckpointStatsCallback());
 

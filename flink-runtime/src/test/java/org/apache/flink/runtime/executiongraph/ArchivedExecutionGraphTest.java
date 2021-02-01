@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ArchivedExecutionConfig;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.ExecutionMode;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
@@ -33,6 +34,7 @@ import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
 import org.apache.flink.runtime.checkpoint.StandaloneCheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.StandaloneCompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
+import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.jobgraph.JobGraph;
@@ -51,6 +53,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -127,6 +130,9 @@ public class ArchivedExecutionGraphTest extends TestLogger {
 			false,
 			false,
 			0);
+
+		CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(CheckpointTriggerStrategy.DEFAULT, Arrays.asList(v1, v2));
+		chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);
 
 		runtimeGraph.enableCheckpointing(
 			chkConfig,

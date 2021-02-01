@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
+import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
@@ -68,6 +69,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 	private final boolean isUnalignedCheckpointsEnabled;
 
 	private boolean aggregateUnionState;
+
+	private CheckpointTriggerConfiguration checkpointTriggerConfiguration;
 
 	/**
 	 * @deprecated use {@link #builder()}.
@@ -178,6 +181,14 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.aggregateUnionState = aggregateUnionState;
 	}
 
+	public CheckpointTriggerConfiguration getCheckpointTriggerConfiguration() {
+		return checkpointTriggerConfiguration;
+	}
+
+	public void setCheckpointTriggerConfiguration(CheckpointTriggerConfiguration checkpointTriggerConfiguration) {
+		this.checkpointTriggerConfiguration = checkpointTriggerConfiguration;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -197,7 +208,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			Objects.equals(checkpointSchedulerConfiguration, that.checkpointSchedulerConfiguration) &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
 			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber &&
-			aggregateUnionState == that.aggregateUnionState;
+			aggregateUnionState == that.aggregateUnionState &&
+			Objects.equals(checkpointTriggerConfiguration, that.checkpointTriggerConfiguration);
 	}
 
 	@Override
@@ -213,7 +225,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isPreferCheckpointForRecovery,
 				checkpointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber,
-				aggregateUnionState);
+				aggregateUnionState,
+				checkpointTriggerConfiguration);
 	}
 
 	@Override
@@ -229,6 +242,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			", isPreferCheckpointForRecovery=" + isPreferCheckpointForRecovery +
 			", tolerableCheckpointFailureNumber=" + tolerableCheckpointFailureNumber +
 			", aggregateUnionState=" + aggregateUnionState +
+			", checkpointTriggerConfiguration=" + checkpointTriggerConfiguration +
 			'}';
 	}
 

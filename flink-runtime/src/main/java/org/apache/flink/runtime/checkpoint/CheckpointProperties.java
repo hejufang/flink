@@ -302,6 +302,32 @@ public class CheckpointProperties implements Serializable {
 			false,  // Retain on failure
 			false); // Retain on suspension
 
+	private static final CheckpointProperties FAST_CHECKPOINT_NEVER_RETAINED = new CheckpointProperties(
+		false,
+		CheckpointType.FAST_CHECKPOINT,
+		true,
+		true,  // Delete on success
+		true,  // Delete on cancellation
+		true,  // Delete on failure
+		true); // Delete on suspension
+
+	private static final CheckpointProperties FAST_CHECKPOINT_RETAINED_ON_FAILURE = new CheckpointProperties(
+		false,
+		CheckpointType.FAST_CHECKPOINT,
+		true,
+		true,  // Delete on success
+		true,  // Delete on cancellation
+		false, // Retain on failure
+		true); // Delete on suspension
+
+	private static final CheckpointProperties FAST_CHECKPOINT_RETAINED_ON_CANCELLATION = new CheckpointProperties(
+		false,
+		CheckpointType.FAST_CHECKPOINT,
+		true,
+		true,   // Delete on success
+		false,  // Retain on cancellation
+		false,  // Retain on failure
+		false); // Retain on suspension
 
 	/**
 	 * Creates the checkpoint properties for a (manually triggered) savepoint.
@@ -330,13 +356,17 @@ public class CheckpointProperties implements Serializable {
 	 * @return Checkpoint properties for an external checkpoint.
 	 */
 	public static CheckpointProperties forCheckpoint(CheckpointRetentionPolicy policy) {
+		return forCheckpoint(policy, false);
+	}
+
+	public static CheckpointProperties forCheckpoint(CheckpointRetentionPolicy policy, boolean useFastMode) {
 		switch (policy) {
 			case NEVER_RETAIN_AFTER_TERMINATION:
-				return CHECKPOINT_NEVER_RETAINED;
+				return useFastMode ? FAST_CHECKPOINT_NEVER_RETAINED : CHECKPOINT_NEVER_RETAINED;
 			case RETAIN_ON_FAILURE:
-				return CHECKPOINT_RETAINED_ON_FAILURE;
+				return useFastMode ? FAST_CHECKPOINT_RETAINED_ON_FAILURE : CHECKPOINT_RETAINED_ON_FAILURE;
 			case RETAIN_ON_CANCELLATION:
-				return CHECKPOINT_RETAINED_ON_CANCELLATION;
+				return useFastMode ? FAST_CHECKPOINT_RETAINED_ON_CANCELLATION : CHECKPOINT_RETAINED_ON_CANCELLATION;
 			default:
 				throw new IllegalArgumentException("unknown policy: " + policy);
 		}

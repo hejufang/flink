@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.checkpoint.trigger.PendingTriggerFactory;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -128,6 +129,10 @@ public class PendingCheckpoint {
 
 	private CheckpointException failureCause;
 
+	private final PendingTriggerFactory.PendingTrigger pendingTrigger;
+
+	private final int numNeedAcknowledgedSubtasks;
+
 	// --------------------------------------------------------------------------------------------
 
 	public PendingCheckpoint(
@@ -141,6 +146,32 @@ public class PendingCheckpoint {
 			CheckpointStorageLocation targetLocation,
 			Executor executor,
 			CompletableFuture<CompletedCheckpoint> onCompletionPromise) {
+		this(
+			jobId,
+			checkpointId,
+			checkpointTimestamp,
+			verticesToConfirm,
+			operatorCoordinatorsToConfirm,
+			masterStateIdentifiers,
+			props,
+			targetLocation,
+			executor,
+			onCompletionPromise,
+			PendingTriggerFactory.createDefaultPendingTrigger(verticesToConfirm));
+	}
+
+	public PendingCheckpoint(
+		JobID jobId,
+		long checkpointId,
+		long checkpointTimestamp,
+		Map<ExecutionAttemptID, ExecutionVertex> verticesToConfirm,
+		Collection<OperatorID> operatorCoordinatorsToConfirm,
+		Collection<String> masterStateIdentifiers,
+		CheckpointProperties props,
+		CheckpointStorageLocation targetLocation,
+		Executor executor,
+		CompletableFuture<CompletedCheckpoint> onCompletionPromise,
+		PendingTriggerFactory.PendingTrigger pendingTrigger) {
 
 		checkArgument(verticesToConfirm.size() > 0,
 				"Checkpoint needs at least one vertex that commits the checkpoint");
@@ -162,6 +193,8 @@ public class PendingCheckpoint {
 				? Collections.emptySet() : new HashSet<>(operatorCoordinatorsToConfirm);
 		this.acknowledgedTasks = new HashSet<>(verticesToConfirm.size());
 		this.onCompletionPromise = checkNotNull(onCompletionPromise);
+		this.pendingTrigger = pendingTrigger;
+		this.numNeedAcknowledgedSubtasks = verticesToConfirm.size();
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -346,7 +379,7 @@ public class PendingCheckpoint {
 					// Finalize the statsCallback and give the completed checkpoint a
 					// callback for discards.
 					CompletedCheckpointStats.DiscardCallback discardCallback =
-							statsCallback.reportCompletedCheckpoint(finalizedLocation.getExternalPointer(), completed.getTotalStateSize());
+							statsCallback.reportCompletedCheckpoint(finalizedLocation.getExternalPointer(), completed.getTotalStateSize(), numNeedAcknowledgedSubtasks);
 					completed.setDiscardCallback(discardCallback);
 				}
 
@@ -434,6 +467,10 @@ public class PendingCheckpoint {
 					checkpointId, vertex.getTaskNameWithSubtaskIndex(), overrideCheckpointId);
 			return TaskAcknowledgeResult.SUCCESS;
 		}
+	}
+
+	public PendingTriggerFactory.PendingTrigger getPendingTrigger() {
+		return pendingTrigger;
 	}
 
 	/**

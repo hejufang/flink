@@ -19,8 +19,10 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
+import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAdapter;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.Execution;
@@ -160,6 +162,9 @@ public class ExecutionGraphCheckpointCoordinatorTest extends TestLogger {
 			false,
 			false,
 			0);
+
+		CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(CheckpointTriggerStrategy.DEFAULT, Collections.singletonList(jobVertex));
+		chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);
 
 		executionGraph.enableCheckpointing(
 				chkConfig,

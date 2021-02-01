@@ -24,6 +24,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointMetrics;
 import org.apache.flink.runtime.checkpoint.TaskStateSnapshot;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.taskmanager.CheckpointResponder;
 import org.apache.flink.util.Preconditions;
 
@@ -62,5 +63,10 @@ public class RpcCheckpointResponder implements CheckpointResponder {
 			executionAttemptID,
 			checkpointId,
 			cause));
+	}
+
+	@Override
+	public void performCheckpoint(JobID jobID, ExecutionAttemptID executionAttemptID, long checkpointId) {
+		checkpointCoordinatorGateway.performCheckpoint(new PerformCheckpoint(jobID, executionAttemptID, checkpointId));
 	}
 }

@@ -77,6 +77,7 @@ import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
@@ -878,6 +879,22 @@ public abstract class SchedulerBase implements SchedulerNG {
 			} else {
 				log.debug(errorMessage, jobGraph.getJobID());
 			}
+		}
+	}
+
+	@Override
+	public void performCheckpoint(PerformCheckpoint performCheckpoint) {
+		mainThreadExecutor.assertRunningInMainThread();
+
+		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+		if (checkpointCoordinator != null) {
+			futureExecutor.execute(() -> {
+				try {
+					checkpointCoordinator.receivePerformCheckpointMessage(performCheckpoint);
+				} catch (Exception e) {
+					log.error("Error in CheckpointCoordinator while processing {}.", performCheckpoint, e);
+				}
+			});
 		}
 	}
 

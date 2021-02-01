@@ -166,11 +166,15 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	}
 
 	CompletedCheckpointStats.DiscardCallback reportCompletedCheckpoint(String externalPointer, long totalStateSize) {
+		return reportCompletedCheckpoint(externalPointer, totalStateSize, numberOfSubtasks);
+	}
+
+	CompletedCheckpointStats.DiscardCallback reportCompletedCheckpoint(String externalPointer, long totalStateSize, int numNeedAcknowledgedSubtasks) {
 		CompletedCheckpointStats completed = new CompletedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
 			props,
-			numberOfSubtasks,
+			numNeedAcknowledgedSubtasks,
 			new HashMap<>(taskStats),
 			currentNumAcknowledgedSubtasks,
 			currentStateSize,

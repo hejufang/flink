@@ -68,6 +68,7 @@ import org.apache.flink.runtime.leaderretrieval.LeaderRetrievalService;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
@@ -510,6 +511,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		} catch (Exception e) {
 			return FutureUtils.completedExceptionally(e);
 		}
+	}
+
+	@Override
+	public void performCheckpoint(PerformCheckpoint performCheckpoint) {
+		schedulerNG.performCheckpoint(performCheckpoint);
 	}
 
 	@Override

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.executiongraph;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
@@ -41,6 +42,7 @@ import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.handler.RegionCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
+import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.client.JobSubmissionException;
 import org.apache.flink.runtime.executiongraph.failover.FailoverStrategy;
@@ -413,6 +415,10 @@ public class ExecutionGraphBuilder {
 
 			final boolean aggregateUnionState = jobManagerConfig.getBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED);
 			chkConfig.setAggregateUnionState(aggregateUnionState);
+
+			final CheckpointTriggerStrategy triggerStrategy = jobManagerConfig.getEnum(CheckpointTriggerStrategy.class, CheckpointingOptions.CHECKPOINT_TRIGGER_STRATEGY);
+			CheckpointTriggerConfiguration triggerConfiguration = new CheckpointTriggerConfiguration(triggerStrategy, sortedTopology);
+			chkConfig.setCheckpointTriggerConfiguration(triggerConfiguration);
 
 			executionGraph.enableCheckpointing(
 				chkConfig,

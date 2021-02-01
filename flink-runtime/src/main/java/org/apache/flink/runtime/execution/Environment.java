@@ -218,6 +218,12 @@ public interface Environment {
 	void declineCheckpoint(long checkpointId, Throwable cause);
 
 	/**
+	 * Begin perform a checkpoint. This tells the checkpoint coordinator that this task begin perform
+	 * checkpoint of checkpointId.
+	 */
+	default void performCheckpoint(long checkpointId) {};
+
+	/**
 	 * Marks task execution failed for an external reason (a reason other than the task code itself
 	 * throwing an exception). If the task is already in a terminal state
 	 * (such as FINISHED, CANCELED, FAILED), or if the task is already canceling this does nothing.

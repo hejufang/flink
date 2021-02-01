@@ -16,27 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.checkpoint;
+package org.apache.flink.runtime.messages.checkpoint;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
-import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
-import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
-import org.apache.flink.runtime.rpc.RpcGateway;
 
 /**
- * RPC Gateway interface for messages to the CheckpointCoordinator.
+ * SyncCompleteCheckpoint.
  */
-public interface CheckpointCoordinatorGateway extends RpcGateway {
+public class PerformCheckpoint extends AbstractCheckpointMessage {
 
-	void acknowledgeCheckpoint(
-			final JobID jobID,
-			final ExecutionAttemptID executionAttemptID,
-			final long checkpointId,
-			final CheckpointMetrics checkpointMetrics,
-			final TaskStateSnapshot subtaskState);
+	public PerformCheckpoint(
+			JobID job,
+			ExecutionAttemptID taskExecutionId,
+			long checkpointId) {
+		super(job, taskExecutionId, checkpointId);
+	}
 
-	void declineCheckpoint(DeclineCheckpoint declineCheckpoint);
-
-	default void performCheckpoint(PerformCheckpoint performCheckpoint) {}
+	@Override
+	public String toString() {
+		return "PerformCheckpoint{" + super.toString() + "}";
+	}
 }

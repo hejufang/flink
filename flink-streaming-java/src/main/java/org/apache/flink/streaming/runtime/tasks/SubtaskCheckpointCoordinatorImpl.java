@@ -244,17 +244,23 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
 			return;
 		}
 
+		if (!options.getCheckpointType().isBroadcastBarrier()){
+			env.performCheckpoint(metadata.getCheckpointId());
+		}
+
 		// Step (1): Prepare the checkpoint, allow operators to do some pre-barrier work.
 		//           The pre-barrier work should be nothing or minimal in the common case.
 		operatorChain.prepareSnapshotPreBarrier(metadata.getCheckpointId());
 
 		// Step (2): Send the checkpoint barrier downstream
-		operatorChain.broadcastEvent(
-			new CheckpointBarrier(metadata.getCheckpointId(), metadata.getTimestamp(), options),
-			options.isUnalignedCheckpoint());
+		if (options.getCheckpointType().isBroadcastBarrier()) {
+			operatorChain.broadcastEvent(
+				new CheckpointBarrier(metadata.getCheckpointId(), metadata.getTimestamp(), options),
+				options.isUnalignedCheckpoint());
+		}
 
 		// Step (3): Prepare to spill the in-flight buffers for input and output
-		if (options.isUnalignedCheckpoint()) {
+		if (options.getCheckpointType().isBroadcastBarrier() && options.isUnalignedCheckpoint()) {
 			prepareInflightDataSnapshot(metadata.getCheckpointId());
 		}
 

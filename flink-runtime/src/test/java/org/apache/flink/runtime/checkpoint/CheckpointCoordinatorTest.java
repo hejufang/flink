@@ -1923,7 +1923,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 		assertFalse(checkpointFuture.isCompletedExceptionally());
 
 		verify(tracker, times(1))
-			.reportPendingCheckpoint(eq(1L), any(Long.class), eq(CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION)));
+			.reportPendingCheckpoint(eq(1L), any(Long.class), eq(CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION)), any(Integer.class));
 	}
 
 	/**

@@ -24,24 +24,27 @@ package org.apache.flink.runtime.checkpoint;
 public enum CheckpointType {
 
 	/** A checkpoint, full or incremental. */
-	CHECKPOINT(false, false),
+	CHECKPOINT(false, false, true),
 
 	/** A regular savepoint. */
-	SAVEPOINT(true, false),
+	SAVEPOINT(true, false, true),
 
 	/** A savepoint taken while suspending/terminating the job. */
-	SYNC_SAVEPOINT(true, true);
+	SYNC_SAVEPOINT(true, true, true),
+
+	/** A fast checkpoint, which may discard some data. */
+	FAST_CHECKPOINT(false, false, false);
 
 	private final boolean isSavepoint;
 
 	private final boolean isSynchronous;
 
-	CheckpointType(
-			final boolean isSavepoint,
-			final boolean isSynchronous) {
+	private final boolean broadcastBarrier;
 
+	CheckpointType(boolean isSavepoint, boolean isSynchronous, boolean broadcastBarrier) {
 		this.isSavepoint = isSavepoint;
 		this.isSynchronous = isSynchronous;
+		this.broadcastBarrier = broadcastBarrier;
 	}
 
 	public boolean isSavepoint() {
@@ -50,5 +53,9 @@ public enum CheckpointType {
 
 	public boolean isSynchronous() {
 		return isSynchronous;
+	}
+
+	public boolean isBroadcastBarrier() {
+		return broadcastBarrier;
 	}
 }

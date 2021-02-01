@@ -39,6 +39,7 @@ import org.apache.flink.runtime.jobmanager.PartitionProducerDisposedException;
 import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.operators.coordination.CoordinationRequest;
 import org.apache.flink.runtime.operators.coordination.CoordinationResponse;
@@ -125,6 +126,8 @@ public interface SchedulerNG {
 	void declineCheckpoint(DeclineCheckpoint decline);
 
 	CompletableFuture<String> stopWithSavepoint(String targetDirectory, boolean advanceToEndOfEventTime, long savepointTimeout);
+
+	void performCheckpoint(PerformCheckpoint performCheckpoint);
 
 	// ------------------------------------------------------------------------
 	//  Operator Coordinator related methods
