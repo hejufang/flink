@@ -18,8 +18,12 @@
 
 package org.apache.flink.cep.pattern.parser;
 
+import org.apache.flink.cep.pattern.pojo.AbstractCondition;
+import org.apache.flink.cep.pattern.pojo.AbstractPatternPojo;
 import org.apache.flink.cep.pattern.pojo.Condition;
 import org.apache.flink.cep.pattern.pojo.PatternPojo;
+import org.apache.flink.cep.pattern.v2.ConditionGroup;
+import org.apache.flink.cep.pattern.v2.LeafCondition;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -34,7 +38,7 @@ public class LegalPatternPojoChecker implements Serializable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(LegalPatternPojoChecker.class);
 
-	public static boolean isPatternPojoLegal(PatternPojo pojo) {
+	public static boolean isPatternPojoLegal(AbstractPatternPojo pojo) {
 		try {
 			Preconditions.checkArgument(pojo.getId() != null);
 			if (pojo.getStatus().equals(PatternPojo.StatusType.DISABLED)) {
@@ -54,9 +58,20 @@ public class LegalPatternPojoChecker implements Serializable {
 		}
 	}
 
-	private static boolean isConditionLegal(Condition condition) {
-		Preconditions.checkArgument(condition.getFilters().isEmpty()
-				|| (condition.getFilters().size() > 0 && !condition.getAggregation().equals(Condition.AggregationType.NONE)));
+	private static boolean isConditionLegal(AbstractCondition abstractCondition) {
+		if (abstractCondition instanceof Condition) {
+			Condition condition = (Condition) abstractCondition;
+			Preconditions.checkArgument(condition.getFilters().isEmpty()
+					|| (condition.getFilters().size() > 0 && !condition.getAggregation().equals(Condition.AggregationType.NONE)));
+		} else if (abstractCondition instanceof LeafCondition) {
+			LeafCondition condition = (LeafCondition) abstractCondition;
+			Preconditions.checkArgument(condition.getFilters().isEmpty()
+					|| (condition.getFilters().size() > 0 && !condition.getAggregation().equals(LeafCondition.AggregationType.NONE)));
+		} else if (abstractCondition instanceof ConditionGroup) {
+			ConditionGroup group = (ConditionGroup) abstractCondition;
+			Preconditions.checkArgument(group.getConditions().size() > 0 || group.getGroups().size() > 0);
+			Preconditions.checkArgument(!(group.getConditions().size() > 0 && group.getGroups().size() > 0));
+		}
 		return true;
 	}
 }

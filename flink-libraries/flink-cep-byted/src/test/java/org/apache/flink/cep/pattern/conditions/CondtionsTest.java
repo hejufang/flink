@@ -19,18 +19,42 @@
 package org.apache.flink.cep.pattern.conditions;
 
 import org.apache.flink.cep.Event;
+import org.apache.flink.cep.pattern.conditions.v2.EventParserConditionV2;
 import org.apache.flink.cep.pattern.parser.TestCepEventParser;
+import org.apache.flink.cep.pattern.pojo.AbstractCondition;
 import org.apache.flink.cep.pattern.pojo.Condition;
+import org.apache.flink.cep.pattern.v2.ConditionGroup;
+import org.apache.flink.cep.pattern.v2.LeafCondition;
+import org.apache.flink.configuration.Configuration;
 
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
  * Test for conditions.
  */
 public class CondtionsTest {
+
+	@Test
+	public void testOrCondition() throws Exception {
+		LeafCondition c1 = new LeafCondition("name", LeafCondition.OpType.EQUAL, "v1");
+		LeafCondition c2 = new LeafCondition("name", LeafCondition.OpType.EQUAL, "v2");
+		LeafCondition c3 = new LeafCondition("id", LeafCondition.OpType.EQUAL, "1");
+		LeafCondition c4 = new LeafCondition("price", LeafCondition.OpType.EQUAL, "2", AbstractCondition.ValueType.DOUBLE);
+
+		ConditionGroup g1 = new ConditionGroup(LeafCondition.OpType.OR, new ArrayList<>(), Arrays.asList(c1, c2));
+		ConditionGroup g2 = new ConditionGroup(LeafCondition.OpType.AND, new ArrayList<>(), Arrays.asList(c3, c4));
+		ConditionGroup g = new ConditionGroup(LeafCondition.OpType.OR, Arrays.asList(g1, g2), new ArrayList<>());
+		final EventParserConditionV2<Event> condition = new EventParserConditionV2<>(new TestCepEventParser(), g, "-1");
+		condition.open(new Configuration());
+		Assert.assertTrue(condition.filter(new Event(3, "v1", 1.0), new TestContext()));
+		Assert.assertTrue(condition.filter(new Event(3, "v2", 1.0), new TestContext()));
+		Assert.assertTrue(condition.filter(new Event(1, "v3", 2), new TestContext()));
+		Assert.assertFalse(condition.filter(new Event(2, "v4", 2.0), new TestContext()));
+	}
 
 	@Test
 	public void testNotEqual() throws Exception {

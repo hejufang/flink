@@ -37,6 +37,7 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.pattern.conditions.EventParserCondition;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
+import org.apache.flink.cep.pattern.conditions.v2.EventParserConditionV2;
 import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.configuration.Configuration;
@@ -224,6 +225,8 @@ public class NFA<T> {
 				IterativeCondition condition = transition.getCondition();
 				if (condition instanceof EventParserCondition) {
 					((EventParserCondition<?>) condition).clearStateWhenOutput();
+				} else if (condition instanceof EventParserConditionV2) {
+					((EventParserConditionV2<?>) condition).clearStateWhenOutput();
 				}
 			}
 		}

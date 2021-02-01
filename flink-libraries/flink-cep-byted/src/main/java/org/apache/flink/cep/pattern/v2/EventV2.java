@@ -16,47 +16,57 @@
  * limitations under the License.
  */
 
-package org.apache.flink.cep.pattern.pojo;
+package org.apache.flink.cep.pattern.v2;
+
+import org.apache.flink.cep.pattern.pojo.AbstractCondition;
+import org.apache.flink.cep.pattern.pojo.AbstractEvent;
+import org.apache.flink.cep.pattern.pojo.PatternPojo;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 /**
  * For {@link PatternPojo}.
  */
-public class Event extends AbstractEvent implements Serializable {
+public class EventV2 extends AbstractEvent implements Serializable {
 
 	public static final String FIELD_ID = "id";
 	public static final String FIELD_CONNECTION = "connection";
 	public static final String FIELD_AFTER = "after";
-	public static final String FIELD_CONDITIONS = "conditions";
+	public static final String FIELD_CONDITION_GROUP = "conditionGroup";
 
 	@JsonProperty(FIELD_ID)
 	private final String id;
 
 	@JsonProperty(FIELD_CONNECTION)
-	private final Event.ConnectionType connection;
+	private final ConnectionType connection;
 
 	@JsonProperty(FIELD_AFTER)
 	private final String after;
 
-	@JsonProperty(FIELD_CONDITIONS)
-	private final List<Condition> conditions;
+	@JsonProperty(FIELD_CONDITION_GROUP)
+	private final ConditionGroup conditionGroup;
 
 	@JsonCreator
-	public Event(
+	public EventV2(
 			@JsonProperty(FIELD_ID) String id,
 			@JsonProperty(FIELD_CONNECTION) ConnectionType connection,
 			@JsonProperty(FIELD_AFTER) String after,
-			@JsonProperty(FIELD_CONDITIONS) List<Condition> conditions) {
+			@JsonProperty(FIELD_CONDITION_GROUP) ConditionGroup conditionGroup) {
 		this.id = id;
 		this.connection = connection;
 		this.after = after;
-		this.conditions = conditions;
+		this.conditionGroup = conditionGroup;
+	}
+
+	@Override
+	public List<? extends AbstractCondition> getConditions() {
+		return Arrays.asList(conditionGroup);
 	}
 
 	public String getId() {
@@ -71,8 +81,8 @@ public class Event extends AbstractEvent implements Serializable {
 		return after;
 	}
 
-	public List<Condition> getConditions() {
-		return conditions;
+	public ConditionGroup getConditionGroup() {
+		return conditionGroup;
 	}
 
 	@Override
@@ -83,16 +93,16 @@ public class Event extends AbstractEvent implements Serializable {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		Event event = (Event) o;
+		EventV2 event = (EventV2) o;
 		return Objects.equals(id, event.id) &&
 				connection == event.connection &&
 				Objects.equals(after, event.after) &&
-				Objects.equals(conditions, event.conditions);
+				Objects.equals(conditionGroup, event.conditionGroup);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, connection == null ? -1 : connection.getName(), after, conditions);
+		return Objects.hash(id, connection == null ? -1 : connection.getName(), after, conditionGroup);
 	}
 
 	@Override
@@ -101,7 +111,7 @@ public class Event extends AbstractEvent implements Serializable {
 				"id='" + id + '\'' +
 				", connection=" + connection +
 				", after='" + after + '\'' +
-				", conditions=" + conditions +
+				", conditionGroup=" + conditionGroup +
 				'}';
 	}
 }

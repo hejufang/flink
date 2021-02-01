@@ -277,6 +277,14 @@ public class Pattern<T, F extends T> implements Serializable {
 		return this;
 	}
 
+	public Pattern<T, F> within(org.apache.flink.streaming.api.windowing.time.Time windowTime) {
+		if (windowTime != null) {
+			this.windowTime = Time.of(windowTime.getSize(), windowTime.getUnit());
+		}
+
+		return this;
+	}
+
 	/**
 	 * Appends a new pattern to the existing one. The new pattern enforces strict
 	 * temporal contiguity. This means that the whole pattern sequence matches only

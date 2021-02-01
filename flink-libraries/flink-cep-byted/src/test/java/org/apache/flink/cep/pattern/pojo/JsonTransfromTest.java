@@ -18,6 +18,10 @@
 
 package org.apache.flink.cep.pattern.pojo;
 
+import org.apache.flink.cep.pattern.v2.ConditionGroup;
+import org.apache.flink.cep.pattern.v2.LeafCondition;
+import org.apache.flink.cep.pattern.v2.PatternPojoV2;
+
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.Assert;
@@ -29,6 +33,73 @@ import java.io.IOException;
  * Test for conversion from json string to {@link PatternPojo}.
  */
 public class JsonTransfromTest {
+
+	@Test
+	public void testConditionGroup() throws IOException {
+		String json = "{\n" +
+				"        \"id\": \"rule_xx\",\n" +
+				"        \"pattern\": {\n" +
+				"                \"events\": [{\n" +
+				"                                \"id\": \"imp\",\n" +
+				"                                \"conditionGroup\": {\n" +
+				"                                                \"op\": \"or\",\n" +
+				"                                                \"conditionGroups\": [{\n" +
+				"                                                        \"op\": \"or\",\n" +
+				"                                                        \"conditionGroups\": [],\n" +
+				"                                                        \"conditions\": [{\n" +
+				"                                                                \"key\": \"k1\",\n" +
+				"                                                                \"op\": \"=\",\n" +
+				"                                                                \"value\": \"v1\",\n" +
+				"                                                                \"type\": \"string\",\n" +
+				"                                                                \"aggregation\": \"none\",\n" +
+				"                                                                \"filters\": []\n" +
+				"                                                        }, {\n" +
+				"                                                                \"key\": \"k2\",\n" +
+				"                                                                \"op\": \"=\",\n" +
+				"                                                                \"value\": \"v2\",\n" +
+				"                                                                \"type\": \"string\",\n" +
+				"                                                                \"aggregation\": \"none\",\n" +
+				"                                                                \"filters\": []\n" +
+				"                                                        }]\n" +
+				"                                                }, {\n" +
+				"                                                        \"op\": \"and\",\n" +
+				"                                                        \"conditionGroups\": [],\n" +
+				"                                                        \"conditions\": [{\n" +
+				"                                                                \"key\": \"k3\",\n" +
+				"                                                                \"op\": \"=\",\n" +
+				"                                                                \"value\": \"v3\",\n" +
+				"                                                                \"type\": \"string\",\n" +
+				"                                                                \"aggregation\": \"none\",\n" +
+				"                                                                \"filters\": []\n" +
+				"                                                        }, {\n" +
+				"                                                                \"key\": \"k4\",\n" +
+				"                                                                \"op\": \"=\",\n" +
+				"                                                                \"value\": \"v4\",\n" +
+				"                                                                \"type\": \"string\",\n" +
+				"                                                                \"aggregation\": \"none\",\n" +
+				"                                                                \"filters\": []\n" +
+				"                                                        }]\n" +
+				"                                                }],\n" +
+				"                                                \"conditions\": []\n" +
+				"                                }        \n" +
+				"                        }\n" +
+				"                ]\n" +
+				"        },\n" +
+				"   \"version\": 2\n" +
+				"}\n";
+		System.out.println(json);
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojoV2 pattern = (PatternPojoV2) objectMapper.readValue(json, AbstractPatternPojo.class);
+		ConditionGroup group = (ConditionGroup) pattern.getEvents().get(0).getConditions().get(0);
+		ConditionGroup subGroup1 = group.getGroups().get(0);
+		ConditionGroup subGroup2 = group.getGroups().get(1);
+		Assert.assertEquals(ConditionGroup.OpType.OR, group.getOp());
+		Assert.assertEquals(ConditionGroup.OpType.OR, subGroup1.getOp());
+		Assert.assertEquals(ConditionGroup.OpType.AND, subGroup2.getOp());
+		Assert.assertEquals("k1", subGroup1.getConditions().get(0).getKey());
+		Assert.assertEquals("v2", subGroup1.getConditions().get(1).getValue());
+		Assert.assertEquals(LeafCondition.OpType.EQUAL, subGroup1.getConditions().get(1).getOp());
+	}
 
 	@Test
 	public void testAggregationCondition() throws IOException {

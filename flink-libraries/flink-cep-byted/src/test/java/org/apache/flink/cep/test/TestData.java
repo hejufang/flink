@@ -27,7 +27,7 @@ public class TestData {
 
 	@Test
 	public void testPrint() {
-		System.out.println(PATTERN_DATA_1);
+		System.out.println(CONDITION_GROUP_PATTERN);
 		System.out.println("---");
 		System.out.println(COUNT_PATTERN_1);
 	}
@@ -188,6 +188,60 @@ public class TestData {
 			"        }\n" +
 			"    }\n" +
 			"}";
+
+	public static final String CONDITION_GROUP_PATTERN = "{\n" +
+			"        \"id\": \"rule_xx\",\n" +
+			"        \"pattern\": {\n" +
+			"                \"events\": [{\n" +
+			"                                \"id\": \"imp\",\n" +
+			"                                \"conditionGroup\": \n" +
+			"                                        {\n" +
+			"                                                \"op\": \"or\",\n" +
+			"                                                \"conditionGroups\": [{\n" +
+			"                                                        \"op\": \"or\",\n" +
+			"                                                        \"conditionGroups\": [],\n" +
+			"                                                        \"conditions\": [{\n" +
+			"                                                                \"key\": \"k1\",\n" +
+			"                                                                \"op\": \"=\",\n" +
+			"                                                                \"value\": \"v1\",\n" +
+			"                                                                \"type\": \"string\",\n" +
+			"                                                                \"aggregation\": \"none\",\n" +
+			"                                                                \"filters\": []\n" +
+			"                                                        }, {\n" +
+			"                                                                \"key\": \"k2\",\n" +
+			"                                                                \"op\": \"=\",\n" +
+			"                                                                \"value\": \"v2\",\n" +
+			"                                                                \"type\": \"string\",\n" +
+			"                                                                \"aggregation\": \"none\",\n" +
+			"                                                                \"filters\": []\n" +
+			"                                                        }]\n" +
+			"                                                }, {\n" +
+			"                                                        \"op\": \"and\",\n" +
+			"                                                        \"conditionGroups\": [],\n" +
+			"                                                        \"conditions\": [{\n" +
+			"                                                                \"key\": \"k3\",\n" +
+			"                                                                \"op\": \"=\",\n" +
+			"                                                                \"value\": \"v3\",\n" +
+			"                                                                \"type\": \"string\",\n" +
+			"                                                                \"aggregation\": \"none\",\n" +
+			"                                                                \"filters\": []\n" +
+			"                                                        }, {\n" +
+			"                                                                \"key\": \"k4\",\n" +
+			"                                                                \"op\": \"=\",\n" +
+			"                                                                \"value\": \"v4\",\n" +
+			"                                                                \"type\": \"string\",\n" +
+			"                                                                \"aggregation\": \"none\",\n" +
+			"                                                                \"filters\": []\n" +
+			"                                                        }]\n" +
+			"                                                }],\n" +
+			"                                                \"conditions\": []\n" +
+			"                                        }\n" +
+			"                                \n" +
+			"                        }\n" +
+			"                ]\n" +
+			"        },\n" +
+			"        \"version\": 2\n" +
+			"}\n";
 
 	public static final String ILLEGAL_PATTERN_1 = "{\n" +
 			"        \"id\": \"test_count\",\n" +

@@ -16,9 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.cep.pattern.pojo;
+package org.apache.flink.cep.pattern.v2;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.cep.pattern.pojo.AbstractPatternBody;
+import org.apache.flink.cep.pattern.pojo.PatternPojo;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,26 +36,26 @@ import java.util.stream.Collectors;
 /**
  * For {@link PatternPojo}.
  */
-public class PatternBody extends AbstractPatternBody implements Serializable {
+public class PatternBodyV2 extends AbstractPatternBody implements Serializable {
 
 	public static final String FIELD_EVENTS = "events";
 	public static final String FIELD_ATTRIBUTES = "attributes";
 
 	@JsonProperty(FIELD_EVENTS)
-	private List<Event> events;
+	private List<EventV2> events;
 
 	@JsonProperty(FIELD_ATTRIBUTES)
 	private Map<AttributeType, String> attributes;
 
 	@JsonCreator
-	public PatternBody(
-			@JsonProperty(FIELD_EVENTS) List<Event> events,
+	public PatternBodyV2(
+			@JsonProperty(FIELD_EVENTS) List<EventV2> events,
 			@JsonProperty(FIELD_ATTRIBUTES) Map<AttributeType, String> attributes) {
 		this.events = events;
 		this.attributes = attributes == null ? new HashMap<>() : attributes;
 	}
 
-	public List<Event> getEvents() {
+	public List<EventV2> getEvents() {
 		return events;
 	}
 
@@ -69,7 +71,7 @@ public class PatternBody extends AbstractPatternBody implements Serializable {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		PatternBody that = (PatternBody) o;
+		PatternBodyV2 that = (PatternBodyV2) o;
 		return Objects.equals(events, that.events) &&
 				Objects.equals(attributes, that.attributes);
 	}

@@ -19,10 +19,12 @@
 package org.apache.flink.cep.pattern.parser;
 
 import org.apache.flink.cep.pattern.Pattern;
+import org.apache.flink.cep.pattern.pojo.AbstractPatternPojo;
 import org.apache.flink.cep.pattern.pojo.Condition;
 import org.apache.flink.cep.pattern.pojo.Event;
 import org.apache.flink.cep.pattern.pojo.PatternBody;
 import org.apache.flink.cep.pattern.pojo.PatternPojo;
+import org.apache.flink.cep.pattern.v2.PatternPojoV2;
 import org.apache.flink.cep.test.TestData;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +43,14 @@ import java.util.Map;
  * Tests for conversion from pojo to pattern.
  */
 public class ConvertFlatMapFunctionTest {
+
+	@Test
+	public void testConditionGroup() throws IOException {
+		ObjectMapper objectMapper = new ObjectMapper();
+		PatternPojoV2 pojo = (PatternPojoV2) objectMapper.readValue(TestData.CONDITION_GROUP_PATTERN, AbstractPatternPojo.class);
+		Pattern<?, ?> result = PatternConverter.buildPattern(pojo, new TestCepEventParserFactory().create());
+		Assert.assertNotNull(result.getPatternId());
+	}
 
 	@Test
 	public void testDisabledPattern() throws IOException {

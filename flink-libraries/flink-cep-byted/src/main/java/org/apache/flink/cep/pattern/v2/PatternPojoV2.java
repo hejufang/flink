@@ -16,7 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.cep.pattern.pojo;
+package org.apache.flink.cep.pattern.v2;
+
+import org.apache.flink.cep.pattern.pojo.AbstractEvent;
+import org.apache.flink.cep.pattern.pojo.AbstractPatternPojo;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,31 +30,37 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * For {@link PatternPojo}.
+ * For {@link PatternPojoV2}.
  */
-public class PatternPojo extends AbstractPatternPojo implements Serializable {
+public class PatternPojoV2 extends AbstractPatternPojo implements Serializable {
 
 	public static final String FIELD_ID = "id";
 	public static final String FIELD_PATTERN = "pattern";
 	public static final String FIELD_STATUS = "status";
+	public static final String FIELD_VERSION = "version";
 
 	@JsonProperty(FIELD_ID)
 	private final String id;
 
 	@JsonProperty(FIELD_PATTERN)
-	private PatternBody pattern;
+	private PatternBodyV2 pattern;
 
 	@JsonProperty(FIELD_STATUS)
 	private StatusType status;
 
+	@JsonProperty(FIELD_VERSION)
+	private int version;
+
 	@JsonCreator
-	public PatternPojo(
+	public PatternPojoV2(
 			@JsonProperty(FIELD_ID) String id,
-			@JsonProperty(FIELD_PATTERN) PatternBody pattern,
-			@JsonProperty(FIELD_STATUS) StatusType status) {
+			@JsonProperty(FIELD_PATTERN) PatternBodyV2 pattern,
+			@JsonProperty(FIELD_STATUS) StatusType status,
+			@JsonProperty(FIELD_VERSION) int version) {
 		this.id = id;
 		this.pattern = pattern;
 		this.status = status == null ? StatusType.ENABLED : status;
+		this.version = version;
 	}
 
 	public StatusType getStatus() {
@@ -62,26 +71,26 @@ public class PatternPojo extends AbstractPatternPojo implements Serializable {
 		return id;
 	}
 
-	public PatternBody getPattern() {
+	public PatternBodyV2 getPattern() {
 		return pattern;
 	}
 
 	@Override
 	public int getVersion() {
-		return 1;
+		return version;
 	}
 
-	public List<Event> getEvents() {
+	public List<EventV2> getEvents() {
 		return pattern.getEvents();
 	}
 
-	public Event getBeginEvent() {
-		List<Event> events = pattern.getEvents().stream().filter(event -> event.getAfter() == null).collect(Collectors.toList());
+	public EventV2 getBeginEvent() {
+		List<EventV2> events = pattern.getEvents().stream().filter(event -> event.getAfter() == null).collect(Collectors.toList());
 		return events.get(0);
 	}
 
-	public Event getEventAfter(AbstractEvent before) {
-		List<Event> events = pattern.getEvents()
+	public EventV2 getEventAfter(AbstractEvent before) {
+		List<EventV2> events = pattern.getEvents()
 				.stream()
 				.filter(event -> event.getAfter() != null && event.getAfter().equals(before.getId()))
 				.collect(Collectors.toList());
@@ -102,15 +111,16 @@ public class PatternPojo extends AbstractPatternPojo implements Serializable {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		PatternPojo that = (PatternPojo) o;
+		PatternPojoV2 that = (PatternPojoV2) o;
 		return Objects.equals(id, that.id) &&
 				Objects.equals(pattern, that.pattern) &&
-				status == that.status;
+				status == that.status &&
+				version == that.version;
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, pattern, status.getStatus());
+		return Objects.hash(id, pattern, status.getStatus(), version);
 	}
 
 	@Override
@@ -119,6 +129,7 @@ public class PatternPojo extends AbstractPatternPojo implements Serializable {
 				"id='" + id + '\'' +
 				", pattern=" + pattern +
 				", status=" + status +
+				", version=" + version +
 				'}';
 	}
 }

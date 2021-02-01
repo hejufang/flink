@@ -16,9 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.cep.pattern.pojo;
+package org.apache.flink.cep.pattern.v2;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.cep.pattern.pojo.AbstractCondition;
+import org.apache.flink.cep.pattern.pojo.PatternPojo;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
@@ -31,7 +33,7 @@ import java.util.Objects;
 /**
  * For {@link PatternPojo}.
  */
-public class Condition extends AbstractCondition implements Serializable {
+public class LeafCondition extends AbstractCondition implements Serializable {
 
 	public static final String FIELD_KEY = "key";
 	public static final String FIELD_OP = "op";
@@ -44,33 +46,38 @@ public class Condition extends AbstractCondition implements Serializable {
 	private final String key;
 
 	@JsonProperty(FIELD_OP)
-	private final Condition.OpType op;
+	private final LeafCondition.OpType op;
 
 	@JsonProperty(FIELD_VALUE)
 	private final String value;
 
 	@JsonProperty(FIELD_TYPE)
-	private final Condition.ValueType type;
+	private final LeafCondition.ValueType type;
 
 	@JsonProperty(FIELD_AGGREGATION)
 	private final AggregationType aggregation;
 
 	@JsonProperty(FIELD_FILTERS)
-	private final List<Condition> filters;
+	private final List<LeafCondition> filters;
 
 	@VisibleForTesting
-	public Condition(String key, Condition.OpType op, String value) {
+	public LeafCondition(String key, LeafCondition.OpType op, String value) {
 		this(key, op, value, null, null, null);
 	}
 
+	@VisibleForTesting
+	public LeafCondition(String key, LeafCondition.OpType op, String value, ValueType type) {
+		this(key, op, value, type, null, null);
+	}
+
 	@JsonCreator
-	public Condition(
+	public LeafCondition(
 			@JsonProperty(FIELD_KEY) String key,
-			@JsonProperty(FIELD_OP) Condition.OpType op,
+			@JsonProperty(FIELD_OP) LeafCondition.OpType op,
 			@JsonProperty(FIELD_VALUE) String value,
 			@JsonProperty(FIELD_TYPE) ValueType type,
 			@JsonProperty(FIELD_AGGREGATION) AggregationType aggregation,
-			@JsonProperty(FIELD_FILTERS) List<Condition> filters) {
+			@JsonProperty(FIELD_FILTERS) List<LeafCondition> filters) {
 		this.key = key;
 		this.op = op;
 		this.value = value;
@@ -83,7 +90,7 @@ public class Condition extends AbstractCondition implements Serializable {
 		return key;
 	}
 
-	public Condition.OpType getOp() {
+	public LeafCondition.OpType getOp() {
 		return op;
 	}
 
@@ -99,7 +106,7 @@ public class Condition extends AbstractCondition implements Serializable {
 		return type;
 	}
 
-	public List<Condition> getFilters() {
+	public List<LeafCondition> getFilters() {
 		return filters;
 	}
 
@@ -111,7 +118,7 @@ public class Condition extends AbstractCondition implements Serializable {
 		if (o == null || getClass() != o.getClass()) {
 			return false;
 		}
-		Condition condition = (Condition) o;
+		LeafCondition condition = (LeafCondition) o;
 		return Objects.equals(key, condition.key) &&
 				op == condition.op &&
 				Objects.equals(value, condition.value) &&

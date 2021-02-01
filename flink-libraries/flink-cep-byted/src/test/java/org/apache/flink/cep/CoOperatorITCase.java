@@ -36,7 +36,10 @@ import org.apache.flink.util.Collector;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,6 +60,45 @@ public class CoOperatorITCase {
 	@Before
 	public void setup() {
 		queue.clear();
+	}
+
+	private String readPatternFromResource(String path) throws IOException {
+		StringBuilder contentBuilder = new StringBuilder();
+		boolean skip = false;
+		try (InputStream stream = getClass().getClassLoader().getResourceAsStream(path)) {
+			BufferedReader br = new BufferedReader(new InputStreamReader(stream));
+			String line;
+			line = br.readLine();
+			while (line != null){
+				if (line.trim().equals("/*")) {
+					skip = true;
+				} else if (line.trim().equals("*/")) {
+					skip = false;
+				} else {
+					if (!skip) {
+						contentBuilder.append(line);
+						contentBuilder.append("\n");
+					}
+				}
+				line = br.readLine();
+			}
+		}
+		return contentBuilder.toString();
+	}
+
+	@Test
+	public void testOrPattern() throws IOException {
+		Object[] data = {
+				readPatternFromResource("patterns/or_pattern.txt"),
+				new Barrier(),
+				Tuple2.of(new Event(1, "v3", 2.0), 2L),
+				Tuple2.of(new Event(4, "v1", 2.0), 2L), // match
+				Tuple2.of(new Event(12, "v99", 199.0), 2L),
+				Tuple2.of(new Event(1, "v1", 12.0), 2L), // match
+				Tuple2.of(new Event(11, "v1", 12.0), 200L)
+		};
+		queue.addAll(Arrays.asList(data));
+		assertEquals(Arrays.asList("or_pattern,1", "or_pattern,11", "or_pattern,4"), runTest());
 	}
 
 	@Test

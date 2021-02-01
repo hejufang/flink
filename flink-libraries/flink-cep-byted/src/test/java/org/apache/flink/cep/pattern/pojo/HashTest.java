@@ -47,8 +47,8 @@ public class HashTest {
 	@Test
 	public void testHash2() throws IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
-		final PatternPojo pojo1 = objectMapper.readValue(TestData.COUNT_PATTERN_1, PatternPojo.class);
-		final PatternPojo pojo2 = objectMapper.readValue(TestData.COUNT_PATTERN_1, PatternPojo.class);
+		final PatternPojo pojo1 = (PatternPojo) objectMapper.readValue(TestData.COUNT_PATTERN_1, AbstractPatternPojo.class);
+		final PatternPojo pojo2 = (PatternPojo) objectMapper.readValue(TestData.COUNT_PATTERN_1, AbstractPatternPojo.class);
 		System.out.println(pojo1.hashCode());
 		Assert.assertEquals(pojo1.hashCode(), pojo2.hashCode());
 
