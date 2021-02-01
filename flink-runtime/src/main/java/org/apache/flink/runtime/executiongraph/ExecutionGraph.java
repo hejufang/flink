@@ -24,7 +24,9 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.accumulators.Accumulator;
 import org.apache.flink.api.common.accumulators.AccumulatorHelper;
+import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.metrics.Counter;
@@ -50,6 +52,9 @@ import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
 import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
+import org.apache.flink.runtime.checkpoint.trigger.CheckpointTasks;
+import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
+import org.apache.flink.runtime.checkpoint.trigger.PendingTriggerFactory;
 import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutor;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.concurrent.FutureUtils.ConjunctFuture;
@@ -762,6 +767,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		ExecutionVertex[] tasksToWaitFor = collectExecutionVertices(verticesToWaitFor);
 		ExecutionVertex[] tasksToCommitTo = collectExecutionVertices(verticesToCommitTo);
 
+		CheckpointTriggerConfiguration triggerConfiguration = chkConfig.getCheckpointTriggerConfiguration();
+		PendingTriggerFactory pendingTriggerFactory =
+			createPendingTriggerFactory(new CheckpointTasks(tasksToTrigger, tasksToWaitFor, tasksToCommitTo), triggerConfiguration);
+
 		checkpointStatsTracker = checkNotNull(statsTracker, "CheckpointStatsTracker");
 
 		CheckpointFailureManager failureManager = new CheckpointFailureManager(
@@ -796,7 +805,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			SharedStateRegistry.DEFAULT_FACTORY,
 			failureManager,
 			checkpointHandler,
-			new UnregisteredMetricsGroup());
+			new UnregisteredMetricsGroup(),
+			pendingTriggerFactory);
 
 		// register the master hooks on the checkpoint coordinator
 		for (MasterTriggerRestoreHook<?> hook : masterHooks) {
@@ -869,6 +879,58 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			}
 			return all.toArray(new ExecutionVertex[all.size()]);
 		}
+	}
+
+	private PendingTriggerFactory createPendingTriggerFactory(
+			CheckpointTasks tasksForSavepoint,
+			CheckpointTriggerConfiguration triggerConfiguration) {
+
+		CheckpointTriggerStrategy triggerStrategy = triggerConfiguration.getTriggerStrategy();
+		switch (triggerStrategy) {
+			case DEFAULT:
+				return new PendingTriggerFactory(
+					getJobID(),
+					tasksForSavepoint,
+					tasksForSavepoint,
+					false,
+					false);
+			case TRIGGER_WITH_SOURCE:
+			case REVERSE_TRIGGER_WITH_SOURCE:
+			case TRIGGER_WITHOUT_SOURCE:
+			case REVERSE_TRIGGER_WITHOUT_SOURCE:
+				Tuple2<List<ExecutionJobVertex>, List<ExecutionJobVertex>> splitVertices = splitJobVertex(triggerConfiguration.getSortedTopology());
+				List<ExecutionJobVertex> triggerVertices = triggerStrategy.isTriggerSource() ? splitVertices.f1 : splitVertices.f0;
+				if (triggerStrategy.isReverseTrigger()) {
+					Collections.reverse(triggerVertices);
+				}
+				CheckpointTasks tasksForCheckpoint = new CheckpointTasks(
+					collectExecutionVertices(triggerVertices),
+					collectExecutionVertices(triggerVertices),
+					collectExecutionVertices(triggerVertices));
+				return new PendingTriggerFactory(
+					this.getJobID(),
+					tasksForCheckpoint,
+					tasksForSavepoint,
+					true,
+					triggerStrategy.isReverseTrigger());
+			default:
+				throw new IllegalArgumentException();
+		}
+	}
+
+	private Tuple2<List<ExecutionJobVertex>, List<ExecutionJobVertex>> splitJobVertex(List<JobVertex> sortedTopology) {
+		List<ExecutionJobVertex> nonSourceVertices = new ArrayList<>();
+		List<ExecutionJobVertex> totalVertices = new ArrayList<>();
+
+		for (JobVertex jobVertex : sortedTopology) {
+			ExecutionJobVertex ejv = getJobVertex(jobVertex.getID());
+			Preconditions.checkNotNull(ejv, "ExecutionJobVertex is null");
+			if (!jobVertex.isInputVertex()) {
+				nonSourceVertices.add(ejv);
+			}
+			totalVertices.add(ejv);
+		}
+		return Tuple2.of(nonSourceVertices, totalVertices);
 	}
 
 	// --------------------------------------------------------------------------------------------

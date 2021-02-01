@@ -69,6 +69,7 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.metrics.groups.JobManagerJobMetricGroup;
 import org.apache.flink.runtime.query.KvStateLocation;
@@ -503,6 +504,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	@Override
 	public void initializeCheckpoint(InitializeCheckpoint initialization) {
 		schedulerNG.initializeCheckpoint(initialization);
+	}
+
+	@Override
+	public void performCheckpoint(PerformCheckpoint performCheckpoint) {
+		schedulerNG.performCheckpoint(performCheckpoint);
 	}
 
 	@Override

@@ -20,6 +20,12 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.docs.Documentation;
 
+import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.DEFAULT;
+import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.REVERSE_TRIGGER_WITHOUT_SOURCE;
+import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.REVERSE_TRIGGER_WITH_SOURCE;
+import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.TRIGGER_WITHOUT_SOURCE;
+import static org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy.TRIGGER_WITH_SOURCE;
+
 /**
  * A collection of all configuration options that relate to checkpoints
  * and savepoints.
@@ -60,6 +66,15 @@ public class CheckpointingOptions {
 			.key("state.checkpoints.region.max-percentage-recovery")
 			.defaultValue(0.5)
 			.withDescription("The maximum percentage of regions that can be recovered from history.");
+
+	/** The checkpoint trigger strategy is used to determine how to trigger the checkpoint. **/
+	public static final ConfigOption<String> CHECKPOINT_TRIGGER_STRATEGY = ConfigOptions
+			.key("state.checkpoints.trigger-strategy")
+			.defaultValue("default")
+			.withDescription(String.format("Checkpoint trigger strategy. Candidate strategy is %s, %s, %s, %s or %s, " +
+					"and we choose '%s' as default strategy.", DEFAULT.name(), REVERSE_TRIGGER_WITH_SOURCE.name(),
+				REVERSE_TRIGGER_WITHOUT_SOURCE.name(), TRIGGER_WITH_SOURCE.name(), TRIGGER_WITHOUT_SOURCE.name(),
+				DEFAULT.name()));
 
 	/** The number of threads that used to restore operator states. */
 	public static final ConfigOption<Integer> OPERATOR_STATE_RESTORE_THREAD_NUM = ConfigOptions

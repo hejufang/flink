@@ -39,6 +39,7 @@ import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.InitializeCheckpoint;
+import org.apache.flink.runtime.messages.checkpoint.PerformCheckpoint;
 import org.apache.flink.runtime.messages.webmonitor.JobDetails;
 import org.apache.flink.runtime.query.KvStateLocation;
 import org.apache.flink.runtime.query.UnknownKvStateLocation;
@@ -119,6 +120,8 @@ public interface SchedulerNG {
 	void declineCheckpoint(DeclineCheckpoint decline);
 
 	void initializeCheckpoint(InitializeCheckpoint initialization);
+
+	void performCheckpoint(PerformCheckpoint performCheckpoint);
 
 	CompletableFuture<String> stopWithSavepoint(String targetDirectory, boolean advanceToEndOfEventTime);
 }

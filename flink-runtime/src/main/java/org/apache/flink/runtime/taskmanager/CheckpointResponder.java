@@ -70,4 +70,16 @@ public interface CheckpointResponder {
 	 * @param executionAttemptID Execution attempt ID of the running task
 	 */
 	default void initializeCheckpoint(JobID jobID, ExecutionAttemptID executionAttemptID, JobVertexID vertexID, int subtaskIndex) {};
+
+	/**
+	 * The checkpoint start perform.
+	 *
+	 * @param jobID Job ID of the running job
+	 * @param executionAttemptID Execution attempt ID of the running task
+	 * @param checkpointId The ID of the declined checkpoint
+	 */
+	default void performCheckpoint(
+			JobID jobID,
+			ExecutionAttemptID executionAttemptID,
+			long checkpointId) {}
 }

@@ -787,6 +787,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		synchronized (lock) {
 			if (isRunning) {
 
+				if (!checkpointOptions.getCheckpointType().isBroadcastBarrier()){
+					getEnvironment().performCheckpoint(checkpointId);
+				}
+
 				if (checkpointOptions.getCheckpointType().isSynchronous()) {
 					syncSavepointLatch.setCheckpointId(checkpointId);
 
@@ -804,11 +808,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				//           The pre-barrier work should be nothing or minimal in the common case.
 				operatorChain.prepareSnapshotPreBarrier(checkpointId);
 
-				// Step (2): Send the checkpoint barrier downstream
-				operatorChain.broadcastCheckpointBarrier(
+				// fast checkpoint don't need broadcast barrier
+				if (checkpointOptions.getCheckpointType().isBroadcastBarrier()) {
+					// Step (2): Send the checkpoint barrier downstream
+					operatorChain.broadcastCheckpointBarrier(
 						checkpointId,
 						checkpointMetaData.getTimestamp(),
 						checkpointOptions);
+				}
 
 				// Step (3): Take the state snapshot. This should be largely asynchronous, to not
 				//           impact progress of the streaming topology

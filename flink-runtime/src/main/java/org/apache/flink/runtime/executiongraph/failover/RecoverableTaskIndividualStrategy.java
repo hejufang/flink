@@ -20,6 +20,8 @@ package org.apache.flink.runtime.executiongraph.failover;
 
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.runtime.checkpoint.CheckpointException;
+import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
 import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
@@ -32,6 +34,7 @@ import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableExceptio
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -107,6 +110,7 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 		try {
 			long createTimestamp = System.currentTimeMillis();
 			Execution newExecution = vertexToRecover.resetForNewExecution(createTimestamp, globalModVersion);
+			recoverTaskState(vertexToRecover);
 			CompletableFuture<Void> future = SchedulingUtils.scheduleRecoverableExecution(newExecution, executionGraph);
 			future.whenComplete((Void ignore, Throwable t) -> {
 				if (t != null) {
@@ -115,6 +119,9 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 			});
 		} catch (GlobalModVersionMismatch e) {
 			LOG.warn("Concurrent global recovery happens, ignore...");
+		} catch (Exception e) {
+			LOG.error("perform recover for task {} failed", vertexToRecover.getTaskNameWithSubtaskIndex(), e);
+			executionGraph.failGlobal(new Exception("Error during fine grained recovery - triggering full recovery", e));
 		}
 	}
 
@@ -133,6 +140,23 @@ public class RecoverableTaskIndividualStrategy extends FailoverStrategy {
 		metricGroup.gauge("numberOfRecoverableJobs", () -> 1);
 		metricGroup.counter("numberOfTaskRecoveries", numTaskRecoveries);
 		metricGroup.counter("numberOfGlobalFailures", numGlobalFailures);
+	}
+
+	private void recoverTaskState(ExecutionVertex vertexToRecover) throws Exception {
+		// if there is checkpointed state and we use fast mode, reload it into the execution
+		if (executionGraph.getCheckpointCoordinator() != null && executionGraph.getCheckpointCoordinator().isUseFastMode()) {
+			LOG.info("There is checkpointed state can be used to reload for vertex {}.", vertexToRecover.getTaskNameWithSubtaskIndex());
+			// abort pending checkpoints to
+			// i) enable new checkpoint triggering without waiting for last checkpoint expired.
+			// ii) no need to trigger pending tasks
+			executionGraph.getCheckpointCoordinator().onTaskFailure(Collections.singleton(vertexToRecover),
+				new CheckpointException(CheckpointFailureReason.JOB_FAILOVER_REGION));
+
+			executionGraph.getCheckpointCoordinator().restoreLatestCheckpointedState(
+				Collections.singletonMap(vertexToRecover.getJobvertexId(), vertexToRecover.getJobVertex()),
+				false,
+				true);
+		}
 	}
 
 	// ------------------------------------------------------------------------
