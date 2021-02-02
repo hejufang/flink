@@ -87,6 +87,21 @@ public class CoOperatorITCase {
 	}
 
 	@Test
+	public void testCustomizedCondition() throws IOException {
+		Object[] data = {
+				readPatternFromResource("patterns/customized_pattern.txt"),
+				new Barrier(),
+				Tuple2.of(new Event(1, "v3", 2.0), 2L),
+				Tuple2.of(new Event(4, "v1", 2.0), 2L),
+				Tuple2.of(new Event(12, "buy", 199999999.0), 2L), // match
+				Tuple2.of(new Event(1, "v1", 12.0), 2L),
+				Tuple2.of(new Event(11, "v1", 12.0), 200L)
+		};
+		queue.addAll(Arrays.asList(data));
+		assertEquals(Arrays.asList("customized_pattern,12"), runTest());
+	}
+
+	@Test
 	public void testOrPattern() throws IOException {
 		Object[] data = {
 				readPatternFromResource("patterns/or_pattern.txt"),

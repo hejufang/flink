@@ -21,6 +21,7 @@ package org.apache.flink.cep.pattern.parser;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.EventParserCondition;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
+import org.apache.flink.cep.pattern.conditions.RichIterativeCondition;
 import org.apache.flink.cep.pattern.conditions.v2.EventParserConditionV2;
 import org.apache.flink.cep.pattern.pojo.AbstractEvent;
 import org.apache.flink.cep.pattern.pojo.AbstractPatternBody;
@@ -61,10 +62,12 @@ public class PatternConverter implements Serializable {
 	private static <IN> IterativeCondition<IN> buildCondition(int version, CepEventParser cepEventParser, AbstractEvent abstractEvent, String uniqueId) {
 		if (version == 1) {
 			Event event = (Event) abstractEvent;
-			return new EventParserCondition<>(cepEventParser, event.getConditions(), uniqueId);
+			RichIterativeCondition<IN> condition = cepEventParser.buildCondition(event);
+			return condition == null ? new EventParserCondition<>(cepEventParser, event.getConditions(), uniqueId) : condition;
 		} else {
 			EventV2 eventV2 = (EventV2) abstractEvent;
-			return new EventParserConditionV2<>(cepEventParser, eventV2.getConditions().iterator().next(), uniqueId);
+			RichIterativeCondition<IN> condition = cepEventParser.buildConditionV2(eventV2);
+			return condition == null ? new EventParserConditionV2<>(cepEventParser, eventV2.getConditions().iterator().next(), uniqueId) : condition;
 		}
 	}
 

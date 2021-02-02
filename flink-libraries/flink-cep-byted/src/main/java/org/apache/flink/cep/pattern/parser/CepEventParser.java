@@ -18,6 +18,10 @@
 
 package org.apache.flink.cep.pattern.parser;
 
+import org.apache.flink.cep.pattern.conditions.RichIterativeCondition;
+import org.apache.flink.cep.pattern.pojo.Event;
+import org.apache.flink.cep.pattern.v2.EventV2;
+
 import java.io.Serializable;
 
 /**
@@ -26,6 +30,14 @@ import java.io.Serializable;
 public abstract class CepEventParser implements Serializable {
 
 	public abstract Object get(String key, CepEvent data);
+
+	public <T> RichIterativeCondition<T> buildCondition(Event event) {
+		return null;
+	}
+
+	public <T> RichIterativeCondition<T> buildConditionV2(EventV2 event) {
+		return null;
+	}
 
 	public abstract CepEventParser duplicate();
 }

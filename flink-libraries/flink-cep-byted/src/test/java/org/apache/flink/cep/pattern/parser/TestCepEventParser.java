@@ -19,6 +19,10 @@
 package org.apache.flink.cep.pattern.parser;
 
 import org.apache.flink.cep.Event;
+import org.apache.flink.cep.pattern.conditions.RichIterativeCondition;
+import org.apache.flink.cep.pattern.v2.ConditionGroup;
+import org.apache.flink.cep.pattern.v2.EventV2;
+import org.apache.flink.cep.pattern.v2.LeafCondition;
 
 /**
  * TestCepEventParser.
@@ -40,7 +44,36 @@ public class TestCepEventParser extends CepEventParser {
 	}
 
 	@Override
+	public <T> RichIterativeCondition<T> buildConditionV2(EventV2 event) {
+		if (event.getId().equals("customized")) {
+			ConditionGroup group = event.getConditionGroup();
+			LeafCondition condition = group.getConditions().get(0);
+			return (RichIterativeCondition<T>) new ImpCondition(condition.getKey(), condition.getValue());
+		}
+		return null;
+	}
+
+	@Override
 	public CepEventParser duplicate() {
 		return new TestCepEventParser();
+	}
+
+	private static class ImpCondition extends RichIterativeCondition<Event> {
+
+		String key;
+		double value;
+
+		ImpCondition(String key, String value) {
+			this.key = key;
+			this.value = Double.parseDouble(value);
+		}
+
+		@Override
+		public boolean filter(Event event, Context<Event> ctx) throws Exception {
+			if (key.equals("buy expensive items")) {
+				return event.getName().equals("buy") && event.getPrice() > value;
+			}
+			return false;
+		}
 	}
 }
