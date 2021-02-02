@@ -38,7 +38,6 @@ import org.apache.flink.util.SerializedValue;
 
 import org.apache.kafka.clients.consumer.BytedKafkaConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -278,7 +277,7 @@ public class FlinkKafkaConsumer<T> extends FlinkKafkaConsumerBase<T> {
 		final Map<KafkaTopicPartition, Long> result = new HashMap<>(partitions.size());
 		// use a short-lived consumer to fetch the offsets;
 		// this is ok because this is a one-time operation that happens only on startup
-		try (KafkaConsumer<?, ?> consumer = new KafkaConsumer(properties)) {
+		try (BytedKafkaConsumer<?, ?> consumer = new BytedKafkaConsumer(properties)) {
 			for (Map.Entry<TopicPartition, OffsetAndTimestamp> partitionToOffset :
 				consumer.offsetsForTimes(partitionOffsetsRequest).entrySet()) {
 
