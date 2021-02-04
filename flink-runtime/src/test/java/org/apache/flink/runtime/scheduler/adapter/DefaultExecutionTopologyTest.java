@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.scheduler.adapter;
 
-import org.apache.flink.runtime.executiongraph.ExecutionEdge;
 import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.IntermediateResultPartition;
@@ -29,6 +28,8 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
+import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
+import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.scheduler.strategy.ResultPartitionState;
 import org.apache.flink.util.IterableUtils;
@@ -40,7 +41,6 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.Sets;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -211,12 +211,15 @@ public class DefaultExecutionTopologyTest extends TestLogger {
 
 			assertVertexEquals(originalVertex, adaptedVertex);
 
-			List<IntermediateResultPartition> originalConsumedPartitions = IntStream.range(0, originalVertex.getNumberOfInputs())
-				.mapToObj(originalVertex::getInputEdges)
-				.flatMap(Arrays::stream)
-				.map(ExecutionEdge::getSource)
-				.collect(Collectors.toList());
-			Iterable<DefaultResultPartition> adaptedConsumedPartitions = adaptedVertex.getConsumedResults();
+			List<IntermediateResultPartition> originalConsumedPartitions =
+				IntStream.range(0, originalVertex.getNumberOfInputs())
+					.mapToObj(originalVertex::getConsumedPartitions)
+					.map(ConsumedPartitionGroup::getResultPartitions)
+					.flatMap(Collection::stream)
+					.map(originalGraph::getResultPartition)
+					.collect(Collectors.toList());
+			Iterable<DefaultResultPartition> adaptedConsumedPartitions =
+				adaptedVertex.getConsumedResults();
 
 			assertPartitionsEquals(originalConsumedPartitions, adaptedConsumedPartitions);
 
@@ -243,19 +246,24 @@ public class DefaultExecutionTopologyTest extends TestLogger {
 
 			assertPartitionEquals(originalPartition, adaptedPartition);
 
-			List<ExecutionVertex> originalConsumers = originalPartition.getConsumers().stream()
-				.flatMap(Collection::stream)
-				.map(ExecutionEdge::getTarget)
-				.collect(Collectors.toList());
+			List<ExecutionVertexID> originalConsumerIds =
+				originalPartition.getConsumers().stream()
+					.map(ConsumerVertexGroup::getVertices)
+					.flatMap(Collection::stream)
+					.collect(Collectors.toList());
 			Iterable<DefaultExecutionVertex> adaptedConsumers = adaptedPartition.getConsumers();
 
-			for (ExecutionVertex originalConsumer : originalConsumers) {
+			for (ExecutionVertexID originalId : originalConsumerIds) {
 				// it is sufficient to verify that some vertex exists with the correct ID here,
 				// since deep equality is verified later in the main loop
-				// this DOES rely on an implicit assumption that the vertices objects returned by the topology are
+				// this DOES rely on an implicit assumption that the vertices objects returned by
+				// the topology are
 				// identical to those stored in the partition
-				ExecutionVertexID originalId = originalConsumer.getID();
-				assertTrue(IterableUtils.toStream(adaptedConsumers).anyMatch(adaptedConsumer -> adaptedConsumer.getId().equals(originalId)));
+				assertTrue(
+					IterableUtils.toStream(adaptedConsumers)
+						.anyMatch(
+							adaptedConsumer ->
+								adaptedConsumer.getId().equals(originalId)));
 			}
 		}
 	}
