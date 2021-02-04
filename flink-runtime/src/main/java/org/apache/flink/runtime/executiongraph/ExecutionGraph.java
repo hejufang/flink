@@ -324,6 +324,12 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private final boolean isRecoverable;
 
+	private final EdgeManager edgeManager;
+
+	private final Map<ExecutionVertexID, ExecutionVertex> executionVerticesById;
+	private final Map<IntermediateResultPartitionID, IntermediateResultPartition>
+		resultPartitionsById;
+
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
 
 	// --------------------------------------------------------------------------------------------
@@ -408,6 +414,11 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			this::createResultPartitionId,
 			partitionTracker);
 		this.isRecoverable = isRecoverable;
+
+		this.edgeManager = new EdgeManager();
+		this.executionVerticesById = new HashMap<>();
+		this.resultPartitionsById = new HashMap<>();
+
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
 		this.remoteBlacklistReporter.setExecutionGraph(this);
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
@@ -737,6 +748,37 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				return new AllVerticesIterator(getVerticesTopologically().iterator());
 			}
 		};
+	}
+
+	public EdgeManager getEdgeManager() {
+		return edgeManager;
+	}
+
+	public void registerExecutionVertex(ExecutionVertexID id, ExecutionVertex vertex) {
+		executionVerticesById.put(id, vertex);
+	}
+
+	public void registerResultPartition(
+		IntermediateResultPartitionID id, IntermediateResultPartition partition) {
+
+		resultPartitionsById.put(id, partition);
+	}
+
+	public ExecutionVertex getVertex(ExecutionVertexID id) {
+		return executionVerticesById.get(id);
+	}
+
+	public IntermediateResultPartition getResultPartition(final IntermediateResultPartitionID id) {
+		return resultPartitionsById.get(id);
+	}
+
+	public Map<IntermediateResultPartitionID, IntermediateResultPartition>
+	getIntermediateResultPartitionMapping() {
+		return Collections.unmodifiableMap(resultPartitionsById);
+	}
+
+	public Map<ExecutionVertexID, ExecutionVertex> getExecutionVertexMapping() {
+		return Collections.unmodifiableMap(executionVerticesById);
 	}
 
 	@Override
