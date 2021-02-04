@@ -37,7 +37,7 @@ under the License.
 		<module>flink-gelly</module>
 		<module>flink-gelly-scala</module>
 		<module>flink-gelly-examples</module>
-		<module>flink-cep-byted</module>
+		<module>flink-cep</module>
 		<module>flink-cep-scala</module>
 		<module>flink-state-processing-api</module>
 	</modules>
@@ -61,7 +61,6 @@ under the License.
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-test-utils-junit</artifactId>
-			<version>${parent.version}</version>
 		</dependency>
 	</dependencies>
 </project>
