@@ -488,8 +488,10 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 *         if there is no input-based preference.
 	 */
 	public Collection<CompletableFuture<TaskManagerLocation>> getPreferredLocationsBasedOnInputs() {
+		final List<ConsumedPartitionGroup> allConsumedPartitions = getAllConsumedPartitions();
+
 		// otherwise, base the preferred locations on the input connections
-		if (inputEdges == null) {
+		if (allConsumedPartitions.isEmpty()) {
 			return Collections.emptySet();
 		}
 		else {
@@ -497,14 +499,13 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 			Set<CompletableFuture<TaskManagerLocation>> inputLocations = new HashSet<>(getTotalNumberOfParallelSubtasks());
 
 			// go over all inputs
-			for (int i = 0; i < inputEdges.length; i++) {
+			for (ConsumedPartitionGroup sources : allConsumedPartitions) {
 				inputLocations.clear();
-				ExecutionEdge[] sources = inputEdges[i];
 				if (sources != null) {
 					// go over all input sources
-					for (int k = 0; k < sources.length; k++) {
+					for (IntermediateResultPartitionID sourceId : sources.getResultPartitions()) {
 						// look-up assigned slot of input source
-						CompletableFuture<TaskManagerLocation> locationFuture = sources[k].getSource().getProducer().getCurrentTaskManagerLocationFuture();
+						CompletableFuture<TaskManagerLocation> locationFuture = getExecutionGraph().getResultPartition(sourceId).getProducer().getCurrentTaskManagerLocationFuture();
 						// add input location
 						inputLocations.add(locationFuture);
 						// inputs which have too many distinct sources are not considered
@@ -575,9 +576,9 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		final List<Execution> unTerminalExecutions = new ArrayList<>();
 		final List<Execution> terminalExecutions = new ArrayList<>();
 
-		(currentExecution.getState().isTerminal()? terminalExecutions : unTerminalExecutions).add(currentExecution);
+		(currentExecution.getState().isTerminal() ? terminalExecutions : unTerminalExecutions).add(currentExecution);
 		for (Execution exec : copyExecutions) {
-			(exec.getState().isTerminal()? terminalExecutions : unTerminalExecutions).add(exec);
+			(exec.getState().isTerminal() ? terminalExecutions : unTerminalExecutions).add(exec);
 		}
 
 		if (terminalExecutions.size() == 0) {
@@ -778,17 +779,6 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		}
 	}
 
-	List<List<ExecutionEdge>> getAllConsumers() {
-		final List<List<ExecutionEdge>> result = new ArrayList<>();
-		for (IntermediateResultPartition partition : resultPartitions.values()) {
-			if (partition.getIntermediateResult().getResultType().isPipelined()) {
-				result.add(partition.getConsumers().get(0));
-			}
-		}
-
-		return result;
-	}
-
 	/**
 	 * This method marks the task as failed, but will make no attempt to remove task execution from the task manager.
 	 * It is intended for cases where the task is known not to be deployed yet.
@@ -822,7 +812,7 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 
 		if (partition.getIntermediateResult().getResultType().isPipelined()) {
 			// Schedule or update receivers of this partition
-			execution.scheduleOrUpdateConsumers(partition.getConsumers());
+			execution.scheduleOrUpdateConsumers(partition, partition.getConsumers());
 		}
 		else {
 			throw new IllegalArgumentException("ScheduleOrUpdateConsumers msg is only valid for" +
@@ -864,7 +854,8 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 * @return whether the input constraint is satisfied
 	 */
 	boolean checkInputDependencyConstraints() {
-		if (inputEdges.length == 0) {
+		final List<ConsumedPartitionGroup> allConsumedPartitions = getAllConsumedPartitions();
+		if (allConsumedPartitions.isEmpty()) {
 			return true;
 		}
 
@@ -880,8 +871,9 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	}
 
 	private boolean isAnyInputConsumable() {
-		for (int inputNumber = 0; inputNumber < inputEdges.length; inputNumber++) {
-			if (isInputConsumable(inputNumber)) {
+		final List<ConsumedPartitionGroup> allConsumedPartitions = getAllConsumedPartitions();
+		for (ConsumedPartitionGroup consumedPartitionGroup : allConsumedPartitions) {
+			if (isInputConsumable(consumedPartitionGroup)) {
 				return true;
 			}
 		}
@@ -889,8 +881,9 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	}
 
 	private boolean areAllInputsConsumable() {
-		for (int inputNumber = 0; inputNumber < inputEdges.length; inputNumber++) {
-			if (!isInputConsumable(inputNumber)) {
+		final List<ConsumedPartitionGroup> allConsumedPartitions = getAllConsumedPartitions();
+		for (ConsumedPartitionGroup consumedPartitionGroup : allConsumedPartitions) {
+			if (!isInputConsumable(consumedPartitionGroup)) {
 				return false;
 			}
 		}
@@ -905,9 +898,20 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 	 *
 	 * @return whether the input is consumable
 	 */
+	boolean isInputConsumable(ConsumedPartitionGroup consumedPartitionGroup) {
+		for (IntermediateResultPartitionID sourceId : consumedPartitionGroup.getResultPartitions()) {
+			if (getExecutionGraph().getResultPartition(sourceId).isConsumable()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	boolean isInputConsumable(int inputNumber) {
-		for (ExecutionEdge executionEdge : inputEdges[inputNumber]) {
-			if (executionEdge.getSource().isConsumable()) {
+		final List<ConsumedPartitionGroup> allConsumedPartitions = getAllConsumedPartitions();
+		ConsumedPartitionGroup consumedPartitionGroup = allConsumedPartitions.get(inputNumber);
+		for (IntermediateResultPartitionID sourceId : consumedPartitionGroup.getResultPartitions()) {
+			if (getExecutionGraph().getResultPartition(sourceId).isConsumable()) {
 				return true;
 			}
 		}

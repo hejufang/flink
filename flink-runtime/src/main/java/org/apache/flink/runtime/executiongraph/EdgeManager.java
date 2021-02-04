@@ -80,8 +80,7 @@ public class EdgeManager {
 		return vertexConsumedPartitions.computeIfAbsent(executionVertexId, id -> new ArrayList<>());
 	}
 
-	public Map<IntermediateResultPartitionID, List<ConsumerVertexGroup>>
-	getAllPartitionConsumers() {
+	public Map<IntermediateResultPartitionID, List<ConsumerVertexGroup>> getAllPartitionConsumers() {
 		return partitionConsumers;
 	}
 

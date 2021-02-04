@@ -56,6 +56,8 @@ import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.messages.TaskBackPressureResponse;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.operators.coordination.TaskNotRunningException;
+import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
+import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.shuffle.PartitionDescriptor;
 import org.apache.flink.runtime.shuffle.ProducerDescriptor;
@@ -691,7 +693,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 		for (IntermediateResultPartition partition : partitions) {
 			PartitionDescriptor partitionDescriptor = PartitionDescriptor.from(partition);
-			int maxParallelism = getPartitionMaxParallelism(partition);
+			int maxParallelism = getPartitionMaxParallelism(partition, vertex.getExecutionGraph().getExecutionVertexMapping());
 			CompletableFuture<? extends ShuffleDescriptor> shuffleDescriptorFuture = vertex
 				.getExecutionGraph()
 				.getShuffleMaster()
@@ -717,13 +719,15 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		});
 	}
 
-	private static int getPartitionMaxParallelism(IntermediateResultPartition partition) {
-		final List<List<ExecutionEdge>> consumers = partition.getConsumers();
-		Preconditions.checkArgument(!consumers.isEmpty(), "Currently there has to be exactly one consumer in real jobs");
-		List<ExecutionEdge> consumer = consumers.get(0);
-		ExecutionJobVertex consumerVertex = consumer.get(0).getTarget().getJobVertex();
-		int maxParallelism = consumerVertex.getMaxParallelism();
-		return maxParallelism;
+	private static int getPartitionMaxParallelism(
+			IntermediateResultPartition partition,
+			Map<ExecutionVertexID, ExecutionVertex> verticesById) {
+		final List<ConsumerVertexGroup> consumers = partition.getConsumers();
+		Preconditions.checkArgument(
+			consumers.size() == 1,
+			"Currently there has to be exactly one consumer in real jobs");
+		final List<ExecutionVertexID> consumerIds = consumers.get(0).getVertices();
+		return verticesById.get(consumerIds.get(0)).getJobVertex().getMaxParallelism();
 	}
 
 	/**
@@ -817,18 +821,20 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 							}
 						} else {
 							if (updateConsumers) {
-								for (List<ExecutionEdge> edges : getVertex().getAllConsumers()) {
-									for (ExecutionEdge edge : edges) {
-										final ExecutionVertex consumerVertex = edge.getTarget();
-										final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
-										final ExecutionState consumerState = consumer.getState();
+								for (IntermediateResultPartition partition : getVertex().getProducedPartitions().values()) {
+									if (partition.getIntermediateResult().getResultType().isPipelined()) {
+										for (ExecutionVertexID consumerVertexId : partition.getConsumers().get(0).getVertices()) {
+											final ExecutionVertex consumerVertex = getVertex().getExecutionGraph().getVertex(consumerVertexId);
+											final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
+											final ExecutionState consumerState = consumer.getState();
 
-										final PartitionInfo partitionInfo = createPartitionInfo(edge);
+											final PartitionInfo partitionInfo = createPartitionInfo(partition);
 
-										if (consumerState == RUNNING) {
-											consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
-										} else {
-											consumerVertex.cachePartitionInfo(partitionInfo);
+											if (consumerState == RUNNING) {
+												consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
+											} else {
+												consumerVertex.cachePartitionInfo(partitionInfo);
+											}
 										}
 									}
 								}
@@ -950,15 +956,16 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		}
 	}
 
-	void scheduleOrUpdateConsumers(List<List<ExecutionEdge>> allConsumers) {
+	void scheduleOrUpdateConsumers(final IntermediateResultPartition partition, final List<ConsumerVertexGroup> allConsumers) {
 		assertRunningInJobMasterMainThread();
 
 		final HashSet<ExecutionVertex> consumerDeduplicator = new HashSet<>();
-		scheduleOrUpdateConsumers(allConsumers, consumerDeduplicator, true);
+		scheduleOrUpdateConsumers(partition, allConsumers, consumerDeduplicator, true);
 	}
 
 	private void scheduleOrUpdateConsumers(
-			final List<List<ExecutionEdge>> allConsumers,
+			final IntermediateResultPartition partition,
+			final List<ConsumerVertexGroup> allConsumers,
 			final HashSet<ExecutionVertex> consumerDeduplicator,
 			final boolean isPipelined) {
 
@@ -970,8 +977,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			return;
 		}
 
-		for (ExecutionEdge edge : allConsumers.get(0)) {
-			final ExecutionVertex consumerVertex = edge.getTarget();
+		for (ExecutionVertexID consumerVertexId : allConsumers.get(0).getVertices()) {
+			final ExecutionVertex consumerVertex = vertex.getExecutionGraph().getVertex(consumerVertexId);
 			final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
 			final ExecutionState consumerState = consumer.getState();
 
@@ -997,7 +1004,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			// sent after switching to running
 			// ----------------------------------------------------------------
 			else if (consumerState == DEPLOYING || consumerState == RUNNING) {
-				final PartitionInfo partitionInfo = createPartitionInfo(edge);
+				final PartitionInfo partitionInfo = createPartitionInfo(partition);
 
 				if (consumerState == DEPLOYING) {
 					consumer.cachePartitionInfo(partitionInfo);
@@ -1008,9 +1015,11 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		}
 	}
 
-	private static PartitionInfo createPartitionInfo(ExecutionEdge executionEdge) {
-		IntermediateDataSetID intermediateDataSetID = executionEdge.getSource().getIntermediateResult().getId();
-		ShuffleDescriptor shuffleDescriptor = getConsumedPartitionShuffleDescriptor(executionEdge, false);
+	private static PartitionInfo createPartitionInfo(IntermediateResultPartition consumedPartition) {
+		IntermediateDataSetID intermediateDataSetID =
+			consumedPartition.getIntermediateResult().getId();
+		ShuffleDescriptor shuffleDescriptor =
+			getConsumedPartitionShuffleDescriptor(consumedPartition, false);
 		return new PartitionInfo(intermediateDataSetID, shuffleDescriptor);
 	}
 
@@ -1247,7 +1256,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 			// isPipeline = false we're dealing with blocking partitions
 			for (IntermediateResultPartition partition : allPartitions) {
-				scheduleOrUpdateConsumers(partition.getConsumers(), consumerDeduplicator, false);
+				scheduleOrUpdateConsumers(partition, partition.getConsumers(), consumerDeduplicator, false);
 			}
 		}
 	}

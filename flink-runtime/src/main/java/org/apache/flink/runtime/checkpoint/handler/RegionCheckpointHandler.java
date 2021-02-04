@@ -95,7 +95,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 
 	private void constructCheckpointRegions(ExecutionVertex[] vertices) {
 		for (ExecutionVertex vertex : vertices) {
-			if (vertex.getAllInputEdges().length > 0) {
+			if (vertex.getAllConsumedPartitions().size() > 0) {
 				throw new UnsupportedOperationException("Only support one vertex in region for now.");
 			}
 			vertexToRegion.put(vertex.getID(), new CheckpointRegion(new ExecutionVertex[]{vertex}));
