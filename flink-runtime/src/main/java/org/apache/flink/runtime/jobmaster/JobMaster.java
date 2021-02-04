@@ -908,7 +908,9 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			);
 		}
 
-		schedulerAssignedFuture.thenRun(this::startScheduling);
+		schedulerAssignedFuture
+				.thenRun(this::startScheduling)
+				.get();
 	}
 
 	private void startScheduling() {
