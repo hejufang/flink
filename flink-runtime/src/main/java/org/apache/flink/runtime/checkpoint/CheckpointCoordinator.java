@@ -195,8 +195,8 @@ public class CheckpointCoordinator {
 
 	private final boolean aggregateUnionState;
 
-	/** Timestamp of start restoring checkpoints when job starts */
-	private long startSchedulingTimestamp;
+	/** Timestamp of start restoring checkpoints when job starts, only use once and set to -1*/
+	private long startSchedulingTimestamp = -1;
 
 	/** number of subtasks to restore checkpoint */
 	private int numRestoreTasks;
@@ -777,7 +777,7 @@ public class CheckpointCoordinator {
 			}
 
 			initializations.add(message.getIdentifier());
-			if (initializations.size() == numRestoreTasks) {
+			if (initializations.size() == numRestoreTasks && startSchedulingTimestamp == -1) {
 				statsTracker.setJobStartupCheckpointRestoreDelay(System.currentTimeMillis() - startSchedulingTimestamp);
 			}
 		}
