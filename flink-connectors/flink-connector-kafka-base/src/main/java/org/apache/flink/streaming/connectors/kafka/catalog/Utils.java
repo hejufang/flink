@@ -18,7 +18,6 @@
 package org.apache.flink.streaming.connectors.kafka.catalog;
 
 import org.apache.flink.table.factories.FactoryUtil;
-import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.schema.registry.common.request.SchemaType;
 import com.bytedance.schema.registry.common.response.QuerySchemaResponse;
@@ -51,7 +50,7 @@ public class Utils {
 		Map<String, String> defaultProperties = new HashMap<>();
 		String cluster = response.getClusterId();
 		String topic = response.getTopic();
-		String format = parseFormat(response.getSchemaType());
+		String format = response.getSchemaType();
 
 		defaultProperties.putIfAbsent(PROPS_CLUSTER.key(), cluster);
 		defaultProperties.putIfAbsent(TOPIC.key(), topic);
@@ -77,17 +76,5 @@ public class Utils {
 			.forEach(entry ->
 				flinkProperties.put(entry.getKey().substring(FLINK_PROPERTY_PREFIX.length()), entry.getValue().toString()));
 		return flinkProperties;
-	}
-
-	private static String parseFormat(SchemaType schemaType) {
-		switch (schemaType) {
-			case pb:
-				return PB_FORMAT;
-			case json:
-				return JSON_FORMAT;
-			default:
-				throw new FlinkRuntimeException(String.format("Unsupported schema type: %s, " +
-					"supported types: '%s', '%s'.", schemaType, SchemaType.pb, SchemaType.json));
-		}
 	}
 }
