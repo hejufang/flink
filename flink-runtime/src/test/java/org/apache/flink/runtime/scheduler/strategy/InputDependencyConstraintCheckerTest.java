@@ -21,6 +21,7 @@ package org.apache.flink.runtime.scheduler.strategy;
 import org.apache.flink.api.common.InputDependencyConstraint;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.TestLogger;
 
@@ -28,7 +29,10 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.api.common.InputDependencyConstraint.ALL;
 import static org.apache.flink.api.common.InputDependencyConstraint.ANY;
@@ -214,7 +218,8 @@ public class InputDependencyConstraintCheckerTest extends TestLogger {
 	private static class TestingSchedulingExecutionVertexBuilder {
 		private static final JobVertexID jobVertexId = new JobVertexID();
 		private InputDependencyConstraint inputDependencyConstraint = ANY;
-		private List<TestingSchedulingResultPartition> partitions = Collections.emptyList();
+		private final List<ConsumedPartitionGroup> consumedPartitionGroups = new ArrayList<>();
+		private final Map<IntermediateResultPartitionID, TestingSchedulingResultPartition> resultPartitionsById = new HashMap<>();
 
 		TestingSchedulingExecutionVertexBuilder withInputDependencyConstraint(InputDependencyConstraint constraint) {
 			this.inputDependencyConstraint = constraint;
@@ -222,12 +227,24 @@ public class InputDependencyConstraintCheckerTest extends TestLogger {
 		}
 
 		TestingSchedulingExecutionVertexBuilder withConsumedPartitions(List<TestingSchedulingResultPartition> partitions) {
-			this.partitions = partitions;
+			for (TestingSchedulingResultPartition testingSchedulingResultPartition : partitions) {
+				resultPartitionsById.put(testingSchedulingResultPartition.getId(), testingSchedulingResultPartition);
+			}
+
+			partitions.stream()
+				.collect(Collectors.groupingBy(TestingSchedulingResultPartition::getResultId))
+				.values()
+				.forEach(testingSchedulingResultPartitions -> consumedPartitionGroups
+					.add(new ConsumedPartitionGroup(
+						testingSchedulingResultPartitions.stream()
+							.map(TestingSchedulingResultPartition::getId)
+							.collect(Collectors.toList()))));
+
 			return this;
 		}
 
 		TestingSchedulingExecutionVertex finish() {
-			return new TestingSchedulingExecutionVertex(jobVertexId, 0, inputDependencyConstraint, partitions);
+			return new TestingSchedulingExecutionVertex(jobVertexId, 0, inputDependencyConstraint, consumedPartitionGroups, resultPartitionsById);
 		}
 	}
 
@@ -276,7 +293,7 @@ public class InputDependencyConstraintCheckerTest extends TestLogger {
 			for (int dataSetIdx = 0; dataSetIdx < dataSetCnt; dataSetIdx++) {
 				IntermediateDataSetID dataSetId = new IntermediateDataSetID();
 				for (int partitionIdx = 0; partitionIdx < partitionCntPerDataSet; partitionIdx++) {
-					partitions.add(new TestingSchedulingResultPartition(dataSetId, partitionType, partitionState));
+					partitions.add(new TestingSchedulingResultPartition(dataSetId, partitionIdx, partitionType, partitionState));
 				}
 			}
 
