@@ -23,7 +23,6 @@ import org.apache.flink.runtime.executiongraph.ExecutionGraph;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.IntermediateResultPartition;
-import org.apache.flink.runtime.executiongraph.failover.flip1.PipelinedRegionComputeUtil;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
@@ -98,10 +97,10 @@ public class DefaultExecutionTopology implements SchedulingTopology {
 	private void initializePipelinedRegions() {
 		final long buildRegionsStartTime = System.nanoTime();
 
-		final Set<Set<SchedulingExecutionVertex>> rawPipelinedRegions = PipelinedRegionComputeUtil.computePipelinedRegions(this);
+		final Set<Set<SchedulingExecutionVertex>> rawPipelinedRegions = DefaultSchedulingPipelinedRegionComputeUtil.computePipelinedRegions(executionVerticesList);
 		for (Set<? extends SchedulingExecutionVertex> rawPipelinedRegion : rawPipelinedRegions) {
 			//noinspection unchecked
-			final DefaultSchedulingPipelinedRegion pipelinedRegion = new DefaultSchedulingPipelinedRegion((Set<DefaultExecutionVertex>) rawPipelinedRegion);
+			final DefaultSchedulingPipelinedRegion pipelinedRegion = new DefaultSchedulingPipelinedRegion((Set<DefaultExecutionVertex>) rawPipelinedRegion, resultPartitionsById);
 			pipelinedRegions.add(pipelinedRegion);
 
 			for (SchedulingExecutionVertex executionVertex : rawPipelinedRegion) {
