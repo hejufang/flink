@@ -120,8 +120,60 @@ under the License.
 											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.fasterxml.jackson</shadedPattern>
 										</relocation>
 										<relocation>
-											<pattern>io.netty.handler</pattern>
-											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.io.netty.handler</shadedPattern>
+											<pattern>io.netty</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.io.netty</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.squareup.okhttp</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.squareup.okhttp/</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.sun</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.sun/</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>javax.xml</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.javax.xml/</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.codahale/</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.codahale</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.auth0</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.auth0</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.google</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>javax.activation</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.javax.activation</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>io.perfmark</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.io.perfmark</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>io.opencensus</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.io.opencensus</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.checkerframework</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.org.checkerframework</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.bytedance.metrics</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.bytedance.metrics</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.okhttp3</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
