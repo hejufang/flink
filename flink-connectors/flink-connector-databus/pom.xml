@@ -101,6 +101,14 @@ under the License.
 												<exclude>com.bytedance.data.databus.**</exclude>
 											</excludes>
 										</relocation>
+										<relocation>
+											<pattern>com.codahale.metrics</pattern>
+											<shadedPattern>org.apache.flink.connector.databus.shaded.com.codahale.metrics</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.sun.xml</pattern>
+											<shadedPattern>org.apache.flink.connector.databus.shaded.com.sun.xml</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>

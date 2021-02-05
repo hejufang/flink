@@ -125,6 +125,22 @@ under the License.
 											<pattern>com.google.protobuf</pattern>
 											<shadedPattern>org.apache.flink.sequence.file.shaded.com.google.protobuf</shadedPattern>
 										</relocation>
+										<relocation>
+											<pattern>com.squareup.wire</pattern>
+											<shadedPattern>org.apache.flink.sequence.file.shaded.com.squareup.wire</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>kotlin</pattern>
+											<shadedPattern>org.apache.flink.sequence.file.shaded.kotlin</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>org.apache.flink.sequence.file.shaded.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google.common</pattern>
+											<shadedPattern>org.apache.flink.sequence.file.shaded.com.google.common</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>
