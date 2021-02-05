@@ -250,7 +250,7 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		if (initialPatterns.size() > 0) {
 			for (Pattern<IN, IN> pattern : initialPatterns) {
-				if (!this.usingNFAs.containsKey(pattern.getPatternId())) {
+				if (!this.usingNFAs.containsKey(pattern.getPatternId()) || this.usingNFAs.get(pattern.getPatternId()).getHash() != pattern.getHash()) {
 					LOG.info("Initial pattern(id={},hash={})", pattern.getPatternId(), pattern.getHash());
 					initializeNewPattern(pattern);
 				}
@@ -289,6 +289,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.partialMatches.remove(patternId);
 	}
 
+	// make sure the pattern's hash or the patternId is new
 	private void initializeNewPattern(Pattern<IN, IN> pattern) throws Exception {
 		String patternId = pattern.getPatternId();
 		int hash = pattern.getHash();
