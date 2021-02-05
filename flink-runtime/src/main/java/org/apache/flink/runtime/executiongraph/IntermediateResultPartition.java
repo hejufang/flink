@@ -32,25 +32,24 @@ public class IntermediateResultPartition {
 
 	private final IntermediateResultPartitionID partitionId;
 
-    /** Whether this partition has produced some data. */
-    private boolean hasDataProduced = false;
+	/** Whether this partition has produced some data. */
+	private boolean hasDataProduced = false;
 
-    public IntermediateResultPartition(
-            IntermediateResult totalResult, ExecutionVertex producer, int partitionNumber) {
-        this.totalResult = totalResult;
-        this.producer = producer;
-        this.partitionId = new IntermediateResultPartitionID(totalResult.getId(), partitionNumber);
+	public IntermediateResultPartition(IntermediateResult totalResult, ExecutionVertex producer, int partitionNumber) {
+		this.totalResult = totalResult;
+		this.producer = producer;
+		this.partitionId = new IntermediateResultPartitionID(totalResult.getId(), partitionNumber);
 
-        producer.getExecutionGraph().registerResultPartition(partitionId, this);
-    }
+		producer.getExecutionGraph().registerResultPartition(partitionId, this);
+	}
 
 	public ExecutionVertex getProducer() {
 		return producer;
 	}
 
-    public int getPartitionNumber() {
-        return partitionId.getPartitionNumber();
-    }
+	public int getPartitionNumber() {
+		return partitionId.getPartitionNumber();
+	}
 
 	public IntermediateResult getIntermediateResult() {
 		return totalResult;
@@ -64,12 +63,13 @@ public class IntermediateResultPartition {
 		return totalResult.getResultType();
 	}
 
-    public List<ConsumerVertexGroup> getConsumers() {
-        return getEdgeManager().getPartitionConsumers(partitionId);
-    }
+	public List<ConsumerVertexGroup> getConsumers() {
+		return getEdgeManager().getPartitionConsumers(partitionId);
+	}
 
 	public void markDataProduced() {
 		hasDataProduced = true;
+		totalResult.notifyPartitionStateChanged();
 	}
 
 	public boolean isConsumable() {
@@ -87,15 +87,16 @@ public class IntermediateResultPartition {
 			totalResult.incrementNumberOfRunningProducersAndGetRemaining();
 		}
 		hasDataProduced = false;
+		totalResult.notifyPartitionStateChanged();
 	}
 
-    public void setConsumers(ConsumerVertexGroup consumers) {
-        producer.getExecutionGraph().getEdgeManager().addPartitionConsumers(partitionId, consumers);
-    }
+	public void setConsumers(ConsumerVertexGroup consumers) {
+		producer.getExecutionGraph().getEdgeManager().addPartitionConsumers(partitionId, consumers);
+	}
 
-    EdgeManager getEdgeManager() {
-        return producer.getExecutionGraph().getEdgeManager();
-    }
+	EdgeManager getEdgeManager() {
+		return producer.getExecutionGraph().getEdgeManager();
+	}
 
 	boolean markFinished() {
 		// Sanity check that this is only called on blocking partitions.
@@ -104,6 +105,7 @@ public class IntermediateResultPartition {
 		}
 
 		hasDataProduced = true;
+		totalResult.notifyPartitionStateChanged();
 
 		final int refCnt = totalResult.decrementNumberOfRunningProducersAndGetRemaining();
 
