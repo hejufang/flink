@@ -45,6 +45,7 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.time.TimerService;
+import org.apache.flink.cep.utils.CEPUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
@@ -82,6 +83,7 @@ import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.flink.cep.utils.CEPUtils.defaultTtlConfig;
 import static org.apache.flink.cep.utils.CEPUtils.generateUniqueId;
 
 /**
@@ -152,6 +154,10 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	private List<Pattern<IN, IN>> initialPatterns;
 
+	private Map<String, String> properties;
+
+	private final long ttlMilliSeconds;
+
 	// ------------------------------------------------------------------------
 	// Metrics
 	// ------------------------------------------------------------------------
@@ -167,7 +173,8 @@ public class CoCepOperator<IN, KEY, OUT>
 			@Nullable final AfterMatchSkipStrategy afterMatchSkipStrategy,
 			final MultiplePatternProcessFunction<IN, OUT> function,
 			@Nullable final OutputTag<IN> lateDataOutputTag,
-			final List<Pattern<IN, IN>> initialPatterns) {
+			final List<Pattern<IN, IN>> initialPatterns,
+			Map<String, String> properties) {
 		super(function);
 
 		this.inputSerializer = Preconditions.checkNotNull(inputSerializer);
@@ -178,6 +185,10 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		this.initialPatterns = initialPatterns;
 		this.usingNFAs = new HashMap<>();
+		this.properties = properties;
+
+		this.ttlMilliSeconds = Long.parseLong(properties.getOrDefault(CEPUtils.TTL_KEY, CEPUtils.TTL_DEFAULT_VALUE));
+		LOG.info("Properties({}={}).", CEPUtils.TTL_KEY, ttlMilliSeconds);
 
 		if (afterMatchSkipStrategy == null) {
 			this.afterMatchSkipStrategy = AfterMatchSkipStrategy.noSkip();
@@ -198,8 +209,9 @@ public class CoCepOperator<IN, KEY, OUT>
 		super.initializeState(context);
 
 		// initializeState through the provided context
-		computationStates = context.getKeyedStateStore().getMapState(
-				new MapStateDescriptor<>(NFA_STATE_NAME, new StringSerializer(), new NFAStateSerializer()));
+		MapStateDescriptor<String, NFAState> descriptor = new MapStateDescriptor<>(NFA_STATE_NAME, new StringSerializer(), new NFAStateSerializer());
+		descriptor.enableTimeToLive(defaultTtlConfig(this.ttlMilliSeconds));
+		computationStates = context.getKeyedStateStore().getMapState(descriptor);
 
 		patternStates = context.getOperatorStateStore().getBroadcastState(
 				new MapStateDescriptor<>(PATTERN_STATE_NAME, new StringSerializer(), new KryoSerializer<>(Pattern.class, new ExecutionConfig())));
@@ -298,7 +310,11 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		this.usingNFAs.put(patternId, nfa);
 		this.patternStates.put(patternId, pattern);
-		this.partialMatches.put(patternId, new SharedBuffer<>(generateUniqueId(patternId, hash), getKeyedStateStore(), inputSerializer));
+		if (!this.partialMatches.containsKey(patternId)) {
+			this.partialMatches.put(patternId, new SharedBuffer<>(generateUniqueId(patternId, hash), getKeyedStateStore(), inputSerializer, ttlMilliSeconds));
+		} else {
+			this.partialMatches.get(patternId).getAccessor().clearMemoryCache();
+		}
 		this.userFunction.processNewPattern(pattern);
 	}
 
@@ -516,6 +532,8 @@ public class CoCepOperator<IN, KEY, OUT>
 			Preconditions.checkArgument(usingNFAs.get(patternId) != null, "The pattern is not defined. Please check your pattern data stream if using broadcast.");
 			NFAState newNFAState = usingNFAs.get(patternId).createInitialNFAState();
 			computationStates.put(patternId, newNFAState);
+			// clear the data state in shared buffer
+			partialMatches.get(patternId).getAccessor().clearKeyedState();
 			return newNFAState;
 		}
 	}

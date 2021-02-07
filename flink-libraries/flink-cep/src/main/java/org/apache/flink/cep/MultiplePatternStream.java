@@ -28,6 +28,7 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.util.OutputTag;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.flink.cep.PatternProcessFunctionBuilder.fromFlatSelect;
 import static org.apache.flink.cep.PatternProcessFunctionBuilder.fromSelect;
@@ -71,6 +72,10 @@ public class MultiplePatternStream<T> {
 
 	public MultiplePatternStream<T> withInitialPatterns(List<Pattern<T, T>> patterns) {
 		return new MultiplePatternStream<>(builder.withInitialPatterns(patterns));
+	}
+
+	public MultiplePatternStream<T> withProperties(Map<String, String> properties) {
+		return new MultiplePatternStream<>(builder.withProperties(properties));
 	}
 
 	public <R> SingleOutputStreamOperator<R> process(final MultiplePatternProcessFunction<T, R> patternProcessFunction) {

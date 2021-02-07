@@ -27,8 +27,19 @@ import java.util.concurrent.TimeUnit;
  * CepUtils.
  */
 public class CEPUtils {
+
+	public static final String TTL_KEY = "cep.ttl.milliseconds";
+	public static final String TTL_DEFAULT_VALUE = "86400000";
+
 	public static StateTtlConfig defaultTtlConfig() {
 		return StateTtlConfig.newBuilder(Time.of(1, TimeUnit.DAYS))
+				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
+				.build();
+	}
+
+	public static StateTtlConfig defaultTtlConfig(long millionseconds) {
+		return StateTtlConfig.newBuilder(Time.of(millionseconds, TimeUnit.MILLISECONDS))
 				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
 				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
 				.build();

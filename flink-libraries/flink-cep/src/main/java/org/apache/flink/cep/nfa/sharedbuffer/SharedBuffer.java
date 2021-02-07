@@ -71,10 +71,10 @@ public class SharedBuffer<V> {
 	private Map<NodeId, Lockable<SharedBufferNode>> entryCache = new HashMap<>();
 
 	public SharedBuffer(KeyedStateStore stateStore, TypeSerializer<V> valueSerializer) {
-		this(null, stateStore, valueSerializer);
+		this(null, stateStore, valueSerializer, -1L);
 	}
 
-	public SharedBuffer(String uniqueId, KeyedStateStore stateStore, TypeSerializer<V> valueSerializer) {
+	public SharedBuffer(String uniqueId, KeyedStateStore stateStore, TypeSerializer<V> valueSerializer, long ttl) {
 		final MapStateDescriptor<EventId, Lockable<V>> eventsDescriptor = new MapStateDescriptor<>(
 				eventsStateName,
 				EventId.EventIdSerializer.INSTANCE,
@@ -90,9 +90,9 @@ public class SharedBuffer<V> {
 
 		// add ttl for multiple patterns
 		if (uniqueId != null) {
-			eventsDescriptor.enableTimeToLive(defaultTtlConfig());
-			entriesDescriptor.enableTimeToLive(defaultTtlConfig());
-			eventsCountDescriptor.enableTimeToLive(defaultTtlConfig());
+			eventsDescriptor.enableTimeToLive(defaultTtlConfig(ttl));
+			entriesDescriptor.enableTimeToLive(defaultTtlConfig(ttl));
+			eventsCountDescriptor.enableTimeToLive(defaultTtlConfig(ttl));
 		}
 		this.eventsBuffer = stateStore.getMapState(eventsDescriptor);
 		this.entries = stateStore.getMapState(entriesDescriptor);
@@ -250,6 +250,17 @@ public class SharedBuffer<V> {
 			eventsBuffer.putAll(eventsBufferCache);
 			eventsBufferCache.clear();
 		}
+	}
+
+	void clearKeyedState() {
+		eventsBuffer.clear();
+		eventsCount.clear();
+		entries.clear();
+	}
+
+	void clearMemoryCache() {
+		entryCache.clear();
+		eventsBufferCache.clear();
 	}
 
 	@VisibleForTesting
