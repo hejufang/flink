@@ -75,6 +75,7 @@ import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CO
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
+import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT_TYPE;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_CLASS;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_FROM;
 import static org.apache.flink.table.descriptors.Rowtime.ROWTIME_TIMESTAMPS_SERIALIZED;
@@ -251,7 +252,7 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		descriptorProperties.asMap().entrySet().stream()
 			.filter(e -> e.getKey().startsWith(CONNECTOR_ROCKETMQ_PROPERTIES + "."))
 			.forEach(e -> rocketMQProperties.put(e.getKey().substring(dynamicPrefixLength), e.getValue()));
-
+		addImplicitParameter(descriptorProperties, rocketMQProperties);
 		return rocketMQProperties;
 	}
 
@@ -317,5 +318,13 @@ public class RocketMQTableSourceSinkFactory implements StreamTableSourceFactory<
 		descriptorProperties.getOptionalBoolean(CONNECTOR_ASYNC_MODE_ENABLED)
 			.ifPresent(builder::setAsync);
 		return builder.build();
+	}
+
+	private void addImplicitParameter(DescriptorProperties descriptorProperties, Properties rocketMQProperties) {
+		// Consume specific tag will has better performance
+		if (descriptorProperties.getString(FORMAT_TYPE).equals("binlog") &&
+			!rocketMQProperties.containsKey(CONNECTOR_CONSUMER_TAG)) {
+			rocketMQProperties.put(CONNECTOR_CONSUMER_TAG, descriptorProperties.getString("format.target-table"));
+		}
 	}
 }
