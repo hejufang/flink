@@ -106,8 +106,8 @@ public class CheckpointStatsTracker {
 	@Nullable
 	private volatile CompletedCheckpointStats latestCompletedCheckpoint;
 
-	/** Checkpoint restoring delay of one job startup */
-	private long jobStartupCheckpointRestoreDelay = -1;
+	/** Checkpoint restoring duration at one job startup. */
+	private volatile long jobStartupCheckpointRestoreDelay = -1;
 
 	/**
 	 * Creates a new checkpoint stats tracker.
@@ -162,7 +162,9 @@ public class CheckpointStatsTracker {
 	 * @param jobStartupCheckpointRestoreDelay
 	 */
 	public void setJobStartupCheckpointRestoreDelay(long jobStartupCheckpointRestoreDelay) {
-		this.jobStartupCheckpointRestoreDelay = jobStartupCheckpointRestoreDelay;
+		if (jobStartupCheckpointRestoreDelay == -1) {
+			this.jobStartupCheckpointRestoreDelay = jobStartupCheckpointRestoreDelay;
+		}
 	}
 
 	public long getJobStartupCheckpointRestoreDelay() {

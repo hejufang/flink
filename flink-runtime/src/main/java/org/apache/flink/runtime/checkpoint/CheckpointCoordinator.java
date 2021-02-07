@@ -777,7 +777,7 @@ public class CheckpointCoordinator {
 			}
 
 			initializations.add(message.getIdentifier());
-			if (initializations.size() == numRestoreTasks && startSchedulingTimestamp == -1) {
+			if (initializations.size() == numRestoreTasks) {
 				statsTracker.setJobStartupCheckpointRestoreDelay(System.currentTimeMillis() - startSchedulingTimestamp);
 			}
 		}
@@ -1441,8 +1441,9 @@ public class CheckpointCoordinator {
 	// --------------------------------------------------------------------------------------------
 
 	public void startCheckpointScheduler() {
-		startSchedulingTimestamp = System.currentTimeMillis();
 		synchronized (lock) {
+			startSchedulingTimestamp = System.currentTimeMillis();
+
 			if (shutdown) {
 				throw new IllegalArgumentException("Checkpoint coordinator is shut down");
 			}
