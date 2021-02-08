@@ -118,6 +118,7 @@ non-global:
         taskStartupRestoreDuration,
         keyedStateRestoreDuration,
         operatorStateRestoreDuration,
+        lastCheckpointTotalSize,
       # Blacklist
         numTaskManagersInBlacklist,
       # number of skipped records in source
