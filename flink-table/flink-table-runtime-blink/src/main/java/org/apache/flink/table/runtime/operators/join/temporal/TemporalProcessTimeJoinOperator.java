@@ -27,6 +27,7 @@ import org.apache.flink.streaming.api.operators.InternalTimer;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.api.watermark.Watermark;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.JoinedRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.RowDataUtil;
@@ -51,14 +52,19 @@ public class TemporalProcessTimeJoinOperator
 	private transient JoinedRowData outRow;
 	private transient TimestampedCollector<RowData> collector;
 
+	private final boolean isLeftOuterJoin;
+	private transient RowData nullRightRow;
+
 	public TemporalProcessTimeJoinOperator(
 			RowDataTypeInfo rightType,
 			GeneratedJoinCondition generatedJoinCondition,
 			long minRetentionTime,
-			long maxRetentionTime) {
+			long maxRetentionTime,
+			boolean isLeftOuterJoin) {
 		super(minRetentionTime, maxRetentionTime);
 		this.rightType = rightType;
 		this.generatedJoinCondition = generatedJoinCondition;
+		this.isLeftOuterJoin = isLeftOuterJoin;
 	}
 
 	@Override
@@ -71,6 +77,7 @@ public class TemporalProcessTimeJoinOperator
 		this.rightState = getRuntimeContext().getState(rightStateDesc);
 		this.collector = new TimestampedCollector<>(output);
 		this.outRow = new JoinedRowData();
+		this.nullRightRow = new GenericRowData(rightType.getArity());
 		// consider watermark from left stream only.
 		super.processWatermark2(Watermark.MAX_WATERMARK);
 	}
@@ -78,11 +85,17 @@ public class TemporalProcessTimeJoinOperator
 	@Override
 	public void processElement1(StreamRecord<RowData> element) throws Exception {
 		RowData rightSideRow = rightState.value();
+		RowData leftSideRow = element.getValue();
+		outRow.setRowKind(leftSideRow.getRowKind());
+
 		if (rightSideRow == null) {
+			if (isLeftOuterJoin) {
+				outRow.replace(leftSideRow, nullRightRow);
+				collector.collect(outRow);
+			}
 			return;
 		}
 
-		RowData leftSideRow = element.getValue();
 		if (joinCondition.apply(leftSideRow, rightSideRow)) {
 			outRow.setRowKind(leftSideRow.getRowKind());
 			outRow.replace(leftSideRow, rightSideRow);

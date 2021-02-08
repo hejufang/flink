@@ -115,6 +115,18 @@ class TemporalJoinTest extends TableTestBase {
     util.verifyPlan(sqlQuery)
   }
 
+  @Test
+  def testLeftOuterJoin(): Unit = {
+    val sqlQuery = "SELECT " +
+      "o_amount * rate as rate " +
+      "FROM ProctimeOrders AS o " +
+      "LEFT OUTER JOIN " +
+      "LATERAL TABLE (ProctimeRates(o.o_proctime)) AS r " +
+      "ON currency = o_currency"
+
+    util.verifyPlan(sqlQuery)
+  }
+
   /**
     * Test versioned joins with more complicated query.
     * Important thing here is that we have complex OR join condition

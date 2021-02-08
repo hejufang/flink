@@ -20,14 +20,19 @@ package org.apache.flink.table.planner.calcite;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.api.ValidationException;
+import org.apache.flink.table.functions.TemporalTableFunctionImpl;
+import org.apache.flink.table.planner.functions.bridging.BridgingSqlFunction;
+import org.apache.flink.table.planner.functions.utils.TableSqlFunction;
 import org.apache.flink.table.types.logical.DecimalType;
 
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.JoinType;
+import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlJoin;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
@@ -72,7 +77,8 @@ public final class FlinkCalciteSqlValidator extends SqlValidatorImpl {
 		// Due to the improper translation of lateral table left outer join in Calcite, we need to
 		// temporarily forbid the common predicates until the problem is fixed (see FLINK-7865).
 		if (join.getJoinType() == JoinType.LEFT &&
-				SqlUtil.stripAs(join.getRight()).getKind() == SqlKind.COLLECTION_TABLE) {
+				SqlUtil.stripAs(join.getRight()).getKind() == SqlKind.COLLECTION_TABLE &&
+				!isTemporalTableFunction(join.getRight())) {
 			final SqlNode condition = join.getCondition();
 			if (condition != null &&
 					(!SqlUtil.isLiteral(condition) || ((SqlLiteral) condition).getValueAs(Boolean.class) != Boolean.TRUE)) {
@@ -84,5 +90,31 @@ public final class FlinkCalciteSqlValidator extends SqlValidatorImpl {
 			}
 		}
 		super.validateJoin(join, scope);
+	}
+
+	private boolean isTemporalTableFunction(SqlNode node) {
+		// we enabled temporal table function left outer join in
+		// LogicalCorrelateWithFilterToJoinFromTemporalTableFunctionRule,
+		// currently only left outer join on table function is not supported.
+		if (!(node instanceof SqlCall)) {
+			return false;
+		}
+
+		SqlNode operand0 = ((SqlCall) node).operand(0);
+		if (operand0 instanceof SqlCall) {
+			operand0 = ((SqlCall) operand0).operand(0);
+		} else {
+			return false;
+		}
+		if (operand0 instanceof SqlCall) {
+			SqlOperator operator = ((SqlCall) operand0).getOperator();
+			if (operator instanceof TableSqlFunction) {
+				return ((TableSqlFunction) operator).udtf() instanceof TemporalTableFunctionImpl;
+			} else if (operator instanceof BridgingSqlFunction) {
+				return ((BridgingSqlFunction) operator).getDefinition() instanceof TemporalTableFunctionImpl;
+			}
+		}
+
+		return false;
 	}
 }

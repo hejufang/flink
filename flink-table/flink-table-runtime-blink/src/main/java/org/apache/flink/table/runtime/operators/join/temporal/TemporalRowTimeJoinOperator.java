@@ -30,6 +30,7 @@ import org.apache.flink.streaming.api.operators.InternalTimer;
 import org.apache.flink.streaming.api.operators.InternalTimerService;
 import org.apache.flink.streaming.api.operators.TimestampedCollector;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.JoinedRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.util.RowDataUtil;
@@ -118,6 +119,9 @@ public class TemporalRowTimeJoinOperator
 	private transient JoinCondition joinCondition;
 	private transient JoinedRowData outRow;
 
+	private final boolean isLeftOuterJoin;
+	private transient RowData nullRightRow;
+
 	public TemporalRowTimeJoinOperator(
 			RowDataTypeInfo leftType,
 			RowDataTypeInfo rightType,
@@ -125,7 +129,8 @@ public class TemporalRowTimeJoinOperator
 			int leftTimeAttribute,
 			int rightTimeAttribute,
 			long minRetentionTime,
-			long maxRetentionTime) {
+			long maxRetentionTime,
+			boolean isLeftOuterJoin) {
 		super(minRetentionTime, maxRetentionTime);
 		this.leftType = leftType;
 		this.rightType = rightType;
@@ -133,6 +138,7 @@ public class TemporalRowTimeJoinOperator
 		this.leftTimeAttribute = leftTimeAttribute;
 		this.rightTimeAttribute = rightTimeAttribute;
 		this.rightRowtimeComparator = new RowtimeComparator(rightTimeAttribute);
+		this.isLeftOuterJoin = isLeftOuterJoin;
 	}
 
 	@Override
@@ -157,6 +163,7 @@ public class TemporalRowTimeJoinOperator
 		// all the output records should be INSERT only,
 		// because current temporal join only supports INSERT only left stream
 		outRow.setRowKind(RowKind.INSERT);
+		nullRightRow = new GenericRowData(rightType.getArity());
 	}
 
 	@Override
@@ -228,6 +235,9 @@ public class TemporalRowTimeJoinOperator
 						outRow.replace(leftRow, rightRow.get());
 						collector.collect(outRow);
 					}
+				} else if (isLeftOuterJoin) {
+					outRow.replace(leftRow, nullRightRow);
+					collector.collect(outRow);
 				}
 				leftIterator.remove();
 			} else {

@@ -162,6 +162,128 @@ class TemporalJoinITCase(state: StateBackendMode)
   }
 
   @Test
+  def testEventTimeLeftOuterJoin(): Unit = {
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    val tEnv = StreamTableEnvironment.create(env, TableTestUtil.STREAM_SETTING)
+    env.setParallelism(1)
+    env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+
+    val sqlQuery =
+      """
+        |SELECT
+        |  o.amount, r.rate
+        |FROM
+        |  Orders AS o
+        |LEFT OUTER JOIN
+        |  LATERAL TABLE (Rates(o.rowtime)) AS r
+        |ON r.currency = o.currency
+        |""".stripMargin
+
+    val ordersData = new mutable.MutableList[(Long, String, Timestamp)]
+    ordersData.+=((2L, "Euro", new Timestamp(2L)))
+    ordersData.+=((1L, "US Dollar", new Timestamp(3L)))
+    ordersData.+=((50L, "Yen", new Timestamp(4L)))
+    ordersData.+=((3L, "Euro", new Timestamp(5L)))
+
+    val ratesHistoryData = new mutable.MutableList[(String, Long, Timestamp)]
+    ratesHistoryData.+=(("US Dollar", 102L, new Timestamp(1L)))
+    ratesHistoryData.+=(("Euro", 114L, new Timestamp(1L)))
+    ratesHistoryData.+=(("Yen", 1L, new Timestamp(1L)))
+    ratesHistoryData.+=(("Euro", 116L, new Timestamp(5L)))
+    ratesHistoryData.+=(("Euro", 119L, new Timestamp(7L)))
+
+    val expectedOutput = Set(
+      "2,114",
+      "1,null",
+      "50,null",
+      "3,116")
+
+    val orders = env
+      .fromCollection(ordersData)
+      .assignTimestampsAndWatermarks(new TimestampExtractor[(Long, String, Timestamp)]())
+      .toTable(tEnv, 'amount, 'currency, 'rowtime.rowtime)
+    val ratesHistory = env
+      .fromCollection(ratesHistoryData)
+      .assignTimestampsAndWatermarks(new TimestampExtractor[(String, Long, Timestamp)]())
+      .toTable(tEnv, 'currency, 'rate, 'rowtime.rowtime)
+
+    tEnv.registerTable("Orders", orders)
+    tEnv.registerTable("RatesHistory", ratesHistory)
+    tEnv.registerTable("FilteredRatesHistory",
+      tEnv.sqlQuery("SELECT * FROM RatesHistory WHERE rate > 110"))
+    tEnv.createTemporarySystemFunction(
+      "Rates",
+      tEnv
+        .from("FilteredRatesHistory")
+        .createTemporalTableFunction($"rowtime", $"currency"))
+    tEnv.registerTable("TemporalJoinResult", tEnv.sqlQuery(sqlQuery))
+
+    // Scan from registered table to test for interplay between
+    // LogicalCorrelateToTemporalTableJoinRule and TableScanRule
+    val result = tEnv.from("TemporalJoinResult").toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+
+    assertEquals(expectedOutput, sink.getAppendResults.toSet)
+  }
+
+  @Test
+  def testProcessTimeLeftOuterJoin(): Unit = {
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    val tEnv = StreamTableEnvironment.create(env, TableTestUtil.STREAM_SETTING)
+    env.setParallelism(1)
+    env.setStreamTimeCharacteristic(TimeCharacteristic.ProcessingTime)
+
+    val sqlQuery =
+      """
+        |SELECT
+        |  o.amount, r.rate
+        |FROM
+        |  Orders AS o
+        |LEFT OUTER JOIN
+        |  LATERAL TABLE (Rates(o.proctime)) AS r
+        |ON r.currency = o.currency
+        |""".stripMargin
+
+    val ordersData = new mutable.MutableList[(Long, String)]
+    ordersData.+=((2L, "Euro"))
+    ordersData.+=((1L, "US Dollar"))
+    ordersData.+=((50L, "Yen"))
+    ordersData.+=((3L, "Euro"))
+    ordersData.+=((5L, "US Dollar"))
+
+    val ratesHistoryData = new mutable.MutableList[(String, Long)]
+
+    val orders = env
+      .fromCollection(ordersData)
+      .toTable(tEnv, 'amount, 'currency, 'proctime.proctime)
+    val ratesHistory = env
+      .fromCollection(ratesHistoryData)
+      .toTable(tEnv, 'currency, 'rate, 'proctime.proctime)
+
+    tEnv.registerTable("Orders", orders)
+    tEnv.registerTable("RatesHistory", ratesHistory)
+    tEnv.registerFunction(
+      "Rates",
+      ratesHistory.createTemporalTableFunction($"proctime", $"currency"))
+
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink()
+    result.addSink(sink)
+    env.execute()
+
+    val expectedOutput = Set(
+      "2,null",
+      "1,null",
+      "50,null",
+      "3,null",
+      "5,null")
+
+    assertEquals(expectedOutput, sink.getAppendResults.toSet)
+  }
+
+  @Test
   def testNestedTemporalJoin(): Unit = {
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     val tEnv = StreamTableEnvironment.create(env, TableTestUtil.STREAM_SETTING)

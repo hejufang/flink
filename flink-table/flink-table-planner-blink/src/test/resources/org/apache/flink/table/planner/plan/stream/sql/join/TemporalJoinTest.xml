@@ -146,4 +146,25 @@ Calc(select=[*(o_amount, rate) AS rate])
 ]]>
     </Resource>
   </TestCase>
+	<TestCase name="testLeftOuterJoin">
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalProject(rate=[*($0, $4)])
++- LogicalCorrelate(correlation=[$cor0], joinType=[left], requiredColumns=[{1, 2}])
+   :- LogicalTableScan(table=[[default_catalog, default_database, ProctimeOrders]])
+   +- LogicalFilter(condition=[=($0, $cor0.o_currency)])
+      +- LogicalTableFunctionScan(invocation=[ProctimeRates($cor0.o_proctime)], rowType=[RecordType(VARCHAR(2147483647) currency, INTEGER rate, TIME ATTRIBUTE(PROCTIME) proctime)], elementType=[class [Ljava.lang.Object;])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[*(o_amount, rate) AS rate])
++- TemporalJoin(joinType=[LeftOuterJoin], where=[AND(__TEMPORAL_JOIN_CONDITION(o_proctime, currency), =(currency, o_currency))], select=[o_amount, o_currency, o_proctime, currency, rate, proctime])
+   :- Exchange(distribution=[hash[o_currency]])
+   :  +- DataStreamScan(table=[[default_catalog, default_database, ProctimeOrders]], fields=[o_amount, o_currency, o_proctime])
+   +- Exchange(distribution=[hash[currency]])
+      +- DataStreamScan(table=[[default_catalog, default_database, ProctimeRatesHistory]], fields=[currency, rate, proctime])
+]]>
+		</Resource>
+	</TestCase>
 </Root>
