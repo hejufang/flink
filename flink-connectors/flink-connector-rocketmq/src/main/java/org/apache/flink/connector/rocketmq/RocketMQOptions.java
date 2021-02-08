@@ -123,6 +123,13 @@ public abstract class RocketMQOptions {
 			.defaultValue(DEFAULT_TOPIC_SELECTOR)
 			.withDescription("Optional topic select field.");
 
+	// We don't want to depend on binlog format, so we add this constant value.
+	public static final ConfigOption<String> BINLOG_TARGET_TABLE = ConfigOptions
+		.key("binlog.target-table")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Binlog table name");
+
 	private static final Set<String> SCAN_STARTUP_MODE_ENUMS = new HashSet<>(Arrays.asList(
 		SCAN_STARTUP_MODE_VALUE_EARLIEST,
 		SCAN_STARTUP_MODE_VALUE_LATEST,

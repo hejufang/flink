@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.BINLOG_TARGET_TABLE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.CLUSTER;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.DEFAULT_TOPIC_SELECTOR;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.GROUP;
@@ -60,6 +61,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DELAY_LEV
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_TOPIC_SELECTOR;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TAG;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
+import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.SOURCE_METADATA_COLUMNS;
 
 /**
@@ -179,6 +181,9 @@ public class RocketMQDynamicTableFactory implements
 			rocketMQConfig.setTag(config.get(TAG));
 			rocketMQConfig.setSendBatchSize(config.get(SINK_BATCH_SIZE));
 			rocketMQConfig.setAssignQueueStrategy(config.get(SCAN_ASSIGN_QUEUE_STRATEGY));
+			if (rocketMQConfig.getTag() == null && "binlog".equalsIgnoreCase(config.get(FORMAT))) {
+				rocketMQConfig.setTag(config.get(BINLOG_TARGET_TABLE));
+			}
 		}
 
 		return rocketMQConfig;
