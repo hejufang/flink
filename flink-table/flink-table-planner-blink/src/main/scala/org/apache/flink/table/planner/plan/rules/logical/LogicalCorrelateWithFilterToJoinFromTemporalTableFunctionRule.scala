@@ -36,7 +36,7 @@ import org.apache.calcite.plan.RelOptRule.{any, none, operand, some}
 import org.apache.calcite.plan.hep.HepRelVertex
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall, RelOptSchema}
 import org.apache.calcite.rel.{BiRel, RelNode, SingleRel}
-import org.apache.calcite.rel.core.TableFunctionScan
+import org.apache.calcite.rel.core.{SetOp, TableFunctionScan}
 import org.apache.calcite.rel.logical.{LogicalCorrelate, LogicalFilter}
 import org.apache.calcite.rex._
 import org.apache.calcite.sql.SqlKind
@@ -219,6 +219,7 @@ class LogicalCorrelateWithFilterToJoinFromTemporalTableFunctionRule
     case hep: HepRelVertex => getRelOptSchema(hep.getCurrentRel)
     case single: SingleRel => getRelOptSchema(single.getInput)
     case bi: BiRel => getRelOptSchema(bi.getLeft)
+    case set: SetOp => getRelOptSchema(set.getInput(0))
     case _ => relNode.getTable.getRelOptSchema
   }
 }

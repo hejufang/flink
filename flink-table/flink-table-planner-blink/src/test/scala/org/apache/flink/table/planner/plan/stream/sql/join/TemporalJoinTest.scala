@@ -116,6 +116,25 @@ class TemporalJoinTest extends TableTestBase {
   }
 
   @Test
+  def testJoinOnUnionLeft(): Unit = {
+    val orders = util.tableEnv.sqlQuery("SELECT * FROM (" +
+      "(SELECT * FROM Orders WHERE o_amount > 1000)" +
+      "UNION ALL" +
+      "(SELECT * FROM Orders)" +
+      ")"
+    )
+    util.tableEnv.createTemporaryView("Orders2", orders)
+
+    val sqlQuery = "SELECT " +
+      "o_amount * rate as rate " +
+      "FROM Orders2 AS o, " +
+      "LATERAL TABLE (Rates(o.o_rowtime)) AS r " +
+      "WHERE currency = o_currency"
+
+    util.verifyPlan(sqlQuery)
+  }
+
+  @Test
   def testLeftOuterJoin(): Unit = {
     val sqlQuery = "SELECT " +
       "o_amount * rate as rate " +
