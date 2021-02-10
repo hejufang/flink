@@ -20,6 +20,7 @@ package org.apache.flink.connectors.hive;
 
 import org.apache.flink.sql.parser.hive.ddl.SqlCreateHiveTable;
 import org.apache.flink.table.HiveVersionTestUtil;
+import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.SqlDialect;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
@@ -61,6 +62,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.flink.table.api.EnvironmentSettings.DEFAULT_BUILTIN_CATALOG;
 import static org.apache.flink.table.api.EnvironmentSettings.DEFAULT_BUILTIN_DATABASE;
@@ -480,6 +482,22 @@ public class HiveDialectITCase {
 
 		tableEnv.executeSql("alter table tbl drop partition (dt='2020-04-30',country='china'),partition (dt='2020-05-01',country='belgium')");
 		assertEquals(1, hiveCatalog.listPartitions(tablePath).size());
+	}
+
+	@Test
+	public void testExecuteAllAndReturnTableOfLastQuery() {
+		Optional<org.apache.flink.table.api.Table> optionalTable =
+			tableEnv.executeAllAndReturnTableOfLastQuery(
+				"create table src (x int, y string);\n" +
+				"select * from src;\n" +
+				"create table sink (z int);");
+
+		assertTrue(optionalTable.isPresent());
+		TableSchema expectedSchema = new TableSchema.Builder()
+			.field("x", DataTypes.INT())
+			.field("y", DataTypes.STRING())
+			.build();
+		assertEquals(expectedSchema, optionalTable.get().getSchema());
 	}
 
 	private static String locationPath(String locationURI) throws URISyntaxException {

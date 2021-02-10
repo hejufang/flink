@@ -1121,7 +1121,7 @@ public class HiveParserUtils {
 				} catch (NoSuchObjectException e) {
 					LOG.warn("Function {} doesn't exist in metastore", funcName);
 				} catch (Exception e) {
-					LOG.warn("Failed to look up function in metastore", e);
+					LOG.warn("Failed to look up function {} in metastore", funcName);
 				}
 			}
 		}

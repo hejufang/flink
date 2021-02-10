@@ -931,10 +931,21 @@ public interface TableEnvironment {
 	 * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE, DELETE or DDL statements.
 	 *
 	 * @param stmt The multiple SQL statements to evaluate.
-	 * @return An optional table with value if the last statement is a query statement,
+	 * @return An optional table with value if the last statement is a DML statement,
 	 *         otherwise returns Optional.EMPTY.
 	 * */
 	default Optional<TableResult> sql(String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Evaluates multiple SQL statements such as SELECT, INSERT, UPDATE, DELETE or DDL statements.
+	 *
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @return An optional Table of the last query statement if exist,
+	 *         otherwise returns Optional.EMPTY.
+	 * */
+	default Optional<Table> executeAllAndReturnTableOfLastQuery(String stmt) {
 		throw new UnsupportedOperationException();
 	}
 

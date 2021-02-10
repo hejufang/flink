@@ -174,9 +174,16 @@ public class HiveParser extends ParserImpl {
 		}
 		if (catalog instanceof GenericCachedCatalog) {
 			Catalog realCatalog = ((GenericCachedCatalog) catalog).getDelegate();
-			return Optional.of((HiveCatalog) realCatalog);
+			if (realCatalog instanceof HiveCatalog) {
+				return Optional.of((HiveCatalog) realCatalog);
+			}
 		}
 		return Optional.empty();
+	}
+
+	@Override
+	public List<String> splitStatements(String statements) {
+		return HiveParserUtils.splitSQLStatements(statements);
 	}
 
 	@Override
@@ -200,7 +207,7 @@ public class HiveParser extends ParserImpl {
 			startSessionState(hiveConf, catalogManager);
 			// We override Hive's grouping function. Refer to the implementation for more details.
 			hiveShim.registerTemporaryFunction("grouping", HiveGenericUDFGrouping.class);
-			return processCmd(statement, hiveConf, hiveShim, (HiveCatalog) currentCatalog);
+			return processCmd(statement, hiveConf, hiveShim, hiveCatalog);
 		} finally {
 			clearSessionState(hiveConf);
 		}

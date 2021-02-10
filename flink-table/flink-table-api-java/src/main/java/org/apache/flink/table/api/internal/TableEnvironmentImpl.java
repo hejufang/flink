@@ -144,6 +144,7 @@ import org.apache.flink.table.utils.PrintUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.calcite.sql.SqlNode;
 import org.apache.commons.lang3.StringUtils;
@@ -717,6 +718,36 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		Operation operation = operations.get(0);
 
 		return sqlQueryInternal(operation);
+	}
+
+	@Override
+	public Optional<Table> executeAllAndReturnTableOfLastQuery(String statements) {
+		Table table = null;
+		List<String> statementList;
+		try {
+			// Hive parser style. Hive parser cannot parse multiple statements,
+			// so we have to split it into statement list.
+			statementList = getParser().splitStatements(statements);
+
+		} catch (UnsupportedOperationException e) {
+			throw new UnsupportedOperationException("Unsupported operation, this method is" +
+				" only supported with HiveParser!", e);
+		}
+		for (String statement : statementList) {
+			List<Operation> operations = getParser().parse(statement);
+			if (operations.isEmpty()) {
+				continue;
+			}
+			Preconditions.checkState(operations.size() == 1,
+				"The size of operation must be one, but get: " + operations.get(0));
+			Operation operation = operations.get(0);
+			if (operation instanceof QueryOperation) {
+				table = sqlQueryInternal(operation);
+			} else {
+				executeOperation(operation);
+			}
+		}
+		return Optional.ofNullable(table);
 	}
 
 	private Table sqlQueryInternal(Operation operation) {

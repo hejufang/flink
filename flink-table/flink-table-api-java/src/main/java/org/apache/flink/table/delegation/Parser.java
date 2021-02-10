@@ -70,6 +70,13 @@ public interface Parser {
 	}
 
 	/**
+	 * Split sql statements to statement list.
+	 * */
+	default List<String> splitStatements(String statements) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Entry point for parsing SQL identifiers expressed as a String.
 	 *
 	 * @param identifier the SQL identifier to parse

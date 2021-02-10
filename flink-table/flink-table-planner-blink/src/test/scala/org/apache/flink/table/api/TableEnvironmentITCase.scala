@@ -655,6 +655,17 @@ class TableEnvironmentITCase(tableEnvName: String, isStreaming: Boolean) extends
     TableEnvUtil.execInsertSqlAndWaitResult(tableEnv, "insert into dest2 select x from src")
   }
 
+  @Test
+  def testExecuteAllAndReturnTableOfLastQuery(): Unit = {
+    val tableEnv = TableEnvironmentImpl.create(settings)
+
+    thrown.expect(classOf[UnsupportedOperationException])
+    thrown.expectMessage(containsString(
+      "Unsupported operation, this method is only supported with HiveParser!"))
+    tableEnv.executeAllAndReturnTableOfLastQuery(
+      "add resources test; select * from src")
+  }
+
   def getPersonData: List[(String, Int, Double, String)] = {
     val data = new mutable.MutableList[(String, Int, Double, String)]
     data.+=(("Mike", 1, 12.3, "Smith"))
