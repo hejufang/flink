@@ -20,6 +20,7 @@ package org.apache.flink.connectors.hive;
 
 import org.apache.flink.api.common.serialization.BulkWriter;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connectors.hive.write.HiveBulkWriterFactory;
 import org.apache.flink.connectors.hive.write.HiveOutputFormatFactory;
 import org.apache.flink.connectors.hive.write.HiveWriterFactory;
@@ -102,6 +103,7 @@ public class HiveTableSink implements
 
 	private final boolean userMrWriter;
 	private final boolean isBounded;
+	private final ReadableConfig flinkConf;
 	private final JobConf jobConf;
 	private final CatalogTable catalogTable;
 	private final ObjectIdentifier identifier;
@@ -115,12 +117,17 @@ public class HiveTableSink implements
 	private boolean dynamicGrouping = false;
 
 	public HiveTableSink(
-			boolean userMrWriter, boolean isBounded, JobConf jobConf, ObjectIdentifier identifier, CatalogTable table) {
-		this.userMrWriter = userMrWriter;
+			ReadableConfig flinkConf,
+			boolean isBounded,
+			JobConf jobConf,
+			ObjectIdentifier identifier,
+			CatalogTable table) {
+		this.flinkConf = flinkConf;
 		this.isBounded = isBounded;
 		this.jobConf = jobConf;
 		this.identifier = identifier;
 		this.catalogTable = table;
+		userMrWriter = flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_FALLBACK_MAPRED_WRITER);
 		hiveVersion = Preconditions.checkNotNull(jobConf.get(HiveCatalogValidator.CATALOG_HIVE_VERSION),
 				"Hive version is not defined");
 		hiveShim = HiveShimLoader.loadHiveShim(hiveVersion);
@@ -324,6 +331,11 @@ public class HiveTableSink implements
 
 	@Override
 	public void validate() {
+		if (HivePermissionUtils.isPermissionCheckDisabled(flinkConf)) {
+			LOG.warn("Hive permission check is disabled, will not check hive permission.");
+			return;
+		}
+
 		Identity identity = HivePermissionUtils.getIdentityFromToken();
 		String user = identity.User;
 		String psm = identity.PSM;
@@ -332,11 +344,20 @@ public class HiveTableSink implements
 
 	@Override
 	public void validateWithUserOrPsm(String user, String psm) {
+		if (HivePermissionUtils.isPermissionCheckDisabled(flinkConf)) {
+			LOG.warn("Hive permission check is disabled, will not check hive permission.");
+			return;
+		}
+
 		String dbName = identifier.getDatabaseName();
 		String tableName = identifier.getObjectName();
 		List<String> projectedFieldNames = Arrays.asList(getTableSchema().getFieldNames());
-
+		String geminiServerUrl = flinkConf.getOptional(HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL)
+			.orElseThrow(() -> new FlinkRuntimeException(
+				String.format("%s must be set when %s is true.",
+					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL.key(),
+					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_ENABLED.key())));
 		HivePermissionUtils.checkPermission(user, psm, dbName, tableName, projectedFieldNames,
-			ALL, true);
+			ALL, true, geminiServerUrl);
 	}
 }

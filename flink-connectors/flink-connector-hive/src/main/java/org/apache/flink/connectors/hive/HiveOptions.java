@@ -58,4 +58,16 @@ public class HiveOptions {
 					.booleanType()
 					.defaultValue(true)
 					.withDescription("If is true, we will create split in parallel.\n");
+
+	public static final ConfigOption<Boolean> TABLE_EXEC_HIVE_PERMISSION_CHECK_ENABLED =
+		key("table.exec.hive.permission-check.enabled")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("If it is true, we will check hive permission.\n");
+
+	public static final ConfigOption<String> TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL =
+		key("table.exec.hive.permission-check.gemini-server-url")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("Url of hive gemini server.\n");
 }

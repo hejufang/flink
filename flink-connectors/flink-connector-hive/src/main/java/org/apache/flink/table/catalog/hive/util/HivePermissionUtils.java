@@ -19,6 +19,8 @@
 package org.apache.flink.table.catalog.hive.util;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.connectors.hive.HiveOptions;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -73,6 +75,7 @@ public class HivePermissionUtils {
 	 *
 	 * @return return whether user or psm has hive permission.
 	 * */
+	@Deprecated
 	public static boolean checkPermission(
 			String user,
 			String psm,
@@ -81,14 +84,40 @@ public class HivePermissionUtils {
 			List<String> columns,
 			PermissionType permissionType,
 			boolean failOnPermissionDenied) {
+		return checkPermission(user, psm, database, table, columns, permissionType, failOnPermissionDenied, getRequestUrl());
+	}
+
+	/**
+	 * Check whether user or psm has hive permission.
+	 *
+	 * @param user user used to check permission
+	 * @param psm  psm used to check permission
+	 * @param database hive database
+	 * @param table hive table
+	 * @param columns columns in table
+	 * @param permissionType permission type
+	 * @param failOnPermissionDenied whether fail on permission denied. If true, this method will
+	 *                               throw an exception on permission denied, otherwise just write
+	 *                               a error log.
+	 * @param geminiServerUrl gemini server url
+	 * @return return whether user or psm has hive permission.
+	 * */
+	public static boolean checkPermission(
+			String user,
+			String psm,
+			String database,
+			String table,
+			List<String> columns,
+			PermissionType permissionType,
+			boolean failOnPermissionDenied,
+			String geminiServerUrl) {
 		String postData = buildPostData(user, psm, database, table, columns, permissionType);
-		String requestUrl = getRequestUrl();
 		try {
-			HttpUtil.HttpResponse response = HttpUtil.sendPost(requestUrl, postData, HTTP_HEADER);
+			HttpUtil.HttpResponse response = HttpUtil.sendPost(geminiServerUrl, postData, HTTP_HEADER);
 			if (response.getStatusCode() >= 300) {
 				throw new FlinkRuntimeException(String.format("Error response from hive catalog " +
 						"server. url = %s, postData = %s, response_code = %s, response_data = %s.",
-					requestUrl, postData, response.getStatusCode(), response.getContent()));
+					geminiServerUrl, postData, response.getStatusCode(), response.getContent()));
 			}
 			Tuple2<Boolean, String> permissionResult =
 				parsePermissionResultAccordingToResp(response.getContent());
@@ -113,7 +142,7 @@ public class HivePermissionUtils {
 		} catch (IOException e) {
 			throw new FlinkRuntimeException(String.format(
 				"Failed to send request to hive catalog server. url = %s, postData = %s.",
-				requestUrl, postData), e);
+				geminiServerUrl, postData), e);
 		}
 	}
 
@@ -217,5 +246,9 @@ public class HivePermissionUtils {
 	public enum PermissionType {
 		SELECT,
 		ALL
+	}
+
+	public static boolean isPermissionCheckDisabled(ReadableConfig flinkConf) {
+		return !flinkConf.get(HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_ENABLED);
 	}
 }

@@ -71,6 +71,7 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.table.validate.Validatable;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TimeUtils;
 
@@ -612,8 +613,15 @@ public class HiveTableSource implements
 		return predicates != null;
 	}
 
+	//TODO: check hive permission for hive dimension table.
+
 	@Override
 	public void validate() {
+		if (HivePermissionUtils.isPermissionCheckDisabled(flinkConf)) {
+			LOG.warn("Hive permission check is disabled, will not check hive permission.");
+			return;
+		}
+
 		Identity identity = HivePermissionUtils.getIdentityFromToken();
 		String user = identity.User;
 		String psm = identity.PSM;
@@ -622,6 +630,11 @@ public class HiveTableSource implements
 
 	@Override
 	public void validateWithUserOrPsm(String user, String psm) {
+		if (HivePermissionUtils.isPermissionCheckDisabled(flinkConf)) {
+			LOG.warn("Hive permission check is disabled, will not check hive permission.");
+			return;
+		}
+
 		String database = tablePath.getDatabaseName();
 		String table = tablePath.getObjectName();
 		List<String> projectedFieldNames =
@@ -633,8 +646,13 @@ public class HiveTableSource implements
 		List<String> columnValues = getColumnValueListFromPredicates();
 		List<String> allColumnsNeedToCheckPermission = new ArrayList<>(columnValues);
 		allColumnsNeedToCheckPermission.addAll(projectedFieldNames);
+		String geminiServerUrl = flinkConf.getOptional(HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL)
+			.orElseThrow(() -> new FlinkRuntimeException(
+				String.format("%s must be set when %s is true.",
+					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL.key(),
+					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_ENABLED.key())));
 		HivePermissionUtils.checkPermission(user, psm, database, table,
-			allColumnsNeedToCheckPermission, SELECT, true);
+			allColumnsNeedToCheckPermission, SELECT, true, geminiServerUrl);
 	}
 
 	/**

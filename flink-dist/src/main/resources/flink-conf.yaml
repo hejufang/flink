@@ -157,6 +157,10 @@ common:
   # validate before execute, e.g. hive permission check.
   table.exec.validate-before-execute: true
 
+  # configurations for hive permission check.
+  table.exec.hive.permission-check.enabled: true
+  table.exec.hive.permission-check.gemini-server-url: http://gemini.byted.org/api/query/default/verifyUsersPrivilege
+
   # Configurations for smart resources
   smart-resources.service-name: data.inf.sr_estimater.service.lf
 
@@ -398,6 +402,7 @@ stork:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   save-meta.enabled: false
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
 
 shark:
   dc: sg
@@ -415,6 +420,7 @@ shark:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   save-meta.enabled: false
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
 
 marmt:
   dc: va
@@ -435,6 +441,7 @@ marmt:
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
 
 macaw:
   dc: va
@@ -455,6 +462,7 @@ macaw:
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
 
 grila:
   dc: i18n_gcp
@@ -475,6 +483,7 @@ grila:
   jobmeta.db.name: flink_meta
   grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
 
 gavia:
   dc: i18n_gcp
@@ -495,6 +504,7 @@ gavia:
   jobmeta.db.name: flink_meta
   grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
 
 alisg:
   dc: sg
@@ -512,6 +522,7 @@ alisg:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
 
 sloth:
   dc: sg
@@ -530,6 +541,7 @@ sloth:
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
 
 boe:
   dc: vm
@@ -545,6 +557,7 @@ boe:
   cluster.evenly-spread-out-slots: true
   grafana.domain_url: "http://grafana-boe.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  table.exec.hive.permission-check.enabled: false
 
 cof:
   dc: vm
@@ -558,6 +571,7 @@ cof:
   yaop_url: https://yaop-boe.bytedance.net
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   cluster.evenly-spread-out-slots: true
+  table.exec.hive.permission-check.enabled: false
 
 swan:
   dc: ka
@@ -565,6 +579,7 @@ swan:
   high-availability.zookeeper.quorum: 10.230.2.2:2181,10.230.2.10:2181,10.230.2.7:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
+  table.exec.hive.permission-check.enabled: false
 
 koala:
   dc: ka2
@@ -572,6 +587,7 @@ koala:
   high-availability.zookeeper.quorum: 10.230.9.118:2181,10.230.9.121:2181,10.230.9.102:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
+  table.exec.hive.permission-check.enabled: false
 
 boei18n:
   dc: vm
@@ -589,3 +605,4 @@ boei18n:
   docker.region: Aliyun_VA
   grafana.domain_url: "http://grafana-boei18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  table.exec.hive.permission-check.enabled: false
