@@ -222,11 +222,13 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 
 		completedCheckpoints.addLast(checkpoint);
 
-		// Everything worked, let's remove a previous checkpoint if necessary.
-		while (completedCheckpoints.size() > maxNumberOfCheckpointsToRetain) {
-			final CompletedCheckpoint completedCheckpoint = completedCheckpoints.removeFirst();
-			tryRemoveCompletedCheckpoint(completedCheckpoint, CompletedCheckpoint::discardOnSubsume);
-		}
+		CheckpointSubsumeHelper.subsume(
+			completedCheckpoints,
+			maxNumberOfCheckpointsToRetain,
+			completedCheckpoint ->
+				tryRemoveCompletedCheckpoint(
+					completedCheckpoint,
+					CompletedCheckpoint::discardOnSubsume));
 
 		LOG.debug("Added {} to {}.", checkpoint, path);
 	}
@@ -308,9 +310,13 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 			boolean allDeleted = true;
 			for (CompletedCheckpoint checkpoint : completedCheckpoints) {
 				if (checkpoint.isDiscardOnShutdown(jobStatus)) {
-					tryRemoveCompletedCheckpoint(
-						checkpoint,
-						completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
+					try {
+						tryRemoveCompletedCheckpoint(
+							checkpoint,
+							completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
+					} catch (Exception e) {
+						LOG.warn("Fail to remove checkpoint during shutdown.", e);
+					}
 				} else {
 					allDeleted = false;
 					checkpointStateHandleStore.release(
@@ -340,7 +346,7 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 
 	private void tryRemoveCompletedCheckpoint(
 			CompletedCheckpoint completedCheckpoint,
-			ThrowingConsumer<CompletedCheckpoint, Exception> discardCallback) {
+			ThrowingConsumer<CompletedCheckpoint, Exception> discardCallback) throws Exception {
 
 		try {
 			if (completedCheckpoint instanceof CompletedCheckpointPlaceHolder) {
@@ -350,20 +356,15 @@ public class DefaultCompletedCheckpointStore<R extends ResourceVersion<R>> imple
 			// ignore
 		}
 
-		try {
-			final CompletedCheckpoint toDiscardCheckpoint = completedCheckpoint;
-			if (tryRemove(completedCheckpoint.getCheckpointID())) {
-				executor.execute(() -> {
-					try {
-						discardCallback.accept(toDiscardCheckpoint);
-					} catch (Exception e) {
-						LOG.warn("Could not discard completed checkpoint {}.", toDiscardCheckpoint.getCheckpointID(), e);
-					}
-				});
-
-			}
-		} catch (Exception e) {
-			LOG.warn("Failed to subsume the old checkpoint", e);
+		final CompletedCheckpoint toDiscardCheckpoint = completedCheckpoint;
+		if (tryRemove(completedCheckpoint.getCheckpointID())) {
+			executor.execute(() -> {
+				try {
+					discardCallback.accept(toDiscardCheckpoint);
+				} catch (Exception e) {
+					LOG.warn("Could not discard completed checkpoint {}.", toDiscardCheckpoint.getCheckpointID(), e);
+				}
+			});
 		}
 	}
 
