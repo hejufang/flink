@@ -492,21 +492,31 @@ public final class FunctionCatalog {
 	}
 
 	public void registerTemporarySystemFunction(
+		String name,
+		CatalogFunction function,
+		boolean ignoreIfExists) {
+		registerTemporarySystemFunction(name, function, ignoreIfExists, true);
+	}
+
+	public void registerTemporarySystemFunction(
 			String name,
 			CatalogFunction function,
-			boolean ignoreIfExists) {
+			boolean ignoreIfExists,
+			boolean validateAndPrepareFunction) {
 		final String normalizedName = FunctionIdentifier.normalizeName(name);
 
-		// the validation is commented out to support hive temp functions. it can be added back once hive functions migrate to new type inference
-//		try {
-//			validateAndPrepareFunction(function);
-//		} catch (Throwable t) {
-//			throw new ValidationException(
-//				String.format(
-//					"Could not register temporary system function '%s' due to implementation errors.",
-//					name),
-//				t);
-//		}
+		if (validateAndPrepareFunction) {
+
+			try {
+				validateAndPrepareFunction(function);
+			} catch (Throwable t) {
+				throw new ValidationException(
+					String.format(
+						"Could not register temporary system function '%s' due to implementation errors.",
+						name),
+					t);
+			}
+		}
 
 		if (!tempSystemFunctions.containsKey(normalizedName)) {
 			tempSystemFunctions.put(normalizedName, function);

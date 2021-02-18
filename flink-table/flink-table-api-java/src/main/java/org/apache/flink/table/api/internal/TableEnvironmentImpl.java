@@ -1585,10 +1585,14 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	private TableResult createSystemCatalogFunction(CreateTempSystemCatalogFunctionOperation operation) {
 		String exMsg = getDDLOpExecuteErrorMsg(operation.asSummaryString());
 		try {
+			// The validation disabled to support hive temp functions.
+			// It can be enabled once hive functions migrate to new type inference
+			boolean validateAndPrepareFunction = false;
 			functionCatalog.registerTemporarySystemFunction(
 					operation.getFunctionName(),
 					operation.getCatalogFunction(),
-					operation.ifNotExists()
+					operation.ifNotExists(),
+					validateAndPrepareFunction
 			);
 			return TableResultImpl.TABLE_RESULT_OK;
 		} catch (ValidationException e) {
