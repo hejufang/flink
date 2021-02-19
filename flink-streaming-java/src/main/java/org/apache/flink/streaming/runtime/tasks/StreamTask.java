@@ -824,28 +824,29 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				return true;
 			}
 			else {
-				// we cannot perform our checkpoint - let the downstream operators know that they
-				// should not wait for any input from this operator
+				if (checkpointOptions.getCheckpointType().isBroadcastBarrier()) {
+					// we cannot perform our checkpoint - let the downstream operators know that they
+					// should not wait for any input from this operator
 
-				// we cannot broadcast the cancellation markers on the 'operator chain', because it may not
-				// yet be created
-				final CancelCheckpointMarker message = new CancelCheckpointMarker(checkpointMetaData.getCheckpointId());
-				Exception exception = null;
+					// we cannot broadcast the cancellation markers on the 'operator chain', because it may not
+					// yet be created
+					final CancelCheckpointMarker message = new CancelCheckpointMarker(checkpointMetaData.getCheckpointId());
+					Exception exception = null;
 
-				for (RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter : recordWriters) {
-					try {
-						recordWriter.broadcastEvent(message);
-					} catch (Exception e) {
-						exception = ExceptionUtils.firstOrSuppressed(
-							new Exception("Could not send cancel checkpoint marker to downstream tasks.", e),
-							exception);
+					for (RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter : recordWriters) {
+						try {
+							recordWriter.broadcastEvent(message);
+						} catch (Exception e) {
+							exception = ExceptionUtils.firstOrSuppressed(
+								new Exception("Could not send cancel checkpoint marker to downstream tasks.", e),
+								exception);
+						}
+					}
+
+					if (exception != null) {
+						throw exception;
 					}
 				}
-
-				if (exception != null) {
-					throw exception;
-				}
-
 				return false;
 			}
 		}

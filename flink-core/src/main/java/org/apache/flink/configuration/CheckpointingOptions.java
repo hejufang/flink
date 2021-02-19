@@ -67,6 +67,12 @@ public class CheckpointingOptions {
 			.defaultValue(0.5)
 			.withDescription("The maximum percentage of regions that can be recovered from history.");
 
+	/** Whether to force a single task as an independent region. */
+	public static final ConfigOption<Boolean> FORCE_SINGLE_TASK_AS_REGION = ConfigOptions
+		.key("state.checkpoints.region.force-single-task-as-region")
+		.defaultValue(false)
+		.withDescription("Whether to force a single task as an independent region.");
+
 	/** The checkpoint trigger strategy is used to determine how to trigger the checkpoint. **/
 	public static final ConfigOption<String> CHECKPOINT_TRIGGER_STRATEGY = ConfigOptions
 			.key("state.checkpoints.trigger-strategy")

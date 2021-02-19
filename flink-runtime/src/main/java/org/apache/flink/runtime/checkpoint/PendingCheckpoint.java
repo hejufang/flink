@@ -28,6 +28,8 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
+import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
+import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -49,6 +51,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -359,7 +362,8 @@ public class PendingCheckpoint {
 	public TaskAcknowledgeResult overrideTaskStates(
 			ExecutionAttemptID executionAttemptId,
 			TaskStateSnapshot operatorSubtaskStates,
-			long overrideCheckpointId) {
+			long overrideCheckpointId,
+			boolean notifyPerformCheckpoint) {
 		synchronized (lock) {
 			if (discarded) {
 				return TaskAcknowledgeResult.DISCARDED;
@@ -369,8 +373,11 @@ public class PendingCheckpoint {
 			if (vertex != null) {
 				acknowledgedTasks.add(executionAttemptId);
 				++numAcknowledgedTasks;
-			} else {
+			} else if (totalTasks.containsKey(executionAttemptId)) {
 				vertex = totalTasks.get(executionAttemptId);
+			} else {
+				LOG.info("The execution with {} does not need to override the state.", executionAttemptId);
+				return TaskAcknowledgeResult.SUCCESS;
 			}
 
 			List<OperatorID> operatorIDs = vertex.getJobVertex().getOperatorIDs();
@@ -400,7 +407,7 @@ public class PendingCheckpoint {
 						operatorStates.put(operatorID, operatorState);
 					}
 
-					operatorState.putState(subtaskIndex, new OperatorSubtaskStatePlaceHolder(operatorSubtaskState));
+					operatorState.putState(subtaskIndex, overrideOperatorSubtaskState(operatorSubtaskState));
 					stateSize += operatorSubtaskState.getStateSize();
 				}
 			}
@@ -424,8 +431,44 @@ public class PendingCheckpoint {
 
 			LOG.info("Checkpoint {} replaces states of Task {} with snapshot from checkpoint {}.",
 					checkpointId, vertex.getTaskNameWithSubtaskIndex(), overrideCheckpointId);
+
+			// only notify when task failed
+			if (notifyPerformCheckpoint) {
+				pendingTrigger.notifyPerformCheckpoint(checkpointId, checkpointTimestamp, executionAttemptId);
+			}
+
 			return TaskAcknowledgeResult.SUCCESS;
 		}
+	}
+
+	private OperatorSubtaskState overrideOperatorSubtaskState(OperatorSubtaskState operatorSubtaskState) {
+		boolean needRewrite = Stream.concat(
+			operatorSubtaskState.getManagedKeyedState().stream(),
+			operatorSubtaskState.getRawKeyedState().stream())
+			.anyMatch(stateHandle -> stateHandle instanceof IncrementalKeyedStateHandle);
+		if (needRewrite) {
+			StateObjectCollection<KeyedStateHandle> managedKeyedState = overrideIncrementalStateHandle(operatorSubtaskState.getManagedKeyedState());
+			StateObjectCollection<KeyedStateHandle> rawKeyedState = overrideIncrementalStateHandle(operatorSubtaskState.getRawKeyedState());
+			return new OperatorSubtaskState(
+				operatorSubtaskState.getManagedOperatorState(),
+				operatorSubtaskState.getRawOperatorState(),
+				managedKeyedState,
+				rawKeyedState);
+		} else {
+			return new OperatorSubtaskStatePlaceHolder(operatorSubtaskState);
+		}
+	}
+
+	private StateObjectCollection<KeyedStateHandle> overrideIncrementalStateHandle(StateObjectCollection<KeyedStateHandle> oriKeyedStateHandles) {
+		StateObjectCollection<KeyedStateHandle> keyedStateHandles = new StateObjectCollection<>();
+		oriKeyedStateHandles.stream().forEach(stateHandle -> {
+			if (stateHandle instanceof IncrementalKeyedStateHandle) {
+				keyedStateHandles.add(((IncrementalKeyedStateHandle) stateHandle).overrideWithPlaceHolder(checkpointId));
+			} else {
+				keyedStateHandles.add(stateHandle);
+			}
+		});
+		return keyedStateHandles;
 	}
 
 	public PendingTriggerFactory.PendingTrigger getPendingTrigger() {

@@ -29,8 +29,10 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Checkpoint is triggered gradually through rpc by level.
@@ -50,6 +52,9 @@ public class LevelPendingTrigger implements PendingTriggerFactory.PendingTrigger
 	/** Tasks who need to be sent a message when a checkpoint is confirmed. */
 	private final ExecutionVertex[] tasksToCommitTo;
 
+	/** Tasks that have not received the perform Checkpoint message. **/
+	private final Set<ExecutionAttemptID> receivedNotifiedTasks;
+
 	/** The synchronization lock of notYetPerformCheckpointTasks. **/
 	private final Object lock = new Object();
 
@@ -67,20 +72,28 @@ public class LevelPendingTrigger implements PendingTriggerFactory.PendingTrigger
 		this.notYetNotifiedTasksByLevel = new HashMap<>();
 		this.tasksToAck = tasksToAck;
 		this.tasksToCommitTo = tasksToCommitTo;
+		this.receivedNotifiedTasks = new HashSet<>(taskToTrigger.length);
 	}
 
 	@Override
 	public void notifyPerformCheckpoint(long checkpointId, long checkpointTimestamp, ExecutionAttemptID executionAttemptID) {
 		synchronized (lock) {
 			notYetNotifiedTasksByLevel.remove(executionAttemptID);
+			receivedNotifiedTasks.add(executionAttemptID);
 			if (notYetNotifiedTasksByLevel.isEmpty()) {
 				LOG.info("The current level has been triggered and is ready to trigger the next level.");
-				for (Execution execution : getNextTriggerTasks()) {
-					try {
-						execution.triggerCheckpoint(checkpointId, checkpointTimestamp, checkpointOptions);
-					} catch (Throwable ignore) {
-						// just ignore
-						LOG.warn("trigger checkpoint for task {} failed, just ignore it.", execution.getVertex().getTaskNameWithSubtaskIndex(), ignore);
+				while (currentStage < taskToTrigger.size() - 1 && notYetNotifiedTasksByLevel.isEmpty()) {
+					for (Execution execution : getNextTriggerTasks()) {
+						try {
+							if (!receivedNotifiedTasks.contains(execution.getAttemptId())) {
+								execution.triggerCheckpoint(checkpointId, checkpointTimestamp, checkpointOptions);
+							} else {
+								notYetNotifiedTasksByLevel.remove(execution.getAttemptId());
+							}
+						} catch (Throwable ignore) {
+							// just ignore
+							LOG.warn("trigger checkpoint for task {} failed, just ignore it.", execution.getVertex().getTaskNameWithSubtaskIndex(), ignore);
+						}
 					}
 				}
 			}

@@ -77,7 +77,8 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			MetricGroup metricGroup,
 			ExecutionVertex[] vertices,
 			int maxNumberOfSnapshotsToRetain,
-			double maxPercentageOfRecovery) {
+			double maxPercentageOfRecovery,
+			boolean forceSingleTaskAsRegion) {
 		Preconditions.checkArgument(maxNumberOfSnapshotsToRetain > 0);
 		this.metricGroup = metricGroup;
 		this.vertexToRegion = new HashMap<>();
@@ -86,16 +87,16 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 		this.maxNumberOfSnapshotsToRetain = maxNumberOfSnapshotsToRetain;
 		this.maxPercentageOfRecovery = maxPercentageOfRecovery;
 		this.completedCheckpointIds = new ArrayDeque<>(maxNumberOfSnapshotsToRetain + 1);
-		constructCheckpointRegions(vertices);
+		constructCheckpointRegions(vertices, forceSingleTaskAsRegion);
 
 		this.metricGroup.gauge(REGION_CHECKPOINT_JOB_COUNT, () -> 1);
 		this.metricGroup.gauge(REGION_CHECKPOINT_CHECKPOINT_COUNT, () -> numberOfRegionCheckpoints);
 		this.metricGroup.gauge(REGION_CHECKPOINT_RECOVERY_COUNT, () -> numberOfRecoveries);
 	}
 
-	private void constructCheckpointRegions(ExecutionVertex[] vertices) {
+	private void constructCheckpointRegions(ExecutionVertex[] vertices, boolean forceSingleTaskAsRegion) {
 		for (ExecutionVertex vertex : vertices) {
-			if (vertex.getAllInputEdges().length > 0) {
+			if (!forceSingleTaskAsRegion && vertex.getAllInputEdges().length > 0) {
 				throw new UnsupportedOperationException("Only support one vertex in region for now.");
 			}
 			vertexToRegion.put(vertex.getID(), new CheckpointRegion(new ExecutionVertex[]{vertex}));
@@ -158,7 +159,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 				if (snapshotOpt.isPresent()) {
 					final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint
 							.overrideTaskStates(vertex.getMainExecution().getAttemptId(),
-									snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId());
+									snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId(), false);
 					if (!result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 						return false;
 					}
@@ -236,7 +237,7 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 			for (long checkpointId : checkpointIds) {
 				final PendingCheckpoint pendingCheckpoint = checkpointIdToCheckpoint.get(checkpointId);
 				final PendingCheckpoint.TaskAcknowledgeResult result = pendingCheckpoint.overrideTaskStates(
-						attempt, snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId());
+						attempt, snapshotOpt.get().getSnapshot(), snapshotOpt.get().getCheckpointId(), true);
 				if (!isRecoveryAvailable(checkpointId) || !result.equals(PendingCheckpoint.TaskAcknowledgeResult.SUCCESS)) {
 					return false;
 				}
