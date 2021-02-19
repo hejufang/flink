@@ -43,6 +43,12 @@ under the License.
 
 		<dependency>
 			<artifactId>tos-core</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>org.scala-lang</groupId>
+					<artifactId>scala-library</artifactId>
+				</exclusion>
+			</exclusions>
 			<groupId>com.bytedance.storage</groupId>
 			<version>${tos.version}</version>
 		</dependency>

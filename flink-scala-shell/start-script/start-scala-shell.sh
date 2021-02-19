@@ -46,8 +46,10 @@ fi
 
 
 bin=`dirname "$0"`
+FLINK_CONNECTOR_DIR=`cd "$bin"/../connectors; pwd`
+FLINK_CONNECTOR_LIBS=`ls -d $FLINK_CONNECTOR_DIR/* |tr '\n' ':'`
+echo "FLINK_CONNECTOR_LIBS = $FLINK_CONNECTOR_LIBS"
 bin=`cd "$bin"; pwd`
-
 . "$bin"/config.sh
 
 FLINK_CLASSPATH=`constructFlinkClassPath`
@@ -90,16 +92,26 @@ elif [[ $1 = "yarn" ]]
 then
     LOG4J_CONFIG=log4j-session.properties
     LOGBACK_CONFIG=logback-session.xml
-    FLINK_CLASSPATH=$FLINK_CLASSPATH:$HADOOP_CLASSPATH:$HADOOP_CONF_DIR:$YARN_CONF_DIR
 fi
 
 log_setting=("-Dlog.file=$LOG" "-Dlog4j.configuration=file:$FLINK_CONF_DIR/$LOG4J_CONFIG" "-Dlog4j.configurationFile=file:$FLINK_CONF_DIR/$LOG4J_CONFIG" "-Dlogback.configurationFile=file:$FLINK_CONF_DIR/$LOGBACK_CONFIG")
 
+# sort the hadoop dependencies
+INTERNAL_HADOOP_CLASSPATHS=`sortHadoopClasspath`
+
+CC_CLASSPATH=`constructFlinkClassPath $*`:$FLINK_CONNECTOR_LIBS
+DYNAMIC_FILES=`getDynamicFiles $*`
+if [ "$DYNAMIC_FILES" != "" ]; then
+        DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
+        CC_CLASSPATH=$DYNAMIC_FILES:$CC_CLASSPATH
+fi
+echo "CC_CLASSPATH = $CC_CLASSPATH"
+
 if ${EXTERNAL_LIB_FOUND}
 then
-    $JAVA_RUN -Dscala.color -cp "$FLINK_CLASSPATH" "${log_setting[@]}" org.apache.flink.api.scala.FlinkShell $@ --addclasspath "$EXT_CLASSPATH"
+    $JAVA_RUN $FLINK_DEBUG_ARGS -Dscala.color -cp "$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS" "${log_setting[@]}" org.apache.flink.api.scala.FlinkShell $@ --addclasspath "$EXT_CLASSPATH"
 else
-    $JAVA_RUN -Dscala.color -cp "$FLINK_CLASSPATH" "${log_setting[@]}" org.apache.flink.api.scala.FlinkShell $@
+    $JAVA_RUN $FLINK_DEBUG_ARGS -Dscala.color -cp "$CC_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS" "${log_setting[@]}" org.apache.flink.api.scala.FlinkShell $@
 fi
 
 #restore echo

@@ -179,6 +179,7 @@ object FlinkShell {
     val settings = new Settings()
     settings.usejavacp.value = true
     settings.Yreplsync.value = true
+    settings.target.value = "jvm-1.8"
 
     try {
       repl.process(settings)
