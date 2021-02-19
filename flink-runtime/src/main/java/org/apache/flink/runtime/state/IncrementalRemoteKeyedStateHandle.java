@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -267,6 +268,19 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 			// deduplication and returns the previous reference.
 			sharedStateHandle.setValue(result.getReference());
 		}
+	}
+
+	@Override
+	public IncrementalKeyedStateHandle overrideWithPlaceHolder(long checkpointId) {
+		Map<StateHandleID, StreamStateHandle> sharedState = new HashMap<>(this.sharedState.size());
+		this.sharedState.keySet().forEach(stateHandleID -> sharedState.put(stateHandleID, new PlaceholderStreamStateHandle()));
+		return new IncrementalRemoteKeyedStateHandle(
+			backendIdentifier,
+			keyGroupRange,
+			checkpointId,
+			sharedState,
+			privateState,
+			metaStateHandle);
 	}
 
 	/**

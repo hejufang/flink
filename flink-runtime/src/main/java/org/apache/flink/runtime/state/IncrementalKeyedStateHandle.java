@@ -38,4 +38,6 @@ public interface IncrementalKeyedStateHandle extends KeyedStateHandle {
 	/** Returns a set of ids of all registered shared states in the backend at the time this was created. */
 	@Nonnull
 	Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs();
+
+	default IncrementalKeyedStateHandle overrideWithPlaceHolder(long checkpointId) { return this; }
 }

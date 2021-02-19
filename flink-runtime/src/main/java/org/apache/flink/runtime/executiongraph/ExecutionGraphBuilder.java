@@ -277,11 +277,14 @@ public class ExecutionGraphBuilder {
 						CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS);
 				final double maxPercentageOfRecovery = jobManagerConfig.getDouble(
 						CheckpointingOptions.MAX_PERCENTAGE_RECOVERY);
+				final boolean forceSingleTaskAsRegion = jobManagerConfig.getBoolean(
+						CheckpointingOptions.FORCE_SINGLE_TASK_AS_REGION);
 				checkpointHandler = new RegionCheckpointHandler(
 						metrics,
 						confirmVertices.stream().flatMap(jv -> Arrays.stream(jv.getTaskVertices())).toArray(ExecutionVertex[]::new),
 						maxNumberOfSnapshotsToRetain,
-						maxPercentageOfRecovery);
+						maxPercentageOfRecovery,
+						forceSingleTaskAsRegion);
 			} else {
 				checkpointHandler = new GlobalCheckpointHandler();
 			}
