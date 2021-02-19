@@ -287,11 +287,19 @@ public class StateTtlConfig implements Serializable {
 		 */
 		@Nonnull
 		public Builder cleanupIncrementally(
+				@Nonnegative int cleanupSize,
+				boolean runCleanupForEveryRecord) {
+			return cleanupIncrementally(cleanupSize, runCleanupForEveryRecord, false);
+		}
+
+		@Nonnull
+		public Builder cleanupIncrementally(
 			@Nonnegative int cleanupSize,
-			boolean runCleanupForEveryRecord) {
+			boolean runCleanupForEveryRecord,
+			boolean removeEmptyStructure) {
 			strategies.put(
 				CleanupStrategies.Strategies.INCREMENTAL_CLEANUP,
-				new IncrementalCleanupStrategy(cleanupSize, runCleanupForEveryRecord));
+				new IncrementalCleanupStrategy(cleanupSize, runCleanupForEveryRecord, removeEmptyStructure));
 			return this;
 		}
 
@@ -447,7 +455,7 @@ public class StateTtlConfig implements Serializable {
 	public static class IncrementalCleanupStrategy implements CleanupStrategies.CleanupStrategy {
 		private static final long serialVersionUID = 3109278696501988780L;
 
-		static final IncrementalCleanupStrategy DEFAULT_INCREMENTAL_CLEANUP_STRATEGY = new IncrementalCleanupStrategy(5, false);
+		static final IncrementalCleanupStrategy DEFAULT_INCREMENTAL_CLEANUP_STRATEGY = new IncrementalCleanupStrategy(5, false, false);
 
 		/** Max number of keys pulled from queue for clean up upon state touch for any key. */
 		private final int cleanupSize;
@@ -455,13 +463,17 @@ public class StateTtlConfig implements Serializable {
 		/** Whether to run incremental cleanup per each processed record. */
 		private final boolean runCleanupForEveryRecord;
 
+		private final boolean removeEmptyStructure;
+
 		private IncrementalCleanupStrategy(
 			int cleanupSize,
-			boolean runCleanupForEveryRecord) {
+			boolean runCleanupForEveryRecord,
+			boolean removeEmptyStructure) {
 			Preconditions.checkArgument(cleanupSize >= 0,
 				"Number of incrementally cleaned up state entries cannot be negative.");
 			this.cleanupSize = cleanupSize;
 			this.runCleanupForEveryRecord = runCleanupForEveryRecord;
+			this.removeEmptyStructure = removeEmptyStructure;
 		}
 
 		public int getCleanupSize() {
@@ -470,6 +482,10 @@ public class StateTtlConfig implements Serializable {
 
 		public boolean runCleanupForEveryRecord() {
 			return runCleanupForEveryRecord;
+		}
+
+		public boolean removeEmptyStructure() {
+			return removeEmptyStructure;
 		}
 	}
 

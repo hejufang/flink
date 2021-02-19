@@ -444,7 +444,7 @@ public abstract class TtlStateTestBase {
 	public void testIncrementalCleanup() throws Exception {
 		assumeTrue(incrementalCleanupSupported());
 
-		initTest(getConfBuilder(TTL).cleanupIncrementally(5, true).build());
+		initTest(getConfBuilder(TTL).cleanupIncrementally(5, true, false).build());
 
 		final int keysToUpdate = (CopyOnWriteStateMap.DEFAULT_CAPACITY >> 3) * NUMBER_OF_KEY_GROUPS;
 

@@ -204,7 +204,7 @@ public class TtlStateFactory<K, N, SV, TTLSV, S extends State, IS extends S> {
 	private TtlIncrementalCleanup<K, N, TTLSV> getTtlIncrementalCleanup() {
 		StateTtlConfig.IncrementalCleanupStrategy config =
 			ttlConfig.getCleanupStrategies().getIncrementalCleanupStrategy();
-		return config != null ? new TtlIncrementalCleanup<>(config.getCleanupSize()) : null;
+		return config != null ? new TtlIncrementalCleanup<>(config.getCleanupSize(), config.removeEmptyStructure()) : null;
 	}
 
 	private Runnable registerTtlIncrementalCleanupCallback(InternalKvState<?, ?, ?> originalState) {
