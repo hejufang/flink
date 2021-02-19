@@ -40,6 +40,8 @@ public class CEPUtils {
 
 	public static StateTtlConfig defaultTtlConfig(long millionseconds) {
 		return StateTtlConfig.newBuilder(Time.of(millionseconds, TimeUnit.MILLISECONDS))
+				.cleanupInBackground()
+				.cleanupIncrementally(5, false, true)
 				.setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
 				.setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
 				.build();

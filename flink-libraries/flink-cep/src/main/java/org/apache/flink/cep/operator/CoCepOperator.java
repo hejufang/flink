@@ -218,11 +218,12 @@ public class CoCepOperator<IN, KEY, OUT>
 		partialMatches = new HashMap<>();
 //		partialMatches = new SharedBuffer<>(context.getKeyedStateStore(), inputSerializer);
 
-		elementQueueState = context.getKeyedStateStore().getMapState(
-				new MapStateDescriptor<>(
-						EVENT_QUEUE_STATE_NAME,
-						LongSerializer.INSTANCE,
-						new ListSerializer<>(inputSerializer)));
+		MapStateDescriptor<Long, List<IN>> elementQueueStateDesc = new MapStateDescriptor<>(
+				EVENT_QUEUE_STATE_NAME,
+				LongSerializer.INSTANCE,
+				new ListSerializer<>(inputSerializer));
+		elementQueueStateDesc.enableTimeToLive(defaultTtlConfig(this.ttlMilliSeconds));
+		elementQueueState = context.getKeyedStateStore().getMapState(elementQueueStateDesc);
 	}
 
 	@Override
