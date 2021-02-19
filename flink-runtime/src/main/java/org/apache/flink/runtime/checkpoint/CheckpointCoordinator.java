@@ -424,7 +424,7 @@ public class CheckpointCoordinator {
 				pendingCheckpoints.clear();
 
 				completedCheckpointStore.shutdown(jobStatus);
-				checkpointIdCounter.shutdown(jobStatus);
+				checkpointIdCounter.shutdown(jobStatus, false);
 			}
 		}
 	}

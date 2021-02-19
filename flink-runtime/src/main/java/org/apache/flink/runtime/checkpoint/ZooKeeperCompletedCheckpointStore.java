@@ -318,14 +318,23 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 		if (jobStatus.isGloballyTerminalState()) {
 			LOG.info("Shutting down");
 
+			boolean allDeleted = true;
 			for (CompletedCheckpoint checkpoint : completedCheckpoints) {
-				tryRemoveCompletedCheckpoint(
-					checkpoint,
-					completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
+				if (checkpoint.isDiscardOnShutdown(jobStatus)) {
+					tryRemoveCompletedCheckpoint(
+						checkpoint,
+						completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
+				} else {
+					allDeleted = false;
+					checkpointsInZooKeeper.release(checkpointIdToPath(checkpoint.getCheckpointID()));
+				}
 			}
 
 			completedCheckpoints.clear();
-			checkpointsInZooKeeper.deleteChildren();
+			if (allDeleted) {
+				LOG.info("All completed checkpoints removed from zookeeper, remove checkpoints path from zookeeper.");
+				checkpointsInZooKeeper.deleteChildren();
+			}
 		} else {
 			LOG.info("Suspending");
 

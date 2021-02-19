@@ -248,6 +248,13 @@ public class CompletedCheckpoint implements Serializable {
 		}
 	}
 
+	public boolean isDiscardOnShutdown(JobStatus jobStatus) {
+		return jobStatus == JobStatus.FINISHED && props.discardOnJobFinished() ||
+			jobStatus == JobStatus.CANCELED && props.discardOnJobCancelled() ||
+			jobStatus == JobStatus.FAILED && props.discardOnJobFailed() ||
+			jobStatus == JobStatus.SUSPENDED && props.discardOnJobSuspended();
+	}
+
 	private void doDiscard() throws Exception {
 		LOG.trace("Executing discard procedure for {}.", this);
 
