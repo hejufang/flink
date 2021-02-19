@@ -477,6 +477,7 @@ marmt:
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  checkpoint.client-checkpoint-verification-enable: true
 
 macaw:
   dc: va
@@ -497,6 +498,7 @@ macaw:
   jobmeta.db.name: flink_meta_va
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
+  checkpoint.client-checkpoint-verification-enable: true
 
 grila:
   dc: i18n_gcp
@@ -555,6 +557,7 @@ alisg:
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  checkpoint.client-checkpoint-verification-enable: true
 
 sloth:
   dc: sg
@@ -573,6 +576,7 @@ sloth:
   docker.region: Aliyun_SG
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
+  checkpoint.client-checkpoint-verification-enable: true
 
 boe:
   dc: vm
