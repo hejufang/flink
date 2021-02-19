@@ -39,7 +39,7 @@ import java.util.List;
  * This class tests `accumulate` method with order argument.
  */
 public abstract class FirstValueIgnoreRetractAggFunctionWithOrderTest<T>
-	extends FirstLastValueAggFunctionWithOrderTestBase<T> {
+	extends FirstLastIgnoreRetractValueAggFunctionWithOrderTestBase<T> {
 
 	@Override
 	protected Method getRetractFunc() throws NoSuchMethodException {

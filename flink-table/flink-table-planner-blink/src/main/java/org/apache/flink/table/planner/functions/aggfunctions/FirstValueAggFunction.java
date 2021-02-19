@@ -57,7 +57,7 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 	public void accumulate(GenericRowData acc, Object value) {
 		if (value != null && acc.getLong(1) == Long.MAX_VALUE) {
 			acc.setField(0, value);
-			acc.setField(1, System.currentTimeMillis());
+			acc.setField(1, System.nanoTime());
 		}
 	}
 
@@ -65,6 +65,26 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 		if (value != null && acc.getLong(1) > order) {
 			acc.setField(0, value);
 			acc.setField(1, order);
+		}
+	}
+
+	public void merge(GenericRowData acc, Iterable<GenericRowData> accIt) {
+		long accOrder = acc.getLong(1);
+		GenericRowData firstAcc = acc;
+		boolean needUpdate = false;
+
+		for (GenericRowData rowData : accIt) {
+			long order = rowData.getLong(1);
+			// if there is a lower order
+			if (order < accOrder) {
+				needUpdate = true;
+				firstAcc = rowData;
+			}
+		}
+
+		if (needUpdate) {
+			acc.setField(0, firstAcc.getField(0));
+			acc.setField(1, firstAcc.getField(1));
 		}
 	}
 

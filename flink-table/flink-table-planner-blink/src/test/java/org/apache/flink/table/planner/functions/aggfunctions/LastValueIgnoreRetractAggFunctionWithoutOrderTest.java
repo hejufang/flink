@@ -38,7 +38,8 @@ import java.util.List;
  * Test case for built-in LastValue ignoring retract aggregate function.
  * This class tests `accumulate` method without order argument.
  */
-public abstract class LastValueIgnoreRetractAggFunctionWithoutOrderTest<T> extends AggFunctionTestBase<T, GenericRowData> {
+public abstract class LastValueIgnoreRetractAggFunctionWithoutOrderTest<T>
+	extends FirstLastIgnoreRetractValueAggFunctionWithoutOrderTestBase<T> {
 
 	@Override
 	protected Class<?> getAccClass() {

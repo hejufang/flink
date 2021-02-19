@@ -38,7 +38,8 @@ import java.util.List;
  * Test case for built-in FirstValue ignoring retract aggregate function.
  * This class tests `accumulate` method without order argument.
  */
-public abstract class FirstValueIgnoreRetractAggFunctionWithoutOrderTest<T> extends AggFunctionTestBase<T, GenericRowData> {
+public abstract class FirstValueIgnoreRetractAggFunctionWithoutOrderTest<T>
+	extends FirstLastIgnoreRetractValueAggFunctionWithoutOrderTestBase<T> {
 
 	@Override
 	protected Class<?> getAccClass() {

@@ -57,6 +57,7 @@ public class LastValueAggFunction<T> extends AggregateFunction<T, GenericRowData
 	public void accumulate(GenericRowData acc, Object value) {
 		if (value != null) {
 			acc.setField(0, value);
+			acc.setField(1, System.nanoTime());
 		}
 	}
 
@@ -64,6 +65,26 @@ public class LastValueAggFunction<T> extends AggregateFunction<T, GenericRowData
 		if (value != null && acc.getLong(1) < order) {
 			acc.setField(0, value);
 			acc.setField(1, order);
+		}
+	}
+
+	public void merge(GenericRowData acc, Iterable<GenericRowData> accIt) {
+		long accOrder = acc.getLong(1);
+		GenericRowData lastAcc = acc;
+		boolean needUpdate = false;
+
+		for (GenericRowData rowData : accIt) {
+			long order = rowData.getLong(1);
+			// if there is a upper order
+			if (order > accOrder) {
+				needUpdate = true;
+				lastAcc = rowData;
+			}
+		}
+
+		if (needUpdate) {
+			acc.setField(0, lastAcc.getField(0));
+			acc.setField(1, lastAcc.getField(1));
 		}
 	}
 
