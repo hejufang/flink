@@ -41,6 +41,17 @@ public interface CheckpointIDCounter {
 	void shutdown(JobStatus jobStatus) throws Exception;
 
 	/**
+	 * Shuts the {@link CheckpointIDCounter} service.
+	 *
+	 * @param jobStatus Job state on shut down
+	 * @param cleanCounterPath Whether to clean up the counter path.
+	 * @throws Exception
+	 */
+	default void shutdown(JobStatus jobStatus, boolean cleanCounterPath) throws Exception {
+		shutdown(jobStatus);
+	}
+
+	/**
 	 * Atomically increments the current checkpoint ID.
 	 *
 	 * @return The previous checkpoint ID

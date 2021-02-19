@@ -436,7 +436,7 @@ public class CheckpointCoordinator {
 				abortPendingAndQueuedCheckpoints(reason);
 
 				completedCheckpointStore.shutdown(jobStatus);
-				checkpointIdCounter.shutdown(jobStatus);
+				checkpointIdCounter.shutdown(jobStatus, false);
 			}
 		}
 	}
