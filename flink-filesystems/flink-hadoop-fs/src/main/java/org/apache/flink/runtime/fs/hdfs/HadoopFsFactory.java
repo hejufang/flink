@@ -48,6 +48,8 @@ public class HadoopFsFactory implements FileSystemFactory {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HadoopFsFactory.class);
 
+	private static final String HDFS_VIP_AUTHORITY = "hdfsvip";
+
 	/** Flink's configuration object. */
 	private Configuration flinkConfig;
 
@@ -70,16 +72,9 @@ public class HadoopFsFactory implements FileSystemFactory {
 		vipConfig = null;
 	}
 
-	@Override
-	public FileSystem create(URI fsUri) throws IOException {
-		return create(fsUri, false);
-	}
-
 	private org.apache.hadoop.conf.Configuration getHadoopConfig() {
-		if (this.hadoopConfig != null) {
-			return this.hadoopConfig;
-		} else if (flinkConfig != null) {
-			return HadoopUtils.getHadoopConfiguration(flinkConfig);
+		if (flinkConfig != null) {
+			return HadoopUtils.getHadoopConfigForCheckpoint(flinkConfig);
 		} else {
 			LOG.warn("Hadoop configuration has not been explicitly initialized prior to loading a Hadoop file system."
 					+ " Using configuration from the classpath.");
@@ -88,7 +83,7 @@ public class HadoopFsFactory implements FileSystemFactory {
 	}
 
 	@Override
-	public FileSystem create(URI fsUri, boolean useVipConf) throws IOException {
+	public FileSystem create(URI fsUri) throws IOException {
 		checkNotNull(fsUri, "fsUri");
 
 		final String scheme = fsUri.getScheme();
@@ -98,9 +93,10 @@ public class HadoopFsFactory implements FileSystemFactory {
 		// dependency classes
 		try {
 			// -- (1) get the loaded Hadoop config (or fall back to one loaded from the classpath)
-			LOG.info("Initialize hadoop filesystem(uri={},useVipConf={})", fsUri, useVipConf);
+			LOG.info("Initialize hadoop filesystem(uri={})", fsUri);
 			final org.apache.hadoop.conf.Configuration hadoopConfig;
-			if (useVipConf) {
+			if (HDFS_VIP_AUTHORITY.equals(fsUri.getAuthority())) {
+				LOG.info("Initialize hadoop filesystem(uri={}) with vipConf", fsUri);
 				if (vipConfig != null) {
 					hadoopConfig = this.vipConfig;
 				} else {
@@ -198,7 +194,7 @@ public class HadoopFsFactory implements FileSystemFactory {
 			// -- (5) configure the Hadoop file system
 
 			try {
-				LOG.info("Initialize filesystem {}, {}", useVipConf, initUri);
+				LOG.info("Initialize filesystem {}", initUri);
 				hadoopFs.initialize(initUri, hadoopConfig);
 			}
 			catch (UnknownHostException e) {

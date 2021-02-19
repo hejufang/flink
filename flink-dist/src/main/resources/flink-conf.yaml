@@ -221,16 +221,24 @@ common:
   ipv6.enabled: false
   ipv6.supported.cluster: leser,quoka,quaga,hippo
 
-  # hdfs vip conf
-  state.checkpoints.vip-conf: false
+  # hdfs conf for checkpoint
+  flink.checkpoint.hdfs.dfs.datanode.socket.write.timeout: 30000
+  flink.checkpoint.hdfs.dfs.client.socket-timeout: 30000
+  flink.checkpoint.hdfs.ipc.client.ping: false
+  flink.checkpoint.hdfs.ipc.ping.interval: 10000
+  flink.checkpoint.hdfs.ipc.client.connect.max.retries.on.timeouts: 5
+  flink.checkpoint.hdfs.ipc.client.connect.timeout: 2000
+  flink.checkpoint.hdfs.ipc.client.connect.retry.interval: 500
+  flink.checkpoint.hdfs.io.file.buffer.size: 1048576
+  flink.checkpoint.hdfs.dfs.pipeline.fast-failover.bytes.threshold: 5242880
+  flink.checkpoint.hdfs.dfs.pipeline.fast-failover.max.failover.times: 10
 
 flink:
   dc: cn
   clusterName: flink
   high-availability.zookeeper.quorum: 10.17.58.36:2181,10.17.58.40:2181,10.17.58.44:2181,10.17.58.45:2181,10.17.58.78:2181
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs:///home/byte_flink_checkpoint
-  state.checkpoints.vip-conf: true
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
@@ -240,8 +248,7 @@ dw:
   clusterName: dw
   high-availability.zookeeper.quorum: 10.11.43.39:2184,10.11.43.66:2184,10.224.152.92:2184,10.224.71.64:2184,10.224.71.66:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs:///home/byte_flink_checkpoint
-  state.checkpoints.vip-conf: true
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
@@ -250,8 +257,7 @@ lepad:
   clusterName: lepad
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
-  checkpoint.hdfs.prefix: hdfs:///home/byte_flink_checkpoint
-  state.checkpoints.vip-conf: true
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
@@ -318,8 +324,7 @@ hyrax:
   clusterName: hyrax
   high-availability.zookeeper.quorum: 10.23.72.70:2181,10.23.73.159:2181,10.23.73.222:2181,10.23.73.69:2181,10.23.73.81:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs:///home/byte_flink_checkpoint
-  state.checkpoints.vip-conf: true
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
@@ -328,8 +333,7 @@ horse:
   clusterName: horse
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
-  checkpoint.hdfs.prefix: hdfs:///home/byte_flink_checkpoint
-  state.checkpoints.vip-conf: true
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
 
@@ -395,8 +399,7 @@ quoka:
   clusterName: quoka
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
-  checkpoint.hdfs.prefix: hdfs:///home/byte_flink_checkpoint
-  state.checkpoints.vip-conf: true
+  checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   jobmanager.execution.region-failover.always-region-when-no-resource: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics

@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.util;
 
 import org.apache.flink.configuration.ConfigConstants;
-import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.hadoop.conf.Configuration;
@@ -46,10 +45,43 @@ public class HadoopUtils {
 	private static final Text HDFS_DELEGATION_TOKEN_KIND = new Text("HDFS_DELEGATION_TOKEN");
 
 	private static final String HDFS_KEY_PREFIX = "flink.hdfs.";
+	private static final String HDFS_CHECKPOINT_KEY_PREFIX = "flink.checkpoint.hdfs.";
 
 	@SuppressWarnings("deprecation")
 	public static Configuration getHadoopConfiguration(org.apache.flink.configuration.Configuration flinkConfiguration) {
 
+		Configuration result = initHadoopConfiguration(flinkConfiguration);
+
+		for (String key : flinkConfiguration.keySet()) {
+			if (key.startsWith(HDFS_KEY_PREFIX) && key.length() > HDFS_KEY_PREFIX.length()) {
+				final String value = flinkConfiguration.getString(key, null);
+				if (value != null && value.length() > 0) {
+					result.set(key.substring(HDFS_KEY_PREFIX.length()), value);
+				}
+			}
+		}
+
+		return result;
+	}
+
+	public static Configuration getHadoopConfigForCheckpoint(org.apache.flink.configuration.Configuration flinkConfiguration) {
+
+		Configuration result = initHadoopConfiguration(flinkConfiguration);
+
+		for (String key : flinkConfiguration.keySet()) {
+			if (key.startsWith(HDFS_CHECKPOINT_KEY_PREFIX) && key.length() > HDFS_CHECKPOINT_KEY_PREFIX.length()) {
+				final String value = flinkConfiguration.getString(key, null);
+				if (value != null && value.length() > 0) {
+					LOG.info("using hdfs param {}={}", key.substring(HDFS_CHECKPOINT_KEY_PREFIX.length()), value);
+					result.set(key.substring(HDFS_CHECKPOINT_KEY_PREFIX.length()), value);
+				}
+			}
+		}
+
+		return result;
+	}
+
+	private static Configuration initHadoopConfiguration(org.apache.flink.configuration.Configuration flinkConfiguration) {
 		// Instantiate a HdfsConfiguration to load the hdfs-site.xml and hdfs-default.xml
 		// from the classpath
 		Configuration result = new HdfsConfiguration();
@@ -111,47 +143,6 @@ public class HadoopUtils {
 			LOG.debug("Could not find Hadoop configuration via any of the supported methods " +
 				"(Flink configuration, environment variables).");
 		}
-
-		// ===================== Below deprecated, use flink.hdfs.xx instead ================================
-
-		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES)) {
-			int retries = flinkConfiguration.getInteger(
-				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES);
-			result.setInt(HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
-			LOG.info("using hdfs param {}={}",
-				HdfsConfigOptions.HDFS_CLIENT_BLOCK_WRITE_RETRIES.key(), retries);
-		}
-
-		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
-			// override fs.defaultFS
-			String defaultFS = flinkConfiguration.getString(HdfsConfigOptions.HDFS_DEFAULT_FS);
-			if (defaultFS.length() > 0) {
-				result.setStrings(HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
-				LOG.info("using hdfs param {}={}",
-						HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
-			}
-		}
-
-		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT)) {
-			int timeout = flinkConfiguration.getInteger(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT);
-			if (timeout > 0) {
-				result.setInt(HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT.key(), timeout);
-				LOG.info("using hdfs param {}={}",
-						HdfsConfigOptions.HDFS_SOCKET_WRITE_TIMEOUT.key(), timeout);
-			}
-		}
-
-		// ===================== Above deprecated, use flink.hdfs.xx instead ================================
-
-		for (String key : flinkConfiguration.keySet()) {
-			if (key.startsWith(HDFS_KEY_PREFIX) && key.length() > HDFS_KEY_PREFIX.length()) {
-				final String value = flinkConfiguration.getString(key, null);
-				if (value != null && value.length() > 0) {
-					result.set(key.substring(HDFS_KEY_PREFIX.length()), value);
-				}
-			}
-		}
-
 		return result;
 	}
 

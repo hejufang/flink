@@ -511,7 +511,7 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			checkNotNull(jobId, "jobId");
 			checkNotNull(jobName, "jobName");
 			return new FsCheckpointStorage(
-				getCheckpointPath().getFileSystem(config.getBoolean(CheckpointingOptions.CHECKPOINTS_VIP_CONF)),
+				getCheckpointPath().getFileSystem(),
 				getCheckpointPath(),
 				getSavepointPath(),
 				jobId,

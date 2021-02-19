@@ -50,8 +50,4 @@ public interface FileSystemFactory extends Plugin {
 	 * @throws IOException Thrown if the file system could not be instantiated.
 	 */
 	FileSystem create(URI fsUri) throws IOException;
-
-	default FileSystem create(URI fsUri, boolean useVipConf) throws IOException {
-		return create(fsUri);
-	}
 }

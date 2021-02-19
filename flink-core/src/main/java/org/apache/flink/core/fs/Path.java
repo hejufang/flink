@@ -298,10 +298,6 @@ public class Path implements IOReadableWritable, Serializable {
 		return FileSystem.get(this.toUri());
 	}
 
-	public FileSystem getFileSystem(boolean useVipConf) throws IOException {
-		return FileSystem.get(this.toUri(), useVipConf);
-	}
-
 	/**
 	 * Checks if the directory of this path is absolute.
 	 *

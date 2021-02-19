@@ -187,14 +187,6 @@ public class CheckpointingOptions {
 			"and to replace high-availability.cluster-id in checkpoints, checkpoint-count zk path" +
 			"Make sure the jobName is unique.");
 
-	public static final ConfigOption<Boolean> CHECKPOINTS_VIP_CONF = ConfigOptions
-			.key("state.checkpoints.vip-conf")
-			.defaultValue(true)
-			.withDescription("Try to make checkpoints across cluster. " +
-					"Enable to use jobName to compose checkpoint path " +
-					"and to replace high-availability.cluster-id in checkpoints, checkpoint-count zk path" +
-					"Make sure the jobName is unique.");
-
 	/**
 	 * The namespace for checkpoints of one job.
 	 */
