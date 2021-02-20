@@ -81,6 +81,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -964,10 +965,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 	}
 
 	private void scheduleOrUpdateConsumers(
-			final IntermediateResultPartition partition,
-			final List<ConsumerVertexGroup> allConsumers,
-			final HashSet<ExecutionVertex> consumerDeduplicator,
-			final boolean isPipelined) {
+		final IntermediateResultPartition partition,
+		final List<ConsumerVertexGroup> allConsumers,
+		final HashSet<ExecutionVertex> consumerDeduplicator,
+		final boolean isPipelined) {
 
 		if (allConsumers.size() == 0) {
 			return;
@@ -977,7 +978,15 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			return;
 		}
 
-		for (ExecutionVertexID consumerVertexId : allConsumers.get(0).getVertices()) {
+		scheduleOrUpdateConsumers(Collections.singletonList(partition), allConsumers.get(0), consumerDeduplicator, isPipelined);
+	}
+
+	private void scheduleOrUpdateConsumers(
+		final Collection<IntermediateResultPartition> partition,
+		final ConsumerVertexGroup allConsumers,
+		final HashSet<ExecutionVertex> consumerDeduplicator,
+		final boolean isPipelined) {
+		for (ExecutionVertexID consumerVertexId : allConsumers.getVertices()) {
 			final ExecutionVertex consumerVertex = vertex.getExecutionGraph().getVertex(consumerVertexId);
 			final Execution consumer = consumerVertex.getCurrentExecutionAttempt();
 			final ExecutionState consumerState = consumer.getState();
@@ -1004,12 +1013,13 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			// sent after switching to running
 			// ----------------------------------------------------------------
 			else if (consumerState == DEPLOYING || consumerState == RUNNING) {
-				final PartitionInfo partitionInfo = createPartitionInfo(partition);
+				final List<PartitionInfo> partitionInfos = partition.stream()
+					.map(Execution::createPartitionInfo).collect(Collectors.toList());
 
 				if (consumerState == DEPLOYING) {
-					consumer.cachePartitionInfo(partitionInfo);
+					consumer.cachePartitionInfo(partitionInfos);
 				} else {
-					consumer.sendUpdatePartitionInfoRpcCall(Collections.singleton(partitionInfo));
+					consumer.sendUpdatePartitionInfoRpcCall(partitionInfos);
 				}
 			}
 		}
@@ -1246,6 +1256,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 			return;
 		}
 
+		final Map<ConsumerVertexGroup, Set<IntermediateResultPartition>> partitionConsumers = new HashMap<>();
+
 		final HashSet<ExecutionVertex> consumerDeduplicator = new HashSet<>();
 
 		for (IntermediateResultPartition finishedPartition
@@ -1256,8 +1268,15 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 
 			// isPipeline = false we're dealing with blocking partitions
 			for (IntermediateResultPartition partition : allPartitions) {
-				scheduleOrUpdateConsumers(partition, partition.getConsumers(), consumerDeduplicator, false);
+				for (ConsumerVertexGroup consumerVertexGroup : partition.getConsumers()) {
+					partitionConsumers.computeIfAbsent(consumerVertexGroup, group -> new HashSet<>())
+						.add(partition);
+				}
 			}
+		}
+
+		for (Map.Entry<ConsumerVertexGroup, Set<IntermediateResultPartition>> entry : partitionConsumers.entrySet()) {
+			scheduleOrUpdateConsumers(entry.getValue(), entry.getKey(), consumerDeduplicator, false);
 		}
 	}
 
@@ -1327,8 +1346,8 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 		handlePartitionCleanup(releasePartitions, releasePartitions);
 	}
 
-	void cachePartitionInfo(PartitionInfo partitionInfo) {
-		partitionInfos.add(partitionInfo);
+	void cachePartitionInfo(Collection<PartitionInfo> partitionInfos) {
+		this.partitionInfos.addAll(partitionInfos);
 	}
 
 	private void sendPartitionInfos() {
