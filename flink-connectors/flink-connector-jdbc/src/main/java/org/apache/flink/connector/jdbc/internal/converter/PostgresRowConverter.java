@@ -81,6 +81,9 @@ public class PostgresRowConverter extends AbstractJdbcRowConverter {
 			final JdbcDeserializationConverter elementConverter = createNullableInternalConverter(arrayType.getElementType());
 
 			return val -> {
+				if (val == null) {
+					return null;
+				}
 				PgArray pgArray = (PgArray) val;
 				Object[] in = (Object[]) pgArray.getArray();
 				final Object[] array = (Object[]) Array.newInstance(elementClass, in.length);
@@ -93,6 +96,9 @@ public class PostgresRowConverter extends AbstractJdbcRowConverter {
 			final Class<?> elementClass = LogicalTypeUtils.toInternalConversionClass(arrayType.getElementType());
 			final JdbcDeserializationConverter elementConverter = createNullableInternalConverter(arrayType.getElementType());
 			return val -> {
+				if (val == null) {
+					return null;
+				}
 				PgArray pgArray = (PgArray) val;
 				Object[] in = (Object[]) pgArray.getArray();
 				final Object[] array = (Object[]) Array.newInstance(elementClass, in.length);
