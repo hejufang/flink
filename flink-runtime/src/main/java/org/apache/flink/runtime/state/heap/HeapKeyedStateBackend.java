@@ -37,6 +37,7 @@ import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.KeyExtractorFunction;
+import org.apache.flink.runtime.state.KeyGroupRangeAssignment;
 import org.apache.flink.runtime.state.KeyGroupedInternalPriorityQueue;
 import org.apache.flink.runtime.state.Keyed;
 import org.apache.flink.runtime.state.KeyedStateFunction;
@@ -46,6 +47,7 @@ import org.apache.flink.runtime.state.PriorityComparable;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.RegisteredPriorityQueueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.SnapshotResult;
+import org.apache.flink.runtime.state.StateEntry;
 import org.apache.flink.runtime.state.StateSnapshotRestore;
 import org.apache.flink.runtime.state.StateSnapshotTransformer.StateSnapshotTransformFactory;
 import org.apache.flink.runtime.state.StateSnapshotTransformers;
@@ -60,6 +62,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RunnableFuture;
@@ -226,7 +229,13 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			TypeSerializerSchemaCompatibility<V> stateCompatibility =
 				restoredKvMetaInfo.updateStateSerializer(newStateSerializer);
 
-			if (stateCompatibility.isIncompatible()) {
+			if (stateCompatibility.isCompatibleAfterMigration()) {
+				try {
+					migrateStateValues(stateDesc, restoredKvMetaInfo);
+				} catch (Exception e) {
+					throw new StateMigrationException(String.format("Fail to migrate the values for %s.", stateDesc));
+				}
+			} else if (stateCompatibility.isIncompatible()) {
 				throw new StateMigrationException("For heap backends, the new state serializer must not be incompatible.");
 			}
 
@@ -244,6 +253,35 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		}
 
 		return stateTable;
+	}
+
+	private <V, N> void migrateStateValues(
+			StateDescriptor<?, V> stateDesc,
+			RegisteredKeyValueStateBackendMetaInfo<N, V> oldStateInfo) throws Exception {
+		final StateTable<K, N, V> stateTable = (StateTable<K, N, V>) registeredKVStates.get(stateDesc.getName());
+		final Iterator<StateEntry<K, N, V>> iter = stateTable.iterator();
+
+		// we need to get an actual state instance because migration is different
+		// for different state types. For example, ListState needs to deal with
+		// individual elements
+		StateFactory stateFactory = STATE_FACTORIES.get(stateDesc.getClass());
+		if (stateFactory == null) {
+			String message = String.format("State %s is not supported by %s",
+				stateDesc.getClass(), this.getClass());
+			throw new FlinkRuntimeException(message);
+		}
+		State state = stateFactory.createState(stateDesc, stateTable, stateTable.keySerializer);
+		if (!(state instanceof AbstractHeapState)) {
+			throw new FlinkRuntimeException(
+				"State should be an AbstractRocksDBState but is " + state);
+		}
+
+		AbstractHeapState heapState = (AbstractHeapState) state;
+		while (iter.hasNext()) {
+			final StateEntry<K, N, V> entry = iter.next();
+			V newState = (V) heapState.migrateSerializedValue(entry.getState(), oldStateInfo.getPreviousStateSerializer(), stateDesc.getSerializer());
+			stateTable.put(entry.getKey(), KeyGroupRangeAssignment.assignToKeyGroup(entry.getKey(), numberOfKeyGroups), entry.getNamespace(), newState);
+		}
 	}
 
 	@SuppressWarnings("unchecked")

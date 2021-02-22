@@ -195,4 +195,10 @@ public abstract class TypeSerializer<T> implements Serializable {
 	 * @return snapshot of the serializer's current configuration (cannot be {@code null}).
 	 */
 	public abstract TypeSerializerSnapshot<T> snapshotConfiguration();
+
+	/**
+	 * Set prior serializer back to current serializer.
+	 * @param priorSerializer is the previous serializer stored in checkpoint.
+	 */
+	public void setPriorSerializer(TypeSerializer priorSerializer) {}
 }

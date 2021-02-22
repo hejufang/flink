@@ -22,9 +22,13 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.memory.DataInputDeserializer;
+import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.queryablestate.client.state.serialization.KvStateSerializer;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.util.Preconditions;
+
+import java.io.IOException;
 
 /**
  * Base class for partitioned {@link State} implementations that are backed by a regular
@@ -128,5 +132,16 @@ public abstract class AbstractHeapState<K, N, SV> implements InternalKvState<K, 
 	@Override
 	public StateIncrementalVisitor<K, N, SV> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
 		return stateTable.getStateIncrementalVisitor(recommendedMaxNumberOfReturnedRecords);
+	}
+
+	public SV migrateSerializedValue(
+			SV state,
+			TypeSerializer<SV> priorSerializer,
+			TypeSerializer<SV> newSerializer) throws IOException {
+		newSerializer.setPriorSerializer(priorSerializer);
+
+		final DataOutputSerializer output = new DataOutputSerializer(512);
+		newSerializer.serialize(state, output);
+		return newSerializer.deserialize(new DataInputDeserializer(output.getSharedBuffer()));
 	}
 }

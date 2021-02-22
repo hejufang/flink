@@ -612,6 +612,10 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				"State should be an AbstractRocksDBState but is " + state);
 		}
 
+		TypeSerializer priorSerializer = stateMetaInfo.f1.getPreviousStateSerializer();
+		TypeSerializer newSerializer = stateMetaInfo.f1.getStateSerializer();
+		newSerializer.setPriorSerializer(priorSerializer);
+
 		@SuppressWarnings("unchecked")
 		AbstractRocksDBState<?, ?, SV> rocksDBState = (AbstractRocksDBState<?, ?, SV>) state;
 

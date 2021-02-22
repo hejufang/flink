@@ -36,13 +36,19 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.binary.BinaryRowData;
 import org.apache.flink.table.data.writer.BinaryRowWriter;
 import org.apache.flink.table.data.writer.BinaryWriter;
+import org.apache.flink.table.dataview.MapViewTypeInfo;
 import org.apache.flink.table.runtime.types.InternalSerializers;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.TypeInformationRawType;
 import org.apache.flink.util.InstantiationUtil;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Serializer for {@link RowData}.
@@ -57,6 +63,12 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 
 	private transient BinaryRowData reuseRow;
 	private transient BinaryRowWriter reuseWriter;
+
+	private RowDataSerializer priorRowDataSerializer;
+	private transient List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
+	private transient List<LogicalType> priorDistinctTypes = new ArrayList<>();
+	private transient List<LogicalType> newNonDistinctTypes = new ArrayList<>();
+	private transient List<LogicalType> newDistinctTypes = new ArrayList<>();
 
 	public RowDataSerializer(ExecutionConfig config, RowType rowType) {
 		this(rowType.getChildren().toArray(new LogicalType[0]),
@@ -93,8 +105,51 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 	}
 
 	@Override
+	public void setPriorSerializer(TypeSerializer priorSerializer) {
+		this.priorRowDataSerializer = (RowDataSerializer) priorSerializer;
+		parseDistinctTypes(priorRowDataSerializer.getTypes(), priorNonDistinctTypes, priorDistinctTypes);
+		parseDistinctTypes(this.getTypes(), newNonDistinctTypes, newDistinctTypes);
+	}
+
+	private static void parseDistinctTypes(
+			LogicalType[] types,
+			List<LogicalType> nondistinctTypes,
+			List<LogicalType> distinctTypes) {
+		for (LogicalType type : types) {
+			if (type instanceof TypeInformationRawType && ((TypeInformationRawType) type).getTypeInformation() instanceof MapViewTypeInfo) {
+				distinctTypes.add(type);
+			} else {
+				nondistinctTypes.add(type);
+			}
+		}
+	}
+
+	@Override
 	public void serialize(RowData row, DataOutputView target) throws IOException {
-		binarySerializer.serialize(toBinaryRow(row), target);
+		if (priorRowDataSerializer != null && row.getArity() == priorRowDataSerializer.getArity()) {
+			// mapping the fields from prior row to new row
+			GenericRowData newRow = new GenericRowData(this.getArity());
+
+			for (int i = 0; i < newNonDistinctTypes.size(); i++) {
+				if (i >= priorNonDistinctTypes.size()) {
+					setValueFromRestoredRow(null, newRow, -1, i, newNonDistinctTypes.get(i));
+				} else {
+					setValueFromRestoredRow(row, newRow, i, i, newNonDistinctTypes.get(i));
+				}
+			}
+
+			for (int i = 0; i < newDistinctTypes.size(); i++) {
+				if (i >= priorDistinctTypes.size()) {
+					setValueFromRestoredRow(null, newRow, -1, newNonDistinctTypes.size() + i, newDistinctTypes.get(i));
+				} else {
+					setValueFromRestoredRow(row, newRow, priorNonDistinctTypes.size() + i, newNonDistinctTypes.size() + i, newDistinctTypes.get(i));
+				}
+			}
+
+			binarySerializer.serialize(toBinaryRow(newRow), target);
+		} else {
+			binarySerializer.serialize(toBinaryRow(row), target);
+		}
 	}
 
 	@Override
@@ -262,6 +317,24 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 		return new RowDataSerializerSnapshot(types, fieldSerializers);
 	}
 
+	public LogicalType[] getTypes() {
+		return types;
+	}
+
+	private void setValueFromRestoredRow(
+			@Nullable RowData priorRow,
+			GenericRowData currentRow,
+			int priorIndex,
+			int currentIndex,
+			LogicalType type) {
+		if (priorRow == null) {
+			currentRow.setField(currentIndex, null);
+			return;
+		}
+
+		currentRow.setField(currentIndex, RowData.get(priorRow, priorIndex, type));
+	}
+
 	/**
 	 * {@link TypeSerializerSnapshot} for {@link BinaryRowDataSerializer}.
 	 */
@@ -336,6 +409,31 @@ public class RowDataSerializer extends AbstractRowDataSerializer<RowData> {
 
 			RowDataSerializer newRowSerializer = (RowDataSerializer) newSerializer;
 			if (!Arrays.equals(previousTypes, newRowSerializer.types)) {
+				if (newRowSerializer.types.length > previousTypes.length) {
+					List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
+					List<LogicalType> priorDistinctTypes = new ArrayList<>();
+					List<LogicalType> newNonDistinctTypes = new ArrayList<>();
+					List<LogicalType> newDistinctTypes = new ArrayList<>();
+
+					parseDistinctTypes(previousTypes, priorNonDistinctTypes, priorDistinctTypes);
+					parseDistinctTypes(((RowDataSerializer) newSerializer).getTypes(), newNonDistinctTypes, newDistinctTypes);
+
+					for (int i = 0; i < priorNonDistinctTypes.size(); i++) {
+						if (!previousTypes[i].equals(newRowSerializer.types[i])) {
+							return TypeSerializerSchemaCompatibility.incompatible();
+						}
+					}
+
+					for (int i = 0; i < priorDistinctTypes.size(); i++) {
+						int priorIndex = priorNonDistinctTypes.size() + i;
+						int newIndex = newNonDistinctTypes.size() + i;
+						if (!previousTypes[priorIndex].equals(newRowSerializer.types[newIndex])) {
+							return TypeSerializerSchemaCompatibility.incompatible();
+						}
+					}
+
+					return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
+				}
 				return TypeSerializerSchemaCompatibility.incompatible();
 			}
 

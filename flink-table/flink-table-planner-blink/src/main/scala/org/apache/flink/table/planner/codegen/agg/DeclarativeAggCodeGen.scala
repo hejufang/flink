@@ -94,11 +94,18 @@ class DeclarativeAggCodeGen(
       }
       .map(expr => generator.generateExpression(expr.accept(rexNodeGen)))
 
+    val initializeExprs = createAccumulator(generator)
     val setters = aggBufferAccesses.zipWithIndex.map {
       case (access, index) =>
+        val initializeExpr = initializeExprs(index)
         s"""
            |${access.copyResultTermToTargetIfChanged(ctx, bufferTerms(index))};
            |${bufferNullTerms(index)} = ${access.nullTerm};
+           |if (${bufferNullTerms(index)}) {
+           |  ${initializeExpr.code}
+           |  ${bufferTerms(index)} = ${initializeExpr.resultTerm};
+           |  ${bufferNullTerms(index)} = ${initializeExpr.nullTerm};
+           |}
          """.stripMargin
     }
 
