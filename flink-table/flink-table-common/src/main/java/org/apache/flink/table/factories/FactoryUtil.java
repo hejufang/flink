@@ -101,6 +101,11 @@ public final class FactoryUtil {
 		.withDescription(
 			"The parallelism of connector.");
 
+	public static final ConfigOption<Long> RATE_LIMIT_NUM = ConfigOptions.key("rate-limit-num")
+		.longType()
+		.noDefaultValue()
+		.withDescription("Defines the rate limit number for connector.");
+
 	public static final ConfigOption<String> SOURCE_METADATA_COLUMNS = ConfigOptions.key("scan.metadata-fields-mapping")
 		.stringType()
 		.noDefaultValue()

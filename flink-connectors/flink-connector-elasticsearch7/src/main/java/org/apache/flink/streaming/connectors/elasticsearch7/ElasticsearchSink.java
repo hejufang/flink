@@ -18,6 +18,8 @@
 package org.apache.flink.streaming.connectors.elasticsearch7;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
@@ -58,18 +60,28 @@ import java.util.Objects;
  * @param <T> Type of the elements handled by this sink
  */
 @PublicEvolving
-public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevelClient> {
+public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevelClient>
+		implements SpecificParallelism {
 
 	private static final long serialVersionUID = 1L;
+
+	private final int parallelism;
 
 	private ElasticsearchSink(
 		Map<String, String> bulkRequestsConfig,
 		List<HttpHost> httpHosts,
 		ElasticsearchSinkFunction<T> elasticsearchSinkFunction,
 		ActionRequestFailureHandler failureHandler,
-		RestClientFactory restClientFactory) {
+		RestClientFactory restClientFactory,
+		int parallelism) {
 
 		super(new Elasticsearch7ApiCallBridge(httpHosts, restClientFactory),  bulkRequestsConfig, elasticsearchSinkFunction, failureHandler);
+		this.parallelism = parallelism;
+	}
+
+	@Override
+	public int getParallelism() {
+		return parallelism;
 	}
 
 	/**
@@ -86,6 +98,9 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 		private Map<String, String> bulkRequestsConfig = new HashMap<>();
 		private ActionRequestFailureHandler failureHandler = new NoOpFailureHandler();
 		private RestClientFactory restClientFactory = restClientBuilder -> {};
+
+		private int parallelism = -1;
+		private FlinkConnectorRateLimiter rateLimiter;
 
 		/**
 		 * Creates a new {@code ElasticsearchSink} that connects to the cluster using a {@link RestHighLevelClient}.
@@ -200,13 +215,39 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 			this.restClientFactory = Preconditions.checkNotNull(restClientFactory);
 		}
 
+		public void setParallelism(int parallelism) {
+			this.parallelism = parallelism;
+		}
+
+		public void setConnectTimeout(int timeout) {
+			this.bulkRequestsConfig.put(CONFIG_CONNECT_TIMEOUT, String.valueOf(timeout));
+		}
+
+		public void setSocketTimeout(int timeout) {
+			this.bulkRequestsConfig.put(CONFIG_SOCKET_TIMEOUT, String.valueOf(timeout));
+		}
+
+		public void setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
+			this.rateLimiter = rateLimiter;
+		}
+
 		/**
 		 * Creates the Elasticsearch sink.
 		 *
 		 * @return the created Elasticsearch sink.
 		 */
 		public ElasticsearchSink<T> build() {
-			return new ElasticsearchSink<>(bulkRequestsConfig, httpHosts, elasticsearchSinkFunction, failureHandler, restClientFactory);
+			ElasticsearchSink<T> elasticsearchSink = new ElasticsearchSink<>(
+				bulkRequestsConfig,
+				httpHosts,
+				elasticsearchSinkFunction,
+				failureHandler,
+				restClientFactory,
+				parallelism);
+
+			elasticsearchSink.setRateLimiter(rateLimiter);
+
+			return elasticsearchSink;
 		}
 
 		@Override

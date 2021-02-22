@@ -25,9 +25,14 @@ import org.apache.flink.table.api.ValidationException;
 import org.apache.http.HttpHost;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECT_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.HOSTS_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.SOCKET_TIMEOUT;
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 
 /**
  * Elasticsearch 7 specific configuration.
@@ -42,6 +47,22 @@ final class Elasticsearch7Configuration extends ElasticsearchConfiguration {
 		return config.get(HOSTS_OPTION).stream()
 			.map(Elasticsearch7Configuration::validateAndParseHostsString)
 			.collect(Collectors.toList());
+	}
+
+	public int getParallelism() {
+		return config.get(PARALLELISM);
+	}
+
+	public Optional<Integer> getConnectTimeout() {
+		return config.getOptional(CONNECT_TIMEOUT).map(t -> (int) t.toMillis());
+	}
+
+	public Optional<Integer> getSocketTimeout() {
+		return config.getOptional(SOCKET_TIMEOUT).map(t -> (int) t.toMillis());
+	}
+
+	public Optional<Long> getRateLimitNum() {
+		return config.getOptional(RATE_LIMIT_NUM);
 	}
 
 	private static HttpHost validateAndParseHostsString(String host) {

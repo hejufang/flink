@@ -20,6 +20,7 @@ package org.apache.flink.streaming.connectors.elasticsearch;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
@@ -84,6 +85,13 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 	public static final String CONFIG_KEY_BULK_FLUSH_BACKOFF_TYPE = "bulk.flush.backoff.type";
 	public static final String CONFIG_KEY_BULK_FLUSH_BACKOFF_RETRIES = "bulk.flush.backoff.retries";
 	public static final String CONFIG_KEY_BULK_FLUSH_BACKOFF_DELAY = "bulk.flush.backoff.delay";
+
+	// ------------------------------------------------------------------------
+	//  Internal rest client configuration
+	// ------------------------------------------------------------------------
+
+	public static final String CONFIG_CONNECT_TIMEOUT = "connect.timeout";
+	public static final String CONFIG_SOCKET_TIMEOUT = "socket.timeout";
 
 	/**
 	 * Used to control whether the retry delay should increase exponentially or remain constant.
@@ -203,6 +211,8 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 	 */
 	private final AtomicReference<Throwable> failureThrowable = new AtomicReference<>();
 
+	private FlinkConnectorRateLimiter rateLimiter = null;
+
 	public ElasticsearchSinkBase(
 		ElasticsearchApiCallBridge<C> callBridge,
 		Map<String, String> userConfig,
@@ -302,11 +312,17 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 		requestIndexer = callBridge.createBulkProcessorIndexer(bulkProcessor, flushOnCheckpoint, numPendingRequests);
 		failureRequestIndexer = new BufferingNoOpRequestIndexer();
 		elasticsearchSinkFunction.open();
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
 	public void invoke(T value, Context context) throws Exception {
 		checkAsyncErrorsAndRequests();
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 		elasticsearchSinkFunction.process(value, getRuntimeContext(), requestIndexer);
 	}
 
@@ -344,6 +360,16 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 		// make sure any errors from callbacks are rethrown
 		checkErrorAndRethrow();
 	}
+
+	/*
+	Below setter methods are added to avoid modifying constructor frequently,
+	which will break the api compatibility of DataStream Connector.
+	 */
+
+	public void setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
+		this.rateLimiter = rateLimiter;
+	}
+
 
 	/**
 	 * Build the {@link BulkProcessor}.

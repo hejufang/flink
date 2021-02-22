@@ -20,6 +20,8 @@ package org.apache.flink.streaming.connectors.elasticsearch.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink;
 import org.apache.flink.streaming.connectors.elasticsearch7.RestClientFactory;
@@ -42,6 +44,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A {@link DynamicTableSink} that describes how to create a {@link ElasticsearchSink} from a logical
@@ -127,14 +130,24 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 				config.getHosts(),
 				upsertFunction);
 
+			Optional<Long> rate = config.getRateLimitNum();
+			if (rate.isPresent()) {
+				FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+				rateLimiter.setRate(rate.get());
+				builder.setRateLimiter(rateLimiter);
+			}
+
 			builder.setFailureHandler(config.getFailureHandler());
 			builder.setBulkFlushMaxActions(config.getBulkFlushMaxActions());
 			builder.setBulkFlushMaxSizeMb((int) (config.getBulkFlushMaxByteSize() >> 20));
 			builder.setBulkFlushInterval(config.getBulkFlushInterval());
 			builder.setBulkFlushBackoff(config.isBulkFlushBackoffEnabled());
+			builder.setParallelism(config.getParallelism());
 			config.getBulkFlushBackoffType().ifPresent(builder::setBulkFlushBackoffType);
 			config.getBulkFlushBackoffRetries().ifPresent(builder::setBulkFlushBackoffRetries);
 			config.getBulkFlushBackoffDelay().ifPresent(builder::setBulkFlushBackoffDelay);
+			config.getConnectTimeout().ifPresent(builder::setConnectTimeout);
+			config.getSocketTimeout().ifPresent(builder::setSocketTimeout);
 
 			// we must overwrite the default factory which is defined with a lambda because of a bug
 			// in shading lambda serialization shading see FLINK-18006

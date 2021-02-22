@@ -24,6 +24,7 @@ import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureH
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
 import org.apache.flink.streaming.connectors.elasticsearch.util.IgnoringFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.NoOpFailureHandler;
+import org.apache.flink.streaming.connectors.elasticsearch.util.RetryCommonFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExecutionFailureHandler;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.util.InstantiationUtil;
@@ -63,6 +64,9 @@ class ElasticsearchConfiguration {
 				break;
 			case "RETRY-REJECTED":
 				failureHandler = new RetryRejectedExecutionFailureHandler();
+				break;
+			case "RETRY-COMMON":
+				failureHandler = new RetryCommonFailureHandler();
 				break;
 			default:
 				try {

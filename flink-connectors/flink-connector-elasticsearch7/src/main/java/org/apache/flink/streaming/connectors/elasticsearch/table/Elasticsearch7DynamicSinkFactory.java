@@ -45,12 +45,16 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_MAX_ACTIONS_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_MAX_RETRY_TIMEOUT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_PATH_PREFIX;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECT_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_HANDLER_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FLUSH_ON_CHECKPOINT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FORMAT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.HOSTS_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.INDEX_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_DELIMITER_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.SOCKET_TIMEOUT;
+import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 
 /**
  * A {@link DynamicTableSinkFactory} for discovering {@link Elasticsearch7DynamicSink}.
@@ -73,7 +77,11 @@ public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory
 		BULK_FLUSH_BACKOFF_DELAY_OPTION,
 		CONNECTION_MAX_RETRY_TIMEOUT_OPTION,
 		CONNECTION_PATH_PREFIX,
-		FORMAT_OPTION
+		FORMAT_OPTION,
+		PARALLELISM,
+		CONNECT_TIMEOUT,
+		SOCKET_TIMEOUT,
+		RATE_LIMIT_NUM
 	).collect(Collectors.toSet());
 
 	@Override

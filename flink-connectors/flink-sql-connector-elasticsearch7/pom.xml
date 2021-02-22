@@ -143,6 +143,11 @@ under the License.
 									<pattern>com.github.mustachejava</pattern>
 									<shadedPattern>org.apache.flink.elasticsearch7.shaded.com.github.mustachejava</shadedPattern>
 								</relocation>
+								<!-- elasticsearch base will be conflicted with each other if we don't relocate -->
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.elasticsearch.</pattern>
+									<shadedPattern>org.apache.flink.streaming.connectors.elasticsearch7.base.</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>

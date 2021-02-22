@@ -136,6 +136,11 @@ under the License.
 									<pattern>com.fasterxml.jackson</pattern>
 									<shadedPattern>org.apache.flink.elasticsearch6.shaded.com.fasterxml.jackson</shadedPattern>
 								</relocation>
+								<!-- elasticsearch base will be conflicted with each other if we don't relocate -->
+								<relocation>
+									<pattern>org.apache.flink.streaming.connectors.elasticsearch.</pattern>
+									<shadedPattern>org.apache.flink.streaming.connectors.elasticsearch7.base.</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>

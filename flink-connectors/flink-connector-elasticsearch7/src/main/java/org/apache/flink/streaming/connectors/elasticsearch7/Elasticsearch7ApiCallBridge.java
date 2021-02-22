@@ -42,6 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase.CONFIG_CONNECT_TIMEOUT;
+import static org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase.CONFIG_SOCKET_TIMEOUT;
+
 /**
  * Implementation of {@link ElasticsearchApiCallBridge} for Elasticsearch 7 and later versions.
  */
@@ -71,6 +74,17 @@ public class Elasticsearch7ApiCallBridge implements ElasticsearchApiCallBridge<R
 	@Override
 	public RestHighLevelClient createClient(Map<String, String> clientConfig) {
 		RestClientBuilder builder = RestClient.builder(httpHosts.toArray(new HttpHost[httpHosts.size()]));
+		builder.setRequestConfigCallback(requestConfigBuilder -> {
+			if (clientConfig.containsKey(CONFIG_CONNECT_TIMEOUT)) {
+				requestConfigBuilder
+					.setConnectTimeout(Integer.parseInt(clientConfig.get(CONFIG_CONNECT_TIMEOUT)));
+			}
+			if (clientConfig.containsKey(CONFIG_SOCKET_TIMEOUT)) {
+				requestConfigBuilder
+					.setSocketTimeout(Integer.parseInt(clientConfig.get(CONFIG_SOCKET_TIMEOUT)));
+			}
+			return requestConfigBuilder;
+		});
 		restClientFactory.configureRestClientBuilder(builder);
 
 		RestHighLevelClient rhlClient = new RestHighLevelClient(builder);
