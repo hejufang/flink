@@ -41,6 +41,7 @@ import org.junit.{Assert, Before, Rule, Test}
 import _root_.java.io.{File, FileFilter}
 import _root_.java.lang.{Long => JLong}
 import _root_.java.util
+import _root_.java.util.Collections
 
 import _root_.scala.collection.mutable
 
@@ -664,6 +665,15 @@ class TableEnvironmentITCase(tableEnvName: String, isStreaming: Boolean) extends
       "Unsupported operation, this method is only supported with HiveParser!"))
     tableEnv.executeAllAndReturnTableOfLastQuery(
       "add resources test; select * from src")
+  }
+
+  @Test
+  def testGetAllDependencyResources (): Unit = {
+    val tableEnv = TableEnvironmentImpl.create(settings)
+    val resources = tableEnv.getAllDependencyResources("add resources test_resource")
+    val expected = Collections.singleton(
+      new Resource(Resource.ResourceType.DORADO, "test_resource", false))
+    assertEquals(resources, expected)
   }
 
   def getPersonData: List[(String, Int, Double, String)] = {

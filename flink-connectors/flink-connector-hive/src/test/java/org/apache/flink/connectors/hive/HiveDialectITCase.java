@@ -21,6 +21,7 @@ package org.apache.flink.connectors.hive;
 import org.apache.flink.sql.parser.hive.ddl.SqlCreateHiveTable;
 import org.apache.flink.table.HiveVersionTestUtil;
 import org.apache.flink.table.api.DataTypes;
+import org.apache.flink.table.api.Resource;
 import org.apache.flink.table.api.SqlDialect;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
@@ -60,9 +61,13 @@ import org.junit.Test;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.apache.flink.table.api.EnvironmentSettings.DEFAULT_BUILTIN_CATALOG;
 import static org.apache.flink.table.api.EnvironmentSettings.DEFAULT_BUILTIN_DATABASE;
@@ -449,6 +454,25 @@ public class HiveDialectITCase {
 		tableEnv.executeSql("drop function my_abs");
 		assertFalse(hiveCatalog.functionExists(new ObjectPath("default", "my_abs")));
 		tableEnv.executeSql("drop function if exists foo");
+	}
+
+	@Test
+	public void testGetAllDependencyResources () {
+		Set<Resource> resources1 = tableEnv.getAllDependencyResources(
+			"create temporary function udf1 as 'org.apache.flink.UDF1' using jar 'hdfs://haruna/udf1.jar';" +
+				"create temporary function udf2 as 'org.apache.flink.UDF2' using jar 'hdfs://haruna/udf2.jar';" +
+				"create temporary function udf3 as 'org.apache.flink.UDF1' using jar 'hdfs://haruna/udf1.jar'" +
+				"");
+		Set<Resource> expected1 = new HashSet<>(Arrays.asList(
+			new Resource(Resource.ResourceType.JAR, "hdfs://haruna/udf1.jar", true),
+			new Resource(Resource.ResourceType.JAR, "hdfs://haruna/udf2.jar", true)
+		));
+		assertEquals(resources1, expected1);
+
+		Set<Resource> resources2 = tableEnv.getAllDependencyResources(
+			"create temporary function udf4 as 'org.apache.flink.UDF4';");
+		Set<Resource> expected2 = Collections.emptySet();
+		assertEquals(resources2, expected2);
 	}
 
 	@Test

@@ -29,6 +29,7 @@ import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.ExplainDetail;
+import org.apache.flink.table.api.Resource;
 import org.apache.flink.table.api.ResultKind;
 import org.apache.flink.table.api.SqlParserException;
 import org.apache.flink.table.api.StatementSet;
@@ -153,11 +154,13 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -724,17 +727,19 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public Optional<Table> executeAllAndReturnTableOfLastQuery(String statements) {
 		Table table = null;
 		List<String> statementList;
-		try {
+		Parser parser = getParser();
+
+		if (parser.isHiveParser()) {
 			// Hive parser style. Hive parser cannot parse multiple statements,
 			// so we have to split it into statement list.
 			statementList = getParser().splitStatements(statements);
-
-		} catch (UnsupportedOperationException e) {
+		} else {
 			throw new UnsupportedOperationException("Unsupported operation, this method is" +
-				" only supported with HiveParser!", e);
+				" only supported with HiveParser!");
 		}
+
 		for (String statement : statementList) {
-			List<Operation> operations = getParser().parse(statement);
+			List<Operation> operations = parser.parse(statement);
 			if (operations.isEmpty()) {
 				continue;
 			}
@@ -748,6 +753,34 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 			}
 		}
 		return Optional.ofNullable(table);
+	}
+
+	@Override
+	public Set<Resource> getAllDependencyResources(String statements) {
+		List<String> statementList;
+		List<AddResourcesOperation> addResourcesOperations;
+
+		Parser parser = getParser();
+		if (parser.isHiveParser()) {
+			// Hive parser style. Hive parser cannot parse multiple statements,
+			// so we have to split it into statement list.
+			statementList = parser.splitStatements(statements);
+			addResourcesOperations = statementList.stream()
+				.map(parser::extractResources)
+				.flatMap(Collection::stream)
+				.collect(Collectors.toList());
+		} else {
+			List<SqlNode> sqlNodes = parser.parseToSqlNodes(statements);
+			addResourcesOperations = sqlNodes.stream()
+				.map(parser::convertSqlNodeToOperation)
+				.filter(operation -> (operation instanceof AddResourcesOperation))
+				.map(o -> (AddResourcesOperation) o)
+				.collect(Collectors.toList());
+		}
+
+		return addResourcesOperations.stream()
+			.flatMap(o -> o.getResources().stream())
+			.collect(Collectors.toSet());
 	}
 
 	private Table sqlQueryInternal(Operation operation) {
@@ -875,10 +908,6 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 		} catch (Exception e) {
 			throw new TableException("Failed to execute sql", e);
 		}
-	}
-
-	public List<Operation> parseToOperations(String statement) {
-		return getParser().parse(statement);
 	}
 
 	@Override

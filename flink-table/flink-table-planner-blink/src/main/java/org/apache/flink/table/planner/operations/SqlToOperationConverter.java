@@ -57,6 +57,7 @@ import org.apache.flink.sql.parser.dql.SqlShowDatabases;
 import org.apache.flink.sql.parser.dql.SqlShowFunctions;
 import org.apache.flink.sql.parser.dql.SqlShowTables;
 import org.apache.flink.sql.parser.dql.SqlShowViews;
+import org.apache.flink.table.api.Resource;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
@@ -797,7 +798,9 @@ public class SqlToOperationConverter {
 
 	/** Convert ADD RESOURCES statement. */
 	private Operation convertAddResources(SqlAddResource sqlAddResource) {
-		return new AddResourcesOperation(sqlAddResource.getResourceName().getSimple());
+		Resource resource = new Resource(Resource.ResourceType.DORADO,
+			sqlAddResource.getResourceName().getSimple(), false);
+		return new AddResourcesOperation(Collections.singleton(resource));
 	}
 
 	/** Convert ANALYZE TABLE statement. */

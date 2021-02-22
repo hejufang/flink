@@ -24,10 +24,12 @@ import org.apache.flink.table.catalog.UnresolvedIdentifier;
 import org.apache.flink.table.expressions.ResolvedExpression;
 import org.apache.flink.table.operations.Operation;
 import org.apache.flink.table.operations.QueryOperation;
+import org.apache.flink.table.operations.ddl.AddResourcesOperation;
 
 import org.apache.calcite.sql.SqlNode;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Provides methods for parsing SQL objects from a SQL string.
@@ -73,6 +75,20 @@ public interface Parser {
 	 * Split sql statements to statement list.
 	 * */
 	default List<String> splitStatements(String statements) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Whether this is a HiveParser.
+	 * */
+	default boolean isHiveParser() {
+		return false;
+	}
+
+	/**
+	 * Extract resources from statement.
+	 * */
+	default Set<AddResourcesOperation> extractResources(String statement) {
 		throw new UnsupportedOperationException();
 	}
 

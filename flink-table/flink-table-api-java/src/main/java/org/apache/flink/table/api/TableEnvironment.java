@@ -42,6 +42,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A table environment is the base class, entry point, and central context for creating Table and SQL
@@ -1245,6 +1246,15 @@ public interface TableEnvironment {
 	 * Parse sql to Operations.
 	 * */
 	default List<Operation> parseToOperations(String statement) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Get all dependency resources declared in SQL, Including:
+	 * 1. resources declared in Add resources statement.
+	 * 2. resources declared in hive create function statement.
+	 */
+	default Set<Resource> getAllDependencyResources(String statements) {
 		throw new UnsupportedOperationException();
 	}
 }

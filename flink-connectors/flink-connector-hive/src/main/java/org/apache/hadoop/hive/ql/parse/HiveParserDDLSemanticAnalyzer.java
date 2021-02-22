@@ -44,6 +44,8 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Order;
+import org.apache.hadoop.hive.metastore.api.ResourceType;
+import org.apache.hadoop.hive.metastore.api.ResourceUri;
 import org.apache.hadoop.hive.metastore.api.SkewedInfo;
 import org.apache.hadoop.hive.ql.ErrorMsg;
 import org.apache.hadoop.hive.ql.HiveParserContext;
@@ -69,6 +71,7 @@ import org.apache.hadoop.hive.ql.plan.DropDatabaseDesc;
 import org.apache.hadoop.hive.ql.plan.DropFunctionDesc;
 import org.apache.hadoop.hive.ql.plan.FunctionWork;
 import org.apache.hadoop.hive.ql.plan.HiveOperation;
+import org.apache.hadoop.hive.ql.plan.PlanUtils;
 import org.apache.hadoop.hive.ql.plan.PrincipalDesc;
 import org.apache.hadoop.hive.ql.plan.RenamePartitionDesc;
 import org.apache.hadoop.hive.ql.plan.ShowColumnsDesc;
@@ -473,10 +476,50 @@ public class HiveParserDDLSemanticAnalyzer {
 		}
 
 		// find any referenced resources
-//		List<ResourceUri> resources = getResourceList(ast);
+		List<ResourceUri> resources = getResourceList(ast);
 
-		CreateFunctionDesc desc = new CreateFunctionDesc(functionName, isTemporaryFunction, className, Collections.emptyList());
+		CreateFunctionDesc desc = new CreateFunctionDesc(functionName, isTemporaryFunction, className, resources);
 		return new FunctionWork(desc);
+	}
+
+	private List<ResourceUri> getResourceList(ASTNode ast) throws SemanticException {
+		List<ResourceUri> resources = Collections.emptyList();
+		ASTNode resourcesNode = (ASTNode) ast.getFirstChildWithType(HiveASTParser.TOK_RESOURCE_LIST);
+
+		if (resourcesNode != null) {
+			resources = new ArrayList<>();
+			for (int idx = 0; idx < resourcesNode.getChildCount(); ++idx) {
+				// ^(TOK_RESOURCE_URI $resType $resPath)
+				ASTNode resNode = (ASTNode) resourcesNode.getChild(idx);
+				if (resNode.getToken().getType() != HiveASTParser.TOK_RESOURCE_URI) {
+					throw new SemanticException("Expected token type TOK_RESOURCE_URI but found "
+						+ resNode.getToken().toString());
+				}
+				if (resNode.getChildCount() != 2) {
+					throw new SemanticException("Expected 2 child nodes of TOK_RESOURCE_URI but found "
+						+ resNode.getChildCount());
+				}
+				ASTNode resTypeNode = (ASTNode) resNode.getChild(0);
+				ASTNode resUriNode = (ASTNode) resNode.getChild(1);
+				ResourceType resourceType = getResourceType(resTypeNode);
+				resources.add(new ResourceUri(resourceType, PlanUtils.stripQuotes(resUriNode.getText())));
+			}
+		}
+
+		return resources;
+	}
+
+	private ResourceType getResourceType(ASTNode token) throws SemanticException {
+		switch (token.getType()) {
+			case HiveASTParser.TOK_JAR:
+				return ResourceType.JAR;
+			case HiveASTParser.TOK_FILE:
+				return ResourceType.FILE;
+			case HiveASTParser.TOK_ARCHIVE:
+				return ResourceType.ARCHIVE;
+			default:
+				throw new SemanticException("Unexpected token " + token.toString());
+		}
 	}
 
 	private Serializable analyzeCreateView(ASTNode ast) throws SemanticException {

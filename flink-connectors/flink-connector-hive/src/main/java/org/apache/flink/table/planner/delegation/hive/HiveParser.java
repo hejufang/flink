@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.delegation.hive;
 
 import org.apache.flink.connectors.hive.FlinkHiveException;
+import org.apache.flink.table.api.Resource;
 import org.apache.flink.table.api.SqlParserException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.Catalog;
@@ -34,6 +35,8 @@ import org.apache.flink.table.module.hive.udf.generic.HiveGenericUDFGrouping;
 import org.apache.flink.table.operations.CatalogSinkModifyOperation;
 import org.apache.flink.table.operations.ExplainOperation;
 import org.apache.flink.table.operations.Operation;
+import org.apache.flink.table.operations.ddl.AddResourcesOperation;
+import org.apache.flink.table.operations.ddl.CreateTempSystemCatalogFunctionOperation;
 import org.apache.flink.table.planner.calcite.CalciteParser;
 import org.apache.flink.table.planner.calcite.FlinkPlannerImpl;
 import org.apache.flink.table.planner.calcite.SqlExprToRexConverter;
@@ -43,6 +46,7 @@ import org.apache.flink.table.planner.operations.PlannerQueryOperation;
 import org.apache.flink.table.planner.plan.FlinkCalciteCatalogReader;
 import org.apache.flink.table.planner.plan.nodes.hive.HiveDistribution;
 import org.apache.flink.util.FileUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.calcite.rel.RelCollation;
@@ -66,6 +70,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.ResourceUri;
 import org.apache.hadoop.hive.ql.HiveParserContext;
 import org.apache.hadoop.hive.ql.HiveParserQueryState;
 import org.apache.hadoop.hive.ql.exec.FunctionInfo;
@@ -85,6 +90,8 @@ import org.apache.hadoop.hive.ql.parse.HiveParserQB;
 import org.apache.hadoop.hive.ql.parse.ParseException;
 import org.apache.hadoop.hive.ql.parse.QBMetaData;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
+import org.apache.hadoop.hive.ql.plan.CreateFunctionDesc;
+import org.apache.hadoop.hive.ql.plan.FunctionWork;
 import org.apache.hadoop.hive.ql.session.SessionState;
 import org.apache.hadoop.hive.ql.udf.SettableUDF;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -168,7 +175,9 @@ public class HiveParser extends ParserImpl {
 				plannerContext.getCluster().getRexBuilder(), frameworkConfig.getOperatorTable(), catalogReader.nameMatcher());
 	}
 
-	private Optional<HiveCatalog> getOptionalHiveCatalog(Catalog catalog) {
+	private Optional<HiveCatalog> getOptionalHiveCatalog() {
+		CatalogManager catalogManager = getCatalogManager();
+		Catalog catalog = catalogManager.getCatalog(catalogManager.getCurrentCatalog()).orElse(null);
 		if (catalog instanceof HiveCatalog) {
 			return Optional.of((HiveCatalog) catalog);
 		}
@@ -182,15 +191,18 @@ public class HiveParser extends ParserImpl {
 	}
 
 	@Override
+	public boolean isHiveParser() {
+		return true;
+	}
+
+	@Override
 	public List<String> splitStatements(String statements) {
 		return HiveParserUtils.splitSQLStatements(statements);
 	}
 
 	@Override
 	public List<Operation> parse(String statement) {
-		CatalogManager catalogManager = getCatalogManager();
-		Catalog currentCatalog = catalogManager.getCatalog(catalogManager.getCurrentCatalog()).orElse(null);
-		Optional<HiveCatalog> hiveCatalogOptional = getOptionalHiveCatalog(currentCatalog);
+		Optional<HiveCatalog> hiveCatalogOptional = getOptionalHiveCatalog();
 		if (!hiveCatalogOptional.isPresent()) {
 			LOG.warn("Current catalog is not HiveCatalog. Falling back to Flink's planner.");
 			return super.parse(statement);
@@ -204,7 +216,7 @@ public class HiveParser extends ParserImpl {
 		hiveConf.setVar(HiveConf.ConfVars.HIVE_EXECUTION_ENGINE, "mr");
 		try {
 			// creates SessionState
-			startSessionState(hiveConf, catalogManager);
+			startSessionState(hiveConf, getCatalogManager());
 			// We override Hive's grouping function. Refer to the implementation for more details.
 			hiveShim.registerTemporaryFunction("grouping", HiveGenericUDFGrouping.class);
 			return processCmd(statement, hiveConf, hiveShim, hiveCatalog);
@@ -233,6 +245,64 @@ public class HiveParser extends ParserImpl {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Extract resources from statement.
+	 * The reasons why we do not use {@link #processCmd} to parse operation and get resources from
+	 * Operations like {@link CreateTempSystemCatalogFunctionOperation} is HiveParse have to
+	 * load the real udf class to judge the udf kind (udf, udaf, udtf), but the udf jar may not
+	 * in the class path when we call this method.
+	 * */
+	public Set<AddResourcesOperation> extractResources(String statement) {
+		Optional<HiveCatalog> hiveCatalogOptional = getOptionalHiveCatalog();
+		if (!hiveCatalogOptional.isPresent()) {
+			LOG.warn("Current catalog is not HiveCatalog. Falling back to Flink's planner.");
+			return Collections.emptySet();
+		}
+		HiveCatalog hiveCatalog = hiveCatalogOptional.get();
+		HiveConf hiveConf = hiveCatalog.getHiveConf();
+		boolean hasProcessed = handleSetCommand(statement, hiveConf);
+		if (hasProcessed) {
+			return Collections.emptySet();
+		}
+		try {
+			startSessionState(hiveConf, getCatalogManager());
+			final HiveParserContext context = new HiveParserContext(hiveConf);
+			final ASTNode node = HiveASTParseUtils.parse(statement, context);
+			if (DDL_NODES.contains(node.getType())) {
+				HiveParserQueryState queryState = new HiveParserQueryState(hiveConf);
+				HiveParserDDLSemanticAnalyzer ddlAnalyzer = new HiveParserDDLSemanticAnalyzer(
+					queryState, context, hiveCatalog, getCatalogManager().getCurrentDatabase());
+				Serializable work = ddlAnalyzer.analyzeInternal(node);
+
+				if (work instanceof FunctionWork) {
+					CreateFunctionDesc desc = ((FunctionWork) work).getCreateFunctionDesc();
+					if (desc != null) {
+						return Collections.singleton(
+							new AddResourcesOperation(convertHiveResource(desc.getResources())));
+					}
+				}
+
+			}
+		} catch (IOException | ParseException | SemanticException e) {
+			throw new FlinkRuntimeException("Faield to parse statements: " + statement, e);
+		}
+
+		return Collections.emptySet();
+	}
+
+	public static Set<Resource> convertHiveResource(List<ResourceUri> hiveResources) {
+		if (hiveResources == null) {
+			return Collections.emptySet();
+		}
+		return hiveResources.stream()
+			.map(r -> {
+				Resource.ResourceType resourceType =
+					Resource.ResourceType.parseFrom(r.getResourceType().toString());
+				String uri = r.getUri();
+				return new Resource(resourceType, uri, true);
+			}).collect(Collectors.toSet());
 	}
 
 	private List<Operation> processCmd(String cmd, HiveConf hiveConf, HiveShim hiveShim, HiveCatalog hiveCatalog) {

@@ -16,30 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.operations.ddl;
+package org.apache.flink.connectors.hive.udf;
 
-import org.apache.flink.table.api.Resource;
-import org.apache.flink.table.operations.Operation;
-
-import java.util.Set;
+import org.apache.hadoop.hive.ql.exec.Description;
+import org.apache.hadoop.hive.ql.exec.UDF;
 
 /**
- * Operation to describe ADD RESOURCES statement.
+ * UDFExampleAdd.
  */
-public class AddResourcesOperation implements Operation {
+@Description(name = "example_add", value = "_FUNC_(expr) - Example UDAF that returns the sum")
+public class UDFExampleAdd extends UDF {
 
-	private final Set<Resource> resources;
-
-	public AddResourcesOperation(Set<Resource> resources) {
-		this.resources = resources;
-	}
-
-	public Set<Resource> getResources() {
-		return resources;
-	}
-
-	@Override
-	public String asSummaryString() {
-		return "ADD RESOURCES " + resources;
+	public Integer evaluate(Integer... a) {
+		int total = 0;
+		for (Integer element : a) {
+			if (element != null) {
+				total += element;
+			}
+		}
+		return total;
 	}
 }
