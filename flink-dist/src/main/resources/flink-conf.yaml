@@ -161,6 +161,9 @@ common:
   table.exec.hive.permission-check.enabled: true
   table.exec.hive.permission-check.gemini-server-url: http://gemini.byted.org/api/query/default/verifyUsersPrivilege
 
+  # enable dynamic table options by default.
+  table.dynamic-table-options.enabled: true
+
   # Configurations for smart resources
   smart-resources.service-name: data.inf.sr_estimater.service.lf
 
