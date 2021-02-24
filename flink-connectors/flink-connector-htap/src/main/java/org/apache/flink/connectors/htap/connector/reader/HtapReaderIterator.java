@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.htap.connector.reader;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.connectors.htap.exception.HtapConnectorException;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.connectors.htap.table.utils.HtapTypeUtils;
 import org.apache.flink.table.types.DataType;
@@ -34,6 +35,7 @@ import org.apache.flink.types.Row;
 import com.bytedance.htap.HtapScanner;
 import com.bytedance.htap.RowResult;
 import com.bytedance.htap.RowResultIterator;
+import com.bytedance.htap.exception.HtapException;
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
 import com.bytedance.htap.meta.Type;
@@ -96,7 +98,11 @@ public class HtapReaderIterator {
 	}
 
 	private void updateRowIterator() throws IOException {
-		this.rowIterator = scanner.nextRows();
+		try {
+			this.rowIterator = scanner.nextRows();
+		} catch (HtapException he) {
+			throw new HtapConnectorException(he.getErrorCode(), he.getMessage());
+		}
 	}
 
 	private Row toFlinkRow(RowResult row) {

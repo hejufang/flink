@@ -116,6 +116,7 @@
 												<exclude>com.bytedance.htap.storage.**</exclude>
 												<exclude>com.bytedance.htap.meta.**</exclude>
 												<exclude>com.bytedance.htap.metaclient.**</exclude>
+												<exclude>com.bytedance.htap.exception.**</exclude>
 											</excludes>
 										</relocation>
 										<relocation>

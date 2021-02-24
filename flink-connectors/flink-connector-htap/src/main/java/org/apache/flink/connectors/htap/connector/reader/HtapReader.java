@@ -20,11 +20,13 @@ package org.apache.flink.connectors.htap.connector.reader;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connectors.htap.connector.HtapAggregateInfo;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
+import org.apache.flink.connectors.htap.exception.HtapConnectorException;
 import org.apache.flink.connectors.htap.table.utils.HtapAggregateUtils.FlinkAggregateFunction;
 import org.apache.flink.table.types.DataType;
 
 import com.bytedance.htap.HtapScanToken;
 import com.bytedance.htap.client.HtapStorageClient;
+import com.bytedance.htap.exception.HtapException;
 import com.bytedance.htap.meta.HtapTable;
 import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
@@ -101,9 +103,9 @@ public class HtapReader implements AutoCloseable {
 			return new HtapStorageClient(readerConfig.getInstanceId(),
 				readerConfig.getByteStoreLogPath(), readerConfig.getByteStoreDataPath(),
 				logStoreLogDir, pageStoreLogDir);
-		} catch (Exception e) {
-			throw new IOException("create htap storage client failed for table: " +
-				table.getName(), e);
+		} catch (HtapException e) {
+			LOG.error("create htap storage client failed for table: " + table.getName(), e);
+			throw new HtapConnectorException(e.getErrorCode(), e.getMessage());
 		}
 	}
 
