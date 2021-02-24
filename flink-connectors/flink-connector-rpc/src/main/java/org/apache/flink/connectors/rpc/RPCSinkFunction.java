@@ -124,7 +124,11 @@ public class RPCSinkFunction extends RichSinkFunction<Tuple2<Boolean, Row>> impl
 			try {
 				baseField = requestClass.getField("Base");
 			} catch (Exception e) {
-				LOG.info("There is not Base field in request class, cannot set psm.");
+				try {
+					baseField = requestClass.getField("base");
+				} catch (Exception e2) {
+					LOG.info("There is not Base or base field in request class, cannot set psm.");
+				}
 			}
 		}
 		thriftRPCClient.open();
