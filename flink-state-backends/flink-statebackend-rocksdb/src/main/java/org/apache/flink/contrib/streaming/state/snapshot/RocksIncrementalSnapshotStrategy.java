@@ -27,6 +27,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.WarehouseRocksDBSnapshotMessage;
 import org.apache.flink.runtime.state.AsyncSnapshotCallable;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamWithResultProvider;
@@ -44,8 +45,10 @@ import org.apache.flink.runtime.state.SnapshotDirectory;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StateObject;
+import org.apache.flink.runtime.state.StateStatsTracker;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
@@ -109,6 +112,10 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	/** The local directory name of the current snapshot strategy. */
 	private final String localDirectoryName;
 
+	private final int numberOfTransferingThreads;
+
+	private final StateStatsTracker statsTracker;
+
 	public RocksIncrementalSnapshotStrategy(
 		@Nonnull RocksDB db,
 		@Nonnull ResourceGuard rocksDBResourceGuard,
@@ -123,7 +130,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nonnull SortedMap<Long, Set<StateHandleID>> materializedSstFiles,
 		long lastCompletedCheckpointId,
 		int numberOfTransferingThreads,
-		int maxRetryTimes) {
+		int maxRetryTimes,
+		StateStatsTracker statsTracker) {
 
 		super(
 			DESCRIPTION,
@@ -142,6 +150,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		this.lastCompletedCheckpointId = lastCompletedCheckpointId;
 		this.stateUploader = new RocksDBStateUploader(numberOfTransferingThreads, maxRetryTimes);
 		this.localDirectoryName = backendUID.toString().replaceAll("[\\-]", "");
+		this.numberOfTransferingThreads = numberOfTransferingThreads;
+		this.statsTracker = statsTracker;
 	}
 
 	@Nonnull
@@ -289,6 +299,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nullable
 		private final Set<StateHandleID> baseSstFiles;
 
+		/**
+		 * Metrics of uploading files. RocksDBIncrementalSnapshotOperation object is NOT used,
+		 * and these two metrics are append-only.
+		 * */
+		private int uploadFileSize = 0;
+		private int uploadFileNum = 0;
+
 		private RocksDBIncrementalSnapshotOperation(
 			long checkpointId,
 			@Nonnull CheckpointStreamFactory checkpointStreamFactory,
@@ -328,6 +345,19 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				uploadSstFiles(sstFiles, miscFiles);
 				LOG.info("Uploading sst files (checkpoint={}) cost {}ms in incremental snapshot.", checkpointId,
 						System.currentTimeMillis() - uploadBeginTs);
+
+				// ByteStreamStateHandle do NOT upload files to HDFS
+				uploadFileNum -= sstFiles.values().stream().filter(x -> x instanceof ByteStreamStateHandle).count();
+				uploadFileNum -= miscFiles.values().stream().filter(x -> x instanceof ByteStreamStateHandle).count();
+
+				// construct rocksdb snapshot message
+				statsTracker.reportRocksDBCompletedSnapshot(new WarehouseRocksDBSnapshotMessage(
+					checkpointId,
+					numberOfTransferingThreads,
+					uploadFileNum,
+					System.currentTimeMillis() - uploadBeginTs,
+					uploadFileSize
+				));
 
 				synchronized (materializedSstFiles) {
 					materializedSstFiles.put(checkpointId, sstFiles.keySet());
@@ -472,8 +502,11 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 					}
 				} else {
 					miscFilePaths.put(stateHandleID, filePath);
+					uploadFileSize += fileStatus.getLen();
 				}
 			}
+			uploadFileNum += (miscFilePaths.size() + sstFilePaths.size());
+			uploadFileSize += incrementalFilesSize;
 			LOG.debug("Calc incremental files for checkpoint {}, reuseFilesNum: {}, reuseFilesSize: {}, incrementalFilesNum: {},"
 				+ "incrementalFilesSize: {}.", checkpointId, reuseFilesNum, reuseFilesSize, incrementalFilesNum, incrementalFilesSize);
 		}

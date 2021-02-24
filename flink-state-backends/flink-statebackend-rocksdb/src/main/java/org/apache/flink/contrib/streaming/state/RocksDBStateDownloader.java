@@ -26,6 +26,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.filesystem.FileStateHandle;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.function.ThrowingRunnable;
@@ -41,6 +42,10 @@ import java.util.concurrent.ExecutionException;
  * Help class for downloading RocksDB state files.
  */
 public class RocksDBStateDownloader extends RocksDBStateDataTransfer {
+	private int downloadFileNum = 0;
+	private long downloadDurationInMs = 0;
+	private long downloadSizeInBytes = 0;
+
 	public RocksDBStateDownloader(int restoringThreadNum) {
 		super(restoringThreadNum);
 	}
@@ -63,8 +68,10 @@ public class RocksDBStateDownloader extends RocksDBStateDataTransfer {
 		final Map<StateHandleID, StreamStateHandle> miscFiles =
 			restoreStateHandle.getPrivateState();
 
+		long downloadStartTimestamp = System.currentTimeMillis();
 		downloadDataForAllStateHandles(sstFiles, dest, closeableRegistry);
 		downloadDataForAllStateHandles(miscFiles, dest, closeableRegistry);
+		downloadDurationInMs += (System.currentTimeMillis() - downloadStartTimestamp);
 	}
 
 	/**
@@ -102,6 +109,12 @@ public class RocksDBStateDownloader extends RocksDBStateDataTransfer {
 		for (Map.Entry<StateHandleID, StreamStateHandle> entry : stateHandleMap.entrySet()) {
 			StateHandleID stateHandleID = entry.getKey();
 			StreamStateHandle remoteFileHandle = entry.getValue();
+
+			// eliminate ByteStreamStateHandle
+			if (remoteFileHandle instanceof FileStateHandle) {
+				downloadFileNum++;
+				downloadSizeInBytes += remoteFileHandle.getStateSize();
+			}
 
 			Path path = new Path(restoreInstancePath, stateHandleID.toString());
 
@@ -148,5 +161,17 @@ public class RocksDBStateDownloader extends RocksDBStateDataTransfer {
 				outputStream.close();
 			}
 		}
+	}
+
+	public int getDownloadFileNum() {
+		return downloadFileNum;
+	}
+
+	public long getDownloadDurationInMs() {
+		return downloadDurationInMs;
+	}
+
+	public long getDownloadSizeInBytes() {
+		return downloadSizeInBytes;
 	}
 }

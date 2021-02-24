@@ -35,6 +35,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.runtime.checkpoint.WarehouseRocksDBRestoreMessage;
 import org.apache.flink.runtime.state.BackendBuildingException;
 import org.apache.flink.runtime.state.DirectoryStateHandle;
 import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
@@ -46,6 +47,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StateSerializerProvider;
+import org.apache.flink.runtime.state.StateStatsTracker;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.util.IOUtils;
@@ -90,6 +92,14 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 	private long lastCompletedCheckpointId;
 	private UUID backendUID;
 
+	// metrics
+	private int downloadFileNum = 0;
+	private int writeKeyNum = 0;
+	private long downloadDurationInMs = 0;
+	private long writeKeyDurationInMs = 0;
+	private long downloadSizeInBytes = 0;
+	private final StateStatsTracker statsTracker;
+
 	public RocksDBIncrementalRestoreOperation(
 		String operatorIdentifier,
 		KeyGroupRange keyGroupRange,
@@ -106,7 +116,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		RocksDBNativeMetricOptions nativeMetricOptions,
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
-		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager) {
+		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
+		StateStatsTracker statsTracker) {
 		super(keyGroupRange,
 			keyGroupPrefixBytes,
 			numberOfTransferringThreads,
@@ -126,6 +137,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		this.restoredSstFiles = new TreeMap<>();
 		this.lastCompletedCheckpointId = -1L;
 		this.backendUID = UUID.randomUUID();
+		this.statsTracker = statsTracker;
 	}
 
 	/**
@@ -148,6 +160,17 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		} else {
 			restoreWithoutRescaling(theFirstStateHandle);
 		}
+
+		statsTracker.reportRocksDBCompletedRestore(new WarehouseRocksDBRestoreMessage(
+			lastCompletedCheckpointId,
+			numberOfTransferringThreads,
+			isRescaling ? 1 : 0,
+			downloadFileNum,
+			writeKeyNum,
+			downloadDurationInMs,
+			writeKeyDurationInMs,
+			downloadSizeInBytes));
+
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
 			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles);
 	}
@@ -234,6 +257,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				restoreStateHandle,
 				temporaryRestoreInstancePath,
 				cancelStreamRegistry);
+			updateFileRestoreMetrics(rocksDBStateDownloader);
 		}
 
 		// since we transferred all remote state to a local directory, we can use the same code as for
@@ -300,11 +324,14 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			}
 
 			Path temporaryRestoreInstancePath = new Path(instanceBasePath.getAbsolutePath() + UUID.randomUUID().toString());
+			long iterateKeyStartTimestamp = -1;
 			try (RestoredDBInstance tmpRestoreDBInfo = restoreDBInstanceFromStateHandle(
 				(IncrementalRemoteKeyedStateHandle) rawStateHandle,
 				temporaryRestoreInstancePath);
 				WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
 				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(this.db, writeOptions)) {
+				// tick key iteration, skip try-resource block (downloading files)
+				iterateKeyStartTimestamp = System.currentTimeMillis();
 
 				List<ColumnFamilyDescriptor> tmpColumnFamilyDescriptors = tmpRestoreDBInfo.columnFamilyDescriptors;
 				List<ColumnFamilyHandle> tmpColumnFamilyHandles = tmpRestoreDBInfo.columnFamilyHandles;
@@ -325,6 +352,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 
 							if (RocksDBIncrementalCheckpointUtils.beforeThePrefixBytes(iterator.key(), stopKeyGroupPrefixBytes)) {
 								writeBatchWrapper.put(targetColumnFamilyHandle, iterator.key(), iterator.value());
+								writeKeyNum++;
 							} else {
 								// Since the iterator will visit the record according to the sorted order,
 								// we can just break here.
@@ -337,6 +365,9 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				}
 			} finally {
 				cleanUpPathQuietly(temporaryRestoreInstancePath);
+			}
+			if (iterateKeyStartTimestamp != -1) {
+				writeKeyDurationInMs += (System.currentTimeMillis() - iterateKeyStartTimestamp);
 			}
 		}
 	}
@@ -361,6 +392,17 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			LOG.error(errMsg, e);
 			throw new BackendBuildingException(errMsg, e);
 		}
+	}
+
+	/**
+	 * Update RocksDB state backend restore metrics about files.
+	 *
+	 * @param downloader Downloader of a state handle.
+	 */
+	void updateFileRestoreMetrics(RocksDBStateDownloader downloader) {
+		downloadFileNum += downloader.getDownloadFileNum();
+		downloadDurationInMs += downloader.getDownloadDurationInMs();
+		downloadSizeInBytes += downloader.getDownloadSizeInBytes();
 	}
 
 	/**
@@ -417,6 +459,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				restoreStateHandle,
 				temporaryRestoreInstancePath,
 				cancelStreamRegistry);
+			updateFileRestoreMetrics(rocksDBStateDownloader);
 		}
 
 		KeyedBackendSerializationProxy<K> serializationProxy = readMetaData(restoreStateHandle.getMetaStateHandle());

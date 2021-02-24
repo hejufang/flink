@@ -31,7 +31,12 @@ public enum MessageType {
 
 	JOB_CONFIG("job_config"),
 
-	JOB_START_EVENT("job_start_event");
+	JOB_START_EVENT("job_start_event"),
+
+	SNAPSHOT("snapshot"),
+
+	RESTORE("restore");
+
 
 	private final String name;
 

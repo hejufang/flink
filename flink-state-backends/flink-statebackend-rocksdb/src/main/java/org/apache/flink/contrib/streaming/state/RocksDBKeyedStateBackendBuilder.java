@@ -41,6 +41,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.PriorityQueueSetFactory;
 import org.apache.flink.runtime.state.StateHandleID;
+import org.apache.flink.runtime.state.StateStatsTracker;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
@@ -104,6 +105,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	private final MetricGroup metricGroup;
 
+	/** Record metrics of state backend's restore/snapshot. */
+	private StateStatsTracker statsTracker;
+
 	/** True if incremental checkpointing is enabled. */
 	private boolean enableIncrementalCheckpointing;
 	/** True if ttl compaction filter is enabled. */
@@ -158,6 +162,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.instanceBasePath = instanceBasePath;
 		this.instanceRocksDBPath = new File(instanceBasePath, DB_INSTANCE_DIR_STRING);
 		this.metricGroup = metricGroup;
+		this.statsTracker = new StateStatsTracker(metricGroup);
 		this.enableIncrementalCheckpointing = false;
 		this.nativeMetricOptions = new RocksDBNativeMetricOptions();
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
@@ -419,7 +424,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				nativeMetricOptions,
 				metricGroup,
 				restoreStateHandles,
-				ttlCompactFiltersManager);
+				ttlCompactFiltersManager,
+				statsTracker);
 		} else {
 			return new RocksDBFullRestoreOperation<>(
 				keyGroupRange,
@@ -476,7 +482,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				materializedSstFiles,
 				lastCompletedCheckpointId,
 				numberOfTransferingThreads,
-				maxRetryTimes);
+				maxRetryTimes,
+				statsTracker);
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;
 		}
