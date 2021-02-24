@@ -132,6 +132,13 @@ getDynamicFiles() {
     done
 }
 
+getDynamicFilesFromFlinkConf() {
+    local dynamics_files=`${JAVA_RUN} -classpath "${FLINK_BIN_DIR}/bash-java-utils.jar:$(findFlinkDistJar)" org.apache.flink.runtime.util.bash.FlinkConfigLoader --configDir "${FLINK_CONF_DIR}" "files" 2>&1`
+    if [ -n "$dynamics_files" ]; then
+        echo "$dynamics_files"
+    fi
+}
+
 # support `flink.external.jar.dependencies` in dynamics parameters
 getDynamicsExternalJarDependencies() {
     local found=0
