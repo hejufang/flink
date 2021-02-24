@@ -229,7 +229,7 @@ under the License.
 						</goals>
 						<configuration>
 							<nodeVersion>v10.9.0</nodeVersion>
-							<nodeDownloadRoot>http://maven.byted.org/repository/nodejs</nodeDownloadRoot>
+							<nodeDownloadRoot>https://bnpm.bytedance.net/mirrors/node/</nodeDownloadRoot>
 							<npmDownloadRoot>http://registry.npmjs.org/npm/-/</npmDownloadRoot>
 						</configuration>
 					</execution>
