@@ -16,11 +16,6 @@
  * limitations under the License.
  */
 
-// --------------------------------------------------------------
-//  THIS IS A GENERATED SOURCE FILE. DO NOT EDIT!
-//  GENERATED FROM org.apache.flink.api.java.tuple.TupleGenerator.
-// --------------------------------------------------------------
-
 package org.apache.flink.metrics;
 
 import org.slf4j.Logger;
@@ -32,13 +27,13 @@ import org.slf4j.LoggerFactory;
 public class TagGauge implements Gauge<TagGaugeStore> {
 	private static final Logger LOG = LoggerFactory.getLogger(TagGauge.class);
 
-	private final TagGaugeStore store;
+	private final TagGaugeStoreImpl store;
 
 	TagGauge(int maxSize, boolean clearAfterReport, boolean clearWhenFull) {
-		this.store = new TagGaugeStore(maxSize, clearAfterReport, clearWhenFull);
+		this.store = new TagGaugeStoreImpl(maxSize, clearAfterReport, clearWhenFull);
 	}
 
-	public void addMetric(Object metricValue, TagGaugeStore.TagValues tagValues) {
+	public void addMetric(Object metricValue, TagGaugeStoreImpl.TagValues tagValues) {
 		if (metricValue instanceof Number) {
 			store.addMetric(((Number) metricValue).doubleValue(), tagValues);
 		} else if (metricValue instanceof String) {
@@ -57,7 +52,7 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 	}
 
 	@Override
-	public TagGaugeStore getValue() {
+	public TagGaugeStoreImpl getValue() {
 		return store;
 	}
 

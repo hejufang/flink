@@ -63,6 +63,9 @@ non-global:
         noResourceAvailableException,
       # TaskManager / Slot
         numRegisteredTaskManagers,
+        numPendingTaskManagers,
+        numPendingTaskManagerSlots,
+        numPendingSlotRequests,
         taskSlotsTotal,
         taskSlotsAvailable,
       # Memory
@@ -127,7 +130,7 @@ non-global:
         writeFailed,
       # yarn containers
         allocatedContainerNum,
-        startingContainerNum,
+        startingContainers,
         pendingRequestedContainerNum,
         slowContainerNum,
         totalRedundantContainerNum,
@@ -135,6 +138,9 @@ non-global:
         startingRedundantContainerNum,
         containerStartDurationMaxMs,
         speculativeSlowContainerTimeoutMs,
+      # gang
+        gangFailedNum,
+        gangDowngradeNum,
       # recoverable individual failover
         numberOfTaskRecoveries,
         numberOfGlobalFailures,

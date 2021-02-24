@@ -52,6 +52,9 @@ public class MetricNames {
 	public static final String TASK_SLOTS_AVAILABLE = "taskSlotsAvailable";
 	public static final String TASK_SLOTS_TOTAL = "taskSlotsTotal";
 	public static final String NUM_REGISTERED_TASK_MANAGERS = "numRegisteredTaskManagers";
+	public static final String NUM_PENDING_TASK_MANAGER_SLOTS = "numPendingTaskManagerSlots";
+	public static final String NUM_PENDING_TASK_MANAGERS = "numPendingTaskManagers";
+	public static final String NUM_PENDING_SLOT_REQUESTS = "numPendingSlotRequests";
 	public static final String WORKER_FAILURE_RATE = "workFailureRate";
 
 	public static final String MEMORY_USED = "Used";

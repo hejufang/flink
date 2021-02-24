@@ -246,6 +246,11 @@ public class SlotManagerImpl implements SlotManager {
 		return pendingSlots.size();
 	}
 
+	@Override
+	public int getNumberPendingTaskManagers() {
+		return pendingTaskManagers.get();
+	}
+
 	public int getTaskManagerRegistrationSize() {
 		return taskManagerRegistrations.size();
 	}

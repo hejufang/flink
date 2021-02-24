@@ -27,9 +27,9 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ResourceManagerOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.reporter.BlacklistReporter;
 import org.apache.flink.runtime.blacklist.tracker.BlacklistTracker;
-import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
@@ -97,6 +97,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.runtime.metrics.MetricNames.NUM_PENDING_SLOT_REQUESTS;
+import static org.apache.flink.runtime.metrics.MetricNames.NUM_PENDING_TASK_MANAGERS;
+import static org.apache.flink.runtime.metrics.MetricNames.NUM_PENDING_TASK_MANAGER_SLOTS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -930,6 +933,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		jobManagerMetricGroup.meter(
 			MetricNames.WORKER_FAILURE_RATE,
 			failureRater);
+		jobManagerMetricGroup.gauge(
+			NUM_PENDING_TASK_MANAGER_SLOTS,
+			() -> (long) slotManager.getNumberPendingTaskManagerSlots());
+		jobManagerMetricGroup.gauge(
+			NUM_PENDING_TASK_MANAGERS,
+			() -> (long) slotManager.getNumberPendingTaskManagers());
+		jobManagerMetricGroup.gauge(
+			NUM_PENDING_SLOT_REQUESTS,
+			() -> (long) slotManager.getNumberPendingSlotRequests());
 	}
 
 	private void clearStateInternal() {

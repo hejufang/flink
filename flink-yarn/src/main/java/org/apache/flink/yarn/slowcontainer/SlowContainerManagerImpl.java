@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.yarn.YarnConfigKeys.SLOW_CONTAINER;
+
 /**
  * Check and manager slow containers.
  * Allocate redundant containers for slow containers and release them when enough containers is started.
@@ -40,7 +42,6 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private final Logger log = LoggerFactory.getLogger(SlowContainerManagerImpl.class);
 
 	public static final long CONTAINER_NOT_START_TIME_MS = -1;
-	private static final int RELEASE_CONTAINER_CODE = 30001;
 
 	private final double slowContainersQuantile;
 	private final double slowContainerThresholdFactor;
@@ -222,6 +223,11 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		return startingContainers.size();
 	}
 
+	@Override
+	public Map<ResourceID, Long> getStartingContainers() {
+		return startingContainers;
+	}
+
 	private void startNewContainer(ResourceID oldResourceId) {
 		if (yarnResourceManager != null) {
 			log.info("try to start new container for slow container {}.", oldResourceId);
@@ -235,7 +241,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private void releaseContainer(ResourceID resourceID) {
 		if (yarnResourceManager != null) {
 			log.info("try to release container {} because of slow container.", resourceID);
-			yarnResourceManager.stopWorker(resourceID, RELEASE_CONTAINER_CODE);
+			yarnResourceManager.stopWorker(resourceID, SLOW_CONTAINER);
 		}
 	}
 }

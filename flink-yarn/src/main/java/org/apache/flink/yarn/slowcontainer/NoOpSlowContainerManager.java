@@ -97,6 +97,11 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 	}
 
 	@Override
+	public Map<ResourceID, Long> getStartingContainers() {
+		return startingContainers;
+	}
+
+	@Override
 	public int getSlowContainerSize() {
 		return 0;
 	}

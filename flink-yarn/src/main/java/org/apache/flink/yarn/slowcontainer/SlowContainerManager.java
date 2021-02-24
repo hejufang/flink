@@ -21,6 +21,8 @@ package org.apache.flink.yarn.slowcontainer;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.yarn.YarnResourceManager;
 
+import java.util.Map;
+
 /**
  * Interface of SlowContainerManager.
  */
@@ -82,6 +84,8 @@ public interface SlowContainerManager {
 	int getPendingRedundantContainersNum();
 
 	int getStartingContainerSize();
+
+	Map<ResourceID, Long> getStartingContainers();
 
 	/**
 	 * Get slow container number.

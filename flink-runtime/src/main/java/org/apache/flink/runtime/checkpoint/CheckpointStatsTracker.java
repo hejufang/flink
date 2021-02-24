@@ -26,7 +26,7 @@ import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.TagGauge;
-import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
@@ -314,7 +314,7 @@ public class CheckpointStatsTracker {
 
 			if (reason != null) {
 				final String reasonMessage =  reason.message().replaceAll(" ", "-");
-				failedCheckpointsTagGauge.addMetric(1, new TagGaugeStore.TagValuesBuilder()
+				failedCheckpointsTagGauge.addMetric(1, new TagGaugeStoreImpl.TagValuesBuilder()
 						.addTagValue("reason", reasonMessage.substring(0, Math.min(20, reasonMessage.length())))
 						.addTagValue("chk_id", String.valueOf(failed.getCheckpointId()))
 						.build());

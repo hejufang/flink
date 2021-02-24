@@ -110,6 +110,10 @@ public class YarnConfigKeys {
 	public static final String ENV_SPT_NOENV = "SPT_NOENV";
 	public static final String ENV_CORE_DUMP_PROC_NAME = "CORE_DUMP_PROC_NAME";
 
+	// container exit code
+	public static final int SLOW_CONTAINER = 30001;
+	public static final int START_CONTAINER_ERROR = 30002;
+
 	// ------------------------------------------------------------------------
 
 	/** Private constructor to prevent instantiation. */

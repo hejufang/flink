@@ -187,6 +187,15 @@ public class Dashboard {
 		return slowContainerRow;
 	}
 
+	private String renderYarnContainerRow() {
+		String slowContainerTemplate = Template.YARN_CONTAINER;
+		Map<String, String> yarnContainerValues = new HashMap<>();
+		yarnContainerValues.put("jobname", jobName);
+		yarnContainerValues.put("datasource", dataSource);
+		String yarnContainerRow  = renderString(slowContainerTemplate, yarnContainerValues);
+		return yarnContainerRow;
+	}
+
 	private String renderCompletedContainerRow() {
 		String completedContainerTemplate = Template.COMPLETED_CONTAINER;
 		Map<String, String> completedContainerValues = new HashMap<>();
@@ -417,11 +426,12 @@ public class Dashboard {
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderPoolUsageRow(tasks));
 		rows.add(renderGcRow());
-		rows.add(renderJobInfoRow());
-		rows.add(renderTmSlotRow());
 		rows.add(renderCheckpointRow());
 		rows.add(renderCheckpointDurationRow(operators));
+		rows.add(renderJobInfoRow());
+		rows.add(renderTmSlotRow());
 		rows.add(renderSlowContainerRow());
+		rows.add(renderYarnContainerRow());
 		rows.add(renderCompletedContainerRow());
 
 		String template = Template.TEMPLATE;

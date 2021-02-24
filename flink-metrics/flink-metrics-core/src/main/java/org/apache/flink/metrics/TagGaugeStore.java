@@ -16,70 +16,27 @@
  * limitations under the License.
  */
 
-// --------------------------------------------------------------
-//  THIS IS A GENERATED SOURCE FILE. DO NOT EDIT!
-//  GENERATED FROM org.apache.flink.api.java.tuple.TupleGenerator.
-// --------------------------------------------------------------
-
 package org.apache.flink.metrics;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Store for {@link TagGauge}.
+ * Interface of Store for {@link TagGauge}.
  */
-public class TagGaugeStore {
+public interface TagGaugeStore {
 
-	private final int maxSize;
+	List<TagGaugeMetric> getMetricValuesList();
 
-	private List<TagGaugeMetric> metricValuesList;
-
-	private final boolean clearAfterReport;
-
-	private final boolean clearWhenFull;
-
-	public TagGaugeStore(int maxSize, boolean clearAfterReport, boolean clearWhenFull) {
-		this.maxSize = maxSize;
-		this.metricValuesList = new ArrayList<>();
-		this.clearAfterReport = clearAfterReport;
-		this.clearWhenFull = clearWhenFull;
-	}
-
-	public void addMetric(double metricValue, TagValues tagValues) {
-		if (metricValuesList.size() == maxSize) {
-			if (clearWhenFull) {
-				metricValuesList.clear();
-			} else {
-				if (metricValuesList.size() > 0) {
-					metricValuesList.remove(0);
-				}
-			}
-		}
-
-		metricValuesList.add(new TagGaugeMetric(metricValue, tagValues));
-	}
-
-	public boolean isClearAfterReport() {
-		return clearAfterReport;
-	}
-
-	public void reset() {
-		metricValuesList.clear();
-	}
-
-	public List<TagGaugeMetric> getMetricValuesList() {
-		return metricValuesList;
-	}
+	default void metricReported() {}
 
 	/**
 	 * TagValues.
 	 */
-	public static class TagValues {
+	class TagValues {
 
-		private Map<String, String> tagValues;
+		private final Map<String, String> tagValues;
 
 		TagValues(Map<String, String> tagValues) {
 			this.tagValues = tagValues;
@@ -93,7 +50,7 @@ public class TagGaugeStore {
 	/**
 	 * Build for TagValues.
 	 */
-	public static class TagValuesBuilder {
+	class TagValuesBuilder {
 
 		private final Map<String, String> tagValuesMap;
 
@@ -114,12 +71,12 @@ public class TagGaugeStore {
 	/**
 	 * TagGaugeMetric.
 	 */
-	public static class TagGaugeMetric {
+	class TagGaugeMetric {
 
 		private final double metricValue;
 		private final TagValues tagValues;
 
-		TagGaugeMetric(double metricValue, TagValues tagValues) {
+		public TagGaugeMetric(double metricValue, TagValues tagValues) {
 			this.metricValue = metricValue;
 			this.tagValues = tagValues;
 		}

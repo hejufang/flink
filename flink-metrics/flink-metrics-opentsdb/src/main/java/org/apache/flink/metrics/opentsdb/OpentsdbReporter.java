@@ -212,7 +212,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 //						LOG.warn("can't change to Number {}", value);
 					}
 				} else if (value instanceof TagGaugeStore) {
-					final List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = ((TagGaugeStore) value).getMetricValuesList();
+					TagGaugeStore tagGaugeStoreValue = (TagGaugeStore) value;
+					final List<TagGaugeStore.TagGaugeMetric> tagGaugeMetrics = tagGaugeStoreValue.getMetricValuesList();
 					final Map<String, Double> mergedMetrics = new HashMap<>();
 					for (TagGaugeStore.TagGaugeMetric tagGaugeMetric : tagGaugeMetrics) {
 						final String compositeTags = TagKv.compositeTags(tuple.y,
@@ -226,9 +227,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 						this.client.emitStoreWithTag(tuple.x, entry.getValue(), entry.getKey());
 						reportGlobalMetrics("gauge", name, tuple.x, entry.getValue(), entry.getKey());
 					}
-					if (((TagGaugeStore) value).isClearAfterReport()) {
-						((TagGaugeStore) value).reset();
-					}
+					tagGaugeStoreValue.metricReported();
 				} else {
 //					LOG.warn("can't handle the type guage, the value type is {}, the gauge name is {}",
 //						value.getClass(), gaugeStringEntry.getValue());

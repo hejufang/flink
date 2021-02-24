@@ -23,7 +23,7 @@ import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.TagGauge;
-import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistConfiguration;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
@@ -221,7 +221,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				}
 				blacklistGauge.addMetric(
 						1,
-						new TagGaugeStore.TagValuesBuilder()
+						new TagGaugeStoreImpl.TagValuesBuilder()
 							.addTagValue("blackedHost", host)
 							.addTagValue("exception", exception.getClass().getName())
 							.addTagValue("reason", reason)

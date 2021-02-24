@@ -34,6 +34,7 @@ import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
 import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -154,6 +155,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static org.apache.flink.yarn.Utils.pruneContainerId;
+import static org.apache.flink.yarn.YarnConfigKeys.START_CONTAINER_ERROR;
 
 /**
  * The yarn implementation of the resource manager. Used when the system is started
@@ -282,6 +286,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private boolean fatalOnGangFailed;
 	private final int gangMaxRetryTimes;
 	private int gangCurrentRetryTimes;
+	private final Counter gangFailedCounter = new SimpleCounter();
+	private final Counter gangDowngradeCounter = new SimpleCounter();
 	private long gangLastDowngradeTimestamp;
 	private final int gangDowngradeTimeoutMilli;
 	private final boolean gangDowngradeOnFailed;
@@ -846,6 +852,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		if (msg.getNotifyMsgType() == NotifyMsgType.MSG_TYPE_GANG_SCHEDULE_FAILED) {
 			log.info("Received MSG_TYPE_GANG_SCHEDULE_FAILED message, {}", msg);
 			GangSchedulerNotifyContent gangSchedulerNotifyContent = msg.getNotifyContent().getGangSchedulerNotifyContent();
+			gangFailedCounter.inc();
 			if (!fatalOnGangFailed) {
 				runAsync(() -> {
 						if (numPendingContainerRequests >= gangSchedulerNotifyContent.getRequestedContainerNum()) {
@@ -911,8 +918,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 						completedContainerGauge.addMetric(
 								1,
-								new TagGaugeStore.TagValuesBuilder()
+								new TagGaugeStoreImpl.TagValuesBuilder()
 										.addTagValue("container_host", yarnWorkerNode.getContainer().getNodeId().getHost())
+										.addTagValue("container_id", pruneContainerId(resourceId.getResourceIdString()))
 										.addTagValue("exit_code", String.valueOf(containerStatus.getExitStatus()))
 										.build());
 					}
@@ -1024,7 +1032,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private void deschedulerReceivedCounterInc(DeschedulerResult deschedulerResult) {
 		GlobalConstraint globalConstraint = deschedulerResult.getGlobalConstraint();
 		ConstraintType constraintType = globalConstraint.getConstraintType();
-		TagGaugeStore.TagValuesBuilder tagValueBuilder = new TagGaugeStore.TagValuesBuilder()
+		TagGaugeStoreImpl.TagValuesBuilder tagValueBuilder = new TagGaugeStoreImpl.TagValuesBuilder()
 			.addTagValue("constraintType", constraintType.name());
 		if (constraintType.equals(ConstraintType.NODE_SKIP_HIGH_LOAD)) {
 			DeschedulerNodeSkipHighLoadContent loadContent = deschedulerResult.getDeschedulerResultContent().getDeschedulerNodeSkipHighLoadContent();
@@ -1039,7 +1047,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private void deschedulerFailedCounterInc(String reason) {
 		deschedulerHandleGuage.addMetric(
 			1,
-			new TagGaugeStore.TagValuesBuilder()
+			new TagGaugeStoreImpl.TagValuesBuilder()
 				.addTagValue("constraintType", descheduledConstraintType.name())
 				.addTagValue("resultType", "failed")
 				.addTagValue("reason", reason)
@@ -1049,7 +1057,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private void deschedulerSuccessCounterInc() {
 		deschedulerHandleGuage.addMetric(
 			1,
-			new TagGaugeStore.TagValuesBuilder()
+			new TagGaugeStoreImpl.TagValuesBuilder()
 				.addTagValue("constraintType", descheduledConstraintType.name())
 				.addTagValue("resultType", "success")
 				.build());
@@ -1372,6 +1380,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		if (gangSchedulerEnabled) {
 			if (System.currentTimeMillis() - gangLastDowngradeTimestamp < gangDowngradeTimeoutMilli) {
 				useGang = false;
+				gangDowngradeCounter.inc();
 			} else if (gangLastDowngradeTimestamp > 0) {
 				gangCurrentRetryTimes = 0;
 				gangLastDowngradeTimestamp = -1;
@@ -1533,6 +1542,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			ResourceID resourceID = new ResourceID(containerId.toString());
 			final YarnWorkerNode yarnWorkerNode = removeContainer(resourceID);
 			if (yarnWorkerNode != null) {
+				completedContainerGauge.addMetric(
+								1,
+								new TagGaugeStoreImpl.TagValuesBuilder()
+										.addTagValue("container_host", yarnWorkerNode.getContainer().getNodeId().getHost())
+										.addTagValue("container_id", pruneContainerId(resourceID.getResourceIdString()))
+										.addTagValue("exit_code", String.valueOf(START_CONTAINER_ERROR))
+										.build());
 				resourceManagerClient.releaseAssignedContainer(containerId);
 				recordFailureAndStartNewWorkerIfNeeded(
 						yarnWorkerNode.getContainer().getNodeId().getHost(),
@@ -2010,7 +2026,15 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	private void registerMetrics() {
 		jobManagerMetricGroup.gauge("allocatedContainerNum", workerNodeMap::size);
 		jobManagerMetricGroup.gauge("pendingRequestedContainerNum", () -> numPendingContainerRequests);
-		jobManagerMetricGroup.gauge("startingContainerNum", slowContainerManager::getStartingContainerSize);
+		jobManagerMetricGroup.gauge("startingContainers", () -> (TagGaugeStore) () -> {
+			long ts = System.currentTimeMillis();
+			return getSlowContainerManager().getStartingContainers().entrySet().stream()
+					.map(resourceIDLongEntry -> new TagGaugeStore.TagGaugeMetric(
+							ts - resourceIDLongEntry.getValue(),
+							new TagGaugeStore.TagValuesBuilder()
+									.addTagValue("container_id", pruneContainerId(resourceIDLongEntry.getKey().getResourceIdString()))
+									.build()))
+					.collect(Collectors.toList()); });
 		jobManagerMetricGroup.gauge("slowContainerNum", slowContainerManager::getSlowContainerSize);
 		jobManagerMetricGroup.gauge("totalRedundantContainerNum", slowContainerManager::getTotalRedundantContainersNum);
 		jobManagerMetricGroup.gauge("pendingRedundantContainerNum", slowContainerManager::getPendingRedundantContainersNum);
@@ -2022,6 +2046,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		jobManagerMetricGroup.gauge("deschedulerDurationMs", deschedulerDurationMsGuage);
 		jobManagerMetricGroup.gauge("deschedulerHandleResult", deschedulerHandleGuage);
 		jobManagerMetricGroup.gauge("deschedulerReceivedInfo", deschedulerReceivedGuage);
+		jobManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
+		jobManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		jobManagerMetricGroup.gauge(EVENT_METRIC_NAME, jobStartEventMessageSet);
 	}
 
