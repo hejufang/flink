@@ -17,36 +17,23 @@
 
 package org.apache.flink.streaming.connectors.rocketmq.strategy;
 
-import org.apache.rocketmq.client.consumer.AllocateMessageQueueStrategy;
 import org.apache.rocketmq.common.message.MessageQueue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Assign message queues by parallelim num.
  */
-public class AllocateMessageQueueStrategyParallelism implements AllocateMessageQueueStrategy {
-	private static final Logger LOG =
-		LoggerFactory.getLogger(AllocateMessageQueueStrategyParallelism.class);
-
+public class AllocateMessageQueueStrategyParallelism extends AbstractQueueStrategy {
 	/**
 	 * Flink Job parallelism num.
 	 */
 	private final int parallelismNum;
 
-	/**
-	 * Flink sub task id.
-	 */
-	private final int subTaskId;
-
 	public AllocateMessageQueueStrategyParallelism(int parallelismNum, int subTaskId) {
+		super(subTaskId);
 		this.parallelismNum = parallelismNum;
-		this.subTaskId = subTaskId;
-		LOG.info("initialize strategy in parallelism num: {}, task id: {}.", parallelismNum, subTaskId);
 	}
 
 	@Override
@@ -60,8 +47,7 @@ public class AllocateMessageQueueStrategyParallelism implements AllocateMessageQ
 				assignMessageQueues.add(messageQueue);
 			}
 		}
-		LOG.info("SubTaskId {}, assigned queues {}", subTaskId,
-			mqAll.stream().map(MessageQueue::toString).collect(Collectors.joining(",")));
+		logAssignedQueueIfNecessary(assignMessageQueues);
 		return assignMessageQueues;
 	}
 

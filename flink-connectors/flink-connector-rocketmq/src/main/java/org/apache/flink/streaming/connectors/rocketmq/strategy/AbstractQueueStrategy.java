@@ -17,38 +17,40 @@
 
 package org.apache.flink.streaming.connectors.rocketmq.strategy;
 
+import org.apache.rocketmq.client.consumer.AllocateMessageQueueStrategy;
 import org.apache.rocketmq.common.message.MessageQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * FixedMessageQueueStrategy.
+ * AbstractQueueStrategy.
  */
-public class FixedMessageQueueStrategy extends AbstractQueueStrategy {
-	private Set<MessageQueue> messageQueues;
+public abstract class AbstractQueueStrategy implements AllocateMessageQueueStrategy {
+	protected final Logger logger =
+		LoggerFactory.getLogger(this.getClass());
+	private Set<MessageQueue> lastAllocMessageQueues;
 
-	public FixedMessageQueueStrategy(Set<MessageQueue> messageQueues, int subTaskId) {
-		super(subTaskId);
-		this.messageQueues = messageQueues;
+	/**
+	 * Flink sub task id.
+	 */
+	protected final int subTaskId;
+
+	public AbstractQueueStrategy(int subTaskId) {
+		this.subTaskId = subTaskId;
 	}
 
-	@Override
-	public List<MessageQueue> allocate(
-			String consumerGroup,
-			String currentCID,
-			List<MessageQueue> mqAll,
-			List<String> cidAll) {
-		List<MessageQueue> result =
-			mqAll.stream().filter(messageQueues::contains).collect(Collectors.toList());
-		logAssignedQueueIfNecessary(result);
-
-		return result;
-	}
-
-	@Override
-	public String getName() {
-		return "FixedStrategy";
+	protected void logAssignedQueueIfNecessary(List<MessageQueue> queues) {
+		if (lastAllocMessageQueues == null ||
+				lastAllocMessageQueues.size() != queues.size() ||
+				!lastAllocMessageQueues.containsAll(queues)) {
+			logger.info("SubTaskId {}, assigned queues {}", subTaskId,
+				queues.stream().map(MessageQueue::toString).collect(Collectors.joining(",")));
+			lastAllocMessageQueues = new HashSet<>(queues);
+		}
 	}
 }
