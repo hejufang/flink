@@ -56,9 +56,6 @@ public class CheckpointConfig implements java.io.Serializable {
 	/** The default minimum pause to be made between checkpoints: 1 minute. */
 	public static final long DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS = 60 * 1000;
 
-	/** The default minimum checkpoint interval: 1 minute. */
-	public static final long DEFAULT_MIN_CHECKPOINT_INTERVAL = 60 * 1000;
-
 	/** The default limit of concurrently happening checkpoints: one. */
 	public static final int DEFAULT_MAX_CONCURRENT_CHECKPOINTS = 1;
 
@@ -186,11 +183,8 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * @param checkpointInterval The checkpoint interval, in milliseconds.
 	 */
 	public void setCheckpointInterval(long checkpointInterval) {
-		if (checkpointInterval < DEFAULT_MIN_CHECKPOINT_INTERVAL) {
-			LOG.warn("Checkpoint interval must larger than or equal to {} ms, and force set checkpoint interval to {} ms",
-				DEFAULT_MIN_CHECKPOINT_INTERVAL,
-				DEFAULT_MIN_CHECKPOINT_INTERVAL);
-			checkpointInterval = DEFAULT_MIN_CHECKPOINT_INTERVAL;
+		if (checkpointInterval < MINIMAL_CHECKPOINT_TIME) {
+			throw new IllegalArgumentException(String.format("Checkpoint interval must be larger than or equal to %s ms", MINIMAL_CHECKPOINT_TIME));
 		}
 		this.checkpointInterval = checkpointInterval;
 	}

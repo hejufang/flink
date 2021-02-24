@@ -20,6 +20,7 @@ package org.apache.flink.runtime.checkpoint.handler;
 
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
@@ -59,6 +60,11 @@ public class GlobalCheckpointHandler implements CheckpointHandler {
 
 	@Override
 	public boolean tryHandleCompletedNotification(ExecutionVertex vertex, long checkpointId) {
+		return false;
+	}
+
+	@Override
+	public boolean tryHandleFailUnacknowledgedPendingCheckpoints(ExecutionAttemptID executionAttemptId, Throwable cause) {
 		return false;
 	}
 

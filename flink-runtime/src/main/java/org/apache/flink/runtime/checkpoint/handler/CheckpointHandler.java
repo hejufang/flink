@@ -20,6 +20,7 @@ package org.apache.flink.runtime.checkpoint.handler;
 
 import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.checkpoint.PendingCheckpoint;
+import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
@@ -65,6 +66,12 @@ public interface CheckpointHandler {
 	 * @return true if the notification can be ignored.
 	 */
 	boolean tryHandleCompletedNotification(ExecutionVertex vertex, long checkpointId);
+
+	/**
+	 * Check whether the failUnacknowledgedPendingCheckpoints notification should be sent or not.
+	 * @return true if the notification can be ignored.
+	 */
+	boolean tryHandleFailUnacknowledgedPendingCheckpoints(ExecutionAttemptID executionAttemptId, Throwable cause);
 
 	/**
 	 * Clear a specific checkpoint's data.

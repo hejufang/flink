@@ -1096,6 +1096,11 @@ public class CheckpointCoordinator {
 	 */
 	public void failUnacknowledgedPendingCheckpointsFor(ExecutionAttemptID executionAttemptId, Throwable cause) {
 		synchronized (lock) {
+			if (sendActionToHandler(handler -> handler.tryHandleFailUnacknowledgedPendingCheckpoints(executionAttemptId, cause),
+				pendingCheckpoints.values().stream().map(PendingCheckpoint::getCheckpointId).collect(Collectors.toList()))) {
+				return;
+			}
+
 			Iterator<PendingCheckpoint> pendingCheckpointIterator = pendingCheckpoints.values().iterator();
 
 			while (pendingCheckpointIterator.hasNext()) {
