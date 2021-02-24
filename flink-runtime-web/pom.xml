@@ -229,7 +229,7 @@ under the License.
 						</goals>
 						<configuration>
 							<nodeVersion>v10.9.0</nodeVersion>
-							<nodeDownloadRoot>http://nodejs.org/dist/</nodeDownloadRoot>
+							<nodeDownloadRoot>http://maven.byted.org/repository/nodejs</nodeDownloadRoot>
 							<npmDownloadRoot>http://registry.npmjs.org/npm/-/</npmDownloadRoot>
 						</configuration>
 					</execution>
