@@ -59,6 +59,8 @@ public class SubtaskStateStats implements Serializable {
 	/** Checkpoint start delay in milliseconds. */
 	private final long checkpointStartDelay;
 
+	private final long checkpointId;
+
 	SubtaskStateStats(
 			int subtaskIndex,
 			long ackTimestamp,
@@ -67,6 +69,25 @@ public class SubtaskStateStats implements Serializable {
 			long asyncCheckpointDuration,
 			long alignmentDuration,
 			long checkpointStartDelay) {
+		this(subtaskIndex,
+				ackTimestamp,
+				stateSize,
+				syncCheckpointDuration,
+				asyncCheckpointDuration,
+				alignmentDuration,
+				checkpointStartDelay,
+				-1L);
+	}
+
+	SubtaskStateStats(
+			int subtaskIndex,
+			long ackTimestamp,
+			long stateSize,
+			long syncCheckpointDuration,
+			long asyncCheckpointDuration,
+			long alignmentDuration,
+			long checkpointStartDelay,
+			long checkpointId) {
 
 		checkArgument(subtaskIndex >= 0, "Negative subtask index");
 		this.subtaskIndex = subtaskIndex;
@@ -77,6 +98,7 @@ public class SubtaskStateStats implements Serializable {
 		this.asyncCheckpointDuration = asyncCheckpointDuration;
 		this.alignmentDuration = alignmentDuration;
 		this.checkpointStartDelay = checkpointStartDelay;
+		this.checkpointId = checkpointId;
 	}
 
 	public int getSubtaskIndex() {
@@ -141,5 +163,9 @@ public class SubtaskStateStats implements Serializable {
 
 	public long getCheckpointStartDelay() {
 		return checkpointStartDelay;
+	}
+
+	public long getCheckpointId() {
+		return checkpointId;
 	}
 }

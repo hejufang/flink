@@ -103,6 +103,21 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	// Callbacks from the PendingCheckpoint instance
 	// ------------------------------------------------------------------------
 
+	private void removeSubtaskStats(JobVertexID jobVertexId, SubtaskStateStats subtask) {
+		TaskStateStats taskStateStats = taskStats.get(jobVertexId);
+
+		if (taskStateStats != null) {
+			final SubtaskStateStats oldSubtask = taskStateStats.getSubtaskStats()[subtask.getSubtaskIndex()];
+
+			if (oldSubtask != null && taskStateStats.removeSubtaskStats(oldSubtask.getSubtaskIndex())) {
+				currentNumAcknowledgedSubtasks--;
+				latestAcknowledgedSubtask = null;
+
+				currentStateSize -= oldSubtask.getStateSize();
+			}
+		}
+	}
+
 	/**
 	 * Reports statistics for a single subtask.
 	 *
@@ -111,6 +126,21 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @return <code>true</code> if successfully reported or <code>false</code> otherwise.
 	 */
 	boolean reportSubtaskStats(JobVertexID jobVertexId, SubtaskStateStats subtask) {
+		return reportSubtaskStats(jobVertexId, subtask, false);
+	}
+
+	/**
+	 * Reports statistics for a single subtask.
+	 * @param jobVertexId ID of the task/operator the subtask belongs to.
+	 * @param subtask The statistics for the subtask.
+	 * @param override Whether override the existing subtask's statistics.
+	 * @return <code>true</code> if successfully reported or <code>false</code> otherwise.
+	 */
+	boolean reportSubtaskStats(JobVertexID jobVertexId, SubtaskStateStats subtask, boolean override) {
+		if (override) {
+			removeSubtaskStats(jobVertexId, subtask);
+		}
+
 		TaskStateStats taskStateStats = taskStats.get(jobVertexId);
 
 		if (taskStateStats != null && taskStateStats.reportSubtaskStats(subtask)) {

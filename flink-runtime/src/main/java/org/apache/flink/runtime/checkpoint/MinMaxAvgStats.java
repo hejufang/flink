@@ -70,6 +70,17 @@ public class MinMaxAvgStats implements Serializable {
 	}
 
 	/**
+	 * Remove the value from the stats.
+	 */
+	void remove(long value) {
+		// TODO. deal with min and max
+		if (value >= 0) {
+			count--;
+			sum -= value;
+		}
+	}
+
+	/**
 	 * Returns a snapshot of the current state.
 	 *
 	 * @return A snapshot of the current state.

@@ -52,6 +52,24 @@ public class CheckpointingOptions {
 			.defaultValue(1)
 			.withDescription("The number of threads that used to restore operator states.");
 
+	/** Whether region checkpoint is enabled. */
+	public static final ConfigOption<Boolean> REGION_CHECKPOINT_ENABLED = ConfigOptions
+			.key("state.checkpoints.region.enabled")
+			.defaultValue(false)
+			.withDescription("Whether region checkpoint is enabled.");
+
+	/** The maximum number of snapshots from region checkpoints to retain.*/
+	public static final ConfigOption<Integer> MAX_RETAINED_REGION_SNAPSHOTS = ConfigOptions
+			.key("state.checkpoints.region.max-retained-snapshots")
+			.defaultValue(2)
+			.withDescription("The maximum number of completed snapshots for region checkpoint to retain.");
+
+	/** The maximum percentage of regions that can be recovered from history. */
+	public static final ConfigOption<Double> MAX_PERCENTAGE_RECOVERY = ConfigOptions
+			.key("state.checkpoints.region.max-percentage-recovery")
+			.defaultValue(0.5)
+			.withDescription("The maximum percentage of regions that can be recovered from history.");
+
 	/** Option whether the state backend should use an asynchronous snapshot method where
 	 * possible and configurable.
 	 *

@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -89,6 +90,8 @@ public class PendingCheckpoint {
 	private final long checkpointTimestamp;
 
 	private final Map<OperatorID, OperatorState> operatorStates;
+
+	private final Map<ExecutionAttemptID, ExecutionVertex> totalTasks;
 
 	private final Map<ExecutionAttemptID, ExecutionVertex> notYetAcknowledgedTasks;
 
@@ -146,6 +149,7 @@ public class PendingCheckpoint {
 		this.checkpointId = checkpointId;
 		this.checkpointTimestamp = checkpointTimestamp;
 		this.notYetAcknowledgedTasks = checkNotNull(verticesToConfirm);
+		this.totalTasks = new HashMap<>(verticesToConfirm);
 		this.props = checkNotNull(props);
 		this.targetLocation = checkNotNull(targetLocation);
 		this.executor = Preconditions.checkNotNull(executor);
@@ -222,6 +226,18 @@ public class PendingCheckpoint {
 
 	public boolean isAcknowledgedBy(ExecutionAttemptID executionAttemptId) {
 		return !notYetAcknowledgedTasks.containsKey(executionAttemptId);
+	}
+
+	public Map<ExecutionAttemptID, ExecutionVertex> getTotalTasks() {
+		return totalTasks;
+	}
+
+	/**
+	 * This method should be carefully modified. {@link #notYetAcknowledgedTasks} is not thread-safe and ConcurrentException
+	 * will easily occur if we don't do a shallow copy for its values.
+	 */
+	public Collection<ExecutionVertex> copyOfNotYetAcknowledgedTasks() {
+		return new ArrayList<>(notYetAcknowledgedTasks.values());
 	}
 
 	public boolean isDiscarded() {
@@ -343,6 +359,79 @@ public class PendingCheckpoint {
 		}
 	}
 
+	public TaskAcknowledgeResult overrideTaskStates(
+			ExecutionAttemptID executionAttemptId,
+			TaskStateSnapshot operatorSubtaskStates,
+			long overrideCheckpointId) {
+		synchronized (lock) {
+			if (discarded) {
+				return TaskAcknowledgeResult.DISCARDED;
+			}
+
+			ExecutionVertex vertex = notYetAcknowledgedTasks.remove(executionAttemptId);
+			if (vertex != null) {
+				acknowledgedTasks.add(executionAttemptId);
+				++numAcknowledgedTasks;
+			} else {
+				vertex = totalTasks.get(executionAttemptId);
+			}
+
+			List<OperatorID> operatorIDs = vertex.getJobVertex().getOperatorIDs()
+					.stream().map(OperatorIDPair::getGeneratedOperatorID).collect(Collectors.toList());
+			int subtaskIndex = vertex.getParallelSubtaskIndex();
+			long ackTimestamp = System.currentTimeMillis();
+
+			long stateSize = 0L;
+
+			if (operatorSubtaskStates != null) {
+				for (OperatorID operatorID : operatorIDs) {
+
+					OperatorSubtaskState operatorSubtaskState =
+							operatorSubtaskStates.getSubtaskStateByOperatorID(operatorID);
+
+					// if no real operatorSubtaskState was reported, we insert an empty state
+					if (operatorSubtaskState == null) {
+						operatorSubtaskState = new OperatorSubtaskState();
+					}
+
+					OperatorState operatorState = operatorStates.get(operatorID);
+
+					if (operatorState == null) {
+						operatorState = new OperatorState(
+								operatorID,
+								vertex.getTotalNumberOfParallelSubtasks(),
+								vertex.getMaxParallelism());
+						operatorStates.put(operatorID, operatorState);
+					}
+
+					operatorState.putState(subtaskIndex, new OperatorSubtaskStatePlaceHolder(operatorSubtaskState));
+					stateSize += operatorSubtaskState.getStateSize();
+				}
+			}
+
+			// publish the checkpoint statistics
+			// to prevent null-pointers from concurrent modification, copy reference onto stack
+			final PendingCheckpointStats statsCallback = this.statsCallback;
+			if (statsCallback != null) {
+				SubtaskStateStats subtaskStateStats = new SubtaskStateStats(
+						subtaskIndex,
+						ackTimestamp,
+						stateSize,
+						0L,
+						0L,
+						0L,
+						0L,
+						overrideCheckpointId);
+
+				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats, true);
+			}
+
+			LOG.info("Checkpoint {} replaces states of Task {} with snapshot from checkpoint {}.",
+					checkpointId, vertex.getTaskNameWithSubtaskIndex(), overrideCheckpointId);
+			return TaskAcknowledgeResult.SUCCESS;
+		}
+	}
+
 	/**
 	 * Acknowledges the task with the given execution attempt id and the given subtask state.
 	 *
@@ -422,7 +511,8 @@ public class PendingCheckpoint {
 					metrics.getSyncDurationMillis(),
 					metrics.getAsyncDurationMillis(),
 					alignmentDurationMillis,
-					checkpointStartDelayMillis);
+					checkpointStartDelayMillis,
+					checkpointId);
 
 				statsCallback.reportSubtaskStats(vertex.getJobvertexId(), subtaskStateStats);
 			}

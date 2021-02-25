@@ -54,6 +54,30 @@ public class TaskStateStats implements Serializable {
 		this.subtaskStats = new SubtaskStateStats[numSubtasks];
 	}
 
+	/**
+	 * Remove subtask's statistics from TaskStats.
+	 */
+	boolean removeSubtaskStats(int subtaskIndex) {
+		if (subtaskStats[subtaskIndex] != null) {
+			final SubtaskStateStats subtask = subtaskStats[subtaskIndex];
+
+			subtaskStats[subtaskIndex] = null;
+			latestAckedSubtaskStats = null;
+			numAcknowledgedSubtasks--;
+
+			summaryStats.removeSummary(subtask);
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Hands in the stats for a subtask.
+	 *
+	 * @param subtask Stats for the sub task to hand in.
+	 */
 	boolean reportSubtaskStats(SubtaskStateStats subtask) {
 		checkNotNull(subtask, "Subtask stats");
 		int subtaskIndex = subtask.getSubtaskIndex();
@@ -180,6 +204,22 @@ public class TaskStateStats implements Serializable {
 			checkpointStartDelay.add(subtaskStats.getCheckpointStartDelay());
 		}
 
+		/**
+		 * Remove the stats from summary with the given subtask.
+		 */
+		void removeSummary(SubtaskStateStats subtaskStats) {
+			stateSize.remove(subtaskStats.getStateSize());
+			ackTimestamp.remove(subtaskStats.getAckTimestamp());
+			syncCheckpointDuration.remove(subtaskStats.getSyncCheckpointDuration());
+			asyncCheckpointDuration.remove(subtaskStats.getAsyncCheckpointDuration());
+			alignmentDuration.remove(subtaskStats.getAlignmentDuration());
+		}
+
+		/**
+		 * Returns the summary stats for the state size.
+		 *
+		 * @return Summary stats for the state size.
+		 */
 		public MinMaxAvgStats getStateSizeStats() {
 			return stateSize;
 		}

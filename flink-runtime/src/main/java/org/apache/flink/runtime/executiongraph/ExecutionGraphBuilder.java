@@ -35,6 +35,9 @@ import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
 import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
 import org.apache.flink.runtime.checkpoint.CompletedCheckpointStore;
 import org.apache.flink.runtime.checkpoint.MasterTriggerRestoreHook;
+import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
+import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
+import org.apache.flink.runtime.checkpoint.handler.RegionCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
 import org.apache.flink.runtime.client.JobExecutionException;
 import org.apache.flink.runtime.client.JobSubmissionException;
@@ -63,11 +66,13 @@ import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.SerializedValue;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -80,6 +85,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Utility class to encapsulate the logic of building an {@link ExecutionGraph} from a {@link JobGraph}.
  */
 public class ExecutionGraphBuilder {
+	private static final Logger LOG = LoggerFactory.getLogger(ExecutionGraphBuilder.class);
 
 	/**
 	 * Builds the ExecutionGraph from the JobGraph.
@@ -256,6 +262,23 @@ public class ExecutionGraphBuilder {
 			List<ExecutionJobVertex> confirmVertices =
 					idToVertex(snapshotSettings.getVerticesToConfirm(), executionGraph);
 
+			// configure region checkpoint
+			final CheckpointHandler checkpointHandler;
+			final boolean regionCheckpointEnabled = jobManagerConfig.getBoolean(CheckpointingOptions.REGION_CHECKPOINT_ENABLED);
+			if (regionCheckpointEnabled) {
+				final int maxNumberOfSnapshotsToRetain = jobManagerConfig.getInteger(
+						CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS);
+				final double maxPercentageOfRecovery = jobManagerConfig.getDouble(
+						CheckpointingOptions.MAX_PERCENTAGE_RECOVERY);
+				checkpointHandler = new RegionCheckpointHandler(
+						metrics,
+						confirmVertices.stream().flatMap(jv -> Arrays.stream(jv.getTaskVertices())).toArray(ExecutionVertex[]::new),
+						maxNumberOfSnapshotsToRetain,
+						maxPercentageOfRecovery);
+			} else {
+				checkpointHandler = new GlobalCheckpointHandler();
+			}
+
 			CompletedCheckpointStore completedCheckpoints;
 			CheckpointIDCounter checkpointIdCounter;
 			try {
@@ -271,6 +294,17 @@ public class ExecutionGraphBuilder {
 							CheckpointingOptions.MAX_RETAINED_CHECKPOINTS.defaultValue());
 
 					maxNumberOfCheckpointsToRetain = CheckpointingOptions.MAX_RETAINED_CHECKPOINTS.defaultValue();
+				}
+
+				if (regionCheckpointEnabled) {
+					// override max retained checkpoints based on the region checkpoints
+					maxNumberOfCheckpointsToRetain += (jobManagerConfig.getInteger(
+							CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS) + 1);
+					LOG.info("Override {} to {} according to {}={}.",
+							CheckpointingOptions.MAX_RETAINED_CHECKPOINTS.key(),
+							maxNumberOfCheckpointsToRetain,
+							CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS.key(),
+							jobManagerConfig.getInteger(CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS));
 				}
 
 				completedCheckpoints = recoveryFactory.createCheckpointStore(jobId, jobName, maxNumberOfCheckpointsToRetain, classLoader);
@@ -381,7 +415,8 @@ public class ExecutionGraphBuilder {
 				checkpointIdCounter,
 				completedCheckpoints,
 				rootBackend,
-				checkpointStatsTracker);
+				checkpointStatsTracker,
+				checkpointHandler);
 		}
 
 		// create all the metrics for the Execution Graph
