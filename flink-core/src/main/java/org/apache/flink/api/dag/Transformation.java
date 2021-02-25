@@ -120,6 +120,10 @@ public abstract class Transformation<T> {
 
 	private int parallelism;
 
+	// weather parallelism of this transformation is specified by default
+	// parallelism configured in ExecutionConfig.
+	private boolean isUseDefaultParallelism;
+
 	/**
 	 * The maximum parallelism for this stream transformation. It defines the upper limit for
 	 * dynamic scaling and the number of key groups used for partitioned state.
@@ -233,6 +237,15 @@ public abstract class Transformation<T> {
 	public void setMaxParallelism(int maxParallelism) {
 		OperatorValidationUtils.validateMaxParallelism(maxParallelism, UPPER_BOUND_MAX_PARALLELISM);
 		this.maxParallelism = maxParallelism;
+	}
+
+	public boolean isUseDefaultParallelism() {
+		return isUseDefaultParallelism;
+	}
+
+	public Transformation<T> setUseDefaultParallelism(boolean useDefaultParallelism) {
+		isUseDefaultParallelism = useDefaultParallelism;
+		return this;
 	}
 
 	/**

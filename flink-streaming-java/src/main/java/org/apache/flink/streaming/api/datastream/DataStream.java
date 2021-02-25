@@ -1254,6 +1254,7 @@ public class DataStream<T> {
 				operatorFactory,
 				outTypeInfo,
 				environment.getParallelism());
+		resultTransform.setUseDefaultParallelism(true);
 
 		@SuppressWarnings({"unchecked", "rawtypes"})
 		SingleOutputStreamOperator<R> returnStream = new SingleOutputStreamOperator(environment, resultTransform);

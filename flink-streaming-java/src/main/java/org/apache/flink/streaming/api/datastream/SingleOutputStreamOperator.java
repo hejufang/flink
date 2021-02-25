@@ -141,6 +141,7 @@ public class SingleOutputStreamOperator<T> extends DataStream<T> {
 	public SingleOutputStreamOperator<T> setParallelism(int parallelism) {
 		OperatorValidationUtils.validateParallelism(parallelism, canBeParallel());
 		transformation.setParallelism(parallelism);
+		transformation.setUseDefaultParallelism(false);
 
 		return this;
 	}

@@ -610,10 +610,7 @@ public class StreamGraphGenerator {
 				null,
 				source.getOutputType(),
 				"Source: " + source.getName());
-		int parallelism = source.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
-				source.getParallelism() : executionConfig.getParallelism();
-		streamGraph.setParallelism(source.getId(), parallelism);
-		streamGraph.setMaxParallelism(source.getId(), source.getMaxParallelism());
+		updateParallelism(source);
 		return Collections.singleton(source.getId());
 	}
 
@@ -634,11 +631,20 @@ public class StreamGraphGenerator {
 			streamGraph.setInputFormat(source.getId(),
 					((InputFormatOperatorFactory<T>) source.getOperatorFactory()).getInputFormat());
 		}
-		int parallelism = source.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
-			source.getParallelism() : executionConfig.getParallelism();
-		streamGraph.setParallelism(source.getId(), parallelism);
-		streamGraph.setMaxParallelism(source.getId(), source.getMaxParallelism());
+		updateParallelism(source);
 		return Collections.singleton(source.getId());
+	}
+
+	private void updateParallelism(Transformation transform) {
+		int parallelism = transform.getParallelism();
+		if (parallelism == ExecutionConfig.PARALLELISM_DEFAULT) {
+			parallelism = executionConfig.getParallelism();
+			streamGraph.setIsUseDefaultParallelism(transform.getId(), true);
+		} else if (transform.isUseDefaultParallelism()) {
+			streamGraph.setIsUseDefaultParallelism(transform.getId(), true);
+		}
+		streamGraph.setParallelism(transform.getId(), parallelism);
+		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
 	}
 
 	/**
@@ -663,10 +669,7 @@ public class StreamGraphGenerator {
 			streamGraph.setOutputFormat(sink.getId(), ((OutputFormatOperatorFactory) operatorFactory).getOutputFormat());
 		}
 
-		int parallelism = sink.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
-			sink.getParallelism() : executionConfig.getParallelism();
-		streamGraph.setParallelism(sink.getId(), parallelism);
-		streamGraph.setMaxParallelism(sink.getId(), sink.getMaxParallelism());
+		updateParallelism(sink);
 
 		for (Integer inputId: inputIds) {
 			streamGraph.addEdge(inputId,
@@ -713,10 +716,7 @@ public class StreamGraphGenerator {
 			streamGraph.setOneInputStateKey(transform.getId(), transform.getStateKeySelector(), keySerializer);
 		}
 
-		int parallelism = transform.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
-			transform.getParallelism() : executionConfig.getParallelism();
-		streamGraph.setParallelism(transform.getId(), parallelism);
-		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
+		updateParallelism(transform);
 
 		for (Integer inputId: inputIds) {
 			streamGraph.addEdge(inputId, transform.getId(), 0);
@@ -762,10 +762,7 @@ public class StreamGraphGenerator {
 			streamGraph.setTwoInputStateKey(transform.getId(), transform.getStateKeySelector1(), transform.getStateKeySelector2(), keySerializer);
 		}
 
-		int parallelism = transform.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
-			transform.getParallelism() : executionConfig.getParallelism();
-		streamGraph.setParallelism(transform.getId(), parallelism);
-		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
+		updateParallelism(transform);
 
 		for (Integer inputId: inputIds1) {
 			streamGraph.addEdge(inputId,
@@ -814,10 +811,7 @@ public class StreamGraphGenerator {
 			transform.getOutputType(),
 			transform.getName());
 
-		int parallelism = transform.getParallelism() != ExecutionConfig.PARALLELISM_DEFAULT ?
-			transform.getParallelism() : executionConfig.getParallelism();
-		streamGraph.setParallelism(transform.getId(), parallelism);
-		streamGraph.setMaxParallelism(transform.getId(), transform.getMaxParallelism());
+		updateParallelism(transform);
 
 		if (transform instanceof KeyedMultipleInputTransformation) {
 			KeyedMultipleInputTransformation keyedTransform = (KeyedMultipleInputTransformation) transform;

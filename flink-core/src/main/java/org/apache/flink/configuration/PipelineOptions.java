@@ -160,6 +160,14 @@ public class PipelineOptions {
 				" maximum parallelism. The maximum parallelism specifies the upper limit for dynamic scaling and" +
 				" the number of key groups used for partitioned state.");
 
+	public static final ConfigOption<Boolean> USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM =
+		key("pipeline.use-max-source-parallelism-as-default-parallelism")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to use max source parallelism as default parallelism for" +
+				" other operations except source operations. Note that we will not overwrite" +
+				" default parallelism of source operations.");
+
 	public static final ConfigOption<Boolean> OBJECT_REUSE =
 		key("pipeline.object-reuse")
 			.booleanType()

@@ -458,6 +458,7 @@ public class ConnectedStreams<IN1, IN2> {
 				operator,
 				outTypeInfo,
 				environment.getParallelism());
+		transform.setUseDefaultParallelism(true);
 
 		if (inputStream1 instanceof KeyedStream && inputStream2 instanceof KeyedStream) {
 			KeyedStream<IN1, ?> keyedInput1 = (KeyedStream<IN1, ?>) inputStream1;

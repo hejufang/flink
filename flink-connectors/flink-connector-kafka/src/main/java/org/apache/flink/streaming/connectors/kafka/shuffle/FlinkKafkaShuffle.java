@@ -369,6 +369,7 @@ public class FlinkKafkaShuffle {
 			"kafka_shuffle",
 			shuffleSinkOperator,
 			inputStream.getExecutionEnvironment().getParallelism());
+		transformation.setUseDefaultParallelism(true);
 		inputStream.getExecutionEnvironment().addOperator(transformation);
 		transformation.setParallelism(producerParallelism);
 	}

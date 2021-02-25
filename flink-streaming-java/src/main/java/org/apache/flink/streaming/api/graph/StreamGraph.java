@@ -611,6 +611,12 @@ public class StreamGraph implements Pipeline {
 		}
 	}
 
+	public void setIsUseDefaultParallelism(Integer vertexID, boolean isUseDefaultParallelism) {
+		if (getStreamNode(vertexID) != null) {
+			getStreamNode(vertexID).setUseDefaultParallelism(isUseDefaultParallelism);
+		}
+	}
+
 	public void setResources(int vertexID, ResourceSpec minResources, ResourceSpec preferredResources) {
 		if (getStreamNode(vertexID) != null) {
 			getStreamNode(vertexID).setResources(minResources, preferredResources);
@@ -857,7 +863,33 @@ public class StreamGraph implements Pipeline {
 	 * Gets the assembled {@link JobGraph} with a specified {@link JobID}.
 	 */
 	public JobGraph getJobGraph(@Nullable JobID jobID) {
+		if (executionConfig.isUseMaxSourceParallelismAsDefaultParallelism()) {
+			overwriteDefaultParallelismForNonSourceNode();
+		}
 		return StreamingJobGraphGenerator.createJobGraph(this, jobID);
+	}
+
+	/**
+	 * Overwrite parallelism of non-source nodes with the max parallelism of source
+	 * if it use default parallelism.
+	 */
+	private void overwriteDefaultParallelismForNonSourceNode() {
+		int maxParallelismOfSource = -1;
+		for (int i : getSourceIDs()) {
+			maxParallelismOfSource = Math.max(maxParallelismOfSource, getStreamNode(i).getParallelism());
+		}
+		if (maxParallelismOfSource > 0) {
+			Collection<Integer> sourceIDs = getSourceIDs();
+			for (StreamNode streamNode : getStreamNodes()) {
+				int nodeId = streamNode.getId();
+				if (!sourceIDs.contains(nodeId) && streamNode.isUseDefaultParallelism()) {
+					LOG.info("Overwrite parallelism of StreamNode: {} from {} " +
+						"to {} (max source parallelism).",
+						streamNode, streamNode.getParallelism(), maxParallelismOfSource);
+					streamNode.setParallelism(maxParallelismOfSource);
+				}
+			}
+		}
 	}
 
 	public String getStreamingPlanAsJSON() {

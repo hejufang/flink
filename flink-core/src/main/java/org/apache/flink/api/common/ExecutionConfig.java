@@ -132,6 +132,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 
 	private long autoWatermarkInterval = 0;
 
+	private boolean useMaxSourceParallelismAsDefaultParallelism = false;
+
 	/**
 	 * Interval in milliseconds for sending latency tracking marks from the sources to the sinks.
 	 */
@@ -990,6 +992,15 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 		this.failTaskOnCheckpointError = failTaskOnCheckpointError;
 	}
 
+	public boolean isUseMaxSourceParallelismAsDefaultParallelism() {
+		return useMaxSourceParallelismAsDefaultParallelism;
+	}
+
+	public void setUseMaxSourceParallelismAsDefaultParallelism(
+			boolean useMaxSourceParallelismAsDefaultParallelism) {
+		this.useMaxSourceParallelismAsDefaultParallelism = useMaxSourceParallelismAsDefaultParallelism;
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (obj instanceof ExecutionConfig) {
@@ -1016,6 +1027,7 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 				taskCancellationIntervalMillis == other.taskCancellationIntervalMillis &&
 				useSnapshotCompression == other.useSnapshotCompression &&
 				defaultInputDependencyConstraint == other.defaultInputDependencyConstraint &&
+				useMaxSourceParallelismAsDefaultParallelism == other.useMaxSourceParallelismAsDefaultParallelism &&
 				Objects.equals(systemParameters, other.systemParameters);
 
 		} else {
@@ -1045,7 +1057,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			taskCancellationIntervalMillis,
 			useSnapshotCompression,
 			defaultInputDependencyConstraint,
-			systemParameters);
+			systemParameters,
+			useMaxSourceParallelismAsDefaultParallelism);
 	}
 
 	@Override
@@ -1081,6 +1094,7 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			", registeredKryoTypes=" + registeredKryoTypes +
 			", registeredPojoTypes=" + registeredPojoTypes +
 			", systemParameters=" + systemParameters +
+			", useMaxSourceParallelismAsDefaultParallelism=" + useMaxSourceParallelismAsDefaultParallelism +
 			'}';
 	}
 
@@ -1202,6 +1216,8 @@ public class ExecutionConfig implements Serializable, Archiveable<ArchivedExecut
 			.ifPresent(this::setMaxParallelism);
 		configuration.getOptional(CoreOptions.DEFAULT_PARALLELISM)
 			.ifPresent(this::setParallelism);
+		configuration.getOptional(PipelineOptions.USE_MAX_SOURCE_PARALLELISM_AS_DEFAULT_PARALLELISM)
+			.ifPresent(this::setUseMaxSourceParallelismAsDefaultParallelism);
 		configuration.getOptional(PipelineOptions.OBJECT_REUSE)
 			.ifPresent(o -> this.objectReuse = o);
 		configuration.getOptional(TaskManagerOptions.TASK_CANCELLATION_INTERVAL)

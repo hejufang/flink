@@ -53,6 +53,7 @@ public class StreamNode implements Serializable {
 
 	private final int id;
 	private int parallelism;
+	private boolean isUseDefaultParallelism;
 	/**
 	 * Maximum parallelism for this stream node. The maximum parallelism is the upper limit for
 	 * dynamic scaling and the number of key groups used for partitioned state.
@@ -168,6 +169,14 @@ public class StreamNode implements Serializable {
 
 	public void setParallelism(Integer parallelism) {
 		this.parallelism = parallelism;
+	}
+
+	public boolean isUseDefaultParallelism() {
+		return isUseDefaultParallelism;
+	}
+
+	public void setUseDefaultParallelism(boolean useDefaultParallelism) {
+		isUseDefaultParallelism = useDefaultParallelism;
 	}
 
 	/**

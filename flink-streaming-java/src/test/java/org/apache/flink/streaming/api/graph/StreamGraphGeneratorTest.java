@@ -34,6 +34,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.co.CoMapFunction;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
@@ -433,6 +435,76 @@ public class StreamGraphGeneratorTest extends TestLogger {
 
 		assertEquals(maxParallelism, keyedResult3Node.getMaxParallelism());
 		assertEquals(maxParallelism, keyedResult4Node.getMaxParallelism());
+	}
+
+	/**
+	 * Tests that overwrite default parallelism for non-source StreamGraph node with the
+	 * max source parallelism.
+	 */
+	@Test
+	public void testUseMaxSourceParallelismAsDefaultParallelism() {
+		int source1Parallelism = 2;
+		int source2Parallelism = 5;
+		int globalParallelism = 1;
+		int mapParallelism = 3;
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setParallelism(globalParallelism);
+		env.getConfig().setUseMaxSourceParallelismAsDefaultParallelism(true);
+
+		SourceFunction<Integer> sourceFunction1 = getMockSourceFunction();
+		SourceFunction<Integer> sourceFunction2 = getMockSourceFunction();
+		DataStream<Integer> source1 = env.addSource(sourceFunction1).setParallelism(source1Parallelism);
+		DataStream<Integer> source2 = env.addSource(sourceFunction2).setParallelism(source2Parallelism);
+
+		ConnectedStreams<Integer, Integer> connectedSource = source1.connect(source2);
+
+		OutputTypeConfigurableOperationWithTwoInputs outputTypeConfigurableOperation =
+			new OutputTypeConfigurableOperationWithTwoInputs();
+
+		DataStream<Integer> dataStream = connectedSource.transform(
+			"Two input and output type configurable operation",
+			BasicTypeInfo.INT_TYPE_INFO,
+			outputTypeConfigurableOperation);
+
+		DataStream<Integer> result = dataStream.map(i -> i + 1).setParallelism(mapParallelism);
+
+		result.addSink(new DiscardingSink<>());
+
+		StreamGraph graph = env.getStreamGraph();
+
+		// trigger StreamGraph#overwriteDefaultParallelismForNonSourceNode.
+		graph.getJobGraph();
+
+		StreamNode source1Node = graph.getStreamNode(source1.getId());
+		StreamNode source2Node = graph.getStreamNode(source2.getId());
+		StreamNode resultNode = graph.getStreamNode(result.getId());
+
+		assertEquals(source1Node.getParallelism(), source1Parallelism);
+		assertEquals(source2Node.getParallelism(), source2Parallelism);
+		assertEquals(resultNode.getParallelism(), mapParallelism);
+
+		Collection<Integer> sourceIDs = graph.getSourceIDs();
+		for (StreamNode node : graph.getStreamNodes()) {
+			int nodeId = node.getId();
+			if (!sourceIDs.contains(nodeId) && nodeId != result.getId()) {
+				assertEquals(node.getParallelism(), source2Parallelism);
+			}
+		}
+
+	}
+
+	private SourceFunction<Integer> getMockSourceFunction() {
+		return new ParallelSourceFunction<Integer>() {
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			public void run(SourceContext<Integer> ctx) throws Exception {
+			}
+
+			@Override
+			public void cancel() {
+			}
+		};
 	}
 
 	/**

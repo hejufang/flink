@@ -47,7 +47,9 @@ public class DataStreamSource<T> extends SingleOutputStreamOperator<T> {
 			StreamSource<T, ?> operator,
 			boolean isParallel,
 			String sourceName) {
-		super(environment, new LegacySourceTransformation<>(sourceName, operator, outTypeInfo, environment.getParallelism()));
+		super(environment,
+			new LegacySourceTransformation<>(sourceName, operator, outTypeInfo, environment.getParallelism())
+				.setUseDefaultParallelism(true));
 
 		this.isParallel = isParallel;
 		if (!isParallel) {
@@ -77,7 +79,8 @@ public class DataStreamSource<T> extends SingleOutputStreamOperator<T> {
 						sourceName,
 						new SourceOperatorFactory<>(source, timestampsAndWatermarks),
 						outTypeInfo,
-						environment.getParallelism()));
+						environment.getParallelism())
+					.setUseDefaultParallelism(true));
 	}
 
 	@Override
