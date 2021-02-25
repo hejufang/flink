@@ -85,6 +85,70 @@ class OverWindowITCase(mode: StateBackendMode) extends StreamingWithStateTestBas
   }
 
   @Test
+  def testLagOverAggregate(): Unit = {
+    val t = env.fromCollection(data).toTable(tEnv, 'a, 'b, 'c, 'proctime.proctime)
+    tEnv.registerTable("MyTable", t)
+
+    val sqlQuery = "SELECT c, " +
+      "  LAG(b) OVER (" +
+      "    PARTITION BY c ORDER BY proctime) " +
+      "FROM MyTable"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sqlQuery).toAppendStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = List(
+      "Hello,null",
+      "Hello,1",
+      "Hello,2",
+      "Hello,3",
+      "Hello,4",
+      "Hello,5",
+      "Hello World,null",
+      "Hello World,7",
+      "Hello World,8"
+    )
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
+  }
+
+  @Test
+  def testLagWithOffset(): Unit = {
+    expectedException.expect(classOf[TableException])
+    expectedException.expectMessage("lag cannot be used with offset argument for now.")
+
+    val t = env.fromCollection(data).toTable(tEnv, 'a, 'b, 'c, 'proctime.proctime)
+    tEnv.registerTable("MyTable", t)
+
+    val sqlQuery = "SELECT c, " +
+      "  LAG(b, 2) OVER (" +
+      "    PARTITION BY c ORDER BY proctime) " +
+      "FROM MyTable"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sqlQuery).toAppendStream[Row].addSink(sink)
+    env.execute()
+  }
+
+  @Test
+  def testLeadOverAggregate(): Unit = {
+    expectedException.expect(classOf[TableException])
+    expectedException.expectMessage("lead cannot be used in streaming mode for now.")
+
+    val t = env.fromCollection(data).toTable(tEnv, 'a, 'b, 'c, 'proctime.proctime)
+    tEnv.registerTable("MyTable", t)
+
+    val sqlQuery = "SELECT c, " +
+      "  LEAD(b) OVER (" +
+      "    PARTITION BY c ORDER BY proctime) " +
+      "FROM MyTable"
+
+    val sink = new TestingAppendSink
+    tEnv.sqlQuery(sqlQuery).toAppendStream[Row].addSink(sink)
+    env.execute()
+  }
+
+  @Test
   def testProcTimeBoundedPartitionedRowsOverWithBulitinProctime(): Unit = {
     val t = failingDataSource(TestData.tupleData5).toTable(tEnv, 'a, 'b, 'c, 'd, 'e)
     tEnv.registerTable("MyTable", t)

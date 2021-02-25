@@ -59,7 +59,8 @@ import scala.collection.JavaConversions._
 class AggFunctionFactory(
     inputType: RelDataType,
     orderKeyIdx: Array[Int],
-    needRetraction: Array[Boolean]) {
+    needRetraction: Array[Boolean],
+    isStreaming: Boolean) {
 
   /**
     * The entry point to create an aggregate function from the given AggregateCall
@@ -103,7 +104,11 @@ class AggFunctionFactory(
         createDenseRankAggFunction(argTypes)
 
       case _: SqlLeadLagAggFunction =>
-        createLeadLagAggFunction(argTypes, index)
+        if (isStreaming) {
+          createStreamLag1AggFunction(argTypes)
+        } else {
+          createLeadLagAggFunction(argTypes, index)
+        }
 
       case _: SqlSingleValueAggFunction =>
         createSingleValueAggFunction(argTypes)
@@ -389,6 +394,41 @@ class AggFunctionFactory(
       case t =>
         throw new TableException(s"LeadLag aggregate function does not support type: ''$t''.\n" +
             s"Please re-check the data type.")
+    }
+  }
+
+  private def createStreamLag1AggFunction(argTypes: Array[LogicalType]): UserDefinedFunction = {
+    argTypes(0).getTypeRoot match {
+      case TINYINT =>
+        new DeclarativeLag1AggFunction.ByteDeclarativeLag1AggFunction
+      case SMALLINT =>
+        new DeclarativeLag1AggFunction.CharDeclarativeLag1AggFunction
+      case INTEGER =>
+        new DeclarativeLag1AggFunction.IntDeclarativeLag1AggFunction
+      case BIGINT =>
+        new DeclarativeLag1AggFunction.LongDeclarativeLag1AggFunction
+      case FLOAT =>
+        new DeclarativeLag1AggFunction.FloatDeclarativeLag1AggFunction
+      case DOUBLE =>
+        new DeclarativeLag1AggFunction.DoubleDeclarativeLag1AggFunction
+      case BOOLEAN =>
+        new DeclarativeLag1AggFunction.BooleanDeclarativeLag1AggFunction
+      case VARCHAR =>
+        new DeclarativeLag1AggFunction.StringDeclarativeLag1AggFunction
+      case DATE =>
+        new DeclarativeLag1AggFunction.DateDeclarativeLag1AggFunction
+      case TIME_WITHOUT_TIME_ZONE =>
+        val t = argTypes(0).asInstanceOf[TimeType]
+        new DeclarativeLag1AggFunction.TimeDeclarativeLag1AggFunction(t)
+      case TIMESTAMP_WITHOUT_TIME_ZONE =>
+        val t = argTypes(0).asInstanceOf[TimestampType]
+        new DeclarativeLag1AggFunction.TimestampDeclarativeLag1AggFunction(t)
+      case DECIMAL =>
+        val t = argTypes(0).asInstanceOf[DecimalType]
+        new DeclarativeLag1AggFunction.DecimalDeclarativeLag1AggFunction(t)
+      case t =>
+        throw new TableException(s"LeadLag aggregate function does not support type: ''$t''.\n" +
+          s"Please re-check the data type.")
     }
   }
 

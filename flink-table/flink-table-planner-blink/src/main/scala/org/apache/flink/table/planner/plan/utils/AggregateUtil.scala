@@ -155,7 +155,8 @@ object AggregateUtil extends Enumeration {
       Array.fill(aggregateCalls.size)(false),
       needInputCount = false,
       isStateBackedDataViews = false,
-      needDistinctInfo = false).aggInfos
+      needDistinctInfo = false,
+      isStreaming = false).aggInfos
 
     val map = new util.HashMap[Integer, Integer]()
     var outputIndex = 0
@@ -225,7 +226,8 @@ object AggregateUtil extends Enumeration {
       Array.fill(aggregateCalls.size)(false),
       needInputCount = false,
       isStateBackedDataViews = false,
-      needDistinctInfo = false).aggInfos
+      needDistinctInfo = false,
+      isStreaming = false).aggInfos
 
     val aggFields = aggInfos.map(_.argIndexes)
     val bufferTypes = aggInfos.map(_.externalAccTypes)
@@ -253,7 +255,8 @@ object AggregateUtil extends Enumeration {
       needRetractionArray,
       needInputCount = false,
       isStateBackedDataViews = false,
-      needDistinctInfo = false)
+      needDistinctInfo = false,
+      isStreaming = false)
   }
 
   def transformToStreamAggregateInfoList(
@@ -270,7 +273,8 @@ object AggregateUtil extends Enumeration {
       needRetraction ++ Array(needInputCount), // for additional count(*)
       needInputCount,
       isStateBackendDataViews,
-      needDistinctInfo)
+      needDistinctInfo,
+      isStreaming = true)
   }
 
   /**
@@ -293,7 +297,8 @@ object AggregateUtil extends Enumeration {
       needRetraction: Array[Boolean],
       needInputCount: Boolean,
       isStateBackedDataViews: Boolean,
-      needDistinctInfo: Boolean): AggregateInfoList = {
+      needDistinctInfo: Boolean,
+      isStreaming: Boolean): AggregateInfoList = {
 
     // Step-1:
     // if need inputCount, find count1 in the existed aggregate calls first,
@@ -313,7 +318,7 @@ object AggregateUtil extends Enumeration {
 
     // Step-3:
     // create aggregate information
-    val factory = new AggFunctionFactory(inputRowType, orderKeyIdx, needRetraction)
+    val factory = new AggFunctionFactory(inputRowType, orderKeyIdx, needRetraction, isStreaming)
     val aggInfos = newAggCalls.zipWithIndex.map { case (call, index) =>
       val argIndexes = call.getAggregation match {
         case _: SqlRankFunction => orderKeyIdx

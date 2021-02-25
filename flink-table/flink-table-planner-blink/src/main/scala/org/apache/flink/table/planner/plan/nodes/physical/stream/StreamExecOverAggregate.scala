@@ -43,6 +43,8 @@ import org.apache.calcite.rel.core.{AggregateCall, Window}
 import org.apache.calcite.rel.metadata.RelMetadataQuery
 import org.apache.calcite.rel.{RelNode, RelWriter, SingleRel}
 import org.apache.calcite.rex.RexLiteral
+import org.apache.calcite.sql.SqlKind
+import org.apache.calcite.sql.fun.SqlLeadLagAggFunction
 import org.apache.calcite.tools.RelBuilder
 
 import java.util
@@ -191,6 +193,8 @@ class StreamExecOverAggregate(
 
     val codeGenCtx = CodeGeneratorContext(tableConfig)
     val aggregateCalls = logicWindow.groups.get(0).getAggregateCalls(logicWindow).asScala
+    checkLeadLagFunction(aggregateCalls)
+
     val isRowsClause = overWindow.isRows
     val constants = logicWindow.constants.asScala
     val constantTypes = constants.map(c => FlinkTypeFactory.toLogicalType(c.getType))
@@ -279,6 +283,21 @@ class StreamExecOverAggregate(
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
     ret
+  }
+
+  private def checkLeadLagFunction(aggregateCalls: Seq[AggregateCall]): Unit = {
+    aggregateCalls
+      .foreach { call =>
+        call.getAggregation match {
+          case agg: SqlLeadLagAggFunction =>
+            if (agg.getKind == SqlKind.LEAD) {
+              throw new TableException("lead cannot be used in streaming mode for now.")
+            } else if (call.getArgList.size() > 1) {
+              throw new TableException("lag cannot be used with offset argument for now.")
+            }
+          case _ => // do nothing.
+        }
+      }
   }
 
   /**

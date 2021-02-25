@@ -898,7 +898,10 @@ class FlinkRelMdHandlerTestBase {
 
     val aggCalls = logicalAgg.getAggCallList
     val aggFunctionFactory = new AggFunctionFactory(
-      studentBatchScan.getRowType, Array.empty[Int], Array.fill(aggCalls.size())(false))
+      studentBatchScan.getRowType,
+      Array.empty[Int],
+      Array.fill(aggCalls.size())(false),
+      isStreaming = false)
     val aggCallToAggFunction = aggCalls.zipWithIndex.map {
       case (call, index) => (call, aggFunctionFactory.createAggFunction(call, index))
     }
@@ -1049,7 +1052,10 @@ class FlinkRelMdHandlerTestBase {
       call => call.getAggregation != FlinkSqlOperatorTable.AUXILIARY_GROUP
     }
     val aggFunctionFactory = new AggFunctionFactory(
-      studentBatchScan.getRowType, Array.empty[Int], Array.fill(aggCalls.size())(false))
+      studentBatchScan.getRowType,
+      Array.empty[Int],
+      Array.fill(aggCalls.size())(false),
+      isStreaming = false)
     val aggCallToAggFunction = aggCalls.zipWithIndex.map {
       case (call, index) => (call, aggFunctionFactory.createAggFunction(call, index))
     }
