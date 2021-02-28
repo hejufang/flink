@@ -43,7 +43,7 @@ LogicalProject(EXPR$0=[$1], EXPR$1=[$2], EXPR$2=[$3], EXPR$3=[$4], EXPR$4=[$5], 
 Calc(select=[EXPR$0, EXPR$1, EXPR$2, EXPR$3, EXPR$4, name])
 +- HashAggregate(isMerge=[true], groupBy=[name], select=[name, Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_SUM(sum$2) AS EXPR$2, Final_AVG(sum$3, count$4) AS EXPR$3, Final_COUNT(count1$5) AS EXPR$4])
    +- Exchange(distribution=[hash[name]])
-      +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[true], groupSet=[name], aggregators=[(aggFunc: LongMinAggFunction, argNames: id) (aggFunc: IntMaxAggFunction, argNames: amount) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: price) (aggFunc: Count1AggFunction, argNames: )], producedDataType=[ROW<`name` STRING, `min$0` BIGINT, `max$1` INT, `sum$2` DOUBLE, `sum$3` DOUBLE, `count$4` BIGINT, `count1$5` BIGINT> NOT NULL]]]], fields=[name, min$0, max$1, sum$2, sum$3, count$4, count1$5])
+      +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[true], groupSet=[name], aggregators=[(aggFunc: LongMinAggFunction, argNames: id) (aggFunc: IntMaxAggFunction, argNames: amount) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: DoubleSum0AggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: price) (aggFunc: Count1AggFunction, argNames: )], producedDataType=[ROW<`name` STRING, `min$0` BIGINT, `max$1` INT, `sum$2` DOUBLE, `sum$3` DOUBLE, `count$4` BIGINT, `count1$5` BIGINT> NOT NULL]]]], fields=[name, min$0, max$1, sum$2, sum$3, count$4, count1$5])
 ]]>
     </Resource>
   </TestCase>
@@ -71,7 +71,7 @@ LogicalAggregate(group=[{}], EXPR$0=[MIN($0)], EXPR$1=[MAX($1)], EXPR$2=[MAX($2)
       <![CDATA[
 SortAggregate(isMerge=[true], select=[Final_MIN(min$0) AS EXPR$0, Final_MAX(max$1) AS EXPR$1, Final_MAX(max$2) AS EXPR$2, Final_SUM(sum$3) AS EXPR$3, Final_AVG(sum$4, count$5) AS EXPR$4, Final_COUNT(count$6) AS EXPR$5])
 +- Exchange(distribution=[single])
-   +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[true], groupSet=[], aggregators=[(aggFunc: LongMinAggFunction, argNames: id) (aggFunc: IntMaxAggFunction, argNames: amount) (aggFunc: StringMaxAggFunction, argNames: name) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: id)], producedDataType=[ROW<`min$0` BIGINT, `max$1` INT, `max$2` STRING, `sum$3` DOUBLE, `sum$4` DOUBLE, `count$5` BIGINT, `count$6` BIGINT> NOT NULL]]]], fields=[min$0, max$1, max$2, sum$3, sum$4, count$5, count$6])
+   +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [aggregatePushedDown=[true], groupSet=[], aggregators=[(aggFunc: LongMinAggFunction, argNames: id) (aggFunc: IntMaxAggFunction, argNames: amount) (aggFunc: StringMaxAggFunction, argNames: name) (aggFunc: DoubleSumAggFunction, argNames: price) (aggFunc: DoubleSum0AggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: price) (aggFunc: CountAggFunction, argNames: id)], producedDataType=[ROW<`min$0` BIGINT, `max$1` INT, `max$2` STRING, `sum$3` DOUBLE, `sum$4` DOUBLE, `count$5` BIGINT, `count$6` BIGINT> NOT NULL]]]], fields=[min$0, max$1, max$2, sum$3, sum$4, count$5, count$6])
 ]]>
     </Resource>
   </TestCase>
