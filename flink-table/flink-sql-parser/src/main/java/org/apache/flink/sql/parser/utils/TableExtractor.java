@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlSnapshot;
+import org.apache.calcite.sql.SqlTableRef;
 import org.apache.calcite.sql.SqlWith;
 import org.apache.calcite.sql.SqlWithItem;
 import org.slf4j.Logger;
@@ -98,10 +99,11 @@ public class TableExtractor {
 				break;
 			case INSERT:
 				SqlInsert sqlInsert = (SqlInsert) sqlNode;
-				SqlIdentifier sqlIdentifier = (SqlIdentifier) sqlInsert.getTargetTable();
+				SqlNode targetTable = sqlInsert.getTargetTable();
+				String tableName = extractTableNameFromSqlTableRefOrSqlIdentifier(targetTable);
 				sourceAndDimensionTables =
 					extractSourceAndDimensionTables(sqlInsert.getSource(), false, context);
-				sinkTables = Collections.singleton(sqlIdentifier.toString());
+				sinkTables = Collections.singleton(tableName);
 				break;
 			default:
 				// ignore other kind of SqlNode.
@@ -177,17 +179,9 @@ public class TableExtractor {
 				SqlCall sqlCall = (SqlCall) sqlNode;
 				return extractSourceAndDimensionTables(sqlCall.operand(0), fromOrJoin, context);
 			case IDENTIFIER:
-				SqlIdentifier sqlIdentifier = (SqlIdentifier) sqlNode;
-				String tableName = sqlIdentifier.toString();
-				tableName = context.likeSourceTablePairs.getOrDefault(tableName, tableName);
-				if (fromOrJoin && isRealTable(tableName, context)) {
-					// Only sqlIdentifier after in from or join is name of a table or view.
-					// and we has already handle tables in view when parse SqlCreateView,
-					// so we could just ignore it here.
-					return Collections.singleton(tableName);
-				} else {
-					return Collections.emptySet();
-				}
+			case TABLE_REF:
+				String tableName = extractTableNameFromSqlTableRefOrSqlIdentifier(sqlNode);
+				return extractSourceAndDimensionTablesFromCandidate(tableName, context, fromOrJoin);
 			case SNAPSHOT:
 				// dimension table
 				SqlSnapshot sqlSnapshot = (SqlSnapshot) sqlNode;
@@ -230,6 +224,32 @@ public class TableExtractor {
 					LOG.debug("Ignore this SqlNode. sqlKind = {}, sqlNode = {}.", sqlKind, sqlNode);
 					return Collections.emptySet();
 				}
+		}
+	}
+
+	private static Set<String> extractSourceAndDimensionTablesFromCandidate(
+			String tableName,
+			Context context,
+			boolean fromOrJoin) {
+		tableName = context.likeSourceTablePairs.getOrDefault(tableName, tableName);
+		if (fromOrJoin && isRealTable(tableName, context)) {
+			// Only sqlIdentifier after in from or join is name of a table or view.
+			// and we has already handle tables in view when parse SqlCreateView,
+			// so we could just ignore it here.
+			return Collections.singleton(tableName);
+		} else {
+			return Collections.emptySet();
+		}
+	}
+
+	private static String extractTableNameFromSqlTableRefOrSqlIdentifier(SqlNode sqlNode) {
+		if (sqlNode instanceof SqlTableRef) {
+			return ((SqlTableRef) sqlNode).operand(0).toString();
+		} else if (sqlNode instanceof SqlIdentifier) {
+			return sqlNode.toString();
+		} else {
+			throw new RuntimeException(
+				"Unexpected SqlNode, supported SqlNodes are: SqlTableRef, SqlIdentifier");
 		}
 	}
 

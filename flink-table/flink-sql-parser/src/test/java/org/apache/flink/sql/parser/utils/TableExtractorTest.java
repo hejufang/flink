@@ -60,6 +60,20 @@ public class TableExtractorTest {
 	}
 
 	@Test
+	public void testExtractTablesWithOptions() {
+		String sql = "insert into sink1 /*+ OPTIONS('parallelism'='10') */ " +
+			" select * from source1 /*+ OPTIONS('scan.startup.mode'='earliest-offset') */" +
+			" left join dim_table /*+ OPTIONS('lookup.cache.max-rows'='100') */ FOR SYSTEM_TIME" +
+			" AS OF source.proc on source.article_id = D.id";
+		TableExtractor.ExtractResult expectedResult =
+			new TableExtractor.ExtractResult(
+				Collections.singleton("source1"),
+				Collections.singleton("sink1"),
+				Collections.singleton("dim_table"));
+		extractTables(sql, expectedResult);
+	}
+
+	@Test
 	public void testExtractTablesInViews() {
 		String sql = "create view view1 as select * from source1; \n" +
 			"insert into sink1 select * from view1";
