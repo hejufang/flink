@@ -101,12 +101,20 @@ under the License.
 											<shadedPattern>org.apache.flink.connector.metrics.shaded.io.dropwizard.metrics</shadedPattern>
 										</relocation>
 										<relocation>
-											<pattern>com.google.guava</pattern>
-											<shadedPattern>org.apache.flink.connector.metrics.shaded.com.google.guava</shadedPattern>
+											<pattern>com.google.common</pattern>
+											<shadedPattern>org.apache.flink.connector.metrics.shaded.com.google.common</shadedPattern>
 										</relocation>
 										<relocation>
-											<pattern>com.squareup.okhttp3</pattern>
-											<shadedPattern>org.apache.flink.connector.metrics.shaded.com.squareup.okhttp3</shadedPattern>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>org.apache.flink.connector.metrics.shaded.okhttp3</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>org.apache.flink.connector.metrics.shaded.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.codahale.metrics</pattern>
+											<shadedPattern>org.apache.flink.connector.metrics.shaded.com.codahale.metrics</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.sun.xml.bind</pattern>
