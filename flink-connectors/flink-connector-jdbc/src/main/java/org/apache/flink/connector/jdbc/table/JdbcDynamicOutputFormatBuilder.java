@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
 import org.apache.flink.connector.jdbc.JdbcStatementBuilder;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
+import org.apache.flink.connector.jdbc.dialect.MySQLDialect;
 import org.apache.flink.connector.jdbc.internal.JdbcBatchingOutputFormat;
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
@@ -103,9 +104,20 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 				JdbcBatchingOutputFormat.RecordExtractor.identity());
 		} else {
 			// append only query
-			final String sql = dmlOptions
-				.getDialect()
-				.getInsertIntoStatement(dmlOptions.getTableName(), dmlOptions.getFieldNames());
+			final String sql;
+			final JdbcDialect dialect = dmlOptions.getDialect();
+			if (dialect instanceof MySQLDialect) {
+				// Mysql's upsert statement does not need key fields,
+				// hence we use upsert statement in append mode by default.
+				//noinspection OptionalGetWithoutIsPresent
+				sql = dialect.getUpsertStatement(
+					dmlOptions.getTableName(),
+					dmlOptions.getFieldNames(),
+					new String[]{}).get();
+			} else {
+				sql = dialect.getInsertIntoStatement(dmlOptions.getTableName(), dmlOptions.getFieldNames());
+			}
+
 			return new JdbcBatchingOutputFormat<>(
 				new SimpleJdbcConnectionProvider(jdbcOptions),
 				executionOptions,
