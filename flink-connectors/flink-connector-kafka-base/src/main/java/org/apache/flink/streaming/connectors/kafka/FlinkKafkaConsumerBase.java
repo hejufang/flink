@@ -63,6 +63,7 @@ import org.apache.flink.streaming.runtime.operators.util.AssignerWithPunctuatedW
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.RetryManager;
 import org.apache.flink.util.SerializedValue;
 
 import org.apache.commons.collections.map.LinkedMap;
@@ -127,6 +128,10 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	/** Configuration key to define the consumer's partition discovery interval, in milliseconds. */
 	public static final String KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS = "flink.partition-discovery.interval-millis";
+
+	private static final int RETRY_TIMES = 3;
+
+	private static final int RETRY_INTERVAL_MS = 200;
 
 	/** State name of the consumer's partition offset states. */
 	private static final String OFFSETS_STATE_NAME = "topic-partition-offset-states";
@@ -604,6 +609,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				getRuntimeContext().getNumberOfParallelSubtasks());
 		this.partitionDiscoverer.open();
 
+		RetryManager.Strategy retryStrategy = RetryManager.createStrategy("FIXED_DELAY", RETRY_TIMES, RETRY_INTERVAL_MS);
 		subscribedPartitionsToStartOffsets = new HashMap<>();
 		final List<KafkaTopicPartition> allPartitions = filterPartitions(partitionDiscoverer.discoverPartitions());
 		if (restoredState != null) {
@@ -672,8 +678,11 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 								", but no startup timestamp was specified.");
 					}
 
+					List<Map<KafkaTopicPartition, Long>> tmpOffsetList = new ArrayList<>();
+					RetryManager.retry(() -> tmpOffsetList.add(fetchOffsetsWithTimestamp(
+						allPartitions, startupOffsetsTimestamp)), retryStrategy);
 					for (Map.Entry<KafkaTopicPartition, Long> partitionToOffset
-							: fetchOffsetsWithTimestamp(allPartitions, startupOffsetsTimestamp).entrySet()) {
+							: tmpOffsetList.get(0).entrySet()) {
 						subscribedPartitionsToStartOffsets.put(
 							partitionToOffset.getKey(),
 							(partitionToOffset.getValue() == null)
@@ -710,8 +719,12 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 						}
 
 						Map<KafkaTopicPartition, Long> offsets;
+						List<Map<KafkaTopicPartition, Long>> tmpOffsetMapList = new ArrayList<>();
 						try {
-							offsets = fetchOffsetsWithStartupMode(allPartitions, startupMode);
+							RetryManager.retry(
+								() -> tmpOffsetMapList.add(fetchOffsetsWithStartupMode(allPartitions, startupMode)),
+								retryStrategy);
+							offsets = tmpOffsetMapList.get(0);
 						} catch (TimeoutException e) {
 							LOG.warn("Could not get the offset of the partitions({}).", allPartitions, e);
 							throw e;
