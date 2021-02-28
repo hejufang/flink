@@ -159,6 +159,10 @@ under the License.
 									<pattern>com.bytedance</pattern>
 									<shadedPattern>org.apache.flink.connectors.hive.shaded.com.bytedance</shadedPattern>
 								</relocation>
+								<relocation>
+									<pattern>com.google.common</pattern>
+									<shadedPattern>org.apache.flink.connectors.hive.shaded.com.google.common</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>
