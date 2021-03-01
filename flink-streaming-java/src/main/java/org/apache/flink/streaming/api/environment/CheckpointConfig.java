@@ -54,8 +54,8 @@ public class CheckpointConfig implements java.io.Serializable {
 	/** The default timeout of a checkpoint attempt: 10 minutes. */
 	public static final long DEFAULT_TIMEOUT = 10 * 60 * 1000;
 
-	/** The default minimum pause to be made between checkpoints: none. */
-	public static final long DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS = 0;
+	/** The default minimum pause to be made between checkpoints: 1 minute. */
+	public static final long DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS = 60 * 1000;
 
 	/** The default limit of concurrently happening checkpoints: one. */
 	public static final int DEFAULT_MAX_CONCURRENT_CHECKPOINTS = 1;
