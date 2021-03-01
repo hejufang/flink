@@ -76,4 +76,45 @@ class TwoStageAggregateTest extends TableTestBase {
     util.verifyPlan("SELECT four, SUM(a) FROM " +
       "(SELECT b, 4 AS four, a FROM MyTable) GROUP BY b, four")
   }
+
+  @Test
+  def testResultUpdatingInputDisabled(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_TWO_STAGE_OPTIMIZATION_RESULT_UPDATING_INPUT_ENABLED,
+      false)
+    val sql =
+      """
+        |WITH table1 AS (
+        |    SELECT min(a) as a, c
+        |    FROM MyTable
+        |    GROUP BY c
+        |)
+        |
+        |SELECT max(a) FROM table1
+        |""".stripMargin
+
+    // Do two-stage optimization for min agg.
+    // Not do two-stage optimization for max agg as the input is result-updating.
+    util.verifyPlan(sql)
+  }
+
+  @Test
+  def testResultUpdatingInputEnabled(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_TWO_STAGE_OPTIMIZATION_RESULT_UPDATING_INPUT_ENABLED,
+      true)
+    val sql =
+      """
+        |WITH table1 AS (
+        |    SELECT min(a) as a, c
+        |    FROM MyTable
+        |    GROUP BY c
+        |)
+        |
+        |SELECT max(a) FROM table1
+        |""".stripMargin
+
+    // Do two-stage optimization for both min&max agg.
+    util.verifyPlan(sql)
+  }
 }

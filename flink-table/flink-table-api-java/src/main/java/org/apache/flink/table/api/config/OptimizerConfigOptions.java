@@ -48,6 +48,16 @@ public class OptimizerConfigOptions {
 				"Note that if aggregate call does not support optimize into two phase, we will still use one stage aggregate.\n" +
 				"ONE_PHASE: Enforce to use one stage aggregate which only has CompleteGlobalAggregate.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_TWO_STAGE_OPTIMIZATION_RESULT_UPDATING_INPUT_ENABLED =
+		key("table.optimizer.two-stage-optimization.result-updating-input-enabled")
+			.defaultValue(false)
+			.withDescription("Whether two stage optimization can handle input node contains" +
+				" UPDATE/DELETE data, there is a bug in this case, so we disable this by default." +
+				" We take `max` function as an example, if the insert value and the corresponding" +
+				" delete value are not divided into the same mini-batch, the local-agg cannot" +
+				" delete the value and will ignore it, so the result will be incorrect.");
+
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
 	public static final ConfigOption<Long> TABLE_OPTIMIZER_BROADCAST_JOIN_THRESHOLD =
 		key("table.optimizer.join.broadcast-threshold")

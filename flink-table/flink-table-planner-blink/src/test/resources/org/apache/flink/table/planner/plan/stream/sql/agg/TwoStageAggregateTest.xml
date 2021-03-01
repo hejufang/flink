@@ -181,4 +181,53 @@ Calc(select=[4 AS four, EXPR$1])
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testResultUpdatingInputDisabled">
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MAX($0)])
++- LogicalProject(a=[$1])
+   +- LogicalAggregate(group=[{0}], a=[MIN($1)])
+      +- LogicalProject(c=[$2], a=[$0])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+GroupAggregate(select=[MAX_RETRACT(a) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- Calc(select=[a])
+      +- GlobalGroupAggregate(groupBy=[c], select=[c, MIN(min$0) AS a])
+         +- Exchange(distribution=[hash[c]])
+            +- LocalGroupAggregate(groupBy=[c], select=[c, MIN(a) AS min$0])
+               +- Calc(select=[c, a])
+                  +- MiniBatchAssigner(interval=[1000ms], mode=[ProcTime])
+                     +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testResultUpdatingInputEnabled">
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalAggregate(group=[{}], EXPR$0=[MAX($0)])
++- LogicalProject(a=[$1])
+   +- LogicalAggregate(group=[{0}], a=[MIN($1)])
+      +- LogicalProject(c=[$2], a=[$0])
+         +- LogicalTableScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+GlobalGroupAggregate(select=[MAX_RETRACT(max$0) AS EXPR$0])
++- Exchange(distribution=[single])
+   +- LocalGroupAggregate(select=[MAX_RETRACT(a) AS max$0, COUNT_RETRACT(*) AS count1$1])
+      +- Calc(select=[a])
+         +- GlobalGroupAggregate(groupBy=[c], select=[c, MIN(min$0) AS a])
+            +- Exchange(distribution=[hash[c]])
+               +- LocalGroupAggregate(groupBy=[c], select=[c, MIN(a) AS min$0])
+                  +- Calc(select=[c, a])
+                     +- MiniBatchAssigner(interval=[1000ms], mode=[ProcTime])
+                        +- LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source: [TestTableSource(a, b, c)]]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
 </Root>

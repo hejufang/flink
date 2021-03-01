@@ -19,6 +19,7 @@
 package org.apache.flink.table.planner.plan.rules.physical.stream
 
 import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.plan.`trait`.{FlinkRelDistribution, FlinkRelDistributionTraitDef, ModifyKindSetTrait, UpdateKindTrait}
 import org.apache.flink.table.planner.plan.metadata.FlinkRelMetadataQuery
@@ -28,6 +29,7 @@ import org.apache.flink.table.planner.plan.rules.physical.FlinkExpandConversionR
 import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, AggregateUtil, ChangelogPlanUtils}
 import org.apache.flink.table.planner.utils.AggregatePhaseStrategy
 import org.apache.flink.table.planner.utils.TableConfigUtils.getAggPhaseStrategy
+
 import org.apache.calcite.plan.RelOptRule.{any, operand}
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
 import org.apache.calcite.rel.RelNode
@@ -63,6 +65,16 @@ class TwoStageOptimizedAggregateRule extends RelOptRule(
 
     val needRetraction = !ChangelogPlanUtils.isInsertOnly(
       realInput.asInstanceOf[StreamPhysicalRel])
+    val resultUpdatingInputEnabled = tableConfig.getConfiguration.getBoolean(
+      OptimizerConfigOptions.TABLE_OPTIMIZER_TWO_STAGE_OPTIMIZATION_RESULT_UPDATING_INPUT_ENABLED)
+    if (needRetraction && !resultUpdatingInputEnabled) {
+      // We disable two stage optimization when input node contains
+      // UPDATE/DELETE data as there is a bug. We take `max` function as an example, if the
+      // insert value and the corresponding delete value are not divided into the same mini-batch,
+      // the local-agg cannot delete the value and will ignore it, so the result will be incorrect.
+      return false
+    }
+
     val fmq = FlinkRelMetadataQuery.reuseOrCreate(call.getMetadataQuery)
     val monotonicity = fmq.getRelModifiedMonotonicity(agg)
     val needRetractionArray = AggregateUtil.getNeedRetractions(
