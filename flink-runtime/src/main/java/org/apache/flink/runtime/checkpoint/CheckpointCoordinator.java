@@ -1433,9 +1433,19 @@ public class CheckpointCoordinator {
 		final Map<JobVertexID, ExecutionJobVertex> mappings = new HashMap<>();
 		tasks.forEach(ejv -> mappings.put(ejv.getJobVertexId(), ejv));
 
+		int onRetrievingCheckpointsIdx = 0;
 		if (findCheckpointInCheckpointStore && userClassLoader != null) {
-			for (String completedCheckpointPointer : checkpointStorage.findCompletedCheckpointPointer()) {
+			List<String> completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointer();
+			for (String completedCheckpointPointer : completedCheckpointPointersOnStorage) {
 				try {
+					if (result.size() >= completedCheckpointStore.getMaxNumberOfRetainedCheckpoints()) {
+						int numCheckpointsOnStorage = completedCheckpointPointersOnStorage.size();
+						LOG.info("HDFS has loaded {} completed checkpoints, skip checkpoints {}",
+							result.size(), completedCheckpointPointersOnStorage.subList(onRetrievingCheckpointsIdx, numCheckpointsOnStorage));
+						break;
+					} else {
+						onRetrievingCheckpointsIdx++;
+					}
 					final CompletedCheckpointStorageLocation checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer);
 					final CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
 							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState);
