@@ -205,6 +205,8 @@ public class CheckpointCoordinator {
 
 	private final CheckpointHandler checkpointHandler;
 
+	private final boolean aggregateUnionState;
+
 	// --------------------------------------------------------------------------------------------
 
 	@VisibleForTesting
@@ -318,6 +320,7 @@ public class CheckpointCoordinator {
 		this.clock = checkNotNull(clock);
 		this.isExactlyOnceMode = chkConfig.isExactlyOnce();
 		this.unalignedCheckpointsEnabled = chkConfig.isUnalignedCheckpointsEnabled();
+		this.aggregateUnionState = chkConfig.isAggregateUnionState();
 
 		this.recentPendingCheckpoints = new ArrayDeque<>(NUM_GHOST_CHECKPOINT_IDS);
 		this.masterHooks = new HashMap<>();
@@ -1381,8 +1384,10 @@ public class CheckpointCoordinator {
 			// re-assign the task states
 			final Map<OperatorID, OperatorState> operatorStates = latest.getOperatorStates();
 
+			UnionStateAggregator unionStateAggregator = aggregateUnionState ?
+				new FileUnionStateAggregator(latest.getExternalPointer()) : new NonUnionStateAggregator();
 			StateAssignmentOperation stateAssignmentOperation =
-					new StateAssignmentOperation(latest.getCheckpointID(), tasks, operatorStates, allowNonRestoredState);
+					new StateAssignmentOperation(latest.getCheckpointID(), tasks, operatorStates, allowNonRestoredState, unionStateAggregator);
 
 			stateAssignmentOperation.assignStates();
 

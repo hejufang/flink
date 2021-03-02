@@ -43,7 +43,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * Implementation of operator state restore operation.
@@ -83,6 +85,12 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 		if (stateHandles.isEmpty()) {
 			return null;
 		}
+
+		int fragments = stateHandles.stream()
+			.flatMap((Function<OperatorStateHandle, Stream<OperatorStateHandle.StateMetaInfo>>) stateHandle -> stateHandle.getStateNameToPartitionOffsets().values().stream())
+			.mapToInt(stateMeta -> stateMeta.getOffsets().length)
+			.sum();
+		LOG.info("A total of {} OperatorStateHandles were received, including a total of {} fragments.", stateHandles.size(), fragments);
 
 		if (restoreThreads == 1) {
 			// fallback to single thread restore

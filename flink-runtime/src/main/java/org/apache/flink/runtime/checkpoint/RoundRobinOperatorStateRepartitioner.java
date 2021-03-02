@@ -23,6 +23,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -57,6 +59,20 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			List<List<OperatorStateHandle>> previousParallelSubtaskStates,
 			int oldParallelism,
 			int newParallelism) {
+
+		return repartitionState(
+			previousParallelSubtaskStates,
+			oldParallelism,
+			newParallelism,
+			new NonUnionStateAggregator());
+	}
+
+	@Override
+	public List<List<OperatorStateHandle>> repartitionState(
+			List<List<OperatorStateHandle>> previousParallelSubtaskStates,
+			int oldParallelism,
+			int newParallelism,
+			UnionStateAggregator unionStateAggregator) {
 
 		Preconditions.checkNotNull(previousParallelSubtaskStates);
 		Preconditions.checkArgument(newParallelism > 0);
@@ -85,6 +101,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 			// Initialize
 			mergeMapList = initMergeMapList(previousParallelSubtaskStates);
 
+			unionStates = unionStateAggregator.aggregateAllUnionStates(unionStates);
 			fastRepartitionUnionState(unionStates, mergeMapList);
 		} else {
 
@@ -97,7 +114,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 
 			// Do the actual repartitioning for all named states
 			mergeMapList =
-				repartition(nameToStateByMode, newParallelism);
+				repartition(nameToStateByMode, newParallelism, unionStateAggregator);
 		}
 
 		for (int i = 0; i < mergeMapList.size(); ++i) {
@@ -118,6 +135,25 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 
 		for (List<OperatorStateHandle> previousParallelSubtaskState : parallelSubtaskStates) {
 			mergeMapList.add(previousParallelSubtaskState.stream()
+				.map(operatorStateHandle -> {
+					if (operatorStateHandle.getDelegateStateHandle() instanceof ByteStreamStateHandle) {
+						boolean containUnionState = operatorStateHandle.getStateNameToPartitionOffsets()
+							.entrySet()
+							.stream()
+							.anyMatch(entry -> entry.getValue().getDistributionMode().equals(OperatorStateHandle.Mode.UNION));
+
+						if (containUnionState) {
+							Map<String, OperatorStateHandle.StateMetaInfo> stateNameToPartitionOffsets = operatorStateHandle.getStateNameToPartitionOffsets()
+								.entrySet()
+								.stream()
+								.filter(entry -> !entry.getValue().getDistributionMode().equals(OperatorStateHandle.Mode.UNION))
+								.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+							return stateNameToPartitionOffsets.isEmpty() ? null : new OperatorStreamStateHandle(stateNameToPartitionOffsets, operatorStateHandle.getDelegateStateHandle());
+						}
+					}
+					return operatorStateHandle;
+				})
+				.filter(Objects::nonNull)
 				.collect(Collectors.toMap(OperatorStateHandle::getDelegateStateHandle, Function.identity())));
 		}
 
@@ -208,7 +244,8 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 	 */
 	private List<Map<StreamStateHandle, OperatorStateHandle>> repartition(
 			GroupByStateNameResults nameToStateByMode,
-			int newParallelism) {
+			int newParallelism,
+			UnionStateAggregator unionStateAggregator) {
 
 		// We will use this to merge w.r.t. StreamStateHandles for each parallel subtask inside the maps
 		List<Map<StreamStateHandle, OperatorStateHandle>> mergeMapList = new ArrayList<>(newParallelism);
@@ -228,6 +265,7 @@ public class RoundRobinOperatorStateRepartitioner implements OperatorStateRepart
 		Map<String, List<Tuple2<StreamStateHandle, OperatorStateHandle.StateMetaInfo>>> nameToUnionState =
 				nameToStateByMode.getByMode(OperatorStateHandle.Mode.UNION);
 
+		nameToUnionState = unionStateAggregator.aggregateAllUnionStates(nameToUnionState);
 		if (nameToStateByMode.getByMode(OperatorStateHandle.Mode.BROADCAST).isEmpty()) {
 			// we can use the fast repartition if we don't have broadcast state
 			fastRepartitionUnionState(nameToUnionState, mergeMapList);

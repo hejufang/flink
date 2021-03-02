@@ -406,6 +406,9 @@ public class ExecutionGraphBuilder {
 					origin.isUnalignedCheckpointsEnabled());
 			}
 
+			final boolean aggregateUnionState = jobManagerConfig.getBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED);
+			chkConfig.setAggregateUnionState(aggregateUnionState);
+
 			executionGraph.enableCheckpointing(
 				chkConfig,
 				triggerVertices,

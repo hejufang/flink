@@ -67,6 +67,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	private final boolean isUnalignedCheckpointsEnabled;
 
+	private boolean aggregateUnionState;
+
 	/**
 	 * @deprecated use {@link #builder()}.
 	 */
@@ -168,6 +170,14 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		return checkpointSchedulerConfiguration;
 	}
 
+	public boolean isAggregateUnionState() {
+		return aggregateUnionState;
+	}
+
+	public void setAggregateUnionState(boolean aggregateUnionState) {
+		this.aggregateUnionState = aggregateUnionState;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -186,7 +196,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			checkpointRetentionPolicy == that.checkpointRetentionPolicy &&
 			Objects.equals(checkpointSchedulerConfiguration, that.checkpointSchedulerConfiguration) &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
-			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber;
+			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber &&
+			aggregateUnionState == that.aggregateUnionState;
 	}
 
 	@Override
@@ -201,7 +212,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isUnalignedCheckpointsEnabled,
 				isPreferCheckpointForRecovery,
 				checkpointSchedulerConfiguration,
-				tolerableCheckpointFailureNumber);
+				tolerableCheckpointFailureNumber,
+				aggregateUnionState);
 	}
 
 	@Override
@@ -216,6 +228,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			", isUnalignedCheckpoint=" + isUnalignedCheckpointsEnabled +
 			", isPreferCheckpointForRecovery=" + isPreferCheckpointForRecovery +
 			", tolerableCheckpointFailureNumber=" + tolerableCheckpointFailureNumber +
+			", aggregateUnionState=" + aggregateUnionState +
 			'}';
 	}
 

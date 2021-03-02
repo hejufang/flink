@@ -41,4 +41,22 @@ public interface OperatorStateRepartitioner<T> {
 			List<List<T>> previousParallelSubtaskStates,
 			int oldParallelism,
 			int newParallelism);
+
+	/**
+	 * @param previousParallelSubtaskStates List with one entry of state handles per parallel subtask of an operator, as they
+	 *                                      have been checkpointed.
+	 * @param oldParallelism               	The parallelism before we start redistribution.
+	 * @param newParallelism                The parallelism that we consider for the state redistribution. Determines the size of the
+	 *                                      returned list.
+	 * @param unionStateAggregator			The aggregator used to aggregate the unionState.
+	 * @return List with one entry per parallel subtask. Each subtask receives now one collection of states that build
+	 * of the new total state for this subtask.
+	 */
+	default List<List<T>> repartitionState(
+			List<List<T>> previousParallelSubtaskStates,
+			int oldParallelism,
+			int newParallelism,
+			UnionStateAggregator unionStateAggregator) {
+		return repartitionState(previousParallelSubtaskStates, oldParallelism, newParallelism);
+	}
 }
