@@ -705,7 +705,7 @@ public final class Utils {
 		}
 
 		String rocketMQBrokerQueueList = env.get(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
-		if (rocketMQBrokerQueueList != null && rocketMQBrokerQueueList.isEmpty()) {
+		if (rocketMQBrokerQueueList != null && !rocketMQBrokerQueueList.isEmpty()) {
 			containerEnv.put(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, rocketMQBrokerQueueList);
 			LOG.info("Set {} in container environment = {}",
 				ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, rocketMQBrokerQueueList);
