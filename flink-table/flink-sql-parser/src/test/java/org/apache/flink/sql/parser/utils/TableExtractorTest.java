@@ -98,13 +98,14 @@ public class TableExtractorTest {
 	}
 
 	@Test
-	public void testExtractTablesInCreateTable() {
+	public void testExtractTablesWithLikeTable() {
 		String sql = "create table source (a int) with ('connector'='test');" +
-			"create table like1 like source;" +
-			"create table like2 like like1;";
+			"create table like1 with('parallelism'='10') like source ;" +
+			"create table like2 with('connector'='rocketmq') like like1;" +
+			"select * from like1 left join like2 on like1.id = like2.id";
 		TableExtractor.ExtractResult expectedResult =
 			new TableExtractor.ExtractResult(
-				Collections.singleton("source"),
+				new HashSet<>(Arrays.asList("like1", "like2")),
 				Collections.emptySet(),
 				Collections.emptySet());
 		extractTables(sql, expectedResult);
@@ -119,7 +120,7 @@ public class TableExtractorTest {
 			new TableExtractor.ExtractResult(
 				Collections.singleton("source"),
 				Collections.emptySet(),
-				Collections.singleton("dim_table"));
+				Collections.singleton("like_table"));
 		extractTables(sql, expectedResult);
 	}
 

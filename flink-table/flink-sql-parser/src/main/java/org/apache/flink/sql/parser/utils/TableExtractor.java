@@ -18,7 +18,6 @@
 
 package org.apache.flink.sql.parser.utils;
 
-import org.apache.flink.sql.parser.ddl.SqlCreateTable;
 import org.apache.flink.sql.parser.ddl.SqlCreateView;
 
 import org.apache.calcite.sql.SqlCall;
@@ -37,10 +36,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -186,31 +183,13 @@ public class TableExtractor {
 				// dimension table
 				SqlSnapshot sqlSnapshot = (SqlSnapshot) sqlNode;
 				return extractSourceAndDimensionTables(sqlSnapshot.getTableRef(), true, context).stream()
-					.map(t -> {
-						String realTableName = context.getLikeSourceTablePairs().getOrDefault(t, t);
-						context.getAllDimensionTableNames().add(realTableName);
-						return realTableName;
-					})
+					.peek(t -> context.getAllDimensionTableNames().add(t))
 					.collect(Collectors.toSet());
 
 			case CREATE_VIEW:
 				SqlCreateView sqlCreateView = (SqlCreateView) sqlNode;
 				context.getAllViewNames().add(sqlCreateView.getViewName().toString());
 				return extractSourceAndDimensionTables(sqlCreateView.getQuery(), false, context);
-			case CREATE_TABLE:
-				Set<String> sourceTables = new HashSet<>();
-				SqlCreateTable sqlCreateTable = (SqlCreateTable) sqlNode;
-				// We ignore the created table here, as we cannot tell whether it is a source or sink table.
-				sqlCreateTable.getTableLike()
-					.ifPresent(linkTable -> {
-						String likeTable = sqlCreateTable.getTableName().toString();
-						String sourceTable = linkTable.getSourceTable().toString();
-						context.addLikeSourceTablePair(likeTable, sourceTable);
-						if (isRealTable(sourceTable, context)) {
-							sourceTables.add(linkTable.getSourceTable().toString());
-						}
-					});
-				return sourceTables;
 			default:
 				if (sqlNode instanceof SqlCall) {
 					SqlCall sqlCall1 = (SqlCall) sqlNode;
@@ -231,7 +210,6 @@ public class TableExtractor {
 			String tableName,
 			Context context,
 			boolean fromOrJoin) {
-		tableName = context.likeSourceTablePairs.getOrDefault(tableName, tableName);
 		if (fromOrJoin && isRealTable(tableName, context)) {
 			// Only sqlIdentifier after in from or join is name of a table or view.
 			// and we has already handle tables in view when parse SqlCreateView,
@@ -255,7 +233,6 @@ public class TableExtractor {
 
 	private static boolean isRealTable(String tableName, Context context) {
 		return (!context.getAllViewNames().contains(tableName))
-			&& (!context.getLikeSourceTablePairs().containsKey(tableName))
 			&& (!context.getAllWithTableNames().contains(tableName));
 	}
 
@@ -328,8 +305,6 @@ public class TableExtractor {
 		private final Set<String> allWithTableNames = new HashSet<>();
 		// save name of all dimension tables.
 		private final Set<String> allDimensionTableNames = new HashSet<>();
-		// map that contains like -> source table pairs.
-		private final Map<String, String> likeSourceTablePairs = new HashMap<>();
 
 		public Set<String> getAllViewNames() {
 			return allViewNames;
@@ -339,18 +314,8 @@ public class TableExtractor {
 			return allWithTableNames;
 		}
 
-		public Map<String, String> getLikeSourceTablePairs() {
-			return likeSourceTablePairs;
-		}
-
 		public Set<String> getAllDimensionTableNames() {
 			return allDimensionTableNames;
-		}
-
-		public void addLikeSourceTablePair(String likeTable, String sourceTable) {
-			String transitiveTable = likeSourceTablePairs.get(sourceTable);
-			String realSourceTable = transitiveTable == null ? sourceTable : transitiveTable;
-			likeSourceTablePairs.put(likeTable, realSourceTable);
 		}
 
 		@Override
@@ -358,7 +323,6 @@ public class TableExtractor {
 			return "Context{" +
 				"allViewNames=" + allViewNames +
 				", allWithTableNames=" + allWithTableNames +
-				", likeSourceTablePairs=" + likeSourceTablePairs +
 				'}';
 		}
 	}
