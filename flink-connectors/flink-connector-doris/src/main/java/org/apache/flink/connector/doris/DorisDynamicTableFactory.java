@@ -121,6 +121,12 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		.defaultValue("\\x01")
 		.withDescription("Optional. It defines separator for csv format.");
 
+	private static final ConfigOption<String> SEQUENCE_COLUMN = ConfigOptions
+		.key("sequence-column")
+		.stringType()
+		.noDefaultValue()
+		.withDescription("Optional. It defines sequence-column config in doris client.");
+
 	private static final ConfigOption<Integer> MAX_BYTES_PER_BATCH = ConfigOptions
 		.key("max-bytes-per-batch")
 		.intType()
@@ -209,6 +215,7 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		set.add(MAX_RETRY_NUM);
 		set.add(FE_UPDATE_INTERVAL_MS);
 		set.add(PARALLELISM);
+		set.add(SEQUENCE_COLUMN);
 		return set;
 	}
 
@@ -241,6 +248,7 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		dorisOptions.setMaxRetryNum(readableConfig.get(MAX_RETRY_NUM));
 		dorisOptions.setFeUpdateIntervalMs(readableConfig.get(FE_UPDATE_INTERVAL_MS));
 		dorisOptions.setParallelism(readableConfig.get(PARALLELISM));
+		readableConfig.getOptional(SEQUENCE_COLUMN).ifPresent(dorisOptions::setSequenceColumn);
 
 		return dorisOptions.build();
 	}

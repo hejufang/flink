@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-doris</artifactId>
 
 	<properties>
-		<doris.version>1.0.7</doris.version>
+		<doris.version>1.0.16</doris.version>
 		<shading.prefix>org.apache.flink.doris.shaded</shading.prefix>
 	</properties>
 
@@ -43,6 +43,10 @@ under the License.
 				<exclusion>
 					<groupId>org.scala-lang</groupId>
 					<artifactId>scala-library</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-log4j12</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
@@ -129,6 +133,18 @@ under the License.
 										<relocation>
 											<pattern>com.fasterxml.jackson</pattern>
 											<shadedPattern>${shading.prefix}.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.codahale</pattern>
+											<shadedPattern>${shading.prefix}.com.codahale</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.byted.infsec</pattern>
+											<shadedPattern>${shading.prefix}.org.byted.infsec</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.auth0.jwt</pattern>
+											<shadedPattern>${shading.prefix}.com.auth0.jwt</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>

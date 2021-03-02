@@ -57,6 +57,7 @@ public class DorisOptions implements Serializable {
 	private final int maxRetryNum;
 	private final int feUpdateIntervalMs;
 	private final int parallelism;
+	private final String sequenceColumn;
 
 	private DorisOptions(
 			List<Pair<String, Integer>> dorisFEList,
@@ -79,7 +80,8 @@ public class DorisOptions implements Serializable {
 			int retryIntervalMs,
 			int maxRetryNum,
 			int feUpdateIntervalMs,
-			int parallelism) {
+			int parallelism,
+			String sequenceColumn) {
 		this.dorisFEList = dorisFEList;
 		this.cluster = cluster;
 		this.dataCenter = dataCenter;
@@ -101,6 +103,7 @@ public class DorisOptions implements Serializable {
 		this.maxRetryNum = maxRetryNum;
 		this.feUpdateIntervalMs = feUpdateIntervalMs;
 		this.parallelism = parallelism;
+		this.sequenceColumn = sequenceColumn;
 	}
 
 	public List<Pair<String, Integer>> getDorisFEList() {
@@ -187,6 +190,10 @@ public class DorisOptions implements Serializable {
 		return parallelism;
 	}
 
+	public String getSequenceColumn() {
+		return sequenceColumn;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -217,6 +224,7 @@ public class DorisOptions implements Serializable {
 		private int maxRetryNum;
 		private int feUpdateIntervalMs;
 		private int parallelism;
+		private String sequenceColumn;
 
 		private Builder() {
 		}
@@ -326,6 +334,11 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setSequenceColumn(String sequenceColumn) {
+			this.sequenceColumn = sequenceColumn;
+			return this;
+		}
+
 		public DorisOptions build() {
 			// There are two ways to get connection, through DORIS_FE_LIST or DORIS_FE_PSM + DATA_CENTER,
 			// and the second way has higher priority if they are both set.
@@ -370,7 +383,8 @@ public class DorisOptions implements Serializable {
 				retryIntervalMs,
 				maxRetryNum,
 				feUpdateIntervalMs,
-				parallelism);
+				parallelism,
+				sequenceColumn);
 		}
 	}
 }
