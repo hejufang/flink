@@ -29,6 +29,7 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.BlobServerOptions;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.RestartStrategyOptions;
@@ -263,6 +264,7 @@ public class JobMasterTest extends TestLogger {
 		haServices.setResourceManagerLeaderRetriever(rmLeaderRetrievalService);
 
 		configuration.setString(BlobServerOptions.STORAGE_DIRECTORY, temporaryFolder.newFolder().getAbsolutePath());
+		configuration.setBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED, false);
 	}
 
 	@After
