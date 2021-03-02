@@ -142,5 +142,12 @@ non-global:
         numRightSideRecordsDropped,
       # interval-join left && right side expire dropped
         numLeftExpireRecordsDropped,
-        numRightExpireRecordsDropped
+        numRightExpireRecordsDropped,
+      # jm threadPool usage
+        numPendingIOTask,
+        numRunningIOTask,
+        ioThreadPoolUsage,
+        numPendingFutureTask,
+        numRunningFutureTask,
+        futureThreadPoolUsage
     ]

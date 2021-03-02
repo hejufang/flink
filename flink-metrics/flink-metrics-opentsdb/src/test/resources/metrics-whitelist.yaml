@@ -118,5 +118,12 @@ non-global:
         descheduledContainers,
         deschedulerReceivedInfo,
         deschedulerHandleResult,
-        deschedulerDurationMs
+        deschedulerDurationMs,
+      # jm threadPool usage
+        numPendingIOTask,
+        numRunningIOTask,
+        ioThreadPoolUsage,
+        numPendingFutureTask,
+        numRunningFutureTask,
+        futureThreadPoolUsage
     ]

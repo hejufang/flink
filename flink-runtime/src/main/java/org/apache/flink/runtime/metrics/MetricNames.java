@@ -79,4 +79,12 @@ public class MetricNames {
 	}
 
 	public static final String TASK_IDLE_TIME = "idleTimeMs" + SUFFIX_RATE;
+
+	public static final String NUM_PENDING_IO_TASK = "numPendingIOTask";
+	public static final String NUM_RUNNING_IO_TASK = "numRunningIOTask";
+	public static final String IO_THREAD_POOL_USAGE = "ioThreadPoolUsage";
+
+	public static final String NUM_PENDING_FUTURE_TASK = "numPendingFutureTask";
+	public static final String NUM_RUNNING_FUTURE_TASK = "numRunningFutureTask";
+	public static final String FUTURE_THREAD_POOL_USAGE = "futureThreadPoolUsage";
 }

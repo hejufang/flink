@@ -91,6 +91,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -901,6 +903,22 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	private void registerDispatcherMetrics(MetricGroup jobManagerMetricGroup) {
 		jobManagerMetricGroup.gauge(MetricNames.NUM_RUNNING_JOBS,
 			() -> (long) jobManagerRunnerFutures.size());
+
+		ExecutorService ioExecutor = jobManagerSharedServices.getIOExecutorService();
+		if (ioExecutor instanceof ThreadPoolExecutor) {
+			ThreadPoolExecutor ioThreadPool = (ThreadPoolExecutor) ioExecutor;
+			jobManagerMetricGroup.gauge(MetricNames.NUM_RUNNING_IO_TASK, ioThreadPool::getActiveCount);
+			jobManagerMetricGroup.gauge(MetricNames.NUM_PENDING_IO_TASK, () -> ioThreadPool.getQueue().size());
+			jobManagerMetricGroup.gauge(MetricNames.IO_THREAD_POOL_USAGE, () -> (double) ioThreadPool.getActiveCount() / ioThreadPool.getCorePoolSize());
+		}
+
+		ExecutorService futureExecutor = jobManagerSharedServices.getScheduledExecutorService();
+		if (futureExecutor instanceof ThreadPoolExecutor) {
+			ThreadPoolExecutor futureThreadPool = (ThreadPoolExecutor) futureExecutor;
+			jobManagerMetricGroup.gauge(MetricNames.NUM_RUNNING_FUTURE_TASK, futureThreadPool::getActiveCount);
+			jobManagerMetricGroup.gauge(MetricNames.NUM_PENDING_FUTURE_TASK, () -> futureThreadPool.getQueue().size());
+			jobManagerMetricGroup.gauge(MetricNames.FUTURE_THREAD_POOL_USAGE, () -> (double) futureThreadPool.getActiveCount() / futureThreadPool.getCorePoolSize());
+		}
 	}
 
 	public CompletableFuture<Void> onRemovedJobGraph(JobID jobId) {
