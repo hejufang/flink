@@ -67,6 +67,8 @@ common:
 
   cluster.evenly-spread-out-slots: true
 
+  # use max source parallelism as default parallelism
+  pipeline.use-max-source-parallelism-as-default-parallelism: true
   #==============================================================================
   # Rest & web frontend
   #==============================================================================
