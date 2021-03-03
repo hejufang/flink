@@ -85,7 +85,7 @@ common:
 # downstream tasks and potentially upstream tasks if their produced data is no longer available for consumption.
 
   jobmanager.execution.failover-strategy: region
-  jobmanager.execution.region-failover.always-region-when-no-resource: false
+  jobmanager.execution.region-failover.always-region-when-no-resource: true
   jobmanager.execution.status-dutation-ms: 30000
 
 #==============================================================================
@@ -296,7 +296,6 @@ leser:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  jobmanager.execution.region-failover.always-region-when-no-resource: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
 
@@ -394,7 +393,6 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  jobmanager.execution.region-failover.always-region-when-no-resource: true
 
 quoka:
   dc: cn
@@ -403,7 +401,6 @@ quoka:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
-  jobmanager.execution.region-failover.always-region-when-no-resource: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
 
