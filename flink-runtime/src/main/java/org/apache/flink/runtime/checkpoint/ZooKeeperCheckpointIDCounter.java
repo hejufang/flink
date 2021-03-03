@@ -98,7 +98,7 @@ public class ZooKeeperCheckpointIDCounter implements CheckpointIDCounter {
 		LOG.info("Using namespace '{}'.", this.client.getNamespace());
 
 		this.counterPath = checkNotNull(counterPath, "Counter path");
-		this.sharedCount = new SharedCount(client, counterPath, 1);
+		this.sharedCount = new SharedCount(this.client, counterPath, 1);
 		this.connectionStateListener = connectionStateListener;
 
 		LOG.info("Initialized in '{}'.", counterPath);
