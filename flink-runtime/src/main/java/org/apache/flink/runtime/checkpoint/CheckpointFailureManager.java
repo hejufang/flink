@@ -17,9 +17,16 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.runtime.blacklist.reporter.NoOpBlacklistReporterImpl;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
+
+import org.apache.hadoop.ipc.RemoteException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +39,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * The checkpoint failure manager which centralized manage checkpoint failure processing logic.
  */
 public class CheckpointFailureManager {
+	private static final Logger LOG = LoggerFactory.getLogger(CheckpointFailureManager.class);
 
 	public static final int UNLIMITED_TOLERABLE_FAILURE_NUMBER = Integer.MAX_VALUE;
 
@@ -40,14 +48,22 @@ public class CheckpointFailureManager {
 	private final AtomicInteger continuousFailureCounter;
 	private final Set<Long> countedCheckpointIds;
 
+	private final RemoteBlacklistReporter reporter;
+
+	@VisibleForTesting
 	public CheckpointFailureManager(int tolerableCpFailureNumber, FailJobCallback failureCallback) {
+		this(tolerableCpFailureNumber, failureCallback, new NoOpBlacklistReporterImpl());
+	}
+
+	public CheckpointFailureManager(int tolerableCpFailureNumber, FailJobCallback failureCallback, RemoteBlacklistReporter reporter) {
 		checkArgument(tolerableCpFailureNumber >= 0,
-			"The tolerable checkpoint failure number is illegal, " +
-				"it must be greater than or equal to 0 .");
+				"The tolerable checkpoint failure number is illegal, " +
+						"it must be greater than or equal to 0 .");
 		this.tolerableCpFailureNumber = tolerableCpFailureNumber;
 		this.continuousFailureCounter = new AtomicInteger(0);
 		this.failureCallback = checkNotNull(failureCallback);
 		this.countedCheckpointIds = ConcurrentHashMap.newKeySet();
+		this.reporter = reporter;
 	}
 
 	/**
@@ -60,6 +76,9 @@ public class CheckpointFailureManager {
 	 *                      latest generated checkpoint id as a special flag.
 	 */
 	public void handleJobLevelCheckpointException(CheckpointException exception, long checkpointId) {
+		// always fail the job if token expired happens on JM's side
+		checkTokenProblemInTraces(exception);
+
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
@@ -81,11 +100,42 @@ public class CheckpointFailureManager {
 			CheckpointException exception,
 			long checkpointId,
 			ExecutionAttemptID executionAttemptID) {
+		// report failure if token problem
+		if (isTokenProblemInTraces(exception)) {
+			reporter.reportFailure(executionAttemptID, exception, System.currentTimeMillis());
+		}
+
 		checkFailureCounter(exception, checkpointId);
 		if (continuousFailureCounter.get() > tolerableCpFailureNumber) {
 			clearCount();
 			failureCallback.failJobDueToTaskFailure(new FlinkRuntimeException("Exceeded checkpoint tolerable failure threshold."), executionAttemptID);
 		}
+	}
+
+	/**
+	 * If the throwable is caused, directly or indirectly, by expired tokens, we need to for the whole job to restart.
+	 */
+	private void checkTokenProblemInTraces(Throwable throwable) {
+		if (isTokenProblemInTraces(throwable)) {
+			LOG.error("Temporary fix to invalid token problem: kill the job and force it to restart.", throwable);
+			System.exit(1); // anything but zero
+		}
+	}
+
+	@VisibleForTesting
+	public boolean isTokenProblemInTraces(Throwable throwable) {
+		Throwable t = throwable;
+		while (t != null) {
+			if (t instanceof RemoteException) {
+				String remoteClassName = ((RemoteException) t).getClassName();
+				if (remoteClassName.equals("org.apache.hadoop.security.token.SecretManager$InvalidToken")
+					|| (t.getMessage().contains("token") && t.getMessage().contains("expire"))) {
+					return true;
+				}
+			}
+			t = t.getCause();
+		}
+		return false;
 	}
 
 	public void checkFailureCounter(

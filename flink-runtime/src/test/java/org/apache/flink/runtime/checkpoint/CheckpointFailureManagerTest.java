@@ -20,6 +20,8 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.util.TestLogger;
 
+import org.apache.hadoop.ipc.RemoteException;
+import org.junit.Assert;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -28,6 +30,15 @@ import static org.junit.Assert.assertEquals;
  * Tests for the checkpoint failure manager.
  */
 public class CheckpointFailureManagerTest extends TestLogger {
+
+	@Test
+	public void testTokenExpire() {
+		TestFailJobCallback callback = new TestFailJobCallback();
+		CheckpointFailureManager failureManager = new CheckpointFailureManager(2, callback);
+		RemoteException ex = new RemoteException("org.byted.infsec.infsecs.InfSecSException",
+				"org.byted.infsec.infsecs.InfSecSException: org.byted.infsec.infsecs.InfSecSException: token expired");
+		Assert.assertTrue(failureManager.isTokenProblemInTraces(ex));
+	}
 
 	@Test
 	public void testContinuousFailure() {

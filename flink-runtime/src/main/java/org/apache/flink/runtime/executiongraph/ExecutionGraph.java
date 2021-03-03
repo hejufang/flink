@@ -405,9 +405,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			this::createResultPartitionId,
 			partitionTracker);
 		this.isRecoverable = isRecoverable;
-
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
-
+		this.remoteBlacklistReporter.setExecutionGraph(this);
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}
 
@@ -494,8 +493,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				public void failJobDueToTaskFailure(Throwable cause, ExecutionAttemptID failingTask) {
 					getJobMasterMainThreadExecutor().execute(() -> failGlobalIfExecutionIsStillRunning(cause, failingTask));
 				}
-			}
-		);
+			}, remoteBlacklistReporter);
 
 		checkState(checkpointCoordinatorTimer == null);
 
