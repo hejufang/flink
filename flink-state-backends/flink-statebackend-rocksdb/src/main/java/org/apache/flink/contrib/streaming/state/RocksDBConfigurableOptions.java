@@ -74,6 +74,11 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.withDescription("The maximum number of open files (per TaskManager) that can be used by the DB, '-1' means no limit. " +
 				"RocksDB has default configuration as '-1'.");
 
+	public static final ConfigOption<Boolean> USE_FSYNC =
+		key("state.backend.rocksdb.use-fsync")
+			.defaultValue(true)
+			.withDescription("Whether rocksdb uses fsync mode.");
+
 	//--------------------------------------------------------------------------
 	// Provided configurable ColumnFamilyOptions within Flink
 	//--------------------------------------------------------------------------

@@ -25,6 +25,7 @@ import org.apache.flink.testutils.junit.RetryOnFailure;
 import org.apache.flink.testutils.junit.RetryRule;
 import org.apache.flink.util.TestLogger;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -34,6 +35,7 @@ import org.rocksdb.CompactionStyle;
 import org.rocksdb.NativeLibraryLoader;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteOptions;
 import sun.misc.Unsafe;
 
@@ -184,6 +186,50 @@ public class RocksDBPerformanceTest extends TestLogger {
 
 			log.info("end get - duration: {} ms", (endGet - beginGet) / 1_000_000);
 		}
+	}
+
+	@Test(timeout = 180000)
+	@RetryOnFailure(times = 3)
+	public void testRocksDbFsyncPerformance() throws Exception {
+		final int keyTemplateNum = 10;
+		final int writeNum = 60000;
+		final int attempts = 3;
+
+		rocksDBWritePerformance(options.setUseFsync(false), keyTemplateNum, writeNum, attempts, "rocksdb without using fsync");
+		rocksDBWritePerformance(options.setUseFsync(true), keyTemplateNum, writeNum, attempts, "rocksdb with using fsync");
+	}
+
+	private void rocksDBWritePerformance(Options options, int keyTemplateNum, int writeNum, int attempts, String label) throws RocksDBException, IOException {
+		long totalCost = 0L;
+		log.info("begin insert for {}", label);
+		for (int i = 0; i < attempts; i++) {
+			String rocksDir = tmp.newFolder().getAbsolutePath();
+			try (RocksDB rocksDB = RocksDB.open(options, rocksDir)) {
+				totalCost += calculateRocksDbWriteCost(rocksDB, keyTemplateNum, writeNum, label);
+			}
+		}
+		log.info("{} average cost {} ms", label, totalCost / attempts);
+	}
+
+	private long calculateRocksDbWriteCost(RocksDB rocksDB, int keyTemplateNum, int writeNum, String label) throws RocksDBException {
+		final long beginInsert = System.nanoTime();
+		for (int attempt = 0; attempt < keyTemplateNum; attempt++) {
+			byte[] keyBytes = (attempt + "key").getBytes(StandardCharsets.UTF_8);
+			final byte[] keyTemplate = Arrays.copyOf(keyBytes, keyBytes.length + 4);
+
+			final Unsafe unsafe = MemoryUtils.UNSAFE;
+			final long offset = unsafe.arrayBaseOffset(byte[].class) + keyTemplate.length - 4;
+
+			for (int i = 0; i < writeNum; i++) {
+				unsafe.putInt(keyTemplate, offset, i);
+				byte[] valueBytes = RandomStringUtils.randomAlphabetic(1024).getBytes();
+				rocksDB.put(writeOptions, keyTemplate, valueBytes);
+			}
+		}
+
+		final long duration = System.nanoTime() - beginInsert;
+		log.info("{} duration: {} ms", label, duration / 1_000_000);
+		return duration / 1_000_000;
 	}
 
 	private static boolean samePrefix(byte[] prefix, byte[] key) {

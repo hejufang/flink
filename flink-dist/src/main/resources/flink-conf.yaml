@@ -31,6 +31,7 @@ common:
   state.backend.incremental: true
   state.checkpoints.num-retained: 10
   state.backend.rocksdb.checkpoint.transfer.thread.num: 4
+  state.backend.rocksdb.use-fsync: true
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
 
