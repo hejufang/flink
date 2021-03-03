@@ -41,6 +41,10 @@ public abstract class RocketMQOptions {
 	public static final String SCAN_STARTUP_MODE_VALUE_TIMESTAMP = "timestamp";
 	public static final String SCAN_STARTUP_MODE_FROM_TIMESTAMP = "startup-mode.from.timestamp";
 
+	// Consumer will retry 10 times and cost 10 minutes at most
+	public static final int CONSUMER_RETRY_TIMES_DEFAULT = 10;
+	public static final int CONSUMER_RETRY_INIT_TIME_MS_DEFAULT = 600;
+
 	// metrics
 	public static final String TOPIC_METRICS_GROUP = "topic";
 	public static final String CONSUMER_GROUP_METRICS_GROUP = "group";
@@ -48,7 +52,7 @@ public abstract class RocketMQOptions {
 	 *  Assign queue strategy.
 	 *  */
 	public enum AssignQueueStrategy {
-		ROUND_ROBIN,
+		// ROUND_ROBIN, this strategy is abandoned temporarily because it caused bug when queue alloc
 		/**
 		 * Assign queue to different task by hash code.
 		 */

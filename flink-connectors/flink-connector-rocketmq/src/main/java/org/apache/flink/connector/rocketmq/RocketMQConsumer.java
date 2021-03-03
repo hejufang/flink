@@ -37,13 +37,13 @@ import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.RetryManager;
 import org.apache.flink.util.function.SupplierWithException;
 
 import com.bytedance.mqproxy.proto.MessageExt;
 import com.bytedance.mqproxy.proto.MessageQueuePb;
 import com.bytedance.mqproxy.proto.ResponseCode;
 import com.bytedance.rocketmq.clientv2.consumer.DefaultMQPullConsumer;
-import com.bytedance.rocketmq.clientv2.consumer.PollResult;
 import com.bytedance.rocketmq.clientv2.consumer.QueryOffsetResult;
 import com.bytedance.rocketmq.clientv2.consumer.QueryTopicQueuesResult;
 import com.bytedance.rocketmq.clientv2.consumer.ResetOffsetResult;
@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -80,8 +81,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		CheckpointedFunction,
 		SpecificParallelism {
 	private static final long serialVersionUID = 1L;
-
-	private static final int FETCH_BATCH_SIZE = 100;
+	private static final long CONSUMER_DEFAULT_POLL_LATENCY_MS = 10000;
 	private static final int DEFAULT_SLEEP_MILLISECONDS = 1;
 	private static final Logger LOG = LoggerFactory.getLogger(RocketMQConsumer.class);
 	private static final String OFFSETS_STATE_NAME = "rmq-topic-offset-states";
@@ -100,6 +100,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient DefaultMQPullConsumer consumer;
 	private transient List<MessageQueuePb> assignedMessageQueuePbs;
 	private transient Set<MessageQueue> assignedMessageQueueSet;
+	private transient Set<MessageQueue> lastSnapshotQueues;
 	private transient Thread updateThread;
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
 	private transient volatile boolean running;
@@ -135,6 +136,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 		}
 
+		this.lastSnapshotQueues = new HashSet<>();
 		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
 		this.offsetTable = new ConcurrentHashMap<>();
 		this.restoredOffsets = new HashMap<>();
@@ -165,8 +167,19 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			LOG.info("snapshotState() called on closed source");
 		} else {
 			unionOffsetStates.clear();
-			for (Map.Entry<MessageQueue, Long> entry: offsetTable.entrySet()) {
-				unionOffsetStates.add(Tuple2.of(entry.getKey(), entry.getValue()));
+			Set<MessageQueue> snapshotSets = new HashSet<>(lastSnapshotQueues);
+			snapshotSets.addAll(offsetTable.keySet());
+			for (MessageQueue messageQueue: snapshotSets) {
+				Long offset = offsetTable.get(messageQueue);
+				if (offset == null) {
+					// If it not exists in current offset table, get from last snapshot
+					offset = restoredOffsets.get(messageQueue);
+				}
+				if (offset != null) {
+					unionOffsetStates.add(new Tuple2<>(messageQueue, offset));
+				} else {
+					LOG.warn("{} offset is null.", messageQueue.toString());
+				}
 			}
 		}
 	}
@@ -178,7 +191,15 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		));
 		isRestored = context.isRestored();
 		unionOffsetStates.get().forEach(
-			x -> restoredOffsets.put(x.f0, x.f1)
+			queueAndOffset -> restoredOffsets.compute(queueAndOffset.f0, (queue, offset) -> {
+				if (offset != null) {
+					return Math.max(queueAndOffset.f1, offset);
+				}
+				if (belongToThisTask(queueAndOffset.f0)) {
+					lastSnapshotQueues.add(queueAndOffset.f0);
+				}
+				return queueAndOffset.f1;
+			})
 		);
 	}
 
@@ -192,8 +213,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
 			assignMessageQueues(this::allocFixedMessageQueue);
-		} else if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.ROUND_ROBIN) {
-			assignMessageQueues(this::allocRoundRobinMessageQueues);
 		}
 
 		for (MessageQueuePb messageQueuePb: assignedMessageQueuePbs) {
@@ -204,28 +223,27 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			updateThread = createUpdateThread();
 		}
 
+		RetryManager.Strategy strategy =
+			RetryManager.createStrategy(RetryManager.StrategyType.EXPONENTIAL_BACKOFF.name(),
+				RocketMQOptions.CONSUMER_RETRY_TIMES_DEFAULT,
+				RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		while (running) {
-			PollResult pollResult;
-			synchronized (consumer) {
-				pollResult = consumer.poll(FETCH_BATCH_SIZE);
+			List<List<MessageExt>> messageExtsList = new ArrayList<>();
+			RetryManager.retry(() -> messageExtsList.add(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), strategy);
+			List<MessageExt> messageExts = messageExtsList.get(0);
+			for (MessageExt messageExt: messageExts) {
+				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
+				T rowData = schema.deserialize(messageQueue, messageExt);
+				if (rowData == null) {
+					skipDirtyCounter.inc();
+					continue;
+				}
+				ctx.collect(rowData);
+				this.recordsNumMeterView.markEvent();
+				offsetTable.put(messageQueue, messageExt.getMaxOffset());
 			}
-			if (pollResult.getErrorCode() == ResponseCode.OK_VALUE) {
-				for (MessageExt messageExt: pollResult.getMsgList()) {
-					MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
-					T rowData = schema.deserialize(messageQueue, messageExt);
-					if (rowData == null) {
-						skipDirtyCounter.inc();
-						continue;
-					}
-					ctx.collect(rowData);
-					this.recordsNumMeterView.markEvent();
-					offsetTable.put(messageQueue, messageExt.getMaxOffset());
-				}
-				if (pollResult.getMsgList().size() == 0) {
-					Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
-				}
-			} else {
-				LOG.warn("Receive error code is {}, error msg is {}.", pollResult.getErrorCode(), pollResult.getErrorMsg());
+			if (messageExts.size() == 0) {
+				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
 			}
 		}
 	}
@@ -286,7 +304,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		List<MessageQueuePb> messageQueuePbList = new ArrayList<>();
 		for (MessageQueuePb queuePb: queryTopicQueuesResult.getMessageQueues()) {
 			// Old alloc strategy.
-			if (((createMessageQueue(queuePb).hashCode() * 31) & 0x7FFFFFFF) % parallelism == subTaskId) {
+			if (belongToThisTask(createMessageQueue(queuePb))) {
 				messageQueuePbList.add(queuePb);
 			}
 		}
@@ -302,6 +320,10 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	private MessageQueue createMessageQueue(MessageQueuePb queuePb) {
 		return new MessageQueue(queuePb.getTopic(), queuePb.getBrokerName(), queuePb.getQueueId());
+	}
+
+	private boolean belongToThisTask(MessageQueue messageQueue) {
+		return ((messageQueue.hashCode() * 31) & 0x7FFFFFFF) % parallelism == subTaskId;
 	}
 
 	private void resetOffset(MessageQueuePb messageQueuePb) throws InterruptedException {
