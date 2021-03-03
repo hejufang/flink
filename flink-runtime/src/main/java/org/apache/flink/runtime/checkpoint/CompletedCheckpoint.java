@@ -26,7 +26,6 @@ import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
-import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -202,6 +201,10 @@ public class CompletedCheckpoint implements Serializable {
 		return result;
 	}
 
+	public CompletedCheckpointStorageLocation getStorageLocation() {
+		return storageLocation;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Shared State
 	// ------------------------------------------------------------------------
@@ -259,34 +262,7 @@ public class CompletedCheckpoint implements Serializable {
 		LOG.trace("Executing discard procedure for {}.", this);
 
 		try {
-			// collect exceptions and continue cleanup
-			Exception exception = null;
-
-			// drop the metadata
-			try {
-				metadataHandle.discardState();
-			} catch (Exception e) {
-				exception = e;
-			}
-
-			// discard private state objects
-			try {
-				StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
-			} catch (Exception e) {
-				exception = ExceptionUtils.firstOrSuppressed(e, exception);
-			}
-
-			// discard location as a whole
-			try {
-				storageLocation.disposeStorageLocation();
-			}
-			catch (Exception e) {
-				exception = ExceptionUtils.firstOrSuppressed(e, exception);
-			}
-
-			if (exception != null) {
-				throw exception;
-			}
+			StateUtil.discardCompletedCheckpoint(this);
 		} finally {
 			operatorStates.clear();
 

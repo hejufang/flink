@@ -30,6 +30,7 @@ import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.state.StateUtil;
 
 import javax.annotation.Nullable;
 
@@ -409,6 +410,10 @@ public class CheckpointStatsTracker {
 
 	static final String JOB_STARTUP_CHECKPOINT_RESTORE_DELAY = "jobStartupCheckpointRestoreDelay";
 
+	static final String NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD = "numberOfActualDeletedStateFiles";
+
+	static final String NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD = "numberOfTotalDeletedStateFiles";
+
 	static final TagGauge failedCheckpointsTagGauge = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
 
 	static final MessageSet<WarehouseCheckpointMessage> messageSet = new MessageSet<>(MessageType.CHECKPOINT);
@@ -432,6 +437,8 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, failedCheckpointsTagGauge);
 		metricGroup.gauge(WAREHOUSE_FAILED_CHECKPOINTS, messageSet);
 		metricGroup.gauge(JOB_STARTUP_CHECKPOINT_RESTORE_DELAY, this::getJobStartupCheckpointRestoreDelay);
+		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, StateUtil::getNumDiscardStates);
+		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, StateUtil::getNumLegacyDiscardStates);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {

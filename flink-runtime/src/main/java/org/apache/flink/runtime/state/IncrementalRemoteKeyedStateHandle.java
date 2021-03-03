@@ -174,11 +174,14 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 			checkpointId,
 			backendIdentifier);
 
-		try {
-			metaStateHandle.discardState();
-		} catch (Exception e) {
-			LOG.warn("Could not properly discard meta data.", e);
-		}
+		// Note: ignore metaStateHandle discard, considering following two cases:
+		// (1) small meta: save as ByteStreamStateHandle, no need to discard.
+		// (2) big meta: save in exclusive dir. The whole dir is deleted directly. SEE INFOI-19245.
+//		try {
+//			metaStateHandle.discardState();
+//		} catch (Exception e) {
+//			LOG.warn("Could not properly discard meta data.", e);
+//		}
 
 		try {
 			StateUtil.bestEffortDiscardAllStateObjects(privateState.values());

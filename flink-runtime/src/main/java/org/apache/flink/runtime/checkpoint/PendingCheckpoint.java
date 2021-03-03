@@ -225,6 +225,10 @@ public class PendingCheckpoint {
 		return totalTasks;
 	}
 
+	public CheckpointStorageLocation getTargetLocation() {
+		return targetLocation;
+	}
+
 	/**
 	 * This method should be carefully modified. {@link #notYetAcknowledgedTasks} is not thread-safe and ConcurrentException
 	 * will easily occur if we don't do a shallow copy for its values.
@@ -650,8 +654,7 @@ public class PendingCheckpoint {
 							// discard the private states.
 							// unregistered shared states are still considered private at this point.
 							try {
-								StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
-								targetLocation.disposeOnFailure();
+								StateUtil.discardPendingCheckpoint(PendingCheckpoint.this);
 							} catch (Throwable t) {
 								LOG.warn("Could not properly dispose the private states in the pending checkpoint {} of job {}.",
 									checkpointId, jobId, t);

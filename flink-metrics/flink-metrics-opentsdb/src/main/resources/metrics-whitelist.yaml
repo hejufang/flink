@@ -44,7 +44,9 @@ global:
         connectSuccessRetryTimes,
         connectFailRetryTimes,
         numberOfContinuousCheckpointFailure,
-        jobStartupCheckpointRestoreDelay
+        jobStartupCheckpointRestoreDelay,
+        numberOfActualDeletedStateFiles,
+        numberOfTotalDeletedStateFiles
     ]
 
 non-global:
@@ -163,6 +165,8 @@ non-global:
         cacheEvictWithWriteDiskCount,
         cacheLoadWithInvalidDataCount,
         totalDiskOperationCount,
+        numberOfActualDeletedStateFiles,
+        numberOfTotalDeletedStateFiles,
       # jm threadPool usage
         numPendingIOTask,
         numRunningIOTask,
