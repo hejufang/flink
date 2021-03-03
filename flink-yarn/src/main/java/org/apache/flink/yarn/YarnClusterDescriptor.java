@@ -791,7 +791,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			jobGraph.writeUserArtifactEntriesToConfiguration();
 		}
 
-		if (providedLibDirs == null || providedLibDirs.isEmpty()) {
+		if (fileUploader.getProvidedSharedLibs().isEmpty()) {
 			addLibFoldersToShipFiles(systemShipFileList);
 		}
 		LOG.debug("systemShipFileList: {}", systemShipFileList);
@@ -806,7 +806,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// upload and register ship-only files
 		// Plugin files only need to be shipped and should not be added to classpath.
-		if (providedLibDirs == null || providedLibDirs.isEmpty()) {
+		if (fileUploader.getProvidedSharedLibs().isEmpty()) {
 			Set<File> shipOnlyFiles = new HashSet<>();
 			addPluginsFoldersToShipFiles(shipOnlyFiles);
 			fileUploader.registerMultipleLocalResources(
@@ -1167,6 +1167,10 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 	}
 
 	private List<Path> getRemoteSharedPaths(Configuration configuration) throws IOException, FlinkException {
+		if (!configuration.getBoolean(YarnConfigOptions.PROVIDED_LIB_DIRS_ENABLED)) {
+			return Collections.emptyList();
+		}
+
 		final List<Path> providedLibDirs = ConfigUtils.decodeListFromConfig(
 			configuration, YarnConfigOptions.PROVIDED_LIB_DIRS, Path::new);
 

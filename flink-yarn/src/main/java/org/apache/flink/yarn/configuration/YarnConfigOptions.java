@@ -274,6 +274,12 @@ public class YarnConfigOptions {
 				"they doesn't need to be downloaded every time for each application. An example could be " +
 				"hdfs://$namenode_address/path/of/flink/lib");
 
+	public static final ConfigOption<Boolean> PROVIDED_LIB_DIRS_ENABLED =
+			key("yarn.provided.lib.dirs.enabled")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Whether enable provided lib dirs.");
+
 	/** Defines the configuration key of that external resource in Yarn. This is used as a suffix in an actual config. */
 	public static final String EXTERNAL_RESOURCE_YARN_CONFIG_KEY_SUFFIX = "yarn.config-key";
 

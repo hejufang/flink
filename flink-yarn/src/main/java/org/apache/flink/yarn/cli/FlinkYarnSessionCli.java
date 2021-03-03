@@ -377,17 +377,17 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 			effectiveConfiguration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, Integer.parseInt(commandLine.getOptionValue(slots.getOpt())));
 		}
 
-		dynamicPropertiesEncoded = encodeDynamicProperties(commandLine);
+		// reload config by dynamic properties.
+		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
+		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
+
+		dynamicPropertiesEncoded = encodeDynamicProperties(effectiveConfiguration, commandLine);
 		if (!dynamicPropertiesEncoded.isEmpty()) {
 			Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
 			for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
 				effectiveConfiguration.setString(dynProperty.getKey(), dynProperty.getValue());
 			}
 		}
-
-		// reload config by dynamic properties.
-		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
-		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
 
 		// set check yarn app unique default for stream job
 		final String appType = effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE);
@@ -708,17 +708,17 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 		System.out.println(message);
 	}
 
-	private String encodeDynamicProperties(final CommandLine cmd) {
+	private String encodeDynamicProperties(final Configuration configuration, final CommandLine cmd) {
 		final Properties properties = cmd.getOptionProperties(dynamicproperties.getOpt());
 		final String[] dynamicProperties = properties.stringPropertyNames().stream()
 				.flatMap(
 						(String key) -> {
 							final String value = properties.getProperty(key);
 
-							LOG.info("Dynamic Property set: {}={}", key, GlobalConfiguration.isSensitive(key) ? GlobalConfiguration.HIDDEN_CONTENT : value);
-
 							if (value != null) {
-								return Stream.of(key + dynamicproperties.getValueSeparator() + value);
+								String formatValue = GlobalConfiguration.reloadPropertyValue(configuration, value);
+								LOG.info("Dynamic Property set: {}={}", key, GlobalConfiguration.isSensitive(key) ? GlobalConfiguration.HIDDEN_CONTENT : formatValue);
+								return Stream.of(key + dynamicproperties.getValueSeparator() + formatValue);
 							} else {
 								return Stream.empty();
 							}

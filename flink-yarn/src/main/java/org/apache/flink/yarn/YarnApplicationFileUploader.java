@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -134,6 +135,10 @@ class YarnApplicationFileUploader implements AutoCloseable {
 
 	Path getApplicationDir() {
 		return applicationDir;
+	}
+
+	public Map<String, FileStatus> getProvidedSharedLibs() {
+		return providedSharedLibs;
 	}
 
 	@Override
@@ -435,7 +440,7 @@ class YarnApplicationFileUploader implements AutoCloseable {
 	}
 
 	private Map<String, FileStatus> getAllFilesInProvidedLibDirs(final List<Path> providedLibDirs) {
-		final Map<String, FileStatus> allFiles = new HashMap<>();
+		final Map<String, FileStatus> allFiles = new LinkedHashMap<>();
 		checkNotNull(providedLibDirs).forEach(
 			FunctionUtils.uncheckedConsumer(
 				path -> {

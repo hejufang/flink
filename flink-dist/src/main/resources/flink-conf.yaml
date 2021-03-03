@@ -66,6 +66,9 @@ common:
   flink.client.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
   flink.client.yarn.config.yarn.resourcemanager.connect.max-wait.ms: 900000
 
+  # provided lib dirs
+  yarn.provided.lib.dirs.enabled: false
+
   # Metrics
   metrics.reporters: opentsdb_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
@@ -276,6 +279,7 @@ leser:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  yarn.provided.lib.dirs.enabled: true
 
 lobst:
   dc: cn
@@ -378,6 +382,7 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   cluster.evenly-spread-out-slots: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  yarn.provided.lib.dirs.enabled: true
 
 quaga:
   dc: cn
@@ -386,6 +391,7 @@ quaga:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  yarn.provided.lib.dirs.enabled: true
 
 quele:
   dc: cn
