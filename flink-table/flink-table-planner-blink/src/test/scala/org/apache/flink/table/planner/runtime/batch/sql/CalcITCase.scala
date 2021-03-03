@@ -27,7 +27,7 @@ import org.apache.flink.api.common.typeinfo.Types.INSTANT
 import org.apache.flink.api.java.typeutils._
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api.ValidationException
-import org.apache.flink.table.api.config.ExecutionConfigOptions
+import org.apache.flink.table.api.config.{ExecutionConfigOptions, TableConfigOptions}
 import org.apache.flink.table.data.{DecimalDataUtils, TimestampData}
 import org.apache.flink.table.data.util.DataFormatConverters.LocalDateConverter
 import org.apache.flink.table.planner.expressions.utils.{RichFunc1, RichFunc2, RichFunc3, SplitUDF}
@@ -37,7 +37,7 @@ import org.apache.flink.table.planner.runtime.utils.BatchTableEnvUtil.parseField
 import org.apache.flink.table.planner.runtime.utils.BatchTestBase.row
 import org.apache.flink.table.planner.runtime.utils.TestData._
 import org.apache.flink.table.planner.runtime.utils.UserDefinedFunctionTestUtils._
-import org.apache.flink.table.planner.runtime.utils.{BatchTableEnvUtil, BatchTestBase, TestData, UserDefinedFunctionTestUtils}
+import org.apache.flink.table.planner.runtime.utils.{BatchTableEnvUtil, BatchTestBase, JavaUserDefinedScalarFunctions, TestData, TestingAppendSink, UserDefinedFunctionTestUtils}
 import org.apache.flink.table.planner.utils.DateTimeTestUtil
 import org.apache.flink.table.planner.utils.DateTimeTestUtil._
 import org.apache.flink.table.runtime.functions.SqlDateTimeUtils.unixTimestampToLocalDateTime
@@ -1308,6 +1308,132 @@ class CalcITCase extends BatchTestBase {
         row(2, "HELLO", 2222, false, 222),
         row(3, "HELLO WORLD", 3333, true, 333))
     )
+  }
+
+
+  @Test
+  def testReusedExpression(): Unit = {
+    val data = Seq(row("hello", "world"))
+    val myTableDataId = TestValuesTableFactory.registerData(data)
+    val ddl =
+      s"""
+         |CREATE TABLE MyTable (
+         |  col1 varchar,
+         |  col2 varchar
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$myTableDataId',
+         |  'bounded' = 'true'
+         |)
+       """.stripMargin
+    tEnv.executeSql(ddl)
+
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM MyTable
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    checkResult(sqlQuery, Seq(row("helloworldhelloworld")))
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 1)
+  }
+
+  @Test
+  def testReusedExpressionInCondition(): Unit = {
+    val data = Seq(row("hello", "world"))
+    val myTableDataId = TestValuesTableFactory.registerData(data)
+    val ddl =
+      s"""
+         |CREATE TABLE MyTable (
+         |  col1 varchar,
+         |  col2 varchar
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$myTableDataId',
+         |  'bounded' = 'true'
+         |)
+       """.stripMargin
+    tEnv.executeSql(ddl)
+
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+        |WHERE my_func(col1, col2) = 'helloworld'
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    checkResult(sqlQuery, Seq(row("helloworldhelloworld")))
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 1)
+  }
+
+  @Test
+  def testDisabledReusedExpression(): Unit = {
+    val data = Seq(row("hello", "world"))
+    val myTableDataId = TestValuesTableFactory.registerData(data)
+    val ddl =
+      s"""
+         |CREATE TABLE MyTable (
+         |  col1 varchar,
+         |  col2 varchar
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$myTableDataId',
+         |  'bounded' = 'true'
+         |)
+       """.stripMargin
+    tEnv.executeSql(ddl)
+
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+    tEnv.getConfig.getConfiguration.setBoolean(
+      TableConfigOptions.TABLE_REUSE_EXPRESSION_ENABLED, false)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    checkResult(sqlQuery, Seq(row("helloworldhelloworld")))
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 2)
+  }
+
+  @Test
+  def testReuseExpressionThreshold(): Unit = {
+    val data = Seq(row("hello", "world"))
+    val myTableDataId = TestValuesTableFactory.registerData(data)
+    val ddl =
+      s"""
+         |CREATE TABLE MyTable (
+         |  col1 varchar,
+         |  col2 varchar
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$myTableDataId',
+         |  'bounded' = 'true'
+         |)
+       """.stripMargin
+    tEnv.executeSql(ddl)
+
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+    tEnv.getConfig.getConfiguration.setInteger(
+      TableConfigOptions.REUSE_EXPRESSION_THRESHOLD, 3)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    checkResult(sqlQuery, Seq(row("helloworldhelloworld")))
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 2)
   }
 
 }

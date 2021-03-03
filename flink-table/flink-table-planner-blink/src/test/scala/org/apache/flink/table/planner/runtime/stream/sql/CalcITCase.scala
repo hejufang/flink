@@ -24,6 +24,7 @@ import org.apache.flink.api.scala._
 import org.apache.flink.api.scala.typeutils.Types
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.bridge.scala._
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.api.internal.TableEnvironmentInternal
 import org.apache.flink.table.data.{GenericRowData, RowData}
 import org.apache.flink.table.planner.factories.TestValuesTableFactory
@@ -389,6 +390,95 @@ class CalcITCase extends StreamingTestBase {
     env.execute()
 
     val expected = List("false")
+    assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
+  def testReusedExpression(): Unit = {
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 1)
+
+    val expected = List("helloworldhelloworld")
+    assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
+  def testReusedExpressionInCondition(): Unit = {
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+        |WHERE my_func(col1, col2) = 'helloworld'
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 1)
+
+    val expected = List("helloworldhelloworld")
+    assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
+  def testDisabledReusedExpression(): Unit = {
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+    tEnv.getConfig.getConfiguration.setBoolean(
+      TableConfigOptions.TABLE_REUSE_EXPRESSION_ENABLED, false)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 2)
+
+    val expected = List("helloworldhelloworld")
+    assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
+  def testReuseExpressionThreshold(): Unit = {
+    tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
+    tEnv.getConfig.getConfiguration.setInteger(
+      TableConfigOptions.REUSE_EXPRESSION_THRESHOLD, 3)
+
+    val sqlQuery =
+      """
+        |SELECT CONCAT(my_func(col1, col2), my_func(col1, col2))
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+      """.stripMargin
+
+    JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt = 0
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+    assertEquals(JavaUserDefinedScalarFunctions.ReusedScalarFunction.cnt, 2)
+
+    val expected = List("helloworldhelloworld")
     assertEquals(expected, sink.getAppendResults)
   }
 

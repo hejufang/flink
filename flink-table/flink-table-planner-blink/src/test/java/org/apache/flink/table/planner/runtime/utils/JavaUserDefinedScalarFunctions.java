@@ -298,4 +298,15 @@ public class JavaUserDefinedScalarFunctions {
 			return PythonFunctionKind.PANDAS;
 		}
 	}
+
+	/**
+	 * Test for expression reuse.
+	 */
+	public static class ReusedScalarFunction extends ScalarFunction {
+		public static int cnt = 0;
+		public String eval(String s1, String s2) {
+			cnt += 1;
+			return s1 + s2;
+		}
+	}
 }

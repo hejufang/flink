@@ -72,4 +72,21 @@ public class TableConfigOptions {
 			.withDescription("Specifies a threshold where generated code will be split into sub-function calls. " +
 					"Java has a maximum method length of 64 KB. This setting allows for finer granularity if necessary.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_REUSE_EXPRESSION_ENABLED =
+		key("table.reuse-expression.enabled")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Whether enabling expression reuse optimization, " +
+				"it's enabled by default.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Integer> REUSE_EXPRESSION_THRESHOLD =
+		key("table.reuse-expression.threshold")
+			.intType()
+			.defaultValue(2)
+			.withDescription("Specify the threshold for the expression whether it should " +
+				"be reused, default value is 2, which means that any expression that is used " +
+				"more than once, it will be reused.");
+
 }

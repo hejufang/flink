@@ -122,9 +122,14 @@ object CalcCodeGenerator {
       outputDirectly: Boolean = false,
       allowSplit: Boolean = false): String = {
 
-    val projection = calcProgram.getProjectList.map(calcProgram.expandLocalRef)
+    val projection = calcProgram.getProjectList
     val exprGenerator = new ExprCodeGenerator(ctx, false)
         .bindInput(inputType, inputTerm = inputTerm)
+    exprGenerator.bindExprs(calcProgram.getExprList)
+    calcProgram.getProjectList.foreach(project => exprGenerator.initReuseCount(project))
+    if (condition.isDefined) {
+      exprGenerator.initReuseCount(condition.get)
+    }
 
     val onlyFilter = projection.lengthCompare(inputType.getFieldCount) == 0 &&
       projection.zipWithIndex.forall { case (rexNode, index) =>

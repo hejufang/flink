@@ -37,14 +37,16 @@ import org.apache.flink.table.runtime.typeutils.TypeCheckUtils.{isNumeric, isTem
 import org.apache.flink.table.types.logical._
 import org.apache.flink.table.typeutils.TimeIndicatorTypeInfo
 import org.apache.calcite.rex._
-import org.apache.calcite.sql.SqlOperator
+import org.apache.calcite.sql.{SqlKind, SqlOperator}
 import org.apache.calcite.sql.`type`.{ReturnTypes, SqlTypeName}
 import org.apache.calcite.util.TimestampString
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.data.binary.BinaryRowData
 import org.apache.flink.table.planner.functions.bridging.BridgingSqlFunction
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 
 /**
   * This code generator is mainly responsible for generating codes for a given calcite [[RexNode]].
@@ -78,6 +80,17 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
   var input2FieldMapping: Option[Array[Int]] = None
 
   /**
+    * information for expression reusing
+    */
+  var exprs: Option[Seq[RexNode]] = None
+  var generatedExpressions: mutable.Map[Int, GeneratedExpression] = _
+  var reuseCount: mutable.Map[Int, Int] = _
+  val reuseExprs: Boolean = ctx.tableConfig.getConfiguration
+    .getBoolean(TableConfigOptions.TABLE_REUSE_EXPRESSION_ENABLED)
+  val reuseThreshold: Int = ctx.tableConfig.getConfiguration
+    .getInteger(TableConfigOptions.REUSE_EXPRESSION_THRESHOLD)
+
+  /**
     * Bind the input information, should be called before generating expression.
     */
   def bindInput(
@@ -102,6 +115,33 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
     input2Term = Some(inputTerm)
     input2FieldMapping = inputFieldMapping
     this
+  }
+
+  /**
+    * Bind the exprs of [[RexProgram]], to allow expression reusing.
+    */
+  def bindExprs(exprs: Seq[RexNode]): Unit = {
+    this.exprs = Option(exprs)
+    this.generatedExpressions = mutable.Map()
+    this.reuseCount = mutable.Map()
+  }
+
+  def initReuseCount(rexNode: RexNode): Unit = {
+    if (rexNode == null) {
+      return
+    }
+
+    rexNode.accept(new RexVisitorImpl[Unit](true) {
+      override def visitLocalRef(localRef: RexLocalRef): Unit = {
+        val index = localRef.getIndex
+        if (!reuseCount.contains(index)) {
+          reuseCount(index) = 1
+        } else {
+          reuseCount(index) = reuseCount(index) + 1
+        }
+        exprs.get(index).accept(this)
+      }
+    })
   }
 
   private lazy val input1Mapping: Array[Int] = input1FieldMapping match {
@@ -431,8 +471,51 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
     GeneratedExpression(input1Term, NEVER_NULL, NO_CODE, input1Type)
   }
 
-  override def visitLocalRef(localRef: RexLocalRef): GeneratedExpression =
-    throw new CodeGenException("RexLocalRef are not supported yet.")
+  override def visitLocalRef(localRef: RexLocalRef): GeneratedExpression = {
+    if (exprs.isEmpty) {
+      throw new CodeGenException("RexLocalRef should only be presented with exprs binded.")
+    }
+    val index = localRef.getIndex
+    if (reuseExprs && shouldReuse(exprs.get(index)) && reuseCount(index) >= reuseThreshold) {
+      if (!generatedExpressions.contains(index)) {
+        val expr = exprs.get(index).accept(this)
+        val Seq(resultTerm, nullTerm, initializedTerm) =
+          newNames("result", "isNull", "initialized")
+        ctx.addReusablePerRecordStatement(s"$initializedTerm = false;")
+        ctx.addReusableMember(s"private boolean $initializedTerm;")
+        val resultType = primitiveTypeTermForType(expr.resultType)
+        ctx.addReusableMember(s"private $resultType $resultTerm;")
+        ctx.addReusableMember(s"private boolean $nullTerm;")
+        val code =
+          s"""
+             |if (!$initializedTerm) {
+             |  ${expr.code}
+             |  $initializedTerm = true;
+             |  $resultTerm = ${expr.resultTerm};
+             |  $nullTerm = ${expr.nullTerm};
+             |}
+         """.stripMargin
+        val reusedExpr = GeneratedExpression(
+          resultTerm,
+          nullTerm,
+          code,
+          expr.resultType,
+          expr.literalValue)
+        generatedExpressions(index) = reusedExpr
+      }
+      generatedExpressions(index)
+    } else {
+      exprs.get(index).accept(this)
+    }
+  }
+
+  private def shouldReuse(rexNode: RexNode): Boolean = {
+    if (rexNode.isA(SqlKind.LITERAL) || rexNode.isA(SqlKind.INPUT_REF)) {
+      false
+    } else {
+      true
+    }
+  }
 
   def visitRexFieldVariable(variable: RexFieldVariable): GeneratedExpression = {
       val internalType = FlinkTypeFactory.toLogicalType(variable.dataType)

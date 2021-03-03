@@ -20,6 +20,7 @@ package org.apache.flink.table.planner.plan.nodes.physical.stream
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.transformations.OneInputTransformation
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.{CalcCodeGenerator, CodeGeneratorContext}
@@ -55,7 +56,11 @@ class StreamExecCalc(
         .asInstanceOf[Transformation[RowData]]
     // materialize time attributes in condition
     val condition = if (calcProgram.getCondition != null) {
-      Some(calcProgram.expandLocalRef(calcProgram.getCondition))
+      if (config.getConfiguration.getBoolean(TableConfigOptions.TABLE_REUSE_EXPRESSION_ENABLED)) {
+        Some(calcProgram.getCondition)
+      } else {
+        Some(calcProgram.expandLocalRef(calcProgram.getCondition))
+      }
     } else {
       None
     }
