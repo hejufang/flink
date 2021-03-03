@@ -82,4 +82,9 @@ public abstract class AbstractMultipleInputTransformation<OUT> extends PhysicalT
 	public final void setChainingStrategy(ChainingStrategy strategy) {
 		operatorFactory.setChainingStrategy(strategy);
 	}
+
+	@Override
+	public List<Transformation<?>> getChildren() {
+		return inputs;
+	}
 }

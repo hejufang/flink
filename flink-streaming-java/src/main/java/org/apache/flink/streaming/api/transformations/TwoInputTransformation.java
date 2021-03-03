@@ -30,6 +30,7 @@ import org.apache.flink.streaming.api.operators.TwoInputStreamOperator;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -183,4 +184,8 @@ public class TwoInputTransformation<IN1, IN2, OUT> extends PhysicalTransformatio
 		operatorFactory.setChainingStrategy(strategy);
 	}
 
+	@Override
+	public List<Transformation<?>> getChildren() {
+		return Arrays.asList(input1, input2);
+	}
 }
