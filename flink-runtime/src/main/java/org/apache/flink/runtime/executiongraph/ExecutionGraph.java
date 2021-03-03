@@ -32,6 +32,7 @@ import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.accumulators.StringifiedAccumulatorResult;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
@@ -320,6 +321,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private final boolean isRecoverable;
 
+	private final RemoteBlacklistReporter remoteBlacklistReporter;
+
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
 	// --------------------------------------------------------------------------------------------
@@ -341,7 +344,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			JobMasterPartitionTracker partitionTracker,
 			ScheduleMode scheduleMode,
 			SpeculationStrategy speculationStrategy,
-			boolean isRecoverable) throws IOException {
+			boolean isRecoverable,
+			final RemoteBlacklistReporter remoteBlacklistReporter) throws IOException {
 
 		this.jobInformation = Preconditions.checkNotNull(jobInformation);
 
@@ -401,6 +405,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			this::createResultPartitionId,
 			partitionTracker);
 		this.isRecoverable = isRecoverable;
+
+		this.remoteBlacklistReporter = remoteBlacklistReporter;
 
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
 	}

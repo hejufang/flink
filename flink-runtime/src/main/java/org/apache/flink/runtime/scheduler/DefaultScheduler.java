@@ -97,8 +97,6 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 
 	private final Set<ExecutionVertexID> verticesWaitingForRestart;
 
-	protected final RemoteBlacklistReporter remoteBlacklistReporter;
-
 	DefaultScheduler(
 		final Logger log,
 		final JobGraph jobGraph,
@@ -142,7 +140,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			partitionTracker,
 			executionVertexVersioner,
 			false,
-			speculationStrategyFactory);
+			speculationStrategyFactory,
+			remoteBlacklistReporter);
 
 		this.log = log;
 
@@ -163,7 +162,6 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever());
 
 		this.verticesWaitingForRestart = new HashSet<>();
-		this.remoteBlacklistReporter = remoteBlacklistReporter;
 	}
 
 	// ------------------------------------------------------------------------
@@ -217,20 +215,6 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		log.info("Trying to recover from a global failure.", error);
 		final FailureHandlingResult failureHandlingResult = executionFailureHandler.getGlobalFailureHandlingResult(error);
 		maybeRestartTasks(failureHandlingResult);
-	}
-
-	private void tryReportBlacklist(TaskManagerLocation taskManagerLocation, Throwable error) {
-		try {
-			if (taskManagerLocation != null) {
-				remoteBlacklistReporter.onFailure(taskManagerLocation.getFQDNHostname(), taskManagerLocation.getResourceID(), error, System.currentTimeMillis());
-			} else if (error instanceof NoResourceAvailableException) {
-				remoteBlacklistReporter.clearBlacklist();
-			} else {
-				log.info("taskManagerLocation is null, not report to blacklist.");
-			}
-		} catch (Throwable t) {
-			log.info("Error while report failure to blacklist tracker", t);
-		}
 	}
 
 	private void maybeRestartTasks(final FailureHandlingResult failureHandlingResult) {

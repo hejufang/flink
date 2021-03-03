@@ -24,6 +24,7 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.akka.AkkaUtils;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.blob.VoidBlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
@@ -175,7 +176,8 @@ public class TestingExecutionGraphBuilder {
 			shuffleMaster,
 			partitionTracker,
 			failoverStrategyFactory,
-			new NoOpSpeculationStrategy());
+			new NoOpSpeculationStrategy(),
+			BlacklistUtil.createNoOpRemoteBlacklistReporter());
 	}
 
 }

@@ -29,6 +29,8 @@ import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.WebOptions;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.JobException;
+import org.apache.flink.runtime.blacklist.BlacklistUtil;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointIDCounter;
 import org.apache.flink.runtime.checkpoint.CheckpointRecoveryFactory;
@@ -132,7 +134,8 @@ public class ExecutionGraphBuilder {
 			shuffleMaster,
 			partitionTracker,
 			failoverStrategy,
-			new NoOpSpeculationStrategy());
+			new NoOpSpeculationStrategy(),
+			BlacklistUtil.createNoOpRemoteBlacklistReporter());
 	}
 
 	public static ExecutionGraph buildGraph(
@@ -153,7 +156,8 @@ public class ExecutionGraphBuilder {
 		ShuffleMaster<?> shuffleMaster,
 		JobMasterPartitionTracker partitionTracker,
 		FailoverStrategy.Factory failoverStrategyFactory,
-		SpeculationStrategy speculationStrategy) throws JobExecutionException, JobException {
+		SpeculationStrategy speculationStrategy,
+		final RemoteBlacklistReporter remoteBlacklistReporter) throws JobExecutionException, JobException {
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
@@ -198,7 +202,8 @@ public class ExecutionGraphBuilder {
 					partitionTracker,
 					jobGraph.getScheduleMode(),
 					speculationStrategy,
-					isRecoverable);
+					isRecoverable,
+					remoteBlacklistReporter);
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}

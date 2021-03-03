@@ -30,6 +30,7 @@ import org.apache.flink.core.io.InputSplit;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
+import org.apache.flink.runtime.blacklist.reporter.RemoteBlacklistReporter;
 import org.apache.flink.runtime.blob.BlobWriter;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
@@ -70,6 +71,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.jobmanager.PartitionProducerDisposedException;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
+import org.apache.flink.runtime.jobmanager.scheduler.NoResourceAvailableException;
 import org.apache.flink.runtime.jobmaster.SerializedInputSplit;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.messages.FlinkJobNotFoundException;
@@ -180,6 +182,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 	/** The implementation that decides how to speculate the slow tasks. */
 	private final SpeculationStrategy speculationStrategy;
 
+	protected final RemoteBlacklistReporter remoteBlacklistReporter;
+
 	public SchedulerBase(
 			final Logger log,
 			final JobGraph jobGraph,
@@ -199,7 +203,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 			final JobMasterPartitionTracker partitionTracker,
 			final ExecutionVertexVersioner executionVertexVersioner,
 			final boolean legacyScheduling,
-			final SpeculationStrategy.Factory speculationStrategyFactory) throws Exception {
+			final SpeculationStrategy.Factory speculationStrategyFactory,
+			final RemoteBlacklistReporter remoteBlacklistReporter) throws Exception {
 
 		this.log = checkNotNull(log);
 		this.jobGraph = checkNotNull(jobGraph);
@@ -239,6 +244,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.inputsLocationsRetriever = new ExecutionGraphToInputsLocationsRetrieverAdapter(executionGraph);
 
 		this.coordinatorMap = createCoordinatorMap();
+
+		this.remoteBlacklistReporter = remoteBlacklistReporter;
 	}
 
 	private ExecutionGraph createAndRestoreExecutionGraph(
@@ -292,7 +299,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 			shuffleMaster,
 			partitionTracker,
 			failoverStrategy,
-			speculationStrategy);
+			speculationStrategy,
+			remoteBlacklistReporter);
 	}
 
 	/**
@@ -569,6 +577,20 @@ public abstract class SchedulerBase implements SchedulerNG {
 	}
 
 	protected void updateTaskExecutionStateInternal(final ExecutionVertexID executionVertexId, final TaskExecutionState taskExecutionState, @Nullable final TaskManagerLocation taskManagerLocation) {
+	}
+
+	protected void tryReportBlacklist(TaskManagerLocation taskManagerLocation, Throwable error) {
+		try {
+			if (taskManagerLocation != null) {
+				remoteBlacklistReporter.onFailure(taskManagerLocation.getFQDNHostname(), taskManagerLocation.getResourceID(), error, System.currentTimeMillis());
+			} else if (error instanceof NoResourceAvailableException) {
+				remoteBlacklistReporter.clearBlacklist();
+			} else {
+				log.info("taskManagerLocation is null, not report to blacklist.");
+			}
+		} catch (Throwable t) {
+			log.info("Error while report failure to blacklist tracker", t);
+		}
 	}
 
 	@Override
