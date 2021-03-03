@@ -1572,6 +1572,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;
 		}
 
+		// Use G1GC
+		if (flinkConfiguration.getBoolean(CoreOptions.FLINK_GC_G1_ENABLE)) {
+			javaOpts += " -XX:+UseG1GC";
+			javaOpts += " -XX:MaxGCPauseMillis=" + flinkConfiguration.getInteger(CoreOptions.FLINK_MAX_GC_PAUSE_MILLIS);
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {

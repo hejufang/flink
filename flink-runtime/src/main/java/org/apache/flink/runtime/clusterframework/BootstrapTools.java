@@ -421,6 +421,12 @@ public class BootstrapTools {
 			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;
 		}
 
+		// Use G1GC
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_GC_G1_ENABLE)) {
+			javaOpts += " -XX:+UseG1GC";
+			javaOpts += " -XX:MaxGCPauseMillis=" + flinkConfig.getInteger(CoreOptions.FLINK_MAX_GC_PAUSE_MILLIS);
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {

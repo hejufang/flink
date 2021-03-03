@@ -226,12 +226,23 @@ public class CoreOptions {
 	public static final ConfigOption<String> FLINK_GC_LOG_OPTS = ConfigOptions
 		.key("env.gc.log.opts")
 		.defaultValue("")
-		.withDescription("Write all the garbage collections made by the JVM to a log file");
+		.withDescription("Write all gc configuration by the JVM to a log file, like: -XX:+PrintGCDetails " +
+			"-XX:+PrintGCDateStamps");
 
 	public static final ConfigOption<Boolean> FLINK_JVM_ERROR_FILE_ENABLED = ConfigOptions
 		.key("env.jvm.error.file")
-		.defaultValue(false)
+		.defaultValue(true)
 		.withDescription("Generate a error file when jvm crash");
+
+	public static final ConfigOption<Boolean> FLINK_GC_G1_ENABLE = ConfigOptions
+		.key("flink.gc.g1")
+		.defaultValue(false)
+		.withDescription("Use g1 GC in flink JVM.");
+
+	public static final ConfigOption<Integer> FLINK_MAX_GC_PAUSE_MILLIS = ConfigOptions
+		.key("flink.gc.MaxGCPauseMillis")
+		.defaultValue(50)
+		.withDescription("The max GCPauseMillis in G1, just effective while enbale G1 GC.");
 
 	public static final ConfigOption<Boolean> FLINK_DUMP_OOM_ENABLED = ConfigOptions
 		.key("env.jvm.dump.oom")
