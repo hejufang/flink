@@ -57,10 +57,11 @@ public class HtapReader implements AutoCloseable {
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
 	private final HtapStorageClient client;
+	private final long limit;
 
 	public HtapReader(HtapTable table, HtapReaderConfig readerConfig) throws Exception {
 		this(table, readerConfig, Collections.emptyList(), Collections.emptyList(),
-			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null);
+			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null, -1);
 	}
 
 	public HtapReader(
@@ -68,7 +69,7 @@ public class HtapReader implements AutoCloseable {
 			HtapReaderConfig readerConfig,
 			List<HtapFilterInfo> tableFilters) throws Exception {
 		this(table, readerConfig, tableFilters, Collections.emptyList(), Collections.emptyList(),
-			Collections.emptyList(), Collections.emptyList(), null);
+			Collections.emptyList(), Collections.emptyList(), null, -1);
 	}
 
 	public HtapReader(
@@ -79,7 +80,8 @@ public class HtapReader implements AutoCloseable {
 			List<HtapAggregateInfo> tableAggregates,
 			List<String> groupByColumns,
 			List<FlinkAggregateFunction> aggregateFunctions,
-			DataType outputDataType) throws IOException {
+			DataType outputDataType,
+			long limit) throws IOException {
 		this.table = checkNotNull(table, "table could not be null");
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
@@ -91,6 +93,7 @@ public class HtapReader implements AutoCloseable {
 				aggregateFunctions, "aggregateFunctions could not be null");
 		this.outputDataType = outputDataType;
 		this.client = obtainStorageClient();
+		this.limit = limit;
 	}
 
 	private HtapStorageClient obtainStorageClient() throws IOException {
@@ -163,7 +166,7 @@ public class HtapReader implements AutoCloseable {
 
 	public HtapInputSplit[] createInputSplits(int minNumSplits) throws IOException {
 		List<HtapScanToken> tokens = scanTokens(tableFilters, tableProjections, groupByColumns,
-			tableAggregates, readerConfig.getRowLimit());
+			tableAggregates, (int) limit);
 		HtapInputSplit[] splits = new HtapInputSplit[tokens.size()];
 
 		for (int i = 0; i < tokens.size(); i++) {

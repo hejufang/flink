@@ -18,6 +18,7 @@
 package org.apache.flink.connectors.htap.table;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connectors.htap.batch.HtapRowInputFormat;
 import org.apache.flink.connectors.htap.connector.HtapAggregateInfo;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
@@ -30,6 +31,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.TableSchema;
+import org.apache.flink.table.api.config.ExecutionConfigOptions;
+import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.sources.AggregatableTableSource;
@@ -42,6 +45,8 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
@@ -51,6 +56,7 @@ import com.bytedance.htap.meta.HtapTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -73,30 +79,54 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	private final HtapReaderConfig readerConfig;
 	private final HtapTableInfo tableInfo;
 	private final TableSchema flinkSchema;
-	private final String[] projectedFields;
-	private final String[] groupByFields;
-	private final List<HtapAggregateInfo> aggregates;
-	private final List<FlinkAggregateFunction> aggregateFunctions;
-	private final DataType outputDataType;
-	private final List<HtapFilterInfo> predicates;
+
+	private final ReadableConfig flinkConf;
+	private final ObjectPath tablePath;
+
+	private List<HtapFilterInfo> predicates;
+	private String[] groupByFields;
+	private List<HtapAggregateInfo> aggregates;
+	private List<FlinkAggregateFunction> aggregateFunctions;
+	private DataType outputDataType;
+	private boolean isAggregatePushedDown = false;
+	private String[] projectedFields;
 	private boolean isFilterPushedDown = false;
 	private boolean isLimitPushedDown = false;
-	private boolean isAggregatePushedDown = false;
+	private long limit = -1;
 
 	public HtapTableSource(
 			HtapReaderConfig readerConfig,
 			HtapTableInfo tableInfo,
 			TableSchema flinkSchema,
+			ReadableConfig flinkConf,
+			ObjectPath tablePath) {
+		this.readerConfig = readerConfig;
+		this.tableInfo = tableInfo;
+		this.flinkSchema = flinkSchema;
+		this.flinkConf = flinkConf;
+		this.tablePath = tablePath;
+	}
+
+	// A constructor mainly used to create copies during optimizations like projection push down.
+	private HtapTableSource(
+			HtapReaderConfig readerConfig,
+			HtapTableInfo tableInfo,
+			TableSchema flinkSchema,
+			ReadableConfig flinkConf,
+			ObjectPath tablePath,
 			List<HtapFilterInfo> predicates,
 			String[] projectedFields,
 			String[] groupByFields,
 			List<HtapAggregateInfo> aggregates,
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
-			boolean isLimitPushedDown) {
+			boolean isLimitPushedDown,
+			long limit) {
 		this.readerConfig = readerConfig;
 		this.tableInfo = tableInfo;
 		this.flinkSchema = flinkSchema;
+		this.flinkConf = flinkConf;
+		this.tablePath = tablePath;
 		this.predicates = predicates;
 		this.projectedFields = projectedFields;
 		this.groupByFields = groupByFields;
@@ -110,6 +140,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			this.isAggregatePushedDown = true;
 		}
 		this.isLimitPushedDown = isLimitPushedDown;
+		this.limit = limit;
 	}
 
 	@Override
@@ -125,16 +156,39 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		HtapTable table = readerConfig.getCheckPointLSN() == -1L ?
 			metaClient.getTable(tableInfo.getName()) :
 			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());
-		HtapRowInputFormat inputFormat = new HtapRowInputFormat(readerConfig, table,
+		HtapRowInputFormat inputFormat = new HtapRowInputFormat(
+			readerConfig,
+			table,
 			predicates == null ? Collections.emptyList() : predicates,
 			projectedFields == null ? Collections.emptyList() : Lists.newArrayList(projectedFields),
 			aggregates == null ? Collections.emptyList() : aggregates,
 			groupByFields == null ? Collections.emptyList() : Lists.newArrayList(groupByFields),
 			aggregateFunctions == null ? Collections.emptyList() : aggregateFunctions,
-			outputDataType);
+			outputDataType,
+			limit);
+		int parallelism = flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
+		if (flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM)) {
+			int max = flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX);
+			Preconditions.checkState(max > 0, String.format("%s must be greater than 0.",
+				HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX.key()));
+
+			int splitNum;
+			try {
+				long startMs = System.currentTimeMillis();
+				splitNum = inputFormat.createInputSplits(0).length;
+				long endMs = System.currentTimeMillis();
+				LOG.info("Htap source({}) createInputSplits use time: {} ms, splitNum = {}",
+					tablePath, (endMs - startMs), splitNum);
+			} catch (IOException e) {
+				throw new FlinkRuntimeException(e);
+			}
+			parallelism = Math.min(splitNum, max);
+			parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
+			parallelism = Math.max(1, parallelism);
+		}
 		return env.createInput(inputFormat,
 			(TypeInformation<Row>) TypeConversions.fromDataTypeToLegacyInfo(getProducedDataType()))
-			.name(explainSource());
+			.name(explainSource()).setParallelism(parallelism);
 	}
 
 	@Override
@@ -173,18 +227,19 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	}
 
 	@Override
-	public TableSource<Row> applyLimit(long l) {
-		LOG.info("HtapTableSource[{}] apply limit: {}", tableInfo.getName(), l);
-		readerConfig.setRowLimit((int) l);
-		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, predicates,
-			projectedFields, groupByFields, aggregates, aggregateFunctions, outputDataType, true);
+	public TableSource<Row> applyLimit(long limit) {
+		LOG.info("HtapTableSource[{}] apply limit: {}", tableInfo.getName(), limit);
+		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
+			tablePath, predicates, projectedFields, groupByFields, aggregates,
+			aggregateFunctions, outputDataType, true, limit);
 	}
 
 	@Override
 	public TableSource<Row> projectFields(int[] ints) {
 		String[] fieldNames = getColumnNamesByIndexList(ints);
-		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, predicates, fieldNames,
-			groupByFields, aggregates, aggregateFunctions, outputDataType, isLimitPushedDown);
+		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
+			tablePath, predicates, fieldNames, groupByFields, aggregates, aggregateFunctions,
+			outputDataType, isLimitPushedDown, limit);
 	}
 
 	@Override
@@ -211,9 +266,10 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		}
 		LOG.info("applied predicates: flink predicates: [{}], pushed predicates: [{}]",
 			predicates, htapPredicates);
-		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, htapPredicates,
-			projectedFields, groupByFields, aggregates, aggregateFunctions, outputDataType,
-			isLimitPushedDown);
+
+		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
+			tablePath, htapPredicates, projectedFields, groupByFields, aggregates, aggregateFunctions,
+			outputDataType, isLimitPushedDown, limit);
 	}
 
 	@Override
@@ -240,9 +296,9 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 				iterator.remove();
 			}
 		}
-		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, predicates,
-			projectedFields, groupByFields, aggregates, validAggFunctions, aggOutputDataType,
-			isLimitPushedDown);
+		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
+			tablePath, predicates, projectedFields, groupByFields, aggregates, validAggFunctions,
+			aggOutputDataType, isLimitPushedDown, limit);
 	}
 
 	@Override
@@ -255,7 +311,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		return "HtapTableSource[schema=" + Arrays.toString(getTableSchema().getFieldNames()) +
 			", filter=" + predicateString() +
 			", isFilterPushedDown=" + isFilterPushedDown +
-			", limit=" + readerConfig.getRowLimit() +
+			", limit=" + limit +
 			", isLimitPushedDown=" + isLimitPushedDown +
 			", isAggregatePushedDown=" + isAggregatePushedDown +
 			(groupByFields != null ? ", groupByFields=" + Arrays.toString(groupByFields) : "") +

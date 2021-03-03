@@ -45,8 +45,6 @@ public class HtapReaderConfig implements Serializable {
 
 	private final long checkPointLSN;
 
-	private int rowLimit = -1;
-
 	public HtapReaderConfig(
 			String metaHost,
 			int metaPort,
@@ -64,14 +62,6 @@ public class HtapReaderConfig implements Serializable {
 		this.logStoreLogDir = checkNotNull(logStoreLogDir, "LogStore LogDir cannot be null");
 		this.pageStoreLogDir = checkNotNull(pageStoreLogDir, "PageStore LogDir cannot be null");
 		this.checkPointLSN = checkNotNull(checkPointLSN, "CheckPointLSN cannot be null");
-	}
-
-	public void setRowLimit(int rowLimit) {
-		this.rowLimit = rowLimit;
-	}
-
-	public int getRowLimit() {
-		return rowLimit;
 	}
 
 	public String getMetaHosts() {
@@ -116,7 +106,6 @@ public class HtapReaderConfig implements Serializable {
 				.append("byteStoreDataPath", byteStoreDataPath)
 				.append("logStoreLogDir", logStoreLogDir)
 				.append("pageStoreLogDir", pageStoreLogDir)
-				.append("rowLimit", rowLimit)
 				.append("checkPointLSN", checkPointLSN)
 				.toString();
 	}

@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.htap.table;
 
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 import org.apache.flink.connectors.htap.connector.reader.HtapReaderConfig;
 import org.apache.flink.connectors.htap.table.utils.HtapTableUtils;
@@ -26,6 +27,7 @@ import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.descriptors.DescriptorProperties;
 import org.apache.flink.table.descriptors.SchemaValidator;
 import org.apache.flink.table.factories.TableSourceFactory;
+import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.types.Row;
 
 import java.util.ArrayList;
@@ -132,34 +134,25 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	}
 
 	@Override
-	public HtapTableSource createTableSource(Map<String, String> properties) {
-		DescriptorProperties descriptorProperties = getValidatedProps(properties);
-		String tableName = descriptorProperties.getString(HTAP_TABLE);
-		TableSchema schema = descriptorProperties.getTableSchema(SCHEMA);
-		return createTableSource(tableName, schema, properties);
-	}
+	public TableSource<Row> createTableSource(Context context) {
+		CatalogTable table = context.getTable();
 
-	@Override
-	public HtapTableSource createTableSource(ObjectPath tablePath, CatalogTable table) {
+		ObjectPath tablePath = context.getObjectIdentifier().toObjectPath();
+		ReadableConfig flinkConf = context.getConfiguration();
+		Map<String, String> options = table.getOptions();
+		TableSchema schema = table.getSchema();
+
+		String metaHost = options.get(HTAP_META_HOST);
+		int metaPort = Integer.parseInt(options.get(HTAP_META_PORT));
+		String instanceId = options.get(HTAP_INSTANCE_ID);
+		String byteStoreLogPath = options.get(HTAP_BYTESTORE_LOGPATH);
+		String byteStoreDataPath = options.get(HTAP_BYTESTORE_DATAPATH);
+		String logStoreLogDir = options.get(HTAP_LOGSTORE_LOGDIR);
+		String pageStoreLogDir = options.get(HTAP_PAGESTORE_LOGDIR);
 		String tableName = HtapTableUtils.convertToHtapTableName(tablePath);
-		return createTableSource(tableName, table.getSchema(), table.getProperties());
-	}
-
-	private HtapTableSource createTableSource(
-			String tableName,
-			TableSchema schema,
-			Map<String, String> props) {
-		String metaHost = props.get(HTAP_META_HOST);
-		int metaPort = Integer.parseInt(props.get(HTAP_META_PORT));
-		String instanceId = props.get(HTAP_INSTANCE_ID);
-		String byteStoreLogPath = props.get(HTAP_BYTESTORE_LOGPATH);
-		String byteStoreDataPath = props.get(HTAP_BYTESTORE_DATAPATH);
-		String logStoreLogDir = props.get(HTAP_LOGSTORE_LOGDIR);
-		String pageStoreLogDir = props.get(HTAP_PAGESTORE_LOGDIR);
-		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, props);
+		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, options);
 		HtapReaderConfig readerConfig = new HtapReaderConfig(metaHost, metaPort, instanceId,
 			byteStoreLogPath, byteStoreDataPath, logStoreLogDir, pageStoreLogDir, checkPointLSN);
-		return new HtapTableSource(readerConfig, tableInfo, schema, null, null,
-			null, null, null, null, false);
+		return new HtapTableSource(readerConfig, tableInfo, schema, flinkConf, tablePath);
 	}
 }

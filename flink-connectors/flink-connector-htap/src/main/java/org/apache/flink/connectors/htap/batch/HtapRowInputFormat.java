@@ -62,6 +62,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private final List<String> groupByColumns;
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
+	private final long limit;
 
 	private boolean endReached;
 
@@ -70,7 +71,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	public HtapRowInputFormat(HtapReaderConfig readerConfig, HtapTable table) {
 		this(readerConfig, table, Collections.emptyList(), Collections.emptyList(),
-			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null);
+			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null, -1);
 	}
 
 	public HtapRowInputFormat(
@@ -78,7 +79,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			HtapTable table,
 			List<String> tableProjections) {
 		this(readerConfig, table, Collections.emptyList(), tableProjections,
-			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null);
+			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null, -1);
 	}
 
 	public HtapRowInputFormat(
@@ -89,7 +90,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			List<HtapAggregateInfo> tableAggregates,
 			List<String> groupByColumns,
 			List<FlinkAggregateFunction> aggregateFunctions,
-			DataType outputDataType) {
+			DataType outputDataType,
+			long limit) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.table = checkNotNull(table, "table could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
@@ -100,6 +102,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 		this.aggregateFunctions = checkNotNull(
 				aggregateFunctions, "aggregateFunctions could not be null");
 		this.outputDataType = outputDataType;
+		this.limit = limit;
 	}
 
 	@Override
@@ -116,7 +119,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	private void createHtapReader() throws IOException {
 		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
-			tableAggregates, groupByColumns, aggregateFunctions, outputDataType);
+			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit);
 	}
 
 	@Override
