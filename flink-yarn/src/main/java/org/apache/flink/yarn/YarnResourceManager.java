@@ -781,6 +781,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 				if (pendingRequestsIterator.hasNext()) {
 					AMRMClient.ContainerRequest containerRequest = pendingRequestsIterator.next();
 					removeContainerRequest(containerRequest, workerResourceSpec);
+					notifyNewWorkerRequestReleased(workerResourceSpec);
 				} else {
 					break;
 				}
@@ -950,11 +951,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 				}
 			}
 			log.info("Allocate {} containers, Using gang scheduler: {}", workerNumber, useGang);
-			ArrayList<AMRMClient.ContainerRequest> containerRequests = new ArrayList<>();
+			AMRMClient.ContainerRequest containerRequest = null;
 			for (int i = 0; i < workerNumber; i++) {
-				containerRequests.add(getContainerRequest(containerResourceOptional.get(), useGang));
+				containerRequest = getContainerRequest(containerResourceOptional.get(), useGang);
+				resourceManagerClient.addContainerRequest(containerRequest);
 			}
-			resourceManagerClient.addContainerRequestList(containerRequests);
 
 			// make sure we transmit the request fast and receive fast news of granted allocations
 			resourceManagerClient.setHeartbeatInterval(containerRequestHeartbeatIntervalMillis);
@@ -965,7 +966,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 			log.info("Requesting new TaskExecutor container with resource {}, resourceRequest {}. Number pending workers of this resource is {}.",
 				workerResourceSpec,
-				containerRequests.get(0),
+				containerRequest,
 				numPendingWorkers);
 			return true;
 		} else {

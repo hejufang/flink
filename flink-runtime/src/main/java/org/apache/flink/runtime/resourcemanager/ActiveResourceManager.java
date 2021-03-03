@@ -152,6 +152,17 @@ public abstract class ActiveResourceManager <WorkerType extends ResourceIDRetrie
 	}
 
 	/**
+	 * Notify that a requested worker has been released.
+	 * @param workerResourceSpec resource spec of the requested worker
+	 * @return updated number of pending workers for the given resource spec
+	 */
+	protected PendingWorkerNums notifyNewWorkerRequestReleased(WorkerResourceSpec workerResourceSpec) {
+		return new PendingWorkerNums(
+			requestedNotAllocatedWorkerCounter.decreaseAndGet(workerResourceSpec),
+			requestedNotRegisteredWorkerCounter.decreaseAndGet(workerResourceSpec));
+	}
+
+	/**
 	 * Notify that a worker with the given resource spec has been allocated.
 	 * @param workerResourceSpec resource spec of the requested worker
 	 * @param resourceID id of the allocated resource

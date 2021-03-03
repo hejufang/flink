@@ -930,6 +930,7 @@ public class YarnResourceManagerTest extends TestLogger {
 	 * 9. verify not request new container
 	 * 10. allocated 1 containers and registered 2 container(1 redundant)
 	 * 11. verify all starting containers are released and pending requests are removed
+	 * 12. request,allocated,started 1 container
 	 */
 	@Test
 	public void testContainerCompletedWithSlowContainer() throws Exception {
@@ -1057,10 +1058,9 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(1, slowContainerManager.getPendingRedundantContainersTotalNum());
 				assertEquals(1, slowContainerManager.getRedundantContainerTotalNum());
 
-				// allocated 2 container. 000012,000013
-				resourceManager.onContainersAllocated(testContainers.subList(12, 14));
+				// allocated 1 container. 000013
+				resourceManager.onContainersAllocated(testContainers.subList(13, 14));
 				verifyFutureCompleted(removeContainerRequestFutures.get(12));
-				verifyFutureCompleted(removeContainerRequestFutures.get(13));
 
 				// slow container started. 000010, 000013
 				for (int i : Arrays.asList(10, 13)) {
@@ -1069,9 +1069,19 @@ public class YarnResourceManagerTest extends TestLogger {
 				}
 				assertEquals(10, rmServices.slotManager.getNumberRegisteredSlots());
 
-				// verify pending request 000012 removed.
-				verifyFutureCompleted(removeContainerRequestFutures.get(12));
+				// verify pending 000012 removed.
+				verifyFutureCompleted(removeContainerRequestFutures.get(13));
 				assertEquals(0, pendingRequests.size());
+
+				// request new container
+				registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				// allocated 1 container. 000014
+				resourceManager.onContainersAllocated(testContainers.subList(14, 15));
+				verifyFutureCompleted(removeContainerRequestFutures.get(14));
+				// 000014 started.
+				Container container = testContainers.get(14);
+				registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				assertEquals(11, rmServices.slotManager.getNumberRegisteredSlots());
 			});
 		}};
 	}
