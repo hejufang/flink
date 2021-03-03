@@ -391,26 +391,4 @@ class TableScanTest extends TableTestBase {
     thrown.expectMessage("DynamicTableSource with SupportsFilterPushDown ability is not supported")
     util.verifyPlan("SELECT * FROM src", ExplainDetail.CHANGELOG_MODE)
   }
-
-  @Test
-  def testLegacyTableSourceScanTransformation(): Unit = {
-    util.addTableSource[(Int, Long, String)]("MyTable", 'a, 'b, 'c)
-    util.verifyTransformation("SELECT * FROM MyTable")
-  }
-
-  @Test
-  def testDDLTableScanTransformation(): Unit = {
-    util.addTable(
-      """
-        |CREATE TABLE src (
-        |  ts TIMESTAMP(3),
-        |  a INT,
-        |  b DOUBLE,
-        |  WATERMARK FOR ts AS ts - INTERVAL '0.001' SECOND
-        |) WITH (
-        |  'connector' = 'values'
-        |)
-      """.stripMargin)
-    util.verifyTransformation("SELECT * FROM src WHERE a > 1")
-  }
 }

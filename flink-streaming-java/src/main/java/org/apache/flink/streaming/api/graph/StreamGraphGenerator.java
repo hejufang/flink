@@ -36,7 +36,6 @@ import org.apache.flink.streaming.api.operators.OutputFormatOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.streaming.api.transformations.AbstractMultipleInputTransformation;
 import org.apache.flink.streaming.api.transformations.CoFeedbackTransformation;
-import org.apache.flink.streaming.api.transformations.FakeTransformation;
 import org.apache.flink.streaming.api.transformations.FeedbackTransformation;
 import org.apache.flink.streaming.api.transformations.KeyedMultipleInputTransformation;
 import org.apache.flink.streaming.api.transformations.LegacySourceTransformation;
@@ -299,8 +298,6 @@ public class StreamGraphGenerator {
 			transformedIds = transformPartition((PartitionTransformation<?>) transform);
 		} else if (transform instanceof SideOutputTransformation<?>) {
 			transformedIds = transformSideOutput((SideOutputTransformation<?>) transform);
-		} else if (transform instanceof FakeTransformation<?>) {
-			transformedIds = transform(((FakeTransformation) transform).getInput());
 		} else {
 			throw new IllegalStateException("Unknown transformation: " + transform);
 		}

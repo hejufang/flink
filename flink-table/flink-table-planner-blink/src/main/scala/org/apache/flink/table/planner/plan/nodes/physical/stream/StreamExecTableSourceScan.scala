@@ -18,11 +18,9 @@
 
 package org.apache.flink.table.planner.plan.nodes.physical.stream
 
-import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.common.io.InputFormat
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
-import org.apache.flink.streaming.api.transformations.FakeTransformation
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalTableSourceScan
@@ -90,9 +88,7 @@ class StreamExecTableSourceScan(
 
   override protected def translateToPlanInternal(
       planner: StreamPlanner): Transformation[RowData] = {
-    val source = createSourceTransformation(planner.getExecEnv, getRelDetailedDescription)
-    new FakeTransformation[RowData](
-      source, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
+    createSourceTransformation(planner.getExecEnv, getRelDetailedDescription)
   }
 
   /**

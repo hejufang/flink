@@ -362,8 +362,7 @@ abstract class PlannerBase(
     * @param execNodes The node DAG to translate.
     * @return The [[Transformation]] DAG that corresponds to the node DAG.
     */
-  @VisibleForTesting
-  def translateToPlan(execNodes: util.List[ExecNode[_, _]]): util.List[Transformation[_]]
+  protected def translateToPlan(execNodes: util.List[ExecNode[_, _]]): util.List[Transformation[_]]
 
   private def getTableSink(
       objectIdentifier: ObjectIdentifier,

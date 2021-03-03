@@ -29,7 +29,6 @@ import org.apache.flink.streaming.api.operators.StreamSource;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 
 /**
  * This represents a Source. This does not actually transform anything since it has no inputs but
@@ -87,10 +86,5 @@ public class LegacySourceTransformation<T> extends PhysicalTransformation<T> {
 	@Override
 	public final void setChainingStrategy(ChainingStrategy strategy) {
 		operatorFactory.setChainingStrategy(strategy);
-	}
-
-	@Override
-	public List<Transformation<?>> getChildren() {
-		return Collections.emptyList();
 	}
 }

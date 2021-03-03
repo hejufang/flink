@@ -28,7 +28,6 @@ import org.apache.flink.streaming.api.operators.SourceOperatorFactory;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 
 /**
  * A {@link PhysicalTransformation} for {@link Source}.
@@ -68,10 +67,5 @@ public class SourceTransformation<OUT> extends PhysicalTransformation<OUT> {
 	@Override
 	public final void setChainingStrategy(ChainingStrategy strategy) {
 		sourceFactory.setChainingStrategy(strategy);
-	}
-
-	@Override
-	public List<Transformation<?>> getChildren() {
-		return Collections.emptyList();
 	}
 }

@@ -23,7 +23,6 @@ import org.apache.flink.api.dag.Transformation;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -74,10 +73,5 @@ public class UnionTransformation<T> extends Transformation<T> {
 			result.addAll(input.getTransitivePredecessors());
 		}
 		return result;
-	}
-
-	@Override
-	public List<Transformation<?>> getChildren() {
-		return new ArrayList<>(inputs);
 	}
 }
