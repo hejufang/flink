@@ -23,6 +23,7 @@ common:
   
   state.backend: rocksdb
   state.backend.rocksdb.checkpoint.transfer.thread.num: 4
+  state.backend.rocksdb.use-fsync: true
   state.checkpoints.dir: ${checkpoint.hdfs.prefix}/1.9/flink/fs_checkpoint_dir
   state.checkpoints.num-retained: 3
 
