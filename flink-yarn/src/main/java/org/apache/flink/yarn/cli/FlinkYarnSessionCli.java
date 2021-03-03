@@ -371,7 +371,8 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 					final String value = properties.getProperty(key);
 
 					if (value != null) {
-						return Stream.of(key + dynamicproperties.getValueSeparator() + value);
+						String formatValue = GlobalConfiguration.reloadPropertyValue(configuration, value);
+						return Stream.of(key + dynamicproperties.getValueSeparator() + formatValue);
 					} else {
 						return Stream.empty();
 					}
@@ -594,10 +595,11 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 		// reload config by dynamic properties.
 		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
-		for (String key : properties.stringPropertyNames()) {
-			effectiveConfiguration.setString(key, properties.getProperty(key));
-		}
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
+		for (String key : properties.stringPropertyNames()) {
+			String value = GlobalConfiguration.reloadPropertyValue(effectiveConfiguration, properties.getProperty(key));
+			effectiveConfiguration.setString(key, value);
+		}
 
 		// Yarn will get cluster from conf by queue first
 		if (effectiveConfiguration.getBoolean(YarnConfigOptions.YARN_CONF_CLUSTER_QUEUE_NAME_ENABLE)) {

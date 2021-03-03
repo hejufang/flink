@@ -157,6 +157,7 @@ common:
   yarn.gang-scheduler.downgrade-timeout-ms: 1800000
   yarn.gang-scheduler.container-descheduler.enable: false
   yarn.gang-scheduler.container-descheduler.disk-type-enable: false
+  yarn.provided.lib.dirs.enabled: false
 
   # GC log options
   flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
@@ -297,6 +298,7 @@ leser:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   jobmanager.execution.region-failover.always-region-when-no-resource: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  yarn.provided.lib.dirs.enabled: true
 
 lobst:
   dc: cn
@@ -403,6 +405,7 @@ quoka:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   jobmanager.execution.region-failover.always-region-when-no-resource: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  yarn.provided.lib.dirs.enabled: true
 
 quaga:
   dc: cn
@@ -411,6 +414,7 @@ quaga:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
+  yarn.provided.lib.dirs.enabled: true
 
 quele:
   dc: cn

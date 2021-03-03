@@ -346,6 +346,20 @@ public class YarnConfigOptions {
 			.defaultValue(30 * 60 * 1000L)
 			.withDescription("Minimum time interval before next scheduling of container usability-type descheduler in gang scheduler.");
 
+	public static final ConfigOption<String> PROVIDED_LIB_DIRS =
+		key("yarn.provided.lib.dirs")
+			.noDefaultValue()
+			.withDescription("A semicolon-separated list of provided lib directories. They should be pre-uploaded and " +
+				"world-readable. Flink will use them to exclude the local Flink jars(e.g. flink-dist, lib/, plugins/)" +
+				"uploading to accelerate the job submission process. Also YARN will cache them on the nodes so that " +
+				"they doesn't need to be downloaded every time for each application. An example could be " +
+				"hdfs://$namenode_address/path/of/flink/lib");
+
+	public static final ConfigOption<Boolean> PROVIDED_LIB_DIRS_ENABLED =
+			key("yarn.provided.lib.dirs.enabled")
+					.defaultValue(false)
+					.withDescription("Whether enable provided lib dirs.");
+
 	// ------------------------------------------------------------------------
 
 	/**

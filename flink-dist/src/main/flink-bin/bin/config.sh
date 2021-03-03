@@ -363,6 +363,7 @@ export FLINK_PLUGINS_DIR
 export FLINK_LIB_DIR
 # export /opt dir to access it for the SQL client
 export FLINK_OPT_DIR
+export FLINK_HOME
 
 ########################################################################################################################
 # ENVIRONMENT VARIABLES

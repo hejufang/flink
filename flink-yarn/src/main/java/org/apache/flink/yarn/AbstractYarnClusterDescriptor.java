@@ -51,10 +51,14 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.function.FunctionUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -67,6 +71,7 @@ import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.NodeReport;
 import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.api.records.Priority;
@@ -108,10 +113,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_PLUGINS_DIR;
@@ -120,6 +127,7 @@ import static org.apache.flink.configuration.ConfigConstants.YARN_APPLICATION_TY
 import static org.apache.flink.configuration.ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT;
 import static org.apache.flink.configuration.JobManagerOptions.CHECK_JOB_UNIQUE;
 import static org.apache.flink.runtime.entrypoint.component.FileJobGraphRetriever.JOB_GRAPH_FILE_PATH;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.yarn.YarnConfigKeys.SPT_NOENV;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOGBACK_NAME;
@@ -487,7 +495,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// ------------------ Add dynamic properties to local flinkConfiguraton ------
 		Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
 		for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
-			flinkConfiguration.setString(dynProperty.getKey(), dynProperty.getValue());
+			String value = GlobalConfiguration.reloadPropertyValue(flinkConfiguration, dynProperty.getValue());
+			flinkConfiguration.setString(dynProperty.getKey(), value);
 		}
 
 		isReadyForDeployment(clusterSpecification);
@@ -735,7 +744,61 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
-		addEnvironmentFoldersToShipFiles(systemShipFiles);
+		// local resource map for Yarn
+		final Map<String, LocalResource> localResources;
+		// list of remote paths (after upload)
+		final List<Path> paths;
+
+		// upload and register ship files
+		List<String> systemClassPaths;
+
+		// ship list that enables reuse of resources for task manager containers
+		final StringBuilder envShipFileList = new StringBuilder();
+
+		// provided ship list that enables reuse of resources for task manager containers
+		final StringBuilder providedEnvShipFiles = new StringBuilder();
+
+		String providedFlinkJar = null;
+		Path providedFlinkJarPath = null;
+
+		boolean providedLibEnabled = configuration.getBoolean(YarnConfigOptions.PROVIDED_LIB_DIRS_ENABLED);
+		if (providedLibEnabled) {
+			final List<Path> providedLibDirs = getRemoteSharedPaths(configuration);
+			final Map<String, FileStatus> providedSharedLibs = getAllFilesInProvidedLibDirs(fs, providedLibDirs);
+
+			final Map<String, LocalResource> providedLocalResources = new HashMap<>();
+			final ArrayList<Path> providedRemotePaths = new ArrayList<>();
+			final ArrayList<String> providedClassPaths = new ArrayList<>();
+			for (Map.Entry<String, FileStatus> providedSharedLib : providedSharedLibs.entrySet()) {
+				String fileName = providedSharedLib.getKey();
+				FileStatus fileStatus = providedSharedLib.getValue();
+				final Path filePath = fileStatus.getPath();
+				LOG.debug("Using remote file {} to register local resource", filePath);
+
+				final LocalResource localResource = Utils.registerLocalResource(filePath, fileStatus.getLen(), fileStatus.getModificationTime(), LocalResourceVisibility.PUBLIC);
+				providedLocalResources.put(fileName, localResource);
+				providedRemotePaths.add(filePath);
+				providedEnvShipFiles.append(fileName).append("=").append(filePath).append(",");
+
+				if (!Utils.isFlinkDistJar(filePath.getName()) && !isPlugin(filePath)) {
+					providedClassPaths.add(fileName);
+				} else if (Utils.isFlinkDistJar(filePath.getName())) {
+					providedFlinkJar = fileName;
+					providedFlinkJarPath = filePath;
+				}
+			}
+			localResources = new HashMap<>(providedLocalResources);
+			paths = new ArrayList<>(providedRemotePaths);
+			systemClassPaths = new ArrayList<>(providedClassPaths);
+		} else {
+			localResources = new HashMap<>();
+			paths = new ArrayList<>();
+			systemClassPaths = new ArrayList<>();
+		}
+
+		if (StringUtils.isNullOrWhitespaceOnly(providedFlinkJar) || providedFlinkJarPath == null) {
+			addEnvironmentFoldersToShipFiles(systemShipFiles);
+		}
 
 		// Set-up ApplicationSubmissionContext for the application
 
@@ -768,16 +831,6 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					1));
 		}
 
-		// local resource map for Yarn
-		final Map<String, LocalResource> localResources = new HashMap<>(2 + systemShipFiles.size() + userJarFiles.size());
-		// list of remote paths (after upload)
-		final List<Path> paths = new ArrayList<>(2 + systemShipFiles.size() + userJarFiles.size());
-		// ship list that enables reuse of resources for task manager containers
-		StringBuilder envShipFileList = new StringBuilder();
-
-		// upload and register ship files
-		List<String> systemClassPaths = new ArrayList<>();
-
 		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Reset system class path in docker mode.");
 			systemClassPaths = new ArrayList<>();
@@ -804,14 +857,14 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			LOG.info("reset systemClassPaths to {}", systemClassPaths);
 		} else {
 			// upload and register ship files
-			systemClassPaths = uploadAndRegisterFiles(
+			systemClassPaths.addAll(uploadAndRegisterFiles(
 				systemShipFiles,
 				fs,
 				homeDir,
 				appId,
 				paths,
 				localResources,
-				envShipFileList);
+				envShipFileList));
 		}
 
 		List<String> userClassPaths = new ArrayList<>();
@@ -885,17 +938,22 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		if (isInDockerMode && isDockerImageIncludeLib) {
 			LOG.info("Do not need to upload flink.jar in docker mode");
 		} else {
-			// Setup jar for ApplicationMaster
-			remotePathJar = setupSingleLocalResource(
-				"flink.jar",
-				fs,
-				appId,
-				flinkJarPath,
-				localResources,
-				homeDir,
-				"");
-			paths.add(remotePathJar);
-			classPathBuilder.append("flink.jar").append(File.pathSeparator);
+			if (StringUtils.isNullOrWhitespaceOnly(providedFlinkJar) || providedFlinkJarPath == null) {
+				// Setup jar for ApplicationMaster
+				remotePathJar = setupSingleLocalResource(
+						"flink.jar",
+						fs,
+						appId,
+						flinkJarPath,
+						localResources,
+						homeDir,
+						"");
+				paths.add(remotePathJar);
+				classPathBuilder.append("flink.jar").append(File.pathSeparator);
+			} else {
+				remotePathJar = providedFlinkJarPath;
+				classPathBuilder.append(providedFlinkJar).append(File.pathSeparator);
+			}
 		}
 
 		// Upload the flink configuration
@@ -1056,6 +1114,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		appMasterEnv.put(YarnConfigKeys.ENV_APP_ID, appId.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_HOME_DIR, homeDir.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_SHIP_FILES, envShipFileList.toString());
+		appMasterEnv.put(YarnConfigKeys.ENV_CLIENT_PROVIDED_SHIP_FILES, providedEnvShipFiles.toString());
 		appMasterEnv.put(YarnConfigKeys.ENV_SLOTS, String.valueOf(clusterSpecification.getSlotsPerTaskManager()));
 		appMasterEnv.put(YarnConfigKeys.ENV_DETACHED, String.valueOf(detached));
 		appMasterEnv.put(YarnConfigKeys.ENV_ZOOKEEPER_NAMESPACE, getZookeeperNamespace());
@@ -1305,6 +1364,81 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY, ConfigConstants.PATH_JOB_WORK_FILE);
 		Path yarnFilesDir = new Path(jobWorkDir, ".flink/" + appId + '/');
 		return yarnFilesDir;
+	}
+
+	private List<Path> getRemoteSharedPaths(Configuration configuration) throws IOException, FlinkException {
+		if (!configuration.getBoolean(YarnConfigOptions.PROVIDED_LIB_DIRS_ENABLED)) {
+			return Collections.emptyList();
+		}
+		String providedLibDirs = configuration.getString(YarnConfigOptions.PROVIDED_LIB_DIRS);
+
+		List<Path> providedLibPaths;
+		if (!StringUtils.isNullOrWhitespaceOnly(providedLibDirs)) {
+			providedLibPaths = Arrays.stream(providedLibDirs.split(";"))
+					.filter(s -> !StringUtils.isNullOrWhitespaceOnly(s))
+					.map(Path::new)
+					.collect(Collectors.toList());
+		} else {
+			providedLibPaths = Collections.emptyList();
+		}
+
+		for (Path path : providedLibPaths) {
+			if (!Utils.isRemotePath(path.toString())) {
+				throw new FlinkException(
+						"The \"" + YarnConfigOptions.PROVIDED_LIB_DIRS.key() + "\" should only contain" +
+								" dirs accessible from all worker nodes, while the \"" + path + "\" is local.");
+			}
+		}
+		return providedLibPaths;
+	}
+
+	private Map<String, FileStatus> getAllFilesInProvidedLibDirs(FileSystem fileSystem, final List<Path> providedLibDirs) {
+		final Map<String, FileStatus> allFiles = new LinkedHashMap<>();
+		checkNotNull(providedLibDirs).forEach(
+				FunctionUtils.uncheckedConsumer(
+						path -> {
+							if (!fileSystem.exists(path) || !fileSystem.isDirectory(path)) {
+								LOG.warn("Provided lib dir {} does not exist or is not a directory. Ignoring.", path);
+							} else {
+								final RemoteIterator<LocatedFileStatus> iterable = fileSystem.listFiles(path, true);
+								while (iterable.hasNext()) {
+									final LocatedFileStatus locatedFileStatus = iterable.next();
+
+									final String name = path.getParent().toUri()
+											.relativize(locatedFileStatus.getPath().toUri())
+											.toString();
+
+									final FileStatus prevMapping = allFiles.put(name, locatedFileStatus);
+									if (prevMapping != null) {
+										throw new IOException(
+												"Two files with the same filename exist in the shared libs: " +
+														prevMapping.getPath() + " - " + locatedFileStatus.getPath() +
+														". Please deduplicate.");
+									}
+								}
+
+								if (LOG.isDebugEnabled()) {
+									LOG.debug("The following files were found in the shared lib dir: {}",
+											allFiles.values().stream()
+													.map(fileStatus -> fileStatus.getPath().toString())
+													.collect(Collectors.joining(", ")));
+								}
+							}
+						})
+		);
+		return Collections.unmodifiableMap(allFiles);
+	}
+
+	private static boolean isPlugin(Path path) {
+		Path parent = path.getParent();
+		while (parent != null) {
+			if (ConfigConstants.DEFAULT_FLINK_PLUGINS_DIRS.equals(parent.getName())) {
+				return true;
+			}
+			parent = parent.getParent();
+		}
+
+		return false;
 	}
 
 	/**

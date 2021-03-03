@@ -317,6 +317,17 @@ public final class GlobalConfiguration {
 		}
 	}
 
+	public static String reloadPropertyValue(Configuration config, String value) {
+		List<String> dynamicParamKeys = new ArrayList<>(Arrays.asList(DYNAMIC_PARAM_KEYS));
+		for (String param : dynamicParamKeys) {
+			String paramKey = String.format("${%s}", param);
+			if (value.contains(paramKey)) {
+				value = value.replace(paramKey, config.getString(param, ""));
+			}
+		}
+		return value;
+	}
+
 	/**
 	 * Reload config with specific encoded properties.
 	 * @param config old Configuration.
