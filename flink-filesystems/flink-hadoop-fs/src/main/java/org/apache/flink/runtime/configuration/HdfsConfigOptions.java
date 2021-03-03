@@ -43,4 +43,9 @@ public class HdfsConfigOptions {
 			key("dfs.datanode.socket.write.timeout")
 					.defaultValue(15000)
 					.withDescription("HDFS socket write timeout");
+
+	public static final ConfigOption<String> HDFS_VIP_IP_PORT =
+		key("dfs.vip.ipPort")
+			.defaultValue("10.8.13.12:65212")
+			.withDescription("HDFS vip ip + port");
 }

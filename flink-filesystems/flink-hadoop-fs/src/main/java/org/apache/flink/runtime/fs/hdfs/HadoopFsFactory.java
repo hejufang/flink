@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.FileSystemFactory;
 import org.apache.flink.core.fs.LimitedConnectionsFileSystem;
 import org.apache.flink.core.fs.LimitedConnectionsFileSystem.ConnectionLimitingSettings;
 import org.apache.flink.core.fs.UnsupportedFileSystemSchemeException;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.util.HadoopUtils;
 
 import org.slf4j.Logger;
@@ -47,11 +48,16 @@ public class HadoopFsFactory implements FileSystemFactory {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HadoopFsFactory.class);
 
+	private static final String HDFS_VIP_AUTHORITY = "hdfsvip";
+
 	/** Flink's configuration object. */
 	private Configuration flinkConfig;
 
 	/** Hadoop's configuration for the file systems. */
 	private org.apache.hadoop.conf.Configuration hadoopConfig;
+
+	/** Hadoop's vip configuration for checkpoint. */
+	private org.apache.hadoop.conf.Configuration vipConfig;
 
 	@Override
 	public String getScheme() {
@@ -65,6 +71,16 @@ public class HadoopFsFactory implements FileSystemFactory {
 		hadoopConfig = null; // reset the Hadoop Config
 	}
 
+	private org.apache.hadoop.conf.Configuration getHadoopConfig() {
+		if (flinkConfig != null) {
+			return HadoopUtils.getHadoopConfigForCheckpoint(flinkConfig);
+		} else {
+			LOG.warn("Hadoop configuration has not been explicitly initialized prior to loading a Hadoop file system."
+					+ " Using configuration from the classpath.");
+			return new org.apache.hadoop.conf.Configuration();
+		}
+	}
+
 	@Override
 	public FileSystem create(URI fsUri) throws IOException {
 		checkNotNull(fsUri, "fsUri");
@@ -76,20 +92,39 @@ public class HadoopFsFactory implements FileSystemFactory {
 		// dependency classes
 		try {
 			// -- (1) get the loaded Hadoop config (or fall back to one loaded from the classpath)
-
+			LOG.info("Initialize hadoop filesystem(uri={})", fsUri);
 			final org.apache.hadoop.conf.Configuration hadoopConfig;
-			if (this.hadoopConfig != null) {
-				hadoopConfig = this.hadoopConfig;
-			}
-			else if (flinkConfig != null) {
-				hadoopConfig = HadoopUtils.getHadoopConfiguration(flinkConfig);
-				this.hadoopConfig = hadoopConfig;
-			}
-			else {
-				LOG.warn("Hadoop configuration has not been explicitly initialized prior to loading a Hadoop file system."
+			if (HDFS_VIP_AUTHORITY.equals(fsUri.getAuthority())) {
+				LOG.info("Initialize hadoop filesystem(uri={}) with vipConf", fsUri);
+				if (vipConfig != null) {
+					hadoopConfig = this.vipConfig;
+				} else {
+					// initialize vip config
+					vipConfig = getHadoopConfig();
+
+					String ipPort;
+					if (vipConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key()) == null) {
+						ipPort = HdfsConfigOptions.HDFS_VIP_IP_PORT.defaultValue();
+					} else {
+						ipPort = vipConfig.get(HdfsConfigOptions.HDFS_VIP_IP_PORT.key());
+					}
+
+					LOG.info("Hadoop is using vip conf on {}.", ipPort);
+					org.apache.hadoop.fs.FileSystem.SetVipConf(vipConfig, ipPort);
+					hadoopConfig = vipConfig;
+				}
+			} else {
+				if (this.hadoopConfig != null) {
+					hadoopConfig = this.hadoopConfig;
+				} else if (flinkConfig != null) {
+					hadoopConfig = HadoopUtils.getHadoopConfiguration(flinkConfig);
+					this.hadoopConfig = hadoopConfig;
+				} else {
+					LOG.warn("Hadoop configuration has not been explicitly initialized prior to loading a Hadoop file system."
 						+ " Using configuration from the classpath.");
 
-				hadoopConfig = new org.apache.hadoop.conf.Configuration();
+					hadoopConfig = new org.apache.hadoop.conf.Configuration();
+				}
 			}
 
 			// -- (2) get the Hadoop file system class for that scheme
@@ -161,6 +196,7 @@ public class HadoopFsFactory implements FileSystemFactory {
 			// -- (5) configure the Hadoop file system
 
 			try {
+				LOG.info("Initialize filesystem {}", initUri);
 				hadoopFs.initialize(initUri, hadoopConfig);
 			}
 			catch (UnknownHostException e) {
