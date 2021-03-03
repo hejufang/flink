@@ -424,7 +424,8 @@ public class ExecutionGraphBuilder {
 				completedCheckpoints,
 				rootBackend,
 				checkpointStatsTracker,
-				checkpointHandler);
+				checkpointHandler,
+				metrics);
 		}
 
 		// create all the metrics for the Execution Graph

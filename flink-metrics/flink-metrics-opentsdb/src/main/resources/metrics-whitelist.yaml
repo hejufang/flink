@@ -93,6 +93,7 @@ non-global:
       # CPU
         Load,
       # Checkpoints
+        numberOfContinuousCheckpointFailure,
         numberOfTriggerFailedCheckpoints,
         lastCheckpointDuration,
         numberOfFailedCheckpoints,

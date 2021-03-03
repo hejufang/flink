@@ -28,6 +28,7 @@ import org.apache.flink.api.common.accumulators.AccumulatorHelper;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.JobException;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
@@ -468,7 +469,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			CompletedCheckpointStore checkpointStore,
 			StateBackend checkpointStateBackend,
 			CheckpointStatsTracker statsTracker,
-			CheckpointHandler checkpointHandler) {
+			CheckpointHandler checkpointHandler,
+			MetricGroup metricGroup) {
 
 		checkState(state == JobStatus.CREATED, "Job must be in CREATED state");
 		checkState(checkpointCoordinator == null, "checkpointing already enabled");
@@ -493,7 +495,7 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				public void failJobDueToTaskFailure(Throwable cause, ExecutionAttemptID failingTask) {
 					getJobMasterMainThreadExecutor().execute(() -> failGlobalIfExecutionIsStillRunning(cause, failingTask));
 				}
-			}, remoteBlacklistReporter);
+			}, remoteBlacklistReporter, metricGroup);
 
 		checkState(checkpointCoordinatorTimer == null);
 

@@ -40,6 +40,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.util.OptionalFailure;
 import org.apache.flink.util.SerializedValue;
@@ -137,7 +138,8 @@ public class ArchivedExecutionGraphTest extends TestLogger {
 			new StandaloneCompletedCheckpointStore(1),
 			new MemoryStateBackend(),
 			statsTracker,
-			new GlobalCheckpointHandler());
+			new GlobalCheckpointHandler(),
+			UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 
 		runtimeGraph.setJsonPlan("{}");
 

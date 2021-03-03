@@ -31,6 +31,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.util.TestLogger;
@@ -170,7 +171,8 @@ public class ExecutionGraphCheckpointCoordinatorTest extends TestLogger {
 				store,
 				new MemoryStateBackend(),
 				CheckpointStatsTrackerTest.createTestTracker(),
-				new GlobalCheckpointHandler());
+				new GlobalCheckpointHandler(),
+				UnregisteredMetricGroups.createUnregisteredJobManagerMetricGroup());
 
 		return executionGraph;
 	}
