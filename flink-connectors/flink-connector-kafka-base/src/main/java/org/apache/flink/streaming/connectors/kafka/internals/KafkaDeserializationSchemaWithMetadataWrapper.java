@@ -47,6 +47,9 @@ public abstract class KafkaDeserializationSchemaWithMetadataWrapper<T> implement
 	@Override
 	public T deserialize(ConsumerRecord<byte[], byte[]> record) throws Exception {
 		T t = deserializationSchema.deserialize(record.value());
+		if (t == null) {
+			return null;
+		}
 		return addMetadata(t, record);
 	}
 

@@ -61,6 +61,8 @@ public final class FactoryUtil {
 
 	private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
+	public static final String SOURCE_SKIP_DIRTY = "skipDirty";
+
 	public static final ConfigOption<Integer> PROPERTY_VERSION = ConfigOptions.key("property-version")
 		.intType()
 		.defaultValue(1)

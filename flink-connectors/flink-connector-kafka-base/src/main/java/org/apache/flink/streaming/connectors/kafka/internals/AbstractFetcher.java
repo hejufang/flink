@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.eventtime.WatermarkOutput;
 import org.apache.flink.api.common.eventtime.WatermarkOutputMultiplexer;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
@@ -31,6 +32,7 @@ import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.SerializedValue;
 
 import javax.annotation.Nonnull;
@@ -130,6 +132,8 @@ public abstract class AbstractFetcher<T, KPH> {
 	 */
 	private final boolean useMetrics;
 
+	protected final Counter skipDirtyCounter;
+
 	/**
 	 * The metric group which all metrics for the consumer should be registered to.
 	 * This metric group is defined under the user scope {@link KafkaConsumerMetricConstants#KAFKA_CONSUMER_METRICS_GROUP}.
@@ -161,6 +165,7 @@ public abstract class AbstractFetcher<T, KPH> {
 
 		this.useMetrics = useMetrics;
 		this.consumerMetricGroup = checkNotNull(consumerMetricGroup);
+		this.skipDirtyCounter = consumerMetricGroup.counter(FactoryUtil.SOURCE_SKIP_DIRTY);
 		this.legacyCurrentOffsetsMetricGroup = consumerMetricGroup.addGroup(LEGACY_CURRENT_OFFSETS_METRICS_GROUP);
 		this.legacyCommittedOffsetsMetricGroup = consumerMetricGroup.addGroup(LEGACY_COMMITTED_OFFSETS_METRICS_GROUP);
 

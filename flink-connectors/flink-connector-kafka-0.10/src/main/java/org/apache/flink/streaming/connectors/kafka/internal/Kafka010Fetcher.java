@@ -174,6 +174,9 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 					for (ConsumerRecord<byte[], byte[]> record : partitionRecords) {
 						deserializer.deserialize(record, kafkaCollector);
+						if (!kafkaCollector.getAndResetIsCollected()) {
+							skipDirtyCounter.inc();
+						}
 
 						// emit the actual records. this also updates offset state atomically and emits
 						// watermarks
@@ -280,6 +283,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 		private boolean endOfStreamSignalled = false;
 
+		private boolean isCollected = false;
+
 		@Override
 		public void collect(T record) {
 			// do not emit subsequent elements if the end of the stream reached
@@ -287,6 +292,7 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				endOfStreamSignalled = true;
 				return;
 			}
+			isCollected = true;
 			records.add(record);
 		}
 
@@ -296,6 +302,12 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 		public boolean isEndOfStreamSignalled() {
 			return endOfStreamSignalled;
+		}
+
+		public boolean getAndResetIsCollected() {
+			boolean result = isCollected;
+			isCollected = false;
+			return result;
 		}
 
 		@Override

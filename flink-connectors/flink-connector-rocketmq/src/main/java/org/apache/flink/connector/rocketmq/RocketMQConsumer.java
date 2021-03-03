@@ -25,6 +25,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchema;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MeterView;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.metrics.MetricsConstants;
@@ -34,6 +35,7 @@ import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.SpecificParallelism;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -105,6 +107,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient Map<MessageQueue, Long> offsetTable;
 	private transient Map<MessageQueue, Long> restoredOffsets;
 	private transient int subTaskId;
+	private transient Counter skipDirtyCounter;
 
 	public RocketMQConsumer(
 			RocketMQDeserializationSchema<T> schema,
@@ -144,6 +147,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		schema.open(() -> getRuntimeContext().getMetricGroup());
+		this.skipDirtyCounter = getRuntimeContext().getMetricGroup().counter(FactoryUtil.SOURCE_SKIP_DIRTY);
 	}
 
 	@Override
@@ -210,6 +214,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 					MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
 					T rowData = schema.deserialize(messageQueue, messageExt);
 					if (rowData == null) {
+						skipDirtyCounter.inc();
 						continue;
 					}
 					ctx.collect(rowData);
