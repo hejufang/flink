@@ -76,6 +76,12 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.withDescription("The maximum number of open files that can be used by the DB, '-1' means no limit. " +
 				"RocksDB has default configuration as '5000'.");
 
+	public static final ConfigOption<Boolean> USE_FSYNC =
+		key("state.backend.rocksdb.use-fsync")
+			.defaultValue(true)
+			.withDescription("Whether rocksdb uses fsync mode.");
+
+
 	public static final ConfigOption<Boolean> USE_MEMORY_CACHE =
 		key("state.backend.rocksdb.use.memory.cache")
 			.defaultValue(false)

@@ -54,6 +54,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MIN_WRITE_BUFFER_NUMBER_TO_MERGE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.TARGET_FILE_SIZE_BASE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.USE_DYNAMIC_LEVEL_SIZE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.USE_FSYNC;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.WRITE_BUFFER_SIZE;
 
 /**
@@ -82,6 +83,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 
 		if (isOptionConfigured(MAX_BACKGROUND_COMPACTION_THREADS)) {
 			currentOptions.setMaxBackgroundCompactions(getMaxBackgroundCompactionThreads());
+		}
+
+		if (isOptionConfigured(USE_FSYNC)) {
+			currentOptions.setUseFsync(isUseFsync());
 		}
 
 		return currentOptions;
@@ -193,6 +198,15 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 	private DefaultConfigurableOptionsFactory setMaxBackgroundCompactionThreads(int compactionThreadCount) {
 		Preconditions.checkArgument(compactionThreadCount > 0);
 		configuredOptions.put(MAX_BACKGROUND_COMPACTION_THREADS.key(), String.valueOf(compactionThreadCount));
+		return this;
+	}
+
+	private boolean isUseFsync() {
+		return Boolean.parseBoolean(getInternal(USE_FSYNC.key()));
+	}
+
+	private DefaultConfigurableOptionsFactory setUseFsync(boolean useFsync) {
+		configuredOptions.put(USE_FSYNC.key(), String.valueOf(useFsync));
 		return this;
 	}
 
@@ -366,6 +380,7 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableOptionsFac
 		MAX_OPEN_FILES.key(),
 		MAX_BACKGROUND_FLUSH_THREADS.key(),
 		MAX_BACKGROUND_COMPACTION_THREADS.key(),
+		USE_FSYNC.key(),
 
 		// configurable ColumnFamilyOptions
 		COMPACTION_STYLE.key(),
