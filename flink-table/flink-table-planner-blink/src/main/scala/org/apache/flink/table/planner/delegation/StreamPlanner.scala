@@ -59,7 +59,7 @@ class StreamPlanner(
 
   override protected def getOptimizer: Optimizer = new StreamCommonSubGraphBasedOptimizer(this)
 
-  override protected def translateToPlan(
+  override def translateToPlan(
       execNodes: util.List[ExecNode[_, _]]): util.List[Transformation[_]] = {
     val planner = createDummyPlanner()
     planner.overrideEnvParallelism()
