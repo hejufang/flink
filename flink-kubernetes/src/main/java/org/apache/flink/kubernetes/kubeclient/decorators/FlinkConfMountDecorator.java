@@ -166,7 +166,6 @@ public class FlinkConfMountDecorator extends AbstractKubernetesStepDecorator {
 				} else {
 					out.println(v);
 				}
-				out.println(v);
 			});
 
 			return sw.toString();

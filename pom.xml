@@ -1523,6 +1523,8 @@ under the License.
 						<exclude>**/flink-bin/conf/masters</exclude>
 						<exclude>**/flink-bin/htap_confs/**/workers</exclude>
 						<exclude>**/flink-bin/htap_confs/**/masters</exclude>
+						<!-- kuberntes conf -->
+						<excludes>flink-dist/src/main/flink-bin/kubernetes-conf/**</excludes>
 						<!-- Administrative files in the main trunk. -->
 						<exclude>**/README.md</exclude>
 						<exclude>.github/**</exclude>
