@@ -238,14 +238,14 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 		this.speculationStrategy = checkNotNull(speculationStrategyFactory.create(this), "null speculation strategy");
 
+		this.remoteBlacklistReporter = remoteBlacklistReporter;
+
 		this.executionGraph = createAndRestoreExecutionGraph(jobManagerJobMetricGroup, checkNotNull(shuffleMaster), checkNotNull(partitionTracker));
 		this.schedulingTopology = executionGraph.getSchedulingTopology();
 
 		this.inputsLocationsRetriever = new ExecutionGraphToInputsLocationsRetrieverAdapter(executionGraph);
 
 		this.coordinatorMap = createCoordinatorMap();
-
-		this.remoteBlacklistReporter = remoteBlacklistReporter;
 	}
 
 	private ExecutionGraph createAndRestoreExecutionGraph(
