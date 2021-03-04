@@ -37,7 +37,9 @@ global:
         numberOfRegionCheckpoints,
         numberOfRegionCheckpointRecoveries,
         connectSuccessRetryTimes,
-        connectFailRetryTimes
+        connectFailRetryTimes,
+        numberOfActualDeletedStateFiles,
+        numberOfTotalDeletedStateFiles
     ]
 
 non-global:

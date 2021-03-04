@@ -294,6 +294,10 @@ public class PendingCheckpoint {
 		return failureCause;
 	}
 
+	public CheckpointStorageLocation getTargetLocation() {
+		return targetLocation;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Progress and Completion
 	// ------------------------------------------------------------------------
@@ -624,8 +628,7 @@ public class PendingCheckpoint {
 							// discard the private states.
 							// unregistered shared states are still considered private at this point.
 							try {
-								StateUtil.bestEffortDiscardAllStateObjects(operatorStates.values());
-								targetLocation.disposeOnFailure();
+								StateUtil.discardPendingCheckpoint(PendingCheckpoint.this);
 							} catch (Throwable t) {
 								LOG.warn("Could not properly dispose the private states in the pending checkpoint {} of job {}.",
 									checkpointId, jobId, t);

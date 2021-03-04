@@ -25,6 +25,7 @@ import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.state.StateUtil;
 
 import javax.annotation.Nullable;
 
@@ -344,6 +345,11 @@ public class CheckpointStatsTracker {
 	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC = "lastCheckpointExternalPath";
 
+	static final String NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD = "numberOfActualDeletedStateFiles";
+
+	static final String NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD = "numberOfTotalDeletedStateFiles";
+
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -358,6 +364,8 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC, new LatestCompletedCheckpointSizeGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC, new LatestCompletedCheckpointDurationGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
+		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, StateUtil::getNumDiscardStates);
+		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, StateUtil::getNumLegacyDiscardStates);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {

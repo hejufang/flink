@@ -173,11 +173,14 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 			checkpointId,
 			backendIdentifier);
 
-		try {
-			metaStateHandle.discardState();
-		} catch (Exception e) {
-			LOG.warn("Could not properly discard meta data.", e);
-		}
+		// Note: ignore metaStateHandle discard, considering following two cases:
+		// (1) small meta: save as ByteStreamStateHandle, no need to discard.
+		// (2) big meta: save in exclusive dir. The whole dir is deleted directly. SEE INFOI-19554.
+//		try {
+//			metaStateHandle.discardState();
+//		} catch (Exception e) {
+//			LOG.warn("Could not properly discard meta data.", e);
+//		}
 
 		try {
 			StateUtil.bestEffortDiscardAllStateObjects(privateState.values());
@@ -191,10 +194,16 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 		if (isRegistered) {
 			// If this was registered, we only unregister all our referenced shared states
 			// from the registry.
+			int deleteSharedFiles = 0;
 			for (StateHandleID stateHandleID : sharedState.keySet()) {
-				registry.unregisterReference(
+				SharedStateRegistry.Result result = registry.unregisterReference(
 					createSharedStateRegistryKeyFromFileName(stateHandleID));
+				if (result != null && result.getReferenceCount() == 0) {
+					// shared state's ref goes to zero, tick its deletion.
+					deleteSharedFiles++;
+				}
 			}
+			StateUtil.tickSharedStateDiscard(deleteSharedFiles);
 		} else {
 			// Otherwise, we assume to own those handles and dispose them directly.
 			try {

@@ -315,9 +315,11 @@ public class CheckpointStatsTrackerTest {
 			CheckpointStatsTracker.LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC,
 			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC,
 			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC,
-			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC
+			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC,
+			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD,
+			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD
 		)));
-		assertEquals(8, registeredGaugeNames.size());
+		assertEquals(10, registeredGaugeNames.size());
 	}
 
 	/**
@@ -348,7 +350,7 @@ public class CheckpointStatsTrackerTest {
 			metricGroup);
 
 		// Make sure to adjust this test if metrics are added/removed
-		assertEquals(8, registeredGauges.size());
+		assertEquals(10, registeredGauges.size());
 
 		// Check initial values
 		Gauge<Long> numCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_CHECKPOINTS_METRIC);
@@ -359,6 +361,8 @@ public class CheckpointStatsTrackerTest {
 		Gauge<Long> latestCompletedSize = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC);
 		Gauge<Long> latestCompletedDuration = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC);
 		Gauge<String> latestCompletedExternalPath = (Gauge<String>) registeredGauges.get(CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC);
+		Gauge<Long> actualDeleteDuringCheckpointDiscard = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD);
+		Gauge<Long> totalDeleteDuringCheckpointDiscard = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD);
 
 		assertEquals(Long.valueOf(0), numCheckpoints.getValue());
 		assertEquals(Integer.valueOf(0), numInProgressCheckpoints.getValue());
@@ -368,6 +372,8 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(Long.valueOf(-1), latestCompletedSize.getValue());
 		assertEquals(Long.valueOf(-1), latestCompletedDuration.getValue());
 		assertEquals("n/a", latestCompletedExternalPath.getValue());
+		assertEquals(Long.valueOf(0), actualDeleteDuringCheckpointDiscard.getValue());
+		assertEquals(Long.valueOf(0), totalDeleteDuringCheckpointDiscard.getValue());
 
 		PendingCheckpointStats pending = stats.reportPendingCheckpoint(
 			0,

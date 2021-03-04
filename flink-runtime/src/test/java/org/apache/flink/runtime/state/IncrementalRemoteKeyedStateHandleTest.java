@@ -52,7 +52,8 @@ public class IncrementalRemoteKeyedStateHandleTest {
 			verify(handle).discardState();
 		}
 
-		verify(stateHandle.getMetaStateHandle()).discardState();
+		// entirely delete exclusive dir, no need to explicitly delete metadata
+		verify(stateHandle.getMetaStateHandle(), never()).discardState();
 	}
 
 	/**
@@ -155,8 +156,9 @@ public class IncrementalRemoteKeyedStateHandleTest {
 			verify(handleEntry.getValue(), times(0)).discardState();
 		}
 
-		verify(stateHandle1.getMetaStateHandle(), times(1)).discardState();
-		verify(stateHandle2.getMetaStateHandle(), times(0)).discardState();
+		// Note: using exclusive dir is entirely deleted, no need to discard metadata of IRKStateHandle
+		verify(stateHandle1.getMetaStateHandle(), never()).discardState();
+		verify(stateHandle2.getMetaStateHandle(), never()).discardState();
 
 		// We discard the second
 		stateHandle2.discardState();
@@ -183,8 +185,8 @@ public class IncrementalRemoteKeyedStateHandleTest {
 			verify(entry.getValue()).discardState();
 		}
 
-		verify(stateHandle1.getMetaStateHandle(), times(1)).discardState();
-		verify(stateHandle2.getMetaStateHandle(), times(1)).discardState();
+		verify(stateHandle1.getMetaStateHandle(), never()).discardState();
+		verify(stateHandle2.getMetaStateHandle(), never()).discardState();
 	}
 
 	/**
@@ -215,7 +217,7 @@ public class IncrementalRemoteKeyedStateHandleTest {
 
 		// Everything should be discarded for this handle
 		stateHandleZ.discardState();
-		verify(stateHandleZ.getMetaStateHandle(), times(1)).discardState();
+		verify(stateHandleZ.getMetaStateHandle(), never()).discardState();
 		for (StreamStateHandle stateHandle : stateHandleZ.getSharedState().values()) {
 			verify(stateHandle, times(1)).discardState();
 		}
@@ -232,7 +234,7 @@ public class IncrementalRemoteKeyedStateHandleTest {
 
 		// All state should still get discarded
 		stateHandleY.discardState();
-		verify(stateHandleY.getMetaStateHandle(), times(1)).discardState();
+		verify(stateHandleY.getMetaStateHandle(), never()).discardState();
 		for (StreamStateHandle stateHandle : stateHandleY.getSharedState().values()) {
 			verify(stateHandle, times(1)).discardState();
 		}
@@ -249,7 +251,7 @@ public class IncrementalRemoteKeyedStateHandleTest {
 		stateHandleX.discardState();
 
 		// Should be completely discarded because it is tracked through the new registry
-		verify(stateHandleX.getMetaStateHandle(), times(1)).discardState();
+		verify(stateHandleX.getMetaStateHandle(), never()).discardState();
 		for (StreamStateHandle stateHandle : stateHandleX.getSharedState().values()) {
 			verify(stateHandle, times(1)).discardState();
 		}
