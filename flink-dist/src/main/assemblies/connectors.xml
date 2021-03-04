@@ -127,5 +127,11 @@ under the License.
 			<fileMode>0644</fileMode>
 		</file>
 
+		<file>
+			<source>../flink-connectors/flink-connector-bytesql/target/flink-connector-bytesql-${project.version}.jar</source>
+			<outputDirectory>connectors/</outputDirectory>
+			<destName>flink-connector-bytesql-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
 	</files>
 </assembly>

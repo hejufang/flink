@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -114,6 +115,29 @@ public final class FactoryUtil {
 		.withDescription(
 			"Source metadata.");
 
+	// ------------------------------------------------------------------------
+	//  Lookup Options
+	// ------------------------------------------------------------------------
+	public static final ConfigOption<Long> LOOKUP_CACHE_MAX_ROWS = ConfigOptions
+		.key("lookup.cache.max-rows")
+		.longType()
+		.defaultValue(-1L)
+		.withDescription("Optional. The max number of rows of lookup cache, over this value, the oldest rows will " +
+			"be eliminated. \"cache.max-rows\" and \"cache.ttl\" options must all be specified if any of them is " +
+			"specified. Cache is not enabled as default.");
+
+	public static final ConfigOption<Duration> LOOKUP_CACHE_TTL = ConfigOptions
+		.key("lookup.cache.ttl")
+		.durationType()
+		.defaultValue(Duration.ZERO)
+		.withDescription("Optional. The cache time to live. ");
+
+	public static final ConfigOption<Integer> LOOKUP_MAX_RETRIES = ConfigOptions
+		.key("lookup.max-retries")
+		.intType()
+		.defaultValue(3)
+		.withDescription("Optional. The max retry times if lookup database failed.");
+
 	public static final ConfigOption<Integer> LOOKUP_LATER_JOIN_RETRY_TIMES = ConfigOptions
 		.key("lookup.later-join-retry-times")
 		.intType()
@@ -126,11 +150,15 @@ public final class FactoryUtil {
 		.defaultValue(true)
 		.withDescription("Optional. Lookup cache null value.");
 
-	public static final ConfigOption<Duration> LOOKUP_LATER_JOIN_LATENCY_MS = ConfigOptions
+	public static final ConfigOption<Duration> LOOKUP_LATER_JOIN_LATENCY = ConfigOptions
 		.key("lookup.later-join-latency")
 		.durationType()
 		.defaultValue(Duration.ZERO)
 		.withDescription("Optional. Duration type, default Duration.ZERO means disable later join.");
+
+	// ------------------------------------------------------------------------
+	//  Sink Options
+	// ------------------------------------------------------------------------
 
 	public static final ConfigOption<Boolean> SINK_LOG_FAILURES_ONLY = ConfigOptions
 		.key("sink.log-failures-only")
@@ -144,6 +172,25 @@ public final class FactoryUtil {
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Optional specific key fields.");
+
+	public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS = ConfigOptions
+		.key("sink.buffer-flush.max-rows")
+		.intType()
+		.defaultValue(50)
+		.withDescription("Optional. The max size of buffered records before flush. Can be set to zero to disable it.");
+
+	public static final ConfigOption<Duration> SINK_BUFFER_FLUSH_INTERVAL = ConfigOptions
+		.key("sink.buffer-flush.interval")
+		.durationType()
+		.defaultValue(Duration.of(2, ChronoUnit.SECONDS))
+		.withDescription("Optional. The flush interval mills, over this time, " +
+			"asynchronous threads will flush data. Can be set to '0' to disable it.");
+
+	public static final ConfigOption<Integer> SINK_MAX_RETRIES = ConfigOptions
+		.key("sink.max-retries")
+		.intType()
+		.defaultValue(5)
+		.withDescription("Optional. Max retry times if flushing failed.");
 
 	public static final ConfigOption<String> RETRY_STRATEGY = ConfigOptions
 		.key("retry-strategy")

@@ -73,8 +73,11 @@ non-global:
         numRecordsDropped,
       # late Records Dropped
         numLateRecordsDropped,
-      # hitRate for dimension tables
+      # Lookup Table Metrics
         hitRate,
+        lookupRequestPerSecond,
+        lookupFailurePerSecond,
+        lookupRequestDelay,
       # latency
         latency,
       # kafka offset

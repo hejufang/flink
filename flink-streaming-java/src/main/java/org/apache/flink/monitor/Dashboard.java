@@ -291,22 +291,19 @@ public class Dashboard {
 		return renderString(recordsWriteSkippedTemplate, recordsWriteSkippedValues);
 	}
 
-	private String renderLookupHitRateRow(List<String> operators) {
-		String lookupJoinHitRateTarget = Template.LOOKUP_JOIN_HIT_RATE_TARGET;
+	private String renderLookupRow(List<String> operators, String target, String metric) {
 		List<String> metricRows = new ArrayList<>();
 		for (String o : operators) {
-			Map<String, String> lookupJoinHitRateTargetValues = new HashMap<>(2);
-			lookupJoinHitRateTargetValues.put("operator", o);
-			lookupJoinHitRateTargetValues.put("jobname", formatJobName);
-			metricRows.add(renderString(lookupJoinHitRateTarget, lookupJoinHitRateTargetValues));
+			Map<String, String> targetValues = new HashMap<>(2);
+			targetValues.put("operator", o);
+			targetValues.put("jobname", formatJobName);
+			metricRows.add(renderString(target, targetValues));
 		}
 		String targets = String.join(",", metricRows);
-		Map<String, String> lookupJoinHitRateValues = new HashMap<>(2);
-		lookupJoinHitRateValues.put("targets", targets);
-		lookupJoinHitRateValues.put("datasource", dataSource);
-		String operatorLatencyTemplate = Template.LOOKUP_JOIN_HIT_RATE;
-		String lookupJoinHitRateRow = renderString(operatorLatencyTemplate, lookupJoinHitRateValues);
-		return lookupJoinHitRateRow;
+		Map<String, String> values = new HashMap<>(2);
+		values.put("targets", targets);
+		values.put("datasource", dataSource);
+		return renderString(metric, values);
 	}
 
 	private String renderOperatorLatencyRow(List<String> operators) {
@@ -370,6 +367,7 @@ public class Dashboard {
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> sinks = Utils.getSinks(streamGraph);
 		List <String> tasks = Utils.getTasks(jobGraph);
+		List <String> lookupOperators = Utils.filterLookupOperators(operators);
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
 		JSONArray rocketmqConfigArray = Utils.getRocketMQConfigurations();
@@ -387,7 +385,22 @@ public class Dashboard {
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
 		rows.add(renderRecordsSinkSkippedRow(sinks));
-		rows.add(renderLookupHitRateRow(Utils.filterLookupOperators(operators)));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_HIT_RATE_TARGET,
+			Template.LOOKUP_JOIN_HIT_RATE));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_REQUEST_PER_SECOND_TARGET,
+			Template.LOOKUP_JOIN_REQUEST_PER_SECOND));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_FAILURE_PER_SECOND_TARGET,
+			Template.LOOKUP_JOIN_FAILURE_PER_SECOND));
+		rows.add(renderLookupRow(
+			lookupOperators,
+			Template.LOOKUP_JOIN_REQUEST_DELAY_P99_TARGET,
+			Template.LOOKUP_JOIN_REQUEST_DELAY_P99));
 		rows.add(renderOperatorLatencyRow(operatorsButSources));
 		rows.add(renderPoolUsageRow(tasks));
 		rows.add(renderGcRow());

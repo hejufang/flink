@@ -1336,12 +1336,288 @@ public class Template {
 		"			\"titleSize\": \"h6\"\n" +
 		"		}";
 
+	public static final String LOOKUP_JOIN_REQUEST_PER_SECOND = "{\n" +
+		"			\"collapse\": false,\n" +
+		"			\"height\": 250,\n" +
+		"			\"panels\": [\n" +
+		"				{\n" +
+		"					\"aliasColors\": {},\n" +
+		"					\"bars\": false,\n" +
+		"					\"dashLength\": 10,\n" +
+		"					\"dashes\": false,\n" +
+		"					\"datasource\": \"${datasource}\",\n" +
+		"					\"fill\": 1,\n" +
+		"					\"id\": 21,\n" +
+		"					\"legend\": {\n" +
+		"						\"alignAsTable\": true,\n" +
+		"						\"avg\": true,\n" +
+		"						\"current\": true,\n" +
+		"						\"max\": true,\n" +
+		"						\"min\": false,\n" +
+		"						\"rightSide\": true,\n" +
+		"						\"show\": true,\n" +
+		"						\"total\": false,\n" +
+		"						\"values\": true\n" +
+		"					},\n" +
+		"					\"lines\": true,\n" +
+		"					\"linewidth\": 1,\n" +
+		"					\"links\": [],\n" +
+		"					\"nullPointMode\": \"null\",\n" +
+		"					\"percentage\": false,\n" +
+		"					\"pointradius\": 5,\n" +
+		"					\"points\": false,\n" +
+		"					\"renderer\": \"flot\",\n" +
+		"					\"seriesOverrides\": [],\n" +
+		"					\"spaceLength\": 10,\n" +
+		"					\"span\": 12,\n" +
+		"					\"stack\": false,\n" +
+		"					\"steppedLine\": false,\n" +
+		"					\"targets\": [\n" + "${targets}" +
+		"					],\n" +
+		"					\"thresholds\": [],\n" +
+		"					\"timeFrom\": null,\n" +
+		"					\"timeShift\": null,\n" +
+		"					\"title\": \"Lookup Join Request Per Second\",\n" +
+		"					\"tooltip\": {\n" +
+		"						\"shared\": true,\n" +
+		"						\"sort\": 0,\n" +
+		"						\"value_type\": \"individual\"\n" +
+		"					},\n" +
+		"					\"type\": \"graph\",\n" +
+		"					\"xaxis\": {\n" +
+		"						\"buckets\": null,\n" +
+		"						\"mode\": \"time\",\n" +
+		"						\"name\": null,\n" +
+		"						\"show\": true,\n" +
+		"						\"values\": []\n" +
+		"					},\n" +
+		"					\"yaxes\": [\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						}\n" +
+		"					]\n" +
+		"				}\n" +
+		"			],\n" +
+		"			\"repeat\": null,\n" +
+		"			\"repeatIteration\": null,\n" +
+		"			\"repeatRowId\": null,\n" +
+		"			\"showTitle\": false,\n" +
+		"			\"title\": \"Dashboard Row\",\n" +
+		"			\"titleSize\": \"h6\"\n" +
+		"		}";
+
+	public static final String LOOKUP_JOIN_FAILURE_PER_SECOND = "{\n" +
+		"			\"collapse\": false,\n" +
+		"			\"height\": 250,\n" +
+		"			\"panels\": [\n" +
+		"				{\n" +
+		"					\"aliasColors\": {},\n" +
+		"					\"bars\": false,\n" +
+		"					\"dashLength\": 10,\n" +
+		"					\"dashes\": false,\n" +
+		"					\"datasource\": \"${datasource}\",\n" +
+		"					\"fill\": 1,\n" +
+		"					\"id\": 22,\n" +
+		"					\"legend\": {\n" +
+		"						\"alignAsTable\": true,\n" +
+		"						\"avg\": true,\n" +
+		"						\"current\": true,\n" +
+		"						\"max\": true,\n" +
+		"						\"min\": false,\n" +
+		"						\"rightSide\": true,\n" +
+		"						\"show\": true,\n" +
+		"						\"total\": false,\n" +
+		"						\"values\": true\n" +
+		"					},\n" +
+		"					\"lines\": true,\n" +
+		"					\"linewidth\": 1,\n" +
+		"					\"links\": [],\n" +
+		"					\"nullPointMode\": \"null\",\n" +
+		"					\"percentage\": false,\n" +
+		"					\"pointradius\": 5,\n" +
+		"					\"points\": false,\n" +
+		"					\"renderer\": \"flot\",\n" +
+		"					\"seriesOverrides\": [],\n" +
+		"					\"spaceLength\": 10,\n" +
+		"					\"span\": 12,\n" +
+		"					\"stack\": false,\n" +
+		"					\"steppedLine\": false,\n" +
+		"					\"targets\": [\n" + "${targets}" +
+		"					],\n" +
+		"					\"thresholds\": [],\n" +
+		"					\"timeFrom\": null,\n" +
+		"					\"timeShift\": null,\n" +
+		"					\"title\": \"Lookup Join Failure Per Second\",\n" +
+		"					\"tooltip\": {\n" +
+		"						\"shared\": true,\n" +
+		"						\"sort\": 0,\n" +
+		"						\"value_type\": \"individual\"\n" +
+		"					},\n" +
+		"					\"type\": \"graph\",\n" +
+		"					\"xaxis\": {\n" +
+		"						\"buckets\": null,\n" +
+		"						\"mode\": \"time\",\n" +
+		"						\"name\": null,\n" +
+		"						\"show\": true,\n" +
+		"						\"values\": []\n" +
+		"					},\n" +
+		"					\"yaxes\": [\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						}\n" +
+		"					]\n" +
+		"				}\n" +
+		"			],\n" +
+		"			\"repeat\": null,\n" +
+		"			\"repeatIteration\": null,\n" +
+		"			\"repeatRowId\": null,\n" +
+		"			\"showTitle\": false,\n" +
+		"			\"title\": \"Dashboard Row\",\n" +
+		"			\"titleSize\": \"h6\"\n" +
+		"		}";
+
+	public static final String LOOKUP_JOIN_REQUEST_DELAY_P99 = "{\n" +
+		"			\"collapse\": false,\n" +
+		"			\"height\": 250,\n" +
+		"			\"panels\": [\n" +
+		"				{\n" +
+		"					\"aliasColors\": {},\n" +
+		"					\"bars\": false,\n" +
+		"					\"dashLength\": 10,\n" +
+		"					\"dashes\": false,\n" +
+		"					\"datasource\": \"${datasource}\",\n" +
+		"					\"fill\": 1,\n" +
+		"					\"id\": 23,\n" +
+		"					\"legend\": {\n" +
+		"						\"alignAsTable\": true,\n" +
+		"						\"avg\": true,\n" +
+		"						\"current\": true,\n" +
+		"						\"max\": true,\n" +
+		"						\"min\": false,\n" +
+		"						\"rightSide\": true,\n" +
+		"						\"show\": true,\n" +
+		"						\"total\": false,\n" +
+		"						\"values\": true\n" +
+		"					},\n" +
+		"					\"lines\": true,\n" +
+		"					\"linewidth\": 1,\n" +
+		"					\"links\": [],\n" +
+		"					\"nullPointMode\": \"null\",\n" +
+		"					\"percentage\": false,\n" +
+		"					\"pointradius\": 5,\n" +
+		"					\"points\": false,\n" +
+		"					\"renderer\": \"flot\",\n" +
+		"					\"seriesOverrides\": [],\n" +
+		"					\"spaceLength\": 10,\n" +
+		"					\"span\": 12,\n" +
+		"					\"stack\": false,\n" +
+		"					\"steppedLine\": false,\n" +
+		"					\"targets\": [\n" + "${targets}" +
+		"					],\n" +
+		"					\"thresholds\": [],\n" +
+		"					\"timeFrom\": null,\n" +
+		"					\"timeShift\": null,\n" +
+		"					\"title\": \"Lookup Join Request Delay P99\",\n" +
+		"					\"tooltip\": {\n" +
+		"						\"shared\": true,\n" +
+		"						\"sort\": 0,\n" +
+		"						\"value_type\": \"individual\"\n" +
+		"					},\n" +
+		"					\"type\": \"graph\",\n" +
+		"					\"xaxis\": {\n" +
+		"						\"buckets\": null,\n" +
+		"						\"mode\": \"time\",\n" +
+		"						\"name\": null,\n" +
+		"						\"show\": true,\n" +
+		"						\"values\": []\n" +
+		"					},\n" +
+		"					\"yaxes\": [\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"format\": \"short\",\n" +
+		"							\"label\": null,\n" +
+		"							\"logBase\": 1,\n" +
+		"							\"max\": null,\n" +
+		"							\"min\": null,\n" +
+		"							\"show\": true\n" +
+		"						}\n" +
+		"					]\n" +
+		"				}\n" +
+		"			],\n" +
+		"			\"repeat\": null,\n" +
+		"			\"repeatIteration\": null,\n" +
+		"			\"repeatRowId\": null,\n" +
+		"			\"showTitle\": false,\n" +
+		"			\"title\": \"Dashboard Row\",\n" +
+		"			\"titleSize\": \"h6\"\n" +
+		"		}";
+
 	public static final String LOOKUP_JOIN_HIT_RATE_TARGET = "{\n" +
 		"							\"aggregator\": \"max\",\n" +
 		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
 		"hitRate\",\n" +
+		"							\"refId\": \"K\"\n" +
+		"						}";
+
+	public static final String LOOKUP_JOIN_REQUEST_PER_SECOND_TARGET = "{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"sum\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
+		"lookupRequestPerSecond\",\n" +
+		"							\"refId\": \"K\"\n" +
+		"						}";
+
+	public static final String LOOKUP_JOIN_FAILURE_PER_SECOND_TARGET = "{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"sum\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
+		"lookupFailurePerSecond\",\n" +
+		"							\"refId\": \"K\"\n" +
+		"						}";
+
+	public static final String LOOKUP_JOIN_REQUEST_DELAY_P99_TARGET = "{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
+		"lookupRequestDelay.p99\",\n" +
 		"							\"refId\": \"K\"\n" +
 		"						}";
 

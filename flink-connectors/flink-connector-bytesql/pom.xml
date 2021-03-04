@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.apache.flink</groupId>
+		<artifactId>flink-connectors</artifactId>
+		<version>1.11-byted-SNAPSHOT</version>
+		<relativePath>..</relativePath>
+	</parent>
+
+	<artifactId>flink-connector-bytesql</artifactId>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.bytedance.infra</groupId>
+			<artifactId>bytesql4j</artifactId>
+			<version>1.1.9</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-common</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-streaming-java_2.11</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-table-api-java-bridge_2.11</artifactId>
+			<version>${project.version}</version>
+			<scope>provided</scope>
+		</dependency>
+	</dependencies>
+
+	<profiles>
+		<profile>
+			<id>sql-jars</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-shade-plugin</artifactId>
+						<executions>
+							<execution>
+								<id>shade-flink</id>
+								<phase>package</phase>
+								<goals>
+									<goal>shade</goal>
+								</goals>
+								<configuration>
+									<artifactSet>
+										<includes>
+											<include>*:*</include>
+										</includes>
+									</artifactSet>
+									<relocations>
+										<relocation>
+											<pattern>com.bytedance</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.bytedance</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>io.opencensus</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.io.opencensus</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>io.grpc</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.io.grpc</shadedPattern>
+											<excludes>
+												<exclude>io.grpc.netty.shaded.io.grpc.netty.NettyChannelProvider</exclude>
+											</excludes>
+										</relocation>
+										<!-- The NettyChannelProvider has two 'io.grpc' strings in its path, however the shade plugin
+										behaves differently in code and service file. In former the path will be
+										'{shadedPattern}.netty.shaded.{shadedPattern}.netty.NettyChannelProvider'
+										'{shadedPattern}.netty.shaded.io.grpc.netty.NettyChannelProvider'.
+										Therefore we should do the following relocation for NettyChannelProvider.
+										-->
+										<relocation>
+											<pattern>io.grpc.netty.shaded.io.grpc.netty.NettyChannelProvider</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.io.grpc.netty.shaded.io.grpc.netty.NettyChannelProvider</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.google</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.commons</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.org.apache.commons</shadedPattern>
+										</relocation>
+									</relocations>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
+</project>

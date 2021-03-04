@@ -65,6 +65,7 @@ public class MetricsDynamicTableFactory implements DynamicTableSinkFactory {
 		Set<ConfigOption<?>> optionalOptions = new HashSet<>();
 		optionalOptions.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		optionalOptions.add(SINK_BUFFER_FLUSH_INTERVAL);
+		optionalOptions.add(SINK_LOG_FAILURES_ONLY);
 		optionalOptions.add(PARALLELISM);
 		return optionalOptions;
 	}
