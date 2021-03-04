@@ -377,9 +377,17 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 			effectiveConfiguration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, Integer.parseInt(commandLine.getOptionValue(slots.getOpt())));
 		}
 
-		// reload config by dynamic properties.
+		// reload config by dynamic properties. support config DC,hdfs.prefix... by dynamic properties.
 		final Properties properties = commandLine.getOptionProperties(dynamicproperties.getOpt());
 		reloadConfigWithDynamicProperties(effectiveConfiguration, properties);
+
+		// set special config for streaming job
+		String appType = properties.getProperty(
+			YarnConfigOptions.APPLICATION_TYPE.key(),
+			effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE));
+		if (appType.equals(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
+			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
+		}
 
 		dynamicPropertiesEncoded = encodeDynamicProperties(effectiveConfiguration, commandLine);
 		if (!dynamicPropertiesEncoded.isEmpty()) {
@@ -387,12 +395,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 			for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
 				effectiveConfiguration.setString(dynProperty.getKey(), dynProperty.getValue());
 			}
-		}
-
-		// set check yarn app unique default for stream job
-		final String appType = effectiveConfiguration.getString(YarnConfigOptions.APPLICATION_TYPE);
-		if (appType.equals(ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT)) {
-			reloadConfigWithSpecificProperties(effectiveConfiguration, ConfigConstants.STREAMING_JOB_KEY_PREFIX);
 		}
 
 		if (isYarnPropertiesFileMode(commandLine)) {
