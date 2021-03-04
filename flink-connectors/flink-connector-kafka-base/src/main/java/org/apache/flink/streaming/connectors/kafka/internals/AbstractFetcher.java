@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.functions.AssignerWithPeriodicWatermarks;
 import org.apache.flink.streaming.api.functions.AssignerWithPunctuatedWatermarks;
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext;
 import org.apache.flink.streaming.api.watermark.Watermark;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
 import org.apache.flink.streaming.connectors.kafka.config.OffsetCommitMode;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaConsumerMetricConstants;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
@@ -90,6 +91,9 @@ public abstract class AbstractFetcher<T, KPH> {
 	// ------------------------------------------------------------------------
 
 	private final AtomicBoolean hasSuccessfulCheckpoint;
+
+	/** If true, we will not wait for the first checkpoint to complete. */
+	private final boolean forceManuallyCommitOffsets;
 
 	/** The source context to emit records and watermarks to. */
 	protected final SourceContext<T> sourceContext;
@@ -250,6 +254,7 @@ public abstract class AbstractFetcher<T, KPH> {
 			periodicEmitter.start();
 		}
 		hasSuccessfulCheckpoint = new AtomicBoolean(false);
+		forceManuallyCommitOffsets = Boolean.parseBoolean(properties.getProperty(FlinkKafkaConsumerBase.KEY_FORCE_MANUAL_COMMIT_OFFSETS));
 	}
 
 	/**
@@ -699,6 +704,10 @@ public abstract class AbstractFetcher<T, KPH> {
 
 	public void setHasSuccessfulCheckpoint() {
 		hasSuccessfulCheckpoint.compareAndSet(false, true);
+	}
+
+	public boolean isForceManuallyCommitOffsets() {
+		return forceManuallyCommitOffsets;
 	}
 
 	/**

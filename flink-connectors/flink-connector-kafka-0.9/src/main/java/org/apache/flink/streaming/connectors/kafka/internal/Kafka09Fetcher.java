@@ -267,7 +267,7 @@ public class Kafka09Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 	 * Commit offsets manually instead of waiting for checkpoint (only available after first checkpoint).
 	 */
 	public void commitKafkaOffsetsManually() throws Exception {
-		if (hasSuccessfulCheckpoint().get()) {
+		if (hasSuccessfulCheckpoint().get() || isForceManuallyCommitOffsets()) {
 			synchronized (checkpointLock) {
 				// acquire checkpointLock to avoid contention with notifyCheckpointComplete
 				final HashMap<KafkaTopicPartition, Long> partitionOffsets = snapshotCurrentState();

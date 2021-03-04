@@ -121,6 +121,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public static final String KEY_MANUAL_COMMIT_OFFSETS_INTERVAL_MILLIS = "flink.manually-commit-offsets.interval-millis";
 
+	public static final String KEY_FORCE_MANUAL_COMMIT_OFFSETS = "flink.force.manually-commit-offsets";
+
 	public static final int RETRY_TIMES = 5;
 
 	public static final int RETRY_INTERVAL_MS = 200;
