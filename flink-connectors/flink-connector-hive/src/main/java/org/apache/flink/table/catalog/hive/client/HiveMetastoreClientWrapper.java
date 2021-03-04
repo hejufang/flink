@@ -60,14 +60,18 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveMetastoreClientWrapper.class);
+	private static final String HIVE_CLIENT_NAMESPACE = "hive.client.namespace";
 
 	private boolean isAllowedToModifyHiveMeta;
 	private final IMetaStoreClient client;
 	private final HiveConf hiveConf;
 	private final HiveShim hiveShim;
+	private final String hiveClientNamespace;
 
 	public HiveMetastoreClientWrapper(HiveConf hiveConf, String hiveVersion) {
 		this.hiveConf = Preconditions.checkNotNull(hiveConf, "HiveConf cannot be null");
+		hiveClientNamespace = hiveConf.get(HIVE_CLIENT_NAMESPACE);
+		LOG.info("hiveClientNamespace = {}", hiveClientNamespace);
 		checkArgument(!StringUtils.isNullOrWhitespaceOnly(hiveVersion), "hiveVersion cannot be null or empty");
 		hiveShim = HiveShimLoader.loadHiveShim(hiveVersion);
 		client = createMetastoreClient();
@@ -83,7 +87,8 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	}
 
 	public List<String> getDatabases(String pattern) throws MetaException, TException {
-		return client.getDatabases(pattern);
+		return client.getDatabases(addNamespaceForDatabaseNameIfNeeded(pattern));
+
 	}
 
 	public List<String> getAllDatabases() throws MetaException, TException {
@@ -91,33 +96,34 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	}
 
 	public List<String> getAllTables(String databaseName) throws MetaException, TException, UnknownDBException {
-		return client.getAllTables(databaseName);
+		return client.getAllTables(addNamespaceForDatabaseNameIfNeeded(databaseName));
 	}
 
 	public void dropTable(String databaseName, String tableName)
 			throws MetaException, TException, NoSuchObjectException {
 		checkPermissionsOfHiveMetaModifications();
-		client.dropTable(databaseName, tableName);
+		client.dropTable(addNamespaceForDatabaseNameIfNeeded(databaseName), tableName);
 	}
 
 	public void dropTable(String dbName, String tableName, boolean deleteData, boolean ignoreUnknownTable)
 			throws MetaException, NoSuchObjectException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		client.dropTable(dbName, tableName, deleteData, ignoreUnknownTable);
+		client.dropTable(addNamespaceForDatabaseNameIfNeeded(dbName), tableName,
+			deleteData, ignoreUnknownTable);
 	}
 
 	public boolean tableExists(String databaseName, String tableName)
 			throws MetaException, TException, UnknownDBException {
-		return client.tableExists(databaseName, tableName);
+		return client.tableExists(addNamespaceForDatabaseNameIfNeeded(databaseName), tableName);
 	}
 
 	public Database getDatabase(String name) throws NoSuchObjectException, MetaException, TException {
-		return client.getDatabase(name);
+		return client.getDatabase(addNamespaceForDatabaseNameIfNeeded(name));
 	}
 
 	public Table getTable(String databaseName, String tableName)
 			throws MetaException, NoSuchObjectException, TException {
-		return client.getTable(databaseName, tableName);
+		return client.getTable(addNamespaceForDatabaseNameIfNeeded(databaseName), tableName);
 	}
 
 	public Partition add_partition(Partition partition)
@@ -132,17 +138,20 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 
 	public Partition getPartition(String databaseName, String tableName, List<String> list)
 			throws NoSuchObjectException, MetaException, TException {
-		return client.getPartition(databaseName, tableName, list);
+		return client.getPartition(
+			addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, list);
 	}
 
 	public List<String> listPartitionNames(String databaseName, String tableName, short maxPartitions)
 			throws MetaException, TException {
-		return client.listPartitionNames(databaseName, tableName, maxPartitions);
+		return client.listPartitionNames(
+			addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, maxPartitions);
 	}
 
 	public List<String> listPartitionNames(String databaseName, String tableName, List<String> partitionValues,
 										short maxPartitions) throws MetaException, TException, NoSuchObjectException {
-		return client.listPartitionNames(databaseName, tableName, partitionValues, maxPartitions);
+		return client.listPartitionNames(addNamespaceForDatabaseNameIfNeeded(databaseName), tableName,
+			partitionValues, maxPartitions);
 	}
 
 	public void createTable(Table table)
@@ -160,28 +169,32 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	public void dropDatabase(String name, boolean deleteData, boolean ignoreIfNotExists)
 			throws NoSuchObjectException, InvalidOperationException, MetaException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		client.dropDatabase(name, deleteData, ignoreIfNotExists);
+		client.dropDatabase(
+			addNamespaceForDatabaseNameIfNeeded(name), deleteData, ignoreIfNotExists);
 	}
 
 	public void dropDatabase(String name, boolean deleteData, boolean ignoreIfNotExists, boolean cascade)
 			throws NoSuchObjectException, InvalidOperationException, MetaException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		client.dropDatabase(name, deleteData, ignoreIfNotExists, cascade);
+		client.dropDatabase(
+			addNamespaceForDatabaseNameIfNeeded(name), deleteData, ignoreIfNotExists, cascade);
 	}
 
 	public void alterDatabase(String name, Database database) throws NoSuchObjectException, MetaException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		client.alterDatabase(name, database);
+		client.alterDatabase(addNamespaceForDatabaseNameIfNeeded(name), database);
 	}
 
 	public boolean dropPartition(String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
 			throws NoSuchObjectException, MetaException, TException {
-		return client.dropPartition(databaseName, tableName, partitionValues, deleteData);
+		return client.dropPartition(
+			addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, partitionValues, deleteData);
 	}
 
 	public void renamePartition(String databaseName, String tableName, List<String> partitionValues, Partition partition)
 			throws InvalidOperationException, MetaException, TException {
-		client.renamePartition(databaseName, tableName, partitionValues, partition);
+		client.renamePartition(
+			addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, partitionValues, partition);
 	}
 
 	public void createFunction(Function function) throws InvalidObjectException, MetaException, TException {
@@ -192,28 +205,31 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	public void alterFunction(String databaseName, String functionName, Function function)
 			throws InvalidObjectException, MetaException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		client.alterFunction(databaseName, functionName, function);
+		client.alterFunction(
+			addNamespaceForDatabaseNameIfNeeded(databaseName), functionName, function);
 	}
 
 	public void dropFunction(String databaseName, String functionName)
 			throws MetaException, NoSuchObjectException, InvalidObjectException, InvalidInputException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		client.dropFunction(databaseName, functionName);
+		client.dropFunction(addNamespaceForDatabaseNameIfNeeded(databaseName), functionName);
 	}
 
 	public List<String> getFunctions(String databaseName, String pattern) throws MetaException, TException {
-		return client.getFunctions(databaseName, pattern);
+		return client.getFunctions(addNamespaceForDatabaseNameIfNeeded(databaseName), pattern);
 	}
 
 	public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
 			throws NoSuchObjectException, MetaException, TException {
-		return client.getTableColumnStatistics(databaseName, tableName, columnNames);
+		return client.getTableColumnStatistics(
+			addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, columnNames);
 	}
 
 	public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String dbName, String tableName,
 																		List<String> partNames, List<String> colNames)
 			throws NoSuchObjectException, MetaException, TException {
-		return client.getPartitionColumnStatistics(dbName, tableName, partNames, colNames);
+		return client.getPartitionColumnStatistics(
+			addNamespaceForDatabaseNameIfNeeded(dbName), tableName, partNames, colNames);
 	}
 
 	public boolean updateTableColumnStatistics(ColumnStatistics columnStatistics)
@@ -227,29 +243,52 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	}
 
 	public List<Partition> listPartitions(String dbName, String tblName, List<String> partVals, short max) throws TException {
-		return client.listPartitions(dbName, tblName, partVals, max);
+		return client.listPartitions(
+			addNamespaceForDatabaseNameIfNeeded(dbName), tblName, partVals, max);
 	}
 
 	public List<Partition> listPartitions(String dbName, String tblName, short max) throws TException {
-		return client.listPartitions(dbName, tblName, max);
+		return client.listPartitions(
+			addNamespaceForDatabaseNameIfNeeded(dbName), tblName, max);
 	}
 
 	public PartitionSpecProxy listPartitionSpecsByFilter(String dbName, String tblName, String filter, short max) throws TException {
-		return client.listPartitionSpecsByFilter(dbName, tblName, filter, max);
+		return client.listPartitionSpecsByFilter(
+			addNamespaceForDatabaseNameIfNeeded(dbName), tblName, filter, max);
+	}
+
+	private String addNamespaceForDatabaseNameIfNeeded(String databaseName) {
+		if (hiveClientNamespace == null || hiveClientNamespace.isEmpty()) {
+			return databaseName;
+		}
+		if (databaseName.contains(".")) {
+			// Hive traditional database name cannot contains dot, so if the is a dot
+			// in databaseName, it means databaseName already contains a namespace.
+			return databaseName;
+		}
+
+		String newDatabaseName = hiveClientNamespace + "." + databaseName;
+
+		LOG.debug("Add prefix({}) for database name, {} -> {}",
+			hiveClientNamespace, databaseName, newDatabaseName);
+
+		return newDatabaseName;
 	}
 
 	//-------- Start of shimmed methods ----------
 
 	public Set<String> getNotNullColumns(Configuration conf, String dbName, String tableName) {
-		return hiveShim.getNotNullColumns(client, conf, dbName, tableName);
+		return hiveShim.getNotNullColumns(
+			client, conf, addNamespaceForDatabaseNameIfNeeded(dbName), tableName);
 	}
 
 	public Optional<UniqueConstraint> getPrimaryKey(String dbName, String tableName, byte trait) {
-		return hiveShim.getPrimaryKey(client, dbName, tableName, trait);
+		return hiveShim.getPrimaryKey(
+			client, addNamespaceForDatabaseNameIfNeeded(dbName), tableName, trait);
 	}
 
 	public List<String> getViews(String databaseName) throws UnknownDBException, TException {
-		return hiveShim.getViews(client, databaseName);
+		return hiveShim.getViews(client, addNamespaceForDatabaseNameIfNeeded(databaseName));
 	}
 
 	private IMetaStoreClient createMetastoreClient() {
@@ -259,7 +298,7 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	public Function getFunction(String databaseName, String functionName) throws MetaException, TException {
 		try {
 			// Hive may not throw NoSuchObjectException if function doesn't exist, instead it throws a MetaException
-			return client.getFunction(databaseName, functionName);
+			return client.getFunction(addNamespaceForDatabaseNameIfNeeded(databaseName), functionName);
 		} catch (MetaException e) {
 			// need to check the cause and message of this MetaException to decide whether it should actually be a NoSuchObjectException
 			if (e.getCause() instanceof NoSuchObjectException) {
@@ -275,12 +314,14 @@ public class HiveMetastoreClientWrapper implements AutoCloseable {
 	public void alter_table(String databaseName, String tableName, Table table)
 			throws InvalidOperationException, MetaException, TException {
 		checkPermissionsOfHiveMetaModifications();
-		hiveShim.alterTable(client, databaseName, tableName, table);
+		hiveShim.alterTable(
+			client, addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, table);
 	}
 
 	public void alter_partition(String databaseName, String tableName, Partition partition)
 			throws InvalidOperationException, MetaException, TException {
-		hiveShim.alterPartition(client, databaseName, tableName, partition);
+		hiveShim.alterPartition(
+			client, addNamespaceForDatabaseNameIfNeeded(databaseName), tableName, partition);
 	}
 
 	public void createTableWithConstraints(
