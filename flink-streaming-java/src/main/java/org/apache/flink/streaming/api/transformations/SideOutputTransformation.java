@@ -24,6 +24,7 @@ import org.apache.flink.util.OutputTag;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -66,5 +67,10 @@ public class SideOutputTransformation<T> extends Transformation<T> {
 		result.add(this);
 		result.addAll(input.getTransitivePredecessors());
 		return result;
+	}
+
+	@Override
+	public List<Transformation<?>> getChildren() {
+		return Collections.singletonList(input);
 	}
 }

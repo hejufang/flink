@@ -18,6 +18,7 @@
 package org.apache.flink.table.planner.utils
 
 import org.apache.flink.api.common.typeinfo.{AtomicType, TypeInformation}
+import org.apache.flink.api.dag.Transformation
 import org.apache.flink.api.java.typeutils.{PojoTypeInfo, RowTypeInfo, TupleTypeInfo}
 import org.apache.flink.api.scala.typeutils.CaseClassTypeInfo
 import org.apache.flink.streaming.api.datastream.DataStream
@@ -70,6 +71,7 @@ import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.Rule
 import org.junit.rules.{ExpectedException, TemporaryFolder, TestName}
 import _root_.java.math.{BigDecimal => JBigDecimal}
+import _root_.java.io.{PrintWriter, StringWriter}
 import _root_.java.util
 
 import _root_.scala.collection.JavaConversions._
@@ -372,6 +374,18 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
       printPlanBefore = false)
   }
 
+  def verifyTransformation(sql: String): Unit = {
+    assertEqualsOrExpand("sql", sql)
+    val table = getTableEnv.sqlQuery(sql)
+    doVerifyPlan(
+      table,
+      Array.empty,
+      withRowType = false,
+      printResource = false,
+      printPlanBefore = false,
+      printTransformation = true)
+  }
+
   def doVerifyPlan(
       table: Table,
       extraDetails: Array[ExplainDetail],
@@ -390,13 +404,15 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
       extraDetails: Array[ExplainDetail],
       withRowType: Boolean,
       printPlanBefore: Boolean,
-      printResource: Boolean): Unit = {
+      printResource: Boolean,
+      printTransformation: Boolean = false): Unit = {
     val relNode = TableTestUtil.toRelNode(table)
     val optimizedPlan = getOptimizedPlan(
       Array(relNode),
       extraDetails,
       withRowType = withRowType,
-      withResource = printResource)
+      withResource = printResource,
+      withTransformation = printTransformation)
 
     if (printPlanBefore) {
       val planBefore = SystemUtils.LINE_SEPARATOR +
@@ -424,7 +440,8 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
       relNodes: Array[RelNode],
       extraDetails: Array[ExplainDetail],
       withRowType: Boolean,
-      withResource: Boolean = false): String = {
+      withResource: Boolean = false,
+      withTransformation: Boolean = false): String = {
     require(relNodes.nonEmpty)
     val planner = getPlanner
     val optimizedRels = planner.optimize(relNodes)
@@ -439,12 +456,19 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
       case _: ExecNode[_, _] =>
         val optimizedNodes = planner.translateToExecNodePlan(optimizedRels)
         require(optimizedNodes.length == optimizedRels.length)
-        ExecNodePlanDumper.dagToString(
+        val dagPlan = ExecNodePlanDumper.dagToString(
           optimizedNodes,
           detailLevel = explainLevel,
           withChangelogTraits = withChangelogTraits,
           withOutputType = withRowType,
           withResource = withResource)
+
+        if (withTransformation) {
+          val transformations = planner.translateToPlan(optimizedNodes)
+          dagPlan + "\n" + dumpTransformations(transformations)
+        } else {
+          dagPlan
+        }
       case _ =>
         optimizedRels.map { rel =>
           FlinkRelOptUtil.toString(
@@ -454,6 +478,21 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
             withRowType = withRowType)
         }.mkString("\n")
     }
+  }
+
+  private def dumpTransformations(transformations: java.util.List[Transformation[_]]): String = {
+    val stringWriter = new StringWriter()
+    val printWriter = new PrintWriter(stringWriter)
+    transformations.foreach(transformation => dumpTransformation(printWriter, transformation, 0))
+    stringWriter.toString
+  }
+
+  private def dumpTransformation(
+      printWriter: PrintWriter,
+      transformation: Transformation[_],
+      level: Int): Unit = {
+    printWriter.println(("\t" * level) + transformation.toString)
+    transformation.getChildren.foreach(child => dumpTransformation(printWriter, child, level + 1))
   }
 
   /**

@@ -29,6 +29,8 @@ import org.apache.flink.util.Preconditions;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -500,6 +502,13 @@ public abstract class Transformation<T> {
 	 * @return The list of transitive predecessors.
 	 */
 	public abstract Collection<Transformation<?>> getTransitivePredecessors();
+
+	/**
+	 * Get all inputs of this transformation.
+	 */
+	public List<Transformation<?>> getChildren() {
+		return Collections.emptyList();
+	}
 
 	@Override
 	public String toString() {

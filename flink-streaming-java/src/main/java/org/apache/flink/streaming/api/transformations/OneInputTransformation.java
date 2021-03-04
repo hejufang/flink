@@ -31,6 +31,7 @@ import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -145,5 +146,10 @@ public class OneInputTransformation<IN, OUT> extends PhysicalTransformation<OUT>
 	@Override
 	public final void setChainingStrategy(ChainingStrategy strategy) {
 		operatorFactory.setChainingStrategy(strategy);
+	}
+
+	@Override
+	public List<Transformation<?>> getChildren() {
+		return Collections.singletonList(input);
 	}
 }

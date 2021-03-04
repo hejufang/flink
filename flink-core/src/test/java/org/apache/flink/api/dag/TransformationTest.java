@@ -27,6 +27,7 @@ import org.junit.Test;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 
@@ -76,6 +77,11 @@ public class TransformationTest extends TestLogger {
 		@Override
 		public Collection<Transformation<?>> getTransitivePredecessors() {
 			return Collections.EMPTY_LIST;
+		}
+
+		@Override
+		public List<Transformation<?>> getChildren() {
+			return Collections.emptyList();
 		}
 	}
 }

@@ -18,11 +18,13 @@
 
 package org.apache.flink.table.planner.plan.nodes.physical
 
+import org.apache.flink.api.common.ExecutionConfig
 import org.apache.flink.api.common.io.InputFormat
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.core.io.InputSplit
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.transformations.FakeTransformation
 import org.apache.flink.table.planner.plan.schema.LegacyTableSourceTable
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter.fromDataTypeToTypeInfo
 import org.apache.flink.table.sources.{InputFormatTableSource, StreamTableSource, TableSource}
@@ -81,6 +83,8 @@ abstract class PhysicalLegacyTableSourceScan(
             typeInfo.asInstanceOf[TypeInformation[Any]])
         case s: StreamTableSource[_] => s.getDataStream(env).getTransformation
       }
+      sourceTransform = new FakeTransformation(
+        sourceTransform, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
     }
     sourceTransform
   }
