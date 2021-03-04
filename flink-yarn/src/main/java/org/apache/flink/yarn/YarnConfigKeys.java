@@ -53,6 +53,7 @@ public class YarnConfigKeys {
 	public static final String ENV_PSM_PREFIX = "inf.dayu";
 
 	public static final String LOCAL_RESOURCE_DESCRIPTOR_SEPARATOR = ";";
+	public static final String ENV_SEC_KV_AUTH = "SEC_KV_AUTH";
 
 	// ------------------------------------------------------------------------
 

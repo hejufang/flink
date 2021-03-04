@@ -45,6 +45,9 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VA
 
 /**
  * Factory for creating abase sink and lookup.
+ * Notice: Abase GDPR is enabled by adding environment variable in jm and tm container.
+ * See details in INFOI-19522.
+ * todo: urge abase team to provide a sdk which enables GDPR by default instead of depending on environment variable.
  */
 public class AbaseDynamicTableSourceSinkFactory extends RedisDynamicTableSourceSinkFactory {
 	private static final String IDENTIFIER = "abase";

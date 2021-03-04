@@ -463,7 +463,7 @@ public final class Utils {
 		if (subpartitionType.equals("yarn")) {
 			ctx.setServiceData(Collections.singletonMap(YARN_SHUFFLE_SERVICE_NAME, ByteBuffer.allocate(0)));
 		}
-
+		containerEnv.put(YarnConfigKeys.ENV_SEC_KV_AUTH, "1");
 		containerEnv.putAll(tmParams.taskManagerEnv());
 
 		// add YARN classpath, etc to the container environment
