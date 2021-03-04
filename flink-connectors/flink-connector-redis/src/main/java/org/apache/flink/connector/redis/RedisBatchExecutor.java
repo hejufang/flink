@@ -16,33 +16,40 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.redis.utils;
+package org.apache.flink.connector.redis;
 
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import org.apache.flink.table.data.RowData;
+
+import redis.clients.jedis.Pipeline;
+
+import java.io.Serializable;
+import java.util.List;
 
 /**
- *  The value type of a redis key.
+ * Executes commands in batch for incoming records.
  */
-public enum RedisValueType {
-	GENERAL(false),
-	HASH(false),
-	LIST(true),
-	SET(true),
-	ZSET(true);
-
-	private boolean isAppendOnly;
-	RedisValueType(boolean isAppendOnly) {
-		this.isAppendOnly = isAppendOnly;
+public abstract class RedisBatchExecutor<T> implements Serializable {
+	protected ExecuteFunction<T> execution;
+	public RedisBatchExecutor(ExecuteFunction<T> execution) {
+		this.execution = execution;
 	}
 
-	public static String getCollectionStr() {
-		return Stream.of(RedisValueType.values())
-			.map(RedisValueType::name)
-			.collect(Collectors.joining(", "));
+	public abstract void open();
+
+	public abstract void addToBatch(RowData record);
+
+	public abstract List<Object> executeBatch(Pipeline pipeline);
+
+	public abstract void reset();
+
+	/**
+	 * Logic for processing a coming record.
+	 */
+	@FunctionalInterface
+	public interface ExecuteFunction<E> {
+		void execute(Pipeline pipeline, E record);
 	}
 
-	public boolean isAppendOnly() {
-		return isAppendOnly;
-	}
+	public abstract boolean isBufferEmpty();
+
 }

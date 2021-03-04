@@ -21,6 +21,7 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.connector.redis.options.RedisInsertOptions;
 import org.apache.flink.connector.redis.options.RedisOptions;
 import org.apache.flink.connector.redis.utils.ClientPipelineProvider;
+import org.apache.flink.connector.redis.utils.RedisSinkMode;
 import org.apache.flink.connector.redis.utils.RedisUtils;
 import org.apache.flink.table.api.TableColumn;
 import org.apache.flink.table.api.TableSchema;
@@ -29,6 +30,7 @@ import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 
 import com.bytedance.kvclient.ClientPool;
@@ -39,6 +41,8 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+import static org.apache.flink.util.Preconditions.checkState;
+
 
 /**
  * A {@link DynamicTableSink} for Redis.
@@ -47,7 +51,7 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 	private final RedisOptions options;
 	private final RedisInsertOptions insertOptions;
 	private final ClientPipelineProvider clientPipelineProvider;
-	private TableSchema schema;
+	private final TableSchema schema;
 	@Nullable
 	protected final EncodingFormat<SerializationSchema<RowData>> encodingFormat;
 
@@ -87,6 +91,7 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 
 	@Override
 	public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
+		validateChangelogMode(requestedMode);
 		return ChangelogMode.newBuilder()
 			.addContainedKind(RowKind.INSERT)
 			.addContainedKind(RowKind.DELETE)
@@ -94,9 +99,18 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 			.build();
 	}
 
+	private void validateChangelogMode(ChangelogMode requestedMode) {
+		if (!requestedMode.equals(ChangelogMode.insertOnly())) {
+			checkState(!options.getRedisValueType().isAppendOnly(),
+				String.format("Upstream should be append only as %s cannot be updated.", options.getRedisValueType()));
+			checkState(insertOptions.getMode() != RedisSinkMode.INCR,
+				"Upstream should be append only when incr mode is on, " +
+					"as incremental value cannot be updated.");
+		}
+	}
+
 	@Override
 	public SinkRuntimeProvider getSinkRuntimeProvider(Context context) {
-		DataStructureConverter converter = context.createDataStructureConverter(schema.toPhysicalRowDataType());
 		TableSchema realSchema = schema;
 		if (encodingFormat != null && insertOptions.isSkipFormatKey()) {
 			TableSchema.Builder builder = new TableSchema.Builder();
@@ -105,12 +119,13 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 			columns.forEach(column -> builder.field(column.getName(), column.getType()));
 			realSchema = builder.build();
 		}
+		final RowType rowType = (RowType) schema.toRowDataType().getLogicalType();
 		RedisRowDataOutputFormat outputFormat = new RedisRowDataOutputFormat(
 			options,
 			insertOptions,
+			rowType,
 			clientPipelineProvider,
-			encodingFormat == null ? null : encodingFormat.createRuntimeEncoder(context, realSchema.toRowDataType()),
-			converter
+			encodingFormat == null ? null : encodingFormat.createRuntimeEncoder(context, realSchema.toRowDataType())
 		);
 		return SinkFunctionProvider.of(new RedisRowDataSinkFunction(
 			outputFormat,

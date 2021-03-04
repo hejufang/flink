@@ -22,16 +22,13 @@ package org.apache.flink.connector.redis.table;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.redis.options.RedisInsertOptions;
 import org.apache.flink.connector.redis.options.RedisLookupOptions;
 import org.apache.flink.connector.redis.options.RedisOptions;
-import org.apache.flink.connector.redis.utils.RedisValueType;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nullable;
 
@@ -41,7 +38,6 @@ import java.util.Set;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CLUSTER;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.PSM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.TABLE;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VALUE_TYPE;
 
 /**
  * Factory for creating abase sink and lookup.
@@ -63,14 +59,6 @@ public class AbaseDynamicTableSourceSinkFactory extends RedisDynamicTableSourceS
 		requiredOptions.add(TABLE);
 		requiredOptions.add(PSM);
 		return requiredOptions;
-	}
-
-	@Override
-	protected void validateConfigOptions(ReadableConfig config) {
-		Preconditions.checkState(config.get(VALUE_TYPE).equals(RedisValueType.GENERAL),
-			String.format("Abase only support String data type now." +
-				" Please don't configure %s.", VALUE_TYPE.key()));
-		super.validateConfigOptions(config);
 	}
 
 	@Override

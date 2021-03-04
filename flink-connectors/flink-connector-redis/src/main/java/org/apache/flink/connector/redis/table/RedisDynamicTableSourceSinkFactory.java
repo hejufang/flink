@@ -56,12 +56,8 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CO
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_MAX_TOTAL_NUM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_MIN_IDLE_NUM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_TIMEOUT;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.LOOKUP_CACHE_MAX_ROWS;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.LOOKUP_CACHE_TTL;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.LOOKUP_MAX_RETRIES;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.PSM;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_BUFFER_FLUSH_INTERVAL;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_IGNORE_DELETE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MODE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_RECORD_TTL_SECONDS;
@@ -70,10 +66,15 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VA
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VALUE_TYPE;
 import static org.apache.flink.table.factories.FactoryUtil.CONNECTOR;
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_NULL_VALUE;
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 
 /**
@@ -181,6 +182,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		optionalOptions.add(SINK_RECORD_TTL_SECONDS);
 		optionalOptions.add(SINK_MAX_RETRIES);
 		optionalOptions.add(VALUE_FORMAT_SKIP_KEY);
+		optionalOptions.add(SINK_IGNORE_DELETE);
 		optionalOptions.add(LOOKUP_CACHE_MAX_ROWS);
 		optionalOptions.add(LOOKUP_CACHE_TTL);
 		optionalOptions.add(LOOKUP_MAX_RETRIES);
@@ -207,7 +209,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 	private RedisLookupOptions getRedisLookupOptions(ReadableConfig readableConfig) {
 		return new RedisLookupOptions(
 			readableConfig.get(LOOKUP_CACHE_MAX_ROWS),
-			readableConfig.get(LOOKUP_CACHE_TTL),
+			readableConfig.get(LOOKUP_CACHE_TTL).toMillis(),
 			readableConfig.get(LOOKUP_MAX_RETRIES),
 			readableConfig.get(LOOKUP_LATER_JOIN_LATENCY).toMillis(),
 			readableConfig.get(LOOKUP_LATER_JOIN_RETRY_TIMES),
@@ -222,6 +224,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			.setBufferFlushInterval(readableConfig.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
 			.setLogFailuresOnly(readableConfig.get(SINK_LOG_FAILURES_ONLY))
 			.setSkipFormatKey(readableConfig.get(VALUE_FORMAT_SKIP_KEY))
+			.setIgnoreDelete(readableConfig.get(SINK_IGNORE_DELETE))
 			.setParallelism(readableConfig.get(PARALLELISM));
 		readableConfig.getOptional(SINK_RECORD_TTL_SECONDS).ifPresent(builder::setTtlSeconds);
 		return builder.build();

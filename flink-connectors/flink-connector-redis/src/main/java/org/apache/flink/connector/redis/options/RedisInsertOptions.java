@@ -42,6 +42,8 @@ public class RedisInsertOptions implements Serializable {
 	 */
 	private final boolean skipFormatKey;
 
+	private final boolean ignoreDelete;
+
 	public int getFlushMaxRetries() {
 		return flushMaxRetries;
 	}
@@ -70,6 +72,10 @@ public class RedisInsertOptions implements Serializable {
 		return skipFormatKey;
 	}
 
+	public boolean isIgnoreDelete() {
+		return ignoreDelete;
+	}
+
 	public long getBufferFlushInterval() {
 		return bufferFlushInterval;
 	}
@@ -82,6 +88,7 @@ public class RedisInsertOptions implements Serializable {
 			int ttlSeconds,
 			boolean logFailuresOnly,
 			boolean skipFormatKey,
+			boolean ignoreDelete,
 			int parallelism) {
 		this.flushMaxRetries = flushMaxRetries;
 		this.mode = mode;
@@ -90,6 +97,7 @@ public class RedisInsertOptions implements Serializable {
 		this.ttlSeconds = ttlSeconds;
 		this.logFailuresOnly = logFailuresOnly;
 		this.skipFormatKey = skipFormatKey;
+		this.ignoreDelete = ignoreDelete;
 		this.parallelism = parallelism;
 	}
 
@@ -108,6 +116,7 @@ public class RedisInsertOptions implements Serializable {
 		private int ttlSeconds = -1;
 		private boolean logFailuresOnly;
 		private boolean skipFormatKey;
+		private boolean ignoreDelete = true;
 		private int parallelism;
 
 		private RedisInsertOptionsBuilder() {
@@ -143,6 +152,11 @@ public class RedisInsertOptions implements Serializable {
 			return this;
 		}
 
+		public RedisInsertOptionsBuilder setIgnoreDelete(boolean ignoreDelete) {
+			this.ignoreDelete = ignoreDelete;
+			return this;
+		}
+
 		public RedisInsertOptionsBuilder setLogFailuresOnly(boolean logFailuresOnly) {
 			this.logFailuresOnly = logFailuresOnly;
 			return this;
@@ -166,6 +180,7 @@ public class RedisInsertOptions implements Serializable {
 				ttlSeconds,
 				logFailuresOnly,
 				skipFormatKey,
+				ignoreDelete,
 				parallelism);
 		}
 
@@ -179,6 +194,7 @@ public class RedisInsertOptions implements Serializable {
 				", ttlSeconds=" + ttlSeconds +
 				", logFailuresOnly=" + logFailuresOnly +
 				", skipFormatKey=" + skipFormatKey +
+				", ignoreDelete=" + ignoreDelete +
 				", parallelism=" + parallelism +
 				'}';
 		}

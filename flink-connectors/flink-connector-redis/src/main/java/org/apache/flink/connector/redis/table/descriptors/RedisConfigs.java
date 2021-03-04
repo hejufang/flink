@@ -82,17 +82,7 @@ public class RedisConfigs {
 		.enumType(RedisSinkMode.class)
 		.defaultValue(RedisSinkMode.INSERT)
 		.withDescription("Optional. Insert mode, which can be either incr or insert.");
-	public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS = ConfigOptions
-		.key("sink.buffer-flush.max-rows")
-		.intType()
-		.defaultValue(50)
-		.withDescription("Optional. The max size of buffered records before flush. Can be set to zero to disable it.");
-	public static final ConfigOption<Duration> SINK_BUFFER_FLUSH_INTERVAL = ConfigOptions
-		.key("sink.buffer-flush.interval")
-		.durationType()
-		.defaultValue(Duration.of(2, ChronoUnit.SECONDS))
-		.withDescription("Optional. The flush interval mills, over this time, " +
-			"asynchronous threads will flush data. Can be set to '0' to disable it.");
+
 	public static final ConfigOption<Integer> SINK_RECORD_TTL_SECONDS = ConfigOptions
 		.key("sink.record.ttl-seconds")
 		.intType()
@@ -106,27 +96,13 @@ public class RedisConfigs {
 	public static final ConfigOption<Boolean> VALUE_FORMAT_SKIP_KEY = ConfigOptions
 		.key("value.format.skip-key")
 		.booleanType()
-		.defaultValue(false)
+		.defaultValue(true)
 		.withDescription("Optional. The flag decides if the key will be involved in the value or not when format " +
-			"are set. The default value is false.");
-
-	//Lookup config options
-	public static final ConfigOption<Long> LOOKUP_CACHE_MAX_ROWS = ConfigOptions
-		.key("lookup.cache.max-rows")
-		.longType()
-		.defaultValue(-1L)
-		.withDescription("Optional. The max number of rows of lookup cache, over this value, the oldest rows will " +
-			"be eliminated. \"cache.max-rows\" and \"cache.ttl\" options must all be specified if any of them is " +
-			"specified. Cache is not enabled as default.");
-	public static final ConfigOption<Long> LOOKUP_CACHE_TTL = ConfigOptions
-		.key("lookup.cache.ttl")
-		.longType()
-		.defaultValue(-1L)
-		.withDescription("Optional. The cache time to live. ");
-	public static final ConfigOption<Integer> LOOKUP_MAX_RETRIES = ConfigOptions
-		.key("lookup.max-retries")
-		.intType()
-		.defaultValue(3)
-		.withDescription("Optional. The max retry times if lookup database failed.");
+			"are set. The default value is true.");
+	public static final ConfigOption<Boolean> SINK_IGNORE_DELETE = ConfigOptions
+		.key("sink.ignore-delete")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("Optional. The flag decides if delete messages should be ignored or not.");
 
 }

@@ -20,6 +20,9 @@ package org.apache.flink.connector.redis.table;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.connector.redis.RedisBatchExecutor;
+import org.apache.flink.connector.redis.RedisBufferReduceExecutor;
+import org.apache.flink.connector.redis.RedisGenericExecutor;
 import org.apache.flink.connector.redis.options.RedisInsertOptions;
 import org.apache.flink.connector.redis.options.RedisOptions;
 import org.apache.flink.connector.redis.utils.ClientPipelineProvider;
@@ -28,10 +31,10 @@ import org.apache.flink.connector.redis.utils.RedisUtils;
 import org.apache.flink.connector.redis.utils.RedisValueType;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
-import org.apache.flink.table.connector.sink.DynamicTableSink.DataStructureConverter;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.types.Row;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.kvclient.ClientPool;
@@ -44,29 +47,33 @@ import redis.clients.jedis.exceptions.JedisException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MODE;
 
-
 /**
  * OutputFormat for {@link RedisDynamicTableSink}.
+ * Note:
+ * 1. Only when connector is in RedisSinkMode.INCR mode and the RedisValueType is not append only,
+ *    the Delete message can be accepted.
+ * 2. When value of RedisValueType.GENERAL is null, the associated key will be deleted in redis/abase.
+ * 	  In other cases, a exception will be thrown when any null value occurs.
+ * todo: the primary key should get from statement instead of the first field of the row when format is set.
  */
 public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisRowDataOutputFormat.class);
 	private final RedisOptions options;
 	private final RedisInsertOptions insertOptions;
 	private final ClientPipelineProvider clientPipelineProvider;
-	private final DataStructureConverter converter;
 	private final SerializationSchema<RowData> serializationSchema;
+	private final RowData.FieldGetter[] fieldGetters;
+	private RedisBatchExecutor batchExecutor;
 	private transient Counter writeFailed;
-	private transient ArrayDeque<RowData> recordDeque;
 	private transient ClientPool clientPool;
 	private transient Jedis jedis;
 	private transient int batchCount = 0;
@@ -81,14 +88,17 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 	public RedisRowDataOutputFormat(
 			RedisOptions options,
 			RedisInsertOptions insertOptions,
+			RowType rowType,
 			ClientPipelineProvider clientPipelineProvider,
-			@Nullable SerializationSchema<RowData> serializationSchema,
-			DataStructureConverter converter) {
+			@Nullable SerializationSchema<RowData> serializationSchema) {
 		this.options = options;
 		this.insertOptions = insertOptions;
 		this.clientPipelineProvider = clientPipelineProvider;
 		this.serializationSchema = serializationSchema;
-		this.converter = converter;
+		this.fieldGetters = IntStream
+			.range(0, rowType.getFieldCount())
+			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
+			.toArray(RowData.FieldGetter[]::new);
 	}
 
 	@Override
@@ -104,7 +114,6 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 				throw new IOException(e);
 			}
 		}
-		recordDeque = new ArrayDeque<>();
 		clientPool = clientPipelineProvider.createClientPool(options);
 		jedis = RedisUtils.getJedisFromClientPool(clientPool, options.getMaxRetries());
 		if (insertOptions.isLogFailuresOnly()) {
@@ -119,12 +128,41 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 						return;
 					}
 					try {
-						flush();
+						if (flushException == null) {
+							flush();
+						}
 					} catch (Exception e) {
 						flushException = e;
 					}
 				}
 			}, insertOptions.getBufferFlushInterval(), insertOptions.getBufferFlushInterval(), TimeUnit.MILLISECONDS);
+		}
+		initBatchExecutor();
+	}
+
+	private void initBatchExecutor() {
+		// Check if commands can be reduced.
+		// todo: Support RedisValueType.HASH.
+		if (serializationSchema != null || insertOptions.getMode().equals(RedisSinkMode.INSERT)
+				&& options.getRedisValueType().equals(RedisValueType.GENERAL)) {
+			RedisBufferReduceExecutor.ValueExtractor keyExtractor =
+				row -> fieldGetters[0].getFieldOrNull(row).toString().getBytes();
+			RedisBufferReduceExecutor.ValueExtractor valueExtractor;
+			if (serializationSchema != null) {
+				valueExtractor = this::serializeValue;
+			} else {
+				valueExtractor = row -> fieldGetters[1].getFieldOrNull(row).toString().getBytes();
+			}
+			batchExecutor = new RedisBufferReduceExecutor((pipeline, record) ->
+				writeStringValue(pipeline, record.f0, record.f1), keyExtractor, valueExtractor);
+		} else {
+			if (insertOptions.getMode() == RedisSinkMode.INCR) {
+				RedisBatchExecutor.ExecuteFunction<RowData> incrFunction = getIncrFunction();
+				batchExecutor = new RedisGenericExecutor(incrFunction);
+			} else {
+				RedisBatchExecutor.ExecuteFunction<RowData> insertFunction = getInsertFunction();
+				batchExecutor = new RedisGenericExecutor(insertFunction);
+			}
 		}
 	}
 
@@ -137,60 +175,56 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 	@Override
 	public synchronized void writeRecord(RowData record) throws IOException {
 		checkFlushException();
-
-		recordDeque.add(record);
+		Object key = fieldGetters[0].getFieldOrNull(record);
+		if (key == null) {
+			throw new RuntimeException("The primary key of Abase/Redis should not be null");
+		}
+		if (record.getRowKind() == RowKind.DELETE && insertOptions.isIgnoreDelete()) {
+			return;
+		}
+		batchExecutor.addToBatch(record);
 		batchCount++;
 		if (batchCount >= insertOptions.getBufferMaxRows()) {
 			flush();
 		}
-
 	}
 
 	public synchronized void flush() {
 		checkFlushException();
 		Pipeline pipeline = clientPipelineProvider.createPipeline(clientPool, jedis);
-
 		for (int retryTimes = 1; retryTimes <= insertOptions.getFlushMaxRetries(); retryTimes++) {
 			try {
-				ArrayDeque<RowData> tempQueue = recordDeque.clone();
-				while (tempQueue.size() > 0) {
-					RowData record = tempQueue.poll();
-					if (record.isNullAt(0)) {
-						throw new FlinkRuntimeException(
-							String.format("Redis key can't be null. record: %s", record));
-					}
-					if (serializationSchema != null) {
-						writeWithSchema(pipeline, record);
-					} else {
-						if (insertOptions.getMode() == RedisSinkMode.INCR) {
-							incr(pipeline, record);
-						} else {
-							insert(pipeline, record);
-						}
-					}
-				}
-				List<Object> resultList = pipeline.syncAndReturnAll();
-				for (Object o : resultList) {
+				for (Object o : batchExecutor.executeBatch(pipeline)) {
+					// In some cases, the commands are not idempotent, like incrby, zadd, etc.
+					// if partial of pipelined commands failed, all commands will be retried.
+					// todo: support transaction for these cases.
 					if (o instanceof Throwable) {
-						String errorMsg = String.format("Error occured while write data to %s cluster: %s table: %s",
+						String errorMsg = String.format("Error occurred while write data to %s cluster: %s table: %s",
 							options.getStorage(), options.getCluster(), options.getTable());
 						if (insertOptions.isLogFailuresOnly()) {
 							LOG.warn(errorMsg, ((Throwable) o).getMessage());
 							writeFailed.inc();
 						} else {
+							// this exception only contains error info for currently command,
+							// commands fails after it will be ignored.
 							throw new RuntimeException(errorMsg, (Throwable) o);
 						}
 					}
 				}
-				recordDeque.clear();
+				batchExecutor.reset();
 				batchCount = 0;
 				return;
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				LOG.warn("Exception occurred while writing records with pipeline." +
-						" Automatically retry, retry times: {}, max retry times: {}",
+						"Automatically retry, retry times: {}, max retry times: {}",
 					retryTimes, insertOptions.getFlushMaxRetries());
-				if (retryTimes < insertOptions.getFlushMaxRetries()) {
-					throw new RuntimeException(e);
+				if (retryTimes >= insertOptions.getFlushMaxRetries()) {
+					if (insertOptions.isLogFailuresOnly()) {
+						LOG.error(e.getMessage(), e);
+						writeFailed.inc();
+					} else {
+						throw new RuntimeException(e);
+					}
 				}
 				if (e instanceof JedisException) {
 					LOG.warn("Reset jedis client in case of broken connections.", e);
@@ -203,24 +237,23 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void writeWithSchema(Pipeline pipeline, RowData record) {
-		Row row = (Row) converter.toExternal(record);
-		Object key = row.getField(0);
-		byte[] valueBytes;
+	private byte[] serializeValue(RowData record) {
 		if (insertOptions.isSkipFormatKey()) {
 			GenericRowData newRow = new GenericRowData(record.getArity() - 1);
 			for (int i = 0; i < record.getArity() - 1; i++) {
-				newRow.setField(i, ((GenericRowData) record).getField(i + 1));
+				newRow.setField(i, fieldGetters[i + 1].getFieldOrNull(record));
 			}
-			valueBytes = serializationSchema.serialize(newRow);
+			return serializationSchema.serialize(newRow);
 		} else {
-			valueBytes = serializationSchema.serialize(record);
+			return serializationSchema.serialize(record);
 		}
-		byte[] keyBytes = key.toString().getBytes();
-		writeStringValue(pipeline, keyBytes, valueBytes);
 	}
 
 	private void writeStringValue(Pipeline pipeline, byte[] keyBytes, byte[] valueBytes) {
+		if (valueBytes == null) {
+			pipeline.del(keyBytes);
+			return;
+		}
 		if (insertOptions.getTtlSeconds() > 0) {
 			pipeline.setex(keyBytes, insertOptions.getTtlSeconds(), valueBytes);
 		} else {
@@ -228,29 +261,24 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void incr(Pipeline pipeline, RowData record) {
-		Row row = (Row) converter.toExternal(record);
-		if (row != null) {
-			switch (options.getRedisValueType()) {
-				case HASH:
-					incrHashValue(pipeline, row);
-					break;
-				case GENERAL:
-					incrValue(pipeline, row);
-					break;
-				default:
-					throw new RuntimeException(String.format("%s should be %s or %s, when sink mode is INCR.",
-						SINK_MODE.key(), RedisValueType.HASH, RedisValueType.GENERAL));
-			}
+	private RedisBatchExecutor.ExecuteFunction<RowData> getIncrFunction() {
+		switch (options.getRedisValueType()) {
+			case HASH:
+				return this::incrHashValue;
+			case GENERAL:
+				return this::incrValue;
+			default:
+				throw new RuntimeException(String.format("%s should be %s or %s, when sink mode is INCR.",
+					SINK_MODE.key(), RedisValueType.HASH, RedisValueType.GENERAL));
 		}
 	}
 
-	private void incrValue(Pipeline pipeline, Row row) {
-		Object key = row.getField(0);
-		Object incrementValue = row.getField(1);
+	private void incrValue(Pipeline pipeline, RowData row) {
+		Object key = fieldGetters[0].getFieldOrNull(row);
+		Object incrementValue = fieldGetters[1].getFieldOrNull(row);
 		if (incrementValue == null) {
 			throw new FlinkRuntimeException(
-				String.format("%s mode: Redis value can't be null. Key: %s ", insertOptions.getMode(), key));
+				String.format("Incr mode: Redis value can't be null. Key: %s ", key));
 		}
 		if (incrementValue instanceof Long || incrementValue instanceof Integer) {
 			pipeline.incrBy(key.toString(), ((Number) incrementValue).longValue());
@@ -262,13 +290,13 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void incrHashValue(Pipeline pipeline, Row row) {
-		Object key = row.getField(0);
-		Object hashKey = row.getField(1);
-		Object incrementValue = row.getField(2);
-		if (incrementValue == null) {
-			throw new FlinkRuntimeException(
-				String.format("%s mode: Redis value can't be null. Key: %s ", insertOptions.getMode(), key));
+	private void incrHashValue(Pipeline pipeline, RowData row) {
+		Object key = fieldGetters[0].getFieldOrNull(row);
+		Object hashKey = fieldGetters[1].getFieldOrNull(row);
+		Object incrementValue = fieldGetters[2].getFieldOrNull(row);
+		if (hashKey == null || incrementValue == null) {
+			throw new FlinkRuntimeException(String.format("Neither hash key nor increment value of %s should not be " +
+				"null, the hash key: %s, the hash value: %s", key, hashKey, incrementValue));
 		}
 		if (incrementValue instanceof Long || incrementValue instanceof Integer) {
 			pipeline.hincrBy(key.toString(), hashKey.toString(), ((Number) incrementValue).longValue());
@@ -280,31 +308,22 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		}
 	}
 
-	private void insert(Pipeline pipeline, RowData record) {
-		Row row = (Row) converter.toExternal(record);
+	private RedisBatchExecutor.ExecuteFunction<RowData> getInsertFunction() {
 		switch (options.getRedisValueType()) {
-			case GENERAL:
-				writeSimpleValue(pipeline, row, (key, value) ->
-					writeStringValue(pipeline, key.getBytes(), value.getBytes()));
-				break;
 			case LIST:
-				writeSimpleValue(pipeline, row, (key, value) -> {
-					pipeline.lpush(key, value);
-					setExpire(pipeline, key);
+				return (p, r) -> writeSimpleValue(r, (key, value) -> {
+					p.lpush(key, value);
+					setExpire(p, key);
 				});
-				break;
 			case SET:
-				writeSimpleValue(pipeline, row, (key, value) ->  {
-					pipeline.sadd(key, value);
-					setExpire(pipeline, key);
+				return (p, r) -> writeSimpleValue(r, (key, value) ->  {
+					p.sadd(key, value);
+					setExpire(p, key);
 				});
-				break;
 			case HASH:
-				writeHash(pipeline, row);
-				break;
+				return this::writeHash;
 			case ZSET:
-				writeZSet(pipeline, row);
-				break;
+				return this::writeZSet;
 			default:
 				throw new FlinkRuntimeException(String.format("Unsupported data type, " +
 						"currently supported type: %s", RedisValueType.getCollectionStr()));
@@ -316,40 +335,50 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		void insert(K key, V value);
 	}
 
-	private void writeSimpleValue(Pipeline pipeline, Row record, InsertFunction<String, String> function) {
-		Object key = record.getField(0);
-		Object value = record.getField(1);
+	private void writeSimpleValue(RowData record, InsertFunction<String, String> function) {
+		Object key = fieldGetters[0].getFieldOrNull(record);
+		Object value = fieldGetters[1].getFieldOrNull(record);
 		if (value == null) {
-			if (key instanceof byte[]) {
-				pipeline.del((byte[]) key);
-			} else {
-				pipeline.del(key.toString());
-			}
-			return;
+			throw new FlinkRuntimeException(String.format("The value of %s should not be null.", key));
 		}
 		function.insert(key.toString(), value.toString());
 	}
 
-	private void writeHash(Pipeline pipeline, Row record) {
-		Object key = record.getField(0);
+	private void writeHash(Pipeline pipeline, RowData record) {
+		Object key = fieldGetters[0].getFieldOrNull(record);
 		if (record.getArity() == 2) {
-			Object hashMap = record.getField(1);
+			Object hashMap = fieldGetters[1].getFieldOrNull(record);
+			if (hashMap == null) {
+				throw new FlinkRuntimeException(String.format("The hashmap of %s should not be null.", key));
+			}
+			if (record.getRowKind() == RowKind.DELETE) {
+				pipeline.hdel(key.toString(), ((Map<String, String>) hashMap).keySet().toArray(new String[]{}));
+				return;
+			}
 			pipeline.hmset(key.toString(), (Map<String, String>) hashMap);
 		} else {
-			Object hashKey = record.getField(1);
-			Object hashValue = record.getField(2);
+			Object hashKey = fieldGetters[1].getFieldOrNull(record);
+			Object hashValue = fieldGetters[2].getFieldOrNull(record);
+			if (hashKey == null || hashValue == null) {
+				throw new FlinkRuntimeException(String.format("Neither hash key nor hash value of %s should not be " +
+					"null, the hash key: %s, the hash value: %s", key, hashKey, hashValue));
+			}
+			if (record.getRowKind() == RowKind.DELETE) {
+				pipeline.hdel(key.toString(), hashKey.toString());
+				return;
+			}
 			pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
 		}
 		setExpire(pipeline, key);
 	}
 
-	private void writeZSet(Pipeline pipeline, Row record) {
-		Object key = record.getField(0);
-		Object score = record.getField(1);
-		Object value = record.getField(2);
-		if (value == null) {
-			pipeline.del(key.toString());
-			return;
+	private void writeZSet(Pipeline pipeline, RowData record) {
+		Object key = fieldGetters[0].getFieldOrNull(record);
+		Object score = fieldGetters[1].getFieldOrNull(record);
+		Object value = fieldGetters[2].getFieldOrNull(record);
+		if (value == null || score == null) {
+			throw new FlinkRuntimeException(String.format("The score or value of %s should not be null, " +
+				"the score: %s, the value: %s.", key, score, value));
 		}
 		if (!(score instanceof Number)) {
 			throw new FlinkRuntimeException(String.format("WRONG TYPE: %s, type of second column should " +
@@ -373,7 +402,7 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		closed = true;
 		checkFlushException();
 		if (jedis != null) {
-			if (recordDeque != null && !recordDeque.isEmpty()) {
+			if (!batchExecutor.isBufferEmpty()) {
 				flush();
 			}
 			jedis.close();
