@@ -149,6 +149,22 @@ public class KubernetesConfigOptions {
 			"The specified image must be based upon the same Apache Flink and Scala versions as used by the application. " +
 			"Visit https://hub.docker.com/_/flink?tab=tags for the images provided by the Flink project.");
 
+	public static final ConfigOption<List<String>> KUBERNETES_JOB_MANAGER_POST_START_HANDLER_COMMANDS =
+		key("kubernetes.jobmanager.post-start-handler.commands")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("A semicolon-separated list of the prepare commands to be executed before "
+				+ "starting jobmanager. These commands will attach into jobmanager pod as the post-start handler");
+
+	public static final ConfigOption<List<String>> KUBERNETES_TASK_MANAGER_POST_START_HANDLER_COMMANDS =
+		key("kubernetes.taskmanager.post-start-handler.commands")
+			.stringType()
+			.asList()
+			.noDefaultValue()
+			.withDescription("A semicolon-separated list of the prepare commands to be executed before "
+				+ "starting taskmanager. These commands will attach into taskmanager pod as the post-start handler");
+
 	/**
 	 * The following config options need to be set according to the image.
 	 */

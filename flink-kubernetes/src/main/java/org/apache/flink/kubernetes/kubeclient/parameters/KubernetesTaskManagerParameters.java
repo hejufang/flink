@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.KUBERNETES_TASK_MANAGER_POST_START_HANDLER_COMMANDS;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -122,5 +123,16 @@ public class KubernetesTaskManagerParameters extends AbstractKubernetesParameter
 
 	public ContaineredTaskManagerParameters getContaineredTaskManagerParameters() {
 		return containeredTaskManagerParameters;
+	}
+
+	@Override
+	public String getPostStartHandlerCommand() {
+		List<String> postStartCommands = flinkConfig.get(KUBERNETES_TASK_MANAGER_POST_START_HANDLER_COMMANDS);
+
+		if (postStartCommands == null) {
+			return null;
+		} else {
+			return String.join(" && ", postStartCommands);
+		}
 	}
 }

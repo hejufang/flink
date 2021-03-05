@@ -28,6 +28,8 @@ import org.apache.flink.runtime.jobmanager.JobManagerProcessUtils;
 
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.Lifecycle;
+import io.fabric8.kubernetes.api.model.LifecycleBuilder;
 
 import java.util.Arrays;
 
@@ -62,6 +64,19 @@ public class JavaCmdJobManagerDecorator extends AbstractKubernetesStepDecorator 
 			.withCommand(kubernetesJobManagerParameters.getContainerEntrypoint())
 			.withArgs(Arrays.asList("/bin/bash", "-c", startCommand))
 			.build();
+
+		final String postStartHandlerCmd = kubernetesJobManagerParameters.getPostStartHandlerCommand();
+
+		if (postStartHandlerCmd != null) {
+			final Lifecycle lifecycle = new LifecycleBuilder()
+				.withNewPostStart()
+					.withNewExec()
+						.withCommand(Arrays.asList("/bin/bash", "-c", postStartHandlerCmd))
+						.endExec()
+					.endPostStart()
+				.build();
+			mainContainerWithStartCmd.setLifecycle(lifecycle);
+		}
 
 		return new FlinkPod.Builder(flinkPod)
 			.withMainContainer(mainContainerWithStartCmd)

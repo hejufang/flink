@@ -77,6 +77,11 @@ public interface KubernetesParameters {
 	List<Map<String, String>> getTolerations();
 
 	/**
+	 * The prepare command that are executed before starting TaskManager or JobManager.
+	 */
+	String getPostStartHandlerCommand();
+
+	/**
 	 * Directory in Pod that stores the flink-conf.yaml, log4j.properties, and the logback.xml.
 	 */
 	String getFlinkConfDirInPod();

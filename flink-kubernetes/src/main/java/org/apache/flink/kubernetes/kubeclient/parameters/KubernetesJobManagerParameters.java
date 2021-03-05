@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.kubernetes.configuration.KubernetesConfigOptions.KUBERNETES_JOB_MANAGER_POST_START_HANDLER_COMMANDS;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -136,5 +137,16 @@ public class KubernetesJobManagerParameters extends AbstractKubernetesParameters
 
 	public boolean isInternalServiceEnabled() {
 		return !HighAvailabilityMode.isHighAvailabilityModeActivated(flinkConfig);
+	}
+
+	@Override
+	public String getPostStartHandlerCommand() {
+		List<String> postStartCommands = flinkConfig.get(KUBERNETES_JOB_MANAGER_POST_START_HANDLER_COMMANDS);
+
+		if (postStartCommands == null) {
+			return null;
+		} else {
+			return String.join(" && ", postStartCommands);
+		}
 	}
 }

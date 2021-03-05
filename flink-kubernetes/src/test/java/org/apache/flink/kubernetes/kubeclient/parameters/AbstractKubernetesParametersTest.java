@@ -108,5 +108,10 @@ public class AbstractKubernetesParametersTest extends TestLogger {
 		public List<Map<String, String>> getTolerations() {
 			throw new UnsupportedOperationException("NOT supported");
 		}
+
+		@Override
+		public String getPostStartHandlerCommand() {
+			throw new UnsupportedOperationException("NOT supported");
+		}
 	}
 }
