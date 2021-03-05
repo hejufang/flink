@@ -61,6 +61,7 @@ public class PbFormatFactoryTest {
 				DataTypes.FIELD("boolTest", DataTypes.BOOLEAN())
 			))
 			.field("intArrayTest", DataTypes.ARRAY(DataTypes.INT()))
+			.field("underline_name_test", DataTypes.STRING())
 			.build();
 
 		TableSchema tableSchema = pbFormatFactory.getTableSchema(formatOptions);

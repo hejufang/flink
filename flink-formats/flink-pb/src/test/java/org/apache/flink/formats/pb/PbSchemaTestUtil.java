@@ -87,6 +87,7 @@ public class PbSchemaTestUtil {
 					.setBoolTest(BOOL_VALUE).build())
 			.addIntArrayTest(INT_VALUE)
 			.addIntArrayTest(INT_VALUE)
+			.setUnderlineNameTest(STRING_VALUE)
 			.build();
 
 		return container.toByteArray();
@@ -115,7 +116,8 @@ public class PbSchemaTestUtil {
 			BinaryStringData.fromString(""),
 			INT_VALUE,
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
-			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE})
+			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
+			binaryStringData
 		);
 	}
 
@@ -142,7 +144,8 @@ public class PbSchemaTestUtil {
 				GenericRowData.of(binaryStringData, new GenericMapData(expectedMapValue))}),
 			bytesValue,
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
-			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE})
+			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
+			binaryStringData
 		);
 	}
 

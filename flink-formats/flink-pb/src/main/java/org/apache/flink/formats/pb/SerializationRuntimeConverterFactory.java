@@ -158,7 +158,7 @@ public class SerializationRuntimeConverterFactory {
 			List<RowType.RowField> fields) {
 		Map<String, Descriptors.FieldDescriptor> fieldMap =
 			fieldDescriptors.stream().collect(
-				Collectors.toMap(Descriptors.FieldDescriptor::getJsonName, Function.identity()));
+				Collectors.toMap(Descriptors.FieldDescriptor::getName, Function.identity()));
 		return fields.stream()
 			.map(RowType.RowField::getName)
 			.map(name -> {

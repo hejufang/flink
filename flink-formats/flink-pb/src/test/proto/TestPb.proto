@@ -53,6 +53,7 @@ message Container {
   }
   InnerMessage innerMessage = 12;
   repeated int32 intArrayTest = 13;
+  string underline_name_test = 14;
 }
 
 message InnerMessage {
