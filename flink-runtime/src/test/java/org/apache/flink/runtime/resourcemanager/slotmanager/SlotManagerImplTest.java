@@ -43,6 +43,8 @@ import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.TestingTaskExecutorGatewayBuilder;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotAllocationException;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotOccupiedException;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+import org.apache.flink.runtime.taskmanager.UnresolvedTaskManagerLocation;
 import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.util.CoreMatchers;
 import org.apache.flink.util.FlinkException;
@@ -57,6 +59,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -294,6 +297,51 @@ public class SlotManagerImplTest extends TestLogger {
 			TaskManagerSlot slot = slotManager.getSlot(slotId);
 
 			assertEquals("The slot has not been allocated to the expected allocation id.", allocationId, slot.getAllocationId());
+		}
+	}
+
+	@Test(expected = UnsupportedOperationException.class)
+	public void testSlotRequestWithBannedLocations() throws Exception {
+		final ResourceManagerId resourceManagerId = ResourceManagerId.generate();
+		final ResourceID resourceID = ResourceID.generate();
+		final JobID jobId = new JobID();
+		final SlotID slotId = new SlotID(resourceID, 0);
+		final String targetAddress = "localhost";
+		final AllocationID allocationId = new AllocationID();
+		final ResourceProfile resourceProfile = ResourceProfile.fromResources(42.0, 1337);
+		final Collection<TaskManagerLocation> bannedLocations = Collections.singleton(
+				TaskManagerLocation.fromUnresolvedLocation(new UnresolvedTaskManagerLocation(resourceID, "127.0.0.1", 1000)));
+		final SlotRequest slotRequest = new SlotRequest(
+				jobId,
+				allocationId,
+				resourceProfile,
+				targetAddress,
+				bannedLocations);
+		ResourceActions resourceManagerActions = new TestingResourceActionsBuilder()
+				.setAllocateResourceFunction(spec -> {
+					throw new UnsupportedOperationException("Do not allocate new resource.");
+				})
+				.build();
+		try (SlotManagerImpl slotManager = createSlotManager(resourceManagerId, resourceManagerActions)) {
+			final CompletableFuture<Tuple6<SlotID, JobID, AllocationID, ResourceProfile, String, ResourceManagerId>> requestFuture = new CompletableFuture<>();
+			// accept an incoming slot request
+			final TaskExecutorGateway taskExecutorGateway = new TestingTaskExecutorGatewayBuilder()
+					.setRequestSlotFunction(tuple6 -> {
+						requestFuture.complete(Tuple6.of(tuple6.f0, tuple6.f1, tuple6.f2, tuple6.f3, tuple6.f4, tuple6.f5));
+						return CompletableFuture.completedFuture(Acknowledge.get());
+					})
+					.createTestingTaskExecutorGateway();
+
+			final TaskExecutorConnection taskExecutorConnection = new TaskExecutorConnection(resourceID, taskExecutorGateway);
+
+			final SlotStatus slotStatus = new SlotStatus(slotId, resourceProfile);
+			final SlotReport slotReport = new SlotReport(slotStatus);
+
+			slotManager.registerTaskManager(
+					taskExecutorConnection,
+					slotReport);
+
+			assertFalse("The slot request should not be accepted", slotManager.registerSlotRequest(slotRequest));
 		}
 	}
 

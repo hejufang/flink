@@ -111,6 +111,7 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 										schedulingRequirements.getTaskResourceProfile(),
 										schedulingRequirements.getPhysicalSlotResourceProfile(),
 										preferredLocations,
+										schedulingRequirements.getBannedLocations(),
 										Collections.singletonList(schedulingRequirements.getPreviousAllocationId()),
 										allPreviousAllocationIds)));
 

@@ -56,6 +56,8 @@ public class ExecutionVertexSchedulingRequirements {
 
 	private final Collection<TaskManagerLocation> preferredLocations;
 
+	private final Collection<TaskManagerLocation> bannedLocations;
+
 	private ExecutionVertexSchedulingRequirements(
 			ExecutionVertexID executionVertexId,
 			@Nullable AllocationID previousAllocationId,
@@ -63,7 +65,8 @@ public class ExecutionVertexSchedulingRequirements {
 			ResourceProfile physicalSlotResourceProfile,
 			@Nullable SlotSharingGroupId slotSharingGroupId,
 			@Nullable CoLocationConstraint coLocationConstraint,
-			Collection<TaskManagerLocation> preferredLocations) {
+			Collection<TaskManagerLocation> preferredLocations,
+			Collection<TaskManagerLocation> bannedLocations) {
 		this.executionVertexId = checkNotNull(executionVertexId);
 		this.previousAllocationId = previousAllocationId;
 		this.taskResourceProfile = checkNotNull(taskResourceProfile);
@@ -71,6 +74,7 @@ public class ExecutionVertexSchedulingRequirements {
 		this.slotSharingGroupId = slotSharingGroupId;
 		this.coLocationConstraint = coLocationConstraint;
 		this.preferredLocations = checkNotNull(preferredLocations);
+		this.bannedLocations = checkNotNull(bannedLocations);
 	}
 
 	public ExecutionVertexID getExecutionVertexId() {
@@ -104,6 +108,10 @@ public class ExecutionVertexSchedulingRequirements {
 		return preferredLocations;
 	}
 
+	public Collection<TaskManagerLocation> getBannedLocations() {
+		return bannedLocations;
+	}
+
 	/**
 	 * Builder for {@link ExecutionVertexSchedulingRequirements}.
 	 */
@@ -122,6 +130,8 @@ public class ExecutionVertexSchedulingRequirements {
 		private CoLocationConstraint coLocationConstraint;
 
 		private Collection<TaskManagerLocation> preferredLocations = Collections.emptyList();
+
+		private Collection<TaskManagerLocation> bannedLocations = Collections.emptyList();
 
 		public Builder withExecutionVertexId(final ExecutionVertexID executionVertexId) {
 			this.executionVertexId = executionVertexId;
@@ -158,6 +168,11 @@ public class ExecutionVertexSchedulingRequirements {
 			return this;
 		}
 
+		public Builder withBannedLocations(final Collection<TaskManagerLocation> bannedLocations) {
+			this.bannedLocations = bannedLocations;
+			return this;
+		}
+
 		public ExecutionVertexSchedulingRequirements build() {
 			checkState(
 				physicalSlotResourceProfile.isMatching(taskResourceProfile),
@@ -170,7 +185,8 @@ public class ExecutionVertexSchedulingRequirements {
 				physicalSlotResourceProfile,
 				slotSharingGroupId,
 				coLocationConstraint,
-				preferredLocations);
+				preferredLocations,
+				bannedLocations);
 		}
 	}
 }

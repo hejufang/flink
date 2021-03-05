@@ -231,9 +231,9 @@ public class SchedulerImpl implements Scheduler {
 			SlotProfile slotProfile,
 			@Nullable Time allocationTimeout) {
 		if (allocationTimeout == null) {
-			return slotPool.requestNewAllocatedBatchSlot(slotRequestId, slotProfile.getPhysicalSlotResourceProfile());
+			return slotPool.requestNewAllocatedBatchSlot(slotRequestId, slotProfile.getPhysicalSlotResourceProfile(), slotProfile.getBannedLocations());
 		} else {
-			return slotPool.requestNewAllocatedSlot(slotRequestId, slotProfile.getPhysicalSlotResourceProfile(), allocationTimeout);
+			return slotPool.requestNewAllocatedSlot(slotRequestId, slotProfile.getPhysicalSlotResourceProfile(), slotProfile.getBannedLocations(), allocationTimeout);
 		}
 	}
 

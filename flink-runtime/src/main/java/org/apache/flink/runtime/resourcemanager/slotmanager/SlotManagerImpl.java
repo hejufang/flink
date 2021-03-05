@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
@@ -40,6 +41,7 @@ import org.apache.flink.runtime.taskexecutor.SlotStatus;
 import org.apache.flink.runtime.taskexecutor.TaskExecutorGateway;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotAllocationException;
 import org.apache.flink.runtime.taskexecutor.exceptions.SlotOccupiedException;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.OptionalConsumer;
@@ -52,6 +54,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,6 +70,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link SlotManager}.
@@ -664,10 +668,15 @@ public class SlotManagerImpl implements SlotManager {
 	 * @return A matching slot which fulfills the given resource profile. {@link Optional#empty()}
 	 * if there is no such slot available.
 	 */
-	private Optional<TaskManagerSlot> findMatchingSlot(ResourceProfile requestResourceProfile) {
+	private Optional<TaskManagerSlot> findMatchingSlot(
+			ResourceProfile requestResourceProfile,
+			Collection<TaskManagerLocation> bannedLocations) {
+		Collection<ResourceID> bannedResources = bannedLocations.stream().map(TaskManagerLocation::getResourceID).collect(Collectors.toSet());
+
 		final Optional<TaskManagerSlot> optionalMatchingSlot = slotMatchingStrategy.findMatchingSlot(
 			requestResourceProfile,
-			freeSlots.values(),
+			freeSlots.values().stream().filter(slot -> !bannedResources.contains(slot.getTaskManagerConnection().getResourceID()))
+					.collect(Collectors.toSet()),
 			this::getNumberRegisteredSlotsOf);
 
 		optionalMatchingSlot.ifPresent(taskManagerSlot -> {
@@ -904,8 +913,9 @@ public class SlotManagerImpl implements SlotManager {
 	 */
 	private void internalRequestSlot(PendingSlotRequest pendingSlotRequest) throws ResourceManagerException {
 		final ResourceProfile resourceProfile = pendingSlotRequest.getResourceProfile();
+		final Collection<TaskManagerLocation> bannedLocations = pendingSlotRequest.getBannedLocations();
 
-		OptionalConsumer.of(findMatchingSlot(resourceProfile))
+		OptionalConsumer.of(findMatchingSlot(resourceProfile, bannedLocations))
 			.ifPresent(taskManagerSlot -> allocateSlot(taskManagerSlot, pendingSlotRequest))
 			.ifNotPresent(() -> fulfillPendingSlotRequestWithPendingTaskManagerSlot(pendingSlotRequest));
 	}

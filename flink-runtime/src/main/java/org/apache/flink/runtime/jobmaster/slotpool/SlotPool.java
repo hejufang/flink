@@ -161,6 +161,7 @@ public interface SlotPool extends AllocatedSlotActions, AutoCloseable {
 	CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(
 		@Nonnull SlotRequestId slotRequestId,
 		@Nonnull ResourceProfile resourceProfile,
+		@Nonnull Collection<TaskManagerLocation> bannedLocations,
 		Time timeout);
 
 	/**
@@ -175,7 +176,8 @@ public interface SlotPool extends AllocatedSlotActions, AutoCloseable {
 	@Nonnull
 	CompletableFuture<PhysicalSlot> requestNewAllocatedBatchSlot(
 		@Nonnull SlotRequestId slotRequestId,
-		@Nonnull ResourceProfile resourceProfile);
+		@Nonnull ResourceProfile resourceProfile,
+		@Nonnull Collection<TaskManagerLocation> bannedLocations);
 
 	/**
 	 * Create report about the allocated slots belonging to the specified task manager.

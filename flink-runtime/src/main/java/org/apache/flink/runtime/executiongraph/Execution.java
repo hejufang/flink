@@ -83,6 +83,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -91,6 +92,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.runtime.deployment.TaskDeploymentDescriptorFactory.getConsumedPartitionShuffleDescriptor;
 import static org.apache.flink.runtime.execution.ExecutionState.CANCELED;
@@ -576,12 +578,10 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 				lastAllocation != null ? Collections.singletonList(lastAllocation) : Collections.emptyList();
 
 			// calculate the preferred locations
-			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture;
-			if (!isCopy) {
-				preferredLocationsFuture = calculatePreferredLocations(locationPreferenceConstraint);
-			} else {
-				preferredLocationsFuture = CompletableFuture.completedFuture(Collections.emptyList());
-			}
+			final CompletableFuture<Collection<TaskManagerLocation>> preferredLocationsFuture =
+					calculatePreferredLocations(locationPreferenceConstraint);
+			final Collection<TaskManagerLocation> bannedLocations = Stream.of(executionVertex.getCurrentAssignedResourceLocation())
+					.filter(Objects::nonNull).collect(Collectors.toSet());
 
 			final SlotRequestId slotRequestId = new SlotRequestId();
 
@@ -595,6 +595,7 @@ public class Execution implements AccessExecution, Archiveable<ArchivedExecution
 								vertex.getResourceProfile(),
 								getPhysicalSlotResourceProfile(vertex),
 								preferredLocations,
+								bannedLocations,
 								previousAllocationIDs,
 								allPreviousExecutionGraphAllocationIds)));
 

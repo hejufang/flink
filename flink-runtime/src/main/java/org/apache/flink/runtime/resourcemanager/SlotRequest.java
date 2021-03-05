@@ -18,11 +18,15 @@
 
 package org.apache.flink.runtime.resourcemanager;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -45,15 +49,29 @@ public class SlotRequest implements Serializable {
 	/** Address of the emitting job manager */
 	private final String targetAddress;
 
+	/** banned locations */
+	private final Collection<TaskManagerLocation> bannedLocations;
+
+	@VisibleForTesting
 	public SlotRequest(
 			JobID jobId,
 			AllocationID allocationId,
 			ResourceProfile resourceProfile,
 			String targetAddress) {
+		this(jobId, allocationId, resourceProfile, targetAddress, Collections.emptyList());
+	}
+
+	public SlotRequest(
+			JobID jobId,
+			AllocationID allocationId,
+			ResourceProfile resourceProfile,
+			String targetAddress,
+			Collection<TaskManagerLocation> bannedLocations) {
 		this.jobId = checkNotNull(jobId);
 		this.allocationId = checkNotNull(allocationId);
 		this.resourceProfile = checkNotNull(resourceProfile);
 		this.targetAddress = checkNotNull(targetAddress);
+		this.bannedLocations = bannedLocations;
 	}
 
 	/**
@@ -82,5 +100,9 @@ public class SlotRequest implements Serializable {
 
 	public String getTargetAddress() {
 		return targetAddress;
+	}
+
+	public Collection<TaskManagerLocation> getBannedLocations() {
+		return bannedLocations;
 	}
 }

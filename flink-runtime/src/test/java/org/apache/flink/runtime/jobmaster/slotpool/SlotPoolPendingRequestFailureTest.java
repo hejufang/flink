@@ -37,6 +37,7 @@ import org.apache.flink.util.function.ThrowingRunnable;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -167,7 +168,7 @@ public class SlotPoolPendingRequestFailureTest extends TestLogger {
 	}
 
 	private CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(SlotPoolImpl slotPool, SlotRequestId slotRequestId, Time timeout) {
-		return slotPool.requestNewAllocatedSlot(slotRequestId, ResourceProfile.UNKNOWN, timeout);
+		return slotPool.requestNewAllocatedSlot(slotRequestId, ResourceProfile.UNKNOWN, Collections.emptyList(), timeout);
 	}
 
 	private SlotPoolImpl setUpSlotPool() throws Exception {

@@ -29,6 +29,9 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Class that creates {@link ExecutionVertexSchedulingRequirements} for an {@link ExecutionVertex}.
@@ -50,6 +53,7 @@ public final class ExecutionVertexSchedulingRequirementsMapper {
 			.withSlotSharingGroupId(slotSharingGroup == null ? null : slotSharingGroup.getSlotSharingGroupId())
 			.withCoLocationConstraint(executionVertex.getLocationConstraint())
 			.withPreferredLocations(deploymentOption.isDeployCopy() ? Collections.emptyList() : getPreferredLocationBasedOnState(executionVertex))
+			.withBannedLocations(deploymentOption.isDeployCopy() ? getCurrentLocation(executionVertex) : Collections.emptyList())
 			.build();
 	}
 
@@ -73,6 +77,10 @@ public final class ExecutionVertexSchedulingRequirementsMapper {
 			.getPreferredLocationBasedOnState()
 			.map(Collections::singleton)
 			.orElse(Collections.emptySet());
+	}
+
+	private static Collection<TaskManagerLocation> getCurrentLocation(final ExecutionVertex executionVertex) {
+		return Stream.of(executionVertex.getCurrentAssignedResourceLocation()).filter(Objects::nonNull).collect(Collectors.toSet());
 	}
 
 	private ExecutionVertexSchedulingRequirementsMapper() {

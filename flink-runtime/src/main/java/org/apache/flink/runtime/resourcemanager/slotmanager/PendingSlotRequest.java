@@ -23,11 +23,13 @@ import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -69,6 +71,10 @@ public class PendingSlotRequest {
 
 	public String getTargetAddress() {
 		return slotRequest.getTargetAddress();
+	}
+
+	public Collection<TaskManagerLocation> getBannedLocations() {
+		return slotRequest.getBannedLocations();
 	}
 
 	public long getCreationTimestamp() {

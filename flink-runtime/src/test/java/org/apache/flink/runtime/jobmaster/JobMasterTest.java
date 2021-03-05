@@ -593,13 +593,20 @@ public class JobMasterTest extends TestLogger {
 
 		@Nonnull
 		@Override
-		public CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(@Nonnull SlotRequestId slotRequestId, @Nonnull ResourceProfile resourceProfile, Time timeout) {
+		public CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(
+				@Nonnull SlotRequestId slotRequestId,
+				@Nonnull ResourceProfile resourceProfile,
+				@Nonnull Collection<TaskManagerLocation> bannedLocations,
+				Time timeout) {
 			return new CompletableFuture<>();
 		}
 
 		@Nonnull
 		@Override
-		public CompletableFuture<PhysicalSlot> requestNewAllocatedBatchSlot(@Nonnull SlotRequestId slotRequestId, @Nonnull ResourceProfile resourceProfile) {
+		public CompletableFuture<PhysicalSlot> requestNewAllocatedBatchSlot(
+				@Nonnull SlotRequestId slotRequestId,
+				@Nonnull ResourceProfile resourceProfile,
+				@Nonnull Collection<TaskManagerLocation> bannedLocations) {
 			return new CompletableFuture<>();
 		}
 

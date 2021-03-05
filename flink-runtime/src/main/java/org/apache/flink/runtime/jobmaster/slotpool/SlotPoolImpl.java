@@ -336,7 +336,7 @@ public class SlotPoolImpl implements SlotPool {
 
 		CompletableFuture<Acknowledge> rmResponse = resourceManagerGateway.requestSlot(
 			jobMasterId,
-			new SlotRequest(jobId, allocationId, pendingRequest.getResourceProfile(), jobManagerAddress),
+			new SlotRequest(jobId, allocationId, pendingRequest.getResourceProfile(), jobManagerAddress, pendingRequest.getBannedLocations()),
 			rpcTimeout);
 
 		FutureUtils.whenCompleteAsyncIfNotDone(
@@ -414,11 +414,12 @@ public class SlotPoolImpl implements SlotPool {
 	public CompletableFuture<PhysicalSlot> requestNewAllocatedSlot(
 			@Nonnull SlotRequestId slotRequestId,
 			@Nonnull ResourceProfile resourceProfile,
+			@Nonnull Collection<TaskManagerLocation> bannedLocations,
 			Time timeout) {
 
 		componentMainThreadExecutor.assertRunningInMainThread();
 
-		final PendingRequest pendingRequest = PendingRequest.createStreamingRequest(slotRequestId, resourceProfile);
+		final PendingRequest pendingRequest = PendingRequest.createStreamingRequest(slotRequestId, resourceProfile, bannedLocations);
 
 		// register request timeout
 		FutureUtils
@@ -442,11 +443,12 @@ public class SlotPoolImpl implements SlotPool {
 	@Override
 	public CompletableFuture<PhysicalSlot> requestNewAllocatedBatchSlot(
 		@Nonnull SlotRequestId slotRequestId,
-		@Nonnull ResourceProfile resourceProfile) {
+		@Nonnull ResourceProfile resourceProfile,
+		@Nonnull Collection<TaskManagerLocation> bannedLocations) {
 
 		componentMainThreadExecutor.assertRunningInMainThread();
 
-		final PendingRequest pendingRequest = PendingRequest.createBatchRequest(slotRequestId, resourceProfile);
+		final PendingRequest pendingRequest = PendingRequest.createBatchRequest(slotRequestId, resourceProfile, bannedLocations);
 
 		return requestNewAllocatedSlotInternal(pendingRequest)
 			.thenApply(Function.identity());
@@ -1348,33 +1350,44 @@ public class SlotPoolImpl implements SlotPool {
 
 		private final CompletableFuture<AllocatedSlot> allocatedSlotFuture;
 
+		private final Collection<TaskManagerLocation> bannedLocations;
+
 		private long unfillableSince;
 
 		private PendingRequest(
 				SlotRequestId slotRequestId,
 				ResourceProfile resourceProfile,
-				boolean isBatchRequest) {
-			this(slotRequestId, resourceProfile, isBatchRequest, new CompletableFuture<>());
+				boolean isBatchRequest,
+				Collection<TaskManagerLocation> bannedLocations) {
+			this(slotRequestId, resourceProfile, isBatchRequest, new CompletableFuture<>(), bannedLocations);
 		}
 
 		private PendingRequest(
 			SlotRequestId slotRequestId,
 			ResourceProfile resourceProfile,
 			boolean isBatchRequest,
-			CompletableFuture<AllocatedSlot> allocatedSlotFuture) {
+			CompletableFuture<AllocatedSlot> allocatedSlotFuture,
+			Collection<TaskManagerLocation> bannedLocations) {
 			this.slotRequestId = Preconditions.checkNotNull(slotRequestId);
 			this.resourceProfile = Preconditions.checkNotNull(resourceProfile);
 			this.isBatchRequest = isBatchRequest;
 			this.allocatedSlotFuture = Preconditions.checkNotNull(allocatedSlotFuture);
+			this.bannedLocations = bannedLocations;
 			this.unfillableSince = Long.MAX_VALUE;
 		}
 
-		static PendingRequest createStreamingRequest(SlotRequestId slotRequestId, ResourceProfile resourceProfile) {
-			return new PendingRequest(slotRequestId, resourceProfile, false);
+		static PendingRequest createStreamingRequest(
+				SlotRequestId slotRequestId,
+				ResourceProfile resourceProfile,
+				Collection<TaskManagerLocation> bannedLocations) {
+			return new PendingRequest(slotRequestId, resourceProfile, false, bannedLocations);
 		}
 
-		static PendingRequest createBatchRequest(SlotRequestId slotRequestId, ResourceProfile resourceProfile) {
-			return new PendingRequest(slotRequestId, resourceProfile, true);
+		static PendingRequest createBatchRequest(
+				SlotRequestId slotRequestId,
+				ResourceProfile resourceProfile,
+				Collection<TaskManagerLocation> bannedLocations) {
+			return new PendingRequest(slotRequestId, resourceProfile, true, bannedLocations);
 		}
 
 		public SlotRequestId getSlotRequestId() {
@@ -1393,12 +1406,17 @@ public class SlotPoolImpl implements SlotPool {
 			return resourceProfile;
 		}
 
+		public Collection<TaskManagerLocation> getBannedLocations() {
+			return bannedLocations;
+		}
+
 		@Override
 		public String toString() {
 			return "PendingRequest{" +
 					"slotRequestId=" + slotRequestId +
 					", resourceProfile=" + resourceProfile +
 					", allocatedSlotFuture=" + allocatedSlotFuture +
+					", bannedLocations=" + bannedLocations +
 					'}';
 		}
 

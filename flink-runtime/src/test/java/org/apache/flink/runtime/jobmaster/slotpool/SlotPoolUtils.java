@@ -31,6 +31,7 @@ import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.util.FlinkException;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -54,7 +55,8 @@ public class SlotPoolUtils {
 		ComponentMainThreadExecutor mainThreadExecutor,
 		ResourceProfile resourceProfile) {
 		return CompletableFuture
-			.supplyAsync(() -> slotPool.requestNewAllocatedBatchSlot(new SlotRequestId(), resourceProfile), mainThreadExecutor)
+			.supplyAsync(() -> slotPool.requestNewAllocatedBatchSlot(new SlotRequestId(),
+					resourceProfile, Collections.emptyList()), mainThreadExecutor)
 			.thenCompose(Function.identity());
 	}
 

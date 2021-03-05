@@ -19,8 +19,13 @@
 package org.apache.flink.runtime.jobmaster.slotpool;
 
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
+import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.jobmanager.scheduler.Locality;
+import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 
@@ -29,12 +34,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * This class implements a {@link SlotSelectionStrategy} that is based on previous allocations and
  * falls back to using location preference hints if there is no previous allocation.
  */
 public class PreviousAllocationSlotSelectionStrategy implements SlotSelectionStrategy {
+	private static final Logger LOG = LoggerFactory.getLogger(PreviousAllocationSlotSelectionStrategy.class);
 
 	private final SlotSelectionStrategy fallbackSlotSelectionStrategy;
 
@@ -49,9 +56,20 @@ public class PreviousAllocationSlotSelectionStrategy implements SlotSelectionStr
 
 		Collection<AllocationID> priorAllocations = slotProfile.getPreferredAllocations();
 
+		final Set<ResourceID> bannedResourceIDs = slotProfile.getBannedLocations().stream().map(
+				TaskManagerLocation::getResourceID).collect(Collectors.toSet());
+		final Set<String> bannedHostnames = slotProfile.getBannedLocations().stream().map(
+				TaskManagerLocation::getFQDNHostname).collect(Collectors.toSet());
+
 		// First, if there was a prior allocation try to schedule to the same/old slot
 		if (!priorAllocations.isEmpty()) {
 			for (SlotInfoAndResources availableSlot : availableSlots) {
+				// skip if banned
+				if (bannedResourceIDs.contains(availableSlot.getSlotInfo().getTaskManagerLocation().getResourceID())
+					|| bannedHostnames.contains(availableSlot.getSlotInfo().getTaskManagerLocation().getFQDNHostname())) {
+					continue;
+				}
+
 				if (priorAllocations.contains(availableSlot.getSlotInfo().getAllocationId())) {
 					return Optional.of(
 						SlotInfoAndLocality.of(availableSlot.getSlotInfo(), Locality.LOCAL));

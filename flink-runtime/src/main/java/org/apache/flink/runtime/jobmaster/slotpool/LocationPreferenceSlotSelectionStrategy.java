@@ -24,17 +24,23 @@ import org.apache.flink.runtime.clusterframework.types.SlotProfile;
 import org.apache.flink.runtime.jobmanager.scheduler.Locality;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * This class implements a {@link SlotSelectionStrategy} that is based on location preference hints.
  */
 public abstract class LocationPreferenceSlotSelectionStrategy implements SlotSelectionStrategy {
+	private static final Logger LOG = LoggerFactory.getLogger(LocationPreferenceSlotSelectionStrategy.class);
 
 	LocationPreferenceSlotSelectionStrategy() {}
 
@@ -43,7 +49,8 @@ public abstract class LocationPreferenceSlotSelectionStrategy implements SlotSel
 		@Nonnull Collection<SlotInfoAndResources> availableSlots,
 		@Nonnull SlotProfile slotProfile) {
 
-		Collection<TaskManagerLocation> locationPreferences = slotProfile.getPreferredLocations();
+		Collection<TaskManagerLocation> preferedLocations = slotProfile.getPreferredLocations();
+		Collection<TaskManagerLocation> bannedLocations = slotProfile.getBannedLocations();
 
 		if (availableSlots.isEmpty()) {
 			return Optional.empty();
@@ -52,25 +59,31 @@ public abstract class LocationPreferenceSlotSelectionStrategy implements SlotSel
 		final ResourceProfile resourceProfile = slotProfile.getPhysicalSlotResourceProfile();
 
 		// if we have no location preferences, we can only filter by the additional requirements.
-		return locationPreferences.isEmpty() ?
+		return preferedLocations.isEmpty() && bannedLocations.isEmpty() ?
 			selectWithoutLocationPreference(availableSlots, resourceProfile) :
-			selectWitLocationPreference(availableSlots, locationPreferences, resourceProfile);
+			selectWitLocationPreference(availableSlots, preferedLocations, bannedLocations, resourceProfile);
 	}
 
 	@Nonnull
 	private Optional<SlotInfoAndLocality> selectWitLocationPreference(
 		@Nonnull Collection<SlotInfoAndResources> availableSlots,
-		@Nonnull Collection<TaskManagerLocation> locationPreferences,
+		@Nonnull Collection<TaskManagerLocation> preferedLocations,
+		@Nonnull Collection<TaskManagerLocation> bannedLocations,
 		@Nonnull ResourceProfile resourceProfile) {
 
 		// we build up two indexes, one for resource id and one for host names of the preferred locations.
-		final Map<ResourceID, Integer> preferredResourceIDs = new HashMap<>(locationPreferences.size());
-		final Map<String, Integer> preferredFQHostNames = new HashMap<>(locationPreferences.size());
+		final Map<ResourceID, Integer> preferredResourceIDs = new HashMap<>(preferedLocations.size());
+		final Map<String, Integer> preferredFQHostNames = new HashMap<>(preferedLocations.size());
 
-		for (TaskManagerLocation locationPreference : locationPreferences) {
+		for (TaskManagerLocation locationPreference : preferedLocations) {
 			preferredResourceIDs.merge(locationPreference.getResourceID(), 1, Integer::sum);
 			preferredFQHostNames.merge(locationPreference.getFQDNHostname(), 1, Integer::sum);
 		}
+
+		final Set<ResourceID> bannedResourceIDs = bannedLocations.stream().map(
+				TaskManagerLocation::getResourceID).collect(Collectors.toSet());
+		final Set<String> bannedHostnames = bannedLocations.stream().map(
+				TaskManagerLocation::getFQDNHostname).collect(Collectors.toSet());
 
 		SlotInfoAndResources bestCandidate = null;
 		Locality bestCandidateLocality = Locality.UNKNOWN;
@@ -79,6 +92,12 @@ public abstract class LocationPreferenceSlotSelectionStrategy implements SlotSel
 		for (SlotInfoAndResources candidate : availableSlots) {
 
 			if (candidate.getRemainingResources().isMatching(resourceProfile)) {
+
+				// skip if banned
+				if (bannedResourceIDs.contains(candidate.getSlotInfo().getTaskManagerLocation().getResourceID())
+					|| bannedHostnames.contains(candidate.getSlotInfo().getTaskManagerLocation().getFQDNHostname())) {
+					continue;
+				}
 
 				// this gets candidate is local-weigh
 				int localWeigh = preferredResourceIDs.getOrDefault(

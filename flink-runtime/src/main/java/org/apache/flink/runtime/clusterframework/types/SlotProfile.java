@@ -49,6 +49,9 @@ public class SlotProfile {
 	/** This specifies the preferred locations for the slot. */
 	private final Collection<TaskManagerLocation> preferredLocations;
 
+	/** This specifies the banned locations for the slot. */
+	private final Collection<TaskManagerLocation> bannedLocations;
+
 	/** This contains desired allocation ids of the slot. */
 	private final Collection<AllocationID> preferredAllocations;
 
@@ -59,12 +62,14 @@ public class SlotProfile {
 			final ResourceProfile taskResourceProfile,
 			final ResourceProfile physicalSlotResourceProfile,
 			final Collection<TaskManagerLocation> preferredLocations,
+			final Collection<TaskManagerLocation> bannedLocations,
 			final Collection<AllocationID> preferredAllocations,
 			final Set<AllocationID> previousExecutionGraphAllocations) {
 
 		this.taskResourceProfile = checkNotNull(taskResourceProfile);
 		this.physicalSlotResourceProfile = checkNotNull(physicalSlotResourceProfile);
 		this.preferredLocations = checkNotNull(preferredLocations);
+		this.bannedLocations = checkNotNull(bannedLocations);
 		this.preferredAllocations = checkNotNull(preferredAllocations);
 		this.previousExecutionGraphAllocations = checkNotNull(previousExecutionGraphAllocations);
 	}
@@ -88,6 +93,13 @@ public class SlotProfile {
 	 */
 	public Collection<TaskManagerLocation> getPreferredLocations() {
 		return preferredLocations;
+	}
+
+	/**
+	 * Returns the banned locations for the slot.
+	 */
+	public Collection<TaskManagerLocation> getBannedLocations() {
+		return bannedLocations;
 	}
 
 	/**
@@ -164,7 +176,37 @@ public class SlotProfile {
 			taskResourceProfile,
 			physicalSlotResourceProfile,
 			preferredLocations,
+			Collections.emptyList(),
 			priorAllocations,
 			previousExecutionGraphAllocations);
+	}
+
+	/**
+	 * Returns a slot profile for the given resource profile, prior allocations and
+	 * all prior allocation ids from the whole execution graph.
+	 *
+	 * @param taskResourceProfile specifying the required resources for the task slot
+	 * @param physicalSlotResourceProfile specifying the required resources for the physical slot to host this task slot
+	 * @param preferredLocations specifying the preferred locations
+	 * @param bannedLocations specifying the banned locations
+	 * @param priorAllocations specifying the prior allocations
+	 * @param previousExecutionGraphAllocations specifying all prior allocation ids from the whole execution graph
+	 * @return Slot profile with all the given information
+	 */
+	public static SlotProfile priorAllocation(
+			final ResourceProfile taskResourceProfile,
+			final ResourceProfile physicalSlotResourceProfile,
+			final Collection<TaskManagerLocation> preferredLocations,
+			final Collection<TaskManagerLocation> bannedLocations,
+			final Collection<AllocationID> priorAllocations,
+			final Set<AllocationID> previousExecutionGraphAllocations) {
+
+		return new SlotProfile(
+				taskResourceProfile,
+				physicalSlotResourceProfile,
+				preferredLocations,
+				bannedLocations,
+				priorAllocations,
+				previousExecutionGraphAllocations);
 	}
 }
