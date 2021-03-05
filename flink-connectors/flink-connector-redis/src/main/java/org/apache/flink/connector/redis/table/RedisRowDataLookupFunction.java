@@ -49,6 +49,8 @@ import redis.clients.jedis.exceptions.JedisException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -70,6 +72,8 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	private final DataStructureConverter converter;
 	private final RedisOptions options;
 	private final RedisLookupOptions lookupOptions;
+	private final int keyFieldIndex;
+	private final RowData.FieldGetter[] fieldGetters;
 
 	private transient Cache<RowData, RowData> cache;
 
@@ -77,6 +81,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			RedisOptions options,
 			RedisLookupOptions lookupOptions,
 			DataType[] fieldTypes,
+			RowData.FieldGetter[] fieldGetters,
 			ClientPoolProvider clientPoolProvider,
 			@Nullable DeserializationSchema<RowData> deserializationSchema,
 			@Nullable DataStructureConverter converter) {
@@ -86,6 +91,8 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		this.clientPoolProvider  = clientPoolProvider;
 		this.deserializationSchema = deserializationSchema;
 		this.converter = converter;
+		this.keyFieldIndex = options.getKeyIndex();
+		this.fieldGetters = fieldGetters;
 	}
 
 	@Override
@@ -189,6 +196,14 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		RowData row = null;
 		if (value != null) {
 			row = deserializationSchema.deserialize(value);
+		}
+		if (row != null && keyFieldIndex >= 0) {
+			List<Object> valueList = new ArrayList<>();
+			for (int i = 0; i < row.getArity(); i++) {
+				valueList.add(fieldGetters[i].getFieldOrNull(row));
+			}
+			valueList.add(keyFieldIndex, convertToBasicTypeObj(key.getBytes(), fieldTypes[keyFieldIndex]));
+			return GenericRowData.of(valueList.toArray(new Object[0]));
 		}
 		return row;
 	}

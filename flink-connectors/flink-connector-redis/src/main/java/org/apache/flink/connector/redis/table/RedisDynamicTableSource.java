@@ -29,12 +29,15 @@ import org.apache.flink.table.connector.source.LookupTableSource;
 import org.apache.flink.table.connector.source.TableFunctionProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.utils.TableSchemaUtils;
-import org.apache.flink.util.Preconditions;
 
 import com.bytedance.kvclient.ClientPool;
 
 import javax.annotation.Nullable;
+
+import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * A {@link DynamicTableSource} for Redis.
@@ -65,15 +68,28 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 
 	@Override
 	public LookupRuntimeProvider getLookupRuntimeProvider(LookupContext context) {
-		Preconditions.checkArgument(context.getKeys().length == 1,
-			"Redis/Abase only supports one lookup key");
-		DataStructureConverter converter = context.createDataStructureConverter(schema.toPhysicalRowDataType());
+		DataType realDataType;
+		if (options.getKeyIndex() >= 0) {
+			int keyIndex = options.getKeyIndex();
+			String keyName = schema.getFieldName(keyIndex).get();
+			realDataType = schema
+				.toPhysicalRowDataTypeWithFilter(tableColumn -> !tableColumn.getName().equals(keyName));
+		} else {
+			realDataType = schema.toRowDataType();
+		}
+		DataStructureConverter converter = context.createDataStructureConverter(realDataType);
+		List<DataType> childrenType = realDataType.getChildren();
+		RowData.FieldGetter[] fieldGetters = IntStream
+			.range(0, childrenType.size())
+			.mapToObj(pos -> RowData.createFieldGetter(childrenType.get(pos).getLogicalType(), pos))
+			.toArray(RowData.FieldGetter[]::new);
 		return TableFunctionProvider.of(new RedisRowDataLookupFunction(
 			options,
 			lookupOptions,
 			schema.getFieldDataTypes(),
+			fieldGetters,
 			clientPoolProvider,
-			decodingFormat == null ? null : decodingFormat.createRuntimeDecoder(context, schema.toRowDataType()),
+			decodingFormat == null ? null : decodingFormat.createRuntimeDecoder(context, realDataType),
 			converter));
 	}
 

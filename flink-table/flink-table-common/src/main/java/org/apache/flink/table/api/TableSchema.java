@@ -203,7 +203,7 @@ public class TableSchema {
 	 *
 	 * @param fieldName the name of the field
 	 */
-	private Optional<Integer> getFieldNameIndex(String fieldName) {
+	public Optional<Integer> getFieldNameIndex(String fieldName) {
 		for (int i = 0; i < columns.size(); i++) {
 			if (columns.get(i).getName().equals(fieldName)) {
 				return Optional.of(i);

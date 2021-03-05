@@ -48,6 +48,7 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CLUSTER;
@@ -76,6 +77,7 @@ import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * Factory for creating configured instances of {@link RedisDynamicTableSource}.
@@ -93,7 +95,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		helper.validate();
 		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
-		RedisOptions options = getRedisOptions(config);
+		RedisOptions options = getRedisOptions(config, physicalSchema);
 		validateSchema(options, physicalSchema);
 		return createRedisDynamicTableSink(
 			options,
@@ -128,7 +130,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		validateConfigOptions(config);
 
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
-		RedisOptions options = getRedisOptions(config);
+		RedisOptions options = getRedisOptions(config, physicalSchema);
 		validateSchema(options, physicalSchema);
 		return createRedisDynamicTableSource(
 			options,
@@ -192,8 +194,28 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		return optionalOptions;
 	}
 
-	private RedisOptions getRedisOptions(ReadableConfig config) {
-		return RedisOptions.builder()
+	private Optional<Integer> validateAndGetKeyIndex(
+			ReadableConfig config,
+			TableSchema physicalSchema) {
+		String[] keyFields = physicalSchema.getPrimaryKey()
+			.map(pk -> pk.getColumns().toArray(new String[0]))
+			.orElse(null);
+		if (keyFields != null) {
+			checkState(keyFields.length == 1,
+				"Abase/redis can only accept one primary key.");
+			// todo: when format is not set, primary should be supported too.
+			checkState(config.getOptional(FORMAT).isPresent(),
+				"Currently, primary key can only be set when format is set.");
+			return physicalSchema.getFieldNameIndex(keyFields[0]);
+		}
+		return Optional.empty();
+	}
+
+	private RedisOptions getRedisOptions(
+			ReadableConfig config,
+			TableSchema physicalSchema) {
+		Optional<Integer> keyIndex = validateAndGetKeyIndex(config, physicalSchema);
+		RedisOptions.RedisOptionsBuilder builder = RedisOptions.builder()
 			.setCluster(config.get(CLUSTER))
 			.setTable(config.get(TABLE))
 			.setStorage(config.get(CONNECTOR)).setPsm(config.get(PSM))
@@ -202,8 +224,9 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			.setMaxIdleConnections(config.get(CONNECTION_MAX_IDLE_NUM))
 			.setMaxTotalConnections(config.get(CONNECTION_MAX_TOTAL_NUM))
 			.setGetResourceMaxRetries(config.get(CONNECTION_MAX_RETRIES))
-			.setRedisValueType(config.get(VALUE_TYPE))
-			.build();
+			.setRedisValueType(config.get(VALUE_TYPE));
+		keyIndex.ifPresent(builder::setKeyIndex);
+		return builder.build();
 	}
 
 	private RedisLookupOptions getRedisLookupOptions(ReadableConfig readableConfig) {
@@ -232,7 +255,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 
 	protected void validateConfigOptions(ReadableConfig config) {
 		if (config.get(SINK_MODE).equals(RedisSinkMode.INCR)) {
-			Preconditions.checkState(config.get(VALUE_TYPE).equals(RedisValueType.GENERAL)
+			checkState(config.get(VALUE_TYPE).equals(RedisValueType.GENERAL)
 					|| config.get(VALUE_TYPE).equals(RedisValueType.HASH),
 				"INCR mode can only be used when value-type is STRING or HASH");
 		}
@@ -249,7 +272,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 
 	private void validateSchema(RedisOptions options, TableSchema schema) {
 		if (options.getRedisValueType().equals(RedisValueType.HASH) && schema.getFieldCount() == 2) {
-			Preconditions.checkState(schema.getFieldDataTypes()[1]
+			checkState(schema.getFieldDataTypes()[1]
 				.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
 				"Unsupported type for hash value, should be map<varchar, varchar>");
 		}

@@ -53,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
+import static org.apache.flink.table.factories.FactoryUtil.CONNECTOR;
 
 /**
  * Helper class for converting {@link SqlCreateTable} to {@link CreateTableOperation}.
@@ -137,7 +138,18 @@ class SqlCreateTableConverter {
 
 		Optional<TableSchema> inferredTableSchema = inferTableSchema(mergedOptions, mergedSchema);
 		if (inferredTableSchema.isPresent()) {
-			mergedSchema = mergeOriginTableSchemaWithInferredOne(mergedSchema, inferredTableSchema.get());
+			// This is a special case which the primary key column should be remained and won't be
+			// involved in de/serialize schema.
+			// todo: remove this trick logic.
+			boolean remainPhysicalColumn = false;
+			if ((mergedOptions.get(CONNECTOR.key()).equals("abase")
+					|| mergedOptions.get(CONNECTOR.key()).equals("redis")) && primaryKey.isPresent()) {
+				remainPhysicalColumn = true;
+			}
+			mergedSchema = mergeOriginTableSchemaWithInferredOne(
+				mergedSchema,
+				inferredTableSchema.get(),
+				remainPhysicalColumn);
 		}
 
 		verifyPartitioningColumnsExist(mergedSchema, partitionKeys);
@@ -154,10 +166,13 @@ class SqlCreateTableConverter {
 
 	private TableSchema mergeOriginTableSchemaWithInferredOne(
 			TableSchema originTableSchema,
-			TableSchema inferredTableSchema) {
+			TableSchema inferredTableSchema,
+			boolean remainPhysicalColumns) {
 		TableSchema.Builder builder = TableSchema.builder().copy(originTableSchema);
-		// we remove all physical columns in originTableSchema, but keep all computed columns.
-		builder.removePhysicalColumns();
+		if (!remainPhysicalColumns) {
+			// we remove all physical columns in originTableSchema, but keep all computed columns.
+			builder.removePhysicalColumns();
+		}
 		inferredTableSchema.getTableColumns().forEach(builder::add);
 		return builder.build();
 	}

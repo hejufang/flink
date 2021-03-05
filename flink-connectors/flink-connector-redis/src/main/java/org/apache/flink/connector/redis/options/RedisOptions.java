@@ -36,6 +36,7 @@ public class RedisOptions implements Serializable {
 	private final int maxIdleConnections;
 	private final int minIdleConnections;
 	private final int maxRetries;
+	private final int keyIndex;
 	private final RedisValueType redisValueType;
 
 	public String getCluster() {
@@ -74,6 +75,10 @@ public class RedisOptions implements Serializable {
 		return maxRetries;
 	}
 
+	public int getKeyIndex() {
+		return keyIndex;
+	}
+
 	public RedisValueType getRedisValueType() {
 		return redisValueType;
 	}
@@ -88,6 +93,7 @@ public class RedisOptions implements Serializable {
 			int maxIdleConnections,
 			int minIdleConnections,
 			int maxRetries,
+			int keyIndex,
 			RedisValueType redisValueType) {
 		this.cluster = cluster;
 		this.table = table;
@@ -98,6 +104,7 @@ public class RedisOptions implements Serializable {
 		this.maxIdleConnections = maxIdleConnections;
 		this.minIdleConnections = minIdleConnections;
 		this.maxRetries = maxRetries;
+		this.keyIndex = keyIndex;
 		this.redisValueType = redisValueType;
 	}
 
@@ -118,6 +125,7 @@ public class RedisOptions implements Serializable {
 		private int maxIdleConnections;
 		private int minIdleConnections;
 		private int getResourceMaxRetries = 5;
+		private int keyIndex = -1;
 		private RedisValueType redisValueType = RedisValueType.GENERAL;
 
 		private RedisOptionsBuilder() {
@@ -168,6 +176,11 @@ public class RedisOptions implements Serializable {
 			return this;
 		}
 
+		public RedisOptionsBuilder setKeyIndex(int keyIndex) {
+			this.keyIndex = keyIndex;
+			return this;
+		}
+
 		public RedisOptionsBuilder setRedisValueType(RedisValueType redisValueType) {
 			this.redisValueType = redisValueType;
 			return this;
@@ -189,6 +202,7 @@ public class RedisOptions implements Serializable {
 				maxIdleConnections,
 				minIdleConnections,
 				getResourceMaxRetries,
+				keyIndex,
 				redisValueType);
 		}
 
@@ -204,6 +218,8 @@ public class RedisOptions implements Serializable {
 				", maxIdleConnections=" + maxIdleConnections +
 				", minIdleConnections=" + minIdleConnections +
 				", getResourceMaxRetries=" + getResourceMaxRetries +
+				", keyIndex=" + keyIndex +
+				", redisValueType=" + redisValueType +
 				'}';
 		}
 	}
