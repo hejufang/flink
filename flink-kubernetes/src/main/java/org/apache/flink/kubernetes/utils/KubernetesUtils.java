@@ -201,6 +201,11 @@ public class KubernetesUtils {
 	private static String getJavaOpts(Configuration flinkConfig, ConfigOption<String> configOption) {
 		String baseJavaOpts = flinkConfig.getString(CoreOptions.FLINK_JVM_OPTIONS);
 
+		if (flinkConfig.getBoolean(CoreOptions.FLINK_GC_G1_ENABLE)) {
+			baseJavaOpts += " -XX:+UseG1GC";
+			baseJavaOpts += " -XX:MaxGCPauseMillis=" + flinkConfig.getInteger(CoreOptions.FLINK_MAX_GC_PAUSE_MILLIS);
+		}
+
 		if (flinkConfig.getString(configOption).length() > 0) {
 			return baseJavaOpts + " " + flinkConfig.getString(configOption);
 		} else {
