@@ -301,4 +301,13 @@ public class DummyStreamExecutionEnvironment extends StreamExecutionEnvironment 
 				"This is a dummy StreamExecutionEnvironment, getExecutionPlan method is unsupported.");
 	}
 
+	@Override
+	public boolean isSourceChainingEnabled() {
+		return realExecEnv.isSourceChainingEnabled();
+	}
+
+	@Override
+	public boolean isSinkChainingEnabled() {
+		return realExecEnv.isSinkChainingEnabled();
+	}
 }

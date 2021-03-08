@@ -173,6 +173,8 @@ class BatchPlanner(
   }
 
   private def createDummyPlanner(): BatchPlanner = {
+    getExecEnv.setSourceChainingEnabled(true)
+    getExecEnv.setSinkChainingEnabled(true)
     val dummyExecEnv = new DummyStreamExecutionEnvironment(getExecEnv)
     val executor = new BatchExecutor(dummyExecEnv)
     new BatchPlanner(executor, config, functionCatalog, catalogManager)

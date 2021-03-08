@@ -22,6 +22,8 @@ import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.PipelineOptions;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -275,6 +277,77 @@ public class StreamingJobGraphGeneratorNodeHashTest extends TestLogger {
 	}
 
 	/**
+	 * Tests that source (un)chaining affects the node hash (for intermediate nodes).
+	 *
+	 * <p>B (disable source chained): [ (src0) ] -> [ (map) -> (filter) -> (sink) ].
+	 *
+	 * <p>The hashes for the single vertex in A and the source vertex in B need to be different.
+	 */
+	@Test
+	public void testDisableSourceChainInDefault() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
+		env.setParallelism(4);
+		env.setSourceChainingEnabled(false);
+		env.addSource(new NoOpSourceFunction())
+			.map(new NoOpMapFunction())
+			.filter(new NoOpFilterFunction())
+			.addSink(new DiscardingSink<>());
+
+		JobGraph jobGraph = env.getStreamGraph().getJobGraph();
+
+		List<JobVertex> jobVertices = jobGraph.getVerticesSortedTopologicallyFromSources();
+		assertEquals(jobVertices.size(), 2);
+		JobVertex unchainedMap = jobVertices.get(1);
+		assertTrue(unchainedMap.getName().startsWith("Map"));
+	}
+
+	/**
+	 * Tests that source (un)chaining affects the node hash (for intermediate nodes).
+	 *
+	 * <p>B (enable source chained): [ (src0) -> (map) -> (filter) -> (sink) ].
+	 *
+	 * <p>The hashes for the single vertex in A and the source vertex in B need to be different.
+	 */
+	@Test
+	public void testEnableSourceChainInDefault() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
+		env.setParallelism(4);
+		env.configure(createConfiguration(true, true), ClassLoader.getSystemClassLoader());
+		env.addSource(new NoOpSourceFunction())
+			.map(new NoOpMapFunction())
+			.filter(new NoOpFilterFunction())
+			.addSink(new DiscardingSink<>());
+
+		JobGraph jobGraph = env.getStreamGraph().getJobGraph();
+		assertEquals(jobGraph.getVerticesSortedTopologicallyFromSources().size(), 1);
+	}
+
+	/**
+	 * Tests that sink (un)chaining affects the node hash (for intermediate nodes).
+	 *
+	 * <p>B (disable sink chained): [ (src0) -> (map) -> (filter) ] -> (sink).
+	 *
+	 * <p>The hashes for the single vertex in A and the source vertex in B need to be different.
+	 */
+	@Test
+	public void testDisableSinkChainInDefault() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment();
+		env.setParallelism(4);
+		env.configure(createConfiguration(true, false), ClassLoader.getSystemClassLoader());
+		env.addSource(new NoOpSourceFunction())
+			.map(new NoOpMapFunction())
+			.filter(new NoOpFilterFunction())
+			.addSink(new DiscardingSink<>());
+
+		JobGraph jobGraph = env.getStreamGraph().getJobGraph();
+
+		List<JobVertex> jobVertices = jobGraph.getVerticesSortedTopologicallyFromSources();
+		assertEquals(jobVertices.size(), 2);
+		JobVertex unchainedMap = jobVertices.get(1);
+		assertTrue(unchainedMap.getName().startsWith("Sink"));
+	}
+
+	/**
 	 * Tests that a changed operator name does not affect the hash.
 	 */
 	@Test
@@ -519,6 +592,13 @@ public class StreamingJobGraphGeneratorNodeHashTest extends TestLogger {
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			assertFalse(ids.containsKey(vertex.getID()));
 		}
+	}
+
+	private Configuration createConfiguration(boolean isSourceChain, boolean isSinkChain) {
+		Configuration configuration = new Configuration();
+		configuration.set(PipelineOptions.SOURCE_OPERATOR_CHAINING, isSourceChain);
+		configuration.set(PipelineOptions.SINK_OPERATOR_CHAINING, isSinkChain);
+		return configuration;
 	}
 
 	// ------------------------------------------------------------------------

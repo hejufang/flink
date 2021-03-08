@@ -26,7 +26,7 @@ import org.apache.flink.streaming.api.datastream.DataStream
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.functions.SpecificParallelism
 import org.apache.flink.streaming.api.functions.sink.OutputFormatSinkFunction
-import org.apache.flink.streaming.api.operators.SimpleOperatorFactory
+import org.apache.flink.streaming.api.operators.{ChainingStrategy, SimpleOperatorFactory}
 import org.apache.flink.streaming.api.transformations.SinkTransformation
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.api.config.ExecutionConfigOptions
@@ -111,7 +111,9 @@ class CommonPhysicalSink (
         }
 
         val operator = new SinkOperator(env.clean(sinkFunction), rowtimeFieldIndex, enforcer)
-
+        if (!env.isSinkChainingEnabled) {
+          operator.setChainingStrategy(ChainingStrategy.NEVER)
+        }
         val result = new SinkTransformation(
           inputTransformation,
           getRelDetailedDescription,

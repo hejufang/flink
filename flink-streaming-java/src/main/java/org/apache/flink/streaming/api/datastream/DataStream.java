@@ -60,6 +60,7 @@ import org.apache.flink.streaming.api.functions.sink.OutputFormatSinkFunction;
 import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.sink.SocketClientSink;
+import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
 import org.apache.flink.streaming.api.operators.ProcessOperator;
@@ -1295,6 +1296,9 @@ public class DataStream<T> {
 		}
 
 		StreamSink<T> sinkOperator = new StreamSink<>(clean(sinkFunction));
+		if (!environment.isSinkChainingEnabled()) {
+			sinkOperator.setChainingStrategy(ChainingStrategy.NEVER);
+		}
 
 		DataStreamSink<T> sink = new DataStreamSink<>(this, sinkOperator);
 
