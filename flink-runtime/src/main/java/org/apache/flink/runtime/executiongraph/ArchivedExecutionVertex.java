@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializable {
 
@@ -40,6 +41,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 
 	private final List<ArchivedExecution> copyExecutions;
 
+	private final Map<String, List<Integer>> inputSubTasks;
+
 	// ------------------------------------------------------------------------
 
 	public ArchivedExecutionVertex(ExecutionVertex vertex) {
@@ -52,6 +55,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		for (Execution exec : vertex.getCopyExecutions()) {
 			copyExecutions.add(exec.archive());
 		}
+
+		this.inputSubTasks = vertex.getInputSubTasks();
 	}
 
 	public ArchivedExecutionVertex(
@@ -70,6 +75,7 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		this.mainExecution = currentExecution;
 		this.priorExecutions = priorExecutions;
 		this.copyExecutions = copyExecutions;
+		this.inputSubTasks = null;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -104,5 +110,9 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		} else {
 			throw new IllegalArgumentException("attempt does not exist");
 		}
+	}
+
+	public Map<String, List<Integer>> getInputSubTasks(){
+		return inputSubTasks;
 	}
 }

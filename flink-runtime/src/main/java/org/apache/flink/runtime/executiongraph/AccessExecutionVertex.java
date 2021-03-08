@@ -20,6 +20,7 @@ package org.apache.flink.runtime.executiongraph;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Common interface for the runtime {@link ExecutionVertex} and {@link ArchivedExecutionVertex}.
@@ -56,4 +57,11 @@ public interface AccessExecutionVertex {
 	 */
 	@Nullable
 	AccessExecution getPriorExecutionAttempt(int attemptNumber);
+
+	/**
+	 * Return input subTasks.
+	 *
+	 * @return input subTasks
+	 */
+	Map<String, List<Integer>> getInputSubTasks();
 }

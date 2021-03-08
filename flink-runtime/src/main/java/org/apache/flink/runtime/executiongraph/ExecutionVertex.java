@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.Archiveable;
 import org.apache.flink.api.common.ExecutionInfo;
@@ -34,8 +35,10 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobEdge;
+import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationConstraint;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
@@ -54,13 +57,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -961,5 +967,36 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		});
 
 		return future;
+	}
+
+	public Map<String, List<Integer>> getInputSubTasks() {
+
+		Map<IntermediateDataSetID, DistributionPattern> distributionPatternMap =
+			Optional.ofNullable(this.getJobVertex()).map(ExecutionJobVertex::getJobVertex).map(JobVertex::getInputs).orElse(new ArrayList<>()).stream().collect(
+				Collectors.toMap(JobEdge::getSourceId, JobEdge::getDistributionPattern)
+			);
+		Map<String, List<Integer>> result = new HashMap<>();
+		for (ExecutionEdge[] executionEdges : this.getAllInputEdges()) {
+			if (executionEdges.length == 0) {
+				continue;
+			}
+
+			IntermediateResultPartition source = executionEdges[0].getSource();
+			DistributionPattern distributionPattern = distributionPatternMap.get(source.getIntermediateResult().getId());
+			if (distributionPattern.equals(DistributionPattern.ALL_TO_ALL)) {
+				result.put(source.getProducer().getTaskName(), Lists.newArrayList());
+				continue;
+			}
+
+			List<Integer> sourceIds = new ArrayList<>(executionEdges.length);
+			result.put(source.getProducer().getTaskName(), sourceIds);
+
+			sourceIds.add(executionEdges[0].getSource().getProducer().getParallelSubtaskIndex());
+			if(executionEdges.length > 1){
+				sourceIds.add(executionEdges[executionEdges.length-1].getSource().getProducer().getParallelSubtaskIndex());
+			}
+		}
+
+		return result;
 	}
 }

@@ -46,6 +46,12 @@ import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -53,12 +59,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 /**
  * Request handler for the job vertex details.
  */
 public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVertexDetailsInfo, JobVertexMessageParameters> implements JsonArchivist {
+
+	private static final Logger LOG = LoggerFactory.getLogger(JobVertexDetailsHandler.class);
+
+
+	private static final int SIMPLE_NAME_SIZE = 20;
 	private final MetricFetcher metricFetcher;
 
 	public JobVertexDetailsHandler(
@@ -111,16 +124,14 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 	private static JobVertexDetailsInfo createJobVertexDetailsInfo(AccessExecutionJobVertex jobVertex, JobID jobID, @Nullable MetricFetcher metricFetcher) {
 		List<JobVertexDetailsInfo.VertexTaskDetail> subtasks = new ArrayList<>();
 		final long now = System.currentTimeMillis();
-		int num = 0;
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
 			// add main execution first
-			subtasks.add(generateVertexTaskDetail(vertex.getMainExecution(), now, jobID, jobVertex.getJobVertexId(), num, metricFetcher));
+			subtasks.add(generateVertexTaskDetail(vertex.getMainExecution(), now, jobID, jobVertex.getJobVertexId(), vertex.getParallelSubtaskIndex(), metricFetcher, vertex.getInputSubTasks()));
 
 			// add copy executions
 			for (AccessExecution exec : vertex.getCopyExecutions()) {
-				subtasks.add(generateVertexTaskDetail(exec, now, jobID, jobVertex.getJobVertexId(), num, metricFetcher));
+				subtasks.add(generateVertexTaskDetail(exec, now, jobID, jobVertex.getJobVertexId(), vertex.getParallelSubtaskIndex(), metricFetcher, vertex.getInputSubTasks()));
 			}
-			num++;
 		}
 
 		return new JobVertexDetailsInfo(
@@ -131,7 +142,7 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 				subtasks);
 	}
 
-	private static JobVertexDetailsInfo.VertexTaskDetail generateVertexTaskDetail(AccessExecution exec, long now, JobID jobID, JobVertexID jobVertex, int num, MetricFetcher metricFetcher) {
+	private static JobVertexDetailsInfo.VertexTaskDetail generateVertexTaskDetail(AccessExecution exec, long now, JobID jobID, JobVertexID jobVertex, int num, MetricFetcher metricFetcher, Map<String, List<Integer>> inputTasks){
 		final ExecutionState status = exec.getState();
 
 		TaskManagerLocation location = exec.getAssignedResourceLocation();
@@ -173,6 +184,54 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 				endTime,
 				duration,
 				ioMetricsInfo,
-				sourceMeta.getMetaInfo().calculatePartitions());
+				sourceMeta.getMetaInfo().calculatePartitions(),
+				getSourceSubTaskStr(inputTasks));
 	}
+
+	private static String getSourceSubTaskStr(Map<String, List<Integer>> inputTasks) {
+		try {
+			if (MapUtils.isEmpty(inputTasks)) {
+				return StringUtils.EMPTY;
+			}
+
+			Set<Map.Entry<String, List<Integer>>> entries = inputTasks.entrySet();
+			boolean keyNameVisible = entries.size() != 1;
+
+			return entries.stream().map(entry -> {
+				String subTaskIds;
+				List<Integer> value = entry.getValue();
+				if (CollectionUtils.isEmpty(value)) {
+					subTaskIds = "all";
+				} else {
+					//Match with Web-UI ID
+					subTaskIds = value.stream().map(i -> String.valueOf(i + 1)).collect(Collectors.joining("-"));
+				}
+				return (keyNameVisible ? getUpstreamTaskSimpleName(entry.getKey()) + ":" : StringUtils.EMPTY) + subTaskIds;
+			}).collect(Collectors.joining(";"));
+		} catch (Exception e) {
+			LOG.info("get subtask resource fail", e);
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private static String getUpstreamTaskSimpleName(String name) {
+		String[] nameSplit = StringUtils.split(name, "->");
+		StringBuilder nameBuilder = new StringBuilder();
+		for (int i = 0; i < nameSplit.length; i++) {
+			String subName = nameSplit[i].trim();
+			if (StringUtils.isBlank(subName)) {
+				continue;
+			}
+			if (i != nameSplit.length - 1) {
+				nameBuilder.append(subName.charAt(0)).append("_");
+			} else {
+				nameBuilder.append(subName);
+			}
+		}
+		if (nameBuilder.length() > SIMPLE_NAME_SIZE) {
+			return nameBuilder.substring(0, SIMPLE_NAME_SIZE);
+		}
+		return nameBuilder.toString();
+	}
+
 }
