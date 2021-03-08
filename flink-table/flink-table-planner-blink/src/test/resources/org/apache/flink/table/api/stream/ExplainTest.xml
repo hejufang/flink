@@ -109,7 +109,7 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source
 
 	 : Operator
 		content : SourceConversion_tab
-		ship_strategy : FORWARD
+		ship_strategy : RESCALE
 
 ]]>
     </Resource>
@@ -129,7 +129,7 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source
 
 	 : Operator
 		content : SourceConversion_tab
-		ship_strategy : FORWARD
+		ship_strategy : RESCALE
 
 ]]>
     </Resource>

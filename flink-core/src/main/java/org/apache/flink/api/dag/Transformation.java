@@ -19,6 +19,7 @@
 package org.apache.flink.api.dag;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.functions.InvalidTypesException;
 import org.apache.flink.api.common.operators.ResourceSpec;
 import org.apache.flink.api.common.operators.util.OperatorValidationUtils;
@@ -518,6 +519,15 @@ public abstract class Transformation<T> {
 				", outputType=" + outputType +
 				", parallelism=" + parallelism +
 				'}';
+	}
+
+	@VisibleForTesting
+	public String toStringWithoutId() {
+		return getClass().getSimpleName() + "{" +
+			"name='" + name + '\'' +
+			", outputType=" + outputType +
+			", parallelism=" + parallelism +
+			'}';
 	}
 
 	@Override

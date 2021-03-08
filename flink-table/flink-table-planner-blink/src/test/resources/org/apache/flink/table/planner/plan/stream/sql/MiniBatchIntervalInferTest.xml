@@ -674,15 +674,14 @@ LogicalAggregate(group=[{0}], EXPR$1=[SUM($1)])
     </Resource>
     <Resource name="planAfter">
       <![CDATA[
-GlobalGroupAggregate(groupBy=[b], select=[b, $SUM0_RETRACT(sum$0) AS EXPR$1])
+GroupAggregate(groupBy=[b], select=[b, $SUM0_RETRACT(cnt) AS EXPR$1])
 +- Exchange(distribution=[hash[b]])
-   +- LocalGroupAggregate(groupBy=[b], select=[b, $SUM0_RETRACT(cnt) AS sum$0, COUNT_RETRACT(*) AS count1$1])
-      +- GroupWindowAggregate(groupBy=[b], window=[SlidingGroupWindow('w$, rowtime, 6000, 5000)], select=[b, COUNT(a) AS cnt], emit=[early delay 500 millisecond])
-         +- Exchange(distribution=[hash[b]])
-            +- Calc(select=[b, rowtime, a])
-               +- MiniBatchAssigner(interval=[1000ms], mode=[RowTime])
-                  +- WatermarkAssigner(rowtime=[rowtime], watermark=[-(rowtime, 0:INTERVAL MILLISECOND)])
-                     +- DataStreamScan(table=[[default_catalog, default_database, MyTable1]], fields=[a, b, c, proctime, rowtime])
+   +- GroupWindowAggregate(groupBy=[b], window=[SlidingGroupWindow('w$, rowtime, 6000, 5000)], select=[b, COUNT(a) AS cnt], emit=[early delay 500 millisecond])
+      +- Exchange(distribution=[hash[b]])
+         +- Calc(select=[b, rowtime, a])
+            +- MiniBatchAssigner(interval=[1000ms], mode=[RowTime])
+               +- WatermarkAssigner(rowtime=[rowtime], watermark=[-(rowtime, 0:INTERVAL MILLISECOND)])
+                  +- DataStreamScan(table=[[default_catalog, default_database, MyTable1]], fields=[a, b, c, proctime, rowtime])
 ]]>
     </Resource>
   </TestCase>

@@ -350,11 +350,11 @@ LegacySink(name=[`default_catalog`.`default_database`.`sink2`], fields=[a, cnt])
 
 									 : Data Sink
 										content : Sink_collect
-										ship_strategy : REBALANCE
+										ship_strategy : RESCALE
 
 										 : Data Sink
 											content : Sink_collect_1
-											ship_strategy : REBALANCE
+											ship_strategy : RESCALE
 
 ]]>
     </Resource>
@@ -429,11 +429,11 @@ LegacySink(name=[`default_catalog`.`default_database`.`sink2`], fields=[a, cnt])
 
 									 : Data Sink
 										content : Sink_collect
-										ship_strategy : REBALANCE
+										ship_strategy : RESCALE
 
 										 : Data Sink
 											content : Sink_collect_1
-											ship_strategy : REBALANCE
+											ship_strategy : RESCALE
 
 ]]>
     </Resource>
@@ -589,7 +589,7 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source
 
 	 : Operator
 		content : SourceConversion_tab
-		ship_strategy : FORWARD
+		ship_strategy : RESCALE
 
 ]]>
     </Resource>
@@ -609,7 +609,7 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, MyTable, source
 
 	 : Operator
 		content : SourceConversion_tab
-		ship_strategy : FORWARD
+		ship_strategy : RESCALE
 
 ]]>
     </Resource>

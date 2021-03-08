@@ -13,7 +13,7 @@ LegacySink(name=[`default_catalog`.`default_database`.`MySink`], fields=[first])
 
 	 : Operator
 		content : CsvTableSource_read_
-		ship_strategy : REBALANCE
+		ship_strategy : RESCALE
 
 		 : Operator
 			content : SourceConversion_tab

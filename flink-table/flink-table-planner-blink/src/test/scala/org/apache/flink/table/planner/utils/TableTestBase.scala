@@ -491,7 +491,7 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
       printWriter: PrintWriter,
       transformation: Transformation[_],
       level: Int): Unit = {
-    printWriter.println(("\t" * level) + transformation.toString)
+    printWriter.println(("\t" * level) + transformation.toStringWithoutId)
     transformation.getChildren.foreach(child => dumpTransformation(printWriter, child, level + 1))
   }
 
