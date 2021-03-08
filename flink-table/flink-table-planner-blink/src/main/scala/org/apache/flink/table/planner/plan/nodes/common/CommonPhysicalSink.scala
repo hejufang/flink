@@ -74,6 +74,8 @@ class CommonPhysicalSink (
 
     val notNullEnforcer = tableConfig.getConfiguration
       .get(ExecutionConfigOptions.TABLE_EXEC_SINK_NOT_NULL_ENFORCER)
+    val sinkChainEnable =
+      tableConfig.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_SINK_CHAIN_ENABLE)
     val notNullFieldIndices = TableSinkUtils.getNotNullFieldIndices(catalogTable)
     val fieldNames = catalogTable.getSchema.toPhysicalRowDataType
       .getLogicalType.asInstanceOf[RowType]
@@ -84,6 +86,9 @@ class CommonPhysicalSink (
     runtimeProvider match {
       case provider: DataStreamSinkProvider =>
         val dataStream = new DataStream(env, inputTransformation).filter(enforcer)
+        if (!sinkChainEnable) {
+          dataStream.disableChaining()
+        }
         provider.consumeDataStream(dataStream).getTransformation.asInstanceOf[Transformation[Any]]
       case _ =>
         val sinkFunction = runtimeProvider match {
@@ -111,9 +116,10 @@ class CommonPhysicalSink (
         }
 
         val operator = new SinkOperator(env.clean(sinkFunction), rowtimeFieldIndex, enforcer)
-        if (!env.isSinkChainingEnabled) {
+        if (!sinkChainEnable) {
           operator.setChainingStrategy(ChainingStrategy.NEVER)
         }
+
         val result = new SinkTransformation(
           inputTransformation,
           getRelDetailedDescription,

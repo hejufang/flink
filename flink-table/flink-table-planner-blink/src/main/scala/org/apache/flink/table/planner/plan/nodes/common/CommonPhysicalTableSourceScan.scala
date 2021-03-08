@@ -21,14 +21,17 @@ package org.apache.flink.table.planner.plan.nodes.common
 import org.apache.flink.api.common.eventtime.WatermarkStrategy
 import org.apache.flink.api.common.io.InputFormat
 import org.apache.flink.api.dag.Transformation
+import org.apache.flink.streaming.api.datastream.DataStreamSource
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.functions.SpecificParallelism
+import org.apache.flink.table.api.TableConfig
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.connector.source.{DataStreamScanProvider, InputFormatProvider, ScanTableSource, SourceFunctionProvider, SourceProvider}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.plan.schema.TableSourceTable
 import org.apache.flink.table.runtime.connector.source.ScanRuntimeProviderContext
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
-import org.apache.flink.streaming.api.functions.SpecificParallelism
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelWriter
@@ -67,24 +70,31 @@ abstract class CommonPhysicalTableSourceScan(
 
   protected def createSourceTransformation(
       env: StreamExecutionEnvironment,
-      name: String): Transformation[RowData] = {
+      name: String,
+      tableConfig: TableConfig): Transformation[RowData] = {
     val runtimeProvider = tableSource.getScanRuntimeProvider(ScanRuntimeProviderContext.INSTANCE)
     val outRowType = FlinkTypeFactory.toLogicalRowType(tableSourceTable.getRowType)
     val outTypeInfo = new RowDataTypeInfo(outRowType)
+    val sourceChainEnable =
+      tableConfig.getConfiguration.getBoolean(ExecutionConfigOptions.TABLE_EXEC_SOURCE_CHAIN_ENABLE)
 
     runtimeProvider match {
       case provider: SourceFunctionProvider =>
         val sourceFunction = provider.createSourceFunction()
-        val result = env
+        val operator = env
           .addSource(sourceFunction, name, outTypeInfo)
-          .getTransformation
+        if (!sourceChainEnable) {
+          operator.disableChaining()
+        }
+        val result = operator.getTransformation
         if (sourceFunction.isInstanceOf[SpecificParallelism]) {
           setParallelism(result, sourceFunction.asInstanceOf[SpecificParallelism])
         }
         result
       case provider: InputFormatProvider =>
         val inputFormat = provider.createInputFormat()
-        val result = createInputFormatTransformation(env, inputFormat, name, outTypeInfo)
+        val result =
+          createInputFormatTransformation(env, inputFormat, name, outTypeInfo, sourceChainEnable)
         if (inputFormat.isInstanceOf[SpecificParallelism]) {
           setParallelism(result, inputFormat.asInstanceOf[SpecificParallelism])
         }
@@ -92,9 +102,18 @@ abstract class CommonPhysicalTableSourceScan(
       case provider: SourceProvider =>
         // TODO: Push down watermark strategy to source scan
         val strategy: WatermarkStrategy[RowData] = WatermarkStrategy.noWatermarks()
-        env.fromSource(provider.createSource(), strategy, name).getTransformation
+        val operator = env.fromSource(provider.createSource(), strategy, name)
+        if (!sourceChainEnable) {
+          operator.disableChaining()
+        }
+        operator.getTransformation
       case provider: DataStreamScanProvider =>
-        provider.produceDataStream(env).getTransformation
+        val dataStream = provider.produceDataStream(env)
+        if (!sourceChainEnable) {
+          dataStream.asInstanceOf[DataStreamSource[RowData]].disableChaining().getTransformation
+        } else {
+          dataStream.getTransformation
+        }
     }
   }
 
@@ -115,5 +134,6 @@ abstract class CommonPhysicalTableSourceScan(
       env: StreamExecutionEnvironment,
       inputFormat: InputFormat[RowData, _],
       name: String,
-      outTypeInfo: RowDataTypeInfo): Transformation[RowData]
+      outTypeInfo: RowDataTypeInfo,
+      enableChain: Boolean): Transformation[RowData]
 }

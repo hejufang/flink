@@ -79,18 +79,23 @@ class StreamExecTableSourceScan(
       env: StreamExecutionEnvironment,
       inputFormat: InputFormat[RowData, _],
       name: String,
-      outTypeInfo: RowDataTypeInfo): Transformation[RowData] = {
+      outTypeInfo: RowDataTypeInfo,
+      enableChain: Boolean): Transformation[RowData] = {
     // It's better to use StreamExecutionEnvironment.createInput()
     // rather than addLegacySource() for streaming, because it take care of checkpoint.
-    env
+    val operator = env
       .createInput(inputFormat, outTypeInfo)
       .name(name)
-      .getTransformation
+    if (!enableChain) {
+      operator.disableChaining()
+    }
+   operator.getTransformation
   }
 
   override protected def translateToPlanInternal(
       planner: StreamPlanner): Transformation[RowData] = {
-    val source = createSourceTransformation(planner.getExecEnv, getRelDetailedDescription)
+    val source = createSourceTransformation(
+      planner.getExecEnv, getRelDetailedDescription, planner.getTableConfig)
     new FakeTransformation[RowData](
       source, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
   }

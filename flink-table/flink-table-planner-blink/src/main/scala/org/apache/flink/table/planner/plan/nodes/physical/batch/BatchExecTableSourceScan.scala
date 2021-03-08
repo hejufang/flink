@@ -82,7 +82,8 @@ class BatchExecTableSourceScan(
       env: StreamExecutionEnvironment,
       inputFormat: InputFormat[RowData, _],
       name: String,
-      outTypeInfo: RowDataTypeInfo): Transformation[RowData] = {
+      outTypeInfo: RowDataTypeInfo,
+      enableChain: Boolean): Transformation[RowData] = {
     // env.createInput will use ContinuousFileReaderOperator, but it do not support multiple
     // paths. If read partitioned source, after partition pruning, we need let InputFormat
     // to read multiple partitions which are multiple paths.
@@ -93,7 +94,8 @@ class BatchExecTableSourceScan(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    createSourceTransformation(planner.getExecEnv, getRelDetailedDescription)
+    createSourceTransformation(
+      planner.getExecEnv, getRelDetailedDescription, planner.getTableConfig)
   }
 
   /**

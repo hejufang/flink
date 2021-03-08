@@ -239,18 +239,6 @@ public class PipelineOptions {
 			.withDescription("Operator chaining allows non-shuffle operations to be co-located in the same thread " +
 				"fully avoiding serialization and de-serialization.");
 
-	public static final ConfigOption<Boolean> SOURCE_OPERATOR_CHAINING =
-		key("pipeline.source-operator-chaining")
-			.booleanType()
-			.defaultValue(true)
-			.withDescription("Works like 'pipeline.operator-chaining', but only effect source operator.");
-
-	public static final ConfigOption<Boolean> SINK_OPERATOR_CHAINING =
-		key("pipeline.sink-operator-chaining")
-			.booleanType()
-			.defaultValue(true)
-			.withDescription("Works like 'pipeline.operator-chaining', but only effect sink operator.");
-
 	public static final ConfigOption<List<String>> CACHED_FILES =
 		key("pipeline.cached-files")
 			.stringType()

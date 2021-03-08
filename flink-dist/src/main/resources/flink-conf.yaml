@@ -220,9 +220,6 @@ common:
   flink.checkpoint.hdfs.dfs.pipeline.fast-failover.bytes.threshold: 5242880
   flink.checkpoint.hdfs.dfs.pipeline.fast-failover.max.failover.times: 10
 
-  # pipeline
-  pipeline.source-operator-chaining: false
-
 flink:
   dc: cn
   clusterName: flink

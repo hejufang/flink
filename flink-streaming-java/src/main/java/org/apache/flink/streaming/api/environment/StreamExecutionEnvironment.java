@@ -89,7 +89,6 @@ import org.apache.flink.streaming.api.graph.GlobalDataExchangeMode;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamGraphGenerator;
 import org.apache.flink.streaming.api.graph.StreamingJobGraphGenerator;
-import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.StreamSource;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.ExceptionUtils;
@@ -160,10 +159,6 @@ public class StreamExecutionEnvironment {
 	private long bufferTimeout = StreamingJobGraphGenerator.UNDEFINED_NETWORK_BUFFER_TIMEOUT;
 
 	protected boolean isChainingEnabled = true;
-
-	protected boolean isSourceChainingEnabled = true;
-
-	protected boolean isSinkChainingEnabled = true;
 
 	/** The state backend used for storing k/v state and state snapshots. */
 	private StateBackend defaultStateBackend;
@@ -268,8 +263,6 @@ public class StreamExecutionEnvironment {
 
 	public void useBatchMode() {
 		this.isBatchJob = true;
-		this.setSourceChainingEnabled(true);
-		this.setSinkChainingEnabled(true);
 	}
 
 	/**
@@ -398,46 +391,6 @@ public class StreamExecutionEnvironment {
 	@PublicEvolving
 	public boolean isChainingEnabled() {
 		return isChainingEnabled;
-	}
-
-	/**
-	 * Returns whether source operator chaining is enabled.
-	 *
-	 * @return {@code true} if chaining is enabled, false otherwise.
-	 */
-	@PublicEvolving
-	public boolean isSourceChainingEnabled() {
-		return isSourceChainingEnabled;
-	}
-
-	/**
-	 * Set sourceChainingEnabled.
-	 */
-	public void setSourceChainingEnabled(boolean sourceChainingEnabled) {
-		if (isBatchJob && !sourceChainingEnabled) {
-			return;
-		}
-		isSourceChainingEnabled = sourceChainingEnabled;
-	}
-
-	/**
-	 * set sinkChainingEnabled.
-	 */
-	public void setSinkChainingEnabled(boolean sinkChainingEnabled) {
-		if (isBatchJob && !sinkChainingEnabled) {
-			return;
-		}
-		isSinkChainingEnabled = sinkChainingEnabled;
-	}
-
-	/**
-	 * Returns whether sink operator chaining is enabled.
-	 *
-	 * @return {@code true} if chaining is enabled, false otherwise.
-	 */
-	@PublicEvolving
-	public boolean isSinkChainingEnabled() {
-		return isSinkChainingEnabled;
 	}
 
 	// ------------------------------------------------------------------------
@@ -835,10 +788,6 @@ public class StreamExecutionEnvironment {
 			.ifPresent(this::setStateBackend);
 		configuration.getOptional(PipelineOptions.OPERATOR_CHAINING)
 			.ifPresent(c -> this.isChainingEnabled = c);
-		configuration.getOptional(PipelineOptions.SOURCE_OPERATOR_CHAINING)
-			.ifPresent(this::setSourceChainingEnabled);
-		configuration.getOptional(PipelineOptions.SINK_OPERATOR_CHAINING)
-			.ifPresent(this::setSinkChainingEnabled);
 		configuration.getOptional(ExecutionOptions.BUFFER_TIMEOUT)
 			.ifPresent(t -> this.setBufferTimeout(t.toMillis()));
 		configuration.getOptional(DeploymentOptions.JOB_LISTENERS)
@@ -1674,9 +1623,6 @@ public class StreamExecutionEnvironment {
 		clean(function);
 
 		final StreamSource<OUT, ?> sourceOperator = new StreamSource<>(function);
-		if (!isSourceChainingEnabled()) {
-			sourceOperator.setChainingStrategy(ChainingStrategy.NEVER);
-		}
 		return new DataStreamSource<>(this, resolvedTypeInfo, sourceOperator, isParallel, sourceName);
 	}
 

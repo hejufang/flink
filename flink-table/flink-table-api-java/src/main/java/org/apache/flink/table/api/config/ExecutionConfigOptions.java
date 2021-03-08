@@ -312,6 +312,20 @@ public class ExecutionConfigOptions {
 			.defaultValue(false)
 			.withDescription("Specifies whether to validate exec node with user and psm before execute.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_SOURCE_CHAIN_ENABLE =
+		key("table.exec.enable-source-chain")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to enable source chain.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_SINK_CHAIN_ENABLE =
+		key("table.exec.enable-sink-chain")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Specifies whether to enable sink chain.");
+
 	// ------------------------------------------------------------------------------------------
 	// Enum option types
 	// ------------------------------------------------------------------------------------------

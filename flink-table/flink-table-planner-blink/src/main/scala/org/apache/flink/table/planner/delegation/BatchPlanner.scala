@@ -19,9 +19,10 @@
 package org.apache.flink.table.planner.delegation
 
 import org.apache.flink.api.dag.Transformation
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.internal.SelectTableSink
 import org.apache.flink.table.api.{ExplainDetail, TableConfig, TableEnvironment, TableException, TableSchema}
-import org.apache.flink.table.catalog.{Catalog, CatalogManager, FunctionCatalog, ObjectIdentifier, ObjectPath}
+import org.apache.flink.table.catalog.{Catalog, CatalogManager, FunctionCatalog, ObjectIdentifier}
 import org.apache.flink.table.delegation.Executor
 import org.apache.flink.table.operations.{CatalogSinkModifyOperation, ModifyOperation, Operation, QueryOperation}
 import org.apache.flink.table.operations.ddl.AnalyzeTableOperation
@@ -40,7 +41,6 @@ import org.apache.calcite.plan.{ConventionTraitDef, RelTrait, RelTraitDef}
 import org.apache.calcite.rel.logical.LogicalTableModify
 import org.apache.calcite.rel.{RelCollationTraitDef, RelNode}
 import org.apache.calcite.sql.SqlExplainLevel
-
 import java.util
 
 import _root_.scala.collection.JavaConversions._
@@ -173,10 +173,9 @@ class BatchPlanner(
   }
 
   private def createDummyPlanner(): BatchPlanner = {
-    getExecEnv.setSourceChainingEnabled(true)
-    getExecEnv.setSinkChainingEnabled(true)
     val dummyExecEnv = new DummyStreamExecutionEnvironment(getExecEnv)
     val executor = new BatchExecutor(dummyExecEnv)
+    config.getConfiguration.setBoolean(ExecutionConfigOptions.TABLE_EXEC_SOURCE_CHAIN_ENABLE, true)
     new BatchPlanner(executor, config, functionCatalog, catalogManager)
   }
 
