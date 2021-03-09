@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.catalog;
 
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.api.constraints.UniqueConstraint;
@@ -39,12 +40,15 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.Table;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.String.format;
+import static org.apache.flink.table.api.config.OptimizerConfigOptions.TABLE_OPTIMIZER_CATALOG_TABLE_STATS_ENABLED;
 import static org.apache.flink.table.planner.utils.CatalogTableStatisticsConverter.convertToTableStats;
 
 /**
@@ -52,6 +56,8 @@ import static org.apache.flink.table.planner.utils.CatalogTableStatisticsConvert
  * Tables are registered as tables in the schema.
  */
 class DatabaseCalciteSchema extends FlinkSchema {
+	private static final Logger LOG = LoggerFactory.getLogger(DatabaseCalciteSchema.class);
+
 	private final String databaseName;
 	private final String catalogName;
 	private final CatalogManager catalogManager;
@@ -94,6 +100,14 @@ class DatabaseCalciteSchema extends FlinkSchema {
 			return FlinkStatistic.UNKNOWN();
 		}
 		if (catalogBaseTable instanceof CatalogTable) {
+			ReadableConfig flinkConf = catalogManager.getFlinkConf();
+			boolean catalogTableStatsEnabled =
+				flinkConf.get(TABLE_OPTIMIZER_CATALOG_TABLE_STATS_ENABLED);
+			if (!catalogTableStatsEnabled) {
+				LOG.info("Do not use statistics of catalog table as '{}' is false.",
+					TABLE_OPTIMIZER_CATALOG_TABLE_STATS_ENABLED.key());
+				return FlinkStatistic.UNKNOWN();
+			}
 			Catalog catalog = catalogManager.getCatalog(catalogName).get();
 			return FlinkStatistic.builder()
 				.tableStats(extractTableStats(catalog, tableIdentifier))

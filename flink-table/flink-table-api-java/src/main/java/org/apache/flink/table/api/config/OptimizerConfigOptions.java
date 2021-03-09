@@ -135,4 +135,12 @@ public class OptimizerConfigOptions {
 			.withDescription("Sets the size of Blink planner internal ExecutorService thread pool " +
 				"and only if " + TABLE_OPTIMIZER_ASYNC_MODE_ENABLED.key() + " is set true, " +
 				"this thread pool will actually be created with the related size");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_CATALOG_TABLE_STATS_ENABLED =
+		key("table.optimizer.catalog-table-stats.enabled")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("When it is true, the optimizer will " +
+				"use statistics of catalog table.");
 }

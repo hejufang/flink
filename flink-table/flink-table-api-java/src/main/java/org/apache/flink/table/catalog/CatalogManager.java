@@ -84,10 +84,13 @@ public final class CatalogManager {
 
 	private final DataTypeFactory typeFactory;
 
+	private final ReadableConfig flinkConf;
+
 	private CatalogManager(
 			String defaultCatalogName,
 			Catalog defaultCatalog,
-			DataTypeFactory typeFactory) {
+			DataTypeFactory typeFactory,
+			ReadableConfig flinkConf) {
 		checkArgument(
 			!StringUtils.isNullOrWhitespaceOnly(defaultCatalogName),
 			"Default catalog name cannot be null or empty");
@@ -103,6 +106,7 @@ public final class CatalogManager {
 		builtInCatalogName = defaultCatalogName;
 
 		this.typeFactory = typeFactory;
+		this.flinkConf = flinkConf;
 	}
 
 	public static Builder newBuilder() {
@@ -151,7 +155,8 @@ public final class CatalogManager {
 			return new CatalogManager(
 				defaultCatalogName,
 				defaultCatalog,
-				new DataTypeFactoryImpl(classLoader, config, executionConfig));
+				new DataTypeFactoryImpl(classLoader, config, executionConfig),
+				config);
 		}
 	}
 
@@ -770,6 +775,10 @@ public final class CatalogManager {
 					"%s with identifier '%s' does not exist.",
 					tableOrView, objectIdentifier.asSummaryString()));
 		}
+	}
+
+	public ReadableConfig getFlinkConf() {
+		return flinkConf;
 	}
 
 	/**
