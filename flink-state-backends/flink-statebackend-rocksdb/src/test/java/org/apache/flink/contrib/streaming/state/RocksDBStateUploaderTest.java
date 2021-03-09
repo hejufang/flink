@@ -71,7 +71,7 @@ public class RocksDBStateUploaderTest extends TestLogger {
 
 		Map<StateHandleID, Path> filePaths = new HashMap<>(1);
 		filePaths.put(new StateHandleID("mockHandleID"), file.toPath());
-		try (RocksDBStateUploader rocksDBStateUploader = new RocksDBStateUploader(5)) {
+		try (RocksDBStateUploader rocksDBStateUploader = new RocksDBStateUploader(5, 1)) {
 			rocksDBStateUploader.uploadFilesToCheckpointFs(filePaths, checkpointStreamFactory, new CloseableRegistry());
 			fail();
 		} catch (Exception e) {
@@ -103,7 +103,7 @@ public class RocksDBStateUploaderTest extends TestLogger {
 		int sstFileCount = 6;
 		Map<StateHandleID, Path> sstFilePaths = generateRandomSstFiles(localFolder, sstFileCount, fileStateSizeThreshold);
 
-		try (RocksDBStateUploader rocksDBStateUploader = new RocksDBStateUploader(5)) {
+		try (RocksDBStateUploader rocksDBStateUploader = new RocksDBStateUploader(5, 1)) {
 			Map<StateHandleID, StreamStateHandle> sstFiles =
 				rocksDBStateUploader.uploadFilesToCheckpointFs(sstFilePaths, checkpointStreamFactory, new CloseableRegistry());
 

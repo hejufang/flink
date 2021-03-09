@@ -175,6 +175,16 @@ public class CheckpointingOptions {
 			.defaultValue("default")
 			.withDescription("The namespace for checkpoints of one job.");
 
+	/**
+	 * Allow to skip checkpoint state that cannot be restored.
+	 */
+	public static final ConfigOption<Boolean> ALLOW_NON_RESTORED_STATE = ConfigOptions
+			.key("state.checkpoints.allow-non-restored-state")
+			.defaultValue(false)
+			.withDescription("Allow to skip checkpoint state that cannot be restored. " +
+					"You need to allow this if you removed an operator from your " +
+					"program that was part of the program when the checkpoint was triggered.");
+
 	/** The minimum size of state data files. All state chunks smaller than that
 	 * are stored inline in the root checkpoint metadata file. */
 	@Documentation.Section(Documentation.Sections.EXPERT_STATE_BACKENDS)

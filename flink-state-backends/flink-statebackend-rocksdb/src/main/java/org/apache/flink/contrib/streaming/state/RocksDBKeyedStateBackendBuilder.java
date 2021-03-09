@@ -111,6 +111,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
+	private int maxRetryTimes;
 
 	private RocksDB injectedTestDB; // for testing
 	private ColumnFamilyHandle injectedDefaultColumnFamilyHandle; // for testing
@@ -158,6 +159,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.enableIncrementalCheckpointing = false;
 		this.nativeMetricOptions = new RocksDBNativeMetricOptions();
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
+		this.maxRetryTimes = RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue();
 	}
 
 	@VisibleForTesting
@@ -222,6 +224,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	RocksDBKeyedStateBackendBuilder<K> setWriteBatchSize(long writeBatchSize) {
 		checkArgument(writeBatchSize >= 0, "Write batch size should be non negative.");
 		this.writeBatchSize = writeBatchSize;
+		return this;
+	}
+
+	RocksDBKeyedStateBackendBuilder<K> setDataTransferMaxRetryTimes(int maxRetryTimes) {
+		this.maxRetryTimes = maxRetryTimes;
 		return this;
 	}
 
@@ -460,7 +467,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				backendUID,
 				materializedSstFiles,
 				lastCompletedCheckpointId,
-				numberOfTransferingThreads);
+				numberOfTransferingThreads,
+				maxRetryTimes);
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;
 		}

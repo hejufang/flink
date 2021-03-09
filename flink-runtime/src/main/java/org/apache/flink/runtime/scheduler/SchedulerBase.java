@@ -184,6 +184,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	protected final RemoteBlacklistReporter remoteBlacklistReporter;
 
+	private final boolean allowNonRestoredState;
+
 	public SchedulerBase(
 			final Logger log,
 			final JobGraph jobGraph,
@@ -246,6 +248,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.inputsLocationsRetriever = new ExecutionGraphToInputsLocationsRetrieverAdapter(executionGraph);
 
 		this.coordinatorMap = createCoordinatorMap();
+		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
 	}
 
 	private ExecutionGraph createAndRestoreExecutionGraph(
@@ -261,7 +264,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 			// check whether we find a valid checkpoint
 			if (!checkpointCoordinator.restoreLatestCheckpointedStateToAll(
 				new HashSet<>(newExecutionGraph.getAllVertices().values()),
-				false,
+					allowNonRestoredState,
 					userCodeLoader)) {
 
 				// check whether we can restore from a savepoint

@@ -76,6 +76,7 @@ import java.util.UUID;
 
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.WRITE_BATCH_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
+import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -115,6 +116,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	private static final int UNDEFINED_NUMBER_OF_TRANSFER_THREADS = -1;
 	private static final long UNDEFINED_WRITE_BATCH_SIZE = -1;
+	private static final int UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES = -1;
 
 	// ------------------------------------------------------------------------
 
@@ -145,6 +147,9 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	/** The configuration for memory settings (pool sizes, etc.). */
 	private final RocksDBMemoryConfiguration memoryConfiguration;
+
+	/** retry times when uploading to hdfs. */
+	private int maxRetryTimes;
 
 	/** This determines the type of priority queue state. */
 	@Nullable
@@ -271,6 +276,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		this.checkpointStreamBackend = checkNotNull(checkpointStreamBackend);
 		this.enableIncrementalCheckpointing = enableIncrementalCheckpointing;
 		this.numberOfTransferThreads = UNDEFINED_NUMBER_OF_TRANSFER_THREADS;
+		this.maxRetryTimes = UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES;
 		this.defaultMetricOptions = new RocksDBNativeMetricOptions();
 		this.memoryConfiguration = new RocksDBMemoryConfiguration();
 		this.writeBatchSize = UNDEFINED_WRITE_BATCH_SIZE;
@@ -323,6 +329,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		} else {
 			this.writeBatchSize = original.writeBatchSize;
 		}
+
+		this.maxRetryTimes = config.get(DATA_TRANSFER_MAX_RETRY_TIMES);
 
 		this.memoryConfiguration = RocksDBMemoryConfiguration.fromOtherAndConfiguration(original.memoryConfiguration, config);
 		this.memoryConfiguration.validate();
@@ -576,6 +584,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		)
 			.setEnableIncrementalCheckpointing(isIncrementalCheckpointsEnabled())
 			.setNumberOfTransferingThreads(getNumberOfTransferThreads())
+			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
 			.setNativeMetricOptions(resourceContainer.getMemoryWatcherOptions(defaultMetricOptions))
 			.setWriteBatchSize(getWriteBatchSize());
 		return builder.build();
@@ -595,7 +604,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			env.getExecutionConfig(),
 			asyncSnapshots,
 			stateHandles,
-			cancelStreamRegistry).build();
+			cancelStreamRegistry).setRestoreThreads(nThreadOfOperatorStateBackend).build();
 	}
 
 	private RocksDBOptionsFactory configureOptionsFactory(
@@ -890,6 +899,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	public long getWriteBatchSize() {
 		return writeBatchSize == UNDEFINED_WRITE_BATCH_SIZE ?
 			WRITE_BATCH_SIZE.defaultValue().getBytes() : writeBatchSize;
+	}
+
+	public int getDataTransferMaxRetryTimes() {
+		return maxRetryTimes == UNDEFINED_DATA_TRANSFER_MAX_RETRY_TIMES ?
+			DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue() : maxRetryTimes;
 	}
 
 	/**

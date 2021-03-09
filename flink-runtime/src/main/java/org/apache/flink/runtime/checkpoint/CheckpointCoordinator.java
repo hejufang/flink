@@ -1793,6 +1793,22 @@ public class CheckpointCoordinator {
 					CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_RUNNING);
 			}
 		}
+
+		// next, check if all tasks that need to acknowledge the checkpoint are running.
+		// if not, abort the checkpoint
+		Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>(tasksToWaitFor.length);
+
+		for (ExecutionVertex ev : tasksToWaitFor) {
+			Execution ee = ev.getCurrentExecutionAttempt();
+			if (ee != null && ee.getState() == ExecutionState.RUNNING) {
+				ackTasks.put(ee.getAttemptId(), ev);
+			} else {
+				LOG.info("Checkpoint acknowledging task {} of job {} is not being executed at the moment. Aborting checkpoint.",
+						ev.getTaskNameWithSubtaskIndex(),
+						job);
+				throw new CheckpointException(CheckpointFailureReason.NOT_ALL_REQUIRED_TASKS_RUNNING);
+			}
+		}
 		return executions;
 	}
 

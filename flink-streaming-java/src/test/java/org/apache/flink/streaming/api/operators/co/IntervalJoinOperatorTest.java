@@ -453,7 +453,8 @@ public class IntervalJoinOperatorTest {
 						Collector<Tuple2<TestElem, TestElem>> out) throws Exception {
 						Assert.assertEquals(left.ts, ctx.getLeftTimestamp());
 					}
-				}
+				},
+				IntervalJoinType.INTERVAL_INNER_JOIN
 			);
 
 		try (TestHarness testHarness = new TestHarness(
@@ -492,7 +493,8 @@ public class IntervalJoinOperatorTest {
 						Collector<Tuple2<TestElem, TestElem>> out) throws Exception {
 						Assert.assertEquals(Math.max(left.ts, right.ts), ctx.getTimestamp());
 					}
-				}
+				},
+				IntervalJoinType.INTERVAL_INNER_JOIN
 			);
 
 		try (TestHarness testHarness = new TestHarness(
@@ -529,7 +531,8 @@ public class IntervalJoinOperatorTest {
 						Collector<Tuple2<TestElem, TestElem>> out) throws Exception {
 						Assert.assertEquals(right.ts, ctx.getRightTimestamp());
 					}
-				}
+				},
+				IntervalJoinType.INTERVAL_INNER_JOIN
 			);
 
 		try (TestHarness testHarness = new TestHarness(
@@ -658,7 +661,8 @@ public class IntervalJoinOperatorTest {
 				upperBoundInclusive,
 				TestElem.serializer(),
 				TestElem.serializer(),
-				new PassthroughFunction()
+				new PassthroughFunction(),
+				IntervalJoinType.INTERVAL_INNER_JOIN
 			);
 
 		return new TestHarness(
@@ -682,7 +686,8 @@ public class IntervalJoinOperatorTest {
 				upperBoundInclusive,
 				TestElem.serializer(),
 				TestElem.serializer(),
-				new PassthroughFunction()
+				new PassthroughFunction(),
+				IntervalJoinType.INTERVAL_INNER_JOIN
 			);
 
 		TestHarness t = new TestHarness(

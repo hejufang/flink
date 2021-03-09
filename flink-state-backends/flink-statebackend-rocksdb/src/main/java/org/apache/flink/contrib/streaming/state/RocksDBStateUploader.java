@@ -29,6 +29,9 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.function.CheckedSupplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nonnull;
 
 import java.io.IOException;
@@ -45,10 +48,15 @@ import java.util.function.Supplier;
  * Help class for uploading RocksDB state files.
  */
 public class RocksDBStateUploader extends RocksDBStateDataTransfer {
+	private static final Logger LOG = LoggerFactory.getLogger(RocksDBStateUploader.class);
+
 	private static final int READ_BUFFER_SIZE = 16 * 1024;
 
-	public RocksDBStateUploader(int numberOfSnapshottingThreads) {
+	private int maxRetryTimes;
+
+	public RocksDBStateUploader(int numberOfSnapshottingThreads, int maxRetryTimes) {
 		super(numberOfSnapshottingThreads);
+		this.maxRetryTimes = maxRetryTimes;
 	}
 
 	/**
@@ -96,7 +104,19 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 
 		for (Map.Entry<StateHandleID, Path> entry : files.entrySet()) {
 			final Supplier<StreamStateHandle> supplier =
-				CheckedSupplier.unchecked(() -> uploadLocalFileToCheckpointFs(entry.getValue(), checkpointStreamFactory, closeableRegistry));
+				CheckedSupplier.unchecked(() -> {
+					int tryCount = 0;
+					while (true) {
+						try {
+							return uploadLocalFileToCheckpointFs(entry.getValue(), checkpointStreamFactory, closeableRegistry);
+						} catch (Throwable t) {
+							if (++tryCount >= maxRetryTimes) {
+								throw t;
+							}
+							LOG.warn("Fail to upload file to HDFS, retrying...", t);
+						}
+					}
+				});
 			futures.put(entry.getKey(), CompletableFuture.supplyAsync(supplier, executorService));
 		}
 
