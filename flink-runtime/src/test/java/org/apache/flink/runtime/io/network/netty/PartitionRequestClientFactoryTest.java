@@ -20,7 +20,14 @@ package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.io.network.ConnectionID;
+import org.apache.flink.runtime.io.network.TaskEventDispatcher;
+import org.apache.flink.runtime.io.network.netty.PartitionRequestClientFactory.ConnectingChannel;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.NetUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandler;
@@ -33,17 +40,20 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
 @Ignore
 public class PartitionRequestClientFactoryTest {
@@ -130,6 +140,98 @@ public class PartitionRequestClientFactoryTest {
 		}
 	}
 
+	@Test
+	public void testRetryConnectAfterConnectionError() throws Exception {
+
+		NettyProtocol protocol = new NettyProtocol(
+			mock(ResultPartitionProvider.class),
+			mock(TaskEventDispatcher.class)) {
+
+			@Override
+			public ChannelHandler[] getServerChannelHandlers() {
+				return new ChannelHandler[0];
+			}
+		};
+
+		Configuration configuration = new Configuration();
+		// timeout is 1s
+		configuration.setInteger(NettyShuffleEnvironmentOptions.CLIENT_CONNECT_TIMEOUT_SECONDS, 1);
+
+		final Tuple2<NettyServer, NettyClient> netty = createNettyServerAndClient(protocol, configuration);
+
+		final NettyServer server = netty.f0;
+		final NettyClient client = netty.f1;
+
+		try {
+			final PartitionRequestClientFactory factory = new PartitionRequestClientFactory(client);
+
+			ConnectionID serverAddress = null;
+
+			// connect timeout case, the server could not connect
+			try {
+				serverAddress = createServerConnectionID("123.234.123.234", 0);
+				// This triggers a connect
+				factory.createPartitionRequestClient(serverAddress);
+
+				// this server could not connect
+				fail();
+			}
+			catch (Throwable t) {
+				// get clients from PartitionRequestClientFactory
+				Field fieldClients = PartitionRequestClientFactory.class.getDeclaredField("clients");
+				fieldClients.setAccessible(true);
+				ConcurrentMap<ConnectionID, Object> clients = (ConcurrentMap<ConnectionID, Object>) fieldClients.get(factory);
+				Object object = clients.get(serverAddress);
+				assertTrue(object != null);
+
+				if (object instanceof ConnectingChannel) {
+					ConnectingChannel connectingChannel = (ConnectingChannel) object;
+					assertEquals(configuration.getInteger(NettyShuffleEnvironmentOptions.CLIENT_CONNECT_MAX_RETRY_TIMES), connectingChannel.getRetryTimes() + 1);
+
+					// get connectFailRetryTimesCounter from client
+					Field fieldConnectFailRetryTimesCounter = NettyClient.class.getDeclaredField("connectFailRetryTimesCounter");
+					fieldConnectFailRetryTimesCounter.setAccessible(true);
+					Counter connectFailRetryTimesCounter = (Counter) fieldConnectFailRetryTimesCounter.get(client);
+					assertEquals(connectingChannel.getRetryTimes(), connectFailRetryTimesCounter.getCount());
+				} else {
+					fail();
+				}
+			}
+
+			// connect success case
+			try {
+				serverAddress = createServerConnectionID(0);
+				// This triggers a connect
+				factory.createPartitionRequestClient(serverAddress);
+
+				// get clients from PartitionRequestClientFactory
+				Field fieldClients = PartitionRequestClientFactory.class.getDeclaredField("clients");
+				fieldClients.setAccessible(true);
+				ConcurrentMap<ConnectionID, Object> clients = (ConcurrentMap<ConnectionID, Object>) fieldClients.get(factory);
+				Object object = clients.get(serverAddress);
+				assertTrue(object != null);
+				if (object instanceof NettyPartitionRequestClient) {
+					// build connection success
+				} else {
+					fail();
+				}
+			}
+			catch (Throwable t) {
+				t.printStackTrace();
+				fail();
+			}
+		}
+		finally {
+			if (server != null) {
+				server.shutdown();
+			}
+
+			if (client != null) {
+				client.shutdown();
+			}
+		}
+	}
+
 	private static class CountDownLatchOnConnectHandler extends ChannelOutboundHandlerAdapter {
 
 		private final CountDownLatch syncOnConnect;
@@ -161,7 +263,11 @@ public class PartitionRequestClientFactoryTest {
 	// ------------------------------------------------------------------------
 
 	private static Tuple2<NettyServer, NettyClient> createNettyServerAndClient(NettyProtocol protocol) throws IOException {
-		final NettyConfig config = new NettyConfig(InetAddress.getLocalHost(), SERVER_PORT, 32 * 1024, 1, new Configuration());
+		return createNettyServerAndClient(protocol, new Configuration());
+	}
+
+	private static Tuple2<NettyServer, NettyClient> createNettyServerAndClient(NettyProtocol protocol, Configuration configuration) throws IOException {
+		final NettyConfig config = new NettyConfig(InetAddress.getLocalHost(), SERVER_PORT, 32 * 1024, 1, configuration);
 
 		final NettyServer server = new NettyServer(config);
 		final NettyClient client = new NettyClient(config);
@@ -173,6 +279,9 @@ public class PartitionRequestClientFactoryTest {
 
 			server.init(protocol, bufferPool);
 			client.init(protocol, bufferPool);
+
+			MetricGroup metricGroup = UnregisteredMetricGroups.createUnregisteredTaskManagerMetricGroup();
+			client.registerConnectRetryTimesMetrics(metricGroup);
 
 			success = true;
 		}
@@ -188,5 +297,9 @@ public class PartitionRequestClientFactoryTest {
 
 	private static ConnectionID createServerConnectionID(int connectionIndex) throws UnknownHostException {
 		return new ConnectionID(new InetSocketAddress(InetAddress.getLocalHost(), SERVER_PORT), connectionIndex);
+	}
+
+	private static ConnectionID createServerConnectionID(String ip, int connectionIndex) {
+		return new ConnectionID(new InetSocketAddress(ip, SERVER_PORT), connectionIndex);
 	}
 }

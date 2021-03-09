@@ -118,7 +118,7 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 		FileChannelManager fileChannelManager = new FileChannelManagerImpl(config.getTempDirs(), DIR_NAME_PREFIX);
 
 		ConnectionManager connectionManager = nettyConfig != null ?
-			new NettyConnectionManager(resultPartitionManager, taskEventPublisher, nettyConfig) :
+			new NettyConnectionManager(resultPartitionManager, taskEventPublisher, nettyConfig, metricGroup) :
 			new LocalConnectionManager();
 
 		NetworkBufferPool networkBufferPool = new NetworkBufferPool(

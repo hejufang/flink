@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.netty;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.NetworkClientHandler;
 import org.apache.flink.runtime.io.network.PartitionRequestClient;
@@ -29,9 +30,13 @@ import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFutureListener;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Factory for {@link NettyPartitionRequestClient} instances.
@@ -40,6 +45,7 @@ import java.util.concurrent.ConcurrentMap;
  * instances.
  */
 class PartitionRequestClientFactory {
+	private static final Logger LOG = LoggerFactory.getLogger(PartitionRequestClientFactory.class);
 
 	private final NettyClient nettyClient;
 
@@ -77,11 +83,12 @@ class PartitionRequestClientFactory {
 				// We create a "connecting future" and atomically add it to the map.
 				// Only the thread that really added it establishes the channel.
 				// The others need to wait on that original establisher's future.
-				ConnectingChannel connectingChannel = new ConnectingChannel(connectionId, this);
+				ConnectingChannel connectingChannel = new ConnectingChannel(nettyClient, connectionId, this);
 				Object old = clients.putIfAbsent(connectionId, connectingChannel);
 
 				if (old == null) {
 					nettyClient.connect(connectionId.getAddress()).addListener(connectingChannel);
+					LOG.debug("NettyClient starts to connect {}.", connectionId);
 
 					client = connectingChannel.waitForChannel();
 
@@ -131,7 +138,7 @@ class PartitionRequestClientFactory {
 		clients.remove(connectionId, client);
 	}
 
-	private static final class ConnectingChannel implements ChannelFutureListener {
+	static final class ConnectingChannel implements ChannelFutureListener {
 
 		private final Object connectLock = new Object();
 
@@ -141,7 +148,12 @@ class PartitionRequestClientFactory {
 
 		private boolean disposeRequestClient = false;
 
-		public ConnectingChannel(ConnectionID connectionId, PartitionRequestClientFactory clientFactory) {
+		private NettyClient nettyClient;
+
+		private int retryTimes = 0;
+
+		public ConnectingChannel(NettyClient nettyClient, ConnectionID connectionId, PartitionRequestClientFactory clientFactory) {
+			this.nettyClient = nettyClient;
 			this.connectionId = connectionId;
 			this.clientFactory = clientFactory;
 		}
@@ -207,24 +219,63 @@ class PartitionRequestClientFactory {
 			}
 		}
 
+		@VisibleForTesting
+		int getRetryTimes() {
+			return retryTimes;
+		}
+
+		/**
+		 * retry to connect to TM.
+		 */
+		private void doConnect() {
+			LOG.info("Try to connect to {} again.", connectionId);
+			this.nettyClient.doConnect(connectionId.getAddress()).addListener(this);
+		}
+
 		@Override
 		public void operationComplete(ChannelFuture future) throws Exception {
 			if (future.isSuccess()) {
+				LOG.debug("Connect to {} success.", connectionId);
+				// retry times if success
+				nettyClient.connectSuccessRetryTimesInc(retryTimes);
+				// notify success
 				handInChannel(future.channel());
-			}
-			else if (future.cause() != null) {
-				notifyOfError(new RemoteTransportException(
+			}else {
+				if (retryTimes < this.nettyClient.getMaxRetryTimes() - 1) {
+					retryTimes++;
+
+					String msg = String.format("Connecting to remote task manager %s failed, retryTimes-[%s], leftRetryTimes-[%s].",
+						connectionId, retryTimes + 1, this.nettyClient.getMaxRetryTimes() - retryTimes - 1);
+					if (future.cause() != null) {
+						LOG.warn(msg, future.cause());
+					} else {
+						LOG.warn(msg);
+					}
+
+					// retry
+					future.channel().eventLoop().schedule(() -> {
+						doConnect();
+					}, 1000, TimeUnit.MILLISECONDS);
+					return;
+				}
+				// retry times if fails
+				nettyClient.connectFailRetryTimesInc(retryTimes);
+				if (future.cause() != null) {
+					// notify the error, and notify all objects which call waitForChannel method
+					notifyOfError(new RemoteTransportException(
 						"Connecting to remote task manager + '" + connectionId.getAddress() +
-								"' has failed. This might indicate that the remote task " +
-								"manager has been lost.",
+							"' has failed. This might indicate that the remote task " +
+							"manager has been lost.",
 						connectionId.getAddress(), future.cause()));
-			}
-			else {
-				notifyOfError(new LocalTransportException(
-					String.format(
-						"Connecting to remote task manager '%s' has been cancelled.",
-						connectionId.getAddress()),
-					null));
+				}
+				else {
+					// notify the error, and notify all objects which call waitForChannel method
+					notifyOfError(new LocalTransportException(
+						String.format(
+							"Connecting to remote task manager '%s' has been cancelled.",
+							connectionId.getAddress()),
+						null));
+				}
 			}
 		}
 	}

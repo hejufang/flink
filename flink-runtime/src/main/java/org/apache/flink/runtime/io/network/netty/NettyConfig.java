@@ -55,6 +55,14 @@ public class NettyConfig {
 
 	private final Configuration config; // optional configuration
 
+	public NettyConfig() {
+		this.serverAddress = null;
+		this.serverPort = 0;
+		this.memorySegmentSize = 0;
+		this.numberOfSlots = 0;
+		this.config = new Configuration();
+	}
+
 	public NettyConfig(
 			InetAddress serverAddress,
 			int serverPort,
@@ -118,6 +126,10 @@ public class NettyConfig {
 
 	public int getSendAndReceiveBufferSize() {
 		return config.getInteger(NettyShuffleEnvironmentOptions.SEND_RECEIVE_BUFFER_SIZE);
+	}
+
+	public int getMaxRetryTimes() {
+		return config.getInteger(NettyShuffleEnvironmentOptions.CLIENT_CONNECT_MAX_RETRY_TIMES);
 	}
 
 	public TransportType getTransportType() {
