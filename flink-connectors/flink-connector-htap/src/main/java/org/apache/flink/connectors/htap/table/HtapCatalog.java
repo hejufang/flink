@@ -245,6 +245,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			if (htapTableStatistics == null) {
 				return CatalogTableStatistics.UNKNOWN;
 			}
+			LOG.info("Table stats of table '{}' get from meta service is {}", htapTableName,
+					htapTableStatistics.toString());
 			return createCatalogTableStatistics(htapTableStatistics);
 		} catch (MetadataServiceException e) {
 			throw new CatalogException(
@@ -313,6 +315,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 				catalogColumnStatisticsMap.put(
 					columnName, createCatalogColumnStats(htapTableColumnStatistics));
 			});
+			LOG.info("Column stats of table '{}' get from meta service is {}", htapTableName,
+					catalogColumnStatisticsMap);
 			return new CatalogColumnStatistics(catalogColumnStatisticsMap);
 		} catch (MetadataServiceException e) {
 			throw new CatalogException(
