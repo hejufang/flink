@@ -126,6 +126,8 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		optionalOptions.add(LOOKUP_CACHE_MAX_ROWS);
 		optionalOptions.add(LOOKUP_CACHE_TTL);
 		optionalOptions.add(LOOKUP_MAX_RETRIES);
+		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
+		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY);
 		return optionalOptions;
 	}
 

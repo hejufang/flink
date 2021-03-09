@@ -117,6 +117,14 @@ under the License.
 											<pattern>org.apache.commons</pattern>
 											<shadedPattern>org.apache.flink.connector.bytesql.shaded.org.apache.commons</shadedPattern>
 										</relocation>
+										<relocation>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.okhttp3</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>org.apache.flink.connector.bytesql.shaded.okio</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>
