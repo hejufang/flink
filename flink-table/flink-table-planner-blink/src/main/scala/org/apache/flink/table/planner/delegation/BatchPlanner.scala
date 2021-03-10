@@ -152,7 +152,8 @@ class BatchPlanner(
       tEnv,
       JavaScalaConversionUtil.toScala(analyzeTableOperation.getTableIdentifier.toList).toArray,
       Option(JavaScalaConversionUtil.toScala(analyzeTableOperation.getColumnList).toArray),
-      Option(analyzeTableOperation.getPartitions.toMap))
+      Option(analyzeTableOperation.getPartitions.toMap),
+      analyzeTableOperation.isForAllColumns)
     statsSql
   }
 
@@ -164,7 +165,8 @@ class BatchPlanner(
       tEnv,
       JavaScalaConversionUtil.toScala(analyzeTableOperation.getTableIdentifier.toList).toArray,
       Option(JavaScalaConversionUtil.toScala(analyzeTableOperation.getColumnList).toArray),
-      Option(analyzeTableOperation.getPartitions.toMap))
+      Option(analyzeTableOperation.getPartitions.toMap),
+      analyzeTableOperation.isForAllColumns)
     val catalogTableStatistics = TableStatsConverter.convertToCatalogTableStatistics(tableStats)
     val catalogColumnStatistics = TableStatsConverter.convertToCatalogColumnStatistics(tableStats)
     val tablePath = analyzeTableOperation.getTableIdentifier.toObjectPath

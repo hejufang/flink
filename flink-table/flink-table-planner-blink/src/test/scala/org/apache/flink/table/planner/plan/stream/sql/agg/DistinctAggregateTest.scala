@@ -54,6 +54,30 @@ class DistinctAggregateTest(
   }
 
   @Test
+  def testApproximateCountDistinct(): Unit = {
+    thrown.expect(classOf[TableException])
+    thrown.expectMessage(
+      "Approximate Distinct Aggregate Function is not supported for streaming sql yet.")
+    util.verifyPlan("SELECT APPROX_COUNT_DISTINCT(b) FROM MyTable")
+  }
+
+  @Test
+  def testApproximateCountDistinctAndAccurateDistinctAggregateOnDiffColumn(): Unit = {
+    thrown.expect(classOf[TableException])
+    thrown.expectMessage(
+      "Approximate Distinct Aggregate Function is not supported for streaming sql yet.")
+    util.verifyPlan("SELECT COUNT(DISTINCT a), APPROX_COUNT_DISTINCT(b) FROM MyTable")
+  }
+
+  @Test
+  def testApproximateCountDistinctAndAccurateDistinctAggregateOnSameColumn(): Unit = {
+    thrown.expect(classOf[TableException])
+    thrown.expectMessage(
+      "Approximate Distinct Aggregate Function is not supported for streaming sql yet.")
+    util.verifyPlan("SELECT COUNT(DISTINCT b), APPROX_COUNT_DISTINCT(b) FROM MyTable")
+  }
+
+  @Test
   def testSingleDistinctAgg(): Unit = {
     util.verifyPlan("SELECT COUNT(DISTINCT c) FROM MyTable")
   }

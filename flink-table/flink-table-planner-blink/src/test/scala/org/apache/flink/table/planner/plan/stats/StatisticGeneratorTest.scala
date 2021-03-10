@@ -38,13 +38,13 @@ import scala.collection.JavaConversions._
  */
 class StatisticGeneratorTest extends BatchTestBase {
 
-  @Ignore("empty column list still will analyze all columns")
   @Test
   def testGenerateTableStats_EmptyColumns(): Unit = {
     val ds = CollectionBatchExecTable.get7TupleDataSet(tEnv, "a, b, c, d, e, f, g")
     tEnv.registerTable("MyTable", ds)
 
-    val tableStats = generateTableStats(tEnv, Array("MyTable"), Some(Array.empty[String]))
+    val tableStats = generateTableStats(tEnv, Array("MyTable"), Some(Array.empty[String]), None,
+      false)
 
     val expectedTableStats = new TableStats(11L, Map[String, ColumnStats]())
     assertTableStatsEquals(expectedTableStats, tableStats)
@@ -88,7 +88,7 @@ class StatisticGeneratorTest extends BatchTestBase {
     val ds = CollectionBatchExecTable.get3TupleDataSet(tEnv, "a, b, c")
     tEnv.registerTable("MyTable", ds)
 
-    val tableStats = generateTableStats(tEnv, Array("MyTable"), Some(Array("a", "b")))
+    val tableStats = generateTableStats(tEnv, Array("MyTable"), Some(Array("a", "b")), None, false)
 
     val expectedTableStats = new TableStats(21L, Map(
       "a" -> ColumnStats.Builder.builder()

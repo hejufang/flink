@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.plan.nodes.logical
 
+import org.apache.flink.table.api.TableException
 import org.apache.flink.table.planner.plan.PartialFinalType
 import org.apache.flink.table.planner.plan.nodes.FlinkConventions
 import org.apache.flink.table.planner.plan.utils.AggregateUtil
@@ -128,6 +129,14 @@ private class FlinkLogicalAggregateStreamConverter
 
   override def matches(call: RelOptRuleCall): Boolean = {
     val agg = call.rel(0).asInstanceOf[LogicalAggregate]
+
+    val hasApproximateDistinctCall =
+      AggregateUtil.containsApproximateDistinctCall(agg.getAggCallList)
+    if (hasApproximateDistinctCall) {
+      // throw exception here to avoid checking this in each physical node
+      throw new TableException(
+          "Approximate Distinct Aggregate Function is not supported for streaming sql yet.")
+    }
 
     // we do not support these functions natively
     // they have to be converted using the FlinkAggregateReduceFunctionsRule

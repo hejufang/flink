@@ -63,11 +63,12 @@ object StatisticGenerator extends Logging {
       tableEnv: TableEnvironment,
       tablePath: Array[String],
       fieldsToAnalyze: Option[Array[String]] = None,
-      partitionsToAnalyze: Option[Map[String, String]] = None): TableStats = {
+      partitionsToAnalyze: Option[Map[String, String]] = None,
+      isForAllColumns: Boolean = true): TableStats = {
     require(tablePath != null && tablePath.nonEmpty, "tablePath must not be null or empty.")
     val tableName = tablePath.mkString(".")
     val (statsSql, selectedFields) = generateAnalyzeTableSql(
-      tableEnv, tablePath, fieldsToAnalyze, partitionsToAnalyze)
+      tableEnv, tablePath, fieldsToAnalyze, partitionsToAnalyze, isForAllColumns)
 
     val table = tableEnv.sqlQuery(statsSql)
     val results: JList[Row] = CollectResultUtil.collect(
@@ -110,7 +111,8 @@ object StatisticGenerator extends Logging {
       tableEnv: TableEnvironment,
       tablePath: Array[String],
       fieldsToAnalyze: Option[Array[String]] = None,
-      partitionsToAnalyze: Option[Map[String, String]] = None): (String, Array[String]) = {
+      partitionsToAnalyze: Option[Map[String, String]] = None,
+      isForAllColumns: Boolean = true): (String, Array[String]) = {
     require(tablePath != null && tablePath.nonEmpty, "tablePath must not be null or empty.")
 
     val planner = getPlanner(tableEnv)
@@ -133,12 +135,7 @@ object StatisticGenerator extends Logging {
           throw new TableException(
             s"Column(s): ${notExistColumns.mkString(", ")} is(are) not found in table: $tableName.")
         }
-        // TODO: Whether we add "FOR ALL COLUMNS" or not, the resolved column list is null
-        //  and convert to empty list, cannot calculate table statistic separately at present
-        names match {
-          case names if names.length == 0 => allFieldNames
-          case _ => names
-        }
+        if (isForAllColumns) allFieldNames else names
       case _ => allFieldNames
     }
 
@@ -189,6 +186,19 @@ object StatisticGenerator extends Logging {
     require(fieldsToAnalyze.nonEmpty)
 
     val allFieldNames = schema.getFieldNames
+
+    // is all fields support APPROX_COUNT_DISTINCT
+    val allFieldsSupportApproxCountDistinct = fieldsToAnalyze.forall { field =>
+      val fieldIndex = allFieldNames.indexOf(field)
+      val fieldType = TypeConversions.fromDataToLogicalType(schema.getFieldDataTypes()(fieldIndex))
+      fieldType.getTypeRoot match {
+        case TINYINT | SMALLINT | INTEGER | BIGINT | FLOAT | DOUBLE | DECIMAL | BOOLEAN | BINARY |
+             DATE | TIME_WITHOUT_TIME_ZONE | TIMESTAMP_WITHOUT_TIME_ZONE | VARCHAR | CHAR |
+             VARBINARY => true
+        case _ => false
+      }
+    }
+
     val typeFactory = getPlanner(tableEnv).getTypeFactory
     val columnStatsSelects = fieldsToAnalyze.map { field =>
       val fieldIndex = allFieldNames.indexOf(field)
@@ -214,7 +224,11 @@ object StatisticGenerator extends Logging {
       // Adds CAST here to make sure that the result values are expected types
       val columnNameWithQuoting = withQuoting(field, quoting)
       // Currently, APPROX_COUNT_DISTINCT and COUNT DISTINCT cannot be used in the same query.
-      val computeNdv = s"CAST(COUNT(DISTINCT $columnNameWithQuoting) AS BIGINT)"
+      val computeNdv = if (allFieldsSupportApproxCountDistinct) {
+        s"CAST(APPROX_COUNT_DISTINCT($columnNameWithQuoting) AS BIGINT)"
+      } else {
+        s"CAST(COUNT(DISTINCT $columnNameWithQuoting) AS BIGINT)"
+      }
       val computeNullCount = s"CAST((COUNT(1) - COUNT($columnNameWithQuoting)) AS BIGINT)"
       val computeAvgLen = if (isStringType) {
         s"CAST(AVG(CAST(CHAR_LENGTH($columnNameWithQuoting) AS DOUBLE)) AS DOUBLE)"
