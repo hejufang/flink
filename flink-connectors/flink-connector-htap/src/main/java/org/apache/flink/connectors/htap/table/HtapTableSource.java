@@ -152,7 +152,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment env) {
 		// TM should not access meta service, so we get metadata here and propagate it out.
 		HtapMetaClient metaClient = HtapMetaUtils.getMetaClient(
-			readerConfig.getMetaHosts(), readerConfig.getMetaPort());
+			readerConfig.getMetaHosts(), readerConfig.getMetaPort(), readerConfig.getInstanceId());
 		HtapTable table = readerConfig.getCheckPointLSN() == -1L ?
 			metaClient.getTable(tableInfo.getName()) :
 			metaClient.getTable(tableInfo.getName(), readerConfig.getCheckPointLSN());

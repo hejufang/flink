@@ -22,28 +22,34 @@ import org.apache.flink.table.catalog.exceptions.CatalogException;
 
 import com.bytedance.htap.client.HtapMetaClient;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Utils of Htap meta client.
  */
 public class HtapMetaUtils {
-	private static volatile HtapMetaClient metaClient = null;
+
+	private static Map<String, HtapMetaClient> metaClients = new HashMap<>(16);
+
 
 	/**
-	 * Get the htap meta client singleton.
-	 * @return htap meta client or null if fail to create one.
+	 * Get the htap meta client base on instanceId. Each instance holds a MetaClient.
 	 */
-	public static HtapMetaClient getMetaClient(String host, int port) {
-		if (metaClient == null) {
-			synchronized (HtapMetaUtils.class) {
-				if (metaClient == null) {
-					try {
-						metaClient = new HtapMetaClient(host, port);
-					} catch (Exception e) {
-						throw new CatalogException("failed to create htap client", e);
-					}
-				}
+	public static synchronized HtapMetaClient getMetaClient(
+			String host,
+			int port,
+			String instanceId) {
+		if (!metaClients.containsKey(instanceId)) {
+			try {
+				metaClients.put(instanceId, new HtapMetaClient(host, port, instanceId));
+			} catch (Exception e) {
+				throw new CatalogException(
+						String.format("failed to create htap client for instance[%s, %s, %d]",
+								instanceId, host, port),
+						e);
 			}
 		}
-		return metaClient;
+		return metaClients.get(instanceId);
 	}
 }

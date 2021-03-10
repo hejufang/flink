@@ -112,7 +112,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		this.byteStoreDataPath = byteStoreDataPath;
 		this.logStoreLogDir = logStoreLogDir;
 		this.pageStoreLogDir = pageStoreLogDir;
-		this.metaClient = HtapMetaUtils.getMetaClient(htapMetaHost, htapMetaPort);
+		this.metaClient = HtapMetaUtils.getMetaClient(htapMetaHost, htapMetaPort, instanceId);
 	}
 
 	public HtapCatalog(
