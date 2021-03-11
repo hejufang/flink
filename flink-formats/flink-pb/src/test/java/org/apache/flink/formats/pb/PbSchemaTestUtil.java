@@ -59,6 +59,7 @@ public class PbSchemaTestUtil {
 	public static byte[] generatePbBytes() {
 
 		Map<String, Integer> mapValue = new HashMap<>();
+		mapValue.put("", 0);
 		mapValue.put("a", 1);
 		mapValue.put("b", 2);
 
@@ -97,6 +98,7 @@ public class PbSchemaTestUtil {
 		BinaryStringData binaryStringData = BinaryStringData.fromString(STRING_VALUE);
 
 		Map<BinaryStringData, Integer> expectedMapValue = new HashMap<>();
+		expectedMapValue.put(BinaryStringData.fromString(""), 0);
 		expectedMapValue.put(BinaryStringData.fromString("a"), 1);
 		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
 		byte[] bytesValue = STRING_VALUE.getBytes();
@@ -125,6 +127,7 @@ public class PbSchemaTestUtil {
 		BinaryStringData binaryStringData = BinaryStringData.fromString(STRING_VALUE);
 
 		Map<BinaryStringData, Integer> expectedMapValue = new HashMap<>();
+		expectedMapValue.put(BinaryStringData.fromString(""), 0);
 		expectedMapValue.put(BinaryStringData.fromString("a"), 1);
 		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
 		byte[] bytesValue = STRING_VALUE.getBytes();
@@ -152,6 +155,7 @@ public class PbSchemaTestUtil {
 	public static RowData generateSelectedRowData() {
 		BinaryStringData binaryStringData = BinaryStringData.fromString(STRING_VALUE);
 		Map<BinaryStringData, Integer> expectedMapValue = new HashMap<>();
+		expectedMapValue.put(BinaryStringData.fromString(""), 0);
 		expectedMapValue.put(BinaryStringData.fromString("a"), 1);
 		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
 

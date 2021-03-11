@@ -159,23 +159,19 @@ public class DeserializationRuntimeConverterFactory {
 			Descriptors.FieldDescriptor fieldDescriptor) {
 
 		Descriptors.Descriptor descriptor = fieldDescriptor.getMessageType();
+		Descriptors.FieldDescriptor keyDescriptor = descriptor.getFields().get(0);
+		Descriptors.FieldDescriptor valueDescriptor = descriptor.getFields().get(1);
 		DeserializationRuntimeConverter keyConverter = createConverter(type.getKeyType(),
-			descriptor.getFields().get(0));
+			keyDescriptor);
 		DeserializationRuntimeConverter valueConverter = createConverter(type.getValueType(),
-			descriptor.getFields().get(1));
+			valueDescriptor);
 
 		return (message) -> {
 			Map<Object, Object> map = new HashMap<>();
 			//noinspection unchecked
 			for (DynamicMessage mapMessage : (List<DynamicMessage>) message) {
-				Object k = null, v = null;
-				for (Map.Entry<Descriptors.FieldDescriptor, Object> singleMessage : mapMessage.getAllFields().entrySet()) {
-					if (singleMessage.getKey().getJsonName().equals(PbConstant.KEY)) {
-						k = keyConverter.convert(singleMessage.getValue());
-					} else if (singleMessage.getKey().getJsonName().equals(PbConstant.VALUE)) {
-						v = valueConverter.convert(singleMessage.getValue());
-					}
-				}
+				Object k = keyConverter.convert(mapMessage.getField(keyDescriptor));
+				Object v = valueConverter.convert(mapMessage.getField(valueDescriptor));
 				map.put(k, v);
 			}
 			return new GenericMapData(map);

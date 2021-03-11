@@ -217,12 +217,17 @@ public class SerializationRuntimeConverterFactory {
 			int mapSize = genericMapData.size();
 
 			for (int i = 0; i < mapSize; i++) {
+				Object key = keyConverter.convert(keyElementGetter.getElementOrNull(keyArray, i));
+				Object val = valueConverter.convert(valueElementGetter.getElementOrNull(valueArray, i));
+
+				Preconditions.checkState(key != null, "key in map cannot be null in PB.");
+				Preconditions.checkState(val != null, "value in map cannot be null in PB.");
 				list.add(MapEntry.newDefaultInstance(
 					messageType,
 					keyFieldDescriptor.getLiteType(),
-					keyConverter.convert(keyElementGetter.getElementOrNull(keyArray, i)),
+					key,
 					valueFieldDescriptor.getLiteType(),
-					valueConverter.convert(valueElementGetter.getElementOrNull(valueArray, i))));
+					val));
 			}
 			return list;
 		};
