@@ -72,6 +72,10 @@ under the License.
 		</dependency>
 	</dependencies>
 
+	<properties>
+		<shaded.prefix>org.apache.flink.connectors.loghouse.shaded</shaded.prefix>
+	</properties>
+
 	<profiles>
 		<profile>
 			<id>sql-jars</id>
@@ -96,15 +100,35 @@ under the License.
 									<relocations>
 										<relocation>
 											<pattern>com.bytedance</pattern>
-											<shadedPattern>org.apache.flink.connectors.loghouse.shaded.com.bytedance</shadedPattern>
+											<shadedPattern>${shaded.prefix}.com.bytedance</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>org.apache.thrift</pattern>
-											<shadedPattern>org.apache.flink.connectors.loghouse.shaded.org.apache.thrift</shadedPattern>
+											<shadedPattern>${shaded.prefix}.org.apache.thrift</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>org.apache.commons</pattern>
-											<shadedPattern>org.apache.flink.connectors.loghouse.shaded.org.apache.commons</shadedPattern>
+											<shadedPattern>${shaded.prefix}.org.apache.commons</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.http</pattern>
+											<shadedPattern>${shaded.prefix}.org.apache.http</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson</pattern>
+											<shadedPattern>${shaded.prefix}.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>${shaded.prefix}.okhttp3</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>${shaded.prefix}.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>${shaded.prefix}.com.google</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
