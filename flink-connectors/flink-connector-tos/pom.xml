@@ -31,6 +31,7 @@ under the License.
 
 	<properties>
 		<tos.version>0.6.0</tos.version>
+		<shaded.prefix>org.apache.flink.connectors.tos.shaded</shaded.prefix>
 	</properties>
 
 	<dependencies>
@@ -42,21 +43,22 @@ under the License.
 		</dependency>
 
 		<dependency>
+			<groupId>com.bytedance.storage</groupId>
 			<artifactId>tos-core</artifactId>
+			<version>${tos.version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.scala-lang</groupId>
 					<artifactId>scala-library</artifactId>
 				</exclusion>
 			</exclusions>
-			<groupId>com.bytedance.storage</groupId>
-			<version>${tos.version}</version>
 		</dependency>
 
 		<dependency>
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-json</artifactId>
 			<version>${project.version}</version>
+			<scope>test</scope>
 		</dependency>
 
 		<dependency>
@@ -98,9 +100,27 @@ under the License.
 									<relocations>
 										<relocation>
 											<pattern>com.bytedance.storage.tos</pattern>
-											<shadedPattern>
-												org.apache.flink.connectors.tos.shaded.com.bytedance.storage.tos
-											</shadedPattern>
+											<shadedPattern>${shaded.prefix}.com.bytedance.storage.tos</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okio</pattern>
+											<shadedPattern>${shaded.prefix}.okio</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>okhttp3</pattern>
+											<shadedPattern>${shaded.prefix}.okhttp3</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.google</pattern>
+											<shadedPattern>${shaded.prefix}.com.google</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>com.fasterxml.jackson</pattern>
+											<shadedPattern>${shaded.prefix}.com.fasterxml.jackson</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.commons</pattern>
+											<shadedPattern>${shaded.prefix}.org.apache.commons</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
