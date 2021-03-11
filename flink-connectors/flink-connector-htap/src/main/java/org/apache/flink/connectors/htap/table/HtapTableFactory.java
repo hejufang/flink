@@ -71,6 +71,9 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public static final String HTAP_BYTESTORE_DATAPATH = "htap.bytestore-datapath";
 	public static final String HTAP_LOGSTORE_LOGDIR = "htap.logstore-logdir";
 	public static final String HTAP_PAGESTORE_LOGDIR = "htap.pagestore-logdir";
+	public static final String HTAP_BATCH_SIZE_BYTES = "htap.batch-size-bytes";
+
+	public static final int DEFAULT_HTAP_BATCH_SIZE_BYTES = 1 << 20;
 
 	private final long checkPointLSN;
 
@@ -96,6 +99,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		properties.add(HTAP_BYTESTORE_DATAPATH);
 		properties.add(HTAP_LOGSTORE_LOGDIR);
 		properties.add(HTAP_PAGESTORE_LOGDIR);
+		properties.add(HTAP_BATCH_SIZE_BYTES);
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_DATA_TYPE);
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -127,6 +131,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		checkNotNull(properties.get(HTAP_BYTESTORE_DATAPATH), "Missing required property " + HTAP_BYTESTORE_DATAPATH);
 		checkNotNull(properties.get(HTAP_LOGSTORE_LOGDIR), "Missing required property " + HTAP_LOGSTORE_LOGDIR);
 		checkNotNull(properties.get(HTAP_PAGESTORE_LOGDIR), "Missing required property " + HTAP_PAGESTORE_LOGDIR);
+		checkNotNull(properties.get(HTAP_BATCH_SIZE_BYTES), "Missing required property " + HTAP_BATCH_SIZE_BYTES);
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
 		descriptorProperties.putProperties(properties);
 		new SchemaValidator(true, false, false).validate(descriptorProperties);
@@ -149,10 +154,12 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		String byteStoreDataPath = options.get(HTAP_BYTESTORE_DATAPATH);
 		String logStoreLogDir = options.get(HTAP_LOGSTORE_LOGDIR);
 		String pageStoreLogDir = options.get(HTAP_PAGESTORE_LOGDIR);
+		int batchSizeBytes = Integer.parseInt(options.get(HTAP_BATCH_SIZE_BYTES));
 		String tableName = HtapTableUtils.convertToHtapTableName(tablePath);
 		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, options);
 		HtapReaderConfig readerConfig = new HtapReaderConfig(metaHost, metaPort, instanceId,
-			byteStoreLogPath, byteStoreDataPath, logStoreLogDir, pageStoreLogDir, checkPointLSN);
+			byteStoreLogPath, byteStoreDataPath, logStoreLogDir,
+			pageStoreLogDir, batchSizeBytes, checkPointLSN);
 		return new HtapTableSource(readerConfig, tableInfo, schema, flinkConf, tablePath);
 	}
 }

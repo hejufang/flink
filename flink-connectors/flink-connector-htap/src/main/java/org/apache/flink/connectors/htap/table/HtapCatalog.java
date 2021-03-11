@@ -88,6 +88,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	private final String byteStoreDataPath;
 	private final String logStoreLogDir;
 	private final String pageStoreLogDir;
+	private final int batchSizeBytes;
 
 	// The currentCheckPointLSN binding with a single SQL statement life cycle,
 	// each HTAP SQL need to call updateCurrentCheckPointLSN explicitly prior to actutal execution.
@@ -103,7 +104,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			String byteStoreLogPath,
 			String byteStoreDataPath,
 			String logStoreLogDir,
-			String pageStoreLogDir) throws CatalogException {
+			String pageStoreLogDir,
+			int batchSizeBytes) throws CatalogException {
 		super(catalogName, db);
 		this.htapMetaHost = htapMetaHost;
 		this.htapMetaPort = htapMetaPort;
@@ -112,6 +114,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		this.byteStoreDataPath = byteStoreDataPath;
 		this.logStoreLogDir = logStoreLogDir;
 		this.pageStoreLogDir = pageStoreLogDir;
+		this.batchSizeBytes = batchSizeBytes;
 		this.metaClient = HtapMetaUtils.getMetaClient(htapMetaHost, htapMetaPort, instanceId);
 	}
 
@@ -123,9 +126,10 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			String byteStoreLogPath,
 			String byteStoreDataPath,
 			String logStoreLogDir,
-			String pageStoreLogDir) {
+			String pageStoreLogDir,
+			int batchSizeBytes) {
 		this(HTAP, db, htapMetaHost, htapMetaPort, instanceId, byteStoreLogPath,
-			logStoreLogDir, byteStoreDataPath, pageStoreLogDir);
+			logStoreLogDir, byteStoreDataPath, pageStoreLogDir, batchSizeBytes);
 	}
 
 	public Optional<TableFactory> getTableFactory() {
@@ -226,6 +230,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		props.put(HtapTableFactory.HTAP_LOGSTORE_LOGDIR, logStoreLogDir);
 		props.put(HtapTableFactory.HTAP_PAGESTORE_LOGDIR, pageStoreLogDir);
 		props.put(HtapTableFactory.HTAP_TABLE, tableName);
+		props.put(HtapTableFactory.HTAP_BATCH_SIZE_BYTES, String.valueOf(batchSizeBytes));
 		return props;
 	}
 

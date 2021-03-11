@@ -30,7 +30,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.DEFAULT_HTAP_BATCH_SIZE_BYTES;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BATCH_SIZE_BYTES;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_DATAPATH;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_LOGPATH;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_INSTANCE_ID;
@@ -79,6 +81,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 		properties.add(HTAP_BYTESTORE_DATAPATH);
 		properties.add(HTAP_LOGSTORE_LOGDIR);
 		properties.add(HTAP_PAGESTORE_LOGDIR);
+		properties.add(HTAP_BATCH_SIZE_BYTES);
 		properties.add(CATALOG_CACHE_ENABLE);
 		properties.add(CATALOG_CACHE_ASYNC_RELOAD);
 		properties.add(CATALOG_CACHE_EXECUTOR_SIZE);
@@ -106,7 +109,9 @@ public class HtapCatalogFactory implements CatalogFactory {
 			descriptorProperties.getString(HTAP_BYTESTORE_LOGPATH),
 			descriptorProperties.getString(HTAP_BYTESTORE_DATAPATH),
 			descriptorProperties.getString(HTAP_LOGSTORE_LOGDIR),
-			descriptorProperties.getString(HTAP_PAGESTORE_LOGDIR));
+			descriptorProperties.getString(HTAP_PAGESTORE_LOGDIR),
+			descriptorProperties.getOptionalInt(HTAP_BATCH_SIZE_BYTES)
+					.orElse(DEFAULT_HTAP_BATCH_SIZE_BYTES));
 
 		if (cacheEnable) {
 			int executorSize = descriptorProperties.getOptionalInt(CATALOG_CACHE_EXECUTOR_SIZE)
@@ -137,6 +142,7 @@ public class HtapCatalogFactory implements CatalogFactory {
 		descriptorProperties.validateString(HTAP_BYTESTORE_DATAPATH, false);
 		descriptorProperties.validateString(HTAP_LOGSTORE_LOGDIR, false);
 		descriptorProperties.validateString(HTAP_PAGESTORE_LOGDIR, false);
+		descriptorProperties.validateInt(HTAP_BATCH_SIZE_BYTES, true);
 		return descriptorProperties;
 	}
 }

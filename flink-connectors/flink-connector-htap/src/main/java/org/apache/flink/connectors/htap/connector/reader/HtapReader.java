@@ -46,7 +46,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class HtapReader implements AutoCloseable {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapReader.class);
-	private static final int SCAN_TOKEN_BATCH_SIZE_BYTES = 1 << 20;
 
 	private final HtapTable table;
 	private final HtapReaderConfig readerConfig;
@@ -159,7 +158,7 @@ public class HtapReader implements AutoCloseable {
 			tokenBuilder.limit(rowLimit);
 		}
 
-		tokenBuilder.batchSizeBytes(SCAN_TOKEN_BATCH_SIZE_BYTES);
+		tokenBuilder.batchSizeBytes(readerConfig.getBatchSizeBytes());
 
 		return tokenBuilder.build();
 	}

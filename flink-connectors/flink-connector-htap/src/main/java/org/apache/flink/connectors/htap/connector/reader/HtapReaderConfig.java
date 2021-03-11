@@ -42,6 +42,7 @@ public class HtapReaderConfig implements Serializable {
 	private final String byteStoreDataPath;
 	private final String logStoreLogDir;
 	private final String pageStoreLogDir;
+	private final int batchSizeBytes;
 
 	private final long checkPointLSN;
 
@@ -53,6 +54,7 @@ public class HtapReaderConfig implements Serializable {
 			String byteStoreDataPath,
 			String logStoreLogDir,
 			String pageStoreLogDir,
+			int batchSizeBytes,
 			long checkPointLSN) {
 		this.metaHost = checkNotNull(metaHost, "Htap meta host cannot be null");
 		this.metaPort = checkNotNull(metaPort, "Htap meta port cannot be null");
@@ -61,6 +63,7 @@ public class HtapReaderConfig implements Serializable {
 		this.byteStoreDataPath = checkNotNull(byteStoreDataPath, "ByteStore DataPath cannot be null");
 		this.logStoreLogDir = checkNotNull(logStoreLogDir, "LogStore LogDir cannot be null");
 		this.pageStoreLogDir = checkNotNull(pageStoreLogDir, "PageStore LogDir cannot be null");
+		this.batchSizeBytes = checkNotNull(batchSizeBytes, "BatchSizeBytes cannot be null");
 		this.checkPointLSN = checkNotNull(checkPointLSN, "CheckPointLSN cannot be null");
 	}
 
@@ -92,6 +95,10 @@ public class HtapReaderConfig implements Serializable {
 		return pageStoreLogDir;
 	}
 
+	public int getBatchSizeBytes() {
+		return batchSizeBytes;
+	}
+
 	public long getCheckPointLSN() {
 		return checkPointLSN;
 	}
@@ -106,6 +113,7 @@ public class HtapReaderConfig implements Serializable {
 				.append("byteStoreDataPath", byteStoreDataPath)
 				.append("logStoreLogDir", logStoreLogDir)
 				.append("pageStoreLogDir", pageStoreLogDir)
+				.append("batchSizeBytes", batchSizeBytes)
 				.append("checkPointLSN", checkPointLSN)
 				.toString();
 	}
