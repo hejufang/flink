@@ -71,9 +71,11 @@ common:
   yarn.provided.lib.dirs.enabled: false
 
   # Metrics
-  metrics.reporters: opentsdb_reporter
+  metrics.reporters: opentsdb_reporter,databus_reporter
   metrics.reporter.opentsdb_reporter.class: org.apache.flink.metrics.opentsdb.OpentsdbReporter
   metrics.reporter.opentsdb_reporter.interval: 20 SECONDS
+  metrics.reporter.databus_reporter.class: org.apache.flink.metrics.databus.DatabusReporter
+  metrics.reporter.databus_reporter.interval: 60 SECONDS
 
   # Grafana
   save-meta.enabled: true

@@ -2125,6 +2125,10 @@ public final class ConfigConstants {
 
 	public static final String STREAMING_JOB_KEY_PREFIX = "bytedance.streaming.";
 
+	// ---------------------------- Data Warehouse ---------------------------
+	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_KEY = "warehouse.channel";
+	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT = "flink_dw_metrics";
+
 	/**
 	 * Not instantiable.
 	 */

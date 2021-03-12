@@ -127,6 +127,13 @@ under the License.
 		</file>
 
 		<file>
+			<source>../flink-metrics/flink-metrics-databus/target/flink-metrics-databus-${project.version}.jar</source>
+			<outputDirectory>lib/</outputDirectory>
+			<destName>flink-metrics-databus-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
+
+		<file>
 			<source>../flink-metrics/flink-metrics-opentsdb/target/flink-metrics-opentsdb-${project.version}.jar</source>
 			<outputDirectory>lib/</outputDirectory>
 			<destName>flink-metrics-opentsdb-${project.version}.jar</destName>
