@@ -31,6 +31,15 @@ import static org.apache.flink.configuration.description.LinkElement.link;
 import static org.rocksdb.CompactionStyle.FIFO;
 import static org.rocksdb.CompactionStyle.LEVEL;
 import static org.rocksdb.CompactionStyle.UNIVERSAL;
+import static org.rocksdb.CompressionType.BZLIB2_COMPRESSION;
+import static org.rocksdb.CompressionType.DISABLE_COMPRESSION_OPTION;
+import static org.rocksdb.CompressionType.LZ4HC_COMPRESSION;
+import static org.rocksdb.CompressionType.LZ4_COMPRESSION;
+import static org.rocksdb.CompressionType.NO_COMPRESSION;
+import static org.rocksdb.CompressionType.SNAPPY_COMPRESSION;
+import static org.rocksdb.CompressionType.XPRESS_COMPRESSION;
+import static org.rocksdb.CompressionType.ZLIB_COMPRESSION;
+import static org.rocksdb.CompressionType.ZSTD_COMPRESSION;
 
 /**
  * This class contains the configuration options for the {@link DefaultConfigurableOptionsFactory}.
@@ -159,4 +168,12 @@ public class RocksDBConfigurableOptions implements Serializable {
 		.defaultValue(MemorySize.parse("2mb"))
 		.withDescription("The max size of the consumed memory for RocksDB batch write, " +
 			"will flush just based on item count if this config set to 0.");
+
+	public static final ConfigOption<String> COMPRESSION_TYPE =
+		key("state.backend.rocksdb.compression.type")
+			.noDefaultValue()
+			.withDescription(String.format("The specified compression type for DB. Candidate compression type is %s, %s, %s, %s, %s, " +
+					"%s, %s, %s or %s, and RocksDB choose '%s' as default style.", NO_COMPRESSION.name(), SNAPPY_COMPRESSION.name(),
+				ZLIB_COMPRESSION.name(), BZLIB2_COMPRESSION.name(), LZ4_COMPRESSION.name(), LZ4HC_COMPRESSION.name(), XPRESS_COMPRESSION.name(),
+				ZSTD_COMPRESSION.name(), DISABLE_COMPRESSION_OPTION.name(), SNAPPY_COMPRESSION.name()));
 }

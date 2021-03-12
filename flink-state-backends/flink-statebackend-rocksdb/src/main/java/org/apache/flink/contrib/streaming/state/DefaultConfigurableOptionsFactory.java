@@ -26,6 +26,7 @@ import org.apache.flink.util.Preconditions;
 import org.rocksdb.BlockBasedTableConfig;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.CompactionStyle;
+import org.rocksdb.CompressionType;
 import org.rocksdb.DBOptions;
 import org.rocksdb.PlainTableConfig;
 import org.rocksdb.TableFormatConfig;
@@ -41,6 +42,7 @@ import java.util.Set;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_CACHE_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.BLOCK_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPACTION_STYLE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.COMPRESSION_TYPE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_COMPACTION_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_FLUSH_THREADS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_BACKGROUND_THREADS;
@@ -116,6 +118,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 		if (isOptionConfigured(MIN_WRITE_BUFFER_NUMBER_TO_MERGE)) {
 			currentOptions.setMinWriteBufferNumberToMerge(getMinWriteBufferNumberToMerge());
+		}
+
+		if (isOptionConfigured(COMPRESSION_TYPE)) {
+			currentOptions.setCompressionType(getCompressionType());
 		}
 
 		TableFormatConfig tableFormatConfig = currentOptions.tableFormatConfig();
@@ -217,6 +223,19 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 	public DefaultConfigurableOptionsFactory setCompactionStyle(CompactionStyle compactionStyle) {
 		setInternal(COMPACTION_STYLE.key(), compactionStyle.name());
+		return this;
+	}
+
+	//--------------------------------------------------------------------------
+	// The type of compression for DB.
+	//--------------------------------------------------------------------------
+
+	private CompressionType getCompressionType() {
+		return CompressionType.valueOf(getInternal(COMPRESSION_TYPE.key()).toUpperCase());
+	}
+
+	public DefaultConfigurableOptionsFactory setCompressionType(CompressionType compressionType) {
+		setInternal(COMPRESSION_TYPE.key(), compressionType.name());
 		return this;
 	}
 
@@ -362,7 +381,8 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		MAX_WRITE_BUFFER_NUMBER,
 		MIN_WRITE_BUFFER_NUMBER_TO_MERGE,
 		BLOCK_SIZE,
-		BLOCK_CACHE_SIZE
+		BLOCK_CACHE_SIZE,
+		COMPRESSION_TYPE
 	};
 
 	private static final Set<ConfigOption<?>> POSITIVE_INT_CONFIG_SET = new HashSet<>(Arrays.asList(
