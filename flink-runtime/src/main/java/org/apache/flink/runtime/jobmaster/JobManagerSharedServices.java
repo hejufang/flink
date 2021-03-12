@@ -34,7 +34,6 @@ import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureSta
 import org.apache.flink.runtime.rest.handler.legacy.backpressure.BackPressureStatsTrackerImpl;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
-import org.apache.flink.runtime.util.Hardware;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nonnull;
@@ -178,7 +177,7 @@ public class JobManagerSharedServices {
 		}
 
 		final ScheduledExecutorService futureExecutor = Executors.newScheduledThreadPool(
-				Hardware.getNumberCPUCores(),
+				config.getInteger(JobManagerOptions.JOB_MANAGER_FUTURE_EXECUTOR_THREADS_NUM),
 				new ExecutorThreadFactory("jobmanager-future"));
 
 		final int numSamples = config.getInteger(WebOptions.BACKPRESSURE_NUM_SAMPLES);
