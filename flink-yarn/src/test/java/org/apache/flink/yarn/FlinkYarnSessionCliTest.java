@@ -28,6 +28,7 @@ import org.apache.flink.client.deployment.ClusterClientServiceLoader;
 import org.apache.flink.client.deployment.ClusterSpecification;
 import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
 import org.apache.flink.configuration.AkkaOptions;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.DeploymentOptions;
@@ -105,6 +106,33 @@ public class FlinkYarnSessionCliTest extends TestLogger {
 		assertEquals("5 min", executorConfig.get(AkkaOptions.ASK_TIMEOUT));
 		assertEquals("-DappName=foobar", executorConfig.get(CoreOptions.FLINK_JVM_OPTIONS));
 		assertEquals("changeit", executorConfig.get(SecurityOptions.SSL_INTERNAL_KEY_PASSWORD));
+	}
+
+	@Test
+	public void testDynamicPropertiesWithDynamicParameters() throws Exception {
+		Configuration configuration = new Configuration();
+		configuration.setString("state.checkpoints.dir#ORIGIN#", "${checkpoint.hdfs.prefix}/1.11/flink/fs_checkpoint_dir");
+
+		FlinkYarnSessionCli cli = new FlinkYarnSessionCli(
+			configuration,
+			tmp.getRoot().getAbsolutePath(),
+			"",
+			"",
+			false);
+		Options options = new Options();
+		cli.addGeneralOptions(options);
+		cli.addRunOptions(options);
+
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = parser.parse(options, new String[]{"run", "-j", "fake.jar",
+			"-D", AkkaOptions.ASK_TIMEOUT.key() + "=5 min",
+			"-D", CoreOptions.FLINK_JVM_OPTIONS.key() + "=-DappName=foobar",
+			"-D", SecurityOptions.SSL_INTERNAL_KEY_PASSWORD.key() + "=changeit",
+			"-Dcheckpoint.hdfs.prefix=hdfs://hdfsvip/home/byte_flink_checkpoint"});
+
+		Configuration executorConfig = cli.applyCommandLineOptionsToConfiguration(cmd);
+		assertEquals("hdfs://hdfsvip/home/byte_flink_checkpoint/1.11/flink/fs_checkpoint_dir", executorConfig.getString(
+			CheckpointingOptions.CHECKPOINTS_DIRECTORY));
 	}
 
 	@Test

@@ -179,13 +179,13 @@ public class JobManagerOptions {
 				.build());
 
 	/**
-	 * Off-heap Memory size for the JobManager.
+	 * Off-heap Memory size for the JobManager, limit the JVM direct memory by default to avoid OOM.
 	 */
 	@Documentation.Section(Documentation.Sections.COMMON_MEMORY)
 	public static final ConfigOption<Boolean> JVM_DIRECT_MEMORY_LIMIT_ENABLED =
 		key("jobmanager.memory.enable-jvm-direct-memory-limit")
 			.booleanType()
-			.defaultValue(false)
+			.defaultValue(true)
 			.withDescription(Description
 				.builder()
 				.text(

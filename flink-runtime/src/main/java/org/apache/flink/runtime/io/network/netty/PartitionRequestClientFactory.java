@@ -240,7 +240,7 @@ class PartitionRequestClientFactory {
 				nettyClient.connectSuccessRetryTimesInc(retryTimes);
 				// notify success
 				handInChannel(future.channel());
-			}else {
+			} else {
 				if (retryTimes < this.nettyClient.getMaxRetryTimes() - 1) {
 					retryTimes++;
 
