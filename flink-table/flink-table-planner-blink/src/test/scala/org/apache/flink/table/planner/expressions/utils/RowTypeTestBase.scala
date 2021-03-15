@@ -39,7 +39,7 @@ abstract class RowTypeTestBase extends ExpressionTestBase {
     specialTypeRow.setField(0, localDate("1984-03-12"))
     specialTypeRow.setField(1, DecimalDataUtils.castFrom("0.00000000", 9, 8))
     specialTypeRow.setField(2, Array[java.lang.Integer](1, 2, 3))
-    val testData = new Row(7)
+    val testData = new Row(8)
     testData.setField(0, null)
     testData.setField(1, 1)
     testData.setField(2, row)
@@ -47,6 +47,7 @@ abstract class RowTypeTestBase extends ExpressionTestBase {
     testData.setField(4, specialTypeRow)
     testData.setField(5, Row.of("foo", null))
     testData.setField(6, Row.of(null, null))
+    testData.setField(7, null)
     testData
   }
 
@@ -61,7 +62,8 @@ abstract class RowTypeTestBase extends ExpressionTestBase {
                 DecimalDataTypeInfo.of(9, 8),
                 ObjectArrayTypeInfo.getInfoFor(Types.INT)),
       /* 5 */ Types.ROW(Types.STRING, Types.BOOLEAN),
-      /* 6 */ Types.ROW(Types.STRING, Types.STRING)
+      /* 6 */ Types.ROW(Types.STRING, Types.STRING),
+      /* 7 */ Types.ROW(Types.STRING, Types.STRING)
     )
   }
 }

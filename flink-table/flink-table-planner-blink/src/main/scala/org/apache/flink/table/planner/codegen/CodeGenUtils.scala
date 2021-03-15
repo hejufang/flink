@@ -35,7 +35,7 @@ import org.apache.flink.table.planner.codegen.GenerateUtils.{generateInputFieldU
 import org.apache.flink.table.runtime.dataview.StateDataViewStore
 import org.apache.flink.table.runtime.generated.{AggsHandleFunction, HashFunction, NamespaceAggsHandleFunction, TableAggsHandleFunction}
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
-import org.apache.flink.table.runtime.types.PlannerTypeUtils.isInteroperable
+import org.apache.flink.table.runtime.types.PlannerTypeUtils.{isInteroperable, isPrimitive}
 import org.apache.flink.table.runtime.typeutils.TypeCheckUtils
 import org.apache.flink.table.runtime.util.MurmurHashUtil
 import org.apache.flink.table.types.DataType
@@ -178,6 +178,17 @@ object CodeGenUtils {
     case DOUBLE => "double"
     case DISTINCT_TYPE => primitiveTypeTermForType(t.asInstanceOf[DistinctType].getSourceType)
     case _ => boxedTypeTermForType(t)
+  }
+
+  @tailrec
+  def isInternalPrimitive(t: LogicalType): Boolean = t.getTypeRoot match {
+    case _ if isPrimitive(t) => true
+
+    case DATE | TIME_WITHOUT_TIME_ZONE | INTERVAL_YEAR_MONTH | INTERVAL_DAY_TIME => true
+
+    case DISTINCT_TYPE => isInternalPrimitive(t.asInstanceOf[DistinctType].getSourceType)
+
+    case _ => false
   }
 
   @tailrec
