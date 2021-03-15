@@ -45,7 +45,9 @@ object FlinkShell {
     externalJars: Option[Array[String]] = None,
     executionMode: ExecutionMode.Value = ExecutionMode.UNDEFINED,
     yarnConfig: Option[YarnConfig] = None,
-    configDir: Option[String] = None
+    configDir: Option[String] = None,
+    kwargs: Map[String, String] = Map(
+      "high-availability" -> "none", "rest.bind-port" -> "8081-9000")
   )
 
   /** YARN configuration object */
@@ -73,6 +75,17 @@ object FlinkShell {
             c.copy(externalJars = Option(xArray))
           } text "Specifies additional jars to be used in Flink"
         )
+
+        opt[String]("configDir").optional().action {
+          (arg, conf) => conf.copy(configDir = Option(arg))
+        } text {
+          "The configuration directory."
+        }
+
+        opt[Map[String, String]]("kwargs")
+          .valueName("k1=v1,k2=v2...")
+          .action((x, c) => c.copy(kwargs = x))
+          .text("other dynamic arguments")
 
       cmd("remote") action { (_, c) =>
         c.copy(executionMode = ExecutionMode.REMOTE)
@@ -154,6 +167,10 @@ object FlinkShell {
 
     val flinkConfig = getGlobalConfig(config)
 
+    config.kwargs.foreach {
+      case (k, v) =>
+        flinkConfig.setString(k, v)
+    }
     val (repl, clusterClient) = try {
       val (effectiveConfig, clusterClient) = fetchConnectionInfo(config, flinkConfig)
 

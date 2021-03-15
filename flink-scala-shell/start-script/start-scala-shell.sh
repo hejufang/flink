@@ -86,7 +86,7 @@ LOG=$FLINK_LOG_DIR/flink-$FLINK_IDENT_STRING-scala-shell-$MODE-$HOSTNAME.log
 
 if [[ ($MODE = "local") || ($MODE = "remote") ]]
 then
-    LOG4J_CONFIG=log4j.properties
+    LOG4J_CONFIG=log4j-cli.properties
     LOGBACK_CONFIG=logback.xml
 elif [[ $1 = "yarn" ]]
 then

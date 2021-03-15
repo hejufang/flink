@@ -94,10 +94,8 @@ public class ScalaShellStreamEnvironment extends StreamExecutionEnvironment {
 		return allJarFiles;
 	}
 
-	public static void disableAllContextAndOtherEnvironments() {
-		initializeContextEnvironment(() -> {
-			throw new UnsupportedOperationException("Execution Environment is already defined for this shell.");
-		});
+	public static void setCurrentEnvironments(StreamExecutionEnvironment executionEnvironment) {
+		initializeContextEnvironment(() -> executionEnvironment);
 	}
 
 	public static void resetContextEnvironments() {

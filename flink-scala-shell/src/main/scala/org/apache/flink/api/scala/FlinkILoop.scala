@@ -21,7 +21,7 @@ package org.apache.flink.api.scala
 import org.apache.flink.api.java.{JarHelper, ScalaShellEnvironment, ScalaShellStreamEnvironment}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
-import org.apache.flink.table.api.EnvironmentSettings
+import org.apache.flink.table.api.{EnvironmentSettings, TableEnvironment}
 import org.apache.flink.table.api.bridge.scala.{BatchTableEnvironment, StreamTableEnvironment}
 import org.apache.flink.util.AbstractID
 
@@ -76,7 +76,7 @@ class FlinkILoop(
       getExternalJars(): _*)
     // prevent further instantiation of environments
     ScalaShellEnvironment.disableAllContextAndOtherEnvironments()
-    ScalaShellStreamEnvironment.disableAllContextAndOtherEnvironments()
+    ScalaShellStreamEnvironment.setCurrentEnvironments(remoteSenv)
 
     (remoteBenv,remoteSenv)
   }
@@ -85,14 +85,15 @@ class FlinkILoop(
   val (
     scalaBenv: ExecutionEnvironment,
     scalaSenv: StreamExecutionEnvironment,
-    scalaBTEnv: BatchTableEnvironment,
+    scalaBTEnv: TableEnvironment,
     scalaSTEnv: StreamTableEnvironment
     ) = {
     val scalaBenv = new ExecutionEnvironment(remoteBenv)
     val scalaSenv = new StreamExecutionEnvironment(remoteSenv)
-    val scalaBTEnv = BatchTableEnvironment.create(scalaBenv)
+    val batchSettings = EnvironmentSettings.newInstance.useBlinkPlanner.inBatchMode.build
+    val scalaBTEnv = TableEnvironment.create(batchSettings)
     val scalaSTEnv = StreamTableEnvironment.create(
-      scalaSenv, EnvironmentSettings.newInstance().useOldPlanner().build())
+      scalaSenv, EnvironmentSettings.newInstance().useBlinkPlanner().build())
     (scalaBenv,scalaSenv,scalaBTEnv,scalaSTEnv)
   }
 
