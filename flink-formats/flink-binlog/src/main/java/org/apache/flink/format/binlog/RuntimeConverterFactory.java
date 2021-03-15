@@ -139,8 +139,8 @@ public class RuntimeConverterFactory {
 			return o -> Time.valueOf((String) o);
 		} else if (typeInfo == Types.SQL_TIMESTAMP) {
 			// Timestamp.valueOf will throw an exception if the value of o is
-			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
-			return o -> ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o);
+			// start with ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
+			return o -> ((String) o).startsWith(ZERO_TIMESTAMP_STR) ? new Timestamp(0) : Timestamp.valueOf((String) o);
 		} else {
 			throw new IllegalArgumentException(
 				String.format("Unsupported type for 'value' column: %s.", typeInfo));
