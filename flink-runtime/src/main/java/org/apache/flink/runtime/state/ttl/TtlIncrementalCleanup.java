@@ -25,6 +25,8 @@ import org.apache.flink.util.FlinkRuntimeException;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Incremental cleanup of state with TTL.
@@ -77,7 +79,7 @@ class TtlIncrementalCleanup<K, N, S> {
 
 			for (StateEntry<K, N, S> state : nextEntries) {
 				S cleanState = ttlState.getUnexpiredOrNull(state.getState());
-				if (cleanState == null) {
+				if (cleanState == null || isEmptyStructure(cleanState)) {
 					stateIterator.remove(state);
 				} else if (cleanState != state.getState()) {
 					stateIterator.update(state, cleanState);
@@ -85,6 +87,18 @@ class TtlIncrementalCleanup<K, N, S> {
 			}
 
 			entryNum += nextEntries.size();
+		}
+	}
+
+	private boolean isEmptyStructure(S state) {
+		if (ttlState instanceof TtlMapState) {
+			Map mapState = (Map) state;
+			return mapState.isEmpty();
+		} else if (ttlState instanceof TtlListState) {
+			List listState = (List) state;
+			return listState.isEmpty();
+		} else {
+			return false;
 		}
 	}
 
