@@ -165,6 +165,13 @@ public class KubernetesConfigOptions {
 			.withDescription("A semicolon-separated list of the prepare commands to be executed before "
 				+ "starting taskmanager. These commands will attach into taskmanager pod as the post-start handler");
 
+	public static final ConfigOption<Integer> KUBERNETES_TASK_MANAGER_MINIMAL_NUM =
+		key("kubernetes.taskmanager.minimal-number")
+			.intType()
+			.defaultValue(0)
+			.withDescription("The number of task managers to be reserved even if they are expired. "
+				+ "0 for not reserve task managers.");
+
 	/**
 	 * The following config options need to be set according to the image.
 	 */
