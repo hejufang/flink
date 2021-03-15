@@ -41,14 +41,14 @@ import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFacto
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.CONNECT_TIMEOUT;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.CONSUL;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.CONSUL_INTERVAL;
-import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.FLUSH_INTERVAL;
-import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.FLUSH_MAX_RETRIES;
-import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.FLUSH_SIZE;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.IDENTIFIER;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.KEYS_CLUSTERS;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.KEYS_PARTITIONS;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.NAMESPACE;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_SIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
 
 /**
  * {@link DynamicTableSink} for LogHouse Sink.
@@ -102,9 +102,9 @@ public class LogHouseDynamicSink implements DynamicTableSink {
 		builder.withNamespace(config.get(NAMESPACE));
 		builder.withConsul(config.get(CONSUL));
 		builder.withCompressor(buildCompressor(config));
-		builder.batchSizeKB((int) config.get(FLUSH_SIZE).getKibiBytes());
-		builder.flushMaxRetries(config.get(FLUSH_MAX_RETRIES));
-		builder.flushTimeoutMs((int) config.get(FLUSH_INTERVAL).toMillis());
+		builder.batchSizeKB((int) config.get(SINK_BUFFER_FLUSH_SIZE).getKibiBytes());
+		builder.flushMaxRetries(config.get(SINK_MAX_RETRIES));
+		builder.flushTimeoutMs((int) config.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis());
 		builder.connectionPoolSize(config.get(CONNECTION_POOL_SIZE));
 		builder.consulIntervalSeconds((int) config.get(CONSUL_INTERVAL).getSeconds());
 		builder.connectTimeoutMs((int) config.get(CONNECT_TIMEOUT).toMillis());

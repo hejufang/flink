@@ -22,7 +22,6 @@ package org.apache.flink.connectors.loghouse;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
-import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -38,6 +37,9 @@ import java.util.Set;
 
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_SIZE;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
 
 /**
  * Factory for creating {@link LogHouseDynamicSink}.
@@ -92,24 +94,6 @@ public class LogHouseDynamicTableSinkFactory implements DynamicTableSinkFactory 
 		.noDefaultValue()
 		.withDescription("Required. Specify the indices of clustering key.");
 
-	public static final ConfigOption<Integer> FLUSH_MAX_RETRIES = ConfigOptions
-		.key("flush-max-retries")
-		.intType()
-		.defaultValue(3)
-		.withDescription("Optional. Specify the max retry times before failing the task.");
-
-	public static final ConfigOption<Duration> FLUSH_INTERVAL = ConfigOptions
-		.key("sink.buffer-flush.interval")
-		.durationType()
-		.defaultValue(Duration.ofSeconds(1))
-		.withDescription("Optional. Specify the buffer flush interval.");
-
-	public static final ConfigOption<MemorySize> FLUSH_SIZE = ConfigOptions
-		.key("sink.buffer-flush.max-size")
-		.memoryType()
-		.defaultValue(MemorySize.ofMebiBytes(10))
-		.withDescription("Optional. Specify the max size of the buffer.");
-
 	public static final ConfigOption<Duration> CONNECT_TIMEOUT = ConfigOptions
 		.key("connect-timeout")
 		.durationType()
@@ -157,9 +141,9 @@ public class LogHouseDynamicTableSinkFactory implements DynamicTableSinkFactory 
 		Set<ConfigOption<?>> optional = new HashSet<>();
 		optional.add(CONSUL_INTERVAL);
 		optional.add(CONNECTION_POOL_SIZE);
-		optional.add(FLUSH_MAX_RETRIES);
-		optional.add(FLUSH_INTERVAL);
-		optional.add(FLUSH_SIZE);
+		optional.add(SINK_MAX_RETRIES);
+		optional.add(SINK_BUFFER_FLUSH_INTERVAL);
+		optional.add(SINK_BUFFER_FLUSH_SIZE);
 		optional.add(CONNECT_TIMEOUT);
 		optional.add(COMPRESSOR);
 		optional.add(PARALLELISM);

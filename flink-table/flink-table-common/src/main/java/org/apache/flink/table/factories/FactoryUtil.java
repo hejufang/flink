@@ -23,6 +23,7 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DelegatingConfiguration;
+import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.ValidationException;
@@ -178,6 +179,12 @@ public final class FactoryUtil {
 		.intType()
 		.defaultValue(50)
 		.withDescription("Optional. The max size of buffered records before flush. Can be set to zero to disable it.");
+
+	public static final ConfigOption<MemorySize> SINK_BUFFER_FLUSH_SIZE = ConfigOptions
+		.key("sink.buffer-flush.max-size")
+		.memoryType()
+		.defaultValue(MemorySize.ofMebiBytes(10))
+		.withDescription("Optional. Specify the max size of the buffer.");
 
 	public static final ConfigOption<Duration> SINK_BUFFER_FLUSH_INTERVAL = ConfigOptions
 		.key("sink.buffer-flush.interval")
