@@ -21,6 +21,7 @@ package org.apache.flink.table.planner.plan.rules.physical.batch
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.functions.FunctionDefinition
+import org.apache.flink.table.plan.stats.TableStats
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.functions.aggfunctions.AvgAggFunction
 import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecExchange, BatchExecGroupAggregateBase, BatchExecLegacyTableSourceScan}
@@ -119,10 +120,11 @@ extends RelOptRule(operand, description) {
     val relDataType = localAgg.deriveRowType()
     val localAggOutputDataType = TypeConversions.fromLogicalToDataType(
       FlinkTypeFactory.toLogicalType(relDataType))
-
+    val estimatedRowCount = localAgg.estimateRowCount(call.getMetadataQuery).asInstanceOf[Number]
+      .longValue()
     val newRelOptTable = applyAggregate(
-      aggArgFields, remainingAggFunctionList, groupSet, localAggOutputDataType, tableSource)
-      .copy(relDataType)
+      aggArgFields, remainingAggFunctionList, groupSet, localAggOutputDataType, tableSource,
+      estimatedRowCount).copy(relDataType)
     val newTableSource = newRelOptTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
     val oldTableSource = tableSource.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
 
@@ -148,7 +150,8 @@ extends RelOptRule(operand, description) {
       aggregateFunctions: util.List[FunctionDefinition],
       groupSet: Array[Int],
       aggOutputDataType: DataType,
-      relOptTable: FlinkPreparingTableBase): LegacyTableSourceTable[_] = {
+      relOptTable: FlinkPreparingTableBase,
+      estimatedRowCount: Long): LegacyTableSourceTable[_] = {
     val tableSourceTable = relOptTable.unwrap(classOf[LegacyTableSourceTable[Any]])
     val aggregatableSource = tableSourceTable.tableSource.asInstanceOf[AggregatableTableSource[Any]]
     val newTableSource = aggregatableSource.applyAggregates(
@@ -159,8 +162,13 @@ extends RelOptRule(operand, description) {
       // Keep all Statistics and original table source if not all aggregates can be pushed down
       return tableSourceTable
     }
-    // Remove tableStats after all aggregates pushed down
-    val newStatistic = FlinkStatistic.builder().statistic(statistic).tableStats(null).build()
+    val newStatistic = if (statistic == FlinkStatistic.UNKNOWN) {
+      statistic
+    } else {
+      // reuse the original local aggregates' estimated row count
+      FlinkStatistic.builder().statistic(statistic).tableStats(new TableStats(estimatedRowCount))
+        .build()
+    }
     tableSourceTable.copy(newTableSource, newStatistic)
   }
 }

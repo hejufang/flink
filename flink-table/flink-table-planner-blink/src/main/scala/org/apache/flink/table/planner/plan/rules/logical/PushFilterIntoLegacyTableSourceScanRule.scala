@@ -21,6 +21,7 @@ package org.apache.flink.table.planner.plan.rules.logical
 import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.expressions.Expression
+import org.apache.flink.table.plan.stats.TableStats
 import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.expressions.converter.ExpressionConverter
 import org.apache.flink.table.planner.plan.schema.{FlinkPreparingTableBase, LegacyTableSourceTable}
@@ -30,7 +31,6 @@ import org.apache.flink.table.sources.FilterableTableSource
 
 import org.apache.calcite.plan.RelOptRule.{none, operand}
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
-import org.apache.calcite.rel.`type`.RelDataTypeFactory
 import org.apache.calcite.rel.core.Filter
 import org.apache.calcite.rel.logical.LogicalTableScan
 
@@ -82,7 +82,6 @@ class PushFilterIntoLegacyTableSourceScanRule extends RelOptRule(
       filter: Filter,
       scan: LogicalTableScan,
       relOptTable: FlinkPreparingTableBase): Unit = {
-
     val relBuilder = call.builder()
     val context = call.getPlanner.getContext.unwrap(classOf[FlinkContext])
     val maxCnfNodeCount = FlinkRelOptUtil.getMaxCnfNodeCount(scan)
@@ -104,9 +103,10 @@ class PushFilterIntoLegacyTableSourceScanRule extends RelOptRule(
 
     val remainingPredicates = new util.LinkedList[Expression]()
     predicates.foreach(e => remainingPredicates.add(e))
-
+    val estimatedRowCount = filter.estimateRowCount(call.getMetadataQuery).asInstanceOf[Number]
+      .longValue()
     val newRelOptTable: FlinkPreparingTableBase =
-      applyPredicate(remainingPredicates, relOptTable, relBuilder.getTypeFactory)
+      applyPredicate(remainingPredicates, relOptTable, estimatedRowCount)
     val newTableSource = newRelOptTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
     val oldTableSource = relOptTable.unwrap(classOf[LegacyTableSourceTable[_]]).tableSource
 
@@ -135,7 +135,7 @@ class PushFilterIntoLegacyTableSourceScanRule extends RelOptRule(
   private def applyPredicate(
       predicates: util.List[Expression],
       relOptTable: FlinkPreparingTableBase,
-      typeFactory: RelDataTypeFactory): FlinkPreparingTableBase = {
+      estimatedRowCount: Long): FlinkPreparingTableBase = {
     val originPredicatesSize = predicates.size()
     val tableSourceTable = relOptTable.unwrap(classOf[LegacyTableSourceTable[_]])
     val filterableSource = tableSourceTable.tableSource.asInstanceOf[FilterableTableSource[_]]
@@ -148,8 +148,9 @@ class PushFilterIntoLegacyTableSourceScanRule extends RelOptRule(
     } else if (statistic == FlinkStatistic.UNKNOWN) {
       statistic
     } else {
-      // Remove tableStats after predicates pushed down
-      FlinkStatistic.builder().statistic(statistic).tableStats(null).build()
+      // reuse the original filter's estimated row count
+      FlinkStatistic.builder().statistic(statistic).tableStats(new TableStats(estimatedRowCount))
+        .build()
     }
     tableSourceTable.copy(newTableSource, newStatistic)
   }
