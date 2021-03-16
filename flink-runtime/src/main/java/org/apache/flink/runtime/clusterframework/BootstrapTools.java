@@ -486,6 +486,17 @@ public class BootstrapTools {
 				ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_KEY, ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT);
 		}
 
+		// use cores as gc.thread.num
+		if (flinkConfig.getBoolean(ConfigConstants.FLINK_GC_THREAD_NUM_USE_CORES_KEY, ConfigConstants.FLINK_GC_THREAD_NUM_USE_CORES_DEFAULT)) {
+			double containerVcores = tmParams.getContainerVcores();
+			if (containerVcores <= 0) {
+				javaOpts += " -XX:ParallelGCThreads=" + ConfigConstants.FLINK_GC_THREAD_NUM_DEFAULT;
+			} else {
+				javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(containerVcores);
+			}
+
+		}
+
 		// JVM dump on OOM config
 		if (flinkConfig.getBoolean(ConfigConstants.FLINK_DUMP_ON_OOM_KEY, ConfigConstants.FLINK_DUMP_ON_OOM_DEFAULT)) {
 			javaOpts += " -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=" + logDirectory;

@@ -51,6 +51,9 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 	/** The number of slots per TaskManager. */
 	private final int numSlots;
 
+	/** The configurated vcores of tm. */
+	private double containerVcores;
+
 	/** Environment variables to add to the Java process. */
 	private final HashMap<String, String> taskManagerEnv;
 
@@ -59,12 +62,14 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 			long taskManagerHeapSizeMB,
 			long taskManagerDirectMemoryLimitMB,
 			int numSlots,
+			double containerVcores,
 			HashMap<String, String> taskManagerEnv) {
 
 		this.totalContainerMemoryMB = totalContainerMemoryMB;
 		this.taskManagerHeapSizeMB = taskManagerHeapSizeMB;
 		this.taskManagerDirectMemoryLimitMB = taskManagerDirectMemoryLimitMB;
 		this.numSlots = numSlots;
+		this.containerVcores = containerVcores;
 		this.taskManagerEnv = taskManagerEnv;
 	}
 
@@ -90,6 +95,9 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 		return taskManagerEnv;
 	}
 
+	public double getContainerVcores() {
+		return containerVcores;
+	}
 
 	// ------------------------------------------------------------------------
 
@@ -100,6 +108,7 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 			", taskManagerHeapSize=" + taskManagerHeapSizeMB +
 			", taskManagerDirectMemoryLimit=" + taskManagerDirectMemoryLimitMB +
 			", numSlots=" + numSlots +
+			", containerVcores=" + containerVcores +
 			", taskManagerEnv=" + taskManagerEnv +
 			'}';
 	}
@@ -158,6 +167,7 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 	public static ContaineredTaskManagerParameters create(
 			Configuration config,
 			long containerMemoryMB,
+			double containerVcores,
 			int numSlots) {
 		// (1) try to compute how much memory used by container
 		final long cutoffMB = calculateCutoffMB(config, containerMemoryMB);
@@ -227,6 +237,6 @@ public class ContaineredTaskManagerParameters implements java.io.Serializable {
 
 		// done
 		return new ContaineredTaskManagerParameters(
-			containerMemoryMB, heapSizeMB, offHeapSizeMB, numSlots, envVars);
+			containerMemoryMB, heapSizeMB, offHeapSizeMB, numSlots, containerVcores, envVars);
 	}
 }

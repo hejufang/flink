@@ -144,7 +144,7 @@ public class BootstrapToolsTest extends TestLogger {
 	public void testGetTaskManagerShellCommand() {
 		final Configuration cfg = new Configuration();
 		final ContaineredTaskManagerParameters containeredParams =
-			new ContaineredTaskManagerParameters(1024, 768, 256, 4,
+			new ContaineredTaskManagerParameters(1024, 768, 256, 4, 3.0,
 				new HashMap<String, String>());
 
 		// no logging, with/out krb5

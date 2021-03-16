@@ -1487,8 +1487,10 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 		// init the ContainerLaunchContext
 		final String currDir = env.get(ApplicationConstants.Environment.PWD.key());
 
+		double containerVcores = resource.getVirtualCoresMilli() / 1000.0;
+
 		final ContaineredTaskManagerParameters taskManagerParameters =
-				ContaineredTaskManagerParameters.create(flinkConfig, resource.getMemory(), numberOfTaskSlots);
+				ContaineredTaskManagerParameters.create(flinkConfig, resource.getMemory(), containerVcores, numberOfTaskSlots);
 
 		log.debug("TaskExecutor {} will be started with container size {} MB, JVM heap size {} MB, " +
 				"JVM direct memory limit {} MB",

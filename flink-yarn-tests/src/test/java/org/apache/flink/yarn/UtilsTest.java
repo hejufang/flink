@@ -188,7 +188,7 @@ public class UtilsTest extends TestLogger {
 		amCredentials.writeTokenStorageFile(new org.apache.hadoop.fs.Path(credentialFile.getAbsolutePath()), yarnConf);
 
 		ContaineredTaskManagerParameters tmParams = new ContaineredTaskManagerParameters(64,
-			64, 16, 1, new HashMap<>(1));
+			64, 16, 1, 3.0, new HashMap<>(1));
 		Configuration taskManagerConf = new Configuration();
 
 		String workingDirectory = root.getAbsolutePath();

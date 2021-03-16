@@ -87,6 +87,7 @@ public class YarnConfigurationITCase extends YarnTestBase {
 
 			final int masterMemory = 64;
 			final int taskManagerMemory = 128;
+			final double taskManagerVcores = 3.0;
 			final int slotsPerTaskManager = 3;
 
 			// disable heap cutoff min
@@ -180,6 +181,7 @@ public class YarnConfigurationITCase extends YarnTestBase {
 					final ContaineredTaskManagerParameters containeredTaskManagerParameters = ContaineredTaskManagerParameters.create(
 						configuration,
 						taskManagerMemory,
+						taskManagerVcores,
 						slotsPerTaskManager);
 
 					final long expectedHeadSize = containeredTaskManagerParameters.taskManagerHeapSizeMB() << 20L;

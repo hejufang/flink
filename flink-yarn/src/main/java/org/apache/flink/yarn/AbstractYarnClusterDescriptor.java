@@ -492,6 +492,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
+		flinkConfiguration.setDouble(JobManagerOptions.JOB_MANAGER_VCORES, clusterSpecification.getMasterVcores());
+
 		// ------------------ Add dynamic properties to local flinkConfiguraton ------
 		Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
 		for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
@@ -1959,6 +1961,12 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			javaOpts += " -XX:+UseG1GC";
 			javaOpts += " -XX:MaxGCPauseMillis=" + flinkConfiguration.getInteger(
 				ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_KEY, ConfigConstants.FLINK_MAX_GC_PAUSE_MILLIS_DEFAULT);
+		}
+
+		// use cores as gc.thread.num
+		if (flinkConfiguration.getBoolean(ConfigConstants.FLINK_GC_THREAD_NUM_USE_CORES_KEY,
+			ConfigConstants.FLINK_GC_THREAD_NUM_USE_CORES_DEFAULT)) {
+			javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(flinkConfiguration.getDouble(JobManagerOptions.JOB_MANAGER_VCORES, ConfigConstants.FLINK_GC_THREAD_NUM_DEFAULT));
 		}
 
 		// JVM GC log opts

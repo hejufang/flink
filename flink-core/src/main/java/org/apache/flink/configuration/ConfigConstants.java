@@ -2111,6 +2111,9 @@ public final class ConfigConstants {
 	public static final String FLINK_JVM_ERROR_FILE_KEY = "flink.jvm.error.file";
 	public static final String FLINK_DUMP_ON_OOM_KEY = "flink.dump.on.oom";
 	public static final boolean FLINK_DUMP_ON_OOM_DEFAULT = false;
+	public static final String FLINK_GC_THREAD_NUM_USE_CORES_KEY = "flink.parallel.gc.thread.use.cores";
+	public static final boolean FLINK_GC_THREAD_NUM_USE_CORES_DEFAULT = false;
+	public static final int FLINK_GC_THREAD_NUM_DEFAULT = 8;
 
 	/** Configuration key of yarn cluster name. */
 	public static final String YARN_CLUSTER_NAME_KEY = "yarn.cluster.name";
