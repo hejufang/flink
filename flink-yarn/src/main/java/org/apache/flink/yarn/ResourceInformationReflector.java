@@ -148,7 +148,8 @@ class ResourceInformationReflector {
 		try {
 			externalResourcesInfo = (Object[]) resourceGetResourcesMethod.invoke(resource);
 			// The first two element would be cpu and mem.
-			for (int i = 2; i < externalResourcesInfo.length; i++) {
+			// The third element would be vcores-milli.
+			for (int i = 3; i < externalResourcesInfo.length; i++) {
 				final String name = (String) resourceInformationGetNameMethod.invoke(externalResourcesInfo[i]);
 				final long value = (long) resourceInformationGetValueMethod.invoke(externalResourcesInfo[i]);
 				externalResources.put(name, value);

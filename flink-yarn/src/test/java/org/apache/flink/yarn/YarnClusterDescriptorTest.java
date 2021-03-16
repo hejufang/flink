@@ -46,6 +46,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -111,6 +112,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 	}
 
 	@Test
+	@Ignore
+	// The check of CPU number has been removed to reduce the pressure on YARN
 	public void testFailIfTaskSlotsHigherThanMaxVcores() throws ClusterDeploymentException {
 		final Configuration flinkConfiguration = new Configuration();
 
@@ -133,6 +136,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 	}
 
 	@Test
+	@Ignore
+	// The check of CPU number has been removed to reduce the pressure on YARN
 	public void testConfigOverwrite() throws ClusterDeploymentException {
 		Configuration configuration = new Configuration();
 		// overwrite vcores in config
@@ -207,6 +212,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 		final String jvmOpts = "-Djvm"; // if set
 		final String jmJvmOpts = "-DjmJvm"; // if set
 		final String krb5 = "-Djava.security.krb5.conf=krb5.conf";
+		final String errorFile = "-XX:ErrorFile=<LOG_DIR>/hs_err_pid%p.log";
 		final String logfile =
 			"-Dlog.file=\"" + ApplicationConstants.LOG_DIR_EXPANSION_VAR +
 				"/jobmanager.log\""; // if set
@@ -215,6 +221,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 		final String log4j =
 			"-Dlog4j.configuration=file:" + YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME +
 				" -Dlog4j.configurationFile=file:" + YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME; // if set
+		final String logLevel = "-Dlog.level=" + cfg.getString(CoreOptions.FLINK_LOG_LEVEL);
 		final String mainClass = clusterDescriptor.getYarnSessionClusterEntrypoint();
 		final String redirects =
 			"1>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.out " +
@@ -225,6 +232,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
+					" " + errorFile +
 					"" + // logging
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
@@ -236,7 +244,9 @@ public class YarnClusterDescriptorTest extends TestLogger {
 
 			assertEquals(
 				java + " " + jvmmem +
-					" " + krb5 + // jvmOpts
+					"" + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
 					"" + // logging
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
@@ -251,7 +261,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
-					" " + logfile + " " + logback +
+					" " + errorFile +
+					" " + logfile + " " + logback + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -263,8 +274,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			cfg.set(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE, YarnLogConfigUtil.CONFIG_FILE_LOGBACK_NAME);
 			assertEquals(
 				java + " " + jvmmem +
-					" " + krb5 + // jvmOpts
-					" " + logfile + " " + logback +
+					"" + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
+					" " + logfile + " " + logback + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -278,7 +291,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
-					" " + logfile + " " + log4j +
+					" " + errorFile +
+					" " + logfile + " " + log4j + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -290,8 +304,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			cfg.set(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE, YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME);
 			assertEquals(
 				java + " " + jvmmem +
-					" " + krb5 + // jvmOpts
-					" " + logfile + " " + log4j +
+					"" + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
+					" " + logfile + " " + log4j + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -305,7 +321,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					"" + // jvmOpts
-					" " + logfile + " " + logback +
+					" " + errorFile +
+					" " + logfile + " " + logback + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -317,8 +334,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			cfg.set(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE, YarnLogConfigUtil.CONFIG_FILE_LOGBACK_NAME);
 			assertEquals(
 				java + " " + jvmmem +
-					" " + krb5 + // jvmOpts
-					" " + logfile + " " + logback +
+					"" + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
+					" " + logfile + " " + logback + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -335,7 +354,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					" " + jvmOpts +
-					" " + logfile + " " + logback +
+					" " + errorFile +
+					" " + logfile + " " + logback + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -347,8 +367,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			cfg.set(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE, YarnLogConfigUtil.CONFIG_FILE_LOGBACK_NAME);
 			assertEquals(
 				java + " " + jvmmem +
-					" " + jvmOpts + " " + krb5 + // jvmOpts
-					" " + logfile + " " + logback +
+					" " + jvmOpts + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
+					" " + logfile + " " + logback + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -364,7 +386,8 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java + " " + jvmmem +
 					" " + jvmOpts + " " + jmJvmOpts +
-					" " + logfile + " " + log4j +
+					" " + errorFile +
+					" " + logfile + " " + log4j + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -376,8 +399,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			cfg.set(YarnConfigOptionsInternal.APPLICATION_LOG_CONFIG_FILE, YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME);
 			assertEquals(
 				java + " " + jvmmem +
-					" " + jvmOpts + " " + jmJvmOpts + " " + krb5 + // jvmOpts
-					" " + logfile + " " + log4j +
+					" " + jvmOpts + " " + jmJvmOpts + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
+					" " + logfile + " " + log4j + " " + logLevel +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -393,8 +418,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 				"%java% 1 %jvmmem% 2 %jvmopts% 3 %logging% 4 %class% 5 %args% 6 %redirects%");
 			assertEquals(
 				java + " 1 " + jvmmem +
-					" 2 " + jvmOpts + " " + jmJvmOpts + " " + krb5 + // jvmOpts
-					" 3 " + logfile + " " + logback +
+					" 2 " + jvmOpts + " " + jmJvmOpts +
+					" " + errorFile +
+					" " + krb5 + // jvmOpts
+					" 3 " + logfile + " " + logback + " " + logLevel +
 					" 4 " + mainClass + " 5 6 " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -409,8 +436,10 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			// IMPORTANT: Be aware that we are using side effects here to modify the created YarnClusterDescriptor
 			assertEquals(
 				java +
-					" " + logfile + " " + logback +
-					" " + jvmOpts + " " + jmJvmOpts + " " + krb5 + // jvmOpts
+					" " + logfile + " " + logback + " " + logLevel +
+					" " + jvmOpts + " " + jmJvmOpts + // jvmOpts
+					" " + errorFile +
+					" " + krb5 +
 					" " + jvmmem +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor

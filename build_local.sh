@@ -25,4 +25,4 @@ export JAVA_HOME=/usr/local/jdk
 export MAVEN_OPTS=-Xmx1024m
 
 mvn clean install -DskipTests -T 1C -Pinclude-hadoop -Psql-jars -Pdocs-and-source
-mvn clean test -Dsurefire.rerunFailingTestsCount=3 -Dflink.forkCount=2 -Dflink.forkCountTestPackage=2 -pl flink-runtime,flink-core,flink-metrics,flink-table/flink-sql-parser,flink-table/flink-sql-parser-hive,flink-table/flink-table-api-java,flink-table/flink-table-api-java-bridge,flink-table/flink-table-common,flink-table/flink-table-planner-blink,flink-table/flink-table-runtime-blink,flink-table/flink-table-uber-blink,flink-clients
+mvn clean test -Dsurefire.rerunFailingTestsCount=3 -Dflink.forkCount=2 -Dflink.forkCountTestPackage=2 -pl flink-runtime,flink-core,flink-metrics,flink-table/flink-sql-parser,flink-table/flink-sql-parser-hive,flink-table/flink-table-api-java,flink-table/flink-table-api-java-bridge,flink-table/flink-table-common,flink-table/flink-table-planner-blink,flink-table/flink-table-runtime-blink,flink-table/flink-table-uber-blink,flink-clients,flink-yarn

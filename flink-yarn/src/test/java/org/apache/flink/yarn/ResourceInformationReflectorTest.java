@@ -22,6 +22,7 @@ import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.util.TestLogger;
 
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -55,6 +56,8 @@ public class ResourceInformationReflectorTest extends TestLogger {
 	}
 
 	@Test
+	@Ignore
+	// setResourceInformation only support keys in "vcores,memory,vcores-milli"
 	public void testGetResourceInformationIfMethodPresent() {
 		final ResourceInformationReflector resourceInformationReflector = new ResourceInformationReflector(ResourceWithMethod.class.getName(), ResourceInfoWithMethod.class.getName());
 		final ResourceWithMethod resourceWithMethod = new ResourceWithMethod();
@@ -94,6 +97,15 @@ public class ResourceInformationReflectorTest extends TestLogger {
 		// make sure that Resource has at least two associated resources (cpu and memory)
 		final Map<String, Long> resourcesResult = ResourceInformationReflector.INSTANCE.getAllResourceInfos(resource);
 		assertThat(resourcesResult.size(), is(2));
+	}
+
+	@Test
+	public void testDefaultThreeResourceTypeWithYarnSupport() {
+		final Resource resource = Resource.newInstance(100, 1);
+
+		// make sure that Resource has at least there associated resources (cpu, vcores-milli and memory)
+		final Map<String, Long> resourcesResult = ResourceInformationReflector.INSTANCE.getAllResourceInfos(resource);
+		assertThat(resourcesResult.size(), is(3));
 	}
 
 	@Test

@@ -178,6 +178,10 @@ public final class GlobalConfiguration {
 			InputStream input = new FileInputStream(file);
 			Yaml yaml = new Yaml();
 			Map<String, Object> allYamlConf = (Map<String, Object>) yaml.load(input);
+			if (allYamlConf == null) {
+				LOG.warn("Configuration in file {} is Null.", file.getAbsolutePath());
+				return config;
+			}
 			Map<String, Object> commonConf = (Map<String, Object>) allYamlConf.get(COMMON);
 			Map<String, Object> clusterConf = (Map<String, Object>) allYamlConf.get(clusterName);
 			if (commonConf != null) {
