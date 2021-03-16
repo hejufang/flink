@@ -129,4 +129,60 @@ class RowTypeTest extends RowTypeTestBase {
       "null"
     )
   }
+
+  @Test
+  def testRowComparisons(): Unit = {
+    // comparison for general value.
+    testAllApis(
+      'f2 === row(2, "foo", true),
+      "f2 === row(2, 'foo', true)",
+      "f2 = row(2, 'foo', true)",
+      "true"
+    )
+
+    testAllApis(
+      'f2 === row(2, "foo", false),
+      "f2 === row(2, 'foo', false)",
+      "f2 = row(2, 'foo', false)",
+      "false"
+    )
+
+    // comparison for row with null value, note that f0 is a null string.
+    testAllApis(
+      'f2 === row(2, 'f0, true),
+      "f2 === row(2, f0, true)",
+      "f2 = row(2, f0, true)",
+      "false"
+    )
+
+    testAllApis(
+      'f6 === row('f0, 'f0),
+      "f6 === row(f0, f0)",
+      "f6 = row(f0, f0)",
+      "true"
+    )
+
+    // comparison for null row.
+    testAllApis(
+      'f7 === 'f7,
+      "f7 === f7",
+      "f7 = f7",
+      "null"
+    )
+
+    testAllApis(
+      'f7 !== 'f7,
+      "f7 !== f7",
+      "f7 <> f7",
+      "null"
+    )
+
+    // comparison for nested row.
+    testAllApis(
+      'f3 === row(3, row(2, "foo", true)),
+      "f3 === row(3, row(2, 'foo', true))",
+      "f3 = row(3, row(2, 'foo', true))",
+      "true"
+    )
+  }
 }

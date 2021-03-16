@@ -132,14 +132,6 @@ class EqualiserCodeGenerator(fieldTypes: Seq[LogicalType]) {
     new GeneratedRecordEqualiser(className, functionCode, ctx.references.toArray)
   }
 
-  private def isInternalPrimitive(t: LogicalType): Boolean = t.getTypeRoot match {
-    case _ if PlannerTypeUtils.isPrimitive(t) => true
-
-    case DATE | TIME_WITHOUT_TIME_ZONE | TIMESTAMP_WITHOUT_TIME_ZONE |
-         TIMESTAMP_WITH_LOCAL_TIME_ZONE | INTERVAL_YEAR_MONTH |INTERVAL_DAY_TIME => true
-    case _ => false
-  }
-
   private def isBaseRow(t: LogicalType): Boolean = t match {
     case _: RowType => true
     case _ => false

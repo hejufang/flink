@@ -26,7 +26,7 @@ import org.apache.flink.table.dataformat.{BinaryStringUtil, Decimal, _}
 import org.apache.flink.table.functions.UserDefinedFunction
 import org.apache.flink.table.runtime.dataview.StateDataViewStore
 import org.apache.flink.table.runtime.generated.{AggsHandleFunction, HashFunction, NamespaceAggsHandleFunction}
-import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter
+import org.apache.flink.table.runtime.types.{ClassLogicalTypeConverter, PlannerTypeUtils}
 import org.apache.flink.table.runtime.types.ClassLogicalTypeConverter.getInternalClassForType
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.types.PlannerTypeUtils.isInteroperable
@@ -193,6 +193,14 @@ object CodeGenUtils {
     case INTERVAL_DAY_TIME => "-1L"
 
     case _ => "null"
+  }
+
+  def isInternalPrimitive(t: LogicalType): Boolean = t.getTypeRoot match {
+    case _ if PlannerTypeUtils.isPrimitive(t) => true
+
+    case DATE | TIME_WITHOUT_TIME_ZONE | TIMESTAMP_WITHOUT_TIME_ZONE |
+         TIMESTAMP_WITH_LOCAL_TIME_ZONE | INTERVAL_YEAR_MONTH |INTERVAL_DAY_TIME => true
+    case _ => false
   }
 
   /**

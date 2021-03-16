@@ -19,9 +19,10 @@
 package org.apache.flink.table.planner.codegen.calls
 
 import org.apache.flink.table.dataformat._
-import org.apache.flink.table.planner.codegen.CodeGenUtils.{binaryRowFieldSetAccess, binaryRowSetNull, binaryWriterWriteField, binaryWriterWriteNull, _}
+import org.apache.flink.table.planner.codegen.CodeGenUtils.{binaryRowFieldSetAccess, binaryRowSetNull, binaryWriterWriteField, binaryWriterWriteNull, isInternalPrimitive, _}
 import org.apache.flink.table.planner.codegen.GenerateUtils._
 import org.apache.flink.table.planner.codegen.GeneratedExpression.{ALWAYS_NULL, NEVER_NULL, NO_CODE}
+import org.apache.flink.table.planner.codegen.Indenter.toISC
 import org.apache.flink.table.planner.codegen.{CodeGenException, CodeGeneratorContext, GeneratedExpression}
 import org.apache.flink.table.planner.typeutils.TypeCoercion
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromLogicalTypeToDataType
@@ -31,6 +32,7 @@ import org.apache.flink.table.runtime.typeutils.TypeCheckUtils
 import org.apache.flink.table.runtime.typeutils.TypeCheckUtils._
 import org.apache.flink.table.types.logical.LogicalTypeRoot._
 import org.apache.flink.table.types.logical._
+import org.apache.flink.table.types.logical.utils.LogicalTypeChecks.isCompositeType
 import org.apache.flink.util.Preconditions.checkArgument
 
 import org.apache.calcite.avatica.util.DateTimeUtils.MILLIS_PER_DAY
@@ -372,6 +374,9 @@ object ScalarOperatorGens {
       } else {
         generateEquals(ctx, generateCast(ctx, left, right.resultType), right)
       }
+    }
+    else if (isCompositeType(left.resultType) && canEqual){
+      generateRowComparison(ctx, left, right)
     }
     // non comparable types
     else {
@@ -2087,6 +2092,87 @@ object ScalarOperatorGens {
              """.stripMargin
         (stmt, resultTerm)
     }
+
+  /**
+   * Generate code for comparison of RowData.
+   * Note that when left row and right row are both null, the result is false. This logic
+   * is controlled by GenerateUtils#generateCallWithStmtIfArgsNotNull, staying consistent
+   * with other comparisons.
+   * However when any fields in two rows at the same location are null, the result of
+   * the comparison of these fields is true, e.g, row(1, 2, null) = row(1, 2, null)
+   * turns out to be true. Even if the null fields are of row type.
+   */
+  private def generateRowComparison(
+                                     ctx: CodeGeneratorContext,
+                                     left: GeneratedExpression,
+                                     right: GeneratedExpression): GeneratedExpression = {
+    generateCallWithStmtIfArgsNotNull(ctx, new BooleanType(), Seq(left, right)) {
+      args =>
+        val resultTerm = newName("result")
+        val leftTerm = args.head
+        val rightTerm = args(1)
+        val fieldTypes = left.resultType.getChildren
+        val header =
+          j"""
+             |if ($leftTerm.getHeader() != $rightTerm.getHeader()) {
+             |  $resultTerm = false;
+             |}
+          """.stripMargin
+
+        val fieldCode = for (i <- fieldTypes.indices) yield {
+          val fieldType = fieldTypes.get(i)
+          val fieldTypeTerm = primitiveTypeTermForType(fieldType)
+          // As in nested rows, terms in outer row maybe the same as the inner ones.
+          // we have to use newNames.
+          val Seq(leftNullTerm, rightNullTerm, leftFieldTerm, rightFieldTerm) =
+          newNames(
+            "leftIsNull$" + i,
+            "rightIsNull$" + i,
+            "leftField$" + i,
+            "rightField$" + i)
+
+          val (equalsCode, equalsResult) = if (isInternalPrimitive(fieldType)) {
+            ("", s"$leftFieldTerm == $rightFieldTerm")
+          } else {
+            val left = GeneratedExpression(leftFieldTerm, leftNullTerm, "", fieldType)
+            val right = GeneratedExpression(rightFieldTerm, rightNullTerm, "", fieldType)
+            val gen = generateEquals(ctx, left, right)
+            (gen.code, gen.resultTerm)
+          }
+          val leftReadCode = baseRowFieldReadAccess(ctx, i, leftTerm, fieldType)
+          val rightReadCode = baseRowFieldReadAccess(ctx, i, rightTerm, fieldType)
+          // The outermost if is for short-circuit.
+          // If two fields at the same index are not equal. We need not to compare other fields.
+          j"""
+             |if ($resultTerm) {
+             |  boolean $leftNullTerm = $leftTerm.isNullAt($i);
+             |  boolean $rightNullTerm = $rightTerm.isNullAt($i);
+             |  if ($leftNullTerm && $rightNullTerm) {
+             |    $resultTerm = true;
+             |  } else if ($leftNullTerm || $rightNullTerm) {
+             |    $resultTerm = false;
+             |  } else {
+             |    $fieldTypeTerm $leftFieldTerm = $leftReadCode;
+             |    $fieldTypeTerm $rightFieldTerm = $rightReadCode;
+             |    $equalsCode
+             |    $resultTerm = $equalsResult;
+             | }
+             |}
+          """.stripMargin
+        }
+        val code =
+          j"""
+             |boolean $resultTerm = true;
+             |if ($leftTerm instanceof $BINARY_ROW && $rightTerm instanceof $BINARY_ROW) {
+             |  $resultTerm = $leftTerm.equals($rightTerm);
+             |} else {
+             |  $header
+             |  ${fieldCode.mkString("\n")}
+             |}
+          """.stripMargin
+        (code, resultTerm)
+    }
+  }
   
   // ------------------------------------------------------------------------------------------
 
