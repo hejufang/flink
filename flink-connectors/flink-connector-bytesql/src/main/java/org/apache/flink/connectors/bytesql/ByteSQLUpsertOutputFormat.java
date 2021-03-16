@@ -32,6 +32,7 @@ import com.bytedance.infra.bytesql4j.ByteSQLDB;
 import com.bytedance.infra.bytesql4j.ByteSQLOption;
 import com.bytedance.infra.bytesql4j.ByteSQLTransaction;
 import com.bytedance.infra.bytesql4j.exception.ByteSQLException;
+import com.bytedance.infra.bytesql4j.exception.DuplicatedEntryException;
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -214,7 +215,9 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 								"the transaction after rollback fails.", e);
 						}
 					}
-					if (!e.isRetryable() || retryTimes >= insertOptions.getMaxRetryTimes()) {
+					// The logic checking whether to retry is recommended by ByteSQL.
+					// Will be updated in the future.
+					if (retryTimes >= insertOptions.getMaxRetryTimes() || e instanceof DuplicatedEntryException) {
 						throw new RuntimeException(String.format("Execution of ByteSQL statement " +
 							"failed. The sql is %s.", sql), e);
 					}
