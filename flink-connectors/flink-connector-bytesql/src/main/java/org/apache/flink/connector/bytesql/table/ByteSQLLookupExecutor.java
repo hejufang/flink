@@ -38,6 +38,7 @@ import org.apache.flink.shaded.guava18.com.google.common.cache.CacheBuilder;
 import com.bytedance.infra.bytesql4j.ByteSQLDB;
 import com.bytedance.infra.bytesql4j.ByteSQLOption;
 import com.bytedance.infra.bytesql4j.exception.ByteSQLException;
+import com.bytedance.infra.bytesql4j.exception.DuplicatedEntryException;
 import com.bytedance.infra.bytesql4j.proto.QueryResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,7 +149,7 @@ public class ByteSQLLookupExecutor implements Serializable {
 			} catch (ByteSQLException e) {
 				lookupFailurePerSecond.markEvent();
 				LOG.error(String.format("ByteSQL execute error, retry times = %d", retry), e);
-				if (!e.isRetryable() || retry >= lookupOptions.getMaxRetryTimes()) {
+				if (retry >= lookupOptions.getMaxRetryTimes() || e instanceof DuplicatedEntryException) {
 					throw new RuntimeException("Execution of ByteSQL statement failed.", e);
 				}
 			} catch (SQLException e) {
