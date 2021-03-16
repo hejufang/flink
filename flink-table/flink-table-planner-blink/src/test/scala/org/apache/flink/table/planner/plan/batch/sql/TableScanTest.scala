@@ -171,4 +171,28 @@ class TableScanTest extends TableTestBase {
         .createTemporaryTable("t1")
     util.verifyPlan(util.tableEnv.from("t1"))
   }
+
+
+  @Test
+  def testLegacyTableSourceScanTransformation(): Unit = {
+    util.addTableSource[(Int, Long, String)]("MyTable", 'a, 'b, 'c)
+    util.verifyTransformation("SELECT * FROM MyTable")
+  }
+
+  @Test
+  def testDDLTableScanTransformation(): Unit = {
+    util.addTable(
+      """
+        |CREATE TABLE src (
+        |  ts TIMESTAMP(3),
+        |  a INT,
+        |  b DOUBLE,
+        |  WATERMARK FOR ts AS ts - INTERVAL '0.001' SECOND
+        |) WITH (
+        |  'connector' = 'values',
+        |  'bounded' = 'true'
+        |)
+      """.stripMargin)
+    util.verifyTransformation("SELECT * FROM src WHERE a > 1")
+  }
 }

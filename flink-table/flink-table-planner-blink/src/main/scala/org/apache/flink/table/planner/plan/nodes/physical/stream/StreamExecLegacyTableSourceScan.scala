@@ -96,7 +96,7 @@ class StreamExecLegacyTableSourceScan(
   override protected def translateToPlanInternal(
       planner: StreamPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val inputTransform = getSourceTransformation(planner.getExecEnv)
+    val inputTransform = getSourceTransformation(planner.getExecEnv, isStreaming = true)
 
     val fieldIndexes = computeIndexMapping()
 

@@ -69,22 +69,26 @@ abstract class PhysicalLegacyTableSourceScan(
       format: InputFormat[IN, _ <: InputSplit],
       t: TypeInformation[IN]): Transformation[IN]
 
-  def getSourceTransformation(env: StreamExecutionEnvironment): Transformation[_] = {
+  def getSourceTransformation(
+      env: StreamExecutionEnvironment,
+      isStreaming: Boolean): Transformation[_] = {
     if (sourceTransform == null) {
       sourceTransform = tableSource match {
         case format: InputFormatTableSource[_] =>
           // we don't use InputFormatTableSource.getDataStream, because in here we use planner
           // type conversion to support precision of Varchar and something else.
           val typeInfo = fromDataTypeToTypeInfo(format.getProducedDataType)
-              .asInstanceOf[TypeInformation[Any]]
+            .asInstanceOf[TypeInformation[Any]]
           createInput(
             env,
             format.getInputFormat.asInstanceOf[InputFormat[Any, _ <: InputSplit]],
             typeInfo.asInstanceOf[TypeInformation[Any]])
         case s: StreamTableSource[_] => s.getDataStream(env).getTransformation
       }
-      sourceTransform = new FakeTransformation(
-        sourceTransform, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
+      if (isStreaming) {
+        sourceTransform = new FakeTransformation(
+          sourceTransform, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
+      }
     }
     sourceTransform
   }

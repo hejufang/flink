@@ -100,7 +100,7 @@ class BatchExecLegacyTableSourceScan(
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
     val config = planner.getTableConfig
-    val inputTransform = getSourceTransformation(planner.getExecEnv)
+    val inputTransform = getSourceTransformation(planner.getExecEnv, isStreaming = false)
 
     val fieldIndexes = computeIndexMapping()
 
