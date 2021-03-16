@@ -23,6 +23,10 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.common.functions.AggregateFunction;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.metrics.ConfigMessage;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.queryablestate.KvStateID;
 import org.apache.flink.runtime.accumulators.AccumulatorSnapshot;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
@@ -298,6 +302,14 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		this.resourceManagerHeartbeatManager = NoOpHeartbeatManager.getInstance();
 
 		this.minSlotsNum = jobGraph.calcMinRequiredSlotsNum();
+		// send job's configuration
+		if (jobManagerJobMetricGroup != null) {
+			final MessageSet<ConfigMessage> messageSet = new MessageSet<>(MessageType.JOB_CONFIG);
+			jobManagerJobMetricGroup.gauge("jobConfig", messageSet);
+			for (Map.Entry<String, String> entry : jobMasterConfiguration.getConfiguration().toMap().entrySet()) {
+				messageSet.addMessage(new Message<>(new ConfigMessage(entry.getKey(), entry.getValue())));
+			}
+		}
 	}
 
 	private SchedulerNG createScheduler(final JobManagerJobMetricGroup jobManagerJobMetricGroup) throws Exception {

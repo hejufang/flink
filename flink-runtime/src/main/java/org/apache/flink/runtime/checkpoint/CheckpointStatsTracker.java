@@ -20,6 +20,9 @@ package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
@@ -258,6 +261,10 @@ public class CheckpointStatsTracker {
 		} finally {
 			statsReadWriteLock.unlock();
 		}
+
+		MESSAGE_SET.addMessage(new Message<>(WarehouseCheckpointMessage.constructSuccessMessage(completed.checkpointId,
+				completed.triggerTimestamp, System.currentTimeMillis(), completed.getEndToEndDuration(), completed.getExternalPath(),
+				completed.getStateSize(), -1L)));
 	}
 
 	/**
@@ -265,12 +272,17 @@ public class CheckpointStatsTracker {
 	 *
 	 * @param failed The failed checkpoint stats.
 	 */
-	private void reportFailedCheckpoint(FailedCheckpointStats failed) {
+	private void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
 		statsReadWriteLock.lock();
 		try {
 			counts.incrementFailedCheckpoints();
 			history.replacePendingCheckpointById(failed);
 
+			if (reason != null) {
+				final String reasonMessage = reason.message().replaceAll(" ", "-");
+				MESSAGE_SET.addMessage(new Message<>(WarehouseCheckpointMessage.constructFailedMessage(failed.getCheckpointId(),
+						failed.triggerTimestamp, System.currentTimeMillis(), reasonMessage, failed.getEndToEndDuration(), failed.getStateSize())));
+			}
 			dirty = true;
 		} finally {
 			statsReadWriteLock.unlock();
@@ -311,8 +323,8 @@ public class CheckpointStatsTracker {
 		 *
 		 * @param failed The failed checkpoint.
 		 */
-		void reportFailedCheckpoint(FailedCheckpointStats failed) {
-			CheckpointStatsTracker.this.reportFailedCheckpoint(failed);
+		void reportFailedCheckpoint(FailedCheckpointStats failed, @Nullable CheckpointFailureReason reason) {
+			CheckpointStatsTracker.this.reportFailedCheckpoint(failed, reason);
 		}
 
 	}
@@ -349,6 +361,9 @@ public class CheckpointStatsTracker {
 
 	static final String NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD = "numberOfTotalDeletedStateFiles";
 
+	static final String WAREHOUSE_CHECKPOINTS = "warehouseCheckpoints";
+
+	static final MessageSet<WarehouseCheckpointMessage> MESSAGE_SET = new MessageSet<>(MessageType.CHECKPOINT);
 
 	/**
 	 * Register the exposed metrics.
@@ -366,6 +381,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
 		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, StateUtil::getNumDiscardStates);
 		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, StateUtil::getNumLegacyDiscardStates);
+		metricGroup.gauge(WAREHOUSE_CHECKPOINTS, MESSAGE_SET);
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
@@ -443,5 +459,4 @@ public class CheckpointStatsTracker {
 			}
 		}
 	}
-
 }

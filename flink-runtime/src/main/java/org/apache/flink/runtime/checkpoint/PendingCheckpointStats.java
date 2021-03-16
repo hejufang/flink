@@ -189,7 +189,7 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 	 * @param failureTimestamp Timestamp of the failure.
 	 * @param cause Optional cause of the failure.
 	 */
-	void reportFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause) {
+	void reportFailedCheckpoint(long failureTimestamp, @Nullable Throwable cause, @Nullable CheckpointFailureReason reason) {
 		FailedCheckpointStats failed = new FailedCheckpointStats(
 			checkpointId,
 			triggerTimestamp,
@@ -202,7 +202,7 @@ public class PendingCheckpointStats extends AbstractCheckpointStats {
 			latestAcknowledgedSubtask,
 			cause);
 
-		trackerCallback.reportFailedCheckpoint(failed);
+		trackerCallback.reportFailedCheckpoint(failed, reason);
 	}
 
 	@Override

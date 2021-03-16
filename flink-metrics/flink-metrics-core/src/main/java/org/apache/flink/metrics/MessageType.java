@@ -37,7 +37,6 @@ public enum MessageType {
 
 	RESTORE("restore");
 
-
 	private final String name;
 
 	MessageType(final String name) {

@@ -30,6 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -210,10 +211,10 @@ public class PendingCheckpointStatsTest {
 		// Report failed
 		Exception cause = new Exception("test exception");
 		long failureTimestamp = 112211137;
-		pending.reportFailedCheckpoint(failureTimestamp, cause);
+		pending.reportFailedCheckpoint(failureTimestamp, cause, null);
 
 		ArgumentCaptor<FailedCheckpointStats> args = ArgumentCaptor.forClass(FailedCheckpointStats.class);
-		verify(callback).reportFailedCheckpoint(args.capture());
+		verify(callback).reportFailedCheckpoint(args.capture(), nullable(CheckpointFailureReason.class));
 
 		FailedCheckpointStats failed = args.getValue();
 

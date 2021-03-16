@@ -164,7 +164,7 @@ public class CheckpointStatsTrackerTest {
 			1,
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
 
-		failed.reportFailedCheckpoint(12, null);
+		failed.reportFailedCheckpoint(12, null, null);
 
 		// Completed savepoint
 		PendingCheckpointStats savepoint = tracker.reportPendingCheckpoint(
@@ -317,9 +317,10 @@ public class CheckpointStatsTrackerTest {
 			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC,
 			CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC,
 			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD,
-			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD
+			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD,
+			CheckpointStatsTracker.WAREHOUSE_CHECKPOINTS
 		)));
-		assertEquals(10, registeredGaugeNames.size());
+		assertEquals(11, registeredGaugeNames.size());
 	}
 
 	/**
@@ -350,7 +351,7 @@ public class CheckpointStatsTrackerTest {
 			metricGroup);
 
 		// Make sure to adjust this test if metrics are added/removed
-		assertEquals(10, registeredGauges.size());
+		assertEquals(11, registeredGauges.size());
 
 		// Check initial values
 		Gauge<Long> numCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_CHECKPOINTS_METRIC);
@@ -421,7 +422,7 @@ public class CheckpointStatsTrackerTest {
 			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION));
 
 		long failureTimestamp = 1230123L;
-		nextPending.reportFailedCheckpoint(failureTimestamp, null);
+		nextPending.reportFailedCheckpoint(failureTimestamp, null, null);
 
 		// Verify updated
 		assertEquals(Long.valueOf(2), numCheckpoints.getValue());
