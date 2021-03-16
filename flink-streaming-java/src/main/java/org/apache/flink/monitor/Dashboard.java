@@ -29,7 +29,10 @@ import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,6 +46,9 @@ import static org.apache.flink.monitor.utils.Utils.formatMetricsName;
  */
 public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
+
+	private static final String CHECKPOINT_OVERVIEW_TEMPLATE = "checkpoint_overview_template.txt";
+
 	private String clusterName;
 	private String jobName;
 	private String formatJobName;
@@ -153,34 +159,19 @@ public class Dashboard {
 		return gcRow;
 	}
 
-	private String renderCheckpointRow() {
-		String checkpointTemplate = Template.CHECKPOINT;
+	private String renderCheckpointOverviewRow() {
+		String checkpointTemplate = null;
+		try {
+			checkpointTemplate = renderFromResource(CHECKPOINT_OVERVIEW_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render checkpoint metrics.", e);
+			return "";
+		}
+
 		Map<String, String> checkpointValues = new HashMap<>();
 		checkpointValues.put("jobname", formatJobName);
 		checkpointValues.put("datasource", dataSource);
-		String checkpointRow = renderString(checkpointTemplate, checkpointValues);
-		return checkpointRow;
-	}
-
-	private String renderCheckpointDurationRow(List<String> operators) {
-		// Render target
-		String targetTemplate = Template.CHECKPOINT_DURATION_TASK_TARGET;
-		List<String> targetList = new ArrayList<>();
-		for (String o : operators) {
-			Map<String, String> targetValues = new HashMap<>();
-			targetValues.put("operator", o);
-			targetValues.put("jobname", formatJobName);
-			targetList.add(renderString(targetTemplate, targetValues));
-		}
-		String taskTargets = String.join(",", targetList);
-
-		// Render complete configuration
-		Map<String, String> checkpointDurationValues = new HashMap<>();
-		checkpointDurationValues.put("taskTargets", taskTargets);
-		checkpointDurationValues.put("datasource", dataSource);
-		String checkpointDurationTemplate = Template.CHECKPOINT_DURATION;
-		String checkpointDurationRow = renderString(checkpointDurationTemplate, checkpointDurationValues);
-		return checkpointDurationRow;
+		return renderString(checkpointTemplate, checkpointValues);
 	}
 
 	private String renderSlowContainerRow() {
@@ -382,6 +373,7 @@ public class Dashboard {
 		}
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
+		rows.add(renderCheckpointOverviewRow());
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
 		rows.add(renderRecordsSinkSkippedRow(sinks));
@@ -406,8 +398,6 @@ public class Dashboard {
 		rows.add(renderGcRow());
 		rows.add(renderJobInfoRow());
 		rows.add(renderTmSlotRow());
-		rows.add(renderCheckpointRow());
-		rows.add(renderCheckpointDurationRow(operators));
 		rows.add(renderSlowContainerRow());
 		rows.add(renderCompletedContainerRow());
 
@@ -419,6 +409,23 @@ public class Dashboard {
 		map.put("cluster", clusterName);
 		String dashboardJson = renderString(template, map);
 		return dashboardJson;
+	}
+
+	private String renderFromResource(String resource) throws IOException {
+		StringBuilder contentBuilder = new StringBuilder();
+		try (InputStream stream = Dashboard.class.getClassLoader().getResourceAsStream("templates/" + resource)) {
+			BufferedReader br = new BufferedReader(new InputStreamReader(stream));
+			String line;
+			line = br.readLine();
+			while (line != null){
+				if (!line.startsWith("#")) {
+					contentBuilder.append(line);
+					contentBuilder.append("\n");
+				}
+				line = br.readLine();
+			}
+		}
+		return contentBuilder.toString();
 	}
 
 	public boolean registerDashboard(String url, String token) throws IOException {
