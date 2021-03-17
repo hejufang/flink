@@ -79,6 +79,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
@@ -571,7 +572,7 @@ public class LocalExecutor implements Executor {
 		}
 
 		// create pipeline
-		final String jobName = sessionId + ": " + statement;
+		final String jobName = sessionId + "_update_" + UUID.randomUUID().toString();
 		final Pipeline pipeline;
 		try {
 			pipeline = context.createPipeline(jobName);
