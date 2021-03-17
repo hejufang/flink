@@ -28,6 +28,7 @@ import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
 import javax.annotation.Nonnull;
@@ -93,7 +94,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates = new HashMap<>();
 		CloseableRegistry cancelStreamRegistryForBackend = new CloseableRegistry();
 		HeapSnapshotStrategy<K> snapshotStrategy = initSnapshotStrategy(
-			asynchronousSnapshots, registeredKVStates, registeredPQStates, cancelStreamRegistryForBackend);
+			asynchronousSnapshots, registeredKVStates, registeredPQStates, cancelStreamRegistryForBackend, statsTracker);
 		InternalKeyContext<K> keyContext = new InternalKeyContextImpl<>(
 			keyGroupRange,
 			numberOfKeyGroups
@@ -111,7 +112,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 			snapshotStrategy,
 			keyContext);
 		try {
-			restoreOperation.restore();
+			restoreOperation.restoreWithStatistic(statsTracker);
 		} catch (Exception e) {
 			throw new BackendBuildingException("Failed when trying to restore heap backend", e);
 		}
@@ -135,7 +136,8 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 		boolean asynchronousSnapshots,
 		Map<String, StateTable<K, ?, ?>> registeredKVStates,
 		Map<String, HeapPriorityQueueSnapshotRestoreWrapper> registeredPQStates,
-		CloseableRegistry cancelStreamRegistry) {
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) {
 		SnapshotStrategySynchronicityBehavior<K> synchronicityTrait = asynchronousSnapshots ?
 			new AsyncSnapshotStrategySynchronicityBehavior<>() :
 			new SyncSnapshotStrategySynchronicityBehavior<>();
@@ -147,6 +149,7 @@ public class HeapKeyedStateBackendBuilder<K> extends AbstractKeyedStateBackendBu
 			localRecoveryConfig,
 			keyGroupRange,
 			cancelStreamRegistry,
-			keySerializerProvider);
+			keySerializerProvider,
+			statsTracker);
 	}
 }

@@ -31,6 +31,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.SnapshotStrategy;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.util.ResourceGuard;
 
 import org.rocksdb.RocksDB;
@@ -95,9 +96,10 @@ public abstract class RocksDBSnapshotStrategyBase<K>
 		@Nonnull KeyGroupRange keyGroupRange,
 		@Nonnegative int keyGroupPrefixBytes,
 		@Nonnull LocalRecoveryConfig localRecoveryConfig,
-		@Nonnull CloseableRegistry cancelStreamRegistry) {
+		@Nonnull CloseableRegistry cancelStreamRegistry,
+		@Nonnull StateStatsTracker statsTracker) {
 
-		super(description);
+		super(description, statsTracker);
 		this.db = db;
 		this.rocksDBResourceGuard = rocksDBResourceGuard;
 		this.keySerializer = keySerializer;

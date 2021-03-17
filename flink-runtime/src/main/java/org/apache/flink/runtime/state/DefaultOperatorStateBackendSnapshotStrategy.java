@@ -23,6 +23,8 @@ import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 
 import javax.annotation.Nonnull;
 
@@ -49,8 +51,9 @@ class DefaultOperatorStateBackendSnapshotStrategy extends AbstractSnapshotStrate
 		boolean asynchronousSnapshots,
 		Map<String, PartitionableListState<?>> registeredOperatorStates,
 		Map<String, BackendWritableBroadcastState<?, ?>> registeredBroadcastStates,
-		CloseableRegistry closeStreamOnCancelRegistry) {
-		super("DefaultOperatorStateBackend snapshot");
+		CloseableRegistry closeStreamOnCancelRegistry,
+		StateStatsTracker statsTracker) {
+		super("DefaultOperatorStateBackend snapshot", statsTracker);
 		this.userClassLoader = userClassLoader;
 		this.asynchronousSnapshots = asynchronousSnapshots;
 		this.registeredOperatorStates = registeredOperatorStates;
@@ -70,6 +73,7 @@ class DefaultOperatorStateBackendSnapshotStrategy extends AbstractSnapshotStrate
 			return DoneFuture.of(SnapshotResult.empty());
 		}
 
+		long syncStart = System.currentTimeMillis();
 		final Map<String, PartitionableListState<?>> registeredOperatorStatesDeepCopies =
 			new HashMap<>(registeredOperatorStates.size());
 		final Map<String, BackendWritableBroadcastState<?, ?>> registeredBroadcastStatesDeepCopies =
@@ -105,11 +109,17 @@ class DefaultOperatorStateBackendSnapshotStrategy extends AbstractSnapshotStrate
 		}
 
 		AsyncSnapshotCallable<SnapshotResult<OperatorStateHandle>> snapshotCallable =
-			new AsyncSnapshotCallable<SnapshotResult<OperatorStateHandle>>() {
+			new AsyncSnapshotCallableWithStatistic<SnapshotResult<OperatorStateHandle>>(
+				BackendType.OPERATOR_STATE_BACKEND,
+				statsTracker,
+				checkpointId,
+				1,
+				System.currentTimeMillis() - syncStart) {
 
 				@Override
 				protected SnapshotResult<OperatorStateHandle> callInternal() throws Exception {
 
+					long uploadStart = System.currentTimeMillis();
 					CheckpointStreamFactory.CheckpointStateOutputStream localOut =
 						streamFactory.createCheckpointStateOutputStream(CheckpointedStateScope.EXCLUSIVE);
 					snapshotCloseableRegistry.registerCloseable(localOut);
@@ -181,6 +191,9 @@ class DefaultOperatorStateBackendSnapshotStrategy extends AbstractSnapshotStrate
 						if (stateHandle != null) {
 							retValue = new OperatorStreamStateHandle(writtenStatesMetaData, stateHandle);
 						}
+						uploadDuration.getAndAdd(System.currentTimeMillis() - uploadStart);
+						uploadFileNum.getAndAdd(StateUtil.isPersistInFile(stateHandle) ? 1 : 0);
+						uploadSizeInBytes.getAndAdd(retValue == null ? 0L : retValue.getStateSize());
 
 						return SnapshotResult.of(retValue);
 					} else {

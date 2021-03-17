@@ -41,7 +41,11 @@ public class MessageMeta {
 
 	private String user;
 
+	private String host;
+
 	private String applicationId;
+
+	private String tmId;
 
 	private String commitId;
 
@@ -113,12 +117,28 @@ public class MessageMeta {
 		this.user = user;
 	}
 
+	public String getHost() {
+		return host;
+	}
+
+	public void setHost(String host) {
+		this.host = host;
+	}
+
 	public String getApplicationId() {
 		return applicationId;
 	}
 
 	public void setApplicationId(String applicationId) {
 		this.applicationId = applicationId;
+	}
+
+	public String getTmId() {
+		return tmId;
+	}
+
+	public void setTmId(String tmId) {
+		this.tmId = tmId;
 	}
 
 	public String getCommitId() {
@@ -154,14 +174,16 @@ public class MessageMeta {
 			Objects.equals(queue, that.queue) &&
 			Objects.equals(metricName, that.metricName) &&
 			Objects.equals(user, that.user) &&
+			Objects.equals(host, that.host) &&
 			Objects.equals(applicationId, that.applicationId) &&
+			Objects.equals(tmId, that.tmId) &&
 			Objects.equals(commitId, that.commitId) &&
 			Objects.equals(commitDate, that.commitDate);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, applicationId, commitId, commitDate);
+		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, host, applicationId, tmId, commitId, commitDate);
 	}
 
 	@Override
@@ -175,7 +197,9 @@ public class MessageMeta {
 			", queue='" + queue + '\'' +
 			", metricName='" + metricName + '\'' +
 			", user='" + user + '\'' +
+			", host='" + host + '\'' +
 			", applicationId='" + applicationId + '\'' +
+			", tmId='" + tmId + '\'' +
 			", commitId='" + commitId + '\'' +
 			", commitDate='" + commitDate + '\'' +
 			'}';

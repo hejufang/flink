@@ -26,6 +26,7 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.commons.io.IOUtils;
@@ -50,7 +51,7 @@ import java.util.stream.Stream;
 /**
  * Implementation of operator state restore operation.
  */
-public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
+public class OperatorStateRestoreOperation extends RestoreOperationWithStatistic<Void> {
 	private static final Logger LOG = LoggerFactory.getLogger(OperatorStateRestoreOperation.class);
 
 	private final CloseableRegistry closeStreamOnCancelRegistry;
@@ -67,6 +68,7 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 		Map<String, BackendWritableBroadcastState<?, ?>> registeredBroadcastStates,
 		@Nonnull Collection<OperatorStateHandle> stateHandles,
 		int threads) {
+		super(BackendType.OPERATOR_STATE_BACKEND);
 		this.closeStreamOnCancelRegistry = closeStreamOnCancelRegistry;
 		this.userClassloader = userClassloader;
 		this.registeredOperatorStates = registeredOperatorStates;
@@ -92,6 +94,7 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 			.sum();
 		LOG.info("A total of {} OperatorStateHandles were received, including a total of {} fragments.", stateHandles.size(), fragments);
 
+		long writeKeyStart = System.currentTimeMillis();
 		if (restoreThreads == 1) {
 			// fallback to single thread restore
 			restoreInSingleThread();
@@ -121,6 +124,7 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 				executorService.shutdown();
 			}
 		}
+		updateDownloadStats(System.currentTimeMillis() - writeKeyStart);
 		return null;
 	}
 
@@ -133,7 +137,7 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 		for (StateMetaInfoSnapshot restoredSnapshot : state.getRestoredOperatorMetaInfoSnapshots()) {
 
 			final RegisteredOperatorStateBackendMetaInfo<?> restoredMetaInfo =
-					new RegisteredOperatorStateBackendMetaInfo<>(restoredSnapshot);
+				new RegisteredOperatorStateBackendMetaInfo<>(restoredSnapshot);
 
 			if (restoredMetaInfo.getPartitionStateSerializer() instanceof UnloadableDummyTypeSerializer) {
 
@@ -329,7 +333,9 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 				for (long offset : offsets) {
 					in.seek(offset);
 					stateListForName.add(serializer.deserialize(div));
+					this.downloadSizeInBytes.getAndAdd(in.getPos() - offset);
 				}
+				this.writeKeyNum.getAndAdd(offsets.length);
 			}
 		}
 	}
@@ -368,8 +374,8 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 		private final Map<String, BackendWritableBroadcastState<?, ?>> tempBroadcastStates;
 
 		StateHandleParserSupplier(OperatorStateHandle operatorStateHandle,
-				ClassLoader userClassloader,
-				CloseableRegistry closeStreamOnCancelRegistry) {
+								  ClassLoader userClassloader,
+								  CloseableRegistry closeStreamOnCancelRegistry) {
 			this.stateHandle = operatorStateHandle;
 			this.userClassloader = userClassloader;
 			this.closeStreamOnCancelRegistry = closeStreamOnCancelRegistry;
@@ -486,5 +492,10 @@ public class OperatorStateRestoreOperation implements RestoreOperation<Void> {
 				}
 			}
 		}
+	}
+
+	private void updateDownloadStats(long writeKeyDuration) {
+		super.updateDownloadStats(this.stateHandles, writeKeyDuration);
+		this.numberOfRestoreTransferThreads = restoreThreads;
 	}
 }

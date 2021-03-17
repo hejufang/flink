@@ -34,7 +34,7 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.PriorityComparable;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.RegisteredPriorityQueueStateBackendMetaInfo;
-import org.apache.flink.runtime.state.RestoreOperation;
+import org.apache.flink.runtime.state.RestoreOperationWithStatistic;
 import org.apache.flink.runtime.state.SnappyStreamCompressionDecorator;
 import org.apache.flink.runtime.state.StateSerializerProvider;
 import org.apache.flink.runtime.state.StateSnapshotKeyGroupReader;
@@ -42,6 +42,7 @@ import org.apache.flink.runtime.state.StateSnapshotRestore;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StateMigrationException;
 
@@ -54,13 +55,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of heap restore operation.
  *
  * @param <K> The data type that the serializer serializes.
  */
-public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
+public class HeapRestoreOperation<K> extends RestoreOperationWithStatistic<Void> {
 	private final Collection<KeyedStateHandle> restoreStateHandles;
 	private final StateSerializerProvider<K> keySerializerProvider;
 	private final ClassLoader userCodeClassLoader;
@@ -87,6 +89,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 		int numberOfKeyGroups,
 		HeapSnapshotStrategy<K> snapshotStrategy,
 		InternalKeyContext<K> keyContext) {
+		super(BackendType.HEAP_STATE_BACKEND);
 		this.restoreStateHandles = restoreStateHandles;
 		this.keySerializerProvider = keySerializerProvider;
 		this.userCodeClassLoader = userCodeClassLoader;
@@ -108,6 +111,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 
 		boolean keySerializerRestored = false;
 
+		long writeKeyStart = System.currentTimeMillis();
 		for (KeyedStateHandle keyedStateHandle : restoreStateHandles) {
 
 			if (keyedStateHandle == null) {
@@ -164,6 +168,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 				}
 			}
 		}
+		updateDownloadStats(this.restoreStateHandles.stream().map(o -> (KeyGroupsStateHandle) o).collect(Collectors.toList()), System.currentTimeMillis() - writeKeyStart);
 		return null;
 	}
 
@@ -257,6 +262,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 					keyGroupIndex,
 					numStates,
 					readVersion);
+				this.downloadSizeInBytes.getAndAdd(fsDataInputStream.getPos() - offset);
 			}
 		}
 	}
@@ -290,7 +296,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 			}
 
 			StateSnapshotKeyGroupReader keyGroupReader = registeredState.keyGroupReader(readVersion);
-			keyGroupReader.readMappingsInKeyGroup(inView, keyGroupIndex);
+			this.writeKeyNum.getAndAdd(keyGroupReader.readMappingsInKeyGroup(inView, keyGroupIndex));
 		}
 	}
 }

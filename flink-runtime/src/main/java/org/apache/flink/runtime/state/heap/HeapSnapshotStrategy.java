@@ -24,6 +24,7 @@ import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.state.AbstractSnapshotStrategy;
 import org.apache.flink.runtime.state.AsyncSnapshotCallable;
+import org.apache.flink.runtime.state.AsyncSnapshotCallableWithStatistic;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamWithResultProvider;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
@@ -38,10 +39,13 @@ import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateSerializerProvider;
 import org.apache.flink.runtime.state.StateSnapshot;
 import org.apache.flink.runtime.state.StateSnapshotRestore;
+import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -80,8 +84,9 @@ class HeapSnapshotStrategy<K>
 		LocalRecoveryConfig localRecoveryConfig,
 		KeyGroupRange keyGroupRange,
 		CloseableRegistry cancelStreamRegistry,
-		StateSerializerProvider<K> keySerializerProvider) {
-		super("Heap backend snapshot");
+		StateSerializerProvider<K> keySerializerProvider,
+		StateStatsTracker stateTracker) {
+		super("Heap backend snapshot", stateTracker);
 		this.snapshotStrategySynchronicityTrait = snapshotStrategySynchronicityTrait;
 		this.registeredKVStates = registeredKVStates;
 		this.registeredPQStates = registeredPQStates;
@@ -104,6 +109,7 @@ class HeapSnapshotStrategy<K>
 			return DoneFuture.of(SnapshotResult.empty());
 		}
 
+		final long syncStart = System.currentTimeMillis();
 		int numStates = registeredKVStates.size() + registeredPQStates.size();
 
 		Preconditions.checkState(numStates <= Short.MAX_VALUE,
@@ -155,10 +161,16 @@ class HeapSnapshotStrategy<K>
 		//--------------------------------------------------- this becomes the end of sync part
 
 		final AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> asyncSnapshotCallable =
-			new AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>>() {
+			new AsyncSnapshotCallableWithStatistic<SnapshotResult<KeyedStateHandle>>(
+				BackendType.HEAP_STATE_BACKEND,
+				statsTracker,
+				checkpointId,
+				1,
+				System.currentTimeMillis() - syncStart) {
 				@Override
 				protected SnapshotResult<KeyedStateHandle> callInternal() throws Exception {
 
+					long uploadStart = System.currentTimeMillis();
 					final CheckpointStreamWithResultProvider streamWithResultProvider =
 						checkpointStreamSupplier.get();
 
@@ -197,6 +209,10 @@ class HeapSnapshotStrategy<K>
 						KeyGroupRangeOffsets kgOffs = new KeyGroupRangeOffsets(keyGroupRange, keyGroupRangeOffsets);
 						SnapshotResult<StreamStateHandle> result =
 							streamWithResultProvider.closeAndFinalizeCheckpointStreamResult();
+						uploadDuration.getAndAdd(System.currentTimeMillis() - uploadStart);
+						uploadFileNum.getAndAdd(StateUtil.isPersistInFile(result.getJobManagerOwnedSnapshot()) ? 1 : 0);
+						uploadSizeInBytes.getAndAdd(result.getStateSize());
+
 						return CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult(result, kgOffs);
 					} else {
 						throw new IOException("Stream already unregistered.");

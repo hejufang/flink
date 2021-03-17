@@ -47,6 +47,8 @@ import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
+import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.AbstractID;
 import org.apache.flink.util.DynamicCodeLoadingException;
@@ -536,6 +538,35 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws IOException {
+		return createKeyedStateBackend(
+			env,
+			jobID,
+			operatorIdentifier,
+			keySerializer,
+			numberOfKeyGroups,
+			keyGroupRange,
+			kvStateRegistry,
+			ttlTimeProvider,
+			metricGroup,
+			stateHandles,
+			cancelStreamRegistry,
+			new NonStateStatsTracker());
+	}
+
+	@Override
+	public <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
+		Environment env,
+		JobID jobID,
+		String operatorIdentifier,
+		TypeSerializer<K> keySerializer,
+		int numberOfKeyGroups,
+		KeyGroupRange keyGroupRange,
+		TaskKvStateRegistry kvStateRegistry,
+		TtlTimeProvider ttlTimeProvider,
+		MetricGroup metricGroup,
+		@Nonnull Collection<KeyedStateHandle> stateHandles,
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) throws IOException {
 
 		// first, make sure that the RocksDB JNI library is loaded
 		// we do this explicitly here to have better error handling
@@ -586,7 +617,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setNumberOfTransferingThreads(getNumberOfTransferThreads())
 			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
 			.setNativeMetricOptions(resourceContainer.getMemoryWatcherOptions(defaultMetricOptions))
-			.setWriteBatchSize(getWriteBatchSize());
+			.setWriteBatchSize(getWriteBatchSize())
+			.setStatsTracker(statsTracker);
 		return builder.build();
 	}
 
@@ -597,6 +629,17 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		@Nonnull Collection<OperatorStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws Exception {
 
+		return createOperatorStateBackend(env, operatorIdentifier, stateHandles, cancelStreamRegistry, new NonStateStatsTracker());
+	}
+
+	@Override
+	public OperatorStateBackend createOperatorStateBackend(
+		Environment env,
+		String operatorIdentifier,
+		@Nonnull Collection<OperatorStateHandle> stateHandles,
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) throws Exception {
+
 		//the default for RocksDB; eventually there can be a operator state backend based on RocksDB, too.
 		final boolean asyncSnapshots = true;
 		return new DefaultOperatorStateBackendBuilder(
@@ -604,7 +647,10 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			env.getExecutionConfig(),
 			asyncSnapshots,
 			stateHandles,
-			cancelStreamRegistry).setRestoreThreads(nThreadOfOperatorStateBackend).build();
+			cancelStreamRegistry)
+			.setRestoreThreads(nThreadOfOperatorStateBackend)
+			.setStatsTracker(statsTracker)
+			.build();
 	}
 
 	private RocksDBOptionsFactory configureOptionsFactory(

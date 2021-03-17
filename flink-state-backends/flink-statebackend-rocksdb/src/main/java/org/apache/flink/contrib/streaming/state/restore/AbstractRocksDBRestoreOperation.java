@@ -31,8 +31,10 @@ import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedBackendSerializationProxy;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
+import org.apache.flink.runtime.state.RestoreOperationWithStatistic;
 import org.apache.flink.runtime.state.StateSerializerProvider;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.StateMigrationException;
 
@@ -58,7 +60,7 @@ import java.util.function.Function;
  *
  * @param <K> The data type that the serializer serializes.
  */
-public abstract class AbstractRocksDBRestoreOperation<K> implements RocksDBRestoreOperation, AutoCloseable {
+public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperationWithStatistic<RocksDBRestoreResult> implements AutoCloseable {
 	protected final KeyGroupRange keyGroupRange;
 	protected final int keyGroupPrefixBytes;
 	protected final int numberOfTransferringThreads;
@@ -106,7 +108,9 @@ public abstract class AbstractRocksDBRestoreOperation<K> implements RocksDBResto
 		RocksDBNativeMetricOptions nativeMetricOptions,
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
-		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager) {
+		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
+		BackendType backendType) {
+		super(backendType);
 		this.keyGroupRange = keyGroupRange;
 		this.keyGroupPrefixBytes = keyGroupPrefixBytes;
 		this.numberOfTransferringThreads = numberOfTransferringThreads;
@@ -125,6 +129,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> implements RocksDBResto
 		this.ttlCompactFiltersManager = ttlCompactFiltersManager;
 		this.columnFamilyHandles = new ArrayList<>(1);
 		this.columnFamilyDescriptors = Collections.emptyList();
+		this.numberOfRestoreTransferThreads = numberOfTransferringThreads;
 	}
 
 	void openDB() throws IOException {

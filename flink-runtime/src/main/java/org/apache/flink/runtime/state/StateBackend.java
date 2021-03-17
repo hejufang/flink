@@ -25,6 +25,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
 import javax.annotation.Nonnull;
@@ -159,7 +160,58 @@ public interface StateBackend extends java.io.Serializable {
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws Exception;
-	
+
+	/**
+	 * Creates a new {@link AbstractKeyedStateBackend} that is responsible for holding <b>keyed state</b>
+	 * and checkpointing it.
+	 *
+	 * <p><i>Keyed State</i> is state where each value is bound to a key.
+	 *
+	 * @param env                  The environment of the task.
+	 * @param jobID                The ID of the job that the task belongs to.
+	 * @param operatorIdentifier   The identifier text of the operator.
+	 * @param keySerializer        The key-serializer for the operator.
+	 * @param numberOfKeyGroups    The number of key-groups aka max parallelism.
+	 * @param keyGroupRange        Range of key-groups for which the to-be-created backend is responsible.
+	 * @param kvStateRegistry      KvStateRegistry helper for this task.
+	 * @param ttlTimeProvider      Provider for TTL logic to judge about state expiration.
+	 * @param metricGroup          The parent metric group for all state backend metrics.
+	 * @param stateHandles         The state handles for restore.
+	 * @param cancelStreamRegistry The registry to which created closeable objects will be registered during restore.
+	 * @param <K>                  The type of the keys by which the state is organized.
+	 * @param statsTracker 		   The tracker for state backend statistics.
+	 *
+	 * @return The Keyed State Backend for the given job, operator, and key group range.
+	 *
+	 * @throws Exception This method may forward all exceptions that occur while instantiating the backend.
+	 */
+	default <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
+		Environment env,
+		JobID jobID,
+		String operatorIdentifier,
+		TypeSerializer<K> keySerializer,
+		int numberOfKeyGroups,
+		KeyGroupRange keyGroupRange,
+		TaskKvStateRegistry kvStateRegistry,
+		TtlTimeProvider ttlTimeProvider,
+		MetricGroup metricGroup,
+		@Nonnull Collection<KeyedStateHandle> stateHandles,
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) throws Exception {
+		return createKeyedStateBackend(
+			env,
+			jobID,
+			operatorIdentifier,
+			keySerializer,
+			numberOfKeyGroups,
+			keyGroupRange,
+			kvStateRegistry,
+			ttlTimeProvider,
+			metricGroup,
+			stateHandles,
+			cancelStreamRegistry);
+	}
+
 	/**
 	 * Creates a new {@link OperatorStateBackend} that can be used for storing operator state.
 	 *
@@ -180,4 +232,33 @@ public interface StateBackend extends java.io.Serializable {
 		String operatorIdentifier,
 		@Nonnull Collection<OperatorStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws Exception;
+
+	/**
+	 * Creates a new {@link OperatorStateBackend} that can be used for storing operator state.
+	 *
+	 * <p>Operator state is state that is associated with parallel operator (or function) instances,
+	 * rather than with keys.
+	 *
+	 * @param env The runtime environment of the executing task.
+	 * @param operatorIdentifier The identifier of the operator whose state should be stored.
+	 * @param stateHandles The state handles for restore.
+	 * @param cancelStreamRegistry The registry to register streams to close if task canceled.
+	 * @param statsTracker The tracker for state backend statistics.
+	 *
+	 * @return The OperatorStateBackend for operator identified by the job and operator identifier.
+	 *
+	 * @throws Exception This method may forward all exceptions that occur while instantiating the backend.
+	 */
+	default OperatorStateBackend createOperatorStateBackend(
+		Environment env,
+		String operatorIdentifier,
+		@Nonnull Collection<OperatorStateHandle> stateHandles,
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) throws Exception {
+		return createOperatorStateBackend(
+			env,
+			operatorIdentifier,
+			stateHandles,
+			cancelStreamRegistry);
+	}
 }

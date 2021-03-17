@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,8 +41,16 @@ public abstract class AbstractSnapshotStrategy<T extends StateObject> implements
 	@Nonnull
 	protected final String description;
 
+	/** Tracker for state backend snapshot statistics. */
+	protected final StateStatsTracker statsTracker;
+
 	protected AbstractSnapshotStrategy(@Nonnull String description) {
+		this(description, new NonStateStatsTracker());
+	}
+
+	protected AbstractSnapshotStrategy(@Nonnull String description, @Nonnull StateStatsTracker statsTracker) {
 		this.description = description;
+		this.statsTracker = statsTracker;
 	}
 
 	/**

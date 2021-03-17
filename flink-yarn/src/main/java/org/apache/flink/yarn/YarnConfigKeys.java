@@ -55,6 +55,8 @@ public class YarnConfigKeys {
 	public static final String LOCAL_RESOURCE_DESCRIPTOR_SEPARATOR = ";";
 	public static final String ENV_SEC_KV_AUTH = "SEC_KV_AUTH";
 
+	public static final String ENV_FLINK_CONTAINER_ID = "_FLINK_CONTAINER_ID";
+	public static final String ENV_FLINK_NODE_ID = "_FLINK_NODE_ID";
 	// ------------------------------------------------------------------------
 
 	/** Private constructor to prevent instantiation. */

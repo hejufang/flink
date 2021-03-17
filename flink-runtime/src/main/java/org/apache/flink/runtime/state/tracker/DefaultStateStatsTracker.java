@@ -1,0 +1,131 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.runtime.state.tracker;
+
+import org.apache.flink.metrics.Message;
+import org.apache.flink.metrics.MessageSet;
+import org.apache.flink.metrics.MessageType;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.runtime.checkpoint.WarehouseRestoreMessage;
+import org.apache.flink.runtime.checkpoint.WarehouseSnapshotMessage;
+
+/**
+ * StateStatsTracker implemented by default.
+ * The snapshot and restore metrics will be reported to the warehouse and opentsdb.
+ */
+public class DefaultStateStatsTracker implements StateStatsTracker {
+	// warehouse
+	private static final String WAREHOUSE_STATE_BACKEND_SNAPSHOTS = "warehouseSnapshotsStats";
+	private static final String WAREHOUSE_STATE_BACKEND_RESTORES = "warehouseRestoresStats";
+
+	// snapshot metrics
+	private static final String STATE_SNAPSHOT_DURATION = "syncDuration";
+	private static final String STATE_UPLOAD_DURATION = "uploadDuration";
+	private static final String STATE_UPLOAD_SIZE = "uploadSizeInBytes";
+
+	// restore metrics
+	private static final String STATE_RECOVER_DURATION = "stateRecoverTime";
+	private static final String STATE_DOWNLOAD_DURATION = "downloadDuration";
+	private static final String STATE_WRITE_KEY_DURATION = "writeKeyDuration";
+	private static final String STATE_DOWNLOAD_SIZE = "downloadSizeInBytes";
+
+	// warehouse
+	private static final MessageSet<WarehouseSnapshotMessage> snapshotMessageSet = new MessageSet<>(MessageType.SNAPSHOT);
+	private static final MessageSet<WarehouseRestoreMessage> restoreMessageSet = new MessageSet<>(MessageType.RESTORE);
+
+	// opentsdb
+	private final TagGauge syncDurationGauge = createTagGauge();
+	private final TagGauge uploadDurationGauge = createTagGauge();
+	private final TagGauge uploadSizeGauge = createTagGauge();
+	private final TagGauge stateRecoverTimeGauge = createTagGauge();
+	private final TagGauge downloadDurationGauge = createTagGauge();
+	private final TagGauge writeKeyDurationGauge = createTagGauge();
+	private final TagGauge downloadSizeInByGauge = createTagGauge();
+
+	public DefaultStateStatsTracker(MetricGroup metricGroup) {
+		registerMetrics(metricGroup);
+	}
+	/**
+	 * Callback when a state backend snapshot completes.
+	 *
+	 * @param message Message of snapshot metrics.
+	 */
+	@Override
+	public void reportCompletedSnapshot(WarehouseSnapshotMessage message) {
+		snapshotMessageSet.addMessage(new Message<>(message));
+		updateSnapshotStatistic(message);
+	}
+
+	/**
+	 * Callback when a state backend restore completes.
+	 *
+	 * @param message Message of restore metrics.
+	 */
+	@Override
+	public void reportCompletedRestore(WarehouseRestoreMessage message) {
+		restoreMessageSet.addMessage(new Message<>(message));
+		updateRecoverStatistic(message);
+	}
+
+	/**
+	 * Register the exposed metrics.
+	 *
+	 * @param metricGroup Metric group to use for the metrics.
+	 */
+	private void registerMetrics(MetricGroup metricGroup) {
+		// warehouse
+		metricGroup.gauge(WAREHOUSE_STATE_BACKEND_SNAPSHOTS, snapshotMessageSet);
+		metricGroup.gauge(WAREHOUSE_STATE_BACKEND_RESTORES, restoreMessageSet);
+
+		// snapshot metrics
+		metricGroup.gauge(STATE_SNAPSHOT_DURATION, syncDurationGauge);
+		metricGroup.gauge(STATE_UPLOAD_DURATION, uploadDurationGauge);
+		metricGroup.gauge(STATE_UPLOAD_SIZE, uploadSizeGauge);
+
+		// restore metrics
+		metricGroup.gauge(STATE_RECOVER_DURATION, stateRecoverTimeGauge);
+		metricGroup.gauge(STATE_DOWNLOAD_DURATION, downloadDurationGauge);
+		metricGroup.gauge(STATE_WRITE_KEY_DURATION, writeKeyDurationGauge);
+		metricGroup.gauge(STATE_DOWNLOAD_SIZE, downloadSizeInByGauge);
+	}
+
+	private void updateSnapshotStatistic(WarehouseSnapshotMessage snapshotMessage) {
+		TagGaugeStore.TagValues tagValues = new TagGaugeStore.TagValuesBuilder()
+			.addTagValue("backend", snapshotMessage.getBackendType())
+			.build();
+		syncDurationGauge.addMetric(snapshotMessage.getSyncDuration(), tagValues);
+		uploadDurationGauge.addMetric(snapshotMessage.getUploadDuration(), tagValues);
+		uploadSizeGauge.addMetric(snapshotMessage.getUploadSizeInBytes(), tagValues);
+	}
+
+	private void updateRecoverStatistic(WarehouseRestoreMessage restoreMessage) {
+		TagGaugeStore.TagValues tagValues = new TagGaugeStore.TagValuesBuilder()
+			.addTagValue("backend", restoreMessage.getBackendType())
+			.build();
+		stateRecoverTimeGauge.addMetric(restoreMessage.getStateRecoverTime(), tagValues);
+		downloadDurationGauge.addMetric(restoreMessage.getDownloadDuration(), tagValues);
+		writeKeyDurationGauge.addMetric(restoreMessage.getWriteKeyDuration(), tagValues);
+		downloadSizeInByGauge.addMetric(restoreMessage.getDownloadSizeInBytes(), tagValues);
+	}
+
+	private TagGauge createTagGauge() {
+		return new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
+	}
+}

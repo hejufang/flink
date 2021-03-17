@@ -45,6 +45,7 @@ import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.heap.InternalKeyContextImpl;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
@@ -274,7 +275,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				prepareDirectories();
 				restoreOperation = getRocksDBRestoreOperation(
 					keyGroupPrefixBytes, cancelStreamRegistry, kvStateInformation, ttlCompactFiltersManager);
-				RocksDBRestoreResult restoreResult = restoreOperation.restore();
+				RocksDBRestoreResult restoreResult = (RocksDBRestoreResult) restoreOperation.restoreWithStatistic(statsTracker);
 				db = restoreResult.getDb();
 				defaultColumnFamilyHandle = restoreResult.getDefaultColumnFamilyHandle();
 				nativeMetricMonitor = restoreResult.getNativeMetricMonitor();
@@ -295,7 +296,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				32);
 			// init snapshot strategy after db is assured to be initialized
 			snapshotStrategy = initializeSavepointAndCheckpointStrategies(cancelStreamRegistryForBackend, rocksDBResourceGuard,
-				kvStateInformation, keyGroupPrefixBytes, db, backendUID, materializedSstFiles, lastCompletedCheckpointId);
+				kvStateInformation, keyGroupPrefixBytes, db, backendUID, materializedSstFiles, lastCompletedCheckpointId, statsTracker);
 			// init priority queue factory
 			priorityQueueFactory = initPriorityQueueFactory(
 				keyGroupPrefixBytes,
@@ -440,7 +441,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		RocksDB db,
 		UUID backendUID,
 		SortedMap<Long, Set<StateHandleID>> materializedSstFiles,
-		long lastCompletedCheckpointId) {
+		long lastCompletedCheckpointId,
+		StateStatsTracker statsTracker) {
 		RocksDBSnapshotStrategyBase<K> savepointSnapshotStrategy = new RocksFullSnapshotStrategy<>(
 			db,
 			rocksDBResourceGuard,
@@ -450,7 +452,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			keyGroupPrefixBytes,
 			localRecoveryConfig,
 			cancelStreamRegistry,
-			keyGroupCompressionDecorator);
+			keyGroupCompressionDecorator,
+			statsTracker);
 		RocksDBSnapshotStrategyBase<K> checkpointSnapshotStrategy;
 		if (enableIncrementalCheckpointing) {
 			// TODO eventually we might want to separate savepoint and snapshot strategy, i.e. having 2 strategies.
@@ -468,7 +471,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				materializedSstFiles,
 				lastCompletedCheckpointId,
 				numberOfTransferingThreads,
-				maxRetryTimes);
+				maxRetryTimes,
+				statsTracker);
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;
 		}

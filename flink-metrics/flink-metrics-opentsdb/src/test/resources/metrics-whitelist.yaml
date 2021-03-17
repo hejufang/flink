@@ -98,6 +98,15 @@ non-global:
         totalNumberOfCheckpoints,
         syncDuration,
         asyncDuration,
+      # operator snapshot
+        syncDurationInMs,
+        uploadDurationInMs,
+        uploadSizeInBytes,
+      # operator restore
+        stateRecoverTime,
+        downloadDurationInMs,
+        writeKeyDurationInMs,
+        downloadSizeInBytes,
       # Blacklist
         numTaskManagersInBlacklist,
       # number of skipped records in source

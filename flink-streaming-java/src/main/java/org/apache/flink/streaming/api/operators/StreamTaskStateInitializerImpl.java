@@ -42,6 +42,8 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StatePartitionStreamProvider;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.TaskStateManager;
+import org.apache.flink.runtime.state.tracker.DefaultStateStatsTracker;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.runtime.util.OperatorSubtaskDescriptionText;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
@@ -137,6 +139,7 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 		CloseableIterable<KeyGroupStatePartitionStreamProvider> rawKeyedStateInputs = null;
 		CloseableIterable<StatePartitionStreamProvider> rawOperatorStateInputs = null;
 		InternalTimeServiceManager<?> timeServiceManager;
+		StateStatsTracker statsTracker = new DefaultStateStatsTracker(metricGroup);
 
 		try {
 
@@ -146,13 +149,15 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 				operatorIdentifierText,
 				prioritizedOperatorSubtaskStates,
 				streamTaskCloseableRegistry,
-				metricGroup);
+				metricGroup,
+				statsTracker);
 
 			// -------------- Operator State Backend --------------
 			operatorStateBackend = operatorStateBackend(
 				operatorIdentifierText,
 				prioritizedOperatorSubtaskStates,
-				streamTaskCloseableRegistry);
+				streamTaskCloseableRegistry,
+				statsTracker);
 
 			// -------------- Raw State Streams --------------
 			rawKeyedStateInputs = rawKeyedStateInputs(
@@ -242,7 +247,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 	protected OperatorStateBackend operatorStateBackend(
 		String operatorIdentifierText,
 		PrioritizedOperatorSubtaskState prioritizedOperatorSubtaskStates,
-		CloseableRegistry backendCloseableRegistry) throws Exception {
+		CloseableRegistry backendCloseableRegistry,
+		StateStatsTracker statsTracker) throws Exception {
 
 		String logDescription = "operator state backend for " + operatorIdentifierText;
 
@@ -257,7 +263,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 					environment,
 					operatorIdentifierText,
 					stateHandles,
-					cancelStreamRegistryForRestore),
+					cancelStreamRegistryForRestore,
+					statsTracker),
 				backendCloseableRegistry,
 				logDescription);
 
@@ -276,7 +283,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 		String operatorIdentifierText,
 		PrioritizedOperatorSubtaskState prioritizedOperatorSubtaskStates,
 		CloseableRegistry backendCloseableRegistry,
-		MetricGroup metricGroup) throws Exception {
+		MetricGroup metricGroup,
+		StateStatsTracker statsTracker) throws Exception {
 
 		if (keySerializer == null) {
 			return null;
@@ -309,7 +317,8 @@ public class StreamTaskStateInitializerImpl implements StreamTaskStateInitialize
 					ttlTimeProvider,
 					metricGroup,
 					stateHandles,
-					cancelStreamRegistryForRestore),
+					cancelStreamRegistryForRestore,
+					statsTracker),
 				backendCloseableRegistry,
 				logDescription);
 

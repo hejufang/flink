@@ -42,8 +42,10 @@ import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.RegisteredStateMetaInfoBase;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StateSerializerProvider;
+import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
 
@@ -78,6 +80,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -126,7 +129,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			nativeMetricOptions,
 			metricGroup,
 			restoreStateHandles,
-			ttlCompactFiltersManager);
+			ttlCompactFiltersManager,
+			BackendType.INCREMENTAL_ROCKSDB_STATE_BACKEND);
 		this.operatorIdentifier = operatorIdentifier;
 		this.restoredSstFiles = new TreeMap<>();
 		this.lastCompletedCheckpointId = -1L;
@@ -155,6 +159,10 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		} else {
 			restoreWithoutRescaling(theFirstStateHandle);
 		}
+
+		this.restoreCheckpointID = lastCompletedCheckpointId;
+		this.rescaling = isRescaling ? 1 : 0;
+
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
 			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles);
 	}
@@ -227,12 +235,14 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		Path temporaryRestoreInstancePath,
 		IncrementalRemoteKeyedStateHandle restoreStateHandle) throws Exception {
 
+		long downloadBegin = System.currentTimeMillis();
 		try (RocksDBStateDownloader rocksDBStateDownloader = new RocksDBStateDownloader(numberOfTransferringThreads)) {
 			rocksDBStateDownloader.transferAllStateDataToDirectory(
 				restoreStateHandle,
 				temporaryRestoreInstancePath,
 				cancelStreamRegistry);
 		}
+		updateDownloadStats(restoreStateHandle, System.currentTimeMillis() - downloadBegin);
 
 		// since we transferred all remote state to a local directory, we can use the same code as for
 		// local recovery.
@@ -304,6 +314,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				List<ColumnFamilyDescriptor> tmpColumnFamilyDescriptors = tmpRestoreDBInfo.columnFamilyDescriptors;
 				List<ColumnFamilyHandle> tmpColumnFamilyHandles = tmpRestoreDBInfo.columnFamilyHandles;
 
+				long writeKeyStart = System.currentTimeMillis();
+				long writeKeyNum = 0L;
 				// iterating only the requested descriptors automatically skips the default column family handle
 				for (int i = 0; i < tmpColumnFamilyDescriptors.size(); ++i) {
 					ColumnFamilyHandle tmpColumnFamilyHandle = tmpColumnFamilyHandles.get(i);
@@ -320,6 +332,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 
 							if (RocksDBIncrementalCheckpointUtils.beforeThePrefixBytes(iterator.key(), stopKeyGroupPrefixBytes)) {
 								writeBatchWrapper.put(targetColumnFamilyHandle, iterator.key(), iterator.value());
+								writeKeyNum++;
 							} else {
 								// Since the iterator will visit the record according to the sorted order,
 								// we can just break here.
@@ -330,6 +343,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 						}
 					} // releases native iterator resources
 				}
+				this.writeKeyDuration.getAndAdd(System.currentTimeMillis() - writeKeyStart);
+				this.writeKeyNum.getAndAdd(writeKeyNum);
 			} finally {
 				cleanUpPathQuietly(temporaryRestoreInstancePath);
 			}
@@ -411,6 +426,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		IncrementalRemoteKeyedStateHandle restoreStateHandle,
 		Path temporaryRestoreInstancePath) throws Exception {
 
+		long downloadBegin = System.currentTimeMillis();
 		try (RocksDBStateDownloader rocksDBStateDownloader =
 				new RocksDBStateDownloader(numberOfTransferringThreads)) {
 			rocksDBStateDownloader.transferAllStateDataToDirectory(
@@ -418,6 +434,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				temporaryRestoreInstancePath,
 				cancelStreamRegistry);
 		}
+		updateDownloadStats(restoreStateHandle, System.currentTimeMillis() - downloadBegin);
 
 		KeyedBackendSerializationProxy<K> serializationProxy = readMetaData(restoreStateHandle.getMetaStateHandle());
 		// read meta data
@@ -497,5 +514,17 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 				inputStream.close();
 			}
 		}
+	}
+
+	private void updateDownloadStats(IncrementalRemoteKeyedStateHandle restoreStateHandle, long downloadDuration) {
+		this.downloadDuration.getAndAdd(downloadDuration);
+		this.downloadFileNum.getAndAdd((int) Stream.concat(restoreStateHandle.getSharedState().values().stream(), restoreStateHandle.getPrivateState().values()
+			.stream())
+			.filter(StateUtil::isPersistInFile)
+			.count());
+		if (StateUtil.isPersistInFile(restoreStateHandle.getMetaStateHandle())) {
+			this.downloadFileNum.getAndAdd(1);
+		}
+		this.downloadSizeInBytes.getAndAdd(restoreStateHandle.getStateSize());
 	}
 }

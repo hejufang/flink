@@ -43,6 +43,8 @@ import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.TaskStateManager;
 import org.apache.flink.runtime.state.heap.HeapKeyedStateBackendBuilder;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
+import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.TernaryBoolean;
@@ -543,12 +545,42 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		@Nonnull Collection<KeyedStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws BackendBuildingException {
 
+		return createKeyedStateBackend(
+			env,
+			jobID,
+			operatorIdentifier,
+			keySerializer,
+			numberOfKeyGroups,
+			keyGroupRange,
+			kvStateRegistry,
+			ttlTimeProvider,
+			metricGroup,
+			stateHandles,
+			cancelStreamRegistry,
+			new NonStateStatsTracker()
+		);
+	}
+
+	@Override
+	public <K> AbstractKeyedStateBackend<K> createKeyedStateBackend(
+		Environment env,
+		JobID jobID,
+		String operatorIdentifier,
+		TypeSerializer<K> keySerializer,
+		int numberOfKeyGroups,
+		KeyGroupRange keyGroupRange,
+		TaskKvStateRegistry kvStateRegistry,
+		TtlTimeProvider ttlTimeProvider,
+		MetricGroup metricGroup,
+		@Nonnull Collection<KeyedStateHandle> stateHandles,
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) throws BackendBuildingException {
+
 		TaskStateManager taskStateManager = env.getTaskStateManager();
 		LocalRecoveryConfig localRecoveryConfig = taskStateManager.createLocalRecoveryConfig();
 		HeapPriorityQueueSetFactory priorityQueueSetFactory =
 			new HeapPriorityQueueSetFactory(keyGroupRange, numberOfKeyGroups, 128);
-
-		return new HeapKeyedStateBackendBuilder<>(
+		HeapKeyedStateBackendBuilder<K> builder = new HeapKeyedStateBackendBuilder<>(
 			kvStateRegistry,
 			keySerializer,
 			env.getUserClassLoader(),
@@ -561,7 +593,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			localRecoveryConfig,
 			priorityQueueSetFactory,
 			isUsingAsynchronousSnapshots(),
-			cancelStreamRegistry).build();
+			cancelStreamRegistry).setStatsTracker(statsTracker);
+		return builder.build();
 	}
 
 	@Override
@@ -571,12 +604,32 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 		@Nonnull Collection<OperatorStateHandle> stateHandles,
 		CloseableRegistry cancelStreamRegistry) throws BackendBuildingException {
 
+		return createOperatorStateBackend(
+			env,
+			operatorIdentifier,
+			stateHandles,
+			cancelStreamRegistry,
+			new NonStateStatsTracker()
+		);
+	}
+
+	@Override
+	public OperatorStateBackend createOperatorStateBackend(
+		Environment env,
+		String operatorIdentifier,
+		@Nonnull Collection<OperatorStateHandle> stateHandles,
+		CloseableRegistry cancelStreamRegistry,
+		StateStatsTracker statsTracker) throws BackendBuildingException {
+
 		return new DefaultOperatorStateBackendBuilder(
 			env.getUserClassLoader(),
 			env.getExecutionConfig(),
 			isUsingAsynchronousSnapshots(),
 			stateHandles,
-			cancelStreamRegistry).setRestoreThreads(nThreadOfOperatorStateBackend).build();
+			cancelStreamRegistry)
+			.setRestoreThreads(nThreadOfOperatorStateBackend)
+			.setStatsTracker(statsTracker)
+			.build();
 	}
 
 	@Override

@@ -20,6 +20,8 @@ package org.apache.flink.runtime.state;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.core.fs.CloseableRegistry;
+import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.util.IOUtils;
 
 import java.util.Collection;
@@ -48,6 +50,8 @@ public class DefaultOperatorStateBackendBuilder implements
 
 	private int restoreThreads;
 
+	private StateStatsTracker statsTracker;
+
 	public DefaultOperatorStateBackendBuilder(
 		ClassLoader userClassloader,
 		ExecutionConfig executionConfig,
@@ -60,6 +64,7 @@ public class DefaultOperatorStateBackendBuilder implements
 		this.restoreStateHandles = stateHandles;
 		this.cancelStreamRegistry = cancelStreamRegistry;
 		this.restoreThreads = 1;
+		this.statsTracker = new NonStateStatsTracker();
 	}
 
 	@Override
@@ -73,7 +78,8 @@ public class DefaultOperatorStateBackendBuilder implements
 				asynchronousSnapshots,
 				registeredOperatorStates,
 				registeredBroadcastStates,
-				cancelStreamRegistryForBackend);
+				cancelStreamRegistryForBackend,
+				statsTracker);
 		OperatorStateRestoreOperation restoreOperation = new OperatorStateRestoreOperation(
 			cancelStreamRegistry,
 			userClassloader,
@@ -82,7 +88,7 @@ public class DefaultOperatorStateBackendBuilder implements
 			restoreStateHandles,
 			restoreThreads);
 		try {
-			restoreOperation.restore();
+			restoreOperation.restoreWithStatistic(statsTracker);
 		} catch (Exception e) {
 			IOUtils.closeQuietly(cancelStreamRegistryForBackend);
 			throw new BackendBuildingException("Failed when trying to restore operator state backend", e);
@@ -100,6 +106,11 @@ public class DefaultOperatorStateBackendBuilder implements
 
 	public DefaultOperatorStateBackendBuilder setRestoreThreads(int threads) {
 		this.restoreThreads = threads;
+		return this;
+	}
+
+	public DefaultOperatorStateBackendBuilder setStatsTracker(StateStatsTracker statsTracker) {
+		this.statsTracker = statsTracker;
 		return this;
 	}
 }

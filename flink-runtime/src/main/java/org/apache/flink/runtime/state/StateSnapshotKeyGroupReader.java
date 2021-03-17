@@ -40,5 +40,5 @@ public interface StateSnapshotKeyGroupReader {
 	 * @param keyGroupId the key-group to write
 	 * @throws IOException on write related problems
 	 */
-	void readMappingsInKeyGroup(@Nonnull DataInputView div, @Nonnegative int keyGroupId) throws IOException;
+	long readMappingsInKeyGroup(@Nonnull DataInputView div, @Nonnegative int keyGroupId) throws IOException;
 }

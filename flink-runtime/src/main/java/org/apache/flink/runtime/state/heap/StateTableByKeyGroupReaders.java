@@ -90,15 +90,16 @@ class StateTableByKeyGroupReaders {
 		}
 
 		@Override
-		public void readMappingsInKeyGroup(@Nonnull DataInputView inView, @Nonnegative int keyGroupId) throws IOException {
+		public long readMappingsInKeyGroup(@Nonnull DataInputView inView, @Nonnegative int keyGroupId) throws IOException {
 
 			if (inView.readByte() == 0) {
-				return;
+				return 0L;
 			}
 
 			final TypeSerializer<N> namespaceSerializer = stateTable.getNamespaceSerializer();
 			final TypeSerializer<S> stateSerializer = stateTable.getStateSerializer();
 
+			long numElements = 0L;
 			// V1 uses kind of namespace compressing format
 			int numNamespaces = inView.readInt();
 			for (int k = 0; k < numNamespaces; k++) {
@@ -109,7 +110,9 @@ class StateTableByKeyGroupReaders {
 					S state = stateSerializer.deserialize(inView);
 					stateTable.put(key, keyGroupId, namespace, state);
 				}
+				numElements += numEntries;
 			}
+			return numElements;
 		}
 	}
 }

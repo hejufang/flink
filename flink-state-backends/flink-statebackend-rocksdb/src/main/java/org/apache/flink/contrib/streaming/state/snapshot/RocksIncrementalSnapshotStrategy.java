@@ -25,7 +25,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.state.AsyncSnapshotCallable;
+import org.apache.flink.runtime.state.AsyncSnapshotCallableWithStatistic;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamWithResultProvider;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
@@ -45,6 +45,8 @@ import org.apache.flink.runtime.state.StateObject;
 import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
@@ -72,6 +74,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.RunnableFuture;
+import java.util.stream.Stream;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
 
@@ -108,6 +111,9 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	/** The local directory name of the current snapshot strategy. */
 	private final String localDirectoryName;
 
+	/** The number of threads used for data transfer. */
+	private final int numberOfTransferingThreads;
+
 	public RocksIncrementalSnapshotStrategy(
 		@Nonnull RocksDB db,
 		@Nonnull ResourceGuard rocksDBResourceGuard,
@@ -122,7 +128,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nonnull SortedMap<Long, Set<StateHandleID>> materializedSstFiles,
 		long lastCompletedCheckpointId,
 		int numberOfTransferingThreads,
-		int maxRetryTimes) {
+		int maxRetryTimes,
+		StateStatsTracker statsTracker) {
 
 		super(
 			DESCRIPTION,
@@ -133,7 +140,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			keyGroupRange,
 			keyGroupPrefixBytes,
 			localRecoveryConfig,
-			cancelStreamRegistry);
+			cancelStreamRegistry,
+			statsTracker);
 
 		this.instanceBasePath = instanceBasePath;
 		this.backendUID = backendUID;
@@ -141,6 +149,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		this.lastCompletedCheckpointId = lastCompletedCheckpointId;
 		this.stateUploader = new RocksDBStateUploader(numberOfTransferingThreads, maxRetryTimes);
 		this.localDirectoryName = backendUID.toString().replaceAll("[\\-]", "");
+		this.numberOfTransferingThreads = numberOfTransferingThreads;
 	}
 
 	@Nonnull
@@ -151,6 +160,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nonnull CheckpointStreamFactory checkpointStreamFactory,
 		@Nonnull CheckpointOptions checkpointOptions) throws Exception {
 
+		long syncStart = System.currentTimeMillis();
 		final SnapshotDirectory snapshotDirectory = prepareLocalSnapshotDirectory(checkpointId);
 		LOG.trace("Local RocksDB checkpoint goes to backup path {}.", snapshotDirectory);
 
@@ -165,7 +175,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				checkpointStreamFactory,
 				snapshotDirectory,
 				baseSstFiles,
-				stateMetaInfoSnapshots);
+				stateMetaInfoSnapshots,
+				System.currentTimeMillis() - syncStart);
 
 		return snapshotOperation.toAsyncSnapshotFutureTask(cancelStreamRegistry);
 	}
@@ -268,7 +279,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	 * Encapsulates the process to perform an incremental snapshot of a RocksDBKeyedStateBackend.
 	 */
 	private final class RocksDBIncrementalSnapshotOperation
-		extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
+		extends AsyncSnapshotCallableWithStatistic<SnapshotResult<KeyedStateHandle>> {
 
 		/** Id for the current checkpoint. */
 		private final long checkpointId;
@@ -294,8 +305,15 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			@Nonnull CheckpointStreamFactory checkpointStreamFactory,
 			@Nonnull SnapshotDirectory localBackupDirectory,
 			@Nullable Set<StateHandleID> baseSstFiles,
-			@Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots) {
+			@Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots,
+			long syncDuration) {
 
+			super(
+				BackendType.INCREMENTAL_ROCKSDB_STATE_BACKEND,
+				statsTracker,
+				checkpointId,
+				numberOfTransferingThreads,
+				syncDuration);
 			this.checkpointStreamFactory = checkpointStreamFactory;
 			this.baseSstFiles = baseSstFiles;
 			this.checkpointId = checkpointId;
@@ -324,7 +342,12 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				Preconditions.checkNotNull(metaStateHandle.getJobManagerOwnedSnapshot(),
 					"Metadata for job manager was not properly created.");
 
+				long uploadBeginTs = System.currentTimeMillis();
 				uploadSstFiles(sstFiles, miscFiles);
+				uploadDuration.getAndAdd(System.currentTimeMillis() - uploadBeginTs);
+
+				LOG.info("Uploading sst files (checkpoint={}) cost {}ms in incremental snapshot.", checkpointId,
+						System.currentTimeMillis() - uploadBeginTs);
 
 				synchronized (materializedSstFiles) {
 					materializedSstFiles.put(checkpointId, sstFiles.keySet());
@@ -338,6 +361,14 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						sstFiles,
 						miscFiles,
 						metaStateHandle.getJobManagerOwnedSnapshot());
+
+				// ByteStreamStateHandle do NOT upload files to HDFS
+				uploadFileNum.getAndAdd((int) Stream.concat(sstFiles.values().stream(), miscFiles.values().stream())
+					.filter(StateUtil::isPersistInFile).count());
+				if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
+					uploadFileNum.getAndAdd(1);
+				}
+				uploadSizeInBytes.getAndAdd(jmIncrementalKeyedStateHandle.getStateSize());
 
 				final DirectoryStateHandle directoryStateHandle = localBackupDirectory.completeSnapshotAndGetHandle();
 				final SnapshotResult<KeyedStateHandle> snapshotResult;

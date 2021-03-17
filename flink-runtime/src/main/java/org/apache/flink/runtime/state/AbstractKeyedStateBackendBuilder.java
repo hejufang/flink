@@ -22,6 +22,8 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
+import org.apache.flink.runtime.state.tracker.NonStateStatsTracker;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
 import javax.annotation.Nonnull;
@@ -43,6 +45,7 @@ public abstract class AbstractKeyedStateBackendBuilder<K>
 	protected final StreamCompressionDecorator keyGroupCompressionDecorator;
 	protected final Collection<KeyedStateHandle> restoreStateHandles;
 	protected final CloseableRegistry cancelStreamRegistry;
+	protected StateStatsTracker statsTracker;
 
 	public AbstractKeyedStateBackendBuilder(
 		TaskKvStateRegistry kvStateRegistry,
@@ -65,5 +68,11 @@ public abstract class AbstractKeyedStateBackendBuilder<K>
 		this.keyGroupCompressionDecorator = keyGroupCompressionDecorator;
 		this.restoreStateHandles = stateHandles;
 		this.cancelStreamRegistry = cancelStreamRegistry;
+		this.statsTracker = new NonStateStatsTracker();
+	}
+
+	public <T extends AbstractKeyedStateBackendBuilder<K>> T setStatsTracker(StateStatsTracker statsTracker) {
+		this.statsTracker = statsTracker;
+		return (T) this;
 	}
 }

@@ -286,4 +286,15 @@ public class StateUtil {
 			numLegacyDiscardStates.addAndGet(numFiles);
 		}
 	}
+	/**
+	 * Determine whether StreamStateHandle saves data in a file.
+	 *
+	 * @param stateHandle The stateHandle that saves the data metadata.
+	 * @return return true if the data is saved in a file, otherwise it returns false.
+	 */
+	public static boolean isPersistInFile(StreamStateHandle stateHandle) {
+		return stateHandle != null
+			&& !(stateHandle instanceof PlaceholderStreamStateHandle)
+			&& !stateHandle.asBytesIfInMemory().isPresent();
+	}
 }

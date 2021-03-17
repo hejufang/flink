@@ -38,6 +38,7 @@ import org.apache.flink.runtime.state.StateSerializerProvider;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
 import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StateMigrationException;
@@ -58,6 +59,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.END_OF_KEY_GROUP_MARK;
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.clearMetaDataFollowsFlag;
@@ -126,7 +128,8 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 			nativeMetricOptions,
 			metricGroup,
 			restoreStateHandles,
-			ttlCompactFiltersManager);
+			ttlCompactFiltersManager,
+			BackendType.FULL_ROCKSDB_STATE_BACKEND);
 		checkArgument(writeBatchSize >= 0, "Write batch size have to be no negative.");
 		this.writeBatchSize = writeBatchSize;
 	}
@@ -139,6 +142,8 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 	public RocksDBRestoreResult restore()
 		throws IOException, StateMigrationException, RocksDBException {
 		openDB();
+
+		long writeKeyStart = System.currentTimeMillis();
 		for (KeyedStateHandle keyedStateHandle : restoreStateHandles) {
 			if (keyedStateHandle != null) {
 
@@ -151,6 +156,7 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 				restoreKeyGroupsInStateHandle();
 			}
 		}
+		updateDownloadStats(restoreStateHandles.stream().map(o -> (KeyGroupsStateHandle) o).collect(Collectors.toList()), System.currentTimeMillis() - writeKeyStart);
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle, nativeMetricMonitor,
 			-1, null, null);
 	}
@@ -207,6 +213,7 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 					"The key group must belong to the backend");
 
 				long offset = keyGroupOffset.f1;
+				long writeKeyNum = 0L;
 				//not empty key-group?
 				if (0L != offset) {
 					currentStateHandleInStream.seek(offset);
@@ -235,8 +242,11 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 							} else {
 								writeBatchWrapper.put(handle, key, value);
 							}
+							writeKeyNum++;
 						}
 					}
+					this.writeKeyNum.getAndAdd(writeKeyNum);
+					this.downloadSizeInBytes.getAndAdd(currentStateHandleInStream.getPos() - offset);
 				}
 			}
 		}

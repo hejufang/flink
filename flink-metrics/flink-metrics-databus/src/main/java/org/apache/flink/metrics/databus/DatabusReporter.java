@@ -44,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,6 +77,10 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 	private String user;
 
 	private String applicationId;
+
+	private String host;
+
+	private String tmId;
 
 	private String commitId;
 
@@ -111,9 +116,20 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.queue = System.getenv(YarnConfigKeys.ENV_FLINK_YARN_QUEUE);
 		this.user = System.getenv(YarnConfigKeys.ENV_HADOOP_USER_NAME);
 		this.applicationId = System.getenv(YarnConfigKeys.ENV_APP_ID);
+		this.host = System.getenv(YarnConfigKeys.ENV_FLINK_NODE_ID);
+		this.tmId = System.getenv(YarnConfigKeys.ENV_FLINK_CONTAINER_ID);
 		this.commitId = EnvironmentInformation.getRevisionInformation().commitId;
 		this.commitDate = EnvironmentInformation.getRevisionInformation().commitDate;
 		this.jobName = getJobName();
+
+		if (this.host == null) {
+			try {
+				this.host = InetAddress.getLocalHost().getHostName();
+			} catch (Throwable t) {
+				LOG.info("get hostname failed");
+				this.host = "localhost";
+			}
+		}
 	}
 
 	@Override
@@ -190,7 +206,9 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		message.getMeta().setQueue(queue);
 		message.getMeta().setJobName(jobName);
 		message.getMeta().setUser(user);
+		message.getMeta().setHost(host);
 		message.getMeta().setApplicationId(applicationId);
+		message.getMeta().setTmId(tmId);
 		message.getMeta().setCommitId(commitId);
 		message.getMeta().setCommitDate(commitDate);
 	}

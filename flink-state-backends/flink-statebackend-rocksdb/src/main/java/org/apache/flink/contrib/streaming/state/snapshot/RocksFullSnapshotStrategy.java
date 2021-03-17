@@ -30,7 +30,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
-import org.apache.flink.runtime.state.AsyncSnapshotCallable;
+import org.apache.flink.runtime.state.AsyncSnapshotCallableWithStatistic;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointStreamWithResultProvider;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
@@ -42,9 +42,13 @@ import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.RegisteredKeyValueStateBackendMetaInfo;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateSnapshotTransformer;
+import org.apache.flink.runtime.state.StateUtil;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.UncompressedStreamCompressionDecorator;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.runtime.state.tracker.BackendType;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.ResourceGuard;
 import org.apache.flink.util.function.SupplierWithException;
@@ -94,7 +98,8 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 		@Nonnegative int keyGroupPrefixBytes,
 		@Nonnull LocalRecoveryConfig localRecoveryConfig,
 		@Nonnull CloseableRegistry cancelStreamRegistry,
-		@Nonnull StreamCompressionDecorator keyGroupCompressionDecorator) {
+		@Nonnull StreamCompressionDecorator keyGroupCompressionDecorator,
+		@Nonnull StateStatsTracker statsTracker) {
 		super(
 			DESCRIPTION,
 			db,
@@ -104,7 +109,8 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 			keyGroupRange,
 			keyGroupPrefixBytes,
 			localRecoveryConfig,
-			cancelStreamRegistry);
+			cancelStreamRegistry,
+			statsTracker);
 
 		this.keyGroupCompressionDecorator = keyGroupCompressionDecorator;
 	}
@@ -116,7 +122,7 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 		long timestamp,
 		@Nonnull CheckpointStreamFactory primaryStreamFactory,
 		@Nonnull CheckpointOptions checkpointOptions) throws Exception {
-
+		long syncStart = System.currentTimeMillis();
 		final SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier =
 			createCheckpointStreamSupplier(checkpointId, primaryStreamFactory, checkpointOptions);
 
@@ -135,12 +141,14 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 
 		final SnapshotAsynchronousPartCallable asyncSnapshotCallable =
 			new SnapshotAsynchronousPartCallable(
+				checkpointId,
 				checkpointStreamSupplier,
 				lease,
 				snapshot,
 				stateMetaInfoSnapshots,
 				metaDataCopy,
-				primaryStreamFactory.toString());
+				primaryStreamFactory.toString(),
+				System.currentTimeMillis() - syncStart);
 
 		return asyncSnapshotCallable.toAsyncSnapshotFutureTask(cancelStreamRegistry);
 	}
@@ -177,7 +185,7 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 	 * Encapsulates the process to perform a full snapshot of a RocksDBKeyedStateBackend.
 	 */
 	@VisibleForTesting
-	private class SnapshotAsynchronousPartCallable extends AsyncSnapshotCallable<SnapshotResult<KeyedStateHandle>> {
+	private class SnapshotAsynchronousPartCallable extends AsyncSnapshotCallableWithStatistic<SnapshotResult<KeyedStateHandle>> {
 
 		/** Supplier for the stream into which we write the snapshot. */
 		@Nonnull
@@ -201,13 +209,16 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 		private final String logPathString;
 
 		SnapshotAsynchronousPartCallable(
+			long checkpointID,
 			@Nonnull SupplierWithException<CheckpointStreamWithResultProvider, Exception> checkpointStreamSupplier,
 			@Nonnull ResourceGuard.Lease dbLease,
 			@Nonnull Snapshot snapshot,
 			@Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots,
 			@Nonnull List<RocksDbKvStateInfo> metaDataCopy,
-			@Nonnull String logPathString) {
+			@Nonnull String logPathString,
+			long syncDuration) {
 
+			super(BackendType.FULL_ROCKSDB_STATE_BACKEND, statsTracker, checkpointID, 1, syncDuration);
 			this.checkpointStreamSupplier = checkpointStreamSupplier;
 			this.dbLease = dbLease;
 			this.snapshot = snapshot;
@@ -223,12 +234,17 @@ public class RocksFullSnapshotStrategy<K> extends RocksDBSnapshotStrategyBase<K>
 				checkpointStreamSupplier.get();
 
 			snapshotCloseableRegistry.registerCloseable(checkpointStreamWithResultProvider);
+			long uploadStart = System.currentTimeMillis();
 			writeSnapshotToOutputStream(checkpointStreamWithResultProvider, keyGroupRangeOffsets);
 
 			if (snapshotCloseableRegistry.unregisterCloseable(checkpointStreamWithResultProvider)) {
-				return CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult(
-					checkpointStreamWithResultProvider.closeAndFinalizeCheckpointStreamResult(),
-					keyGroupRangeOffsets);
+				SnapshotResult<StreamStateHandle> streamStateHandleResult = checkpointStreamWithResultProvider.closeAndFinalizeCheckpointStreamResult();
+				SnapshotResult<KeyedStateHandle> result = CheckpointStreamWithResultProvider.toKeyedStateHandleSnapshotResult(streamStateHandleResult, keyGroupRangeOffsets);
+
+				uploadDuration.getAndAdd(System.currentTimeMillis() - uploadStart);
+				uploadFileNum.getAndAdd(StateUtil.isPersistInFile(streamStateHandleResult.getJobManagerOwnedSnapshot()) ? 1 : 0);
+				uploadSizeInBytes.getAndAdd(result.getStateSize());
+				return result;
 			} else {
 				throw new IOException("Stream is already unregistered/closed.");
 			}

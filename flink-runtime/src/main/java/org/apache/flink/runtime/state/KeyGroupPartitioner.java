@@ -291,12 +291,13 @@ public class KeyGroupPartitioner<T> {
 		}
 
 		@Override
-		public void readMappingsInKeyGroup(@Nonnull DataInputView in, @Nonnegative int keyGroupId) throws IOException {
+		public long readMappingsInKeyGroup(@Nonnull DataInputView in, @Nonnegative int keyGroupId) throws IOException {
 			int numElements = in.readInt();
 			for (int i = 0; i < numElements; i++) {
 				T element = readerFunction.readElement(in);
 				elementConsumer.consume(element, keyGroupId);
 			}
+			return numElements;
 		}
 	}
 
