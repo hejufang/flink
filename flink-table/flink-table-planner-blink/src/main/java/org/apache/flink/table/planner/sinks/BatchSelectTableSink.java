@@ -20,10 +20,12 @@ package org.apache.flink.table.planner.sinks;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
+import org.apache.flink.streaming.api.operators.collect.CollectResultIterator;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.api.internal.SelectTableSink;
 import org.apache.flink.table.sinks.StreamTableSink;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.CloseableIterator;
 
 
 /**
@@ -38,5 +40,14 @@ public class BatchSelectTableSink extends SelectTableSinkBase implements StreamT
 	@Override
 	public DataStreamSink<?> consumeDataStream(DataStream<Row> dataStream) {
 		return super.consumeDataStream(dataStream);
+	}
+
+	@Override
+	public void fetchUncheckpointedData() {
+		CloseableIterator<Row> iterator = getResultIterator();
+		// only CollectResultIterator supports to ignore exactly-once
+		if (iterator instanceof CollectResultIterator) {
+			((CollectResultIterator<Row>) iterator).fetchUncheckpointedData();
+		}
 	}
 }

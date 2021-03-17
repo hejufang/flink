@@ -84,6 +84,10 @@ public class CollectResultIterator<T> implements CloseableIterator<T> {
 		fetcher.setJobClient(jobClient);
 	}
 
+	public void fetchUncheckpointedData() {
+		fetcher.fetchUncheckpointedData();
+	}
+
 	private T nextResultFromFetcher() {
 		try {
 			return fetcher.next();

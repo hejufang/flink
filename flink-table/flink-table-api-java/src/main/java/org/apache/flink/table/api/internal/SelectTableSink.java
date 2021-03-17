@@ -38,6 +38,15 @@ public interface SelectTableSink extends TableSink<Row> {
 	}
 
 	/**
+	 * Fetch the uncheckpointed select result from SelectTableSink, which makes the select result
+	 * readable once it has been calculated rather than waiting for the checkpoint to complete.
+	 */
+	default void fetchUncheckpointedData() {
+		// disable this to make sure only fetch checkpointed data as default
+		throw new UnsupportedOperationException("fetchUncheckpointedData() is not supported");
+	}
+
+	/**
 	 * Set the job client associated with the select job to retrieve the result.
 	 */
 	void setJobClient(JobClient jobClient);

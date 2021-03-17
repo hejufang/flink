@@ -66,6 +66,7 @@ public class CollectResultFetcher<T> {
 
 	private boolean jobTerminated;
 	private boolean closed;
+	private boolean fetchUncheckpointedData;
 
 	public CollectResultFetcher(
 			CompletableFuture<OperatorID> operatorIdFuture,
@@ -91,6 +92,7 @@ public class CollectResultFetcher<T> {
 
 		this.jobTerminated = false;
 		this.closed = false;
+		this.fetchUncheckpointedData = false;
 	}
 
 	public void setJobClient(JobClient jobClient) {
@@ -99,6 +101,10 @@ public class CollectResultFetcher<T> {
 			"Job client must be a CoordinationRequestGateway. This is a bug.");
 		this.jobClient = jobClient;
 		this.gateway = (CoordinationRequestGateway) jobClient;
+	}
+
+	public void fetchUncheckpointedData() {
+		this.fetchUncheckpointedData = true;
 	}
 
 	public T next() throws IOException {
@@ -300,19 +306,22 @@ public class CollectResultFetcher<T> {
 				offset = responseLastCheckpointedOffset;
 			}
 
-			// we now check if more results can be seen by the user
-			if (responseLastCheckpointedOffset > userVisibleTail) {
-				// lastCheckpointedOffset increases, this means that more results have been
-				// checkpointed, and we can give these results to the user
-				userVisibleTail = responseLastCheckpointedOffset;
-			}
-
 			if (!results.isEmpty()) {
 				// response contains some data, add them to buffer
 				int addStart = (int) (offset - responseOffset);
 				List<T> addedResults = results.subList(addStart, results.size());
 				buffer.addAll(addedResults);
 				offset += addedResults.size();
+			}
+
+			// we now check if more results can be seen by the user
+			if (fetchUncheckpointedData) {
+				// if exactly-once is ignored, we can give all results to user
+				userVisibleTail = offset;
+			} else if (responseLastCheckpointedOffset > userVisibleTail) {
+				// lastCheckpointedOffset increases, this means that more results have been
+				// checkpointed, and we can give these results to the user
+				userVisibleTail = responseLastCheckpointedOffset;
 			}
 
 			sanityCheck();
