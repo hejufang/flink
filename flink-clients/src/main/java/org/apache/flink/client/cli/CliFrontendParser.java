@@ -109,6 +109,10 @@ public class CliFrontendParser {
 	static final Option CHECKPOINT_ANALYZE_OPTION = new Option("anl", "analyze", true,
 			"Path of checkpoint's metadata to analyze");
 
+	static final Option CHECKPOINT_VERIFY_OPTION = new Option("cv", "checkpointVerify", false,
+		"Run main function in jar, build JobGraph and conduct checkpoint verification. " +
+			"Hijack the job submission to Yarn.");
+
 	// list specific options
 	static final Option RUNNING_OPTION = new Option("r", "running", false,
 			"Show only running programs and their JobIDs");
@@ -325,6 +329,13 @@ public class CliFrontendParser {
 
 	static Options getCheckpointCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
+
+		// options for checkpoint verification
+		options.addOption(CHECKPOINT_VERIFY_OPTION);
+		options.addOption(CLASS_OPTION);
+		options.addOption(PARALLELISM_OPTION);
+		options.addOption(JAR_OPTION);
+
 		options.addOption(CHECKPOINT_ID);
 		options.addOption(CHECKPOINT_ANALYZE_OPTION);
 		return options.addOption(CLUSTER_NAME_OPTION);

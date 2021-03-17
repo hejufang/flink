@@ -20,6 +20,7 @@ package org.apache.flink.client.deployment.executors;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.dag.Pipeline;
+import org.apache.flink.client.cli.CheckpointVerifier;
 import org.apache.flink.client.cli.ExecutionConfigAccessor;
 import org.apache.flink.client.deployment.ClusterClientFactory;
 import org.apache.flink.client.deployment.ClusterClientJobClientAdapter;
@@ -38,6 +39,7 @@ import javax.annotation.Nonnull;
 
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.flink.configuration.DeploymentOptions.RUN_WITH_CHECKPOINT_VERIFY;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -60,6 +62,14 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 	@Override
 	public CompletableFuture<JobClient> execute(@Nonnull final Pipeline pipeline, @Nonnull final Configuration configuration) throws Exception {
 		final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
+
+		CheckpointVerifier.verify(jobGraph, ClassLoader.getSystemClassLoader(), configuration);
+
+		if (configuration.getBoolean(RUN_WITH_CHECKPOINT_VERIFY)) {
+			CheckpointVerifier.verifyExitCode = 0;
+			// directly throw an exception, let user's code to handle it
+			throw new Exception("runWithCheckpointVerify is set true, hiject job submission");
+		}
 
 		try (final ClusterDescriptor<ClusterID> clusterDescriptor = clusterClientFactory.createClusterDescriptor(configuration)) {
 			final ExecutionConfigAccessor configAccessor = ExecutionConfigAccessor.fromConfiguration(configuration);

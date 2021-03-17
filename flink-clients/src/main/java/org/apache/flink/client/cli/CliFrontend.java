@@ -38,6 +38,7 @@ import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.client.program.ProgramInvocationException;
 import org.apache.flink.client.program.ProgramMissingJobException;
 import org.apache.flink.client.program.ProgramParametrizationException;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
@@ -88,6 +89,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.client.cli.CliFrontendParser.HELP_OPTION;
+import static org.apache.flink.configuration.DeploymentOptions.RUN_WITH_CHECKPOINT_VERIFY;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -837,6 +839,8 @@ public class CliFrontend {
 			final String path = checkpointOptions.getMetadataPath();
 			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
 			infos.forEach(System.out::println);
+		} else if (checkpointOptions.isVerification()) {
+			verifyCheckpoint(commandLine, checkpointOptions, activeCommandLine);
 		} else {
 			String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
 			if (jobName == null && jobId == null) {
@@ -844,6 +848,33 @@ public class CliFrontend {
 			}
 
 			clearCheckpoints(activeCommandLine, commandLine, jobId, jobName, checkpointOptions.getCheckpointID());
+		}
+	}
+
+	private void verifyCheckpoint(CommandLine commandLine, CheckpointOptions checkpointOptions, CustomCommandLine activeCommandLine) {
+		PackagedProgram program = null;
+		try {
+			LOG.info("Building ghost program from JAR file");
+			program = buildGhostProgram(checkpointOptions);
+
+			Configuration effectiveConfiguration = activeCommandLine.getEffectiveConfiguration(commandLine);
+			effectiveConfiguration.set(RUN_WITH_CHECKPOINT_VERIFY, true);
+			effectiveConfiguration.set(CoreOptions.DEFAULT_PARALLELISM, checkpointOptions.getParallelism());
+			effectiveConfiguration.set(CheckpointingOptions.CLIENT_CHECKPOINT_VERIFICATION_ENABLE, true);
+
+			executeProgram(effectiveConfiguration, program);
+		} catch (Exception e) {
+			// Note: we compulsively capture exception here, in case that the user's code may rethrow the
+			// exception which may confuse the result of checkpoint verification.
+			if (CheckpointVerifier.verifyExitCode == -1) {
+				// checkpoint verification do not run successfully. verifyExitCode ought to be 0,2,3.
+				CheckpointVerifier.verifyExitCode = 1;
+			}
+			LOG.error("Checkpoint verification error: " + e);
+		} finally {
+			if (program != null) {
+				program.deleteExtractedLibraries();
+			}
 		}
 	}
 
@@ -913,6 +944,24 @@ public class CliFrontend {
 			.setConfiguration(configuration)
 			.setSavepointRestoreSettings(runOptions.getSavepointRestoreSettings())
 			.setArguments(programArgs)
+			.build();
+	}
+
+	/**
+	 * Create a ghost Packaged Program from the given checkpoint options, just used for client checkpoint verification.
+	 *
+	 * @return A PackagedProgram (upon success)
+	 */
+	PackagedProgram buildGhostProgram(final CheckpointOptions checkpointOptions) throws FileNotFoundException, ProgramInvocationException {
+		String jarFilePath = checkpointOptions.getJarFilePath();
+
+		// Get assembler class
+		String entryPointClass = checkpointOptions.getEntryPointClassName();
+		File jarFile = jarFilePath != null ? getJarFile(jarFilePath) : null;
+
+		return PackagedProgram.newBuilder()
+			.setJarFile(jarFile)
+			.setEntryPointClassName(entryPointClass)
 			.build();
 	}
 
@@ -1130,7 +1179,7 @@ public class CliFrontend {
 					return 0;
 				case ACTION_CHECKPOINT:
 					checkpoint(params);
-					return 0;
+					return CheckpointVerifier.verifyExitCode;
 				case "-h":
 				case "--help":
 					CliFrontendParser.printHelp(customCommandLines);

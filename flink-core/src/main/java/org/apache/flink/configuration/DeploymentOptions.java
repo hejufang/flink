@@ -62,4 +62,10 @@ public class DeploymentOptions {
 					.noDefaultValue()
 					.withDescription("Custom JobListeners to be registered with the execution environment." +
 							" The registered listeners cannot have constructors with arguments.");
+
+	public static final ConfigOption<Boolean> RUN_WITH_CHECKPOINT_VERIFY =
+			key("execution.run-with-checkpoint-verify")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Verify checkpoint with run command, and hijack job submission");
 }
