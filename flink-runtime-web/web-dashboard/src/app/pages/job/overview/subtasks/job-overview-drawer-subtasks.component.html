@@ -27,6 +27,7 @@
   <thead (nzSortChange)="sort($event)" nzSingleSort>
     <tr>
       <th nzWidth="80px" nzLeft="0px">ID</th>
+      <th nzSortKey="partitions" nzShowSort nzWidth="140px">Partitions</th>
       <th nzSortKey="metrics.read-bytes" nzShowSort nzWidth="140px">Bytes Received</th>
       <th nzSortKey="metrics.read-records" nzShowSort nzWidth="150px">Records Received</th>
       <th nzSortKey="metrics.write-bytes" nzShowSort nzWidth="120px">Bytes Sent</th>
@@ -44,6 +45,11 @@
     <tr *ngFor="let task of listOfTask; trackBy:trackTaskBy;">
       <td nzLeft="0">
         {{ task.subtask + 1 }}
+      </td>
+      <td>
+        <span *ngIf="task['partitions'];else unknownTemplate">
+          {{ task['partitions'] }}
+        </span>
       </td>
       <td>
         <span *ngIf="task.metrics['read-bytes-complete'];else loadingTemplate">
@@ -91,4 +97,7 @@
 </nz-table>
 <ng-template #loadingTemplate>
   <i nz-icon type="loading"></i>
+</ng-template>
+<ng-template #unknownTemplate>
+  unknown
 </ng-template>

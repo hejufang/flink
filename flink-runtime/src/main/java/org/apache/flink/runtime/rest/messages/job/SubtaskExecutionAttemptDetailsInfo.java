@@ -24,6 +24,7 @@ import org.apache.flink.runtime.executiongraph.AccessExecution;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
 import org.apache.flink.runtime.rest.handler.util.MutableIOMetrics;
+import org.apache.flink.runtime.rest.handler.util.SourceMetaMetrics;
 import org.apache.flink.runtime.rest.messages.ResponseBody;
 import org.apache.flink.runtime.rest.messages.job.metrics.IOMetricsInfo;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
@@ -61,6 +62,8 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 
 	public static final String FIELD_NAME_TASKMANAGER_ID = "taskmanager-id";
 
+	public static final String FIELD_NAME_SOURCE_PARTITIONS = "partitions";
+
 	@JsonProperty(FIELD_NAME_SUBTASK_INDEX)
 	private final int subtaskIndex;
 
@@ -91,6 +94,9 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 	@JsonProperty(FIELD_NAME_TASKMANAGER_ID)
 	private final String taskmanagerId;
 
+	@JsonProperty(FIELD_NAME_SOURCE_PARTITIONS)
+	private final String partitions;
+
 	@JsonCreator
 	public SubtaskExecutionAttemptDetailsInfo(
 			@JsonProperty(FIELD_NAME_SUBTASK_INDEX) int subtaskIndex,
@@ -101,7 +107,8 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			@JsonProperty(FIELD_NAME_END_TIME) long endTime,
 			@JsonProperty(FIELD_NAME_DURATION) long duration,
 			@JsonProperty(FIELD_NAME_METRICS) IOMetricsInfo ioMetricsInfo,
-			@JsonProperty(FIELD_NAME_TASKMANAGER_ID) String taskmanagerId) {
+			@JsonProperty(FIELD_NAME_TASKMANAGER_ID) String taskmanagerId,
+			@JsonProperty(FIELD_NAME_SOURCE_PARTITIONS) String partitions) {
 
 		this.subtaskIndex = subtaskIndex;
 		this.status = Preconditions.checkNotNull(status);
@@ -113,6 +120,7 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 		this.duration = duration;
 		this.ioMetricsInfo = Preconditions.checkNotNull(ioMetricsInfo);
 		this.taskmanagerId = Preconditions.checkNotNull(taskmanagerId);
+		this.partitions = partitions;
 	}
 
 	public int getSubtaskIndex() {
@@ -175,12 +183,13 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			endTime == that.endTime &&
 			duration == that.duration &&
 			Objects.equals(ioMetricsInfo, that.ioMetricsInfo) &&
-			Objects.equals(taskmanagerId, that.taskmanagerId);
+			Objects.equals(taskmanagerId, that.taskmanagerId) &&
+			Objects.equals(partitions, that.partitions);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(subtaskIndex, status, attempt, host, startTime, startTimeCompatible, endTime, duration, ioMetricsInfo, taskmanagerId);
+		return Objects.hash(subtaskIndex, status, attempt, host, startTime, startTimeCompatible, endTime, duration, ioMetricsInfo, taskmanagerId, partitions);
 	}
 
 	public static SubtaskExecutionAttemptDetailsInfo create(AccessExecution execution, @Nullable MetricFetcher metricFetcher, JobID jobID, JobVertexID jobVertexID) {
@@ -216,6 +225,10 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			ioMetrics.getNumRecordsOut(),
 			ioMetrics.isNumRecordsOutComplete());
 
+		final SourceMetaMetrics sourceMeta = new SourceMetaMetrics();
+		sourceMeta.addMeta(execution, metricFetcher, jobID.toString(), jobVertexID.toString());
+		String partitions = sourceMeta.getMetaInfo().calculatePartitions();
+
 		return new SubtaskExecutionAttemptDetailsInfo(
 			execution.getParallelSubtaskIndex(),
 			status,
@@ -225,7 +238,8 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			endTime,
 			duration,
 			ioMetricsInfo,
-			taskmanagerId
+			taskmanagerId,
+			partitions
 		);
 	}
 }

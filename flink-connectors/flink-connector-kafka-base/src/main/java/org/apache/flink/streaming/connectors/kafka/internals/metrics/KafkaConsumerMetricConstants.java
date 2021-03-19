@@ -30,6 +30,12 @@ public class KafkaConsumerMetricConstants {
 	public static final String KAFKA_CONSUMER_METRICS_GROUP = "KafkaConsumer";
 
 	// ------------------------------------------------------------------------
+	//  Topic and partition metrics
+	// ------------------------------------------------------------------------
+
+	public static final String TOPIC_PARTITIONS = "sourceTopicPartitions";
+
+	// ------------------------------------------------------------------------
 	//  Per-subtask metrics
 	// ------------------------------------------------------------------------
 

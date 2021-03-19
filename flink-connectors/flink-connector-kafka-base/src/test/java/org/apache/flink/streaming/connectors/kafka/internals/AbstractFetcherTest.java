@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Queue;
 
 import static org.junit.Assert.assertEquals;
@@ -200,7 +201,8 @@ public class AbstractFetcherTest {
 				autoWatermarkInterval,
 				TestFetcher.class.getClassLoader(),
 				new UnregisteredMetricsGroup(),
-				false);
+				false,
+				new Properties());
 
 			this.fetchLoopWaitLatch = fetchLoopWaitLatch;
 			this.stateIterationBlockLatch = stateIterationBlockLatch;

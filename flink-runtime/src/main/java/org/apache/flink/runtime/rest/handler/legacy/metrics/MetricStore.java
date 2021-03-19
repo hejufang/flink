@@ -355,11 +355,15 @@ public class MetricStore {
 	 * Sub-structure containing metrics of a single Job.
 	 */
 	@ThreadSafe
-	private static class JobMetricStore extends ComponentMetricStore {
+	public static class JobMetricStore extends ComponentMetricStore {
 		private final Map<String, TaskMetricStore> tasks = new ConcurrentHashMap<>();
 
 		public TaskMetricStore getTaskMetricStore(String taskID) {
 			return taskID == null ? null : tasks.get(taskID);
+		}
+
+		public Map<String, TaskMetricStore> getAllTaskMetricStores() {
+			return unmodifiableMap(tasks);
 		}
 	}
 

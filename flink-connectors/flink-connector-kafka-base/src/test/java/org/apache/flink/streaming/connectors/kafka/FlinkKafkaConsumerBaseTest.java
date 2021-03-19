@@ -85,6 +85,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -1009,7 +1010,8 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 					autoWatermarkInterval,
 					userCodeClassLoader,
 					consumerMetricGroup,
-					useMetrics);
+					useMetrics,
+					new Properties());
 		}
 
 		@Override
@@ -1326,7 +1328,8 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 					0,
 					MockFetcher.class.getClassLoader(),
 					new UnregisteredMetricsGroup(),
-					false);
+					false,
+					new Properties());
 
 			this.stateSnapshotsToReturn.addAll(Arrays.asList(stateSnapshotsToReturn));
 		}

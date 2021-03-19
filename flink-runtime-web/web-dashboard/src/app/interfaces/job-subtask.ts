@@ -35,4 +35,5 @@ export interface JobSubTaskInterface {
     'write-records-complete': boolean;
   };
   'taskmanager-id': string;
+  'partitions': string;
 }

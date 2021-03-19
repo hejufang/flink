@@ -112,7 +112,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				autoWatermarkInterval,
 				userCodeClassLoader,
 				consumerMetricGroup,
-				useMetrics);
+				useMetrics,
+				kafkaProperties);
 
 		this.deserializer = deserializer;
 		this.handover = new Handover();
