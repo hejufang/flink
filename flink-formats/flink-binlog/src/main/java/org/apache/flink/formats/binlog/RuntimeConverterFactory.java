@@ -100,16 +100,16 @@ public class RuntimeConverterFactory {
 	/**
 	 * Create runtime converter according to RowTypeInfo.
 	 */
-	public static Map<String, RuntimeConverter> createConverter(RowType rowType) {
+	public static Map<String, RuntimeConverter> createConverter(RowType rowType, String headerName, String bodyName) {
 		Map<String, RuntimeConverter> converterMap = new HashMap<>();
 		List<String> columnNames = rowType.getFieldNames();
 
-		// First two field must be binlog_header & binlog_body, we ignore them. So we start from '2'.
-		for (int i = 2; i < rowType.getFieldCount(); i++) {
+		// Binlog_header & binlog_body is optional for binlog type.
+		for (int i = 0; i < rowType.getFieldCount(); i++) {
 			String columnName = columnNames.get(i);
 			LogicalType logicalType = rowType.getTypeAt(i);
 			String fieldName = columnNames.get(i);
-			if (!(logicalType instanceof RowType)) {
+			if (!(logicalType instanceof RowType) || columnName.equals(headerName) || columnName.equals(bodyName)) {
 				continue;
 			}
 
@@ -281,7 +281,7 @@ public class RuntimeConverterFactory {
 			// Timestamp.valueOf will throw an exception if the value of o is
 			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
 			return o -> TimestampData.fromTimestamp(
-				ZERO_TIMESTAMP_STR.equals(o) ? new Timestamp(0) : Timestamp.valueOf((String) o));
+				((String) o).contains(ZERO_TIMESTAMP_STR) ? new Timestamp(0) : Timestamp.valueOf((String) o));
 		} else if (logicalType instanceof DecimalType) {
 			return o -> {
 				DecimalType decimalType = (DecimalType) logicalType;

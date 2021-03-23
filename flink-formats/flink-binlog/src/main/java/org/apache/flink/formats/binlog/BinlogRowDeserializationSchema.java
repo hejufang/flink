@@ -21,6 +21,7 @@ package org.apache.flink.formats.binlog;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.formats.pb.DeserializationRuntimeConverterFactory;
+import org.apache.flink.formats.pb.PbFormatUtils;
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -76,6 +77,8 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 	private transient Map<String, RuntimeConverterFactory.RuntimeConverter> runtimeConverterMap;
 	private transient DeserializationRuntimeConverter headerRuntimeConverter;
 	private transient DeserializationRuntimeConverter bodyRuntimeConverter;
+	private transient int bodyIndex;
+	private transient int headIndex;
 
 	private final RowType rowType;
 	private final TypeInformation<RowData> resultTypeInfo;
@@ -106,11 +109,18 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 
 	@Override
 	public void open(InitializationContext context) throws Exception {
+		RowType headerRowType = (RowType) PbFormatUtils.createDataType(
+			DRCEntry.EntryHeader.getDescriptor(), false).getLogicalType();
 		this.headerRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(
-			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(binlogHeaderName)), DRCEntry.EntryHeader.getDescriptor());
+			headerRowType, DRCEntry.EntryHeader.getDescriptor());
+		RowType bodyRowType = (RowType) PbFormatUtils.createDataType(
+			DRCEntry.EntryBody.getDescriptor(), false).getLogicalType();
 		this.bodyRuntimeConverter = DeserializationRuntimeConverterFactory.createRowConverter(
-			(RowType) this.rowType.getTypeAt(this.rowType.getFieldIndex(binlogBodyName)), DRCEntry.EntryBody.getDescriptor());
-		this.runtimeConverterMap = RuntimeConverterFactory.createConverter(this.rowType);
+			bodyRowType, DRCEntry.EntryBody.getDescriptor());
+		this.runtimeConverterMap =
+			RuntimeConverterFactory.createConverter(this.rowType, binlogHeaderName, binlogBodyName);
+		this.headIndex = this.rowType.getFieldIndex(binlogHeaderName);
+		this.bodyIndex = this.rowType.getFieldIndex(binlogBodyName);
 	}
 
 	@Override
@@ -134,16 +144,23 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 
 			Object headerRow =
 				headerRuntimeConverter.convert(header);
-			rowData.setField(0, headerRow);
+			if (headIndex != -1) {
+				rowData.setField(headIndex, headerRow);
+			}
 
 			// 2. deserialize body
 			DynamicMessage body = (DynamicMessage) entryMessage.getField(FIELD_DESCRIPTORS.get(BODY));
 			Object bodyRow =
 				bodyRuntimeConverter.convert(body);
-			rowData.setField(1, bodyRow);
+			if (bodyIndex != -1) {
+				rowData.setField(bodyIndex, bodyRow);
+			}
 
 			// Fill user defind fields.
-			for (int i = 2; i < rowData.getArity(); i++) {
+			for (int i = 0; i < rowData.getArity(); i++) {
+				if (i == headIndex || i == bodyIndex) {
+					continue;
+				}
 				String fieldName = fieldNames.get(i);
 				// 3. deserialize rowdata
 				List<DynamicMessage> rowDataList =
