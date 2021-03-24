@@ -1002,6 +1002,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			LOG.info("{} = {}", ConfigConstants.PARTITION_LIST_KEY, partitionList);
 		}
 
+		String brokerQueueList = configuration.getString(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, null);
+		if (brokerQueueList != null && !brokerQueueList.isEmpty()) {
+			appMasterEnv.put(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+			LOG.info("{} = {}", ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+		}
+
 		if (localizedKeytabPath != null) {
 			appMasterEnv.put(YarnConfigKeys.LOCAL_KEYTAB_PATH, localizedKeytabPath);
 			String principal = configuration.getString(SecurityOptions.KERBEROS_LOGIN_PRINCIPAL);

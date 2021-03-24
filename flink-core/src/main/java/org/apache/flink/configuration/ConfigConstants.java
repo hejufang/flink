@@ -2121,6 +2121,12 @@ public final class ConfigConstants {
 	public static final String PARTITION_OLD_LIST_KEY = "partition.list";
 	public static final String PARTITION_LIST_KEY = "partition_list";
 
+	/**
+	 * This will be get from system environment in AbstractYarnClusterDescriptor#startAppMaster,
+	 * and set it to container system in org.apache.flink.yarn.Utils. And it will be used in rocketMQ connector.
+	 */
+	public static final String ROCKETMQ_BROKER_QUEUE_LIST_KEY = "rocketmq_broker_queue_list";
+
 	public static final String WRITE_FAILED_COUNTER = "writeFailed";
 
 	public static final String STREAMING_JOB_KEY_PREFIX = "bytedance.streaming.";

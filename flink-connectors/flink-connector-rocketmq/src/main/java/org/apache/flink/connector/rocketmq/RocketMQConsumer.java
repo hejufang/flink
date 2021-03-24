@@ -100,6 +100,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private Map<String, String> props;
 	private RocketMQDeserializationSchema<T> schema;
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
+	private String brokerQueueList;
 	private int parallelism;
 
 	private transient MeterView recordsNumMeterView;
@@ -107,6 +108,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private transient List<MessageQueuePb> assignedMessageQueuePbs;
 	private transient Set<MessageQueue> assignedMessageQueueSet;
 	private transient Set<MessageQueue> lastSnapshotQueues;
+	private transient Set<MessageQueue> specificMessageQueueSet;
 	private transient Thread updateThread;
 	private transient ListState<Tuple2<MessageQueue, Long>> unionOffsetStates;
 	private transient volatile boolean running;
@@ -128,6 +130,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.tag = config.getTag();
 		this.assignQueueStrategy = config.getAssignQueueStrategy();
 		this.parallelism = config.getParallelism();
+		this.brokerQueueList = config.getRocketMqBrokerQueueList();
 		saveConfigurationToSystemProperties(config);
 	}
 
@@ -157,6 +160,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		schema.open(() -> getRuntimeContext().getMetricGroup());
 		this.skipDirtyCounter = getRuntimeContext().getMetricGroup().counter(FactoryUtil.SOURCE_SKIP_DIRTY);
+		specificMessageQueueSet = parseMessageQueueSet();
 	}
 
 	@Override
@@ -354,7 +358,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	}
 
 	private boolean belongToThisTask(MessageQueue messageQueue) {
-		return ((messageQueue.hashCode() * 31) & 0x7FFFFFFF) % parallelism == subTaskId;
+		return (((messageQueue.hashCode() * 31) & 0x7FFFFFFF) % parallelism == subTaskId) &&
+			(specificMessageQueueSet == null || specificMessageQueueSet.contains(messageQueue));
 	}
 
 	private void resetOffset(MessageQueuePb messageQueuePb) throws InterruptedException {
@@ -448,5 +453,15 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	@Override
 	public int getParallelism() {
 		return parallelism;
+	}
+
+	private Set<MessageQueue> parseMessageQueueSet() {
+		Map<String, List<MessageQueue>> queueMap =
+			RocketMQUtils.parseCluster2QueueList(this.brokerQueueList);
+		List<MessageQueue> messageQueues = queueMap.get(cluster);
+		if (messageQueues == null) {
+			return null;
+		}
+		return new HashSet<>(messageQueues);
 	}
 }

@@ -502,6 +502,13 @@ public final class Utils {
 				ConfigConstants.PARTITION_LIST_KEY, partitionList);
 		}
 
+		String brokerQueueList = env.get(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY);
+		if (brokerQueueList != null && !brokerQueueList.isEmpty()) {
+			containerEnv.put(ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+			LOG.info("Set {} in container environment = {}",
+				ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
+		}
+
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.

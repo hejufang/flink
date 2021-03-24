@@ -94,6 +94,13 @@ public abstract class RocketMQOptions {
 			.defaultValue(SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS)
 			.withDescription("startup-mode: earliest,latest,group,timestamp, default is group");
 
+	public static final ConfigOption<String> SCAN_BROKER_QUEUE_LIST = ConfigOptions
+		.key("scan.broker-queue-list")
+		.stringType()
+		.defaultValue(SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS)
+		.withDescription("Specific rocketMQ broker queue list: " +
+			"${cluster}:${topic}:${broker}:${queue_range}#${cluster}:${topic}:${broker}:${queue_range}");
+
 	public static final ConfigOption<Long> SCAN_STARTUP_TIMESTAMP_MILLIS = ConfigOptions
 			.key("scan.startup.timestamp-millis")
 			.longType()

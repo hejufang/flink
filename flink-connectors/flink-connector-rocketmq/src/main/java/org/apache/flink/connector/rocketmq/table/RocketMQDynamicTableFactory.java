@@ -24,6 +24,7 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQMetadata;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
+import org.apache.flink.connector.rocketmq.RocketMQUtils;
 import org.apache.flink.connector.rocketmq.selector.DefaultTopicSelector;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
@@ -40,8 +41,11 @@ import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkRuntimeException;
 
+import com.bytedance.rocketmq.clientv2.message.MessageQueue;
+
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -54,6 +58,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVE
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL18;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.PROPERTIES_PREFIX;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_ASSIGN_QUEUE_STRATEGY;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_BROKER_QUEUE_LIST;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_SIZE;
@@ -130,6 +135,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_TOPIC_SELECTOR);
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
 		options.add(SOURCE_METADATA_COLUMNS);
+		options.add(SCAN_BROKER_QUEUE_LIST);
 		options.add(FactoryUtil.PARALLELISM);
 		return options;
 	}
@@ -184,6 +190,8 @@ public class RocketMQDynamicTableFactory implements
 			if (rocketMQConfig.getTag() == null && "binlog".equalsIgnoreCase(config.get(FORMAT))) {
 				rocketMQConfig.setTag(config.get(BINLOG_TARGET_TABLE));
 			}
+			config.getOptional(SCAN_BROKER_QUEUE_LIST).ifPresent(rocketMQConfig::setRocketMqBrokerQueueList);
+			validateBrokerQueueList(rocketMQConfig);
 		}
 
 		return rocketMQConfig;
@@ -204,5 +212,14 @@ public class RocketMQDynamicTableFactory implements
 		Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap =
 			dynamicSourceMetadataFactory.parseWithSchema(metaInfo, schema);
 		config.setMetadataMap(metadataMap);
+	}
+
+	private void validateBrokerQueueList(RocketMQConfig<RowData> rocketMQConfig) {
+		Map<String, List<MessageQueue>> messageQueueMap =
+			RocketMQUtils.parseCluster2QueueList(rocketMQConfig.getRocketMqBrokerQueueList());
+		if (!messageQueueMap.isEmpty() && messageQueueMap.get(rocketMQConfig.getCluster()) == null) {
+			throw new FlinkRuntimeException(
+				String.format("Cluster %s not found in broker queue config", rocketMQConfig.getCluster()));
+		}
 	}
 }

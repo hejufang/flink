@@ -40,6 +40,7 @@ public class RocketMQConfig<T> {
 	private int[] keyByFields;
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
+	private String rocketMqBrokerQueueList;
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -135,5 +136,13 @@ public class RocketMQConfig<T> {
 
 	public void setParallelism(int parallelism) {
 		this.parallelism = parallelism;
+	}
+
+	public String getRocketMqBrokerQueueList() {
+		return rocketMqBrokerQueueList;
+	}
+
+	public void setRocketMqBrokerQueueList(String rocketMqBrokerQueueList) {
+		this.rocketMqBrokerQueueList = rocketMqBrokerQueueList;
 	}
 }
