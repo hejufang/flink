@@ -925,6 +925,13 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private void requestYarnContainerIfRequired() {
 		for (Map.Entry<WorkerResourceSpec, Integer> requiredWorkersPerResourceSpec : getRequiredResources().entrySet()) {
 			final WorkerResourceSpec workerResourceSpec = requiredWorkersPerResourceSpec.getKey();
+			log.info("requestYarnContainerIfRequired, resourceSpec: {}, requiredWorkersNum: {}, " +
+					"requestedNotRegisteredWorkersNum: {}, pendingWorksNum: {}, startingWorksNum: {}.",
+				workerResourceSpec.toString(),
+				requiredWorkersPerResourceSpec.getValue(),
+				getNumRequestedNotRegisteredWorkersFor(workerResourceSpec),
+				slowContainerManager.getPendingRedundantContainersNum(workerResourceSpec),
+				slowContainerManager.getStartingRedundantContainerNum(workerResourceSpec));
 			// exclude redundant container requests for slow container.
 			while (requiredWorkersPerResourceSpec.getValue() >
 					(getNumRequestedNotRegisteredWorkersFor(workerResourceSpec)
