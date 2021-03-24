@@ -51,11 +51,11 @@ public class DorisOptions implements Serializable {
 	private final String columnSeparator;
 	private final int maxBytesPerBatch;
 	private final int maxPendingBatchNum;
-	private final int maxPendingTimeMs;
+	private final long maxPendingTimeMs;
 	private final float maxFilterRatio;
-	private final int retryIntervalMs;
+	private final long retryIntervalMs;
 	private final int maxRetryNum;
-	private final int feUpdateIntervalMs;
+	private final long feUpdateIntervalMs;
 	private final int parallelism;
 	private final String sequenceColumn;
 
@@ -75,11 +75,11 @@ public class DorisOptions implements Serializable {
 			String columnSeparator,
 			int maxBytesPerBatch,
 			int maxPendingBatchNum,
-			int maxPendingTimeMs,
+			long maxPendingTimeMs,
 			float maxFilterRatio,
-			int retryIntervalMs,
+			long retryIntervalMs,
 			int maxRetryNum,
-			int feUpdateIntervalMs,
+			long feUpdateIntervalMs,
 			int parallelism,
 			String sequenceColumn) {
 		this.dorisFEList = dorisFEList;
@@ -166,7 +166,7 @@ public class DorisOptions implements Serializable {
 		return maxPendingBatchNum;
 	}
 
-	public int getMaxPendingTimeMs() {
+	public long getMaxPendingTimeMs() {
 		return maxPendingTimeMs;
 	}
 
@@ -174,7 +174,7 @@ public class DorisOptions implements Serializable {
 		return maxFilterRatio;
 	}
 
-	public int getRetryIntervalMs() {
+	public long getRetryIntervalMs() {
 		return retryIntervalMs;
 	}
 
@@ -182,7 +182,7 @@ public class DorisOptions implements Serializable {
 		return maxRetryNum;
 	}
 
-	public int getFeUpdateIntervalMs() {
+	public long getFeUpdateIntervalMs() {
 		return feUpdateIntervalMs;
 	}
 
@@ -218,11 +218,11 @@ public class DorisOptions implements Serializable {
 		private String columnSeparator;
 		private int maxBytesPerBatch;
 		private int maxPendingBatchNum;
-		private int maxPendingTimeMs;
+		private long maxPendingTimeMs;
 		private float maxFilterRatio;
-		private int retryIntervalMs;
+		private long retryIntervalMs;
 		private int maxRetryNum;
-		private int feUpdateIntervalMs;
+		private long feUpdateIntervalMs;
 		private int parallelism;
 		private String sequenceColumn;
 
@@ -304,7 +304,7 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
-		public Builder setMaxPendingTimeMs(int maxPendingTimeMs) {
+		public Builder setMaxPendingTimeMs(long maxPendingTimeMs) {
 			this.maxPendingTimeMs = maxPendingTimeMs;
 			return this;
 		}
@@ -314,7 +314,7 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
-		public Builder setRetryIntervalMs(int retryIntervalMs) {
+		public Builder setRetryIntervalMs(long retryIntervalMs) {
 			this.retryIntervalMs = retryIntervalMs;
 			return this;
 		}
@@ -324,7 +324,7 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
-		public Builder setFeUpdateIntervalMs(int feUpdateIntervalMs) {
+		public Builder setFeUpdateIntervalMs(long feUpdateIntervalMs) {
 			this.feUpdateIntervalMs = feUpdateIntervalMs;
 			return this;
 		}

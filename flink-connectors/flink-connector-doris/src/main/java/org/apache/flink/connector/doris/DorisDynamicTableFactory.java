@@ -32,6 +32,7 @@ import com.bytedance.inf.compute.hsap.doris.TableModel;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -96,78 +97,78 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		.withDescription("Required. It defines table name which we want to access.");
 
 	private static final ConfigOption<String> KEYS = ConfigOptions
-		.key("keys")
+		.key("sink.keys")
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Required. It defines the keys of table, and is seperated by ','.");
 
 	private static final ConfigOption<String> TABLE_MODEL = ConfigOptions
-		.key("table-model")
+		.key("sink.table-model")
 		.stringType()
 		.defaultValue("aggregate")
 		.withDescription("Optional. It defines the type of table model, which can be "
 			+ "'aggregate', 'uniq' or 'duplicate'.");
 
 	private static final ConfigOption<String> DATA_FORMAT = ConfigOptions
-		.key("data-format")
+		.key("sink.data-format")
 		.stringType()
 		.defaultValue("csv")
 		.withDescription("Optional. It defines the data format that would be written into doris. "
 			+ "It can be csv or json.");
 
 	private static final ConfigOption<String> COLUMN_SEPARATOR = ConfigOptions
-		.key("column-separator")
+		.key("sink.column-separator")
 		.stringType()
 		.defaultValue("\\x01")
 		.withDescription("Optional. It defines separator for csv format.");
 
 	private static final ConfigOption<String> SEQUENCE_COLUMN = ConfigOptions
-		.key("sequence-column")
+		.key("sink.sequence-column")
 		.stringType()
 		.noDefaultValue()
 		.withDescription("Optional. It defines sequence-column config in doris client.");
 
 	private static final ConfigOption<Integer> MAX_BYTES_PER_BATCH = ConfigOptions
-		.key("max-bytes-per-batch")
+		.key("sink.max-bytes-per-batch")
 		.intType()
 		.defaultValue(104857600)
 		.withDescription("Optional. It defines the maximum data volume per batch.");
 
 	private static final ConfigOption<Integer> MAX_PENDING_BATCH_NUM = ConfigOptions
-		.key("max-pending-batch-num")
+		.key("sink.max-pending-batch-num")
 		.intType()
 		.defaultValue(3)
 		.withDescription("Optional. It defines the maximum amount of batch which is waiting to send.");
 
-	private static final ConfigOption<Integer> MAX_PENDING_TIME_MS = ConfigOptions
-		.key("max-pending-time-ms")
-		.intType()
-		.defaultValue(300000)
+	private static final ConfigOption<Duration> MAX_PENDING_TIME_DURATION = ConfigOptions
+		.key("sink.max-pending-time")
+		.durationType()
+		.defaultValue(Duration.ofMinutes(5))
 		.withDescription("Optional. It defines maximum time that an existing batch can wait to be sent, "
 			+ "if a batch has been waited for this duration, it will be sent anyway.");
 
 	private static final ConfigOption<Float> MAX_FILTER_RATIO = ConfigOptions
-		.key("max-filter-ratio")
+		.key("sink.max-filter-ratio")
 		.floatType()
 		.defaultValue(0.0f)
 		.withDescription("Optional. It defines the maximum failure rate of data writing that we can bear.");
 
-	private static final ConfigOption<Integer> RETRY_INTERVAL_MS = ConfigOptions
-		.key("retry-interval-ms")
-		.intType()
-		.defaultValue(1000)
+	private static final ConfigOption<Duration> RETRY_INTERVAL_DURATION = ConfigOptions
+		.key("sink.retry-interval")
+		.durationType()
+		.defaultValue(Duration.ofSeconds(1))
 		.withDescription("Optional. It defines the interval of retrying.");
 
 	private static final ConfigOption<Integer> MAX_RETRY_NUM = ConfigOptions
-		.key("max_retry_num")
+		.key("sink.max_retry_num")
 		.intType()
 		.defaultValue(-1)
 		.withDescription("Optional. It defines max retry times and -1 means unlimited.");
 
-	private static final ConfigOption<Integer> FE_UPDATE_INTERVAL_MS = ConfigOptions
-		.key("fe_update_interval_ms")
-		.intType()
-		.defaultValue(15000)
+	private static final ConfigOption<Duration> FE_UPDATE_INTERVAL_DURATION = ConfigOptions
+		.key("sink.fe_update_interval")
+		.durationType()
+		.defaultValue(Duration.ofSeconds(15))
 		.withDescription("Optional. It defines the interval of updating FE list "
 			+ "when we use doris-fe-psm to get FE list.");
 
@@ -209,11 +210,11 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		set.add(COLUMN_SEPARATOR);
 		set.add(MAX_BYTES_PER_BATCH);
 		set.add(MAX_PENDING_BATCH_NUM);
-		set.add(MAX_PENDING_TIME_MS);
+		set.add(MAX_PENDING_TIME_DURATION);
 		set.add(MAX_FILTER_RATIO);
-		set.add(RETRY_INTERVAL_MS);
+		set.add(RETRY_INTERVAL_DURATION);
 		set.add(MAX_RETRY_NUM);
-		set.add(FE_UPDATE_INTERVAL_MS);
+		set.add(FE_UPDATE_INTERVAL_DURATION);
 		set.add(PARALLELISM);
 		set.add(SEQUENCE_COLUMN);
 		return set;
@@ -242,11 +243,11 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		dorisOptions.setColumnSeparator(readableConfig.get(COLUMN_SEPARATOR));
 		dorisOptions.setMaxBytesPerBatch(readableConfig.get(MAX_BYTES_PER_BATCH));
 		dorisOptions.setMaxPendingBatchNum(readableConfig.get(MAX_PENDING_BATCH_NUM));
-		dorisOptions.setMaxPendingTimeMs(readableConfig.get(MAX_PENDING_TIME_MS));
+		dorisOptions.setMaxPendingTimeMs(readableConfig.get(MAX_PENDING_TIME_DURATION).toMillis());
 		dorisOptions.setMaxFilterRatio(readableConfig.get(MAX_FILTER_RATIO));
-		dorisOptions.setRetryIntervalMs(readableConfig.get(RETRY_INTERVAL_MS));
+		dorisOptions.setRetryIntervalMs(readableConfig.get(RETRY_INTERVAL_DURATION).toMillis());
 		dorisOptions.setMaxRetryNum(readableConfig.get(MAX_RETRY_NUM));
-		dorisOptions.setFeUpdateIntervalMs(readableConfig.get(FE_UPDATE_INTERVAL_MS));
+		dorisOptions.setFeUpdateIntervalMs(readableConfig.get(FE_UPDATE_INTERVAL_DURATION).toMillis());
 		dorisOptions.setParallelism(readableConfig.get(PARALLELISM));
 		readableConfig.getOptional(SEQUENCE_COLUMN).ifPresent(dorisOptions::setSequenceColumn);
 
