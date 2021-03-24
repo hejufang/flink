@@ -32,6 +32,9 @@ import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -50,6 +53,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * It is used for normal scheduling and legacy failover strategy re-scheduling.
  */
 public class SchedulingUtils {
+	private static final Logger LOG = LoggerFactory.getLogger(SchedulingUtils.class);
 
 	public static CompletableFuture<Void> schedule(
 			ScheduleMode scheduleMode,
@@ -207,10 +211,11 @@ public class SchedulingUtils {
 						int numTotal = allAllocationsFuture.getNumFuturesTotal();
 						int numComplete = allAllocationsFuture.getNumFuturesCompleted();
 
-						String message = "Could not allocate all requires slots within timeout of "
+						String simpleMessage = "Could not allocate all requires slots within timeout of "
 							+ executionGraph.getAllocationTimeout() + ". Slots required: "
-							+ numTotal + ", slots allocated: " + numComplete
-							+ ", previous allocation IDs: " + allPreviousAllocationIds;
+							+ numTotal + ", slots allocated: " + numComplete;
+
+						String message = simpleMessage + ", previous allocation IDs: " + allPreviousAllocationIds;
 
 						StringBuilder executionMessageBuilder = new StringBuilder();
 
@@ -236,7 +241,8 @@ public class SchedulingUtils {
 
 						message += ", execution status: " + executionMessageBuilder.toString();
 
-						resultThrowable = new NoResourceAvailableException(message);
+						LOG.debug(message);
+						resultThrowable = new NoResourceAvailableException(simpleMessage);
 						executionGraph.incrementNoResourceAvailableException();
 					} else {
 						resultThrowable = strippedThrowable;
