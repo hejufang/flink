@@ -30,3 +30,6 @@ pushd flink-dist
 popd
 
 cp -r flink-dist/target/flink-1.11-byted-SNAPSHOT-bin/flink-1.11-byted-SNAPSHOT/* output/deploy/flink-1.11/
+
+# common jar conflict
+bash tools/common-jar-check/common_jar_check.sh "output/deploy/flink-1.11/"

@@ -122,6 +122,10 @@ under the License.
 											<pattern>org.apache.commons</pattern>
 											<shadedPattern>${shaded.prefix}.org.apache.commons</shadedPattern>
 										</relocation>
+										<relocation>
+											<pattern>com.bytedance.commons</pattern>
+											<shadedPattern>${shaded.prefix}.com.bytedance.commons</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>

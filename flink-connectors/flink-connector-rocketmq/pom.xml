@@ -175,6 +175,10 @@ under the License.
 											<pattern>okhttp3</pattern>
 											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.okhttp3</shadedPattern>
 										</relocation>
+										<relocation>
+											<pattern>com.bytedance.commons</pattern>
+											<shadedPattern>org.apache.flink.connectors.tos.shaded.com.bytedance.commons</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>
