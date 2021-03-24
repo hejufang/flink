@@ -23,6 +23,9 @@ import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
+import java.util.Arrays;
+
+import static org.apache.flink.client.cli.CliFrontendParser.ARGS_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.CHECKPOINT_ANALYZE_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.CHECKPOINT_ID;
 import static org.apache.flink.client.cli.CliFrontendParser.CHECKPOINT_VERIFY_OPTION;
@@ -39,6 +42,7 @@ public class CheckpointOptions extends CommandLineOptions {
 	private int checkpointID;
 	private boolean isAnalyzation;
 	private String metadataPath;
+	private final String[] programArgs;
 
 	//---------------------------------------------------
 	// Args for checkpoint verification at client
@@ -87,6 +91,8 @@ public class CheckpointOptions extends CommandLineOptions {
 				parallelism = ExecutionConfig.PARALLELISM_DEFAULT;
 			}
 		}
+
+		this.programArgs = extractProgramArgs(line);
 	}
 
 	public String[] getArgs() {
@@ -119,5 +125,22 @@ public class CheckpointOptions extends CommandLineOptions {
 
 	public int getParallelism() {
 		return parallelism;
+	}
+
+	public String[] getProgramArgs() {
+		return programArgs;
+	}
+
+	protected String[] extractProgramArgs(CommandLine line) {
+		String[] args = line.hasOption(ARGS_OPTION.getOpt()) ?
+			line.getOptionValues(ARGS_OPTION.getOpt()) :
+			line.getArgs();
+
+		if (args.length > 0 && !line.hasOption(JAR_OPTION.getOpt())) {
+			jarFilePath = args[0];
+			args = Arrays.copyOfRange(args, 1, args.length);
+		}
+
+		return args;
 	}
 }

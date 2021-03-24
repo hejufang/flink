@@ -335,6 +335,7 @@ public class CliFrontendParser {
 		options.addOption(CLASS_OPTION);
 		options.addOption(PARALLELISM_OPTION);
 		options.addOption(JAR_OPTION);
+		options.addOption(ARGS_OPTION);
 
 		options.addOption(CHECKPOINT_ID);
 		options.addOption(CHECKPOINT_ANALYZE_OPTION);

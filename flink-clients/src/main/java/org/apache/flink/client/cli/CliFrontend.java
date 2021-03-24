@@ -825,16 +825,6 @@ public class CliFrontend {
 
 		final CustomCommandLine activeCommandLine = validateAndGetActiveCommandLine(commandLine);
 
-		String[] cleanedArgs = checkpointOptions.getArgs();
-		final JobID jobId;
-
-		if (cleanedArgs.length >= 1) {
-			String jobIdString = cleanedArgs[0];
-			jobId = parseJobId(jobIdString);
-		} else {
-			jobId = null;
-		}
-
 		if (checkpointOptions.isAnalyzation()) {
 			final String path = checkpointOptions.getMetadataPath();
 			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
@@ -842,6 +832,9 @@ public class CliFrontend {
 		} else if (checkpointOptions.isVerification()) {
 			verifyCheckpoint(commandLine, checkpointOptions, activeCommandLine);
 		} else {
+			String[] cleanedArgs = checkpointOptions.getArgs();
+			final JobID jobId = cleanedArgs.length >= 1 ? parseJobId(cleanedArgs[0]) : null;
+
 			String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
 			if (jobName == null && jobId == null) {
 				throw new CliArgsException("Missing JobID and JobName. Specify one of them.");
@@ -962,6 +955,7 @@ public class CliFrontend {
 		return PackagedProgram.newBuilder()
 			.setJarFile(jarFile)
 			.setEntryPointClassName(entryPointClass)
+			.setArguments(checkpointOptions.getProgramArgs())
 			.build();
 	}
 
