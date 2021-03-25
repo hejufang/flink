@@ -47,6 +47,7 @@ import org.apache.flink.api.java.typeutils.MissingTypeInfo;
 import org.apache.flink.api.java.typeutils.PojoTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.DeploymentOptions;
 import org.apache.flink.configuration.ExecutionOptions;
@@ -1810,6 +1811,7 @@ public class StreamExecutionEnvironment {
 		checkNotNull(streamGraph, "StreamGraph cannot be null.");
 		checkNotNull(configuration.get(DeploymentOptions.TARGET), "No execution.target specified in your configuration file.");
 
+		replaceJobName(streamGraph);
 		final PipelineExecutorFactory executorFactory =
 			executorServiceLoader.getExecutorFactory(configuration);
 
@@ -2228,5 +2230,13 @@ public class StreamExecutionEnvironment {
 			}
 		}
 		return (T) resolvedTypeInfo;
+	}
+
+	public void replaceJobName(StreamGraph streamGraph) {
+		String appName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		// Replace job name with yarn app name.
+		if (!StringUtils.isNullOrWhitespaceOnly(appName)){
+			streamGraph.setJobName(appName);
+		}
 	}
 }
