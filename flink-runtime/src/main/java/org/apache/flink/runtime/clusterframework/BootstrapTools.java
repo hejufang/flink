@@ -488,13 +488,14 @@ public class BootstrapTools {
 
 		// use cores as gc.thread.num
 		if (flinkConfig.getBoolean(ConfigConstants.FLINK_GC_THREAD_NUM_USE_CORES_KEY, ConfigConstants.FLINK_GC_THREAD_NUM_USE_CORES_DEFAULT)) {
-			double containerVcores = tmParams.getContainerVcores();
-			if (containerVcores <= 0) {
-				javaOpts += " -XX:ParallelGCThreads=" + ConfigConstants.FLINK_GC_THREAD_NUM_DEFAULT;
-			} else {
-				javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(containerVcores);
+			if (!javaOpts.contains("-XX:ParallelGCThreads=")) {
+				double containerVcores = tmParams.getContainerVcores();
+				if (containerVcores <= 0) {
+					javaOpts += " -XX:ParallelGCThreads=" + ConfigConstants.FLINK_GC_THREAD_NUM_DEFAULT;
+				} else {
+					javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(containerVcores);
+				}
 			}
-
 		}
 
 		// JVM dump on OOM config

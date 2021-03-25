@@ -412,6 +412,7 @@ quail:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   yarn.provided.lib.dirs.enabled: true
+  flink.parallel.gc.thread.use.cores: true
 
 quoka:
   dc: cn
@@ -422,6 +423,7 @@ quoka:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
+  flink.parallel.gc.thread.use.cores: true
 
 quaga:
   dc: cn
@@ -431,6 +433,7 @@ quaga:
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   yarn.provided.lib.dirs.enabled: true
+  flink.parallel.gc.thread.use.cores: true
 
 quele:
   dc: cn
