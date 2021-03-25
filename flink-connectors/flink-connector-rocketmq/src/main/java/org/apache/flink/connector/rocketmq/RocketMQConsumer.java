@@ -75,6 +75,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_M
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_LATEST;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE_VALUE_TIMESTAMP;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
 /**
@@ -418,7 +419,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				break;
 			case SCAN_STARTUP_MODE_VALUE_TIMESTAMP:
 				long timestamp = RocketMQUtils.getLong(props,
-					SCAN_STARTUP_MODE_VALUE_TIMESTAMP, System.currentTimeMillis());
+					SCAN_STARTUP_TIMESTAMP_MILLIS.key(), System.currentTimeMillis());
 				resetOffsetResult = consumer.resetOffsetByTimestamp(topic, group, queuePbList, timestamp, false);
 				validateResponse(resetOffsetResult.getErrorCode(), resetOffsetResult.getErrorMsg());
 				break;

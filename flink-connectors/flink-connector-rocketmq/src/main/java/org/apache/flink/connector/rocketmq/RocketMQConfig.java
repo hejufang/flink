@@ -21,8 +21,11 @@ import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.factories.FactoryUtil;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.Map;
+
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL_DEFAULT;
 
 /**
  * RocketMQConfig.
@@ -33,7 +36,7 @@ public class RocketMQConfig<T> {
 	private String cluster;
 	private String group;
 	private String topic;
-	private int delayLevel;
+	private int delayLevel = MSG_DELAY_LEVEL_DEFAULT;
 	private String tag;
 	private int sendBatchSize;
 	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
@@ -79,6 +82,9 @@ public class RocketMQConfig<T> {
 	}
 
 	public void setDelayLevel(int delayLevel) {
+		if (delayLevel < RocketMQOptions.MSG_DELAY_LEVEL00 || delayLevel > RocketMQOptions.MSG_DELAY_LEVEL18) {
+			throw new FlinkRuntimeException(String.format("Delay level %s is out of valid range [0, 18]", delayLevel));
+		}
 		this.delayLevel = delayLevel;
 	}
 

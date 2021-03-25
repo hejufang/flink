@@ -39,7 +39,6 @@ public abstract class RocketMQOptions {
 	public static final String SCAN_STARTUP_MODE_VALUE_LATEST = "latest";
 	public static final String SCAN_STARTUP_MODE_VALUE_GROUP_OFFSETS = "group";
 	public static final String SCAN_STARTUP_MODE_VALUE_TIMESTAMP = "timestamp";
-	public static final String SCAN_STARTUP_MODE_FROM_TIMESTAMP = "startup-mode.from.timestamp";
 
 	// Consumer will retry 10 times and cost 10 minutes at most
 	public static final int CONSUMER_RETRY_TIMES_DEFAULT = 10;
@@ -122,6 +121,12 @@ public abstract class RocketMQOptions {
 		.defaultValue(1000)
 		.withDescription("Optional producer batch size.");
 
+	public static final ConfigOption<Integer> SINK_MESSAGE_DELAY_LEVEL = ConfigOptions
+		.key("sink.msg-delay-level")
+		.intType()
+		.defaultValue(0)
+		.withDescription("Optional specific delay level, valid range is [0-18].");
+
 	public static final ConfigOption<String> SINK_DELAY_LEVEL_FIELD = ConfigOptions
 			.key("sink.delay-level-field")
 			.stringType()
@@ -180,7 +185,7 @@ public abstract class RocketMQOptions {
 					throw new ValidationException(
 						String.format("Invalid value for option '%s'. Supported values are %s, but was: %s",
 							SCAN_STARTUP_MODE.key(),
-							"[earliest-offset, latest-offset, group-offsets, specific-offsets, timestamp]",
+							String.join(",", SCAN_STARTUP_MODE_ENUMS),
 							mode));
 				}
 

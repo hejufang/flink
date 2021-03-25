@@ -40,6 +40,7 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.FlinkRuntimeException;
+import org.apache.flink.util.StringUtils;
 
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
 
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.BINLOG_TARGET_TABLE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.CLUSTER;
@@ -63,6 +65,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_M
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_SIZE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DELAY_LEVEL_FIELD;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_MESSAGE_DELAY_LEVEL;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_TOPIC_SELECTOR;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TAG;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
@@ -116,7 +119,6 @@ public class RocketMQDynamicTableFactory implements
 	@Override
 	public Set<ConfigOption<?>> requiredOptions() {
 		final Set<ConfigOption<?>> options = new HashSet<>();
-		options.add(GROUP);
 		options.add(CLUSTER);
 		options.add(FactoryUtil.FORMAT);
 		return options;
@@ -125,6 +127,7 @@ public class RocketMQDynamicTableFactory implements
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		final Set<ConfigOption<?>> options = new HashSet<>();
+		options.add(GROUP);
 		options.add(TAG);
 		options.add(TOPIC);
 		options.add(SCAN_STARTUP_MODE);
@@ -132,6 +135,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SCAN_ASSIGN_QUEUE_STRATEGY);
 		options.add(SINK_BATCH_SIZE);
 		options.add(SINK_DELAY_LEVEL_FIELD);
+		options.add(SINK_MESSAGE_DELAY_LEVEL);
 		options.add(SINK_TOPIC_SELECTOR);
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
 		options.add(SOURCE_METADATA_COLUMNS);
@@ -180,6 +184,12 @@ public class RocketMQDynamicTableFactory implements
 				metadataInfo ->
 					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema)
 			);
+
+			config.getOptional(SINK_MESSAGE_DELAY_LEVEL).ifPresent(rocketMQConfig::setDelayLevel);
+
+			if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup())) {
+				rocketMQConfig.setGroup(UUID.randomUUID().toString());
+			}
 		} else {
 			rocketMQConfig.setTopic(config.getOptional(TOPIC).orElseThrow(
 				() -> new FlinkRuntimeException(
@@ -192,6 +202,9 @@ public class RocketMQDynamicTableFactory implements
 			}
 			config.getOptional(SCAN_BROKER_QUEUE_LIST).ifPresent(rocketMQConfig::setRocketMqBrokerQueueList);
 			validateBrokerQueueList(rocketMQConfig);
+			if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup())) {
+				throw new FlinkRuntimeException("You have to specific group when use rocketmq consumer.");
+			}
 		}
 
 		return rocketMQConfig;

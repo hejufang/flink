@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL00;
-import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVEL_DEFAULT;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.getRocketMQProperties;
 
 /**
@@ -53,7 +52,7 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private transient List<Message> messageList;
 	private Map<String, String> props;
 	private final TopicSelector<T> topicSelector;
-	private int messageDelayLevel = MSG_DELAY_LEVEL_DEFAULT;
+	private int messageDelayLevel;
 	private int parallelism;
 	private final MsgDelayLevelSelector<T> msgDelayLevelSelector;
 
