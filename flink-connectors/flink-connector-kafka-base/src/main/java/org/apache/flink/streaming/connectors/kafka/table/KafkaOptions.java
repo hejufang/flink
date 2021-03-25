@@ -145,6 +145,12 @@ public class KafkaOptions {
 		.noDefaultValue()
 		.withDescription("Optional commit offset interval.");
 
+	public static final ConfigOption<Boolean> SCAN_START_IGNORE_STATE_OFFSETS = ConfigOptions
+		.key("scan.start.ignore-state-offsets")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional ignore kafka offsets in state during start and rely on scan.startup.mode to init kafka offsets");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------

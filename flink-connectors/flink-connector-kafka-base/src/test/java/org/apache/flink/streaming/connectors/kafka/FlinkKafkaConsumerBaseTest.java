@@ -52,6 +52,7 @@ import org.apache.flink.streaming.connectors.kafka.internals.AbstractPartitionDi
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaCommitCallback;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
+import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionStateSentinel;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicsDescriptor;
 import org.apache.flink.streaming.connectors.kafka.testutils.TestPartitionDiscoverer;
 import org.apache.flink.streaming.connectors.kafka.testutils.TestSourceContext;
@@ -380,6 +381,111 @@ public class FlinkKafkaConsumerBaseTest extends TestLogger {
 				.stream()
 				.map(partition -> partition.getTopic())
 				.collect(Collectors.toSet()));
+	}
+
+	@Test
+	public void testIgnoreStateOffsetsFirstStartup() throws Exception {
+		checkIgnoreRestoredOffsetsWithDiscovered(
+			Arrays.asList(new String[]{}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			true,
+			false,
+			11111L,
+			// this means consumer ignore the offset in state, and use RESET_TO_EARLIEST_FOR_NEW_PARTITION policy.
+			KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+	}
+
+	@Test
+	public void testNotIgnoreStateOffsetsFirstStartup() throws Exception {
+		checkIgnoreRestoredOffsetsWithDiscovered(
+			Arrays.asList(new String[]{}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			false,
+			false,
+			0L,
+			// this means consumer ignore the offset in state, and use RESET_TO_EARLIEST_FOR_NEW_PARTITION policy.
+			KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+	}
+
+	@Test
+	public void testIgnoreRestoredPartitionsWithDiscovered() throws Exception {
+		//ignore state offset
+		checkIgnoreRestoredOffsetsWithDiscovered(
+			Arrays.asList(new String[]{"kafka_topic_1"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			true,
+			true,
+			11111L,
+			// this means consumer ignore the offset in state, and use RESET_TO_EARLIEST_FOR_NEW_PARTITION policy.
+			KafkaTopicPartitionStateSentinel.RESET_TO_EARLIEST_FOR_NEW_PARTITION);
+	}
+
+	@Test
+	public void testNotIgnoreRestoredPartitionsWithDiscovered() throws Exception {
+		//not ignore state offset, this is default behavior
+		checkIgnoreRestoredOffsetsWithDiscovered(
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			false,
+			true,
+			11111L,
+			11111L);
+
+		checkIgnoreRestoredOffsetsWithDiscovered(
+			Arrays.asList(new String[]{}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			Arrays.asList(new String[]{"kafka_topic_1", "kafka_topic_2"}),
+			false,
+			true,
+			11111L,
+			KafkaTopicPartitionStateSentinel.EARLIEST_OFFSET);
+	}
+
+	private void checkIgnoreRestoredOffsetsWithDiscovered(
+		List<String> restoredKafkaTopics,
+		List<String> initKafkaTopics,
+		List<String> expectedSubscribedPartitions,
+		boolean startIgnoreStateOffset,
+		boolean isRestored,
+		long restoredOffset,
+		long subscribedKafkaOffset) throws Exception {
+		final AbstractPartitionDiscoverer discoverer = new TestPartitionDiscoverer(
+			new KafkaTopicsDescriptor(initKafkaTopics, null),
+			0,
+			1,
+			TestPartitionDiscoverer.createMockGetAllTopicsSequenceFromFixedReturn(initKafkaTopics),
+			TestPartitionDiscoverer.createMockGetAllPartitionsFromTopicsSequenceFromFixedReturn(
+				initKafkaTopics.stream()
+					.map(topic -> new KafkaTopicPartition(topic, 0))
+					.collect(Collectors.toList())));
+		final FlinkKafkaConsumerBase<String> consumer = new DummyFlinkKafkaConsumer<>(initKafkaTopics, discoverer);
+		consumer.setStartIgnoreStateOffsets(startIgnoreStateOffset);
+		consumer.disableFilterRestoredPartitionsWithSubscribedTopics();
+		consumer.properties.put("cluster", "test_cluster");
+
+		final TestingListState<Tuple2<KafkaTopicPartition, Long>> listState = new TestingListState<>();
+
+		for (int i = 0; i < restoredKafkaTopics.size(); i++) {
+			listState.add(new Tuple2<>(new KafkaTopicPartition(restoredKafkaTopics.get(i), 0), restoredOffset));
+		}
+
+		setupConsumer(consumer, isRestored, listState, true, 0, 1);
+
+		Map<KafkaTopicPartition, Long> subscribedPartitionsToStartOffsets = consumer.getSubscribedPartitionsToStartOffsets();
+
+		assertEquals(new HashSet<>(expectedSubscribedPartitions),
+			subscribedPartitionsToStartOffsets
+				.keySet()
+				.stream()
+				.map(partition -> partition.getTopic())
+				.collect(Collectors.toSet()));
+		for (long offset : subscribedPartitionsToStartOffsets.values()) {
+			assertEquals(subscribedKafkaOffset, offset);
+		}
 	}
 
 	@Test

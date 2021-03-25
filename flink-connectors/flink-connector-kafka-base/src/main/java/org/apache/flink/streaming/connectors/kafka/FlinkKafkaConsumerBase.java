@@ -189,6 +189,9 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	/** Whether reset to earliest for new partition at startup.*/
 	private boolean resetEarliestForNewPartition = true;
 
+	/** Whether ignore checkpoint state's offsets and rely on {@link StartupMode} to init kafka offsets. */
+	private boolean startIgnoreStateOffsets = false;
+
 	/** Relative offset for {@link StartupMode#LATEST} or {@link StartupMode#GROUP_OFFSETS} or
 	 * {@link StartupMode#EARLIEST}, can be negative and positive. */
 	private Long relativeOffset;
@@ -612,7 +615,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 		RetryManager.Strategy retryStrategy = RetryManager.createStrategy("FIXED_DELAY", RETRY_TIMES, RETRY_INTERVAL_MS);
 		subscribedPartitionsToStartOffsets = new HashMap<>();
 		final List<KafkaTopicPartition> allPartitions = filterPartitions(partitionDiscoverer.discoverPartitions());
-		if (restoredState != null) {
+		if (restoredState != null && !startIgnoreStateOffsets) {
 			for (KafkaTopicPartition partition : allPartitions) {
 				if (!restoredState.containsKey(partition)) {
 					restoredState.put(partition, KafkaTopicPartitionStateSentinel.EARLIEST_OFFSET);
@@ -1316,6 +1319,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	public FlinkKafkaConsumerBase<T> disableResetToEarliestForNewPartition() {
 		this.resetEarliestForNewPartition = false;
 		return this;
+	}
+
+	public void setStartIgnoreStateOffsets(Boolean ignore) {
+		this.startIgnoreStateOffsets = ignore;
+	}
+
+	public boolean getStartIgnoreStateOffsets(){
+		return this.startIgnoreStateOffsets;
 	}
 
 	/**

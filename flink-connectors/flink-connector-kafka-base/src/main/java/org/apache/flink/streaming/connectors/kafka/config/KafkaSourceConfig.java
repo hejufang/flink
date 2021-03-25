@@ -40,6 +40,7 @@ public class KafkaSourceConfig implements Serializable  {
 	private long manualCommitInterval;
 	private Long relativeOffset;
 	private Integer parallelism;
+	private boolean startIgnoreStateOffsets;
 
 	public long getRateLimitNumber() {
 		return rateLimitNumber;
@@ -129,6 +130,14 @@ public class KafkaSourceConfig implements Serializable  {
 		this.parallelism = parallelism;
 	}
 
+	public boolean isStartIgnoreStateOffsets() {
+		return startIgnoreStateOffsets;
+	}
+
+	public void setStartIgnoreStateOffsets(boolean startIgnoreStateOffsets) {
+		this.startIgnoreStateOffsets = startIgnoreStateOffsets;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -148,13 +157,14 @@ public class KafkaSourceConfig implements Serializable  {
 			Objects.equals(metadataMap, that.metadataMap) &&
 			Objects.equals(manualCommitInterval, that.manualCommitInterval) &&
 			Objects.equals(relativeOffset, that.relativeOffset) &&
-			Objects.equals(parallelism, that.parallelism);
+			Objects.equals(parallelism, that.parallelism) &&
+			Objects.equals(startIgnoreStateOffsets, that.startIgnoreStateOffsets);
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval, scanSampleNum, partitionTopicList,
 			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset,
-			parallelism);
+			parallelism, startIgnoreStateOffsets);
 	}
 }

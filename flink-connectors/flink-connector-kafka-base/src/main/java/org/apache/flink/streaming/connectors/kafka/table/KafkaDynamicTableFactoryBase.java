@@ -60,6 +60,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCA
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_SPECIFIC_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
+import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_START_IGNORE_STATE_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_LOG_FAILURE_ONLY;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SINK_PARTITIONER;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.TOPIC;
@@ -192,6 +193,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION);
 		options.add(SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL);
 		options.add(SCAN_RELATIVE_OFFSET);
+		options.add(SCAN_START_IGNORE_STATE_OFFSETS);
 
 		options.add(SINK_LOG_FAILURE_ONLY);
 		options.add(SINK_PARTITIONER);
@@ -223,6 +225,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		);
 		readableConfig.getOptional(SCAN_RELATIVE_OFFSET).ifPresent(sourceConfig::setRelativeOffset);
 		readableConfig.getOptional(FactoryUtil.PARALLELISM).ifPresent(sourceConfig::setParallelism);
+		readableConfig.getOptional(SCAN_START_IGNORE_STATE_OFFSETS).ifPresent(sourceConfig::setStartIgnoreStateOffsets);
 
 		return sourceConfig;
 	}
