@@ -18,6 +18,7 @@
 
 package org.apache.flink.contrib.streaming.state.restore;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.contrib.streaming.state.RocksDBIncrementalCheckpointUtils;
 import org.apache.flink.contrib.streaming.state.RocksDBKeySerializationUtils;
 import org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend.RocksDbKvStateInfo;
@@ -154,8 +155,10 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		boolean isRescaling = (restoreStateHandles.size() > 1 ||
 			!Objects.equals(theFirstStateHandle.getKeyGroupRange(), keyGroupRange));
 
-		if (isRescaling) {
+		if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
 			restoreWithRescaling(restoreStateHandles);
+		} else if (isRescaling && theFirstStateHandle instanceof IncrementalLocalKeyedStateHandle) {
+			restoreWithRescalingByLocalKeyedStateHandle(restoreStateHandles);
 		} else {
 			restoreWithoutRescaling(theFirstStateHandle);
 		}
@@ -353,10 +356,14 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 
 	private void initDBWithRescaling(KeyedStateHandle initialHandle) throws Exception {
 
-		assert (initialHandle instanceof IncrementalRemoteKeyedStateHandle);
+		assert (initialHandle instanceof IncrementalRemoteKeyedStateHandle || initialHandle instanceof IncrementalLocalKeyedStateHandle);
 
 		// 1. Restore base DB from selected initial handle
-		restoreFromRemoteState((IncrementalRemoteKeyedStateHandle) initialHandle);
+		if (initialHandle instanceof IncrementalRemoteKeyedStateHandle) {
+			restoreFromRemoteState((IncrementalRemoteKeyedStateHandle) initialHandle);
+		} else {
+			restoreFromLocalState((IncrementalLocalKeyedStateHandle) initialHandle);
+		}
 
 		// 2. Clip the base DB instance
 		try {
@@ -371,6 +378,78 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			String errMsg = "Failed to clip DB after initialization.";
 			LOG.error(errMsg, e);
 			throw new BackendBuildingException(errMsg, e);
+		}
+	}
+
+	/**
+	 * Use IncrementalLocalKeyedStateHandle to restore directly, only for testing.
+	 */
+	private void restoreWithRescalingByLocalKeyedStateHandle(Collection<KeyedStateHandle> restoreStateHandles) throws Exception {
+
+		// Prepare for restore with rescaling
+		KeyedStateHandle initialHandle = RocksDBIncrementalCheckpointUtils.chooseTheBestStateHandleForInitial(
+			restoreStateHandles, keyGroupRange);
+
+		// Init base DB instance
+		if (initialHandle != null) {
+			restoreStateHandles.remove(initialHandle);
+			initDBWithRescaling(initialHandle);
+		} else {
+			openDB();
+		}
+
+		// Transfer remaining key-groups from temporary instance into base DB
+		byte[] startKeyGroupPrefixBytes = new byte[keyGroupPrefixBytes];
+		RocksDBKeySerializationUtils.serializeKeyGroup(keyGroupRange.getStartKeyGroup(), startKeyGroupPrefixBytes);
+
+		byte[] stopKeyGroupPrefixBytes = new byte[keyGroupPrefixBytes];
+		RocksDBKeySerializationUtils.serializeKeyGroup(keyGroupRange.getEndKeyGroup() + 1, stopKeyGroupPrefixBytes);
+
+		for (KeyedStateHandle rawStateHandle : restoreStateHandles) {
+
+			if (!(rawStateHandle instanceof IncrementalLocalKeyedStateHandle)) {
+				throw new IllegalStateException("Unexpected state handle type, " +
+					"expected " + IncrementalLocalKeyedStateHandle.class +
+					", but found " + rawStateHandle.getClass());
+			}
+
+			Path temporaryRestoreInstancePath = instanceBasePath.getAbsoluteFile().toPath().resolve(UUID.randomUUID().toString());
+			try (RestoredDBInstance tmpRestoreDBInfo = restoreDBInstanceFromLocalStateHandle((IncrementalLocalKeyedStateHandle) rawStateHandle);
+				WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
+				RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(this.db, writeOptions, writeBatchSize)) {
+
+				List<ColumnFamilyDescriptor> tmpColumnFamilyDescriptors = tmpRestoreDBInfo.columnFamilyDescriptors;
+				List<ColumnFamilyHandle> tmpColumnFamilyHandles = tmpRestoreDBInfo.columnFamilyHandles;
+
+				// iterating only the requested descriptors automatically skips the default column family handle
+				for (int i = 0; i < tmpColumnFamilyDescriptors.size(); ++i) {
+					ColumnFamilyHandle tmpColumnFamilyHandle = tmpColumnFamilyHandles.get(i);
+
+					ColumnFamilyHandle targetColumnFamilyHandle = getOrRegisterStateColumnFamilyHandle(
+						null, tmpRestoreDBInfo.stateMetaInfoSnapshots.get(i))
+						.columnFamilyHandle;
+
+					try (RocksIteratorWrapper iterator = RocksDBOperationUtils.getRocksIterator(tmpRestoreDBInfo.db, tmpColumnFamilyHandle, tmpRestoreDBInfo.readOptions)) {
+
+						iterator.seek(startKeyGroupPrefixBytes);
+
+						while (iterator.isValid()) {
+
+							if (RocksDBIncrementalCheckpointUtils.beforeThePrefixBytes(iterator.key(), stopKeyGroupPrefixBytes)) {
+								writeBatchWrapper.put(targetColumnFamilyHandle, iterator.key(), iterator.value());
+							} else {
+								// Since the iterator will visit the record according to the sorted order,
+								// we can just break here.
+								break;
+							}
+
+							iterator.next();
+						}
+					} // releases native iterator resources
+				}
+			} finally {
+				cleanUpPathQuietly(temporaryRestoreInstancePath);
+			}
 		}
 	}
 
@@ -448,6 +527,29 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 
 		RocksDB restoreDb = RocksDBOperationUtils.openDB(
 			temporaryRestoreInstancePath.toString(),
+			columnFamilyDescriptors,
+			columnFamilyHandles,
+			RocksDBOperationUtils.createColumnFamilyOptions(columnFamilyOptionsFactory, "default"),
+			dbOptions);
+
+		return new RestoredDBInstance(restoreDb, columnFamilyHandles, columnFamilyDescriptors, stateMetaInfoSnapshots);
+	}
+
+	@VisibleForTesting
+	private RestoredDBInstance restoreDBInstanceFromLocalStateHandle(IncrementalLocalKeyedStateHandle restoreStateHandle) throws Exception {
+
+		KeyedBackendSerializationProxy<K> serializationProxy = readMetaData(restoreStateHandle.getMetaDataState());
+		// read meta data
+		List<StateMetaInfoSnapshot> stateMetaInfoSnapshots = serializationProxy.getStateMetaInfoSnapshots();
+
+		List<ColumnFamilyDescriptor> columnFamilyDescriptors =
+			createAndRegisterColumnFamilyDescriptors(stateMetaInfoSnapshots, false);
+
+		List<ColumnFamilyHandle> columnFamilyHandles =
+			new ArrayList<>(stateMetaInfoSnapshots.size() + 1);
+
+		RocksDB restoreDb = RocksDBOperationUtils.openDB(
+			restoreStateHandle.getDirectoryStateHandle().getDirectory().toAbsolutePath().toString(),
 			columnFamilyDescriptors,
 			columnFamilyHandles,
 			RocksDBOperationUtils.createColumnFamilyOptions(columnFamilyOptionsFactory, "default"),

@@ -28,6 +28,7 @@ import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackend;
 import org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackendBuilder;
@@ -41,6 +42,7 @@ import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.KeyedStateFunction;
+import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.LocalRecoveryDirectoryProviderImpl;
 import org.apache.flink.runtime.state.VoidNamespace;
@@ -55,6 +57,7 @@ import org.rocksdb.RocksDBException;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 
 /**
@@ -80,29 +83,16 @@ public class StateBackendBenchmarkUtils {
 	}
 
 	private static RocksDBKeyedStateBackend<Long> createRocksDBKeyedStateBackend(File rootDir) throws IOException {
-		File recoveryBaseDir = prepareDirectory(recoveryDirName, rootDir);
-		File dbPathFile = prepareDirectory(dbDirName, rootDir);
-		ExecutionConfig executionConfig = new ExecutionConfig();
 		RocksDBResourceContainer resourceContainer = new RocksDBResourceContainer();
-		RocksDBKeyedStateBackendBuilder<Long> builder = new RocksDBKeyedStateBackendBuilder<>(
-			"Test",
-			Thread.currentThread().getContextClassLoader(),
-			dbPathFile,
-			resourceContainer,
-			stateName -> resourceContainer.getColumnOptions(),
-			null,
-			LongSerializer.INSTANCE,
-			2,
-			new KeyGroupRange(0, 1),
-			executionConfig,
-			new LocalRecoveryConfig(false, new LocalRecoveryDirectoryProviderImpl(recoveryBaseDir, new JobID(), new JobVertexID(), 0)),
-			RocksDBStateBackend.PriorityQueueStateType.ROCKSDB,
-			TtlTimeProvider.DEFAULT,
-			new UnregisteredMetricsGroup(),
-			Collections.emptyList(),
-			AbstractStateBackend.getCompressionDecorator(executionConfig),
-			new CloseableRegistry());
 		try {
+			RocksDBKeyedStateBackendBuilder<Long> builder = createRocksDBKeyedStateBackendBuilder(
+				rootDir,
+				resourceContainer,
+				LongSerializer.INSTANCE,
+				2,
+				new KeyGroupRange(0, 1),
+				Collections.emptyList(),
+				0);
 			return builder.build();
 		} catch (Exception e) {
 			IOUtils.closeQuietly(resourceContainer);
@@ -135,7 +125,48 @@ public class StateBackendBenchmarkUtils {
 		return backendBuilder.build();
 	}
 
-	private static File prepareDirectory(String prefix, File parentDir) throws IOException {
+	/**
+	 * We provide this method so we can more finely control the behavior of the builder.
+	 */
+	public static <T> RocksDBKeyedStateBackendBuilder<T> createRocksDBKeyedStateBackendBuilder(
+		File rootDir,
+		RocksDBResourceContainer resourceContainer,
+		TypeSerializer<T> keySerializer,
+		int numberOfKeyGroups,
+		KeyGroupRange keyGroupRange,
+		Collection<KeyedStateHandle> keyedStateHandles,
+		int instance) throws IOException {
+		File instanceRootDir = prepareDirectory(String.format("instance-%s-", instance), rootDir);
+		File recoveryBaseDir = prepareDirectory(recoveryDirName, instanceRootDir);
+		File dbPathFile = prepareDirectory(dbDirName, instanceRootDir);
+
+		ExecutionConfig executionConfig = new ExecutionConfig();
+		RocksDBKeyedStateBackendBuilder<T> builder = new RocksDBKeyedStateBackendBuilder<>(
+			"Test",
+			Thread.currentThread().getContextClassLoader(),
+			dbPathFile,
+			resourceContainer,
+			stateName -> resourceContainer.getColumnOptions(),
+			null,
+			keySerializer,
+			numberOfKeyGroups,
+			keyGroupRange,
+			executionConfig,
+			new LocalRecoveryConfig(false, new LocalRecoveryDirectoryProviderImpl(recoveryBaseDir, new JobID(), new JobVertexID(), 0)),
+			RocksDBStateBackend.PriorityQueueStateType.ROCKSDB,
+			TtlTimeProvider.DEFAULT,
+			new UnregisteredMetricsGroup(),
+			keyedStateHandles,
+			AbstractStateBackend.getCompressionDecorator(executionConfig),
+			new CloseableRegistry());
+		return builder;
+	}
+
+	public static File prepareBenchmarkDirectory() throws IOException {
+		return prepareDirectory(rootDirName, null);
+	}
+
+	public static File prepareDirectory(String prefix, File parentDir) throws IOException {
 		File target = File.createTempFile(prefix, "", parentDir);
 		if (target.exists() && !target.delete()) {
 			throw new IOException("Target dir {" + target.getAbsolutePath() + "} exists but failed to clean it up");

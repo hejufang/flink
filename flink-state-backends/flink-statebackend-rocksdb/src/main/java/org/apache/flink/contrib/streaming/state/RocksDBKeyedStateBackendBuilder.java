@@ -207,7 +207,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.injectedDefaultColumnFamilyHandle = injectedDefaultColumnFamilyHandle;
 	}
 
-	RocksDBKeyedStateBackendBuilder<K> setEnableIncrementalCheckpointing(boolean enableIncrementalCheckpointing) {
+	@VisibleForTesting
+	public RocksDBKeyedStateBackendBuilder<K> setEnableIncrementalCheckpointing(boolean enableIncrementalCheckpointing) {
 		this.enableIncrementalCheckpointing = enableIncrementalCheckpointing;
 		return this;
 	}
