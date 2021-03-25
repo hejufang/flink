@@ -20,6 +20,7 @@ package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.GrafanaGauge;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
@@ -379,8 +380,8 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC, new LatestCompletedCheckpointSizeGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC, new LatestCompletedCheckpointDurationGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
-		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, StateUtil::getNumDiscardStates);
-		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, StateUtil::getNumLegacyDiscardStates);
+		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, (GrafanaGauge<Long>) StateUtil::getNumDiscardStates);
+		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, (GrafanaGauge<Long>) StateUtil::getNumLegacyDiscardStates);
 		metricGroup.gauge(WAREHOUSE_CHECKPOINTS, MESSAGE_SET);
 	}
 

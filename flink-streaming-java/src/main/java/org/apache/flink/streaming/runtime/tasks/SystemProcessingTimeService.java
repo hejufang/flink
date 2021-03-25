@@ -20,6 +20,9 @@ package org.apache.flink.streaming.runtime.tasks;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Deadline;
+import org.apache.flink.metrics.GrafanaGauge;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
 import org.slf4j.Logger;
@@ -46,6 +49,10 @@ public class SystemProcessingTimeService implements TimerService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SystemProcessingTimeService.class);
 
+	private static final String PROCESSING_TIMER_LATENCY_MAX = "processingTimerLatencyMax";
+	private static final String PROCESSING_TIMER_LATENCY_MIN = "processingTimerLatencyMin";
+	private static final String PROCESSING_TIMER_TRIGGER_COUNT = "processingTimerTriggerCount";
+
 	private static final int STATUS_ALIVE = 0;
 	private static final int STATUS_QUIESCED = 1;
 	private static final int STATUS_SHUTDOWN = 2;
@@ -60,12 +67,16 @@ public class SystemProcessingTimeService implements TimerService {
 
 	private final CompletableFuture<Void> quiesceCompletedFuture;
 
+	private final MetricGroup metricGroup;
+
+	private final com.codahale.metrics.Histogram dropwizardHistogram;
+
 	@VisibleForTesting
 	SystemProcessingTimeService(ExceptionHandler exceptionHandler) {
-		this(exceptionHandler, null);
+		this(exceptionHandler, null, UnregisteredMetricGroups.createUnregisteredTaskMetricGroup());
 	}
 
-	SystemProcessingTimeService(ExceptionHandler exceptionHandler, ThreadFactory threadFactory) {
+	SystemProcessingTimeService(ExceptionHandler exceptionHandler, ThreadFactory threadFactory, MetricGroup metricGroup) {
 
 		this.exceptionHandler = checkNotNull(exceptionHandler);
 		this.status = new AtomicInteger(STATUS_ALIVE);
@@ -83,6 +94,13 @@ public class SystemProcessingTimeService implements TimerService {
 		// make sure shutdown removes all pending tasks
 		this.timerService.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		this.timerService.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+
+		this.dropwizardHistogram = new com.codahale.metrics.Histogram(new com.codahale.metrics.SlidingWindowReservoir(128));
+
+		this.metricGroup = metricGroup;
+		this.metricGroup.gauge(PROCESSING_TIMER_LATENCY_MAX, (GrafanaGauge<Long>) () -> dropwizardHistogram.getSnapshot().getMax());
+		this.metricGroup.gauge(PROCESSING_TIMER_LATENCY_MIN, (GrafanaGauge<Long>) () -> dropwizardHistogram.getSnapshot().getMin());
+		this.metricGroup.gauge(PROCESSING_TIMER_TRIGGER_COUNT, (GrafanaGauge<Long>) dropwizardHistogram::getCount);
 	}
 
 	@Override
@@ -274,11 +292,11 @@ public class SystemProcessingTimeService implements TimerService {
 	}
 
 	private Runnable wrapOnTimerCallback(ProcessingTimeCallback callback, long timestamp) {
-		return new ScheduledTask(status, exceptionHandler, callback, timestamp, 0);
+		return new ScheduledTask(status, exceptionHandler, callback, timestamp, 0, dropwizardHistogram);
 	}
 
 	private Runnable wrapOnTimerCallback(ProcessingTimeCallback callback, long nextTimestamp, long period) {
-		return new ScheduledTask(status, exceptionHandler, callback, nextTimestamp, period);
+		return new ScheduledTask(status, exceptionHandler, callback, nextTimestamp, period, dropwizardHistogram);
 	}
 
 	private static final class ScheduledTask implements Runnable {
@@ -289,17 +307,21 @@ public class SystemProcessingTimeService implements TimerService {
 		private long nextTimestamp;
 		private final long period;
 
+		private final com.codahale.metrics.Histogram dropwizardHistogram;
+
 		ScheduledTask(
 				AtomicInteger serviceStatus,
 				ExceptionHandler exceptionHandler,
 				ProcessingTimeCallback callback,
 				long timestamp,
-				long period) {
+				long period,
+				com.codahale.metrics.Histogram dropwizardHistogram) {
 			this.serviceStatus = serviceStatus;
 			this.exceptionHandler = exceptionHandler;
 			this.callback = callback;
 			this.nextTimestamp = timestamp;
 			this.period = period;
+			this.dropwizardHistogram = dropwizardHistogram;
 		}
 
 		@Override
@@ -309,6 +331,9 @@ public class SystemProcessingTimeService implements TimerService {
 			}
 			try {
 				callback.onProcessingTime(nextTimestamp);
+
+				long latency = System.currentTimeMillis() - nextTimestamp;
+				dropwizardHistogram.update(latency);
 			} catch (Exception ex) {
 				exceptionHandler.handleException(ex);
 			}

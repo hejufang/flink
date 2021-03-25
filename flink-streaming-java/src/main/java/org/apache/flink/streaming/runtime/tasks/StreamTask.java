@@ -305,7 +305,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		// if the clock is not already set, then assign a default TimeServiceProvider
 		if (timerService == null) {
 			ThreadFactory timerThreadFactory = new DispatcherThreadFactory(TRIGGER_THREAD_GROUP, "Time Trigger for " + getName());
-			this.timerService = new SystemProcessingTimeService(this::handleTimerException, timerThreadFactory);
+			this.timerService = new SystemProcessingTimeService(this::handleTimerException, timerThreadFactory, getEnvironment().getMetricGroup());
 		} else {
 			this.timerService = timerService;
 		}

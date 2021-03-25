@@ -48,6 +48,9 @@ public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
 
 	private static final String CHECKPOINT_OVERVIEW_TEMPLATE = "checkpoint_overview_template.txt";
+	private static final String CHECKPOINT_TIMER_TEMPLATE = "checkpoint_timer_template.txt";
+	private static final String CHECKPOINT_TIMER_LAG_TARGET_TEMPLATE = "checkpoint_timer_lag_target_template.txt";
+	private static final String CHECKPOINT_TIMER_RATE_TARGET_TEMPLATE = "checkpoint_timer_rate_target_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -157,6 +160,34 @@ public class Dashboard {
 		gcValues.put("datasource", dataSource);
 		String gcRow = renderString(gcTemplate, gcValues);
 		return gcRow;
+	}
+
+	private String renderCheckpointTimerRow(List<String> tasks) {
+		String checkpointTemplate = null;
+		String checkpointTimerLagTargetTemplate = null;
+		String checkpointTimerRateTargetTemplate = null;
+		try {
+			checkpointTemplate = renderFromResource(CHECKPOINT_TIMER_TEMPLATE);
+			checkpointTimerLagTargetTemplate = renderFromResource(CHECKPOINT_TIMER_LAG_TARGET_TEMPLATE);
+			checkpointTimerRateTargetTemplate = renderFromResource(CHECKPOINT_TIMER_RATE_TARGET_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render checkpoint metrics.", e);
+			return "";
+		}
+
+		Map<String, String> checkpointValues = new HashMap<>();
+		checkpointValues.put("jobname", formatJobName);
+		checkpointValues.put("datasource", dataSource);
+		List<String> targets1 = new ArrayList<>();
+		List<String> targets2 = new ArrayList<>();
+		for (String task : tasks) {
+			checkpointValues.put("task", task);
+			targets1.add(renderString(checkpointTimerLagTargetTemplate, checkpointValues));
+			targets2.add(renderString(checkpointTimerRateTargetTemplate, checkpointValues));
+		}
+		checkpointValues.put("targets1", String.join(",", targets1));
+		checkpointValues.put("targets2", String.join(",", targets2));
+		return renderString(checkpointTemplate, checkpointValues);
 	}
 
 	private String renderCheckpointOverviewRow() {
@@ -373,6 +404,7 @@ public class Dashboard {
 		}
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
+		rows.add(renderCheckpointTimerRow(tasks));
 		rows.add(renderCheckpointOverviewRow());
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));

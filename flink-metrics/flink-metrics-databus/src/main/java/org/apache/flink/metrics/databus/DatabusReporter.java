@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.GrafanaGauge;
 import org.apache.flink.metrics.Message;
 import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
@@ -96,7 +97,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 				messageSets.put((MessageSet) metric, name);
 			} else if (metric instanceof Counter && !isMetricGroupBanned(group)) {
 				counters.put((Counter) metric, name);
-			} else if (metric instanceof Gauge && !isMetricGroupBanned(group)) {
+			} else if (metric instanceof Gauge && !(metric instanceof GrafanaGauge) && !isMetricGroupBanned(group)) {
 				gauges.put((Gauge<?>) metric, name);
 			}
 		}

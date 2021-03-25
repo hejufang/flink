@@ -116,6 +116,10 @@ non-global:
         downloadDurationInMs,
         writeKeyDurationInMs,
         downloadSizeInBytes,
+      # Timer
+        processingTimerTriggerCount,
+        processingTimerLatencyMax,
+        processingTimerLatencyMin,
       # Blacklist
         numTaskManagersInBlacklist,
       # number of skipped records in source
