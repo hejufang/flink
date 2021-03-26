@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -61,6 +62,10 @@ public class HtapReaderIterator {
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
 	private final int groupByColumnSize;
+	private final String tableName;
+	private final int partitionId;
+	private long conversionCostMs = 0L;
+	private int roundCount = -1;
 
 	public HtapReaderIterator(
 			HtapScanner scanner,
@@ -72,6 +77,8 @@ public class HtapReaderIterator {
 				aggregateFunctions, "aggregateFunctions could not be null");
 		this.outputDataType = outputDataType;
 		this.groupByColumnSize = groupByColumnSize;
+		this.tableName = scanner.getTable().getName();
+		this.partitionId = scanner.getPartitionId();
 		updateRowIterator();
 	}
 
@@ -93,13 +100,24 @@ public class HtapReaderIterator {
 	}
 
 	public Row next() {
-		RowResult row = this.rowIterator.next();
-		return toFlinkRow(row);
+		long beforeConvert = System.currentTimeMillis();
+		Row flinkRow = toFlinkRow(this.rowIterator.next());
+		long afterConvert = System.currentTimeMillis();
+		conversionCostMs += (afterConvert - beforeConvert);
+		return flinkRow;
 	}
 
 	private void updateRowIterator() throws IOException {
 		try {
+			LOG.debug("table: {}, partition: {}, round: {}, conversionCost: {}ms",
+				tableName, partitionId, roundCount, conversionCostMs);
+			conversionCostMs = 0L;
+			roundCount++;
+			LOG.debug("Before fetch rows from {}-{} in round[{}] at {}",
+				tableName, partitionId, roundCount, LocalDateTime.now());
 			this.rowIterator = scanner.nextRows();
+			LOG.debug("After fetch rows from {}-{} in round[{}] at {}",
+				tableName, partitionId, roundCount, LocalDateTime.now());
 		} catch (HtapException he) {
 			throw new HtapConnectorException(he.getErrorCode(), he.getMessage());
 		}
