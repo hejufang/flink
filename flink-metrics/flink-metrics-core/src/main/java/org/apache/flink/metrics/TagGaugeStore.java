@@ -22,6 +22,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Store for {@link TagGauge}.
@@ -36,11 +39,18 @@ public class TagGaugeStore {
 
 	private final boolean clearWhenFull;
 
-	public TagGaugeStore(int maxSize, boolean clearAfterReport, boolean clearWhenFull) {
+	private final TagGauge.MetricsReduceType metricsReduceType;
+
+	public TagGaugeStore(
+			int maxSize,
+			boolean clearAfterReport,
+			boolean clearWhenFull,
+			TagGauge.MetricsReduceType metricsReduceType) {
 		this.maxSize = maxSize;
 		this.metricValuesList = new ArrayList<>();
 		this.clearAfterReport = clearAfterReport;
 		this.clearWhenFull = clearWhenFull;
+		this.metricsReduceType = metricsReduceType;
 	}
 
 	public void addMetric(double metricValue, TagValues tagValues) {
@@ -66,7 +76,40 @@ public class TagGaugeStore {
 	}
 
 	public List<TagGaugeMetric> getMetricValuesList() {
-		return metricValuesList;
+		switch (this.metricsReduceType) {
+			case SUM:
+				return metricValuesList.stream()
+						.collect(Collectors.groupingBy(metrics -> metrics.getTagValues().getTagValues()))
+						.values().stream().map(tagGaugeMetrics -> tagGaugeMetrics.stream().reduce(
+								(metric1, metric2) -> new TagGaugeMetric(
+										metric1.getMetricValue() + metric2.getMetricValue(),
+										metric1.tagValues)))
+						.map(Optional::get)
+						.collect(Collectors.toList());
+			case MAX:
+				return metricValuesList.stream()
+						.collect(Collectors.groupingBy(metrics -> metrics.getTagValues().getTagValues()))
+						.values().stream().map(tagGaugeMetrics -> tagGaugeMetrics.stream().reduce(
+								(metric1, metric2) -> new TagGaugeMetric(
+										Math.max(metric1.getMetricValue(), metric2.getMetricValue()),
+										metric1.tagValues)))
+						.map(Optional::get)
+						.collect(Collectors.toList());
+			case MIN:
+				return metricValuesList.stream()
+						.collect(Collectors.groupingBy(metrics -> metrics.getTagValues().getTagValues()))
+						.values().stream().map(tagGaugeMetrics -> tagGaugeMetrics.stream().reduce(
+								(metric1, metric2) -> new TagGaugeMetric(
+										Math.min(metric1.getMetricValue(), metric2.getMetricValue()),
+										metric1.tagValues)))
+						.map(Optional::get)
+						.collect(Collectors.toList());
+			case NO_REDUCE:
+				return metricValuesList;
+			default:
+				throw new RuntimeException("Unknown MetricsReduceType " + this.metricsReduceType +
+						" for TagGauge");
+		}
 	}
 
 	/**
@@ -125,6 +168,23 @@ public class TagGaugeStore {
 
 		public TagValues getTagValues() {
 			return tagValues;
+		}
+
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (obj == null || getClass() != obj.getClass()) {
+				return false;
+			}
+			TagGaugeMetric tagGaugeMetrics = (TagGaugeMetric) obj;
+			return this.getMetricValue() == tagGaugeMetrics.getMetricValue() &&
+					this.getTagValues().getTagValues().equals(
+							tagGaugeMetrics.getTagValues().getTagValues());
+		}
+
+		public int hashCode() {
+			return Objects.hash(metricValue, tagValues.getTagValues());
 		}
 	}
 }

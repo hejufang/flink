@@ -29,8 +29,12 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 
 	private final TagGaugeStore store;
 
-	TagGauge(int maxSize, boolean clearAfterReport, boolean clearWhenFull) {
-		this.store = new TagGaugeStore(maxSize, clearAfterReport, clearWhenFull);
+	TagGauge(
+			int maxSize,
+			boolean clearAfterReport,
+			boolean clearWhenFull,
+			MetricsReduceType metricsReduceType) {
+		this.store = new TagGaugeStore(maxSize, clearAfterReport, clearWhenFull, metricsReduceType);
 	}
 
 	public void addMetric(Object metricValue, TagGaugeStore.TagValues tagValues) {
@@ -57,6 +61,16 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 	}
 
 	/**
+	 * Reduce type for the metrics data with same tags.
+	 */
+	public enum MetricsReduceType {
+		NO_REDUCE,
+		SUM,
+		MAX,
+		MIN
+	}
+
+	/**
 	 * Build for {@link TagGauge}.
 	 */
 	public static class TagGaugeBuilder {
@@ -64,6 +78,7 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 		private int size = 1024;
 		private boolean clearAfterReport = false;
 		private boolean clearWhenFull = false;
+		private MetricsReduceType metricsReduceType = MetricsReduceType.SUM;
 
 		public TagGaugeBuilder() {}
 
@@ -82,8 +97,13 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 			return this;
 		}
 
+		public TagGaugeBuilder setMetricsReduceType(MetricsReduceType metricsReduceType) {
+			this.metricsReduceType = metricsReduceType;
+			return this;
+		}
+
 		public TagGauge build() {
-			return new TagGauge(size, clearAfterReport, clearWhenFull);
+			return new TagGauge(size, clearAfterReport, clearWhenFull, metricsReduceType);
 		}
 	}
 }
