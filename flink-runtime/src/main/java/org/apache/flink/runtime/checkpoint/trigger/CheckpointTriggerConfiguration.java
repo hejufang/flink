@@ -21,12 +21,13 @@ package org.apache.flink.runtime.checkpoint.trigger;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointTriggerStrategy;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Trigger configuration of checkpoint.
  */
-public class CheckpointTriggerConfiguration {
+public class CheckpointTriggerConfiguration implements Serializable {
 
 	private final CheckpointTriggerStrategy triggerStrategy;
 	private final List<JobVertex> sortedTopology;
