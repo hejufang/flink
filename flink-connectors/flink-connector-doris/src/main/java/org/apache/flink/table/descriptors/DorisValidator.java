@@ -42,6 +42,8 @@ public class DorisValidator extends ConnectorDescriptorValidator {
 	public static final String CONNECTOR_MAX_RETRY_NUM = "connector.max-retry-num";
 	public static final String CONNECTOR_FE_UPDATE_INTERVAL_MS = "connector.fe-update-interval-ms";
 	public static final String CONNECTOR_PARALLELISM = "connector.parallelism";
+	public static final String CONNECTOR_SEQUENCE_COLUMN = "connector.sequence-column";
+	public static final String CONNECTOR_TIMEOUT_MS = "connector.timeout-ms";
 
 	@Override
 	public void validate(DescriptorProperties properties) {
@@ -69,5 +71,7 @@ public class DorisValidator extends ConnectorDescriptorValidator {
 		properties.validateInt(CONNECTOR_MAX_RETRY_NUM, true, 1);
 		properties.validateInt(CONNECTOR_FE_UPDATE_INTERVAL_MS, true, 1);
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
+		properties.validateString(CONNECTOR_SEQUENCE_COLUMN, true, 1);
+		properties.validateInt(CONNECTOR_TIMEOUT_MS, true, 1);
 	}
 }

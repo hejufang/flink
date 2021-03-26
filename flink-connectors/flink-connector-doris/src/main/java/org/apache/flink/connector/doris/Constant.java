@@ -36,4 +36,5 @@ public class Constant {
 	public static final int RETRY_INTERVAL_MS_DEFAULT = 1000;
 	public static final int MAX_RETRY_NUM_DEFAULT = -1;
 	public static final int FE_UPDATE_INTERVAL_MS_DEFAULT = 15000;
+	public static final int TIMEOUT_MS_DEFAULT = 5 * 60 * 1000;
 }

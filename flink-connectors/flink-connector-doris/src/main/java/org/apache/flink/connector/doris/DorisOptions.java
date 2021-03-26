@@ -38,6 +38,7 @@ import static org.apache.flink.connector.doris.Constant.MAX_PENDING_TIME_MS_DEFA
 import static org.apache.flink.connector.doris.Constant.MAX_RETRY_NUM_DEFAULT;
 import static org.apache.flink.connector.doris.Constant.RETRY_INTERVAL_MS_DEFAULT;
 import static org.apache.flink.connector.doris.Constant.TABLE_MODEL_DEFAULT;
+import static org.apache.flink.connector.doris.Constant.TIMEOUT_MS_DEFAULT;
 
 /**
  * DorisOptions.
@@ -67,6 +68,8 @@ public class DorisOptions implements Serializable {
 	private final int maxRetryNum;
 	private final int feUpdateIntervalMs;
 	private final int parallelism;
+	private final String sequenceColumn;
+	private final int timeoutMs;
 
 	private DorisOptions(
 			List<Pair<String, Integer>> dorisFEList,
@@ -89,7 +92,9 @@ public class DorisOptions implements Serializable {
 			int retryIntervalMs,
 			int maxRetryNum,
 			int feUpdateIntervalMs,
-			int parallelism) {
+			int parallelism,
+			String sequenceColumn,
+			int timeoutMs) {
 		this.dorisFEList = dorisFEList;
 		this.cluster = cluster;
 		this.dataCenter = dataCenter;
@@ -111,6 +116,8 @@ public class DorisOptions implements Serializable {
 		this.maxRetryNum = maxRetryNum;
 		this.feUpdateIntervalMs = feUpdateIntervalMs;
 		this.parallelism = parallelism;
+		this.sequenceColumn = sequenceColumn;
+		this.timeoutMs = timeoutMs;
 	}
 
 	public List<Pair<String, Integer>> getDorisFEList() {
@@ -197,6 +204,14 @@ public class DorisOptions implements Serializable {
 		return parallelism;
 	}
 
+	public String getSequenceColumn() {
+		return sequenceColumn;
+	}
+
+	public int getTimeoutMs() {
+		return timeoutMs;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -227,6 +242,8 @@ public class DorisOptions implements Serializable {
 		private int maxRetryNum = MAX_RETRY_NUM_DEFAULT;
 		private int feUpdateIntervalMs = FE_UPDATE_INTERVAL_MS_DEFAULT;
 		private int parallelism = 1;
+		private String sequenceColumn;
+		private int timeoutMs = TIMEOUT_MS_DEFAULT;
 
 		private Builder() {
 		}
@@ -336,6 +353,16 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setSequenceColumn(String sequenceColumn) {
+			this.sequenceColumn = sequenceColumn;
+			return this;
+		}
+
+		public Builder setTimeoutMs(int timeoutMs) {
+			this.timeoutMs = timeoutMs;
+			return this;
+		}
+
 		public DorisOptions build() {
 			// There are two ways to get connection, through DORIS_FE_LIST or DORIS_FE_PSM + DATA_CENTER,
 			// and the second way has higher priority if they are both set.
@@ -356,6 +383,7 @@ public class DorisOptions implements Serializable {
 			Preconditions.checkArgument(maxFilterRatio >= 0, "maxFilterRatio must >= 0");
 			Preconditions.checkArgument(retryIntervalMs > 0, "retryIntervalMs must > 0");
 			Preconditions.checkArgument(feUpdateIntervalMs > 0, "feUpdateIntervalMs must > 0");
+			Preconditions.checkArgument(timeoutMs > 0, "timeoutMs must > 0");
 
 			return new DorisOptions(
 				dorisFEList,
@@ -378,7 +406,9 @@ public class DorisOptions implements Serializable {
 				retryIntervalMs,
 				maxRetryNum,
 				feUpdateIntervalMs,
-				parallelism);
+				parallelism,
+				sequenceColumn,
+				timeoutMs);
 		}
 	}
 }

@@ -55,8 +55,10 @@ import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_MAX_RE
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_PASSWORD;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_RETRY_INTERVAL_MS;
+import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_SEQUENCE_COLUMN;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_TABLE_MODEL;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_TABLE_NAME;
+import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_TIMEOUT_MS;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_USER;
 import static org.apache.flink.table.descriptors.DorisValidator.DORIS;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -99,6 +101,8 @@ public class DorisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		properties.add(CONNECTOR_MAX_RETRY_NUM);
 		properties.add(CONNECTOR_FE_UPDATE_INTERVAL_MS);
 		properties.add(CONNECTOR_PARALLELISM);
+		properties.add(CONNECTOR_SEQUENCE_COLUMN);
+		properties.add(CONNECTOR_TIMEOUT_MS);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -176,6 +180,10 @@ public class DorisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 			.ifPresent(dorisOptionsBuilder::setFeUpdateIntervalMs);
 		descriptorProperties.getOptionalInt(CONNECTOR_PARALLELISM)
 			.ifPresent(dorisOptionsBuilder::setParallelism);
+		descriptorProperties.getOptionalString(CONNECTOR_SEQUENCE_COLUMN)
+			.ifPresent(dorisOptionsBuilder::setSequenceColumn);
+		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS)
+			.ifPresent(dorisOptionsBuilder::setTimeoutMs);
 
 		return dorisOptionsBuilder.build();
 	}
