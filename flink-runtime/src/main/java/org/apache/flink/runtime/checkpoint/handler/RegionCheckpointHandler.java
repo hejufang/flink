@@ -293,6 +293,11 @@ public class RegionCheckpointHandler implements CheckpointHandler {
 	}
 
 	@Override
+	public boolean tryHandleFailUnacknowledgedPendingCheckpoints(ExecutionAttemptID executionAttemptId, Throwable cause) {
+		return true;
+	}
+
+	@Override
 	public void clearCheckpoint(long checkpointId) {
 		synchronized (lock) {
 			checkpointIdToGoodRegions.remove(checkpointId);

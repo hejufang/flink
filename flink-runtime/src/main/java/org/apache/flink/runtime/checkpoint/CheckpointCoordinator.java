@@ -1181,6 +1181,11 @@ public class CheckpointCoordinator {
 	 */
 	public void failUnacknowledgedPendingCheckpointsFor(ExecutionAttemptID executionAttemptId, Throwable cause) {
 		synchronized (lock) {
+			if (sendActionToHandler(handler -> handler.tryHandleFailUnacknowledgedPendingCheckpoints(executionAttemptId, cause),
+				pendingCheckpoints.values().stream().map(PendingCheckpoint::getCheckpointId).collect(Collectors.toList()))) {
+				return;
+			}
+
 			abortPendingCheckpoints(
 				checkpoint -> !checkpoint.isAcknowledgedBy(executionAttemptId),
 				new CheckpointException(CheckpointFailureReason.TASK_FAILURE, cause));

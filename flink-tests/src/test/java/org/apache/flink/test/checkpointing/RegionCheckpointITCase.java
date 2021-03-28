@@ -27,12 +27,15 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +75,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
 
 		env.addSource(new TestSource(3)).addSink(new ExpireSink(3));
 		env.execute();
@@ -90,6 +94,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 1000L));
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
 		env.setParallelism(4);
 
 		env.addSource(new TestSource(3)).addSink(new FailedSink());
@@ -97,6 +102,29 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		env.execute();
 
 		Assert.assertTrue(latestSuccessfulChckpointId.get() == 3 && FailedSink.exceptionThrown.get());
+	}
+
+	@Ignore
+	@Test
+	public void testUnAcknowledgedTaskFailedCheckpoint() throws Exception {
+		final Configuration configuration = new Configuration();
+		configuration.setInteger(CheckpointingOptions.MAX_RETAINED_REGION_SNAPSHOTS, 1000);
+		configuration.setString(JobManagerOptions.EXECUTION_FAILOVER_STRATEGY, "region");
+		configuration.setBoolean(CheckpointingOptions.REGION_CHECKPOINT_ENABLED, true);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
+		env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 1000L));
+		Preconditions.checkArgument(CHECKPOINT_INTERVAL < CHECKPOINT_EXPIRE_PERIOD, "interval greater than timeout");
+		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
+		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
+		env.setParallelism(4);
+
+		TestFailedSource source = new TestFailedSource(3, (CHECKPOINT_INTERVAL + CHECKPOINT_EXPIRE_PERIOD) / 2);
+		env.addSource(source).addSink(new DiscardingSink<>());
+
+		env.execute();
+
+		Assert.assertTrue(latestSuccessfulChckpointId.get() == 3 && TestFailedSource.exceptionThrown.get());
 	}
 
 	@Test
@@ -107,6 +135,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(4, configuration);
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
 		env.setParallelism(4);
 
 		env.addSource(new TestSource(3)).addSink(new ExpireSink(3));
@@ -134,6 +163,7 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(configuration);
 		env.getCheckpointConfig().setCheckpointInterval(CHECKPOINT_INTERVAL);
 		env.getCheckpointConfig().setCheckpointTimeout(CHECKPOINT_EXPIRE_PERIOD);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
 		env.setParallelism(4);
 
 		env.addSource(new TestSource(totalCheckpoints)).addSink(new ExpireSink(totalCheckpoints));
@@ -266,5 +296,33 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 
 		@Override
 		public void initializeState(FunctionInitializationContext context) throws Exception {}
+	}
+
+	private static class TestFailedSource extends TestSource {
+		static AtomicBoolean exceptionThrown = new AtomicBoolean(false);
+		private final long sleepTime;
+
+		public TestFailedSource(int totalCheckpoints, long sleepTime) {
+			super(totalCheckpoints);
+			exceptionThrown.compareAndSet(true, false);
+			this.sleepTime = sleepTime;
+		}
+
+		@Override
+		public void run(SourceContext<Integer> ctx) throws Exception {
+			while (loop && latestCheckpointId.get() <= totalCheckpoints) {
+				synchronized (ctx.getCheckpointLock()) {
+					if (latestCheckpointId.get() >= COMPLETE_CHECKPOINTS_BEFORE_TESTING && getRuntimeContext().getIndexOfThisSubtask() == 1) {
+						Thread.sleep(sleepTime);
+						exceptionThrown.compareAndSet(false, true);
+						throw new RuntimeException("Expected exception.");
+					}
+					ctx.collect(new Random().nextInt(100));
+				}
+				Thread.sleep(100);
+			}
+			LOG.info("Stop the source... latest checkpoint id={}, latest successful checkpoint id={}",
+				latestCheckpointId, latestSuccessfulChckpointId.get());
+		}
 	}
 }
