@@ -34,7 +34,10 @@ global:
         numberOfGlobalFailures,
         numberOfRegionCheckpointJobs,
         numberOfRegionCheckpoints,
-        numberOfRegionCheckpointRecoveries
+        numberOfRegionCheckpointRecoveries,
+        checkpointWriteFileRate,
+        checkpointWriteFileLatency,
+        checkpointCloseFileLatency
     ]
 
 non-global:

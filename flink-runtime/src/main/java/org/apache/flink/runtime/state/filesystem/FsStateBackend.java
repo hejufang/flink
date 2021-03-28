@@ -27,6 +27,7 @@ import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
@@ -505,10 +506,17 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 			getSavepointPath(),
 			jobId,
 			getMinFileSizeThreshold(),
-			getWriteBufferSize());
+			getWriteBufferSize(),
+			new UnregisteredMetricsGroup());
 	}
 
-	public CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName) throws IOException {
+	@Override
+	public CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
+		return createCheckpointStorage(jobId, jobName, new UnregisteredMetricsGroup());
+	}
+
+	@Override
+	public CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName, MetricGroup metricGroup) throws IOException {
 		LOG.info("createCheckpointStorage, jobId {}, jobName, {}", jobId, jobName);
 		if (config != null) {
 			checkNotNull(jobId, "jobId");
@@ -521,9 +529,16 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 					jobName,
 					config.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE),
 					getMinFileSizeThreshold(),
-					getWriteBufferSize());
+					getWriteBufferSize(),
+					metricGroup);
 		} else {
-			return createCheckpointStorage(jobId);
+			return new FsCheckpointStorage(
+				getCheckpointPath(),
+				getSavepointPath(),
+				jobId,
+				getMinFileSizeThreshold(),
+				getWriteBufferSize(),
+				metricGroup);
 		}
 	}
 

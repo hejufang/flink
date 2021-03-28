@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
 import org.apache.flink.runtime.checkpoint.hooks.MasterHooks;
@@ -38,6 +39,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
@@ -278,7 +280,8 @@ public class CheckpointCoordinator {
 			sharedStateRegistryFactory,
 			failureManager,
 			SystemClock.getInstance(),
-			checkpointHandler);
+			checkpointHandler,
+			UnregisteredMetricGroups.createUnregisteredJobManagerJobMetricGroup());
 	}
 
 	@VisibleForTesting
@@ -298,7 +301,8 @@ public class CheckpointCoordinator {
 			SharedStateRegistryFactory sharedStateRegistryFactory,
 			CheckpointFailureManager failureManager,
 			Clock clock,
-			CheckpointHandler checkpointHandler) {
+			CheckpointHandler checkpointHandler,
+			MetricGroup metricGroup) {
 
 		// sanity checks
 		checkNotNull(checkpointStateBackend);
@@ -335,7 +339,7 @@ public class CheckpointCoordinator {
 		this.checkpointProperties = CheckpointProperties.forCheckpoint(chkConfig.getCheckpointRetentionPolicy());
 
 		try {
-			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobName);
+			this.checkpointStorage = checkpointStateBackend.createCheckpointStorage(job, jobName, metricGroup);
 			checkpointStorage.initializeBaseLocations();
 		} catch (IOException e) {
 			throw new FlinkRuntimeException("Failed to create checkpoint storage at checkpoint coordinator side.", e);

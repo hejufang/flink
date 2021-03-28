@@ -292,7 +292,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.stateBackend = createStateBackend();
 
 		this.subtaskCheckpointCoordinator = new SubtaskCheckpointCoordinatorImpl(
-			stateBackend.createCheckpointStorage(getEnvironment().getJobID(), getEnvironment().getJobName()),
+			stateBackend.createCheckpointStorage(getEnvironment().getJobID(), getEnvironment().getJobName(), getEnvironment().getMetricGroup()),
 			getName(),
 			actionExecutor,
 			getCancelables(),

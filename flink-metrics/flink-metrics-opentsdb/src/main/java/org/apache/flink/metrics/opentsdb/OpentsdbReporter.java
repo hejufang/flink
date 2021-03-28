@@ -19,6 +19,7 @@
 package org.apache.flink.metrics.opentsdb;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.metrics.Histogram;
@@ -40,9 +41,11 @@ import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -72,6 +75,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private static final Pattern SQL_GATEWAY_PATTERN = Pattern.compile(
 			"(\\S+)\\.(sqlgateway\\.\\S+)");
 	private static final int METRICS_NAME_MAX_LENGTH = 255;
+	private static final AtomicInteger registerIdCounter = new AtomicInteger(1);
 	private RateLimitedMetricsClient client;
 	private String jobName;
 	private String prefix;	// It is the prefix of all metric and used in UdpMetricsClient's constructor
@@ -91,7 +95,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private final Set<String> nonGlobalNeededMetrics = new HashSet<>();
 	private final Set<String> nonGlobalContainsNeededMetrics = new HashSet<>();
 
-	private final Map<String, String> globalMetricNames = new HashMap<>();
+	private final Map<String, Tuple2<String, Integer>> globalMetricNames = new LinkedHashMap<>();
 
 	@Override
 	public void open(MetricConfig config) {
@@ -136,7 +140,7 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 		log.debug("Register Metric={}", name);
 		if (globalNeededMetrics.contains(metricName)) {
 			log.info("Register global metric: {}.", name);
-			globalMetricNames.put(name, metricName);
+			globalMetricNames.put(name, Tuple2.of(metricName, registerIdCounter.getAndIncrement()));
 		}
 
 		synchronized (this) {
@@ -171,10 +175,10 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 	private void reportGlobalMetrics(String type, String name, String metricName,
 					double value, String tags) throws IOException {
 		if (globalMetricNames.containsKey(name)) {
-			String emitMetricName = globalMetricNames.get(name);
-			if (!emitMetricName.equals(metricName)) {
-				String prefixEmitMetricName = GLOBAL_PREFIX + "." + emitMetricName;
-				this.client.emitStoreWithTag(prefixEmitMetricName, value, tags);
+			Tuple2<String, Integer> emitMetricNameWithId = globalMetricNames.get(name);
+			if (!emitMetricNameWithId.f0.equals(metricName)) {
+				String prefixEmitMetricName = GLOBAL_PREFIX + "." + emitMetricNameWithId.f0;
+				this.client.emitStoreWithTag(prefixEmitMetricName, value, tags + "|" + "registerId=" + emitMetricNameWithId.f1);
 			}
 		}
 	}

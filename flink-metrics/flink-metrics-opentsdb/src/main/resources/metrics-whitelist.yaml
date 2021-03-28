@@ -41,7 +41,10 @@ global:
         numberOfActualDeletedStateFiles,
         numberOfTotalDeletedStateFiles,
         barrierAlignDuration,
-        contentionLockDuration
+        contentionLockDuration,
+        checkpointWriteFileRate,
+        checkpointWriteFileLatency,
+        checkpointCloseFileLatency
     ]
 
 non-global:

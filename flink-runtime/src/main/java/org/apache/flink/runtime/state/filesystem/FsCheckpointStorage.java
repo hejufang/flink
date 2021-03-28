@@ -23,6 +23,10 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.metrics.GrafanaGauge;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.View;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
@@ -64,19 +68,40 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	private boolean baseLocationsInitialized = false;
 
+	private final CheckpointWriteFileStatistic metricReference;
+
+	private final CheckpointWriteFileStatistic currentPeriodStatistic;
+
 	public FsCheckpointStorage(
 			Path checkpointBaseDirectory,
 			@Nullable Path defaultSavepointDirectory,
 			JobID jobId,
 			int fileSizeThreshold,
 			int writeBufferSize) throws IOException {
+		this(checkpointBaseDirectory.getFileSystem(),
+				checkpointBaseDirectory,
+				defaultSavepointDirectory,
+				jobId,
+				fileSizeThreshold,
+				writeBufferSize,
+				new UnregisteredMetricsGroup());
+	}
+
+	public FsCheckpointStorage(
+			Path checkpointBaseDirectory,
+			@Nullable Path defaultSavepointDirectory,
+			JobID jobId,
+			int fileSizeThreshold,
+			int writeBufferSize,
+			MetricGroup metricGroup) throws IOException {
 
 		this(checkpointBaseDirectory.getFileSystem(),
 				checkpointBaseDirectory,
 				defaultSavepointDirectory,
 				jobId,
 				fileSizeThreshold,
-				writeBufferSize);
+				writeBufferSize,
+				metricGroup);
 	}
 
 	public FsCheckpointStorage(
@@ -85,7 +110,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			@Nullable Path defaultSavepointDirectory,
 			JobID jobId,
 			int fileSizeThreshold,
-			int writeBufferSize) throws IOException {
+			int writeBufferSize,
+			MetricGroup metricGroup) throws IOException {
 		this(fs,
 				checkpointBaseDirectory,
 				defaultSavepointDirectory,
@@ -93,7 +119,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				null,
 				null,
 				fileSizeThreshold,
-				writeBufferSize);
+				writeBufferSize,
+				metricGroup);
 	}
 
 	public FsCheckpointStorage(
@@ -104,7 +131,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			@Nullable String jobName,
 			@Nullable String checkpointsNamespace,
 			int fileSizeThreshold,
-			int writeBufferSize) throws IOException {
+			int writeBufferSize,
+			MetricGroup metricGroup) throws IOException {
 		super(jobId, defaultSavepointDirectory);
 
 		checkArgument(fileSizeThreshold >= 0);
@@ -120,6 +148,13 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		this.taskOwnedStateDirectory = new Path(checkpointsDirectory, CHECKPOINT_TASK_OWNED_STATE_DIR);
 		this.fileSizeThreshold = fileSizeThreshold;
 		this.writeBufferSize = writeBufferSize;
+
+		this.metricReference = new CheckpointWriteFileStatistic();
+		this.currentPeriodStatistic = new CheckpointWriteFileStatistic();
+
+		metricGroup.gauge(CHECKPOINT_WRITE_FILE_RATE_METRIC, new CheckpointWriteFileRate(metricReference, currentPeriodStatistic));
+		metricGroup.gauge(CHECKPOINT_WRITE_FILE_LATENCY_METRIC, (GrafanaGauge<Double>) metricReference::getAvgWriteLatency);
+		metricGroup.gauge(CHECKPOINT_CLOSE_FILE_LATENCY_METRIC, (GrafanaGauge<Double>) metricReference::getAvgCloseLatency);
 	}
 
 	// ------------------------------------------------------------------------
@@ -163,7 +198,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				taskOwnedStateDirectory,
 				CheckpointStorageLocationReference.getDefault(),
 				fileSizeThreshold,
-				writeBufferSize);
+				writeBufferSize,
+				currentPeriodStatistic);
 	}
 
 	@Override
@@ -182,7 +218,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 					taskOwnedStateDirectory,
 					reference,
 					fileSizeThreshold,
-					writeBufferSize);
+					writeBufferSize,
+					currentPeriodStatistic);
 		}
 		else {
 			// location encoded in the reference
@@ -195,7 +232,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 					path,
 					reference,
 					fileSizeThreshold,
-					writeBufferSize);
+					writeBufferSize,
+					currentPeriodStatistic);
 		}
 	}
 
@@ -207,13 +245,165 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				taskOwnedStateDirectory,
 				fileSystem,
 				writeBufferSize,
-				fileSizeThreshold);
+				fileSizeThreshold,
+				false,
+				currentPeriodStatistic);
 	}
 
 	@Override
 	protected CheckpointStorageLocation createSavepointLocation(FileSystem fs, Path location) {
 		final CheckpointStorageLocationReference reference = encodePathAsReference(location);
-		return new FsCheckpointStorageLocation(fs, location, location, location, reference, fileSizeThreshold, writeBufferSize);
+		return new FsCheckpointStorageLocation(fs, location, location, location, reference, fileSizeThreshold, writeBufferSize, currentPeriodStatistic);
+	}
+
+	// ------------------------------------------------------------------------
+	// Metrics
+	// ------------------------------------------------------------------------
+
+	private static final String CHECKPOINT_WRITE_FILE_RATE_METRIC = "checkpointWriteFileRate";
+
+	private static final String CHECKPOINT_WRITE_FILE_LATENCY_METRIC = "checkpointWriteFileLatency";
+
+	private static final String CHECKPOINT_CLOSE_FILE_LATENCY_METRIC = "checkpointCloseFileLatency";
+
+	/**
+	 * Metric for write hdfs file.
+	 */
+	public static class CheckpointWriteFileStatistic {
+		private final Object lock = new Object();
+		private final long timeSpanInSeconds;
+
+		private long writeBytes = 0;
+		private long writeLatency = 0;
+		private long writeCount = 0;
+		private long closeLatency = 0;
+		private long closeCount = 0;
+
+		public CheckpointWriteFileStatistic() {
+			this(CheckpointWriteFileRate.DEFAULT_TIME_SPAN_IN_SECONDS);
+		}
+
+		public CheckpointWriteFileStatistic(long timeSpanInSeconds) {
+			this.timeSpanInSeconds = timeSpanInSeconds;
+		}
+
+		public void updateWriteStatistics(long writeBytes, long writeLatency, long writeCount) {
+			synchronized (lock) {
+				this.writeBytes += writeBytes;
+				this.writeLatency += writeLatency;
+				this.writeCount += writeCount;
+			}
+		}
+
+		public void updateCloseStatistics(long closeLatency) {
+			synchronized (lock) {
+				this.closeLatency += closeLatency;
+				this.closeCount += 1;
+			}
+		}
+
+		public void updateAllStatistics(
+				long writeBytes,
+				long writeLatency,
+				long writeCount,
+				long closeLatency,
+				long closeCount) {
+			synchronized (lock) {
+				this.writeBytes += writeBytes;
+				this.writeCount += writeCount;
+				this.writeLatency += writeLatency;
+				this.closeLatency += closeLatency;
+				this.closeCount += closeCount;
+			}
+		}
+
+		public CheckpointWriteFileStatistic getAndResetStatistics() {
+			synchronized (lock) {
+				CheckpointWriteFileStatistic statistic = new CheckpointWriteFileStatistic(this.timeSpanInSeconds);
+				statistic.updateAllStatistics(this.writeBytes, this.writeLatency, this.writeCount, this.closeLatency, this.closeCount);
+				this.writeBytes = 0L;
+				this.writeCount = 0L;
+				this.writeLatency = 0L;
+				this.closeLatency = 0L;
+				this.closeCount = 0L;
+				return statistic;
+			}
+		}
+
+		public double getWriteRate() {
+			synchronized (lock) {
+				return ((double) writeBytes) / timeSpanInSeconds;
+			}
+		}
+
+		public double getAvgWriteLatency() {
+			synchronized (lock) {
+				return writeCount > 0 ? ((double) writeLatency / writeCount) : 0.0;
+			}
+		}
+
+		public double getAvgCloseLatency() {
+			synchronized (lock) {
+				return closeCount > 0 ? ((double) closeLatency / closeCount) : 0.0;
+			}
+		}
+
+		@Override
+		public String toString() {
+			return "CheckpointWriteFileStatistic{" +
+				"timeSpanInSeconds=" + timeSpanInSeconds +
+				", writeBytes=" + writeBytes +
+				", writeLatency=" + writeLatency +
+				", writeCount=" + writeCount +
+				", closeLatency=" + closeLatency +
+				", closeCount=" + closeCount +
+				'}';
+		}
+	}
+
+	private static class CheckpointWriteFileRate implements GrafanaGauge<Double>, View {
+		public static final int DEFAULT_TIME_SPAN_IN_SECONDS = 60;
+
+		/** The time-span over which the average is calculated. */
+		private final int timeSpanInSeconds;
+		/** Metric reference. */
+		private final CheckpointWriteFileStatistic metricReference;
+		/** Current period statistic reference. */
+		private final CheckpointWriteFileStatistic currentPeriodStatistic;
+		/** Circular array containing the history of values. */
+		private final CheckpointWriteFileStatistic[] values;
+		/** The index in the array for the current time. */
+		private int index = 0;
+
+		public CheckpointWriteFileRate(
+				CheckpointWriteFileStatistic metricReference,
+				CheckpointWriteFileStatistic currentPeriodStatistic) {
+			this.timeSpanInSeconds = DEFAULT_TIME_SPAN_IN_SECONDS;
+			this.metricReference = metricReference;
+			this.currentPeriodStatistic = currentPeriodStatistic;
+			this.values = new CheckpointWriteFileStatistic[this.timeSpanInSeconds / UPDATE_INTERVAL_SECONDS + 1];
+		}
+
+		@Override
+		public Double getValue() {
+			return metricReference.getWriteRate();
+		}
+
+		@Override
+		public void update() {
+			index = (index + 1) % values.length;
+			CheckpointWriteFileStatistic old = values[index];
+			values[index] = currentPeriodStatistic.getAndResetStatistics();
+			if (old == null) {
+				old = new CheckpointWriteFileStatistic(this.timeSpanInSeconds);
+			}
+			metricReference.updateAllStatistics(
+				values[index].writeBytes - old.writeBytes,
+				values[index].writeLatency - old.writeLatency,
+				values[index].writeCount - old.writeCount,
+				values[index].closeLatency - old.closeLatency,
+				values[index].closeCount - old.closeCount);
+		}
 	}
 
 	@Override

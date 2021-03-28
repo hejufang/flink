@@ -25,6 +25,7 @@ import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
+import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStreamFactory;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.util.IOUtils;
@@ -95,7 +96,7 @@ public class RocksDBStateUploaderTest extends TestLogger {
 		int writeBufferSize = 4096;
 		FsCheckpointStreamFactory checkpointStreamFactory =
 			new FsCheckpointStreamFactory(
-				fileSystem, checkpointPrivateDirectory, checkpointSharedDirectory, fileStateSizeThreshold, writeBufferSize);
+				fileSystem, checkpointPrivateDirectory, checkpointSharedDirectory, fileStateSizeThreshold, writeBufferSize, new FsCheckpointStorage.CheckpointWriteFileStatistic());
 
 		String localFolder = "local";
 		temporaryFolder.newFolder(localFolder);

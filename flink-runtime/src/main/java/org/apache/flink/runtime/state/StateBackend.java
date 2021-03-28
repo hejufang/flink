@@ -29,6 +29,7 @@ import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -120,6 +121,14 @@ public interface StateBackend extends java.io.Serializable {
 
 	default CheckpointStorage createCheckpointStorage(JobID jobId, String jobName) throws IOException {
 		return createCheckpointStorage(jobId);
+	}
+
+	default CheckpointStorage createCheckpointStorage(JobID jobId, @Nullable String jobName, MetricGroup metricGroup) throws IOException {
+		if (jobName == null) {
+			return createCheckpointStorage(jobId);
+		} else {
+			return createCheckpointStorage(jobId, jobName);
+		}
 	}
 
 	// ------------------------------------------------------------------------

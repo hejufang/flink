@@ -83,16 +83,18 @@ public class FsCheckpointStateOutputStreamTest {
 
 	@Test(expected = IllegalArgumentException.class)
 	public void testWrongParameters() throws Exception {
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		// this should fail
 		new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
-			Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 4000, 5000, relativePaths);
+			Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 4000, 5000, relativePaths, currentPeriodStatistic);
 	}
 
 	@Test
 	public void testEmptyState() throws Exception {
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		FsCheckpointStreamFactory.CheckpointStateOutputStream stream =
 				new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
-						Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 1024, 512, relativePaths);
+						Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 1024, 512, relativePaths, currentPeriodStatistic);
 
 		StreamStateHandle handle = stream.closeAndGetHandle();
 		assertNull(handle);
@@ -120,9 +122,10 @@ public class FsCheckpointStateOutputStreamTest {
 
 	@Test
 	public void testGetPos() throws Exception {
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		FsCheckpointStreamFactory.CheckpointStateOutputStream stream =
 				new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
-						Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 31, 17, relativePaths);
+						Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 31, 17, relativePaths, currentPeriodStatistic);
 
 		for (int i = 0; i < 64; ++i) {
 			Assert.assertEquals(i, stream.getPos());
@@ -134,7 +137,7 @@ public class FsCheckpointStateOutputStreamTest {
 		// ----------------------------------------------------
 
 		stream = new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
-				Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 31, 17, relativePaths);
+				Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 31, 17, relativePaths, currentPeriodStatistic);
 
 		byte[] data = "testme!".getBytes(ConfigConstants.DEFAULT_CHARSET);
 
@@ -160,12 +163,14 @@ public class FsCheckpointStateOutputStreamTest {
 
 		when(fs.create(pathCaptor.capture(), any(FileSystem.WriteMode.class))).thenReturn(outputStream);
 
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		CheckpointStreamFactory.CheckpointStateOutputStream stream = new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
 			Path.fromLocalFile(tempDir.newFolder()),
 			fs,
 			4,
 			0,
-			relativePaths);
+			relativePaths,
+			currentPeriodStatistic);
 
 		// this should create the underlying file stream
 		stream.write(new byte[] {1, 2, 3, 4, 5});
@@ -190,12 +195,14 @@ public class FsCheckpointStateOutputStreamTest {
 		when(fs.create(pathCaptor.capture(), any(FileSystem.WriteMode.class))).thenReturn(outputStream);
 		doThrow(new IOException("Test IOException.")).when(outputStream).close();
 
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		CheckpointStreamFactory.CheckpointStateOutputStream stream = new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
 			Path.fromLocalFile(tempDir.newFolder()),
 			fs,
 			4,
 			0,
-			relativePaths);
+			relativePaths,
+			currentPeriodStatistic);
 
 		// this should create the underlying file stream
 		stream.write(new byte[] {1, 2, 3, 4, 5});
@@ -213,9 +220,10 @@ public class FsCheckpointStateOutputStreamTest {
 	}
 
 	private void runTest(int numBytes, int bufferSize, int threshold, boolean expectFile) throws Exception {
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		FsCheckpointStreamFactory.CheckpointStateOutputStream stream =
 			new FsCheckpointStreamFactory.FsCheckpointStateOutputStream(
-					Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), bufferSize, threshold, relativePaths);
+					Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), bufferSize, threshold, relativePaths, currentPeriodStatistic);
 
 		Random rnd = new Random();
 		byte[] original = new byte[numBytes];
@@ -263,8 +271,9 @@ public class FsCheckpointStateOutputStreamTest {
 
 	@Test
 	public void testWriteFailsFastWhenClosed() throws Exception {
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		FsCheckpointStateOutputStream stream = new FsCheckpointStateOutputStream(
-				Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 1024, 512, relativePaths);
+				Path.fromLocalFile(tempDir.newFolder()), FileSystem.getLocalFileSystem(), 1024, 512, relativePaths, currentPeriodStatistic);
 
 		assertFalse(stream.isClosed());
 
@@ -302,8 +311,9 @@ public class FsCheckpointStateOutputStreamTest {
 		final File directory = tempDir.newFolder();
 		final Path basePath = Path.fromLocalFile(directory);
 
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		final Supplier<CheckpointStateOutputStream> factory = () ->
-				new FsCheckpointStateOutputStream(basePath, FileSystem.getLocalFileSystem(), 1024, 15, relativePaths);
+				new FsCheckpointStateOutputStream(basePath, FileSystem.getLocalFileSystem(), 1024, 15, relativePaths, currentPeriodStatistic);
 
 		CheckpointStateOutputStream stream1 = factory.get();
 		CheckpointStateOutputStream stream2 = factory.get();
@@ -372,12 +382,12 @@ public class FsCheckpointStateOutputStreamTest {
 		checkDirectoryNotWritable(directory);
 
 		FileSystem fs = spy(FileSystem.getLocalFileSystem());
-
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		FsCheckpointStateOutputStream stream1 = new FsCheckpointStateOutputStream(
-				Path.fromLocalFile(directory), fs, 1024, 1, relativePaths);
+				Path.fromLocalFile(directory), fs, 1024, 1, relativePaths, currentPeriodStatistic);
 
 		FsCheckpointStateOutputStream stream2 = new FsCheckpointStateOutputStream(
-				Path.fromLocalFile(directory), fs, 1024, 1, relativePaths);
+				Path.fromLocalFile(directory), fs, 1024, 1, relativePaths, currentPeriodStatistic);
 
 		stream1.write(new byte[61]);
 		stream2.write(new byte[61]);
