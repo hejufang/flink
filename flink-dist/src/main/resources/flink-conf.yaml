@@ -451,8 +451,8 @@ marmt:
   dc: va
   clusterName: marmt
   high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
-  hdfs.prefix: hdfs://harunavaali/flink_maliva
-  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  hdfs.prefix: hdfs://harunava/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunava/flink_maliva
   dashboard.data_source: bytetsd_gva
   dtop.data_source: dtop_maliva
   dtop.database: dtop_maliva
@@ -472,8 +472,8 @@ macaw:
   dc: va
   clusterName: macaw
   high-availability.zookeeper.quorum: 10.231.131.120:2181,10.231.131.100:2181,10.231.131.112:2181,10.231.131.124:2181,10.231.131.106:2181
-  hdfs.prefix: hdfs://harunavaali/flink_maliva
-  checkpoint.hdfs.prefix: hdfs://harunavaali/flink_maliva
+  hdfs.prefix: hdfs://harunava/flink_maliva
+  checkpoint.hdfs.prefix: hdfs://harunava/flink_maliva
   dashboard.data_source: bytetsd_gva
   dtop.data_source: dtop_maliva
   dtop.database: dtop_maliva
@@ -493,8 +493,8 @@ grila:
   dc: i18n_gcp
   clusterName: grila
   high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
-  hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
-  checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
   dashboard.data_source: bytetsd_useastred
   dtop.data_source: dtop_i18n
   dtop.database: dtop_i18n
@@ -514,8 +514,8 @@ gavia:
   dc: i18n_gcp
   clusterName: gavia
   high-availability.zookeeper.quorum: 10.99.53.218:2181,10.99.53.219:2181,10.99.53.220:2181,10.99.53.221:2181,10.99.53.222
-  hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
-  checkpoint.hdfs.prefix: hdfs://harunagcp/home/byte_compute_i18n_gcp
+  hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
+  checkpoint.hdfs.prefix: hdfs://harunava/home/byte_compute_i18n_gcp
   dashboard.data_source: bytetsd_useastred
   dtop.data_source: dtop_i18n
   dtop.database: dtop_i18n
