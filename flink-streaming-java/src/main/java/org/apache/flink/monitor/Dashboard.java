@@ -52,6 +52,11 @@ public class Dashboard {
 	private static final String CHECKPOINT_TIMER_LAG_TARGET_TEMPLATE = "checkpoint_timer_lag_target_template.txt";
 	private static final String CHECKPOINT_TIMER_RATE_TARGET_TEMPLATE = "checkpoint_timer_rate_target_template.txt";
 
+	/** Templates for checkpoint operator metrics. */
+	private static final String CHECKPOINT_OPERATOR_TEMPLATE = "checkpoint_operator_template.txt";
+	private static final String CHECKPOINT_BARRIER_ALIGN_DURATION_TEMPLATE = "checkpoint_barrier_align_duration_target_template.txt";
+	private static final String CHECKPOINT_CONTENTION_LOCK_DURATION_TEMPLATE = "checkpoint_contention_lock_duration_target_template.txt";
+
 	private String clusterName;
 	private String jobName;
 	private String formatJobName;
@@ -188,6 +193,34 @@ public class Dashboard {
 		checkpointValues.put("targets1", String.join(",", targets1));
 		checkpointValues.put("targets2", String.join(",", targets2));
 		return renderString(checkpointTemplate, checkpointValues);
+	}
+
+	private String renderCheckpointOperatorRow(List<String> tasks) {
+		String checkpointOperatorTemplate = null;
+		String checkpointBarrierAlignDurationTemplate = null;
+		String checkpointContentionLockTemplate = null;
+		try {
+			checkpointOperatorTemplate = renderFromResource(CHECKPOINT_OPERATOR_TEMPLATE);
+			checkpointBarrierAlignDurationTemplate = renderFromResource(CHECKPOINT_BARRIER_ALIGN_DURATION_TEMPLATE);
+			checkpointContentionLockTemplate = renderFromResource(CHECKPOINT_CONTENTION_LOCK_DURATION_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render checkpoint metrics.", e);
+			return "";
+		}
+
+		Map<String, String> checkpointValues = new HashMap<>();
+		checkpointValues.put("jobname", formatJobName);
+		checkpointValues.put("datasource", dataSource);
+		List<String> targets1 = new ArrayList<>();
+		List<String> targets2 = new ArrayList<>();
+		for (String task : tasks) {
+			checkpointValues.put("task", task);
+			targets1.add(renderString(checkpointContentionLockTemplate, checkpointValues));
+			targets2.add(renderString(checkpointBarrierAlignDurationTemplate, checkpointValues));
+		}
+		checkpointValues.put("targets1", String.join(",", targets1));
+		checkpointValues.put("targets2", String.join(",", targets2));
+		return renderString(checkpointOperatorTemplate, checkpointValues);
 	}
 
 	private String renderCheckpointOverviewRow() {
@@ -405,6 +438,7 @@ public class Dashboard {
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
 		rows.add(renderCheckpointTimerRow(tasks));
+		rows.add(renderCheckpointOperatorRow(tasks));
 		rows.add(renderCheckpointOverviewRow());
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));

@@ -39,7 +39,9 @@ global:
         connectSuccessRetryTimes,
         connectFailRetryTimes,
         numberOfActualDeletedStateFiles,
-        numberOfTotalDeletedStateFiles
+        numberOfTotalDeletedStateFiles,
+        barrierAlignDuration,
+        contentionLockDuration
     ]
 
 non-global:
@@ -107,6 +109,8 @@ non-global:
         totalNumberOfCheckpoints,
         syncDuration,
         asyncDuration,
+        barrierAlignDuration,
+        contentionLockDuration,
       # operator snapshot
         syncDurationInMs,
         uploadDurationInMs,

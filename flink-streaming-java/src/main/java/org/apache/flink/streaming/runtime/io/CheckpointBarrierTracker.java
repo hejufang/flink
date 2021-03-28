@@ -81,6 +81,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
 
 		// fast path for single channel trackers
 		if (totalNumberOfInputChannels == 1) {
+			afterReceivedAllBarriers(System.nanoTime());
 			notifyCheckpoint(receivedBarrier, 0);
 			return;
 		}
@@ -119,6 +120,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
 						LOG.debug("Received all barriers for checkpoint {}", barrierId);
 					}
 
+					afterReceivedAllBarriers(barrierCount.firstOfAllBarrierReceivedTs);
 					notifyCheckpoint(receivedBarrier, 0);
 				}
 			}
@@ -228,9 +230,12 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
 
 		private boolean aborted;
 
+		private long firstOfAllBarrierReceivedTs;
+
 		CheckpointBarrierCount(long checkpointId) {
 			this.checkpointId = checkpointId;
 			this.barrierCount = 1;
+			firstOfAllBarrierReceivedTs = System.nanoTime();
 		}
 
 		public long checkpointId() {

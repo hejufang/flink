@@ -130,6 +130,8 @@ public class CheckpointBarrierAligner extends CheckpointBarrierHandler {
 
 		// fast path for single channel cases
 		if (totalNumberOfInputChannels == 1) {
+			afterReceivedAllBarriers(System.nanoTime());
+
 			resumeConsumption(channelInfo);
 			if (barrierId > currentCheckpointId) {
 				// new checkpoint
@@ -186,6 +188,7 @@ public class CheckpointBarrierAligner extends CheckpointBarrierHandler {
 		// check if we have all barriers - since canceled checkpoints always have zero barriers
 		// this can only happen on a non canceled checkpoint
 		if (numBarriersReceived + numClosedChannels == totalNumberOfInputChannels) {
+			afterReceivedAllBarriers(startOfAlignmentTimestamp);
 			// actually trigger checkpoint
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("{}: Received all barriers, triggering checkpoint {} at {}.",

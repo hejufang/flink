@@ -46,6 +46,12 @@ class AlternatingCheckpointBarrierHandler extends CheckpointBarrierHandler {
 	}
 
 	@Override
+	public void registerMetrics() {
+		// only register metrics for unaligned checkpoint barrier handle
+		unalignedHandler.registerMetrics();
+	}
+
+	@Override
 	public void releaseBlocksAndResetBarriers() throws IOException {
 		activeHandler.releaseBlocksAndResetBarriers();
 	}

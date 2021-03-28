@@ -79,6 +79,7 @@ public class InputProcessorUtil {
 			checkpointCoordinator,
 			taskName,
 			toNotifyOnCheckpoint);
+		barrierHandler.registerMetrics();
 		registerCheckpointMetrics(taskIOMetricGroup, barrierHandler);
 
 		InputGate[] unionedInputGates = Arrays.stream(inputGates)

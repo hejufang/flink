@@ -48,8 +48,23 @@ public abstract class CheckpointBarrierHandler implements Closeable {
 
 	private long latestCheckpointStartDelayNanos;
 
+	/** Metrics of checkpoint barriers. */
+	static final String BARRIER_ALIGN_DURATION = "barrierAlignDuration";
+	static final String CONTENTION_LOCK_DURATION = "contentionLockDuration";
+
+	private long lastOfAllBarrierReceivedTs = -1;
+	// barrierAlignDuration = lastOfAllBarrierReceivedTs - firstOfAllBarrierReceivedTs
+	private volatile long barrierAlignDuration = -1;
+	private volatile long contentionLockDuration = -1;
+
 	public CheckpointBarrierHandler(AbstractInvokable toNotifyOnCheckpoint) {
 		this.toNotifyOnCheckpoint = checkNotNull(toNotifyOnCheckpoint);
+	}
+
+	public void registerMetrics() {
+		// registry checkpoint barrier metrics to Task's metric group.
+		toNotifyOnCheckpoint.getEnvironment().getMetricGroup().gauge(BARRIER_ALIGN_DURATION, () -> barrierAlignDuration);
+		toNotifyOnCheckpoint.getEnvironment().getMetricGroup().gauge(CONTENTION_LOCK_DURATION, () -> contentionLockDuration);
 	}
 
 	public void releaseBlocksAndResetBarriers() throws IOException {
@@ -114,6 +129,8 @@ public abstract class CheckpointBarrierHandler implements Closeable {
 			checkpointMetaData,
 			checkpointBarrier.getCheckpointOptions(),
 			checkpointMetrics);
+
+		afterNotifyCheckpoint(checkpointMetrics);
 	}
 
 	protected void notifyAbortOnCancellationBarrier(long checkpointId) throws IOException {
@@ -141,5 +158,20 @@ public abstract class CheckpointBarrierHandler implements Closeable {
 	protected abstract boolean isCheckpointPending();
 
 	protected void abortPendingCheckpoint(long checkpointId, CheckpointException exception) throws IOException {
+	}
+
+	protected void afterReceivedAllBarriers(long firstOfAllBarrierReceivedTs) {
+		lastOfAllBarrierReceivedTs = System.nanoTime();
+		barrierAlignDuration = (lastOfAllBarrierReceivedTs - firstOfAllBarrierReceivedTs) / 1_000_000L;
+	}
+
+	public void setLastOfAllBarrierReceivedTs(long lastOfAllBarrierReceivedTs) {
+		this.lastOfAllBarrierReceivedTs = lastOfAllBarrierReceivedTs;
+	}
+
+	protected void afterNotifyCheckpoint(CheckpointMetrics checkpointMetrics) {
+		if (lastOfAllBarrierReceivedTs != -1) {
+			contentionLockDuration = (System.nanoTime() - lastOfAllBarrierReceivedTs) / 1_000_000L - checkpointMetrics.getSyncDurationMillis();
+		}
 	}
 }

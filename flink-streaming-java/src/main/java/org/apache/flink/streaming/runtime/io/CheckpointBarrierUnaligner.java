@@ -220,9 +220,10 @@ public class CheckpointBarrierUnaligner extends CheckpointBarrierHandler {
 		return threadSafeUnaligner;
 	}
 
-	private void notifyCheckpoint(CheckpointBarrier barrier) throws IOException {
+	private void notifyCheckpointCallback(CheckpointBarrier barrier, long barrierReceivedTs) throws IOException {
 		// ignore the previous triggered checkpoint by netty thread if it was already canceled or aborted before.
 		if (barrier.getId() >= threadSafeUnaligner.getCurrentCheckpointId()) {
+			setLastOfAllBarrierReceivedTs(barrierReceivedTs);
 			super.notifyCheckpoint(barrier, 0);
 		}
 	}
@@ -272,7 +273,7 @@ public class CheckpointBarrierUnaligner extends CheckpointBarrierHandler {
 
 			if (currentReceivedCheckpointId < barrierId) {
 				handleNewCheckpoint(barrier);
-				handler.executeInTaskThread(() -> handler.notifyCheckpoint(barrier), "notifyCheckpoint");
+				handler.executeInTaskThread(() -> handler.notifyCheckpointCallback(barrier, System.nanoTime()), "notifyCheckpoint");
 			}
 
 			if (barrierId == currentReceivedCheckpointId && storeNewBuffers.get(channelInfo)) {
