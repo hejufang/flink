@@ -45,8 +45,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -57,15 +59,24 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class HtapReaderIterator {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapReaderIterator.class);
+
+	// default MAX_BUFFER_SIZE is 64MB
+	private static final int MAX_BUFFER_SIZE = 1 << 10 << 10 << 6;
+
 	private final HtapScanner scanner;
-	private RowResultIterator rowIterator;
+	private RowResultIterator currentRowIterator;
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
 	private final int groupByColumnSize;
 	private final String tableName;
 	private final int partitionId;
 	private long conversionCostMs = 0L;
-	private int roundCount = -1;
+	private int roundCount = 0;
+
+	private final StoreScanThread storeScanThread;
+	private final Queue<RowResultIterator> iteratorLinkBuffer = new ConcurrentLinkedQueue<>();
+	// As ConcurrentLinkedQueue.size() is O(n), we use this to record buffered iterator count.
+	private final AtomicInteger iteratorBufferCount;
 
 	public HtapReaderIterator(
 			HtapScanner scanner,
@@ -79,48 +90,69 @@ public class HtapReaderIterator {
 		this.groupByColumnSize = groupByColumnSize;
 		this.tableName = scanner.getTable().getName();
 		this.partitionId = scanner.getPartitionId();
-		updateRowIterator();
+		this.iteratorBufferCount = new AtomicInteger(0);
+		this.storeScanThread = new StoreScanThread();
+		this.storeScanThread.start();
+		updateCurrentRowIterator();
 	}
 
 	public void close() {
 		// TODO: HtapScanner may need a close method
 		// scanner.close();
+		this.storeScanThread.isRunning = false;
 	}
 
 	public boolean hasNext() throws IOException {
-		if (rowIterator.hasNext()) {
-			return true;
-		} else if (scanner.hasMoreRows()) {
-			updateRowIterator();
-			// the next batch scan may fetch empty data, need double check here
-			return rowIterator.hasNext();
-		} else {
+		if (currentRowIterator == null) {
 			return false;
+		}
+		if (currentRowIterator.hasNext()) {
+			return true;
+		} else {
+			updateCurrentRowIterator();
+			if (currentRowIterator == null) {
+				return false;
+			}
+			// the next batch scan may fetch empty data, need double check here
+			return currentRowIterator.hasNext();
 		}
 	}
 
 	public Row next() {
 		long beforeConvert = System.currentTimeMillis();
-		Row flinkRow = toFlinkRow(this.rowIterator.next());
+		Row flinkRow = toFlinkRow(this.currentRowIterator.next());
 		long afterConvert = System.currentTimeMillis();
 		conversionCostMs += (afterConvert - beforeConvert);
 		return flinkRow;
 	}
 
-	private void updateRowIterator() throws IOException {
-		try {
-			LOG.debug("table: {}, partition: {}, round: {}, conversionCost: {}ms",
+	// Poll new row iterator from iteratorLinkBuffer or wait for background scan thread
+	// make the currentRowIterator be null if no other result for this htap scanner.
+	private void updateCurrentRowIterator() throws IOException {
+		LOG.debug("table: {}, partition: {}, round: {}, conversionCost: {}ms",
 				tableName, partitionId, roundCount, conversionCostMs);
-			conversionCostMs = 0L;
-			roundCount++;
-			LOG.debug("Before fetch rows from {}-{} in round[{}] at {}",
-				tableName, partitionId, roundCount, LocalDateTime.now());
-			this.rowIterator = scanner.nextRows();
-			LOG.debug("After fetch rows from {}-{} in round[{}] at {}",
-				tableName, partitionId, roundCount, LocalDateTime.now());
-		} catch (HtapException he) {
-			throw new HtapConnectorException(he.getErrorCode(), he.getMessage());
+		conversionCostMs = 0L;
+		roundCount++;
+		LOG.debug("Before fetch rows from buffer {}-{} in round[{}]",
+				tableName, partitionId, roundCount);
+
+		while (storeScanThread.isRunning && iteratorLinkBuffer.isEmpty()) {
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				throw new IOException(e);
+			}
 		}
+		if (storeScanThread.scanException != null) {
+			throw storeScanThread.scanException;
+		} else {
+			iteratorBufferCount.getAndDecrement();
+			// if scan is finished, will poll a null element from iteratorLinkBuffer
+			this.currentRowIterator = iteratorLinkBuffer.poll();
+		}
+
+		LOG.debug("After fetch rows from buffer {}-{} in round[{}]",
+				tableName, partitionId, roundCount);
 	}
 
 	private Row toFlinkRow(RowResult row) {
@@ -194,5 +226,50 @@ public class HtapReaderIterator {
 			values.setField(pos, value);
 		}
 		return values;
+	}
+
+	/**
+	 * Each partition should have and can only have one thread scan serial in HTAP AP store.
+	 */
+	private class StoreScanThread extends Thread {
+
+		public volatile boolean isRunning = true;
+		public volatile IOException scanException = null;
+		private volatile int scanRoundCount = 0;
+
+		@Override
+		public void run() {
+			try {
+				while (isRunning && scanner.hasMoreRows()) {
+					if (iteratorBufferCount.get() * scanner.getBatchSizeBytes() <
+							MAX_BUFFER_SIZE) {
+						scanRoundCount++;
+						iteratorBufferCount.getAndDecrement();
+						LOG.debug("Before fetch rows from store {}-{} in round[{}]",
+								tableName, partitionId, scanRoundCount);
+						iteratorLinkBuffer.add(scanner.nextRows());
+						LOG.debug("After fetch rows from store {}-{} in round[{}]",
+								tableName, partitionId, scanRoundCount);
+					} else {
+						LOG.debug("buffer is full for {}-{} in round[{}] with max {} Bytes, " +
+								"current buffer iterator count {}, scan batch bytes {}",
+								tableName, partitionId, scanRoundCount, MAX_BUFFER_SIZE,
+								iteratorBufferCount.get(), scanner.getBatchSizeBytes());
+						Thread.sleep(10);
+					}
+				}
+			} catch (Throwable t) {
+				if (t instanceof HtapException) {
+					HtapException htapException = (HtapException) t;
+					scanException = new HtapConnectorException(
+							htapException.getErrorCode(), htapException.getMessage());
+				} else {
+					scanException = new IOException(t);
+				}
+				LOG.error("scan HTAP store error", t);
+			} finally {
+				isRunning = false;
+			}
+		}
 	}
 }
