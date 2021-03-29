@@ -244,7 +244,7 @@ public class HtapReaderIterator {
 					if (iteratorBufferCount.get() * scanner.getBatchSizeBytes() <
 							MAX_BUFFER_SIZE) {
 						scanRoundCount++;
-						iteratorBufferCount.getAndDecrement();
+						iteratorBufferCount.getAndIncrement();
 						LOG.debug("Before fetch rows from store {}-{} in round[{}]",
 								tableName, partitionId, scanRoundCount);
 						iteratorLinkBuffer.add(scanner.nextRows());
