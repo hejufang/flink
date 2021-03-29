@@ -160,7 +160,7 @@ public class SubtaskCurrentAttemptDetailsHandlerTest extends TestLogger {
 			subtaskIndex,
 			expectedState,
 			attempt,
-			assignedResourceLocation.getHostname(),
+			assignedResourceLocation.getHostname() + ":" + assignedResourceLocation.dataPort(),
 			deployingTs,
 			finishedTs,
 			finishedTs - deployingTs,
