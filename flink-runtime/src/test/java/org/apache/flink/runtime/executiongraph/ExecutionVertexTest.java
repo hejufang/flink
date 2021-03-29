@@ -103,7 +103,7 @@ public class ExecutionVertexTest extends TestLogger {
 	@Test
 	public void testForGetInputSubTasks() throws Exception {
 		ExecutionGraphTestUtils.createSimpleTestGraph();
-		JobVertex[] jobVertices = new JobVertex[2];
+		JobVertex[] jobVertices = new JobVertex[3];
 		int parallelism = 3;
 		jobVertices[0] = createNoOpVertex(parallelism);
 		jobVertices[1] = createNoOpVertex(parallelism);
@@ -123,6 +123,33 @@ public class ExecutionVertexTest extends TestLogger {
 				return;
 			}
 			Map<String, List<Integer>> inputSubTasks = executionVertex.getInputSubTasks();
+			Assert.assertTrue(MapUtils.isNotEmpty(inputSubTasks));
+		});
+	}
+
+	@Test
+	public void testForGetOutputSubTasks() throws Exception {
+		ExecutionGraphTestUtils.createSimpleTestGraph();
+		JobVertex[] jobVertices = new JobVertex[3];
+		int parallelism = 3;
+		jobVertices[0] = createNoOpVertex(parallelism);
+		jobVertices[1] = createNoOpVertex(parallelism);
+		jobVertices[2] = createNoOpVertex(parallelism);
+		jobVertices[1].connectNewDataSetAsInput(jobVertices[0], ALL_TO_ALL, BLOCKING);
+		jobVertices[2].connectNewDataSetAsInput(jobVertices[0], POINTWISE, BLOCKING);
+		jobVertices[0].setInputDependencyConstraint(ALL);
+		jobVertices[1].setInputDependencyConstraint(ANY);
+		jobVertices[2].setInputDependencyConstraint(ANY);
+		ExecutionGraph simpleTestGraph = createSimpleTestGraph(
+			new JobID(),
+			taskManagerGateway,
+			triggeredRestartStrategy,
+			jobVertices);
+		simpleTestGraph.getAllExecutionVertices().forEach(executionVertex -> {
+			if (executionVertex.getProducedPartitions() == null || executionVertex.getProducedPartitions().isEmpty()) {
+				return;
+			}
+			Map<String, List<Integer>> inputSubTasks = executionVertex.getOutputSubTasks();
 			Assert.assertTrue(MapUtils.isNotEmpty(inputSubTasks));
 		});
 	}

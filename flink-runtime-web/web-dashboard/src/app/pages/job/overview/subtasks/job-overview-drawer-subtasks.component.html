@@ -38,6 +38,7 @@
       <th nzSortKey="duration" nzShowSort nzWidth="100px">Duration</th>
       <th nzSortKey="end-time" nzShowSort nzWidth="150px">End Time</th>
       <th nzSortKey="input_subtasks" nzShowSort nzWidth="140px">Input Subtasks</th>
+      <th nzSortKey="output_subtasks" nzShowSort nzWidth="140px">Output Subtasks</th>
       <th nzSortKey="status" nzShowSort nzWidth="120px" nzRight="0px">Status</th>
     </tr>
   </thead>
@@ -79,6 +80,11 @@
       <td>
         <span *ngIf="task['input_subtasks'];else unknownTemplate">
           {{ task['input_subtasks'] }}
+        </span>
+      </td>
+      <td>
+        <span *ngIf="task['output_subtasks'];else unknownTemplate">
+          {{ task['output_subtasks'] }}
         </span>
       </td>
       <td nzRight="0px">

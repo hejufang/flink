@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.executiongraph;
 
-import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.Archiveable;
 import org.apache.flink.api.common.ExecutionInfo;
@@ -47,6 +46,9 @@ import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.EvictingBoundedList;
+import org.apache.flink.util.CollectionUtil;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
 import org.slf4j.Logger;
 
@@ -988,15 +990,43 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 				continue;
 			}
 
-			List<Integer> sourceIds = new ArrayList<>(executionEdges.length);
+			//sourceIds contains two elements, sourceStartSubtaskIndex and sourceEndSubtaskIndex.
+			List<Integer> sourceIds = new ArrayList<>(2);
 			result.put(source.getProducer().getTaskName(), sourceIds);
 
 			sourceIds.add(executionEdges[0].getSource().getProducer().getParallelSubtaskIndex());
-			if(executionEdges.length > 1){
-				sourceIds.add(executionEdges[executionEdges.length-1].getSource().getProducer().getParallelSubtaskIndex());
+			if (executionEdges.length > 1) {
+				sourceIds.add(executionEdges[executionEdges.length - 1].getSource().getProducer().getParallelSubtaskIndex());
 			}
 		}
 
 		return result;
 	}
+
+	public Map<String, List<Integer>> getOutputSubTasks() {
+
+		Map<String, List<Integer>> result = new HashMap<>();
+		for (IntermediateResultPartition intermediateResultPartition : this.resultPartitions.values()) {
+			if (CollectionUtil.isNullOrEmpty(intermediateResultPartition.getConsumers())) {
+				continue;
+			}
+
+			// NOTE: currently we support only one consumer per result.
+			List<ExecutionEdge> executionEdges = intermediateResultPartition.getConsumers().get(0);
+
+			ExecutionVertex target = executionEdges.get(0).getTarget();
+
+			//targetIds contains two elements, targetStartSubtaskIndex and targetEndSubtaskIndex.
+			List<Integer> targetIds = new ArrayList<>(2);
+			result.put(target.getTaskName(), targetIds);
+
+			targetIds.add(executionEdges.get(0).getTarget().getParallelSubtaskIndex());
+			if (executionEdges.size() > 1) {
+				targetIds.add(executionEdges.get(executionEdges.size() - 1).getTarget().getParallelSubtaskIndex());
+			}
+		}
+
+		return result;
+	}
+
 }

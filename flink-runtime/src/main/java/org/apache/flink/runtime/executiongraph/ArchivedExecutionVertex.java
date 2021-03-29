@@ -43,6 +43,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 
 	private final Map<String, List<Integer>> inputSubTasks;
 
+	private final Map<String, List<Integer>> outputSubTasks;
+
 	// ------------------------------------------------------------------------
 
 	public ArchivedExecutionVertex(ExecutionVertex vertex) {
@@ -57,6 +59,7 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		}
 
 		this.inputSubTasks = vertex.getInputSubTasks();
+		this.outputSubTasks = vertex.getOutputSubTasks();
 	}
 
 	public ArchivedExecutionVertex(
@@ -76,6 +79,7 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		this.priorExecutions = priorExecutions;
 		this.copyExecutions = copyExecutions;
 		this.inputSubTasks = null;
+		this.outputSubTasks = null;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -112,7 +116,13 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		}
 	}
 
+	@Override
 	public Map<String, List<Integer>> getInputSubTasks(){
 		return inputSubTasks;
+	}
+
+	@Override
+	public Map<String, List<Integer>> getOutputSubTasks(){
+		return outputSubTasks;
 	}
 }

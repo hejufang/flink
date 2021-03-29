@@ -72,6 +72,8 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 
 
 	private static final int SIMPLE_NAME_SIZE = 20;
+	private static final String INPUT_OUTPUT_ALL_DESCRIBE = "all";
+
 	private final MetricFetcher metricFetcher;
 
 	public JobVertexDetailsHandler(
@@ -126,11 +128,11 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 		final long now = System.currentTimeMillis();
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
 			// add main execution first
-			subtasks.add(generateVertexTaskDetail(vertex.getMainExecution(), now, jobID, jobVertex.getJobVertexId(), vertex.getParallelSubtaskIndex(), metricFetcher, vertex.getInputSubTasks()));
+			subtasks.add(generateVertexTaskDetail(vertex.getMainExecution(), now, jobID, jobVertex.getJobVertexId(), metricFetcher, vertex));
 
 			// add copy executions
 			for (AccessExecution exec : vertex.getCopyExecutions()) {
-				subtasks.add(generateVertexTaskDetail(exec, now, jobID, jobVertex.getJobVertexId(), vertex.getParallelSubtaskIndex(), metricFetcher, vertex.getInputSubTasks()));
+				subtasks.add(generateVertexTaskDetail(exec, now, jobID, jobVertex.getJobVertexId(), metricFetcher, vertex));
 			}
 		}
 
@@ -142,7 +144,7 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 				subtasks);
 	}
 
-	private static JobVertexDetailsInfo.VertexTaskDetail generateVertexTaskDetail(AccessExecution exec, long now, JobID jobID, JobVertexID jobVertex, int num, MetricFetcher metricFetcher, Map<String, List<Integer>> inputTasks){
+	private static JobVertexDetailsInfo.VertexTaskDetail generateVertexTaskDetail(AccessExecution exec, long now, JobID jobID, JobVertexID jobVertex, MetricFetcher metricFetcher, AccessExecutionVertex vertex){
 		final ExecutionState status = exec.getState();
 
 		TaskManagerLocation location = exec.getAssignedResourceLocation();
@@ -176,7 +178,7 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 		sourceMeta.addMeta(exec, metricFetcher, jobID.toString(), jobVertex.toString());
 
 		return new JobVertexDetailsInfo.VertexTaskDetail(
-				num,
+				vertex.getParallelSubtaskIndex(),
 				status,
 				exec.getAttemptNumber(),
 				locationString,
@@ -185,23 +187,25 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 				duration,
 				ioMetricsInfo,
 				sourceMeta.getMetaInfo().calculatePartitions(),
-				getSourceSubTaskStr(inputTasks));
+				getSubTaskStr(vertex.getInputSubTasks()),
+				getSubTaskStr(vertex.getOutputSubTasks())
+			);
 	}
 
-	private static String getSourceSubTaskStr(Map<String, List<Integer>> inputTasks) {
+	private static String getSubTaskStr(Map<String, List<Integer>> subTasks) {
 		try {
-			if (MapUtils.isEmpty(inputTasks)) {
+			if (MapUtils.isEmpty(subTasks)) {
 				return StringUtils.EMPTY;
 			}
 
-			Set<Map.Entry<String, List<Integer>>> entries = inputTasks.entrySet();
+			Set<Map.Entry<String, List<Integer>>> entries = subTasks.entrySet();
 			boolean keyNameVisible = entries.size() != 1;
 
 			return entries.stream().map(entry -> {
 				String subTaskIds;
 				List<Integer> value = entry.getValue();
 				if (CollectionUtils.isEmpty(value)) {
-					subTaskIds = "all";
+					subTaskIds = INPUT_OUTPUT_ALL_DESCRIBE;
 				} else {
 					//Match with Web-UI ID
 					subTaskIds = value.stream().map(i -> String.valueOf(i + 1)).collect(Collectors.joining("-"));
@@ -209,7 +213,7 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 				return (keyNameVisible ? getUpstreamTaskSimpleName(entry.getKey()) + ":" : StringUtils.EMPTY) + subTaskIds;
 			}).collect(Collectors.joining(";"));
 		} catch (Exception e) {
-			LOG.info("get subtask resource fail", e);
+			LOG.error("get subtask resource fail", e);
 		}
 		return StringUtils.EMPTY;
 	}

@@ -64,4 +64,11 @@ public interface AccessExecutionVertex {
 	 * @return input subTasks
 	 */
 	Map<String, List<Integer>> getInputSubTasks();
+
+	/**
+	 * Return output subTasks.
+	 *
+	 * @return output subTasks
+	 */
+	Map<String, List<Integer>> getOutputSubTasks();
 }

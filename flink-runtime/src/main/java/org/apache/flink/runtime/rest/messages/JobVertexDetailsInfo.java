@@ -124,6 +124,7 @@ public class JobVertexDetailsInfo implements ResponseBody {
 		public static final String FIELD_NAME_METRICS = "metrics";
 		public static final String FIELD_NAME_SOURCE_PARTITIONS = "partitions";
 		public static final String FIELD_NAME_INPUT_SUBTASKS = "input_subtasks";
+		public static final String FIELD_NAME_OUTPUT_SUBTASKS = "output_subtasks";
 
 		@JsonProperty(FIELD_NAME_SUBTASK)
 		private final int subtask;
@@ -158,6 +159,9 @@ public class JobVertexDetailsInfo implements ResponseBody {
 		@JsonProperty(FIELD_NAME_INPUT_SUBTASKS)
 		private final String sourceSubtasks;
 
+		@JsonProperty(FIELD_NAME_OUTPUT_SUBTASKS)
+		private final String targetSubtasks;
+
 		@JsonCreator
 		public VertexTaskDetail(
 				@JsonProperty(FIELD_NAME_SUBTASK) int subtask,
@@ -169,7 +173,8 @@ public class JobVertexDetailsInfo implements ResponseBody {
 				@JsonProperty(FIELD_NAME_DURATION) long duration,
 				@JsonProperty(FIELD_NAME_METRICS) IOMetricsInfo metrics,
 				@JsonProperty(FIELD_NAME_SOURCE_PARTITIONS) String partitions,
-				@JsonProperty(FIELD_NAME_INPUT_SUBTASKS) String inputSubtasks
+				@JsonProperty(FIELD_NAME_INPUT_SUBTASKS) String inputSubtasks,
+				@JsonProperty(FIELD_NAME_OUTPUT_SUBTASKS) String outputSubtasks
 				) {
 			this.subtask = subtask;
 			this.status = checkNotNull(status);
@@ -182,6 +187,7 @@ public class JobVertexDetailsInfo implements ResponseBody {
 			this.metrics = checkNotNull(metrics);
 			this.partitions = partitions;
 			this.sourceSubtasks = inputSubtasks;
+			this.targetSubtasks = outputSubtasks;
 		}
 
 		@JsonIgnore
@@ -210,12 +216,13 @@ public class JobVertexDetailsInfo implements ResponseBody {
 				duration == that.duration &&
 				Objects.equals(metrics, that.metrics) &&
 				Objects.equals(partitions, that.partitions) &&
-				Objects.equals(sourceSubtasks, that.sourceSubtasks);
+				Objects.equals(sourceSubtasks, that.sourceSubtasks) &&
+				Objects.equals(targetSubtasks, that.targetSubtasks);
 		}
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(subtask, status, attempt, host, startTime, startTimeCompatible, endTime, duration, metrics, partitions, sourceSubtasks);
+			return Objects.hash(subtask, status, attempt, host, startTime, startTimeCompatible, endTime, duration, metrics, partitions, sourceSubtasks, targetSubtasks);
 		}
 	}
 }
