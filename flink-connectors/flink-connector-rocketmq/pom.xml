@@ -51,6 +51,18 @@ under the License.
 					<artifactId>scala-library</artifactId>
 					<groupId>org.scala-lang</groupId>
 				</exclusion>
+				<exclusion>
+					<artifactId>okhttp</artifactId>
+					<groupId>com.squareup.okhttp3</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>okhttp</artifactId>
+					<groupId>com.squareup.okhttp</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>okio</artifactId>
+					<groupId>com.squareup.okio</groupId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
@@ -70,6 +82,11 @@ under the License.
 			<artifactId>flink-table-api-java-bridge_${scala.binary.version}</artifactId>
 			<version>${project.version}</version>
 			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-catalog-common</artifactId>
+			<version>${project.version}</version>
 		</dependency>
 	</dependencies>
 
@@ -177,7 +194,11 @@ under the License.
 										</relocation>
 										<relocation>
 											<pattern>com.bytedance.commons</pattern>
-											<shadedPattern>org.apache.flink.connectors.tos.shaded.com.bytedance.commons</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.com.bytedance.commons</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.apache.flink.connector.catalog</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.org.apache.flink.connector.catalog</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>

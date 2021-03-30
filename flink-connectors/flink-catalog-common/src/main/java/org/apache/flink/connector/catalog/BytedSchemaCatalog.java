@@ -139,11 +139,14 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 	protected CatalogBaseTable getTable(
 			String database,
 			String region,
-			String table) throws SchemaClientException, CatalogException {
-		QuerySchemaResponse response =
-			schemaClient.queryBySubjectsLatest(clusterType.name(), database, region, table).getData();
-		TableSchema tableSchema = convertToTableSchema(response);
-		Map<String, String> properties = generateDDLProperties(response);
+			String table) throws SchemaClientException, CatalogException, TableNotExistException {
+		BaseResponse<QuerySchemaResponse> response =
+			schemaClient.queryBySubjectsLatest(clusterType.name(), database, region, table);
+		if (response.data == null || response.data.getByteSchemaTable() == null) {
+			throw new TableNotExistException(getName(), createObjectPath(database, region, table));
+		}
+		TableSchema tableSchema = convertToTableSchema(response.getData());
+		Map<String, String> properties = generateDDLProperties(response.getData());
 		return new CatalogTableImpl(tableSchema, properties, NO_COMMENT);
 	}
 
@@ -228,5 +231,9 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 
 	protected String getDatabaseNameByQuerySchema(QuerySchemaClusterResponse response) {
 		return response.getClusterId();
+	}
+
+	protected ObjectPath createObjectPath(String database, String region, String table) {
+		return new ObjectPath(database, table);
 	}
 }
