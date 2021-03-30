@@ -114,6 +114,8 @@ non-global:
         asyncDuration,
         barrierAlignDuration,
         contentionLockDuration,
+        lastCheckpointSize,
+        lastCheckpointTotalSize,
       # operator snapshot
         syncDurationInMs,
         uploadDurationInMs,

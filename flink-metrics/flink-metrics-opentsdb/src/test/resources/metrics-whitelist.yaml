@@ -101,6 +101,8 @@ non-global:
         totalNumberOfCheckpoints,
         syncDuration,
         asyncDuration,
+        lastCheckpointSize,
+        lastCheckpointTotalSize,
       # operator snapshot
         syncDurationInMs,
         uploadDurationInMs,

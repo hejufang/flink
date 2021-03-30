@@ -265,7 +265,7 @@ public class CheckpointStatsTracker {
 
 		MESSAGE_SET.addMessage(new Message<>(WarehouseCheckpointMessage.constructSuccessMessage(completed.checkpointId,
 				completed.triggerTimestamp, System.currentTimeMillis(), completed.getEndToEndDuration(), completed.getExternalPath(),
-				completed.getStateSize(), -1L)));
+				completed.getStateSize(), completed.getTotalStateSize(), -1L)));
 	}
 
 	/**
@@ -353,6 +353,9 @@ public class CheckpointStatsTracker {
 	static final String LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC = "lastCheckpointSize";
 
 	@VisibleForTesting
+	static final String LATEST_COMPLETED_CHECKPOINT_TOTAL_SIZE_METRIC = "lastCheckpointTotalSize";
+
+	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC = "lastCheckpointDuration";
 
 	@VisibleForTesting
@@ -378,6 +381,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, new FailedCheckpointsCounter());
 		metricGroup.gauge(LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC, new LatestRestoredCheckpointTimestampGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC, new LatestCompletedCheckpointSizeGauge());
+		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_TOTAL_SIZE_METRIC, new LatestCompletedCheckpointTotalSizeGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC, new LatestCompletedCheckpointDurationGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
 		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, (GrafanaGauge<Long>) StateUtil::getNumDiscardStates);
@@ -431,6 +435,18 @@ public class CheckpointStatsTracker {
 			CompletedCheckpointStats completed = latestCompletedCheckpoint;
 			if (completed != null) {
 				return completed.getStateSize();
+			} else {
+				return -1L;
+			}
+		}
+	}
+
+	private class LatestCompletedCheckpointTotalSizeGauge implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			CompletedCheckpointStats completed = latestCompletedCheckpoint;
+			if (completed != null) {
+				return completed.getTotalStateSize();
 			} else {
 				return -1L;
 			}

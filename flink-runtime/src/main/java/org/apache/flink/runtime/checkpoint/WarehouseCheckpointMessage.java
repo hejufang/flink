@@ -39,6 +39,7 @@ public class WarehouseCheckpointMessage {
 	private long checkpointAlignDuration;
 	private String checkpointPath;
 	private long checkpointStateSize;
+	private long checkpointTotalStateSize;
 	private long checkpointBufferSize;
 
 	public static WarehouseCheckpointMessage constructFailedMessage(
@@ -49,7 +50,7 @@ public class WarehouseCheckpointMessage {
 			long checkpointDuration,
 			long checkpointStateSize) {
 		return new WarehouseCheckpointMessage(checkpointId, checkpointStartTime, checkpointEndTime, STATUS_FAILED, checkpointReason,
-				checkpointDuration, -1L, -1L, -1L, null, checkpointStateSize, -1L);
+				checkpointDuration, -1L, -1L, -1L, null, checkpointStateSize, -1L, -1L);
 	}
 
 	public static WarehouseCheckpointMessage constructSuccessMessage(
@@ -59,9 +60,10 @@ public class WarehouseCheckpointMessage {
 			long checkpointDuration,
 			String checkpointPath,
 			long checkpointStateSize,
+			long checkpointTotalStateSize,
 			long checkpointBufferSize) {
 		return new WarehouseCheckpointMessage(checkpointId, checkpointStartTime, checkpointEndTime, STATUS_SUCCESS, null, checkpointDuration,
-				-1L, -1L, -1L, checkpointPath, checkpointStateSize, checkpointBufferSize);
+				-1L, -1L, -1L, checkpointPath, checkpointStateSize, checkpointTotalStateSize, checkpointBufferSize);
 	}
 
 	public WarehouseCheckpointMessage() {}
@@ -78,6 +80,7 @@ public class WarehouseCheckpointMessage {
 			long checkpointAlignDuration,
 			String checkpointPath,
 			long checkpointStateSize,
+			long checkpointTotalStateSize,
 			long checkpointBufferSize) {
 		this.checkpointId = checkpointId;
 		this.checkpointStartTime = checkpointStartTime;
@@ -90,6 +93,7 @@ public class WarehouseCheckpointMessage {
 		this.checkpointAlignDuration = checkpointAlignDuration;
 		this.checkpointPath = checkpointPath;
 		this.checkpointStateSize = checkpointStateSize;
+		this.checkpointTotalStateSize = checkpointTotalStateSize;
 		this.checkpointBufferSize = checkpointBufferSize;
 	}
 
@@ -181,6 +185,14 @@ public class WarehouseCheckpointMessage {
 		this.checkpointStateSize = checkpointStateSize;
 	}
 
+	public long getCheckpointTotalStateSize() {
+		return checkpointTotalStateSize;
+	}
+
+	public void setCheckpointTotalStateSize(long checkpointTotalStateSize) {
+		this.checkpointTotalStateSize = checkpointTotalStateSize;
+	}
+
 	public long getCheckpointBufferSize() {
 		return checkpointBufferSize;
 	}
@@ -206,6 +218,7 @@ public class WarehouseCheckpointMessage {
 				checkpointAsyncDuration == that.checkpointAsyncDuration &&
 				checkpointAlignDuration == that.checkpointAlignDuration &&
 				checkpointStateSize == that.checkpointStateSize &&
+				checkpointTotalStateSize == that.checkpointTotalStateSize &&
 				checkpointBufferSize == that.checkpointBufferSize &&
 				Objects.equals(checkpointStatus, that.checkpointStatus) &&
 				Objects.equals(checkpointReason, that.checkpointReason) &&
@@ -242,6 +255,7 @@ public class WarehouseCheckpointMessage {
 				", checkpointAlignDuration=" + checkpointAlignDuration +
 				", checkpointPath='" + checkpointPath + '\'' +
 				", checkpointStateSize=" + checkpointStateSize +
+				", checkpointTotalStateSize=" + checkpointTotalStateSize +
 				", checkpointBufferSize=" + checkpointBufferSize +
 				'}';
 	}
