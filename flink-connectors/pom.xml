@@ -76,6 +76,7 @@ under the License.
 		<module>flink-connector-metrics</module>
 		<module>flink-connector-loghouse</module>
 		<module>flink-connector-bytesql</module>
+		<module>flink-catalog-common</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up

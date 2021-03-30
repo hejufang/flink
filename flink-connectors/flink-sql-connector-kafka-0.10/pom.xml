@@ -169,6 +169,10 @@ under the License.
 									<pattern>org.json.simple</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.json.simple</shadedPattern>
 								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.connector.catalog</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.flink.connector.catalog</shadedPattern>
+								</relocation>
 							</relocations>
 						</configuration>
 					</execution>
