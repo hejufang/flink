@@ -347,6 +347,7 @@ horse:
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
   yarn.provided.lib.dirs.enabled: true
+  flink.parallel.gc.thread.use.cores: true
 
 hibis:
   dc: cn
