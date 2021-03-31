@@ -46,6 +46,7 @@ import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfig
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.USERNAME;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_TTL;
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_MAX_RETRIES;
@@ -128,6 +129,7 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		optionalOptions.add(LOOKUP_MAX_RETRIES);
 		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
 		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY);
+		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		return optionalOptions;
 	}
 
@@ -148,15 +150,16 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 			checkArgument(asyncConcurrency > 1,
 				"When async mode is on, concurrency should be greater than 1");
 		}
-		return ByteSQLLookupOptions.builder()
+		ByteSQLLookupOptions.Builder builder = ByteSQLLookupOptions.builder()
 			.setCacheExpireMs(configs.get(LOOKUP_CACHE_TTL).toMillis())
 			.setCacheMaxSize(configs.get(LOOKUP_CACHE_MAX_ROWS))
 			.setMaxRetryTimes(configs.get(LOOKUP_MAX_RETRIES))
 			.setLaterJoinRetryTimes(configs.get(LOOKUP_LATER_JOIN_RETRY_TIMES))
 			.setLaterJoinLatency(configs.get(LOOKUP_LATER_JOIN_LATENCY).toMillis())
 			.setAsync(configs.get(LOOKUP_ASYNC_ENABLED))
-			.setAsyncConcurrency(asyncConcurrency)
-			.build();
+			.setAsyncConcurrency(asyncConcurrency);
+		configs.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).ifPresent(builder::setIsInputKeyByEnabled);
+		return builder.build();
 	}
 
 	private static ByteSQLInsertOptions getByteSQLInsertOptions(ReadableConfig configs, TableSchema physicalSchema) {

@@ -80,11 +80,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import scala.collection.Seq;
 
+import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -249,6 +251,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		String lookupFunctionClass = helper.getOptions().get(LOOKUP_FUNCTION_CLASS);
 		boolean nestedProjectionSupported = helper.getOptions().get(NESTED_PROJECTION_SUPPORTED);
 		DataType producedDataType = context.getCatalogTable().getSchema().toPhysicalRowDataType();
+		Boolean isInputKeyByEnable = helper.getOptions().getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null);
 		if (sourceClass.equals("DEFAULT")) {
 			Collection<Row> data = registeredData.getOrDefault(dataId, Collections.emptyList());
 			return new TestValuesTableSource(
@@ -260,7 +263,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				isAsync,
 				lookupFunctionClass,
 				nestedProjectionSupported,
-				null);
+				null,
+				isInputKeyByEnable);
 		} else {
 			try {
 				return InstantiationUtil.instantiate(
@@ -302,6 +306,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			RUNTIME_SOURCE,
 			TABLE_SOURCE_CLASS,
 			LOOKUP_FUNCTION_CLASS,
+			LOOKUP_ENABLE_INPUT_KEYBY,
 			ASYNC_ENABLED,
 			TABLE_SOURCE_CLASS,
 			SINK_INSERT_ONLY,
@@ -354,6 +359,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 		private final @Nullable String lookupFunctionClass;
 		private final boolean nestedProjectionSupported;
 		private @Nullable int[] projectedFields;
+		private final Boolean isInputKeyByEnable;
 
 		private TestValuesTableSource(
 				DataType producedDataType,
@@ -364,7 +370,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				boolean isAsync,
 				@Nullable String lookupFunctionClass,
 				boolean nestedProjectionSupported,
-				int[] projectedFields) {
+				int[] projectedFields,
+				Boolean isInputKeyByEnable) {
 			this.producedDataType = producedDataType;
 			this.changelogMode = changelogMode;
 			this.bounded = bounded;
@@ -374,6 +381,7 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 			this.lookupFunctionClass = lookupFunctionClass;
 			this.nestedProjectionSupported = nestedProjectionSupported;
 			this.projectedFields = projectedFields;
+			this.isInputKeyByEnable = isInputKeyByEnable;
 		}
 
 		@Override
@@ -490,7 +498,8 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				isAsync,
 				lookupFunctionClass,
 				nestedProjectionSupported,
-				projectedFields);
+				projectedFields,
+				isInputKeyByEnable);
 		}
 
 		@Override
@@ -521,6 +530,11 @@ public final class TestValuesTableFactory implements DynamicTableSourceFactory, 
 				}
 			}
 			return result;
+		}
+
+		@Override
+		public Optional<Boolean> isInputKeyByEnabled() {
+			return Optional.ofNullable(isInputKeyByEnable);
 		}
 	}
 

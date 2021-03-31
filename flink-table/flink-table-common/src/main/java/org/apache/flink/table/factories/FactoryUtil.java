@@ -157,6 +157,12 @@ public final class FactoryUtil {
 		.defaultValue(Duration.ZERO)
 		.withDescription("Optional. Duration type, default Duration.ZERO means disable later join.");
 
+	public static final ConfigOption<Boolean> LOOKUP_ENABLE_INPUT_KEYBY = ConfigOptions
+		.key("lookup.enable-input-keyby")
+		.booleanType()
+		.noDefaultValue()
+		.withDescription("Optional. Flag to indicate whether to hash the input stream by join key.");
+
 	// ------------------------------------------------------------------------
 	//  Sink Options
 	// ------------------------------------------------------------------------

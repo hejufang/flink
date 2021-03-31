@@ -39,6 +39,7 @@ import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A {@link DynamicTableSource} for JDBC.
@@ -176,5 +177,10 @@ public class JdbcDynamicTableSource implements ScanTableSource, LookupTableSourc
 	@Override
 	public int hashCode() {
 		return Objects.hash(options, readOptions, lookupOptions, physicalSchema, dialectName);
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
 }

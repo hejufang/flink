@@ -20,6 +20,8 @@ package org.apache.flink.connector.bytesql.table.descriptors;
 
 import org.apache.flink.table.factories.FactoryUtil;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.LOOKUP_ASYNC_CONCURRENCY;
@@ -36,6 +38,8 @@ public class ByteSQLLookupOptions implements Serializable {
 	private final long laterJoinLatency;
 	private final boolean isAsync;
 	private final int asyncConcurrency;
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
 
 	public ByteSQLLookupOptions(
 			long cacheMaxSize,
@@ -44,7 +48,8 @@ public class ByteSQLLookupOptions implements Serializable {
 			int laterJoinRetryTimes,
 			long laterJoinLatency,
 			boolean isAsync,
-			int asyncConcurrency) {
+			int asyncConcurrency,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
@@ -52,6 +57,7 @@ public class ByteSQLLookupOptions implements Serializable {
 		this.laterJoinLatency = laterJoinLatency;
 		this.isAsync = isAsync;
 		this.asyncConcurrency = asyncConcurrency;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -82,6 +88,11 @@ public class ByteSQLLookupOptions implements Serializable {
 		return asyncConcurrency;
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -96,7 +107,8 @@ public class ByteSQLLookupOptions implements Serializable {
 				laterJoinLatency == options.laterJoinLatency &&
 				laterJoinRetryTimes == options.laterJoinRetryTimes &&
 				isAsync == options.isAsync &&
-				asyncConcurrency == options.asyncConcurrency;
+				asyncConcurrency == options.asyncConcurrency &&
+				isInputKeyByEnabled == options.isInputKeyByEnabled;
 		} else {
 			return false;
 		}
@@ -113,6 +125,8 @@ public class ByteSQLLookupOptions implements Serializable {
 		private long laterJoinLatency = FactoryUtil.LOOKUP_LATER_JOIN_LATENCY.defaultValue().toMillis();
 		private boolean isAsync;
 		private int asyncConcurrency = LOOKUP_ASYNC_CONCURRENCY.defaultValue();
+		// The null default value means this flag is not set by user.
+		private Boolean isInputKeyByEnabled = null;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -158,6 +172,11 @@ public class ByteSQLLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setIsInputKeyByEnabled(Boolean isInputKeyByEnabled) {
+			this.isInputKeyByEnabled = isInputKeyByEnabled;
+			return this;
+		}
+
 		public ByteSQLLookupOptions build() {
 			return new ByteSQLLookupOptions(
 				cacheMaxSize,
@@ -166,7 +185,8 @@ public class ByteSQLLookupOptions implements Serializable {
 				laterJoinRetryTimes,
 				laterJoinLatency,
 				isAsync,
-				asyncConcurrency);
+				asyncConcurrency,
+				isInputKeyByEnabled);
 		}
 	}
 }

@@ -22,6 +22,7 @@ import org.apache.flink.annotation.Experimental;
 import org.apache.flink.types.RowKind;
 
 import java.io.Serializable;
+import java.util.Optional;
 
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
@@ -110,5 +111,16 @@ public interface LookupTableSource extends DynamicTableSource {
 
 	default int getLaterJoinRetryTimes() {
 		return LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue();
+	}
+
+	/**
+	 * Return a flag to indicate whether to hash the input stream by join key.
+	 * Note that this flag is of higher priority than TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN
+	 * config in ExecutionConfigOptions.
+	 * The default value is an empty optional, which means the behavior is controlled by the
+	 * TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN config.
+	 */
+	default Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.empty();
 	}
 }

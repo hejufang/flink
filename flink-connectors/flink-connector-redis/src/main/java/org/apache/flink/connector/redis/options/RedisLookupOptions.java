@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.redis.options;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -40,19 +42,24 @@ public class RedisLookupOptions implements Serializable {
 
 	private final boolean cacheNull;
 
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
+
 	public RedisLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
 			int maxRetryTimes,
 			long laterRetryMs,
 			int laterRetryTimes,
-			boolean cacheNull) {
+			boolean cacheNull,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.laterRetryMs = laterRetryMs;
 		this.laterRetryTimes = laterRetryTimes;
 		this.cacheNull = cacheNull;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -79,6 +86,11 @@ public class RedisLookupOptions implements Serializable {
 		return cacheNull;
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof RedisLookupOptions) {
@@ -88,7 +100,8 @@ public class RedisLookupOptions implements Serializable {
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 				Objects.equals(laterRetryMs, options.laterRetryMs) &&
 				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
-				Objects.equals(cacheNull, options.cacheNull);
+				Objects.equals(cacheNull, options.cacheNull) &&
+				Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled);
 		} else {
 			return false;
 		}

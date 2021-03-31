@@ -37,6 +37,7 @@ import com.bytedance.kvclient.ClientPool;
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 /**
@@ -141,5 +142,10 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 				redisOptions.getMinIdleConnections()
 			);
 		}
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
 }

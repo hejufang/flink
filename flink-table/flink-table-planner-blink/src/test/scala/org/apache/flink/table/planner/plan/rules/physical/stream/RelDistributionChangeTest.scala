@@ -29,9 +29,16 @@ class RelDistributionChangeTest extends TableTestBase {
   private val util = streamTestUtil()
   util.addDataStream[(Int, String, Long)](
     "MyTable", 'a, 'b, 'c, 'proctime.proctime, 'rowtime.rowtime)
+  private val lookupSql: String =
+    """
+      |SELECT *
+      |FROM MyTable AS T
+      |JOIN LookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+      |ON T.a = D.id
+      |""".stripMargin
 
   @Test
-  def testEnableKeybyBeforeLookupJoin(): Unit = {
+  def testEnableKeyByBeforeLookupJoinByConfig(): Unit = {
     util.addTable(
       """
         |CREATE TABLE LookupTable (
@@ -41,16 +48,41 @@ class RelDistributionChangeTest extends TableTestBase {
         |)
         |""".stripMargin)
 
-    val sql =
-      """
-        |SELECT *
-        |FROM MyTable AS T
-        |JOIN LookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
-        |ON T.a = D.id
-        |""".stripMargin
     util.tableEnv.getConfig.getConfiguration.setBoolean(
       ExecutionConfigOptions.TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN, true)
-    util.verifyPlan(sql)
+    util.verifyPlan(lookupSql)
+  }
+
+  @Test
+  def testOverrideEnableKeyByBeforeLookupJoinConfig(): Unit = {
+    util.addTable(
+      """
+        |CREATE TABLE LookupTable (
+        |  `id` INT
+        |) WITH (
+        |  'connector' = 'values',
+        |  'lookup.enable-input-keyby' = 'false'
+        |)
+        |""".stripMargin)
+
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN, true)
+    util.verifyPlan(lookupSql)
+  }
+
+  @Test
+  def testEnableKeyByBeforeLookupJoinByTableProps(): Unit = {
+    util.addTable(
+      """
+        |CREATE TABLE LookupTable (
+        |  `id` INT
+        |) WITH (
+        |  'connector' = 'values',
+        |  'lookup.enable-input-keyby' = 'true'
+        |)
+        |""".stripMargin)
+
+    util.verifyPlan(lookupSql)
   }
 
 }

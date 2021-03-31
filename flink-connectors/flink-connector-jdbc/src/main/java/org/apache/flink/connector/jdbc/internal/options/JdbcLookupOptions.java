@@ -21,6 +21,8 @@ package org.apache.flink.connector.jdbc.internal.options;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
 import org.apache.flink.table.factories.FactoryUtil;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -35,6 +37,8 @@ public class JdbcLookupOptions implements Serializable {
 	private final long laterRetryMs;
 	private final int laterRetryTimes;
 	private final boolean cacheNull;
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
 
 	public JdbcLookupOptions(
 			long cacheMaxSize,
@@ -42,13 +46,15 @@ public class JdbcLookupOptions implements Serializable {
 			int maxRetryTimes,
 			long laterRetryMs,
 			int laterRetryTimes,
-			boolean cacheNull) {
+			boolean cacheNull,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.laterRetryMs = laterRetryMs;
 		this.laterRetryTimes = laterRetryTimes;
 		this.cacheNull = cacheNull;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -75,6 +81,11 @@ public class JdbcLookupOptions implements Serializable {
 		return cacheNull;
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -88,7 +99,8 @@ public class JdbcLookupOptions implements Serializable {
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 				Objects.equals(laterRetryMs, options.laterRetryMs) &&
 				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
-				Objects.equals(cacheNull, options.cacheNull);
+				Objects.equals(cacheNull, options.cacheNull) &&
+				Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled);
 		} else {
 			return false;
 		}
@@ -104,6 +116,8 @@ public class JdbcLookupOptions implements Serializable {
 		private long laterRetryMs = -1;
 		private int laterRetryTimes = FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES.defaultValue();
 		private boolean cacheNull = FactoryUtil.LOOKUP_CACHE_NULL_VALUE.defaultValue();
+		// The null default value means this flag is not set by user.
+		private Boolean isInputKeyByEnabled = null;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -147,8 +161,20 @@ public class JdbcLookupOptions implements Serializable {
 			this.laterRetryTimes = laterRetryTimes;
 		}
 
+		public Builder setIsInputKeyByEnabled(Boolean isInputKeyByEnabled) {
+			this.isInputKeyByEnabled = isInputKeyByEnabled;
+			return this;
+		}
+
 		public JdbcLookupOptions build() {
-			return new JdbcLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, laterRetryMs, laterRetryTimes, cacheNull);
+			return new JdbcLookupOptions(
+				cacheMaxSize,
+				cacheExpireMs,
+				maxRetryTimes,
+				laterRetryMs,
+				laterRetryTimes,
+				cacheNull,
+				isInputKeyByEnabled);
 		}
 	}
 }

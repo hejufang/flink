@@ -31,6 +31,7 @@ import org.apache.flink.util.Preconditions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A {@link DynamicTableSource} for ByteSQL.
@@ -93,5 +94,10 @@ public class ByteSQLDynamicTableSource implements LookupTableSource {
 	@Override
 	public String asSummaryString() {
 		return "ByteSQL";
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
 }
