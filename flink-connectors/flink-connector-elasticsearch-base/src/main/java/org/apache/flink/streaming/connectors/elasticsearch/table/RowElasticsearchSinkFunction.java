@@ -52,6 +52,7 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 	private final XContentType contentType;
 	private final RequestFactory requestFactory;
 	private final Function<RowData, String> createKey;
+	private final ByteESHandler byteESHandler;
 
 	public RowElasticsearchSinkFunction(
 			IndexGenerator indexGenerator,
@@ -60,12 +61,32 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 			XContentType contentType,
 			RequestFactory requestFactory,
 			Function<RowData, String> createKey) {
+		this(
+			indexGenerator,
+			docType,
+			serializationSchema,
+			contentType,
+			requestFactory,
+			createKey,
+			null
+		);
+	}
+
+	public RowElasticsearchSinkFunction(
+			IndexGenerator indexGenerator,
+			@Nullable String docType, // this is deprecated in es 7+
+			SerializationSchema<RowData> serializationSchema,
+			XContentType contentType,
+			RequestFactory requestFactory,
+			Function<RowData, String> createKey,
+			ByteESHandler byteESHandler) {
 		this.indexGenerator = Preconditions.checkNotNull(indexGenerator);
 		this.docType = docType;
 		this.serializationSchema = Preconditions.checkNotNull(serializationSchema);
 		this.contentType = Preconditions.checkNotNull(contentType);
 		this.requestFactory = Preconditions.checkNotNull(requestFactory);
 		this.createKey = Preconditions.checkNotNull(createKey);
+		this.byteESHandler = byteESHandler;
 	}
 
 	@Override
@@ -78,6 +99,11 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 			RowData element,
 			RuntimeContext ctx,
 			RequestIndexer indexer) {
+		if (byteESHandler != null) {
+			byteESHandler.handle(element, indexer, requestFactory);
+			return;
+		}
+
 		switch (element.getRowKind()) {
 			case INSERT:
 			case UPDATE_AFTER:

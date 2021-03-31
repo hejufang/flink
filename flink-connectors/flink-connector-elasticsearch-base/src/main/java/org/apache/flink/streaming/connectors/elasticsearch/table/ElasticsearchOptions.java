@@ -153,6 +153,41 @@ public class ElasticsearchOptions {
 			.withDescription("Option for socket timeout of elasticsearch client, " +
 				"it uses org.apache.http.client.config.RequestConfig$Builder#setSocketTimeout internally.");
 
+	public static final ConfigOption<String> URI =
+		ConfigOptions.key("uri")
+			.stringType()
+			.noDefaultValue()
+			.withDescription("The uri for byte es, it is a psm or consul actually. " +
+				"If this is set, then the hosts will be replaced by this.");
+
+	public static final ConfigOption<Boolean> BYTE_ES_MODE_ENABLED =
+		ConfigOptions.key("byte-es-mode.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether to enable ByteES mode, it's a legacy mode, for legacy " +
+				"ByteES syncing jobs migration, new jobs are recommended to use community's " +
+				"es sink design.");
+
+	public static final ConfigOption<Boolean> BYTE_ES_GDPR_ENABLED =
+		ConfigOptions.key("byte-es-mode.gdpr.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enable gdpr for byte es.");
+
+	public static final ConfigOption<Boolean> IGNORE_INVALID_DATA =
+		ConfigOptions.key("byte-es-mode.ignore-invalid-data.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether ignore invalid data for byte es.");
+
+	public static final ConfigOption<String> USER_DEFINED_PARAMS =
+		ConfigOptions.key("user-defined-params")
+			.stringType()
+			.noDefaultValue()
+			.withDeprecatedKeys("connector.user-defined-params")
+			.withDescription("This is a very special config. It's not used for connector, it will be passed to " +
+				"user defined failure handler instead.");
+
 	private ElasticsearchOptions() {
 	}
 }

@@ -44,6 +44,8 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_BACKOFF_TYPE_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_INTERVAL_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_MAX_ACTIONS_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BYTE_ES_GDPR_ENABLED;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BYTE_ES_MODE_ENABLED;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_MAX_RETRY_TIMEOUT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_PATH_PREFIX;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECT_TIMEOUT;
@@ -51,11 +53,14 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FLUSH_ON_CHECKPOINT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FORMAT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.HOSTS_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.IGNORE_INVALID_DATA;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.INDEX_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_DELIMITER_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.SOCKET_TIMEOUT;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USERNAME_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USER_DEFINED_PARAMS;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 
@@ -65,10 +70,10 @@ import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 @Internal
 public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory {
 	private static final Set<ConfigOption<?>> requiredOptions = Stream.of(
-		HOSTS_OPTION,
 		INDEX_OPTION
 	).collect(Collectors.toSet());
 	private static final Set<ConfigOption<?>> optionalOptions = Stream.of(
+		HOSTS_OPTION,
 		KEY_DELIMITER_OPTION,
 		FAILURE_HANDLER_OPTION,
 		FLUSH_ON_CHECKPOINT_OPTION,
@@ -86,7 +91,12 @@ public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory
 		SOCKET_TIMEOUT,
 		RATE_LIMIT_NUM,
 		PASSWORD_OPTION,
-		USERNAME_OPTION
+		USERNAME_OPTION,
+		BYTE_ES_MODE_ENABLED,
+		BYTE_ES_GDPR_ENABLED,
+		URI,
+		IGNORE_INVALID_DATA,
+		USER_DEFINED_PARAMS
 	).collect(Collectors.toSet());
 
 	@Override
@@ -116,6 +126,14 @@ public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory
 	}
 
 	private void validate(Elasticsearch7Configuration config, Configuration originalConfiguration) {
+		if (!originalConfiguration.getOptional(HOSTS_OPTION).isPresent() &&
+			!originalConfiguration.getOptional(URI).isPresent()) {
+			throw new ValidationException(String.format(
+				"either '%s' or '%s' must be set",
+				HOSTS_OPTION.key(),
+				URI.key()
+			));
+		}
 		config.getFailureHandler(); // checks if we can instantiate the custom failure handler
 		config.getHosts(); // validate hosts
 		validate(

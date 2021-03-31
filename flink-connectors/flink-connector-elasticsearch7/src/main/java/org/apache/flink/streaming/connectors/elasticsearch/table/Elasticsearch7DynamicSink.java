@@ -23,14 +23,20 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
 import org.apache.flink.streaming.connectors.elasticsearch7.ElasticsearchSink;
 import org.apache.flink.streaming.connectors.elasticsearch7.RestClientFactory;
+import org.apache.flink.streaming.connectors.elasticsearch7.util.ESHttpRoutePlanner;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
+import org.apache.flink.table.types.logical.LogicalTypeFamily;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
 import org.apache.flink.types.RowKind;
 
 import org.apache.http.HttpHost;
@@ -43,12 +49,22 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.VersionType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BYTE_ES_GDPR_ENABLED;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BYTE_ES_MODE_ENABLED;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_PATH_PREFIX;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.IGNORE_INVALID_DATA;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
+import static org.apache.flink.table.types.logical.LogicalTypeRoot.DECIMAL;
 
 /**
  * A {@link DynamicTableSink} that describes how to create a {@link ElasticsearchSink} from a logical
@@ -120,6 +136,63 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 		return () -> {
 			SerializationSchema<RowData> format = this.format.createRuntimeEncoder(context, schema.toRowDataType());
 
+			ByteESHandler handler = null;
+			if (config.config.get(BYTE_ES_MODE_ENABLED)) {
+				ByteESHandler.Builder byteESHandlerBuilder = ByteESHandler.builder();
+
+				for (int i = 0; i < schema.getFieldCount(); ++i) {
+					String fieldName = schema.getFieldName(i).get();
+					DataType fieldType = schema.getFieldDataType(i).get();
+					if (fieldName.equalsIgnoreCase(ByteESHandler.VERSION)) {
+						byteESHandlerBuilder.setVersionGetter(RowData.createFieldGetter(fieldType.getLogicalType(), i));
+						// Validate version field type. Can only be INT/BIGINT/SMALLINT/TINYINT.
+						LogicalTypeRoot typeRoot = fieldType.getLogicalType().getTypeRoot();
+						if (typeRoot == DECIMAL || !typeRoot.getFamilies().contains(LogicalTypeFamily.EXACT_NUMERIC)) {
+							throw new TableException("_version field for ES sink should be integer types like int/bigint.");
+						}
+					} else if (fieldName.equalsIgnoreCase(ByteESHandler.ROUTING)) {
+						byteESHandlerBuilder.setRoutingIndex(i);
+						// Validate routing field type. Can only be VARCHAR/CHAR.
+						LogicalTypeRoot typeRoot = fieldType.getLogicalType().getTypeRoot();
+						if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+							throw new TableException("_routing field for ES sink should be varchar/char type.");
+						}
+					} else if (fieldName.equalsIgnoreCase(ByteESHandler.INDEX)) {
+						byteESHandlerBuilder.setIndexIndex(i);
+						// Validate index field type Can only be VARCHAR/CHAR.
+						LogicalTypeRoot typeRoot = fieldType.getLogicalType().getTypeRoot();
+						if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+							throw new TableException("_index field for ES sink should be varchar/char type.");
+						}
+					} else if (fieldName.equalsIgnoreCase(ByteESHandler.ID)) {
+						byteESHandlerBuilder.setIdIndex(i);
+						// Validate index field type Can only be VARCHAR/CHAR.
+						LogicalTypeRoot typeRoot = fieldType.getLogicalType().getTypeRoot();
+						if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+							throw new TableException("_id field for ES sink should be varchar/char type.");
+						}
+					} else if (fieldName.equalsIgnoreCase(ByteESHandler.OP_TYPE)) {
+						byteESHandlerBuilder.setOpTypeIndex(i);
+						// Validate index field type Can only be VARCHAR/CHAR.
+						LogicalTypeRoot typeRoot = fieldType.getLogicalType().getTypeRoot();
+						if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+							throw new TableException("_opType field for ES sink should be varchar/char type.");
+						}
+					} else if (fieldName.equalsIgnoreCase(ByteESHandler.SOURCE)) {
+						byteESHandlerBuilder.setSourceIndex(i);
+						// Validate index field type Can only be VARCHAR/CHAR.
+						LogicalTypeRoot typeRoot = fieldType.getLogicalType().getTypeRoot();
+						if (!typeRoot.getFamilies().contains(LogicalTypeFamily.CHARACTER_STRING)) {
+							throw new TableException("_source field for ES sink should be varchar/char type.");
+						}
+					}
+				}
+
+				byteESHandlerBuilder.setIgnoreInvalidData(config.config.get(IGNORE_INVALID_DATA));
+
+				handler = byteESHandlerBuilder.build();
+			}
+
 			final RowElasticsearchSinkFunction upsertFunction =
 				new RowElasticsearchSinkFunction(
 					IndexGeneratorFactory.createIndexGenerator(config.getIndex(), schema),
@@ -127,7 +200,8 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 					format,
 					XContentType.JSON,
 					REQUEST_FACTORY,
-					KeyExtractor.createKeyExtractor(schema, config.getKeyDelimiter())
+					KeyExtractor.createKeyExtractor(schema, config.getKeyDelimiter()),
+					handler
 				);
 
 			final ElasticsearchSink.Builder<RowData> builder = builderProvider.createBuilder(
@@ -160,6 +234,10 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 					config.getPathPrefix().orElse(null),
 					config.getUsername().get(),
 					config.getPassword().get()));
+			} else if (config.config.getOptional(URI).isPresent()) {
+				String prefix = config.config.get(CONNECTION_PATH_PREFIX);
+				boolean gdprEnabled = config.config.get(BYTE_ES_GDPR_ENABLED);
+				builder.setRestClientFactory(new RoutedRestClientFactory(prefix, gdprEnabled));
 			} else {
 				builder.setRestClientFactory(new DefaultRestClientFactory(config.getPathPrefix().orElse(null)));
 			}
@@ -274,9 +352,54 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 	}
 
 	/**
+	 * A routed RestClientFactory.
+	 */
+	static class RoutedRestClientFactory implements RestClientFactory {
+
+		private static final long serialVersionUID = 1L;
+
+		private final String pathPrefix;
+		private final boolean enableGdpr;
+
+		public RoutedRestClientFactory(@Nullable String pathPrefix, boolean enableGdpr) {
+			this.pathPrefix = pathPrefix;
+			this.enableGdpr = enableGdpr;
+		}
+
+		@Override
+		public void configureRestClientBuilder(RestClientBuilder restClientBuilder) {
+			if (pathPrefix != null) {
+				restClientBuilder.setPathPrefix(pathPrefix);
+			}
+			restClientBuilder.setHttpClientConfigCallback(httpAsyncClientBuilder ->
+				httpAsyncClientBuilder.setRoutePlanner(new ESHttpRoutePlanner(enableGdpr)));
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			RoutedRestClientFactory that = (RoutedRestClientFactory) o;
+			return Objects.equals(pathPrefix, that.pathPrefix);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(pathPrefix);
+		}
+	}
+
+	/**
 	 * Version-specific creation of {@link org.elasticsearch.action.ActionRequest}s used by the sink.
 	 */
 	private static class Elasticsearch7RequestFactory implements RequestFactory {
+
+		private static final Logger LOG = LoggerFactory.getLogger(Elasticsearch7RequestFactory.class);
+
 		@Override
 		public UpdateRequest createUpdateRequest(
 				String index,
@@ -304,6 +427,93 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 		@Override
 		public DeleteRequest createDeleteRequest(String index, String docType, String key) {
 			return new DeleteRequest(index, key);
+		}
+
+		@Override
+		public void addCustomRequestToIndexer(
+				String doc,
+				RequestIndexer indexer,
+				long version,
+				String routing,
+				String index,
+				String id,
+				String opType) {
+			if (opType == null || index == null) {
+				LOG.error("Invalid OpType: {} or index {}", opType, index);
+				return;
+			}
+			switch (opType.toLowerCase()) {
+				case "delete":
+					DeleteRequest deleteRequest = new DeleteRequest().index(index).id(id);
+					if (version > 0) {
+						deleteRequest.version(version).versionType(VersionType.EXTERNAL_GTE);
+					}
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						deleteRequest.routing(routing);
+					}
+					if (deleteRequest.validate() != null) {
+						LOG.error("Construct DeleteRequest error for value: {}", doc);
+						return;
+					}
+					indexer.add(deleteRequest);
+					break;
+				case "index":
+					IndexRequest indexRequest = new IndexRequest().index(index).id(id);
+					indexRequest.source(doc, XContentType.JSON);
+					if (version > 0) {
+						indexRequest.version(version).versionType(VersionType.EXTERNAL_GTE);
+					}
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						indexRequest.routing(routing);
+					}
+					if (indexRequest.validate() != null) {
+						LOG.error("Construct IndexRequest error for value: {}", doc);
+						return;
+					}
+					indexer.add(indexRequest);
+					break;
+				case "create":
+					IndexRequest createRequest = new IndexRequest().index(index).id(id);
+					createRequest.create(true);
+					createRequest.source(doc, XContentType.JSON);
+					if (version > 0) {
+						createRequest.version(version).versionType(VersionType.EXTERNAL_GTE);
+					}
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						createRequest.routing(routing);
+					}
+					if (createRequest.validate() != null) {
+						LOG.error("Construct CreateRequest error for value: {}", doc);
+						return;
+					}
+					indexer.add(createRequest);
+					break;
+				case "update":
+					UpdateRequest updateRequest = new UpdateRequest().index(index).id(id);
+					updateRequest.doc(doc, XContentType.JSON);
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						updateRequest.routing(routing);
+					}
+					if (updateRequest.validate() != null) {
+						LOG.error("Construct UpdateRequest error for value: {}", doc);
+						return;
+					}
+					indexer.add(updateRequest);
+					break;
+				case "upsert":
+					UpdateRequest upsertRequest = new UpdateRequest().index(index).id(id);
+					upsertRequest.doc(doc, XContentType.JSON);
+					upsertRequest.docAsUpsert(true);
+					if (!org.elasticsearch.common.Strings.isEmpty(routing)) {
+						upsertRequest.routing(routing);
+					}
+					if (upsertRequest.validate() != null) {
+						LOG.error("Construct UpsertRequest error for value: {}", doc);
+						return;
+					}
+					indexer.add(upsertRequest);
+					break;
+			}
 		}
 	}
 

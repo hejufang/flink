@@ -19,6 +19,7 @@
 package org.apache.flink.streaming.connectors.elasticsearch.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.configuration.FallbackKey;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.connectors.elasticsearch.ActionRequestFailureHandler;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkBase;
@@ -29,7 +30,14 @@ import org.apache.flink.streaming.connectors.elasticsearch.util.RetryRejectedExe
 import org.apache.flink.table.api.ValidationException;
 import org.apache.flink.util.InstantiationUtil;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,12 +48,15 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_HANDLER_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USERNAME_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USER_DEFINED_PARAMS;
 
 /**
  * Accessor methods to elasticsearch options.
  */
 @Internal
 class ElasticsearchConfiguration {
+	private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchConfiguration.class);
+
 	protected final ReadableConfig config;
 	private final ClassLoader classLoader;
 
@@ -73,7 +84,33 @@ class ElasticsearchConfiguration {
 			default:
 				try {
 					Class<?> failureHandlerClass = Class.forName(value, false, classLoader);
-					failureHandler = (ActionRequestFailureHandler) InstantiationUtil.instantiate(failureHandlerClass);
+					try {
+						// user can define a custom ActionRequestFailureHandler with a constructor like:
+						// public MyFailureHandler(Map<String, String> params) {
+						//     ...
+						// }
+						// this is really a hack, however, some use cases need this.
+						// user can config USER_DEFINED_PARAMS to pass any string they want, then we will
+						// pass it to the customized ActionRequestFailureHandler.
+						Constructor<?> constructor = failureHandlerClass.getDeclaredConstructor(Map.class);
+						Map<String, String> userDefinedConfigs = new HashMap<>();
+						if (config.getOptional(USER_DEFINED_PARAMS).isPresent()) {
+							String params = config.get(USER_DEFINED_PARAMS);
+							userDefinedConfigs.put(USER_DEFINED_PARAMS.key(), params);
+							for (FallbackKey legacyKey : USER_DEFINED_PARAMS.fallbackKeys()) {
+								userDefinedConfigs.put(legacyKey.getKey(), params);
+							}
+						}
+						return (ActionRequestFailureHandler) constructor.newInstance(userDefinedConfigs);
+					} catch (NoSuchMethodException e) {
+						failureHandler = (ActionRequestFailureHandler) InstantiationUtil.instantiate(failureHandlerClass);
+					} catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {
+						LOG.warn("Found custom ActionRequestFailureHandler " +
+							failureHandlerClass.getCanonicalName() +
+							" with single param of Map type, however cannot instantiate," +
+							" trying default no parameter constructor.", e);
+						failureHandler = (ActionRequestFailureHandler) InstantiationUtil.instantiate(failureHandlerClass);
+					}
 				} catch (ClassNotFoundException e) {
 					throw new ValidationException("Could not instantiate the failure handler class: " + value, e);
 				}

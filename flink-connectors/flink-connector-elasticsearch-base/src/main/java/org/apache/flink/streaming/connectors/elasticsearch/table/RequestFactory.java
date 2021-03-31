@@ -64,4 +64,18 @@ interface RequestFactory extends Serializable {
 		String index,
 		String docType,
 		String key);
+
+	/**
+	 * Custom request, used for ByteES.
+	 */
+	default void addCustomRequestToIndexer(
+			String doc,
+			RequestIndexer indexer,
+			long version,
+			String routing,
+			String index,
+			String id,
+			String opType) {
+		throw new UnsupportedOperationException("Need to be implemented.");
+	}
 }

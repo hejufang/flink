@@ -20,10 +20,14 @@ package org.apache.flink.streaming.connectors.elasticsearch.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.ReadableConfig;
+import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.api.ValidationException;
 
 import org.apache.http.HttpHost;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -31,6 +35,7 @@ import java.util.stream.Collectors;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECT_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.HOSTS_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.SOCKET_TIMEOUT;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 
@@ -44,9 +49,26 @@ final class Elasticsearch7Configuration extends ElasticsearchConfiguration {
 	}
 
 	public List<HttpHost> getHosts() {
-		return config.get(HOSTS_OPTION).stream()
-			.map(Elasticsearch7Configuration::validateAndParseHostsString)
-			.collect(Collectors.toList());
+		if (config.getOptional(URI).isPresent()) {
+			// if we support psm to lookup hosts, we need to fake a schema://host:port
+			// to ensure underlying RestHighLevelClient not to complain about it.
+			// psm example: psm://byte.es.flink_connector_test.service.lq$data
+			String psm = config.get(URI);
+			try {
+				java.net.URI uri = new URI(psm);
+				String host = uri.getAuthority();
+				if (uri.getHost() != null) {
+					host = uri.getHost();
+				}
+				return Collections.singletonList(new HttpHost(host, uri.getPort(), uri.getScheme()));
+			} catch (URISyntaxException e) {
+				throw new TableException(e.getMessage());
+			}
+		} else {
+			return config.get(HOSTS_OPTION).stream()
+				.map(Elasticsearch7Configuration::validateAndParseHostsString)
+				.collect(Collectors.toList());
+		}
 	}
 
 	public int getParallelism() {
