@@ -27,6 +27,8 @@ import org.apache.flink.table.sources.LookupableTableSource;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.types.Row;
 
+import java.util.Optional;
+
 /**
  * Attention: only used in lookup table source now.
  */
@@ -96,5 +98,10 @@ public class RPCTableSource implements
 	@Override
 	public DataStream<Row> getDataStream(StreamExecutionEnvironment execEnv) {
 		throw new UnsupportedOperationException("RPC doesn't support as source currently.");
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(rpcLookupOptions.isInputKeyByEnabled());
 	}
 }

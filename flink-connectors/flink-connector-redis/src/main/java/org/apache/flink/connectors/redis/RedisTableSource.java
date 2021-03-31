@@ -34,6 +34,8 @@ import org.apache.flink.types.Row;
 
 import javax.annotation.Nullable;
 
+import java.util.Optional;
+
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -199,5 +201,10 @@ public class RedisTableSource implements
 			}
 			return new RedisTableSource(options, lookupOptions, schema, deserializationSchema);
 		}
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
 }

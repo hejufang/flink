@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.descriptors;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -30,11 +32,18 @@ public class ByteSQLLookupOptions implements Serializable {
 	private final long cacheMaxSize;
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
 
-	private ByteSQLLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes) {
+	private ByteSQLLookupOptions(
+			long cacheMaxSize,
+			long cacheExpireMs,
+			int maxRetryTimes,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -49,6 +58,11 @@ public class ByteSQLLookupOptions implements Serializable {
 		return maxRetryTimes;
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -59,7 +73,8 @@ public class ByteSQLLookupOptions implements Serializable {
 			ByteSQLLookupOptions options = (ByteSQLLookupOptions) o;
 			return Objects.equals(cacheMaxSize, options.cacheMaxSize) &&
 				Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
-				Objects.equals(maxRetryTimes, options.maxRetryTimes);
+				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
+				isInputKeyByEnabled == options.isInputKeyByEnabled;
 		} else {
 			return false;
 		}
@@ -72,6 +87,8 @@ public class ByteSQLLookupOptions implements Serializable {
 		private long cacheMaxSize = -1L;
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
+		// The null default value means this flag is not set by user.
+		private Boolean isInputKeyByEnabled = null;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -97,8 +114,16 @@ public class ByteSQLLookupOptions implements Serializable {
 			return this;
 		}
 
+		/**
+		 * optional, flag to indicate whether to hash the input stream by join key.
+		 */
+		public Builder setIsInputKeyByEnabled(boolean inputKeyByEnabled) {
+			this.isInputKeyByEnabled = inputKeyByEnabled;
+			return this;
+		}
+
 		public ByteSQLLookupOptions build() {
-			return new ByteSQLLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes);
+			return new ByteSQLLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, isInputKeyByEnabled);
 		}
 	}
 }

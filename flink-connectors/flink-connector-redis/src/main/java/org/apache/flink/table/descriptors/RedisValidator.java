@@ -79,6 +79,7 @@ public class RedisValidator extends ConnectorDescriptorValidator {
 		properties.validateBoolean(CONNECTOR_SKIP_FORMAT_KEY, true);
 		properties.validateInt(CONNECTOR_LATER_JOIN_LATENCY_MS, true, 1000);
 		properties.validateLong(CONNECTOR_RATE_LIMIT, true, 1);
+		properties.validateBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY, true);
 		validateKeyField(properties);
 	}
 

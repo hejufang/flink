@@ -18,6 +18,8 @@
 
 package org.apache.flink.connectors.redis;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -42,19 +44,24 @@ public class RedisLookupOptions implements Serializable {
 
 	private final long rateLimit;
 
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
+
 	private RedisLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
 			int maxRetryTimes,
 			boolean cacheNullValue,
 			String keyField,
-			long rateLimit) {
+			long rateLimit,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.cacheNullValue = cacheNullValue;
 		this.keyField = keyField;
 		this.rateLimit = rateLimit;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -85,6 +92,11 @@ public class RedisLookupOptions implements Serializable {
 		return new Builder();
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof RedisLookupOptions) {
@@ -94,7 +106,8 @@ public class RedisLookupOptions implements Serializable {
 					Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
 					Objects.equals(cacheNullValue, options.cacheNullValue) &&
 					Objects.equals(keyField, options.keyField) &&
-					Objects.equals(rateLimit, options.rateLimit);
+					Objects.equals(rateLimit, options.rateLimit) &&
+					Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled);
 		} else {
 			return false;
 		}
@@ -109,7 +122,10 @@ public class RedisLookupOptions implements Serializable {
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private boolean cacheNullValue = true;
 		private String keyField;
-		private long rateLimit = -1L; // -1 means to disable rate limit
+		// -1 means to disable rate limit
+		private long rateLimit = -1L;
+		// The null default value means this flag is not set by user.
+		private Boolean isInputKeyByEnabled = null;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -150,6 +166,11 @@ public class RedisLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setIsInputKeyByEnabled(Boolean isInputKeyByEnabled) {
+			this.isInputKeyByEnabled = isInputKeyByEnabled;
+			return this;
+		}
+
 		public RedisLookupOptions build() {
 			return new RedisLookupOptions(
 				cacheMaxSize,
@@ -157,7 +178,8 @@ public class RedisLookupOptions implements Serializable {
 				maxRetryTimes,
 				cacheNullValue,
 				keyField,
-				rateLimit);
+				rateLimit,
+				isInputKeyByEnabled);
 		}
 	}
 

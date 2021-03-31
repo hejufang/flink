@@ -54,6 +54,7 @@ import static org.apache.flink.connectors.util.Constant.REDIS_DATATYPE_ZSET;
 import static org.apache.flink.connectors.util.Constant.REDIS_INCR_VALID_DATATYPE;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_KEY_FIELDS;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_CACHE_NULL_VALUE;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.DescriptorProperties.TABLE_SCHEMA_NAME;
@@ -132,6 +133,7 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+		properties.add(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY);
 		properties.add(CONNECTOR_LATER_JOIN_LATENCY_MS);
 		properties.add(CONNECTOR_KEY_FIELDS);
 
@@ -358,6 +360,8 @@ public class RedisTableFactory implements StreamTableSourceFactory<Row>,
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_CACHE_NULL_VALUE).ifPresent(builder::setCacheNullValue);
 		descriptorProperties.getOptionalString(CONNECTOR_KEY_FIELDS).ifPresent(builder::setKeyField);
 		descriptorProperties.getOptionalLong(CONNECTOR_RATE_LIMIT).ifPresent(builder::setRateLimit);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY)
+			.ifPresent(builder::setIsInputKeyByEnabled);
 
 		return builder.build();
 	}

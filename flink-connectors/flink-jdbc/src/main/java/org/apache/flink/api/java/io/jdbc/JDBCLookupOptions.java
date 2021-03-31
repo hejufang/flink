@@ -18,6 +18,8 @@
 
 package org.apache.flink.api.java.io.jdbc;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -32,12 +34,20 @@ public class JDBCLookupOptions implements Serializable {
 	private final long cacheExpireMs;
 	private final int maxRetryTimes;
 	private final boolean cacheNullValue;
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
 
-	private JDBCLookupOptions(long cacheMaxSize, long cacheExpireMs, int maxRetryTimes, boolean cacheNullValue) {
+	private JDBCLookupOptions(
+			long cacheMaxSize,
+			long cacheExpireMs,
+			int maxRetryTimes,
+			boolean cacheNullValue,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
 		this.cacheNullValue = cacheNullValue;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -56,6 +66,11 @@ public class JDBCLookupOptions implements Serializable {
 		return cacheNullValue;
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -67,7 +82,8 @@ public class JDBCLookupOptions implements Serializable {
 			return Objects.equals(cacheMaxSize, options.cacheMaxSize) &&
 				Objects.equals(cacheExpireMs, options.cacheExpireMs) &&
 				Objects.equals(maxRetryTimes, options.maxRetryTimes) &&
-				Objects.equals(cacheNullValue, options.cacheNullValue);
+				Objects.equals(cacheNullValue, options.cacheNullValue) &&
+				isInputKeyByEnabled == options.isInputKeyByEnabled;
 		} else {
 			return false;
 		}
@@ -81,6 +97,8 @@ public class JDBCLookupOptions implements Serializable {
 		private long cacheExpireMs = -1L;
 		private int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
 		private boolean cacheNullValue = true;
+		// The null default value means this flag is not set by user.
+		private Boolean isInputKeyByEnabled = null;
 
 		/**
 		 * optional, lookup cache max size, over this value, the old data will be eliminated.
@@ -106,12 +124,20 @@ public class JDBCLookupOptions implements Serializable {
 			return this;
 		}
 
+		/**
+		 * optional, flag to indicate whether to hash the input stream by join key.
+		 */
+		public Builder setIsInputKeyByEnabled(boolean inputKeyByEnabled) {
+			this.isInputKeyByEnabled = inputKeyByEnabled;
+			return this;
+		}
+
 		public void setCacheNullValue(boolean cacheNullValue) {
 			this.cacheNullValue = cacheNullValue;
 		}
 
 		public JDBCLookupOptions build() {
-			return new JDBCLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, cacheNullValue);
+			return new JDBCLookupOptions(cacheMaxSize, cacheExpireMs, maxRetryTimes, cacheNullValue, isInputKeyByEnabled);
 		}
 	}
 }

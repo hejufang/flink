@@ -22,6 +22,8 @@ import org.apache.flink.annotation.Experimental;
 import org.apache.flink.table.functions.AsyncTableFunction;
 import org.apache.flink.table.functions.TableFunction;
 
+import java.util.Optional;
+
 /**
  * A {@link TableSource} which supports for lookup accessing via key column(s).
  * For example, MySQL TableSource can implement this interface to support lookup accessing.
@@ -56,5 +58,16 @@ public interface LookupableTableSource<T> extends TableSource<T> {
 	default int getLaterJoinMs() {
 		// -1 means turn off later join.
 		return -1;
+	}
+
+	/**
+	 * Return a flag to indicate whether to hash the input stream by join key.
+	 * Note that this flag is of higher priority than TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN
+	 * config in ExecutionConfigOptions.
+	 * The default value is an empty optional, which means the behavior is controlled by the
+	 * TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN config.
+	 */
+	default Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.empty();
 	}
 }

@@ -96,6 +96,7 @@ public class RPCValidator extends ConnectorDescriptorValidator {
 		properties.validateLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS, true, 1);
 		properties.validateLong(CONNECTOR_LOOKUP_CACHE_TTL, true, 1);
 		properties.validateInt(CONNECTOR_LOOKUP_MAX_RETRIES, true, 1);
+		properties.validateBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY, true);
 
 		properties.validateInt(CONNECTOR_PARALLELISM, true, 1);
 

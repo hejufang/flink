@@ -50,6 +50,7 @@ import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_SINK_PRIMARY_KEY_INDICES;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_TABLE;
 import static org.apache.flink.table.descriptors.ByteSQLValidator.CONNECTOR_USERNAME;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.Schema.SCHEMA;
@@ -106,6 +107,7 @@ public class ByteSQLTableSourceSinkFactory implements StreamTableSourceFactory<R
 		properties.add(CONNECTOR_LOOKUP_CACHE_MAX_ROWS);
 		properties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
+		properties.add(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY);
 
 		// sink options
 		properties.add(CONNECTOR_SINK_BUFFER_FLUSH_MAX_ROWS);
@@ -145,6 +147,8 @@ public class ByteSQLTableSourceSinkFactory implements StreamTableSourceFactory<R
 		descriptorProperties.getOptionalDuration(CONNECTOR_LOOKUP_CACHE_TTL).ifPresent(
 			s -> builder.setCacheExpireMs(s.toMillis()));
 		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY)
+			.ifPresent(builder::setIsInputKeyByEnabled);
 		return builder.build();
 	}
 

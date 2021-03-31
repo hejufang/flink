@@ -84,6 +84,11 @@ public abstract class ConnectorDescriptorValidator implements DescriptorValidato
 	 */
 	public static final String CONNECTOR_KEY_FIELDS = "connector.key.fields";
 
+	/**
+	 * Key for flag to indicate whether to hash the input stream by join key.
+	 */
+	public static final String CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY = "connector.lookup.enable-input-keyby";
+
 	@Override
 	public void validate(DescriptorProperties properties) {
 		properties.validateString(CONNECTOR_TYPE, false, 1);

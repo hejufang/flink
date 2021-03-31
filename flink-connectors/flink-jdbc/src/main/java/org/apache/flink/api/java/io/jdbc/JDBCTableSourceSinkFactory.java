@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_CACHE_NULL_VALUE;
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PROPERTY_VERSION;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -114,6 +115,7 @@ public class JDBCTableSourceSinkFactory implements
 		properties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
 		properties.add(CONNECTOR_CONNECTION_POOL_SIZE);
 		properties.add(CONNECTOR_LOOKUP_CACHE_NULL_VALUE);
+		properties.add(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY);
 
 		// sink options
 		properties.add(CONNECTOR_WRITE_FLUSH_MAX_ROWS);
@@ -238,6 +240,8 @@ public class JDBCTableSourceSinkFactory implements
 			s -> builder.setCacheExpireMs(s.toMillis()));
 		descriptorProperties.getOptionalInt(CONNECTOR_LOOKUP_MAX_RETRIES).ifPresent(builder::setMaxRetryTimes);
 		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_CACHE_NULL_VALUE).ifPresent(builder::setCacheNullValue);
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY)
+			.ifPresent(builder::setIsInputKeyByEnabled);
 
 		return builder.build();
 	}

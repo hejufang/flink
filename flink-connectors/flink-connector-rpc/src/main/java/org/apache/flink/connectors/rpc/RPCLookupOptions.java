@@ -18,6 +18,8 @@
 
 package org.apache.flink.connectors.rpc;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -38,6 +40,8 @@ public class RPCLookupOptions implements Serializable {
 	private final boolean useBatchLookup;
 	private final String requestListFieldName;
 	private final String responseListFieldName;
+	@Nullable
+	private final Boolean isInputKeyByEnabled;
 
 	private RPCLookupOptions(
 			long cacheMaxSize,
@@ -46,7 +50,8 @@ public class RPCLookupOptions implements Serializable {
 			RPCRequestFailureStrategy requestFailureStrategy,
 			boolean useBatchLookup,
 			String requestListFieldName,
-			String responseListFieldName) {
+			String responseListFieldName,
+			@Nullable Boolean isInputKeyByEnabled) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
@@ -54,6 +59,7 @@ public class RPCLookupOptions implements Serializable {
 		this.useBatchLookup = useBatchLookup;
 		this.requestListFieldName = requestListFieldName;
 		this.responseListFieldName = responseListFieldName;
+		this.isInputKeyByEnabled = isInputKeyByEnabled;
 	}
 
 	public long getCacheMaxSize() {
@@ -88,6 +94,11 @@ public class RPCLookupOptions implements Serializable {
 		return new Builder();
 	}
 
+	@Nullable
+	public Boolean isInputKeyByEnabled() {
+		return isInputKeyByEnabled;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -103,7 +114,8 @@ public class RPCLookupOptions implements Serializable {
 			useBatchLookup == that.useBatchLookup &&
 			requestFailureStrategy == that.requestFailureStrategy &&
 			requestListFieldName.equals(that.requestListFieldName) &&
-			responseListFieldName.equals(that.responseListFieldName);
+			responseListFieldName.equals(that.responseListFieldName) &&
+			isInputKeyByEnabled == that.isInputKeyByEnabled;
 	}
 
 	@Override
@@ -123,6 +135,8 @@ public class RPCLookupOptions implements Serializable {
 		private boolean useBatchLookup = false;
 		private String requestListFieldName;
 		private String responseListFieldName;
+		// The null default value means this flag is not set by user.
+		private Boolean isInputKeyByEnabled = null;
 
 		private Builder() {
 		}
@@ -171,6 +185,11 @@ public class RPCLookupOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setIsInputKeyByEnabled(boolean inputKeyByEnabled) {
+			this.isInputKeyByEnabled = inputKeyByEnabled;
+			return this;
+		}
+
 		public RPCLookupOptions build() {
 			return new RPCLookupOptions(
 				cacheMaxSize,
@@ -179,7 +198,8 @@ public class RPCLookupOptions implements Serializable {
 				requestFailureStrategy,
 				useBatchLookup,
 				requestListFieldName,
-				responseListFieldName);
+				responseListFieldName,
+				isInputKeyByEnabled);
 		}
 	}
 

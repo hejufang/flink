@@ -26,11 +26,13 @@ import org.apache.flink.table.planner.plan.nodes.logical._
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamExecLookupJoin
 import org.apache.flink.table.planner.plan.rules.physical.common.{BaseSnapshotOnCalcTableScanRule, BaseSnapshotOnTableScanRule}
 import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
+import org.apache.flink.table.planner.JBoolean
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
-import org.apache.flink.table.sources.TableSource
-
+import org.apache.flink.table.sources.{LookupableTableSource, TableSource}
 import org.apache.calcite.plan.RelOptRule
 import org.apache.calcite.rex.RexProgram
+
+import java.util.function.Consumer
 
 /**
   * Rules that convert [[FlinkLogicalJoin]] on a [[FlinkLogicalSnapshot]]
@@ -88,14 +90,18 @@ object StreamExecLookupJoinRule {
     var requiredTrait = input.getTraitSet.replace(FlinkConventions.STREAM_PHYSICAL)
 
     val tableConfig = FlinkRelOptUtil.getTableConfigFromContext(join)
-    val enableKeyBy = tableConfig.getConfiguration.getBoolean(
+    var enableKeyBy = tableConfig.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_KEYBY_BEFORE_LOOKUP_JOIN)
-
+    val lookupTableSource = tableSource.asInstanceOf[LookupableTableSource[_]]
+    lookupTableSource.isInputKeyByEnabled.ifPresent(new Consumer[JBoolean]() {
+      override def accept(t: JBoolean): Unit = {
+        enableKeyBy = t
+      }
+    })
     if (enableKeyBy && joinInfo.leftKeys.size() > 0) {
       val requiredDistribution = FlinkRelDistribution.hash(joinInfo.leftKeys)
       requiredTrait = requiredTrait.replace(requiredDistribution)
     }
-
     val convInput = RelOptRule.convert(input, requiredTrait)
     new StreamExecLookupJoin(
       cluster,

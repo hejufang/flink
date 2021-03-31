@@ -62,6 +62,7 @@ public class ByteSQLValidator extends ConnectorDescriptorValidator {
 		properties.validateLong(CONNECTOR_LOOKUP_CACHE_MAX_ROWS, true);
 		properties.validateDuration(CONNECTOR_LOOKUP_CACHE_TTL, true, 1);
 		properties.validateInt(CONNECTOR_LOOKUP_MAX_RETRIES, true);
+		properties.validateBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY, true);
 
 		checkAllOrNone(properties, new String[]{
 			CONNECTOR_LOOKUP_CACHE_MAX_ROWS,

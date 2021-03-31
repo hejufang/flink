@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_PARALLELISM;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
 import static org.apache.flink.table.descriptors.RPCValidator.CONNECTOR_BATCH_CLASS;
@@ -126,6 +127,7 @@ public class RPCTableFactory implements
 		supportedProperties.add(CONNECTOR_LOOKUP_CACHE_TTL);
 		supportedProperties.add(CONNECTOR_LOOKUP_MAX_RETRIES);
 		supportedProperties.add(CONNECTOR_LOOKUP_REQUEST_FAILURE_STRATEGY);
+		supportedProperties.add(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY);
 		supportedProperties.add(CONNECTOR_USE_BATCH_LOOKUP);
 
 		// used in sink parallelism
@@ -228,7 +230,8 @@ public class RPCTableFactory implements
 		descriptorProperties.getOptionalBoolean(CONNECTOR_USE_BATCH_LOOKUP).ifPresent(builder::setBatchLookup);
 		descriptorProperties.getOptionalString(CONNECTOR_REQUEST_LIST_NAME).ifPresent(builder::setRequestListFieldName);
 		descriptorProperties.getOptionalString(CONNECTOR_RESPONSE_LIST_NAME).ifPresent(builder::setResponseListFieldName);
-
+		descriptorProperties.getOptionalBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY)
+			.ifPresent(builder::setIsInputKeyByEnabled);
 		return builder.build();
 	}
 

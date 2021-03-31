@@ -33,6 +33,8 @@ import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.Row;
 
+import java.util.Optional;
+
 /**
  * {@link TableSource} for ByteSQL.
  */
@@ -97,5 +99,10 @@ public class ByteSQLTableSource implements
 	@Override
 	public TypeInformation<Row> getReturnType() {
 		return returnType;
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
 }

@@ -140,6 +140,7 @@ public class JDBCValidator extends ConnectorDescriptorValidator {
 		properties.validateDuration(CONNECTOR_LOOKUP_CACHE_TTL, true, 1);
 		properties.validateInt(CONNECTOR_LOOKUP_MAX_RETRIES, true);
 		properties.validateInt(CONNECTOR_CONNECTION_POOL_SIZE, true);
+		properties.validateBoolean(CONNECTOR_LOOKUP_ENABLE_INPUT_KEYBY, true);
 
 		checkAllOrNone(properties, new String[]{
 			CONNECTOR_LOOKUP_CACHE_MAX_ROWS,

@@ -35,6 +35,7 @@ import org.apache.flink.types.Row;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -167,6 +168,11 @@ public class JDBCTableSource implements
 		builder.setJDBCOptions(options);
 
 		return builder.finish();
+	}
+
+	@Override
+	public Optional<Boolean> isInputKeyByEnabled() {
+		return Optional.ofNullable(lookupOptions.isInputKeyByEnabled());
 	}
 
 	@Override
