@@ -463,6 +463,10 @@ public class BootstrapTools {
 			javaOpts += " " + flinkConfig.getString(CoreOptions.FLINK_TM_JVM_OPTIONS);
 		}
 
+		if (!javaOpts.contains("-Djava.io.tmpdir=")) {
+			javaOpts += " -Djava.io.tmpdir=./tmp";
+		}
+
 		String logLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_LEVEL_KEY,
 			ConfigConstants.FLINK_LOG_LEVEL_DEFAULT);
 		javaOpts += " -Dlog.level=" + logLevel;
