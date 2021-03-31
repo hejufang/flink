@@ -106,8 +106,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 	private transient MeterView recordsNumMeterView;
 	private transient DefaultMQPullConsumer consumer;
-	private transient List<MessageQueuePb> assignedMessageQueuePbs;
-	private transient Set<MessageQueue> assignedMessageQueueSet;
+	private transient volatile List<MessageQueuePb> assignedMessageQueuePbs;
+	private transient volatile Set<MessageQueue> assignedMessageQueueSet;
 	private transient Set<MessageQueue> lastSnapshotQueues;
 	private transient Set<MessageQueue> specificMessageQueueSet;
 	private transient Thread updateThread;
@@ -233,6 +233,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 
 		if (assignQueueStrategy == RocketMQOptions.AssignQueueStrategy.FIXED) {
 			updateThread = createUpdateThread();
+			updateThread.start();
 		}
 
 		RetryManager.Strategy strategy =
@@ -241,7 +242,13 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 				RocketMQOptions.CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		while (running) {
 			List<List<MessageExt>> messageExtsList = new ArrayList<>();
-			RetryManager.retry(() -> messageExtsList.add(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), strategy);
+			synchronized (this) {
+				if (assignedMessageQueuePbs == null || assignedMessageQueuePbs.size() == 0) {
+					ctx.markAsTemporarilyIdle();
+					this.wait();
+				}
+				RetryManager.retry(() -> messageExtsList.add(consumer.poll(CONSUMER_DEFAULT_POLL_LATENCY_MS)), strategy);
+			}
 			List<MessageExt> messageExts = messageExtsList.get(0);
 			for (MessageExt messageExt: messageExts) {
 				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
@@ -265,9 +272,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		running = false;
 		if (updateThread != null) {
 			updateThread.interrupt();
+			updateThread = null;
 		}
 		if (consumer != null) {
 			consumer.shutdown();
+			consumer = null;
 		}
 	}
 
@@ -275,8 +284,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			SupplierWithException<List<MessageQueuePb>, InterruptedException> supplier) throws InterruptedException {
 		List<MessageQueuePb> currentMessageQueues = supplier.get();
 		if (tryReplaceOld(currentMessageQueues)) {
-			synchronized (consumer) {
-				consumer.assign(currentMessageQueues);
+			synchronized (this) {
+				if (!currentMessageQueues.isEmpty()) {
+					consumer.assign(currentMessageQueues);
+					this.notify();
+				}
 			}
 		}
 	}
@@ -441,7 +453,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 						Thread.sleep(5 * 60 * 1000);
 						assignMessageQueues(() -> allocFixedMessageQueue());
 					} catch (InterruptedException e) {
-						LOG.info("Receive interrupted exception.");
+						LOG.warn("Receive interrupted exception.");
 					}
 				}
 			}
@@ -454,6 +466,11 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	@Override
 	public int getParallelism() {
 		return parallelism;
+	}
+
+	@Override
+	public void close() throws Exception {
+		cancel();
 	}
 
 	private Set<MessageQueue> parseMessageQueueSet() {
