@@ -20,6 +20,7 @@ package org.apache.flink.yarn.configuration;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 
@@ -93,6 +94,18 @@ public class YarnLogConfigUtil {
 			logCommand += " -Dlog.level=" + configuration.getString(CoreOptions.FLINK_LOG_LEVEL);
 		}
 
+		// databus channel configuration for log collection.
+		String databusChannel = configuration.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+		String databusLevel = configuration.getString(ConfigConstants.FLINK_LOG_DATABUS_LEVEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_LEVEL_DEFAULT);
+		Long permitsPerSecond = configuration.getLong(ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT);
+
+		logCommand += " -Dlog.databus.channel=" + databusChannel;
+		logCommand += " -Dlog.databus.level=" + databusLevel;
+		logCommand += " -Dlog.databus.permitsPerSecond=" + permitsPerSecond;
+
 		return logCommand;
 	}
 
@@ -116,6 +129,7 @@ public class YarnLogConfigUtil {
 		return new StringBuilder("-Dlog.file=\"" + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.log\"")
 				.append(" -Dlog4j.configuration=file:" + CONFIG_FILE_LOG4J_NAME)
 				.append(" -Dlog4j.configurationFile=file:" + CONFIG_FILE_LOG4J_NAME)
+				.append(" -Dlog4j2.isThreadContextMapInheritable=true")
 				.toString();
 	}
 }

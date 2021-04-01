@@ -2135,6 +2135,16 @@ public final class ConfigConstants {
 	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_KEY = "warehouse.channel";
 	public static final String FLINK_DATA_WAREHOUSE_CHANNEL_DEFAULT = "flink_dw_metrics";
 
+	// ---------------------------- Log4j Configurations --------------------------
+	public static final String FLINK_LOG_DATABUS_CHANNEL_KEY = "log4j.appender.databus.channel";
+	public static final String FLINK_LOG_DATABUS_CHANNEL_DEFAULT = "yarn_container_level_log";
+
+	public static final String FLINK_LOG_DATABUS_LEVEL_KEY = "log4j.appender.databus.level";
+	public static final String FLINK_LOG_DATABUS_LEVEL_DEFAULT = "WARN";
+
+	public static final String FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY = "log4j.appender.databus.permitsPerSecond";
+	public static final long FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT = 1000;
+
 	/**
 	 * Not instantiable.
 	 */

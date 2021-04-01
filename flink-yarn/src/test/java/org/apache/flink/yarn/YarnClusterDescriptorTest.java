@@ -220,12 +220,16 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			"-Dlogback.configurationFile=file:" + YarnLogConfigUtil.CONFIG_FILE_LOGBACK_NAME; // if set
 		final String log4j =
 			"-Dlog4j.configuration=file:" + YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME +
-				" -Dlog4j.configurationFile=file:" + YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME; // if set
+				" -Dlog4j.configurationFile=file:" + YarnLogConfigUtil.CONFIG_FILE_LOG4J_NAME +
+				" -Dlog4j2.isThreadContextMapInheritable=true"; // if set
 		final String logLevel = "-Dlog.level=" + cfg.getString(CoreOptions.FLINK_LOG_LEVEL);
 		final String mainClass = clusterDescriptor.getYarnSessionClusterEntrypoint();
 		final String redirects =
 			"1>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.out " +
 			"2>> " + ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/jobmanager.err";
+		final String logging = "-Dlog.databus.channel=yarn_container_level_log" +
+			" " + "-Dlog.databus.level=WARN" +
+			" " + "-Dlog.databus.permitsPerSecond=1000";
 
 		try {
 			// no logging, with/out krb5
@@ -263,6 +267,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					"" + // jvmOpts
 					" " + errorFile +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -278,6 +283,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -293,6 +299,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					"" + // jvmOpts
 					" " + errorFile +
 					" " + logfile + " " + log4j + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -308,6 +315,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + log4j + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -323,6 +331,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					"" + // jvmOpts
 					" " + errorFile +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -338,6 +347,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -356,6 +366,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + jvmOpts +
 					" " + errorFile +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -371,6 +382,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -388,6 +400,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + jvmOpts + " " + jmJvmOpts +
 					" " + errorFile +
 					" " + logfile + " " + log4j + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -403,6 +416,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + errorFile +
 					" " + krb5 +
 					" " + logfile + " " + log4j + " " + logLevel +
+					" " + logging +
 					" " + mainClass + " " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -422,6 +436,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 					" " + errorFile +
 					" " + krb5 + // jvmOpts
 					" 3 " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" 4 " + mainClass + " 5 6 " + redirects,
 				clusterDescriptor
 					.setupApplicationMasterContainer(
@@ -437,6 +452,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 			assertEquals(
 				java +
 					" " + logfile + " " + logback + " " + logLevel +
+					" " + logging +
 					" " + jvmOpts + " " + jmJvmOpts + // jvmOpts
 					" " + errorFile +
 					" " + krb5 +

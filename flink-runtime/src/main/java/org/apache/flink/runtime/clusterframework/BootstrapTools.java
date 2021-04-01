@@ -450,8 +450,22 @@ public class BootstrapTools {
 					"/log4j.properties";
 				logging += " -Dlog4j.configurationFile=file:" + configDirectory +
 					"/log4j.properties";
+				//enable child threads to inherit the Thread Context Map
+				logging += " -Dlog4j2.isThreadContextMapInheritable=true";
 			}
 		}
+
+		// databus channel configuration for log collection.
+		String databusChannel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_CHANNEL_DEFAULT);
+		String databusLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_DATABUS_LEVEL_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_LEVEL_DEFAULT);
+		Long permitsPerSecond = flinkConfig.getLong(ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY,
+			ConfigConstants.FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT);
+
+		logging += " -Dlog.databus.channel=" + databusChannel;
+		logging += " -Dlog.databus.level=" + databusLevel;
+		logging += " -Dlog.databus.permitsPerSecond=" + permitsPerSecond;
 
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());

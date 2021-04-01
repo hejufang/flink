@@ -189,7 +189,8 @@ public class BootstrapToolsTest extends TestLogger {
 			"-Dlogback.configurationFile=file:./conf/logback.xml"; // if set
 		final String log4j =
 			"-Dlog4j.configuration=file:./conf/log4j.properties" +
-				" -Dlog4j.configurationFile=file:./conf/log4j.properties" ; // if set
+				" -Dlog4j.configurationFile=file:./conf/log4j.properties" +
+				" -Dlog4j2.isThreadContextMapInheritable=true"; // if set
 		final String mainClass =
 			"org.apache.flink.runtime.clusterframework.BootstrapToolsTest";
 		final String dynamicConfigs = TaskExecutorProcessUtils.generateDynamicConfigsStr(taskExecutorProcessSpec).trim();
@@ -198,12 +199,15 @@ public class BootstrapToolsTest extends TestLogger {
 		final String args = dynamicConfigs + " " + basicArgs + " " + mainArgs;
 		final String redirects =
 			"1>> ./logs/taskmanager.out 2>> ./logs/taskmanager.err";
+		final String logging = "-Dlog.databus.channel=yarn_container_level_log" +
+			" " + "-Dlog.databus.level=WARN" +
+			" " + "-Dlog.databus.permitsPerSecond=1000";
 
 		assertEquals(
 			java + " " + jvmmem +
 				" " + errorFile +
 				"" + // jvmOpts
-				"" + // logging
+				" " + logging +
 				" " + mainClass + " " + dynamicConfigs + " " + basicArgs + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -213,7 +217,7 @@ public class BootstrapToolsTest extends TestLogger {
 			java + " " + jvmmem +
 				" " + errorFile +
 				"" + // jvmOpts
-				"" + // logging
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -224,7 +228,7 @@ public class BootstrapToolsTest extends TestLogger {
 			java + " " + jvmmem +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
-				"" + // logging
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -236,6 +240,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -246,6 +251,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -257,6 +263,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logfile + " " + logLevel + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -267,6 +274,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -278,6 +286,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				"" + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -288,6 +297,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -300,6 +310,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + jvmOpts +
 				" " + errorFile +
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -311,6 +322,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -323,6 +335,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + jvmOpts + " " + tmJvmOpts +
 				" " + errorFile +
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -334,6 +347,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + mainClass + " " + args + " " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -349,6 +363,7 @@ public class BootstrapToolsTest extends TestLogger {
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
 				" 3 " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" 4 " + mainClass + " 5 " + args + " 6 " + redirects,
 			BootstrapTools
 				.getTaskManagerShellCommand(cfg, containeredParams, "./conf", "./logs",
@@ -359,6 +374,7 @@ public class BootstrapToolsTest extends TestLogger {
 		assertEquals(
 			java +
 				" " + logfile + " " + logLevel + " " + logback + " " + log4j +
+				" " + logging +
 				" " + jvmOpts + " " + tmJvmOpts +
 				" " + errorFile +
 				" " + krb5 + // jvmOpts
