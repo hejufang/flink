@@ -53,8 +53,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.table.descriptors.FormatDescriptorValidator.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.CONNECTOR;
+import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 
 /**
  * Helper class for converting {@link SqlCreateTable} to {@link CreateTableOperation}.
@@ -118,17 +118,38 @@ class SqlCreateTableConverter {
 
 		Map<String, String> mergedOptions = mergeOptions(sqlCreateTable, sourceProperties, mergingStrategies);
 
+		Optional<TableSchema> inferredTableSchema = inferTableSchema(mergedOptions);
+
 		Optional<SqlTableConstraint> primaryKey = sqlCreateTable.getFullConstraints()
 			.stream()
 			.filter(SqlTableConstraint::isPrimaryKey)
 			.findAny();
+
+		boolean removeNonInferredPhysicalColumns = false;
+		if (inferredTableSchema.isPresent()) {
+			removeNonInferredPhysicalColumns = true;
+			String connector = mergedOptions.get(CONNECTOR.key());
+			String format = mergedOptions.get(FORMAT.key());
+			if (("abase".equals(connector) || "redis".equals(connector)) && primaryKey.isPresent()) {
+				// This is a special case which the primary key column should be remained and won't be
+				// involved in de/serialize schema.
+				// todo: remove this trick logic.
+				removeNonInferredPhysicalColumns = false;
+			} else if ("binlog".equals(format) || "pb_binlog_drc".equals(format)) {
+				// We should keep all physical columns in source tables
+				// when format is 'binlog' or 'pb_binlog_drc'.
+				removeNonInferredPhysicalColumns = false;
+			}
+		}
 
 		TableSchema mergedSchema = mergeTableLikeUtil.mergeTables(
 			mergingStrategies,
 			sourceTableSchema,
 			sqlCreateTable.getColumnList().getList(),
 			sqlCreateTable.getWatermark().map(Collections::singletonList).orElseGet(Collections::emptyList),
-			primaryKey.orElse(null)
+			primaryKey.orElse(null),
+			inferredTableSchema.orElse(null),
+			removeNonInferredPhysicalColumns
 		);
 
 		List<String> partitionKeys = mergePartitions(
@@ -136,22 +157,6 @@ class SqlCreateTableConverter {
 			sqlCreateTable.getPartitionKeyList(),
 			mergingStrategies
 		);
-
-		Optional<TableSchema> inferredTableSchema = inferTableSchema(mergedOptions, mergedSchema);
-		if (inferredTableSchema.isPresent()) {
-			// This is a special case which the primary key column should be remained and won't be
-			// involved in de/serialize schema.
-			// todo: remove this trick logic.
-			boolean remainPhysicalColumn = false;
-			if ((mergedOptions.get(CONNECTOR.key()).equals("abase")
-					|| mergedOptions.get(CONNECTOR.key()).equals("redis")) && primaryKey.isPresent()) {
-				remainPhysicalColumn = true;
-			}
-			mergedSchema = mergeOriginTableSchemaWithInferredOne(
-				mergedSchema,
-				inferredTableSchema.get(),
-				remainPhysicalColumn);
-		}
 
 		verifyPartitioningColumnsExist(mergedSchema, partitionKeys);
 
@@ -165,22 +170,8 @@ class SqlCreateTableConverter {
 			tableComment);
 	}
 
-	private TableSchema mergeOriginTableSchemaWithInferredOne(
-			TableSchema originTableSchema,
-			TableSchema inferredTableSchema,
-			boolean remainPhysicalColumns) {
-		TableSchema.Builder builder = TableSchema.builder().copy(originTableSchema);
-		if (!remainPhysicalColumns) {
-			// we remove all physical columns in originTableSchema, but keep all computed columns.
-			builder.removePhysicalColumns();
-		}
-		inferredTableSchema.getTableColumns().forEach(builder::add);
-		return builder.build();
-	}
-
-	private Optional<TableSchema> inferTableSchema(Map<String, String> options, TableSchema mergedSchema) {
-
-		String format = options.get(FORMAT);
+	private Optional<TableSchema> inferTableSchema(Map<String, String> options) {
+		String format = options.get(FORMAT.key());
 		DeserializationFormatFactory deserializationFormatFactory =
 			FactoryUtil.discoverOptionalFactory(
 				Thread.currentThread().getContextClassLoader(),
@@ -190,7 +181,7 @@ class SqlCreateTableConverter {
 		if ((deserializationFormatFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) deserializationFormatFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 
 		SerializationFormatFactory serializationFormatFactory =
@@ -202,7 +193,7 @@ class SqlCreateTableConverter {
 		if ((serializationFormatFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) serializationFormatFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 
 		FileSystemFormatFactory fileSystemFormatFactory =
@@ -214,7 +205,7 @@ class SqlCreateTableConverter {
 		if ((fileSystemFormatFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) fileSystemFormatFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 
 		// for rpc factory.
@@ -227,7 +218,7 @@ class SqlCreateTableConverter {
 		if ((dynamicTableSourceFactory instanceof TableSchemaInferrable)) {
 			TableSchemaInferrable tableSchemaInferrable =
 				(TableSchemaInferrable) dynamicTableSourceFactory;
-			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
+			return tableSchemaInferrable.getOptionalTableSchema(options);
 		}
 		return Optional.empty();
 	}

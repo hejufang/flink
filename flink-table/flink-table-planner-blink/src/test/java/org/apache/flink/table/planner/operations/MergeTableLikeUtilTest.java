@@ -695,6 +695,80 @@ public class MergeTableLikeUtilTest {
 		assertThat(mergingStrategies.get(FeatureOption.WATERMARKS), is(MergingStrategy.EXCLUDING));
 	}
 
+	@Test
+	public void mergeWithInferredTableSchema() {
+		TableSchema sourceSchema = TableSchema.builder()
+			.field("one", DataTypes.INT())
+			.field("seven", DataTypes.INT(), "six + 1")
+			.field("timestamp", DataTypes.TIMESTAMP(), "ts")
+			.watermark(
+				"timestamp",
+				"timestamp - INTERVAL '5' SECOND",
+				DataTypes.TIMESTAMP())
+			.build();
+
+		List<SqlNode> derivedColumns = Arrays.asList(
+			tableColumn("three", DataTypes.INT()),
+			tableColumn("eight", plus("five", "3"))
+			);
+
+		TableSchema inferredTableSchema = TableSchema.builder()
+			.field("five", DataTypes.INT())
+			.field("six", DataTypes.INT())
+			.field("ts", DataTypes.TIMESTAMP())
+			.build();
+
+		TableSchema mergedSchema1 = util.mergeTables(
+			getDefaultMergingStrategies(),
+			sourceSchema,
+			derivedColumns,
+			Collections.emptyList(),
+			null,
+			inferredTableSchema,
+			true);
+
+		TableSchema expectedSchema1 = TableSchema.builder()
+			.field("five", DataTypes.INT())
+			.field("six", DataTypes.INT())
+			.field("ts", DataTypes.TIMESTAMP())
+			.field("seven", DataTypes.INT(), "six + 1")
+			.field("timestamp", DataTypes.TIMESTAMP(), "ts")
+			.field("eight", DataTypes.INT(), "`five` + 3")
+			.watermark(
+				"timestamp",
+				"timestamp - INTERVAL '5' SECOND",
+				DataTypes.TIMESTAMP())
+			.build();
+
+		assertThat(mergedSchema1, equalTo(expectedSchema1));
+
+		TableSchema mergedSchema2 = util.mergeTables(
+			getDefaultMergingStrategies(),
+			sourceSchema,
+			derivedColumns,
+			Collections.emptyList(),
+			null,
+			inferredTableSchema,
+			false);
+
+		TableSchema expectedSchema2 = TableSchema.builder()
+			.field("five", DataTypes.INT())
+			.field("six", DataTypes.INT())
+			.field("ts", DataTypes.TIMESTAMP())
+			.field("one", DataTypes.INT())
+			.field("seven", DataTypes.INT(), "six + 1")
+			.field("timestamp", DataTypes.TIMESTAMP(), "ts")
+			.field("three", DataTypes.INT())
+			.field("eight", DataTypes.INT(), "`five` + 3")
+			.watermark(
+				"timestamp",
+				"timestamp - INTERVAL '5' SECOND",
+				DataTypes.TIMESTAMP())
+			.build();
+
+		assertThat(mergedSchema2, equalTo(expectedSchema2));
+	}
+
 	private Map<FeatureOption, MergingStrategy> getDefaultMergingStrategies() {
 		return util.computeMergingStrategies(Collections.emptyList());
 	}

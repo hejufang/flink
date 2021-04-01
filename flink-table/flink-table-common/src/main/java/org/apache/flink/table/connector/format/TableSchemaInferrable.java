@@ -21,8 +21,6 @@ package org.apache.flink.table.connector.format;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
 import java.util.Optional;
 
@@ -39,7 +37,7 @@ public interface TableSchemaInferrable {
 	 */
 	@Deprecated
 	default TableSchema getTableSchema(Map<String, String> formatOptions) {
-		return getOptionalTableSchema(formatOptions, null)
+		return getOptionalTableSchema(formatOptions)
 			.orElseThrow(() -> new FlinkRuntimeException(
 				"Cannot infer table schema with formatOptions: " + formatOptions));
 	}
@@ -47,5 +45,5 @@ public interface TableSchemaInferrable {
 	/**
 	 * Get optional inferred table schema, not including computed columns.
 	 */
-	Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions, @Nullable TableSchema tableSchema);
+	Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions);
 }

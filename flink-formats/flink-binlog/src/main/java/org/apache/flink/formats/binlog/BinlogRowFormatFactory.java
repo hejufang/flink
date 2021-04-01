@@ -55,23 +55,12 @@ public class BinlogRowFormatFactory implements
 	private static final String IDENTIFIER = "binlog";
 
 	@Override
-	public Optional<TableSchema> getOptionalTableSchema(
-			Map<String, String> formatOptions,
-			TableSchema originTableSchema) {
+	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
 		TableSchema.Builder tableBuilder = TableSchema.builder();
 		DataType headerDataType = PbFormatUtils.createDataType(DRCEntry.EntryHeader.getDescriptor(), false);
 		tableBuilder.field(getBinlogHeaderName(), headerDataType);
 		DataType bodyDataType = PbFormatUtils.createDataType(DRCEntry.EntryBody.getDescriptor(), false);
 		tableBuilder.field(getBinlogBodyName(), bodyDataType);
-		if (originTableSchema != null) {
-			originTableSchema.getTableColumns().forEach(
-				column -> {
-					if (!column.isGenerated()) {
-						tableBuilder.add(column);
-					}
-				}
-			);
-		}
 		TableSchema tableSchema = tableBuilder.build();
 		return Optional.of(tableSchema);
 	}

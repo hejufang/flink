@@ -36,8 +36,6 @@ import org.apache.flink.table.utils.TableSchemaUtils;
 
 import org.apache.thrift.TServiceClient;
 
-import javax.annotation.Nullable;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -137,25 +135,23 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 	}
 
 	@Override
-	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions, @Nullable TableSchema tableSchema) {
-		if (tableSchema == null || tableSchema.getFieldCount() == 0) {
-			String inferSchemaBool = formatOptions.get(LOOKUP_INFER_SCHEMA.key());
-			if ((inferSchemaBool == null && LOOKUP_INFER_SCHEMA.defaultValue()) ||
-					Boolean.parseBoolean(inferSchemaBool)) {
-				Class<? extends TServiceClient> clientClass = ThriftUtil
-					.getThriftClientClass(formatOptions.get(THRIFT_SERVICE_CLASS.key()));
-				Class<?> requestClass = ThriftUtil
-					.getParameterClassOfMethod(clientClass, formatOptions.get(THRIFT_METHOD.key()));
-				Class<?> responseClass = ThriftUtil
-					.getReturnClassOfMethod(clientClass, formatOptions.get(THRIFT_METHOD.key()));
-				FieldsDataType fieldsDataType = DataTypeUtil.generateFieldsDataType(requestClass, responseClass);
-				RowType rowType = (RowType) fieldsDataType.getLogicalType();
-				TableSchema inferredSchema = TableSchema.builder()
-					.fields(rowType.getFieldNames().toArray(new String[0]),
-						fieldsDataType.getChildren().toArray(new DataType[0]))
-					.build();
-				return Optional.of(inferredSchema);
-			}
+	public Optional<TableSchema> getOptionalTableSchema(Map<String, String> formatOptions) {
+		String inferSchemaBool = formatOptions.get(LOOKUP_INFER_SCHEMA.key());
+		if ((inferSchemaBool == null && LOOKUP_INFER_SCHEMA.defaultValue()) ||
+				Boolean.parseBoolean(inferSchemaBool)) {
+			Class<? extends TServiceClient> clientClass = ThriftUtil
+				.getThriftClientClass(formatOptions.get(THRIFT_SERVICE_CLASS.key()));
+			Class<?> requestClass = ThriftUtil
+				.getParameterClassOfMethod(clientClass, formatOptions.get(THRIFT_METHOD.key()));
+			Class<?> responseClass = ThriftUtil
+				.getReturnClassOfMethod(clientClass, formatOptions.get(THRIFT_METHOD.key()));
+			FieldsDataType fieldsDataType = DataTypeUtil.generateFieldsDataType(requestClass, responseClass);
+			RowType rowType = (RowType) fieldsDataType.getLogicalType();
+			TableSchema inferredSchema = TableSchema.builder()
+				.fields(rowType.getFieldNames().toArray(new String[0]),
+					fieldsDataType.getChildren().toArray(new DataType[0]))
+				.build();
+			return Optional.of(inferredSchema);
 		}
 		return Optional.empty();
 	}

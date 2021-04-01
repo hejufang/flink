@@ -113,6 +113,16 @@ class MergeTableLikeUtil {
 		return result;
 	}
 
+	public TableSchema mergeTables(
+			Map<FeatureOption, MergingStrategy> mergingStrategies,
+			TableSchema sourceSchema,
+			List<SqlNode> derivedColumns,
+			List<SqlWatermark> derivedWatermarkSpecs,
+			SqlTableConstraint derivedPrimaryKey) {
+		return mergeTables(mergingStrategies, sourceSchema, derivedColumns,
+			derivedWatermarkSpecs, derivedPrimaryKey, null, false);
+	}
+
 	/**
 	 * Merges the schema part of {@code CREATE TABLE} statement. It merges
 	 * <ul>
@@ -126,20 +136,30 @@ class MergeTableLikeUtil {
 	 * is not done in the {@link SqlCreateTable#validate()} anymore because the validation should
 	 * be done on top of the merged properties. E.g. Some of the columns used in computed columns
 	 * of the derived table can be defined in the source table.
+	 *
+	 * <p>The order of the columns in merged schema:
+	 * 	1. columns in inferred table schema.
+	 * 	2. columns in source schema.
+	 * 	3. columns in derived columns.
 	 */
 	public TableSchema mergeTables(
 			Map<FeatureOption, MergingStrategy> mergingStrategies,
 			TableSchema sourceSchema,
 			List<SqlNode> derivedColumns,
 			List<SqlWatermark> derivedWatermarkSpecs,
-			SqlTableConstraint derivedPrimaryKey) {
+			SqlTableConstraint derivedPrimaryKey,
+			TableSchema inferredTableSchema,
+			boolean removeNonInferredPhysicalColumns) {
 
 		SchemaBuilder schemaBuilder = new SchemaBuilder(
 			mergingStrategies,
 			sourceSchema,
 			(FlinkTypeFactory) validator.getTypeFactory(),
 			validator,
-			escapeExpression);
+			escapeExpression,
+			inferredTableSchema,
+			removeNonInferredPhysicalColumns);
+
 		schemaBuilder.appendDerivedColumns(mergingStrategies, derivedColumns);
 		schemaBuilder.appendDerivedWatermarks(mergingStrategies, derivedWatermarkSpecs);
 		schemaBuilder.appendDerivedPrimaryKey(derivedPrimaryKey);
@@ -211,16 +231,21 @@ class MergeTableLikeUtil {
 			Function<SqlNode, String> escapeExpressions;
 			FlinkTypeFactory typeFactory;
 			SqlValidator sqlValidator;
+			boolean removeNonInferredPhysicalColumns;
 
 			SchemaBuilder(
 				Map<FeatureOption, MergingStrategy> mergingStrategies,
 				TableSchema sourceSchema,
 				FlinkTypeFactory typeFactory,
 				SqlValidator sqlValidator,
-				Function<SqlNode, String> escapeExpressions) {
+				Function<SqlNode, String> escapeExpressions,
+				TableSchema inferredSchema,
+				boolean removeNonInferredPhysicalColumns) {
 			this.typeFactory = typeFactory;
 			this.sqlValidator = sqlValidator;
 			this.escapeExpressions = escapeExpressions;
+			this.removeNonInferredPhysicalColumns = removeNonInferredPhysicalColumns;
+			populateColumnsFromInferredTable(inferredSchema);
 			populateColumnsFromSourceTable(mergingStrategies, sourceSchema);
 			populateWatermarksFromSourceTable(mergingStrategies, sourceSchema);
 			populatePrimaryKeyFromSourceTable(mergingStrategies, sourceSchema);
@@ -234,7 +259,22 @@ class MergeTableLikeUtil {
 					if (mergingStrategies.get(FeatureOption.GENERATED) != MergingStrategy.EXCLUDING) {
 						columns.put(sourceColumn.getName(), sourceColumn);
 					}
-				} else {
+				} else if (!removeNonInferredPhysicalColumns) {
+					physicalFieldNamesToTypes.put(
+						sourceColumn.getName(),
+						typeFactory.createFieldTypeFromLogicalType(sourceColumn.getType().getLogicalType()));
+					columns.put(sourceColumn.getName(), sourceColumn);
+				}
+			}
+		}
+
+		private void populateColumnsFromInferredTable(TableSchema inferredSchema) {
+			if (inferredSchema == null) {
+				return;
+			}
+			for (TableColumn sourceColumn : inferredSchema.getTableColumns()) {
+				if (!sourceColumn.isGenerated()) {
+					// Only add physical columns from inferredSchema.
 					physicalFieldNamesToTypes.put(
 						sourceColumn.getName(),
 						typeFactory.createFieldTypeFromLogicalType(sourceColumn.getType().getLogicalType()));
@@ -369,7 +409,10 @@ class MergeTableLikeUtil {
 				Map<FeatureOption, MergingStrategy> mergingStrategies,
 				List<SqlNode> derivedColumns) {
 
-			collectPhysicalFieldsTypes(derivedColumns);
+			// if removeNonInferredPhysicalColumns is true, we do not need to add physical field types.
+			if (!removeNonInferredPhysicalColumns) {
+				collectPhysicalFieldsTypes(derivedColumns);
+			}
 
 			for (SqlNode derivedColumn : derivedColumns) {
 
@@ -403,12 +446,14 @@ class MergeTableLikeUtil {
 						fromLogicalToDataType(toLogicalType(validatedType)),
 						escapeExpressions.apply(validatedExpr));
 					computedFieldNamesToTypes.put(fieldName, validatedType);
-				} else {
+					columns.put(column.getName(), column);
+				} else if (!removeNonInferredPhysicalColumns) {
 					String name = ((SqlTableColumn) derivedColumn).getName().getSimple();
 					LogicalType logicalType = FlinkTypeFactory.toLogicalType(physicalFieldNamesToTypes.get(name));
 					column = TableColumn.of(name, TypeConversions.fromLogicalToDataType(logicalType));
+					columns.put(column.getName(), column);
 				}
-				columns.put(column.getName(), column);
+				// ignore physical columns if removeNonInferredPhysicalColumns is true.
 			}
 		}
 
