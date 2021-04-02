@@ -18,12 +18,11 @@
 
 {
   "datasource": "${datasource}",
-  "height": "350px",
   "editable": true,
-  "collapse": true,
+  "collapsed": true,
   "collapsable": true,
-  "id": 50,
-  "title": "Checkpoint 基本情况",
+  "id": 53,
+  "title": "Checkpoint Overview",
   "panels": [
     {
       "aliasColors": {},
@@ -41,9 +40,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 10,
-        "w": 8,
+        "w": 6,
         "x": 0,
-        "y": 17
+        "y": 29
       },
       "hiddenSeries": false,
       "id": 54,
@@ -82,7 +81,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Checkpoint 失败统计",
+      "title": "Checkpoint Failures",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -135,9 +134,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 10,
-        "w": 8,
-        "x": 8,
-        "y": 17
+        "w": 6,
+        "x": 6,
+        "y": 29
       },
       "hiddenSeries": false,
       "id": 55,
@@ -176,7 +175,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Checkpoint 耗时",
+      "title": "Checkpoint Duration",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -229,9 +228,9 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 10,
-        "w": 8,
-        "x": 16,
-        "y": 17
+        "w": 6,
+        "x": 12,
+        "y": 29
       },
       "hiddenSeries": false,
       "id": 56,
@@ -264,13 +263,21 @@
           "downsampleFillPolicy": "none",
           "metric": "flink.jobmanager.${jobname}.lastCheckpointTotalSize",
           "refId": "C"
+        },
+        {
+          "aggregator": "sum",
+          "alias": "lastCheckpointSize",
+          "downsampleAggregator": "avg",
+          "downsampleFillPolicy": "none",
+          "metric": "flink.jobmanager.${jobname}.lastCheckpointSize",
+          "refId": "A"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Checkpoint 状态大小",
+      "title": "Checkpoint State Size",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -287,6 +294,118 @@
       "yaxes": [
         {
           "format": "decbytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${datasource}",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 18,
+        "y": 29
+      },
+      "hiddenSeries": false,
+      "id": 57,
+      "legend": {
+        "avg": true,
+        "current": false,
+        "max": true,
+        "min": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "percentage": false,
+      "pluginVersion": "7.1.0-beta2",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "aggregator": "max",
+          "alias": "write_latency",
+          "currentTagKey": "",
+          "currentTagValue": "",
+          "downsampleAggregator": "avg",
+          "downsampleFillPolicy": "none",
+          "metric": "flink.job.checkpointWriteFileLatency",
+          "refId": "C",
+          "tags": {
+            "jobname": "${jobname}"
+          }
+        },
+        {
+          "aggregator": "max",
+          "alias": "close_latency",
+          "currentTagKey": "",
+          "currentTagValue": "",
+          "downsampleAggregator": "avg",
+          "downsampleFillPolicy": "none",
+          "metric": "flink.job.checkpointCloseFileLatency",
+          "refId": "A",
+          "tags": {
+            "jobname": "${jobname}"
+          }
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Hdfs Operation Latency",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "ns",
           "label": null,
           "logBase": 1,
           "max": null,

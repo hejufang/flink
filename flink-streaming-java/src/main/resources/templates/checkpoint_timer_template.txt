@@ -23,7 +23,7 @@
   "collapse": true,
   "collapsable": true,
   "id": 80,
-  "title": "Checkpoint Timer 监控",
+  "title": "Checkpoint Timer",
   "panels": [
     {
       "aliasColors": {},
@@ -46,7 +46,7 @@
         "y": 17
       },
       "hiddenSeries": false,
-      "id": 61,
+      "id": 81,
       "legend": {
         "avg": false,
         "current": false,
@@ -134,7 +134,7 @@
         "y": 17
       },
       "hiddenSeries": false,
-      "id": 81,
+      "id": 82,
       "legend": {
         "avg": false,
         "current": false,

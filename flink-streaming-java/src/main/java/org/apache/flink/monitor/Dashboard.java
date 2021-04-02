@@ -56,6 +56,8 @@ public class Dashboard {
 	private static final String CHECKPOINT_OPERATOR_TEMPLATE = "checkpoint_operator_template.txt";
 	private static final String CHECKPOINT_BARRIER_ALIGN_DURATION_TEMPLATE = "checkpoint_barrier_align_duration_target_template.txt";
 	private static final String CHECKPOINT_CONTENTION_LOCK_DURATION_TEMPLATE = "checkpoint_contention_lock_duration_target_template.txt";
+	private static final String CHECKPOINT_SYNC_DURATION_TEMPLATE = "checkpoint_sync_duration_target_template.txt";
+	private static final String CHECKPOINT_ASYNC_DURATION_TEMPLATE = "checkpoint_async_duration_target_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -195,14 +197,18 @@ public class Dashboard {
 		return renderString(checkpointTemplate, checkpointValues);
 	}
 
-	private String renderCheckpointOperatorRow(List<String> tasks) {
+	private String renderCheckpointOperatorRow(List<String> tasks, List<String> operators) {
 		String checkpointOperatorTemplate = null;
 		String checkpointBarrierAlignDurationTemplate = null;
 		String checkpointContentionLockTemplate = null;
+		String checkpointSyncTemplate = null;
+		String checkpointAsyncTemplate = null;
 		try {
 			checkpointOperatorTemplate = renderFromResource(CHECKPOINT_OPERATOR_TEMPLATE);
 			checkpointBarrierAlignDurationTemplate = renderFromResource(CHECKPOINT_BARRIER_ALIGN_DURATION_TEMPLATE);
 			checkpointContentionLockTemplate = renderFromResource(CHECKPOINT_CONTENTION_LOCK_DURATION_TEMPLATE);
+			checkpointSyncTemplate = renderFromResource(CHECKPOINT_SYNC_DURATION_TEMPLATE);
+			checkpointAsyncTemplate = renderFromResource(CHECKPOINT_ASYNC_DURATION_TEMPLATE);
 		} catch (IOException e) {
 			LOG.error("Fail to render checkpoint metrics.", e);
 			return "";
@@ -213,13 +219,22 @@ public class Dashboard {
 		checkpointValues.put("datasource", dataSource);
 		List<String> targets1 = new ArrayList<>();
 		List<String> targets2 = new ArrayList<>();
+		List<String> targets3 = new ArrayList<>();
+		List<String> targets4 = new ArrayList<>();
 		for (String task : tasks) {
 			checkpointValues.put("task", task);
 			targets1.add(renderString(checkpointContentionLockTemplate, checkpointValues));
 			targets2.add(renderString(checkpointBarrierAlignDurationTemplate, checkpointValues));
 		}
+		for (String operator : operators) {
+			checkpointValues.put("operator", operator);
+			targets3.add(renderString(checkpointSyncTemplate, checkpointValues));
+			targets4.add(renderString(checkpointAsyncTemplate, checkpointValues));
+		}
 		checkpointValues.put("targets1", String.join(",", targets1));
 		checkpointValues.put("targets2", String.join(",", targets2));
+		checkpointValues.put("targets3", String.join(",", targets3));
+		checkpointValues.put("targets4", String.join(",", targets4));
 		return renderString(checkpointOperatorTemplate, checkpointValues);
 	}
 
@@ -438,7 +453,7 @@ public class Dashboard {
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
 		rows.add(renderCheckpointTimerRow(tasks));
-		rows.add(renderCheckpointOperatorRow(tasks));
+		rows.add(renderCheckpointOperatorRow(tasks, operators));
 		rows.add(renderCheckpointOverviewRow());
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));

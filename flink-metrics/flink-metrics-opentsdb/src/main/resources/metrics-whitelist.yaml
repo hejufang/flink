@@ -117,13 +117,13 @@ non-global:
         lastCheckpointSize,
         lastCheckpointTotalSize,
       # operator snapshot
-        syncDurationInMs,
-        uploadDurationInMs,
+        syncDuration,
+        uploadDuration,
         uploadSizeInBytes,
       # operator restore
         stateRecoverTime,
-        downloadDurationInMs,
-        writeKeyDurationInMs,
+        downloadDuration,
+        writeKeyDuration,
         downloadSizeInBytes,
       # Timer
         processingTimerTriggerCount,
