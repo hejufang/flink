@@ -22,6 +22,7 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 
@@ -488,6 +489,7 @@ public final class Utils {
 			containerEnv.put(YarnConfigKeys.KEYTAB_PRINCIPAL, keytabPrincipal);
 		}
 
+		setIpv6Env(flinkConfig, containerEnv);
 		Utils.setHdfsBtrace(flinkConfig, containerEnv);
 		BtraceUtil.attachToEnv(containerEnv, null);
 
@@ -562,6 +564,22 @@ public final class Utils {
 			Map<String, String> env) {
 		final String btracePlatform = flinkConfiguration.getString(ConfigConstants.HDFS_BTRACE_PLATFORM, ConfigConstants.HDFS_BTRACE_PLATFORM_DEFAULT);
 		env.put(ConfigConstants.HDFS_BTRACE_TAGS_KEY, String.format(ConfigConstants.HDFS_BTRACE_TAGS_VALUE, btracePlatform));
+	}
+
+	public static void setIpv6Env(
+			org.apache.flink.configuration.Configuration flinkConfiguration,
+			Map<String, String> env) {
+		if (!IPv6Util.ipv6Enabled(flinkConfiguration)) {
+			// unset the ipv6 environments when disable ipv6.
+			String oldUnsetEnvs = env.get(YarnConfigKeys.ENV_RUNTIME_UNSET);
+			String newUnsetEnvs;
+			if (!StringUtils.isNullOrWhitespaceOnly(oldUnsetEnvs)) {
+				newUnsetEnvs = oldUnsetEnvs + ";" + YarnConfigKeys.ENV_IPV6_SUPPORT;
+			} else {
+				newUnsetEnvs = YarnConfigKeys.ENV_IPV6_SUPPORT;
+			}
+			env.put(YarnConfigKeys.ENV_RUNTIME_UNSET, newUnsetEnvs);
+		}
 	}
 
 	private static List<YarnLocalResourceDescriptor> decodeYarnLocalResourceDescriptorListFromString(String resources) throws Exception {

@@ -223,7 +223,7 @@ public abstract class AbstractServerBase<REQ extends MessageBody, RESP extends M
 		final NioEventLoopGroup nioGroup = new NioEventLoopGroup(numEventLoopThreads, threadFactory);
 
 		this.bootstrap = new ServerBootstrap()
-				.localAddress(bindAddress, port)
+				.localAddress(port)
 				.group(nioGroup)
 				.channel(NioServerSocketChannel.class)
 				.option(ChannelOption.ALLOCATOR, bufferPool)

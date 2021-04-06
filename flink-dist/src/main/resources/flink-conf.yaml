@@ -197,6 +197,10 @@ common:
   # smart-resource
   taskmanager.network.memory.lazy-allocate: true
 
+  # ipv6
+  ipv6.enabled: false
+  ipv6.supported.cluster: leser,quoka,quaga,hippo
+
   # bytedance streaming default config
   bytedance.streaming.yarn.check.application.name.unique: true
   bytedance.streaming.yarn.gang-scheduler.enable: true

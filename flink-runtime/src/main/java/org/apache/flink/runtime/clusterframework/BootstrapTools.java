@@ -27,6 +27,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.entrypoint.parser.CommandLineOptions;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.runtime.util.config.memory.ProcessMemoryUtils;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.OperatingSystem;
@@ -39,6 +40,7 @@ import org.apache.flink.shaded.org.apache.commons.cli.Option;
 
 import akka.actor.ActorSystem;
 import com.typesafe.config.Config;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -431,6 +433,10 @@ public class BootstrapTools {
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
 			javaOpts += " -Djava.security.krb5.conf=krb5.conf";
+		}
+		String ipv6JavaOpt = IPv6Util.getIpv6JavaOpt(flinkConfig, javaOpts);
+		if (!StringUtils.isBlank(ipv6JavaOpt)) {
+			javaOpts += " " + ipv6JavaOpt;
 		}
 		startCommandValues.put("jvmopts", javaOpts);
 

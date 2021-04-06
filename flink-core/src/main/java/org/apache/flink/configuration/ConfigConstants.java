@@ -2114,6 +2114,10 @@ public final class ConfigConstants {
 	public static final String REGISTER_DASHBOARD_TOKEN = "register-dashboard.token";
 	public static final String METRIC_REGISTER_URL_TEMPLATE = "%s/api/dashboards/db";
 
+	public static final String IPV6_ENABLED_KEY = "ipv6.enabled";
+	public static final boolean IPV6_ENABLED_VALUE = false;
+	public static final String IPV6_SUPPORTED_CLUSTER_KEY = "ipv6.supported.cluster";
+
 	public static final String KAFKA_SERVER_URL_KEY = "kafka_server_url";
 	public static final String KAFKA_SERVER_URL_DEFAUL = "http://kafka-config.byted.org";
 

@@ -54,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.regex.Pattern;
 
 /**
  * Utilities for the web runtime monitor. This class contains for example methods to build
@@ -66,12 +65,6 @@ public final class WebMonitorUtils {
 	private static final String WEB_FRONTEND_BOOTSTRAP_CLASS_FQN = "org.apache.flink.runtime.webmonitor.utils.WebFrontendBootstrap";
 
 	private static final Logger LOG = LoggerFactory.getLogger(WebMonitorUtils.class);
-
-	private static final Pattern nPattern = Pattern.compile("n0*(\\d+)-0*(\\d+)-0*(\\d+).*");
-
-	private static final Pattern ipPrefixPattern = Pattern.compile("ip-0*(\\d+)-0*(\\d+)-0*(\\d+)-0*(\\d+).*");
-
-	private static final Pattern ipPattern = Pattern.compile("((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})(\\.((2(5[0-5]|[0-4]\\d))|[0-1]?\\d{1,2})){3}");
 
 	/**
 	 * Singleton to hold the log file, the stdout file, the log directory.

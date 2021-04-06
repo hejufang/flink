@@ -49,9 +49,11 @@ import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessSpec;
 import org.apache.flink.runtime.jobmanager.JobManagerProcessUtils;
 import org.apache.flink.runtime.util.HadoopUtils;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
@@ -1047,6 +1049,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			appMasterEnv.put(YarnConfigKeys.ENV_LOAD_SERVICE_PSM, YarnConfigKeys.ENV_PSM_PREFIX + "." + jobName);
 		}
 
+		Utils.setIpv6Env(configuration, appMasterEnv);
 		Utils.setHdfsBtrace(configuration, appMasterEnv);
 		BtraceUtil.attachToEnv(appMasterEnv, null);
 		amContainer.setEnvironment(appMasterEnv);
@@ -1588,6 +1591,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {
 			javaOpts += " -Djava.security.krb5.conf=krb5.conf";
+		}
+
+		String ipv6JavaOpt = IPv6Util.getIpv6JavaOpt(flinkConfiguration, javaOpts);
+		if (!StringUtils.isNullOrWhitespaceOnly(ipv6JavaOpt)) {
+			javaOpts += " " + ipv6JavaOpt;
 		}
 
 		// Set up the container launch context for the application master
