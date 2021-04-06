@@ -580,6 +580,22 @@ object TestData {
     data
   }
 
+  val dataWithMap: Seq[Row] = {
+    val varchars = List("a", "b", "c", "d")
+    val maps = List(
+      map(("a", 1)),
+      map(("b", 2)),
+      map(("c", 3)),
+      map(("d", 4))
+    )
+
+    val data = new mutable.MutableList[Row]
+    for (i <- varchars.indices) {
+      data += row(varchars(i), maps(i))
+    }
+    data
+  }
+
   private def map(keyValue: (String, JInt)*): JHashMap[String, JInt] = {
     val hashMap = new JHashMap[String, JInt]
     keyValue.foreach(kv => hashMap.put(kv._1, kv._2))

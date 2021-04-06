@@ -482,4 +482,27 @@ class CalcITCase extends StreamingTestBase {
     assertEquals(expected, sink.getAppendResults)
   }
 
+  @Test
+  def testMapGet(): Unit = {
+    val dataId = TestValuesTableFactory.registerData(TestData.dataWithMap)
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE T (
+         |  `name` VARCHAR,
+         |  `map` MAP<VARCHAR, INT>
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$dataId'
+         |)
+         |""".stripMargin
+    )
+
+    val result = tEnv.sqlQuery("SELECT `map`[coalesce(name, '')] FROM T").toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+
+    val expected = Seq(1, 2, 3, 4)
+    assertEquals(expected.sorted.mkString("\n"), sink.getAppendResults.sorted.mkString("\n"))
+  }
 }
