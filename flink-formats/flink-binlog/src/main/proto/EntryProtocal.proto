@@ -133,7 +133,7 @@ message Column {
     required bool null = 6;
     optional string sql_type = 7;
     // column value
-    optional string value = 8;
+    optional bytes value = 8;
     // whether value is unsigned
     optional bool is_unsigned = 9;
     repeated Pair props = 13; // 预留扩展

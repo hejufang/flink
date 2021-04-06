@@ -36,10 +36,12 @@ import org.apache.flink.table.types.logical.SmallIntType;
 import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TinyIntType;
+import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
 import org.apache.flink.util.FlinkRuntimeException;
 
 import com.bytedance.binlog.DRCEntry;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
@@ -49,6 +51,8 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +63,8 @@ import static org.apache.flink.formats.binlog.BinlogOptions.AFTER_PREFIX;
 import static org.apache.flink.formats.binlog.BinlogOptions.BEFORE_IMAGE;
 import static org.apache.flink.formats.binlog.BinlogOptions.BEFORE_PREFIX;
 import static org.apache.flink.formats.binlog.BinlogOptions.BIGINT;
+import static org.apache.flink.formats.binlog.BinlogOptions.BINARY;
+import static org.apache.flink.formats.binlog.BinlogOptions.BLOB;
 import static org.apache.flink.formats.binlog.BinlogOptions.BODY;
 import static org.apache.flink.formats.binlog.BinlogOptions.CHAR;
 import static org.apache.flink.formats.binlog.BinlogOptions.DATE;
@@ -69,7 +75,9 @@ import static org.apache.flink.formats.binlog.BinlogOptions.ENTRY;
 import static org.apache.flink.formats.binlog.BinlogOptions.FLOAT;
 import static org.apache.flink.formats.binlog.BinlogOptions.HEADER;
 import static org.apache.flink.formats.binlog.BinlogOptions.INT;
+import static org.apache.flink.formats.binlog.BinlogOptions.LONGBLOB;
 import static org.apache.flink.formats.binlog.BinlogOptions.LONGTEXT;
+import static org.apache.flink.formats.binlog.BinlogOptions.MEDIUMBLOB;
 import static org.apache.flink.formats.binlog.BinlogOptions.MEDIUMTEXT;
 import static org.apache.flink.formats.binlog.BinlogOptions.MESSAGE;
 import static org.apache.flink.formats.binlog.BinlogOptions.NAME_COLUMN;
@@ -83,8 +91,10 @@ import static org.apache.flink.formats.binlog.BinlogOptions.TABLE;
 import static org.apache.flink.formats.binlog.BinlogOptions.TEXT;
 import static org.apache.flink.formats.binlog.BinlogOptions.TIME;
 import static org.apache.flink.formats.binlog.BinlogOptions.TIMESTAMP;
+import static org.apache.flink.formats.binlog.BinlogOptions.TINYBLOB;
 import static org.apache.flink.formats.binlog.BinlogOptions.TINYINT;
 import static org.apache.flink.formats.binlog.BinlogOptions.VALUE_COLUMN;
+import static org.apache.flink.formats.binlog.BinlogOptions.VARBINARY;
 import static org.apache.flink.formats.binlog.BinlogOptions.VARCHAR;
 
 /**
@@ -186,17 +196,27 @@ public class RuntimeConverterFactory {
 					// This indicates the column value is null.
 					return null;
 				}
-				String valueInString = (String) columnMessage.getField(FIELD_DESCRIPTORS.get(VALUE_COLUMN));
+				ByteString valueInBytes = (ByteString) columnMessage.getField(FIELD_DESCRIPTORS.get(VALUE_COLUMN));
 				try {
-					return converter.convert(valueInString);
+					return converter.convert(valueInBytes);
 				} catch (Throwable t) {
-					throw new FlinkRuntimeException(String.format("Failed to convert value '%s' to " +
-						"type '%s' for column '%s'.", valueInString, logicalType, fieldName), t);
+					throw new FlinkRuntimeException(
+						String.format("Failed to convert value '%s' to type '%s' for column '%s'.",
+							getValidString(valueInBytes.toByteArray()), logicalType, fieldName), t);
 				}
 			}
 
 			return columnMessage.getField(DRCEntry.Column.getDescriptor().findFieldByName(innerColumnName));
 		};
+	}
+
+	private static String getValidString(byte[] bytes) {
+		String value = new String(bytes);
+		if (Arrays.equals(value.getBytes(), bytes)) {
+			return value;
+		} else {
+			return Base64.getEncoder().encodeToString(bytes);
+		}
 	}
 
 	private static void validateType(String jdbcTypeName, LogicalType logicalType, String fieldName, String innerName) {
@@ -246,6 +266,12 @@ public class RuntimeConverterFactory {
 		map.put(LONGTEXT, VarCharType.class);
 		map.put(MEDIUMTEXT, VarCharType.class);
 		map.put(DECIMAL, DecimalType.class);
+		map.put(BINARY, VarBinaryType.class);
+		map.put(VARBINARY, VarBinaryType.class);
+		map.put(TINYBLOB, VarBinaryType.class);
+		map.put(MEDIUMBLOB, VarBinaryType.class);
+		map.put(BLOB, VarBinaryType.class);
+		map.put(LONGBLOB, VarBinaryType.class);
 		return map;
 	}
 
@@ -258,34 +284,39 @@ public class RuntimeConverterFactory {
 			return null;
 		}
 		if (logicalType instanceof VarCharType) {
-			return o -> StringData.fromString((String) o);
+			return o -> StringData.fromString(((ByteString) o).toStringUtf8());
 		} if (logicalType instanceof CharType) {
-			return o -> StringData.fromString((String) o);
+			return o -> StringData.fromString(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof TinyIntType) {
-			return o -> Byte.valueOf((String) o);
+			return o -> Byte.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof SmallIntType) {
-			return o -> Short.valueOf((String) o);
+			return o -> Short.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof IntType) {
-			return o -> Integer.valueOf((String) o);
+			return o -> Integer.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof BigIntType) {
-			return o -> Long.valueOf((String) o);
+			return o -> Long.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof FloatType) {
-			return o -> Float.valueOf((String) o);
+			return o -> Float.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof DoubleType) {
-			return o -> Double.valueOf((String) o);
+			return o -> Double.valueOf(((ByteString) o).toStringUtf8());
 		} else if (logicalType instanceof DateType) {
-			return o -> SqlDateTimeUtils.dateToInternal(Date.valueOf((String) o));
+			return o -> SqlDateTimeUtils.dateToInternal(Date.valueOf(((ByteString) o).toStringUtf8()));
 		} else if (logicalType instanceof TimeType) {
-			return o -> SqlDateTimeUtils.timeToInternal(Time.valueOf((String) o));
+			return o -> SqlDateTimeUtils.timeToInternal(Time.valueOf(((ByteString) o).toStringUtf8()));
+		} else if (logicalType instanceof VarBinaryType) {
+			return o -> ((ByteString) o).toByteArray();
 		} else if (logicalType instanceof TimestampType) {
 			// Timestamp.valueOf will throw an exception if the value of o is
 			// equal to ZERO_TIMESTAMP_STR, so we made a judgment to handle this.
-			return o -> TimestampData.fromTimestamp(
-				((String) o).contains(ZERO_TIMESTAMP_STR) ? new Timestamp(0) : Timestamp.valueOf((String) o));
+			return o -> {
+				String v = ((ByteString) o).toStringUtf8();
+				return TimestampData.fromTimestamp(
+					v.contains(ZERO_TIMESTAMP_STR) ? new Timestamp(0) : Timestamp.valueOf(v));
+			};
 		} else if (logicalType instanceof DecimalType) {
 			return o -> {
 				DecimalType decimalType = (DecimalType) logicalType;
-				return DecimalData.fromBigDecimal(new BigDecimal((String) o),
+				return DecimalData.fromBigDecimal(new BigDecimal(((ByteString) o).toStringUtf8()),
 					decimalType.getPrecision(), decimalType.getScale());
 			};
 		} else {

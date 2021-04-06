@@ -37,6 +37,7 @@ import org.apache.flink.table.types.logical.SmallIntType;
 import org.apache.flink.table.types.logical.TimeType;
 import org.apache.flink.table.types.logical.TimestampType;
 import org.apache.flink.table.types.logical.TinyIntType;
+import org.apache.flink.table.types.logical.VarBinaryType;
 import org.apache.flink.table.types.logical.VarCharType;
 
 import org.junit.Assert;
@@ -86,8 +87,12 @@ public class BinlogRowDeserializationSchemaTest {
 		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
 			DecimalData.fromBigDecimal(new BigDecimal("1.23456789e+09"), 10, 0));
 		assertTestRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), null, Integer.MAX_VALUE + 1L, true);
-		assertTestRow((GenericRowData) rowData.getRow(fieldNum, TEST_FIELD_NUM), null,
+		assertTestRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM), null,
 			DecimalData.fromBigDecimal(new BigDecimal(Long.MAX_VALUE).add(BigDecimal.ONE), 19, 0), true);
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum++, TEST_FIELD_NUM),
+			new byte[]{-23, 32, -95, 84, 75, 5, 6, 44});
+		assertUnChangedRow((GenericRowData) rowData.getRow(fieldNum, TEST_FIELD_NUM),
+			new byte[]{1, -2, 3, 23, 21, 32, -10, -1});
 	}
 
 	private RowType createRowType() {
@@ -114,6 +119,8 @@ public class BinlogRowDeserializationSchemaTest {
 		rowFields.add(new RowType.RowField("decimal_test", getInnerRowType(DecimalType::new)));
 		rowFields.add(new RowType.RowField("test_unsigned_int", getInnerRowType(BigIntType::new)));
 		rowFields.add(new RowType.RowField("test_unsigned_long", getInnerRowType(() -> new DecimalType(19))));
+		rowFields.add(new RowType.RowField("test_blob", getInnerRowType(VarBinaryType::new)));
+		rowFields.add(new RowType.RowField("test_binary", getInnerRowType(VarBinaryType::new)));
 		return new RowType(rowFields);
 	}
 
@@ -130,9 +137,17 @@ public class BinlogRowDeserializationSchemaTest {
 	}
 
 	private void assertTestRow(GenericRowData rowData, Object oldValue, Object newValue, boolean changed) {
-		Assert.assertEquals(rowData.getField(0), oldValue);
-		Assert.assertEquals(rowData.getField(1), newValue);
-		Assert.assertEquals(rowData.getBoolean(2), changed);
+		assertEquals(rowData.getField(0), oldValue);
+		assertEquals(rowData.getField(1), newValue);
+		assertEquals(rowData.getBoolean(2), changed);
+	}
+
+	private void assertEquals(Object expected, Object actual) {
+		if (expected instanceof byte[] && actual instanceof byte[]) {
+			Assert.assertArrayEquals((byte[]) expected, (byte[]) actual);
+		} else {
+			Assert.assertEquals(expected, actual);
+		}
 	}
 
 	interface LogicalTypeGetter {

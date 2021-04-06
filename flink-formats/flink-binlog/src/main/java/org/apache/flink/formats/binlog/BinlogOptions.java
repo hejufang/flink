@@ -66,6 +66,12 @@ public class BinlogOptions {
 	public static final String MEDIUMTEXT = "mediumtext";
 	public static final String LONGTEXT = "longtext";
 	public static final String DECIMAL = "decimal";
+	public static final String BINARY = "binary";
+	public static final String VARBINARY = "varbinary";
+	public static final String TINYBLOB = "tinyblob";
+	public static final String MEDIUMBLOB = "mediumblob";
+	public static final String BLOB = "blob";
+	public static final String LONGBLOB = "longblob";
 
 	// --------------- values in binlog end --------------------
 	public static final ConfigOption<String> TARGET_TABLE = ConfigOptions
