@@ -21,16 +21,21 @@ package org.apache.flink.table.planner.runtime.stream.sql
 import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.api.java.typeutils.RowTypeInfo
 import org.apache.flink.api.scala._
-import org.apache.flink.api.scala.typeutils.Types
+import org.apache.flink.api.common.typeinfo.Types
+import org.apache.flink.table.api.DataTypes
+import org.apache.flink.table.api.TableSchema
 import org.apache.flink.table.api.scala._
 import org.apache.flink.table.dataformat.{BaseRow, GenericRow}
 import org.apache.flink.table.planner.runtime.utils.{StreamingTestBase, TestData, TestSinkUtil, TestingAppendBaseRowSink, TestingAppendSink, TestingAppendTableSink}
+import org.apache.flink.table.planner.utils.TestProjectableTableSource
 import org.apache.flink.table.runtime.typeutils.BaseRowTypeInfo
 import org.apache.flink.table.types.logical.{BigIntType, IntType, VarCharType}
 import org.apache.flink.types.Row
 
 import org.junit.Assert._
 import org.junit._
+
+import java.util.Collections
 
 class CalcITCase extends StreamingTestBase {
 
@@ -291,5 +296,38 @@ class CalcITCase extends StreamingTestBase {
 
     val expected = List("false")
     assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
+  def testMapGet(): Unit = {
+    val data = Seq(
+      Row.of("Mary", Collections.singletonMap("Mary", 1)),
+      Row.of("Bob", Collections.singletonMap("Bob", 2)),
+      Row.of("Mike", Collections.singletonMap("Mike", 3)),
+      Row.of("Liz", Collections.singletonMap("Liz", 4)))
+    val tableSchema = TableSchema.builder()
+      .field("name", DataTypes.STRING())
+      .field("score_map", DataTypes.MAP(DataTypes.STRING(), DataTypes.INT()))
+      .build()
+
+    val returnType = new RowTypeInfo(
+      Array(Types.STRING, Types.MAP(Types.STRING, Types.INT))
+        .asInstanceOf[Array[TypeInformation[_]]],
+      Array("name", "score_map"))
+
+    tEnv.registerTableSource(
+      "T",
+      new TestProjectableTableSource(false, tableSchema, returnType, data))
+
+    val sqlQuery = "SELECT score_map[coalesce(name, '')] FROM T"
+    val table = tEnv.sqlQuery(sqlQuery)
+
+    val result = tEnv.toAppendStream[Row](table)(new RowTypeInfo(Types.INT))
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+
+    val expected = Seq("1", "2", "3", "4")
+    assertEquals(expected.sorted, sink.getAppendResults.sorted)
   }
 }
