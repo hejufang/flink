@@ -133,5 +133,12 @@ under the License.
 			<destName>flink-connector-bytesql-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
+
+		<file>
+			<source>../flink-connectors/flink-connector-rpc/target/flink-connector-rpc-${project.version}.jar</source>
+			<outputDirectory>connectors/</outputDirectory>
+			<destName>flink-connector-rpc-${project.version}.jar</destName>
+			<fileMode>0644</fileMode>
+		</file>
 	</files>
 </assembly>

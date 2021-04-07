@@ -31,6 +31,7 @@ import org.apache.flink.table.catalog.ObjectIdentifier;
 import org.apache.flink.table.catalog.UnresolvedIdentifier;
 import org.apache.flink.table.connector.format.TableSchemaInferrable;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
+import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.FileSystemFormatFactory;
 import org.apache.flink.table.factories.SerializationFormatFactory;
@@ -216,6 +217,18 @@ class SqlCreateTableConverter {
 			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
 		}
 
+		// for rpc factory.
+		DynamicTableSourceFactory dynamicTableSourceFactory =
+			FactoryUtil.discoverOptionalFactory(
+				Thread.currentThread().getContextClassLoader(),
+				DynamicTableSourceFactory.class,
+				"rpc").orElse(null);
+
+		if ((dynamicTableSourceFactory instanceof TableSchemaInferrable)) {
+			TableSchemaInferrable tableSchemaInferrable =
+				(TableSchemaInferrable) dynamicTableSourceFactory;
+			return tableSchemaInferrable.getOptionalTableSchema(options, mergedSchema);
+		}
 		return Optional.empty();
 	}
 

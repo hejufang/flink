@@ -401,10 +401,14 @@ public class TableSchema {
 
 	public int[] getIndexListFromFieldNames(String filedNames) {
 		String[] filedNameArray = filedNames.split(",");
-		int [] keybyFieldIndexArray = new int[filedNameArray.length];
+		return getIndexListFromFieldNames(filedNameArray);
+	}
 
-		for (int i = 0; i < filedNameArray.length; i++) {
-			String keybyFieldName = filedNameArray[i].trim();
+	public int[] getIndexListFromFieldNames(String[] fieldNameArray) {
+		int [] keybyFieldIndexArray = new int[fieldNameArray.length];
+
+		for (int i = 0; i < fieldNameArray.length; i++) {
+			String keybyFieldName = fieldNameArray[i].trim();
 			int fieldIndex = getFieldNameIndex(keybyFieldName)
 				.orElseThrow(() -> new IllegalArgumentException(
 					String.format("keyby field '%s' not found in table. All field names are : %s.",

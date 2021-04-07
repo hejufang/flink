@@ -61,4 +61,7 @@ under the License.
 		<suppress
 			files="[\\/]target[\\/]"
 			checks=".*"/>
+		<suppress
+			files="org[\\/]apache[\\/]flink[\\/]connector[\\/]rpc[\\/]thrift[\\/]generated[\\/].*..java"
+			checks=".*"/>
 </suppressions>
