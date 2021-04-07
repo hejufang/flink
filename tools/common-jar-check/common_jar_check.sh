@@ -28,6 +28,8 @@ COMMON_JAR_PATH_LIST=("com.bytedance.commons"
                        "org.byted.infsec"
                        "okio"
                        "com.codahale.metrics"
+                       "kotlin"
+                       "org.springframework"
                        )
 
 CHECK_LIBS_LIST=("lib/*"
