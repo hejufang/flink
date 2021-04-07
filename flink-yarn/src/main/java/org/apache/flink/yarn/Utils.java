@@ -687,4 +687,18 @@ public final class Utils {
 			}
 		}
 	}
+
+	/*
+	 * container_e496_1572589496647_25097_01_000006 = container_{epoch}_{applicationId}_{applicationAttempId}_{containerId}
+	 */
+	public static String pruneContainerId(String containerId) {
+		if (!StringUtils.isNullOrWhitespaceOnly(containerId)) {
+			String[] containerIdParts = containerId.split("_");
+			if (containerIdParts.length == 6) {
+				return containerIdParts[5];
+			}
+			return containerId;
+		}
+		return containerId;
+	}
 }

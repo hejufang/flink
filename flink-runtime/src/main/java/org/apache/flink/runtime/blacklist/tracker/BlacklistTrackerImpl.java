@@ -20,7 +20,7 @@ package org.apache.flink.runtime.blacklist.tracker;
 
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.metrics.TagGauge;
-import org.apache.flink.metrics.TagGaugeStore;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistActions;
 import org.apache.flink.runtime.blacklist.BlacklistConfiguration;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
@@ -207,7 +207,7 @@ public class BlacklistTrackerImpl implements BlacklistTracker {
 				}
 				blacklistGauge.addMetric(
 						1,
-						new TagGaugeStore.TagValuesBuilder()
+						new TagGaugeStoreImpl.TagValuesBuilder()
 							.addTagValue("blackedHost", host)
 							.addTagValue("exception", exception.getClass().getName())
 							.addTagValue("reason", reason)

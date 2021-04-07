@@ -27,17 +27,17 @@ import org.slf4j.LoggerFactory;
 public class TagGauge implements Gauge<TagGaugeStore> {
 	private static final Logger LOG = LoggerFactory.getLogger(TagGauge.class);
 
-	private final TagGaugeStore store;
+	private final TagGaugeStoreImpl store;
 
 	TagGauge(
 			int maxSize,
 			boolean clearAfterReport,
 			boolean clearWhenFull,
 			MetricsReduceType metricsReduceType) {
-		this.store = new TagGaugeStore(maxSize, clearAfterReport, clearWhenFull, metricsReduceType);
+		this.store = new TagGaugeStoreImpl(maxSize, clearAfterReport, clearWhenFull, metricsReduceType);
 	}
 
-	public void addMetric(Object metricValue, TagGaugeStore.TagValues tagValues) {
+	public void addMetric(Object metricValue, TagGaugeStoreImpl.TagValues tagValues) {
 		if (metricValue instanceof Number) {
 			store.addMetric(((Number) metricValue).doubleValue(), tagValues);
 		} else if (metricValue instanceof String) {
@@ -56,7 +56,7 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 	}
 
 	@Override
-	public TagGaugeStore getValue() {
+	public TagGaugeStoreImpl getValue() {
 		return store;
 	}
 

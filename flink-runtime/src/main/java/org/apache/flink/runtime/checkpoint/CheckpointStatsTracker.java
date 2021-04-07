@@ -26,6 +26,8 @@ import org.apache.flink.metrics.MessageSet;
 import org.apache.flink.metrics.MessageType;
 import org.apache.flink.metrics.Metric;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
@@ -281,6 +283,11 @@ public class CheckpointStatsTracker {
 
 			if (reason != null) {
 				final String reasonMessage = reason.message().replaceAll(" ", "-");
+				FAILED_CHECKPOINTS_TAG_GAUGE.addMetric(1, new TagGaugeStoreImpl.TagValuesBuilder()
+						.addTagValue("reason", reasonMessage.substring(0, Math.min(20, reasonMessage.length())))
+						.addTagValue("chk_id", String.valueOf(failed.getCheckpointId()))
+						.build());
+
 				MESSAGE_SET.addMessage(new Message<>(WarehouseCheckpointMessage.constructFailedMessage(failed.getCheckpointId(),
 						failed.triggerTimestamp, System.currentTimeMillis(), reasonMessage, failed.getEndToEndDuration(), failed.getStateSize())));
 			}
@@ -361,6 +368,8 @@ public class CheckpointStatsTracker {
 	@VisibleForTesting
 	static final String LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC = "lastCheckpointExternalPath";
 
+	static final TagGauge FAILED_CHECKPOINTS_TAG_GAUGE = new TagGauge.TagGaugeBuilder().setClearWhenFull(true).build();
+
 	static final String NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD = "numberOfActualDeletedStateFiles";
 
 	static final String NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD = "numberOfTotalDeletedStateFiles";
@@ -378,7 +387,6 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_CHECKPOINTS_METRIC, new CheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_IN_PROGRESS_CHECKPOINTS_METRIC, new InProgressCheckpointsCounter());
 		metricGroup.gauge(NUMBER_OF_COMPLETED_CHECKPOINTS_METRIC, new CompletedCheckpointsCounter());
-		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, new FailedCheckpointsCounter());
 		metricGroup.gauge(LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC, new LatestRestoredCheckpointTimestampGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC, new LatestCompletedCheckpointSizeGauge());
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_TOTAL_SIZE_METRIC, new LatestCompletedCheckpointTotalSizeGauge());
@@ -386,6 +394,7 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(LATEST_COMPLETED_CHECKPOINT_EXTERNAL_PATH_METRIC, new LatestCompletedCheckpointExternalPathGauge());
 		metricGroup.gauge(NUMBER_OF_FS_DELETE_CHECKPOINT_DISCARD, (GrafanaGauge<Long>) StateUtil::getNumDiscardStates);
 		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, (GrafanaGauge<Long>) StateUtil::getNumLegacyDiscardStates);
+		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, FAILED_CHECKPOINTS_TAG_GAUGE);
 		metricGroup.gauge(WAREHOUSE_CHECKPOINTS, MESSAGE_SET);
 	}
 

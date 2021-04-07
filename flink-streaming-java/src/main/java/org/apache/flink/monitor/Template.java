@@ -140,8 +140,28 @@ public class Template {
 			"							\"aggregator\": \"max\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.job.noResourceAvailableException\",\n" +
+			"							\"refId\": \"C\",\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.job.executionStatus\",\n" +
+			"							\"refId\": \"D\",\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.${jobname}.restartingTime\",\n" +
-			"							\"refId\": \"C\"\n" +
+			"							\"refId\": \"E\"\n" +
 			"						}\n" +
 			"					],\n" +
 			"					\"thresholds\": [],\n" +
@@ -358,7 +378,7 @@ public class Template {
 			"					\"thresholds\": [],\n" +
 			"					\"timeFrom\": null,\n" +
 			"					\"timeShift\": null,\n" +
-			"					\"title\": \"TaskManager/Slot\",\n" +
+			"					\"title\": \"SlotManager Info\",\n" +
 			"					\"tooltip\": {\n" +
 			"						\"shared\": true,\n" +
 			"						\"sort\": 0,\n" +
@@ -2106,7 +2126,7 @@ public class Template {
 		"	\"refId\": \"A\"\n" +
 		"}";
 
-	public static final String SLOW_CONTAINER = "{\n" +
+	public static final String YARN_CONTAINER = "{\n" +
 			"			\"collapse\": false,\n" +
 			"			\"height\": 250,\n" +
 			"			\"panels\": [\n" +
@@ -2147,10 +2167,10 @@ public class Template {
 			"					\"targets\": [\n" +
 			"						{\n" +
 			"							\"aggregator\": \"max\",\n" +
-			"							\"alias\": \"containerStartDurationMaxMs\",\n" +
+			"							\"alias\": \"startingContainerTime\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.containerStartDurationMaxMs\",\n" +
+			"							\"metric\": \"flink.jobmanager.startingContainerNum\",\n" +
 			"							\"refId\": \"A\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2158,11 +2178,11 @@ public class Template {
 			"							\"hide\": false\n" +
 			"						},\n" +
 			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"alias\": \"speculativeSlowContainerTimeoutMs\",\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"alias\": \"allocatedContainerNum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.speculativeSlowContainerTimeoutMs\",\n" +
+			"							\"metric\": \"flink.jobmanager.allocatedContainerNum\",\n" +
 			"							\"refId\": \"B\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2170,11 +2190,11 @@ public class Template {
 			"							\"hide\": false\n" +
 			"						},\n" +
 			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"alias\": \"allocatedContainerNum\",\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"alias\": \"pendingRequestedContainerNum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.allocatedContainerNum\",\n" +
+			"							\"metric\": \"flink.jobmanager.pendingRequestedContainerNum\",\n" +
 			"							\"refId\": \"C\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2182,7 +2202,7 @@ public class Template {
 			"							\"hide\": false\n" +
 			"						},\n" +
 			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
+			"							\"aggregator\": \"count\",\n" +
 			"							\"alias\": \"startingContainerNum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
@@ -2194,12 +2214,129 @@ public class Template {
 			"							\"hide\": false\n" +
 			"						},\n" +
 			"						{\n" +
-			"							\"aggregator\": \"max\",\n" +
-			"							\"alias\": \"pendingRequestedContainerNum\",\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"alias\": \"gangDowngradeNum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.pendingRequestedContainerNum\",\n" +
+			"							\"metric\": \"flink.jobmanager.gangDowngradeNum\",\n" +
 			"							\"refId\": \"E\",\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							},\n" +
+			"							\"hide\": false\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"alias\": \"gangFailedNum\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.jobmanager.gangFailedNum\",\n" +
+			"							\"refId\": \"F\",\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							},\n" +
+			"							\"hide\": false\n" +
+			"						}\n" +
+			"					],\n" +
+			"					\"thresholds\": [],\n" +
+			"					\"timeFrom\": null,\n" +
+			"					\"timeShift\": null,\n" +
+			"					\"title\": \"YarnContainer Info\",\n" +
+			"					\"tooltip\": {\n" +
+			"						\"shared\": true,\n" +
+			"						\"sort\": 0,\n" +
+			"						\"value_type\": \"individual\"\n" +
+			"					},\n" +
+			"					\"type\": \"graph\",\n" +
+			"					\"xaxis\": {\n" +
+			"						\"buckets\": null,\n" +
+			"						\"mode\": \"time\",\n" +
+			"						\"name\": null,\n" +
+			"						\"show\": true,\n" +
+			"						\"values\": []\n" +
+			"					},\n" +
+			"					\"yaxes\": [\n" +
+			"						{\n" +
+			"							\"format\": \"short\",\n" +
+			"							\"label\": null,\n" +
+			"							\"logBase\": 1,\n" +
+			"							\"max\": null,\n" +
+			"							\"min\": null,\n" +
+			"							\"show\": true\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"format\": \"ms\",\n" +
+			"							\"label\": null,\n" +
+			"							\"logBase\": 1,\n" +
+			"							\"max\": null,\n" +
+			"							\"min\": null,\n" +
+			"							\"show\": true\n" +
+			"						}\n" +
+			"					],\n" +
+			"					\"seriesOverrides\":[\n" +
+			"						{\n" +
+			"							\"alias\":\"startingContainerTime\",\n" +
+			"							\"yaxis\":2\n" +
+			"						}\n" +
+			"					]\n" +
+			"				}\n" +
+			"			],\n" +
+			"			\"repeat\": null,\n" +
+			"			\"repeatIteration\": null,\n" +
+			"			\"repeatRowId\": null,\n" +
+			"			\"showTitle\": false,\n" +
+			"			\"title\": \"Yarn Containers\",\n" +
+			"			\"titleSize\": \"h6\"\n" +
+			"		}";
+
+
+
+	public static final String SLOW_CONTAINER = "{\n" +
+			"			\"collapse\": false,\n" +
+			"			\"height\": 250,\n" +
+			"			\"panels\": [\n" +
+			"				{\n" +
+			"					\"aliasColors\": {},\n" +
+			"					\"bars\": false,\n" +
+			"					\"dashLength\": 10,\n" +
+			"					\"dashes\": false,\n" +
+			"					\"datasource\": \"${datasource}\",\n" +
+			"					\"fill\": 1,\n" +
+			"					\"id\": 25,\n" +
+			"					\"legend\": {\n" +
+			"						\"alignAsTable\": true,\n" +
+			"						\"avg\": true,\n" +
+			"						\"current\": true,\n" +
+			"						\"max\": true,\n" +
+			"						\"min\": false,\n" +
+			"						\"rightSide\": true,\n" +
+			"						\"show\": true,\n" +
+			"						\"sort\": null,\n" +
+			"						\"sortDesc\": null,\n" +
+			"						\"total\": false,\n" +
+			"						\"values\": true\n" +
+			"					},\n" +
+			"					\"lines\": true,\n" +
+			"					\"linewidth\": 1,\n" +
+			"					\"links\": [],\n" +
+			"					\"nullPointMode\": \"null\",\n" +
+			"					\"percentage\": false,\n" +
+			"					\"pointradius\": 5,\n" +
+			"					\"points\": false,\n" +
+			"					\"renderer\": \"flot\",\n" +
+			"					\"seriesOverrides\": [],\n" +
+			"					\"spaceLength\": 10,\n" +
+			"					\"span\": 12,\n" +
+			"					\"stack\": false,\n" +
+			"					\"steppedLine\": false,\n" +
+			"					\"targets\": [\n" +
+			"						{\n" +
+			"							\"aggregator\": \"max\",\n" +
+			"							\"alias\": \"speculativeSlowContainerTimeoutMs\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"metric\": \"flink.jobmanager.speculativeSlowContainerTimeoutMs\",\n" +
+			"							\"refId\": \"A\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							},\n" +
@@ -2211,7 +2348,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.slowContainerNum\",\n" +
-			"							\"refId\": \"F\",\n" +
+			"							\"refId\": \"B\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							},\n" +
@@ -2223,7 +2360,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.totalRedundantContainerNum\",\n" +
-			"							\"refId\": \"G\",\n" +
+			"							\"refId\": \"C\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							},\n" +
@@ -2235,7 +2372,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.pendingRedundantContainerNum\",\n" +
-			"							\"refId\": \"H\",\n" +
+			"							\"refId\": \"D\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							},\n" +
@@ -2247,7 +2384,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.startingRedundantContainerNum\",\n" +
-			"							\"refId\": \"I\",\n" +
+			"							\"refId\": \"E\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							},\n" +
@@ -2291,10 +2428,6 @@ public class Template {
 			"					],\n" +
 			"					\"seriesOverrides\":[\n" +
 			"						{\n" +
-			"							\"alias\":\"containerStartDurationMaxMs\",\n" +
-			"							\"yaxis\":2\n" +
-			"						},\n" +
-			"						{\n" +
 			"							\"alias\":\"speculativeSlowContainerTimeoutMs\",\n" +
 			"							\"yaxis\":2\n" +
 			"						}\n" +
@@ -2320,7 +2453,7 @@ public class Template {
 			"					\"dashes\": false,\n" +
 			"					\"datasource\": \"${datasource}\",\n" +
 			"					\"fill\": 1,\n" +
-			"					\"id\": 19,\n" +
+			"					\"id\": 24,\n" +
 			"					\"legend\": {\n" +
 			"						\"alignAsTable\": true,\n" +
 			"						\"avg\": true,\n" +
@@ -2334,13 +2467,13 @@ public class Template {
 			"						\"total\": false,\n" +
 			"						\"values\": true\n" +
 			"					},\n" +
-			"					\"lines\": true,\n" +
+			"					\"lines\": false,\n" +
 			"					\"linewidth\": 1,\n" +
 			"					\"links\": [],\n" +
 			"					\"nullPointMode\": \"null\",\n" +
 			"					\"percentage\": false,\n" +
 			"					\"pointradius\": 5,\n" +
-			"					\"points\": false,\n" +
+			"					\"points\": true,\n" +
 			"					\"renderer\": \"flot\",\n" +
 			"					\"seriesOverrides\": [],\n" +
 			"					\"spaceLength\": 10,\n" +

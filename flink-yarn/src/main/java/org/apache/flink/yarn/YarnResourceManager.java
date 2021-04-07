@@ -25,6 +25,10 @@ import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.configuration.TaskManagerOptions;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.metrics.SimpleCounter;
+import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -119,6 +123,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.yarn.Utils.pruneContainerId;
+
 /**
  * The yarn implementation of the resource manager. Used when the system is started
  * via the resource framework YARN.
@@ -170,6 +176,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	/** Interval in milliseconds of check if the container is slow. */
 	private final long slowContainerCheckIntervalMs;
 
+	private final TagGauge completedContainerGauge = new TagGauge.TagGaugeBuilder().setClearAfterReport(true).build();
+
 	private final boolean cleanupRunningContainersOnStop;
 
 	private final int defaultTaskManagerMemoryMB;
@@ -188,6 +196,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private boolean fatalOnGangFailed;
 	private final int gangMaxRetryTimes;
 	private int gangCurrentRetryTimes;
+	private final Counter gangFailedCounter;
+	private final Counter gangDowngradeCounter;
 	private long gangLastDowngradeTimestamp;
 	private final int gangDowngradeTimeoutMilli;
 	private final boolean gangDowngradeOnFailed;
@@ -255,7 +265,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.gangDowngradeTimeoutMilli = flinkConfig.getInteger(YarnConfigOptions.GANG_DOWNGRADE_TIMEOUT_MS);
 		this.gangDowngradeOnFailed = flinkConfig.getBoolean(YarnConfigOptions.GANG_DOWNGRADE_ON_FAILED);
 		this.nodeAttributesExpression = flinkConfig.getString(YarnConfigOptions.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
-
+		this.gangFailedCounter = new SimpleCounter();
+		this.gangDowngradeCounter = new SimpleCounter();
 		this.fatalOnGangFailed = true;
 
 		// init the SmartResource
@@ -637,6 +648,14 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 						recordWorkerFailure(yarnWorkerNode.getContainer().getNodeId().getHost(), resourceId, containerCompletedException);
 						// Container completed unexpectedly ~> start a new one
 						requestYarnContainerIfRequired();
+
+						completedContainerGauge.addMetric(
+								1,
+								new TagGaugeStoreImpl.TagValuesBuilder()
+										.addTagValue("container_host", yarnWorkerNode.getContainer().getNodeId().getHost())
+										.addTagValue("container_id", pruneContainerId(resourceId.getResourceIdString()))
+										.addTagValue("exit_code", String.valueOf(containerStatus.getExitStatus()))
+										.build());
 					}
 					// Eagerly close the connection with task manager.
 					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
@@ -952,6 +971,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			if (gangSchedulerEnabled) {
 				if (System.currentTimeMillis() - gangLastDowngradeTimestamp < gangDowngradeTimeoutMilli) {
 					useGang = false;
+					gangDowngradeCounter.inc();
 				} else if (gangLastDowngradeTimestamp > 0) {
 					gangCurrentRetryTimes = 0;
 					gangLastDowngradeTimestamp = -1;
@@ -1155,6 +1175,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerMetricGroup.gauge("startingRedundantContainerNum", slowContainerManager::getStartingRedundantContainerTotalNum);
 		resourceManagerMetricGroup.gauge("speculativeSlowContainerTimeoutMs", slowContainerManager::getSpeculativeSlowContainerTimeoutMs);
 		resourceManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
+		resourceManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
+		resourceManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
+
 	}
 
 

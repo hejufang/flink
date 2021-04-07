@@ -357,7 +357,6 @@ public class CheckpointStatsTrackerTest {
 		Gauge<Long> numCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_CHECKPOINTS_METRIC);
 		Gauge<Integer> numInProgressCheckpoints = (Gauge<Integer>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_IN_PROGRESS_CHECKPOINTS_METRIC);
 		Gauge<Long> numCompletedCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_COMPLETED_CHECKPOINTS_METRIC);
-		Gauge<Long> numFailedCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_FAILED_CHECKPOINTS_METRIC);
 		Gauge<Long> latestRestoreTimestamp = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.LATEST_RESTORED_CHECKPOINT_TIMESTAMP_METRIC);
 		Gauge<Long> latestCompletedSize = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_SIZE_METRIC);
 		Gauge<Long> latestCompletedDuration = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.LATEST_COMPLETED_CHECKPOINT_DURATION_METRIC);
@@ -368,7 +367,6 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(Long.valueOf(0), numCheckpoints.getValue());
 		assertEquals(Integer.valueOf(0), numInProgressCheckpoints.getValue());
 		assertEquals(Long.valueOf(0), numCompletedCheckpoints.getValue());
-		assertEquals(Long.valueOf(0), numFailedCheckpoints.getValue());
 		assertEquals(Long.valueOf(-1), latestRestoreTimestamp.getValue());
 		assertEquals(Long.valueOf(-1), latestCompletedSize.getValue());
 		assertEquals(Long.valueOf(-1), latestCompletedDuration.getValue());
@@ -385,7 +383,6 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(Long.valueOf(1), numCheckpoints.getValue());
 		assertEquals(Integer.valueOf(1), numInProgressCheckpoints.getValue());
 		assertEquals(Long.valueOf(0), numCompletedCheckpoints.getValue());
-		assertEquals(Long.valueOf(0), numFailedCheckpoints.getValue());
 
 		long ackTimestamp = 11231230L;
 		long stateSize = 12381238L;
@@ -409,7 +406,6 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(Long.valueOf(1), numCheckpoints.getValue());
 		assertEquals(Integer.valueOf(0), numInProgressCheckpoints.getValue());
 		assertEquals(Long.valueOf(1), numCompletedCheckpoints.getValue());
-		assertEquals(Long.valueOf(0), numFailedCheckpoints.getValue());
 		assertEquals(Long.valueOf(-1), latestRestoreTimestamp.getValue());
 		assertEquals(Long.valueOf(stateSize), latestCompletedSize.getValue());
 		assertEquals(Long.valueOf(ackTimestamp), latestCompletedDuration.getValue());
@@ -428,7 +424,6 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(Long.valueOf(2), numCheckpoints.getValue());
 		assertEquals(Integer.valueOf(0), numInProgressCheckpoints.getValue());
 		assertEquals(Long.valueOf(1), numCompletedCheckpoints.getValue());
-		assertEquals(Long.valueOf(1), numFailedCheckpoints.getValue()); // one failed now
 
 		// Check restore
 		long restoreTimestamp = 183419283L;
@@ -442,7 +437,6 @@ public class CheckpointStatsTrackerTest {
 		assertEquals(Long.valueOf(2), numCheckpoints.getValue());
 		assertEquals(Integer.valueOf(0), numInProgressCheckpoints.getValue());
 		assertEquals(Long.valueOf(1), numCompletedCheckpoints.getValue());
-		assertEquals(Long.valueOf(1), numFailedCheckpoints.getValue());
 
 		assertEquals(Long.valueOf(restoreTimestamp), latestRestoreTimestamp.getValue());
 
