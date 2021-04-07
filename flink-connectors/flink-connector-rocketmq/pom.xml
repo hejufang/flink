@@ -87,6 +87,12 @@ under the License.
 			<groupId>org.apache.flink</groupId>
 			<artifactId>flink-catalog-common</artifactId>
 			<version>${project.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.jetbrains</groupId>
+					<artifactId>annotations</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 
@@ -199,6 +205,14 @@ under the License.
 										<relocation>
 											<pattern>org.apache.flink.connector.catalog</pattern>
 											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.org.apache.flink.connector.catalog</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>kotlin</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.kotlin</shadedPattern>
+										</relocation>
+										<relocation>
+											<pattern>org.springframework</pattern>
+											<shadedPattern>org.apache.flink.connector.rocketmq.shaded.org.springframework</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
