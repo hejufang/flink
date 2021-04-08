@@ -244,8 +244,11 @@ public class MetricUtils {
 	private static void instantiateCPUMetrics(MetricGroup metrics) {
 		try {
 			final com.sun.management.OperatingSystemMXBean mxBean = (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-
-			metrics.<Double, Gauge<Double>>gauge("Load", mxBean::getProcessCpuLoad);
+			final int cpuCores = Runtime.getRuntime().availableProcessors();
+			//getProcessCpuLoad returns the "recent cpu usage" for the JVM process. This value is a double in the [0.0,1.0] interval
+			//getProcessCpuLoad * cpuCores means nums of Cpus JVM used.
+			metrics.<Double, Gauge<Double>>gauge("Cores", () -> mxBean.getProcessCpuLoad() * cpuCores);
+			metrics.<Double, Gauge<Double>>gauge("Load", () -> mxBean.getProcessCpuLoad());
 			metrics.<Long, Gauge<Long>>gauge("Time", mxBean::getProcessCpuTime);
 		} catch (Exception e) {
 			LOG.warn("Cannot access com.sun.management.OperatingSystemMXBean.getProcessCpuLoad()" +

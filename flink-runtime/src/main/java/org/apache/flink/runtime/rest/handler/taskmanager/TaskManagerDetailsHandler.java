@@ -141,6 +141,8 @@ public class TaskManagerDetailsHandler extends AbstractResourceManagerHandler<Re
 		long memorySegmentsAllocated = Long.valueOf(tmMetrics.getMetric("Status.Network.AllocatedMemorySegments", "0"));
 		long memorySegmentsTotal = Long.valueOf(tmMetrics.getMetric("Status.Network.TotalMemorySegments", "0"));
 
+		double cpuCores = Double.valueOf(tmMetrics.getMetric("Status.JVM.CPU.Cores", "0"));
+
 		final List<TaskManagerMetricsInfo.GarbageCollectorInfo> garbageCollectorInfo = createGarbageCollectorInfo(tmMetrics);
 
 		return new TaskManagerMetricsInfo(
@@ -158,6 +160,7 @@ public class TaskManagerDetailsHandler extends AbstractResourceManagerHandler<Re
 			mappedMax,
 			memorySegmentsAvailable,
 			memorySegmentsTotal,
+			cpuCores,
 			garbageCollectorInfo,
 			memorySegmentsAllocated);
 	}

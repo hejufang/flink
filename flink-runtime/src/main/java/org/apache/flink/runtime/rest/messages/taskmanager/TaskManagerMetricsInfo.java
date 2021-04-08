@@ -56,6 +56,8 @@ public class TaskManagerMetricsInfo {
 
 	public static final String FIELD_NAME_MAPPED_MAX = "mappedMax";
 
+	public static final String FIELD_NAME_CPU_CORES = "cpuCores";
+
 	public static final String FIELD_NAME_NETWORK_MEMORY_SEGMENTS_AVAILABLE = "memorySegmentsAvailable";
 
 	public static final String FIELD_NAME_NETWORK_MEMORY_SEGMENTS_ALLOCATED = "memorySegmentsAllocated";
@@ -119,6 +121,10 @@ public class TaskManagerMetricsInfo {
 	@JsonProperty(FIELD_NAME_NETWORK_MEMROY_SEGMENTS_TOTAL)
 	private final long memorySegmentsTotal;
 
+	// --------- cpu load -------------
+	@JsonProperty(FIELD_NAME_CPU_CORES)
+	private final double cpuCores;
+
 	// --------- Garbage collectors -------------
 
 	@JsonProperty(FIELD_NAME_GARBAGE_COLLECTORS)
@@ -140,6 +146,7 @@ public class TaskManagerMetricsInfo {
 			@JsonProperty(FIELD_NAME_MAPPED_MAX) long mappedMax,
 			@JsonProperty(FIELD_NAME_NETWORK_MEMORY_SEGMENTS_AVAILABLE) long memorySegmentsAvailable,
 			@JsonProperty(FIELD_NAME_NETWORK_MEMROY_SEGMENTS_TOTAL) long memorySegmentsTotal,
+			@JsonProperty(FIELD_NAME_CPU_CORES) double cpuCores,
 			@JsonProperty(FIELD_NAME_GARBAGE_COLLECTORS) List<GarbageCollectorInfo> garbageCollectorsInfo,
 			@JsonProperty(FIELD_NAME_NETWORK_MEMORY_SEGMENTS_ALLOCATED) long memorySegmentsAllocated) {
 		this.heapUsed = heapUsed;
@@ -157,6 +164,7 @@ public class TaskManagerMetricsInfo {
 		this.memorySegmentsAvailable = memorySegmentsAvailable;
 		this.memorySegmentsAllocated = memorySegmentsAllocated;
 		this.memorySegmentsTotal = memorySegmentsTotal;
+		this.cpuCores = cpuCores;
 		this.garbageCollectorsInfo = Preconditions.checkNotNull(garbageCollectorsInfo);
 	}
 
@@ -183,12 +191,13 @@ public class TaskManagerMetricsInfo {
 			mappedMax == that.mappedMax &&
 			memorySegmentsAvailable == that.memorySegmentsAvailable &&
 			memorySegmentsTotal == that.memorySegmentsTotal &&
+			cpuCores == that.cpuCores &&
 			Objects.equals(garbageCollectorsInfo, that.garbageCollectorsInfo);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(heapUsed, heapCommitted, heapMax, nonHeapUsed, nonHeapCommitted, nonHeapMax, directCount, directUsed, directMax, mappedCount, mappedUsed, mappedMax, memorySegmentsAvailable, memorySegmentsTotal, garbageCollectorsInfo);
+		return Objects.hash(heapUsed, heapCommitted, heapMax, nonHeapUsed, nonHeapCommitted, nonHeapMax, directCount, directUsed, directMax, mappedCount, mappedUsed, mappedMax, memorySegmentsAvailable, memorySegmentsTotal, garbageCollectorsInfo, cpuCores);
 	}
 
 	/**
@@ -257,6 +266,7 @@ public class TaskManagerMetricsInfo {
 			0L,
 			0L,
 			0L,
+			0,
 			Collections.emptyList(),
 			0);
 	}
