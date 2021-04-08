@@ -1280,4 +1280,35 @@ class AggregateITCase(
       assertEquals(expected, result)
     )
   }
+  @Test
+  def testFirstValueWithOrder(): Unit = {
+    val t = env.fromCollection(TestData.outOfOrderData).toTable(tEnv, 'name, 'order)
+    tEnv.createTemporaryView("MyTable", t)
+
+    val sqlQuery = "SELECT first_value(name, `order`) FROM MyTable"
+    val result = tEnv.sqlQuery(sqlQuery).toRetractStream[Row]
+    val sink = new TestingRetractSink
+    result.addSink(sink).setParallelism(1)
+    env.execute()
+
+    val expected = List("a")
+
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  @Test
+  def testLastValueWithOrder(): Unit = {
+    val t = env.fromCollection(TestData.outOfOrderData).toTable(tEnv, 'name, 'order)
+    tEnv.createTemporaryView("MyTable", t)
+
+    val sqlQuery = "SELECT last_value(name, `order`) FROM MyTable"
+    val result = tEnv.sqlQuery(sqlQuery).toRetractStream[Row]
+    val sink = new TestingRetractSink
+    result.addSink(sink).setParallelism(1)
+    env.execute()
+
+    val expected = List("d")
+
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
 }

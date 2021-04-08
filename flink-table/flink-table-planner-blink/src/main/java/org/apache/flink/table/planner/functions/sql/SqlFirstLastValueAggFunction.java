@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Optionality;
 
@@ -51,7 +52,10 @@ public class SqlFirstLastValueAggFunction extends SqlAggFunction {
 				kind,
 				ReturnTypes.ARG0_NULLABLE_IF_EMPTY,
 				null,
-				OperandTypes.ANY,
+				OperandTypes.or(
+					OperandTypes.ANY,
+					OperandTypes.family(SqlTypeFamily.ANY, SqlTypeFamily.NUMERIC)
+				),
 				SqlFunctionCategory.NUMERIC,
 				false,
 				false,

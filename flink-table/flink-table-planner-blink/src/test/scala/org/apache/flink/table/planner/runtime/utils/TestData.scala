@@ -195,6 +195,14 @@ object TestData {
     row(5, 0.9)
   )
 
+  lazy val outOfOrderData: Seq[(String, Long)] = {
+    val data = new mutable.MutableList[(String, Long)]
+    data.+= (("b", 2L))
+    data.+= (("d", 4L))
+    data.+= (("a", 1L))
+    data.+= (("c", 3L))
+  }
+
   lazy val tupleData3: Seq[(Int, Long, String)] = {
     val data = new mutable.MutableList[(Int, Long, String)]
     data.+=((1, 1L, "Hi"))
