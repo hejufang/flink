@@ -229,8 +229,10 @@ abstract class CommonLookupJoin(
     val lookupKeys = allLookupKeys.map {
       case (tableField, FieldRefLookupKey(inputField)) =>
         s"${tableFieldNames(tableField)}=${inputFieldNames(inputField)}"
-      case (tableField, ConstantLookupKey(_, literal)) =>
+      case (tableField, LiteralConstantLookupKey(_, literal)) =>
         s"${tableFieldNames(tableField)}=${RelExplainUtil.literalToString(literal)}"
+      case (tableField, ArrayConstantLookupKey(_, arrayCall)) =>
+        s"${tableFieldNames(tableField)}=${getExpressionString(arrayCall, List.empty, None)}"
     }.mkString(", ")
     val selection = calcOnTemporalTable match {
       case Some(calc) =>
@@ -657,7 +659,8 @@ abstract class CommonLookupJoin(
   }
 
   /**
-    * Analyze potential lookup keys (including [[ConstantLookupKey]] and [[FieldRefLookupKey]])
+    * Analyze potential lookup keys (including [[LiteralConstantLookupKey]],
+    * [[ArrayConstantLookupKey]] and [[FieldRefLookupKey]])
     * of the temporal table from the join condition and calc program on the temporal table.
     *
     * @param rexBuilder the RexBuilder
@@ -760,14 +763,36 @@ abstract class CommonLookupJoin(
       pred: RexNode,
       constantFieldMap: mutable.HashMap[Int, ConstantLookupKey]): Unit = pred match {
     case c: RexCall if c.getKind == SqlKind.EQUALS =>
-      val left = c.getOperands.get(0)
-      val right = c.getOperands.get(1)
-      val (inputRef, literal) = (left, right) match {
-        case (literal: RexLiteral, ref: RexInputRef) => (ref, literal)
-        case (ref: RexInputRef, literal: RexLiteral) => (ref, literal)
+      var left = c.getOperands.get(0)
+      var right = c.getOperands.get(1)
+      val relDataType: RelDataType = left.getType
+      // For now, we haven't found any condition that will cause two cast call.
+      // Therefore we don't handle these cases here.
+      if (left.getKind == SqlKind.CAST) {
+        left = left.asInstanceOf[RexCall].getOperands.get(0)
+      } else if (right.getKind == SqlKind.CAST) {
+        right = right.asInstanceOf[RexCall].getOperands.get(0)
       }
-      val dataType = FlinkTypeFactory.toLogicalType(inputRef.getType)
-      constantFieldMap.put(inputRef.getIndex, ConstantLookupKey(dataType, literal))
+      val (index, lookupKey)  = (left, right) match {
+        case (literal: RexLiteral, ref: RexInputRef) =>
+          (ref.getIndex,
+            LiteralConstantLookupKey(FlinkTypeFactory.toLogicalType(relDataType), literal))
+        case (ref: RexInputRef, literal: RexLiteral) =>
+          (ref.getIndex,
+            LiteralConstantLookupKey(FlinkTypeFactory.toLogicalType(relDataType), literal))
+        case (arrayConstructor: RexCall, ref: RexInputRef)
+            if arrayConstructor.getKind == SqlKind.ARRAY_VALUE_CONSTRUCTOR =>
+          (ref.getIndex, ArrayConstantLookupKey(FlinkTypeFactory.toLogicalType(relDataType),
+            arrayConstructor))
+        case (ref: RexInputRef, arrayConstructor: RexCall)
+            if arrayConstructor.getKind == SqlKind.ARRAY_VALUE_CONSTRUCTOR =>
+          (ref.getIndex, ArrayConstantLookupKey(FlinkTypeFactory.toLogicalType(relDataType),
+            arrayConstructor))
+        case _ =>
+          // todo: support map constructor and more kinds of complex call.
+          return
+      }
+      constantFieldMap.put(index, lookupKey)
     case _ => // ignore
   }
 
@@ -810,6 +835,22 @@ abstract class CommonLookupJoin(
         incompatibleConditions += condition
       }
     }
+
+    // Check the constant Type
+    allLookupKeys.filter(_._2.isInstanceOf[ConstantLookupKey]).foreach{ item =>
+      val (rightType, constantNode) = item._2 match {
+        case LiteralConstantLookupKey(dataType, literal) => (dataType, literal)
+        case ArrayConstantLookupKey(dataType, array) => (dataType, array)
+      }
+
+      val leftType = tableSourceRowType.getTypeAt(item._1)
+      if (!isInteroperable(leftType, rightType)) {
+        val fieldName = tableSourceRowType.getFieldNames.get(item._1)
+        val condition = s"$fieldName[$leftType]=${constantNode.toString}[$rightType]"
+        incompatibleConditions += condition
+      }
+    }
+
     if (incompatibleConditions.nonEmpty) {
       throw new TableException(s"Temporal table join requires equivalent condition " +
         s"of the same type, but the condition is ${incompatibleConditions.mkString(", ")}")

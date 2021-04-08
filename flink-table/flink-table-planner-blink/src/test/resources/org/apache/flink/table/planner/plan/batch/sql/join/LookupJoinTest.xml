@@ -664,4 +664,60 @@ Calc(select=[EXPR$0, EXPR$1, EXPR$2])
 ]]>
     </Resource>
   </TestCase>
+  <TestCase name="testJoinTemporalTableWithArrayConstantCondition[LegacyTableSource=true]">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN ComplexLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+ON D.intArray = Array[1] and Array['test'] = D.strArray
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], strArray=[$4], intArray=[$5])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{3}])
+   :- LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[PROCTIME()])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, T0]])
+   +- LogicalFilter(condition=[AND(=(CAST($1):INTEGER NOT NULL ARRAY, ARRAY(1)), =(CAST(ARRAY(_UTF-16LE'test')):VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY NOT NULL, $0))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, ComplexLookupTable]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, proctime, CAST(CAST(ARRAY(_UTF-16LE'test'))) AS strArray, intArray])
++- LookupJoin(table=[default_catalog.default_database.ComplexLookupTable], joinType=[InnerJoin], async=[false], lookup=[intArray=ARRAY(1), strArray=ARRAY(_UTF-16LE'test')], where=[AND(=(CAST(intArray), ARRAY(1)), =(CAST(ARRAY(_UTF-16LE'test')), strArray))], select=[a, b, c, proctime, intArray])
+   +- Calc(select=[a, b, c, PROCTIME() AS proctime])
+      +- BoundedStreamScan(table=[[default_catalog, default_database, T0]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
+  <TestCase name="testJoinTemporalTableWithArrayConstantCondition[LegacyTableSource=false]">
+    <Resource name="sql">
+      <![CDATA[
+SELECT * FROM MyTable AS T
+JOIN ComplexLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+ON D.intArray = Array[1] and Array['test'] = D.strArray
+      ]]>
+    </Resource>
+    <Resource name="planBefore">
+      <![CDATA[
+LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[$3], strArray=[$4], intArray=[$5])
++- LogicalCorrelate(correlation=[$cor0], joinType=[inner], requiredColumns=[{3}])
+   :- LogicalProject(a=[$0], b=[$1], c=[$2], proctime=[PROCTIME()])
+   :  +- LogicalTableScan(table=[[default_catalog, default_database, T0]])
+   +- LogicalFilter(condition=[AND(=(CAST($1):INTEGER NOT NULL ARRAY, ARRAY(1)), =(CAST(ARRAY(_UTF-16LE'test')):VARCHAR(2147483647) CHARACTER SET "UTF-16LE" ARRAY NOT NULL, $0))])
+      +- LogicalSnapshot(period=[$cor0.proctime])
+         +- LogicalTableScan(table=[[default_catalog, default_database, ComplexLookupTable]])
+]]>
+    </Resource>
+    <Resource name="planAfter">
+      <![CDATA[
+Calc(select=[a, b, c, proctime, CAST(CAST(ARRAY(_UTF-16LE'test'))) AS strArray, intArray])
++- LookupJoin(table=[default_catalog.default_database.ComplexLookupTable], joinType=[InnerJoin], async=[false], lookup=[intArray=ARRAY(1), strArray=ARRAY(_UTF-16LE'test')], where=[AND(=(CAST(intArray), ARRAY(1)), =(CAST(ARRAY(_UTF-16LE'test')), strArray))], select=[a, b, c, proctime, intArray])
+   +- Calc(select=[a, b, c, PROCTIME() AS proctime])
+      +- BoundedStreamScan(table=[[default_catalog, default_database, T0]], fields=[a, b, c])
+]]>
+    </Resource>
+  </TestCase>
 </Root>

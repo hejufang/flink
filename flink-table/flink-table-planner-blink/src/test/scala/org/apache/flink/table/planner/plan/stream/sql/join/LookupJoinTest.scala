@@ -76,6 +76,15 @@ class LookupJoinTest(legacyTableSource: Boolean) extends TableTestBase with Seri
           |)
           |""".stripMargin)
     }
+    util.addTable(
+      """
+        |CREATE TABLE ComplexLookupTable (
+        |  `strArray` ARRAY<VARCHAR>,
+        |  `intArray` ARRAY<INT>
+        |) WITH (
+        |  'connector' = 'values'
+        |)
+        |""".stripMargin)
   }
 
   @Test
@@ -410,6 +419,35 @@ class LookupJoinTest(legacyTableSource: Boolean) extends TableTestBase with Seri
         |JOIN LookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
         |ON T.a = D.id AND T.b = concat(D.name, '!')
         |WHERE D.name LIKE 'Jack%'
+      """.stripMargin
+
+    util.verifyPlan(sql)
+  }
+
+  @Test
+  def testJoinOnDifferentTypesBetweenFieldAndConstant(): Unit = {
+    expectExceptionThrown(
+      "SELECT * FROM MyTable AS T JOIN LookupTable "
+        + "FOR SYSTEM_TIME AS OF T.proctime AS D ON D.id = cast(1 as bigint)",
+      "Temporal table join requires equivalent condition of the same type, " +
+        "but the condition is id[INT]=1:BIGINT[BIGINT]",
+      classOf[TableException])
+
+    expectExceptionThrown(
+      "SELECT * FROM MyTable AS T JOIN ComplexLookupTable "
+        + "FOR SYSTEM_TIME AS OF T.proctime AS D ON D.intArray = Array[cast(1 as bigint)]",
+      "Temporal table join requires equivalent condition of the same type, but " +
+        "the condition is intArray[ARRAY<INT>]=ARRAY(1:BIGINT)[ARRAY<BIGINT NOT NULL>]",
+      classOf[TableException])
+  }
+
+  @Test
+  def testJoinTemporalTableWithArrayConstantCondition(): Unit = {
+    val sql =
+      """
+        |SELECT * FROM MyTable AS T
+        |JOIN ComplexLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+        |ON D.intArray = Array[1] and Array['test'] = D.strArray
       """.stripMargin
 
     util.verifyPlan(sql)

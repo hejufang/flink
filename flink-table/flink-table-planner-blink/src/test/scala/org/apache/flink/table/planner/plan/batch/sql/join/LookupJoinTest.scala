@@ -20,7 +20,6 @@ package org.apache.flink.table.planner.plan.batch.sql.join
 import org.apache.flink.api.scala._
 import org.apache.flink.table.api._
 import org.apache.flink.table.api.config.OptimizerConfigOptions
-import org.apache.flink.table.api.bridge.scala._
 import org.apache.flink.table.planner.plan.optimize.program.FlinkBatchProgram
 import org.apache.flink.table.planner.plan.stream.sql.join.TestTemporalTable
 import org.apache.flink.table.planner.runtime.utils.JavaUserDefinedScalarFunctions.PythonScalarFunction
@@ -66,6 +65,16 @@ class LookupJoinTest(legacyTableSource: Boolean) extends TableTestBase {
           |)
           |""".stripMargin)
     }
+    testUtil.addTable(
+      """
+        |CREATE TABLE ComplexLookupTable (
+        |  `strArray` ARRAY<VARCHAR>,
+        |  `intArray` ARRAY<INT>
+        |) WITH (
+        |  'connector' = 'values',
+        |  'bounded' = 'true'
+        |)
+        |""".stripMargin)
   }
 
   @Test
@@ -315,6 +324,35 @@ class LookupJoinTest(legacyTableSource: Boolean) extends TableTestBase {
          |FROM ($sql2) AS T1, ($sql3) AS T2
          |WHERE T1.a = T2.a
          |GROUP BY T1.b, T2.b
+      """.stripMargin
+
+    testUtil.verifyPlan(sql)
+  }
+
+  @Test
+  def testJoinOnDifferentTypesBetweenFieldAndConstant(): Unit = {
+    expectExceptionThrown(
+      "SELECT * FROM MyTable AS T JOIN LookupTable "
+        + "FOR SYSTEM_TIME AS OF T.proctime AS D ON D.id = cast(1 as bigint)",
+      "Temporal table join requires equivalent condition of the same type, " +
+        "but the condition is id[INT]=1:BIGINT[BIGINT]",
+      classOf[TableException])
+
+    expectExceptionThrown(
+      "SELECT * FROM MyTable AS T JOIN ComplexLookupTable "
+        + "FOR SYSTEM_TIME AS OF T.proctime AS D ON D.intArray = Array[cast(1 as bigint)]",
+      "Temporal table join requires equivalent condition of the same type, but " +
+        "the condition is intArray[ARRAY<INT>]=ARRAY(1:BIGINT)[ARRAY<BIGINT NOT NULL>]",
+      classOf[TableException])
+  }
+
+  @Test
+  def testJoinTemporalTableWithArrayConstantCondition(): Unit = {
+    val sql =
+      """
+        |SELECT * FROM MyTable AS T
+        |JOIN ComplexLookupTable FOR SYSTEM_TIME AS OF T.proctime AS D
+        |ON D.intArray = Array[1] and Array['test'] = D.strArray
       """.stripMargin
 
     testUtil.verifyPlan(sql)
