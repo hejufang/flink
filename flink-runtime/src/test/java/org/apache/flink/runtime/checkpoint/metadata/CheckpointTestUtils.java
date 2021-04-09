@@ -25,6 +25,8 @@ import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.BatchStateHandle;
+import org.apache.flink.runtime.state.IncrementalRemoteBatchKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.InputChannelStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -33,22 +35,28 @@ import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
+import org.apache.flink.runtime.state.PlaceholderStreamStateHandle;
 import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.RelativeFileStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
+import org.apache.flink.util.StringBasedID;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.StateHandleDummyUtil.createNewInputChannelStateHandle;
 import static org.apache.flink.runtime.checkpoint.StateHandleDummyUtil.createNewResultSubpartitionStateHandle;
@@ -62,6 +70,100 @@ import static org.junit.Assert.assertEquals;
  * checkpoint metadata for persistence.
  */
 public class CheckpointTestUtils {
+
+	/**
+	 * Creates a random collection of OperatorState objects containing various types of state handles,
+	 * Compared to {@link #createOperatorStates(Random, String, int, int)}, this function wraps all
+	 * FileStateHandle and ByteStreamStateHandle in BatchStateHandle.
+	 *
+	 * @param basePath The basePath for savepoint, will be null for checkpoint.
+	 * @param numTaskStates Number of tasks.
+	 * @param numSubtasksPerTask Number of subtask for each task.
+	 */
+	public static Collection<OperatorState> createOperatorStatesWithBatch(
+		Random random,
+		@Nullable String basePath,
+		int numTaskStates,
+		int numSubtasksPerTask) {
+
+		List<OperatorState> taskStates = new ArrayList<>(numTaskStates);
+
+		for (int stateIdx = 0; stateIdx < numTaskStates; ++stateIdx) {
+
+			OperatorState taskState = new OperatorState(new OperatorID(), numSubtasksPerTask, 128);
+
+			final boolean hasCoordinatorState = random.nextBoolean();
+			if (hasCoordinatorState) {
+				final ByteStreamStateHandle stateHandle = createDummyByteStreamStreamStateHandle(random);
+				taskState.setCoordinatorState(stateHandle);
+			}
+
+			boolean hasOperatorStateBackend = random.nextBoolean();
+			boolean hasOperatorStateStream = random.nextBoolean();
+
+			boolean hasKeyedBackend = random.nextInt(4) != 0;
+			boolean hasKeyedStream = random.nextInt(4) != 0;
+			boolean isIncremental = random.nextInt(3) == 0;
+
+			for (int subtaskIdx = 0; subtaskIdx < numSubtasksPerTask; subtaskIdx++) {
+
+				StreamStateHandle operatorStateBackend =
+					new ByteStreamStateHandle("b", ("Beautiful").getBytes(ConfigConstants.DEFAULT_CHARSET));
+				StreamStateHandle operatorStateStream =
+					new ByteStreamStateHandle("b", ("Beautiful").getBytes(ConfigConstants.DEFAULT_CHARSET));
+
+				OperatorStateHandle operatorStateHandleBackend = null;
+				OperatorStateHandle operatorStateHandleStream = null;
+
+				Map<String, OperatorStateHandle.StateMetaInfo> offsetsMap = new HashMap<>();
+				offsetsMap.put("A", new OperatorStateHandle.StateMetaInfo(new long[]{0, 10, 20}, OperatorStateHandle.Mode.SPLIT_DISTRIBUTE));
+				offsetsMap.put("B", new OperatorStateHandle.StateMetaInfo(new long[]{30, 40, 50}, OperatorStateHandle.Mode.SPLIT_DISTRIBUTE));
+				offsetsMap.put("C", new OperatorStateHandle.StateMetaInfo(new long[]{60, 70, 80}, OperatorStateHandle.Mode.UNION));
+
+				if (hasOperatorStateBackend) {
+					operatorStateHandleBackend = new OperatorStreamStateHandle(offsetsMap, operatorStateBackend);
+				}
+
+				if (hasOperatorStateStream) {
+					operatorStateHandleStream = new OperatorStreamStateHandle(offsetsMap, operatorStateStream);
+				}
+
+				KeyedStateHandle keyedStateBackend = null;
+				KeyedStateHandle keyedStateStream = null;
+
+				if (hasKeyedBackend) {
+					if (isIncremental && !isSavepoint(basePath)) {
+						// here, we use batch to create IncrementalRemoteKeyedStateHandle
+						keyedStateBackend = createDummyIncrementalKeyedStateHandleWithBatch(random);
+					} else {
+						keyedStateBackend = createDummyKeyGroupStateHandle(random, basePath);
+					}
+				}
+
+				if (hasKeyedStream) {
+					keyedStateStream = createDummyKeyGroupStateHandle(random, basePath);
+				}
+
+				StateObjectCollection<InputChannelStateHandle> inputChannelStateHandles =
+					(random.nextBoolean() && !isSavepoint(basePath)) ? singleton(createNewInputChannelStateHandle(random.nextInt(5), random)) : empty();
+
+				StateObjectCollection<ResultSubpartitionStateHandle> resultSubpartitionStateHandles =
+					(random.nextBoolean() && !isSavepoint(basePath)) ? singleton(createNewResultSubpartitionStateHandle(random.nextInt(5), random)) : empty();
+
+				taskState.putState(subtaskIdx, new OperatorSubtaskState(
+					operatorStateHandleBackend,
+					operatorStateHandleStream,
+					keyedStateStream,
+					keyedStateBackend,
+					inputChannelStateHandles,
+					resultSubpartitionStateHandles));
+			}
+
+			taskStates.add(taskState);
+		}
+
+		return taskStates;
+	}
 
 	/**
 	 * Creates a random collection of OperatorState objects containing various types of state handles.
@@ -194,6 +296,22 @@ public class CheckpointTestUtils {
 	/** utility class, not meant to be instantiated. */
 	private CheckpointTestUtils() {}
 
+	public static IncrementalRemoteKeyedStateHandle createDummyIncrementalKeyedStateHandleWithBatch(Random rnd) {
+		Set<StateHandleID> usedSstFiles = new HashSet<>();
+		usedSstFiles.add(new StateHandleID("reused1.sst"));
+		usedSstFiles.add(new StateHandleID("reused2.sst"));
+		usedSstFiles.add(new StateHandleID("reused3.sst"));
+		return new IncrementalRemoteBatchKeyedStateHandle(
+			createRandomUUID(rnd),
+			new KeyGroupRange(1, 1),
+			42L,
+			createRandomStateHandleMapWithBatch(rnd, rnd.nextInt(5) + 1),
+			createRandomStateHandleMapWithBatch(rnd, 1),
+			createDummyStreamStateHandle(rnd, null),
+			usedSstFiles,
+			100L);
+	}
+
 	public static IncrementalRemoteKeyedStateHandle createDummyIncrementalKeyedStateHandle(Random rnd) {
 		return new IncrementalRemoteKeyedStateHandle(
 			createRandomUUID(rnd),
@@ -240,6 +358,44 @@ public class CheckpointTestUtils {
 			Path statePath = new Path(basePath, relativePath);
 			return new RelativeFileStateHandle(statePath, relativePath, stateSize);
 		}
+	}
+
+	public static Map<StateHandleID, StreamStateHandle> createRandomStateHandleMapWithBatch(Random rnd, int batchNum) {
+		Map<StateHandleID, StreamStateHandle> result = new HashMap<>(batchNum);
+		for (int i = 0; i < batchNum; ++i) {
+			int numFiles = rnd.nextInt(4) + 1;
+			BatchStateHandle batchStateHandle = createDummyBatchStateHandle(rnd, numFiles);
+			StateHandleID batchFileID = batchStateHandle.getBatchFileID();
+			result.put(batchFileID, batchStateHandle);
+		}
+
+		return result;
+	}
+
+	public static BatchStateHandle createDummyBatchStateHandle(Random rnd, int numFiles) {
+		ByteStreamStateHandle stateHandle = new ByteStreamStateHandle(
+			String.valueOf(createRandomUUID(rnd)),
+			String.valueOf(createRandomUUID(rnd)).getBytes(ConfigConstants.DEFAULT_CHARSET));
+
+		Map<StateHandleID, Long> fileNameToOffset = new HashMap<>();
+		String[] fileNames = new String[numFiles];
+		for (int i = 0; i < numFiles; i++) {
+			fileNames[i] = rnd.nextInt(100) + ".sst";
+			fileNameToOffset.put(new StateHandleID(fileNames[i]), 0L);
+		}
+
+		return new BatchStateHandle(
+			stateHandle, fileNameToOffset, generateBatchFileId(fileNames));
+	}
+
+	private static StateHandleID generateBatchFileId(String[] sstFiles) {
+		String sstFilesNames = Arrays.toString(sstFiles);
+
+		// batchFileID format: {UUID(sst files)}.batch
+		StringBuilder sb = new StringBuilder();
+		sb.append(UUID.nameUUIDFromBytes(sstFilesNames.getBytes()).toString());
+		sb.append(".batch");
+		return new StateHandleID(sb.toString());
 	}
 
 	private static UUID createRandomUUID(Random rnd) {

@@ -23,7 +23,7 @@ import org.apache.flink.util.ExceptionUtils;
 import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -49,7 +49,7 @@ public class IncrementalLocalKeyedStateHandle extends DirectoryKeyedStateHandle 
 
 	/** Set with the ids of all shared state handles created by the checkpoint. */
 	@Nonnull
-	private final Set<StateHandleID> sharedStateHandleIDs;
+	private final Map<StateHandleID, StreamStateHandle> sharedStateHandleIDs;
 
 	public IncrementalLocalKeyedStateHandle(
 		@Nonnull UUID backendIdentifier,
@@ -57,7 +57,7 @@ public class IncrementalLocalKeyedStateHandle extends DirectoryKeyedStateHandle 
 		@Nonnull DirectoryStateHandle directoryStateHandle,
 		@Nonnull KeyGroupRange keyGroupRange,
 		@Nonnull StreamStateHandle metaDataState,
-		@Nonnull Set<StateHandleID> sharedStateHandleIDs) {
+		@Nonnull Map<StateHandleID, StreamStateHandle> sharedStateHandleIDs) {
 
 		super(directoryStateHandle, keyGroupRange);
 		this.backendIdentifier = backendIdentifier;
@@ -84,7 +84,7 @@ public class IncrementalLocalKeyedStateHandle extends DirectoryKeyedStateHandle 
 
 	@Override
 	@Nonnull
-	public Set<StateHandleID> getSharedStateHandleIDs() {
+	public Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs() {
 		return sharedStateHandleIDs;
 	}
 

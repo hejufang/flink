@@ -24,6 +24,8 @@ import org.apache.flink.runtime.checkpoint.MasterState;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
+import org.apache.flink.runtime.state.BatchStateHandle;
+import org.apache.flink.runtime.state.IncrementalRemoteBatchKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.InputChannelStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
@@ -55,8 +57,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -90,6 +94,8 @@ public abstract class MetadataV2V3SerializerBase {
 	private static final byte PARTITIONABLE_OPERATOR_STATE_HANDLE = 4;
 	private static final byte INCREMENTAL_KEY_GROUPS_HANDLE = 5;
 	private static final byte RELATIVE_STREAM_STATE_HANDLE = 6;
+	private static final byte BATCH_STREAM_STATE_HANDLE = 7;
+	private static final byte INCREMENTAL_BATCH_KEY_GROUPS_HANDLE = 8;
 
 	// ------------------------------------------------------------------------
 	//  (De)serialization entry points
@@ -276,10 +282,22 @@ public abstract class MetadataV2V3SerializerBase {
 			}
 			serializeStreamStateHandle(keyGroupsStateHandle.getDelegateStateHandle(), dos);
 		} else if (stateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+			if (stateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
+				IncrementalRemoteBatchKeyedStateHandle incrementalRemoteBatchKeyedStateHandle =
+					(IncrementalRemoteBatchKeyedStateHandle) stateHandle;
+				dos.writeByte(INCREMENTAL_BATCH_KEY_GROUPS_HANDLE);
+				Set<StateHandleID> usedSstFiles = incrementalRemoteBatchKeyedStateHandle.getUsedSstFiles();
+				dos.writeInt(usedSstFiles.size());
+				for (StateHandleID stateHandleID : usedSstFiles) {
+					dos.writeUTF(stateHandleID.getKeyString());
+				}
+				dos.writeLong(incrementalRemoteBatchKeyedStateHandle.getTotalStateSize());
+			} else {
+				dos.writeByte(INCREMENTAL_KEY_GROUPS_HANDLE);
+			}
+
 			IncrementalRemoteKeyedStateHandle incrementalKeyedStateHandle =
 				(IncrementalRemoteKeyedStateHandle) stateHandle;
-
-			dos.writeByte(INCREMENTAL_KEY_GROUPS_HANDLE);
 
 			dos.writeLong(incrementalKeyedStateHandle.getCheckpointId());
 			dos.writeUTF(String.valueOf(incrementalKeyedStateHandle.getBackendIdentifier()));
@@ -317,7 +335,17 @@ public abstract class MetadataV2V3SerializerBase {
 				keyGroupRange, offsets);
 			StreamStateHandle stateHandle = deserializeStreamStateHandle(dis, context);
 			return new KeyGroupsStateHandle(keyGroupRangeOffsets, stateHandle);
-		} else if (INCREMENTAL_KEY_GROUPS_HANDLE == type) {
+		} else if (INCREMENTAL_KEY_GROUPS_HANDLE == type || INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type) {
+			Set<StateHandleID> usedSstFiles = new HashSet<>();
+			long totalStateSize = -1;
+			if (INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type) {
+				int usedSstFileSize = dis.readInt();
+
+				for (int i = 0; i < usedSstFileSize; i++) {
+					usedSstFiles.add(new StateHandleID(dis.readUTF()));
+				}
+				totalStateSize = dis.readLong();
+			}
 
 			long checkpointId = dis.readLong();
 			String backendId = dis.readUTF();
@@ -339,13 +367,23 @@ public abstract class MetadataV2V3SerializerBase {
 				uuid = UUID.nameUUIDFromBytes(backendId.getBytes(StandardCharsets.UTF_8));
 			}
 
-			return new IncrementalRemoteKeyedStateHandle(
-				uuid,
-				keyGroupRange,
-				checkpointId,
-				sharedStates,
-				privateStates,
-				metaDataStateHandle);
+			return INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type ?
+				new IncrementalRemoteBatchKeyedStateHandle(
+					uuid,
+					keyGroupRange,
+					checkpointId,
+					sharedStates,
+					privateStates,
+					metaDataStateHandle,
+					usedSstFiles,
+					totalStateSize) :
+				new IncrementalRemoteKeyedStateHandle(
+					uuid,
+					keyGroupRange,
+					checkpointId,
+					sharedStates,
+					privateStates,
+					metaDataStateHandle);
 		} else {
 			throw new IllegalStateException("Reading invalid KeyedStateHandle, type: " + type);
 		}
@@ -443,6 +481,17 @@ public abstract class MetadataV2V3SerializerBase {
 		if (stateHandle == null) {
 			dos.writeByte(NULL_HANDLE);
 
+		} else if (stateHandle instanceof BatchStateHandle) {
+			dos.writeByte(BATCH_STREAM_STATE_HANDLE);
+			BatchStateHandle batchStateHandle = (BatchStateHandle) stateHandle;
+			Map<StateHandleID, Long> stateFileNameToOffset = batchStateHandle.getStateFileNameToOffset();
+			dos.writeInt(stateFileNameToOffset.size());
+			for (Map.Entry<StateHandleID, Long> entry : stateFileNameToOffset.entrySet()) {
+				dos.writeUTF(entry.getKey().getKeyString());
+				dos.writeLong(entry.getValue());
+			}
+			dos.writeUTF(batchStateHandle.getBatchFileID().getKeyString());
+			serializeStreamStateHandle(batchStateHandle.getDelegateStateHandle(), dos);
 		} else if (stateHandle instanceof RelativeFileStateHandle) {
 			dos.writeByte(RELATIVE_STREAM_STATE_HANDLE);
 			RelativeFileStateHandle relativeFileStateHandle = (RelativeFileStateHandle) stateHandle;
@@ -492,6 +541,19 @@ public abstract class MetadataV2V3SerializerBase {
 			long size = dis.readLong();
 			Path statePath = new Path(context.getExclusiveDirPath(), relativePath);
 			return new RelativeFileStateHandle(statePath, relativePath, size);
+		} else if (BATCH_STREAM_STATE_HANDLE == type) {
+			int fileNum = dis.readInt();
+			Map<StateHandleID, Long> stateFileNameToOffset = new HashMap<>(fileNum);
+			for (int i = 0; i < fileNum; i++) {
+				String stateFileName = dis.readUTF();
+				long offset = dis.readLong();
+
+				stateFileNameToOffset.put(new StateHandleID(stateFileName), offset);
+			}
+
+			String batchFileName = dis.readUTF();
+			StreamStateHandle delegateStateHandle = deserializeStreamStateHandle(dis, context);
+			return new BatchStateHandle(delegateStateHandle, stateFileNameToOffset, new StateHandleID(batchFileName));
 		} else {
 			throw new IOException("Unknown implementation of StreamStateHandle, code: " + type);
 		}

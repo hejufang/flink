@@ -143,6 +143,29 @@ public class MetadataV3SerializerTest {
 		}
 	}
 
+	@Test
+	public void testCheckpointWithOnlyTaskStateWithBatchEnable() throws IOException {
+		String basePath = temporaryFolder.newFolder().toURI().toString();
+		final Random rnd = new Random();
+
+		final int maxTaskStates = 20;
+		final int maxNumSubtasks = 20;
+
+		for (int i = 0; i < 100; ++i) {
+			final long checkpointId = rnd.nextLong() & 0x7fffffffffffffffL;
+
+			final int numTasks = rnd.nextInt(maxTaskStates) + 1;
+			final int numSubtasks = rnd.nextInt(maxNumSubtasks) + 1;
+
+			final Collection<OperatorState> taskStates =
+				CheckpointTestUtils.createOperatorStatesWithBatch(rnd, basePath, numTasks, numSubtasks);
+
+			final Collection<MasterState> masterStates = Collections.emptyList();
+
+			testCheckpointSerialization(checkpointId, taskStates, masterStates, basePath);
+		}
+	}
+
 	/**
 	 * Test checkpoint metadata (de)serialization.
 	 *

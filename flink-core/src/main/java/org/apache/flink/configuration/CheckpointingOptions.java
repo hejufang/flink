@@ -246,4 +246,19 @@ public class CheckpointingOptions {
 		.key("checkpoint.restore-savepoint-path")
 		.noDefaultValue()
 		.withDescription("The path of savepoint.");
+
+	public static final ConfigOption<Boolean> STATE_FILE_BATCH_ENABLE = ConfigOptions
+		.key("state.backend.state-file-batch.enable")
+		.defaultValue(false)
+		.withDescription("Enable batch of multiple sst files into a batch during RocksDB's snapshot");
+
+	public static final ConfigOption<String> STATE_FILE_BATCH_STRATEGY = ConfigOptions
+		.key("state.backend.state-file-batch.strategy")
+		.defaultValue("fix-size-seq")
+		.withDeprecatedKeys("Currently only support fix-size-seq");
+
+	public static final ConfigOption<Long> STATE_FILE_BATCH_SIZE = ConfigOptions
+		.key("state.backend.state-file-batch.max-size")
+		.defaultValue(512 * 1024 * 1024L)
+		.withDeprecatedKeys("Max capacity of one state file batch.");
 }

@@ -16,26 +16,26 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state;
+package org.apache.flink.contrib.streaming.state;
 
-import javax.annotation.Nonnull;
+import org.apache.flink.runtime.state.StateHandleID;
 
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
- * Common interface to all incremental {@link KeyedStateHandle}.
+ * Package a set of RocksDB sst files into a set of sst batches. Each sst file possesses
+ * an exclusive meta info {@link RocksDBFileMeta} to instruct the batching process.
  */
-public interface IncrementalKeyedStateHandle extends KeyedStateHandle {
-
-	/** Returns the ID of the checkpoint for which the handle was created. */
-	long getCheckpointId();
-
-	/** Returns the identifier of the state backend from which this handle was created.*/
-	@Nonnull
-	UUID getBackendIdentifier();
-
-	/** Returns a set of ids of all registered shared states in the backend at the time this was created. */
-	@Nonnull
-	Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs();
+public interface RocksDBSstBatchStrategy {
+	/**
+	 * Batching sst files into sst batches. In return values, files in a batch must be sorted by
+	 * {@link StateHandleID}, for this sequential order will be used to create batch state handle.
+	 *
+	 * @param files files to batch.
+	 * @return sst batches indexed by {@link StateHandleID}, the value of each entry is sorted.
+	 * @throws Exception
+	 */
+	Map<StateHandleID, List<RocksDBFileMeta>> batch(Map<StateHandleID, Path> files) throws Exception;
 }

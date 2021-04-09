@@ -144,6 +144,9 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	/** This determines if incremental checkpointing is enabled. */
 	private final TernaryBoolean enableIncrementalCheckpointing;
 
+	/** This determines the strategy of state files batching. */
+	private RocksDBStateBatchConfig batchConfig;
+
 	/** Thread number used to transfer (download and upload) state, default value: 1. */
 	private int numberOfTransferThreads;
 
@@ -318,6 +321,19 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		// configure incremental checkpoints
 		this.enableIncrementalCheckpointing = original.enableIncrementalCheckpointing.resolveUndefined(
 			config.get(CheckpointingOptions.INCREMENTAL_CHECKPOINTS));
+		// configure state file batching
+		if (original.batchConfig == null) {
+			this.batchConfig = validateAndCreateStateBatchCliConfig(config);
+		} else {
+			this.batchConfig = original.batchConfig;
+		}
+		if (!enableIncrementalCheckpointing.getAsBoolean() && batchConfig.isEnableStateFileBatching()) {
+			String msg = "Could not enable state file batching for RocksDB snapshot if incremental " +
+				"checkpoint is switched off. All state file batching settings are ignored.";
+			LOG.warn(msg);
+			this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
+		}
+
 		this.nThreadOfOperatorStateBackend = config.get(CheckpointingOptions.OPERATOR_STATE_RESTORE_THREAD_NUM);
 
 		if (original.numberOfTransferThreads == UNDEFINED_NUMBER_OF_TRANSFER_THREADS) {
@@ -431,6 +447,22 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	@Override
 	public RocksDBStateBackend configure(ReadableConfig config, ClassLoader classLoader) {
 		return new RocksDBStateBackend(this, config, classLoader);
+	}
+
+	private RocksDBStateBatchConfig validateAndCreateStateBatchCliConfig(ReadableConfig config) throws IllegalArgumentException {
+		if (config.get(CheckpointingOptions.STATE_FILE_BATCH_ENABLE)) {
+			String batchStrategyString = config.get(CheckpointingOptions.STATE_FILE_BATCH_STRATEGY);
+			switch (batchStrategyString) {
+				case "fix-size-seq":
+					return new RocksDBStateBatchConfig(
+						RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER,
+						config.get(CheckpointingOptions.STATE_FILE_BATCH_SIZE));
+				default:
+					throw new IllegalArgumentException("Do not support batch strategy " + batchStrategyString);
+			}
+		} else {
+			return RocksDBStateBatchConfig.createNoBatchingConfig();
+		}
 	}
 
 	// ------------------------------------------------------------------------
@@ -618,6 +650,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			keyGroupCompressionDecorator,
 			cancelStreamRegistry
 		)
+			.setSstBatchConfig(batchConfig)
 			.setEnableIncrementalCheckpointing(isIncrementalCheckpointsEnabled())
 			.setNumberOfTransferingThreads(getNumberOfTransferThreads())
 			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
@@ -965,6 +998,20 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	public void setWriteBatchSize(long writeBatchSize) {
 		checkArgument(writeBatchSize >= 0, "Write batch size have to be no negative.");
 		this.writeBatchSize = writeBatchSize;
+	}
+
+	/**
+	 * Sets the state file batching config in RocksDB snapshot, requires enabling incremental checkpoint.
+	 * @param batchConfig The config of state file batching.
+	 */
+	public void setBatchConfig(RocksDBStateBatchConfig batchConfig) {
+		checkArgument(batchConfig != null, "State file batching config cannot be null");
+		if (!enableIncrementalCheckpointing.getOrDefault(false) && batchConfig.isEnableStateFileBatching()) {
+			// state file batching will not take action if incremental checkpointing is not enabled.
+			LOG.warn("Incremental checkpoint is not set or disabled, " +
+				"state file batching requires enabling incremental checkpointing");
+		}
+		this.batchConfig = batchConfig;
 	}
 
 	// ------------------------------------------------------------------------

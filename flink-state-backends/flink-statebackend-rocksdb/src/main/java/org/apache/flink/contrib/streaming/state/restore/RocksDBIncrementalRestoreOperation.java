@@ -76,7 +76,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -93,7 +92,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 	private static final Logger LOG = LoggerFactory.getLogger(RocksDBIncrementalRestoreOperation.class);
 
 	private final String operatorIdentifier;
-	private final SortedMap<Long, Set<StateHandleID>> restoredSstFiles;
+	private final SortedMap<Long, Map<StateHandleID, StreamStateHandle>> restoredSstFiles;
 	private long lastCompletedCheckpointId;
 	private UUID backendUID;
 	private final long writeBatchSize;
@@ -255,7 +254,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 			new DirectoryStateHandle(temporaryRestoreInstancePath),
 			restoreStateHandle.getKeyGroupRange(),
 			restoreStateHandle.getMetaStateHandle(),
-			restoreStateHandle.getSharedState().keySet());
+			restoreStateHandle.getSharedState());
 	}
 
 	private void cleanUpPathQuietly(@Nonnull Path path) {

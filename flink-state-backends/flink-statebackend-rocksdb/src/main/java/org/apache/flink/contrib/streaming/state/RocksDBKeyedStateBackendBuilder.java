@@ -42,6 +42,7 @@ import org.apache.flink.runtime.state.LocalRecoveryConfig;
 import org.apache.flink.runtime.state.PriorityQueueSetFactory;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamCompressionDecorator;
+import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.heap.HeapPriorityQueueSetFactory;
 import org.apache.flink.runtime.state.heap.InternalKeyContext;
 import org.apache.flink.runtime.state.heap.InternalKeyContextImpl;
@@ -68,7 +69,6 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -108,6 +108,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	/** True if incremental checkpointing is enabled. */
 	private boolean enableIncrementalCheckpointing;
+
+	/** Configuration for state file batching. */
+	private RocksDBStateBatchConfig batchConfig;
 
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
@@ -213,6 +216,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		return this;
 	}
 
+	RocksDBKeyedStateBackendBuilder<K> setSstBatchConfig(RocksDBStateBatchConfig batchConfig) {
+		this.batchConfig = batchConfig;
+		return this;
+	}
+
 	RocksDBKeyedStateBackendBuilder<K> setNativeMetricOptions(RocksDBNativeMetricOptions nativeMetricOptions) {
 		this.nativeMetricOptions = nativeMetricOptions;
 		return this;
@@ -265,7 +273,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		try {
 			// Variables for snapshot strategy when incremental checkpoint is enabled
 			UUID backendUID = UUID.randomUUID();
-			SortedMap<Long, Set<StateHandleID>> materializedSstFiles = new TreeMap<>();
+			SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFiles = new TreeMap<>();
 			long lastCompletedCheckpointId = -1L;
 			if (injectedTestDB != null) {
 				db = injectedTestDB;
@@ -441,7 +449,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		int keyGroupPrefixBytes,
 		RocksDB db,
 		UUID backendUID,
-		SortedMap<Long, Set<StateHandleID>> materializedSstFiles,
+		SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFiles,
 		long lastCompletedCheckpointId,
 		StateStatsTracker statsTracker) {
 		RocksDBSnapshotStrategyBase<K> savepointSnapshotStrategy = new RocksFullSnapshotStrategy<>(
@@ -473,7 +481,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				lastCompletedCheckpointId,
 				numberOfTransferingThreads,
 				maxRetryTimes,
-				statsTracker);
+				statsTracker,
+				batchConfig);
 		} else {
 			checkpointSnapshotStrategy = savepointSnapshotStrategy;
 		}

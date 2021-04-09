@@ -16,26 +16,22 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state;
-
-import javax.annotation.Nonnull;
-
-import java.util.Map;
-import java.util.UUID;
+package org.apache.flink.contrib.streaming.state;
 
 /**
- * Common interface to all incremental {@link KeyedStateHandle}.
+ * Factory class for {@link RocksDBSstBatchStrategy}.
  */
-public interface IncrementalKeyedStateHandle extends KeyedStateHandle {
+public class RocksDBStateBatchStrategyFactory {
+	public static RocksDBSstBatchStrategy create(RocksDBStateBatchConfig config) {
+		if (!config.isEnableStateFileBatching()) {
+			return null;
+		}
 
-	/** Returns the ID of the checkpoint for which the handle was created. */
-	long getCheckpointId();
-
-	/** Returns the identifier of the state backend from which this handle was created.*/
-	@Nonnull
-	UUID getBackendIdentifier();
-
-	/** Returns a set of ids of all registered shared states in the backend at the time this was created. */
-	@Nonnull
-	Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs();
+		switch (config.getBatchMode()) {
+			case FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER:
+				return new RocksDBFixSizeSequentialFileNumberBatchStrategy(config.getBatchSize());
+			default:
+				return null;
+		}
+	}
 }

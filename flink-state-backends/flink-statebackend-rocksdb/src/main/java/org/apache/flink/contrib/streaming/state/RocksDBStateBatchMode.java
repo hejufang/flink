@@ -16,26 +16,24 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state;
-
-import javax.annotation.Nonnull;
-
-import java.util.Map;
-import java.util.UUID;
+package org.apache.flink.contrib.streaming.state;
 
 /**
- * Common interface to all incremental {@link KeyedStateHandle}.
+ * Algorithms for batching sst files into sst batches.
  */
-public interface IncrementalKeyedStateHandle extends KeyedStateHandle {
+public enum RocksDBStateBatchMode {
+	/**
+	 * The batch size is pre-defined by user's configuration.
+	 *
+	 * <p>Feed each sst file to the strategy in the ASC order of sst file's number. The strategy maintains
+	 * one uncompleted batch. When batching a new file, the strategy first checks whether the uncompleted batch
+	 * has sufficient room for the new file. If the check passes, locate the file in the uncompleted batch.
+	 * Otherwise, finalize the uncompleted batch and allocate a new one to accommodate the new file.
+	 */
+	FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER,
 
-	/** Returns the ID of the checkpoint for which the handle was created. */
-	long getCheckpointId();
-
-	/** Returns the identifier of the state backend from which this handle was created.*/
-	@Nonnull
-	UUID getBackendIdentifier();
-
-	/** Returns a set of ids of all registered shared states in the backend at the time this was created. */
-	@Nonnull
-	Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs();
+	/**
+	 * No batch, just upload each sst file.
+	 */
+	NONE
 }
