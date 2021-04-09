@@ -19,14 +19,13 @@
 # shell configurations which must be set at top level.
 
 common:
-  taskmanager.memory.preallocate: false
   parallelism.default: 1
   stream-partitioner.default: rescale
   #  io.tmp.dirs: /opt/tmp/flink
   #  taskmanager.tmp.dirs: /opt/tmp/flink
   state.backend: rocksdb
   #  state.backend.rocksdb.localdir: /opt/tmp/flink-dev/flink-rocksdb-local
-  taskmanager.network.memory.fraction: 0.3
+  taskmanager.memory.network.fraction: 0.3
 
   # kubernetes configuration
   kubernetes.flink.log.dir: /opt/tiger/flink_deploy/log
@@ -43,8 +42,6 @@ common:
   historyserver.web.tmpdir: /opt/tmp/flink/historyserver/tmpdir
 
   akka.ask.timeout: 60 s
-
-  containerized.jobmanager.heap-cutoff-ratio: 0.1
 
   flink.lib.path: lib_new_conf
 
@@ -86,9 +83,6 @@ common:
   # GC log options
   flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
   flink.gc.g1: false
-
-  # subpartition type
-  taskmanager.network.bounded-blocking-subpartition-type: file
 
   jobmanager.upload-user-jar: false
 
