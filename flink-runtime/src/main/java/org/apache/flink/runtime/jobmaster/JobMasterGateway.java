@@ -247,6 +247,7 @@ public interface JobMasterGateway extends
 	CompletableFuture<String> stopWithSavepoint(
 		@Nullable final String targetDirectory,
 		final boolean advanceToEndOfEventTime,
+		final long savepointTimeout,
 		@RpcTimeout final Time timeout);
 
 	/**

@@ -92,6 +92,7 @@ public class CliFrontendParser {
 			"Address of the JobManager to which to connect. " +
 			"Use this flag to connect to a different JobManager than the one specified in the configuration.");
 
+	// there is another dynamic property(checkpoint.restore-savepoint-path) whose priority is higher than this
 	public static final Option SAVEPOINT_PATH_OPTION = new Option("s", "fromSavepoint", true,
 			"Path to a savepoint to restore the job from (for example hdfs:///flink/savepoint-1537).");
 
@@ -136,6 +137,9 @@ public class CliFrontendParser {
 	public static final Option STOP_WITH_SAVEPOINT_PATH = new Option("p", "savepointPath", true,
 			"Path to the savepoint (for example hdfs:///flink/savepoint-1537). " +
 					"If no directory is specified, the configured default will be used (\"" + CheckpointingOptions.SAVEPOINT_DIRECTORY.key() + "\").");
+
+	public static final Option STOP_WITH_SAVEPOINT_TIMEOUT = new Option("pt", "savepointTimeout", true,
+			"Timeout for the stop-with-savepoint operation.");
 
 	public static final Option STOP_AND_DRAIN = new Option("d", "drain", false,
 			"Send MAX_WATERMARK before taking the savepoint and stopping the pipelne.");
@@ -318,12 +322,15 @@ public class CliFrontendParser {
 	static Options getStopCommandOptions() {
 		return buildGeneralOptions(new Options())
 				.addOption(STOP_WITH_SAVEPOINT_PATH)
+				.addOption(STOP_WITH_SAVEPOINT_TIMEOUT)
+				.addOption(CLUSTER_NAME_OPTION)
 				.addOption(STOP_AND_DRAIN);
 	}
 
 	static Options getSavepointCommandOptions() {
 		Options options = buildGeneralOptions(new Options());
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
+		options.addOption(CLUSTER_NAME_OPTION);
 		return options.addOption(JAR_OPTION);
 	}
 
@@ -545,6 +552,10 @@ public class CliFrontendParser {
 		} else {
 			return SavepointRestoreSettings.none();
 		}
+	}
+
+	public static SavepointRestoreSettings createSavepointRestoreSettings(String path, boolean allowNonRestoredState) {
+		return SavepointRestoreSettings.forPath(path, allowNonRestoredState);
 	}
 
 	// --------------------------------------------------------------------------------------------

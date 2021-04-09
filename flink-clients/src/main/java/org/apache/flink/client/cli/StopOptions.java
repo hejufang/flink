@@ -22,6 +22,7 @@ import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import static org.apache.flink.client.cli.CliFrontendParser.STOP_AND_DRAIN;
 import static org.apache.flink.client.cli.CliFrontendParser.STOP_WITH_SAVEPOINT_PATH;
+import static org.apache.flink.client.cli.CliFrontendParser.STOP_WITH_SAVEPOINT_TIMEOUT;
 
 /**
  * Command line options for the STOP command.
@@ -37,6 +38,8 @@ class StopOptions extends CommandLineOptions {
 
 	private final boolean advanceToEndOfEventTime;
 
+	private final long timeout;
+
 	StopOptions(CommandLine line) {
 		super(line);
 		this.args = line.getArgs();
@@ -45,6 +48,12 @@ class StopOptions extends CommandLineOptions {
 		this.targetDirectory = line.getOptionValue(STOP_WITH_SAVEPOINT_PATH.getOpt());
 
 		this.advanceToEndOfEventTime = line.hasOption(STOP_AND_DRAIN.getOpt());
+
+		if (line.hasOption(STOP_WITH_SAVEPOINT_TIMEOUT.getOpt())) {
+			this.timeout = Long.parseLong(line.getOptionValue(STOP_WITH_SAVEPOINT_TIMEOUT.getOpt()));
+		} else {
+			this.timeout = -1;
+		}
 	}
 
 	String[] getArgs() {
@@ -61,5 +70,9 @@ class StopOptions extends CommandLineOptions {
 
 	boolean shouldAdvanceToEndOfEventTime() {
 		return advanceToEndOfEventTime;
+	}
+
+	public long getTimeout() {
+		return timeout;
 	}
 }

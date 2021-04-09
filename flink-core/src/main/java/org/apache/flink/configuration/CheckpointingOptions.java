@@ -241,4 +241,9 @@ public class CheckpointingOptions {
 		.key("checkpoint.client-checkpoint-verification-enable")
 		.defaultValue(false)
 		.withDescription("Verify the validation of latest checkpoint at client.");
+
+	public static final ConfigOption<String> RESTORE_SAVEPOINT_PATH = ConfigOptions
+		.key("checkpoint.restore-savepoint-path")
+		.noDefaultValue()
+		.withDescription("The path of savepoint.");
 }

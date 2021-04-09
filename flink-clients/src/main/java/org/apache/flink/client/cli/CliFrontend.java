@@ -241,6 +241,12 @@ public class CliFrontend {
 
 		final Configuration effectiveConfiguration = getEffectiveConfiguration(
 				activeCommandLine, commandLine, programOptions, jobJars);
+		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
+			programOptions.setSavepointSettings(
+				effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
+				effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
+			);
+		}
 
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
@@ -593,6 +599,8 @@ public class CliFrontend {
 
 		logAndSysout((advanceToEndOfEventTime ? "Draining job " : "Suspending job ") + "\"" + jobId + "\" with a savepoint.");
 
+		final long timeout = stopOptions.getTimeout();
+
 		final CustomCommandLine activeCommandLine = validateAndGetActiveCommandLine(commandLine);
 		runClusterAction(
 			activeCommandLine,
@@ -600,7 +608,7 @@ public class CliFrontend {
 			clusterClient -> {
 				final String savepointPath;
 				try {
-					savepointPath = clusterClient.stopWithSavepoint(jobId, advanceToEndOfEventTime, targetDirectory).get(clientTimeout.toMillis(), TimeUnit.MILLISECONDS);
+					savepointPath = clusterClient.stopWithSavepoint(jobId, advanceToEndOfEventTime, targetDirectory, timeout).get(clientTimeout.toMillis(), TimeUnit.MILLISECONDS);
 				} catch (Exception e) {
 					throw new FlinkException("Could not stop with a savepoint job \"" + jobId + "\".", e);
 				}

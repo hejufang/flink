@@ -124,7 +124,7 @@ public class SavepointEnvironment implements Environment {
 
 	@Override
 	public String getJobName() {
-		return null;
+		return "savepointEnvironment";
 	}
 
 	@Override

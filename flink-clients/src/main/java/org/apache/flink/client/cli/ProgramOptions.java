@@ -65,7 +65,7 @@ public class ProgramOptions extends CommandLineOptions {
 
 	private final boolean shutdownOnAttachedExit;
 
-	private final SavepointRestoreSettings savepointSettings;
+	private SavepointRestoreSettings savepointSettings;
 
 	protected ProgramOptions(CommandLine line) throws CliArgsException {
 		super(line);
@@ -162,6 +162,10 @@ public class ProgramOptions extends CommandLineOptions {
 
 	public SavepointRestoreSettings getSavepointRestoreSettings() {
 		return savepointSettings;
+	}
+
+	public void setSavepointSettings(String path, boolean allowNonRestoredState) {
+		this.savepointSettings = CliFrontendParser.createSavepointRestoreSettings(path, allowNonRestoredState);
 	}
 
 	public void applyToConfiguration(Configuration configuration) {

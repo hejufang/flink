@@ -63,6 +63,13 @@ public interface CheckpointScheduler {
 	ScheduledFuture<?> scheduleTimeoutCanceller(Runnable canceller);
 
 	/**
+	 * Schedule a cleanup thread in case the checkpoint expires before it completes.
+	 */
+	default ScheduledFuture<?> scheduleTimeoutCanceller(long timeout, Runnable canceller) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Adjust scheduling time to ensure the time between the last and next checkpoint is
 	 * greater than a predefined value (in ns for exact measurement of time).
 	 *

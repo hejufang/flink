@@ -2151,7 +2151,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 					}));
 
 		final CompletableFuture<CompletedCheckpoint> savepointFuture = coordinator
-				.triggerSynchronousSavepoint(false, "test-dir");
+				.triggerSynchronousSavepoint(false, "test-dir", -1L);
 
 		manuallyTriggeredScheduledExecutor.triggerAll();
 		final PendingCheckpoint syncSavepoint = declineSynchronousSavepoint(jobId, coordinator, attemptID1, expectedRootCause);

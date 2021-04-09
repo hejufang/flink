@@ -907,7 +907,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 	}
 
 	@Override
-	public CompletableFuture<String> stopWithSavepoint(final String targetDirectory, final boolean advanceToEndOfEventTime) {
+	public CompletableFuture<String> stopWithSavepoint(final String targetDirectory, final boolean advanceToEndOfEventTime, long savepointTimeout) {
 		mainThreadExecutor.assertRunningInMainThread();
 
 		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
@@ -935,7 +935,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		checkpointCoordinator.stopCheckpointScheduler();
 
 		final CompletableFuture<String> savepointFuture = checkpointCoordinator
-			.triggerSynchronousSavepoint(advanceToEndOfEventTime, targetDirectory)
+			.triggerSynchronousSavepoint(advanceToEndOfEventTime, targetDirectory, savepointTimeout)
 			.thenApply(CompletedCheckpoint::getExternalPointer);
 
 		final CompletableFuture<JobStatus> terminationFuture = executionGraph

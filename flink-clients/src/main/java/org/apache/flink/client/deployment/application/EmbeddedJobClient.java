@@ -89,7 +89,7 @@ public class EmbeddedJobClient implements JobClient, CoordinationRequestGateway 
 
 	@Override
 	public CompletableFuture<String> stopWithSavepoint(final boolean advanceToEndOfEventTime, @Nullable final String savepointDirectory) {
-		return dispatcherGateway.stopWithSavepoint(jobId, savepointDirectory, advanceToEndOfEventTime, timeout);
+		return dispatcherGateway.stopWithSavepoint(jobId, savepointDirectory, advanceToEndOfEventTime, -1L, timeout);
 	}
 
 	@Override

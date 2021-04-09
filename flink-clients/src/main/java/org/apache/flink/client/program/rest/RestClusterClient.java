@@ -408,7 +408,8 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 	public CompletableFuture<String> stopWithSavepoint(
 			final JobID jobId,
 			final boolean advanceToEndOfTime,
-			@Nullable final String savepointDirectory) {
+			@Nullable final String savepointDirectory,
+			final long timeout) {
 
 		final StopWithSavepointTriggerHeaders stopWithSavepointTriggerHeaders = StopWithSavepointTriggerHeaders.getInstance();
 
@@ -419,7 +420,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		final CompletableFuture<TriggerResponse> responseFuture = sendRequest(
 				stopWithSavepointTriggerHeaders,
 				stopWithSavepointTriggerMessageParameters,
-				new StopWithSavepointRequestBody(savepointDirectory, advanceToEndOfTime));
+				new StopWithSavepointRequestBody(savepointDirectory, advanceToEndOfTime, timeout));
 
 		return responseFuture.thenCompose(savepointTriggerResponseBody -> {
 			final TriggerId savepointTriggerId = savepointTriggerResponseBody.getTriggerId();

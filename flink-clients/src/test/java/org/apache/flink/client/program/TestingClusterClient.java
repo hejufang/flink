@@ -126,7 +126,7 @@ public class TestingClusterClient<T> implements ClusterClient<T> {
 	}
 
 	@Override
-	public CompletableFuture<String> stopWithSavepoint(JobID jobId, boolean advanceToEndOfEventTime, @Nullable String savepointDirectory) {
+	public CompletableFuture<String> stopWithSavepoint(JobID jobId, boolean advanceToEndOfEventTime, @Nullable String savepointDirectory, long savepointTimeout) {
 		return stopWithSavepointFunction.apply(jobId, advanceToEndOfEventTime, savepointDirectory);
 	}
 

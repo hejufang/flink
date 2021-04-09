@@ -166,6 +166,11 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 	}
 
 	@Override
+	public ScheduledFuture<?> scheduleTimeoutCanceller(long timeout, Runnable canceller) {
+		return timer.schedule(canceller, timeout, TimeUnit.MILLISECONDS);
+	}
+
+	@Override
 	public void checkMinPauseSinceLastCheckpoint(long lastCompletionNanos) throws CheckpointException {
 		final long elapsedTimeMillis = (System.nanoTime() - lastCompletionNanos) / 1_000_000L;
 

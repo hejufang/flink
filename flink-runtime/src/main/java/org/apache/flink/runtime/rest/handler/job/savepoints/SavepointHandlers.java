@@ -141,6 +141,7 @@ public class SavepointHandlers extends AbstractAsynchronousOperationHandlers<Asy
 
 			final JobID jobId = request.getPathParameter(JobIDPathParameter.class);
 			final String requestedTargetDirectory = request.getRequestBody().getTargetDirectory();
+			final long timeout = request.getRequestBody().getTimeout();
 
 			if (requestedTargetDirectory == null && defaultSavepointDir == null) {
 				throw new RestHandlerException(
@@ -152,7 +153,7 @@ public class SavepointHandlers extends AbstractAsynchronousOperationHandlers<Asy
 
 			final boolean advanceToEndOfEventTime = request.getRequestBody().shouldDrain();
 			final String targetDirectory = requestedTargetDirectory != null ? requestedTargetDirectory : defaultSavepointDir;
-			return gateway.stopWithSavepoint(jobId, targetDirectory, advanceToEndOfEventTime, RpcUtils.INF_TIMEOUT);
+			return gateway.stopWithSavepoint(jobId, targetDirectory, advanceToEndOfEventTime, timeout, RpcUtils.INF_TIMEOUT);
 		}
 	}
 

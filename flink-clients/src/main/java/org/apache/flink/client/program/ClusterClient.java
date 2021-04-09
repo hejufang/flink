@@ -158,7 +158,11 @@ public interface ClusterClient<T> extends AutoCloseable {
 	 * @param savepointDirectory directory the savepoint should be written to
 	 * @return a {@link CompletableFuture} containing the path where the savepoint is located
 	 */
-	CompletableFuture<String> stopWithSavepoint(final JobID jobId, final boolean advanceToEndOfEventTime, @Nullable final String savepointDirectory);
+	default CompletableFuture<String> stopWithSavepoint(final JobID jobId, final boolean advanceToEndOfEventTime, @Nullable final String savepointDirectory) {
+		return stopWithSavepoint(jobId, advanceToEndOfEventTime, savepointDirectory, -1L);
+	}
+
+	CompletableFuture<String> stopWithSavepoint(final JobID jobId, final boolean advanceToEndOfEventTime, @Nullable final String savepointDirectory, final long timeout);
 
 	/**
 	 * Triggers a savepoint for the job identified by the job id. The savepoint will be written to the given savepoint

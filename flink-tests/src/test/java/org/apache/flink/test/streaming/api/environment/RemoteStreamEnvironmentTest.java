@@ -267,7 +267,8 @@ public class RemoteStreamEnvironmentTest extends TestLogger {
 		public CompletableFuture<String> stopWithSavepoint(
 				JobID jobId,
 				boolean advanceToEndOfEventTime,
-				@Nullable String savepointDirectory) {
+				@Nullable String savepointDirectory,
+				long timeout) {
 			return null;
 		}
 

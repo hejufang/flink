@@ -713,9 +713,10 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	public CompletableFuture<String> stopWithSavepoint(
 			@Nullable final String targetDirectory,
 			final boolean advanceToEndOfEventTime,
+			final long savepointTimeout,
 			final Time timeout) {
 
-		return schedulerNG.stopWithSavepoint(targetDirectory, advanceToEndOfEventTime);
+		return schedulerNG.stopWithSavepoint(targetDirectory, advanceToEndOfEventTime, savepointTimeout);
 	}
 
 	@Override
