@@ -105,6 +105,10 @@ public class JobVertex implements java.io.Serializable {
 	/** The name of the vertex. This will be shown in runtime logs and will be in the runtime environment. */
 	private String name;
 
+	/** The name of the vertex used for metrics. Reformatting is required before metric reporting.
+	 * This will be shown in Flink UI. */
+	private String metricName;
+
 	/** Optionally, a sharing group that allows subtasks from different job vertices to run concurrently in one slot. */
 	private SlotSharingGroup slotSharingGroup;
 
@@ -150,6 +154,7 @@ public class JobVertex implements java.io.Serializable {
 	 */
 	public JobVertex(String name, JobVertexID id) {
 		this.name = name == null ? DEFAULT_NAME : name;
+		this.metricName = this.name;
 		this.id = id == null ? new JobVertexID() : id;
 		OperatorIDPair operatorIDPair = OperatorIDPair.generatedIDOnly(OperatorID.fromJobVertexID(this.id));
 		this.operatorIDs = Collections.singletonList(operatorIDPair);
@@ -164,6 +169,7 @@ public class JobVertex implements java.io.Serializable {
 	 */
 	public JobVertex(String name, JobVertexID primaryId, List<OperatorIDPair> operatorIDPairs) {
 		this.name = name == null ? DEFAULT_NAME : name;
+		this.metricName = this.name;
 		this.id = primaryId == null ? new JobVertexID() : primaryId;
 		this.operatorIDs = Collections.unmodifiableList(operatorIDPairs);
 	}
@@ -195,6 +201,24 @@ public class JobVertex implements java.io.Serializable {
 	 */
 	public void setName(String name) {
 		this.name = name == null ? DEFAULT_NAME : name;
+	}
+
+	/**
+	 * Returns the name of the vertex used for metrics.
+	 *
+	 * @return The name of the vertex used for metrics.
+	 */
+	public String getMetricName() {
+		return this.metricName;
+	}
+
+	/**
+	 * Sets the name of the vertex used for metrics.
+	 *
+	 * @param metricName The new name.
+	 */
+	public void setMetricName(String metricName) {
+		this.metricName = metricName == null ? DEFAULT_NAME : metricName;
 	}
 
 	/**

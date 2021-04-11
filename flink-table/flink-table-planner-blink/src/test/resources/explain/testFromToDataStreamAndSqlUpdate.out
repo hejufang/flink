@@ -10,14 +10,14 @@ LegacySink(name=[`default_catalog`.`default_database`.`MySink1`], fields=[first]
 
 == Physical Execution Plan ==
  : Data Source
-	content : Source_Collection_So
+	content : Source: Collection Source
 
 	 : Operator
-		content : SourceConversion_tab
+		content : SourceConversion(table=[default_catalog.default_database.MyTable], fields=[first, id, score, last])
 		ship_strategy : FORWARD
 
 		 : Operator
-			content : Calc_select_first_
+			content : Calc(select=[first])
 			ship_strategy : FORWARD
 
 			 : Operator
@@ -29,6 +29,6 @@ LegacySink(name=[`default_catalog`.`default_database`.`MySink1`], fields=[first]
 					ship_strategy : FORWARD
 
 					 : Data Sink
-						content : Sink_CsvTableSink_fi
+						content : Sink: CsvTableSink(first)
 						ship_strategy : FORWARD
 

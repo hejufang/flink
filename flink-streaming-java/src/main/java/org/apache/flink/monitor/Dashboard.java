@@ -22,6 +22,7 @@ import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
+import org.apache.flink.util.MetricUtils;
 import org.apache.flink.util.StringUtils;
 
 import org.json.simple.JSONArray;
@@ -39,10 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.flink.monitor.utils.Utils.formatMetricsName;
-
 /**
- * Provides methods for registring grafana dashboard.
+ * Provides methods for registering grafana dashboard.
  */
 public class Dashboard {
 	private static final Logger LOG = LoggerFactory.getLogger(Dashboard.class);
@@ -76,7 +75,7 @@ public class Dashboard {
 		} else {
 			this.jobName = jobNameFromProperty;
 		}
-		this.formatJobName = formatMetricsName(jobGraph.getName());
+		this.formatJobName = MetricUtils.formatJobMetricName(jobGraph.getName());
 		this.dataSource = dataSource;
 	}
 
@@ -441,8 +440,8 @@ public class Dashboard {
 
 	private String renderDashboard() {
 		List<String> rows = new ArrayList<>();
-		List <String> operators = Utils.getOperaters(streamGraph);
-		List <String> operatorsButSources = Utils.getOperatersExceptSources(streamGraph);
+		List <String> operators = Utils.getOperators(streamGraph);
+		List <String> operatorsButSources = Utils.getOperatorsExceptSources(streamGraph);
 		List <String> sources = Utils.getSources(streamGraph);
 		List <String> sinks = Utils.getSinks(streamGraph);
 		List <String> tasks = Utils.getTasks(jobGraph);

@@ -34,6 +34,13 @@ public interface AccessExecutionJobVertex {
 	String getName();
 
 	/**
+	 * Returns the metric name for this job vertex.
+	 *
+	 * @return metric name for this job vertex.
+	 */
+	String getMetricName();
+
+	/**
 	 * Returns the parallelism for this job vertex.
 	 *
 	 * @return parallelism for this job vertex.

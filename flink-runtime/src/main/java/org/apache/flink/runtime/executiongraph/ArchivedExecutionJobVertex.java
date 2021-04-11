@@ -35,6 +35,8 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 
 	private final String name;
 
+	private final String metricName;
+
 	private final int parallelism;
 
 	private final int maxParallelism;
@@ -53,6 +55,7 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 
 		this.id = jobVertex.getJobVertexId();
 		this.name = jobVertex.getJobVertex().getName();
+		this.metricName = jobVertex.getJobVertex().getMetricName();
 		this.parallelism = jobVertex.getParallelism();
 		this.maxParallelism = jobVertex.getMaxParallelism();
 		this.resourceProfile = jobVertex.getResourceProfile();
@@ -69,6 +72,7 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 		this.taskVertices = taskVertices;
 		this.id = id;
 		this.name = name;
+		this.metricName = name;
 		this.parallelism = parallelism;
 		this.maxParallelism = maxParallelism;
 		this.resourceProfile = resourceProfile;
@@ -82,6 +86,11 @@ public class ArchivedExecutionJobVertex implements AccessExecutionJobVertex, Ser
 	@Override
 	public String getName() {
 		return name;
+	}
+
+	@Override
+	public String getMetricName() {
+		return metricName;
 	}
 
 	@Override

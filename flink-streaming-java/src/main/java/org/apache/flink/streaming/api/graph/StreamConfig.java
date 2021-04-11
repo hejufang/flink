@@ -83,6 +83,7 @@ public class StreamConfig implements Serializable {
 	private static final String EDGES_IN_ORDER = "edgesInOrder";
 	private static final String IN_STREAM_EDGES = "inStreamEdges";
 	private static final String OPERATOR_NAME = "operatorName";
+	private static final String OPERATOR_METRIC_NAME = "operatorMetricName";
 	private static final String OPERATOR_ID = "operatorID";
 	private static final String CHAIN_END = "chainEnd";
 
@@ -470,6 +471,14 @@ public class StreamConfig implements Serializable {
 
 	public String getOperatorName() {
 		return this.config.getString(OPERATOR_NAME, null);
+	}
+
+	public void setOperatorMetricName(String name) {
+		this.config.setString(OPERATOR_METRIC_NAME, name);
+	}
+
+	public String getOperatorMetricName() {
+		return this.config.getString(OPERATOR_METRIC_NAME, null);
 	}
 
 	public void setChainIndex(int index) {

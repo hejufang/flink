@@ -126,6 +126,7 @@ import org.apache.flink.runtime.util.JvmUtils;
 import org.apache.flink.types.SerializableOptional;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.MetricUtils;
 import org.apache.flink.util.OptionalConsumer;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedValue;
@@ -562,10 +563,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 			TaskMetricGroup taskMetricGroup = taskManagerMetricGroup.addTaskForJob(
 				jobInformation.getJobId(),
-				jobInformation.getJobName(),
+				MetricUtils.formatJobMetricName(jobInformation.getJobName()),
 				taskInformation.getJobVertexId(),
 				tdd.getExecutionAttemptId(),
-				taskInformation.getTaskName(),
+				MetricUtils.formatTaskMetricName(taskInformation.getTaskMetricName()),
 				tdd.getSubtaskIndex(),
 				tdd.getAttemptNumber());
 

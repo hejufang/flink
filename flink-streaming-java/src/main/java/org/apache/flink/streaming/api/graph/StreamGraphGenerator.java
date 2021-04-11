@@ -100,8 +100,6 @@ public class StreamGraphGenerator {
 
 	private static final Logger LOG = LoggerFactory.getLogger(StreamGraphGenerator.class);
 
-	private static final int OPERATOR_NAME_MAX_LENGTH = 20;
-
 	public static final int DEFAULT_LOWER_BOUND_MAX_PARALLELISM = KeyGroupRangeAssignment.DEFAULT_LOWER_BOUND_MAX_PARALLELISM;
 
 	public static final ScheduleMode DEFAULT_SCHEDULE_MODE = ScheduleMode.EAGER;
@@ -234,7 +232,7 @@ public class StreamGraphGenerator {
 			transform(transformation);
 		}
 
-		replaceOperatorName();
+		setUniqueOperatorMetricNames();
 
 		final StreamGraph builtStreamGraph = streamGraph;
 
@@ -889,16 +887,12 @@ public class StreamGraphGenerator {
 		return null;
 	}
 
-	public void replaceOperatorName() {
-		Map<String, Integer> prefixIndexMapPerJob = new HashMap<>();
+	private void setUniqueOperatorMetricNames() {
+		Map<String, Integer> suffixIndexMapPerJob = new HashMap<>();
 		for (StreamNode node : streamGraph.getStreamNodes()) {
-			String operatorName = node.getOperatorName();
-			operatorName = operatorName.replaceAll("\\W", "_").replaceAll("_+", "_");
-			if (operatorName.length() > OPERATOR_NAME_MAX_LENGTH) {
-				operatorName = operatorName.substring(0, OPERATOR_NAME_MAX_LENGTH);
-			}
-			node.setOperatorName(
-				UniqueNameGenerator.appendSuffixIfNotUnique(operatorName, prefixIndexMapPerJob));
+			String operatorMetricName = node.getOperatorMetricName();
+			node.setOperatorMetricName(
+				UniqueNameGenerator.appendSuffixIfNotUnique(operatorMetricName, suffixIndexMapPerJob));
 		}
 	}
 }

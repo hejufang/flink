@@ -33,6 +33,7 @@ import org.apache.flink.streaming.api.operators.CoordinatedOperatorFactory;
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory;
+import org.apache.flink.util.MetricUtils;
 
 import javax.annotation.Nullable;
 
@@ -64,6 +65,7 @@ public class StreamNode implements Serializable {
 	private int managedMemoryWeight = Transformation.DEFAULT_MANAGED_MEMORY_WEIGHT;
 	private long bufferTimeout;
 	private String operatorName;
+	private String operatorMetricName;
 	private @Nullable String slotSharingGroup;
 	private @Nullable String coLocationGroup;
 	private KeySelector<?, ?>[] statePartitioners = new KeySelector[0];
@@ -108,6 +110,7 @@ public class StreamNode implements Serializable {
 			Class<? extends AbstractInvokable> jobVertexClass) {
 		this.id = id;
 		this.operatorName = operatorName;
+		this.operatorMetricName = MetricUtils.formatOperatorMetricName(operatorName);
 		this.operatorFactory = operatorFactory;
 		this.outputSelectors = outputSelector;
 		this.jobVertexClass = jobVertexClass;
@@ -241,6 +244,14 @@ public class StreamNode implements Serializable {
 
 	public void setOperatorName(String operatorName) {
 		this.operatorName = operatorName;
+	}
+
+	public String getOperatorMetricName() {
+		return operatorMetricName;
+	}
+
+	public void setOperatorMetricName(String operatorMetricName) {
+		this.operatorMetricName = operatorMetricName;
 	}
 
 	public List<OutputSelector<?>> getOutputSelectors() {

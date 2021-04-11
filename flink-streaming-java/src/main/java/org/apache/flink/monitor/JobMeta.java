@@ -54,7 +54,7 @@ public class JobMeta {
 			ConfigConstants.APPLICATION_NAME_DEFAULT);
 		jobName = streamGraph.getJobName();
 		tasks = Utils.list2JSONArray(Utils.getTasks(jobGraph)).toJSONString();
-		operators = Utils.list2JSONArray(Utils.getOperaters(streamGraph)).toJSONString();
+		operators = Utils.list2JSONArray(Utils.getOperators(streamGraph)).toJSONString();
 		user = System.getProperty(ConfigConstants.FLINK_OWNER_KEY,
 			ConfigConstants.FLINK_OWNER_DEFAULT);
 		SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -62,7 +62,7 @@ public class JobMeta {
 		topics = Utils.getKafkaTopics().toJSONString();
 		dataSource = System.getProperty(ConfigConstants.DASHBOARD_DATA_SOURCE_KEY,
 				ConfigConstants.DASHBOARD_DATA_SOURCE_DEFAULT);
-		operatorsButSources = Utils.list2JSONArray(Utils.getOperatersExceptSources(streamGraph)).toJSONString();
+		operatorsButSources = Utils.list2JSONArray(Utils.getOperatorsExceptSources(streamGraph)).toJSONString();
 		sources = Utils.list2JSONArray(Utils.getSources(streamGraph)).toJSONString();
 		sinks = Utils.list2JSONArray(Utils.getSinks(streamGraph)).toJSONString();
 		jobType = System.getProperty(ConfigConstants.FLINK_JOB_TYPE_KEY,

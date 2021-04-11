@@ -29,6 +29,7 @@ import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
 import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.apache.flink.runtime.metrics.util.DummyCharacterFilter;
 import org.apache.flink.util.AbstractID;
+import org.apache.flink.util.MetricUtils;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.After;
@@ -175,12 +176,12 @@ public class TaskMetricGroupTest extends TestLogger {
 		TaskManagerJobMetricGroup job = new TaskManagerJobMetricGroup(registry, tm, new JobID(), "jobname");
 		TaskMetricGroup taskMetricGroup = new TaskMetricGroup(registry, job, new JobVertexID(), new AbstractID(), "task", 0, 0);
 
-		String originalName = new String(new char[100]).replace("\0", "-");
+		String originalName = new String(new char[100]).replace("\0", "i");
 		OperatorMetricGroup operatorMetricGroup = taskMetricGroup.getOrAddOperator(originalName);
 
 		String storedName = operatorMetricGroup.getScopeComponents()[0];
-		Assert.assertEquals(TaskMetricGroup.METRICS_OPERATOR_NAME_MAX_LENGTH, storedName.length());
-		Assert.assertEquals(originalName.substring(0, TaskMetricGroup.METRICS_OPERATOR_NAME_MAX_LENGTH), storedName);
+		Assert.assertEquals(MetricUtils.METRICS_OPERATOR_NAME_MAX_LENGTH, storedName.length());
+		Assert.assertEquals(originalName.substring(0, MetricUtils.METRICS_OPERATOR_NAME_MAX_LENGTH), storedName);
 		registry.shutdown().get();
 	}
 

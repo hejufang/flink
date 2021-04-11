@@ -38,6 +38,9 @@ public class TaskInformation implements Serializable {
 	/** Name of the task. */
 	private final String taskName;
 
+	/** Name of the task used for metrics. */
+	private final String taskMetricName;
+
 	/** The number of subtasks for this operator. */
 	private final int numberOfSubtasks;
 
@@ -51,14 +54,26 @@ public class TaskInformation implements Serializable {
 	private final Configuration taskConfiguration;
 
 	public TaskInformation(
+		JobVertexID jobVertexId,
+		String taskName,
+		int numberOfSubtasks,
+		int maxNumberOfSubtasks,
+		String invokableClassName,
+		Configuration taskConfiguration) {
+		this(jobVertexId, taskName, taskName, numberOfSubtasks, maxNumberOfSubtasks, invokableClassName, taskConfiguration);
+	}
+
+	public TaskInformation(
 			JobVertexID jobVertexId,
 			String taskName,
+			String taskMetricName,
 			int numberOfSubtasks,
 			int maxNumberOfSubtasks,
 			String invokableClassName,
 			Configuration taskConfiguration) {
 		this.jobVertexId = Preconditions.checkNotNull(jobVertexId);
 		this.taskName = Preconditions.checkNotNull(taskName);
+		this.taskMetricName = Preconditions.checkNotNull(taskMetricName);
 		this.numberOfSubtasks = numberOfSubtasks;
 		this.maxNumberOfSubtasks = maxNumberOfSubtasks;
 		this.invokableClassName = Preconditions.checkNotNull(invokableClassName);
@@ -71,6 +86,10 @@ public class TaskInformation implements Serializable {
 
 	public String getTaskName() {
 		return taskName;
+	}
+
+	public String getTaskMetricName() {
+		return taskMetricName;
 	}
 
 	public int getNumberOfSubtasks() {

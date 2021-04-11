@@ -319,6 +319,11 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 	}
 
 	@Override
+	public String getMetricName() {
+		return getJobVertex().getMetricName();
+	}
+
+	@Override
 	public int getParallelism() {
 		return parallelism;
 	}
@@ -398,6 +403,7 @@ public class ExecutionJobVertex implements AccessExecutionJobVertex, Archiveable
 				final TaskInformation taskInformation = new TaskInformation(
 					jobVertex.getID(),
 					jobVertex.getName(),
+					jobVertex.getMetricName(),
 					parallelism,
 					maxParallelism,
 					jobVertex.getInvokableClassName(),

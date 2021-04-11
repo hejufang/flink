@@ -106,6 +106,7 @@ public class JobDetailsInfoTest extends RestResponseMarshallingTestBase<JobDetai
 			random.nextLong(),
 			tasksPerState,
 			jobVertexMetrics,
-			false);
+			false,
+			"test");
 	}
 }

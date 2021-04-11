@@ -62,7 +62,7 @@ public class JsonPlanGenerator {
 						vertex.getResultOptimizerProperties() : EMPTY;
 				
 				String description = vertex.getOperatorPrettyName() != null ?
-						vertex.getOperatorPrettyName() : vertex.getName();
+						vertex.getOperatorPrettyName() : vertex.getMetricName();
 
 				// make sure the encoding is HTML pretty
 				description = StringEscapeUtils.escapeHtml4(description);

@@ -87,6 +87,7 @@ export interface VerticesItemInterface {
   tasks: TasksStatus;
   metrics: MetricsStatus;
   isCopy: boolean;
+  fullName: string;
 }
 
 export interface VerticesItemRangeInterface extends VerticesItemInterface {

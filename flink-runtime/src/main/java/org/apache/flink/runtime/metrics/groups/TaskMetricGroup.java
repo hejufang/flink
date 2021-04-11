@@ -26,6 +26,7 @@ import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.dump.QueryScopeInfo;
 import org.apache.flink.runtime.metrics.scope.ScopeFormat;
 import org.apache.flink.util.AbstractID;
+import org.apache.flink.util.MetricUtils;
 
 import javax.annotation.Nullable;
 
@@ -43,8 +44,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class TaskMetricGroup extends ComponentMetricGroup<TaskManagerJobMetricGroup> {
 
 	private final Map<String, OperatorMetricGroup> operators = new HashMap<>();
-
-	static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
 
 	private final TaskIOMetricGroup ioMetrics;
 
@@ -136,18 +135,10 @@ public class TaskMetricGroup extends ComponentMetricGroup<TaskManagerJobMetricGr
 	// ------------------------------------------------------------------------
 
 	public OperatorMetricGroup getOrAddOperator(String name) {
-		return getOrAddOperator(OperatorID.fromJobVertexID(vertexId), name);
+		return getOrAddOperator(OperatorID.fromJobVertexID(vertexId), MetricUtils.formatOperatorMetricName(name));
 	}
 
-	public OperatorMetricGroup getOrAddOperator(OperatorID operatorID, String name) {
-		final String metricName;
-		if (name != null && name.length() > METRICS_OPERATOR_NAME_MAX_LENGTH) {
-			LOG.warn("The operator name {} exceeded the {} characters length limit and was truncated.", name, METRICS_OPERATOR_NAME_MAX_LENGTH);
-			metricName = name.substring(0, METRICS_OPERATOR_NAME_MAX_LENGTH);
-		} else {
-			metricName = name;
-		}
-
+	public OperatorMetricGroup getOrAddOperator(OperatorID operatorID, String metricName) {
 		// unique OperatorIDs only exist in streaming, so we have to rely on the name for batch operators
 		final String key = operatorID + metricName;
 

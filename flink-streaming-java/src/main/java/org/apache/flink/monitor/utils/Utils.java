@@ -24,6 +24,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamNode;
+import org.apache.flink.util.MetricUtils;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -45,35 +46,21 @@ import java.util.stream.Collectors;
  */
 public class Utils {
 	private static final Logger LOG = LoggerFactory.getLogger(Utils.class);
-	private static final int METRICS_OPERATOR_NAME_MAX_LENGTH = 40;
-	private static final int METRICS_TASK_NAME_MAX_LENGTH = 100;
 	private static final Pattern CLUSTER_WITH_DC_PATTERN = Pattern.compile("(.*)\\.service\\.(\\w+)");
-
-	public static String replaceSpecialCharacter(String name) {
-		if (name != null) {
-			return name.replaceAll("[^\\w.]", "_")
-					.replaceAll("\\.+", ".")
-					.replaceAll("_+", "_");
-		} else {
-			return name;
-		}
-	}
 
 	public static List<String> getTasks(JobGraph jobGraph) {
 		List<String> tasks = new ArrayList<>();
 		for (JobVertex vertex : jobGraph.getVertices()) {
-			String name = vertex.getName();
-			name = formatTask(name);
+			String name = MetricUtils.formatTaskMetricName(vertex.getMetricName());
 			tasks.add(name);
 		}
 		return tasks;
 	}
 
-	public static List<String> getOperaters(StreamGraph streamGraph) {
+	public static List<String> getOperators(StreamGraph streamGraph) {
 		List<String> operators = new ArrayList<>();
 		for (StreamNode node : streamGraph.getStreamNodes()) {
-			String name = node.getOperatorName();
-			name = formatOperater(name);
+			String name = node.getOperatorMetricName();
 			operators.add(name);
 		}
 		return operators;
@@ -85,9 +72,9 @@ public class Utils {
 			.collect(Collectors.toList());
 	}
 
-	public static List<String> getOperatersExceptSources(StreamGraph streamGraph) {
+	public static List<String> getOperatorsExceptSources(StreamGraph streamGraph) {
 		List<String> result = new ArrayList<>();
-		List<String> operators = getOperaters(streamGraph);
+		List<String> operators = getOperators(streamGraph);
 		List<String> sources = getSources(streamGraph);
 		for (String operator: operators) {
 			if (!sources.contains(operator)) {
@@ -99,10 +86,9 @@ public class Utils {
 
 	public static List<String> getSources(StreamGraph streamGraph) {
 		List<String> sourceList = new ArrayList<>();
-		for (int soureId : streamGraph.getSourceIDs()) {
-			StreamNode sourceNode = streamGraph.getStreamNode(soureId);
-			String sourceName = sourceNode.getOperatorName();
-			sourceName = Utils.replaceSpecialCharacter(sourceName);
+		for (int sourceId : streamGraph.getSourceIDs()) {
+			StreamNode sourceNode = streamGraph.getStreamNode(sourceId);
+			String sourceName = sourceNode.getOperatorMetricName();
 			sourceList.add(sourceName);
 		}
 		return sourceList;
@@ -112,29 +98,10 @@ public class Utils {
 		List<String> sinkList = new ArrayList<>();
 		for (int sinkId : streamGraph.getSinkIDs()) {
 			StreamNode sinkNode = streamGraph.getStreamNode(sinkId);
-			String sinkName = sinkNode.getOperatorName();
-			sinkName = Utils.replaceSpecialCharacter(sinkName);
+			String sinkName = sinkNode.getOperatorMetricName();
 			sinkList.add(sinkName);
 		}
 		return sinkList;
-	}
-
-	public static String formatOperater(String name) {
-		if (name != null && name.length() > METRICS_OPERATOR_NAME_MAX_LENGTH) {
-			LOG.warn("The operator name {} exceeded the {} characters length limit and was truncated.",
-				name, METRICS_OPERATOR_NAME_MAX_LENGTH);
-			name = name.substring(0, METRICS_OPERATOR_NAME_MAX_LENGTH);
-		}
-		return Utils.replaceSpecialCharacter(name);
-	}
-
-	public static String formatTask(String name) {
-		if (name != null && name.length() > METRICS_TASK_NAME_MAX_LENGTH) {
-			LOG.warn("The Task name {} exceeded the {} characters length limit and was truncated.",
-					name, METRICS_TASK_NAME_MAX_LENGTH);
-			name = name.substring(0, METRICS_TASK_NAME_MAX_LENGTH);
-		}
-		return Utils.replaceSpecialCharacter(name);
 	}
 
 	public static List<String> getKafkaLagSizeMetrics(String kafkaServerUrl) {
@@ -195,18 +162,6 @@ public class Utils {
 			dc = matcher.group(2);
 		}
 		return new String[] {clusterName, dc};
-	}
-
-	/**
-	 *  Parse input to write metric. Replace the charset which didn't
-	 *  in [A-Za-z0-9_] to '_'. Because some characters metrics doesn't support.
-	 *  Example "flink-test$job" to "flink_test_job".
-	 */
-	public static String formatMetricsName(String input) {
-		String result = input.replaceAll("[^\\w.]", "_")
-				.replaceAll("\\.+", ".")
-				.replaceAll("_+", "_");
-		return result;
 	}
 
 	public static JSONArray list2JSONArray(List list) {

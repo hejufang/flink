@@ -105,7 +105,7 @@ public abstract class AbstractStreamOperatorV2<OUT> implements StreamOperator<OU
 		CountingOutput<OUT> countingOutput;
 		OperatorMetricGroup operatorMetricGroup;
 		try {
-			operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorName());
+			operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorMetricName());
 			countingOutput = new CountingOutput(parameters.getOutput(), operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
 			if (config.isChainStart()) {
 				operatorMetricGroup.getIOMetricGroup().reuseInputMetricsForTask();

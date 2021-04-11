@@ -129,6 +129,7 @@ public class StreamingJobGraphGenerator {
 
 	private final Map<Integer, StreamConfig> vertexConfigs;
 	private final Map<Integer, String> chainedNames;
+	private final Map<Integer, String> chainedMetricNames;
 
 	private final Map<Integer, ResourceSpec> chainedMinResources;
 	private final Map<Integer, ResourceSpec> chainedPreferredResources;
@@ -148,6 +149,7 @@ public class StreamingJobGraphGenerator {
 		this.chainedConfigs = new HashMap<>();
 		this.vertexConfigs = new HashMap<>();
 		this.chainedNames = new HashMap<>();
+		this.chainedMetricNames = new HashMap<>();
 		this.chainedMinResources = new HashMap<>();
 		this.chainedPreferredResources = new HashMap<>();
 		this.chainedInputOutputFormats = new HashMap<>();
@@ -304,6 +306,7 @@ public class StreamingJobGraphGenerator {
 			}
 
 			chainedNames.put(currentNodeId, createChainedName(currentNodeId, chainableOutputs));
+			chainedMetricNames.put(currentNodeId, createChainedMetricName(currentNodeId, chainableOutputs));
 			chainedMinResources.put(currentNodeId, createChainedMinResources(currentNodeId, chainableOutputs));
 			chainedPreferredResources.put(currentNodeId, createChainedPreferredResources(currentNodeId, chainableOutputs));
 
@@ -328,6 +331,7 @@ public class StreamingJobGraphGenerator {
 				config.setChainStart();
 				config.setChainIndex(0);
 				config.setOperatorName(streamGraph.getStreamNode(currentNodeId).getOperatorName());
+				config.setOperatorMetricName(streamGraph.getStreamNode(currentNodeId).getOperatorMetricName());
 
 				for (StreamEdge edge : transitiveOutEdges) {
 					connect(startNodeId, edge);
@@ -342,6 +346,7 @@ public class StreamingJobGraphGenerator {
 				config.setChainIndex(chainIndex);
 				StreamNode node = streamGraph.getStreamNode(currentNodeId);
 				config.setOperatorName(node.getOperatorName());
+				config.setOperatorMetricName(node.getOperatorMetricName());
 				chainedConfigs.get(startNodeId).put(currentNodeId, config);
 			}
 
@@ -364,6 +369,15 @@ public class StreamingJobGraphGenerator {
 
 	private String createChainedName(Integer vertexID, List<StreamEdge> chainedOutputs) {
 		String operatorName = streamGraph.getStreamNode(vertexID).getOperatorName();
+		return createChainedNameImpl(operatorName, chainedOutputs, chainedNames);
+	}
+
+	private String createChainedMetricName(Integer vertexID, List<StreamEdge> chainedOutputs) {
+		String operatorMetricName = streamGraph.getStreamNode(vertexID).getOperatorMetricName();
+		return createChainedNameImpl(operatorMetricName, chainedOutputs, chainedMetricNames);
+	}
+
+	private String createChainedNameImpl(String operatorName, List<StreamEdge> chainedOutputs, Map<Integer, String> chainedNames) {
 		if (chainedOutputs.size() > 1) {
 			List<String> outputChainedNames = new ArrayList<>();
 			for (StreamEdge chainable : chainedOutputs) {
@@ -442,6 +456,8 @@ public class StreamingJobGraphGenerator {
 						"Coordinator Provider for node %s is not serializable.", chainedNames.get(streamNodeId)));
 			}
 		}
+
+		jobVertex.setMetricName(chainedMetricNames.get(streamNodeId));
 
 		jobVertex.setResources(chainedMinResources.get(streamNodeId), chainedPreferredResources.get(streamNodeId));
 

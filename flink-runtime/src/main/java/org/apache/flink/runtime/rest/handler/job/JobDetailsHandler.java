@@ -250,7 +250,7 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 
 		return new JobDetailsInfo.JobVertexDetailsInfo(
 			ejv.getJobVertexId(),
-			ejv.getName(),
+			ejv.getMetricName(),
 			ejv.getParallelism(),
 			jobVertexState,
 			startTime,
@@ -258,6 +258,7 @@ public class JobDetailsHandler extends AbstractExecutionGraphHandler<JobDetailsI
 			duration,
 			tasksPerStateMap,
 			jobVertexMetrics,
-			isCopy);
+			isCopy,
+			ejv.getName());
 	}
 }
