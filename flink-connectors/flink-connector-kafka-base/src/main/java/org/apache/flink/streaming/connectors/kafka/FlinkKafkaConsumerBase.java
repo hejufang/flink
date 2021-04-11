@@ -248,6 +248,8 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	protected long manualCommitInterval = -1;
 
+	protected boolean forceManuallyCommitOffsets = false;
+
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 	// ------------------------------------------------------------------------
 	//  internal metrics
@@ -851,7 +853,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				offsetCommitMode,
 				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
 				useMetrics,
-				new BytedKafkaConfig(rateLimitingUnit, sampleInterval, sampleNum, manualCommitInterval));
+				new BytedKafkaConfig(rateLimitingUnit, sampleInterval, sampleNum, manualCommitInterval, forceManuallyCommitOffsets));
 
 		if (restoredState != null) {
 			LOG.info("Consumer subtask {} has already recovered from a successful checkpoint.",
@@ -1295,6 +1297,14 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public void setManualCommitInterval(long manualCommitInterval) {
 		this.manualCommitInterval = manualCommitInterval;
+	}
+
+	public boolean isForceManuallyCommitOffsets() {
+		return forceManuallyCommitOffsets;
+	}
+
+	public void setForceManuallyCommitOffsets(boolean forceManuallyCommitOffsets) {
+		this.forceManuallyCommitOffsets = forceManuallyCommitOffsets;
 	}
 
 	/**

@@ -176,6 +176,10 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 			kafkaConsumer.setRelativeOffset(kafkaSourceConfig.getRelativeOffset());
 		}
 
+		if (kafkaSourceConfig.isForceManuallyCommitOffsets()) {
+			kafkaConsumer.setForceManuallyCommitOffsets(kafkaSourceConfig.isForceManuallyCommitOffsets());
+		}
+
 		kafkaConsumer.setStartIgnoreStateOffsets(kafkaSourceConfig.isStartIgnoreStateOffsets());
 
 		return SourceFunctionProvider.of(kafkaConsumer, false);

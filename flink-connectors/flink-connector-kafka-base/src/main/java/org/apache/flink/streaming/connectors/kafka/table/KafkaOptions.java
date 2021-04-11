@@ -151,6 +151,12 @@ public class KafkaOptions {
 		.defaultValue(false)
 		.withDescription("Optional ignore kafka offsets in state during start and rely on scan.startup.mode to init kafka offsets");
 
+	public static final ConfigOption<Boolean> SCAN_FORCE_MANUAL_COMMIT_OFFSETS = ConfigOptions
+		.key("scan.force.manually-commit-offsets")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional ignore whether the checkpoint is successful, and force commit offset");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------

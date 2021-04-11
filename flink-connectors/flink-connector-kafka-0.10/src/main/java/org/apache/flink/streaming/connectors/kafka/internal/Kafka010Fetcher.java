@@ -88,6 +88,8 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 
 	private final KafkaCommitCallback manualCommitCallback;
 
+	private final boolean forceManuallyCommitOffsets;
+
 	public Kafka010Fetcher(
 			SourceContext<T> sourceContext,
 			Map<KafkaTopicPartition, Long> assignedPartitionsWithInitialOffsets,
@@ -146,6 +148,7 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 				LOG.warn("Fail to commit offsets manually.", cause);
 			}
 		};
+		this.forceManuallyCommitOffsets = bytedKafkaConfig.isForceManuallyCommitOffsets();
 	}
 
 	// ------------------------------------------------------------------------
@@ -226,7 +229,7 @@ public class Kafka010Fetcher<T> extends AbstractFetcher<T, TopicPartition> {
 	 * Commit offsets manually instead of waiting for checkpoint (only available after first checkpoint).
 	 */
 	public void commitKafkaOffsetsManually() throws Exception {
-		if (getHasSuccessfulCheckpoint().get()) {
+		if (getHasSuccessfulCheckpoint().get() || forceManuallyCommitOffsets) {
 			synchronized (checkpointLock) {
 				// acquire checkpointLock to avoid contention with notifyCheckpointComplete
 				final HashMap<KafkaTopicPartition, Long> partitionOffsets = snapshotCurrentState();
