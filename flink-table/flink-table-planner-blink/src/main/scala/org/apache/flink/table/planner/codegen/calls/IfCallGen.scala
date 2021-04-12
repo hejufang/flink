@@ -20,7 +20,7 @@ package org.apache.flink.table.planner.codegen.calls
 
 import org.apache.flink.table.planner.codegen.CodeGenUtils.{primitiveDefaultValue, primitiveTypeTermForType}
 import org.apache.flink.table.planner.codegen.{CodeGenUtils, CodeGeneratorContext, GeneratedExpression}
-import org.apache.flink.table.types.logical.LogicalType
+import org.apache.flink.table.types.logical.{LogicalType, LogicalTypeRoot}
 
 /**
   * Generates IF function call.
@@ -36,8 +36,19 @@ class IfCallGen() extends CallGenerator {
     // Inferred return type is ARG1. Must be the same as ARG2.
     // This is a temporary solution which introduce type cast in codegen.
     // Not elegant, but can allow IF function to handle different numeric type arguments.
-    val castedResultTerm1 = CodeGenUtils.getNumericCastedResultTerm(operands(1), returnType)
-    val castedResultTerm2 = CodeGenUtils.getNumericCastedResultTerm(operands(2), returnType)
+    val (castedResultTerm1, castedResultTerm2) = returnType.getTypeRoot match {
+      // for now, all timestamp types with all kinds of precisions use `TimestampData`
+      // as their internal data structure.
+      // to support timestamp with different precisions:
+      case LogicalTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE |
+           LogicalTypeRoot.TIMESTAMP_WITH_TIME_ZONE |
+           LogicalTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE =>
+        (operands(1).resultTerm, operands(2).resultTerm)
+      case _ =>
+        (CodeGenUtils.getNumericCastedResultTerm(operands(1), returnType),
+          CodeGenUtils.getNumericCastedResultTerm(operands(2), returnType))
+    }
+
     if (castedResultTerm1 == null || castedResultTerm2 == null) {
       throw new Exception(String.format("Unsupported operand types: IF(boolean, %s, %s)",
         operands(1).resultType, operands(2).resultType))

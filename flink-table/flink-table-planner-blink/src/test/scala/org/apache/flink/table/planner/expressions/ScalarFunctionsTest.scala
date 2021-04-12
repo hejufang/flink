@@ -4076,6 +4076,8 @@ class ScalarFunctionsTest extends ScalarTypesTestBase {
     testSqlApi(
       "IF(f7 < 5, f18, f52)",
       "1996-11-10 06:55:44.333")
+
+    testSqlApi("IF(f1, f18, localtimestamp)", "1996-11-10 06:55:44.333")
   }
 
   @Test
