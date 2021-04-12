@@ -111,9 +111,12 @@ class BatchExecUnion(
 
   override protected def translateToPlanInternal(
       planner: BatchPlanner): Transformation[RowData] = {
-    val transformations = getInputNodes.par.map {
-      input => input.translateToPlan(planner).asInstanceOf[Transformation[RowData]]
-    }.seq
+    val transformationsMix = getInputNodes.zipWithIndex.map {
+      case (_, index) => translateToPlanMix(planner, index)
+    }
+    val transformations = transformationsMix.map {
+      transformationMix => getTransformFromMix(transformationMix)
+    }
     ExecNode.setManagedMemoryWeight(new UnionTransformation(transformations))
   }
 }
