@@ -37,6 +37,7 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 import org.apache.flink.runtime.failurerate.FailureRater;
@@ -235,6 +236,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			failureRater);
 		this.yarnConfig = new YarnConfiguration();
 		Utils.updateYarnConfigForJobManager(this.yarnConfig, this.flinkConfig);
+
+		// hack fs.defaultFs in yanrConfiguration
+		if (flinkConfig.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
+			String defaultFS = flinkConfig.getString(HdfsConfigOptions.HDFS_DEFAULT_FS);
+			if (defaultFS.length() > 0) {
+				log.info("Using new fsDefault={}", defaultFS);
+				yarnConfig.set(HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+			}
+		}
 
 		blacklistReporter.addIgnoreExceptionClass(ExpectedContainerCompletedException.class);
 

@@ -20,6 +20,7 @@ package org.apache.flink.runtime.util;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.runtime.configuration.HdfsConfigOptions;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -54,6 +55,16 @@ public class HadoopUtils {
 
 		// Instantiate an HdfsConfiguration to load the hdfs-site.xml and hdfs-default.xml
 		Configuration result = initHadoopConfiguration(flinkConfiguration);
+
+		if (flinkConfiguration.contains(HdfsConfigOptions.HDFS_DEFAULT_FS)) {
+			// override fs.defaultFS
+			String defaultFS = flinkConfiguration.getString(HdfsConfigOptions.HDFS_DEFAULT_FS);
+			if (defaultFS.length() > 0) {
+				result.setStrings(HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+				LOG.info("using hdfs param {}={}",
+					HdfsConfigOptions.HDFS_DEFAULT_FS.key(), defaultFS);
+			}
+		}
 
 		for (String key : flinkConfiguration.keySet()) {
 			if (key.startsWith(HDFS_KEY_PREFIX) && key.length() > HDFS_KEY_PREFIX.length()) {
