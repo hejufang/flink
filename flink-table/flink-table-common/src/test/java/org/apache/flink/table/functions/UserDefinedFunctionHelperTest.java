@@ -98,6 +98,13 @@ public class UserDefinedFunctionHelperTest {
 
 			TestSpec
 				.forClass(HierarchicalTableAggregateFunction.class)
+				.expectSuccess(),
+
+			TestSpec
+				.forClass(NonAbstractInheritedClass.class)
+				.expectSuccess(),
+			TestSpec
+				.forClass(NonProtectedInheritedClass.class)
 				.expectSuccess()
 		);
 	}
@@ -199,6 +206,41 @@ public class UserDefinedFunctionHelperTest {
 	 */
 	public static class MissingImplementationScalarFunction extends ScalarFunction {
 		// nothing to do
+	}
+
+	/**
+	 * Abstract method in base class, and override in inherited class.
+	 */
+	public abstract static class AbstractMethodBaseClass extends ScalarFunction {
+		public abstract String eval(int i);
+	}
+
+	/**
+	 * Extends {@link AbstractMethodBaseClass}, and override to non abstract.
+	 */
+	public static class NonAbstractInheritedClass extends AbstractMethodBaseClass {
+		@Override
+		public String eval(int i) {
+			return null;
+		}
+	}
+
+	/**
+	 * Protected method in base class, and override in inherited class.
+	 */
+	public static class ProtectedMethodBaseClass extends ScalarFunction {
+		protected String eval(int i) {
+			return null;
+		}
+	}
+
+	/**
+	 * Extends {@link ProtectedMethodBaseClass}, and override to public.
+	 */
+	public static class NonProtectedInheritedClass extends ProtectedMethodBaseClass {
+		public String eval(int i) {
+			return null;
+		}
 	}
 
 	/**

@@ -31,6 +31,7 @@ import org.apache.flink.util.InstantiationUtil;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -275,11 +276,24 @@ public final class UserDefinedFunctionHelper {
 		final Set<String> nameSet = new HashSet<>(Arrays.asList(methodNameOptions));
 		final List<Method> methods = getAllDeclaredMethods(clazz);
 		boolean found = false;
+		final List<Method> foundMethods = new ArrayList<>();
 		for (Method method : methods) {
 			if (!nameSet.contains(method.getName())) {
 				continue;
 			}
-			found = true;
+			foundMethods.add(method);
+			final int modifier = method.getModifiers();
+			// this keeps consistent with 1.9's behavior, which is implemented in
+			// org.apache.flink.table.planner.functions.utils.UserDefinedFunctionUtils#checkAndExtractMethods
+			if (Modifier.isPublic(modifier) && !Modifier.isAbstract(modifier) &&
+					!(rejectStatic && Modifier.isStatic(modifier))) {
+				found = true;
+			}
+		}
+
+		// this could give a more descriptive error message.
+		if (!found && foundMethods.size() > 0) {
+			Method method = foundMethods.get(0);
 			final int modifier = method.getModifiers();
 			if (!Modifier.isPublic(modifier)) {
 				throw new ValidationException(
@@ -303,6 +317,7 @@ public final class UserDefinedFunctionHelper {
 						clazz.getName()));
 			}
 		}
+
 		if (!found && !isOptional) {
 			throw new ValidationException(
 				String.format(
