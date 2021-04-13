@@ -175,7 +175,7 @@ public class JsonRowDeserializationSchema implements DeserializationSchema<Row> 
 				long currentTime = System.currentTimeMillis();
 				if (currentTime - lastDirtyDataPrintTime > skipIntervalMs) {
 					lastDirtyDataPrintTime = currentTime;
-					LOG.warn("cannot deserialize message: {}", new String(message));
+					LOG.warn("cannot deserialize message: {}", message == null ? null : new String(message));
 				}
 
 				// return null to indicate it cannot be deserialized according DeserializationSchema.deserialize.
