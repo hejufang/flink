@@ -159,15 +159,16 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			final JsonNode root = objectMapper.readTree(message);
 			return (RowData) runtimeConverter.convert(root);
 		} catch (Throwable t) {
+			String messageStr = message == null ? null : new String(message);
 			if (ignoreParseErrors) {
 				long currentTime = System.currentTimeMillis();
 				if (currentTime - lastLogErrorTimestamp > logErrorInterval) {
 					lastLogErrorTimestamp = currentTime;
-					LOG.warn("Failed to deserialize JSON '{}', cause: {}", new String(message), t.getMessage());
+					LOG.warn("Failed to deserialize JSON '{}', cause: {}", messageStr, t.getMessage());
 				}
 				return null;
 			}
-			throw new IOException(format("Failed to deserialize JSON '%s'.", new String(message)), t);
+			throw new IOException(format("Failed to deserialize JSON '%s'.", messageStr), t);
 		}
 	}
 
