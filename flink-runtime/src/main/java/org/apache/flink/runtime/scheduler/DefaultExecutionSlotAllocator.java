@@ -84,6 +84,7 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 
 		validateSchedulingRequirements(executionVertexSchedulingRequirements);
 
+		long startAllocateSlotTime = System.currentTimeMillis();
 		List<SlotExecutionVertexAssignment> slotExecutionVertexAssignments =
 				new ArrayList<>(executionVertexSchedulingRequirements.size());
 
@@ -130,6 +131,8 @@ public class DefaultExecutionSlotAllocator implements ExecutionSlotAllocator {
 
 			slotExecutionVertexAssignments.add(slotExecutionVertexAssignment);
 		}
+
+		LOG.info("Create allocate slot futures take {} ms.", System.currentTimeMillis() - startAllocateSlotTime);
 
 		return slotExecutionVertexAssignments;
 	}

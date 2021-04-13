@@ -18,8 +18,15 @@
 
 package org.apache.flink.runtime.scheduler.adapter;
 
+import org.apache.flink.runtime.executiongraph.ExecutionGraph;
+import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
+import org.apache.flink.runtime.executiongraph.failover.flip1.PipelinedRegionComputeUtil;
 import org.apache.flink.runtime.executiongraph.failover.flip1.StronglyConnectedComponentsComputeUtils;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.jobgraph.JobEdge;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
+import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalVertex;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
@@ -29,11 +36,13 @@ import org.apache.flink.runtime.scheduler.strategy.SchedulingResultPartition;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.executiongraph.failover.flip1.PipelinedRegionComputeUtil.mergeRegions;
 import static org.apache.flink.runtime.executiongraph.failover.flip1.PipelinedRegionComputeUtil.uniqueRegions;
@@ -45,37 +54,78 @@ import static org.apache.flink.util.Preconditions.checkState;
 public final class DefaultSchedulingPipelinedRegionComputeUtil {
 
 	public static Set<Set<SchedulingExecutionVertex>> computePipelinedRegions(
-			final Iterable<DefaultExecutionVertex> topologicallySortedVertexes) {
-		final Map<SchedulingExecutionVertex, Set<SchedulingExecutionVertex>> vertexToRegion = buildRawRegions(topologicallySortedVertexes);
+			final Iterable<DefaultExecutionVertex> topologicallySortedVertexes,
+			ExecutionGraph executionGraph) {
+		final Map<SchedulingExecutionVertex, Set<SchedulingExecutionVertex>> vertexToRegion =
+				buildRawRegions(topologicallySortedVertexes, executionGraph);
 		return mergeRegionsOnCycles(vertexToRegion);
 	}
 
-	private static Map<SchedulingExecutionVertex, Set<SchedulingExecutionVertex>> buildRawRegions(
-			final Iterable<? extends DefaultExecutionVertex> topologicallySortedVertexes) {
+	/**
+	 * Build logicalRegions which only container ALL_TO_ALL DistributionPattern.
+	 */
+	private static Map<JobVertexID, Set<DefaultLogicalVertex>> buildAllToAllPipelinedLogicalRegions(ExecutionGraph executionGraph) {
+		Set<Set<DefaultLogicalVertex>> logicalRegions = PipelinedRegionComputeUtil.computePipelinedRegions(executionGraph.getLogicalTopology());
+		logicalRegions = logicalRegions.stream().filter(logicalVertices -> {
+			for (DefaultLogicalVertex logicalVertex : logicalVertices) {
+				ExecutionJobVertex  executionJobVertex = executionGraph.getJobVertex(logicalVertex.getId());
+				if (executionJobVertex == null) {
+					throw new IllegalStateException("Can not found ExecutionJobVertex for "
+							+ logicalVertex.getId() + ", This should be a failover region building bug.");
+				}
+				for (JobEdge jobEdge : executionJobVertex.getJobVertex().getInputs()) {
+					if (jobEdge.getDistributionPattern().equals(DistributionPattern.ALL_TO_ALL)
+							&& jobEdge.getSource().getResultType().isPipelined()) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}).collect(Collectors.toSet());
 
+		final Map<JobVertexID, Set<DefaultLogicalVertex>> logicalRegionsMap = new HashMap<>();
+		for (Set<DefaultLogicalVertex> logicalVertices : logicalRegions) {
+			for (DefaultLogicalVertex logicalVertex : logicalVertices) {
+				logicalRegionsMap.put(logicalVertex.getId(), Collections.unmodifiableSet(logicalVertices));
+			}
+		}
+		return logicalRegionsMap;
+	}
+
+	private static Map<SchedulingExecutionVertex, Set<SchedulingExecutionVertex>> buildRawRegions(
+			final Iterable<? extends DefaultExecutionVertex> topologicallySortedVertexes,
+			ExecutionGraph executionGraph) {
+
+		final Map<JobVertexID, Set<DefaultLogicalVertex>> allToAllPipelinedLogicalRegions = buildAllToAllPipelinedLogicalRegions(executionGraph);
+		final Map<Set<DefaultLogicalVertex>, Set<SchedulingExecutionVertex>> logicalRegionToExecutionRegion = new HashMap<>();
 		final Map<SchedulingExecutionVertex, Set<SchedulingExecutionVertex>> vertexToRegion = new IdentityHashMap<>();
 
 		// iterate all the vertices which are topologically sorted
 		for (DefaultExecutionVertex vertex : topologicallySortedVertexes) {
 			Set<SchedulingExecutionVertex> currentRegion = new HashSet<>();
+			// check task whether in a all-to-all region. if true put this task to one region directly.
+			if (allToAllPipelinedLogicalRegions.containsKey(vertex.getId().getJobVertexId())) {
+				Set<DefaultLogicalVertex> ejvRegion = allToAllPipelinedLogicalRegions.get(vertex.getId().getJobVertexId());
+				if (logicalRegionToExecutionRegion.containsKey(ejvRegion)) {
+					currentRegion = logicalRegionToExecutionRegion.get(ejvRegion);
+					currentRegion.add(vertex);
+				} else {
+					logicalRegionToExecutionRegion.put(ejvRegion, currentRegion);
+					currentRegion.add(vertex);
+					vertexToRegion.put(vertex, currentRegion);
+				}
+				continue;
+			}
+
 			currentRegion.add(vertex);
 			vertexToRegion.put(vertex, currentRegion);
 
 			for (ConsumedPartitionGroup consumedResultIds : vertex.getGroupedConsumedResults()) {
-				// Similar to the BLOCKING ResultPartitionType, each vertex connected through
-				// PIPELINED_APPROXIMATE
-				// is also considered as a single region. This attribute is called "reconnectable".
-				// reconnectable will be removed after FLINK-19895, see also {@link
-				// ResultPartitionType#isReconnectable}
-				for (IntermediateResultPartitionID consumerId :
-					consumedResultIds.getResultPartitions()) {
-					SchedulingResultPartition consumedResult =
-						vertex.getResultPartition(consumerId);
+				for (IntermediateResultPartitionID consumerId : consumedResultIds.getResultPartitions()) {
+					SchedulingResultPartition consumedResult = vertex.getResultPartition(consumerId);
 					if (consumedResult.getResultType().isPipelined()) {
-						final SchedulingExecutionVertex producerVertex =
-							consumedResult.getProducer();
-						final Set<SchedulingExecutionVertex> producerRegion =
-							vertexToRegion.get(producerVertex);
+						final SchedulingExecutionVertex producerVertex = consumedResult.getProducer();
+						final Set<SchedulingExecutionVertex> producerRegion = vertexToRegion.get(producerVertex);
 
 						if (producerRegion == null) {
 							throw new IllegalStateException(
@@ -93,8 +143,6 @@ public final class DefaultSchedulingPipelinedRegionComputeUtil {
 							currentRegion =
 								mergeRegions(currentRegion, producerRegion, vertexToRegion);
 						}
-					} else {
-						break;
 					}
 				}
 			}

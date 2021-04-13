@@ -396,6 +396,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	private BiFunction<Void, Throwable, Void> deployAll(final List<DeploymentHandle> deploymentHandles) {
 		return (ignored, throwable) -> {
 			propagateIfNonNull(throwable);
+			long startDeployTaskTime = System.currentTimeMillis();
+			log.info("start to deploy tasks.");
 			for (final DeploymentHandle deploymentHandle : deploymentHandles) {
 				final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
 				final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
@@ -404,6 +406,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 				FutureUtils.assertNoException(
 					slotAssigned.handle(deployOrHandleError(deploymentHandle)));
 			}
+			log.info("Deploy Task take {} ms.", System.currentTimeMillis() - startDeployTaskTime);
 			return null;
 		};
 	}

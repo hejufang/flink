@@ -54,14 +54,15 @@ import org.apache.flink.runtime.executiongraph.metrics.RestartTimeGauge;
 import org.apache.flink.runtime.executiongraph.metrics.UpTimeGauge;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
 import org.apache.flink.runtime.executiongraph.speculation.NoOpSpeculationStrategy;
-import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.executiongraph.speculation.SpeculationStrategy;
+import org.apache.flink.runtime.io.network.partition.JobMasterPartitionTracker;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.jsonplan.JsonPlanGenerator;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
+import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalTopology;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.shuffle.ShuffleMaster;
 import org.apache.flink.runtime.state.StateBackend;
@@ -205,7 +206,8 @@ public class ExecutionGraphBuilder {
 					jobGraph.getScheduleMode(),
 					speculationStrategy,
 					isRecoverable,
-					remoteBlacklistReporter);
+					remoteBlacklistReporter,
+					new DefaultLogicalTopology(jobGraph));
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}
@@ -445,6 +447,9 @@ public class ExecutionGraphBuilder {
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
 		executionGraph.getSpeculationStrategy().registerMetrics(metrics);
+
+		log.info("Successfully ran buildExecutionGraph on master in {} ms.",
+				(System.nanoTime() - initMasterStart) / 1_000_000);
 
 		return executionGraph;
 	}

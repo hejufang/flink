@@ -72,6 +72,7 @@ import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.jobgraph.topology.DefaultLogicalTopology;
 import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
 import org.apache.flink.runtime.jobmaster.slotpool.SlotProvider;
 import org.apache.flink.runtime.query.KvStateLocationRegistry;
@@ -255,6 +256,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	private DefaultExecutionTopology executionTopology;
 
+	private final DefaultLogicalTopology logicalTopology;
+
 	@Nullable
 	private InternalFailuresListener internalTaskFailuresListener;
 
@@ -359,7 +362,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			ScheduleMode scheduleMode,
 			SpeculationStrategy speculationStrategy,
 			boolean isRecoverable,
-			final RemoteBlacklistReporter remoteBlacklistReporter) throws IOException {
+			final RemoteBlacklistReporter remoteBlacklistReporter,
+			final DefaultLogicalTopology logicalTopology) throws IOException {
 
 		this.jobInformation = Preconditions.checkNotNull(jobInformation);
 
@@ -424,6 +428,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.executionVerticesById = new HashMap<>();
 		this.resultPartitionsById = new HashMap<>();
 
+		this.logicalTopology = logicalTopology;
+
 		this.remoteBlacklistReporter = remoteBlacklistReporter;
 		this.remoteBlacklistReporter.setExecutionGraph(this);
 		LOG.info("Job recovers via failover strategy: {}", failoverStrategy.getStrategyName());
@@ -448,6 +454,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 	public SchedulingTopology getSchedulingTopology() {
 		return executionTopology;
+	}
+
+	public DefaultLogicalTopology getLogicalTopology() {
+		return logicalTopology;
 	}
 
 	public ScheduleMode getScheduleMode() {

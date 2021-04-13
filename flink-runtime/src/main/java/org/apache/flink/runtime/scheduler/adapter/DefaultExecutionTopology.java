@@ -91,13 +91,13 @@ public class DefaultExecutionTopology implements SchedulingTopology {
 
 		this.pipelinedRegionsByVertex = new HashMap<>();
 		this.pipelinedRegions = new ArrayList<>();
-		initializePipelinedRegions();
+		initializePipelinedRegions(graph);
 	}
 
-	private void initializePipelinedRegions() {
+	private void initializePipelinedRegions(ExecutionGraph executionGraph) {
 		final long buildRegionsStartTime = System.nanoTime();
 
-		final Set<Set<SchedulingExecutionVertex>> rawPipelinedRegions = DefaultSchedulingPipelinedRegionComputeUtil.computePipelinedRegions(executionVerticesList);
+		final Set<Set<SchedulingExecutionVertex>> rawPipelinedRegions = DefaultSchedulingPipelinedRegionComputeUtil.computePipelinedRegions(executionVerticesList, executionGraph);
 		for (Set<? extends SchedulingExecutionVertex> rawPipelinedRegion : rawPipelinedRegions) {
 			//noinspection unchecked
 			final DefaultSchedulingPipelinedRegion pipelinedRegion = new DefaultSchedulingPipelinedRegion((Set<DefaultExecutionVertex>) rawPipelinedRegion, resultPartitionsById);

@@ -911,6 +911,7 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	private void resetAndStartScheduler() throws Exception {
 		validateRunsInMainThread();
 
+		long startScheduleTime = System.currentTimeMillis();
 		final CompletableFuture<Void> schedulerAssignedFuture;
 
 		if (schedulerNG.requestJobStatus() == JobStatus.CREATED) {
@@ -933,6 +934,8 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 		schedulerAssignedFuture
 				.thenRun(this::startScheduling)
 				.get();
+
+		log.info("Schedule {} take {} ms.", jobGraph.getName(), System.currentTimeMillis() - startScheduleTime);
 	}
 
 	private void startScheduling() {
