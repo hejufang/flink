@@ -209,19 +209,17 @@ class SqlCreateTableConverter {
 		}
 
 		// for rpc factory.
-		if (options.get(CONNECTOR.key()).equals("rpc")) {
-			DynamicTableSourceFactory dynamicTableSourceFactory =
-				FactoryUtil.discoverOptionalFactory(
-					Thread.currentThread().getContextClassLoader(),
-					DynamicTableSourceFactory.class,
-					"rpc").orElse(null);
-			if ((dynamicTableSourceFactory instanceof TableSchemaInferrable)) {
-				TableSchemaInferrable tableSchemaInferrable =
-					(TableSchemaInferrable) dynamicTableSourceFactory;
-				return tableSchemaInferrable.getOptionalTableSchema(options);
-			}
-		}
+		DynamicTableSourceFactory dynamicTableSourceFactory =
+			FactoryUtil.discoverOptionalFactory(
+				Thread.currentThread().getContextClassLoader(),
+				DynamicTableSourceFactory.class,
+				"rpc").orElse(null);
 
+		if ((dynamicTableSourceFactory instanceof TableSchemaInferrable)) {
+			TableSchemaInferrable tableSchemaInferrable =
+				(TableSchemaInferrable) dynamicTableSourceFactory;
+			return tableSchemaInferrable.getOptionalTableSchema(options);
+		}
 		return Optional.empty();
 	}
 

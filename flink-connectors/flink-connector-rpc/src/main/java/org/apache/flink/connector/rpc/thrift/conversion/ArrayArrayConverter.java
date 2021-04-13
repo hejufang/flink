@@ -140,7 +140,7 @@ public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData,
 		if (element == null) {
 			writerNullSetter.setNull(reuseWriter, pos);
 		} else {
-			writerValueSetter.setValue(reuseWriter, pos, elementConverter.toInternalOrNull(element));
+			writerValueSetter.setValue(reuseWriter, pos, elementConverter.toInternal(element));
 		}
 	}
 

@@ -180,7 +180,6 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 			}
 		}
 		String logID = "unknown";
-		boolean exceptionRetryable = true;
 		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {
 			try {
 				lookupRequestPerSecond.markEvent();
@@ -193,13 +192,7 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 				Object responseObject = serviceClient.sendRequest(requestObject);
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
-				// A null response will be returned by service client when request is illegal.
-				// It happens before sending out the request.
-				if (responseObject == null) {
-					exceptionRetryable = false;
-					throw new RuntimeException("The response object is null, please find more information from" +
-						"the tm log. Or you can change the failure handle strategy to ignore the error.");
-				}
+
 				RowData responseValue = responseConverter.toInternal(responseObject);
 				RowData result = assembleRow(lookupKeys, responseValue);
 				if (cache != null) {
@@ -208,7 +201,9 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 				return Collections.singletonList(result);
 			} catch (Exception e) {
 				lookupFailurePerSecond.markEvent();
-				if (!exceptionRetryable || retry >= rpcLookupOptions.getMaxRetryTimes()) {
+				LOG.error(String.format("RPC get response error, the logId is : %s, retry times = %d",
+					logID, retry), e);
+				if (retry >= rpcLookupOptions.getMaxRetryTimes()) {
 					FailureHandleStrategy strategy = rpcLookupOptions.getFailureHandleStrategy();
 					switch (strategy){
 						case TASK_FAILURE:
@@ -220,8 +215,6 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 							return Collections.emptyList();
 					}
 				}
-				LOG.error(String.format("RPC get response error, the logId is : %s, retry times = %d",
-					logID, retry), e);
 				try {
 					Thread.sleep(1000 * retry);
 				} catch (InterruptedException e1) {
