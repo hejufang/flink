@@ -89,35 +89,35 @@ under the License.
 									<relocations>
 										<relocation>
 											<pattern>com.bytedance</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.bytedance</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.bytedance</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.google</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.google</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.google</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.fasterxml.jackson</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.fasterxml.jackson</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.fasterxml.jackson</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>org.apache.commons</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.org.apache.commons</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.org.apache.commons</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>okhttp3</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.okhttp3</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.okhttp3</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>okio</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.okio</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.okio</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>com.codahale.metrics</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.com.codahale.metrics</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.codahale.metrics</shadedPattern>
 										</relocation>
 										<relocation>
 											<pattern>org.apache.http</pattern>
-											<shadedPattern>org.apache.flink.connector.bytesql.shaded.org.apache.http</shadedPattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.org.apache.http</shadedPattern>
 										</relocation>
 									</relocations>
 								</configuration>
