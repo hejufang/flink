@@ -284,33 +284,36 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 		}
 		writer.keyword("TABLE");
 		tableName.unparse(writer, leftPrec, rightPrec);
-		SqlWriter.Frame frame = writer.startList(SqlWriter.FrameTypeEnum.create("sds"), "(", ")");
-		for (SqlNode column : columnList) {
-			printIndent(writer);
-			if (column instanceof SqlBasicCall) {
-				SqlCall call = (SqlCall) column;
-				SqlCall newCall = call.getOperator().createCall(
-					SqlParserPos.ZERO,
-					call.operand(1),
-					call.operand(0));
-				newCall.unparse(writer, leftPrec, rightPrec);
-			} else {
-				column.unparse(writer, leftPrec, rightPrec);
-			}
-		}
-		if (tableConstraints.size() > 0) {
-			for (SqlTableConstraint constraint : tableConstraints) {
-				printIndent(writer);
-				constraint.unparse(writer, leftPrec, rightPrec);
-			}
-		}
-		if (watermark != null) {
-			printIndent(writer);
-			watermark.unparse(writer, leftPrec, rightPrec);
-		}
 
-		writer.newlineAndIndent();
-		writer.endList(frame);
+		if (hasColumnsOrConstraintsOrWatermark()) {
+			SqlWriter.Frame frame = writer.startList(SqlWriter.FrameTypeEnum.create("sds"), "(", ")");
+			for (SqlNode column : columnList) {
+				printIndent(writer);
+				if (column instanceof SqlBasicCall) {
+					SqlCall call = (SqlCall) column;
+					SqlCall newCall = call.getOperator().createCall(
+						SqlParserPos.ZERO,
+						call.operand(1),
+						call.operand(0));
+					newCall.unparse(writer, leftPrec, rightPrec);
+				} else {
+					column.unparse(writer, leftPrec, rightPrec);
+				}
+			}
+			if (tableConstraints.size() > 0) {
+				for (SqlTableConstraint constraint : tableConstraints) {
+					printIndent(writer);
+					constraint.unparse(writer, leftPrec, rightPrec);
+				}
+			}
+			if (watermark != null) {
+				printIndent(writer);
+				watermark.unparse(writer, leftPrec, rightPrec);
+			}
+
+			writer.newlineAndIndent();
+			writer.endList(frame);
+		}
 
 		if (comment != null) {
 			writer.newlineAndIndent();
@@ -342,6 +345,12 @@ public class SqlCreateTable extends SqlCreate implements ExtendedSqlNode {
 			writer.newlineAndIndent();
 			this.tableLike.unparse(writer, leftPrec, rightPrec);
 		}
+	}
+
+	private boolean hasColumnsOrConstraintsOrWatermark () {
+		return columnList != null && columnList.size() > 0
+			|| tableConstraints != null && !tableConstraints.isEmpty()
+			|| watermark != null;
 	}
 
 	protected void printIndent(SqlWriter writer) {

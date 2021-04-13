@@ -329,6 +329,20 @@ public class FlinkSqlParserImplTest extends SqlParserTest {
 	}
 
 	@Test
+	public void testCreateTableWithoutColumns() {
+		final String sql = "CREATE TABLE tbl1" +
+			"  with (\n" +
+			"    'connector' = 'kafka', \n" +
+			"    'kafka.topic' = 'log.test'\n" +
+			")\n";
+		final String expected = "CREATE TABLE `TBL1` WITH (\n" +
+			"  'connector' = 'kafka',\n" +
+			"  'kafka.topic' = 'log.test'\n" +
+			")";
+		sql(sql).ok(expected);
+	}
+
+	@Test
 	public void testTableConstraints() {
 		final String sql = "CREATE TABLE tbl1 (\n" +
 			"  a bigint,\n" +
