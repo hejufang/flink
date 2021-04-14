@@ -158,7 +158,7 @@ common:
   yarn.gang-scheduler.downgrade-timeout-ms: 1800000
   yarn.gang-scheduler.container-descheduler.enable: false
   yarn.gang-scheduler.container-descheduler.disk-type-enable: false
-  yarn.provided.lib.dirs.enabled: false
+  yarn.provided.lib.dirs.enabled: true
 
   # GC log options
   flink.gc.log.opts: -XX:+PrintGCDetails -XX:+PrintGCDateStamps -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=100M
@@ -263,7 +263,6 @@ lepad:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  yarn.provided.lib.dirs.enabled: true
 
 larva:
   dc: cn
@@ -271,7 +270,6 @@ larva:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 locst:
   dc: cn
@@ -279,7 +277,6 @@ locst:
   high-availability.zookeeper.quorum: 10.224.193.108:2181,10.224.193.109:2181,10.224.193.93:2181,10.224.193.95:2181,10.224.193.96:2181
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 oryx:
   dc: cn
@@ -287,7 +284,6 @@ oryx:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 default:
   dc: cn
@@ -295,7 +291,6 @@ default:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 leser:
   dc: cn
@@ -304,7 +299,6 @@ leser:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  yarn.provided.lib.dirs.enabled: true
 
 lobst:
   dc: cn
@@ -312,7 +306,6 @@ lobst:
   high-availability.zookeeper.quorum: 10.8.32.25:2184,10.8.32.68:2184,10.8.32.74:2184,10.8.32.72:2184,10.8.39.142:2184
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 wj:
   dc: cn
@@ -327,7 +320,6 @@ hl:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 hyrax:
   dc: cn
@@ -346,7 +338,6 @@ horse:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  yarn.provided.lib.dirs.enabled: true
 
 hibis:
   dc: cn
@@ -354,7 +345,6 @@ hibis:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 topi:
   dc: cn
@@ -362,7 +352,6 @@ topi:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 hippo:
   dc: cn
@@ -370,7 +359,6 @@ hippo:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 heron:
   dc: cn
@@ -378,7 +366,6 @@ heron:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 hamer:
   dc: cn
@@ -386,7 +373,6 @@ hamer:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 hyena:
   dc: cn
@@ -394,7 +380,6 @@ hyena:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 hound:
   dc: cn
@@ -402,7 +387,6 @@ hound:
   high-availability.zookeeper.quorum: 10.226.22.110:2181,10.226.22.38:2181,10.226.22.84:2181,10.226.22.85:2181,10.226.22.90:2181
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 quail:
   dc: cn
@@ -410,7 +394,6 @@ quail:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 quoll:
   dc: cn
@@ -418,7 +401,6 @@ quoll:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
 
 quoka:
   dc: cn
@@ -428,7 +410,6 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  yarn.provided.lib.dirs.enabled: true
 
 quaga:
   dc: cn
@@ -437,7 +418,6 @@ quaga:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
-  yarn.provided.lib.dirs.enabled: true
 
 quele:
   dc: cn
@@ -446,7 +426,6 @@ quele:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
-  yarn.provided.lib.dirs.enabled: true
 
 camel:
   dc: cn
@@ -454,7 +433,6 @@ camel:
   high-availability.zookeeper.quorum: 10.148.16.172:2181,10.148.16.37:2181,10.148.16.90:2181,10.148.20.100:2181,10.148.20.98:2181
   hdfs.prefix: hdfs://haruna/flink_cr
   checkpoint.hdfs.prefix: hdfs://haruna/flink_cr
-  yarn.provided.lib.dirs.enabled: true
 
 stork:
   dc: sg
@@ -472,6 +450,7 @@ stork:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   save-meta.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 shark:
   dc: sg
@@ -489,6 +468,7 @@ shark:
   docker.hub: aliyun-sin-hub.byted.org
   docker.region: Aliyun_SG
   save-meta.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 marmt:
   dc: va
@@ -510,6 +490,7 @@ marmt:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   checkpoint.client-checkpoint-verification-enable: true
+  yarn.provided.lib.dirs.enabled: false
 
 macaw:
   dc: va
@@ -531,7 +512,7 @@ macaw:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   checkpoint.client-checkpoint-verification-enable: true
-  yarn.provided.lib.dirs.enabled: true
+  yarn.provided.lib.dirs.enabled: false
 
 grila:
   dc: i18n_gcp
@@ -553,6 +534,7 @@ grila:
   jobmeta.db.name: flink_meta
   grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  yarn.provided.lib.dirs.enabled: false
 
 gavia:
   dc: i18n_gcp
@@ -574,6 +556,7 @@ gavia:
   jobmeta.db.name: flink_meta
   grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  yarn.provided.lib.dirs.enabled: false
 
 alisg:
   dc: sg
@@ -593,7 +576,6 @@ alisg:
   jobmeta.db.name: flink_meta_sg
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_sg
   checkpoint.client-checkpoint-verification-enable: true
-  yarn.provided.lib.dirs.enabled: true
 
 sloth:
   dc: sg
@@ -628,6 +610,7 @@ boe:
   save-meta.enabled: false
   grafana.domain_url: "http://grafana-boe.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  yarn.provided.lib.dirs.enabled: false
 
 cof:
   dc: vm
@@ -641,6 +624,7 @@ cof:
   yaop_url: https://yaop-boe.bytedance.net
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   save-meta.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 swan:
   dc: ka
@@ -648,6 +632,7 @@ swan:
   high-availability.zookeeper.quorum: 10.230.2.2:2181,10.230.2.10:2181,10.230.2.7:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
+  yarn.provided.lib.dirs.enabled: false
 
 koala:
   dc: ka2
@@ -655,6 +640,7 @@ koala:
   high-availability.zookeeper.quorum: 10.230.9.118:2181,10.230.9.121:2181,10.230.9.102:2181
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
+  yarn.provided.lib.dirs.enabled: false
 
 boei18n:
   dc: vm
@@ -674,3 +660,4 @@ boei18n:
   save-meta.enabled: false
   grafana.domain_url: "http://grafana-boei18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
+  yarn.provided.lib.dirs.enabled: false
