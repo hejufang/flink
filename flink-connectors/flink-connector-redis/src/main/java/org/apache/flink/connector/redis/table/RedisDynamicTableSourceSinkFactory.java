@@ -163,7 +163,6 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 	public Set<ConfigOption<?>> requiredOptions() {
 		Set<ConfigOption<?>> requiredOptions = new HashSet<>();
 		requiredOptions.add(CLUSTER);
-		requiredOptions.add(PSM);
 		return requiredOptions;
 	}
 
@@ -193,6 +192,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
 		optionalOptions.add(LOOKUP_CACHE_NULL_VALUE);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
+		optionalOptions.add(PSM);
 		return optionalOptions;
 	}
 

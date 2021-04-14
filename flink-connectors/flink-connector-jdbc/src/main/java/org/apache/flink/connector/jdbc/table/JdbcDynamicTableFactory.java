@@ -98,8 +98,10 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 	public static final ConfigOption<String> PSM = ConfigOptions
 		.key("psm")
 		.stringType()
-		.noDefaultValue()
-		.withDescription("psm for non-authentication.");
+		.defaultValue("inf.flink.default_psm")
+		.withDescription("psm for non-authentication. " +
+			"default value is just make jdbc happy, if users wants detailed metric, " +
+			"they should set it directly.");
 	public static final ConfigOption<String> DBNAME = ConfigOptions
 		.key("dbname")
 		.stringType()
@@ -335,8 +337,6 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		} else {
 			config.getOptional(CONSUL).orElseThrow(() ->
 				new IllegalArgumentException("consul must be provided when url is null"));
-			config.getOptional(PSM).orElseThrow(() ->
-				new IllegalArgumentException("psm must be provided when url is null"));
 			config.getOptional(DBNAME).orElseThrow(() ->
 				new IllegalArgumentException("dbname must be provided when url is null"));
 			checkState(useBytedanceMySQL, "use_bytedance_mysql must be true when url is null");

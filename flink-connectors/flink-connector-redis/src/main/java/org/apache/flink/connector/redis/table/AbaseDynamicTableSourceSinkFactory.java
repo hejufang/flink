@@ -36,7 +36,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CLUSTER;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.PSM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.TABLE;
 
 /**
@@ -57,7 +56,6 @@ public class AbaseDynamicTableSourceSinkFactory extends RedisDynamicTableSourceS
 		Set<ConfigOption<?>> requiredOptions = new HashSet<>();
 		requiredOptions.add(CLUSTER);
 		requiredOptions.add(TABLE);
-		requiredOptions.add(PSM);
 		return requiredOptions;
 	}
 

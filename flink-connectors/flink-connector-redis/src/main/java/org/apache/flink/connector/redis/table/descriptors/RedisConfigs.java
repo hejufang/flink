@@ -37,8 +37,10 @@ public class RedisConfigs {
 	public static final ConfigOption<String> PSM = ConfigOptions
 		.key("psm")
 		.stringType()
-		.noDefaultValue()
-		.withDescription("Optional. Name of PSM.");
+		.defaultValue("inf.flink.default_psm")
+		.withDescription("Optional. Name of PSM." +
+			"default value is just make redis client happy, if users wants detailed metric, " +
+			"they should set it directly.");
 	public static final ConfigOption<String> TABLE = ConfigOptions
 		.key("table")
 		.stringType()
