@@ -131,22 +131,30 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private Properties props;
 	private String topic;
 	private String group;
-	/** If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled. */
+	private String cluster;
+	/**
+	 * If forceAutoCommitEnabled=true, client will commit offsets automatically even if checkpoint is enabled.
+	 */
 	private boolean forceAutoCommitEnabled;
 	private String brokerQueueList;
-	/** Weather there is an successful checkpoint. */
+	/**
+	 * Weather there is an successful checkpoint.
+	 */
 	private transient volatile boolean hasSuccessfulCheckpoint;
-	private transient volatile boolean restored;
 	private transient boolean enableCheckpoint;
 
 	private transient int parallelism;
 	private transient int retryTimes;
 	private transient int subTaskId;
-	/** Errors encountered in the async consumer are stored here. */
+	/**
+	 * Errors encountered in the async consumer are stored here.
+	 */
 	private transient volatile Throwable asyncError;
 	private transient GlobalAggregateManager taskRunningAggregateManager;
 	private transient TaskStateAggFunction taskStateAggFunction;
 	private transient ProcessingTimeService processingTimeService;
+	private transient RetryManager.Strategy retryStrategy;
+	private transient Set<MessageQueue> assignMessageQueues;
 
 	public RocketMQSource(RocketMQDeserializationSchema<OUT> schema, Properties props) {
 		this.schema = schema;
@@ -159,18 +167,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	public void open(Configuration parameters) {
 		RocketMQUtils.setLog(props);
 		LOG.debug("source open....");
-		Preconditions.checkNotNull(props, "Consumer properties can not be empty");
-		Preconditions.checkNotNull(schema, "RocketMQDeserializationSchema can not be null");
-		String cluster = props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
-		this.topic = props.getProperty(RocketMQConfig.CONSUMER_TOPIC);
-		this.group = props.getProperty(RocketMQConfig.CONSUMER_GROUP);
-		Preconditions.checkNotNull(cluster, "Cluster can not be null");
-		Preconditions.checkNotNull(topic, "Consumer topic can not be null");
-		Preconditions.checkNotNull(group, "Consumer group can not be empty");
-		Preconditions.checkArgument(!topic.isEmpty(), "Consumer topic can not be empty");
-		Preconditions.checkArgument(!group.isEmpty(), "Consumer group can not be empty");
-
-		this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 
 		this.enableCheckpoint = ((StreamingRuntimeContext) getRuntimeContext()).isCheckpointingEnabled();
 
@@ -192,7 +188,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		defaultMQPullConsumer.setMessageModel(MessageModel.CLUSTERING);
 		pullConsumerScheduleService.setDefaultMQPullConsumer(defaultMQPullConsumer);
 		consumer = pullConsumerScheduleService.getDefaultMQPullConsumer();
-		parallelismStrategy = getAllocStrategy(parallelism, subTaskId, cluster);
 		consumer.setAllocateMessageQueueStrategy(parallelismStrategy);
 
 		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
@@ -205,6 +200,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		this.skipDirty = metricGroup.counter("skipDirty");
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
 		this.retryTimes = getInteger(props, CONSUMER_RETRY_TIMES, CONSUMER_RETRY_TIMES_DEFAULT);
+		this.retryStrategy = RetryManager
+			.createExponentialBackoffStrategy(retryTimes, CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 	}
 
 	@Override
@@ -231,17 +228,11 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			public void doPullTask(MessageQueue mq, PullTaskContext pullTaskContext) {
 				PullResult[] pullResults = new PullResult[1];
 				try {
-					long offset = getMessageQueueOffset(mq);
+					long offset = getMessageQueueOffset(mq, consumer);
 					if (offset < 0) {
 						return;
 					}
 
-					/*
-					 * current task assign message queues
-					 */
-					Set<MessageQueue> balancedMQ = consumer.fetchMessageQueuesInBalance(topic);
-
-					RetryManager.Strategy strategy = RetryManager.createExponentialBackoffStrategy(retryTimes, CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 					RetryManager.retry(new RetryManager.RetryableRunner() {
 						@Override
 						public void run() throws IOException {
@@ -251,7 +242,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 								throw new FlinkRuntimeException("Failed to pull data from " + mq.toString(), e);
 							}
 						}
-					}, strategy);
+					}, retryStrategy);
 					boolean found = false;
 					PullResult pullResult = pullResults[0];
 					switch (pullResult.getPullStatus()) {
@@ -259,7 +250,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 							List<MessageExt> messages = pullResult.getMsgFoundList();
 							for (MessageExt msg : messages) {
 								OUT data = schema.deserialize(mq, msg);
-								if (schema.isEndOfStream(balancedMQ, data)) {
+								if (schema.isEndOfStream(assignMessageQueues, data)) {
 									LOG.info("Subtask: {} received all assign message queue end message.", subTaskId);
 									isSubTaskRunning = false;
 									break;
@@ -327,9 +318,7 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 	private boolean checkRunnable() {
 		try {
-			List<MessageQueue> messageQueues = parallelismStrategy.allocate(consumer.getConsumerGroup(),
-				null, new ArrayList<>(consumer.fetchSubscribeMessageQueues(topic)), null);
-			return CollectionUtils.isNotEmpty(messageQueues);
+			return CollectionUtils.isNotEmpty(assignMessageQueues) || schema.isStreamingMode();
 		} catch (Exception e) {
 			throw new IllegalStateException(String.format("%d check balance mq failed.", subTaskId), e);
 		}
@@ -342,50 +331,65 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		}
 	}
 
-	private long getMessageQueueOffset(MessageQueue mq) throws MQClientException {
+	private long getMessageQueueOffset(MessageQueue mq, DefaultMQPullConsumer consumer) throws MQClientException {
 		Long offset = offsetTable.get(mq);
 
 		if (offset == null) {
-			String startupMode = props.getProperty(STARTUP_MODE, STARTUP_MODE_GROUP);
-			switch (startupMode) {
-				case STARTUP_MODE_GROUP:
-					offset = consumer.fetchConsumeOffset(mq, false);
-					if (offset < 0) {
-						// We cannot get normal offset from RMQ.
-						// Default setting is earliest, in case of data loss.
-						String initialOffset = props.getProperty(RocketMQConfig.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
-						switch (initialOffset) {
-							case CONSUMER_OFFSET_EARLIEST:
-								offset = consumer.minOffset(mq);
-								break;
-							case CONSUMER_OFFSET_LATEST:
-								offset = consumer.maxOffset(mq);
-								break;
-							case CONSUMER_OFFSET_TIMESTAMP:
-								offset = consumer.searchOffset(mq, getLong(props,
-									RocketMQConfig.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis()));
-								break;
-							default:
-								throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
-						}
-					}
-					break;
-				case STARTUP_MODE_EARLIEST:
-					offset = consumer.minOffset(mq);
-					break;
-				case STARTUP_MODE_LATEST:
-					offset = consumer.maxOffset(mq);
-					break;
-				case STARTUP_MODE_TIMESTAMP:
-					offset = consumer.searchOffset(mq, getLong(props,
-						RocketMQConfig.STARTUP_MODE_FROM_TIMESTAMP, System.currentTimeMillis()));
-					break;
-				default:
-					throw new IllegalArgumentException("Unknown value for startup-mode: " + startupMode);
+			// new message queue will use min offset to avoid lose data.
+			if (!assignMessageQueues.contains(mq)) {
+				LOG.info("Subtask {} detect new message queue: {} in running state, use min offset for this message queue.",
+					subTaskId, mq);
+				offset = consumer.minOffset(mq);
+				assignMessageQueues.add(mq);
+			} else {
+				LOG.warn("Subtask {} detect missing message queue: {}, start get offset from config.", subTaskId, mq);
+				offset = getStartModeOffset(consumer, mq);
 			}
 		}
 		offsetTable.put(mq, offset);
 		return offsetTable.get(mq);
+	}
+
+	private long getStartModeOffset(DefaultMQPullConsumer consumer, MessageQueue mq) throws MQClientException {
+		long offset;
+		String startupMode = props.getProperty(STARTUP_MODE, STARTUP_MODE_GROUP);
+		switch (startupMode) {
+			case STARTUP_MODE_GROUP:
+				offset = consumer.fetchConsumeOffset(mq, false);
+				if (offset < 0) {
+					// We cannot get normal offset from RMQ.
+					// Default setting is earliest, in case of data loss.
+					String initialOffset = props.getProperty(RocketMQConfig.CONSUMER_OFFSET_RESET_TO, CONSUMER_OFFSET_EARLIEST);
+					switch (initialOffset) {
+						case CONSUMER_OFFSET_EARLIEST:
+							offset = consumer.minOffset(mq);
+							break;
+						case CONSUMER_OFFSET_LATEST:
+							offset = consumer.maxOffset(mq);
+							break;
+						case CONSUMER_OFFSET_TIMESTAMP:
+							offset = consumer.searchOffset(mq, getLong(props,
+								RocketMQConfig.CONSUMER_OFFSET_FROM_TIMESTAMP, System.currentTimeMillis()));
+							break;
+						default:
+							throw new IllegalArgumentException("Unknown value for CONSUMER_OFFSET_RESET_TO.");
+					}
+				}
+				break;
+			case STARTUP_MODE_EARLIEST:
+				offset = consumer.minOffset(mq);
+				break;
+			case STARTUP_MODE_LATEST:
+				offset = consumer.maxOffset(mq);
+				break;
+			case STARTUP_MODE_TIMESTAMP:
+				offset = consumer.searchOffset(mq, getLong(props,
+					RocketMQConfig.STARTUP_MODE_FROM_TIMESTAMP, System.currentTimeMillis()));
+				break;
+			default:
+				throw new IllegalArgumentException("Unknown value for startup-mode: " + startupMode);
+		}
+		return offset;
 	}
 
 	public void setForceAutoCommitEnabled(boolean forceAutoCommitEnabled) {
@@ -484,7 +488,22 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		// Given this, initializeState() is not only the place where different types of state are initialized,
 		// but also where state recovery logic is included.
 		LOG.debug("initialize State ...");
+		Preconditions.checkNotNull(props, "Consumer properties can not be empty");
+		Preconditions.checkNotNull(schema, "RocketMQDeserializationSchema can not be null");
+		this.topic = props.getProperty(RocketMQConfig.CONSUMER_TOPIC);
+		this.group = props.getProperty(RocketMQConfig.CONSUMER_GROUP);
+		this.cluster = props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN);
+
+		Preconditions.checkNotNull(cluster, "Cluster can not be null");
+		Preconditions.checkNotNull(topic, "Consumer topic can not be null");
+		Preconditions.checkNotNull(group, "Consumer group can not be empty");
+		Preconditions.checkArgument(!topic.isEmpty(), "Consumer topic can not be empty");
+		Preconditions.checkArgument(!group.isEmpty(), "Consumer group can not be empty");
+
 		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
+		this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
+
+		parallelismStrategy = getAllocStrategy(parallelism, subTaskId, cluster);
 		this.taskRunningAggregateManager = ((StreamingRuntimeContext) getRuntimeContext()).getGlobalAggregateManager();
 		this.offsetTable = new ConcurrentHashMap<>();
 		this.restoredOffsets = new ConcurrentHashMap<>();
@@ -507,9 +526,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 					restoredOffsets.put(mqOffsets.f0, mqOffsets.f1);
 				}
 			}
-			for (Map.Entry<MessageQueue, Long> entry : restoredOffsets.entrySet()) {
-				offsetTable.put(entry.getKey(), entry.getValue());
-			}
 			if (!schema.isStreamingMode()) {
 				for (Boolean storedRunningState : runningState.get()) {
 					isSubTaskRunning = storedRunningState && isSubTaskRunning;
@@ -518,6 +534,53 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 			LOG.info("Subtask {} Setting restore state in the consumer. Using the following offsets: {}", subTaskId, restoredOffsets);
 		} else {
 			LOG.info("Subtask {} No restore state for the consumer.", subTaskId);
+		}
+		fetchAssignMessageQueue(context.isRestored());
+	}
+
+	/**
+	 * Fetch current assign message queue list.
+	 */
+	private void fetchAssignMessageQueue(boolean restored) {
+		DefaultMQPullConsumer consumer = new DefaultMQPullConsumer(RocketMQConfig.buildAclRPCHook(props));
+		consumer.setConsumerGroup(group);
+		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN));
+		try {
+			consumer.start();
+			assignMessageQueues = new HashSet<>(parallelismStrategy.allocate(consumer.getConsumerGroup(),
+				null, new ArrayList<>(consumer.fetchSubscribeMessageQueues(topic)), null));
+
+			Set<MessageQueue> stateMessageQueues = new HashSet<>(parallelismStrategy.allocate(consumer.getConsumerGroup(),
+				null, new ArrayList<>(restoredOffsets.keySet()), null));
+
+			if (CollectionUtils.isNotEmpty(stateMessageQueues)) {
+				assignMessageQueues.addAll(stateMessageQueues);
+			}
+
+			LOG.info("Subtask {} assigned message queue: {}, size: {}.", subTaskId, assignMessageQueues
+				, CollectionUtils.size(assignMessageQueues));
+
+			if (restored && restoredOffsets != null) {
+				for (MessageQueue messageQueue : assignMessageQueues) {
+					if (!restoredOffsets.containsKey(messageQueue)) {
+						restoredOffsets.put(messageQueue, consumer.minOffset(messageQueue));
+					}
+				}
+				//Only put assigned message queue into offset table.
+				for (MessageQueue messageQueue : assignMessageQueues) {
+					offsetTable.put(messageQueue, restoredOffsets.get(messageQueue));
+				}
+			}
+			if (!restored) {
+				for (MessageQueue messageQueue : assignMessageQueues) {
+					offsetTable.put(messageQueue, getMessageQueueOffset(messageQueue, consumer));
+				}
+			}
+		} catch (Exception e) {
+			throw new IllegalArgumentException(String
+				.format("Subtask %s failed when init offset table.", subTaskId), e);
+		} finally {
+			consumer.shutdown();
 		}
 	}
 
