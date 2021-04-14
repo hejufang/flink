@@ -147,10 +147,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			this.parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
 		}
 
-		this.lastSnapshotQueues = new HashSet<>();
 		this.subTaskId = getRuntimeContext().getIndexOfThisSubtask();
-		this.offsetTable = new ConcurrentHashMap<>();
-		this.restoredOffsets = new HashMap<>();
 
 		MetricGroup metricGroup = getRuntimeContext().getMetricGroup().addGroup(ROCKET_MQ_CONSUMER_METRICS_GROUP)
 			.addGroup(RocketMQOptions.TOPIC_METRICS_GROUP, this.topic)
@@ -201,6 +198,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.unionOffsetStates = context.getOperatorStateStore().getUnionListState(new ListStateDescriptor<>(
 			OFFSETS_STATE_NAME, TypeInformation.of(new TypeHint<Tuple2<MessageQueue, Long>>() {})
 		));
+		lastSnapshotQueues = new HashSet<>();
+		offsetTable = new ConcurrentHashMap<>();
+		restoredOffsets = new HashMap<>();
 		isRestored = context.isRestored();
 		unionOffsetStates.get().forEach(
 			queueAndOffset -> restoredOffsets.compute(queueAndOffset.f0, (queue, offset) -> {
