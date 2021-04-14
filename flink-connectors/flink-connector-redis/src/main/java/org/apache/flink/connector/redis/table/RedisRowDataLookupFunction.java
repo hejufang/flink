@@ -24,12 +24,12 @@ import org.apache.flink.connector.redis.options.RedisOptions;
 import org.apache.flink.connector.redis.utils.ClientPoolProvider;
 import org.apache.flink.connector.redis.utils.RedisUtils;
 import org.apache.flink.connector.redis.utils.RedisValueType;
+import org.apache.flink.connector.redis.utils.StringValueConverters;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.source.DynamicTableSource.DataStructureConverter;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
 import org.apache.flink.table.types.DataType;
@@ -50,6 +50,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -65,10 +66,11 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	private transient ClientPool clientPool;
 	private transient Jedis jedis;
 	private final ClientPoolProvider clientPoolProvider;
-	private final DataType[] fieldTypes;
+	private final String[] fieldNames;
+	private final String[] hashKeys;
+	private final StringValueConverters.StringValueConverter[] stringValueConverters;
 	@Nullable
 	private final DeserializationSchema<RowData> deserializationSchema;
-	@Nullable
 	private final DataStructureConverter converter;
 	private final RedisOptions options;
 	private final RedisLookupOptions lookupOptions;
@@ -81,18 +83,22 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			RedisOptions options,
 			RedisLookupOptions lookupOptions,
 			DataType[] fieldTypes,
+			String[] fieldNames,
 			RowData.FieldGetter[] fieldGetters,
 			ClientPoolProvider clientPoolProvider,
 			@Nullable DeserializationSchema<RowData> deserializationSchema,
-			@Nullable DataStructureConverter converter) {
+			DataStructureConverter converter) {
 		this.options = options;
 		this.lookupOptions = lookupOptions;
-		this.fieldTypes = fieldTypes;
+		this.fieldNames = fieldNames;
+		this.hashKeys = Arrays.copyOfRange(fieldNames, 1, fieldNames.length);
 		this.clientPoolProvider  = clientPoolProvider;
 		this.deserializationSchema = deserializationSchema;
 		this.converter = converter;
 		this.keyFieldIndex = options.getKeyIndex();
 		this.fieldGetters = fieldGetters;
+		this.stringValueConverters = Arrays.stream(fieldTypes)
+			.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
 	}
 
 	@Override
@@ -141,6 +147,8 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 				Object key = keys[0];
 				if (deserializationSchema != null) {
 					row = lookupWithSchema(key.toString());
+				} else if (lookupOptions.isSpecifyHashKeys()) {
+					row = getHashValueForKeysSpecified(key.toString());
 				} else {
 					Object value = getValueFromExternal(key.toString());
 					if (value != null) {
@@ -202,7 +210,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			for (int i = 0; i < row.getArity(); i++) {
 				valueList.add(fieldGetters[i].getFieldOrNull(row));
 			}
-			valueList.add(keyFieldIndex, convertToBasicTypeObj(key.getBytes(), fieldTypes[keyFieldIndex]));
+			valueList.add(keyFieldIndex, stringValueConverters[keyFieldIndex].toInternal(key));
 			return GenericRowData.of(valueList.toArray(new Object[0]));
 		}
 		return row;
@@ -212,7 +220,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		try {
 			switch (options.getRedisValueType()) {
 				case GENERAL:
-					return jedis.get(key.getBytes());
+					return jedis.get(key);
 				case HASH:
 					return jedis.hgetAll(key);
 				case LIST:
@@ -232,6 +240,16 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		}
 	}
 
+	private RowData getHashValueForKeysSpecified(String key) {
+		List<String> values = jedis.hmget(key, hashKeys);
+		Object[] internalValues = new Object[fieldNames.length];
+		internalValues[0] = stringValueConverters[0].toInternal(key);
+		for (int i = 1; i < fieldNames.length; i++) {
+			internalValues[i] = stringValueConverters[i].toInternal(values.get(i));
+		}
+		return GenericRowData.of(internalValues);
+	}
+
 	/**
 	 * Converting lookup key and value to internal row. Note that when RedisValueType is not String,
 	 * the elements in value can only be VARCHAR, like ARRAY&lt;BIGINT&gt;.
@@ -239,40 +257,14 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	public RowData convertToRow(Object key, Object value) {
 		if (options.getRedisValueType().equals(RedisValueType.GENERAL)) {
 			GenericRowData row = new GenericRowData(2);
-			row.setField(0, convertToBasicTypeObj(key.toString().getBytes(), fieldTypes[0]));
-			row.setField(1, convertToBasicTypeObj((byte[]) value, fieldTypes[1]));
+			row.setField(0, stringValueConverters[0].toInternal(key.toString()));
+			row.setField(1, stringValueConverters[1].toInternal(value.toString()));
 			return row;
 		} else {
 			Row row = new Row(2);
 			row.setField(0, key);
 			row.setField(1, value);
 			return (RowData) converter.toInternal(row);
-		}
-	}
-
-	/**
-	 * Converting a byte array to basic type object.
-	 */
-	private Object convertToBasicTypeObj(byte[] field, DataType fieldType) {
-		Class<?> fieldTypeClass = fieldType.getConversionClass();
-		if (String.class == fieldTypeClass) {
-			return StringData.fromBytes(field);
-		} else if (fieldTypeClass == Boolean.class) {
-			return Boolean.valueOf(new String(field));
-		} else if (fieldTypeClass == byte[].class) {
-			return field;
-		} else if (fieldTypeClass == Short.class) {
-			return Short.valueOf(new String(field));
-		} else if (fieldTypeClass == Integer.class) {
-			return Integer.valueOf(new String(field));
-		} else if (fieldTypeClass == Long.class) {
-			return Long.valueOf(new String(field));
-		} else if (fieldTypeClass == Float.class) {
-			return Float.valueOf(new String(field));
-		} else if (fieldTypeClass == Double.class) {
-			return Double.valueOf(new String(field));
-		} else {
-			throw new UnsupportedOperationException("Redis/Abase lookup doesn't support type: " + fieldTypeClass);
 		}
 	}
 

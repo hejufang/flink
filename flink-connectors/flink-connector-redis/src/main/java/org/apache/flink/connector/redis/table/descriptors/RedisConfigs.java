@@ -77,6 +77,12 @@ public class RedisConfigs {
 		.defaultValue(RedisValueType.GENERAL)
 		.withDescription("Optional. The data type written to or read from redis. Options are string, " +
 			"hash, list, set and zset. The default value is string.");
+	public static final ConfigOption<Boolean> LOOKUP_SPECIFY_HASH_KEYS = ConfigOptions
+		.key("lookup.specify-hash-keys")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("Optional. The flag decides whether to specify hash keys when get hash values from a " +
+			"redis/abase key with a hash-type value.");
 
 	//Sink config options
 	public static final ConfigOption<RedisSinkMode> SINK_MODE = ConfigOptions

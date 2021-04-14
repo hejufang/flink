@@ -45,6 +45,8 @@ public class RedisLookupOptions implements Serializable {
 	@Nullable
 	private final Boolean isInputKeyByEnabled;
 
+	private final boolean specifyHashKeys;
+
 	public RedisLookupOptions(
 			long cacheMaxSize,
 			long cacheExpireMs,
@@ -52,7 +54,8 @@ public class RedisLookupOptions implements Serializable {
 			long laterRetryMs,
 			int laterRetryTimes,
 			boolean cacheNull,
-			@Nullable Boolean isInputKeyByEnabled) {
+			@Nullable Boolean isInputKeyByEnabled,
+			boolean specifyHashKeys) {
 		this.cacheMaxSize = cacheMaxSize;
 		this.cacheExpireMs = cacheExpireMs;
 		this.maxRetryTimes = maxRetryTimes;
@@ -60,6 +63,7 @@ public class RedisLookupOptions implements Serializable {
 		this.laterRetryTimes = laterRetryTimes;
 		this.cacheNull = cacheNull;
 		this.isInputKeyByEnabled = isInputKeyByEnabled;
+		this.specifyHashKeys = specifyHashKeys;
 	}
 
 	public long getCacheMaxSize() {
@@ -91,6 +95,10 @@ public class RedisLookupOptions implements Serializable {
 		return isInputKeyByEnabled;
 	}
 
+	public boolean isSpecifyHashKeys() {
+		return specifyHashKeys;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (o instanceof RedisLookupOptions) {
@@ -101,7 +109,8 @@ public class RedisLookupOptions implements Serializable {
 				Objects.equals(laterRetryMs, options.laterRetryMs) &&
 				Objects.equals(laterRetryTimes, options.laterRetryTimes) &&
 				Objects.equals(cacheNull, options.cacheNull) &&
-				Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled);
+				Objects.equals(isInputKeyByEnabled, options.isInputKeyByEnabled) &&
+				specifyHashKeys == options.specifyHashKeys;
 		} else {
 			return false;
 		}

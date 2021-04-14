@@ -57,6 +57,7 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CO
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_MAX_TOTAL_NUM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_MIN_IDLE_NUM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_TIMEOUT;
+import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.PSM;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_IGNORE_DELETE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MAX_RETRIES;
@@ -97,7 +98,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		validateConfigOptions(config);
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		RedisOptions options = getRedisOptions(config, physicalSchema);
-		validateSchema(options, physicalSchema);
+		validateSchema(options, null, physicalSchema);
 		return createRedisDynamicTableSink(
 			options,
 			getRedisInsertOptions(config),
@@ -132,10 +133,11 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		RedisOptions options = getRedisOptions(config, physicalSchema);
-		validateSchema(options, physicalSchema);
+		RedisLookupOptions lookupOptions = getRedisLookupOptions(config);
+		validateSchema(options, lookupOptions, physicalSchema);
 		return createRedisDynamicTableSource(
 			options,
-			getRedisLookupOptions(config),
+			lookupOptions,
 			physicalSchema,
 			decodingFormat
 		);
@@ -193,6 +195,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		optionalOptions.add(LOOKUP_CACHE_NULL_VALUE);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		optionalOptions.add(PSM);
+		optionalOptions.add(LOOKUP_SPECIFY_HASH_KEYS);
 		return optionalOptions;
 	}
 
@@ -239,7 +242,8 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			readableConfig.get(LOOKUP_LATER_JOIN_LATENCY).toMillis(),
 			readableConfig.get(LOOKUP_LATER_JOIN_RETRY_TIMES),
 			readableConfig.get(LOOKUP_CACHE_NULL_VALUE),
-			readableConfig.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null));
+			readableConfig.getOptional(LOOKUP_ENABLE_INPUT_KEYBY).orElse(null),
+			readableConfig.get(LOOKUP_SPECIFY_HASH_KEYS));
 	}
 
 	private RedisInsertOptions getRedisInsertOptions(ReadableConfig readableConfig) {
@@ -273,11 +277,13 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		});
 	}
 
-	private void validateSchema(RedisOptions options, TableSchema schema) {
+	private void validateSchema(RedisOptions options, @Nullable RedisLookupOptions lookupOptions, TableSchema schema) {
 		if (options.getRedisValueType().equals(RedisValueType.HASH) && schema.getFieldCount() == 2) {
-			checkState(schema.getFieldDataTypes()[1]
-				.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
-				"Unsupported type for hash value, should be map<varchar, varchar>");
+			if (lookupOptions != null && !lookupOptions.isSpecifyHashKeys()) {
+				checkState(schema.getFieldDataTypes()[1]
+						.equals(DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
+					"Unsupported type for hash value, should be map<varchar, varchar>");
+			}
 		}
 	}
 

@@ -88,6 +88,7 @@ public class RedisDynamicTableSource implements LookupTableSource, SupportsProje
 			options,
 			lookupOptions,
 			schema.getFieldDataTypes(),
+			schema.getFieldNames(),
 			fieldGetters,
 			clientPoolProvider,
 			decodingFormat == null ? null : decodingFormat.createRuntimeDecoder(context, realDataType),
