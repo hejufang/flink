@@ -68,7 +68,7 @@ common:
   flink.client.yarn.config.yarn.resourcemanager.connect.max-wait.ms: 900000
 
   # provided lib dirs
-  yarn.provided.lib.dirs.enabled: false
+  yarn.provided.lib.dirs.enabled: true
 
   # Metrics
   metrics.reporters: opentsdb_reporter,databus_reporter
@@ -387,7 +387,6 @@ quoll:
   high-availability.zookeeper.quorum: 10.129.16.103:2181,10.129.19.99:2181,10.129.36.17:2181,10.129.42.156:2181,10.129.42.93:2181
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/home/byte_flink_checkpoint
-  yarn.provided.lib.dirs.enabled: true
   flink.parallel.gc.thread.use.cores: true
 
 quoka:
@@ -398,7 +397,6 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   cluster.evenly-spread-out-slots: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  yarn.provided.lib.dirs.enabled: true
 
 quaga:
   dc: cn
@@ -407,7 +405,6 @@ quaga:
   hdfs.prefix: hdfs://haruna/flink_lq
   checkpoint.hdfs.prefix: hdfs://haruna/flink_lq
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
-  yarn.provided.lib.dirs.enabled: true
 
 quele:
   dc: cn
@@ -441,6 +438,7 @@ stork:
   docker.region: Aliyun_SG
   save-meta.enabled: false
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 shark:
   dc: sg
@@ -459,6 +457,7 @@ shark:
   docker.region: Aliyun_SG
   save-meta.enabled: false
   table.exec.hive.permission-check.gemini-server-url: http://gemini-sg.byted.org/api/query/sg/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 marmt:
   dc: va
@@ -480,6 +479,7 @@ marmt:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 macaw:
   dc: va
@@ -501,6 +501,7 @@ macaw:
   grafana.domain_url: "https://grafana-us.byted.org"
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics_va
   table.exec.hive.permission-check.gemini-server-url: http://gemini-maliva.byted.org/api/query/i18n/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 grila:
   dc: i18n_gcp
@@ -523,6 +524,7 @@ grila:
   grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 gavia:
   dc: i18n_gcp
@@ -545,6 +547,7 @@ gavia:
   grafana.domain_url: "https://grafana-i18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiSGlWUlRpQlZWcDhsdGJ4ZTRWcGtGc1VHcG8xT2h5UkkiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.gemini-server-url: http://gemini-gcp.byted.org/api/query/gcp/verifyUsersPrivilege
+  yarn.provided.lib.dirs.enabled: false
 
 alisg:
   dc: sg
@@ -598,6 +601,7 @@ boe:
   grafana.domain_url: "http://grafana-boe.byted.org"
   register-dashboard.token: "Bearer eyJrIjoiTURSV01QeWNDZXJXYUNBdEhkSU94U2tKajU2M1BVM24iLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 cof:
   dc: vm
@@ -612,6 +616,7 @@ cof:
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   cluster.evenly-spread-out-slots: true
   table.exec.hive.permission-check.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 swan:
   dc: ka
@@ -620,6 +625,7 @@ swan:
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
   table.exec.hive.permission-check.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 koala:
   dc: ka2
@@ -628,6 +634,7 @@ koala:
   hdfs.prefix: hdfs://nestbackend/flink_swan
   checkpoint.hdfs.prefix: hdfs://nestbackend/flink_swan
   table.exec.hive.permission-check.enabled: false
+  yarn.provided.lib.dirs.enabled: false
 
 boei18n:
   dc: vm
@@ -646,3 +653,4 @@ boei18n:
   grafana.domain_url: "http://grafana-boei18n.byted.org"
   register-dashboard.token: "Bearer eyJrIjoicndEUGRnNHpUZE9Gcm04VE5QSDdDV3JzbG8wWFZYa3IiLCJuIjoiZmxpbmsiLCJpZCI6MX0="
   table.exec.hive.permission-check.enabled: false
+  yarn.provided.lib.dirs.enabled: false
