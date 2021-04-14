@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.checkpoint.metadata;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.MasterState;
@@ -35,13 +36,11 @@ import org.apache.flink.runtime.state.KeyGroupsStateHandle;
 import org.apache.flink.runtime.state.KeyedStateHandle;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.OperatorStreamStateHandle;
-import org.apache.flink.runtime.state.PlaceholderStreamStateHandle;
 import org.apache.flink.runtime.state.ResultSubpartitionStateHandle;
 import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.RelativeFileStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
-import org.apache.flink.util.StringBasedID;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
@@ -50,13 +49,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.StateHandleDummyUtil.createNewInputChannelStateHandle;
 import static org.apache.flink.runtime.checkpoint.StateHandleDummyUtil.createNewResultSubpartitionStateHandle;
@@ -134,7 +130,7 @@ public class CheckpointTestUtils {
 				if (hasKeyedBackend) {
 					if (isIncremental && !isSavepoint(basePath)) {
 						// here, we use batch to create IncrementalRemoteKeyedStateHandle
-						keyedStateBackend = createDummyIncrementalKeyedStateHandleWithBatch(random);
+						keyedStateBackend = createDummyIncrementalBatchKeyedStateHandle(random);
 					} else {
 						keyedStateBackend = createDummyKeyGroupStateHandle(random, basePath);
 					}
@@ -296,11 +292,13 @@ public class CheckpointTestUtils {
 	/** utility class, not meant to be instantiated. */
 	private CheckpointTestUtils() {}
 
-	public static IncrementalRemoteKeyedStateHandle createDummyIncrementalKeyedStateHandleWithBatch(Random rnd) {
-		Set<StateHandleID> usedSstFiles = new HashSet<>();
-		usedSstFiles.add(new StateHandleID("reused1.sst"));
-		usedSstFiles.add(new StateHandleID("reused2.sst"));
-		usedSstFiles.add(new StateHandleID("reused3.sst"));
+	public static IncrementalRemoteKeyedStateHandle createDummyIncrementalBatchKeyedStateHandle(Random rnd) {
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
+		List<StateHandleID> filesInOneBatch = new ArrayList<>();
+		filesInOneBatch.add(new StateHandleID("reused1.sst"));
+		filesInOneBatch.add(new StateHandleID("reused2.sst"));
+		filesInOneBatch.add(new StateHandleID("reused3.sst"));
+		usedSstFiles.put(new StateHandleID("1.batch"), filesInOneBatch);
 		return new IncrementalRemoteBatchKeyedStateHandle(
 			createRandomUUID(rnd),
 			new KeyGroupRange(1, 1),
@@ -377,18 +375,18 @@ public class CheckpointTestUtils {
 			String.valueOf(createRandomUUID(rnd)),
 			String.valueOf(createRandomUUID(rnd)).getBytes(ConfigConstants.DEFAULT_CHARSET));
 
-		Map<StateHandleID, Long> fileNameToOffset = new HashMap<>();
-		String[] fileNames = new String[numFiles];
+		Tuple2<Long, Long>[] offsetsAndSizes = new Tuple2[numFiles];
+		StateHandleID[] fileNames = new StateHandleID[numFiles];
 		for (int i = 0; i < numFiles; i++) {
-			fileNames[i] = rnd.nextInt(100) + ".sst";
-			fileNameToOffset.put(new StateHandleID(fileNames[i]), 0L);
+			fileNames[i] = new StateHandleID(rnd.nextInt(100) + ".sst");
+			offsetsAndSizes[i] = new Tuple2<>(0L, 0L);
 		}
 
 		return new BatchStateHandle(
-			stateHandle, fileNameToOffset, generateBatchFileId(fileNames));
+			stateHandle, fileNames, offsetsAndSizes, generateBatchFileId(fileNames));
 	}
 
-	private static StateHandleID generateBatchFileId(String[] sstFiles) {
+	private static StateHandleID generateBatchFileId(StateHandleID[] sstFiles) {
 		String sstFilesNames = Arrays.toString(sstFiles);
 
 		// batchFileID format: {UUID(sst files)}.batch

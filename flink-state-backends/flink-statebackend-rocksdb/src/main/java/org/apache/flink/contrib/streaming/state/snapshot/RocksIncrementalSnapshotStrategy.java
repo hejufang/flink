@@ -368,8 +368,9 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				// Note: we must replace all placeholders in sstFiles before putting it to
 				// materializedSstFiles. The sstFiles will be used to find batch state handle
 				// in the future. Placeholder has no info of the corresponding batch.
+				Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
 				Map<StateHandleID, StreamStateHandle> batchIDToBatchStateHandle = isEnableStateFileBatching ?
-					transferStateFilesToBatch(baseSstFiles, sstFiles) : null;
+					transferStateFilesToBatch(baseSstFiles, sstFiles, usedSstFiles) : null;
 
 				synchronized (materializedSstFiles) {
 					materializedSstFiles.put(checkpointId, sstFiles);
@@ -381,9 +382,9 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						keyGroupRange,
 						checkpointId,
 						batchIDToBatchStateHandle,
-						transferStateFilesToBatch(Collections.emptyMap(), miscFiles),
+						transferStateFilesToBatch(Collections.emptyMap(), miscFiles, null),
 						metaStateHandle.getJobManagerOwnedSnapshot(),
-						sstFiles.keySet(),
+						usedSstFiles,
 						totalStateSize) :
 					new IncrementalRemoteKeyedStateHandle(
 						backendUID,
@@ -594,7 +595,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	@VisibleForTesting
 	public static Map<StateHandleID, StreamStateHandle> transferStateFilesToBatch(
 		Map<StateHandleID, StreamStateHandle> baseSstFiles,
-		Map<StateHandleID, StreamStateHandle> stateFiles) {
+		Map<StateHandleID, StreamStateHandle> stateFiles,
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles) {
 
 		Map<StateHandleID, StreamStateHandle> batchFileIdToBatchStateHandle = new HashMap<>();
 		for (Map.Entry<StateHandleID, StreamStateHandle> entry : stateFiles.entrySet()) {
@@ -616,6 +618,11 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 				// replace placeholder in stateFiles
 				entry.setValue(batchStateHandle);
+			}
+
+			if (usedSstFiles != null) {
+				usedSstFiles.putIfAbsent(batchFileId, new ArrayList<>());
+				usedSstFiles.get(batchFileId).add(entry.getKey());
 			}
 		}
 		return batchFileIdToBatchStateHandle;

@@ -158,7 +158,7 @@ public class RocksDBFullRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 		}
 		updateDownloadStats(restoreStateHandles.stream().map(o -> (KeyGroupsStateHandle) o).collect(Collectors.toList()), System.currentTimeMillis() - writeKeyStart);
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle, nativeMetricMonitor,
-			-1, null, null);
+			-1, null, null, false);
 	}
 
 	/**

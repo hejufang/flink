@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.checkpoint.metadata;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.MasterState;
 import org.apache.flink.runtime.checkpoint.OperatorState;
@@ -57,10 +58,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -283,34 +282,49 @@ public abstract class MetadataV2V3SerializerBase {
 			serializeStreamStateHandle(keyGroupsStateHandle.getDelegateStateHandle(), dos);
 		} else if (stateHandle instanceof IncrementalRemoteKeyedStateHandle) {
 			if (stateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
-				IncrementalRemoteBatchKeyedStateHandle incrementalRemoteBatchKeyedStateHandle =
-					(IncrementalRemoteBatchKeyedStateHandle) stateHandle;
 				dos.writeByte(INCREMENTAL_BATCH_KEY_GROUPS_HANDLE);
-				Set<StateHandleID> usedSstFiles = incrementalRemoteBatchKeyedStateHandle.getUsedSstFiles();
-				dos.writeInt(usedSstFiles.size());
-				for (StateHandleID stateHandleID : usedSstFiles) {
-					dos.writeUTF(stateHandleID.getKeyString());
-				}
-				dos.writeLong(incrementalRemoteBatchKeyedStateHandle.getTotalStateSize());
+				serializeIncrementalBatchKeyGroupHandle((IncrementalRemoteBatchKeyedStateHandle) stateHandle, dos);
 			} else {
 				dos.writeByte(INCREMENTAL_KEY_GROUPS_HANDLE);
+				serializeIncrementalKeyGroupHandle((IncrementalRemoteKeyedStateHandle) stateHandle, dos);
 			}
-
-			IncrementalRemoteKeyedStateHandle incrementalKeyedStateHandle =
-				(IncrementalRemoteKeyedStateHandle) stateHandle;
-
-			dos.writeLong(incrementalKeyedStateHandle.getCheckpointId());
-			dos.writeUTF(String.valueOf(incrementalKeyedStateHandle.getBackendIdentifier()));
-			dos.writeInt(incrementalKeyedStateHandle.getKeyGroupRange().getStartKeyGroup());
-			dos.writeInt(incrementalKeyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups());
-
-			serializeStreamStateHandle(incrementalKeyedStateHandle.getMetaStateHandle(), dos);
-
-			serializeStreamStateHandleMap(incrementalKeyedStateHandle.getSharedState(), dos);
-			serializeStreamStateHandleMap(incrementalKeyedStateHandle.getPrivateState(), dos);
 		} else {
 			throw new IllegalStateException("Unknown KeyedStateHandle type: " + stateHandle.getClass());
 		}
+	}
+
+	void serializeIncrementalKeyGroupHandle(
+		IncrementalRemoteKeyedStateHandle incrementalKeyedStateHandle,
+		DataOutputStream dos) throws IOException {
+
+		dos.writeLong(incrementalKeyedStateHandle.getCheckpointId());
+		dos.writeUTF(String.valueOf(incrementalKeyedStateHandle.getBackendIdentifier()));
+		dos.writeInt(incrementalKeyedStateHandle.getKeyGroupRange().getStartKeyGroup());
+		dos.writeInt(incrementalKeyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups());
+
+		serializeStreamStateHandle(incrementalKeyedStateHandle.getMetaStateHandle(), dos);
+
+		serializeStreamStateHandleMap(incrementalKeyedStateHandle.getSharedState(), dos);
+		serializeStreamStateHandleMap(incrementalKeyedStateHandle.getPrivateState(), dos);
+	}
+
+	void serializeIncrementalBatchKeyGroupHandle(
+		IncrementalRemoteBatchKeyedStateHandle incrementalRemoteBatchKeyedStateHandle,
+		DataOutputStream dos) throws IOException {
+
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles = incrementalRemoteBatchKeyedStateHandle.getUsedSstFiles();
+		dos.writeInt(usedSstFiles.size());
+		for (Map.Entry<StateHandleID, List<StateHandleID>> entry : usedSstFiles.entrySet()) {
+			StateHandleID batchFileId = entry.getKey();
+			List<StateHandleID> sstFilesInBatch = entry.getValue();
+
+			dos.writeUTF(batchFileId.getKeyString());
+			dos.writeInt(sstFilesInBatch.size());
+			for (StateHandleID sstFileName : sstFilesInBatch) {
+				dos.writeUTF(sstFileName.getKeyString());
+			}
+		}
+		serializeIncrementalKeyGroupHandle(incrementalRemoteBatchKeyedStateHandle, dos);
 	}
 
 	KeyedStateHandle deserializeKeyedStateHandle(
@@ -335,58 +349,75 @@ public abstract class MetadataV2V3SerializerBase {
 				keyGroupRange, offsets);
 			StreamStateHandle stateHandle = deserializeStreamStateHandle(dis, context);
 			return new KeyGroupsStateHandle(keyGroupRangeOffsets, stateHandle);
-		} else if (INCREMENTAL_KEY_GROUPS_HANDLE == type || INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type) {
-			Set<StateHandleID> usedSstFiles = new HashSet<>();
-			long totalStateSize = -1;
-			if (INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type) {
-				int usedSstFileSize = dis.readInt();
+		} else if (INCREMENTAL_KEY_GROUPS_HANDLE == type) {
+			return deserializeIncrementalKeyGroupHandle(dis, context);
+		} else if (INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type) {
+			return deserializeIncrementalBatchKeyGroupHandle(dis, context);
 
-				for (int i = 0; i < usedSstFileSize; i++) {
-					usedSstFiles.add(new StateHandleID(dis.readUTF()));
-				}
-				totalStateSize = dis.readLong();
-			}
-
-			long checkpointId = dis.readLong();
-			String backendId = dis.readUTF();
-			int startKeyGroup = dis.readInt();
-			int numKeyGroups = dis.readInt();
-			KeyGroupRange keyGroupRange =
-				KeyGroupRange.of(startKeyGroup, startKeyGroup + numKeyGroups - 1);
-
-			StreamStateHandle metaDataStateHandle = deserializeStreamStateHandle(dis, context);
-			Map<StateHandleID, StreamStateHandle> sharedStates = deserializeStreamStateHandleMap(dis, context);
-			Map<StateHandleID, StreamStateHandle> privateStates = deserializeStreamStateHandleMap(dis, context);
-
-			UUID uuid;
-
-			try {
-				uuid = UUID.fromString(backendId);
-			} catch (Exception ex) {
-				// compatibility with old format pre FLINK-6964:
-				uuid = UUID.nameUUIDFromBytes(backendId.getBytes(StandardCharsets.UTF_8));
-			}
-
-			return INCREMENTAL_BATCH_KEY_GROUPS_HANDLE == type ?
-				new IncrementalRemoteBatchKeyedStateHandle(
-					uuid,
-					keyGroupRange,
-					checkpointId,
-					sharedStates,
-					privateStates,
-					metaDataStateHandle,
-					usedSstFiles,
-					totalStateSize) :
-				new IncrementalRemoteKeyedStateHandle(
-					uuid,
-					keyGroupRange,
-					checkpointId,
-					sharedStates,
-					privateStates,
-					metaDataStateHandle);
 		} else {
 			throw new IllegalStateException("Reading invalid KeyedStateHandle, type: " + type);
 		}
+	}
+
+	IncrementalRemoteKeyedStateHandle deserializeIncrementalKeyGroupHandle(
+			DataInputStream dis,
+			@Nullable DeserializationContext context) throws IOException {
+
+		long checkpointId = dis.readLong();
+		String backendId = dis.readUTF();
+		int startKeyGroup = dis.readInt();
+		int numKeyGroups = dis.readInt();
+		KeyGroupRange keyGroupRange =
+			KeyGroupRange.of(startKeyGroup, startKeyGroup + numKeyGroups - 1);
+
+		StreamStateHandle metaDataStateHandle = deserializeStreamStateHandle(dis, context);
+		Map<StateHandleID, StreamStateHandle> sharedStates = deserializeStreamStateHandleMap(dis, context);
+		Map<StateHandleID, StreamStateHandle> privateStates = deserializeStreamStateHandleMap(dis, context);
+
+		UUID uuid;
+
+		try {
+			uuid = UUID.fromString(backendId);
+		} catch (Exception ex) {
+			// compatibility with old format pre FLINK-6964:
+			uuid = UUID.nameUUIDFromBytes(backendId.getBytes(StandardCharsets.UTF_8));
+		}
+
+		return new IncrementalRemoteKeyedStateHandle(
+			uuid,
+			keyGroupRange,
+			checkpointId,
+			sharedStates,
+			privateStates,
+			metaDataStateHandle);
+	}
+
+	IncrementalRemoteBatchKeyedStateHandle deserializeIncrementalBatchKeyGroupHandle(
+			DataInputStream dis,
+			@Nullable DeserializationContext context) throws IOException {
+		int usedSstFileSize = dis.readInt();
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>(usedSstFileSize);
+
+		for (int i = 0; i < usedSstFileSize; i++) {
+			StateHandleID batchFileId = new StateHandleID(dis.readUTF());
+			int sstFileNumInBatch = dis.readInt();
+			List<StateHandleID> sstFilesInBatch = new ArrayList<>(sstFileNumInBatch);
+			for (int j = 0; j < sstFileNumInBatch; j++) {
+				sstFilesInBatch.add(new StateHandleID(dis.readUTF()));
+			}
+			usedSstFiles.put(batchFileId, sstFilesInBatch);
+		}
+
+		IncrementalRemoteKeyedStateHandle parentStateHandle = deserializeIncrementalKeyGroupHandle(dis, context);
+
+		return new IncrementalRemoteBatchKeyedStateHandle(
+			parentStateHandle.getBackendIdentifier(),
+			parentStateHandle.getKeyGroupRange(),
+			parentStateHandle.getCheckpointId(),
+			parentStateHandle.getSharedState(),
+			parentStateHandle.getPrivateState(),
+			parentStateHandle.getMetaStateHandle(),
+			usedSstFiles);
 	}
 
 	void serializeOperatorStateHandle(OperatorStateHandle stateHandle, DataOutputStream dos) throws IOException {
@@ -484,11 +515,13 @@ public abstract class MetadataV2V3SerializerBase {
 		} else if (stateHandle instanceof BatchStateHandle) {
 			dos.writeByte(BATCH_STREAM_STATE_HANDLE);
 			BatchStateHandle batchStateHandle = (BatchStateHandle) stateHandle;
-			Map<StateHandleID, Long> stateFileNameToOffset = batchStateHandle.getStateFileNameToOffset();
-			dos.writeInt(stateFileNameToOffset.size());
-			for (Map.Entry<StateHandleID, Long> entry : stateFileNameToOffset.entrySet()) {
-				dos.writeUTF(entry.getKey().getKeyString());
-				dos.writeLong(entry.getValue());
+			StateHandleID[] stateFileNames = batchStateHandle.getStateFileNames();
+			Tuple2<Long, Long>[] offsetsAndSizes = batchStateHandle.getOffsetsAndSizes();
+			dos.writeInt(stateFileNames.length);
+			for (int i = 0; i < stateFileNames.length; i++) {
+				dos.writeUTF(stateFileNames[i].getKeyString());
+				dos.writeLong(offsetsAndSizes[i].f0);
+				dos.writeLong(offsetsAndSizes[i].f1);
 			}
 			dos.writeUTF(batchStateHandle.getBatchFileID().getKeyString());
 			serializeStreamStateHandle(batchStateHandle.getDelegateStateHandle(), dos);
@@ -543,17 +576,16 @@ public abstract class MetadataV2V3SerializerBase {
 			return new RelativeFileStateHandle(statePath, relativePath, size);
 		} else if (BATCH_STREAM_STATE_HANDLE == type) {
 			int fileNum = dis.readInt();
-			Map<StateHandleID, Long> stateFileNameToOffset = new HashMap<>(fileNum);
+			StateHandleID[] stateFileNames = new StateHandleID[fileNum];
+			Tuple2<Long, Long>[] offsetsAndSizes = new Tuple2[fileNum];
 			for (int i = 0; i < fileNum; i++) {
-				String stateFileName = dis.readUTF();
-				long offset = dis.readLong();
-
-				stateFileNameToOffset.put(new StateHandleID(stateFileName), offset);
+				stateFileNames[i] = new StateHandleID(dis.readUTF());
+				offsetsAndSizes[i] = new Tuple2<>(dis.readLong(), dis.readLong());
 			}
 
 			String batchFileName = dis.readUTF();
 			StreamStateHandle delegateStateHandle = deserializeStreamStateHandle(dis, context);
-			return new BatchStateHandle(delegateStateHandle, stateFileNameToOffset, new StateHandleID(batchFileName));
+			return new BatchStateHandle(delegateStateHandle, stateFileNames, offsetsAndSizes, new StateHandleID(batchFileName));
 		} else {
 			throw new IOException("Unknown implementation of StreamStateHandle, code: " + type);
 		}

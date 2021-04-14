@@ -81,6 +81,6 @@ public class RocksDBNoneRestoreOperation<K> extends AbstractRocksDBRestoreOperat
 	public RocksDBRestoreResult restore() throws Exception {
 		openDB();
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle, nativeMetricMonitor,
-			-1, null, null);
+			-1, null, null, false);
 	}
 }

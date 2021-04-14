@@ -36,6 +36,7 @@ import org.apache.flink.runtime.state.BackendBuildingException;
 import org.apache.flink.runtime.state.DirectoryStateHandle;
 import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalLocalKeyedStateHandle;
+import org.apache.flink.runtime.state.IncrementalRemoteBatchKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedBackendSerializationProxy;
@@ -154,6 +155,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		boolean isRescaling = (restoreStateHandles.size() > 1 ||
 			!Objects.equals(theFirstStateHandle.getKeyGroupRange(), keyGroupRange));
 
+		boolean isBatchingEnabled = theFirstStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle;
+
 		if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
 			restoreWithRescaling(restoreStateHandles);
 		} else if (isRescaling && theFirstStateHandle instanceof IncrementalLocalKeyedStateHandle) {
@@ -166,7 +169,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		this.rescaling = isRescaling ? 1 : 0;
 
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
-			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles);
+			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles, isBatchingEnabled);
 	}
 
 	/**

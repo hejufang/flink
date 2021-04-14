@@ -18,6 +18,7 @@
 
 package org.apache.flink.contrib.streaming.state;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.state.BatchStateHandle;
@@ -29,6 +30,7 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.function.CheckedSupplier;
+import org.apache.flink.util.function.SupplierWithException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,14 +42,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Help class for uploading RocksDB state files.
@@ -59,6 +59,7 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 
 	private int maxRetryTimes;
 
+	@Nullable
 	private final RocksDBSstBatchStrategy batchStrategy;
 
 	public RocksDBStateUploader(int numberOfSnapshottingThreads, int maxRetryTimes) {
@@ -114,44 +115,24 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 		CloseableRegistry closeableRegistry) throws Exception {
 		Map<StateHandleID, CompletableFuture<StreamStateHandle>> futures = new HashMap<>(files.size());
 
-		// single file: state file name -> (state file name, localPath)
-		// batch: batch file name -> [(state file name, localPath),...]
-		Map<StateHandleID, List<Map.Entry<StateHandleID, Path>>> filesOrBatches = new HashMap<>(files.size());
-
 		if (batchStrategy == null) {
 			for (Map.Entry<StateHandleID, Path> entry : files.entrySet()) {
-				filesOrBatches.put(entry.getKey(), Collections.singletonList(entry));
+				final Supplier<StreamStateHandle> supplier =
+					tryWithMultipleTimes(() -> uploadLocalFileToCheckpointFs(entry.getValue(), checkpointStreamFactory, closeableRegistry));
+				futures.put(entry.getKey(), CompletableFuture.supplyAsync(supplier, executorService));
 			}
 		} else {
 			// batchId -> collection of state files
 			Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(files);
 			for (Map.Entry<StateHandleID, List<RocksDBFileMeta>> entry : batches.entrySet()) {
-				List<Map.Entry<StateHandleID, Path>> filePaths =
-					entry.getValue().stream().map(RocksDBFileMeta::toEntry).collect(Collectors.toList());
-				filesOrBatches.put(entry.getKey(), filePaths);
-			}
-		}
+				final Supplier<StreamStateHandle> supplier =
+					tryWithMultipleTimes(() -> uploadLocalFileToCheckpointFs(entry.getKey(), entry.getValue(), checkpointStreamFactory, closeableRegistry));
 
-		for (Map.Entry<StateHandleID, List<Map.Entry<StateHandleID, Path>>> entry : filesOrBatches.entrySet()) {
-			final Supplier<StreamStateHandle> supplier =
-				CheckedSupplier.unchecked(() -> {
-					int tryCount = 0;
-					while (true) {
-						try {
-							return uploadLocalFileToCheckpointFs(entry.getValue(), checkpointStreamFactory, closeableRegistry, entry.getKey());
-						} catch (Throwable t) {
-							if (++tryCount >= maxRetryTimes) {
-								throw t;
-							}
-							LOG.warn("Fail to upload file to HDFS, retrying...", t);
-						}
-					}
-				});
-
-			// map state file -> stream state handle
-			CompletableFuture<StreamStateHandle> stateHandleForFileOrBatch = CompletableFuture.supplyAsync(supplier, executorService);
-			for (Map.Entry<StateHandleID, Path> stateFile : entry.getValue()) {
-				futures.put(stateFile.getKey(), stateHandleForFileOrBatch);
+				// state file ID -> stream state handle (shared by all state files in the batch)
+				CompletableFuture<StreamStateHandle> sharedStateHandle = CompletableFuture.supplyAsync(supplier, executorService);
+				for (RocksDBFileMeta stateFile : entry.getValue()) {
+					futures.put(stateFile.getShId(), sharedStateHandle);
+				}
 			}
 		}
 
@@ -159,31 +140,52 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 	}
 
 	/**
-	 * Upload a single file or a bunch of files to checkpoint fs. A bunch of files will return
-	 * {@link BatchStateHandle}, which represents a batch file.
-	 *
-	 * <p>Note: filePaths must be a list, for we upload files in a batch in the order returned
-	 * by batchStrategy.
-	 *
-	 * @param filePaths Maps from state file name to local path.
-	 * @param checkpointStreamFactory The checkpoint streamFactory used to create outputstream.
-	 * @param closeableRegistry Close callback for input/output stream.
-	 * @param batchFileID Batch file name, ignored if uploading a single file.
-	 * @return {@link StreamStateHandle} represents a single file or a batch file.
-	 * @throws IOException Thrown if can not upload all the files.
+	 * Upload a single state file, state file batching disabled.
 	 */
 	private StreamStateHandle uploadLocalFileToCheckpointFs(
-		List<Map.Entry<StateHandleID, Path>> filePaths,
+		Path filePath,
 		CheckpointStreamFactory checkpointStreamFactory,
-		CloseableRegistry closeableRegistry,
-		StateHandleID batchFileID) throws IOException {
+		CloseableRegistry closeableRegistry) throws IOException {
 
-		InputStream inputStream = null;
 		CheckpointStreamFactory.CheckpointStateOutputStream outputStream = null;
 
-		Map<StateHandleID, Long> stateFileNameToOffset = new HashMap<>();
-		final byte[] buffer = new byte[READ_BUFFER_SIZE];
+		try {
+			outputStream = checkpointStreamFactory
+				.createCheckpointStateOutputStream(CheckpointedStateScope.SHARED);
+			closeableRegistry.registerCloseable(outputStream);
+
+			uploadSingleFile(filePath, closeableRegistry, outputStream);
+
+			StreamStateHandle result = null;
+			if (closeableRegistry.unregisterCloseable(outputStream)) {
+				result = outputStream.closeAndGetHandle();
+				outputStream = null;
+			}
+			return result;
+
+		} finally {
+
+			if (closeableRegistry.unregisterCloseable(outputStream)) {
+				IOUtils.closeQuietly(outputStream);
+			}
+		}
+	}
+
+	/**
+	 * Upload a bunch of state files, state file batching enabled.
+	 */
+	private StreamStateHandle uploadLocalFileToCheckpointFs(
+		StateHandleID batchFileID,
+		List<RocksDBFileMeta> files,
+		CheckpointStreamFactory checkpointStreamFactory,
+		CloseableRegistry closeableRegistry) throws IOException {
+
+		CheckpointStreamFactory.CheckpointStateOutputStream outputStream = null;
+
 		long currentOffset = 0;
+		int numFiles = files.size();
+		StateHandleID[] fileNames = new StateHandleID[numFiles];
+		Tuple2<Long, Long>[] offsetsAndSizes = new Tuple2[numFiles];
 
 		try {
 			// (1) open checkpoint fs output stream
@@ -192,30 +194,11 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 			closeableRegistry.registerCloseable(outputStream);
 
 			// (2) open local input stream of each file, and write all files to the same output stream
-			for (Map.Entry<StateHandleID, Path> entry : filePaths) {
-				stateFileNameToOffset.put(entry.getKey(), currentOffset);
-
-				Path filePath = entry.getValue();
-				try {
-					inputStream = Files.newInputStream(filePath);
-					closeableRegistry.registerCloseable(inputStream);
-
-					while (true) {
-						int numBytes = inputStream.read(buffer);
-
-						if (numBytes == -1) {
-							break;
-						}
-
-						outputStream.write(buffer, 0, numBytes);
-						// write one buffer, forward current offset
-						currentOffset += numBytes;
-					}
-				} finally {
-					if (closeableRegistry.unregisterCloseable(inputStream)) {
-						IOUtils.closeQuietly(inputStream);
-					}
-				}
+			for (int i = 0; i < numFiles; i++) {
+				long fileSize = uploadSingleFile(files.get(i).getFilePath(), closeableRegistry, outputStream);
+				fileNames[i] = files.get(i).getShId();
+				offsetsAndSizes[i] = new Tuple2<>(currentOffset, fileSize);
+				currentOffset += fileSize;
 			}
 
 			// (3) finish writing all files in the batch OR single file,
@@ -226,12 +209,66 @@ public class RocksDBStateUploader extends RocksDBStateDataTransfer {
 				outputStream = null;
 			}
 
-			// (4) wrap the state handle to BatchStateHandle if batch strategy is set
-			return batchStrategy == null ?
-				result : new BatchStateHandle(result, stateFileNameToOffset, batchFileID);
+			// (4) wrap the state handle to BatchStateHandle
+			return new BatchStateHandle(result, fileNames, offsetsAndSizes, batchFileID);
 		} finally {
 			if (closeableRegistry.unregisterCloseable(outputStream)) {
 				IOUtils.closeQuietly(outputStream);
+			}
+		}
+	}
+
+	// ---------------------------------------------------
+	// Utilities
+	// ---------------------------------------------------
+
+	private Supplier<StreamStateHandle> tryWithMultipleTimes(SupplierWithException<StreamStateHandle, IOException> internalCallable) {
+		return CheckedSupplier.unchecked(() -> {
+			int tryCount = 0;
+			while (true) {
+				try {
+					return internalCallable.get();
+				} catch (Throwable t) {
+					if (++tryCount >= maxRetryTimes) {
+						throw t;
+					}
+					LOG.warn("Fail to upload file to HDFS, retrying...", t);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Write one file to outputStream.
+	 */
+	private long uploadSingleFile(
+		Path filePath,
+		CloseableRegistry closeableRegistry,
+		CheckpointStreamFactory.CheckpointStateOutputStream outputStream) throws IOException {
+
+		InputStream inputStream = null;
+		long fileSize = 0L;
+
+		try {
+			final byte[] buffer = new byte[READ_BUFFER_SIZE];
+
+			inputStream = Files.newInputStream(filePath);
+			closeableRegistry.registerCloseable(inputStream);
+
+			while (true) {
+				int numBytes = inputStream.read(buffer);
+
+				if (numBytes == -1) {
+					break;
+				}
+				fileSize += numBytes;
+
+				outputStream.write(buffer, 0, numBytes);
+			}
+			return fileSize;
+		} finally {
+			if (closeableRegistry.unregisterCloseable(inputStream)) {
+				IOUtils.closeQuietly(inputStream);
 			}
 		}
 	}

@@ -18,6 +18,7 @@
 
 package org.apache.flink.contrib.streaming.state;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.contrib.streaming.state.snapshot.RocksIncrementalSnapshotStrategy;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.FSDataInputStream;
@@ -42,7 +43,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -64,9 +68,9 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 		StreamStateHandle stateHandle1 = new ByteStreamStateHandle("batch-1-internal", new byte[100]);
 		StreamStateHandle stateHandle2 = new ByteStreamStateHandle("batch-2-internal", new byte[100]);
 
-		BatchStateHandle b1 = new BatchStateHandle(stateHandle1, new HashMap<>(), batchFileId);
-		BatchStateHandle b2 = new BatchStateHandle(stateHandle2, new HashMap<>(), batchFileId);
-		BatchStateHandle b3 = new BatchStateHandle(stateHandle1, new HashMap<>(), batchFileId);
+		BatchStateHandle b1 = new BatchStateHandle(stateHandle1, new StateHandleID[10], new Tuple2[10], batchFileId);
+		BatchStateHandle b2 = new BatchStateHandle(stateHandle2, new StateHandleID[10], new Tuple2[10], batchFileId);
+		BatchStateHandle b3 = new BatchStateHandle(stateHandle1, new StateHandleID[10], new Tuple2[10], batchFileId);
 
 		assertNotEquals(b1, b2);
 		assertEquals(b1, b3);
@@ -118,7 +122,7 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 				assertTrue(miscFiles.get(entry.getKey()) instanceof BatchStateHandle);
 				BatchStateHandle batchStateHandle = (BatchStateHandle) miscFiles.get(entry.getKey());
 
-				long offset = batchStateHandle.getOffset(entry.getKey());
+				long offset = batchStateHandle.getOffsetAndSize(entry.getKey()).f0;
 				assertNotEquals(offset, -1);
 				FSDataInputStream inputStream = miscFiles.get(entry.getKey()).openInputStream();
 				inputStream.seek(offset);
@@ -128,7 +132,7 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 
 			// (4) test transfer miscFiles, only one batch
 			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle =
-				RocksIncrementalSnapshotStrategy.transferStateFilesToBatch(Collections.emptyMap(), miscFiles);
+				RocksIncrementalSnapshotStrategy.transferStateFilesToBatch(Collections.emptyMap(), miscFiles, null);
 			assertEquals(batchFileIdToStateHandle, batches);
 		}
 	}
@@ -176,7 +180,7 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 			for (Map.Entry<StateHandleID, Path> entry : sstFilePaths.entrySet()) {
 				assertTrue(sstFiles.get(entry.getKey()) instanceof BatchStateHandle);
 				BatchStateHandle batchStateHandle = (BatchStateHandle) sstFiles.get(entry.getKey());
-				long offset = batchStateHandle.getOffset(entry.getKey());
+				long offset = batchStateHandle.getOffsetAndSize(entry.getKey()).f0;
 
 				assertNotEquals(offset, -1);
 				FSDataInputStream inputStream = sstFiles.get(entry.getKey()).openInputStream();
@@ -192,15 +196,16 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 			for (int i = 0; i < reusedSstFileNum; i++) {
 				StateHandleID batchFileId = new StateHandleID(String.format("reuse%d.batch", i));
 				StateHandleID sstFileId = new StateHandleID(String.format("reused%d.sst", i));
-				BatchStateHandle batchStateHandle = new BatchStateHandle(delegateStateHandle, new HashMap<>(), batchFileId);
+				BatchStateHandle batchStateHandle = new BatchStateHandle(delegateStateHandle, new StateHandleID[10], new Tuple2[10], batchFileId);
 
 				baseSstFiles.put(sstFileId, batchStateHandle);
 				sstFiles.put(sstFileId, new PlaceholderStreamStateHandle());
 				batches.put(batchFileId, new PlaceholderStreamStateHandle());
 			}
 
+			Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
 			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle =
-				RocksIncrementalSnapshotStrategy.transferStateFilesToBatch(baseSstFiles, sstFiles);
+				RocksIncrementalSnapshotStrategy.transferStateFilesToBatch(baseSstFiles, sstFiles, usedSstFiles);
 			assertEquals(batches.size(), batchFileIdToStateHandle.size());
 			for (Map.Entry<StateHandleID, StreamStateHandle> entry: batches.entrySet()) {
 				assertTrue(batchFileIdToStateHandle.containsKey(entry.getKey()));
@@ -220,6 +225,12 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 					assertEquals(batchStateHandle, baseSstFiles.get(entry.getKey()));
 				}
 			}
+
+			Set<StateHandleID> allUsedSstFiles = new HashSet<>();
+			for (List<StateHandleID> sstFilesInBatch : usedSstFiles.values()) {
+				allUsedSstFiles.addAll(sstFilesInBatch);
+			}
+			assertEquals(allUsedSstFiles, sstFiles.keySet());
 		}
 
 	}

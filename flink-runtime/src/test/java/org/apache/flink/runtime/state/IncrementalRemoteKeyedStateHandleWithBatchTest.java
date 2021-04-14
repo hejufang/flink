@@ -21,10 +21,10 @@ package org.apache.flink.runtime.state;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointTestUtils;
 import org.junit.Test;
 
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.Mockito.never;
@@ -164,7 +164,7 @@ public class IncrementalRemoteKeyedStateHandleWithBatchTest {
 	}
 
 	private static IncrementalRemoteKeyedStateHandle create(Random rnd) {
-		Set<StateHandleID> usedSstFiles = new HashSet<>();
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
 		return new IncrementalRemoteBatchKeyedStateHandle(
 			UUID.nameUUIDFromBytes("test".getBytes()),
 			KeyGroupRange.of(0, 0),

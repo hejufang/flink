@@ -164,6 +164,7 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		this.nativeMetricOptions = new RocksDBNativeMetricOptions();
 		this.numberOfTransferingThreads = RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM.defaultValue();
 		this.maxRetryTimes = RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES.defaultValue();
+		this.batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
 	}
 
 	@VisibleForTesting
@@ -217,6 +218,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	}
 
 	RocksDBKeyedStateBackendBuilder<K> setSstBatchConfig(RocksDBStateBatchConfig batchConfig) {
+		if (batchConfig == null) {
+			batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
+		}
 		this.batchConfig = batchConfig;
 		return this;
 	}
@@ -292,6 +296,12 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 					backendUID = restoreResult.getBackendUID();
 					materializedSstFiles = restoreResult.getRestoredSstFiles();
 					lastCompletedCheckpointId = restoreResult.getLastCompletedCheckpointId();
+
+					if (restoreResult.isBatchingEnabled() != batchConfig.isEnableStateFileBatching()) {
+						// batching flip happens, new coming checkpoints do NOT bootstrap from the last completed checkpoint
+						lastCompletedCheckpointId = -1;
+						materializedSstFiles.clear();
+					}
 				}
 			}
 

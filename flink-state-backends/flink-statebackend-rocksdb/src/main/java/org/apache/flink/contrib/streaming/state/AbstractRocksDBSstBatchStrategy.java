@@ -55,7 +55,7 @@ public abstract class AbstractRocksDBSstBatchStrategy implements RocksDBSstBatch
 			doBatch(fileMetas) : Collections.singletonList(fileMetas);
 
 		// (3) generate batchFileID, considering it as the artificial file name for a batch
-		return fileBatches.stream().collect(Collectors.toMap(fileInOneBatch -> generateBatchFileId(fileInOneBatch), Function.identity()));
+		return fileBatches.stream().collect(Collectors.toMap(this::generateBatchFileId, Function.identity()));
 	}
 
 	/**

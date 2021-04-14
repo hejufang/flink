@@ -18,16 +18,19 @@
 
 package org.apache.flink.runtime.state;
 
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKeyedStateHandle {
-	private final Set<StateHandleID> usedSstFiles;
+	/** Map from batch file ID to sst files in that batch. */
+	private final Map<StateHandleID, List<StateHandleID>> usedSstFiles;
 
-	/** Actual state size of the state handle, summation of sst files. */
+	/**
+	 * Actual state size of the state handle, summation of sst files. This field is not serialized
+	 * to metadata, during restore it is invalid.
+	 */
 	private final long totalStateSize;
 
 	public IncrementalRemoteBatchKeyedStateHandle(
@@ -37,15 +40,27 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 		Map<StateHandleID, StreamStateHandle> sharedState,
 		Map<StateHandleID, StreamStateHandle> privateState,
 		StreamStateHandle metaStateHandle,
-		Set<StateHandleID> usedSstFiles,
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles) {
+
+		this(backendIdentifier, keyGroupRange, checkpointId, sharedState, privateState, metaStateHandle, usedSstFiles, -1);
+	}
+
+	public IncrementalRemoteBatchKeyedStateHandle(
+		UUID backendIdentifier,
+		KeyGroupRange keyGroupRange,
+		long checkpointId,
+		Map<StateHandleID, StreamStateHandle> sharedState,
+		Map<StateHandleID, StreamStateHandle> privateState,
+		StreamStateHandle metaStateHandle,
+		Map<StateHandleID, List<StateHandleID>> usedSstFiles,
 		long totalStateSize) {
 
 		super(backendIdentifier, keyGroupRange, checkpointId, sharedState, privateState, metaStateHandle);
-		this.usedSstFiles = new HashSet<>(usedSstFiles);
+		this.usedSstFiles = usedSstFiles;
 		this.totalStateSize = totalStateSize;
 	}
 
-	public Set<StateHandleID> getUsedSstFiles() {
+	public Map<StateHandleID, List<StateHandleID>> getUsedSstFiles() {
 		return usedSstFiles;
 	}
 

@@ -21,8 +21,6 @@ package org.apache.flink.contrib.streaming.state;
 import org.apache.flink.runtime.state.StateHandleID;
 
 import java.nio.file.Path;
-import java.util.AbstractMap;
-import java.util.Map;
 
 import static org.apache.flink.contrib.streaming.state.snapshot.RocksSnapshotUtil.SST_FILE_SUFFIX;
 
@@ -70,10 +68,6 @@ public class RocksDBFileMeta {
 
 	public Path getFilePath() {
 		return filePath;
-	}
-
-	public Map.Entry<StateHandleID, Path> toEntry() {
-		return new AbstractMap.SimpleEntry<>(shId, filePath);
 	}
 
 	@Override

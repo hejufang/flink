@@ -18,10 +18,11 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FSDataInputStream;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -39,14 +40,17 @@ public class BatchStateHandle implements StreamStateHandle {
 	private final StreamStateHandle delegateStateHandle;
 
 	/** Map from state file name to its offset in the batch. */
-	private final Map<StateHandleID, Long> stateFileNameToOffset;
+	private final StateHandleID[] stateFileNames;
+
+	private final Tuple2<Long, Long>[] offsetsAndSizes;
 
 	/** ID of this batch, i.e., UUID based on concatenation of batched files */
 	private final StateHandleID batchFileID;
 
-	public BatchStateHandle(StreamStateHandle delegateStateHandle, Map<StateHandleID, Long> stateFileNameToOffset, StateHandleID batchFileID) {
+	public BatchStateHandle(StreamStateHandle delegateStateHandle, StateHandleID[] stateFileNames, Tuple2<Long, Long>[] offsetsAndSizes, StateHandleID batchFileID) {
 		this.delegateStateHandle = delegateStateHandle;
-		this.stateFileNameToOffset = stateFileNameToOffset;
+		this.stateFileNames = stateFileNames;
+		this.offsetsAndSizes = offsetsAndSizes;
 		this.batchFileID = batchFileID;
 	}
 
@@ -82,13 +86,21 @@ public class BatchStateHandle implements StreamStateHandle {
 		return delegateStateHandle;
 	}
 
-	public Map<StateHandleID, Long> getStateFileNameToOffset() {
-		return stateFileNameToOffset;
+	public StateHandleID[] getStateFileNames() {
+		return stateFileNames;
 	}
 
-	public long getOffset(StateHandleID stateFileName) {
-		Long offset = stateFileNameToOffset.get(stateFileName);
-		return offset == null ? -1 : offset;
+	public Tuple2<Long, Long>[] getOffsetsAndSizes() {
+		return offsetsAndSizes;
+	}
+
+	public Tuple2<Long, Long> getOffsetAndSize(StateHandleID stateFileName) {
+		for (int i = 0; i < stateFileNames.length; i++) {
+			if (stateFileName.equals(stateFileNames[i])) {
+				return offsetsAndSizes[i];
+			}
+		}
+		return new Tuple2<>(-1L, -1L);
 	}
 
 	@Override
@@ -113,7 +125,8 @@ public class BatchStateHandle implements StreamStateHandle {
 	public String toString() {
 		return "BatchStateHandle{" +
 			"delegateStateHandle=" + delegateStateHandle +
-			", stateFileNameToOffset=" + stateFileNameToOffset +
+			", stateFileNames=" + Arrays.toString(stateFileNames) +
+			", offsetsAndSizes=" + Arrays.toString(offsetsAndSizes) +
 			", batchFileID=" + batchFileID +
 			'}';
 	}
