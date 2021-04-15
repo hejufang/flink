@@ -98,6 +98,11 @@ public final class DebeziumJsonDeserializationSchema implements DeserializationS
 	}
 
 	@Override
+	public void open(InitializationContext context) throws Exception {
+		this.jsonDeserializer.open(() -> context.getMetricGroup().addGroup("deserializer"));
+	}
+
+	@Override
 	public RowData deserialize(byte[] message) throws IOException {
 		throw new RuntimeException(
 			"Please invoke DeserializationSchema#deserialize(byte[], Collector<RowData>) instead.");

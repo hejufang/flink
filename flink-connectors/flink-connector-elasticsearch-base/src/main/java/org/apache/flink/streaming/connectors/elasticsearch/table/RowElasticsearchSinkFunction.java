@@ -21,10 +21,12 @@ package org.apache.flink.streaming.connectors.elasticsearch.table;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.serialization.SerializationSchema;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
 import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
 import org.apache.flink.table.api.TableException;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.elasticsearch.action.ActionRequest;
@@ -91,6 +93,11 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 
 	@Override
 	public void open() {
+		try {
+			serializationSchema.open(UnregisteredMetricsGroup::new);
+		} catch (Exception e) {
+			throw new FlinkRuntimeException(e);
+		}
 		indexGenerator.open();
 	}
 

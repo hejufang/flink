@@ -195,6 +195,12 @@ public class JsonFileSystemFormatFactory implements FileSystemFormatFactory {
 			this.emitted = 0L;
 			this.rowData = PartitionPathUtils.fillPartitionValueForRecord(fieldNames, fieldTypes, selectFields,
 				partitionKeys, currentSplit.getPath(), defaultPartValue);
+			try {
+				deserializationSchema.open(
+					() -> getRuntimeContext().getMetricGroup().addGroup("deserializer"));
+			} catch (Exception e) {
+				throw new IOException(e);
+			}
 		}
 
 		@Override

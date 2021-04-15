@@ -613,6 +613,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				getRuntimeContext().getIndexOfThisSubtask(),
 				getRuntimeContext().getNumberOfParallelSubtasks());
 		this.partitionDiscoverer.open();
+		this.deserializer.open(() -> getRuntimeContext().getMetricGroup().addGroup("deserializer"));
 
 		RetryManager.Strategy retryStrategy = RetryManager.createStrategy("FIXED_DELAY", RETRY_TIMES, RETRY_INTERVAL_MS);
 		subscribedPartitionsToStartOffsets = new HashMap<>();
@@ -802,8 +803,6 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				LOG.info("Consumer subtask {} initially has no partitions to read from.",
 					getRuntimeContext().getIndexOfThisSubtask());
 			}
-
-			this.deserializer.open(() -> getRuntimeContext().getMetricGroup().addGroup("user"));
 		}
 	}
 

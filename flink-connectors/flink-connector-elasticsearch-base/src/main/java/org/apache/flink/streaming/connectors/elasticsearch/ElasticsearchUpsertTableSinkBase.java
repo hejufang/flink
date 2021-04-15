@@ -24,6 +24,7 @@ import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
@@ -37,6 +38,7 @@ import org.apache.flink.table.typeutils.TypeCheckUtils;
 import org.apache.flink.table.utils.TableConnectorUtils;
 import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.types.Row;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import org.elasticsearch.action.ActionRequest;
@@ -447,6 +449,11 @@ public abstract class ElasticsearchUpsertTableSinkBase implements UpsertStreamTa
 
 		@Override
 		public void open() {
+			try {
+				serializationSchema.open(UnregisteredMetricsGroup::new);
+			} catch (Exception e) {
+				throw new FlinkRuntimeException(e);
+			}
 			indexGenerator.open();
 		}
 

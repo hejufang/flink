@@ -85,13 +85,14 @@ public class TosSinkFunction
 	}
 
 	@Override
-	public void open(Configuration parameters) {
+	public void open(Configuration parameters) throws Exception {
 		// init recordList
 		this.recordListPre = new ArrayList<>();
 		this.recordListNow = new ArrayList<>();
 		// init client
 		tosSinkClient = new TosSinkClient(tosOptions);
 		tosSinkClient.open();
+		serializationSchema.open(() -> getRuntimeContext().getMetricGroup().addGroup("serializer"));
 	}
 
 	@Override

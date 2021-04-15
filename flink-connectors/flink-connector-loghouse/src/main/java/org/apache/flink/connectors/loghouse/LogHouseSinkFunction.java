@@ -110,6 +110,8 @@ public class LogHouseSinkFunction extends RichSinkFunction<RowData>
 
 		compressor = options.getCompressor();
 		compressor.open();
+		options.getSerializationSchema().open(
+			() -> getRuntimeContext().getMetricGroup().addGroup("serializer"));
 	}
 
 	@Override
