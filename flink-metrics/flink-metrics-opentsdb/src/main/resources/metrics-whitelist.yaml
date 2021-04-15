@@ -182,5 +182,10 @@ non-global:
         ioThreadPoolUsage,
         numPendingFutureTask,
         numRunningFutureTask,
-        futureThreadPoolUsage
+        futureThreadPoolUsage,
+      # state
+        stateAverageKeySize,
+        stateAverageValueSize,
+        stateMaxKeySize,
+        stateMaxValueSize
     ]

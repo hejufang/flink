@@ -384,7 +384,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			priorityQueueFactory,
 			ttlCompactFiltersManager,
 			keyContext,
-			writeBatchSize);
+			writeBatchSize,
+			metricGroup);
 	}
 
 	private AbstractRocksDBRestoreOperation<K> getRocksDBRestoreOperation(

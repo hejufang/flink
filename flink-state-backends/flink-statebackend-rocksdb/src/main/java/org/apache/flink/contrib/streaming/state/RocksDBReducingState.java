@@ -32,6 +32,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.rocksdb.ColumnFamilyHandle;
 
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * {@link ReducingState} implementation that stores state in RocksDB.
@@ -62,9 +63,10 @@ class RocksDBReducingState<K, N, V>
 			TypeSerializer<V> valueSerializer,
 			V defaultValue,
 			ReduceFunction<V> reduceFunction,
-			RocksDBKeyedStateBackend<K> backend) {
+			RocksDBKeyedStateBackend<K> backend,
+			AtomicReference<KVStateSizeInfo> metricReference) {
 
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 		this.reduceFunction = reduceFunction;
 	}
 
@@ -159,13 +161,15 @@ class RocksDBReducingState<K, N, V>
 	static <K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 		return (IS) new RocksDBReducingState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),
 			registerResult.f1.getStateSerializer(),
 			stateDesc.getDefaultValue(),
 			((ReducingStateDescriptor<SV>) stateDesc).getReduceFunction(),
-			backend);
+			backend,
+			metricReference);
 	}
 }

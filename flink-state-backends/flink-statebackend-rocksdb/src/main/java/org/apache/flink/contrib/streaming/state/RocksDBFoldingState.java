@@ -30,6 +30,8 @@ import org.apache.flink.runtime.state.internal.InternalFoldingState;
 
 import org.rocksdb.ColumnFamilyHandle;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * {@link FoldingState} implementation that stores state in RocksDB.
  *
@@ -64,9 +66,10 @@ class RocksDBFoldingState<K, N, T, ACC>
 		TypeSerializer<ACC> valueSerializer,
 		ACC defaultValue,
 		FoldFunction<T, ACC> foldFunction,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 
 		this.foldFunction = foldFunction;
 	}
@@ -104,13 +107,15 @@ class RocksDBFoldingState<K, N, T, ACC>
 	static <K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 		return (IS) new RocksDBFoldingState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),
 			registerResult.f1.getStateSerializer(),
 			stateDesc.getDefaultValue(),
 			((FoldingStateDescriptor<?, SV>) stateDesc).getFoldFunction(),
-			backend);
+			backend,
+			metricReference);
 	}
 }

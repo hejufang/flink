@@ -51,12 +51,17 @@ public class Dashboard {
 	private static final String CHECKPOINT_TIMER_LAG_TARGET_TEMPLATE = "checkpoint_timer_lag_target_template.txt";
 	private static final String CHECKPOINT_TIMER_RATE_TARGET_TEMPLATE = "checkpoint_timer_rate_target_template.txt";
 
+	private static final String OPERATOR_STATE_PERFORMANCE_TEMPLATE = "operator_state_performance_template.txt";
+
 	/** Templates for checkpoint operator metrics. */
 	private static final String CHECKPOINT_OPERATOR_TEMPLATE = "checkpoint_operator_template.txt";
 	private static final String CHECKPOINT_BARRIER_ALIGN_DURATION_TEMPLATE = "checkpoint_barrier_align_duration_target_template.txt";
 	private static final String CHECKPOINT_CONTENTION_LOCK_DURATION_TEMPLATE = "checkpoint_contention_lock_duration_target_template.txt";
 	private static final String CHECKPOINT_SYNC_DURATION_TEMPLATE = "checkpoint_sync_duration_target_template.txt";
 	private static final String CHECKPOINT_ASYNC_DURATION_TEMPLATE = "checkpoint_async_duration_target_template.txt";
+
+	/** Templates for state performance metrics. */
+	private static final String STATE_KEY_VALUE_SIZE_TEMPLATE = "state_key_value_size_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -250,6 +255,35 @@ public class Dashboard {
 		checkpointValues.put("jobname", formatJobName);
 		checkpointValues.put("datasource", dataSource);
 		return renderString(checkpointTemplate, checkpointValues);
+	}
+
+	private String renderOperatorStatePerformanceRow(List<String> operators) {
+		String operatorStateTemplate = null;
+		String keyValueSizeTemplate = null;
+		try {
+			operatorStateTemplate = renderFromResource(OPERATOR_STATE_PERFORMANCE_TEMPLATE);
+			keyValueSizeTemplate = renderFromResource(STATE_KEY_VALUE_SIZE_TEMPLATE);
+		} catch (IOException e) {
+			LOG.error("Fail to render checkpoint metrics.", e);
+			return "";
+		}
+
+		Map<String, String> checkpointValues = new HashMap<>();
+		checkpointValues.put("jobname", formatJobName);
+		checkpointValues.put("datasource", dataSource);
+		List<String> targets1 = new ArrayList<>();
+		List<String> targets2 = new ArrayList<>();
+
+		for (String operator : operators) {
+			checkpointValues.put("operator", operator);
+			checkpointValues.put("type", "Key");
+			targets1.add(renderString(keyValueSizeTemplate, checkpointValues));
+			checkpointValues.put("type", "Value");
+			targets2.add(renderString(keyValueSizeTemplate, checkpointValues));
+		}
+		checkpointValues.put("targets1", String.join(",", targets1));
+		checkpointValues.put("targets2", String.join(",", targets2));
+		return renderString(operatorStateTemplate, checkpointValues);
 	}
 
 	private String renderSlowContainerRow() {
@@ -463,6 +497,7 @@ public class Dashboard {
 		rows.add(renderCheckpointTimerRow(tasks));
 		rows.add(renderCheckpointOperatorRow(tasks, operators));
 		rows.add(renderCheckpointOverviewRow());
+		rows.add(renderOperatorStatePerformanceRow(operators));
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
 		rows.add(renderRecordsSinkSkippedRow(sinks));

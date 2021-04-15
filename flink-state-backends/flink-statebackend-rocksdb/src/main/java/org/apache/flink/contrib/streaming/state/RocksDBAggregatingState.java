@@ -32,6 +32,7 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.rocksdb.ColumnFamilyHandle;
 
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * An {@link AggregatingState} implementation that stores state in RocksDB.
@@ -65,9 +66,10 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 			TypeSerializer<ACC> valueSerializer,
 			ACC defaultValue,
 			AggregateFunction<T, ACC, R> aggFunction,
-			RocksDBKeyedStateBackend<K> backend) {
+			RocksDBKeyedStateBackend<K> backend,
+			AtomicReference<KVStateSizeInfo> metricReference) {
 
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 		this.aggFunction = aggFunction;
 	}
 
@@ -166,13 +168,15 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 	static <K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 		return (IS) new RocksDBAggregatingState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),
 			registerResult.f1.getStateSerializer(),
 			stateDesc.getDefaultValue(),
 			((AggregatingStateDescriptor<?, SV, ?>) stateDesc).getAggregateFunction(),
-			backend);
+			backend,
+			metricReference);
 	}
 }

@@ -35,6 +35,7 @@ import org.rocksdb.WriteOptions;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Base class for {@link State} implementations that store state in a RocksDB database.
@@ -73,6 +74,9 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
 	private final RocksDBSerializedCompositeKeyBuilder<K> sharedKeyNamespaceSerializer;
 
+	/** Use {@link AtomicReference} to perform kv size statistics in this cycle. */
+	private final AtomicReference<KVStateSizeInfo> metricReference;
+
 	/**
 	 * Creates a new RocksDB backed state.
 	 *
@@ -87,7 +91,8 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 			TypeSerializer<N> namespaceSerializer,
 			TypeSerializer<V> valueSerializer,
 			V defaultValue,
-			RocksDBKeyedStateBackend<K> backend) {
+			RocksDBKeyedStateBackend<K> backend,
+			AtomicReference<KVStateSizeInfo> metricReference) {
 
 		this.namespaceSerializer = namespaceSerializer;
 		this.backend = backend;
@@ -101,6 +106,7 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 		this.dataOutputView = new DataOutputSerializer(128);
 		this.dataInputView = new DataInputDeserializer();
 		this.sharedKeyNamespaceSerializer = backend.getSharedRocksKeyBuilder();
+		this.metricReference = metricReference;
 	}
 
 	// ------------------------------------------------------------------------
@@ -239,5 +245,12 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 	@Override
 	public StateIncrementalVisitor<K, N, V> getStateIncrementalVisitor(int recommendedMaxNumberOfReturnedRecords) {
 		throw new UnsupportedOperationException("Global state entry iterator is unsupported for RocksDb backend");
+	}
+
+	void updateKVSizeMetric(byte[] keyBytes, byte[] valueBytes) {
+		if (keyBytes != null && valueBytes != null) {
+			KVStateSizeInfo kvSizeInfo = metricReference.get();
+			kvSizeInfo.updateKVSize(keyBytes.length, valueBytes.length);
+		}
 	}
 }

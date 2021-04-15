@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -85,9 +86,10 @@ class RocksDBMapState<K, N, UK, UV>
 			TypeSerializer<N> namespaceSerializer,
 			TypeSerializer<Map<UK, UV>> valueSerializer,
 			Map<UK, UV> defaultValue,
-			RocksDBKeyedStateBackend<K> backend) {
+			RocksDBKeyedStateBackend<K> backend,
+			AtomicReference<KVStateSizeInfo> metricReference) {
 
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 
 		Preconditions.checkState(valueSerializer instanceof MapSerializer, "Unexpected serializer type.");
 
@@ -119,6 +121,7 @@ class RocksDBMapState<K, N, UK, UV>
 	public UV get(UK userKey) throws IOException, RocksDBException {
 		byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
 		byte[] rawValueBytes = backend.db.get(columnFamily, rawKeyBytes);
+		updateKVSizeMetric(rawKeyBytes, rawValueBytes);
 
 		return (rawValueBytes == null ? null : deserializeUserValue(dataInputView, rawValueBytes, userValueSerializer));
 	}
@@ -128,6 +131,7 @@ class RocksDBMapState<K, N, UK, UV>
 
 		byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
 		byte[] rawValueBytes = serializeValueNullSensitive(userValue, userValueSerializer);
+		updateKVSizeMetric(rawKeyBytes, rawValueBytes);
 
 		backend.db.put(columnFamily, writeOptions, rawKeyBytes, rawValueBytes);
 	}
@@ -143,6 +147,7 @@ class RocksDBMapState<K, N, UK, UV>
 				byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(entry.getKey(), userKeySerializer);
 				byte[] rawValueBytes = serializeValueNullSensitive(entry.getValue(), userValueSerializer);
 				writeBatchWrapper.put(columnFamily, rawKeyBytes, rawValueBytes);
+				updateKVSizeMetric(rawKeyBytes, rawValueBytes);
 			}
 		}
 	}
@@ -227,7 +232,9 @@ class RocksDBMapState<K, N, UK, UV>
 		return new RocksDBMapIterator<Map.Entry<UK, UV>>(backend.db, prefixBytes, userKeySerializer, userValueSerializer, dataInputView) {
 			@Override
 			public Map.Entry<UK, UV> next() {
-				return nextEntry();
+				RocksDBMapEntry nextEntry = nextEntry();
+				updateKVSizeMetric(nextEntry.rawKeyBytes, nextEntry.rawValueBytes);
+				return nextEntry;
 			}
 		};
 	}
@@ -623,13 +630,15 @@ class RocksDBMapState<K, N, UK, UV>
 	static <UK, UV, K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 		return (IS) new RocksDBMapState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),
 			(TypeSerializer<Map<UK, UV>>) registerResult.f1.getStateSerializer(),
 			(Map<UK, UV>) stateDesc.getDefaultValue(),
-			backend);
+			backend,
+			metricReference);
 	}
 
 	/**

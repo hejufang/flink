@@ -31,6 +31,7 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * {@link ValueState} implementation that stores state in RocksDB.
@@ -57,9 +58,10 @@ class RocksDBValueState<K, N, V>
 			TypeSerializer<N> namespaceSerializer,
 			TypeSerializer<V> valueSerializer,
 			V defaultValue,
-			RocksDBKeyedStateBackend<K> backend) {
+			RocksDBKeyedStateBackend<K> backend,
+			AtomicReference<KVStateSizeInfo> metricReference) {
 
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 	}
 
 	@Override
@@ -80,8 +82,9 @@ class RocksDBValueState<K, N, V>
 	@Override
 	public V value() {
 		try {
-			byte[] valueBytes = backend.db.get(columnFamily,
-				serializeCurrentKeyWithGroupAndNamespace());
+			byte[] keyBytes = serializeCurrentKeyWithGroupAndNamespace();
+			byte[] valueBytes = backend.db.get(columnFamily, keyBytes);
+			updateKVSizeMetric(keyBytes, valueBytes);
 
 			if (valueBytes == null) {
 				return getDefaultValue();
@@ -101,9 +104,10 @@ class RocksDBValueState<K, N, V>
 		}
 
 		try {
-			backend.db.put(columnFamily, writeOptions,
-				serializeCurrentKeyWithGroupAndNamespace(),
-				serializeValue(value));
+			byte[] keyBytes = serializeCurrentKeyWithGroupAndNamespace();
+			byte[] valueBytes = serializeValue(value);
+			backend.db.put(columnFamily, writeOptions, keyBytes, valueBytes);
+			updateKVSizeMetric(keyBytes, valueBytes);
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Error while adding data to RocksDB", e);
 		}
@@ -113,12 +117,14 @@ class RocksDBValueState<K, N, V>
 	static <K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 		return (IS) new RocksDBValueState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),
 			registerResult.f1.getStateSerializer(),
 			stateDesc.getDefaultValue(),
-			backend);
+			backend,
+			metricReference);
 	}
 }

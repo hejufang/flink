@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.runtime.state.StateSnapshotTransformer.CollectionStateSnapshotTransformer.TransformStrategy.STOP_ON_FIRST_INCLUDED;
 
@@ -83,9 +84,10 @@ class RocksDBListState<K, N, V>
 			TypeSerializer<N> namespaceSerializer,
 			TypeSerializer<List<V>> valueSerializer,
 			List<V> defaultValue,
-			RocksDBKeyedStateBackend<K> backend) {
+			RocksDBKeyedStateBackend<K> backend,
+			AtomicReference<KVStateSizeInfo> metricReference) {
 
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 
 		ListSerializer<V> castedListSerializer = (ListSerializer<V>) valueSerializer;
 		this.elementSerializer = castedListSerializer.getElementSerializer();
@@ -116,6 +118,7 @@ class RocksDBListState<K, N, V>
 		try {
 			byte[] key = serializeCurrentKeyWithGroupAndNamespace();
 			byte[] valueBytes = backend.db.get(columnFamily, key);
+			updateKVSizeMetric(key, valueBytes);
 			return deserializeList(valueBytes);
 		} catch (RocksDBException e) {
 			throw new FlinkRuntimeException("Error while retrieving data from RocksDB", e);
@@ -211,11 +214,14 @@ class RocksDBListState<K, N, V>
 
 		if (!values.isEmpty()) {
 			try {
+				byte[] keyBytes = serializeCurrentKeyWithGroupAndNamespace();
+				byte[] valueBytes = serializeValueList(values, elementSerializer, DELIMITER);
 				backend.db.put(
 					columnFamily,
 					writeOptions,
-					serializeCurrentKeyWithGroupAndNamespace(),
-					serializeValueList(values, elementSerializer, DELIMITER));
+					keyBytes,
+					valueBytes);
+				updateKVSizeMetric(keyBytes, valueBytes);
 			} catch (IOException | RocksDBException e) {
 				throw new FlinkRuntimeException("Error while updating data to RocksDB", e);
 			}
@@ -274,13 +280,15 @@ class RocksDBListState<K, N, V>
 	static <E, K, N, SV, S extends State, IS extends S> IS create(
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
-		RocksDBKeyedStateBackend<K> backend) {
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
 		return (IS) new RocksDBListState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),
 			(TypeSerializer<List<E>>) registerResult.f1.getStateSerializer(),
 			(List<E>) stateDesc.getDefaultValue(),
-			backend);
+			backend,
+			metricReference);
 	}
 
 	static class StateSnapshotTransformerWrapper<T> implements StateSnapshotTransformer<byte[]> {

@@ -53,6 +53,12 @@ public abstract class AbstractKeyedStateBackend<K> implements
 	Closeable,
 	CheckpointListener {
 
+	// state metrics of key and value
+	protected final String STATE_AVERAGE_KEY_SIZE = "stateAverageKeySize";
+	protected final String STATE_AVERAGE_VALUE_SIZE = "stateAverageValueSize";
+	protected final String STATE_MAX_KEY_SIZE = "stateMaxKeySize";
+	protected final String STATE_MAX_VALUE_SIZE = "stateMaxValueSize";
+
 	/** The key serializer. */
 	protected final TypeSerializer<K> keySerializer;
 

@@ -26,6 +26,7 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 abstract class AbstractRocksDBAppendingState <K, N, IN, SV, OUT>
 	extends AbstractRocksDBState<K, N, SV>
@@ -45,8 +46,9 @@ abstract class AbstractRocksDBAppendingState <K, N, IN, SV, OUT>
 		TypeSerializer<N> namespaceSerializer,
 		TypeSerializer<SV> valueSerializer,
 		SV defaultValue,
-		RocksDBKeyedStateBackend<K> backend) {
-		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend);
+		RocksDBKeyedStateBackend<K> backend,
+		AtomicReference<KVStateSizeInfo> metricReference) {
+		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 	}
 
 	@Override
@@ -57,6 +59,7 @@ abstract class AbstractRocksDBAppendingState <K, N, IN, SV, OUT>
 	SV getInternal(byte[] key) {
 		try {
 			byte[] valueBytes = backend.db.get(columnFamily, key);
+			updateKVSizeMetric(key, valueBytes);
 			if (valueBytes == null) {
 				return null;
 			}
@@ -75,7 +78,9 @@ abstract class AbstractRocksDBAppendingState <K, N, IN, SV, OUT>
 	void updateInternal(byte[] key, SV valueToStore) {
 		try {
 			// write the new value to RocksDB
-			backend.db.put(columnFamily, writeOptions, key, getValueBytes(valueToStore));
+			byte[] valueBytes = getValueBytes(valueToStore);
+			backend.db.put(columnFamily, writeOptions, key, valueBytes);
+			updateKVSizeMetric(key, valueBytes);
 		}
 		catch (RocksDBException e) {
 			throw new FlinkRuntimeException("Error while adding value to RocksDB", e);
