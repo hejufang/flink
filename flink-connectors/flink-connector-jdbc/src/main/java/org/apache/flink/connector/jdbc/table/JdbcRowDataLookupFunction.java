@@ -26,6 +26,7 @@ import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionP
 import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
+import org.apache.flink.metrics.Gauge;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
@@ -119,7 +120,11 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 			this.cache = cacheMaxSize == -1 || cacheExpireMs == -1 ? null : CacheBuilder.newBuilder()
 				.expireAfterWrite(cacheExpireMs, TimeUnit.MILLISECONDS)
 				.maximumSize(cacheMaxSize)
+				.recordStats()
 				.build();
+			if (cache != null) {
+				context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
+			}
 		} catch (SQLException sqe) {
 			throw new IllegalArgumentException("open() failed.", sqe);
 		} catch (ClassNotFoundException cnfe) {
