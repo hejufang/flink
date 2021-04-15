@@ -26,12 +26,15 @@ import org.apache.flink.connector.redis.utils.RedisUtils;
 import org.apache.flink.connector.redis.utils.RedisValueType;
 import org.apache.flink.connector.redis.utils.StringValueConverters;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.connector.RuntimeConverter;
 import org.apache.flink.table.connector.source.DynamicTableSource.DataStructureConverter;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -79,6 +82,9 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	private final RowData.FieldGetter[] fieldGetters;
 
 	private transient Cache<RowData, RowData> cache;
+	private transient Meter lookupRequestPerSecond;
+	private transient Meter lookupFailurePerSecond;
+	private transient Histogram requestDelayMs;
 
 	public RedisRowDataLookupFunction(
 			RedisOptions options,
@@ -129,6 +135,10 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		if (converter != null) {
 			converter.open(RuntimeConverter.Context.create(RedisRowDataLookupFunction.class.getClassLoader()));
 		}
+
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
 	}
 
 	/**
@@ -149,6 +159,8 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 
 		for (int retry = 1; retry <= lookupOptions.getMaxRetryTimes(); retry++) {
 			try {
+				lookupRequestPerSecond.markEvent();
+				long startRequest = System.currentTimeMillis();
 				RowData row = null;
 				Object key = keys[0];
 				if (deserializationSchema != null) {
@@ -161,6 +173,9 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 						row = convertToRow(key, value);
 					}
 				}
+				long requestDelay = System.currentTimeMillis() - startRequest;
+				requestDelayMs.update(requestDelay);
+
 				if (row != null) {
 					collect(row);
 				}
@@ -169,6 +184,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 				}
 				return;
 			} catch (Exception e) {
+				lookupFailurePerSecond.markEvent();
 				LOG.error(String.format("Redis executeBatch error, retry times = %d", retry), e);
 				if (retry >= lookupOptions.getMaxRetryTimes()) {
 					throw new RuntimeException("Execution of Redis statement failed.", e);

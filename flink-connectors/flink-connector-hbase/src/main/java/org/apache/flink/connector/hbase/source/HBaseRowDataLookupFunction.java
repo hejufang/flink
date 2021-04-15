@@ -23,9 +23,12 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.hbase.util.HBaseConfigurationUtil;
 import org.apache.flink.connector.hbase.util.HBaseSerde;
 import org.apache.flink.connector.hbase.util.HBaseTableSchema;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.util.StringUtils;
 
 import org.apache.hadoop.conf.Configuration;
@@ -61,6 +64,8 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 	private transient Connection hConnection;
 	private transient HTable table;
 	private transient HBaseSerde serde;
+	private transient Meter lookupRequestPerSecond;
+	private transient Histogram requestDelayMs;
 
 	public HBaseRowDataLookupFunction(
 			Configuration configuration,
@@ -79,9 +84,13 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 	 */
 	public void eval(Object rowKey) throws IOException {
 		// fetch result
+		lookupRequestPerSecond.markEvent();
 		Get get = serde.createGet(rowKey);
 		if (get != null) {
+			long startRequest = System.currentTimeMillis();
 			Result result = table.get(get);
+			long requestDelay = System.currentTimeMillis() - startRequest;
+			requestDelayMs.update(requestDelay);
 			if (!result.isEmpty()) {
 				// parse and collect
 				collect(serde.convertToRow(result));
@@ -121,6 +130,8 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 			throw new RuntimeException("Cannot create connection to HBase.", ioe);
 		}
 		this.serde = new HBaseSerde(hbaseTableSchema, nullStringLiteral);
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
 		LOG.info("end open.");
 	}
 

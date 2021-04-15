@@ -27,10 +27,13 @@ import org.apache.flink.connector.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.metrics.Gauge;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.Meter;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.functions.TableFunction;
+import org.apache.flink.table.metric.LookupMetricUtils;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
@@ -79,6 +82,9 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
 	private transient Cache<RowData, List<RowData>> cache;
+	private transient Meter lookupRequestPerSecond;
+	private transient Meter lookupFailurePerSecond;
+	private transient Histogram requestDelayMs;
 
 	public JdbcRowDataLookupFunction(
 			JdbcOptions options,
@@ -130,6 +136,9 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 		} catch (ClassNotFoundException cnfe) {
 			throw new IllegalArgumentException("JDBC driver class not found.", cnfe);
 		}
+		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
+		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
+		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
 	}
 
 	/**
@@ -150,9 +159,15 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			try {
+				lookupRequestPerSecond.markEvent();
 				statement.clearParameters();
 				statement = lookupKeyRowConverter.toExternal(keyRow, statement);
+
+				long startRequest = System.currentTimeMillis();
 				try (ResultSet resultSet = statement.executeQuery()) {
+					long requestDelay = System.currentTimeMillis() - startRequest;
+					requestDelayMs.update(requestDelay);
+
 					if (cache == null) {
 						while (resultSet.next()) {
 							collect(jdbcRowConverter.toInternal(resultSet));
@@ -173,6 +188,7 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 				}
 				break;
 			} catch (SQLException e) {
+				lookupFailurePerSecond.markEvent();
 				LOG.error(String.format("JDBC executeBatch error, retry times = %d", retry), e);
 				if (retry >= maxRetryTimes) {
 					throw new RuntimeException("Execution of JDBC statement failed.", e);
