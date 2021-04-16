@@ -145,18 +145,18 @@ public class ExternalBlockSubpartitionViewTest {
 		ExecutorService executor = null;
 
 		try {
-			executor = spy(Executors.newFixedThreadPool(1));
+			executor = Executors.newFixedThreadPool(1);
 
 			ViewReader viewReader = new ViewReader();
 			ExternalBlockSubpartitionView view = new ExternalBlockSubpartitionView(
-					metaAndFile.f0,
-					subpartitionIndex,
-					metaAndFile.f1,
-					executor,
-					metaAndFile.f0.getResultPartitionID(),
-					bufferPool,
-					0,
-					viewReader);
+				metaAndFile.f0,
+				subpartitionIndex,
+				metaAndFile.f1,
+				executor,
+				metaAndFile.f0.getResultPartitionID(),
+				bufferPool,
+				0,
+				viewReader);
 			viewReader.setView(view);
 
 			Random random = new Random();
@@ -183,9 +183,14 @@ public class ExternalBlockSubpartitionViewTest {
 			assertEquals(EndOfPartitionEvent.INSTANCE, EventSerializer.fromBuffer(eof, this.getClass().getClassLoader()));
 			assertFalse(view.isAvailable());
 			eof.recycleBuffer();
+
+			view.releaseAllResources();
+			while (view.isRunning()) {
+				Thread.sleep(10);
+			}
 		} finally {
 			if (executor != null) {
-				executor.shutdownNow();
+				executor.shutdown();
 			}
 		}
 	}
@@ -248,7 +253,8 @@ public class ExternalBlockSubpartitionViewTest {
 
 		int totalWrite = 0;
 		for (int i = 0; i < NUM_BUFFERS; ++i) {
-			long nextLengthToWrite = new Random().nextInt(SEGMENT_SIZE);
+			long nextLengthToWriteRnd = new Random().nextInt(SEGMENT_SIZE);
+			long nextLengthToWrite = nextLengthToWriteRnd == 0 ? 1 : nextLengthToWriteRnd;
 			MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(SEGMENT_SIZE);
 			NetworkBuffer buffer = new NetworkBuffer(segment, FreeingBufferRecycler.INSTANCE);
 			for (int j = 0; j < nextLengthToWrite; j++) {
@@ -295,10 +301,13 @@ public class ExternalBlockSubpartitionViewTest {
 		public void notifyDataAvailable() {
 			while (true) {
 				ResultSubpartition.BufferAndBacklog bufferAndBacklog = view.getNextBuffer();
-				bufferRead.add(bufferAndBacklog.buffer());
 
-				if (!bufferAndBacklog.isDataAvailable()) {
-					break;
+				if (bufferAndBacklog != null) {
+					bufferRead.add(bufferAndBacklog.buffer());
+
+					if (!bufferAndBacklog.isDataAvailable()) {
+						break;
+					}
 				}
 			}
 		}

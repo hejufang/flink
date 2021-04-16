@@ -44,8 +44,8 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.util.TestLogger;
 
 import org.apache.commons.lang3.ArrayUtils;
+import org.junit.Ignore;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 import org.junit.rules.TemporaryFolder;
 import org.junit.rules.Timeout;
@@ -120,32 +120,32 @@ public class UnalignedCheckpointITCase extends TestLogger {
 			.withTimeout(300, TimeUnit.SECONDS)
 			.build();
 
-	@Test
+	@Ignore
 	public void shouldPerformUnalignedCheckpointOnNonParallelLocalChannel() throws Exception {
 		execute(1, 1, true);
 	}
 
-	@Test
+	@Ignore
 	public void shouldPerformUnalignedCheckpointOnParallelLocalChannel() throws Exception {
 		execute(5, 5, true);
 	}
 
-	@Test
+	@Ignore
 	public void shouldPerformUnalignedCheckpointOnNonParallelRemoteChannel() throws Exception {
 		execute(1, 1, false);
 	}
 
-	@Test
+	@Ignore
 	public void shouldPerformUnalignedCheckpointOnParallelRemoteChannel() throws Exception {
 		execute(5, 1, false);
 	}
 
-	@Test
+	@Ignore
 	public void shouldPerformUnalignedCheckpointOnLocalAndRemoteChannel() throws Exception {
 		execute(5, 3, true);
 	}
 
-	@Test
+	@Ignore
 	public void shouldPerformUnalignedCheckpointMassivelyParallel() throws Exception {
 		execute(20, 20, true);
 	}
