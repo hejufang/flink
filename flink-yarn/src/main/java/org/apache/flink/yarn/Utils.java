@@ -19,12 +19,16 @@
 package org.apache.flink.yarn;
 
 import org.apache.flink.configuration.ConfigConstants;
+import org.apache.flink.monitor.utils.HttpUtil;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
 import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameters;
 import org.apache.flink.runtime.util.HadoopUtils;
 import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
+
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -106,6 +110,14 @@ public final class Utils {
 
 	/** Initialize this variable at the first time containFlinkShuffleService() method been called. */
 	private static Boolean containFlinkShuffleService = null;
+
+	/** Default docker image used for docker on yarn. */
+	private static final String DEFAULT_IMAGE = "default";
+
+	/**
+	 * Url path separator.
+	 */
+	private static final String URL_SEP = "/";
 
 	public static void setupYarnClassPath(Configuration conf, Map<String, String> appMasterEnv) {
 		addToEnvironment(
@@ -511,6 +523,9 @@ public final class Utils {
 				ConfigConstants.ROCKETMQ_BROKER_QUEUE_LIST_KEY, brokerQueueList);
 		}
 
+		// Add environment params to TM appMasterEnv for docker mode.
+		setDockerEnv(flinkConfig, containerEnv);
+
 		ctx.setEnvironment(containerEnv);
 
 		// For TaskManager YARN container context, read the tokens from the jobmanager yarn container local file.
@@ -700,5 +715,111 @@ public final class Utils {
 			return containerId;
 		}
 		return containerId;
+	}
+
+	/**
+	 * If docker image id is configured in flinkConfiguration, add docker environment parameters
+	 * to environment map.
+	 *
+	 * @param flinkConfiguration flink configuration.
+	 * @param envMap             environment map.
+	 */
+	public static void setDockerEnv(org.apache.flink.configuration.Configuration flinkConfiguration,
+									Map<String, String> envMap) {
+		try {
+			String dockerImage = flinkConfiguration.getString(YarnConfigOptions.DOCKER_IMAGE);
+
+			if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
+				LOG.info("No docker image configured, run on physical machines.");
+				return;
+			}
+
+			LOG.info("Docker image: {} has been configured, set docker environment params.",
+				dockerImage);
+			dockerImage = getDockerImage(dockerImage, flinkConfiguration);
+			if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
+				throw new RuntimeException("The real docker image is empty, please check config " + YarnConfigOptions.DOCKER_IMAGE.key());
+			}
+			flinkConfiguration.setString(YarnConfigOptions.DOCKER_IMAGE, dockerImage);
+			LOG.info("The real docker image id is: {}", dockerImage);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY, dockerImage);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY,
+				YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT);
+			String dockerMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT;
+			String otherDockerMounts = flinkConfiguration.getString(YarnConfigOptions.DOCKER_MOUNTS);
+			if (otherDockerMounts != null && !otherDockerMounts.isEmpty()) {
+				dockerMounts = otherDockerMounts + ";" + dockerMounts;
+			}
+			LOG.info("Docker mounts: {}", dockerMounts);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY, dockerMounts);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY,
+				YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT);
+			String dockerLogMounts = YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT;
+			String otherDockerLogMounts = flinkConfiguration.getString(YarnConfigOptions.DOCKER_LOG_MOUNTS);
+			if (otherDockerLogMounts != null && !otherDockerLogMounts.isEmpty()) {
+				dockerLogMounts = otherDockerLogMounts + ";" + dockerLogMounts;
+			}
+			LOG.info("Docker log mounts: {}", dockerLogMounts);
+			envMap.put(YarnConfigKeys.ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_KEY, dockerLogMounts);
+		} catch (IOException e) {
+			LOG.error("ERROR occurred while get real docker image", e);
+			throw new RuntimeException(e);
+		}
+	}
+
+	/**
+	 * Add docker hub before image and replace 'latest' docker version with the real version.
+	 *
+	 * @param flinkConfiguration flink configuration.
+	 * @return the real docker version.
+	 */
+	public static String getDockerImage(String dockerImage,
+										org.apache.flink.configuration.Configuration flinkConfiguration) throws IOException {
+		if (StringUtils.isNullOrWhitespaceOnly(dockerImage)) {
+			return null;
+		}
+
+		if (DEFAULT_IMAGE.equalsIgnoreCase(dockerImage)) {
+			dockerImage = flinkConfiguration.getString(YarnConfigOptions.DOCKER_DEFAULT_IMAGE);
+		}
+
+		String dockerHub = flinkConfiguration.getString(YarnConfigOptions.DOCKER_HUB);
+
+		String[] items = dockerImage.trim().split(":");
+		if (items.length != 2) {
+			throw new RuntimeException("docker.image must be {psm}:{version}.");
+		}
+		String dockerPsm = items[0].trim();
+		String dockerVersion = items[1].trim();
+
+		if (!YarnConfigKeys.DOCKER_VERSION_LATEST.equalsIgnoreCase(dockerVersion)) {
+			if (flinkConfiguration.containsKey(YarnConfigKeys.DOCKER_NAMESPACE_KEY)) {
+				String dockerNamespace = flinkConfiguration.getString(YarnConfigOptions.DOCKER_NAMESPACE);
+				if (!dockerImage.startsWith(dockerHub + URL_SEP + dockerNamespace)) {
+					dockerImage = dockerHub + URL_SEP + dockerNamespace + URL_SEP + dockerImage;
+				}
+			} else {
+				if (!dockerImage.startsWith(dockerHub)) {
+					dockerImage = dockerHub + URL_SEP + dockerImage;
+				}
+			}
+
+			return dockerImage;
+		}
+		LOG.info("Replace 'latest' version with real latest version id.");
+
+		String dockerServer = flinkConfiguration.getString(YarnConfigOptions.DOCKER_SERVER);
+		String dockerRegion = flinkConfiguration.getString(YarnConfigOptions.DOCKER_REGION);
+		String dockerAuthorization = flinkConfiguration.getString(YarnConfigOptions.DOCKER_AUTHORIZATION);
+		String dockerUrlTemplate = flinkConfiguration.getString(YarnConfigOptions.DOCKER_VERSION_URL_TEMPLATE);
+		String dockerUrl = String.format(dockerUrlTemplate, dockerServer, dockerPsm, dockerRegion);
+		Map<String, String> headers = new HashMap<>();
+		headers.put(YarnConfigKeys.DOCKER_HTTP_HEADER_AUTHORIZATION_KEY, dockerAuthorization);
+		HttpUtil.HttpResponsePojo response = HttpUtil.sendGet(dockerUrl, headers);
+		String content = response.getContent();
+		JsonNode respJson = new ObjectMapper().readTree(content);
+		String image = respJson.hasNonNull(dockerRegion) ? respJson.get(dockerRegion).asText() : null;
+		LOG.info("Get image from {}, image is: {}", dockerUrl, image);
+		return image;
 	}
 }

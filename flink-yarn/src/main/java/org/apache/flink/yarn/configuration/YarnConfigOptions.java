@@ -449,6 +449,51 @@ public class YarnConfigOptions {
 					.withDescription("Times of slow container timeout base threshold." +
 							"Means containers which 1.5 times slow than the base threshold should be marked as slow containers.");
 
+	/** Config for docker. */
+	public static final ConfigOption<String> DOCKER_IMAGE =
+		key("docker.image")
+			.stringType()
+			.defaultValue(null)
+			.withDescription("Image of docker on yarn.");
+	public static final ConfigOption<String> DOCKER_DEFAULT_IMAGE =
+		key("docker.default_image")
+			.stringType()
+			.defaultValue("yarn_runtime_flink:latest")
+			.withDescription("Default image of docker on yarn.");
+	public static final ConfigOption<String> DOCKER_MOUNTS =
+		key("docker.mount")
+			.stringType()
+			.defaultValue(null)
+			.withDescription("Default image of docker on yarn.");
+	public static final ConfigOption<String> DOCKER_LOG_MOUNTS =
+		key("docker.log.mount")
+			.stringType()
+			.defaultValue(null)
+			.withDescription("Default image of docker on yarn.");
+	public static final ConfigOption<String> DOCKER_SERVER =
+		key("docker.server")
+			.stringType()
+			.defaultValue("image-manager.byted.org");
+	public static final ConfigOption<String> DOCKER_HUB =
+		key("docker.hub")
+			.stringType()
+			.defaultValue("hub.byted.org");
+	public static final ConfigOption<String> DOCKER_NAMESPACE =
+		key("docker.namespace")
+			.stringType()
+			.defaultValue("yarn");
+	public static final ConfigOption<String> DOCKER_REGION =
+		key("docker.region")
+			.stringType()
+			.defaultValue("China-North-LF");
+	public static final ConfigOption<String> DOCKER_AUTHORIZATION =
+		key("docker.authorization")
+			.stringType()
+			.defaultValue("Basic Rmxpbms6Z2huZTZrcGdqM2RvMzcxNHF0djBrZWYxbnd3aHNra2Q=");
+	public static final ConfigOption<String> DOCKER_VERSION_URL_TEMPLATE =
+		key("docker.version_template_url")
+			.stringType()
+			.defaultValue("http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s");
 
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}

@@ -685,6 +685,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 				configuration,
 				PluginUtils.createPluginManagerFromRootFolder(configuration));
 
+		String dockerImage =
+			flinkConfiguration.getString(YarnConfigOptions.DOCKER_IMAGE);
+
+		boolean isInDockerMode = !StringUtils.isNullOrWhitespaceOnly(dockerImage);
+		flinkConfiguration.setBoolean(YarnConfigKeys.IS_IN_DOCKER_MODE_KEY, isInDockerMode);
+
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
 		String jobWorkDir = flinkConfiguration.getString(ConfigConstants.JOB_WORK_DIR_KEY,
 				ConfigConstants.PATH_JOB_WORK_FILE);
@@ -1039,6 +1045,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// set classpath from YARN configuration
 		Utils.setupYarnClassPath(yarnConfiguration, appMasterEnv);
+		//Add environment params to AM appMasterEnv for docker mode.
+		Utils.setDockerEnv(flinkConfiguration, appMasterEnv);
 
 		final String customApplicationName = customName != null ? customName : applicationName;
 

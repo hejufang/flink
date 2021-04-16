@@ -63,6 +63,31 @@ public class YarnConfigKeys {
 
 	// ------------------------------------------------------------------------
 
+	// ---------------------------- Config for docker ---------------------------
+	public static final String IS_IN_DOCKER_MODE_KEY = "isInDockerMode";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_KEY = "YARN_CONTAINER_RUNTIME_TYPE";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_TYPE_DEFAULT = "docker";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_IMAGE_KEY =
+		"YARN_CONTAINER_RUNTIME_DOCKER_IMAGE";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_KEY =
+		"YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS_DEFAULT =
+		"/opt/tiger/ss_conf:/opt/tiger/ss_conf;/opt/tiger/ss_lib:/opt/tiger/ss_lib";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_KEY =
+		"ENV_DOCKER_CONTAINER_LOG_DIR_MOUNT";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_LOG_MOUNTS_DEFAULT =
+		"/var/log/tiger";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_KEY =
+		"ENV_DOCKER_CONTAINER_CAP_ADD";
+	public static final String ENV_YARN_CONTAINER_RUNTIME_DOCKER_CAP_ADD_DEFAULT =
+		"SYS_ADMIN;NET_ADMIN;SYS_PTRACE";
+
+	public static final String DOCKER_VERSION_LATEST = "latest";
+	public static final String DOCKER_NAMESPACE_KEY = "docker.namespace";
+	public static final String DOCKER_HTTP_HEADER_AUTHORIZATION_KEY = "Authorization";
+
+
+
 	/** Private constructor to prevent instantiation. */
 	private YarnConfigKeys() {}
 
