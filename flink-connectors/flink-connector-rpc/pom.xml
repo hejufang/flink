@@ -88,6 +88,10 @@ under the License.
 									</artifactSet>
 									<relocations>
 										<relocation>
+											<pattern>org.apache.thrift</pattern>
+											<shadedPattern>org.apache.flink.connector.rpc.shaded.org.apache.thrift</shadedPattern>
+										</relocation>
+										<relocation>
 											<pattern>com.bytedance</pattern>
 											<shadedPattern>org.apache.flink.connector.rpc.shaded.com.bytedance</shadedPattern>
 										</relocation>
