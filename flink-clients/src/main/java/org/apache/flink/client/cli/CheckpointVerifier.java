@@ -21,6 +21,7 @@ package org.apache.flink.client.cli;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.runtime.OperatorIDPair;
@@ -78,6 +79,8 @@ public class CheckpointVerifier {
 
 	private static List<BiFunction<Map<JobVertexID, JobVertex>, Map<OperatorID, OperatorState>, CheckpointVerifyResult>> verifyStrategies;
 
+	private static volatile Map<Long, Map<OperatorID, OperatorState>> checkpointsOnStorage;
+
 	static {
 		verifyStrategies = new ArrayList<>();
 		// Strategy 1: all OperatorID in OperatorState must exist in new JobGraph
@@ -126,6 +129,25 @@ public class CheckpointVerifier {
 			}
 			return CheckpointVerifyResult.SUCCESS;
 		});
+	}
+
+	/**
+	 * Check if there exists any completed checkpoints on HDFS in advance,
+	 * if none, skip checkpoint verification at once.
+	 *
+	 * @param configuration Configuration of client.
+	 * @return true if HDFS has completed checkpoint; false if none.
+	 */
+	public static boolean beforeVerify(Configuration configuration) {
+		String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (jobName == null) {
+			return false;
+		}
+
+		// use a fake JobID, just for checkpoint verification
+		checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, ClassLoader.getSystemClassLoader(), new JobID(), jobName);
+		LOG.info("Pre-check checkpoints {} on HDFS, if zero: {}, exit immediately", checkpointsOnStorage.keySet(), checkpointsOnStorage.isEmpty());
+		return !checkpointsOnStorage.isEmpty();
 	}
 
 	public static void verify(JobGraph jobGraph, ClassLoader classLoader, Configuration configuration) throws Exception {
@@ -239,8 +261,9 @@ public class CheckpointVerifier {
 			// -----------------------------------------------------------------
 			try {
 				// (1) get checkpoints on HDFS.
-				final Map<Long, Map<OperatorID, OperatorState>> checkpointsOnStorage =
-					findAllCompletedCheckpointsOnStorage(configuration, classLoader, jobID, jobName);
+				if (checkpointsOnStorage == null) {
+					checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(configuration, classLoader, jobID, jobName);
+				}
 				LOG.info("Find checkpoints {} on HDFS.", checkpointsOnStorage.keySet());
 				if (checkpointsOnStorage.size() == 0) {
 					LOG.info("No checkpoint store on HDFS, skip checkpoint verification.");

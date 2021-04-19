@@ -863,7 +863,12 @@ public class CliFrontend {
 			effectiveConfiguration.set(CoreOptions.DEFAULT_PARALLELISM, checkpointOptions.getParallelism());
 			effectiveConfiguration.set(CheckpointingOptions.CLIENT_CHECKPOINT_VERIFICATION_ENABLE, true);
 
-			executeProgram(effectiveConfiguration, program);
+			if (CheckpointVerifier.beforeVerify(effectiveConfiguration)) {
+				executeProgram(effectiveConfiguration, program);
+			} else {
+				// No checkpoint on HDFS, exit directly
+				CheckpointVerifier.verifyExitCode = 0;
+			}
 		} catch (Exception e) {
 			// Note: we compulsively capture exception here, in case that the user's code may rethrow the
 			// exception which may confuse the result of checkpoint verification.
