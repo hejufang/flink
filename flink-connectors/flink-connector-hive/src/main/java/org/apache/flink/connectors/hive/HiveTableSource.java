@@ -417,6 +417,11 @@ public class HiveTableSource implements
 	}
 
 	@Override
+	public boolean isPartitionPruned() {
+		return partitionPruned;
+	}
+
+	@Override
 	public TableSource<RowData> projectFields(int[] fields) {
 		return new HiveTableSource(
 				jobConf,
@@ -611,6 +616,11 @@ public class HiveTableSource implements
 	@Override
 	public boolean isFilterPushedDown() {
 		return predicates != null;
+	}
+
+	@Override
+	public boolean retainAppliedPartitionPredicates() {
+		return false;
 	}
 
 	//TODO: check hive permission for hive dimension table.

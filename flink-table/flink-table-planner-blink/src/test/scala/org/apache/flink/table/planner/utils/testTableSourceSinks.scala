@@ -538,7 +538,7 @@ class TestFilterableTableSource(
 
   override def getDataStream(execEnv: StreamExecutionEnvironment): DataStream[Row] = {
     execEnv.fromCollection[Row](
-        applyPredicatesToRows(data).asJava,
+        Utils.applyPredicatesToRows(data, filterPredicates, schema).asJava,
         fromDataTypeToTypeInfo(getProducedDataType).asInstanceOf[RowTypeInfo])
       .setParallelism(1).setMaxParallelism(1)
   }
@@ -559,7 +559,7 @@ class TestFilterableTableSource(
     val iterator = predicates.iterator()
     while (iterator.hasNext) {
       val expr = iterator.next()
-      if (shouldPushDown(expr)) {
+      if (Utils.shouldPushDown(expr, filterableFields)) {
         predicatesToUse += expr
         iterator.remove()
       }
@@ -576,41 +576,46 @@ class TestFilterableTableSource(
 
   override def isFilterPushedDown: Boolean = filterPushedDown
 
-  private def applyPredicatesToRows(rows: Seq[Row]): Seq[Row] = rows.filter(shouldKeep)
+  override def getTableSchema: TableSchema = schema
+}
 
-  private def shouldPushDown(expr: Expression): Boolean = {
+object Utils {
+  def shouldPushDown(expr: Expression, filterableFields: Set[String]): Boolean = {
     expr match {
       case expr: CallExpression if expr.getChildren.size() == 2 =>
-        shouldPushDownUnaryExpression(expr.getChildren.head) &&
-          shouldPushDownUnaryExpression(expr.getChildren.last)
+        shouldPushDownUnaryExpression(expr.getChildren.head, filterableFields) &&
+          shouldPushDownUnaryExpression(expr.getChildren.last, filterableFields)
       case _ => false
     }
   }
 
-  private def shouldPushDownUnaryExpression(expr: Expression): Boolean = expr match {
+  private def shouldPushDownUnaryExpression(
+      expr: Expression, filterableFields: Set[String]): Boolean = expr match {
     case f: FieldReferenceExpression => filterableFields.contains(f.getName)
     case _: ValueLiteralExpression => true
     case c: CallExpression if c.getChildren.size() == 1 =>
       c.getFunctionDefinition match {
         case BuiltInFunctionDefinitions.UPPER | BuiltInFunctionDefinitions.LOWER =>
-          shouldPushDownUnaryExpression(c.getChildren.head)
+          shouldPushDownUnaryExpression(c.getChildren.head, filterableFields)
         case _ => false
       }
     case _ => false
   }
 
-  private def shouldKeep(row: Row): Boolean = {
+  def shouldKeep(
+      row: Row, filterPredicates: Seq[Expression], schema: TableSchema): Boolean = {
     filterPredicates.isEmpty || filterPredicates.forall {
       case expr: CallExpression if expr.getChildren.size() == 2 =>
-        binaryFilterApplies(expr, row)
+        binaryFilterApplies(expr, row, schema)
       case expr => throw new RuntimeException(expr + " not supported!")
     }
   }
 
-  private def binaryFilterApplies(binExpr: CallExpression, row: Row): Boolean = {
+  private def binaryFilterApplies(
+      binExpr: CallExpression, row: Row, schema: TableSchema): Boolean = {
     val children = binExpr.getChildren
     require(children.size() == 2)
-    val (lhsValue, rhsValue) = extractValues(binExpr, row)
+    val (lhsValue, rhsValue) = extractValues(binExpr, row, schema)
 
     binExpr.getFunctionDefinition match {
       case BuiltInFunctionDefinitions.GREATER_THAN =>
@@ -630,13 +635,15 @@ class TestFilterableTableSource(
 
   private def extractValues(
       binExpr: CallExpression,
-      row: Row): (Comparable[Any], Comparable[Any]) = {
+      row: Row,
+      schema: TableSchema): (Comparable[Any], Comparable[Any]) = {
     val children = binExpr.getChildren
     require(children.size() == 2)
-    (getValue(children.head, row), getValue(children.last, row))
+    (getValue(children.head, row, schema), getValue(children.last, row, schema))
   }
 
-  private def getValue(expr: Expression, row: Row): Comparable[Any] = expr match {
+  private def getValue(
+      expr: Expression, row: Row, schema: TableSchema): Comparable[Any] = expr match {
     case v: ValueLiteralExpression =>
       val value = v.getValueAs(v.getOutputDataType.getConversionClass)
       if (value.isPresent) {
@@ -649,7 +656,7 @@ class TestFilterableTableSource(
       val idx = rowTypeInfo.getFieldIndex(f.getName)
       row.getField(idx).asInstanceOf[Comparable[Any]]
     case c: CallExpression if c.getChildren.size() == 1 =>
-      val child = getValue(c.getChildren.head, row)
+      val child = getValue(c.getChildren.head, row, schema)
       c.getFunctionDefinition match {
         case BuiltInFunctionDefinitions.UPPER =>
           child.toString.toUpperCase.asInstanceOf[Comparable[Any]]
@@ -660,7 +667,10 @@ class TestFilterableTableSource(
     case _ => throw new RuntimeException(expr + " not supported!")
   }
 
-  override def getTableSchema: TableSchema = schema
+  def applyPredicatesToRows(
+      rows: Seq[Row], filterPredicates: Seq[Expression], schema: TableSchema): Seq[Row] =
+    rows.filter(r => Utils.shouldKeep(r, filterPredicates, schema))
+
 }
 
 object TestFilterableTableSource {
@@ -1284,6 +1294,139 @@ class TestFileInputFormatTableSourceFactory extends StreamTableSourceFactory[Row
   }
 }
 
+class TestPartitionableFilterableTableSourceFactory extends TableSourceFactory[Row] {
+
+  override def requiredContext(): util.Map[String, String] = {
+    val context = new util.HashMap[String, String]()
+    context.put(CONNECTOR_TYPE, "TestPartitionableFilterableSource")
+    context
+  }
+
+  override def supportedProperties(): util.List[String] = {
+    val supported = new util.ArrayList[String]()
+    supported.add("*")
+    supported
+  }
+
+  override def createTableSource(properties: util.Map[String, String]): TableSource[Row] = {
+    val descriptorProps = new DescriptorProperties()
+    descriptorProps.putProperties(properties)
+
+    val isBounded = descriptorProps.getBoolean("is-bounded")
+    val sourceFetchPartitions = descriptorProps.getBoolean("source-fetch-partitions")
+    val remainingPartitions = descriptorProps.getOptionalArray("remaining-partition",
+      new java.util.function.Function[String, util.Map[String, String]] {
+        override def apply(t: String): util.Map[String, String] = {
+          descriptorProps.getString(t).split(",")
+            .map(kv => kv.split(":"))
+            .map(a => (a(0), a(1)))
+            .toMap[String, String]
+        }
+      }).orElse(null)
+
+    val schema = descriptorProps.getTableSchema(Schema.SCHEMA)
+
+    val serializedFilterableFields =
+      descriptorProps.getOptionalString("filterable-fields").orElse(null)
+    val filterableFields = if (serializedFilterableFields != null) {
+      EncodingUtils.decodeStringToObject(serializedFilterableFields, classOf[List[String]]).toSet
+    } else {
+      TestFilterableTableSource.defaultFilterableFields
+    }
+
+    new TestPartitionableFilterableTableSource(
+      schema,
+      isBounded,
+      remainingPartitions,
+      sourceFetchPartitions,
+      filterableFields
+    )
+  }
+}
+
+class TestPartitionableFilterableTableSource (
+    schema: TableSchema,
+    override val isBounded: Boolean,
+    remainingPartitions: JList[JMap[String, String]],
+    isCatalogTable: Boolean,
+    filterableFields: Set[String],
+    filterPredicates: Seq[Expression] = Seq(),
+    val filterPushedDown: Boolean = false,
+    val partitionPruned: Boolean = false)
+  extends TestPartitionableTableSource(
+    isBounded, remainingPartitions, isCatalogTable, partitionPruned)
+    with FilterableTableSource[Row] {
+
+  override def applyPredicate(predicates: JList[Expression]): TableSource[Row] = {
+    val predicatesToUse = new mutable.ListBuffer[Expression]()
+    val iterator = predicates.iterator()
+    while (iterator.hasNext) {
+      val expr = iterator.next()
+      if (Utils.shouldPushDown(expr, filterableFields)) {
+        predicatesToUse += expr
+        iterator.remove()
+      }
+    }
+
+    new TestPartitionableFilterableTableSource(
+      schema,
+      isBounded,
+      remainingPartitions,
+      isCatalogTable,
+      filterableFields,
+      predicatesToUse,
+      true)
+  }
+
+  override def isFilterPushedDown: Boolean = filterPushedDown
+
+  override def getDataStream(execEnv: StreamExecutionEnvironment): DataStream[Row] = {
+    var remainingData = if (remainingPartitions != null) {
+      val remainingPartitionList = remainingPartitions.map {
+        m => s"part1=${m.get("part1")},part2=${m.get("part2")}"
+      }
+      data.filterKeys(remainingPartitionList.contains).values.flatten
+    } else {
+      data.values.flatten
+    }
+
+    remainingData =
+      Utils.applyPredicatesToRows(remainingData.toSeq, filterPredicates, schema)
+
+    execEnv.fromCollection[Row](remainingData, getReturnType).setParallelism(1).setMaxParallelism(1)
+  }
+
+  override def applyPartitionPruning(
+      remainingPartitions: JList[JMap[String, String]]): TableSource[_] = {
+    new TestPartitionableFilterableTableSource(
+      schema,
+      isBounded,
+      remainingPartitions,
+      isCatalogTable,
+      filterableFields,
+      filterPredicates,
+      filterPushedDown,
+      true)
+  }
+
+  override def retainAppliedPartitionPredicates(): Boolean = true
+
+  override def explainSource(): String = {
+    var s = ""
+    if (filterPredicates.nonEmpty) {
+      s = s"filterPushedDown=[$filterPushedDown], " +
+        s"filter=[${filterPredicates.reduce((l, r) => unresolvedCall(AND, l, r)).toString}]"
+    } else {
+      s = s"filterPushedDown=[$filterPushedDown], filter=[]"
+    }
+
+    if (remainingPartitions != null) {
+      s += s", partitions=${remainingPartitions.mkString(", ")}"
+    }
+    s
+  }
+}
+
 /**
   * A data source that implements some very basic partitionable table source in-memory.
   *
@@ -1293,7 +1436,8 @@ class TestFileInputFormatTableSourceFactory extends StreamTableSourceFactory[Row
 class TestPartitionableTableSource(
     override val isBounded: Boolean,
     remainingPartitions: JList[JMap[String, String]],
-    isCatalogTable: Boolean)
+    isCatalogTable: Boolean,
+    partitionPruned: Boolean = false)
   extends StreamTableSource[Row]
     with PartitionableTableSource {
 
@@ -1306,7 +1450,7 @@ class TestPartitionableTableSource(
   private val fieldNames = Array("id", "name", "part1", "part2")
   private val returnType = new RowTypeInfo(fieldTypes, fieldNames)
 
-  private val data = mutable.Map[String, Seq[Row]](
+  val data = mutable.Map[String, Seq[Row]](
     "part1=A,part2=1" -> Seq(row(1, "Anna", "A", 1), row(2, "Jack", "A", 1)),
     "part1=A,part2=2" -> Seq(row(3, "John", "A", 2), row(4, "nosharp", "A", 2)),
     "part1=B,part2=3" -> Seq(row(5, "Peter", "B", 3), row(6, "Lucy", "B", 3)),
@@ -1327,7 +1471,7 @@ class TestPartitionableTableSource(
 
   override def applyPartitionPruning(
       remainingPartitions: JList[JMap[String, String]]): TableSource[_] = {
-    new TestPartitionableTableSource(isBounded, remainingPartitions, isCatalogTable)
+    new TestPartitionableTableSource(isBounded, remainingPartitions, isCatalogTable, true)
   }
 
   override def getDataStream(execEnv: StreamExecutionEnvironment): DataStream[Row] = {
@@ -1354,6 +1498,10 @@ class TestPartitionableTableSource(
   override def getReturnType: TypeInformation[Row] = returnType
 
   override def getTableSchema: TableSchema = new TableSchema(fieldNames, fieldTypes)
+
+  override def retainAppliedPartitionPredicates(): Boolean = false
+
+  override def isPartitionPruned: Boolean = partitionPruned
 }
 
 class TestPartitionableSourceFactory extends TableSourceFactory[Row] {
@@ -1454,6 +1602,76 @@ object TestPartitionableSourceFactory {
       new CatalogPartitionImpl(Map[String, String](), ""),
       true))
 
+  }
+}
+
+object TestPartitionableFilterableTableSourceFactory {
+  private val tableSchema: TableSchema = TableSchema.builder()
+    .field("id", DataTypes.INT())
+    .field("name", DataTypes.STRING())
+    .field("part1", DataTypes.STRING())
+    .field("part2", DataTypes.INT())
+    .build()
+
+  /**
+   * For java invoking.
+   */
+  def createTemporaryTable(
+      tEnv: TableEnvironment,
+      tableName: String,
+      isBounded: Boolean): Unit = {
+    createTemporaryTable(tEnv, tableName, isBounded, tableSchema = tableSchema)
+  }
+
+  def createTemporaryTable(
+      tEnv: TableEnvironment,
+      tableName: String,
+      isBounded: Boolean,
+      tableSchema: TableSchema = tableSchema,
+      remainingPartitions: JList[JMap[String, String]] = null,
+      sourceFetchPartitions: Boolean = false,
+      filterableFields: List[String] = null): Unit = {
+    val properties = new DescriptorProperties()
+    properties.putString("is-bounded", isBounded.toString)
+    properties.putBoolean("source-fetch-partitions", sourceFetchPartitions)
+    properties.putString(CONNECTOR_TYPE, "TestPartitionableFilterableSource")
+    if (remainingPartitions != null) {
+      remainingPartitions.zipWithIndex.foreach { case (part, i) =>
+        properties.putString(
+          "remaining-partition." + i,
+          part.map {case (k, v) => s"$k:$v"}.reduce {(kv1, kv2) =>
+            s"$kv1,:$kv2"
+          }
+        )
+      }
+    }
+
+    if (filterableFields != null && filterableFields.nonEmpty) {
+      properties.putString("filterable-fields",
+        EncodingUtils.encodeObjectToString(filterableFields))
+    }
+
+    val table = new CatalogTableImpl(
+      tableSchema,
+      util.Arrays.asList[String]("part1", "part2"),
+      properties.asMap(),
+      ""
+    )
+    val catalog = tEnv.getCatalog(tEnv.getCurrentCatalog).get()
+    val path = new ObjectPath(tEnv.getCurrentDatabase, tableName)
+    catalog.createTable(path, table, false)
+
+    val partitions = List(
+      Map("part1" -> "A", "part2" -> "1").asJava,
+      Map("part1" -> "A", "part2" -> "2").asJava,
+      Map("part1" -> "B", "part2" -> "3").asJava,
+      Map("part1" -> "C", "part2" -> "1").asJava
+    )
+    partitions.foreach(spec => catalog.createPartition(
+      path,
+      new CatalogPartitionSpec(new java.util.LinkedHashMap(spec)),
+      new CatalogPartitionImpl(Map[String, String](), ""),
+      true))
   }
 }
 

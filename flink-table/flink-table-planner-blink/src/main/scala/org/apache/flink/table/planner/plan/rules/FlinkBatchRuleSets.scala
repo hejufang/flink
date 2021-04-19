@@ -164,10 +164,16 @@ object FlinkBatchRuleSets {
     * RuleSet to do push predicate/partition into table scan
     */
   val FILTER_TABLESCAN_PUSHDOWN_RULES: RuleSet = RuleSets.ofList(
-    // push a filter down into the table scan
-    PushFilterIntoLegacyTableSourceScanRule.INSTANCE,
+    // We put PushPartitionIntoLegacyTableSourceScanRule before
+    // PushFilterIntoLegacyTableSourceScanRule, so that we could apply filter push down after
+    // partition pruning. Otherwise one table source which could apply all these two rule would
+    // never apply partition pruning because filter push down will may remove the filter which
+    // includes the partition conditions on table scan.
+
     // push partition into the table scan
-    PushPartitionIntoLegacyTableSourceScanRule.INSTANCE
+    PushPartitionIntoLegacyTableSourceScanRule.INSTANCE,
+    // push a filter down into the table scan
+    PushFilterIntoLegacyTableSourceScanRule.INSTANCE
   )
 
   /**

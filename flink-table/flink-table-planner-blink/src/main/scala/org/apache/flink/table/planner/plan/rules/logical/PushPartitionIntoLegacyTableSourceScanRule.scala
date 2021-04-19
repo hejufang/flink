@@ -62,7 +62,8 @@ class PushPartitionIntoLegacyTableSourceScanRule extends RelOptRule(
     scan.getTable.unwrap(classOf[LegacyTableSourceTable[_]]) match {
       case table: LegacyTableSourceTable[_] =>
         table.catalogTable.isPartitioned &&
-          table.tableSource.isInstanceOf[PartitionableTableSource]
+          table.tableSource.isInstanceOf[PartitionableTableSource] &&
+          !table.tableSource.asInstanceOf[PartitionableTableSource].isPartitionPruned
       case _ => false
     }
   }
@@ -210,13 +211,21 @@ class PushPartitionIntoLegacyTableSourceScanRule extends RelOptRule(
     val newTableSourceTable = tableSourceTable.copy(newTableSource, newStatistic)
 
     val newScan = new LogicalTableScan(scan.getCluster, scan.getTraitSet, newTableSourceTable)
-    // check whether framework still need to do a filter
-    val nonPartitionPredicate = RexUtil.composeConjunction(rexBuilder, nonPartitionPredicates)
-    if (nonPartitionPredicate.isAlwaysTrue) {
-      call.transformTo(newScan)
-    } else {
-      val newFilter = filter.copy(filter.getTraitSet, newScan, nonPartitionPredicate)
+    val retainAppliedPartitionPredicates = tableSource.retainAppliedPartitionPredicates();
+    if (retainAppliedPartitionPredicates) {
+      // retain all conditions if retainAppliedPartitionPredicates is true.
+      val newFilter = filter.copy(filter.getTraitSet, newScan, filter.getCondition)
       call.transformTo(newFilter)
+    } else {
+      // remove applied partition conditions if retainAppliedPartitionPredicates is false.
+      // check whether framework still need to do a filter
+      val nonPartitionPredicate = RexUtil.composeConjunction(rexBuilder, nonPartitionPredicates)
+      if (nonPartitionPredicate.isAlwaysTrue) {
+        call.transformTo(newScan)
+      } else {
+        val newFilter = filter.copy(filter.getTraitSet, newScan, nonPartitionPredicate)
+        call.transformTo(newFilter)
+      }
     }
   }
 

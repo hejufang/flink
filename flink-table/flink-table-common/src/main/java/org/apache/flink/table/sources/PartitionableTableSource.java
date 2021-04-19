@@ -53,4 +53,20 @@ public interface PartitionableTableSource {
 	 * @return A new cloned instance of {@link TableSource} holds all pruned-partitions.
 	 */
 	TableSource applyPartitionPruning(List<Map<String, String>> remainingPartitions);
+
+	/**
+	 * Whether to retain partition predicates after applying partition pruning.
+	 * It will be more efficient for some partition source if we retain the
+	 * partition predicates after applying partition pruning.
+	 * For example, we should return true for hash/range partition, while we should
+	 * return false for point partition like hive.
+	 *
+	 * */
+	boolean retainAppliedPartitionPredicates();
+
+	/**
+	 * Return the flag to indicate whether partition pruning has been tried.
+	 * Must return true on the returned instance of {@link #applyPartitionPruning}.
+	 */
+	boolean isPartitionPruned();
 }

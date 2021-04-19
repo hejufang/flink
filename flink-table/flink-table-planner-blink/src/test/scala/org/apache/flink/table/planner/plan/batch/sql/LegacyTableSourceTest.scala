@@ -54,6 +54,12 @@ class LegacyTableSourceTest extends TableTestBase {
       "FilterableTable",
       isBounded = true)
     TestPartitionableSourceFactory.createTemporaryTable(util.tableEnv, "PartitionableTable", true)
+
+    TestPartitionableFilterableTableSourceFactory.createTemporaryTable(
+      util.tableEnv,
+      "PartitionableFilterableTable",
+      true,
+      filterableFields=List("id", "part1"))
   }
 
   @Test
@@ -210,5 +216,11 @@ class LegacyTableSourceTest extends TableTestBase {
          |  tsv > TIMESTAMP '2017-02-03 14:25:02.000'
       """.stripMargin
     util.verifyPlan(sqlQuery)
+  }
+
+  @Test
+  def testFilterPushDownAndPartitionPruningTableSource(): Unit = {
+    util.verifyPlan(
+      "SELECT * FROM PartitionableFilterableTable WHERE id > 1 AND part1='A' AND part2=1")
   }
 }

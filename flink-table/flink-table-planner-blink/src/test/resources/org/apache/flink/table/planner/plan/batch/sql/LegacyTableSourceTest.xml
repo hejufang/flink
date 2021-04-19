@@ -296,4 +296,22 @@ LegacyTableSourceScan(table=[[default_catalog, default_database, ProjectableTabl
 ]]>
     </Resource>
   </TestCase>
+	<TestCase name="testFilterPushDownAndPartitionPruningTableSource">
+		<Resource name="sql">
+			<![CDATA[SELECT * FROM PartitionableFilterableTable WHERE id > 1 AND part1='A' AND part2=1]]>
+		</Resource>
+		<Resource name="planBefore">
+			<![CDATA[
+LogicalProject(id=[$0], name=[$1], part1=[$2], part2=[$3])
++- LogicalFilter(condition=[AND(>($0, 1), =($2, _UTF-16LE'A'), =($3, 1))])
+   +- LogicalTableScan(table=[[default_catalog, default_database, PartitionableFilterableTable, source: [filterPushedDown=[false], filter=[]]]])
+]]>
+		</Resource>
+		<Resource name="planAfter">
+			<![CDATA[
+Calc(select=[id, name, CAST(_UTF-16LE'A':VARCHAR(2147483647) CHARACTER SET "UTF-16LE") AS part1, CAST(1) AS part2], where=[=(part2, 1)])
++- LegacyTableSourceScan(table=[[default_catalog, default_database, PartitionableFilterableTable, source: [filterPushedDown=[true], filter=[and(greaterThan(id, 1), equals(part1, 'A'))], partitions={part1=A, part2=1}]]], fields=[id, name, part1, part2])
+]]>
+		</Resource>
+	</TestCase>
 </Root>
