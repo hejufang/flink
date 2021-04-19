@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,6 +63,21 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 
 	public Map<StateHandleID, List<StateHandleID>> getUsedSstFiles() {
 		return usedSstFiles;
+	}
+
+	@Override
+	public IncrementalKeyedStateHandle overrideWithPlaceHolder(long checkpointId) {
+		Map<StateHandleID, StreamStateHandle> sharedState = new HashMap<>(getSharedState().size());
+		getSharedState().keySet().forEach(stateHandleID -> sharedState.put(stateHandleID, new PlaceholderStreamStateHandle()));
+		return new IncrementalRemoteBatchKeyedStateHandle(
+			getBackendIdentifier(),
+			getKeyGroupRange(),
+			checkpointId,
+			sharedState,
+			getPrivateState(),
+			getMetaStateHandle(),
+			usedSstFiles,
+			totalStateSize);
 	}
 
 	@Override
