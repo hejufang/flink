@@ -18,11 +18,13 @@
 
 package org.apache.flink.table.planner.plan.metadata
 
-import org.apache.flink.table.planner.calcite.FlinkTypeFactory
+import org.apache.flink.table.api.config.OptimizerConfigOptions
+import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.functions.utils.ScalarSqlFunction
 import org.apache.flink.table.planner.plan.`trait`.RelModifiedMonotonicity
 import org.apache.flink.table.planner.plan.metadata.FlinkMetadata.ModifiedMonotonicity
 import org.apache.flink.table.planner.plan.nodes.calcite.{Expand, Rank, WindowAggregate}
+import org.apache.flink.table.planner.plan.nodes.common.CommonIntermediateTableScan
 import org.apache.flink.table.planner.plan.nodes.logical._
 import org.apache.flink.table.planner.plan.nodes.physical.batch.{BatchExecCorrelate, BatchExecGroupAggregateBase}
 import org.apache.flink.table.planner.plan.nodes.physical.stream._
@@ -57,6 +59,15 @@ class FlinkRelMdModifiedMonotonicity private extends MetadataHandler[ModifiedMon
   override def getDef: MetadataDef[ModifiedMonotonicity] = FlinkMetadata.ModifiedMonotonicity.DEF
 
   def getRelModifiedMonotonicity(rel: TableScan, mq: RelMetadataQuery): RelModifiedMonotonicity = {
+    val tableConfig = rel.getCluster.getPlanner.getContext.
+      asInstanceOf[FlinkContext].getTableConfig
+    val forceNull = tableConfig.getConfiguration.getBoolean(OptimizerConfigOptions.
+      TABLE_OPTIMIZER_FORCE_NULL_MONOTONICITY_FOR_INTERMEDIATE_TABLE)
+    // temporary hack, indicates that we cannot infer any monotonicity from intermediate table.
+    if (forceNull && rel.isInstanceOf[CommonIntermediateTableScan]) {
+      return null
+    }
+
     val monotonicity: RelModifiedMonotonicity = rel match {
       case _: FlinkLogicalDataStreamTableScan | _: StreamExecDataStreamScan =>
         val table = rel.getTable.unwrap(classOf[DataStreamTable[Any]])

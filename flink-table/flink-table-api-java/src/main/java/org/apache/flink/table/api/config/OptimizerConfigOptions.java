@@ -97,4 +97,16 @@ public class OptimizerConfigOptions {
 		key("table.optimizer.join-reorder-enabled")
 			.defaultValue(false)
 			.withDescription("Enables join reorder in optimizer. Default is disabled.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_FORCE_NULL_MONOTONICITY_FOR_INTERMEDIATE_TABLE =
+		key("table.optimizer.force-null-monotonicity-for-intermediate-table")
+			.defaultValue(true)
+			.withDescription("This is for a very special case.\n" +
+				"In multi-sink scenario, we will use subgraph optimization, which will " +
+				"break the DAG into multiple subgraphs, and optimize them one by one. " +
+				"However, the upstream subgraph may produce update/delete messages, which " +
+				"will influence the monotonicity deduction. Forcing null monotonicity will " +
+				"prevent such case. \n" +
+				"BE CAUTION: This may result in non-optimal plan.");
 }
