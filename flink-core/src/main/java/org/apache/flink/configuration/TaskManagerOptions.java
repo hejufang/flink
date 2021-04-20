@@ -550,6 +550,17 @@ public class TaskManagerOptions {
 			.withDescription("Time we wait for the timers in milliseconds to finish all pending timer threads" +
 				" when the stream task is cancelled.");
 
+	/**
+	 * The threshold of DataOutputSerializer buffer to prune.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER)
+	public static final ConfigOption<Integer> SERIALIZER_PRUNE_BUFFER_THRESHOLD = ConfigOptions
+			.key("taskmanager.serializer.prune.buffer.threshold")
+			.intType()
+			.defaultValue(1024 * 1024)
+			.withDeprecatedKeys("prune.buffer.threshold")
+			.withDescription("The threshold of DataOutputSerializer buffer to prune.");
+
 	// ------------------------------------------------------------------------
 
 	/** Not intended to be instantiated. */

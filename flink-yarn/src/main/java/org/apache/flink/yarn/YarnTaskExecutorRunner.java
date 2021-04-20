@@ -25,6 +25,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.SecurityOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.plugin.PluginManager;
 import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.clusterframework.BootstrapTools;
@@ -80,7 +81,7 @@ public class YarnTaskExecutorRunner {
 
 	/**
 	 * The instance entry point for the YARN task executor. Obtains user group information and calls
-	 * the main work method {@link TaskManagerRunner#runTaskManager(Configuration, ResourceID)} as a
+	 * the main work method {@link TaskManagerRunner#runTaskManager(Configuration, ResourceID, PluginManager)} as a
 	 * privileged action.
 	 *
 	 * @param args The command line arguments.
@@ -155,6 +156,10 @@ public class YarnTaskExecutorRunner {
 			configuration.setString(SecurityOptions.KERBEROS_LOGIN_KEYTAB, keytabPath);
 			configuration.setString(SecurityOptions.KERBEROS_LOGIN_PRINCIPAL, keytabPrincipal);
 		}
+
+		// update PruneBufferThreshold if configured
+		int pruneBufferThreshold = configuration.getInteger(TaskManagerOptions.SERIALIZER_PRUNE_BUFFER_THRESHOLD);
+		DataOutputSerializer.updatePruneBufferThreshold(pruneBufferThreshold);
 
 		// use the hostname passed by job manager
 		final String taskExecutorHostname = variables.get(YarnResourceManager.ENV_FLINK_NODE_ID);

@@ -37,7 +37,7 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 
 	private static final Logger LOG = LoggerFactory.getLogger(DataOutputSerializer.class);
 
-	private static final int PRUNE_BUFFER_THRESHOLD = 5 * 1024 * 1024;
+	private static int pruneBufferThreshold = 5 * 1024 * 1024;
 
 	// ------------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 
 	public void pruneBuffer() {
 		clear();
-		if (this.buffer.length > PRUNE_BUFFER_THRESHOLD) {
+		if (this.buffer.length > pruneBufferThreshold) {
 			if (LOG.isDebugEnabled()) {
 				LOG.debug("Releasing serialization buffer of " + this.buffer.length + " bytes.");
 			}
@@ -367,6 +367,11 @@ public class DataOutputSerializer implements DataOutputView, MemorySegmentWritab
 	public void setPosition(int position) {
 		Preconditions.checkArgument(position >= 0 && position <= this.position, "Position out of bounds.");
 		this.position = position;
+	}
+
+	public static void updatePruneBufferThreshold(int threshold) {
+		LOG.info("update prune buffer threshold to {}", threshold);
+		pruneBufferThreshold = threshold;
 	}
 
 	// ------------------------------------------------------------------------
