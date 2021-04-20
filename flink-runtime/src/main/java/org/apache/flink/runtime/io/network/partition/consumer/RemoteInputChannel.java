@@ -214,7 +214,6 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 				if (!isChannelAvailable()) {
 					try {
 						LOG.info("{} : This channel is unavailable, ready to update.", this);
-						setReadyToUpdate();
 						inputGate.tryUpdateInputChannelFromChannelProviderCache(this);
 					} catch (InterruptedException e) {
 						setError(e);
