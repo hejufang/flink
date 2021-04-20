@@ -100,7 +100,7 @@ public abstract class InputChannel {
 
 	protected final ScheduledExecutorService executor;
 
-	protected int maxDelayMinutes;
+	protected long maxDelayTimeMs;
 
 	// channel status
 	private volatile Integer channelStatus = CHANNEL_AVAILABLE;
@@ -114,7 +114,7 @@ public abstract class InputChannel {
 			int maxBackoff,
 			Counter numBytesIn,
 			Counter numBuffersIn,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
 			boolean isRecoverable) {
 
@@ -139,7 +139,7 @@ public abstract class InputChannel {
 
 		this.executor = executor;
 		this.isRecoverable = isRecoverable;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 	}
 
 	// ------------------------------------------------------------------------
@@ -347,10 +347,10 @@ public abstract class InputChannel {
 
 		executor.schedule(() -> {
 			if (!isReleased() && isReadyToUpdate()) {
-				LOG.warn("Channel {} is still not updated after {} minutes, fail this task.", this, maxDelayMinutes);
+				LOG.warn("Channel {} is still not updated after {} ms, fail this task.", this, maxDelayTimeMs);
 				this.setError(cause);
 			}
-		}, maxDelayMinutes, TimeUnit.MINUTES);
+		}, maxDelayTimeMs, TimeUnit.MILLISECONDS);
 	}
 
 	// ------------------------------------------------------------------------

@@ -118,10 +118,10 @@ public class RemoteInputChannel extends InputChannel {
 		int maxBackoff,
 		Counter numBytesIn,
 		Counter numBuffersIn,
-		int maxDelayMinutes,
+		long maxDelayTimeMs,
 		ScheduledExecutorService executor,
 		boolean isRecoverable) {
-		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, numBytesIn, numBuffersIn, maxDelayMinutes, executor, isRecoverable);
+		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff, numBytesIn, numBuffersIn, maxDelayTimeMs, executor, isRecoverable);
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
 		this.bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0);

@@ -93,7 +93,7 @@ public class SingleInputGateFactory {
 
 	private final ScheduledExecutorService executor;
 
-	private final int maxDelayMinutes;
+	private final long maxDelayTimeMs;
 
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
@@ -102,7 +102,7 @@ public class SingleInputGateFactory {
 			@Nonnull ResultPartitionManager partitionManager,
 			@Nonnull TaskEventPublisher taskEventPublisher,
 			@Nonnull NetworkBufferPool networkBufferPool,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			boolean isRecoverable) {
 		this.taskExecutorResourceId = taskExecutorResourceId;
 		this.partitionRequestInitialBackoff = networkConfig.partitionRequestInitialBackoff();
@@ -118,7 +118,7 @@ public class SingleInputGateFactory {
 		this.taskEventPublisher = taskEventPublisher;
 		this.networkBufferPool = networkBufferPool;
 		this.isRecoverable = isRecoverable;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 		this.executor = Executors.unconfigurableScheduledExecutorService(
 				new ScheduledThreadPoolExecutor(1, new ThreadPoolExecutor.DiscardPolicy()));
 	}
@@ -151,7 +151,7 @@ public class SingleInputGateFactory {
 					metrics,
 					partitionManager,
 					taskEventPublisher,
-					maxDelayMinutes,
+					maxDelayTimeMs,
 					executor,
 					isRecoverable);
 		}
@@ -223,7 +223,7 @@ public class SingleInputGateFactory {
 					partitionRequestInitialBackoff,
 					partitionRequestMaxBackoff,
 					metrics,
-					maxDelayMinutes,
+					maxDelayTimeMs,
 					executor,
 					isRecoverable);
 			},
@@ -258,7 +258,7 @@ public class SingleInputGateFactory {
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
 				metrics,
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 		} else {
@@ -273,7 +273,7 @@ public class SingleInputGateFactory {
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
 				metrics,
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 		}

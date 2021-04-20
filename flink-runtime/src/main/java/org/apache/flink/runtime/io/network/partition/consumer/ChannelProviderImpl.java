@@ -55,14 +55,14 @@ public class ChannelProviderImpl implements ChannelProvider {
 
 	private final Map<Integer, PartitionInfo> cachedPartitionInfos;
 
-	private int maxDelayMinutes;
+	private long maxDelayTimeMs;
 
 	public ChannelProviderImpl(
 			ConnectionManager connectionManager,
 			InputChannelMetrics metrics,
 			ResultPartitionManager partitionManager,
 			TaskEventPublisher taskEventPublisher,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
 			boolean isRecoverable) {
 		this.connectionManager = connectionManager;
@@ -71,7 +71,7 @@ public class ChannelProviderImpl implements ChannelProvider {
 		this.taskEventPublisher = taskEventPublisher;
 		this.isRecoverable = isRecoverable;
 		this.executor = executor;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 
 		this.cachedPartitionInfos = new HashMap<>();
 	}
@@ -93,7 +93,7 @@ public class ChannelProviderImpl implements ChannelProvider {
 				current.getMaxBackoff(),
 				metrics.getNumBytesInRemoteCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 	}
@@ -114,7 +114,7 @@ public class ChannelProviderImpl implements ChannelProvider {
 				current.getMaxBackoff(),
 				metrics.getNumBytesInLocalCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 	}

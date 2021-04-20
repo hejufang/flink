@@ -20,6 +20,7 @@ package org.apache.flink.runtime.taskmanager;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.HeartbeatManagerOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.netty.NettyConfig;
@@ -78,7 +79,7 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final boolean isRecoverable;
 
-	private final int maxDelayMinutes;
+	private final long maxDelayTimeMs;
 
 	private final boolean lazyAllocate;
 
@@ -98,7 +99,7 @@ public class NettyShuffleEnvironmentConfiguration {
 			boolean blockingShuffleCompressionEnabled,
 			String compressionCodec,
 			int maxBuffersPerChannel,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			boolean isRecoverable,
 			boolean lazyAllocate) {
 
@@ -117,7 +118,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.blockingShuffleCompressionEnabled = blockingShuffleCompressionEnabled;
 		this.compressionCodec = Preconditions.checkNotNull(compressionCodec);
 		this.maxBuffersPerChannel = maxBuffersPerChannel;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 		this.isRecoverable = isRecoverable;
 		this.lazyAllocate = lazyAllocate;
 	}
@@ -188,8 +189,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		return isRecoverable;
 	}
 
-	public int getMaxDelayMinutes() {
-		return maxDelayMinutes;
+	public long getMaxDelayTimeMs() {
+		return maxDelayTimeMs;
 	}
 
 	public boolean isLazyAllocate() {
@@ -248,7 +249,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean blockingShuffleCompressionEnabled =
 			configuration.get(NettyShuffleEnvironmentOptions.BLOCKING_SHUFFLE_COMPRESSION_ENABLED);
 		String compressionCodec = configuration.getString(NettyShuffleEnvironmentOptions.SHUFFLE_COMPRESSION_CODEC);
-		int maxDelayMinutes = configuration.getInteger(NettyShuffleEnvironmentOptions.MAX_DELAY_MINUTES);
+		long maxDelayTimeMs = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT);
 		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
 		boolean lazyAllocate = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_BUFFERS_MEMORY_LAZY_ALLOCATE);
 
@@ -268,7 +269,7 @@ public class NettyShuffleEnvironmentConfiguration {
 			blockingShuffleCompressionEnabled,
 			compressionCodec,
 			maxBuffersPerChannel,
-			maxDelayMinutes,
+			maxDelayTimeMs,
 			isRecoverable,
 			lazyAllocate);
 	}

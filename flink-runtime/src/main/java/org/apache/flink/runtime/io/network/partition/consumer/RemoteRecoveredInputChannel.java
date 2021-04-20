@@ -49,7 +49,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			int initialBackOff,
 			int maxBackoff,
 			InputChannelMetrics metrics,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
 			boolean isRecoverable) {
 		super(inputGate,
@@ -59,7 +59,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 				maxBackoff,
 				metrics.getNumBytesInRemoteCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 
@@ -79,7 +79,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 			maxBackoff,
 			numBytesIn,
 			numBuffersIn,
-			maxDelayMinutes,
+			maxDelayTimeMs,
 			executor,
 			isRecoverable);
 		remoteInputChannel.assignExclusiveSegments();
