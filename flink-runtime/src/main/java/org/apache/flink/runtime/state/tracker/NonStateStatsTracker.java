@@ -35,4 +35,9 @@ public class NonStateStatsTracker implements StateStatsTracker {
 	public void reportCompletedRestore(WarehouseRestoreMessage message) {
 		// do nothing
 	}
+
+	@Override
+	public void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage) {
+		// do nothing
+	}
 }

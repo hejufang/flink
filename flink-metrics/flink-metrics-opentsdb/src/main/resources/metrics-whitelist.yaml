@@ -44,7 +44,9 @@ global:
         contentionLockDuration,
         checkpointWriteFileRate,
         checkpointWriteFileLatency,
-        checkpointCloseFileLatency
+        checkpointCloseFileLatency,
+        preJobRawTotalStateSize,
+        postJobRawTotalStateSize
     ]
 
 non-global:
@@ -120,6 +122,12 @@ non-global:
         syncDuration,
         uploadDuration,
         uploadSizeInBytes,
+        preRawTotalStateSize,
+        postRawTotalStateSize,
+        preSstFileNum,
+        postSstFileNum,
+        preUploadFileNum,
+        postUploadFileNum,
       # operator restore
         stateRecoverTime,
         downloadDuration,

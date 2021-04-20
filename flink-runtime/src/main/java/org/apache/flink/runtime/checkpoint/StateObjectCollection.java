@@ -142,6 +142,11 @@ public class StateObjectCollection<T extends StateObject> implements Collection<
 		return sumAllSizes(stateObjects);
 	}
 
+	@Override
+	public long getTotalStateSize() {
+		return sumAllTotalSizes(stateObjects);
+	}
+
 	/**
 	 * Returns true if this contains at least one {@link StateObject}.
 	 */
@@ -215,5 +220,18 @@ public class StateObjectCollection<T extends StateObject> implements Collection<
 
 	private static long getSizeNullSafe(StateObject stateObject) {
 		return stateObject != null ? stateObject.getStateSize() : 0L;
+	}
+
+	private static long sumAllTotalSizes(Collection<? extends StateObject> stateObject) {
+		long size = 0L;
+		for (StateObject object : stateObject) {
+			size += getTotalSizeNullSafe(object);
+		}
+
+		return size;
+	}
+
+	private static long getTotalSizeNullSafe(StateObject stateObject) {
+		return stateObject != null ? stateObject.getTotalStateSize() : 0L;
 	}
 }

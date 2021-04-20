@@ -44,6 +44,13 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	/** The actual total size of the current state. */
 	private final long totalStateSize;
 
+	/**
+	 * The actual total size of raw state files (batch OR single).
+	 * If batching disabled, {@link #rawTotalStateSize} equals to
+	 * {@link #totalStateSize}.
+	 */
+	private final long rawTotalStateSize;
+
 	/** The latest acknowledged subtask stats. */
 	private final SubtaskStateStats latestAcknowledgedSubtask;
 
@@ -66,6 +73,7 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	 * @param latestAcknowledgedSubtask The latest acknowledged subtask stats.
 	 * @param externalPointer Optional external path if persisted externally.
 	 */
+	@Deprecated
 	CompletedCheckpointStats(
 			long checkpointId,
 			long triggerTimestamp,
@@ -85,6 +93,7 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 			numAcknowledgedSubtasks,
 			stateSize,
 			stateSize,
+			stateSize,
 			latestAcknowledgedSubtask,
 			externalPointer);
 	}
@@ -100,6 +109,7 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	 * @param numAcknowledgedSubtasks Number of acknowledged subtasks.
 	 * @param stateSize The state size that has changed over all subtasks.
 	 * @param totalStateSize The actual size of the current state.
+	 * @param rawTotalStateSize The actual size of raw state files, batch OR single files.
 	 * @param latestAcknowledgedSubtask The latest acknowledged subtask stats.
 	 * @param externalPointer Optional external path if persisted externally.
 	 */
@@ -112,6 +122,7 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 		int numAcknowledgedSubtasks,
 		long stateSize,
 		long totalStateSize,
+		long rawTotalStateSize,
 		SubtaskStateStats latestAcknowledgedSubtask,
 		String externalPointer) {
 
@@ -120,6 +131,7 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 		checkArgument(stateSize >= 0, "Negative state size");
 		this.stateSize = stateSize;
 		this.totalStateSize = totalStateSize;
+		this.rawTotalStateSize = rawTotalStateSize;
 		this.latestAcknowledgedSubtask = checkNotNull(latestAcknowledgedSubtask);
 		this.externalPointer = externalPointer;
 	}
@@ -142,6 +154,11 @@ public class CompletedCheckpointStats extends AbstractCheckpointStats {
 	@Override
 	public long getTotalStateSize() {
 		return totalStateSize;
+	}
+
+	@Override
+	public long getRawTotalStateSize() {
+		return rawTotalStateSize;
 	}
 
 	@Nullable

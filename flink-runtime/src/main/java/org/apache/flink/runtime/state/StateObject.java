@@ -73,4 +73,17 @@ public interface StateObject extends Serializable {
 	default long getTotalStateSize() {
 		return getStateSize();
 	}
+
+	/**
+	 * Returns the actual total size of state files in the current state in bytes. Different from
+	 * {@link #getTotalStateSize()}, if state file batching is enabled, this function will return the size
+	 * of batch files, residing in the current state, while {@link #getTotalStateSize()} will return the
+	 * size of underlying state files, i.e., the sst files. If state file batching is disabled, this function
+	 * is identical to {@link #getTotalStateSize()}.
+	 *
+	 * @return Actual total size of the state in bytes.
+	 */
+	default long getRawTotalStateSize() {
+		return getStateSize();
+	}
 }

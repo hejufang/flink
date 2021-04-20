@@ -34,6 +34,7 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	// warehouse
 	private static final String WAREHOUSE_STATE_BACKEND_SNAPSHOTS = "warehouseSnapshotsStats";
 	private static final String WAREHOUSE_STATE_BACKEND_RESTORES = "warehouseRestoresStats";
+	private static final String WAREHOUSE_STATE_BACKEND_STATE_FILE_BATCHING = "warehouseStateBatchingStats";
 
 	// snapshot metrics
 	private static final String STATE_SNAPSHOT_DURATION = "syncDuration";
@@ -49,6 +50,7 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	// warehouse
 	private static final MessageSet<WarehouseSnapshotMessage> snapshotMessageSet = new MessageSet<>(MessageType.SNAPSHOT);
 	private static final MessageSet<WarehouseRestoreMessage> restoreMessageSet = new MessageSet<>(MessageType.RESTORE);
+	private static final MessageSet<WarehouseStateFileBatchingMessage> stateBatchingMessageSet = new MessageSet<>(MessageType.SNAPSHOT);
 
 	// opentsdb
 	private final TagGauge syncDurationGauge = createTagGauge();
@@ -58,6 +60,21 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 	private final TagGauge downloadDurationGauge = createTagGauge();
 	private final TagGauge writeKeyDurationGauge = createTagGauge();
 	private final TagGauge downloadSizeInByGauge = createTagGauge();
+
+	// incremental checkpoint specific metrics
+	private static final String PRE_RAW_TOTAL_STATE_SIZE = "preRawTotalStateSize";
+	private static final String POST_RAW_TOTAL_STATE_SIZE = "postRawTotalStateSize";
+	private static final String PRE_SST_FILE_NUM = "preSstFileNum";
+	private static final String POST_SST_FILE_NUM = "postSstFileNum";
+	private static final String PRE_UPLOAD_FILE_NUM = "preUploadFileNum";
+	private static final String POST_UPLOAD_FILE_NUM = "postUploadFileNum";
+
+	private final TagGauge preRawTotalStateSizeGauge = createTagGauge();
+	private final TagGauge postRawTotalStateSizeGauge = createTagGauge();
+	private final TagGauge preSstFileNumGauge = createTagGauge();
+	private final TagGauge postSstFileNumGauge = createTagGauge();
+	private final TagGauge preUploadFileNumGauge = createTagGauge();
+	private final TagGauge postUploadFileNumGauge = createTagGauge();
 
 	public DefaultStateStatsTracker(MetricGroup metricGroup) {
 		registerMetrics(metricGroup);
@@ -93,6 +110,7 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		// warehouse
 		metricGroup.gauge(WAREHOUSE_STATE_BACKEND_SNAPSHOTS, snapshotMessageSet);
 		metricGroup.gauge(WAREHOUSE_STATE_BACKEND_RESTORES, restoreMessageSet);
+		metricGroup.gauge(WAREHOUSE_STATE_BACKEND_STATE_FILE_BATCHING, stateBatchingMessageSet);
 
 		// snapshot metrics
 		metricGroup.gauge(STATE_SNAPSHOT_DURATION, syncDurationGauge);
@@ -104,6 +122,14 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		metricGroup.gauge(STATE_DOWNLOAD_DURATION, downloadDurationGauge);
 		metricGroup.gauge(STATE_WRITE_KEY_DURATION, writeKeyDurationGauge);
 		metricGroup.gauge(STATE_DOWNLOAD_SIZE, downloadSizeInByGauge);
+
+		// state file batching metrics
+		metricGroup.gauge(PRE_RAW_TOTAL_STATE_SIZE, preRawTotalStateSizeGauge);
+		metricGroup.gauge(POST_RAW_TOTAL_STATE_SIZE, postRawTotalStateSizeGauge);
+		metricGroup.gauge(PRE_SST_FILE_NUM, preSstFileNumGauge);
+		metricGroup.gauge(POST_SST_FILE_NUM, postSstFileNumGauge);
+		metricGroup.gauge(PRE_UPLOAD_FILE_NUM, preUploadFileNumGauge);
+		metricGroup.gauge(POST_UPLOAD_FILE_NUM, postUploadFileNumGauge);
 	}
 
 	private void updateSnapshotStatistic(WarehouseSnapshotMessage snapshotMessage) {
@@ -123,6 +149,17 @@ public class DefaultStateStatsTracker implements StateStatsTracker {
 		downloadDurationGauge.addMetric(restoreMessage.getDownloadDuration(), tagValues);
 		writeKeyDurationGauge.addMetric(restoreMessage.getWriteKeyDuration(), tagValues);
 		downloadSizeInByGauge.addMetric(restoreMessage.getDownloadSizeInBytes(), tagValues);
+	}
+
+	public void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage) {
+		stateBatchingMessageSet.addMessage(new Message<>(batchingMessage));
+		TagGaugeStore.TagValues tagValues = new TagGaugeStore.TagValuesBuilder().build();
+		preRawTotalStateSizeGauge.addMetric(batchingMessage.getPreRawTotalStateSize(), tagValues);
+		postRawTotalStateSizeGauge.addMetric(batchingMessage.getPostRawTotalStateSize(), tagValues);
+		preSstFileNumGauge.addMetric(batchingMessage.getPreSstFileNum(), tagValues);
+		postSstFileNumGauge.addMetric(batchingMessage.getPostSstFileNum(), tagValues);
+		preUploadFileNumGauge.addMetric(batchingMessage.getPreUploadFileNum(), tagValues);
+		postUploadFileNumGauge.addMetric(batchingMessage.getPostUploadFileNum(), tagValues);
 	}
 
 	private TagGauge createTagGauge() {

@@ -95,6 +95,10 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 	 * The state size. This is also part of the deserialized state handle.
 	 * We store it here in order to not deserialize the state handle when
 	 * gathering stats.
+	 *
+	 * <p>Important: If incremental checkpointing is enabled, this field
+	 * represents the size before registering shared states, which excludes
+	 * placeholders in shared states.
 	 */
 	private final long stateSize;
 
@@ -262,11 +266,20 @@ public class OperatorSubtaskState implements CompositeStateHandle {
 
 	@Override
 	public long getTotalStateSize() {
-		long totalStateSize = managedOperatorState.getStateSize();
-		totalStateSize += rawOperatorState.getStateSize();
-		totalStateSize += managedKeyedState.getStateSize();
-		totalStateSize += rawKeyedState.getStateSize();
+		long totalStateSize = managedOperatorState.getTotalStateSize();
+		totalStateSize += rawOperatorState.getTotalStateSize();
+		totalStateSize += managedKeyedState.getTotalStateSize();
+		totalStateSize += rawKeyedState.getTotalStateSize();
 		return totalStateSize;
+	}
+
+	@Override
+	public long getRawTotalStateSize() {
+		long rawStateSize = managedOperatorState.getStateSize();
+		rawStateSize += rawOperatorState.getStateSize();
+		rawStateSize += managedKeyedState.getStateSize();
+		rawStateSize += rawKeyedState.getStateSize();
+		return rawStateSize;
 	}
 
 	// --------------------------------------------------------------------------------------------

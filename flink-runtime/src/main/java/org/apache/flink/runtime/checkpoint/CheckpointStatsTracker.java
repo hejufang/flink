@@ -386,6 +386,10 @@ public class CheckpointStatsTracker {
 
 	static final MessageSet<WarehouseCheckpointMessage> MESSAGE_SET = new MessageSet<>(MessageType.CHECKPOINT);
 
+	static final String PRE_JOB_RAW_TOTAL_STATE_SIZE = "preJobRawTotalStateSize";
+
+	static final String POST_JOB_RAW_TOTAL_STATE_SIZE = "postJobRawTotalStateSize";
+
 	/**
 	 * Register the exposed metrics.
 	 *
@@ -404,6 +408,8 @@ public class CheckpointStatsTracker {
 		metricGroup.gauge(NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD, (GrafanaGauge<Long>) StateUtil::getNumLegacyDiscardStates);
 		metricGroup.gauge(NUMBER_OF_FAILED_CHECKPOINTS_METRIC, FAILED_CHECKPOINTS_TAG_GAUGE);
 		metricGroup.gauge(WAREHOUSE_CHECKPOINTS, MESSAGE_SET);
+		metricGroup.gauge(PRE_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPreJobBatchTotalStateSize());
+		metricGroup.gauge(POST_JOB_RAW_TOTAL_STATE_SIZE, new LatestCompletedCheckpointPostJobBatchTotalStateSize());
 	}
 
 	private class CheckpointsCounter implements Gauge<Long> {
@@ -490,6 +496,30 @@ public class CheckpointStatsTracker {
 				return completed.getExternalPath();
 			} else {
 				return "n/a";
+			}
+		}
+	}
+
+	private class LatestCompletedCheckpointPreJobBatchTotalStateSize implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			CompletedCheckpointStats completed = latestCompletedCheckpoint;
+			if (completed != null) {
+				return completed.getTotalStateSize();
+			} else {
+				return -1L;
+			}
+		}
+	}
+
+	private class LatestCompletedCheckpointPostJobBatchTotalStateSize implements Gauge<Long> {
+		@Override
+		public Long getValue() {
+			CompletedCheckpointStats completed = latestCompletedCheckpoint;
+			if (completed != null) {
+				return completed.getRawTotalStateSize();
+			} else {
+				return -1L;
 			}
 		}
 	}

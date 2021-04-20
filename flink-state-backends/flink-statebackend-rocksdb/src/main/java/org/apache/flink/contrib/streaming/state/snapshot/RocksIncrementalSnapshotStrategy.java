@@ -52,6 +52,7 @@ import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.runtime.state.tracker.StateStatsTracker;
+import org.apache.flink.runtime.state.tracker.WarehouseStateFileBatchingMessage;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
@@ -74,9 +75,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
 import java.util.concurrent.RunnableFuture;
@@ -312,8 +315,26 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nullable
 		private final Map<StateHandleID, StreamStateHandle> baseSstFiles;
 
-		/** Total state files in the current checkpoint, i.e., metadata, sst, misc. */
+		// We have three types of state size, stateState, totalStateSize, rawTotalStateSize,
+		// when using incremental RocksDB backend. The literal meaning of these three metrics
+		// is consistent at both JM and TM.
+		//
+		// (1) stateSize: the incremental state size between consecutive checkpoint.
+		// (2) totalStateSize: the overall state size of the current checkpoint, ie., metadata,
+		// sst, misc.
+		// (3) rawTotalStateSize: the total size of underlying state files on HDFS. For
+		// batch-enabled, it contains all batch files, whose size may be significantly larger
+		// than totalStateSize; for batch-disabled, it is identical to totalStateSize.
+
+		/**
+		 * calculate totalStateSize at TM, JM can short-cut this val, can be regarded
+		 * as preRawTotalStateSize.
+		 */
 		private long totalStateSize = 0;
+
+		/** Metrics for {@link WarehouseStateFileBatchingMessage}. */
+		private long postRawTotalStateSize = 0;
+		private long postSstFileNum = 0;
 
 		private RocksDBIncrementalSnapshotOperation(
 			long checkpointId,
@@ -357,6 +378,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				Preconditions.checkNotNull(metaStateHandle.getJobManagerOwnedSnapshot(),
 					"Metadata for job manager was not properly created.");
 				totalStateSize += metaStateHandle.getStateSize();
+				postRawTotalStateSize += metaStateHandle.getStateSize();
 
 				long uploadBeginTs = System.currentTimeMillis();
 				uploadSstFiles(sstFiles, miscFiles);
@@ -365,12 +387,21 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				LOG.info("Uploading sst files (checkpoint={}) cost {}ms in incremental snapshot.", checkpointId,
 						System.currentTimeMillis() - uploadBeginTs);
 
+				// calculate pre-batching upload file num. This value is not precise when batching enables.
+				long preUploadFileNum = Stream.concat(sstFiles.values().stream(), miscFiles.values().stream())
+					.filter(StateUtil::isPersistInFile).count();
+				if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
+					preUploadFileNum += 1;
+				}
+
 				// Note: we must replace all placeholders in sstFiles before putting it to
 				// materializedSstFiles. The sstFiles will be used to find batch state handle
 				// in the future. Placeholder has no info of the corresponding batch.
 				Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
-				Map<StateHandleID, StreamStateHandle> batchIDToBatchStateHandle = isEnableStateFileBatching ?
+				Map<StateHandleID, StreamStateHandle> sstBatchIDToBatchStateHandle = isEnableStateFileBatching ?
 					transferStateFilesToBatch(baseSstFiles, sstFiles, usedSstFiles) : null;
+				Map<StateHandleID, StreamStateHandle> miscBatchIDToBatchStateHandle = isEnableStateFileBatching ?
+					transferStateFilesToBatch(Collections.emptyMap(), miscFiles, null) : null;
 
 				synchronized (materializedSstFiles) {
 					materializedSstFiles.put(checkpointId, sstFiles);
@@ -381,8 +412,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						backendUID,
 						keyGroupRange,
 						checkpointId,
-						batchIDToBatchStateHandle,
-						transferStateFilesToBatch(Collections.emptyMap(), miscFiles, null),
+						sstBatchIDToBatchStateHandle,
+						miscBatchIDToBatchStateHandle,
 						metaStateHandle.getJobManagerOwnedSnapshot(),
 						usedSstFiles,
 						totalStateSize) :
@@ -394,13 +425,36 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						miscFiles,
 						metaStateHandle.getJobManagerOwnedSnapshot());
 
-				// ByteStreamStateHandle do NOT upload files to HDFS
-				uploadFileNum.getAndAdd((int) Stream.concat(sstFiles.values().stream(), miscFiles.values().stream())
-					.filter(StateUtil::isPersistInFile).count());
-				if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
-					uploadFileNum.getAndAdd(1);
+				// ByteStreamStateHandle do NOT upload files to HDFS. If batching enabled, count real batch files;
+				// otherwise, count real solo sst/misc files.
+				if (isEnableStateFileBatching) {
+					uploadFileNum.getAndAdd((int) Stream.concat(sstBatchIDToBatchStateHandle.values().stream(), miscBatchIDToBatchStateHandle.values().stream())
+						.filter(StateUtil::isPersistInFile).count());
+					if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
+						uploadFileNum.getAndAdd(1);
+					}
+				} else {
+					uploadFileNum.getAndAdd((int) preUploadFileNum);
 				}
 				uploadSizeInBytes.getAndAdd(jmIncrementalKeyedStateHandle.getStateSize());
+
+				// dump state file batching metrics
+				if (isEnableStateFileBatching) {
+					Set<StateHandleID> containedBatch = new HashSet<>();
+					// calculate all state batches' size, sst + misc
+					extractSizeAndFileNumFromBatch(sstFiles, containedBatch);
+					extractSizeAndFileNumFromBatch(miscFiles, containedBatch);
+					// remove misc files, CURRENT, OPTION, MANIFEST
+					postSstFileNum -= 3;
+
+					statsTracker.updateIncrementalBatchingStatistics(new WarehouseStateFileBatchingMessage(
+						totalStateSize,
+						postRawTotalStateSize,
+						sstFiles.size(),
+						postSstFileNum,
+						preUploadFileNum,
+						uploadFileNum.get()));
+				}
 
 				final DirectoryStateHandle directoryStateHandle = localBackupDirectory.completeSnapshotAndGetHandle();
 				final SnapshotResult<KeyedStateHandle> snapshotResult;
@@ -431,6 +485,18 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 					statesToDiscard.addAll(miscFiles.values());
 					statesToDiscard.addAll(sstFiles.values());
 					cleanupIncompleteSnapshot(statesToDiscard);
+				}
+			}
+		}
+
+		private void extractSizeAndFileNumFromBatch(Map<StateHandleID, StreamStateHandle> fileToBatch, Set<StateHandleID> containedBatch) {
+			for (StreamStateHandle stateHandle : fileToBatch.values()) {
+				Preconditions.checkState(stateHandle instanceof BatchStateHandle);
+				BatchStateHandle batchStateHandle = (BatchStateHandle) stateHandle;
+				if (!containedBatch.contains(batchStateHandle.getBatchFileID())) {
+					containedBatch.add(batchStateHandle.getBatchFileID());
+					postRawTotalStateSize += batchStateHandle.getStateSize();
+					postSstFileNum += batchStateHandle.getStateFileNames().length;
 				}
 			}
 		}
@@ -603,22 +669,21 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			StreamStateHandle stateHandle = entry.getValue();
 			Preconditions.checkState(stateHandle instanceof BatchStateHandle || stateHandle instanceof PlaceholderStreamStateHandle);
 			StateHandleID batchFileId;
-			BatchStateHandle batchStateHandle;
 
 			if (stateHandle instanceof BatchStateHandle) {
-				batchStateHandle = (BatchStateHandle) stateHandle;
-				batchFileId = batchStateHandle.getBatchFileID();
-				batchFileIdToBatchStateHandle.put(batchFileId, batchStateHandle);
+				batchFileId = ((BatchStateHandle) stateHandle).getBatchFileID();
 			} else {
 				// reuse previous batch, just use placeholder
-				Preconditions.checkState(baseSstFiles.get(entry.getKey()) instanceof BatchStateHandle);
-				batchStateHandle = (BatchStateHandle) baseSstFiles.get(entry.getKey());
-				batchFileId = batchStateHandle.getBatchFileID();
-				batchFileIdToBatchStateHandle.put(batchFileId, new PlaceholderStreamStateHandle());
+				StreamStateHandle stateHandleInBaseSstFiles = baseSstFiles.get(entry.getKey());
+				Preconditions.checkState(stateHandleInBaseSstFiles instanceof BatchStateHandle);
+				batchFileId = ((BatchStateHandle) stateHandleInBaseSstFiles).getBatchFileID();
 
-				// replace placeholder in stateFiles
-				entry.setValue(batchStateHandle);
+				// replace placeholder in sstFiles
+				entry.setValue(stateHandleInBaseSstFiles);
 			}
+
+			// gather all batch files
+			batchFileIdToBatchStateHandle.putIfAbsent(batchFileId, stateHandle);
 
 			if (usedSstFiles != null) {
 				usedSstFiles.putIfAbsent(batchFileId, new ArrayList<>());

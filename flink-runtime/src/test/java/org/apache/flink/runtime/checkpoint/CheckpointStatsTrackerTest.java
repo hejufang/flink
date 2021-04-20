@@ -320,7 +320,7 @@ public class CheckpointStatsTrackerTest {
 			CheckpointStatsTracker.NUMBER_OF_FS_DELETE_LEGACY_CHECKPOINT_DISCARD,
 			CheckpointStatsTracker.WAREHOUSE_CHECKPOINTS
 		)));
-		assertEquals(12, registeredGaugeNames.size());
+		assertEquals(14, registeredGaugeNames.size());
 	}
 
 	/**
@@ -351,7 +351,7 @@ public class CheckpointStatsTrackerTest {
 			metricGroup);
 
 		// Make sure to adjust this test if metrics are added/removed
-		assertEquals(12, registeredGauges.size());
+		assertEquals(14, registeredGauges.size());
 
 		// Check initial values
 		Gauge<Long> numCheckpoints = (Gauge<Long>) registeredGauges.get(CheckpointStatsTracker.NUMBER_OF_CHECKPOINTS_METRIC);

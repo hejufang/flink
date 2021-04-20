@@ -38,4 +38,11 @@ public interface StateStatsTracker {
 	 * @param message Message of restore metrics.
 	 */
 	void reportCompletedRestore(WarehouseRestoreMessage message);
+
+	/**
+	 * Callback when state file batching completes.
+	 *
+	 * @param batchingMessage Message of state file batching metrics.
+	 */
+	void updateIncrementalBatchingStatistics(WarehouseStateFileBatchingMessage batchingMessage);
 }

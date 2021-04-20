@@ -265,7 +265,7 @@ public class PendingCheckpointTest {
 			verify(callback, times(1)).reportSubtaskStats(nullable(JobVertexID.class), any(SubtaskStateStats.class));
 
 			pending.finalizeCheckpoint();
-			verify(callback, times(1)).reportCompletedCheckpoint(any(String.class), anyLong(), any(Integer.class));
+			verify(callback, times(1)).reportCompletedCheckpoint(any(String.class), anyLong(), anyLong(), any(Integer.class));
 		}
 
 		{

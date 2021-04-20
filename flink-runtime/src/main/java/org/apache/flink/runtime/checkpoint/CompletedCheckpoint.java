@@ -201,6 +201,16 @@ public class CompletedCheckpoint implements Serializable {
 		return result;
 	}
 
+	public long getRawTotalStateSize() {
+		long result = 0L;
+
+		for (OperatorState operatorState : operatorStates.values()) {
+			result += operatorState.getRawTotalStateSize();
+		}
+
+		return result;
+	}
+
 	public CompletedCheckpointStorageLocation getStorageLocation() {
 		return storageLocation;
 	}
