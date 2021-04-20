@@ -74,12 +74,12 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 		int initialBackoff,
 		int maxBackoff,
 		InputChannelMetrics metrics,
-		int maxDelayMinutes,
+		long maxDelayTimeMs,
 		ScheduledExecutorService executor,
 		boolean isRecoverable) {
 
 		super(inputGate, channelIndex, partitionId, initialBackoff, maxBackoff, metrics.getNumBytesInLocalCounter(),
-				metrics.getNumBuffersInLocalCounter(), maxDelayMinutes, executor, isRecoverable);
+				metrics.getNumBuffersInLocalCounter(), maxDelayTimeMs, executor, isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);

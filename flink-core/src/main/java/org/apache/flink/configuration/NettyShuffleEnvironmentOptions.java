@@ -257,10 +257,6 @@ public class NettyShuffleEnvironmentOptions {
 		key("taskmanager.network.partition.force-release-on-consumption")
 			.defaultValue(false);
 
-	public static final ConfigOption<Integer> MAX_DELAY_MINUTES =
-		key("taskmanager.network.partition.max-delay-minutes")
-			.defaultValue(5);
-
 	public static final ConfigOption<Boolean> FORCE_PARTITION_RECOVERABLE =
 		key("taskmanager.network.partition.force-partition-recoverable")
 			.defaultValue(false);

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.taskmanager;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.HeartbeatManagerOptions;
 import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
@@ -77,7 +78,7 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final boolean isRecoverable;
 
-	private final int maxDelayMinutes;
+	private final long maxDelayTimeMs;
 
 	private final boolean lazyAllocate;
 
@@ -95,7 +96,7 @@ public class NettyShuffleEnvironmentConfiguration {
 			String[] tempDirs,
 			BoundedBlockingSubpartitionType blockingSubpartitionType,
 			boolean forcePartitionReleaseOnConsumption,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			boolean isRecoverable,
 			boolean lazyAllocate) {
 
@@ -113,7 +114,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.blockingSubpartitionType = Preconditions.checkNotNull(blockingSubpartitionType);
 		this.forcePartitionReleaseOnConsumption = forcePartitionReleaseOnConsumption;
 
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 		this.isRecoverable = isRecoverable;
 
 		this.lazyAllocate = lazyAllocate;
@@ -177,8 +178,8 @@ public class NettyShuffleEnvironmentConfiguration {
 		return isRecoverable;
 	}
 
-	public int getMaxDelayMinutes() {
-		return maxDelayMinutes;
+	public long getMaxDelayTimeMs() {
+		return maxDelayTimeMs;
 	}
 
 	public boolean isLazyAllocate() {
@@ -231,7 +232,7 @@ public class NettyShuffleEnvironmentConfiguration {
 		boolean forcePartitionReleaseOnConsumption =
 			configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RELEASE_ON_CONSUMPTION);
 
-		int maxDelayMinutes = configuration.getInteger(NettyShuffleEnvironmentOptions.MAX_DELAY_MINUTES);
+		long maxDelayTimeMs = configuration.getLong(HeartbeatManagerOptions.HEARTBEAT_TIMEOUT);
 
 		boolean isRecoverable = configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RECOVERABLE);
 
@@ -251,7 +252,7 @@ public class NettyShuffleEnvironmentConfiguration {
 			tempDirs,
 			blockingSubpartitionType,
 			forcePartitionReleaseOnConsumption,
-			maxDelayMinutes,
+			maxDelayTimeMs,
 			isRecoverable,
 			lazyAllocate);
 	}

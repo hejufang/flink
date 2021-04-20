@@ -126,12 +126,12 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		int maxBackoff,
 		InputChannelMetrics metrics,
 		@Nonnull MemorySegmentProvider memorySegmentProvider,
-		int maxDelayMinutes,
+		long maxDelayTimeMs,
 		ScheduledExecutorService executor,
 		boolean isRecoverable) {
 
 		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff,
-			metrics.getNumBytesInRemoteCounter(), metrics.getNumBuffersInRemoteCounter(), maxDelayMinutes, executor, isRecoverable);
+			metrics.getNumBytesInRemoteCounter(), metrics.getNumBuffersInRemoteCounter(), maxDelayTimeMs, executor, isRecoverable);
 
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);

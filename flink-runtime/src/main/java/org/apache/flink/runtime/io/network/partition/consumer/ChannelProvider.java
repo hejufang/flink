@@ -59,10 +59,10 @@ public class ChannelProvider {
 
 	private final Map<Integer, PartitionInfo> cachedPartitionInfos;
 
-	private int maxDelayMinutes;
+	private long maxDelayTimeMs;
 
 	public ChannelProvider(ConnectionManager connectionManager, InputChannelMetrics metrics, NetworkBufferPool networkBufferPool,
-			ResultPartitionManager partitionManager, TaskEventPublisher taskEventPublisher, int maxDelayMinutes, ScheduledExecutorService executor, boolean isRecoverable) {
+			ResultPartitionManager partitionManager, TaskEventPublisher taskEventPublisher, long maxDelayTimeMs, ScheduledExecutorService executor, boolean isRecoverable) {
 		this.connectionManager = connectionManager;
 		this.metrics = metrics;
 		this.memorySegmentProvider = networkBufferPool;
@@ -70,7 +70,7 @@ public class ChannelProvider {
 		this.taskEventPublisher = taskEventPublisher;
 		this.isRecoverable = isRecoverable;
 		this.executor = executor;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 
 		this.cachedPartitionInfos = new HashMap<>();
 	}
@@ -81,14 +81,14 @@ public class ChannelProvider {
 
 		return new RemoteInputChannel(inputGate, current.channelIndex, newPartitionID, newConnectionID,
 				connectionManager, current.getInitialBackoff(), current.getMaxBackoff(),
-				metrics, memorySegmentProvider, maxDelayMinutes, executor, isRecoverable);
+				metrics, memorySegmentProvider, maxDelayTimeMs, executor, isRecoverable);
 	}
 
 	public LocalInputChannel transformToLocalInputChannel(SingleInputGate inputGate, InputChannel current, ResultPartitionID newPartitionID) throws IOException {
 		current.releaseAllResources();
 
 		return new LocalInputChannel(inputGate, current.channelIndex, newPartitionID, resultPartitionManager,
-				taskEventPublisher, current.getInitialBackoff(), current.getMaxBackoff(), metrics, maxDelayMinutes, executor, isRecoverable);
+				taskEventPublisher, current.getInitialBackoff(), current.getMaxBackoff(), metrics, maxDelayTimeMs, executor, isRecoverable);
 	}
 
 	public PartitionInfo getPartitionInfoAndRemove(int channelIndex) {

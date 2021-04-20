@@ -121,7 +121,7 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			config.isForcePartitionReleaseOnConsumption(),
 			config.isRecoverable());
 
-		int maxDelayMinutes = config.getMaxDelayMinutes();
+		long maxDelayTimeMs = config.getMaxDelayTimeMs();
 
 		SingleInputGateFactory singleInputGateFactory = new SingleInputGateFactory(
 			taskExecutorResourceId,
@@ -130,7 +130,7 @@ public class NettyShuffleServiceFactory implements ShuffleServiceFactory<NettySh
 			resultPartitionManager,
 			taskEventPublisher,
 			networkBufferPool,
-			maxDelayMinutes,
+			maxDelayTimeMs,
 			config.isRecoverable());
 
 		return new NettyShuffleEnvironment(

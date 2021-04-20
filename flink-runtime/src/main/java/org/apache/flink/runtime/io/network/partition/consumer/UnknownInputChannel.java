@@ -59,7 +59,7 @@ class UnknownInputChannel extends InputChannel {
 
 	private final boolean isRecoverable;
 
-	private int maxDelayMinutes;
+	private long maxDelayTimeMs;
 
 	public UnknownInputChannel(
 			SingleInputGate gate,
@@ -72,11 +72,11 @@ class UnknownInputChannel extends InputChannel {
 			int maxBackoff,
 			InputChannelMetrics metrics,
 			@Nonnull MemorySegmentProvider memorySegmentProvider,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			ScheduledExecutorService executor,
 			boolean isRecoverable) {
 
-		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null, maxDelayMinutes, executor, isRecoverable);
+		super(gate, channelIndex, partitionId, initialBackoff, maxBackoff, null, null, maxDelayTimeMs, executor, isRecoverable);
 
 		this.partitionManager = checkNotNull(partitionManager);
 		this.taskEventPublisher = checkNotNull(taskEventPublisher);
@@ -86,7 +86,7 @@ class UnknownInputChannel extends InputChannel {
 		this.maxBackoff = maxBackoff;
 		this.memorySegmentProvider = memorySegmentProvider;
 		this.isRecoverable = isRecoverable;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 	}
 
 	@Override
@@ -137,11 +137,11 @@ class UnknownInputChannel extends InputChannel {
 
 	public RemoteInputChannel toRemoteInputChannel(ConnectionID producerAddress) {
 		return new RemoteInputChannel(inputGate, channelIndex, partitionId, checkNotNull(producerAddress),
-			connectionManager, initialBackoff, maxBackoff, metrics, memorySegmentProvider, maxDelayMinutes, executor, isRecoverable);
+			connectionManager, initialBackoff, maxBackoff, metrics, memorySegmentProvider, maxDelayTimeMs, executor, isRecoverable);
 	}
 
 	public LocalInputChannel toLocalInputChannel() {
 		return new LocalInputChannel(inputGate, channelIndex, partitionId, partitionManager, taskEventPublisher,
-				initialBackoff, maxBackoff, metrics, maxDelayMinutes, executor, isRecoverable);
+				initialBackoff, maxBackoff, metrics, maxDelayTimeMs, executor, isRecoverable);
 	}
 }

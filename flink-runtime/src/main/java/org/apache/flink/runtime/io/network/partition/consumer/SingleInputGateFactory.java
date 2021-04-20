@@ -88,7 +88,7 @@ public class SingleInputGateFactory {
 
 	private final ScheduledExecutorService executor;
 
-	private final int maxDelayMinutes;
+	private final long maxDelayTimeMs;
 
 	public SingleInputGateFactory(
 			@Nonnull ResourceID taskExecutorResourceId,
@@ -97,7 +97,7 @@ public class SingleInputGateFactory {
 			@Nonnull ResultPartitionManager partitionManager,
 			@Nonnull TaskEventPublisher taskEventPublisher,
 			@Nonnull NetworkBufferPool networkBufferPool,
-			int maxDelayMinutes,
+			long maxDelayTimeMs,
 			boolean isRecoverable) {
 		this.taskExecutorResourceId = taskExecutorResourceId;
 		this.isCreditBased = networkConfig.isCreditBased();
@@ -111,7 +111,7 @@ public class SingleInputGateFactory {
 		this.taskEventPublisher = taskEventPublisher;
 		this.networkBufferPool = networkBufferPool;
 		this.isRecoverable = isRecoverable;
-		this.maxDelayMinutes = maxDelayMinutes;
+		this.maxDelayTimeMs = maxDelayTimeMs;
 		this.executor = Executors.unconfigurableScheduledExecutorService(
 				new ScheduledThreadPoolExecutor(1, new ThreadPoolExecutor.DiscardPolicy()));
 	}
@@ -135,7 +135,7 @@ public class SingleInputGateFactory {
 		ChannelProvider channelProvider = null;
 		if (isRecoverable) {
 			channelProvider = new ChannelProvider(connectionManager, metrics,
-					networkBufferPool, partitionManager, taskEventPublisher, maxDelayMinutes, executor, isRecoverable);
+					networkBufferPool, partitionManager, taskEventPublisher, maxDelayTimeMs, executor, isRecoverable);
 		}
 
 		SingleInputGate inputGate = new SingleInputGate(
@@ -205,7 +205,7 @@ public class SingleInputGateFactory {
 					partitionRequestMaxBackoff,
 					metrics,
 					networkBufferPool,
-					maxDelayMinutes,
+					maxDelayTimeMs,
 					executor,
 					isRecoverable);
 			},
@@ -239,7 +239,7 @@ public class SingleInputGateFactory {
 				partitionRequestInitialBackoff,
 				partitionRequestMaxBackoff,
 				metrics,
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 		} else {
@@ -255,7 +255,7 @@ public class SingleInputGateFactory {
 				partitionRequestMaxBackoff,
 				metrics,
 				networkBufferPool,
-				maxDelayMinutes,
+				maxDelayTimeMs,
 				executor,
 				isRecoverable);
 		}
