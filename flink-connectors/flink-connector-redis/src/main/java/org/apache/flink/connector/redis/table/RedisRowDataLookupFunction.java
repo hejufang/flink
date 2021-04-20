@@ -68,6 +68,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	private final ClientPoolProvider clientPoolProvider;
 	private final String[] fieldNames;
 	private final String[] hashKeys;
+	@Nullable
 	private final StringValueConverters.StringValueConverter[] stringValueConverters;
 	@Nullable
 	private final DeserializationSchema<RowData> deserializationSchema;
@@ -92,13 +93,18 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		this.lookupOptions = lookupOptions;
 		this.fieldNames = fieldNames;
 		this.hashKeys = Arrays.copyOfRange(fieldNames, 1, fieldNames.length);
-		this.clientPoolProvider  = clientPoolProvider;
+		this.clientPoolProvider = clientPoolProvider;
 		this.deserializationSchema = deserializationSchema;
 		this.converter = converter;
 		this.keyFieldIndex = options.getKeyIndex();
 		this.fieldGetters = fieldGetters;
-		this.stringValueConverters = Arrays.stream(fieldTypes)
-			.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
+		if (deserializationSchema == null && (lookupOptions.isSpecifyHashKeys()
+			|| options.getRedisValueType().equals(RedisValueType.GENERAL))) {
+			this.stringValueConverters = Arrays.stream(fieldTypes)
+				.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
+		} else {
+			this.stringValueConverters = null;
+		}
 	}
 
 	@Override
