@@ -154,8 +154,9 @@ under the License.
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.http</shadedPattern>
 								</relocation>
 								<relocation>
-									<pattern>com.github</pattern>
-									<shadedPattern>org.apache.flink.kafka010.shaded.com.github</shadedPattern>
+									<!-- com.github.luben is a native library that can't be relocated-->
+									<pattern>com.github.benmanes</pattern>
+									<shadedPattern>org.apache.flink.kafka010.shaded.com.github.benmanes</shadedPattern>
 								</relocation>
 								<relocation>
 									<pattern>com.wealoha.thrift</pattern>
