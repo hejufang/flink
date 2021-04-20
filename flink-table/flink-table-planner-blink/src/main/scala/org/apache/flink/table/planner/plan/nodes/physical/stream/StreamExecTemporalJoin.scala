@@ -31,7 +31,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalJoin
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.TemporalJoinUtil.TEMPORAL_JOIN_CONDITION
-import org.apache.flink.table.planner.plan.utils.{InputRefVisitor, KeySelectorUtil, RelExplainUtil, TemporalJoinUtil}
+import org.apache.flink.table.planner.plan.utils.{InputRefVisitor, KeySelectorUtil, PhysicalPlanUtil, RelExplainUtil, TemporalJoinUtil}
 import org.apache.flink.table.runtime.generated.GeneratedJoinCondition
 import org.apache.flink.table.runtime.keyselector.RowDataKeySelector
 import org.apache.flink.table.runtime.operators.join.temporal.{TemporalProcessTimeJoinOperator, TemporalRowTimeJoinOperator}
@@ -136,6 +136,7 @@ class StreamExecTemporalJoin(
       joinOperator,
       RowDataTypeInfo.of(returnType),
       leftTransform.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(planner.getTableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

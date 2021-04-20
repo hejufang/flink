@@ -94,4 +94,8 @@ public interface StreamOperatorFactory<OUT> extends Serializable {
 	 * Returns the runtime class of the stream operator.
 	 */
 	Class<? extends StreamOperator> getStreamOperatorClass(ClassLoader classLoader);
+
+	default void setDebugLoggingConverter(DebugLoggingConverter converter) {}
+
+	default void setDebugLoggingLocation(DebugLoggingLocation location) {}
 }

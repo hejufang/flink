@@ -28,7 +28,7 @@ import org.apache.flink.table.planner.codegen.{CodeGeneratorContext, EqualiserCo
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.PartialFinalType
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, AggregateUtil, ChangelogPlanUtils, KeySelectorUtil, RelExplainUtil}
+import org.apache.flink.table.planner.plan.utils.{AggregateInfoList, AggregateUtil, ChangelogPlanUtils, KeySelectorUtil, PhysicalPlanUtil, RelExplainUtil}
 import org.apache.flink.table.runtime.operators.aggregate.{GroupAggFunction, MiniBatchGroupAggFunction}
 import org.apache.flink.table.runtime.operators.bundle.KeyedMapBundleOperator
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
@@ -187,6 +187,7 @@ class StreamExecGroupAggregate(
       operator,
       RowDataTypeInfo.of(outRowType),
       inputTransformation.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

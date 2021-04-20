@@ -210,6 +210,7 @@ class StreamExecRank(
       operator,
       outputRowTypeInfo,
       inputTransform.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

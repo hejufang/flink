@@ -20,7 +20,7 @@ package org.apache.flink.table.planner.plan.utils
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.table.api.TableConfig
-import org.apache.flink.table.data.{RowData, GenericRowData}
+import org.apache.flink.table.data.{GenericRowData, RowData}
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.CodeGenUtils.{DEFAULT_INPUT1_TERM, GENERIC_ROW}
 import org.apache.flink.table.planner.codegen.OperatorCodeGenerator.generateCollect

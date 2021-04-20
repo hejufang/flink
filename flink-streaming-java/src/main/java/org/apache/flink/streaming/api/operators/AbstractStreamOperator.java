@@ -154,6 +154,9 @@ public abstract class AbstractStreamOperator<OUT>
 	private transient StreamStatus streamStatus1;
 	private transient StreamStatus streamStatus2;
 
+	protected DebugLoggingConverter converter;
+	protected DebugLoggingLocation location;
+
 	// ------------------------------------------------------------------------
 	//  Life Cycle
 	// ------------------------------------------------------------------------
@@ -164,8 +167,17 @@ public abstract class AbstractStreamOperator<OUT>
 		this.container = containingTask;
 		this.config = config;
 		try {
-			OperatorMetricGroup operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorMetricName());
+			OperatorMetricGroup operatorMetricGroup = environment.getMetricGroup().getOrAddOperator(config.getOperatorID(), config.getOperatorName());
+			final String operatorName = config.getOperatorMetricName();
 			this.output = new CountingOutput<>(output, operatorMetricGroup.getIOMetricGroup().getNumRecordsOutCounter());
+			if (converter != null) {
+				this.output = new DebugLoggingOutput<>(
+					operatorName,
+					output,
+					converter,
+					location,
+					containingTask.getIndexInSubtaskGroup());
+			}
 			if (config.isChainStart()) {
 				operatorMetricGroup.getIOMetricGroup().reuseInputMetricsForTask();
 			}
@@ -241,6 +253,16 @@ public abstract class AbstractStreamOperator<OUT>
 	@Deprecated
 	public void setProcessingTimeService(ProcessingTimeService processingTimeService) {
 		this.processingTimeService = Preconditions.checkNotNull(processingTimeService);
+	}
+
+	@Override
+	public void setDebugLoggingConverter(DebugLoggingConverter converter) {
+		this.converter = converter;
+	}
+
+	@Override
+	public void setDebugLoggingLocation(DebugLoggingLocation location) {
+		this.location = location;
 	}
 
 	@Override

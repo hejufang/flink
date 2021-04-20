@@ -25,6 +25,7 @@ import org.apache.flink.table.planner.codegen.{CodeGeneratorContext, ExpandCodeG
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.calcite.Expand
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
+import org.apache.flink.table.planner.plan.utils.PhysicalPlanUtil
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
@@ -92,6 +93,7 @@ class StreamExecExpand(
       operator,
       RowDataTypeInfo.of(outputType),
       inputTransform.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, transform)
     if (inputsContainSingleton()) {
       transform.setParallelism(1)
       transform.setMaxParallelism(1)

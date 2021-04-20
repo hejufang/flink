@@ -30,7 +30,7 @@ import org.apache.flink.table.planner.codegen.agg.AggsHandlerCodeGenerator
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.AggregateUtil.transformToStreamAggregateInfoList
-import org.apache.flink.table.planner.plan.utils.{KeySelectorUtil, OverAggregateUtil, RelExplainUtil}
+import org.apache.flink.table.planner.plan.utils.{KeySelectorUtil, OverAggregateUtil, PhysicalPlanUtil, RelExplainUtil}
 import org.apache.flink.table.runtime.operators.over._
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
@@ -273,6 +273,7 @@ class StreamExecOverAggregate(
       operator,
       returnTypeInfo,
       inputDS.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

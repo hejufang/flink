@@ -37,7 +37,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.nodes.physical.PhysicalLegacyTableSourceScan
 import org.apache.flink.table.planner.plan.schema.LegacyTableSourceTable
-import org.apache.flink.table.planner.plan.utils.ScanUtil
+import org.apache.flink.table.planner.plan.utils.{PhysicalPlanUtil, ScanUtil}
 import org.apache.flink.table.planner.sources.TableSourceUtil
 import org.apache.flink.table.runtime.operators.AbstractProcessStreamOperator
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter
@@ -156,6 +156,8 @@ class StreamExecLegacyTableSourceScan(
     } else {
       inputTransform.asInstanceOf[Transformation[RowData]]
     }
+
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, streamTransformation)
 
     val ingestedTable = new DataStream(planner.getExecEnv, streamTransformation)
 

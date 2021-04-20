@@ -180,6 +180,7 @@ class StreamExecIncrementalGroupAggregate(
       operator,
       RowDataTypeInfo.of(outRowType),
       inputTransformation.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

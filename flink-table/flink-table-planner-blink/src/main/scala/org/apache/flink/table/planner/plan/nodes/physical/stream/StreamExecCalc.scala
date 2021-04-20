@@ -25,6 +25,7 @@ import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.{CalcCodeGenerator, CodeGeneratorContext}
 import org.apache.flink.table.planner.delegation.StreamPlanner
+import org.apache.flink.table.planner.plan.utils.PhysicalPlanUtil
 import org.apache.flink.table.runtime.operators.AbstractProcessStreamOperator
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 
@@ -90,6 +91,7 @@ class StreamExecCalc(
       retainHeader = true,
       "StreamExecCalc"
     )
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, substituteStreamOperator)
     val ret = new OneInputTransformation(
       inputTransform,
       getRelDetailedDescription,

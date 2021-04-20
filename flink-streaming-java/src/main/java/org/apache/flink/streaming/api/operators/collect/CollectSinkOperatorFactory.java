@@ -60,6 +60,8 @@ public class CollectSinkOperatorFactory<IN> extends SimpleUdfStreamOperatorFacto
 		final OperatorEventDispatcher eventDispatcher = parameters.getOperatorEventDispatcher();
 
 		operator.setOperatorEventGateway(eventDispatcher.getOperatorEventGateway(operatorId));
+		operator.setDebugLoggingConverter(converter);
+		operator.setDebugLoggingLocation(location);
 		operator.setup(parameters.getContainingTask(), parameters.getStreamConfig(), parameters.getOutput());
 		eventDispatcher.registerEventHandler(operatorId, operator);
 

@@ -26,18 +26,21 @@ import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.sort.ComparatorCodeGenerator
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.utils.{RelExplainUtil, SortUtil}
+import org.apache.flink.table.planner.plan.utils.{PhysicalPlanUtil, RelExplainUtil, SortUtil}
 import org.apache.flink.table.runtime.keyselector.EmptyRowDataKeySelector
 import org.apache.flink.table.runtime.operators.sort.{ProcTimeSortOperator, RowTimeSortOperator}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
-
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
 import org.apache.calcite.rel.RelFieldCollation.Direction
 import org.apache.calcite.rel._
 import org.apache.calcite.rel.core.Sort
 import org.apache.calcite.rex.RexNode
-
 import java.util
+
+import org.apache.flink.streaming.api.operators.SimpleOperatorFactory
+import org.apache.flink.table.data.conversion.DataStructureConverters
+import org.apache.flink.table.planner.utils.DataTypeDebugLoggingConverter
+import org.apache.flink.table.types.utils.LogicalTypeDataTypeConverter
 
 import scala.collection.JavaConversions._
 
@@ -104,7 +107,7 @@ class StreamExecTemporalSort(
       .asInstanceOf[Transformation[RowData]]
 
     val timeType = SortUtil.getFirstSortField(sortCollation, getRowType).getType
-    timeType match {
+    val ret = timeType match {
       case _ if FlinkTypeFactory.isProctimeIndicatorType(timeType) =>
         createSortProcTime(input, config)
       case _ if FlinkTypeFactory.isRowtimeIndicatorType(timeType) =>
@@ -115,6 +118,8 @@ class StreamExecTemporalSort(
             "Normally, this happens unlikely. please contact customer support for this"
         )
     }
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, ret)
+    ret
   }
 
   /**

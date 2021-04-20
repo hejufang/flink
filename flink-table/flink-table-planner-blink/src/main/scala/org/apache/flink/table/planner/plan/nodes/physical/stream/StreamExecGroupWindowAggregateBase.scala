@@ -185,6 +185,7 @@ abstract class StreamExecGroupWindowAggregateBase(
       operator,
       outRowType,
       inputTransform.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, transformation)
 
     if (inputsContainSingleton()) {
       transformation.setParallelism(1)

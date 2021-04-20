@@ -29,7 +29,7 @@ import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.codegen.sort.ComparatorCodeGenerator
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.utils.{RelExplainUtil, SortUtil}
+import org.apache.flink.table.planner.plan.utils.{PhysicalPlanUtil, RelExplainUtil, SortUtil}
 import org.apache.flink.table.runtime.operators.sort.StreamSortOperator
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 
@@ -124,6 +124,7 @@ class StreamExecSort(
       sortOperator,
       outputRowTypeInfo,
       input.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, ret)
     if (inputsContainSingleton()) {
       ret.setParallelism(1)
       ret.setMaxParallelism(1)

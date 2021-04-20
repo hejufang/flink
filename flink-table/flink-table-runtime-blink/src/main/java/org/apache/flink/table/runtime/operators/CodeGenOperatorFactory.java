@@ -43,7 +43,9 @@ public class CodeGenOperatorFactory<OUT> extends AbstractStreamOperatorFactory<O
 			parameters.getContainingTask(),
 			parameters.getStreamConfig(),
 			parameters.getOutput(),
-			processingTimeService);
+			processingTimeService,
+			converter,
+			location);
 	}
 
 	@Override

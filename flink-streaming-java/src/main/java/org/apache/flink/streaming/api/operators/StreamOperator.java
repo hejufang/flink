@@ -140,4 +140,8 @@ public interface StreamOperator<OUT> extends CheckpointListener, KeyContext, Dis
 	MetricGroup getMetricGroup();
 
 	OperatorID getOperatorID();
+
+	default void setDebugLoggingConverter(DebugLoggingConverter converter) {}
+
+	default void setDebugLoggingLocation(DebugLoggingLocation location) {}
 }

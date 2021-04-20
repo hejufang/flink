@@ -156,6 +156,7 @@ class StreamExecGroupTableAggregate(
       operator,
       RowDataTypeInfo.of(outRowType),
       inputTransformation.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

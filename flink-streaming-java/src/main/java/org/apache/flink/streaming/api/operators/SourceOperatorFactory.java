@@ -77,6 +77,8 @@ public class SourceOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
 				watermarkStrategy,
 				parameters.getProcessingTimeService());
 
+		sourceOperator.setDebugLoggingConverter(converter);
+		sourceOperator.setDebugLoggingLocation(location);
 		sourceOperator.setup(parameters.getContainingTask(), parameters.getStreamConfig(), parameters.getOutput());
 		parameters.getOperatorEventDispatcher().registerEventHandler(operatorId, sourceOperator);
 

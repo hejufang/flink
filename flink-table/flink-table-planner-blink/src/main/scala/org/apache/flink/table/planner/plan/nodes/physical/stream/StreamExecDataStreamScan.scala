@@ -28,7 +28,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.functions.sql.StreamRecordTimestampSqlFunction
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.schema.DataStreamTable
-import org.apache.flink.table.planner.plan.utils.ScanUtil
+import org.apache.flink.table.planner.plan.utils.{PhysicalPlanUtil, ScanUtil}
 import org.apache.flink.table.runtime.operators.AbstractProcessStreamOperator
 import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter.fromDataTypeToLogicalType
 import org.apache.flink.table.runtime.typeutils.TypeCheckUtils
@@ -102,7 +102,7 @@ class StreamExecDataStreamScan(
 
     // when there is row time extraction expression, we need internal conversion
     // when the physical type of the input date stream is not RowData, we need internal conversion.
-    if (rowtimeExpr.isDefined || ScanUtil.needsConversion(dataStreamTable.dataType)) {
+    val result = if (rowtimeExpr.isDefined || ScanUtil.needsConversion(dataStreamTable.dataType)) {
 
       // extract time if the index is -1 or -2.
       val (extractElement, resetElement) =
@@ -127,6 +127,9 @@ class StreamExecDataStreamScan(
     } else {
       transform.asInstanceOf[Transformation[RowData]]
     }
+
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, result)
+    result
   }
 
   private def getRowtimeExpression(relBuilder: FlinkRelBuilder): Option[RexNode] = {

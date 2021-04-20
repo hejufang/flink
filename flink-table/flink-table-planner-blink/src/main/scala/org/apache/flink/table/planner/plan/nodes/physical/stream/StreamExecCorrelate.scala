@@ -22,6 +22,7 @@ import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.codegen.{CodeGeneratorContext, CorrelateCodeGenerator}
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.logical.FlinkLogicalTableFunctionScan
+import org.apache.flink.table.planner.plan.utils.PhysicalPlanUtil
 import org.apache.flink.table.runtime.operators.AbstractProcessStreamOperator
 
 import org.apache.calcite.plan.{RelOptCluster, RelTraitSet}
@@ -90,6 +91,7 @@ class StreamExecCorrelate(
       getExpressionString,
       "StreamExecCorrelate",
       getRelDetailedDescription)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, transform)
     if (inputsContainSingleton()) {
       transform.setParallelism(1)
       transform.setMaxParallelism(1)

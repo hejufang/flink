@@ -59,6 +59,8 @@ public class ContinuousFileReaderOperatorFactory<OUT, T extends TimestampedInput
 	@Override
 	public <O extends StreamOperator<OUT>> O createStreamOperator(StreamOperatorParameters<OUT> parameters) {
 		ContinuousFileReaderOperator<OUT, T> operator = new ContinuousFileReaderOperator<>(inputFormat, processingTimeService, mailboxExecutor);
+		operator.setDebugLoggingConverter(converter);
+		operator.setDebugLoggingLocation(location);
 		operator.setup(parameters.getContainingTask(), parameters.getStreamConfig(), parameters.getOutput());
 		operator.setOutputType(type, executionConfig);
 		return (O) operator;

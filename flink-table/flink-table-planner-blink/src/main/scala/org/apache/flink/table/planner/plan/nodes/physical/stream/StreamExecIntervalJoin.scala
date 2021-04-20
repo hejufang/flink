@@ -31,7 +31,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.PythonUtil.containsPythonCall
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
-import org.apache.flink.table.planner.plan.utils.{IntervalJoinUtil, JoinTypeUtil, KeySelectorUtil}
+import org.apache.flink.table.planner.plan.utils.{IntervalJoinUtil, JoinTypeUtil, KeySelectorUtil, PhysicalPlanUtil}
 import org.apache.flink.table.runtime.generated.GeneratedFunction
 import org.apache.flink.table.runtime.operators.join.interval.{ProcTimeIntervalJoin, RowTimeIntervalJoin}
 import org.apache.flink.table.runtime.operators.join.{FlinkJoinType, KeyedCoProcessOperatorWithWatermarkDelay, OuterJoinPaddingUtil}
@@ -129,7 +129,7 @@ class StreamExecIntervalJoin(
     val rightPlan = getInputNodes.get(1).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
 
-    flinkJoinType match {
+    val ret = flinkJoinType match {
       case FlinkJoinType.INNER |
            FlinkJoinType.LEFT |
            FlinkJoinType.RIGHT |
@@ -192,6 +192,9 @@ class StreamExecIntervalJoin(
           "Interval Join: {Semi Join} between stream and stream is not supported yet.\n" +
             "please re-check interval join statement according to description above.")
     }
+
+    PhysicalPlanUtil.setDebugLoggingConverter(planner.getTableConfig, getRowType, ret)
+    ret
   }
 
   private def createNegativeWindowSizeJoin(

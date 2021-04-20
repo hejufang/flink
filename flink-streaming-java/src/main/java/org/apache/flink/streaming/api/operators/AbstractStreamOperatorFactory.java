@@ -32,6 +32,8 @@ public abstract class AbstractStreamOperatorFactory<OUT> implements StreamOperat
 	protected ChainingStrategy chainingStrategy = ChainingStrategy.ALWAYS;
 
 	protected transient ProcessingTimeService processingTimeService;
+	protected DebugLoggingConverter converter;
+	protected DebugLoggingLocation location;
 
 	@Override
 	public void setChainingStrategy(ChainingStrategy strategy) {
@@ -46,5 +48,15 @@ public abstract class AbstractStreamOperatorFactory<OUT> implements StreamOperat
 	@Override
 	public void setProcessingTimeService(ProcessingTimeService processingTimeService) {
 		this.processingTimeService = processingTimeService;
+	}
+
+	@Override
+	public void setDebugLoggingConverter(DebugLoggingConverter converter) {
+		this.converter = converter;
+	}
+
+	@Override
+	public void setDebugLoggingLocation(DebugLoggingLocation location) {
+		this.location = location;
 	}
 }

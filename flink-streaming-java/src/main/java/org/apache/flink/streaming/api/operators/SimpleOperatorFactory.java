@@ -73,6 +73,8 @@ public class SimpleOperatorFactory<OUT> extends AbstractStreamOperatorFactory<OU
 		if (operator instanceof AbstractStreamOperator) {
 			((AbstractStreamOperator) operator).setProcessingTimeService(processingTimeService);
 		}
+		operator.setDebugLoggingConverter(converter);
+		operator.setDebugLoggingLocation(location);
 		if (operator instanceof SetupableStreamOperator) {
 			((SetupableStreamOperator) operator).setup(
 				parameters.getContainingTask(),

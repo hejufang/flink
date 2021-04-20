@@ -25,7 +25,7 @@ import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalJoin
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.utils.{JoinUtil, KeySelectorUtil}
+import org.apache.flink.table.planner.plan.utils.{JoinUtil, KeySelectorUtil, PhysicalPlanUtil}
 import org.apache.flink.table.runtime.operators.join.stream.state.JoinInputSideSpec
 import org.apache.flink.table.runtime.operators.join.stream.{StreamingJoinOperator, StreamingSemiAntiJoinOperator}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
@@ -176,6 +176,7 @@ class StreamExecJoin(
       operator,
       returnType,
       leftTransform.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)

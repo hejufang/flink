@@ -28,6 +28,7 @@ import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalTableSourceScan
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.schema.TableSourceTable
+import org.apache.flink.table.planner.plan.utils.PhysicalPlanUtil
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.flink.table.validate.Validatable
 
@@ -96,6 +97,7 @@ class StreamExecTableSourceScan(
       planner: StreamPlanner): Transformation[RowData] = {
     val source = createSourceTransformation(
       planner.getExecEnv, getRelDetailedDescription, planner.getTableConfig)
+    PhysicalPlanUtil.setDebugLoggingConverter(planner.getTableConfig, getRowType, source)
     new FakeTransformation[RowData](
       source, "ChangeToDefaultParallel", ExecutionConfig.PARALLELISM_DEFAULT)
   }

@@ -18,7 +18,7 @@
 package org.apache.flink.table.planner.codegen
 
 import org.apache.flink.streaming.api.graph.StreamConfig
-import org.apache.flink.streaming.api.operators.{AbstractStreamOperator, BoundedMultiInput, BoundedOneInput, InputSelectable, InputSelection, OneInputStreamOperator, Output, StreamOperator, TwoInputStreamOperator}
+import org.apache.flink.streaming.api.operators.{AbstractStreamOperator, BoundedMultiInput, BoundedOneInput, DebugLoggingConverter, DebugLoggingLocation, InputSelectable, InputSelection, OneInputStreamOperator, Output, StreamOperator, TwoInputStreamOperator}
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord
 import org.apache.flink.streaming.runtime.tasks.{ProcessingTimeService, StreamTask}
 import org.apache.flink.table.planner.codegen.CodeGenUtils._
@@ -82,9 +82,13 @@ object OperatorCodeGenerator extends Logging {
             ${className[StreamTask[_, _]]} task,
             ${className[StreamConfig]} config,
             ${className[Output[_]]} output,
-            ${className[ProcessingTimeService]} processingTimeService) throws Exception {
+            ${className[ProcessingTimeService]} processingTimeService,
+            ${className[DebugLoggingConverter]} converter,
+            ${className[DebugLoggingLocation]} location) throws Exception {
           this.references = references;
           ${ctx.reuseInitCode()}
+          this.setDebugLoggingConverter(converter);
+          this.setDebugLoggingLocation(location);
           this.setup(task, config, output);
           if (this instanceof ${className[AbstractStreamOperator[_]]}) {
             ((${className[AbstractStreamOperator[_]]}) this)
@@ -200,9 +204,13 @@ object OperatorCodeGenerator extends Logging {
             ${className[StreamTask[_, _]]} task,
             ${className[StreamConfig]} config,
             ${className[Output[_]]} output,
-            ${className[ProcessingTimeService]} processingTimeService) throws Exception {
+            ${className[ProcessingTimeService]} processingTimeService,
+            ${className[DebugLoggingConverter]} converter,
+            ${className[DebugLoggingLocation]} location) throws Exception {
           this.references = references;
           ${ctx.reuseInitCode()}
+          this.setDebugLoggingConverter(converter);
+          this.setDebugLoggingLocation(location);
           this.setup(task, config, output);
           if (this instanceof ${className[AbstractStreamOperator[_]]}) {
             ((${className[AbstractStreamOperator[_]]}) this)

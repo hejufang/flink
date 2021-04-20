@@ -67,6 +67,8 @@ public class AsyncWaitOperatorFactory<IN, OUT> extends AbstractStreamOperatorFac
 				outputMode,
 				processingTimeService,
 				mailboxExecutor);
+		asyncWaitOperator.setDebugLoggingConverter(converter);
+		asyncWaitOperator.setDebugLoggingLocation(location);
 		asyncWaitOperator.setup(parameters.getContainingTask(), parameters.getStreamConfig(), parameters.getOutput());
 		return (T) asyncWaitOperator;
 	}

@@ -141,6 +141,7 @@ class StreamExecLocalGroupAggregate(
       operator,
       RowDataTypeInfo.of(outRowType),
       inputTransformation.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(planner.getTableConfig, getRowType, transformation)
 
     if (inputsContainSingleton()) {
       transformation.setParallelism(1)

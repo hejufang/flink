@@ -21,6 +21,7 @@ package org.apache.flink.table.api.config;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 import org.apache.flink.configuration.ConfigOption;
+import org.apache.flink.streaming.api.operators.DebugLoggingLocation;
 import org.apache.flink.table.api.SqlDialect;
 
 import static org.apache.flink.configuration.ConfigOptions.key;
@@ -88,5 +89,21 @@ public class TableConfigOptions {
 			.withDescription("Specify the threshold for the expression whether it should " +
 				"be reused, default value is 2, which means that any expression that is used " +
 				"more than once, it will be reused.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> OPERATOR_DEBUG_LOGGING_ENABLED =
+		key("table.operator-debug-logging.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether enable operator level debug logging. If enabled, " +
+				"each operator will output it's output data to stdout/log-file prefixed with " +
+				"operator name.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<DebugLoggingLocation> OPERATOR_DEBUG_LOGGING_LOCATION =
+		key("table.operator-debug-logging.location")
+			.enumType(DebugLoggingLocation.class)
+			.defaultValue(DebugLoggingLocation.STDOUT)
+			.withDescription("");
 
 }

@@ -59,6 +59,8 @@ public class WatermarkAssignerOperatorFactory extends AbstractStreamOperatorFact
 			watermarkGenerator,
 			idleTimeout,
 			processingTimeService);
+		operator.setDebugLoggingConverter(converter);
+		operator.setDebugLoggingLocation(location);
 		operator.setup(
 			initializer.getContainingTask(),
 			initializer.getStreamConfig(),

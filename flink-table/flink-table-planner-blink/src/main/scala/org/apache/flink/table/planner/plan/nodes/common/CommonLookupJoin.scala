@@ -40,7 +40,7 @@ import org.apache.flink.table.planner.plan.schema.{LegacyTableSourceTable, Table
 import org.apache.flink.table.planner.plan.utils.LookupJoinUtil._
 import org.apache.flink.table.planner.plan.utils.PythonUtil.containsPythonCall
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil.preferExpressionFormat
-import org.apache.flink.table.planner.plan.utils.{JoinTypeUtil, RelExplainUtil}
+import org.apache.flink.table.planner.plan.utils.{JoinTypeUtil, PhysicalPlanUtil, RelExplainUtil}
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
 import org.apache.flink.table.runtime.connector.source.LookupRuntimeProviderContext
 import org.apache.flink.table.runtime.operators.join.lookup.{AsyncLookupJoinRunner, AsyncLookupJoinWithCalcRunner, LookupJoinBundleFunction, LookupJoinBundleWithCalcFunction, LookupJoinRunner, LookupJoinWithCalcRetryRunner, LookupJoinWithCalcRunner, LookupJoinWithRetryRunner}
@@ -525,6 +525,8 @@ abstract class CommonLookupJoin(
         SimpleOperatorFactory.of(bundleOperator)
       }
     }
+
+    PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, operatorFactory)
 
     ExecNode.createOneInputTransformation(
       inputTransformation,

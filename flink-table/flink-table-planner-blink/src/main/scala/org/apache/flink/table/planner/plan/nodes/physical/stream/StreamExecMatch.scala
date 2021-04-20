@@ -40,7 +40,7 @@ import org.apache.flink.table.planner.plan.logical.MatchRecognize
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
 import org.apache.flink.table.planner.plan.utils.PythonUtil.containsPythonCall
 import org.apache.flink.table.planner.plan.utils.RelExplainUtil._
-import org.apache.flink.table.planner.plan.utils.{KeySelectorUtil, RexDefaultVisitor, SortUtil}
+import org.apache.flink.table.planner.plan.utils.{KeySelectorUtil, PhysicalPlanUtil, RexDefaultVisitor, SortUtil}
 import org.apache.flink.table.runtime.operators.`match`.{RowDataEventComparator, RowtimeProcessFunction}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
 import org.apache.flink.table.types.logical.RowType
@@ -225,6 +225,7 @@ class StreamExecMatch(
         outputRowTypeInfo,
         timestampedInput.getParallelism
       )
+      PhysicalPlanUtil.setDebugLoggingConverter(config, getRowType, transformation)
       if (inputsContainSingleton()) {
         transformation.setParallelism(1)
         transformation.setMaxParallelism(1)

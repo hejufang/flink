@@ -27,7 +27,7 @@ import org.apache.flink.table.planner.codegen.EqualiserCodeGenerator
 import org.apache.flink.table.planner.codegen.sort.ComparatorCodeGenerator
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
-import org.apache.flink.table.planner.plan.utils.{ChangelogPlanUtils, RelExplainUtil, SortUtil}
+import org.apache.flink.table.planner.plan.utils.{ChangelogPlanUtils, PhysicalPlanUtil, RelExplainUtil, SortUtil}
 import org.apache.flink.table.runtime.keyselector.EmptyRowDataKeySelector
 import org.apache.flink.table.runtime.operators.rank.{AppendOnlyTopNFunction, ConstantRankRange, RankType, RetractableTopNFunction}
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo
@@ -161,6 +161,7 @@ class StreamExecLimit(
       operator,
       outputRowTypeInfo,
       inputTransform.getParallelism)
+    PhysicalPlanUtil.setDebugLoggingConverter(tableConfig, getRowType, ret)
 
     if (inputsContainSingleton()) {
       ret.setParallelism(1)
