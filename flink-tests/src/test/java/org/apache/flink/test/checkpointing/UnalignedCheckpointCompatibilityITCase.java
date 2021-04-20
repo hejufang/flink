@@ -28,8 +28,8 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.test.checkpointing.utils.AccumulatingIntegerSink;
 import org.apache.flink.test.checkpointing.utils.CancellingIntegerSource;
 
+import org.junit.Ignore;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -91,7 +91,7 @@ public class UnalignedCheckpointCompatibilityITCase {
 		this.type = type;
 	}
 
-	@Test
+	@Ignore
 	@SuppressWarnings("unchecked")
 	public void test() throws Exception {
 		Tuple2<String, Map<String, Object>> pathAndAccumulators = type.isSavepoint() ? runAndTakeSavepoint() : runAndTakeExternalCheckpoint();
