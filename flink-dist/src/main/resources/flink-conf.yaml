@@ -65,6 +65,7 @@ common:
   yarn.taskmanager.set_token: false
   yarn.conf.cluster_queue_name.enable: true
   yarn.check.application.name.unique: false
+  yarn.check.application.name.unique.region: false
   flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.max-wait.ms: -1
@@ -209,6 +210,7 @@ common:
 
   # bytedance streaming default config
   bytedance.streaming.yarn.check.application.name.unique: true
+  bytedance.streaming.yarn.check.application.name.unique.region: false
   bytedance.streaming.yarn.gang-scheduler.enable: true
   bytedance.streaming.yarn.gang-scheduler.jobmanager.enable: true
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: false
@@ -256,6 +258,7 @@ lepad:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 larva:
   dc: cn
@@ -330,6 +333,7 @@ horse:
   hdfs.prefix: hdfs://haruna/flink_hl
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  bytedance.streaming.yarn.check.application.name.unique.region: true
 
 hibis:
   dc: cn

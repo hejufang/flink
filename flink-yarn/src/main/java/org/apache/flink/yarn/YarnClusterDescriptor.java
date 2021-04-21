@@ -87,6 +87,7 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.proto.YarnProtos;
 import org.apache.hadoop.yarn.util.BtraceUtil;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
@@ -766,6 +767,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		configuration.setString(HighAvailabilityOptions.HA_CLUSTER_ID, zkNamespace);
 
 		appContext.setCheckApplicationNameUnique(flinkConfiguration.getBoolean(YarnConfigOptions.YARN_CHECK_APP_NAME_UNIQUE));
+		if (flinkConfiguration.getBoolean(YarnConfigOptions.YARN_CHECK_APP_NAME_UNIQUE_REGION)) {
+			appContext.setCheckAppUniqueInRegionIdentifier(YarnProtos.IdentifierTypeProto.APP_NAME);
+			appContext.setIgnoreAppUniqueCheckFailureAtSubmission(
+				flinkConfiguration.getBoolean(YarnConfigOptions.YARN_CHECK_APP_NAME_UNIQUE_IGNORE_CHECK_FAILURE));
+		}
 
 		if (HighAvailabilityMode.isHighAvailabilityModeActivated(configuration)) {
 			// activate re-execution of failed applications

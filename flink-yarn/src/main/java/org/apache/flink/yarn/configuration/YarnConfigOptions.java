@@ -411,6 +411,18 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Yarn check application name unique in cluster dimensions.");
 
+	public static final ConfigOption<Boolean> YARN_CHECK_APP_NAME_UNIQUE_REGION =
+		key("yarn.check.application.name.unique.region")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Yarn check application name unique in region dimensions.");
+
+	public static final ConfigOption<Boolean> YARN_CHECK_APP_NAME_UNIQUE_IGNORE_CHECK_FAILURE =
+		key("yarn.check.application.name.unique.ignore-check-failure")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Yarn check application name unique ignore when check failure at submission.");
+
 	/**
 	 * Yarn configuration key prefix.
 	 */
