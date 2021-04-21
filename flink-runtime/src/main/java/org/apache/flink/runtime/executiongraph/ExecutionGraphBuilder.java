@@ -50,6 +50,8 @@ import org.apache.flink.runtime.executiongraph.failover.FailoverStrategyLoader;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.PartitionReleaseStrategy;
 import org.apache.flink.runtime.executiongraph.failover.flip1.partitionrelease.PartitionReleaseStrategyFactoryLoader;
 import org.apache.flink.runtime.executiongraph.metrics.DownTimeGauge;
+import org.apache.flink.runtime.executiongraph.metrics.ExecutionFailNumGauge;
+import org.apache.flink.runtime.executiongraph.metrics.ExecutionStatusGauge;
 import org.apache.flink.runtime.executiongraph.metrics.RestartTimeGauge;
 import org.apache.flink.runtime.executiongraph.metrics.UpTimeGauge;
 import org.apache.flink.runtime.executiongraph.restart.RestartStrategy;
@@ -208,6 +210,7 @@ public class ExecutionGraphBuilder {
 					isRecoverable,
 					remoteBlacklistReporter,
 					new DefaultLogicalTopology(jobGraph));
+					executionGraph.setExecutionStatusDuration(jobManagerConfig.getInteger(JobManagerOptions.EXECUTION_STATUS_DURATION_MS));
 		} catch (IOException e) {
 			throw new JobException("Could not create the ExecutionGraph.", e);
 		}
@@ -444,6 +447,9 @@ public class ExecutionGraphBuilder {
 		metrics.gauge(RestartTimeGauge.METRIC_NAME, new RestartTimeGauge(executionGraph));
 		metrics.gauge(DownTimeGauge.METRIC_NAME, new DownTimeGauge(executionGraph));
 		metrics.gauge(UpTimeGauge.METRIC_NAME, new UpTimeGauge(executionGraph));
+
+		metrics.gauge(ExecutionFailNumGauge.METRIC_NAME, new ExecutionFailNumGauge(executionGraph));
+		metrics.gauge(ExecutionStatusGauge.METRIC_NAME, new ExecutionStatusGauge(executionGraph));
 
 		executionGraph.getFailoverStrategy().registerMetrics(metrics);
 		executionGraph.getSpeculationStrategy().registerMetrics(metrics);

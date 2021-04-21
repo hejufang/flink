@@ -24,6 +24,7 @@ common:
   restart-strategy.failure-rate.failure-rate-interval: 30 min
   restart-strategy.failure-rate.delay: 20 s
   jobmanager.execution.failover-strategy: region
+  jobmanager.execution.status-dutation-ms: 30000
 
   ## Checkpoints and State Backends
   state.backend: rocksdb

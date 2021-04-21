@@ -172,6 +172,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class ExecutionGraph implements AccessExecutionGraph {
 
+	private static final int EXECUTION_FAIL_STATUS = 0;
+	private static final int EXECUTION_RUNNING_STATUS = 1;
+
 	/** The log object used for debugging. */
 	static final Logger LOG = LoggerFactory.getLogger(ExecutionGraph.class);
 
@@ -264,6 +267,15 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	/** Counts all restarts. Used by other Gauges/Meters and does not register to metric group. */
 	private final Counter numberOfRestartsCounter = new SimpleCounter();
 
+	/** Count all Execution failover. Used by other Gauges and does not register to metric group. */
+	private final Counter numberOfExecutionFailCounter = new SimpleCounter();
+
+	/** store the Execution status. Used by djuge the final status of Execution. */
+	private HashMap<Long, Integer> timeStampStatusMap = new HashMap<Long, Integer>();
+
+	/** Mark the status of all EexcutionVertex. Used by other Gauges and register to metric group. */
+	private int executionStatus;
+
 	// ------ Configuration of the Execution -------
 
 	/** The mode of scheduling. Decides how to select the initial set of tasks to be deployed.
@@ -339,6 +351,8 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		resultPartitionsById;
 
 	private final RemoteBlacklistReporter remoteBlacklistReporter;
+
+	private int executionStatusDuration = 30000;
 
 	// --------------------------------------------------------------------------------------------
 	//   Constructors
@@ -699,6 +713,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		this.jsonPlan = jsonPlan;
 	}
 
+	public void setExecutionStatusDuration(int executionStatusDuration) {
+		this.executionStatusDuration = executionStatusDuration;
+	}
+
 	@Override
 	public String getJsonPlan() {
 		return jsonPlan;
@@ -756,6 +774,46 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	 */
 	public long getNumberOfRestarts() {
 		return numberOfRestartsCounter.getCount();
+	}
+
+	public long getExecutionFailNum() {
+		return numberOfExecutionFailCounter.getCount();
+	}
+
+	/**
+	 * Gets the real execution status, because guage will only save the last entered value.
+	 * So first aggregate the finalState and save it into guage. If a failure occurs within a specified period of time,
+	 * the finalState during this period of time is considered a failure.
+	 *
+	 * @return The status of Execution, 0 is failure, 1 is success
+	 */
+	public int getExecutionStatus() {
+		int finalState = executionStatus;
+		Long currentTime = System.currentTimeMillis();
+		for (Iterator<Map.Entry<Long, Integer>> it = timeStampStatusMap.entrySet().iterator(); it.hasNext();) {
+			Map.Entry<Long, Integer> entry = it.next();
+			Long timestamp = entry.getKey();
+			if (timestamp >= currentTime - executionStatusDuration && timestamp <= currentTime) {
+				if (entry.getValue() == EXECUTION_FAIL_STATUS) {
+					finalState = EXECUTION_FAIL_STATUS;
+				}
+			} else {
+				it.remove();
+			}
+		}
+		return finalState;
+	}
+
+	private void updateExecutionStatus(int executionStatus) {
+		this.executionStatus = executionStatus;
+		long currentTime = System.currentTimeMillis();
+		if (timeStampStatusMap.containsKey(currentTime)) {
+			if (executionStatus == EXECUTION_FAIL_STATUS) {
+				timeStampStatusMap.put(currentTime, executionStatus);
+			}
+		} else {
+			timeStampStatusMap.put(currentTime, executionStatus);
+		}
 	}
 
 	@Override
@@ -1412,6 +1470,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 		numberOfRestartsCounter.inc();
 	}
 
+	private void incrementExecutionFail() {
+		numberOfExecutionFailCounter.inc();
+	}
+
 	public void initFailureCause(Throwable t) {
 		this.failureCause = t;
 		this.failureInfo = new ErrorInfo(t, System.currentTimeMillis());
@@ -1644,6 +1706,12 @@ public class ExecutionGraph implements AccessExecutionGraph {
 
 		switch (state.getExecutionState()) {
 			case RUNNING:
+				if (tasks.values().stream().allMatch(executionJobVertex ->
+					executionJobVertex.getAggregateState().equals(ExecutionState.RUNNING) ||
+						executionJobVertex.getAggregateState().equals(ExecutionState.FINISHED))) {
+					LOG.info("Execution status switch to RUNNING");
+					updateExecutionStatus(EXECUTION_RUNNING_STATUS);
+				}
 				return attempt.switchToRunning();
 
 			case FINISHED:
@@ -1663,6 +1731,13 @@ public class ExecutionGraph implements AccessExecutionGraph {
 				// this deserialization is exception-free
 				accumulators = deserializeAccumulators(state);
 				attempt.markFailed(state.getError(userClassLoader), accumulators, state.getIOMetrics(), !isLegacyScheduling());
+
+				// Update execution fail status
+				LOG.info("Execution status switch to FAIL");
+				updateExecutionStatus(EXECUTION_FAIL_STATUS);
+
+				// Add failover num
+				incrementExecutionFail();
 				return true;
 
 			default:

@@ -369,6 +369,14 @@ public class JobManagerOptions {
 			.withDescription("Number of threads used in futureExecutor in JobManager." +
 					"it is bound to the number of JobManager CPUs(YarnConfigOptions.APP_MASTER_VCORES) in the YARN scenario");
 
+	/**
+	 * The config parameter defining the failover monitor duration in milliseconds.
+	 * */
+	public static final ConfigOption<Integer> EXECUTION_STATUS_DURATION_MS =
+		key("jobmanager.execution.status-dutation-ms")
+			.defaultValue(30000)
+			.withDescription("the failover monitor duration in milliseconds.");
+
 	// ---------------------------------------------------------------------------------------------
 
 	private JobManagerOptions() {

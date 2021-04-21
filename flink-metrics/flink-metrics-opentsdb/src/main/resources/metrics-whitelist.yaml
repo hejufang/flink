@@ -23,6 +23,8 @@ global:
   name:
     [
         fullRestarts,
+        executionFailNum,
+        executionStatus,
         noResourceAvailableException,
         currentOffsetsRate,
         consumerRecordsRate,
@@ -59,6 +61,8 @@ non-global:
       # job info
         downtime,
         fullRestarts,
+        executionFailNum,
+        executionStatus,
         restartingTime,
         noResourceAvailableException,
       # TaskManager / Slot
