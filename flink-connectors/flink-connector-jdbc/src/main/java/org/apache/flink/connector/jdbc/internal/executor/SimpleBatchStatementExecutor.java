@@ -19,6 +19,8 @@
 package org.apache.flink.connector.jdbc.internal.executor;
 
 import org.apache.flink.connector.jdbc.JdbcStatementBuilder;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.types.RowKind;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +60,20 @@ class SimpleBatchStatementExecutor<T, V> implements JdbcBatchStatementExecutor<T
 
 	@Override
 	public void addToBatch(T record) {
-		batch.add(valueTransformer.apply(record));
+		// This is a hack.
+		// If users do not specify primary key, we cannot deal with update and delete messages,
+		// however, for mysql, we can still handle update message without specifying primary keys.
+		// To keep compatible with 1.9, we add this check to omit delete messages.
+		// It's highly recommended to use mysql with proper primary keys, it can handle delete
+		// messages correctly, and also can reduce records belonging to same key in one batch.
+		if (record instanceof RowData) {
+			RowKind rowKind = ((RowData) record).getRowKind();
+			if (rowKind == RowKind.INSERT || rowKind == RowKind.UPDATE_AFTER) {
+				batch.add(valueTransformer.apply(record));
+			}
+		} else {
+			batch.add(valueTransformer.apply(record));
+		}
 	}
 
 	@Override

@@ -69,8 +69,8 @@ public class JdbcDynamicTableSink implements DynamicTableSink {
 	}
 
 	private void validatePrimaryKey(ChangelogMode requestedMode) {
-		checkState(ChangelogMode.insertOnly().equals(requestedMode) || dmlOptions.getKeyFields().isPresent(),
-			"please declare primary key for sink table when query contains update/delete record.");
+		checkState(!requestedMode.contains(RowKind.DELETE) || dmlOptions.getKeyFields().isPresent(),
+			"please declare primary key for sink table when query contains delete record.");
 	}
 
 	@Override
