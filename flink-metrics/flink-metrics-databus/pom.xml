@@ -31,6 +31,10 @@ under the License.
 
 	<artifactId>flink-metrics-databus</artifactId>
 
+	<properties>
+		<logging.version>0.0.3-SNAPSHOT</logging.version>
+	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
@@ -95,6 +99,34 @@ under the License.
 			<artifactId>flink-shaded-guava</artifactId>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.bytedance.base</groupId>
+			<artifactId>logging-starter</artifactId>
+			<version>${logging.version}</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>logback-ext</artifactId>
+					<groupId>com.bytedance.base</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>logback-core</artifactId>
+					<groupId>ch.qos.logback</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>logback-classic</artifactId>
+					<groupId>ch.qos.logback</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>okio</artifactId>
+					<groupId>com.squareup.okio</groupId>
+				</exclusion>
+				<exclusion>
+					<artifactId>guava</artifactId>
+					<groupId>com.google.guava</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
 	</dependencies>
 
 	<build>

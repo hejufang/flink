@@ -473,6 +473,17 @@ public class BootstrapTools {
 		logging += " -Dlog.databus.level=" + databusLevel;
 		logging += " -Dlog.databus.permitsPerSecond=" + permitsPerSecond;
 
+		// streamlog configuration for log collection.
+		if (flinkConfig.getBoolean(ConfigConstants.FLINK_LOG_STREAMLOG_ENABLED_KEY,
+			ConfigConstants.FLINK_LOG_STREAMLOG_ENABLED_DEFAULT)) {
+			String streamlogPsm = flinkConfig.getString(ConfigConstants.FLINK_LOG_STREAMLOG_PSM_KEY,
+				ConfigConstants.FLINK_LOG_STREAMLOG_PSM_DEFAULT);
+			logging += " -Dlog.streamlog.psm=" + streamlogPsm;
+			String streamlogLevel = flinkConfig.getString(ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_KEY,
+				ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_DEFAULT);
+			logging += " -Dlog.streamlog.level=" + streamlogLevel;
+		}
+
 		startCommandValues.put("logging", logging);
 		startCommandValues.put("class", mainClass.getName());
 		startCommandValues.put("redirects",

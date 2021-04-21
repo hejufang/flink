@@ -2149,6 +2149,15 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_DATABUS_PERMITS_PER_SECOND_KEY = "log4j.appender.databus.permitsPerSecond";
 	public static final long FLINK_LOG_DATABUS_PERMITS_PER_SECOND_DEFAULT = 1000;
 
+	public static final String FLINK_LOG_STREAMLOG_ENABLED_KEY = "log4j.appender.streamlog.enabled";
+	public static final boolean FLINK_LOG_STREAMLOG_ENABLED_DEFAULT = false;
+
+	public static final String FLINK_LOG_STREAMLOG_LEVEL_KEY = "log4j.appender.streamlog.level";
+	public static final String FLINK_LOG_STREAMLOG_LEVEL_DEFAULT = "INFO";
+
+	public static final String FLINK_LOG_STREAMLOG_PSM_KEY = "log4j.appender.streamlog.psm";
+	public static final String FLINK_LOG_STREAMLOG_PSM_DEFAULT = "default";
+
 	/**
 	 * Not instantiable.
 	 */

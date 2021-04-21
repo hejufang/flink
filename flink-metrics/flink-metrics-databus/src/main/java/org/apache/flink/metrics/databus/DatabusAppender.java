@@ -17,13 +17,16 @@
 
 package org.apache.flink.metrics.databus;
 
+import org.apache.flink.metrics.logagent.LogAgentClientWrapper;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.yarn.YarnConfigKeys;
 
 import org.apache.flink.shaded.guava18.com.google.common.util.concurrent.RateLimiter;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 
 import com.bytedance.data.databus.DatabusClient;
 import com.bytedance.data.databus.EnvUtils;
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.ThreadContext;
 import org.apache.logging.log4j.core.AbstractLifeCycle;
 import org.apache.logging.log4j.core.Appender;
@@ -54,14 +57,19 @@ import java.util.concurrent.TimeUnit;
 public final class DatabusAppender extends AbstractAppender {
 
 	private static final String LINE_SEP = System.getProperty("line.separator");
+	private static final String STREAMLOG_PSM_KEY = "log.streamlog.psm";
 
 	private String channel;
 	private String metricsChannel;
 	private long metricsUpdateInterval;
 	private int port;
 	private int permitsPerSecond;
+	private Level databusLevel;
+	private Level streamlogLevel;
+	private String streamlogPsm;
 
 	private DatabusClient databusClient;
+	private LogAgentClientWrapper logAgentClientWrapper;
 	private RateLimiter rateLimiter;
 	private final ScheduledExecutorService executor;
 	private TimerTask reporterTask;
@@ -69,16 +77,21 @@ public final class DatabusAppender extends AbstractAppender {
 	public volatile long droppedMessageCount = 0L;
 	public volatile long sendMessageCount = 0L;
 	public volatile long totalMessageCount = 0L;
+	public volatile long sendDatabusMessageCount = 0L;
+	public volatile long sendStreamlogMessageCount = 0L;
 
 	private final Object reportLock = new Object();
 
-	DatabusAppender(final String channel, final String metricsChannel, final long metricsUpdateInterval, final int port, int permitsPerSecond, final String name, final Layout<? extends Serializable> layout, final Filter filter, final boolean ignoreExceptions, final Property[] properties) {
+	DatabusAppender(final String channel, final String metricsChannel, final long metricsUpdateInterval, final int port, int permitsPerSecond, final String name, Level databusLevel, Level streamlogLevel,
+					final Layout<? extends Serializable> layout, final Filter filter, final boolean ignoreExceptions, final Property[] properties) {
 		super(name, filter, layout, ignoreExceptions, properties);
 		this.channel = channel;
 		this.metricsChannel = metricsChannel;
 		this.metricsUpdateInterval = metricsUpdateInterval;
 		this.port = port;
 		this.permitsPerSecond = permitsPerSecond;
+		this.databusLevel = databusLevel;
+		this.streamlogLevel = streamlogLevel;
 		this.executor = Executors.newSingleThreadScheduledExecutor(new ExecutorThreadFactory("databusAppender-metrics-reporter"));
 	}
 
@@ -109,7 +122,15 @@ public final class DatabusAppender extends AbstractAppender {
 				LOGGER.error("Count not get error stack info.", e);
 			}
 			try {
-				databusClient.send(ThreadContext.get("ip"), message, 0);
+				//only send WARN & ERROR log to databus
+				if (event.getLevel().isMoreSpecificThan(databusLevel)) {
+					databusClient.send(ThreadContext.get("ip"), message, 0);
+					sendDatabusMessageCount++;
+				}
+				if (logAgentClientWrapper != null && event.getLevel().isMoreSpecificThan(streamlogLevel)){
+					logAgentClientWrapper.send(event);
+					sendStreamlogMessageCount++;
+				}
 				sendMessageCount++;
 			} catch (IOException e) {
 				LOGGER.error("Could send message by databus client.", e);
@@ -124,6 +145,16 @@ public final class DatabusAppender extends AbstractAppender {
 		initThreadContext();
 
 		this.databusClient = new DatabusClient(port, channel);
+
+		String psmOrDefault = System.getProperty(STREAMLOG_PSM_KEY);
+		if (psmOrDefault != null) {
+			this.streamlogPsm = psmOrDefault.equals("default") ? System.getenv(YarnConfigKeys.ENV_LOAD_SERVICE_PSM) : psmOrDefault;
+			if (streamlogPsm != null){
+				System.out.println("init logAgentClientWrapper using psm : " + streamlogPsm);
+				this.logAgentClientWrapper = new LogAgentClientWrapper(streamlogPsm);
+			}
+		}
+
 		this.rateLimiter = RateLimiter.create(permitsPerSecond);
 		this.reporterTask = new DatabusAppenderMetricsReporter(this);
 		executor.scheduleWithFixedDelay(reporterTask, 0L, metricsUpdateInterval, TimeUnit.MILLISECONDS);
@@ -156,12 +187,17 @@ public final class DatabusAppender extends AbstractAppender {
 	public Map<String, Long> getMetricsAndRefresh(){
 		synchronized (reportLock){
 			Map<String, Long> metrics = new HashMap<>();
-			metrics.put("totalMessageCounts", totalMessageCount);
-			metrics.put("droppedMessageCounts", droppedMessageCount);
-			metrics.put("sendMessageCounts", sendMessageCount);
+			metrics.put("totalMessageCount", totalMessageCount);
+			metrics.put("droppedMessageCount", droppedMessageCount);
+			metrics.put("sendMessageCount", sendMessageCount);
+			metrics.put("sendDatabusMessageCount", sendDatabusMessageCount);
+			metrics.put("sendStreamlogMessageCount", sendStreamlogMessageCount);
+
 			totalMessageCount = 0L;
 			droppedMessageCount = 0L;
 			sendMessageCount = 0L;
+			sendDatabusMessageCount = 0L;
+			sendStreamlogMessageCount = 0L;
 			return metrics;
 		}
 	}
@@ -219,6 +255,12 @@ public final class DatabusAppender extends AbstractAppender {
 		@PluginAttribute(value = "metricsUpdateInterval", defaultLong = 10000L)
 		private int metricsUpdateInterval;
 
+		@PluginAttribute(value = "databusLevel", defaultString = "WARN")
+		private String databusLevel;
+
+		@PluginAttribute(value = "streamlogLevel", defaultString = "INFO")
+		private String streamlogLevel;
+
 		@SuppressWarnings("resource")
 		@Override
 		public DatabusAppender build() {
@@ -227,7 +269,7 @@ public final class DatabusAppender extends AbstractAppender {
 				AbstractLifeCycle.LOGGER.error("No layout provided for DatabusAppender");
 				return null;
 			}
-			return new DatabusAppender(channel, metricsChannel, metricsUpdateInterval, port, permitsPerSecond, getName(), layout, getFilter(), isIgnoreExceptions(), getPropertyArray());
+			return new DatabusAppender(channel, metricsChannel, metricsUpdateInterval, port, permitsPerSecond, getName(), Level.getLevel(databusLevel), Level.getLevel(streamlogLevel), layout, getFilter(), isIgnoreExceptions(), getPropertyArray());
 		}
 	}
 

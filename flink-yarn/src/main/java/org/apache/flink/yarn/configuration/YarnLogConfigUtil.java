@@ -106,6 +106,15 @@ public class YarnLogConfigUtil {
 		logCommand += " -Dlog.databus.level=" + databusLevel;
 		logCommand += " -Dlog.databus.permitsPerSecond=" + permitsPerSecond;
 
+		if (configuration.getBoolean(ConfigConstants.FLINK_LOG_STREAMLOG_ENABLED_KEY,
+			ConfigConstants.FLINK_LOG_STREAMLOG_ENABLED_DEFAULT)) {
+			String streamlogPsm = configuration.getString(ConfigConstants.FLINK_LOG_STREAMLOG_PSM_KEY,
+				ConfigConstants.FLINK_LOG_STREAMLOG_PSM_DEFAULT);
+			logCommand += " -Dlog.streamlog.psm=" + streamlogPsm;
+			String streamlogLevel = configuration.getString(ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_KEY,
+				ConfigConstants.FLINK_LOG_STREAMLOG_LEVEL_DEFAULT);
+			logCommand += " -Dlog.streamlog.level=" + streamlogLevel;
+		}
 		return logCommand;
 	}
 
