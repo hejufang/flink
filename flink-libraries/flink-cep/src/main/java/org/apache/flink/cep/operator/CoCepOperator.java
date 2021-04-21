@@ -25,6 +25,8 @@ import org.apache.flink.api.common.functions.util.FunctionUtils;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.base.ListSerializer;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
@@ -36,6 +38,7 @@ import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.functions.MultiplePatternTimedOutPartialMatchHandler;
 import org.apache.flink.cep.functions.PatternProcessFunction;
 import org.apache.flink.cep.functions.TimedOutPartialMatchHandler;
+import org.apache.flink.cep.functions.timestamps.CepTimestampExtractor;
 import org.apache.flink.cep.nfa.NFA;
 import org.apache.flink.cep.nfa.NFAState;
 import org.apache.flink.cep.nfa.NFAStateSerializer;
@@ -73,6 +76,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -83,7 +87,6 @@ import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.flink.cep.utils.CEPUtils.defaultTtlConfig;
 import static org.apache.flink.cep.utils.CEPUtils.generateUniqueId;
 
 /**
@@ -102,6 +105,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final String LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME = "lateRecordsDroppedRate";
 	private static final String WATERMARK_LATENCY_METRIC_NAME = "watermarkLatency";
 
+	private static final byte[] STATE_CLEANER_TIMER_PAYLOAD = "stateCleanerTimerPayload".getBytes();
+
 	private final boolean isProcessingTime;
 
 	private final TypeSerializer<IN> inputSerializer;
@@ -111,10 +116,19 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final String PATTERN_STATE_NAME = "patternStateName";
 	private static final String NFA_STATE_NAME = "nfaStateName";
 	private static final String EVENT_QUEUE_STATE_NAME = "eventQueuesStateName";
+	private static final String KEYED_WATERMARK_STATE_NAME = "keyedWatermarkStateName";
+	private static final String KEYED_UPDATE_TIME_STATE_NAME = "keyedUpdateTimeStateName";
 
 	private transient MapState<Long, List<IN>> elementQueueState;
 	private transient MapState<String, NFAState> computationStates;
 	private transient Map<String, SharedBuffer<IN>> partialMatches;
+	/**
+	 *  Each key has its own watermark in state.
+	 *  The scope of keyedWatermark in only inside CepOperator.
+	 */
+	private transient ValueState<Long> keyedWatermark;
+	private transient ValueState<Long> keyedUpdateTime;
+
 
 	private transient InternalTimerService<VoidNamespace> timerService;
 
@@ -158,6 +172,9 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	private final long ttlMilliSeconds;
 
+	private final CepTimestampExtractor<IN> timestampExtractor;
+
+
 	// ------------------------------------------------------------------------
 	// Metrics
 	// ------------------------------------------------------------------------
@@ -173,6 +190,7 @@ public class CoCepOperator<IN, KEY, OUT>
 			@Nullable final AfterMatchSkipStrategy afterMatchSkipStrategy,
 			final MultiplePatternProcessFunction<IN, OUT> function,
 			@Nullable final OutputTag<IN> lateDataOutputTag,
+			@Nullable final CepTimestampExtractor<IN> timestampExtractor,
 			final List<Pattern<IN, IN>> initialPatterns,
 			Map<String, String> properties) {
 		super(function);
@@ -182,6 +200,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		this.isProcessingTime = isProcessingTime;
 		this.comparator = comparator;
 		this.lateDataOutputTag = lateDataOutputTag;
+		this.timestampExtractor = timestampExtractor;
 
 		this.initialPatterns = initialPatterns;
 		this.usingNFAs = new HashMap<>();
@@ -210,20 +229,31 @@ public class CoCepOperator<IN, KEY, OUT>
 
 		// initializeState through the provided context
 		MapStateDescriptor<String, NFAState> descriptor = new MapStateDescriptor<>(NFA_STATE_NAME, new StringSerializer(), new NFAStateSerializer());
-		descriptor.enableTimeToLive(defaultTtlConfig(this.ttlMilliSeconds));
+
 		computationStates = context.getKeyedStateStore().getMapState(descriptor);
 
 		patternStates = context.getOperatorStateStore().getBroadcastState(
 				new MapStateDescriptor<>(PATTERN_STATE_NAME, new StringSerializer(), new KryoSerializer<>(Pattern.class, new ExecutionConfig())));
 		partialMatches = new HashMap<>();
-//		partialMatches = new SharedBuffer<>(context.getKeyedStateStore(), inputSerializer);
 
 		MapStateDescriptor<Long, List<IN>> elementQueueStateDesc = new MapStateDescriptor<>(
 				EVENT_QUEUE_STATE_NAME,
 				LongSerializer.INSTANCE,
 				new ListSerializer<>(inputSerializer));
-		elementQueueStateDesc.enableTimeToLive(defaultTtlConfig(this.ttlMilliSeconds));
+
 		elementQueueState = context.getKeyedStateStore().getMapState(elementQueueStateDesc);
+
+		keyedWatermark = context.getKeyedStateStore().getState(
+			new ValueStateDescriptor<>(
+				KEYED_WATERMARK_STATE_NAME,
+				LongSerializer.INSTANCE
+				));
+
+		keyedUpdateTime = context.getKeyedStateStore().getState(
+			new ValueStateDescriptor<>(
+				KEYED_UPDATE_TIME_STATE_NAME,
+				LongSerializer.INSTANCE
+			));
 	}
 
 	@Override
@@ -342,8 +372,26 @@ public class CoCepOperator<IN, KEY, OUT>
 			return;
 		}
 
+		updateStateCleanerTimer();
+
 		if (isProcessingTime) {
-			if (comparator == null) {
+
+			if (timestampExtractor != null){
+				IN value = element.getValue();
+				long eventTime = timestampExtractor.extractTimestamp(value);
+				Long lastkeyedWatermark = keyedWatermark.value();
+				Long newKeyedWatermark = timestampExtractor.getCurrentWatermark(eventTime, lastkeyedWatermark);
+
+				if (eventTime > newKeyedWatermark) {
+					bufferEvent(element.getValue(), eventTime);
+					triggerComputeWithWatermark(getSortedTimestamps(), newKeyedWatermark);
+				} else if (lateDataOutputTag != null) {
+					output.collect(lateDataOutputTag, element);
+				} else {
+					numLateRecordsDropped.inc();
+				}
+				keyedWatermark.update(newKeyedWatermark);
+			} else if (comparator == null) {
 				// there can be no out of order elements in processing time
 				// iterate all patterns
 
@@ -377,17 +425,26 @@ public class CoCepOperator<IN, KEY, OUT>
 
 				// we have an event with a valid timestamp, so
 				// we buffer it until we receive the proper watermark.
-
 				saveRegisterWatermarkTimer();
-
 				bufferEvent(value, timestamp);
-
 			} else if (lateDataOutputTag != null) {
 				output.collect(lateDataOutputTag, element);
 			} else {
 				lateRecordsDroppedRate.markEvent();
 			}
 		}
+
+	}
+
+	private void updateStateCleanerTimer() throws IOException {
+
+		Long lastUpdateTime = keyedUpdateTime.value();
+		Long newUpdateTime = timerService.currentProcessingTime();
+		if (lastUpdateTime != null){
+			timerService.deleteProcessingTimeTimer(VoidNamespace.INSTANCE, lastUpdateTime + ttlMilliSeconds, STATE_CLEANER_TIMER_PAYLOAD);
+		}
+		timerService.registerProcessingTimeTimer(VoidNamespace.INSTANCE, newUpdateTime + ttlMilliSeconds, STATE_CLEANER_TIMER_PAYLOAD);
+		keyedUpdateTime.update(newUpdateTime);
 	}
 
 	@Override
@@ -426,68 +483,39 @@ public class CoCepOperator<IN, KEY, OUT>
 	@Override
 	public void onEventTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
 
-		// 1) get the queue of pending elements for the key and the corresponding NFA,
-		// 2) process the pending elements in event time order and custom comparator if exists
-		//		by feeding them in the NFA
-		// 3) advance the time to the current watermark, so that expired patterns are discarded.
-		// 4) update the stored state for the key, by only storing the new NFA and MapState iff they
-		//		have state to be used later.
-		// 5) update the last seen watermark.
-
-		// STEP 1
 		PriorityQueue<Long> sortedTimestamps = getSortedTimestamps();
 
-		// STEP 2
-		while (!sortedTimestamps.isEmpty() && sortedTimestamps.peek() <= timerService.currentWatermark()) {
-			long timestamp = sortedTimestamps.poll();
-
-			try (Stream<IN> data = sort(elementQueueState.get(timestamp))) {
-				final List<IN> elements = data.collect(Collectors.toList());
-				Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
-				while (iter.hasNext()) {
-					Map.Entry<String, Pattern> entry = iter.next();
-					advanceTime(getNFAState(entry.getKey()), timestamp);
-
-					for (IN event : elements) {
-						try {
-							processEvent(getNFAState(entry.getKey()), event, timestamp);
-						} catch (Exception e) {
-							throw new RuntimeException(e);
-						}
-					}
-				}
-			}
-			elementQueueState.remove(timestamp);
-		}
-
-		Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
-		while (iter.hasNext()) {
-			NFAState nfaState = getNFAState(iter.next().getKey());
-			advanceTime(nfaState, timerService.currentWatermark());
-			updateNFA(nfaState);
-		}
+		triggerComputeWithWatermark(sortedTimestamps, timerService.currentWatermark());
 
 		if (!sortedTimestamps.isEmpty() || !partialMatches.isEmpty()) {
 			saveRegisterWatermarkTimer();
 		}
 
-		// STEP 5
 		updateLastSeenWatermark(timerService.currentWatermark());
 	}
 
+	/**
+	 * there are two kind of ProcessingTimer. We can distinguish them according whether the timer has
+	 * the payload equals STATE_CLEANER_TIMER_PAYLOAD.
+	 */
 	@Override
 	public void onProcessingTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
-		// 1) get the queue of pending elements for the key and the corresponding NFA,
-		// 2) process the pending elements in process time order and custom comparator if exists
-		//		by feeding them in the NFA
-		// 3) update the stored state for the key, by only storing the new NFA and MapState iff they
-		//		have state to be used later.
+		triggerComputeWithWatermark(getSortedTimestamps(), Long.MAX_VALUE);
+		byte[] timerPayload = timer.getPayload();
+		if (timerPayload != null && timerPayload.equals(STATE_CLEANER_TIMER_PAYLOAD)){
+			clearAllStates();
+		}
+	}
 
-		// STEP 1
-		PriorityQueue<Long> sortedTimestamps = getSortedTimestamps();
+	/**
+	 * trigger compute with given watermark , Elements with a timestamp less than watermark
+	 * in elementQueueState will be fed into NFA.
+	 * if using processingTime ,we can pass Long.MAX_VALUE to compute all the element.
+	 *
+	 */
+	private void triggerComputeWithWatermark(PriorityQueue<Long> sortedTimestamps, Long watermark) throws Exception {
 
-		// STEP 2
-		while (!sortedTimestamps.isEmpty()) {
+		while (!sortedTimestamps.isEmpty() && sortedTimestamps.peek() <= watermark) {
 			long timestamp = sortedTimestamps.poll();
 			try (Stream<IN> data = sort(elementQueueState.get(timestamp))) {
 				final List<IN> elements = data.collect(Collectors.toList());
@@ -508,10 +536,13 @@ public class CoCepOperator<IN, KEY, OUT>
 			elementQueueState.remove(timestamp);
 		}
 
-		// STEP 3
 		Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
 		while (iter.hasNext()) {
 			NFAState nfaState = getNFAState(iter.next().getKey());
+			//if using processingTime , No need to advanceTime
+			if (watermark != Long.MAX_VALUE) {
+				advanceTime(nfaState, watermark);
+			}
 			updateNFA(nfaState);
 		}
 	}
@@ -534,7 +565,7 @@ public class CoCepOperator<IN, KEY, OUT>
 			NFAState newNFAState = usingNFAs.get(patternId).createInitialNFAState();
 			computationStates.put(patternId, newNFAState);
 			// clear the data state in shared buffer
-			partialMatches.get(patternId).getAccessor().clearKeyedState();
+//			partialMatches.get(patternId).getAccessor().clearKeyedState();
 			return newNFAState;
 		}
 	}
@@ -544,6 +575,18 @@ public class CoCepOperator<IN, KEY, OUT>
 			nfaState.resetStateChanged();
 			computationStates.put(nfaState.getPatternId(), nfaState);
 		}
+	}
+
+	private void clearAllStates() {
+		if (timestampExtractor != null){
+			keyedWatermark.clear();
+		}
+		keyedUpdateTime.clear();
+		elementQueueState.clear();
+		computationStates.clear();
+		partialMatches.forEach((patternId, sharedBuffer) -> {
+			sharedBuffer.getAccessor().clearKeyedState();
+		});
 	}
 
 	private PriorityQueue<Long> getSortedTimestamps() throws Exception {

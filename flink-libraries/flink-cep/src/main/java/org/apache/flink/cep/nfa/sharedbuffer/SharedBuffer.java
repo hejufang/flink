@@ -34,8 +34,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.flink.cep.utils.CEPUtils.defaultTtlConfig;
-
 /**
  * A shared buffer implementation which stores values under according state. Additionally, the values can be
  * versioned such that it is possible to retrieve their predecessor element in the buffer.
@@ -88,12 +86,6 @@ public class SharedBuffer<V> {
 				LongSerializer.INSTANCE,
 				IntSerializer.INSTANCE);
 
-		// add ttl for multiple patterns
-		if (uniqueId != null) {
-			eventsDescriptor.enableTimeToLive(defaultTtlConfig(ttl));
-			entriesDescriptor.enableTimeToLive(defaultTtlConfig(ttl));
-			eventsCountDescriptor.enableTimeToLive(defaultTtlConfig(ttl));
-		}
 		this.eventsBuffer = stateStore.getMapState(eventsDescriptor);
 		this.entries = stateStore.getMapState(entriesDescriptor);
 		this.eventsCount = stateStore.getMapState(eventsCountDescriptor);

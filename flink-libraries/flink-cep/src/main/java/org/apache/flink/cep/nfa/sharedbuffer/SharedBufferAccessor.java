@@ -299,7 +299,7 @@ public class SharedBufferAccessor<V> implements AutoCloseable {
 	}
 
 	public void clearKeyedState() {
-
+		sharedBuffer.clearKeyedState();
 	}
 
 	public void clearMemoryCache() {

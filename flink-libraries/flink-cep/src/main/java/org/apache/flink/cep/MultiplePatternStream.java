@@ -21,6 +21,7 @@ package org.apache.flink.cep;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
+import org.apache.flink.cep.functions.timestamps.CepTimestampExtractor;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -72,6 +73,10 @@ public class MultiplePatternStream<T> {
 
 	public MultiplePatternStream<T> withInitialPatterns(List<Pattern<T, T>> patterns) {
 		return new MultiplePatternStream<>(builder.withInitialPatterns(patterns));
+	}
+
+	public MultiplePatternStream<T> withTimestampExtractor(CepTimestampExtractor<T> timestampExtractor) {
+		return new MultiplePatternStream<>(builder.withTimestampExtractor(timestampExtractor));
 	}
 
 	public MultiplePatternStream<T> withProperties(Map<String, String> properties) {
