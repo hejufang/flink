@@ -139,7 +139,6 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		this.consumer = new DefaultMQPullConsumer(cluster, topic, group, getRocketMQProperties(props));
-		this.consumer.setAutoCommit(true);
 		this.consumer.setInstanceName(topic + "_" + getRuntimeContext().getIndexOfThisSubtask());
 		if (this.parallelism > 0) {
 			assert this.parallelism == getRuntimeContext().getNumberOfParallelSubtasks();
@@ -263,6 +262,8 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			}
 			if (messageExts.size() == 0) {
 				Thread.sleep(DEFAULT_SLEEP_MILLISECONDS);
+			} else {
+				RetryManager.retry(() -> consumer.ack(messageExts.get(messageExts.size() - 1)), strategy);
 			}
 		}
 	}
