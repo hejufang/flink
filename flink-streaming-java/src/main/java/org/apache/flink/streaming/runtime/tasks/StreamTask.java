@@ -545,6 +545,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		catch (Exception invokeException) {
 			failing = !canceled;
 			try {
+				if (!canceled) {
+					cancelTask();
+				}
+
 				cleanUpInvoke();
 			}
 			catch (Throwable cleanUpException) {
