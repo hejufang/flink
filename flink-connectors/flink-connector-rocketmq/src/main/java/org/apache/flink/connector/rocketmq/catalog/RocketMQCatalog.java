@@ -46,14 +46,27 @@ public class RocketMQCatalog extends BytedSchemaCatalog {
 	private static final String ROCKETMQ_CONNECTOR = "rocketmq";
 
 	public RocketMQCatalog(String name, String defaultDatabase) {
-		super(name, defaultDatabase, ClusterType.rocketmq);
+		super(name, defaultDatabase, ClusterType.rocketmq, true);
 	}
 
 	@Override
 	public CatalogBaseTable getTable(ObjectPath tablePath) throws TableNotExistException, CatalogException {
 		String[] regionAndDatabase = parseRegionDatabase(tablePath.getDatabaseName());
 		try {
-			return getTable(regionAndDatabase[1], regionAndDatabase[0], tablePath.getObjectName());
+			String tableName = null;
+			String subName = null;
+			String[] tableAndTag = tablePath.getObjectName().split(SPLIT_REGION_SEPARATOR);
+			if (tableAndTag.length == 1) {
+				tableName = tableAndTag[0];
+			} else if (tableAndTag.length == 2) {
+				tableName = tableAndTag[0];
+				subName = tableAndTag[1];
+			} else {
+				throw new FlinkRuntimeException(
+					String.format("Table name %s is invalid in %s.", tablePath.getObjectName(), tablePath.toString()));
+			}
+
+			return getTable(regionAndDatabase[1], regionAndDatabase[0], tableName, subName);
 		} catch (SchemaClientException e) {
 			throw new TableNotExistException(getName(), tablePath, e);
 		}

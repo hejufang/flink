@@ -24,7 +24,6 @@ import org.apache.flink.table.types.DataType;
 
 import com.bytedance.schema.registry.common.table.ByteSchemaElementType;
 import com.bytedance.schema.registry.common.table.ByteSchemaField;
-import com.bytedance.schema.registry.common.table.ByteSchemaTable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,8 +33,7 @@ import java.util.List;
  */
 public class SchemaConverter {
 
-	public static TableSchema convertToTableSchema(ByteSchemaTable byteSchemaTable) {
-		List<ByteSchemaField> byteSchemaFields = byteSchemaTable.getFields();
+	public static TableSchema convertToTableSchema(List<ByteSchemaField> byteSchemaFields) {
 		TableSchema.Builder tableSchemaBuilder = TableSchema.builder();
 		byteSchemaFields.stream()
 			.map(SchemaConverter::convertToTableColumn)

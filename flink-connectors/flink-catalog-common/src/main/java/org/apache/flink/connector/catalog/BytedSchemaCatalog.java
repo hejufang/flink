@@ -43,6 +43,8 @@ import com.bytedance.schema.registry.common.request.ClusterType;
 import com.bytedance.schema.registry.common.response.BaseResponse;
 import com.bytedance.schema.registry.common.response.QuerySchemaClusterResponse;
 import com.bytedance.schema.registry.common.response.QuerySchemaResponse;
+import com.bytedance.schema.registry.common.table.ByteSchemaField;
+import com.bytedance.schema.registry.common.util.Constants;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,11 +60,21 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 	private static final String NO_COMMENT = "";
 
 	private SimpleSchemaClient schemaClient;
-	private ClusterType clusterType;
+	private final ClusterType clusterType;
+	private final boolean supportChildSchema;
 
 	public BytedSchemaCatalog(String name, String defaultDatabase, ClusterType clusterType) {
+		this(name, defaultDatabase, clusterType, false);
+	}
+
+	public BytedSchemaCatalog(
+			String name,
+			String defaultDatabase,
+			ClusterType clusterType,
+			boolean supportChildSchema) {
 		super(name, defaultDatabase);
 		this.clusterType = clusterType;
+		this.supportChildSchema = supportChildSchema;
 	}
 
 	@Override
@@ -130,7 +142,7 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 	@Override
 	public CatalogBaseTable getTable(ObjectPath tablePath) throws TableNotExistException, CatalogException {
 		try {
-			return getTable(tablePath.getDatabaseName(), null, tablePath.getObjectName());
+			return getTable(tablePath.getDatabaseName(), null, tablePath.getObjectName(), null);
 		} catch (SchemaClientException e) {
 			throw new TableNotExistException(getName(), tablePath, e);
 		}
@@ -139,13 +151,35 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 	protected CatalogBaseTable getTable(
 			String database,
 			String region,
-			String table) throws SchemaClientException, CatalogException, TableNotExistException {
+			String table,
+			String subName) throws SchemaClientException, CatalogException, TableNotExistException {
 		BaseResponse<QuerySchemaResponse> response =
 			schemaClient.queryBySubjectsLatest(clusterType.name(), database, region, table);
+		ObjectPath objectPath = createObjectPath(database, region, table);
 		if (response.data == null || response.data.getByteSchemaTable() == null) {
-			throw new TableNotExistException(getName(), createObjectPath(database, region, table));
+			throw new TableNotExistException(getName(), objectPath);
 		}
-		TableSchema tableSchema = convertToTableSchema(response.getData());
+		if (Constants.isChildSchemaEnabled(response.data.getExtraContent())) {
+			if (!supportChildSchema) {
+				throw new FlinkRuntimeException(
+					String.format("%s don't support child schema", objectPath));
+			}
+
+			if (subName == null) {
+				throw new FlinkRuntimeException(
+					String.format("Please specific %s sub name", objectPath));
+			}
+
+			List<String> names = Constants.childSchemaNames2List(response.data.getExtraContent());
+			if (!names.contains(subName)) {
+				throw new FlinkRuntimeException(
+					String.format("Sub name %s not exist in %s: %s",
+						subName, objectPath, String.join(",", names)));
+			}
+		} else if (subName != null) {
+			throw new FlinkRuntimeException(String.format("Schema not support sub name %s", subName));
+		}
+		TableSchema tableSchema = convertToTableSchema(response.getData(), subName);
 		Map<String, String> properties = generateDDLProperties(response.getData());
 		return new CatalogTableImpl(tableSchema, properties, NO_COMMENT);
 	}
@@ -216,8 +250,13 @@ public abstract class BytedSchemaCatalog extends AbstractReadOnlyCatalog {
 		return CatalogColumnStatistics.UNKNOWN;
 	}
 
-	protected TableSchema convertToTableSchema(QuerySchemaResponse response) {
-		return SchemaConverter.convertToTableSchema(response.getByteSchemaTable());
+	protected TableSchema convertToTableSchema(QuerySchemaResponse response, String subName) {
+		if (subName != null) {
+			ByteSchemaField byteSchemaField = response.getByteSchemaTable().getFields()
+				.stream().filter(f -> f.getName().equals(subName)).findFirst().get();
+			return SchemaConverter.convertToTableSchema(byteSchemaField.getFields());
+		}
+		return SchemaConverter.convertToTableSchema(response.getByteSchemaTable().getFields());
 	}
 
 	private Map<String, String> generateDDLProperties(QuerySchemaResponse response) {
