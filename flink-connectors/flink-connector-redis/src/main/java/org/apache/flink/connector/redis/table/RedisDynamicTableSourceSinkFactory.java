@@ -62,7 +62,7 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.PS
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_IGNORE_DELETE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MODE;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_RECORD_TTL_SECONDS;
+import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_RECORD_TTL;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.TABLE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VALUE_FORMAT_SKIP_KEY;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.VALUE_TYPE;
@@ -183,7 +183,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		optionalOptions.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		optionalOptions.add(SINK_BUFFER_FLUSH_INTERVAL);
 		optionalOptions.add(SINK_LOG_FAILURES_ONLY);
-		optionalOptions.add(SINK_RECORD_TTL_SECONDS);
+		optionalOptions.add(SINK_RECORD_TTL);
 		optionalOptions.add(SINK_MAX_RETRIES);
 		optionalOptions.add(VALUE_FORMAT_SKIP_KEY);
 		optionalOptions.add(SINK_IGNORE_DELETE);
@@ -255,8 +255,8 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			.setLogFailuresOnly(readableConfig.get(SINK_LOG_FAILURES_ONLY))
 			.setSkipFormatKey(readableConfig.get(VALUE_FORMAT_SKIP_KEY))
 			.setIgnoreDelete(readableConfig.get(SINK_IGNORE_DELETE))
-			.setParallelism(readableConfig.get(PARALLELISM));
-		readableConfig.getOptional(SINK_RECORD_TTL_SECONDS).ifPresent(builder::setTtlSeconds);
+			.setParallelism(readableConfig.get(PARALLELISM))
+			.setTtlSeconds((int) readableConfig.get(SINK_RECORD_TTL).getSeconds());
 		return builder.build();
 	}
 
