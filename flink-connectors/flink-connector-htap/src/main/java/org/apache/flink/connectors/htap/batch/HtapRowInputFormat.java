@@ -38,8 +38,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -63,24 +63,12 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 	private final List<FlinkAggregateFunction> aggregateFunctions;
 	private final DataType outputDataType;
 	private final long limit;
+	private final Set<Integer> pushedDownPartitions;
 
 	private boolean endReached;
 
 	private transient HtapReader htapReader;
 	private transient HtapReaderIterator resultIterator;
-
-	public HtapRowInputFormat(HtapReaderConfig readerConfig, HtapTable table) {
-		this(readerConfig, table, Collections.emptyList(), Collections.emptyList(),
-			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null, -1);
-	}
-
-	public HtapRowInputFormat(
-			HtapReaderConfig readerConfig,
-			HtapTable table,
-			List<String> tableProjections) {
-		this(readerConfig, table, Collections.emptyList(), tableProjections,
-			Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), null, -1);
-	}
 
 	public HtapRowInputFormat(
 			HtapReaderConfig readerConfig,
@@ -91,7 +79,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 			List<String> groupByColumns,
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
-			long limit) {
+			long limit,
+			Set<Integer> pushedDownPartitions) {
 		this.readerConfig = checkNotNull(readerConfig, "readerConfig could not be null");
 		this.table = checkNotNull(table, "table could not be null");
 		this.tableFilters = checkNotNull(tableFilters, "tableFilters could not be null");
@@ -103,6 +92,7 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 				aggregateFunctions, "aggregateFunctions could not be null");
 		this.outputDataType = outputDataType;
 		this.limit = limit;
+		this.pushedDownPartitions = pushedDownPartitions;
 	}
 
 	@Override
@@ -119,7 +109,8 @@ public class HtapRowInputFormat extends RichInputFormat<Row, HtapInputSplit> {
 
 	private void createHtapReader() throws IOException {
 		htapReader = new HtapReader(table, readerConfig, tableFilters, tableProjections,
-			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit);
+			tableAggregates, groupByColumns, aggregateFunctions, outputDataType, limit,
+			pushedDownPartitions);
 	}
 
 	@Override

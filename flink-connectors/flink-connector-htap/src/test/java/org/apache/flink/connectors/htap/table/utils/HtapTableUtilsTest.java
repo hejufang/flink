@@ -26,24 +26,128 @@ import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.types.AtomicDataType;
 import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.VarCharType;
 
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * HtapTableUtils Unit Tests.
+ * Unit Tests for {@link HtapTableUtils}.
  */
 public class HtapTableUtilsTest {
 
-	ResolvedExpression testFiled = new FieldReferenceExpression(
-		"test", DataTypes.INT(), 0, 0);
+	private static final ResolvedExpression INT_FIELD = new FieldReferenceExpression(
+		"int_test", DataTypes.INT(), 0, 0);
 
-	ResolvedExpression testValue = new ValueLiteralExpression(
+	private static final ResolvedExpression INT_VALUE_1 = new ValueLiteralExpression(
 		1, new AtomicDataType(new IntType(false)));
+
+	private static final ResolvedExpression INT_VALUE_2 = new ValueLiteralExpression(
+		2, new AtomicDataType(new IntType(false)));
+
+	private static final ResolvedExpression STR_FIELD = new FieldReferenceExpression(
+		"str_test", DataTypes.STRING(), 0, 0);
+
+	private static final ResolvedExpression STR_VALUE_1 = new ValueLiteralExpression(
+		"str1", new AtomicDataType(new VarCharType(false, 1)));
+
+	private static final ResolvedExpression STR_VALUE_2 = new ValueLiteralExpression(
+		"str2", new AtomicDataType(new VarCharType(false, 1)));
+
+	private static final ResolvedExpression STR_VALUE_3 = new ValueLiteralExpression(
+		"str3", new AtomicDataType(new VarCharType(false, 1)));
+
+	// `int_test` = 1
+	private static final CallExpression INT_EQUAL_EXPRESSION_1 = new CallExpression(
+		BuiltInFunctionDefinitions.EQUALS,
+		Arrays.asList(INT_FIELD, INT_VALUE_1),
+		DataTypes.BOOLEAN());
+
+	// `int_test` = 2
+	private static final CallExpression INT_EQUAL_EXPRESSION_2 = new CallExpression(
+		BuiltInFunctionDefinitions.EQUALS,
+		Arrays.asList(INT_FIELD, INT_VALUE_2),
+		DataTypes.BOOLEAN());
+
+	// `str_test` = 'str1'
+	private static final CallExpression STR_EQUAL_EXPRESSION_1 = new CallExpression(
+		BuiltInFunctionDefinitions.EQUALS,
+		Arrays.asList(STR_FIELD, STR_VALUE_1),
+		DataTypes.BOOLEAN());
+
+	// `str_test` = 'str2'
+	private static final CallExpression STR_EQUAL_EXPRESSION_2 = new CallExpression(
+		BuiltInFunctionDefinitions.EQUALS,
+		Arrays.asList(STR_FIELD, STR_VALUE_2),
+		DataTypes.BOOLEAN());
+
+	// `str_test` = 'str3'
+	private static final CallExpression STR_EQUAL_EXPRESSION_3 = new CallExpression(
+		BuiltInFunctionDefinitions.EQUALS,
+		Arrays.asList(STR_FIELD, STR_VALUE_3),
+		DataTypes.BOOLEAN());
+
+	// `int_test` in (1, 2)
+	private static final CallExpression INT_IN_EXPRESSION = new CallExpression(
+		BuiltInFunctionDefinitions.IN,
+		Arrays.asList(INT_FIELD, INT_VALUE_1, INT_VALUE_2),
+		DataTypes.BOOLEAN());
+
+	// `str_test` in ('str1', 'str2', 'str3')
+	private static final CallExpression STR_IN_EXPRESSION = new CallExpression(
+		BuiltInFunctionDefinitions.IN,
+		Arrays.asList(STR_FIELD, STR_VALUE_1, STR_VALUE_2, STR_VALUE_3),
+		DataTypes.BOOLEAN());
+
+	// `int_test` = 1 or `int_test` = 2
+	private static final CallExpression INT_OR_EXPRESSION = new CallExpression(
+		BuiltInFunctionDefinitions.OR,
+		Arrays.asList(INT_EQUAL_EXPRESSION_1, INT_EQUAL_EXPRESSION_2),
+		DataTypes.BOOLEAN());
+
+	// `str_test` = 'str1' or `str_test` = 'str2' or `str_test` = 'str3'
+	private static final CallExpression STR_OR_EXPRESSION_1 = new CallExpression(
+		BuiltInFunctionDefinitions.OR,
+		Arrays.asList(STR_EQUAL_EXPRESSION_1, STR_EQUAL_EXPRESSION_2, STR_EQUAL_EXPRESSION_3),
+		DataTypes.BOOLEAN());
+
+	// `str_test` = 'str1' or `str_test` = 'str2' or `str_test` = 'str3'
+	private static final CallExpression STR_OR_EXPRESSION_2 = new CallExpression(
+		BuiltInFunctionDefinitions.OR,
+		Arrays.asList(STR_EQUAL_EXPRESSION_2, STR_EQUAL_EXPRESSION_3),
+		DataTypes.BOOLEAN());
+
+	// `str_test` = 'str1' or (`str_test` = 'str2' or `str_test` = 'str3')
+	private static final CallExpression STR_OR_EXPRESSION_3 = new CallExpression(
+		BuiltInFunctionDefinitions.OR,
+		Arrays.asList(STR_EQUAL_EXPRESSION_1, STR_OR_EXPRESSION_2),
+		DataTypes.BOOLEAN());
+
+	// `int_test` = 1 or `str_test` = 'str1'
+	private static final CallExpression INT_STR_OR_EXPRESSION = new CallExpression(
+		BuiltInFunctionDefinitions.OR,
+		Arrays.asList(INT_EQUAL_EXPRESSION_1, STR_EQUAL_EXPRESSION_1),
+		DataTypes.BOOLEAN());
+
+	// `int_test` = 2 and `str_test` = 'str1'
+	private static final CallExpression INT_STR_AND_EXPRESSION = new CallExpression(
+		BuiltInFunctionDefinitions.AND,
+		Arrays.asList(INT_EQUAL_EXPRESSION_2, STR_EQUAL_EXPRESSION_1),
+		DataTypes.BOOLEAN());
+
+	// `int_test` = 1 or (`int_test` = 2 and `str_test` = 'str1')
+	private static final CallExpression INT_STR_MIXED_EXPRESSION = new CallExpression(
+		BuiltInFunctionDefinitions.OR,
+		Arrays.asList(INT_EQUAL_EXPRESSION_1, INT_STR_AND_EXPRESSION),
+		DataTypes.BOOLEAN());
 
 	HtapFilterInfo info;
 
@@ -52,7 +156,7 @@ public class HtapTableUtilsTest {
 		// IS_NULL(`field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.IS_NULL,
-			Collections.singletonList(testFiled),
+			Collections.singletonList(INT_FIELD),
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
@@ -60,7 +164,7 @@ public class HtapTableUtilsTest {
 		// IS_NOT_NULL(`field`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.IS_NOT_NULL,
-			Collections.singletonList(testFiled),
+			Collections.singletonList(INT_FIELD),
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNotNull(info);
@@ -68,7 +172,7 @@ public class HtapTableUtilsTest {
 		// IS_NULL(`literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.IS_NULL,
-			Collections.singletonList(testValue),
+			Collections.singletonList(INT_VALUE_1),
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNull(info);
@@ -76,7 +180,7 @@ public class HtapTableUtilsTest {
 		// IS_NOT_NULL(`literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.IS_NOT_NULL,
-			Collections.singletonList(testValue),
+			Collections.singletonList(INT_VALUE_1),
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNull(info);
@@ -84,10 +188,10 @@ public class HtapTableUtilsTest {
 
 	@Test
 	public void testConvertBinaryComparison() {
-		List<ResolvedExpression> childrenBeginWithFiled = Arrays.asList(testFiled, testValue);
-		List<ResolvedExpression> childrenBeginWithLiteral = Arrays.asList(testValue, testFiled);
-		List<ResolvedExpression> childrenFields = Arrays.asList(testFiled, testFiled);
-		List<ResolvedExpression> childrenLiterals = Arrays.asList(testValue, testValue);
+		List<ResolvedExpression> childrenBeginWithFiled = Arrays.asList(INT_FIELD, INT_VALUE_1);
+		List<ResolvedExpression> childrenBeginWithLiteral = Arrays.asList(INT_VALUE_1, INT_FIELD);
+		List<ResolvedExpression> childrenFields = Arrays.asList(INT_FIELD, INT_FIELD);
+		List<ResolvedExpression> childrenLiterals = Arrays.asList(INT_VALUE_1, INT_VALUE_1);
 
 		// >(`filed`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
@@ -254,17 +358,17 @@ public class HtapTableUtilsTest {
 	public void testConvertIsInExpression() {
 		CallExpression equalExpression = new CallExpression(
 			BuiltInFunctionDefinitions.EQUALS,
-			Arrays.asList(testFiled, testValue),
+			Arrays.asList(INT_FIELD, INT_VALUE_1),
 			DataTypes.BOOLEAN());
 
 		CallExpression greaterExpression = new CallExpression(
 			BuiltInFunctionDefinitions.GREATER_THAN,
-			Arrays.asList(testFiled, testValue),
+			Arrays.asList(INT_FIELD, INT_VALUE_1),
 			DataTypes.BOOLEAN());
 
 		CallExpression lessExpression = new CallExpression(
 			BuiltInFunctionDefinitions.LESS_THAN,
-			Arrays.asList(testFiled, testValue),
+			Arrays.asList(INT_FIELD, INT_VALUE_1),
 			DataTypes.BOOLEAN());
 
 		CallExpression orExpression = new CallExpression(
@@ -280,7 +384,7 @@ public class HtapTableUtilsTest {
 		// OR(`filed`, `literal`)
 		info = HtapTableUtils.toHtapFilterInfo(new CallExpression(
 			BuiltInFunctionDefinitions.OR,
-			Arrays.asList(testFiled, testValue),
+			Arrays.asList(INT_FIELD, INT_VALUE_1),
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNull(info);
@@ -324,5 +428,72 @@ public class HtapTableUtilsTest {
 			DataTypes.BOOLEAN()))
 			.orElse(null);
 		Assert.assertNull(info);
+	}
+
+	@Test
+	public void testExtractPartitionPredicates() {
+		// `int_test` = 1
+		List<Map<String, Set<String>>> result1 =
+			HtapTableUtils.extractPartitionPredicates(Collections.singletonList(INT_EQUAL_EXPRESSION_1));
+		List<Map<String, Set<String>>> expected1 =
+			Collections.singletonList(Collections.singletonMap("int_test", Collections.singleton("1")));
+		Assert.assertEquals(expected1, result1);
+
+		// `int_test` in (1, 2)
+		List<Map<String, Set<String>>> result2 =
+			HtapTableUtils.extractPartitionPredicates(Collections.singletonList(INT_IN_EXPRESSION));
+		Set<String> values2 = new HashSet<>(Arrays.asList("1", "2"));
+		List<Map<String, Set<String>>> expected2 =
+			Collections.singletonList(Collections.singletonMap("int_test", values2));
+		Assert.assertEquals(expected2, result2);
+
+		// `str_test` = 'str1' or `str_test` = 'str2' or `str_test` = 'str3'
+		List<Map<String, Set<String>>> result3 =
+			HtapTableUtils.extractPartitionPredicates(Collections.singletonList(STR_OR_EXPRESSION_1));
+		Set<String> values3 = new HashSet<>(Arrays.asList("str1", "str2", "str3"));
+		List<Map<String, Set<String>>> expected3 =
+			Collections.singletonList(Collections.singletonMap("str_test", values3));
+		Assert.assertEquals(expected3, result3);
+
+		// `str_test` = 'str1' or (`str_test` = 'str2' or `str_test` = 'str3')
+		List<Map<String, Set<String>>> result4 =
+			HtapTableUtils.extractPartitionPredicates(Collections.singletonList(STR_OR_EXPRESSION_3));
+		Set<String> values4 = new HashSet<>(Arrays.asList("str1", "str2", "str3"));
+		List<Map<String, Set<String>>> expected4 =
+			Collections.singletonList(Collections.singletonMap("str_test", values4));
+		Assert.assertEquals(expected4, result4);
+
+		// `int_test` = 1 and `str_test` = 'str1'
+		List<Map<String, Set<String>>> result5 =
+			HtapTableUtils.extractPartitionPredicates(
+				Arrays.asList(INT_EQUAL_EXPRESSION_1, STR_EQUAL_EXPRESSION_1));
+		Map<String, Set<String>> map5 = new HashMap<>();
+		map5.put("int_test", Collections.singleton("1"));
+		map5.put("str_test", Collections.singleton("str1"));
+		List<Map<String, Set<String>>> expected5 = Collections.singletonList(map5);
+		Assert.assertEquals(expected5, result5);
+
+		// (`int_test` = 1 or `int_test` = 2) and `str_test` in ('str1', 'str2', 'str3')
+		List<Map<String, Set<String>>> result6 = HtapTableUtils.extractPartitionPredicates(
+			Arrays.asList(INT_OR_EXPRESSION, STR_IN_EXPRESSION));
+		Map<String, Set<String>> map6 = new HashMap<>();
+		map6.put("int_test", new HashSet<>(Arrays.asList("1", "2")));
+		map6.put("str_test", new HashSet<>(Arrays.asList("str1", "str2", "str3")));
+		List<Map<String, Set<String>>> expected6 = Collections.singletonList(map6);
+		Assert.assertEquals(expected6, result6);
+
+		// `int_test` = 1 or `str_test` = 'str1'
+		// This is not supported for now, return an empty list as result.
+		List<Map<String, Set<String>>> result7 =
+			HtapTableUtils.extractPartitionPredicates(Collections.singletonList(INT_STR_OR_EXPRESSION));
+		List<Map<String, Set<String>>> expected7 = Collections.emptyList();
+		Assert.assertEquals(expected7, result7);
+
+		// `int_test` = 1 or (`int_test` = 2 and `str_test` = 'str1')
+		// This is not supported for now, return an empty list as result.
+		List<Map<String, Set<String>>> result8 =
+			HtapTableUtils.extractPartitionPredicates(Collections.singletonList(INT_STR_MIXED_EXPRESSION));
+		List<Map<String, Set<String>>> expected8 = Collections.emptyList();
+		Assert.assertEquals(expected8, result8);
 	}
 }

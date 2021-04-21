@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.htap.table.utils;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connectors.htap.connector.HtapFilterInfo;
 import org.apache.flink.connectors.htap.connector.HtapTableInfo;
 import org.apache.flink.table.api.TableSchema;
@@ -28,6 +29,7 @@ import org.apache.flink.table.expressions.ValueLiteralExpression;
 import org.apache.flink.table.functions.BuiltInFunctionDefinitions;
 import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.util.Preconditions;
 
 import com.bytedance.htap.meta.ColumnSchema;
 import com.bytedance.htap.meta.Schema;
@@ -36,7 +38,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -263,5 +267,176 @@ public class HtapTableUtils {
 			}
 		}
 		return Optional.empty();
+	}
+
+	/**
+	 * Parse partition predicates from partition expressions.
+	 * We only support that each expression contains one partition key with 'or', 'in', 'equals'
+	 * expression. Correspondingly, we only support some kind of calc：
+	 * - different partition key expression linked by 'and'.
+	 * - the expression for each partition key must be 'equals' or 'in' or linked then with 'or'.
+	 *
+	 * <p>There are some examples:
+	 * - partition1 = xx and partition2 = xx and ...
+	 * - partition1 in (xx, xx ...) and partition2 in (xx, xx ...) and ...
+	 * - (partition1 = xx or partition1 = xx) and partition2 in (xx, xx ...) and ...
+	 *
+	 * @param expressions each expression in expressions is in And logical.
+	 *
+	 * @return partition predicates or empty list if extract failed.
+	 * Struct of returned result(List&ltMap$ltString, Set&ltString&gt&t&gt):
+	 * - Each map in List is in Or logical: map1 or map2 or map3. We only return single map for now.
+	 * - Each key in map is field name of a partition.
+	 * - Values in map represent value space of the corresponding key.
+	 *
+	 * For example [{"id": [1,2,3], "name": ["a"]}, {"id": [4]}] means
+	 * (id in (1,2,3) and name = 'a') or (id = 4).
+	 *
+	 * */
+	public static List<Map<String, Set<String>>> extractPartitionPredicates(
+			List<Expression> expressions) {
+		Map<String, Set<String>> multiPartitionPredicates = new HashMap<>();
+		for (Expression expression : expressions) {
+			Optional<Tuple2<String, Set<String>>> predicate =
+				extractPartitionPredicate(expression);
+			if (!predicate.isPresent()) {
+				return Collections.emptyList();
+			}
+			String partitionName = predicate.get().f0;
+			Set<String> values = predicate.get().f1;
+			multiPartitionPredicates.put(partitionName, values);
+		}
+		return Collections.singletonList(multiPartitionPredicates);
+	}
+
+	/**
+	 * Extract partition predicate of single partition key from an expression.
+	 * */
+	private static Optional<Tuple2<String, Set<String>>> extractPartitionPredicate(
+			Expression expression) {
+		if (isOrExpression(expression)) {
+			return parsePartitionPredicatesFromOr(expression);
+		} else if (isEqualsExpression(expression)) {
+			return extractPartitionPredicateFromEquals(expression);
+		} else if (isInExpression(expression)) {
+			return extractPartitionPredicateFromIn(expression);
+		}
+		return Optional.empty();
+	}
+
+	/**
+	 * Extract partition predicate of single partition key from 'equals' expression.
+	 * */
+	private static Optional<Tuple2<String, Set<String>>> extractPartitionPredicateFromEquals(
+			Expression expression) {
+		List<Expression> children = expression.getChildren();
+		Preconditions.checkState(children.size() == 2,
+			"Children size of Equals Expression must be equal to 2.");
+		FieldReferenceExpression fieldReferenceExpression = null;
+		ValueLiteralExpression valueLiteralExpression = null;
+		if (isValueLiteralExpression(children.get(0))) {
+			fieldReferenceExpression = getFieldReferenceExpression(children.get(1)).orElse(null);
+			valueLiteralExpression = (ValueLiteralExpression) children.get(0);
+		} else if (isValueLiteralExpression(children.get(1))) {
+			fieldReferenceExpression = getFieldReferenceExpression(children.get(0)).orElse(null);
+			valueLiteralExpression = (ValueLiteralExpression) children.get(1);
+		}
+		if (fieldReferenceExpression == null) {
+			return Optional.empty();
+		}
+		String fieldName = fieldReferenceExpression.getName();
+		Object value = extractValueLiteral(fieldReferenceExpression, valueLiteralExpression);
+		return Optional.of(Tuple2.of(fieldName, Collections.singleton(value.toString())));
+	}
+
+	/**
+	 * Extract partition predicate of single partition key from 'in' expression.
+	 * */
+	private static Optional<Tuple2<String, Set<String>>> extractPartitionPredicateFromIn(
+			Expression expression) {
+		List<Expression> children = expression.getChildren();
+		Preconditions.checkState(children.size() >= 2,
+			"Children size of IN Expression must be greater than or equal to 2.");
+
+		Set<String> values = new HashSet<>();
+		FieldReferenceExpression fieldReferenceExpression =
+			(FieldReferenceExpression) children.get(0);
+		String fieldName = fieldReferenceExpression.getName();
+		for (int i = 1; i < children.size(); i++) {
+			Expression expr = children.get(i);
+			if (expr instanceof ValueLiteralExpression) {
+				Object value =
+					extractValueLiteral(fieldReferenceExpression, (ValueLiteralExpression) expr);
+				values.add(value.toString());
+			} else {
+				return Optional.empty();
+			}
+		}
+		return Optional.of(Tuple2.of(fieldName, values));
+	}
+
+	/**
+	 * Extract partition predicate of single partition key from 'or' expression.
+	 * */
+	private static Optional<Tuple2<String, Set<String>>> parsePartitionPredicatesFromOr(
+			Expression expression) {
+		List<Expression> children = expression.getChildren();
+
+		String fieldName = null;
+		Set<String> values = new HashSet<>();
+		for (Expression expr : children) {
+			Optional<Tuple2<String, Set<String>>> optionalPredicates =
+				parsePartitionPredicatesFromEqualsOr(expr);
+			if (!optionalPredicates.isPresent()) {
+				return Optional.empty();
+			}
+			Tuple2<String, Set<String>> predicates = optionalPredicates.get();
+			if (fieldName == null) {
+				fieldName = predicates.f0;
+			} else if (!fieldName.equals(predicates.f0)) {
+				// we only handle predicates with the same partition key in this method.
+				return Optional.empty();
+			}
+			values.addAll(predicates.f1);
+		}
+		return Optional.of(Tuple2.of(fieldName, values));
+	}
+
+	/**
+	 * Extract partition predicate of single partition key from 'equals'/'or' expression.
+	 * */
+	private static Optional<Tuple2<String, Set<String>>> parsePartitionPredicatesFromEqualsOr(
+			Expression expression) {
+		if (isEqualsExpression(expression)) {
+			return extractPartitionPredicateFromEquals(expression);
+		} else if (isOrExpression(expression)) {
+			return parsePartitionPredicatesFromOr(expression);
+		} else {
+			return Optional.empty();
+		}
+	}
+
+	private static boolean isOrExpression(Expression expression) {
+		if (expression instanceof CallExpression) {
+			FunctionDefinition definition = ((CallExpression) expression).getFunctionDefinition();
+			return BuiltInFunctionDefinitions.OR.equals(definition);
+		}
+		return false;
+	}
+
+	private static boolean isEqualsExpression(Expression expression) {
+		if (expression instanceof CallExpression) {
+			FunctionDefinition definition = ((CallExpression) expression).getFunctionDefinition();
+			return BuiltInFunctionDefinitions.EQUALS.equals(definition);
+		}
+		return false;
+	}
+
+	private static boolean isInExpression(Expression expression) {
+		if (expression instanceof CallExpression) {
+			FunctionDefinition definition = ((CallExpression) expression).getFunctionDefinition();
+			return BuiltInFunctionDefinitions.IN.equals(definition);
+		}
+		return false;
 	}
 }

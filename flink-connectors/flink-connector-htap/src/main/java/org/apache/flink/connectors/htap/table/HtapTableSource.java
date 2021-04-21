@@ -38,6 +38,7 @@ import org.apache.flink.table.functions.FunctionDefinition;
 import org.apache.flink.table.sources.AggregatableTableSource;
 import org.apache.flink.table.sources.FilterableTableSource;
 import org.apache.flink.table.sources.LimitableTableSource;
+import org.apache.flink.table.sources.PartitionableTableSource;
 import org.apache.flink.table.sources.ProjectableTableSource;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.sources.TableSource;
@@ -59,10 +60,14 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.connectors.htap.table.utils.HtapTableUtils.toHtapFilterInfo;
 
@@ -72,7 +77,8 @@ import static org.apache.flink.connectors.htap.table.utils.HtapTableUtils.toHtap
 public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSource<Row>,
 		ProjectableTableSource<Row>,
 		FilterableTableSource<Row>,
-		AggregatableTableSource<Row> {
+		AggregatableTableSource<Row>,
+		PartitionableTableSource {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapTableSource.class);
 
@@ -87,11 +93,13 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 	private String[] groupByFields;
 	private List<HtapAggregateInfo> aggregates;
 	private List<FlinkAggregateFunction> aggregateFunctions;
+	private Set<Integer> pushedDownPartitions;
 	private DataType outputDataType;
 	private boolean isAggregatePushedDown = false;
 	private String[] projectedFields;
 	private boolean isFilterPushedDown = false;
 	private boolean isLimitPushedDown = false;
+	private boolean partitionPruned = false;
 	private long limit = -1;
 
 	public HtapTableSource(
@@ -121,7 +129,9 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			List<FlinkAggregateFunction> aggregateFunctions,
 			DataType outputDataType,
 			boolean isLimitPushedDown,
-			long limit) {
+			long limit,
+			Set<Integer> pushedDownPartitions,
+			boolean partitionPruned) {
 		this.readerConfig = readerConfig;
 		this.tableInfo = tableInfo;
 		this.flinkSchema = flinkSchema;
@@ -141,6 +151,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		}
 		this.isLimitPushedDown = isLimitPushedDown;
 		this.limit = limit;
+		this.pushedDownPartitions = pushedDownPartitions;
+		this.partitionPruned = partitionPruned;
 	}
 
 	@Override
@@ -165,7 +177,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			groupByFields == null ? Collections.emptyList() : Lists.newArrayList(groupByFields),
 			aggregateFunctions == null ? Collections.emptyList() : aggregateFunctions,
 			outputDataType,
-			limit);
+			limit,
+			pushedDownPartitions);
 		int parallelism = flinkConf.get(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM);
 		if (flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM)) {
 			int max = flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX);
@@ -231,7 +244,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		LOG.info("HtapTableSource[{}] apply limit: {}", tableInfo.getName(), limit);
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, predicates, projectedFields, groupByFields, aggregates,
-			aggregateFunctions, outputDataType, true, limit);
+			aggregateFunctions, outputDataType, true, limit, pushedDownPartitions, partitionPruned);
 	}
 
 	@Override
@@ -239,7 +252,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		String[] fieldNames = getColumnNamesByIndexList(ints);
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, predicates, fieldNames, groupByFields, aggregates, aggregateFunctions,
-			outputDataType, isLimitPushedDown, limit);
+			outputDataType, isLimitPushedDown, limit, pushedDownPartitions, partitionPruned);
 	}
 
 	@Override
@@ -269,7 +282,7 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, htapPredicates, projectedFields, groupByFields, aggregates, aggregateFunctions,
-			outputDataType, isLimitPushedDown, limit);
+			outputDataType, isLimitPushedDown, limit, pushedDownPartitions, partitionPruned);
 	}
 
 	@Override
@@ -298,12 +311,47 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		}
 		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
 			tablePath, predicates, projectedFields, groupByFields, aggregates, validAggFunctions,
-			aggOutputDataType, isLimitPushedDown, limit);
+			aggOutputDataType, isLimitPushedDown, limit, pushedDownPartitions, partitionPruned);
 	}
 
 	@Override
 	public boolean isAggregatePushedDown() {
 		return isAggregatePushedDown;
+	}
+
+	@Override
+	public List<Map<String, String>> getPartitions() {
+		throw new UnsupportedOperationException(
+			"Please use Catalog API to retrieve all partitions of a table");
+	}
+
+	/**
+	 * Htap table do not support partial partition predicates. So we re-organized the
+	 * remainingPartitions in the listed form:
+	 * - Each map in remainingPartitions represent one partition.
+	 * - Each map only contains single key and it is a fake key, and the corresponding value
+	 * is the partition id (for example: [{"fake_partition_key": "1"}, {"fake_partition_key": "2"}]).
+	 * */
+	@Override
+	public TableSource<Row> applyPartitionPruning(List<Map<String, String>> remainingPartitions) {
+		Set<Integer> partitions = remainingPartitions.stream()
+			.map(Map::values)
+			.flatMap(Collection::stream)
+			.map(Integer::parseInt)
+			.collect(Collectors.toSet());
+		return new HtapTableSource(readerConfig, tableInfo, flinkSchema, flinkConf,
+			tablePath, predicates, projectedFields, groupByFields, aggregates, aggregateFunctions,
+			outputDataType, isLimitPushedDown, limit, partitions, true);
+	}
+
+	@Override
+	public boolean retainAppliedPartitionPredicates() {
+		return true;
+	}
+
+	@Override
+	public boolean isPartitionPruned() {
+		return partitionPruned;
 	}
 
 	@Override
@@ -314,9 +362,11 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			", limit=" + limit +
 			", isLimitPushedDown=" + isLimitPushedDown +
 			", isAggregatePushedDown=" + isAggregatePushedDown +
+			", partitionPruned=" + partitionPruned +
 			(groupByFields != null ? ", groupByFields=" + Arrays.toString(groupByFields) : "") +
 			(aggregates != null ? ", aggregates=" + aggregates : "") +
 			(aggregateFunctions != null ? ", aggregateFunctions=" + aggregateFunctions : "") +
+			(pushedDownPartitions != null ? ", pushedDownPartitions=" + pushedDownPartitions : "") +
 			(outputDataType != null ? ", outputDataType=" + outputDataType : "") +
 			(projectedFields != null ? ", projectFields=" + Arrays.toString(projectedFields) + "]" : "]");
 

@@ -41,6 +41,7 @@ import org.apache.flink.table.catalog.stats.CatalogTableStatistics;
 import org.apache.flink.table.catalog.stats.GenericCatalogColumnStatisticsData;
 import org.apache.flink.table.expressions.Expression;
 import org.apache.flink.table.factories.TableFactory;
+import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
 
 import com.bytedance.htap.client.HtapMetaClient;
@@ -58,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP;
 import static org.apache.flink.table.descriptors.ConnectorDescriptorValidator.CONNECTOR_TYPE;
@@ -78,6 +80,7 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 
 	public static final String DEFAULT_DB = "default";
 	private static final Logger LOG = LoggerFactory.getLogger(HtapCatalog.class);
+	private static final String FAKE_PARTITION_KEY = "fake_partition_key";
 
 	private final String htapMetaHost;
 	private final int htapMetaPort;
@@ -212,11 +215,11 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 
 		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
 		HtapTable htapTable = getHtapTable(htapTableName);
-		CatalogTableImpl table = new CatalogTableImpl(
+		return new CatalogTableImpl(
 			HtapTableUtils.htapToFlinkSchema(htapTable.getSchema()),
+			htapTable.getPartitionKeys(),
 			createTableProperties(htapTableName),
 			htapTableName);
-		return table;
 	}
 
 	protected Map<String, String> createTableProperties(String tableName) {
@@ -246,12 +249,12 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		try {
 			HtapTableStatistics htapTableStatistics =
 				metaClient.getTableStatistics(htapTableName);
+			LOG.info("Table stats of table '{}' get from meta service is {}", htapTableName,
+				htapTableStatistics);
 			// no stats available
 			if (htapTableStatistics == null) {
 				return CatalogTableStatistics.UNKNOWN;
 			}
-			LOG.info("Table stats of table '{}' get from meta service is {}", htapTableName,
-					htapTableStatistics.toString());
 			return createCatalogTableStatistics(htapTableStatistics);
 		} catch (MetadataServiceException e) {
 			throw new CatalogException(
@@ -375,8 +378,33 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			ObjectPath tablePath,
 			CatalogPartitionSpec partitionSpec)
 			throws PartitionNotExistException, CatalogException {
-		// not support yet
-		return CatalogTableStatistics.UNKNOWN;
+
+		// Htap dose not support partition stats for now, we divided table stats into
+		// partitionCount pieces and use it to estimate the partition stats.
+		try {
+			CatalogTableStatistics tableStatistics = getTableStatistics(tablePath);
+			int partitionCount = getPartitionCount(tablePath);
+			Preconditions.checkState(partitionCount > 0,
+				"partition count must be large than 0, But get " + partitionCount);
+
+			if (tableStatistics == CatalogTableStatistics.UNKNOWN) {
+				return CatalogTableStatistics.UNKNOWN;
+			}
+
+			return new CatalogTableStatistics(
+				tableStatistics.getRowCount() / partitionCount,
+				tableStatistics.getFileCount() / partitionCount,
+				tableStatistics.getTotalSize() / partitionCount,
+				tableStatistics.getRawDataSize() / partitionCount,
+				tableStatistics.getProperties());
+		} catch (TableNotExistException e) {
+			throw new CatalogException(e);
+		}
+	}
+
+	private int getPartitionCount(ObjectPath tablePath) {
+		HtapTable htapTable = getHtapTable(tablePath);
+		return htapTable.getPartitions().size();
 	}
 
 	@Override
@@ -558,11 +586,41 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 		return Collections.emptyList();
 	}
 
+	/**
+	 * Htap table do not support partial partition predicates. So we re-organized the
+	 * result in the listed form:
+	 * - Each CatalogPartitionSpec in represent one partition.
+	 * - Each map in CatalogPartitionSpec only contains single key and it is a fake key,
+	 * and the corresponding value is the partition id
+	 * (for example: [{"fake_partition_key": "1"}, {"fake_partition_key": "2"}]).
+	 * */
 	@Override
 	public List<CatalogPartitionSpec> listPartitionsByFilter(
 			ObjectPath tablePath,
 			List<Expression> filters) throws CatalogException {
-		return Collections.emptyList();
+		List<Map<String, Set<String>>> partitionPredicates =
+			HtapTableUtils.extractPartitionPredicates(filters);
+
+		String htapTableName = HtapTableUtils.convertToHtapTableName(tablePath);
+		Set<Integer> partitions;
+		try {
+			partitions =
+				metaClient.listPartitionsByFilter(htapTableName, partitionPredicates, -1);
+			LOG.debug("List partitions for table: {} with filter: {}, and partitionPredicates " +
+					"is: {}. Get result: {}", tablePath, filters, partitionPredicates, partitions);
+		} catch (Exception e) {
+			throw new CatalogException(e);
+		}
+
+		List<CatalogPartitionSpec> partitionSpecs = new ArrayList<>();
+
+		for (Integer partitionId : partitions) {
+			CatalogPartitionSpec catalogPartitionSpec = new CatalogPartitionSpec(
+				Collections.singletonMap(FAKE_PARTITION_KEY, partitionId.toString()));
+			partitionSpecs.add(catalogPartitionSpec);
+		}
+
+		return partitionSpecs;
 	}
 
 	@Override
