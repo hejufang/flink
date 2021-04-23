@@ -47,6 +47,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_INTERVAL_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_HANDLER_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USERNAME_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USER_DEFINED_PARAMS;
 
@@ -99,6 +100,11 @@ class ElasticsearchConfiguration {
 							userDefinedConfigs.put(USER_DEFINED_PARAMS.key(), params);
 							for (FallbackKey legacyKey : USER_DEFINED_PARAMS.fallbackKeys()) {
 								userDefinedConfigs.put(legacyKey.getKey(), params);
+							}
+
+							String uri = config.get(URI);
+							if (uri != null) {
+								userDefinedConfigs.put("connector.uri", uri);
 							}
 						}
 						return (ActionRequestFailureHandler) constructor.newInstance(userDefinedConfigs);
