@@ -37,16 +37,16 @@ public class HtapMetaUtils {
 	 * Get the htap meta client base on instanceId. Each instance holds a MetaClient.
 	 */
 	public static synchronized HtapMetaClient getMetaClient(
-			String host,
-			int port,
+			String region,
+			String cluster,
 			String instanceId) {
 		if (!metaClients.containsKey(instanceId)) {
 			try {
-				metaClients.put(instanceId, new HtapMetaClient(host, port, instanceId));
+				metaClients.put(instanceId, new HtapMetaClient(region, cluster, instanceId));
 			} catch (Exception e) {
 				throw new CatalogException(
-						String.format("failed to create htap client for instance[%s, %s, %d]",
-								instanceId, host, port),
+						String.format("failed to create htap client for instance[%s, %s, %s]",
+								instanceId, region, cluster),
 						e);
 			}
 		}

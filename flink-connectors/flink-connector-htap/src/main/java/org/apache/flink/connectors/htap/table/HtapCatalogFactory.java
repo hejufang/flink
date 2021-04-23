@@ -37,9 +37,9 @@ import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTES
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_BYTESTORE_LOGPATH;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_INSTANCE_ID;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_LOGSTORE_LOGDIR;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_CLUSTER;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_DB;
-import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_HOST;
-import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_PORT;
+import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_META_REGION;
 import static org.apache.flink.connectors.htap.table.HtapTableFactory.HTAP_PAGESTORE_LOGDIR;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ASYNC_RELOAD;
 import static org.apache.flink.table.descriptors.CatalogDescriptorValidator.CATALOG_CACHE_ENABLE;
@@ -73,8 +73,8 @@ public class HtapCatalogFactory implements CatalogFactory {
 	@Override
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
-		properties.add(HTAP_META_HOST);
-		properties.add(HTAP_META_PORT);
+		properties.add(HTAP_META_REGION);
+		properties.add(HTAP_META_CLUSTER);
 		properties.add(HTAP_META_DB);
 		properties.add(HTAP_INSTANCE_ID);
 		properties.add(HTAP_BYTESTORE_LOGPATH);
@@ -103,8 +103,8 @@ public class HtapCatalogFactory implements CatalogFactory {
 		HtapCatalog htapCatalog = new HtapCatalog(
 			name,
 			defaultDatabase,
-			descriptorProperties.getString(HTAP_META_HOST),
-			descriptorProperties.getInt(HTAP_META_PORT),
+			descriptorProperties.getString(HTAP_META_REGION),
+			descriptorProperties.getString(HTAP_META_CLUSTER),
 			descriptorProperties.getString(HTAP_INSTANCE_ID),
 			descriptorProperties.getString(HTAP_BYTESTORE_LOGPATH),
 			descriptorProperties.getString(HTAP_BYTESTORE_DATAPATH),
@@ -134,8 +134,8 @@ public class HtapCatalogFactory implements CatalogFactory {
 	private DescriptorProperties getValidatedProperties(Map<String, String> properties) {
 		final DescriptorProperties descriptorProperties = new DescriptorProperties(true);
 		descriptorProperties.putProperties(properties);
-		descriptorProperties.validateString(HTAP_META_HOST, false);
-		descriptorProperties.validateInt(HTAP_META_PORT, false);
+		descriptorProperties.validateString(HTAP_META_REGION, false);
+		descriptorProperties.validateString(HTAP_META_CLUSTER, false);
 		descriptorProperties.validateString(HTAP_META_DB, false);
 		descriptorProperties.validateString(HTAP_INSTANCE_ID, false);
 		descriptorProperties.validateString(HTAP_BYTESTORE_LOGPATH, false);

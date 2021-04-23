@@ -34,8 +34,8 @@ public class HtapReaderConfig implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	private final String metaHost;
-	private final int metaPort;
+	private final String metaSvcRegion;
+	private final String metaSvcCluster;
 	private final String instanceId;
 
 	private final String byteStoreLogPath;
@@ -47,8 +47,8 @@ public class HtapReaderConfig implements Serializable {
 	private final long checkPointLSN;
 
 	public HtapReaderConfig(
-			String metaHost,
-			int metaPort,
+			String metaSvcRegion,
+			String metaSvcCluster,
 			String instanceId,
 			String byteStoreLogPath,
 			String byteStoreDataPath,
@@ -56,8 +56,8 @@ public class HtapReaderConfig implements Serializable {
 			String pageStoreLogDir,
 			int batchSizeBytes,
 			long checkPointLSN) {
-		this.metaHost = checkNotNull(metaHost, "Htap meta host cannot be null");
-		this.metaPort = checkNotNull(metaPort, "Htap meta port cannot be null");
+		this.metaSvcRegion = checkNotNull(metaSvcRegion, "Htap MetaService region cannot be null");
+		this.metaSvcCluster = checkNotNull(metaSvcCluster, "Htap MetaService cluster cannot be null");
 		this.instanceId = checkNotNull(instanceId, "Htap instanceId cannot be null");
 		this.byteStoreLogPath = checkNotNull(byteStoreLogPath, "ByteStore LogPath cannot be null");
 		this.byteStoreDataPath = checkNotNull(byteStoreDataPath, "ByteStore DataPath cannot be null");
@@ -67,12 +67,12 @@ public class HtapReaderConfig implements Serializable {
 		this.checkPointLSN = checkNotNull(checkPointLSN, "CheckPointLSN cannot be null");
 	}
 
-	public String getMetaHosts() {
-		return metaHost;
+	public String getMetaSvcRegion() {
+		return metaSvcRegion;
 	}
 
-	public int getMetaPort() {
-		return metaPort;
+	public String getMetaSvcCluster() {
+		return metaSvcCluster;
 	}
 
 	public String getInstanceId() {
@@ -106,8 +106,8 @@ public class HtapReaderConfig implements Serializable {
 	@Override
 	public String toString() {
 		return new ToStringBuilder(this)
-				.append("metaHost", metaHost)
-				.append("metaPort", metaPort)
+				.append("meta service region", metaSvcRegion)
+				.append("meta service cluster", metaSvcCluster)
 				.append("instanceId", instanceId)
 				.append("byteStoreLogPath", byteStoreLogPath)
 				.append("byteStoreDataPath", byteStoreDataPath)

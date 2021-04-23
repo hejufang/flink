@@ -63,8 +63,8 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 
 	public static final String HTAP = "htap";
 	public static final String HTAP_TABLE = "htap.table";
-	public static final String HTAP_META_HOST = "htap.meta-host";
-	public static final String HTAP_META_PORT = "htap.meta-port";
+	public static final String HTAP_META_REGION = "htap.meta-region";
+	public static final String HTAP_META_CLUSTER = "htap.meta-cluster";
 	public static final String HTAP_META_DB = "htap.db-name";
 	public static final String HTAP_INSTANCE_ID = "htap.instance-id";
 	public static final String HTAP_BYTESTORE_LOGPATH = "htap.bytestore-logpath";
@@ -92,8 +92,8 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	public List<String> supportedProperties() {
 		List<String> properties = new ArrayList<>();
 		properties.add(HTAP_TABLE);
-		properties.add(HTAP_META_HOST);
-		properties.add(HTAP_META_PORT);
+		properties.add(HTAP_META_REGION);
+		properties.add(HTAP_META_CLUSTER);
 		properties.add(HTAP_INSTANCE_ID);
 		properties.add(HTAP_BYTESTORE_LOGPATH);
 		properties.add(HTAP_BYTESTORE_DATAPATH);
@@ -124,8 +124,8 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 	}
 
 	private DescriptorProperties getValidatedProps(Map<String, String> properties) {
-		checkNotNull(properties.get(HTAP_META_HOST), "Missing required property " + HTAP_META_HOST);
-		checkNotNull(properties.get(HTAP_META_PORT), "Missing required property " + HTAP_META_PORT);
+		checkNotNull(properties.get(HTAP_META_REGION), "Missing required property " + HTAP_META_REGION);
+		checkNotNull(properties.get(HTAP_META_CLUSTER), "Missing required property " + HTAP_META_CLUSTER);
 		checkNotNull(properties.get(HTAP_INSTANCE_ID), "Missing required property " + HTAP_INSTANCE_ID);
 		checkNotNull(properties.get(HTAP_BYTESTORE_LOGPATH), "Missing required property " + HTAP_BYTESTORE_LOGPATH);
 		checkNotNull(properties.get(HTAP_BYTESTORE_DATAPATH), "Missing required property " + HTAP_BYTESTORE_DATAPATH);
@@ -147,8 +147,8 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		Map<String, String> options = table.getOptions();
 		TableSchema schema = table.getSchema();
 
-		String metaHost = options.get(HTAP_META_HOST);
-		int metaPort = Integer.parseInt(options.get(HTAP_META_PORT));
+		String metaSvcRegion = options.get(HTAP_META_REGION);
+		String metaSvcCluster = options.get(HTAP_META_CLUSTER);
 		String instanceId = options.get(HTAP_INSTANCE_ID);
 		String byteStoreLogPath = options.get(HTAP_BYTESTORE_LOGPATH);
 		String byteStoreDataPath = options.get(HTAP_BYTESTORE_DATAPATH);
@@ -157,7 +157,7 @@ public class HtapTableFactory implements TableSourceFactory<Row> {
 		int batchSizeBytes = Integer.parseInt(options.get(HTAP_BATCH_SIZE_BYTES));
 		String tableName = HtapTableUtils.convertToHtapTableName(tablePath);
 		HtapTableInfo tableInfo = HtapTableUtils.createTableInfo(tableName, schema, options);
-		HtapReaderConfig readerConfig = new HtapReaderConfig(metaHost, metaPort, instanceId,
+		HtapReaderConfig readerConfig = new HtapReaderConfig(metaSvcRegion, metaSvcCluster, instanceId,
 			byteStoreLogPath, byteStoreDataPath, logStoreLogDir,
 			pageStoreLogDir, batchSizeBytes, checkPointLSN);
 		return new HtapTableSource(readerConfig, tableInfo, schema, flinkConf, tablePath);

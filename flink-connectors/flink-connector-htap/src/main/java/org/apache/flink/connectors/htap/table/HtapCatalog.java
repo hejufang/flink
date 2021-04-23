@@ -82,8 +82,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	private static final Logger LOG = LoggerFactory.getLogger(HtapCatalog.class);
 	private static final String FAKE_PARTITION_KEY = "fake_partition_key";
 
-	private final String htapMetaHost;
-	private final int htapMetaPort;
+	private final String metaSvcRegion;
+	private final String metaSvcCluster;
 	private final String instanceId;
 	private final HtapMetaClient metaClient;
 
@@ -101,8 +101,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	public HtapCatalog(
 			String catalogName,
 			String db,
-			String htapMetaHost,
-			int htapMetaPort,
+			String metaSvcRegion,
+			String metaSvcCluster,
 			String instanceId,
 			String byteStoreLogPath,
 			String byteStoreDataPath,
@@ -110,28 +110,28 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 			String pageStoreLogDir,
 			int batchSizeBytes) throws CatalogException {
 		super(catalogName, db);
-		this.htapMetaHost = htapMetaHost;
-		this.htapMetaPort = htapMetaPort;
+		this.metaSvcRegion = metaSvcRegion;
+		this.metaSvcCluster = metaSvcCluster;
 		this.instanceId = instanceId;
 		this.byteStoreLogPath = byteStoreLogPath;
 		this.byteStoreDataPath = byteStoreDataPath;
 		this.logStoreLogDir = logStoreLogDir;
 		this.pageStoreLogDir = pageStoreLogDir;
 		this.batchSizeBytes = batchSizeBytes;
-		this.metaClient = HtapMetaUtils.getMetaClient(htapMetaHost, htapMetaPort, instanceId);
+		this.metaClient = HtapMetaUtils.getMetaClient(metaSvcRegion, metaSvcCluster, instanceId);
 	}
 
 	public HtapCatalog(
 			String db,
-			String htapMetaHost,
-			int htapMetaPort,
+			String metaSvcRegion,
+			String metaSvcCluster,
 			String instanceId,
 			String byteStoreLogPath,
 			String byteStoreDataPath,
 			String logStoreLogDir,
 			String pageStoreLogDir,
 			int batchSizeBytes) {
-		this(HTAP, db, htapMetaHost, htapMetaPort, instanceId, byteStoreLogPath,
+		this(HTAP, db, metaSvcRegion, metaSvcCluster, instanceId, byteStoreLogPath,
 			logStoreLogDir, byteStoreDataPath, pageStoreLogDir, batchSizeBytes);
 	}
 
@@ -225,8 +225,8 @@ public class HtapCatalog extends AbstractReadOnlyCatalog {
 	protected Map<String, String> createTableProperties(String tableName) {
 		Map<String, String> props = new HashMap<>();
 		props.put(CONNECTOR_TYPE, HTAP);
-		props.put(HtapTableFactory.HTAP_META_HOST, htapMetaHost);
-		props.put(HtapTableFactory.HTAP_META_PORT, String.valueOf(htapMetaPort));
+		props.put(HtapTableFactory.HTAP_META_REGION, metaSvcRegion);
+		props.put(HtapTableFactory.HTAP_META_CLUSTER, metaSvcCluster);
 		props.put(HtapTableFactory.HTAP_INSTANCE_ID, instanceId);
 		props.put(HtapTableFactory.HTAP_BYTESTORE_LOGPATH, byteStoreLogPath);
 		props.put(HtapTableFactory.HTAP_BYTESTORE_DATAPATH, byteStoreDataPath);
