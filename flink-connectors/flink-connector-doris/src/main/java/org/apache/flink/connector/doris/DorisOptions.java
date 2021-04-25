@@ -70,6 +70,7 @@ public class DorisOptions implements Serializable {
 	private final int parallelism;
 	private final String sequenceColumn;
 	private final int timeoutMs;
+	private final String fieldMapping;
 
 	private DorisOptions(
 			List<Pair<String, Integer>> dorisFEList,
@@ -94,7 +95,8 @@ public class DorisOptions implements Serializable {
 			int feUpdateIntervalMs,
 			int parallelism,
 			String sequenceColumn,
-			int timeoutMs) {
+			int timeoutMs,
+			String fieldMapping) {
 		this.dorisFEList = dorisFEList;
 		this.cluster = cluster;
 		this.dataCenter = dataCenter;
@@ -118,6 +120,7 @@ public class DorisOptions implements Serializable {
 		this.parallelism = parallelism;
 		this.sequenceColumn = sequenceColumn;
 		this.timeoutMs = timeoutMs;
+		this.fieldMapping = fieldMapping;
 	}
 
 	public List<Pair<String, Integer>> getDorisFEList() {
@@ -212,6 +215,10 @@ public class DorisOptions implements Serializable {
 		return timeoutMs;
 	}
 
+	public String getFieldMapping() {
+		return fieldMapping;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -244,6 +251,7 @@ public class DorisOptions implements Serializable {
 		private int parallelism = 1;
 		private String sequenceColumn;
 		private int timeoutMs = TIMEOUT_MS_DEFAULT;
+		private String fieldMapping;
 
 		private Builder() {
 		}
@@ -363,6 +371,10 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
+		public void setFieldMapping(String fieldMapping) {
+			this.fieldMapping = fieldMapping;
+		}
+
 		public DorisOptions build() {
 			// There are two ways to get connection, through DORIS_FE_LIST or DORIS_FE_PSM + DATA_CENTER,
 			// and the second way has higher priority if they are both set.
@@ -408,7 +420,8 @@ public class DorisOptions implements Serializable {
 				feUpdateIntervalMs,
 				parallelism,
 				sequenceColumn,
-				timeoutMs);
+				timeoutMs,
+				fieldMapping);
 		}
 	}
 }

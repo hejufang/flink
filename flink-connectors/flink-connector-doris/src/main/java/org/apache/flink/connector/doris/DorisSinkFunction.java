@@ -72,7 +72,8 @@ public class DorisSinkFunction
 			.setSendMaxRetryNum(dorisOptions.getMaxRetryNum())
 			.setUpdateInterval(dorisOptions.getFeUpdateIntervalMs())
 			.setSequenceColumn(dorisOptions.getSequenceColumn())
-			.setTimeoutInMills(dorisOptions.getTimeoutMs());
+			.setTimeoutInMills(dorisOptions.getTimeoutMs())
+			.setFieldMapping(dorisOptions.getFieldMapping());
 		dorisClient = new DorisClient(clientConfig);
 		dorisClient.open();
 	}

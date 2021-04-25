@@ -46,6 +46,7 @@ import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_DB_NAM
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_DORIS_FE_LIST;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_DORIS_FE_PSM;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_FE_UPDATE_INTERVAL_MS;
+import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_FIELD_MAPPING;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_KEYS;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_MAX_BYTES_PER_BATCH;
 import static org.apache.flink.table.descriptors.DorisValidator.CONNECTOR_MAX_FILTER_RATIO;
@@ -103,6 +104,7 @@ public class DorisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 		properties.add(CONNECTOR_PARALLELISM);
 		properties.add(CONNECTOR_SEQUENCE_COLUMN);
 		properties.add(CONNECTOR_TIMEOUT_MS);
+		properties.add(CONNECTOR_FIELD_MAPPING);
 
 		// schema
 		properties.add(SCHEMA + ".#." + SCHEMA_TYPE);
@@ -184,6 +186,8 @@ public class DorisTableFactory implements StreamTableSinkFactory<Tuple2<Boolean,
 			.ifPresent(dorisOptionsBuilder::setSequenceColumn);
 		descriptorProperties.getOptionalInt(CONNECTOR_TIMEOUT_MS)
 			.ifPresent(dorisOptionsBuilder::setTimeoutMs);
+		descriptorProperties.getOptionalString(CONNECTOR_FIELD_MAPPING)
+			.ifPresent(dorisOptionsBuilder::setFieldMapping);
 
 		return dorisOptionsBuilder.build();
 	}
