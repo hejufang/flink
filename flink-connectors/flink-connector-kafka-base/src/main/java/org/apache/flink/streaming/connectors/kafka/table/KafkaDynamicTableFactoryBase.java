@@ -40,6 +40,7 @@ import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.factories.SerializationFormatFactory;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -229,6 +230,9 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		readableConfig.getOptional(FactoryUtil.PARALLELISM).ifPresent(sourceConfig::setParallelism);
 		readableConfig.getOptional(SCAN_START_IGNORE_STATE_OFFSETS).ifPresent(sourceConfig::setStartIgnoreStateOffsets);
 		readableConfig.getOptional(SCAN_FORCE_MANUAL_COMMIT_OFFSETS).ifPresent(sourceConfig::setForceManuallyCommitOffsets);
+		if (readableConfig.getOptional(SINK_PARTITIONER_FIELD).isPresent()) {
+			throw new FlinkRuntimeException("Source don't support partition-fields.");
+		}
 
 		return sourceConfig;
 	}

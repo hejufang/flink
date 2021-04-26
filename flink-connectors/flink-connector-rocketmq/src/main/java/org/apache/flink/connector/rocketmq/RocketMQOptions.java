@@ -112,6 +112,13 @@ public abstract class RocketMQOptions {
 			.defaultValue(AssignQueueStrategy.FIXED)
 			.withDescription("Optional assign queue strategy");
 
+	// TODO: Implement this
+	public static final ConfigOption<Boolean> SCAN_FORCE_AUTO_COMMIT = ConfigOptions
+			.key("scan.force-auto-commit-enabled")
+			.booleanType()
+			.noDefaultValue()
+			.withDescription("Whether force commit offset, currently it has not been implemented");
+
 	// --------------------------------------------------------------------------------------------
 	// Sink specific options
 	// --------------------------------------------------------------------------------------------
@@ -138,6 +145,20 @@ public abstract class RocketMQOptions {
 			.stringType()
 			.defaultValue(DEFAULT_TOPIC_SELECTOR)
 			.withDescription("Optional topic select field.");
+
+	// TODO: Implement this
+	public static final ConfigOption<Integer> SINK_ASYNC_MODE_ENABLED = ConfigOptions
+			.key("sink.async-mode-enabled")
+			.intType()
+			.noDefaultValue()
+			.withDescription("Whether sink use async mode, currently it has not been implemented");
+
+	// TODO: Implement this
+	public static final ConfigOption<Boolean> SINK_BATCH_FLUSH_ENABLE = ConfigOptions
+			.key("sink.batch-flush-enabled")
+			.booleanType()
+			.noDefaultValue()
+			.withDescription("Whether sink use batch flush, currently it has not been implemented");
 
 	// We don't want to depend on binlog format, so we add this constant value.
 	public static final ConfigOption<String> BINLOG_TARGET_TABLE = ConfigOptions

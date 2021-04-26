@@ -43,7 +43,10 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StringUtils;
 
 import com.bytedance.rocketmq.clientv2.message.MessageQueue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -61,8 +64,11 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.MSG_DELAY_LEVE
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.PROPERTIES_PREFIX;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_ASSIGN_QUEUE_STRATEGY;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_BROKER_QUEUE_LIST;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_FORCE_AUTO_COMMIT;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_MODE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SCAN_STARTUP_TIMESTAMP_MILLIS;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_ASYNC_MODE_ENABLED;
+import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_FLUSH_ENABLE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_BATCH_SIZE;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_DELAY_LEVEL_FIELD;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_MESSAGE_DELAY_LEVEL;
@@ -78,6 +84,7 @@ import static org.apache.flink.table.factories.FactoryUtil.SOURCE_METADATA_COLUM
 public class RocketMQDynamicTableFactory implements
 		DynamicTableSourceFactory,
 		DynamicTableSinkFactory {
+	private static final Logger LOG = LoggerFactory.getLogger(RocketMQDynamicTableFactory.class);
 
 	@Override
 	public DynamicTableSource createDynamicTableSource(Context context) {
@@ -133,6 +140,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SCAN_STARTUP_MODE);
 		options.add(SCAN_STARTUP_TIMESTAMP_MILLIS);
 		options.add(SCAN_ASSIGN_QUEUE_STRATEGY);
+		options.add(SCAN_FORCE_AUTO_COMMIT);
 		options.add(SINK_BATCH_SIZE);
 		options.add(SINK_DELAY_LEVEL_FIELD);
 		options.add(SINK_MESSAGE_DELAY_LEVEL);
@@ -140,6 +148,8 @@ public class RocketMQDynamicTableFactory implements
 		options.add(FactoryUtil.SINK_PARTITIONER_FIELD);
 		options.add(SOURCE_METADATA_COLUMNS);
 		options.add(SCAN_BROKER_QUEUE_LIST);
+		options.add(SINK_BATCH_FLUSH_ENABLE);
+		options.add(SINK_ASYNC_MODE_ENABLED);
 		options.add(FactoryUtil.PARALLELISM);
 		return options;
 	}
@@ -190,6 +200,14 @@ public class RocketMQDynamicTableFactory implements
 			if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup())) {
 				rocketMQConfig.setGroup(UUID.randomUUID().toString());
 			}
+
+			Arrays.asList(SINK_ASYNC_MODE_ENABLED, SINK_BATCH_FLUSH_ENABLE).forEach(
+				confKey ->
+					config.getOptional(SINK_ASYNC_MODE_ENABLED).ifPresent(
+						x ->
+							LOG.warn("Param {} not supported in current version.", SINK_ASYNC_MODE_ENABLED.key())
+					)
+			);
 		} else {
 			rocketMQConfig.setTopic(config.getOptional(TOPIC).orElseThrow(
 				() -> new FlinkRuntimeException(
@@ -204,6 +222,9 @@ public class RocketMQDynamicTableFactory implements
 			validateBrokerQueueList(rocketMQConfig);
 			if (StringUtils.isNullOrWhitespaceOnly(rocketMQConfig.getGroup())) {
 				throw new FlinkRuntimeException("You have to specific group when use rocketmq consumer.");
+			}
+			if (config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).isPresent()) {
+				throw new FlinkRuntimeException("Source don't support partition-fields.");
 			}
 		}
 
