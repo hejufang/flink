@@ -37,6 +37,7 @@ import java.util.Set;
 
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_SIZE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
@@ -147,6 +148,7 @@ public class LogHouseDynamicTableSinkFactory implements DynamicTableSinkFactory 
 		optional.add(CONNECT_TIMEOUT);
 		optional.add(COMPRESSOR);
 		optional.add(PARALLELISM);
+		optional.add(RATE_LIMIT_NUM);
 		return optional;
 	}
 }

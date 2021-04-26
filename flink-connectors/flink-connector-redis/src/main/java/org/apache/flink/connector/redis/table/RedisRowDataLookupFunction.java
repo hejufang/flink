@@ -18,6 +18,7 @@
 package org.apache.flink.connector.redis.table;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.connector.redis.options.RedisLookupOptions;
 import org.apache.flink.connector.redis.options.RedisOptions;
@@ -80,6 +81,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 	private final RedisLookupOptions lookupOptions;
 	private final int keyFieldIndex;
 	private final RowData.FieldGetter[] fieldGetters;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient Cache<RowData, RowData> cache;
 	private transient Meter lookupRequestPerSecond;
@@ -111,6 +113,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		} else {
 			this.stringValueConverters = null;
 		}
+		this.rateLimiter = options.getRateLimiter();
 	}
 
 	@Override
@@ -134,6 +137,9 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		jedis = RedisUtils.getJedisFromClientPool(clientPool, options.getMaxRetries());
 		if (converter != null) {
 			converter.open(RuntimeConverter.Context.create(RedisRowDataLookupFunction.class.getClassLoader()));
+		}
+		if (rateLimiter != null) {
+			rateLimiter.open(context.getRuntimeContext());
 		}
 
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
@@ -159,6 +165,9 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 
 		for (int retry = 1; retry <= lookupOptions.getMaxRetryTimes(); retry++) {
 			try {
+				if (rateLimiter != null) {
+					rateLimiter.acquire(1);
+				}
 				lookupRequestPerSecond.markEvent();
 				long startRequest = System.currentTimeMillis();
 				RowData row = null;

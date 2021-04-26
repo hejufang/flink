@@ -66,7 +66,8 @@ public class HBaseDynamicTableSink implements DynamicTableSink {
 			new RowDataToMutationConverter(hbaseTableSchema, nullStringLiteral),
 			writeOptions.getBufferFlushMaxSizeInBytes(),
 			writeOptions.getBufferFlushMaxRows(),
-			writeOptions.getBufferFlushIntervalMillis());
+			writeOptions.getBufferFlushIntervalMillis(),
+			hbaseOptions.getRateLimiter());
 		return SinkFunctionProvider.of(sinkFunction);
 	}
 

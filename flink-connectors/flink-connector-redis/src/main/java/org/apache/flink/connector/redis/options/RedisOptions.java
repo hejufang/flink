@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.redis.options;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.redis.utils.RedisValueType;
 import org.apache.flink.util.Preconditions;
 
@@ -38,6 +39,7 @@ public class RedisOptions implements Serializable {
 	private final int maxRetries;
 	private final int keyIndex;
 	private final RedisValueType redisValueType;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
 	public String getCluster() {
 		return cluster;
@@ -83,6 +85,10 @@ public class RedisOptions implements Serializable {
 		return redisValueType;
 	}
 
+	public FlinkConnectorRateLimiter getRateLimiter() {
+		return rateLimiter;
+	}
+
 	private RedisOptions(
 			String cluster,
 			String table,
@@ -94,7 +100,8 @@ public class RedisOptions implements Serializable {
 			int minIdleConnections,
 			int maxRetries,
 			int keyIndex,
-			RedisValueType redisValueType) {
+			RedisValueType redisValueType,
+			FlinkConnectorRateLimiter rateLimiter) {
 		this.cluster = cluster;
 		this.table = table;
 		this.storage = storage;
@@ -106,6 +113,7 @@ public class RedisOptions implements Serializable {
 		this.maxRetries = maxRetries;
 		this.keyIndex = keyIndex;
 		this.redisValueType = redisValueType;
+		this.rateLimiter = rateLimiter;
 	}
 
 	public static RedisOptionsBuilder builder() {
@@ -127,6 +135,7 @@ public class RedisOptions implements Serializable {
 		private int getResourceMaxRetries = 5;
 		private int keyIndex = -1;
 		private RedisValueType redisValueType = RedisValueType.GENERAL;
+		private FlinkConnectorRateLimiter rateLimiter;
 
 		private RedisOptionsBuilder() {
 		}
@@ -186,6 +195,11 @@ public class RedisOptions implements Serializable {
 			return this;
 		}
 
+		public RedisOptionsBuilder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
+			this.rateLimiter = rateLimiter;
+			return this;
+		}
+
 		public RedisOptions build() {
 			Preconditions.checkNotNull(cluster, "cluster was not supplied.");
 			Preconditions.checkNotNull(psm, "psm was not supplied.");
@@ -203,7 +217,8 @@ public class RedisOptions implements Serializable {
 				minIdleConnections,
 				getResourceMaxRetries,
 				keyIndex,
-				redisValueType);
+				redisValueType,
+				rateLimiter);
 		}
 
 		@Override

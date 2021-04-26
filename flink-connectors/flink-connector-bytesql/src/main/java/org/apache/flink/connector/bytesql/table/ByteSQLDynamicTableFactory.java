@@ -19,6 +19,8 @@
 
 package org.apache.flink.connector.bytesql.table;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLInsertOptions;
@@ -33,6 +35,7 @@ import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.utils.TableSchemaUtils;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.CONNECTION_TIMEOUT;
@@ -51,6 +54,7 @@ import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LAT
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
@@ -130,10 +134,18 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
 		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
+
+		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
 
 	private static ByteSQLOptions getByteSQLOptions(ReadableConfig configs) {
+		FlinkConnectorRateLimiter rateLimiter = null;
+		Optional<Long> rateLimitNum = configs.getOptional(RATE_LIMIT_NUM);
+		if (rateLimitNum.isPresent()) {
+			rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rateLimitNum.get());
+		}
 		return ByteSQLOptions.builder()
 			.setConsul(configs.get(CONSUL))
 			.setDatabaseName(configs.get(DATABASE))
@@ -141,6 +153,7 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 			.setUsername(configs.get(USERNAME))
 			.setPassword(configs.get(PASSWORD))
 			.setConnectionTimeout(configs.get(CONNECTION_TIMEOUT).toMillis())
+			.setRateLimiter(rateLimiter)
 			.build();
 	}
 

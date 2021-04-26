@@ -53,8 +53,6 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.PRO
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_FORCE_MANUAL_COMMIT_OFFSETS;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_MANUALLY_COMMIT_OFFSET_INTERVAL;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_PARTITION_RANGE;
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_NUM;
-import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RATE_LIMITING_UNIT;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RELATIVE_OFFSET;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.SCAN_SOURCE_SAMPLE_INTERVAL;
@@ -70,6 +68,7 @@ import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.get
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getKafkaProperties;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.getStartupOptions;
 import static org.apache.flink.streaming.connectors.kafka.table.KafkaOptions.validateTableOptions;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_PARTITIONER_FIELD;
 
 /**
@@ -183,13 +182,13 @@ public abstract class KafkaDynamicTableFactoryBase implements
 	@Override
 	public Set<ConfigOption<?>> optionalOptions() {
 		final Set<ConfigOption<?>> options = new HashSet<>();
+		options.add(RATE_LIMIT_NUM);
+
 		options.add(PROPS_GROUP_ID);
 		options.add(SCAN_STARTUP_MODE);
 		options.add(SCAN_STARTUP_SPECIFIC_OFFSETS);
 		options.add(SCAN_STARTUP_TIMESTAMP_MILLIS);
 		options.add(SCAN_PARTITION_RANGE);
-		options.add(SCAN_RATE_LIMITING_NUM);
-		options.add(SCAN_RATE_LIMITING_UNIT);
 		options.add(SCAN_SOURCE_SAMPLE_NUM);
 		options.add(SCAN_SOURCE_SAMPLE_INTERVAL);
 		options.add(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION);
@@ -215,8 +214,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			range ->
 				sourceConfig.setPartitionTopicList(cluster + "||" + topic + "||" + range)
 		);
-		readableConfig.getOptional(SCAN_RATE_LIMITING_NUM).ifPresent(sourceConfig::setScanSampleNum);
-		readableConfig.getOptional(SCAN_RATE_LIMITING_UNIT).ifPresent(sourceConfig::setRateLimitingUnit);
+		readableConfig.getOptional(RATE_LIMIT_NUM).ifPresent(sourceConfig::setRateLimitNumber);
 		readableConfig.getOptional(SCAN_RESET_TO_EARLIEST_FOR_NEW_PARTITION).ifPresent(sourceConfig::setKafkaResetNewPartition);
 		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_INTERVAL).ifPresent(sourceConfig::setScanSampleInterval);
 		readableConfig.getOptional(SCAN_SOURCE_SAMPLE_NUM).ifPresent(sourceConfig::setScanSampleNum);
@@ -244,6 +242,9 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		otherProperties.put(SINK_LOG_FAILURE_ONLY.key(), logFailuresOnly);
 		if (properties.containsKey(FactoryUtil.PARALLELISM.key())) {
 			otherProperties.put(FactoryUtil.PARALLELISM.key(), properties.get(FactoryUtil.PARALLELISM.key()));
+		}
+		if (properties.containsKey(RATE_LIMIT_NUM.key())) {
+			otherProperties.put(RATE_LIMIT_NUM.key(), properties.get(RATE_LIMIT_NUM.key()));
 		}
 		return otherProperties;
 	}

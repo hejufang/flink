@@ -58,6 +58,15 @@ public class FunctionContext {
 	}
 
 	/**
+	 * Exposes RuntimeContext to function, e.t. we can do rate limit for lookup table,
+	 * which uses table function behind.
+	 * For users, please don't rely on this method, it's for internal usage for now.
+	 */
+	public RuntimeContext getRuntimeContext() {
+		return context;
+	}
+
+	/**
 	 * Gets the local temporary file copy of a distributed cache files.
 	 *
 	 * @param name distributed cache file name

@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.rpc.table.descriptors;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.util.Preconditions;
 
 import com.bytedance.arch.transport.TransportType;
@@ -43,6 +44,8 @@ public class RPCOptions implements Serializable {
 	private final int connectTimeoutMs;
 	private final int connectionPoolSize;
 
+	private final FlinkConnectorRateLimiter rateLimiter;
+
 	private RPCOptions(
 			String consul,
 			String cluster,
@@ -52,7 +55,8 @@ public class RPCOptions implements Serializable {
 			String thriftMethod,
 			TransportType transportType,
 			int connectTimeoutMs,
-			int connectionPoolSize) {
+			int connectionPoolSize,
+			FlinkConnectorRateLimiter rateLimiter) {
 		this.consul = consul;
 		this.cluster = cluster;
 		this.consulUpdateIntervalMs = consulUpdateIntervalMs;
@@ -62,6 +66,7 @@ public class RPCOptions implements Serializable {
 		this.transportType = transportType;
 		this.connectTimeoutMs = connectTimeoutMs;
 		this.connectionPoolSize = connectionPoolSize;
+		this.rateLimiter = rateLimiter;
 	}
 
 	public String getConsul() {
@@ -100,6 +105,10 @@ public class RPCOptions implements Serializable {
 		return connectionPoolSize;
 	}
 
+	public FlinkConnectorRateLimiter getRateLimiter() {
+		return rateLimiter;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -120,6 +129,8 @@ public class RPCOptions implements Serializable {
 		// connect
 		private int connectTimeoutMs;
 		private int connectionPoolSize;
+
+		private FlinkConnectorRateLimiter rateLimiter;
 
 		private Builder() {
 		}
@@ -169,6 +180,11 @@ public class RPCOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
+			this.rateLimiter = rateLimiter;
+			return this;
+		}
+
 		public RPCOptions build() {
 			Preconditions.checkNotNull(consul, "consul was not supplied.");
 			Preconditions.checkNotNull(thriftServiceClass, "thriftServiceClass was not supplied.");
@@ -182,7 +198,8 @@ public class RPCOptions implements Serializable {
 				thriftMethod,
 				transportType,
 				connectTimeoutMs,
-				connectionPoolSize
+				connectionPoolSize,
+				rateLimiter
 			);
 		}
 	}
