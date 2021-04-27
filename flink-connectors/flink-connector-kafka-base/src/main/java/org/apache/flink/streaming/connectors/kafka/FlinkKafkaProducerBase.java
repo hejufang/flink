@@ -21,7 +21,6 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.RuntimeContext;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.ClosureCleaner;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
@@ -149,8 +148,6 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 
-	private FlinkConnectorRateLimiter rateLimiter;
-
 	/**
 	 * The main constructor for creating a FlinkKafkaProducer.
 	 *
@@ -241,10 +238,6 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 		RuntimeContext ctx = getRuntimeContext();
 
-		if (rateLimiter != null) {
-			rateLimiter.open(ctx);
-		}
-
 		if (null != flinkKafkaPartitioner) {
 			flinkKafkaPartitioner.open(ctx.getIndexOfThisSubtask(), ctx.getNumberOfParallelSubtasks());
 		}
@@ -312,10 +305,6 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 		if (!filter(next)) {
 			return;
-		}
-
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
 		}
 
 		byte[] serializedKey = schema.serializeKey(next);
@@ -467,10 +456,6 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 
 	public void setParallelism(int parallelism) {
 		this.parallelism = parallelism;
-	}
-
-	public void setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-		this.rateLimiter = rateLimiter;
 	}
 
 	@Override

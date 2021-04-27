@@ -20,7 +20,6 @@ package org.apache.flink.connector.jdbc.internal;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.functions.RuntimeContext;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
 import org.apache.flink.connector.jdbc.JdbcStatementBuilder;
@@ -39,7 +38,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -87,7 +85,6 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 	private final JdbcExecutionOptions executionOptions;
 	private final StatementExecutorFactory<JdbcExec> statementExecutorFactory;
 	private final RecordExtractor<In, JdbcIn> jdbcRecordExtractor;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient JdbcExec jdbcStatementExecutor;
 	private transient int batchCount = 0;
@@ -102,20 +99,10 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 			@Nonnull JdbcExecutionOptions executionOptions,
 			@Nonnull StatementExecutorFactory<JdbcExec> statementExecutorFactory,
 			@Nonnull RecordExtractor<In, JdbcIn> recordExtractor) {
-		this(connectionProvider, executionOptions, statementExecutorFactory, recordExtractor, null);
-	}
-
-	public JdbcBatchingOutputFormat(
-			@Nonnull JdbcConnectionProvider connectionProvider,
-			@Nonnull JdbcExecutionOptions executionOptions,
-			@Nonnull StatementExecutorFactory<JdbcExec> statementExecutorFactory,
-			@Nonnull RecordExtractor<In, JdbcIn> recordExtractor,
-			@Nullable FlinkConnectorRateLimiter rateLimiter) {
 		super(connectionProvider);
 		this.executionOptions = checkNotNull(executionOptions);
 		this.statementExecutorFactory = checkNotNull(statementExecutorFactory);
 		this.jdbcRecordExtractor = checkNotNull(recordExtractor);
-		this.rateLimiter = rateLimiter;
 	}
 
 	@Override
@@ -146,9 +133,6 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 				}
 			}, executionOptions.getBatchIntervalMs(), executionOptions.getBatchIntervalMs(), TimeUnit.MILLISECONDS);
 		}
-		if (rateLimiter != null) {
-			rateLimiter.open(getRuntimeContext());
-		}
 	}
 
 	private JdbcExec createAndOpenStatementExecutor(StatementExecutorFactory<JdbcExec> statementExecutorFactory) throws IOException {
@@ -170,10 +154,6 @@ public class JdbcBatchingOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStat
 	@Override
 	public final synchronized void writeRecord(In record) throws IOException {
 		checkFlushException();
-
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
 
 		try {
 			addToBatch(record, jdbcRecordExtractor.apply(record));

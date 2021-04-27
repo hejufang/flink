@@ -17,7 +17,6 @@
 
 package org.apache.flink.connector.metrics.table;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.metrics.MetricsManager;
@@ -35,13 +34,11 @@ import org.apache.flink.table.data.RowData;
 public class MetricsRowDataSinkFunction extends RichSinkFunction<RowData>
 	implements CheckpointedFunction, SpecificParallelism {
 	private final MetricsOptions metricsOptions;
-	private final FlinkConnectorRateLimiter rateLimiter;
 	private MetricsManager metricsManager;
 	private transient Counter writeFailed;
 
 	public MetricsRowDataSinkFunction(MetricsOptions metricsOptions) {
 		this.metricsOptions = metricsOptions;
-		this.rateLimiter = metricsOptions.getRateLimiter();
 	}
 
 	@Override
@@ -49,9 +46,6 @@ public class MetricsRowDataSinkFunction extends RichSinkFunction<RowData>
 		metricsManager = MetricsManager.getInstance(metricsOptions);
 		if (metricsOptions.isLogFailuresOnly()) {
 			this.writeFailed = getRuntimeContext().getMetricGroup().counter(ConfigConstants.WRITE_FAILED_COUNTER);
-		}
-		if (rateLimiter != null) {
-			rateLimiter.open(getRuntimeContext());
 		}
 	}
 
@@ -74,9 +68,6 @@ public class MetricsRowDataSinkFunction extends RichSinkFunction<RowData>
 
 	@Override
 	public void invoke(RowData value, Context context) throws Exception {
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
 		switch (value.getRowKind()) {
 			case INSERT:
 			case UPDATE_AFTER:

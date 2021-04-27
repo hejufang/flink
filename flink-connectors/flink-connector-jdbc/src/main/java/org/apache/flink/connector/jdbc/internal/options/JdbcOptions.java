@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.jdbc.internal.options;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.jdbc.JdbcConnectionOptions;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
@@ -44,7 +43,6 @@ public class JdbcOptions extends JdbcConnectionOptions {
 
 	private String tableName;
 	private JdbcDialect dialect;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private JdbcOptions(
 			String dbURL,
@@ -57,12 +55,10 @@ public class JdbcOptions extends JdbcConnectionOptions {
 			String consul,
 			String psm,
 			String dbname,
-			String initSql,
-			FlinkConnectorRateLimiter rateLimiter) {
+			String initSql) {
 		super(dbURL, driverName, username, password, useBytedanceMysql, consul, psm, dbname, initSql);
 		this.tableName = tableName;
 		this.dialect = dialect;
-		this.rateLimiter = rateLimiter;
 	}
 
 	public String getTableName() {
@@ -71,10 +67,6 @@ public class JdbcOptions extends JdbcConnectionOptions {
 
 	public JdbcDialect getDialect() {
 		return dialect;
-	}
-
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
 	}
 
 	public static Builder builder() {
@@ -95,8 +87,7 @@ public class JdbcOptions extends JdbcConnectionOptions {
 				Objects.equals(consul, options.consul) &&
 				Objects.equals(psm, options.psm) &&
 				Objects.equals(dbname, options.dbname) &&
-				Objects.equals(initSql, options.initSql) &&
-				Objects.equals(rateLimiter, options.rateLimiter);
+				Objects.equals(initSql, options.initSql);
 		} else {
 			return false;
 		}
@@ -117,7 +108,6 @@ public class JdbcOptions extends JdbcConnectionOptions {
 		private String psm;
 		private String dbname;
 		private String initSql;
-		private FlinkConnectorRateLimiter rateLimiter;
 
 		/**
 		 * required, table name.
@@ -209,14 +199,6 @@ public class JdbcOptions extends JdbcConnectionOptions {
 			return this;
 		}
 
-		/**
-		 * optional, set the rate limiter.
-		 */
-		public Builder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-			this.rateLimiter = rateLimiter;
-			return this;
-		}
-
 		public JdbcOptions build() {
 			checkNotNull(tableName, "No tableName supplied.");
 			if (this.dialect == null) {
@@ -252,8 +234,7 @@ public class JdbcOptions extends JdbcConnectionOptions {
 				consul,
 				psm,
 				dbname,
-				initSql,
-				rateLimiter);
+				initSql);
 		}
 	}
 }

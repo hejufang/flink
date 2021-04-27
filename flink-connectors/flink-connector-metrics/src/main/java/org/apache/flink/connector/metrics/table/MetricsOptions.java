@@ -17,8 +17,6 @@
 
 package org.apache.flink.connector.metrics.table;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-
 import java.io.Serializable;
 
 /**
@@ -31,21 +29,18 @@ public class MetricsOptions implements Serializable {
 	private final int bufferMaxRows;
 	private final long bufferFlushInterval;
 	private final boolean logFailuresOnly;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private MetricsOptions(
 			String metricsPrefix,
 			int parallelism,
 			int bufferMaxRows,
 			long bufferFlushInterval,
-			boolean logFailuresOnly,
-			FlinkConnectorRateLimiter rateLimiter) {
+			boolean logFailuresOnly) {
 		this.metricsPrefix = metricsPrefix;
 		this.parallelism = parallelism;
 		this.bufferMaxRows = bufferMaxRows;
 		this.bufferFlushInterval = bufferFlushInterval;
 		this.logFailuresOnly = logFailuresOnly;
-		this.rateLimiter = rateLimiter;
 	}
 
 	public static MetricsOptionsBuilder builder() {
@@ -72,10 +67,6 @@ public class MetricsOptions implements Serializable {
 		return logFailuresOnly;
 	}
 
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
-	}
-
 	@Override
 	public String toString() {
 		return "MetricsOptions{" +
@@ -92,7 +83,6 @@ public class MetricsOptions implements Serializable {
 		private int bufferMaxRows = 100;
 		private long bufferFlushInterval = 2000;
 		private boolean logFailuresOnly;
-		private FlinkConnectorRateLimiter rateLimiter;
 
 		public MetricsOptionsBuilder setMetricsPrefix(String metricsPrefix) {
 			this.metricsPrefix = metricsPrefix;
@@ -119,19 +109,8 @@ public class MetricsOptions implements Serializable {
 			return this;
 		}
 
-		public MetricsOptionsBuilder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-			this.rateLimiter = rateLimiter;
-			return this;
-		}
-
 		public MetricsOptions build() {
-			return new MetricsOptions(
-				metricsPrefix,
-				parallelism,
-				bufferMaxRows,
-				bufferFlushInterval,
-				logFailuresOnly,
-				rateLimiter);
+			return new MetricsOptions(metricsPrefix, parallelism, bufferMaxRows, bufferFlushInterval, logFailuresOnly);
 		}
 	}
 }

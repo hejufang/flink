@@ -17,7 +17,6 @@
 
 package org.apache.flink.connectors.loghouse;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.table.data.RowData;
@@ -44,8 +43,6 @@ public class LogHouseOptions implements Serializable {
 	private final List<Tuple2<Integer, Integer>> keysIndex;
 	private final Compressor compressor;
 
-	private final FlinkConnectorRateLimiter rateLimiter;
-
 	private final int sinkParallelism;
 
 	private final SerializationSchema<RowData> serializationSchema;
@@ -62,8 +59,7 @@ public class LogHouseOptions implements Serializable {
 			List<Tuple2<Integer, Integer>> keysIndex,
 			SerializationSchema<RowData> serializationSchema,
 			int sinkParallelism,
-			Compressor compressor,
-			FlinkConnectorRateLimiter rateLimiter) {
+			Compressor compressor) {
 		this.flushMaxRetries = flushMaxRetries;
 		this.flushTimeoutMs = flushTimeoutMs;
 		this.batchSizeKB = batchSizeKB;
@@ -76,7 +72,6 @@ public class LogHouseOptions implements Serializable {
 		this.serializationSchema = serializationSchema;
 		this.sinkParallelism = sinkParallelism;
 		this.compressor = compressor;
-		this.rateLimiter = rateLimiter;
 	}
 
 	public int getFlushMaxRetries() {
@@ -127,10 +122,6 @@ public class LogHouseOptions implements Serializable {
 		return compressor;
 	}
 
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
-	}
-
 	/**
 	 * Get a {@link Builder}.
 	 * @return a Builder instance which can build a {@link LogHouseOptions}.
@@ -156,7 +147,6 @@ public class LogHouseOptions implements Serializable {
 		private List<Tuple2<Integer, Integer>> keysIndex;
 		private SerializationSchema<RowData> serializationSchema;
 		private Compressor compressor = new NoOpCompressor();
-		private FlinkConnectorRateLimiter rateLimiter;
 
 		private Builder() {
 		}
@@ -221,11 +211,6 @@ public class LogHouseOptions implements Serializable {
 			return this;
 		}
 
-		public Builder withRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-			this.rateLimiter = rateLimiter;
-			return this;
-		}
-
 		public LogHouseOptions build() {
 			return new LogHouseOptions(
 				flushMaxRetries,
@@ -239,8 +224,7 @@ public class LogHouseOptions implements Serializable {
 				keysIndex,
 				serializationSchema,
 				sinkParallelism,
-				compressor,
-				rateLimiter
+				compressor
 			);
 		}
 	}

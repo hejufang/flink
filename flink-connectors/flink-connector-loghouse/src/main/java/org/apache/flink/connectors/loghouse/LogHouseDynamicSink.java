@@ -19,8 +19,6 @@
 
 package org.apache.flink.connectors.loghouse;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.ReadableConfig;
@@ -35,7 +33,6 @@ import org.apache.flink.util.FlinkRuntimeException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,7 +46,6 @@ import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFacto
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.KEYS_PARTITIONS;
 import static org.apache.flink.connectors.loghouse.LogHouseDynamicTableSinkFactory.NAMESPACE;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
-import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_SIZE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
@@ -114,13 +110,6 @@ public class LogHouseDynamicSink implements DynamicTableSink {
 		builder.connectTimeoutMs((int) config.get(CONNECT_TIMEOUT).toMillis());
 		builder.sinkParallelism(config.get(PARALLELISM));
 		builder.withKeysIndex(buildKeyIndices(config));
-
-		Optional<Long> rateLimitNum = config.getOptional(RATE_LIMIT_NUM);
-		if (rateLimitNum.isPresent()) {
-			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rateLimitNum.get());
-			builder.withRateLimiter(rateLimiter);
-		}
 
 		return builder;
 	}

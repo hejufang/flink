@@ -101,8 +101,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 				new SimpleJdbcConnectionProvider(jdbcOptions),
 				executionOptions,
 				ctx -> createBufferReduceExecutor(dmlOptions, ctx, rowDataTypeInformation, logicalTypes),
-				JdbcBatchingOutputFormat.RecordExtractor.identity(),
-				jdbcOptions.getRateLimiter());
+				JdbcBatchingOutputFormat.RecordExtractor.identity());
 		} else {
 			// append only query
 			final String sql;
@@ -123,8 +122,7 @@ public class JdbcDynamicOutputFormatBuilder implements Serializable {
 				new SimpleJdbcConnectionProvider(jdbcOptions),
 				executionOptions,
 				ctx -> createSimpleRowDataExecutor(dmlOptions.getDialect(), sql, logicalTypes, ctx, rowDataTypeInformation),
-				JdbcBatchingOutputFormat.RecordExtractor.identity(),
-				jdbcOptions.getRateLimiter());
+				JdbcBatchingOutputFormat.RecordExtractor.identity());
 		}
 	}
 

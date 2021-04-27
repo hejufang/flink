@@ -19,7 +19,6 @@
 
 package org.apache.flink.connector.bytesql.table;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.bytesql.internal.ByteSQLRowConverter;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLLookupOptions;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLOptions;
@@ -63,8 +62,6 @@ public class ByteSQLLookupExecutor implements Serializable {
 	private final ByteSQLRowConverter rowConverter;
 	private final String query;
 	private final RowData.FieldGetter[] fieldGetters;
-	private final FlinkConnectorRateLimiter rateLimiter;
-
 	private transient ByteSQLDB byteSQLDB;
 	private transient Cache<RowData, List<RowData>> cache;
 	private transient Meter lookupRequestPerSecond;
@@ -86,7 +83,6 @@ public class ByteSQLLookupExecutor implements Serializable {
 			.range(0, fieldNames.size())
 			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
 			.toArray(RowData.FieldGetter[]::new);
-		this.rateLimiter = options.getRateLimiter();
 	}
 
 	public void init(FunctionContext context) {
@@ -110,9 +106,6 @@ public class ByteSQLLookupExecutor implements Serializable {
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
-		if (rateLimiter != null) {
-			rateLimiter.open(context.getRuntimeContext());
-		}
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
 		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
@@ -133,9 +126,6 @@ public class ByteSQLLookupExecutor implements Serializable {
 			if (cachedRows != null) {
 				return cachedRows;
 			}
-		}
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
 		}
 		String realSQL;
 		try {

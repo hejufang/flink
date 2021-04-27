@@ -17,8 +17,6 @@
 
 package org.apache.flink.connector.databus.table;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
@@ -46,7 +44,6 @@ import static org.apache.flink.connector.databus.table.DatabusOptions.SINK_MAX_B
 import static org.apache.flink.connector.databus.table.DatabusOptions.SINK_NEED_RESPONSE;
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
-import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.RETRY_INIT_DELAY_MS;
 import static org.apache.flink.table.factories.FactoryUtil.RETRY_MAX_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.RETRY_STRATEGY;
@@ -80,12 +77,6 @@ public class DatabusDynamicTableSinkFactory implements DynamicTableSinkFactory {
 
 	private static DatabusConfig getDatabusConfig(ReadableConfig config) {
 		RetryManager.Strategy retryStrategy = getRetryStrategy(config);
-		FlinkConnectorRateLimiter rateLimiter = null;
-		Optional<Long> rateLimitNum = config.getOptional(RATE_LIMIT_NUM);
-		if (rateLimitNum.isPresent()) {
-			rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rateLimitNum.get());
-		}
 
 		return DatabusConfig.builder()
 			.setChannel(config.get(CHANNEL))
@@ -94,7 +85,6 @@ public class DatabusDynamicTableSinkFactory implements DynamicTableSinkFactory {
 			.setNeedResponse(config.get(SINK_NEED_RESPONSE))
 			.setRetryStrategy(retryStrategy)
 			.setParallelism(config.get(PARALLELISM))
-			.setRateLimiter(rateLimiter)
 			.build();
 	}
 
@@ -132,7 +122,6 @@ public class DatabusDynamicTableSinkFactory implements DynamicTableSinkFactory {
 		options.add(RETRY_STRATEGY);
 		options.add(RETRY_MAX_TIMES);
 		options.add(RETRY_INIT_DELAY_MS);
-		options.add(RATE_LIMIT_NUM);
 		return options;
 	}
 }

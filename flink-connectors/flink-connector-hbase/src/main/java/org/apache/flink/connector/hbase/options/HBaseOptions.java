@@ -19,7 +19,6 @@
 package org.apache.flink.connector.hbase.options;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 
 import javax.annotation.Nullable;
 
@@ -37,17 +36,11 @@ public class HBaseOptions {
 	private final String tableName;
 	private final String zkQuorum;
 	@Nullable private final String zkNodeParent;
-	@Nullable private final FlinkConnectorRateLimiter rateLimiter;
 
-	private HBaseOptions(
-			String tableName,
-			String zkQuorum,
-			@Nullable String zkNodeParent,
-			@Nullable FlinkConnectorRateLimiter rateLimiter) {
+	private HBaseOptions(String tableName, String zkQuorum, @Nullable String zkNodeParent) {
 		this.tableName = tableName;
 		this.zkQuorum = zkQuorum;
 		this.zkNodeParent = zkNodeParent;
-		this.rateLimiter = rateLimiter;
 	}
 
 	public String getTableName() {
@@ -60,11 +53,6 @@ public class HBaseOptions {
 
 	public Optional<String> getZkNodeParent() {
 		return Optional.ofNullable(zkNodeParent);
-	}
-
-	@Nullable
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
 	}
 
 	@Override
@@ -87,13 +75,12 @@ public class HBaseOptions {
 		HBaseOptions that = (HBaseOptions) o;
 		return Objects.equals(tableName, that.tableName) &&
 			Objects.equals(zkQuorum, that.zkQuorum) &&
-			Objects.equals(zkNodeParent, that.zkNodeParent) &&
-			Objects.equals(rateLimiter, that.rateLimiter);
+			Objects.equals(zkNodeParent, that.zkNodeParent);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(tableName, zkQuorum, zkNodeParent, rateLimiter);
+		return Objects.hash(tableName, zkQuorum, zkNodeParent);
 	}
 
 	/**
@@ -111,7 +98,6 @@ public class HBaseOptions {
 		private String tableName;
 		private String zkQuorum;
 		private String zkNodeParent;
-		private FlinkConnectorRateLimiter rateLimiter;
 
 		/**
 		 * Required. Sets the HBase table name.
@@ -141,20 +127,12 @@ public class HBaseOptions {
 		}
 
 		/**
-		 * Optional, Sets the rate limiter.
-		 */
-		public Builder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-			this.rateLimiter = rateLimiter;
-			return this;
-		}
-
-		/**
 		 * Creates an instance of {@link HBaseOptions}.
 		 */
 		public HBaseOptions build() {
 			checkNotNull(zkQuorum, "Zookeeper quorum is not set.");
 			checkNotNull(tableName, "TableName is not set.");
-			return new HBaseOptions(tableName, zkQuorum, zkNodeParent, rateLimiter);
+			return new HBaseOptions(tableName, zkQuorum, zkNodeParent);
 		}
 	}
 }

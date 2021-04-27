@@ -17,7 +17,6 @@
 
 package org.apache.flink.connector.rocketmq;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
@@ -56,7 +55,6 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 	private int messageDelayLevel;
 	private int parallelism;
 	private final MsgDelayLevelSelector<T> msgDelayLevelSelector;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient DefaultMQProducer producer;
 
@@ -74,7 +72,6 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		this.topicSelector = rocketMQConfig.getTopicSelector();
 		this.msgDelayLevelSelector = rocketMQConfig.getMsgDelayLevelSelector();
 		this.parallelism = rocketMQConfig.getParallelism();
-		this.rateLimiter = rocketMQConfig.getRateLimiter();
 	}
 
 	@Override
@@ -85,9 +82,6 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 		producer = new DefaultMQProducer(cluster, group, null, getRocketMQProperties(props));
 		producer.start();
 		serializationSchema.open(() -> getRuntimeContext().getMetricGroup());
-		if (rateLimiter != null) {
-			rateLimiter.open(getRuntimeContext());
-		}
 	}
 
 	@Override
@@ -100,9 +94,6 @@ public class RocketMQProducer<T> extends RichSinkFunction<T> implements Checkpoi
 
 	@Override
 	public void invoke(T value, Context context) throws Exception {
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
 		Message message = prepareMessage(value);
 		messageList.add(message);
 		if (messageList.size() >= batchSize) {

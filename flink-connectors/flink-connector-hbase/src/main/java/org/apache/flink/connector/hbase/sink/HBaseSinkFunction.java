@@ -19,7 +19,6 @@
 package org.apache.flink.connector.hbase.sink;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.hbase.util.HBaseConfigurationUtil;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
@@ -72,7 +71,6 @@ public class HBaseSinkFunction<T>
 	private final long bufferFlushMaxMutations;
 	private final long bufferFlushIntervalMillis;
 	private final HBaseMutationConverter<T> mutationConverter;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient Connection connection;
 	private transient BufferedMutator mutator;
@@ -98,25 +96,6 @@ public class HBaseSinkFunction<T>
 			long bufferFlushMaxSizeInBytes,
 			long bufferFlushMaxMutations,
 			long bufferFlushIntervalMillis) {
-		this(
-			hTableName,
-			conf,
-			mutationConverter,
-			bufferFlushMaxSizeInBytes,
-			bufferFlushMaxMutations,
-			bufferFlushIntervalMillis,
-			null
-		);
-	}
-
-	public HBaseSinkFunction(
-			String hTableName,
-			org.apache.hadoop.conf.Configuration conf,
-			HBaseMutationConverter<T> mutationConverter,
-			long bufferFlushMaxSizeInBytes,
-			long bufferFlushMaxMutations,
-			long bufferFlushIntervalMillis,
-			FlinkConnectorRateLimiter rateLimiter) {
 		this.hTableName = hTableName;
 		// Configuration is not serializable
 		this.serializedConfig = HBaseConfigurationUtil.serializeConfiguration(conf);
@@ -124,7 +103,6 @@ public class HBaseSinkFunction<T>
 		this.bufferFlushMaxSizeInBytes = bufferFlushMaxSizeInBytes;
 		this.bufferFlushMaxMutations = bufferFlushMaxMutations;
 		this.bufferFlushIntervalMillis = bufferFlushIntervalMillis;
-		this.rateLimiter = rateLimiter;
 	}
 
 	@Override
@@ -162,10 +140,6 @@ public class HBaseSinkFunction<T>
 					}
 				}, bufferFlushIntervalMillis, bufferFlushIntervalMillis, TimeUnit.MILLISECONDS);
 			}
-
-			if (rateLimiter != null) {
-				rateLimiter.open(getRuntimeContext());
-			}
 		} catch (TableNotFoundException tnfe) {
 			LOG.error("The table " + hTableName + " not found ", tnfe);
 			throw new RuntimeException("HBase table '" + hTableName + "' not found.", tnfe);
@@ -202,10 +176,6 @@ public class HBaseSinkFunction<T>
 	@Override
 	public void invoke(T value, Context context) throws Exception {
 		checkErrorAndRethrow();
-
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
 
 		mutator.mutate(mutationConverter.convertToMutation(value));
 

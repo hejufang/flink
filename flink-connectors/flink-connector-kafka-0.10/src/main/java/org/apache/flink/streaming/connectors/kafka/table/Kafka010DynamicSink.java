@@ -19,8 +19,6 @@
 package org.apache.flink.streaming.connectors.kafka.table;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducerBase;
@@ -77,12 +75,6 @@ public class Kafka010DynamicSink extends KafkaDynamicSinkBase {
 		if (otherProperties.containsKey(FactoryUtil.PARALLELISM.key())) {
 			flinkKafkaProducerBase.setParallelism(
 				Integer.parseInt(otherProperties.getProperty(FactoryUtil.PARALLELISM.key())));
-		}
-		if (otherProperties.containsKey(FactoryUtil.RATE_LIMIT_NUM.key())) {
-			long rate = Long.parseLong(otherProperties.getProperty(FactoryUtil.RATE_LIMIT_NUM.key()));
-			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rate);
-			flinkKafkaProducerBase.setRateLimiter(rateLimiter);
 		}
 		return flinkKafkaProducerBase;
 	}

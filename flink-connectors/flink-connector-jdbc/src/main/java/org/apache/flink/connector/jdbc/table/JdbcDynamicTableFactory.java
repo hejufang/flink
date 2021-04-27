@@ -19,8 +19,6 @@
 package org.apache.flink.connector.jdbc.table;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
@@ -51,7 +49,6 @@ import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_ENABLE_INPUT_K
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LATENCY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
-import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -235,11 +232,6 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		builder.setDbname(readableConfig.get(DBNAME));
 		builder.setPsm(readableConfig.get(PSM));
 		builder.setInitSql(readableConfig.get(INIT_SQL));
-		readableConfig.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
-			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rate);
-			builder.setRateLimiter(rateLimiter);
-		});
 		return builder.build();
 	}
 
@@ -330,7 +322,6 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
 		optionalOptions.add(LOOKUP_CACHE_NULL_VALUE);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
-		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
 

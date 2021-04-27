@@ -18,8 +18,6 @@
 
 package org.apache.flink.connector.bytesql.table.descriptors;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -36,7 +34,6 @@ public class ByteSQLOptions implements Serializable {
 	private final String username;
 	private final String password;
 	private final long connectionTimeout;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private ByteSQLOptions(
 			String consul,
@@ -44,15 +41,13 @@ public class ByteSQLOptions implements Serializable {
 			String tableName,
 			String username,
 			String password,
-			long connectionTimeout,
-			FlinkConnectorRateLimiter rateLimiter) {
+			long connectionTimeout) {
 		this.consul = consul;
 		this.databaseName = databaseName;
 		this.tableName = tableName;
 		this.username = username;
 		this.password = password;
 		this.connectionTimeout = connectionTimeout;
-		this.rateLimiter = rateLimiter;
 	}
 
 	public String getConsul() {
@@ -79,10 +74,6 @@ public class ByteSQLOptions implements Serializable {
 		return connectionTimeout;
 	}
 
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
-	}
-
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -96,8 +87,7 @@ public class ByteSQLOptions implements Serializable {
 				Objects.equals(tableName, options.tableName) &&
 				Objects.equals(username, options.username) &&
 				Objects.equals(password, options.password) &&
-				connectionTimeout == options.connectionTimeout &&
-				Objects.equals(rateLimiter, options.rateLimiter);
+				connectionTimeout == options.connectionTimeout;
 		} else {
 			return false;
 		}
@@ -111,8 +101,7 @@ public class ByteSQLOptions implements Serializable {
 			tableName,
 			username,
 			password,
-			connectionTimeout,
-			rateLimiter
+			connectionTimeout
 		);
 	}
 
@@ -126,7 +115,6 @@ public class ByteSQLOptions implements Serializable {
 		private String username;
 		private String password;
 		private long connectionTimeout = 2000;
-		private FlinkConnectorRateLimiter rateLimiter;
 
 		/**
 		 * required, consul name.
@@ -176,14 +164,6 @@ public class ByteSQLOptions implements Serializable {
 			return this;
 		}
 
-		/**
-		 * optional, set rate limiter.
-		 */
-		public Builder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-			this.rateLimiter = rateLimiter;
-			return this;
-		}
-
 		public ByteSQLOptions build() {
 			checkNotNull(consul, "No consul supplied.");
 			checkNotNull(databaseName, "No databaseName supplied.");
@@ -196,8 +176,7 @@ public class ByteSQLOptions implements Serializable {
 				tableName,
 				username,
 				password,
-				connectionTimeout,
-				rateLimiter);
+				connectionTimeout);
 		}
 	}
 }

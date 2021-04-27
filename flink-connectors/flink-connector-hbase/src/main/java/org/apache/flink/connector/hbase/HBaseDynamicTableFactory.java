@@ -18,8 +18,6 @@
 
 package org.apache.flink.connector.hbase;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.MemorySize;
@@ -41,10 +39,8 @@ import org.apache.hadoop.hbase.HConstants;
 
 import java.time.Duration;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
-import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
 
 /**
@@ -119,18 +115,11 @@ public class HBaseDynamicTableFactory implements DynamicTableSourceFactory, Dyna
 		String nullStringLiteral = helper.getOptions().get(NULL_STRING_LITERAL);
 		HBaseTableSchema hbaseSchema = HBaseTableSchema.fromTableSchema(tableSchema);
 
-		FlinkConnectorRateLimiter rateLimiter = null;
-		Optional<Long> rateLimitNum = helper.getOptions().getOptional(RATE_LIMIT_NUM);
-		if (rateLimitNum.isPresent()) {
-			rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rateLimitNum.get());
-		}
 		return new HBaseDynamicTableSource(
 			hbaseClientConf,
 			hTableName,
 			hbaseSchema,
-			nullStringLiteral,
-			rateLimiter);
+			nullStringLiteral);
 	}
 
 	@Override
@@ -144,12 +133,6 @@ public class HBaseDynamicTableFactory implements DynamicTableSourceFactory, Dyna
 		hbaseOptionsBuilder.setTableName(helper.getOptions().get(TABLE_NAME));
 		hbaseOptionsBuilder.setZkQuorum(helper.getOptions().get(ZOOKEEPER_QUORUM));
 		hbaseOptionsBuilder.setZkNodeParent(helper.getOptions().get(ZOOKEEPER_ZNODE_PARENT));
-		Optional<Long> rateLimitNum = helper.getOptions().getOptional(RATE_LIMIT_NUM);
-		if (rateLimitNum.isPresent()) {
-			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rateLimitNum.get());
-			hbaseOptionsBuilder.setRateLimiter(rateLimiter);
-		}
 
 		HBaseWriteOptions.Builder writeBuilder = HBaseWriteOptions.builder();
 		writeBuilder.setBufferFlushMaxSizeInBytes(helper.getOptions().get(SINK_BUFFER_FLUSH_MAX_SIZE).getBytes());
@@ -186,7 +169,6 @@ public class HBaseDynamicTableFactory implements DynamicTableSourceFactory, Dyna
 		set.add(SINK_BUFFER_FLUSH_MAX_SIZE);
 		set.add(SINK_BUFFER_FLUSH_MAX_ROWS);
 		set.add(SINK_BUFFER_FLUSH_INTERVAL);
-		set.add(RATE_LIMIT_NUM);
 		return set;
 	}
 

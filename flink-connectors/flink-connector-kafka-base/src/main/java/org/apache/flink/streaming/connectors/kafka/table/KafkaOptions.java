@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.connectors.kafka.table;
 
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
@@ -101,6 +102,18 @@ public class KafkaOptions {
 			.stringType()
 			.noDefaultValue()
 			.withDescription("Optional kafka source partition range");
+
+	public static final ConfigOption<Long> SCAN_RATE_LIMITING_NUM = ConfigOptions
+			.key("scan.rate-limiting-num")
+			.longType()
+			.noDefaultValue()
+			.withDescription("Optional kafka rate limit num.");
+
+	public static final ConfigOption<RateLimitingUnit> SCAN_RATE_LIMITING_UNIT = ConfigOptions
+			.key("scan.rate-limiting-unit")
+			.enumType(RateLimitingUnit.class)
+			.noDefaultValue()
+			.withDescription("Optional kafka rate limit num unit: BYTE or RECORD.");
 
 	public static final ConfigOption<Long> SCAN_SOURCE_SAMPLE_INTERVAL = ConfigOptions
 			.key("scan.source-sample-interval")

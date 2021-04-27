@@ -20,7 +20,6 @@ package org.apache.flink.connector.hbase.source;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.hbase.util.HBaseConfigurationUtil;
 import org.apache.flink.connector.hbase.util.HBaseSerde;
 import org.apache.flink.connector.hbase.util.HBaseTableSchema;
@@ -61,7 +60,6 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 	private final byte[] serializedConfig;
 	private final HBaseTableSchema hbaseTableSchema;
 	private final String nullStringLiteral;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient Connection hConnection;
 	private transient HTable table;
@@ -73,13 +71,11 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 			Configuration configuration,
 			String hTableName,
 			HBaseTableSchema hbaseTableSchema,
-			String nullStringLiteral,
-			FlinkConnectorRateLimiter rateLimiter) {
+			String nullStringLiteral) {
 		this.serializedConfig = HBaseConfigurationUtil.serializeConfiguration(configuration);
 		this.hTableName = hTableName;
 		this.hbaseTableSchema = hbaseTableSchema;
 		this.nullStringLiteral = nullStringLiteral;
-		this.rateLimiter = rateLimiter;
 	}
 
 	/**
@@ -89,9 +85,6 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 	public void eval(Object rowKey) throws IOException {
 		// fetch result
 		lookupRequestPerSecond.markEvent();
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
 		Get get = serde.createGet(rowKey);
 		if (get != null) {
 			long startRequest = System.currentTimeMillis();
@@ -139,9 +132,6 @@ public class HBaseRowDataLookupFunction extends TableFunction<RowData> {
 		this.serde = new HBaseSerde(hbaseTableSchema, nullStringLiteral);
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		requestDelayMs = LookupMetricUtils.registerRequestDelayMs(context.getMetricGroup());
-		if (rateLimiter != null) {
-			rateLimiter.open(context.getRuntimeContext());
-		}
 		LOG.info("end open.");
 	}
 

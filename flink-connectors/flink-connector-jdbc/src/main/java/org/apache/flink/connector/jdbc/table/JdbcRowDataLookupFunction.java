@@ -20,7 +20,6 @@ package org.apache.flink.connector.jdbc.table;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider;
@@ -79,7 +78,6 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 	private final JdbcRowConverter jdbcRowConverter;
 	private final JdbcRowConverter lookupKeyRowConverter;
 	private final boolean cacheNull;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient Connection dbConn;
 	private transient PreparedStatement statement;
@@ -119,7 +117,6 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 			.orElseThrow(() -> new UnsupportedOperationException(String.format("Unknown dbUrl:%s", dbURL)));
 		this.jdbcRowConverter = jdbcDialect.getRowConverter(rowType);
 		this.lookupKeyRowConverter = jdbcDialect.getRowConverter(RowType.of(Arrays.stream(keyTypes).map(DataType::getLogicalType).toArray(LogicalType[]::new)));
-		this.rateLimiter = options.getRateLimiter();
 	}
 
 	@Override
@@ -138,9 +135,6 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 			throw new IllegalArgumentException("open() failed.", sqe);
 		} catch (ClassNotFoundException cnfe) {
 			throw new IllegalArgumentException("JDBC driver class not found.", cnfe);
-		}
-		if (rateLimiter != null) {
-			rateLimiter.open(context.getRuntimeContext());
 		}
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
@@ -165,9 +159,6 @@ public class JdbcRowDataLookupFunction extends TableFunction<RowData> {
 
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			try {
-				if (rateLimiter != null) {
-					rateLimiter.acquire(1);
-				}
 				lookupRequestPerSecond.markEvent();
 				statement.clearParameters();
 				statement = lookupKeyRowConverter.toExternal(keyRow, statement);

@@ -17,24 +17,33 @@
 
 package org.apache.flink.streaming.connectors.kafka.config;
 
+import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
+
 /**
  * New config added in bytedance.
  */
 public class BytedKafkaConfig {
+	private final RateLimitingUnit rateLimitingUnit;
 	private final long sampleInterval;
 	private final long sampleNum;
 	private final long manualCommitInterval;
 	private final boolean forceManuallyCommitOffsets;
 
 	public BytedKafkaConfig(
+			RateLimitingUnit rateLimitingUnit,
 			long sampleInterval,
 			long sampleNum,
 			long manualCommitInterval,
 			boolean isForceManuallyCommitOffsets) {
+		this.rateLimitingUnit = rateLimitingUnit;
 		this.sampleInterval = sampleInterval;
 		this.sampleNum = sampleNum;
 		this.manualCommitInterval = manualCommitInterval;
 		this.forceManuallyCommitOffsets = isForceManuallyCommitOffsets;
+	}
+
+	public RateLimitingUnit getRateLimitingUnit() {
+		return rateLimitingUnit;
 	}
 
 	public long getSampleInterval() {

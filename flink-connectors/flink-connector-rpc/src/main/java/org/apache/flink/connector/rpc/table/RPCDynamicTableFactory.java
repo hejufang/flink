@@ -18,8 +18,6 @@
 
 package org.apache.flink.connector.rpc.table;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
@@ -59,7 +57,6 @@ import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_MAX_ROWS
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_CACHE_TTL;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_ENABLE_INPUT_KEYBY;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_MAX_RETRIES;
-import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 
 /**
  * Factory for creating configured instances of {@link RPCDynamicTableSource}.
@@ -109,7 +106,6 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionalOptions.add(LOOKUP_FAILURE_HANDLE_STRATEGY);
 		optionalOptions.add(LOOKUP_INFER_SCHEMA);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
-		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
 
@@ -124,11 +120,6 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionsBuilder.setConnectionPoolSize(configs.get(CONNECTION_POOL_SIZE));
 		configs.getOptional(PSM).ifPresent(optionsBuilder::setPsm);
 		configs.getOptional(CLUSTER).ifPresent(optionsBuilder::setCluster);
-		configs.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
-			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
-			rateLimiter.setRate(rate);
-			optionsBuilder.setRateLimiter(rateLimiter);
-		});
 		return optionsBuilder.build();
 	}
 

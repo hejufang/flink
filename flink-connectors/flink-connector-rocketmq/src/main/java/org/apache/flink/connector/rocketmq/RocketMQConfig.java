@@ -17,7 +17,6 @@
 
 package org.apache.flink.connector.rocketmq;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.rocketmq.selector.MsgDelayLevelSelector;
 import org.apache.flink.connector.rocketmq.selector.TopicSelector;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
@@ -45,7 +44,6 @@ public class RocketMQConfig<T> {
 	private Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap;
 	private int parallelism = FactoryUtil.PARALLELISM.defaultValue();
 	private String rocketMqBrokerQueueList;
-	private FlinkConnectorRateLimiter rateLimiter;
 
 	public MsgDelayLevelSelector<T> getMsgDelayLevelSelector() {
 		return msgDelayLevelSelector;
@@ -152,13 +150,5 @@ public class RocketMQConfig<T> {
 
 	public void setRocketMqBrokerQueueList(String rocketMqBrokerQueueList) {
 		this.rocketMqBrokerQueueList = rocketMqBrokerQueueList;
-	}
-
-	public void setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-		this.rateLimiter = rateLimiter;
-	}
-
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
 	}
 }

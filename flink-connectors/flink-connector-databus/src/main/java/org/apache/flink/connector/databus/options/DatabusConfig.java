@@ -17,7 +17,6 @@
 
 package org.apache.flink.connector.databus.options;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.RetryManager;
 
@@ -35,7 +34,6 @@ public class DatabusConfig implements Serializable {
 	private final int parallelism;
 	private final long databusBufferSize;
 	private final boolean needResponse;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private DatabusConfig(
 			String channel,
@@ -43,15 +41,13 @@ public class DatabusConfig implements Serializable {
 			RetryManager.Strategy retryStrategy,
 			int parallelism,
 			long databusBufferSize,
-			boolean needResponse,
-			FlinkConnectorRateLimiter rateLimiter) {
+			boolean needResponse) {
 		this.channel = channel;
 		this.batchSize = batchSize;
 		this.retryStrategy = retryStrategy;
 		this.parallelism = parallelism;
 		this.databusBufferSize = databusBufferSize;
 		this.needResponse = needResponse;
-		this.rateLimiter = rateLimiter;
 	}
 
 	public String getChannel() {
@@ -78,10 +74,6 @@ public class DatabusConfig implements Serializable {
 		return needResponse;
 	}
 
-	public FlinkConnectorRateLimiter getRateLimiter() {
-		return rateLimiter;
-	}
-
 	public static DatabusConfigBuilder builder() {
 		return new DatabusConfigBuilder();
 	}
@@ -96,7 +88,6 @@ public class DatabusConfig implements Serializable {
 		private int parallelism;
 		private long maxBufferSize = -1; // -1 means using the default value in databus client (35 * 1024 * 1024).
 		private boolean needResponse = true; // need response by default.
-		private FlinkConnectorRateLimiter rateLimiter;
 
 		private DatabusConfigBuilder() {
 		}
@@ -131,11 +122,6 @@ public class DatabusConfig implements Serializable {
 			return this;
 		}
 
-		public DatabusConfigBuilder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
-			this.rateLimiter = rateLimiter;
-			return this;
-		}
-
 		public DatabusConfig build() {
 			Preconditions.checkNotNull(channel, "channel cannot be null");
 			return new DatabusConfig(
@@ -144,8 +130,7 @@ public class DatabusConfig implements Serializable {
 				retryStrategy,
 				parallelism,
 				maxBufferSize,
-				needResponse,
-				rateLimiter);
+				needResponse);
 		}
 	}
 }

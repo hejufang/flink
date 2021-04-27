@@ -18,7 +18,6 @@
 
 package org.apache.flink.connector.rpc.table;
 
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.rpc.FailureHandleStrategy;
 import org.apache.flink.connector.rpc.table.descriptors.RPCLookupOptions;
 import org.apache.flink.connector.rpc.table.descriptors.RPCOptions;
@@ -73,8 +72,6 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 	private final String[] fieldNames;
 	private final int[] keyIndices;
 	private final DataType dataType;
-	private final FlinkConnectorRateLimiter rateLimiter;
-
 	private String psm;
 	private transient RowJavaBeanConverter requestConverter;
 	private transient RowJavaBeanConverter responseConverter;
@@ -100,7 +97,6 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 		this.responseClass = ThriftUtil.getReturnClassOfMethod(clientClass, rpcOptions.getThriftMethod());
 		this.serviceClient = new RPCServiceClient(rpcOptions, clientClass, requestClass);
 		this.psm = rpcOptions.getPsm();
-		this.rateLimiter = rpcOptions.getRateLimiter();
 	}
 
 	@Override
@@ -114,9 +110,6 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 		}
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
-		}
-		if (rateLimiter != null) {
-			rateLimiter.open(context.getRuntimeContext());
 		}
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
@@ -186,10 +179,6 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 				return Collections.singletonList(cachedRow);
 			}
 		}
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
-
 		String logID = "unknown";
 		boolean exceptionRetryable = true;
 		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {

@@ -18,7 +18,6 @@
 package org.apache.flink.connector.databus;
 
 import org.apache.flink.api.common.io.RichOutputFormat;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.KeyedSerializationSchema;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.databus.options.DatabusConfig;
@@ -48,9 +47,8 @@ public class DatabusOutputFormat<IN> extends RichOutputFormat<IN> {
 	private final String channel;
 	private final long databusBufferSize;
 	private final int batchSize;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
-	private RetryManager.Strategy retryStrategy;
+	private RetryManager.Strategy retrySrategy;
 	private transient DatabusClient databusClient;
 
 	// true: databus client return success only if the record is persisted in databus agent shared memory.
@@ -67,7 +65,6 @@ public class DatabusOutputFormat<IN> extends RichOutputFormat<IN> {
 		this.keyedSerializationSchema = keyedSerializationSchema;
 		this.needResponse = options.isNeedResponse();
 		this.databusBufferSize = options.getDatabusBufferSize();
-		this.rateLimiter = options.getRateLimiter();
 	}
 
 	@Override
@@ -109,23 +106,17 @@ public class DatabusOutputFormat<IN> extends RichOutputFormat<IN> {
 		bufferedKeys = new ArrayList<>();
 		bufferedValues = new ArrayList<>();
 		if (options.getRetryStrategy() != null) {
-			retryStrategy = options.getRetryStrategy().copy();
+			retrySrategy = options.getRetryStrategy().copy();
 		}
 		databusClient = new DatabusClient(this.channel);
 		if (databusBufferSize > 0) {
 			// setCacheSize is a static method in DatabusClient, although we think it is strange.
 			DatabusClient.setCacheSize(databusBufferSize);
 		}
-		if (rateLimiter != null) {
-			rateLimiter.open(getRuntimeContext());
-		}
 	}
 
 	@Override
 	public void writeRecord(IN record) throws IOException {
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
 		byte[] key = keyedSerializationSchema.serializeKey(record);
 		byte[] value = keyedSerializationSchema.serializeValue(record);
 		if (bufferedKeys.size() < batchSize) {
@@ -133,8 +124,8 @@ public class DatabusOutputFormat<IN> extends RichOutputFormat<IN> {
 			return;
 		}
 
-		if (retryStrategy != null) {
-			RetryManager.retry(this::flush, retryStrategy);
+		if (retrySrategy != null) {
+			RetryManager.retry(this::flush, retrySrategy);
 		} else {
 			flush();
 		}

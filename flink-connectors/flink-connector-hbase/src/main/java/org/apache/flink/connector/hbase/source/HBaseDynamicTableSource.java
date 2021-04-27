@@ -20,7 +20,6 @@ package org.apache.flink.connector.hbase.source;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.connector.hbase.util.HBaseTableSchema;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
@@ -46,19 +45,16 @@ public class HBaseDynamicTableSource implements ScanTableSource, LookupTableSour
 	private final String tableName;
 	private HBaseTableSchema hbaseSchema;
 	private final String nullStringLiteral;
-	private final FlinkConnectorRateLimiter rateLimiter;
 
 	public HBaseDynamicTableSource(
 			Configuration conf,
 			String tableName,
 			HBaseTableSchema hbaseSchema,
-			String nullStringLiteral,
-			FlinkConnectorRateLimiter rateLimiter) {
+			String nullStringLiteral) {
 		this.conf = conf;
 		this.tableName = tableName;
 		this.hbaseSchema = hbaseSchema;
 		this.nullStringLiteral = nullStringLiteral;
-		this.rateLimiter = rateLimiter;
 	}
 
 	@Override
@@ -81,8 +77,7 @@ public class HBaseDynamicTableSource implements ScanTableSource, LookupTableSour
 				.isPresent(),
 			"Currently, HBase table only supports lookup by rowkey field.");
 
-		return TableFunctionProvider.of(new HBaseRowDataLookupFunction(
-			conf, tableName, hbaseSchema, nullStringLiteral, rateLimiter));
+		return TableFunctionProvider.of(new HBaseRowDataLookupFunction(conf, tableName, hbaseSchema, nullStringLiteral));
 	}
 
 	@Override
@@ -106,7 +101,7 @@ public class HBaseDynamicTableSource implements ScanTableSource, LookupTableSour
 
 	@Override
 	public DynamicTableSource copy() {
-		return new HBaseDynamicTableSource(conf, tableName, hbaseSchema, nullStringLiteral, rateLimiter);
+		return new HBaseDynamicTableSource(conf, tableName, hbaseSchema, nullStringLiteral);
 	}
 
 	@Override
