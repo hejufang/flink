@@ -46,10 +46,6 @@ public class CheckpointSchedulerITCase extends TestLogger implements Serializabl
 	private static final long checkpointInterval = 5 * 1000L; // 5 sec in ms
 	private static final long checkpointTimeout = 1_000L; // 1 sec in ms
 
-	// Override the default retry configuration to support fast testing. should only be done in testing.
-	private static final CheckpointSchedulingStrategies.EarlyCheckpointConfig earlyCheckpointConfig =
-		new CheckpointSchedulingStrategies.EarlyCheckpointConfig(1_000L, 4_000L);
-
 	// We expect one successful early checkpoint and two regular checkpoints to succeed
 	RichSinkFunction<String> assertSink = new AssertSink(3);
 
@@ -65,7 +61,7 @@ public class CheckpointSchedulerITCase extends TestLogger implements Serializabl
 		// Configure checkpoint
 		env.enableCheckpointing(checkpointInterval);
 		env.getCheckpointConfig().setCheckpointSchedulingStrategy(
-			CheckpointSchedulingStrategies.hourlyStrategy(offsetMillis, earlyCheckpointConfig));
+			CheckpointSchedulingStrategies.hourlyStrategy(offsetMillis));
 		env.getCheckpointConfig().setCheckpointTimeout(checkpointTimeout);
 
 		// No failure, runs 2 checkpointInterval time
@@ -101,7 +97,7 @@ public class CheckpointSchedulerITCase extends TestLogger implements Serializabl
 		// Configure checkpoints
 		env.enableCheckpointing(checkpointInterval);
 		env.getCheckpointConfig().setCheckpointSchedulingStrategy(
-			CheckpointSchedulingStrategies.hourlyStrategy(offsetMillis, earlyCheckpointConfig));
+			CheckpointSchedulingStrategies.hourlyStrategy(offsetMillis));
 		env.getCheckpointConfig().setCheckpointTimeout(checkpointTimeout);
 
 		// Configure restart strategies

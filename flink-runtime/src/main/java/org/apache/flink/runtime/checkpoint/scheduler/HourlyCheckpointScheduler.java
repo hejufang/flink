@@ -20,7 +20,6 @@ package org.apache.flink.runtime.checkpoint.scheduler;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
@@ -34,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * The checkpoint scheduler which aligns the checkpoint starting time to whole hours.
- * It also supports early checkpoint, and early checkpoints do not subject to alignment.
  * To align to whole hours, the checkpoint interval must divides an hour.
  */
 public class HourlyCheckpointScheduler implements CheckpointScheduler {
@@ -74,24 +72,9 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	private final long checkpointTimeout;
 
 	/**
-	 * Flag whether this scheduler applies early checkpoint strategy.
-	 */
-	private final boolean earlyCheckpointEnabled;
-
-	/**
 	 * The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
 	 */
 	private ScheduledExecutor timer;
-
-	/**
-	 * The Runnable object to do early checkpoint.
-	 */
-	private final Runnable earlyCheckpointTask;
-
-	/**
-	 * A handle to the early checkpoint trigger, to cancel it when necessary.
-	 */
-	private volatile ScheduledFuture<?> earlyCheckpointTrigger;
 
 	/**
 	 * The Runnable object to do regular checkpoint.
@@ -108,29 +91,11 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	 */
 	private final CheckpointCoordinator coordinator;
 
-	@VisibleForTesting
 	HourlyCheckpointScheduler(
 			long baseInterval,
 			long offsetMillis,
 			long minPauseMillis,
 			long checkpointTimeout,
-			JobID job,
-			CheckpointCoordinator coordinator) {
-		this(baseInterval,
-			offsetMillis,
-			minPauseMillis,
-			checkpointTimeout,
-			CheckpointSchedulingStrategies.DEFAULT_EARLY_CHECKPOINT_CONFIG,
-			job,
-			coordinator);
-	}
-
-	HourlyCheckpointScheduler(
-			long baseInterval,
-			long offsetMillis,
-			long minPauseMillis,
-			long checkpointTimeout,
-			CheckpointSchedulingStrategies.EarlyCheckpointConfig earlyCheckpointConfig,
 			JobID job,
 			CheckpointCoordinator coordinator) {
 
@@ -141,13 +106,7 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 		this.job = job;
 		this.coordinator = coordinator;
 
-		this.earlyCheckpointEnabled = baseInterval > earlyCheckpointConfig.threshold;
-		this.earlyCheckpointTask = CheckpointSchedulerUtils.createEarlyCheckpointTask(
-			baseInterval / earlyCheckpointConfig.retryInterval,
-			earlyCheckpointConfig.retryInterval,
-			coordinator);
 		this.regularCheckpointTask = new TriggerPeriodicCheckpoint();
-		this.earlyCheckpointTrigger = null;
 		this.currentPeriodicTrigger = null;
 
 		// Ensures checkpoint interval divides an hour
@@ -161,36 +120,16 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void startScheduling() {
-		// early start
-		if (earlyCheckpointEnabled) {
-			earlyCheckpointTrigger = timer.schedule(earlyCheckpointTask, 0, TimeUnit.MILLISECONDS);
-		}
 		final long alignedDelay = calcNecessaryDelay(System.currentTimeMillis(), minPauseMillis);
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, alignedDelay, baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
-	public void resumeScheduling() {
-		final long alignedDelay = calcNecessaryDelay(System.currentTimeMillis(), 0L);
-		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, alignedDelay, baseInterval, TimeUnit.MILLISECONDS);
-	}
-
-	@Override
-	public void pauseScheduling() {
-		if (earlyCheckpointTrigger != null) {
-			earlyCheckpointTrigger.cancel(false);
-			// We do not reset it to null! Because this could free us from synchronization.
-			// See regular trigger task for details.
-		}
+	public void stopScheduling() {
 		if (currentPeriodicTrigger != null) {
 			currentPeriodicTrigger.cancel(false);
 			currentPeriodicTrigger = null;
 		}
-	}
-
-	@Override
-	public void stopScheduling() {
-		pauseScheduling();
 	}
 
 	@Override
@@ -207,7 +146,7 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	public void checkMinPauseSinceLastCheckpoint(long lastCompletionNanos) throws CheckpointException {
 		final long elapsedTimeMillis = (System.nanoTime() - lastCompletionNanos) / 1_000_000L;
 
-		// this will never be triggered by early checkpoint, so we just check regular ones
+		// we just check regular ones
 		if (elapsedTimeMillis < minPauseMillis) {
 			// ensure that there is enough delay
 			if (currentPeriodicTrigger != null) {
@@ -244,18 +183,11 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	}
 
 	/**
-	 * Task to do regular checkpoint, should be run in a single thread. If early checkpoint is enabled, this
-	 * task should only be run after all thread of early checkpoint terminates.
+	 * Task to do regular checkpoint, should be run in a single thread.
 	 */
 	private class TriggerPeriodicCheckpoint implements Runnable {
 		@Override
 		public void run() {
-			// Note: this compound condition evaluation is not atomic, but is fine for us as we
-			// never set earlyCheckpointTrigger from a non-null value to null.
-			if (earlyCheckpointTrigger != null && !earlyCheckpointTrigger.isDone()) {
-				return;
-			}
-
 			try {
 				coordinator.triggerCheckpoint(true);
 			} catch (Exception e) {

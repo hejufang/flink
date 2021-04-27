@@ -20,7 +20,6 @@ package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
-import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies.EarlyCheckpointConfig;
 import org.apache.flink.runtime.concurrent.Executors;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
@@ -72,7 +71,7 @@ public class FailoverStrategyCheckpointCoordinatorTest extends TestLogger {
 			CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION,
 			true,
 			false,
-			CheckpointSchedulingStrategies.defaultStrategy(new EarlyCheckpointConfig(Long.MAX_VALUE, Long.MAX_VALUE)),
+			CheckpointSchedulingStrategies.defaultStrategy(),
 			0,
 			false);
 		CheckpointCoordinator checkpointCoordinator = new CheckpointCoordinator(

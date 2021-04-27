@@ -72,7 +72,6 @@ public final class CheckpointSchedulerUtils {
 						baseInterval,
 						minPauseBetweenCheckpoints,
 						chkConfig.getCheckpointTimeout(),
-						chkConfig.getCheckpointSchedulerConfiguration().earlyCheckpointConfig,
 						job,
 						coordinator);
 				} else {
@@ -100,7 +99,6 @@ public final class CheckpointSchedulerUtils {
 						schedulerConfiguration.offsetMillis,
 						minPauseBetweenCheckpoints,
 						chkConfig.getCheckpointTimeout(),
-						chkConfig.getCheckpointSchedulerConfiguration().earlyCheckpointConfig,
 						job,
 						coordinator);
 				} else {
@@ -111,64 +109,6 @@ public final class CheckpointSchedulerUtils {
 			default:
 				LOG.warn("Invalid checkpoint scheduling strategy: {}", chkConfig.getCheckpointSchedulerConfiguration());
 				throw new IllegalArgumentException("Unsupported checkpoint scheduling strategy.");
-		}
-	}
-
-	/**
-	 * Factory method for early checkpoint task.
-	 *
-	 * @param maxRetry      maximum attempts to do checkpoint
-	 * @param retryInterval retry interval between early checkpoint attempts
-	 * @param coordinator   the checkpoint coordinator which is in charge of the checkpoint
-	 * @return a runnable task to do early checkpoint
-	 */
-	static Runnable createEarlyCheckpointTask(long maxRetry, long retryInterval, CheckpointCoordinator coordinator) {
-		return new TriggerFirstCheckpoint(maxRetry, retryInterval, coordinator);
-	}
-
-	/**
-	 * Task to do early checkpoint, should be run in a single thread. Early checkpoint usually fails because
-	 * not all operators to trigger are in RUNNING state. Therefore retry is necessary. To ensure that the
-	 * first checkpoint is early enough, retry should be carried out with small interval (at least much
-	 * smaller than the regular checkpoint interval).
-	 */
-	private static class TriggerFirstCheckpoint implements Runnable {
-
-		/**
-		 * Maximum number of trials.
-		 */
-		private final long maxRetry;
-
-		/**
-		 * The time (in ms) we wait to start another early checkpoint trial, if previous one fails.
-		 */
-		private final long retryInterval;
-
-		/**
-		 * The checkpoint coordinator which this scheduler belongs to.
-		 */
-		private final CheckpointCoordinator coordinator;
-
-		private TriggerFirstCheckpoint(long maxRetry, long retryInterval, CheckpointCoordinator coordinator) {
-			this.maxRetry = maxRetry;
-			this.retryInterval = retryInterval;
-			this.coordinator = coordinator;
-		}
-
-		/**
-		 * Notice: we do not retry here because the method triggerCheckpoint(boolean) has changed from
-		 * 1.9 to 1.11. In 1.9, the method returns the result of trigger so that we can easily know whether
-		 * this checkpoint is triggered successfully or not.
-		 */
-		@Override
-		public void run() {
-			coordinator.triggerCheckpoint(true).whenCompleteAsync((ignored, t) -> {
-				if (t != null) {
-					LOG.warn("Early Checkpoint failed.");
-				} else {
-					LOG.info("Early Checkpoint succeeded.");
-				}
-			});
 		}
 	}
 }

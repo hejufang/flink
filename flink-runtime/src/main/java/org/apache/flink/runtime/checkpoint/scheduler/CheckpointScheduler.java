@@ -40,18 +40,6 @@ public interface CheckpointScheduler {
 	void startScheduling();
 
 	/**
-	 * Resume periodically scheduling. Transfer from paused to running mode.
-	 */
-	void resumeScheduling();
-
-	/**
-	 * Enter paused state and stop periodically scheduling temporarily.
-	 * Still in periodically scheduling mode (might be resumed at any time).
-	 * Called when number of pending checkpoints reach the limit.
-	 */
-	void pauseScheduling();
-
-	/**
 	 * stop periodically scheduling, quit periodically scheduling mode.
 	 * Should be only called once before the job quit.
 	 */

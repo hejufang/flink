@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.checkpoint.scheduler;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
@@ -33,11 +32,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The default checkpoint scheduler, which triggers checkpoints at fixed rate and applies
- * an early checkpoint strategy: a checkpoint will be triggered early, after the scheduler
- * is started. For some job, checkpoint decides when to commit writing, and a late checkpoint
+ * The default checkpoint scheduler, which triggers checkpoints at fixed rate checkpoint
+ * strategy. For some job, checkpoint decides when to commit writing, and a late checkpoint
  * will block the writing process so long that the downstream might considered the job abnormal.
- * Therefore early checkpoint is triggered when the checkpoint interval is too large.
  */
 public class DefaultCheckpointScheduler implements CheckpointScheduler {
 
@@ -66,24 +63,9 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 	private final long checkpointTimeout;
 
 	/**
-	 * Flag whether this scheduler applies early checkpoint strategy.
-	 */
-	private final boolean earlyCheckpointEnabled;
-
-	/**
 	 * The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
 	 */
 	private ScheduledExecutor timer;
-
-	/**
-	 * The Runnable object to do early checkpoint.
-	 */
-	private final Runnable earlyCheckpointTask;
-
-	/**
-	 * A handle to the early checkpoint trigger, to cancel it when necessary.
-	 */
-	private volatile ScheduledFuture<?> earlyCheckpointTrigger;
 
 	/**
 	 * The Runnable object to do regular checkpoint.
@@ -104,7 +86,6 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 			long baseInterval,
 			long minPauseMillis,
 			long checkpointTimeout,
-			CheckpointSchedulingStrategies.EarlyCheckpointConfig earlyCheckpointConfig,
 			JobID job,
 			CheckpointCoordinator coordinator) {
 
@@ -114,13 +95,7 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 		this.job = job;
 		this.coordinator = coordinator;
 
-		this.earlyCheckpointEnabled = baseInterval > earlyCheckpointConfig.threshold;
-		this.earlyCheckpointTask = CheckpointSchedulerUtils.createEarlyCheckpointTask(
-			baseInterval / earlyCheckpointConfig.retryInterval,
-			earlyCheckpointConfig.retryInterval,
-			coordinator);
 		this.regularCheckpointTask = new TriggerPeriodicCheckpoint();
-		this.earlyCheckpointTrigger = null;
 		this.currentPeriodicTrigger = null;
 	}
 
@@ -129,35 +104,15 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void startScheduling() {
-		if (earlyCheckpointEnabled) {
-			earlyCheckpointTrigger = timer.schedule(earlyCheckpointTask, 0, TimeUnit.MILLISECONDS);
-		}
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, getRandomInitDelay(), baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
-	public void resumeScheduling() {
-		// here we do not have to consider minimum checkpoint pause (because we are resuming
-		// from a pause, which indicates that this trigger has waited long enough before that pause)
-		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, 0L, baseInterval, TimeUnit.MILLISECONDS);
-	}
-
-	@Override
-	public void pauseScheduling() {
-		if (earlyCheckpointTrigger != null) {
-			earlyCheckpointTrigger.cancel(false);
-			// We do not reset it to null! Because this could free us from synchronization.
-			// See regular trigger task for details.
-		}
+	public void stopScheduling() {
 		if (currentPeriodicTrigger != null) {
 			currentPeriodicTrigger.cancel(false);
 			currentPeriodicTrigger = null;
 		}
-	}
-
-	@Override
-	public void stopScheduling() {
-		pauseScheduling();
 	}
 
 	@Override
@@ -222,12 +177,6 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 	private class TriggerPeriodicCheckpoint implements Runnable {
 		@Override
 		public void run() {
-			// Note: this compound condition evaluation is not atomic, but is fine for us as we
-			// never set earlyCheckpointTrigger from a non-null value to null.
-			if (earlyCheckpointTrigger != null && !earlyCheckpointTrigger.isDone()) {
-				return;
-			}
-
 			try {
 				coordinator.triggerCheckpoint(true);
 			} catch (Exception e) {
