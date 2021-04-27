@@ -97,8 +97,9 @@ public class MessagePackSerializer implements MessageSerializable {
 				try {
 					shellMsg.getTuple().add(valueToJavaType(element));
 				} catch (Throwable e) {
-					LOG.error("ValueToJavaType error, error element: {}, tupleValue: {}", element, tupleValue);
-					throw e;
+					String errMsg = String.format("ValueToJavaType error, error element: %s, tupleValue: %s", element, tupleValue);
+					LOG.error(errMsg);
+					throw new RuntimeException(errMsg, e);
 				}
 			}
 		}
