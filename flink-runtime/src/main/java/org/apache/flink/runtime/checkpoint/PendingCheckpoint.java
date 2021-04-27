@@ -668,6 +668,7 @@ public class PendingCheckpoint {
 	 */
 	public void abort(CheckpointFailureReason reason, @Nullable Throwable cause) {
 		try {
+			LOG.warn("Abort checkpoint " + checkpointId, cause);
 			failureCause = wrapWithCheckpointException(reason, cause);
 			onCompletionPromise.completeExceptionally(failureCause);
 			reportFailedCheckpoint(failureCause, reason);

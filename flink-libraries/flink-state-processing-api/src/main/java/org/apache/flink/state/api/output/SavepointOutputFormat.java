@@ -96,7 +96,8 @@ public class SavepointOutputFormat extends RichOutputFormat<CheckpointMetadata> 
 			reference,
 			(int) CheckpointingOptions.FS_SMALL_FILE_THRESHOLD.defaultValue().getBytes(),
 			CheckpointingOptions.FS_WRITE_BUFFER_SIZE.defaultValue(),
-			new FsCheckpointStorage.CheckpointWriteFileStatistic());
+			new FsCheckpointStorage.CheckpointWriteFileStatistic(),
+			false);
 	}
 }
 

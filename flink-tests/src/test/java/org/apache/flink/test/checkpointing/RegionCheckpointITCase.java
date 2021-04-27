@@ -35,7 +35,6 @@ import org.apache.flink.util.TestLogger;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,7 +103,6 @@ public class RegionCheckpointITCase extends TestLogger implements Serializable {
 		Assert.assertTrue(latestSuccessfulChckpointId.get() == 3 && FailedSink.exceptionThrown.get());
 	}
 
-	@Ignore
 	@Test
 	public void testUnAcknowledgedTaskFailedCheckpoint() throws Exception {
 		final Configuration configuration = new Configuration();

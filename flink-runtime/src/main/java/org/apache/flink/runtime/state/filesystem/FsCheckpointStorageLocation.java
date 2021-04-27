@@ -52,6 +52,19 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 
 	private final int writeBufferSize;
 
+	@VisibleForTesting
+	public FsCheckpointStorageLocation(
+		FileSystem fileSystem,
+		Path checkpointDir,
+		Path sharedStateDir,
+		Path taskOwnedStateDir,
+		CheckpointStorageLocationReference reference,
+		int fileStateSizeThreshold,
+		int writeBufferSize,
+		FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic) {
+		this(fileSystem, checkpointDir, sharedStateDir, taskOwnedStateDir, reference, fileStateSizeThreshold, writeBufferSize, currentPeriodStatistic, false);
+	}
+
 	public FsCheckpointStorageLocation(
 			FileSystem fileSystem,
 			Path checkpointDir,
@@ -60,9 +73,10 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 			CheckpointStorageLocationReference reference,
 			int fileStateSizeThreshold,
 			int writeBufferSize,
-			FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic) {
+			FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic,
+			boolean forceAbsolutePath) {
 
-		super(fileSystem, checkpointDir, sharedStateDir, fileStateSizeThreshold, writeBufferSize, currentPeriodStatistic);
+		super(fileSystem, checkpointDir, sharedStateDir, fileStateSizeThreshold, writeBufferSize, currentPeriodStatistic, forceAbsolutePath);
 
 		checkArgument(fileStateSizeThreshold >= 0);
 		checkArgument(writeBufferSize >= 0);

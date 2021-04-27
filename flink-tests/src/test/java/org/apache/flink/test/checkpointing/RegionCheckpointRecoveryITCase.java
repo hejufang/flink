@@ -168,7 +168,7 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		final JobGraph recoveredJob = createJobGraphWithFailedCheckpoint(false);
 
 		// regard the checkpoint as a savepoint
-		final String savepointPath = checkpointPath + JOB_NAME + "/default/chk-1";
+		final String savepointPath = checkpointPath + JOB_NAME + "/default/chk-2";
 		LOG.info("Using {} as the savepoint path.", savepointPath);
 		recoveredJob.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(savepointPath));
 		client.submitJob(recoveredJob);
@@ -186,9 +186,10 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 
 	private JobGraph createJobGraphWithFailedCheckpoint(boolean beforeCancel) {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
+		env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 1000L));
 		env.getCheckpointConfig().setCheckpointInterval(2000);
 		env.getCheckpointConfig().setCheckpointTimeout(3000);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
 
 		env.addSource(new TestSource(beforeCancel, true)).addSink(new StatefulSink());
 		return env.getStreamGraph(JOB_NAME).getJobGraph();
@@ -199,6 +200,7 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
 		env.getCheckpointConfig().setCheckpointInterval(2000);
 		env.getCheckpointConfig().setCheckpointTimeout(3000);
+		env.getCheckpointConfig().setMinPauseBetweenCheckpoints(0L);
 
 		env.addSource(new TestSource(beforeCancel, false)).addSink(new StatefulAndExpireSink());
 		return env.getStreamGraph().getJobGraph();
@@ -242,9 +244,10 @@ public class RegionCheckpointRecoveryITCase extends TestLogger implements Serial
 		public void snapshotState(FunctionSnapshotContext context) throws Exception {
 			if (getRuntimeContext().getIndexOfThisSubtask() == 0) {
 				numberOfCheckpoints++;
-			}
-			if (beforeCancel && failedAfterSuccessfulCheckpoint && numberOfSuccessfulCheckpoints > 0) {
-				throw new RuntimeException("Fail the synchronization part.");
+
+				if (beforeCancel && failedAfterSuccessfulCheckpoint && numberOfSuccessfulCheckpoints > 0) {
+					throw new RuntimeException("Fail the synchronization part.");
+				}
 			}
 		}
 

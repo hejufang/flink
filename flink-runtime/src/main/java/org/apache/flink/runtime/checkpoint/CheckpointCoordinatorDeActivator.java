@@ -40,10 +40,10 @@ public class CheckpointCoordinatorDeActivator implements JobStatusListener {
 	public void jobStatusChanges(JobID jobId, JobStatus newJobStatus, long timestamp, Throwable error) {
 		if (newJobStatus == JobStatus.RUNNING) {
 			// start the checkpoint scheduler
-			coordinator.startCheckpointScheduler();
+			coordinator.startCheckpointScheduler(newJobStatus);
 		} else {
 			// anything else should stop the trigger for now
-			coordinator.stopCheckpointScheduler();
+			coordinator.stopCheckpointScheduler(newJobStatus);
 		}
 	}
 }

@@ -129,6 +129,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 
 	private int nThreadOfOperatorStateBackend;
 
+	private boolean forceAbsolutePath;
+
 	// -----------------------------------------------------------------------
 
 	/**
@@ -367,6 +369,10 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 	private FsStateBackend(FsStateBackend original, ReadableConfig configuration, ClassLoader classLoader) {
 		super(original.getCheckpointPath(), original.getSavepointPath(), configuration);
 
+		if (configuration.get(CheckpointingOptions.REGION_CHECKPOINT_ENABLED)) {
+			this.forceAbsolutePath = true;
+		}
+
 		// if asynchronous snapshots were configured, use that setting,
 		// else check the configuration
 		this.asynchronousSnapshots = original.asynchronousSnapshots.resolveUndefined(
@@ -530,7 +536,8 @@ public class FsStateBackend extends AbstractFileStateBackend implements Configur
 					config.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE),
 					getMinFileSizeThreshold(),
 					getWriteBufferSize(),
-					metricGroup);
+					metricGroup,
+					forceAbsolutePath);
 		} else {
 			return new FsCheckpointStorage(
 				getCheckpointPath(),

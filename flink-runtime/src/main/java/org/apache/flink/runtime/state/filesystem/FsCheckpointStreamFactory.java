@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.state.filesystem;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.fs.EntropyInjector;
 import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.core.fs.FileSystem;
@@ -89,6 +90,8 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 
 	private final FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic;
 
+	private final boolean forceAbsolutePath;
+
 	/**
 	 * Creates a new stream factory that stores its checkpoint data in the file system and location
 	 * defined by the given Path.
@@ -103,6 +106,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 	 *                             rather than in files
 	 * @param writeBufferSize The write buffer size.
 	 */
+	@VisibleForTesting
 	public FsCheckpointStreamFactory(
 			FileSystem fileSystem,
 			Path checkpointDirectory,
@@ -115,7 +119,8 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 			sharedStateDirectory,
 			fileStateSizeThreshold,
 			writeBufferSize,
-			new FsCheckpointStorage.CheckpointWriteFileStatistic());
+			new FsCheckpointStorage.CheckpointWriteFileStatistic(),
+			false);
 	}
 
 	/**
@@ -138,7 +143,8 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 			Path sharedStateDirectory,
 			int fileStateSizeThreshold,
 			int writeBufferSize,
-			FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic) {
+			FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic,
+			boolean forceAbsolutePath) {
 
 		if (fileStateSizeThreshold < 0) {
 			throw new IllegalArgumentException("The threshold for file state size must be zero or larger.");
@@ -160,6 +166,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 		this.writeBufferSize = writeBufferSize;
 		this.entropyInjecting = EntropyInjector.isEntropyInjecting(fileSystem);
 		this.currentPeriodStatistic = currentPeriodStatistic;
+		this.forceAbsolutePath = forceAbsolutePath;
 	}
 
 	// ------------------------------------------------------------------------
@@ -169,7 +176,7 @@ public class FsCheckpointStreamFactory implements CheckpointStreamFactory {
 		Path target = scope == CheckpointedStateScope.EXCLUSIVE ? checkpointDirectory : sharedStateDirectory;
 		int bufferSize = Math.max(writeBufferSize, fileStateThreshold);
 
-		final boolean absolutePath = entropyInjecting || scope == CheckpointedStateScope.SHARED;
+		final boolean absolutePath = entropyInjecting || scope == CheckpointedStateScope.SHARED || forceAbsolutePath;
 		return new FsCheckpointStateOutputStream(target, filesystem, bufferSize, fileStateThreshold, !absolutePath, currentPeriodStatistic);
 	}
 

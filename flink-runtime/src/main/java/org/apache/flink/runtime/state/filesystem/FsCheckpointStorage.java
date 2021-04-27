@@ -72,6 +72,9 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	private final CheckpointWriteFileStatistic currentPeriodStatistic;
 
+	private final boolean forceAbsolutePath;
+
+	@VisibleForTesting
 	public FsCheckpointStorage(
 			Path checkpointBaseDirectory,
 			@Nullable Path defaultSavepointDirectory,
@@ -120,7 +123,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				null,
 				fileSizeThreshold,
 				writeBufferSize,
-				metricGroup);
+				metricGroup,
+				false);
 	}
 
 	public FsCheckpointStorage(
@@ -132,7 +136,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			@Nullable String checkpointsNamespace,
 			int fileSizeThreshold,
 			int writeBufferSize,
-			MetricGroup metricGroup) throws IOException {
+			MetricGroup metricGroup,
+			boolean forceAbsolutePath) throws IOException {
 		super(jobId, defaultSavepointDirectory);
 
 		checkArgument(fileSizeThreshold >= 0);
@@ -148,6 +153,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		this.taskOwnedStateDirectory = new Path(checkpointsDirectory, CHECKPOINT_TASK_OWNED_STATE_DIR);
 		this.fileSizeThreshold = fileSizeThreshold;
 		this.writeBufferSize = writeBufferSize;
+		this.forceAbsolutePath = forceAbsolutePath;
 
 		this.metricReference = new CheckpointWriteFileStatistic();
 		this.currentPeriodStatistic = new CheckpointWriteFileStatistic();
@@ -199,7 +205,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				CheckpointStorageLocationReference.getDefault(),
 				fileSizeThreshold,
 				writeBufferSize,
-				currentPeriodStatistic);
+				currentPeriodStatistic,
+				forceAbsolutePath);
 	}
 
 	@Override
@@ -219,7 +226,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 					reference,
 					fileSizeThreshold,
 					writeBufferSize,
-					currentPeriodStatistic);
+					currentPeriodStatistic,
+					forceAbsolutePath);
 		}
 		else {
 			// location encoded in the reference
@@ -233,7 +241,8 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 					reference,
 					fileSizeThreshold,
 					writeBufferSize,
-					currentPeriodStatistic);
+					currentPeriodStatistic,
+					forceAbsolutePath);
 		}
 	}
 
@@ -253,7 +262,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	@Override
 	protected CheckpointStorageLocation createSavepointLocation(FileSystem fs, Path location) {
 		final CheckpointStorageLocationReference reference = encodePathAsReference(location);
-		return new FsCheckpointStorageLocation(fs, location, location, location, reference, fileSizeThreshold, writeBufferSize, currentPeriodStatistic);
+		return new FsCheckpointStorageLocation(fs, location, location, location, reference, fileSizeThreshold, writeBufferSize, currentPeriodStatistic, forceAbsolutePath);
 	}
 
 	// ------------------------------------------------------------------------

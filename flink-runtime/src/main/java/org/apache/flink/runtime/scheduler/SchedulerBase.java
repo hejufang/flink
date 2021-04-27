@@ -271,6 +271,10 @@ public abstract class SchedulerBase implements SchedulerNG {
 				// check whether we can restore from a savepoint
 				tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings());
 			}
+
+			if (jobMasterConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
+				tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings());
+			}
 		}
 
 		return newExecutionGraph;
@@ -354,7 +358,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		// abort pending checkpoints to
 		// i) enable new checkpoint triggering without waiting for last checkpoint expired.
 		// ii) ensure the EXACTLY_ONCE semantics if needed.
-		checkpointCoordinator.abortPendingCheckpoints(
+		checkpointCoordinator.onTaskFailure(vertices.stream().map(this::getExecutionVertex).collect(Collectors.toList()),
 				new CheckpointException(CheckpointFailureReason.JOB_FAILOVER_REGION));
 
 		final Set<ExecutionJobVertex> jobVerticesToRestore = getInvolvedExecutionJobVertices(vertices);
