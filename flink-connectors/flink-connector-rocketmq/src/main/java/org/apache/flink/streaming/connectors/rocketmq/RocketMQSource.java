@@ -199,9 +199,6 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 
 		this.skipDirty = metricGroup.counter("skipDirty");
 		this.recordsNumMeterView = metricGroup.meter(CONSUMER_RECORDS_METRICS_RATE, new MeterView(60));
-		this.retryTimes = getInteger(props, CONSUMER_RETRY_TIMES, CONSUMER_RETRY_TIMES_DEFAULT);
-		this.retryStrategy = RetryManager
-			.createExponentialBackoffStrategy(retryTimes, CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 	}
 
 	@Override
@@ -535,6 +532,10 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		} else {
 			LOG.info("Subtask {} No restore state for the consumer.", subTaskId);
 		}
+
+		this.retryTimes = getInteger(props, CONSUMER_RETRY_TIMES, CONSUMER_RETRY_TIMES_DEFAULT);
+		this.retryStrategy = RetryManager
+			.createExponentialBackoffStrategy(retryTimes, CONSUMER_RETRY_INIT_TIME_MS_DEFAULT);
 		fetchAssignMessageQueue(context.isRestored());
 	}
 
@@ -547,8 +548,19 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN));
 		try {
 			consumer.start();
+			List<Set<MessageQueue>> queueSetList = new ArrayList<>();
+			RetryManager.retry(new RetryManager.RetryableRunner() {
+				@Override
+				public void run() throws IOException {
+					try {
+						queueSetList.add(consumer.fetchSubscribeMessageQueues(topic));
+					} catch (Exception e) {
+						throw new FlinkRuntimeException(String.format("Failed to fetch topic %s offset", topic));
+					}
+				}
+			}, retryStrategy.copy());
 			assignMessageQueues = new HashSet<>(parallelismStrategy.allocate(consumer.getConsumerGroup(),
-				null, new ArrayList<>(consumer.fetchSubscribeMessageQueues(topic)), null));
+				null, new ArrayList<>(queueSetList.get(0)), null));
 
 			Set<MessageQueue> stateMessageQueues = new HashSet<>(parallelismStrategy.allocate(consumer.getConsumerGroup(),
 				null, new ArrayList<>(restoredOffsets.keySet()), null));
