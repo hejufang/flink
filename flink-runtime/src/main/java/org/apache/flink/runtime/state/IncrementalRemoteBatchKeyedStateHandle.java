@@ -18,6 +18,9 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,11 +28,11 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKeyedStateHandle {
-	/** Map from batch file ID to sst files in that batch. */
-	private final Map<StateHandleID, List<StateHandleID>> usedSstFiles;
+	/** Map from batch file ID to files in that batch, e.g., for RocksDB, files refer to sst files.*/
+	private final Map<StateHandleID, List<StateHandleID>> usedFiles;
 
 	/**
-	 * Actual state size of the state handle, summation of sst files. This field is not serialized
+	 * Actual state size of the state handle, summation of single files. This field is not serialized
 	 * to metadata, during restore it is invalid.
 	 */
 	private final long totalStateSize;
@@ -41,9 +44,9 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 		Map<StateHandleID, StreamStateHandle> sharedState,
 		Map<StateHandleID, StreamStateHandle> privateState,
 		StreamStateHandle metaStateHandle,
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles) {
+		Map<StateHandleID, List<StateHandleID>> usedFiles) {
 
-		this(backendIdentifier, keyGroupRange, checkpointId, sharedState, privateState, metaStateHandle, usedSstFiles, -1);
+		this(backendIdentifier, keyGroupRange, checkpointId, sharedState, privateState, metaStateHandle, usedFiles, -1);
 	}
 
 	public IncrementalRemoteBatchKeyedStateHandle(
@@ -53,16 +56,16 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 		Map<StateHandleID, StreamStateHandle> sharedState,
 		Map<StateHandleID, StreamStateHandle> privateState,
 		StreamStateHandle metaStateHandle,
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles,
+		Map<StateHandleID, List<StateHandleID>> usedFiles,
 		long totalStateSize) {
 
 		super(backendIdentifier, keyGroupRange, checkpointId, sharedState, privateState, metaStateHandle);
-		this.usedSstFiles = usedSstFiles;
+		this.usedFiles = usedFiles;
 		this.totalStateSize = totalStateSize;
 	}
 
-	public Map<StateHandleID, List<StateHandleID>> getUsedSstFiles() {
-		return usedSstFiles;
+	public Map<StateHandleID, List<StateHandleID>> getUsedFiles() {
+		return usedFiles;
 	}
 
 	@Override
@@ -76,8 +79,34 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 			sharedState,
 			getPrivateState(),
 			getMetaStateHandle(),
-			usedSstFiles,
+			usedFiles,
 			totalStateSize);
+	}
+
+	/**
+	 * Transfer sharedState from (batchId -> batch's handle) to (fileId -> batch's handle).
+	 * @return map from fileId to batch's handle.
+	 */
+	@Nonnull
+	public Map<StateHandleID, StreamStateHandle> getFilesToHandle() {
+		// Different from sharedState in parent class {@link IncrementalRemoteKeyedStateHandle},
+		// sharedState from the view of this class is organized in batch-level. We need to unfold
+		// the mapping from internal single file to batch's state handle.
+		Map<StateHandleID, StreamStateHandle> singleFilesToBatchHandle = new HashMap<>();
+		Map<StateHandleID, StreamStateHandle> batchIdToBatchHandle = getSharedState();
+
+		for (Map.Entry<StateHandleID, List<StateHandleID>> batchIdToContainedFiles : usedFiles.entrySet()) {
+			StateHandleID batchId = batchIdToContainedFiles.getKey();
+			StreamStateHandle batchStateHandle = batchIdToBatchHandle.get(batchId);
+			Preconditions.checkState(batchId != null);
+			List<StateHandleID> containedSingleFiles = batchIdToContainedFiles.getValue();
+
+			for (StateHandleID singleFile : containedSingleFiles) {
+				singleFilesToBatchHandle.put(singleFile, batchStateHandle);
+			}
+		}
+
+		return singleFilesToBatchHandle;
 	}
 
 	@Override
@@ -97,18 +126,18 @@ public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKey
 			return false;
 		}
 		IncrementalRemoteBatchKeyedStateHandle that = (IncrementalRemoteBatchKeyedStateHandle) o;
-		return Objects.equals(usedSstFiles, that.usedSstFiles);
+		return Objects.equals(usedFiles, that.usedFiles);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(super.hashCode(), usedSstFiles);
+		return Objects.hash(super.hashCode(), usedFiles);
 	}
 
 	@Override
 	public String toString() {
 		return "IncrementalRemoteBatchKeyedStateHandle{" +
-			"usedSstFiles=" + usedSstFiles +
+			"usedFiles=" + usedFiles +
 			"} " + super.toString();
 	}
 }

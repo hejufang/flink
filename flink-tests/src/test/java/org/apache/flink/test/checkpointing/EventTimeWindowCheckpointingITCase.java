@@ -32,6 +32,8 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBatchConfig;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBatchMode;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
@@ -107,7 +109,8 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 	public StateBackendEnum stateBackendEnum;
 
 	enum StateBackendEnum {
-		MEM, FILE, ROCKSDB_FULLY_ASYNC, ROCKSDB_INCREMENTAL, ROCKSDB_INCREMENTAL_ZK, MEM_ASYNC, FILE_ASYNC
+		MEM, FILE, ROCKSDB_FULLY_ASYNC, ROCKSDB_INCREMENTAL, ROCKSDB_INCREMENTAL_ZK, MEM_ASYNC, FILE_ASYNC,
+		ROCKSDB_INCREMENTAL_BATCHING, ROCKSDB_INCREMENTAL_BATCHING_BYTE
 	}
 
 	@Parameterized.Parameters(name = "statebackend type ={0}")
@@ -182,13 +185,21 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 				setupRocksDB(config, 16, true);
 				break;
 			}
+			case ROCKSDB_INCREMENTAL_BATCHING: {
+				setupRocksDB(config, 16, true, true);
+				break;
+			}
+			case ROCKSDB_INCREMENTAL_BATCHING_BYTE: {
+				setupRocksDB(config, 65 * 1024 * 1024, true, true);
+				break;
+			}
 			default:
 				throw new IllegalStateException("No backend selected.");
 		}
 		return config;
 	}
 
-	private void setupRocksDB(Configuration config, int fileSizeThreshold, boolean incrementalCheckpoints) throws IOException {
+	private void setupRocksDB(Configuration config, int fileSizeThreshold, boolean incrementalCheckpoints, boolean enableBatching) throws IOException {
 		// Configure the managed memory size as 64MB per slot for rocksDB state backend.
 		config.set(TaskManagerOptions.MANAGED_MEMORY_SIZE, MemorySize.ofMebiBytes(PARALLELISM / NUM_OF_TASK_MANAGERS * 64));
 
@@ -201,8 +212,15 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 				new FsStateBackend(
 					new Path("file://" + backups).toUri(), fileSizeThreshold),
 				incrementalCheckpoints);
+		if (enableBatching) {
+			rdb.setBatchConfig(new RocksDBStateBatchConfig(RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER, 128 * 1024 * 1024L));
+		}
 		rdb.setDbStoragePath(rocksDb);
 		this.stateBackend = rdb;
+	}
+
+	private void setupRocksDB(Configuration config, int fileSizeThreshold, boolean incrementalCheckpoints) throws IOException {
+		setupRocksDB(config, fileSizeThreshold, incrementalCheckpoints, false);
 	}
 
 	protected Configuration createClusterConfig() throws IOException {

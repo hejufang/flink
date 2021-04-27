@@ -28,6 +28,7 @@ import javax.annotation.Nonnull;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -148,8 +149,8 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 
 	@Nonnull
 	@Override
-	public Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs() {
-		return getSharedState();
+	public Set<StateHandleID> getSharedStateHandleIDs() {
+		return getSharedState().keySet();
 	}
 
 	public SharedStateRegistry getSharedStateRegistry() {

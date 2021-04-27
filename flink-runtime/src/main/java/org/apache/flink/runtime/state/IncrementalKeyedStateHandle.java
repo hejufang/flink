@@ -20,7 +20,7 @@ package org.apache.flink.runtime.state;
 
 import javax.annotation.Nonnull;
 
-import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -37,7 +37,7 @@ public interface IncrementalKeyedStateHandle extends KeyedStateHandle {
 
 	/** Returns a set of ids of all registered shared states in the backend at the time this was created. */
 	@Nonnull
-	Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs();
+	Set<StateHandleID> getSharedStateHandleIDs();
 
 	default IncrementalKeyedStateHandle overrideWithPlaceHolder(long checkpointId) { return this; }
 }

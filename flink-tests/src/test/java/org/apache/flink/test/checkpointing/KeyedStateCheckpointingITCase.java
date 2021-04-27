@@ -28,6 +28,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBatchConfig;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBatchMode;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
@@ -134,6 +136,15 @@ public class KeyedStateCheckpointingITCase extends TestLogger {
 	public void testWithRocksDbBackendIncremental() throws Exception {
 		RocksDBStateBackend incRocksDbBackend = new RocksDBStateBackend(new MemoryStateBackend(MAX_MEM_STATE_SIZE), true);
 		incRocksDbBackend.setDbStoragePath(tmpFolder.newFolder().getAbsolutePath());
+
+		testProgramWithBackend(incRocksDbBackend);
+	}
+
+	@Test
+	public void testWithRocksDbBackendIncrementalAndBatching() throws Exception {
+		RocksDBStateBackend incRocksDbBackend = new RocksDBStateBackend(new MemoryStateBackend(MAX_MEM_STATE_SIZE), true);
+		incRocksDbBackend.setDbStoragePath(tmpFolder.newFolder().getAbsolutePath());
+		incRocksDbBackend.setBatchConfig(new RocksDBStateBatchConfig(RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER, 128 * 1024 * 1024L));
 
 		testProgramWithBackend(incRocksDbBackend);
 	}

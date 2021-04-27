@@ -312,16 +312,16 @@ public abstract class MetadataV2V3SerializerBase {
 		IncrementalRemoteBatchKeyedStateHandle incrementalRemoteBatchKeyedStateHandle,
 		DataOutputStream dos) throws IOException {
 
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles = incrementalRemoteBatchKeyedStateHandle.getUsedSstFiles();
-		dos.writeInt(usedSstFiles.size());
-		for (Map.Entry<StateHandleID, List<StateHandleID>> entry : usedSstFiles.entrySet()) {
+		Map<StateHandleID, List<StateHandleID>> usedFiles = incrementalRemoteBatchKeyedStateHandle.getUsedFiles();
+		dos.writeInt(usedFiles.size());
+		for (Map.Entry<StateHandleID, List<StateHandleID>> entry : usedFiles.entrySet()) {
 			StateHandleID batchFileId = entry.getKey();
-			List<StateHandleID> sstFilesInBatch = entry.getValue();
+			List<StateHandleID> filesInBatch = entry.getValue();
 
 			dos.writeUTF(batchFileId.getKeyString());
-			dos.writeInt(sstFilesInBatch.size());
-			for (StateHandleID sstFileName : sstFilesInBatch) {
-				dos.writeUTF(sstFileName.getKeyString());
+			dos.writeInt(filesInBatch.size());
+			for (StateHandleID fileName : filesInBatch) {
+				dos.writeUTF(fileName.getKeyString());
 			}
 		}
 		serializeIncrementalKeyGroupHandle(incrementalRemoteBatchKeyedStateHandle, dos);
@@ -395,17 +395,17 @@ public abstract class MetadataV2V3SerializerBase {
 	IncrementalRemoteBatchKeyedStateHandle deserializeIncrementalBatchKeyGroupHandle(
 			DataInputStream dis,
 			@Nullable DeserializationContext context) throws IOException {
-		int usedSstFileSize = dis.readInt();
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>(usedSstFileSize);
+		int usedFilesSize = dis.readInt();
+		Map<StateHandleID, List<StateHandleID>> usedFiles = new HashMap<>(usedFilesSize);
 
-		for (int i = 0; i < usedSstFileSize; i++) {
+		for (int i = 0; i < usedFilesSize; i++) {
 			StateHandleID batchFileId = new StateHandleID(dis.readUTF());
-			int sstFileNumInBatch = dis.readInt();
-			List<StateHandleID> sstFilesInBatch = new ArrayList<>(sstFileNumInBatch);
-			for (int j = 0; j < sstFileNumInBatch; j++) {
-				sstFilesInBatch.add(new StateHandleID(dis.readUTF()));
+			int filesNumInBatch = dis.readInt();
+			List<StateHandleID> filesInBatch = new ArrayList<>(filesNumInBatch);
+			for (int j = 0; j < filesNumInBatch; j++) {
+				filesInBatch.add(new StateHandleID(dis.readUTF()));
 			}
-			usedSstFiles.put(batchFileId, sstFilesInBatch);
+			usedFiles.put(batchFileId, filesInBatch);
 		}
 
 		IncrementalRemoteKeyedStateHandle parentStateHandle = deserializeIncrementalKeyGroupHandle(dis, context);
@@ -417,7 +417,7 @@ public abstract class MetadataV2V3SerializerBase {
 			parentStateHandle.getSharedState(),
 			parentStateHandle.getPrivateState(),
 			parentStateHandle.getMetaStateHandle(),
-			usedSstFiles);
+			usedFiles);
 	}
 
 	void serializeOperatorStateHandle(OperatorStateHandle stateHandle, DataOutputStream dos) throws IOException {
@@ -515,11 +515,11 @@ public abstract class MetadataV2V3SerializerBase {
 		} else if (stateHandle instanceof BatchStateHandle) {
 			dos.writeByte(BATCH_STREAM_STATE_HANDLE);
 			BatchStateHandle batchStateHandle = (BatchStateHandle) stateHandle;
-			StateHandleID[] stateFileNames = batchStateHandle.getStateFileNames();
+			StateHandleID[] stateHandleIds = batchStateHandle.getStateHandleIds();
 			Tuple2<Long, Long>[] offsetsAndSizes = batchStateHandle.getOffsetsAndSizes();
-			dos.writeInt(stateFileNames.length);
-			for (int i = 0; i < stateFileNames.length; i++) {
-				dos.writeUTF(stateFileNames[i].getKeyString());
+			dos.writeInt(stateHandleIds.length);
+			for (int i = 0; i < stateHandleIds.length; i++) {
+				dos.writeUTF(stateHandleIds[i].getKeyString());
 				dos.writeLong(offsetsAndSizes[i].f0);
 				dos.writeLong(offsetsAndSizes[i].f1);
 			}

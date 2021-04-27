@@ -76,7 +76,7 @@ public class RocksDBStateDownloader extends RocksDBStateDataTransfer {
 
 		if (restoreStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
 			final Map<StateHandleID, List<StateHandleID>> usedSstFiles =
-				((IncrementalRemoteBatchKeyedStateHandle) restoreStateHandle).getUsedSstFiles();
+				((IncrementalRemoteBatchKeyedStateHandle) restoreStateHandle).getUsedFiles();
 			Preconditions.checkState(usedSstFiles.size() == sstFiles.size());
 			downloadDataForAllStateHandles(sstFiles, dest, closeableRegistry, true, usedSstFiles);
 			downloadDataForAllStateHandles(miscFiles, dest, closeableRegistry, true, null);
@@ -211,13 +211,13 @@ public class RocksDBStateDownloader extends RocksDBStateDataTransfer {
 											@Nullable Map<StateHandleID, List<StateHandleID>> usedStateFiles, Path restoreInstancePath) {
 		BatchStateHandle batchStateHandle = (BatchStateHandle) remoteFileHandle;
 
-		StateHandleID[] stateFileNames = batchStateHandle.getStateFileNames();
+		StateHandleID[] stateHandleIds = batchStateHandle.getStateHandleIds();
 		Tuple2<Long, Long>[] offsetsAndSizes = batchStateHandle.getOffsetsAndSizes();
 
 		if (usedStateFiles == null) {
 			// download all misc files
-			for (int i = 0; i < stateFileNames.length; i++) {
-				paths.add(restoreInstancePath.resolve(stateFileNames[i].getKeyString()));
+			for (int i = 0; i < stateHandleIds.length; i++) {
+				paths.add(restoreInstancePath.resolve(stateHandleIds[i].getKeyString()));
 				offsets.add(offsetsAndSizes[i].f0);
 				fileSizes.add(offsetsAndSizes[i].f1);
 			}

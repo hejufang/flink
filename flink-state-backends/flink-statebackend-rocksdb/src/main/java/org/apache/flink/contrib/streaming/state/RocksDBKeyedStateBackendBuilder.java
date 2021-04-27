@@ -297,7 +297,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 					materializedSstFiles = restoreResult.getRestoredSstFiles();
 					lastCompletedCheckpointId = restoreResult.getLastCompletedCheckpointId();
 
-					if (restoreResult.isBatchingEnabled() != batchConfig.isEnableStateFileBatching()) {
+					LOG.info("RocksDB state file batching, restore from batch: {}, current using batch: {}",
+						restoreResult.isRestoreFromBatch(), batchConfig.isEnableStateFileBatching());
+					if (restoreResult.isRestoreFromBatch() != batchConfig.isEnableStateFileBatching()) {
 						// batching flip happens, new coming checkpoints do NOT bootstrap from the last completed checkpoint
 						lastCompletedCheckpointId = -1;
 						materializedSstFiles.clear();

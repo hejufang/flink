@@ -41,7 +41,7 @@ public class RocksDBRestoreResult {
 	private final long lastCompletedCheckpointId;
 	private final UUID backendUID;
 	private final SortedMap<Long, Map<StateHandleID, StreamStateHandle>> restoredSstFiles;
-	private final boolean isBatchingEnabled;
+	private final boolean isRestoreFromBatch;
 
 	public RocksDBRestoreResult(
 		RocksDB db,
@@ -50,14 +50,14 @@ public class RocksDBRestoreResult {
 		long lastCompletedCheckpointId,
 		UUID backendUID,
 		SortedMap<Long, Map<StateHandleID, StreamStateHandle>> restoredSstFiles,
-		boolean isBatchingEnabled) {
+		boolean isRestoreFromBatch) {
 		this.db = db;
 		this.defaultColumnFamilyHandle = defaultColumnFamilyHandle;
 		this.nativeMetricMonitor = nativeMetricMonitor;
 		this.lastCompletedCheckpointId = lastCompletedCheckpointId;
 		this.backendUID = backendUID;
 		this.restoredSstFiles = restoredSstFiles;
-		this.isBatchingEnabled = isBatchingEnabled;
+		this.isRestoreFromBatch = isRestoreFromBatch;
 	}
 
 	public RocksDB getDb() {
@@ -84,7 +84,7 @@ public class RocksDBRestoreResult {
 		return nativeMetricMonitor;
 	}
 
-	public boolean isBatchingEnabled() {
-		return isBatchingEnabled;
+	public boolean isRestoreFromBatch() {
+		return isRestoreFromBatch;
 	}
 }

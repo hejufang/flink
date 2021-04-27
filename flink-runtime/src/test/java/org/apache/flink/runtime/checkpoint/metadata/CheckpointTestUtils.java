@@ -27,6 +27,8 @@ import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.StateObjectCollection;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.BatchStateHandle;
+import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
+import org.apache.flink.runtime.state.IncrementalLocalKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalRemoteBatchKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.InputChannelStateHandle;
@@ -41,6 +43,7 @@ import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.RelativeFileStateHandle;
 import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
@@ -49,9 +52,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.apache.flink.runtime.checkpoint.StateHandleDummyUtil.createNewInputChannelStateHandle;
@@ -60,6 +65,7 @@ import static org.apache.flink.runtime.checkpoint.StateObjectCollection.empty;
 import static org.apache.flink.runtime.checkpoint.StateObjectCollection.singleton;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * A collection of utility methods for testing the (de)serialization of
@@ -97,9 +103,7 @@ public class CheckpointTestUtils {
 			boolean hasOperatorStateBackend = random.nextBoolean();
 			boolean hasOperatorStateStream = random.nextBoolean();
 
-			boolean hasKeyedBackend = random.nextInt(4) != 0;
 			boolean hasKeyedStream = random.nextInt(4) != 0;
-			boolean isIncremental = random.nextInt(3) == 0;
 
 			for (int subtaskIdx = 0; subtaskIdx < numSubtasksPerTask; subtaskIdx++) {
 
@@ -125,19 +129,10 @@ public class CheckpointTestUtils {
 				}
 
 				KeyedStateHandle keyedStateBackend = null;
-				KeyedStateHandle keyedStateStream = null;
-
-				if (hasKeyedBackend) {
-					if (isIncremental && !isSavepoint(basePath)) {
-						// here, we use batch to create IncrementalRemoteKeyedStateHandle
-						keyedStateBackend = createDummyIncrementalBatchKeyedStateHandle(random);
-					} else {
-						keyedStateBackend = createDummyKeyGroupStateHandle(random, basePath);
-					}
-				}
+				KeyedStateHandle keyedStateStream = createDummyIncrementalBatchKeyedStateHandle(random);
 
 				if (hasKeyedStream) {
-					keyedStateStream = createDummyKeyGroupStateHandle(random, basePath);
+					keyedStateBackend = createDummyKeyGroupStateHandle(random, basePath);
 				}
 
 				StateObjectCollection<InputChannelStateHandle> inputChannelStateHandles =
@@ -287,26 +282,109 @@ public class CheckpointTestUtils {
 
 	}
 
+	/**
+	 * Check KeyedStateHandles in OperatorState from recovery.
+	 * @param operatorStates
+	 */
+	public static void checkKeyedStateHandle(Collection<OperatorState> operatorStates) {
+		for (OperatorState operatorState : operatorStates) {
+			for (OperatorSubtaskState operatorSubtaskState : operatorState.getStates()) {
+				StateObjectCollection<KeyedStateHandle> keyedStateHandles = operatorSubtaskState.getManagedKeyedState();
+				for (KeyedStateHandle keyedStateHandle : keyedStateHandles) {
+					if (keyedStateHandle instanceof IncrementalKeyedStateHandle) {
+
+						Map<StateHandleID, StreamStateHandle> sharedStatesToRestore =
+							extractFilesToHandles((IncrementalKeyedStateHandle) keyedStateHandle);
+
+						if (keyedStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
+							IncrementalRemoteBatchKeyedStateHandle batchKeyedStateHandle = (IncrementalRemoteBatchKeyedStateHandle) keyedStateHandle;
+
+							Set<StateHandleID> usedFiles = new HashSet<>();
+							for (Map.Entry<StateHandleID, List<StateHandleID>> singleFilesInBatch : batchKeyedStateHandle.getUsedFiles().entrySet()) {
+								usedFiles.addAll(singleFilesInBatch.getValue());
+
+								for (StateHandleID usedSingleFile : singleFilesInBatch.getValue()) {
+									StreamStateHandle stateHandle = sharedStatesToRestore.get(usedSingleFile);
+									assertTrue(stateHandle instanceof BatchStateHandle);
+									BatchStateHandle batchStateHandle = (BatchStateHandle) stateHandle;
+
+									boolean findInBatchStateHandle = false;
+									for (StateHandleID singleFileInBatch : batchStateHandle.getStateHandleIds()) {
+										if (singleFileInBatch.equals(usedSingleFile)) {
+											findInBatchStateHandle = true;
+											break;
+										}
+									}
+									assertTrue(findInBatchStateHandle);
+								}
+							}
+							assertEquals(sharedStatesToRestore.keySet(), usedFiles);
+						} else {
+							Set<StateHandleID> sharedStateIds = ((IncrementalKeyedStateHandle) keyedStateHandle).getSharedStateHandleIDs();
+							assertTrue(sharedStateIds.equals(sharedStatesToRestore.keySet()));
+						}
+					}
+				}
+			}
+		}
+
+	}
+
+	private static Map<StateHandleID, StreamStateHandle> extractFilesToHandles(IncrementalKeyedStateHandle keyedStateHandle) {
+		if (keyedStateHandle instanceof IncrementalLocalKeyedStateHandle) {
+			return ((IncrementalLocalKeyedStateHandle) keyedStateHandle).getSharedStatesToHandle();
+		} else if (keyedStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
+			return ((IncrementalRemoteBatchKeyedStateHandle) keyedStateHandle).getFilesToHandle();
+		} else if (keyedStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+			return ((IncrementalRemoteKeyedStateHandle) keyedStateHandle).getSharedState();
+		} else {
+			throw new FlinkRuntimeException("Unknown type of keyed state handle.");
+		}
+	}
+
 	// ------------------------------------------------------------------------
 
 	/** utility class, not meant to be instantiated. */
 	private CheckpointTestUtils() {}
 
 	public static IncrementalRemoteKeyedStateHandle createDummyIncrementalBatchKeyedStateHandle(Random rnd) {
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
-		List<StateHandleID> filesInOneBatch = new ArrayList<>();
-		filesInOneBatch.add(new StateHandleID("reused1.sst"));
-		filesInOneBatch.add(new StateHandleID("reused2.sst"));
-		filesInOneBatch.add(new StateHandleID("reused3.sst"));
-		usedSstFiles.put(new StateHandleID("1.batch"), filesInOneBatch);
+		Map<StateHandleID, List<StateHandleID>> usedFiles = new HashMap<>();
+		Map<StateHandleID, StreamStateHandle> sharedState = new HashMap<>();
+		int batchNum = rnd.nextInt(10) + 1;
+		for (int i = 0; i < batchNum; i++) {
+			StateHandleID batchId = new StateHandleID(String.format("%d.batch", i));
+			List<StateHandleID> usedSingleFilesInBatch = new ArrayList<>();
+			int singleFileNum = rnd.nextInt(10) + 1;
+			StateHandleID[] stateNames = new StateHandleID[singleFileNum];
+			Tuple2<Long, Long>[] offsetAndSizes = new Tuple2[singleFileNum];
+
+			usedSingleFilesInBatch.add(new StateHandleID(String.format("%d-%d.sst", i, 0)));
+			stateNames[0]= new StateHandleID(String.format("%d-%d.sst", i, 0));
+			offsetAndSizes[0] = new Tuple2<>(0L, 0L);
+			for (int j = 1; j < singleFileNum; j++) {
+				if (rnd.nextBoolean()) {
+					usedSingleFilesInBatch.add(new StateHandleID(String.format("%d-%d.sst", i, j)));
+				}
+				stateNames[j]= new StateHandleID(String.format("%d-%d.sst", i, j));
+				offsetAndSizes[j] = new Tuple2<>(0L, 0L);
+			}
+
+			usedFiles.put(batchId, usedSingleFilesInBatch);
+
+			ByteStreamStateHandle stateHandle = new ByteStreamStateHandle(
+				String.valueOf(createRandomUUID(rnd)),
+				String.valueOf(createRandomUUID(rnd)).getBytes(ConfigConstants.DEFAULT_CHARSET));
+
+			sharedState.put(batchId, new BatchStateHandle(stateHandle, stateNames, offsetAndSizes, batchId));
+		}
 		return new IncrementalRemoteBatchKeyedStateHandle(
 			createRandomUUID(rnd),
 			new KeyGroupRange(1, 1),
 			42L,
-			createRandomStateHandleMapWithBatch(rnd, rnd.nextInt(5) + 1),
+			sharedState,
 			createRandomStateHandleMapWithBatch(rnd, 1),
 			createDummyStreamStateHandle(rnd, null),
-			usedSstFiles,
+			usedFiles,
 			100L);
 	}
 
@@ -386,12 +464,12 @@ public class CheckpointTestUtils {
 			stateHandle, fileNames, offsetsAndSizes, generateBatchFileId(fileNames));
 	}
 
-	private static StateHandleID generateBatchFileId(StateHandleID[] sstFiles) {
-		String sstFilesNames = Arrays.toString(sstFiles);
+	private static StateHandleID generateBatchFileId(StateHandleID[] singleFiles) {
+		String singleFilesNames = Arrays.toString(singleFiles);
 
 		// batchFileID format: {UUID(sst files)}.batch
 		StringBuilder sb = new StringBuilder();
-		sb.append(UUID.nameUUIDFromBytes(sstFilesNames.getBytes()).toString());
+		sb.append(UUID.nameUUIDFromBytes(singleFilesNames.getBytes()).toString());
 		sb.append(".batch");
 		return new StateHandleID(sb.toString());
 	}

@@ -24,6 +24,7 @@ import javax.annotation.Nonnegative;
 import javax.annotation.Nonnull;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -47,9 +48,9 @@ public class IncrementalLocalKeyedStateHandle extends DirectoryKeyedStateHandle 
 	@Nonnull
 	private final StreamStateHandle metaDataState;
 
-	/** Set with the ids of all shared state handles created by the checkpoint. */
+	/** Map from ids of all shared state handles created by the checkpoint to its state handle. */
 	@Nonnull
-	private final Map<StateHandleID, StreamStateHandle> sharedStateHandleIDs;
+	private final Map<StateHandleID, StreamStateHandle> sharedStatesToHandle;
 
 	public IncrementalLocalKeyedStateHandle(
 		@Nonnull UUID backendIdentifier,
@@ -57,13 +58,13 @@ public class IncrementalLocalKeyedStateHandle extends DirectoryKeyedStateHandle 
 		@Nonnull DirectoryStateHandle directoryStateHandle,
 		@Nonnull KeyGroupRange keyGroupRange,
 		@Nonnull StreamStateHandle metaDataState,
-		@Nonnull Map<StateHandleID, StreamStateHandle> sharedStateHandleIDs) {
+		@Nonnull Map<StateHandleID, StreamStateHandle> sharedStatesToHandle) {
 
 		super(directoryStateHandle, keyGroupRange);
 		this.backendIdentifier = backendIdentifier;
 		this.checkpointId = checkpointId;
 		this.metaDataState = metaDataState;
-		this.sharedStateHandleIDs = sharedStateHandleIDs;
+		this.sharedStatesToHandle = sharedStatesToHandle;
 	}
 
 	@Nonnull
@@ -84,8 +85,13 @@ public class IncrementalLocalKeyedStateHandle extends DirectoryKeyedStateHandle 
 
 	@Override
 	@Nonnull
-	public Map<StateHandleID, StreamStateHandle> getSharedStateHandleIDs() {
-		return sharedStateHandleIDs;
+	public Set<StateHandleID> getSharedStateHandleIDs() {
+		return sharedStatesToHandle.keySet();
+	}
+
+	@Nonnull
+	public Map<StateHandleID, StreamStateHandle> getSharedStatesToHandle() {
+		return sharedStatesToHandle;
 	}
 
 	@Override

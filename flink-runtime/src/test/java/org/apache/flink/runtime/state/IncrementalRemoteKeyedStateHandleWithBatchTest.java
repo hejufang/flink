@@ -164,7 +164,7 @@ public class IncrementalRemoteKeyedStateHandleWithBatchTest {
 	}
 
 	private static IncrementalRemoteKeyedStateHandle create(Random rnd) {
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
+		Map<StateHandleID, List<StateHandleID>> usedFiles = new HashMap<>();
 		return new IncrementalRemoteBatchKeyedStateHandle(
 			UUID.nameUUIDFromBytes("test".getBytes()),
 			KeyGroupRange.of(0, 0),
@@ -172,7 +172,7 @@ public class IncrementalRemoteKeyedStateHandleWithBatchTest {
 			placeSpies(CheckpointTestUtils.createRandomStateHandleMapWithBatch(rnd, rnd.nextInt(5) + 1)),
 			placeSpies(CheckpointTestUtils.createRandomStateHandleMapWithBatch(rnd, 1)),
 			spy(CheckpointTestUtils.createDummyStreamStateHandle(rnd, null)),
-			usedSstFiles,
+			usedFiles,
 			100L);
 	}
 

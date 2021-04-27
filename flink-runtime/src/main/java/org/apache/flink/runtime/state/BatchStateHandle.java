@@ -40,16 +40,16 @@ public class BatchStateHandle implements StreamStateHandle {
 	private final StreamStateHandle delegateStateHandle;
 
 	/** Map from state file name to its offset in the batch. */
-	private final StateHandleID[] stateFileNames;
+	private final StateHandleID[] stateHandleIds;
 
 	private final Tuple2<Long, Long>[] offsetsAndSizes;
 
 	/** ID of this batch, i.e., UUID based on concatenation of batched files */
 	private final StateHandleID batchFileID;
 
-	public BatchStateHandle(StreamStateHandle delegateStateHandle, StateHandleID[] stateFileNames, Tuple2<Long, Long>[] offsetsAndSizes, StateHandleID batchFileID) {
+	public BatchStateHandle(StreamStateHandle delegateStateHandle, StateHandleID[] stateHandleIds, Tuple2<Long, Long>[] offsetsAndSizes, StateHandleID batchFileID) {
 		this.delegateStateHandle = delegateStateHandle;
-		this.stateFileNames = stateFileNames;
+		this.stateHandleIds = stateHandleIds;
 		this.offsetsAndSizes = offsetsAndSizes;
 		this.batchFileID = batchFileID;
 	}
@@ -86,8 +86,8 @@ public class BatchStateHandle implements StreamStateHandle {
 		return delegateStateHandle;
 	}
 
-	public StateHandleID[] getStateFileNames() {
-		return stateFileNames;
+	public StateHandleID[] getStateHandleIds() {
+		return stateHandleIds;
 	}
 
 	public Tuple2<Long, Long>[] getOffsetsAndSizes() {
@@ -95,8 +95,8 @@ public class BatchStateHandle implements StreamStateHandle {
 	}
 
 	public Tuple2<Long, Long> getOffsetAndSize(StateHandleID stateFileName) {
-		for (int i = 0; i < stateFileNames.length; i++) {
-			if (stateFileName.equals(stateFileNames[i])) {
+		for (int i = 0; i < stateHandleIds.length; i++) {
+			if (stateFileName.equals(stateHandleIds[i])) {
 				return offsetsAndSizes[i];
 			}
 		}
@@ -125,7 +125,7 @@ public class BatchStateHandle implements StreamStateHandle {
 	public String toString() {
 		return "BatchStateHandle{" +
 			"delegateStateHandle=" + delegateStateHandle +
-			", stateFileNames=" + Arrays.toString(stateFileNames) +
+			", stateHandleIds=" + Arrays.toString(stateHandleIds) +
 			", offsetsAndSizes=" + Arrays.toString(offsetsAndSizes) +
 			", batchFileID=" + batchFileID +
 			'}';

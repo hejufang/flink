@@ -22,6 +22,7 @@ import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.checkpoint.OperatorState;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
+import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupsStateHandle;
@@ -54,7 +55,7 @@ class CheckpointMetadataAnalyzer {
 		try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
 			checkpoint = Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader(), location.getExternalPointer());
 		} catch (Throwable t) {
-			throw new RuntimeException("Medata file cannot be loaded.", t);
+			throw new RuntimeException("Metadata file cannot be loaded.", t);
 		}
 
 		returnInfos.add(String.format("These are references of checkpoint %s", checkpoint.getCheckpointId()));
@@ -103,6 +104,10 @@ class CheckpointMetadataAnalyzer {
 	private static Optional<FileStateHandle> convertToFileStateHandle(StreamStateHandle streamStateHandle) {
 		if (streamStateHandle instanceof FileStateHandle) {
 			return Optional.of((FileStateHandle) streamStateHandle);
+		}
+
+		if (streamStateHandle instanceof BatchStateHandle) {
+			return convertToFileStateHandle(((BatchStateHandle) streamStateHandle).getDelegateStateHandle());
 		}
 
 		return Optional.empty();

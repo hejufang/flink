@@ -107,9 +107,19 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	@Nonnull
 	private final UUID backendUID;
 
-	/** Stores the materialized sstable files from all snapshots that build the incremental history. */
+	/**
+	 * Stores the materialized sstable files from all snapshots that build the incremental history.
+	 *
+	 * <p>The keys of map always the set of sst files in the last checkpoint, while the values depend.
+	 *
+	 * <p>If batching is enabled, values are ALL {@link BatchStateHandle}, which are used to construct the
+	 * mapping from sst files to batches, refer to {@link #transferStateFilesToBatch} for more details.
+	 *
+	 * <p>If batching is disabled, values have NO use. Anyway, they may be FileStateHandle, ByteStreamStateHandle,
+	 * or Placeholder.
+	 */
 	@Nonnull
-	private final SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFiles;
+	private final SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFilesToHandles;
 
 	/** The identifier of the last completed checkpoint. */
 	private long lastCompletedCheckpointId;
@@ -137,7 +147,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nonnull CloseableRegistry cancelStreamRegistry,
 		@Nonnull File instanceBasePath,
 		@Nonnull UUID backendUID,
-		@Nonnull SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFiles,
+		@Nonnull SortedMap<Long, Map<StateHandleID, StreamStateHandle>> materializedSstFilesToHandles,
 		long lastCompletedCheckpointId,
 		int numberOfTransferingThreads,
 		int maxRetryTimes,
@@ -158,7 +168,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 		this.instanceBasePath = instanceBasePath;
 		this.backendUID = backendUID;
-		this.materializedSstFiles = materializedSstFiles;
+		this.materializedSstFilesToHandles = materializedSstFilesToHandles;
 		this.lastCompletedCheckpointId = lastCompletedCheckpointId;
 		this.stateUploader =
 			new RocksDBStateUploader(numberOfTransferingThreads, maxRetryTimes, RocksDBStateBatchStrategyFactory.create(batchConfig));
@@ -198,9 +208,9 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 	@Override
 	public void notifyCheckpointComplete(long completedCheckpointId) {
-		synchronized (materializedSstFiles) {
+		synchronized (materializedSstFilesToHandles) {
 			if (completedCheckpointId > lastCompletedCheckpointId) {
-				materializedSstFiles.keySet().removeIf(checkpointId -> checkpointId < completedCheckpointId);
+				materializedSstFilesToHandles.keySet().removeIf(checkpointId -> checkpointId < completedCheckpointId);
 				lastCompletedCheckpointId = completedCheckpointId;
 			}
 		}
@@ -208,8 +218,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 	@Override
 	public void notifyCheckpointAborted(long abortedCheckpointId) {
-		synchronized (materializedSstFiles) {
-			materializedSstFiles.keySet().remove(abortedCheckpointId);
+		synchronized (materializedSstFilesToHandles) {
+			materializedSstFilesToHandles.keySet().remove(abortedCheckpointId);
 		}
 	}
 
@@ -260,9 +270,9 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		final Map<StateHandleID, StreamStateHandle> baseSstFiles;
 
 		// use the last completed checkpoint as the comparison base.
-		synchronized (materializedSstFiles) {
+		synchronized (materializedSstFilesToHandles) {
 			lastCompletedCheckpoint = lastCompletedCheckpointId;
-			baseSstFiles = materializedSstFiles.get(lastCompletedCheckpoint);
+			baseSstFiles = materializedSstFilesToHandles.get(lastCompletedCheckpoint);
 		}
 		LOG.trace("Taking incremental snapshot for checkpoint {}. Snapshot is based on last completed checkpoint {} " +
 			"assuming the following (shared) files as base: {}.", checkpointId, lastCompletedCheckpoint, baseSstFiles);
@@ -311,9 +321,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		@Nonnull
 		private final SnapshotDirectory localBackupDirectory;
 
-		/** All sst files that were part of the last previously completed checkpoint. */
+		/**
+		 * All sst files that were part of the last previously completed checkpoint.
+		 * The keys are sst files, while the values depend. Refer to
+		 * {@link #materializedSstFilesToHandles} for more details.
+		 */
 		@Nullable
-		private final Map<StateHandleID, StreamStateHandle> baseSstFiles;
+		private final Map<StateHandleID, StreamStateHandle> baseSstFilesToHandles;
 
 		// We have three types of state size, stateState, totalStateSize, rawTotalStateSize,
 		// when using incremental RocksDB backend. The literal meaning of these three metrics
@@ -340,7 +354,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			long checkpointId,
 			@Nonnull CheckpointStreamFactory checkpointStreamFactory,
 			@Nonnull SnapshotDirectory localBackupDirectory,
-			@Nullable Map<StateHandleID, StreamStateHandle> baseSstFiles,
+			@Nullable Map<StateHandleID, StreamStateHandle> baseSstFilesToHandles,
 			@Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots,
 			long syncDuration) {
 
@@ -351,7 +365,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				numberOfTransferingThreads,
 				syncDuration);
 			this.checkpointStreamFactory = checkpointStreamFactory;
-			this.baseSstFiles = baseSstFiles;
+			this.baseSstFilesToHandles = baseSstFilesToHandles;
 			this.checkpointId = checkpointId;
 			this.localBackupDirectory = localBackupDirectory;
 			this.stateMetaInfoSnapshots = stateMetaInfoSnapshots;
@@ -364,10 +378,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 			// Handle to the meta data file
 			SnapshotResult<StreamStateHandle> metaStateHandle = null;
-			// Handles to new sst files since the last completed checkpoint will go here
-			final Map<StateHandleID, StreamStateHandle> sstFiles = new HashMap<>();
-			// Handles to the misc files in the current snapshot will go here
-			final Map<StateHandleID, StreamStateHandle> miscFiles = new HashMap<>();
+			// Handles to new sst files since the last completed checkpoint will go here,
+			// Note: the values are batch-level when enabling state file batching,
+			// while the values are sst-file-level when disabling state file batching.
+			final Map<StateHandleID, StreamStateHandle> sstFilesToHandles = new HashMap<>();
+			// Handles to the misc files in the current snapshot will go here. The meaning of
+			// values is analogous to sstFilesToHandles.
+			final Map<StateHandleID, StreamStateHandle> miscFilesToHandles = new HashMap<>();
 
 			try {
 
@@ -381,14 +398,14 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				postRawTotalStateSize += metaStateHandle.getStateSize();
 
 				long uploadBeginTs = System.currentTimeMillis();
-				uploadSstFiles(sstFiles, miscFiles);
+				uploadSstFiles(sstFilesToHandles, miscFilesToHandles);
 				uploadDuration.getAndAdd(System.currentTimeMillis() - uploadBeginTs);
 
 				LOG.info("Uploading sst files (checkpoint={}) cost {}ms in incremental snapshot.", checkpointId,
 						System.currentTimeMillis() - uploadBeginTs);
 
 				// calculate pre-batching upload file num. This value is not precise when batching enables.
-				long preUploadFileNum = Stream.concat(sstFiles.values().stream(), miscFiles.values().stream())
+				long preUploadFileNum = Stream.concat(sstFilesToHandles.values().stream(), miscFilesToHandles.values().stream())
 					.filter(StateUtil::isPersistInFile).count();
 				if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
 					preUploadFileNum += 1;
@@ -398,13 +415,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				// materializedSstFiles. The sstFiles will be used to find batch state handle
 				// in the future. Placeholder has no info of the corresponding batch.
 				Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
-				Map<StateHandleID, StreamStateHandle> sstBatchIDToBatchStateHandle = isEnableStateFileBatching ?
-					transferStateFilesToBatch(baseSstFiles, sstFiles, usedSstFiles) : null;
-				Map<StateHandleID, StreamStateHandle> miscBatchIDToBatchStateHandle = isEnableStateFileBatching ?
-					transferStateFilesToBatch(Collections.emptyMap(), miscFiles, null) : null;
+				Map<StateHandleID, StreamStateHandle> sstBatchIdToBatchHandle = isEnableStateFileBatching ?
+					transferStateFilesToBatch(baseSstFilesToHandles, sstFilesToHandles, usedSstFiles) : null;
+				Map<StateHandleID, StreamStateHandle> miscBatchIdToBatchHandle = isEnableStateFileBatching ?
+					transferStateFilesToBatch(Collections.emptyMap(), miscFilesToHandles, null) : null;
 
-				synchronized (materializedSstFiles) {
-					materializedSstFiles.put(checkpointId, sstFiles);
+				synchronized (materializedSstFilesToHandles) {
+					materializedSstFilesToHandles.put(checkpointId, sstFilesToHandles);
 				}
 
 				final IncrementalRemoteKeyedStateHandle jmIncrementalKeyedStateHandle = isEnableStateFileBatching ?
@@ -412,8 +429,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						backendUID,
 						keyGroupRange,
 						checkpointId,
-						sstBatchIDToBatchStateHandle,
-						miscBatchIDToBatchStateHandle,
+						sstBatchIdToBatchHandle,
+						miscBatchIdToBatchHandle,
 						metaStateHandle.getJobManagerOwnedSnapshot(),
 						usedSstFiles,
 						totalStateSize) :
@@ -421,14 +438,14 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 						backendUID,
 						keyGroupRange,
 						checkpointId,
-						sstFiles,
-						miscFiles,
+						sstFilesToHandles,
+						miscFilesToHandles,
 						metaStateHandle.getJobManagerOwnedSnapshot());
 
 				// ByteStreamStateHandle do NOT upload files to HDFS. If batching enabled, count real batch files;
 				// otherwise, count real solo sst/misc files.
 				if (isEnableStateFileBatching) {
-					uploadFileNum.getAndAdd((int) Stream.concat(sstBatchIDToBatchStateHandle.values().stream(), miscBatchIDToBatchStateHandle.values().stream())
+					uploadFileNum.getAndAdd((int) Stream.concat(sstBatchIdToBatchHandle.values().stream(), miscBatchIdToBatchHandle.values().stream())
 						.filter(StateUtil::isPersistInFile).count());
 					if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
 						uploadFileNum.getAndAdd(1);
@@ -442,15 +459,15 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				if (isEnableStateFileBatching) {
 					Set<StateHandleID> containedBatch = new HashSet<>();
 					// calculate all state batches' size, sst + misc
-					extractSizeAndFileNumFromBatch(sstFiles, containedBatch);
-					extractSizeAndFileNumFromBatch(miscFiles, containedBatch);
+					extractSizeAndFileNumFromBatch(sstFilesToHandles, containedBatch);
+					extractSizeAndFileNumFromBatch(miscFilesToHandles, containedBatch);
 					// remove misc files, CURRENT, OPTION, MANIFEST
 					postSstFileNum -= 3;
 
 					statsTracker.updateIncrementalBatchingStatistics(new WarehouseStateFileBatchingMessage(
 						totalStateSize,
 						postRawTotalStateSize,
-						sstFiles.size(),
+						sstFilesToHandles.size(),
 						postSstFileNum,
 						preUploadFileNum,
 						uploadFileNum.get()));
@@ -467,7 +484,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 							directoryStateHandle,
 							keyGroupRange,
 							metaStateHandle.getTaskLocalSnapshot(),
-							sstFiles);
+							sstFilesToHandles);
 
 					snapshotResult = SnapshotResult.withLocalState(jmIncrementalKeyedStateHandle, localDirKeyedStateHandle);
 				} else {
@@ -480,10 +497,10 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 			} finally {
 				if (!completed) {
 					final List<StateObject> statesToDiscard =
-						new ArrayList<>(1 + miscFiles.size() + sstFiles.size());
+						new ArrayList<>(1 + miscFilesToHandles.size() + sstFilesToHandles.size());
 					statesToDiscard.add(metaStateHandle);
-					statesToDiscard.addAll(miscFiles.values());
-					statesToDiscard.addAll(sstFiles.values());
+					statesToDiscard.addAll(miscFilesToHandles.values());
+					statesToDiscard.addAll(sstFilesToHandles.values());
 					cleanupIncompleteSnapshot(statesToDiscard);
 				}
 			}
@@ -496,7 +513,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				if (!containedBatch.contains(batchStateHandle.getBatchFileID())) {
 					containedBatch.add(batchStateHandle.getBatchFileID());
 					postRawTotalStateSize += batchStateHandle.getStateSize();
-					postSstFileNum += batchStateHandle.getStateFileNames().length;
+					postSstFileNum += batchStateHandle.getStateHandleIds().length;
 				}
 			}
 		}
@@ -544,8 +561,8 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		}
 
 		private void uploadSstFiles(
-			@Nonnull Map<StateHandleID, StreamStateHandle> sstFiles,
-			@Nonnull Map<StateHandleID, StreamStateHandle> miscFiles) throws Exception {
+			@Nonnull Map<StateHandleID, StreamStateHandle> sstFilesToHandles,
+			@Nonnull Map<StateHandleID, StreamStateHandle> miscFilesToHandles) throws Exception {
 
 			// write state data
 			Preconditions.checkState(localBackupDirectory.exists());
@@ -555,13 +572,13 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 
 			Path[] files = localBackupDirectory.listDirectory();
 			if (files != null) {
-				createUploadFilePaths(files, sstFiles, sstFilePaths, miscFilePaths);
+				createUploadFilePaths(files, sstFilesToHandles, sstFilePaths, miscFilePaths);
 
-				sstFiles.putAll(stateUploader.uploadFilesToCheckpointFs(
+				sstFilesToHandles.putAll(stateUploader.uploadFilesToCheckpointFs(
 					sstFilePaths,
 					checkpointStreamFactory,
 					snapshotCloseableRegistry));
-				miscFiles.putAll(stateUploader.uploadFilesToCheckpointFs(
+				miscFilesToHandles.putAll(stateUploader.uploadFilesToCheckpointFs(
 					miscFilePaths,
 					checkpointStreamFactory,
 					snapshotCloseableRegistry));
@@ -578,7 +595,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				final StateHandleID stateHandleID = new StateHandleID(fileName);
 
 				if (fileName.endsWith(SST_FILE_SUFFIX)) {
-					final boolean existsAlready = baseSstFiles != null && baseSstFiles.containsKey(stateHandleID);
+					final boolean existsAlready = baseSstFilesToHandles != null && baseSstFilesToHandles.containsKey(stateHandleID);
 
 					if (existsAlready) {
 						sstFiles.put(stateHandleID, new PlaceholderStreamStateHandle());
@@ -652,20 +669,20 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	 * <p>This function will also replace placeholder in stateFiles with its corresponding batch
 	 * state handle.
 	 *
-	 * @param baseSstFiles (sst -> BatchStateHandle) mappings in the last checkpoint.
-	 * @param stateFiles state files (sst / misc) resides in the current checkpoint, (sst -> BatchStateHandle/placeholder)
-	 *                   or (misc -> BatchStateHandle).
+	 * @param baseSstFilesToHandles (sst -> BatchStateHandle) mappings in the last checkpoint.
+	 * @param sstFilesToBatchHandleOrPlaceholder state files (sst / misc) resides in the current
+	 *                   checkpoint, (sst -> BatchStateHandle/placeholder) or (misc -> BatchStateHandle).
 	 * @return mapping (batch -> BatchStateHandle), where batch set contains all batch files required
 	 * in the current checkpoint.
 	 */
 	@VisibleForTesting
 	public static Map<StateHandleID, StreamStateHandle> transferStateFilesToBatch(
-		Map<StateHandleID, StreamStateHandle> baseSstFiles,
-		Map<StateHandleID, StreamStateHandle> stateFiles,
+		Map<StateHandleID, StreamStateHandle> baseSstFilesToHandles,
+		Map<StateHandleID, StreamStateHandle> sstFilesToBatchHandleOrPlaceholder,
 		Map<StateHandleID, List<StateHandleID>> usedSstFiles) {
 
-		Map<StateHandleID, StreamStateHandle> batchFileIdToBatchStateHandle = new HashMap<>();
-		for (Map.Entry<StateHandleID, StreamStateHandle> entry : stateFiles.entrySet()) {
+		Map<StateHandleID, StreamStateHandle> batchIdToBatchHandle = new HashMap<>();
+		for (Map.Entry<StateHandleID, StreamStateHandle> entry : sstFilesToBatchHandleOrPlaceholder.entrySet()) {
 			StreamStateHandle stateHandle = entry.getValue();
 			Preconditions.checkState(stateHandle instanceof BatchStateHandle || stateHandle instanceof PlaceholderStreamStateHandle);
 			StateHandleID batchFileId;
@@ -674,22 +691,22 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				batchFileId = ((BatchStateHandle) stateHandle).getBatchFileID();
 			} else {
 				// reuse previous batch, just use placeholder
-				StreamStateHandle stateHandleInBaseSstFiles = baseSstFiles.get(entry.getKey());
-				Preconditions.checkState(stateHandleInBaseSstFiles instanceof BatchStateHandle);
-				batchFileId = ((BatchStateHandle) stateHandleInBaseSstFiles).getBatchFileID();
+				StreamStateHandle batchHandleInBaseSstFiles = baseSstFilesToHandles.get(entry.getKey());
+				Preconditions.checkState(batchHandleInBaseSstFiles instanceof BatchStateHandle);
+				batchFileId = ((BatchStateHandle) batchHandleInBaseSstFiles).getBatchFileID();
 
 				// replace placeholder in sstFiles
-				entry.setValue(stateHandleInBaseSstFiles);
+				entry.setValue(batchHandleInBaseSstFiles);
 			}
 
 			// gather all batch files
-			batchFileIdToBatchStateHandle.putIfAbsent(batchFileId, stateHandle);
+			batchIdToBatchHandle.putIfAbsent(batchFileId, stateHandle);
 
 			if (usedSstFiles != null) {
 				usedSstFiles.putIfAbsent(batchFileId, new ArrayList<>());
 				usedSstFiles.get(batchFileId).add(entry.getKey());
 			}
 		}
-		return batchFileIdToBatchStateHandle;
+		return batchIdToBatchHandle;
 	}
 }

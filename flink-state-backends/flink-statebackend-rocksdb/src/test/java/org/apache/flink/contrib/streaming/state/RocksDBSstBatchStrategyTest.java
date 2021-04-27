@@ -222,6 +222,44 @@ public class RocksDBSstBatchStrategyTest {
 		}
 	}
 
+	@Test
+	public void testBatchingExcessiveLargeFile() throws Exception {
+		RocksDBSstBatchStrategy batchStrategy = createFixSizeSeqStrategy();
+
+		Map<StateHandleID, Path> sstFiles = createSstFiles(
+			10 * 1024 * 1024,
+			600 * 1024 * 1024,
+			256 * 1024 * 1024,
+			256 * 1024 * 1024
+		);
+
+		Map<StateHandleID, List<RocksDBFileMeta>> batches = batchStrategy.batch(sstFiles);
+		assertEquals(batches.size(), 3);
+
+		Set<StateHandleID> sstFileNames = sstFiles.keySet();
+		Set<StateHandleID> batchSstFileName = new HashSet<>();
+		for (Map.Entry<StateHandleID, List<RocksDBFileMeta>> entry : batches.entrySet()) {
+			batchSstFileName.addAll(entry.getValue().stream().map(RocksDBFileMeta::getShId).collect(Collectors.toList()));
+		}
+		assertEquals(sstFileNames, batchSstFileName);
+
+		// check each batch
+		Set<StateHandleID> batch1 = new HashSet<>();
+		batch1.add(new StateHandleID("1.sst"));
+		Set<StateHandleID> batch2 = new HashSet<>();
+		batch2.add(new StateHandleID("2.sst"));
+		Set<StateHandleID> batch3 = new HashSet<>();
+		batch3.add(new StateHandleID("3.sst"));
+		batch3.add(new StateHandleID("4.sst"));
+
+		List<Set<StateHandleID>> expectedBatches = new ArrayList<>();
+		expectedBatches.add(batch1);
+		expectedBatches.add(batch2);
+		expectedBatches.add(batch3);
+
+		checkBatchResult(batches, expectedBatches);
+	}
+
 	private void checkBatchResult(Map<StateHandleID, List<RocksDBFileMeta>> batches, List<Set<StateHandleID>> expectedBatches) {
 		List<Set<StateHandleID>> actualBatches = new ArrayList<>();
 		for (List<RocksDBFileMeta> fileMetas : batches.values()) {

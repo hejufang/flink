@@ -27,6 +27,8 @@ import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.HighAvailabilityOptions;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBatchConfig;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBatchMode;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.runtime.state.StateBackend;
@@ -52,9 +54,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertNotNull;
@@ -232,6 +236,44 @@ public class ResumeCheckpointManuallyITCase extends TestLogger {
 		}
 	}
 
+	@Test
+	public void testExternalizedIncrementalRocksDBCheckpointsAndBatchingEnableWithLocalRecoveryZooKeeper() throws Exception {
+		TestingServer zkServer = new TestingServer();
+		zkServer.start();
+		try {
+			final File checkpointDir = temporaryFolder.newFolder();
+			RocksDBStateBackend rdb = createRocksDBStateBackend(checkpointDir, true);
+			rdb.setBatchConfig(new RocksDBStateBatchConfig(RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER, 128 * 1024 * 1024L));
+
+			testExternalizedCheckpoints(
+				checkpointDir,
+				zkServer.getConnectString(),
+				rdb,
+				true);
+		} finally {
+			zkServer.stop();
+		}
+	}
+
+	@Test
+	public void testExternalizedIncrementalRocksDBCheckpointsAndBatchingEnableZooKeeper() throws Exception {
+		TestingServer zkServer = new TestingServer();
+		zkServer.start();
+		try {
+			final File checkpointDir = temporaryFolder.newFolder();
+			RocksDBStateBackend rdb = createRocksDBStateBackend(checkpointDir, true);
+			rdb.setBatchConfig(new RocksDBStateBatchConfig(RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER, 128 * 1024 * 1024L));
+
+			testExternalizedCheckpoints(
+				checkpointDir,
+				zkServer.getConnectString(),
+				rdb,
+				false);
+		} finally {
+			zkServer.stop();
+		}
+	}
+
 	private FsStateBackend createFsStateBackend(File checkpointDir) throws IOException {
 		return new FsStateBackend(checkpointDir.toURI().toString(), true);
 	}
@@ -300,6 +342,8 @@ public class ResumeCheckpointManuallyITCase extends TestLogger {
 		// wait until all sources have been started
 		NotifyingInfiniteTupleSource.countDownLatch.await();
 
+		clearPastCheckpoint(checkpointDir);
+
 		waitUntilExternalizedCheckpointCreated(checkpointDir, initialJobGraph.getJobID());
 		client.cancel(initialJobGraph.getJobID()).get();
 		waitUntilCanceled(initialJobGraph.getJobID(), client);
@@ -316,6 +360,18 @@ public class ResumeCheckpointManuallyITCase extends TestLogger {
 		}
 	}
 
+	private static void clearPastCheckpoint(File checkpointDir) throws IOException {
+		try (Stream<Path> checkpoints = Files.list(checkpointDir.toPath().resolve("Test").resolve("default"))) {
+			List<Path> toDeleteChkPaths = checkpoints
+				.filter(path -> path.getFileName().toString().startsWith("chk-"))
+				.collect(Collectors.toList());
+			for (Path p : toDeleteChkPaths) {
+				Files.walk(p).map(Path::toFile).forEach(File::delete);
+				Files.delete(p);
+			}
+		}
+	}
+
 	private static void waitUntilExternalizedCheckpointCreated(File checkpointDir, JobID jobId) throws InterruptedException, IOException {
 		while (true) {
 			Thread.sleep(50);
@@ -327,7 +383,7 @@ public class ResumeCheckpointManuallyITCase extends TestLogger {
 	}
 
 	private static Optional<Path> findExternalizedCheckpoint(File checkpointDir, JobID jobId) throws IOException {
-		try (Stream<Path> checkpoints = Files.list(checkpointDir.toPath().resolve(jobId.toString()))) {
+		try (Stream<Path> checkpoints = Files.list(checkpointDir.toPath().resolve("Test").resolve("default"))) {
 			return checkpoints
 				.filter(path -> path.getFileName().toString().startsWith("chk-"))
 				.filter(path -> {

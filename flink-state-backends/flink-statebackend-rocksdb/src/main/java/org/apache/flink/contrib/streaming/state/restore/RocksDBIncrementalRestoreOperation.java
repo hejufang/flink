@@ -33,6 +33,7 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.BackendBuildingException;
+import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.DirectoryStateHandle;
 import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
 import org.apache.flink.runtime.state.IncrementalLocalKeyedStateHandle;
@@ -49,6 +50,7 @@ import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
 import org.apache.flink.runtime.state.tracker.BackendType;
 import org.apache.flink.util.FileUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.IOUtils;
 
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -155,7 +157,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		boolean isRescaling = (restoreStateHandles.size() > 1 ||
 			!Objects.equals(theFirstStateHandle.getKeyGroupRange(), keyGroupRange));
 
-		boolean isBatchingEnabled = theFirstStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle;
+		boolean isRestoreFromBatch = checkBatchingEnabled();
 
 		if (isRescaling && theFirstStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
 			restoreWithRescaling(restoreStateHandles);
@@ -169,7 +171,25 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		this.rescaling = isRescaling ? 1 : 0;
 
 		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
-			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles, isBatchingEnabled);
+			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles, isRestoreFromBatch);
+	}
+
+	private boolean checkBatchingEnabled() {
+		final KeyedStateHandle theFirstStateHandle = restoreStateHandles.iterator().next();
+
+		if (theFirstStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
+			return true;
+		} else if (theFirstStateHandle instanceof IncrementalLocalKeyedStateHandle) {
+			Map<StateHandleID, StreamStateHandle> sharedState = ((IncrementalLocalKeyedStateHandle) theFirstStateHandle).getSharedStatesToHandle();
+			if (sharedState.isEmpty()) {
+				// this case rarely happens, no sst in RocksDB
+				return false;
+			}
+			StreamStateHandle theFirstSharedStateHandle = sharedState.entrySet().iterator().next().getValue();
+			return theFirstSharedStateHandle instanceof BatchStateHandle;
+		}
+
+		return false;
 	}
 
 	/**
@@ -197,8 +217,20 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		backendUID = localKeyedStateHandle.getBackendIdentifier();
 		restoredSstFiles.put(
 			localKeyedStateHandle.getCheckpointId(),
-			localKeyedStateHandle.getSharedStateHandleIDs());
+			extractSstFilesToHandles(localKeyedStateHandle));
 		lastCompletedCheckpointId = localKeyedStateHandle.getCheckpointId();
+	}
+
+	private Map<StateHandleID, StreamStateHandle> extractSstFilesToHandles(IncrementalKeyedStateHandle keyedStateHandle) {
+		if (keyedStateHandle instanceof IncrementalLocalKeyedStateHandle) {
+			return ((IncrementalLocalKeyedStateHandle) keyedStateHandle).getSharedStatesToHandle();
+		} else if (keyedStateHandle instanceof IncrementalRemoteBatchKeyedStateHandle) {
+			return ((IncrementalRemoteBatchKeyedStateHandle) keyedStateHandle).getFilesToHandle();
+		} else if (keyedStateHandle instanceof IncrementalRemoteKeyedStateHandle) {
+			return ((IncrementalRemoteKeyedStateHandle) keyedStateHandle).getSharedState();
+		} else {
+			throw new FlinkRuntimeException("Unknown type of keyed state handle.");
+		}
 	}
 
 	private void restoreFromRemoteState(IncrementalRemoteKeyedStateHandle stateHandle) throws Exception {

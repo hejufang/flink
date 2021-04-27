@@ -207,6 +207,7 @@ public class MetadataV3SerializerTest {
 		CheckpointMetadata deserialized = serializer.deserialize(in, getClass().getClassLoader(), basePath);
 		assertEquals(checkpointId, deserialized.getCheckpointId());
 		assertEquals(operatorStates, deserialized.getOperatorStates());
+		CheckpointTestUtils.checkKeyedStateHandle(deserialized.getOperatorStates());
 
 		assertEquals(masterStates.size(), deserialized.getMasterStates().size());
 		for (Iterator<MasterState> a = masterStates.iterator(), b = deserialized.getMasterStates().iterator();
