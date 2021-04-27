@@ -199,10 +199,6 @@ public class RocketMQDynamicTableFactory implements
 				keyByFields ->
 					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
 			);
-			config.getOptional(SOURCE_METADATA_COLUMNS).ifPresent(
-				metadataInfo ->
-					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema)
-			);
 
 			config.getOptional(SINK_MESSAGE_DELAY_LEVEL).ifPresent(rocketMQConfig::setDelayLevel);
 
@@ -217,12 +213,12 @@ public class RocketMQDynamicTableFactory implements
 							LOG.warn("Param {} not supported in current version.", SINK_ASYNC_MODE_ENABLED.key())
 					)
 			);
+			rocketMQConfig.setSendBatchSize(config.get(SINK_BATCH_SIZE));
 		} else {
 			rocketMQConfig.setTopic(config.getOptional(TOPIC).orElseThrow(
 				() -> new FlinkRuntimeException(
 					String.format("You must set `%s` when use RocketMQ consumer.", TOPIC.key()))));
 			rocketMQConfig.setTag(config.get(TAG));
-			rocketMQConfig.setSendBatchSize(config.get(SINK_BATCH_SIZE));
 			rocketMQConfig.setAssignQueueStrategy(config.get(SCAN_ASSIGN_QUEUE_STRATEGY));
 			if (rocketMQConfig.getTag() == null && "binlog".equalsIgnoreCase(config.get(FORMAT))) {
 				rocketMQConfig.setTag(config.get(BINLOG_TARGET_TABLE));
@@ -235,6 +231,10 @@ public class RocketMQDynamicTableFactory implements
 			if (config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).isPresent()) {
 				throw new FlinkRuntimeException("Source don't support partition-fields.");
 			}
+			config.getOptional(SOURCE_METADATA_COLUMNS).ifPresent(
+				metadataInfo ->
+					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema)
+			);
 		}
 
 		return rocketMQConfig;
