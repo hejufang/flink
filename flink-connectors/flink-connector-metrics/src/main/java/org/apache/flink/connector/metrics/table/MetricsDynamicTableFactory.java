@@ -19,6 +19,8 @@
 
 package org.apache.flink.connector.metrics.table;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -26,12 +28,14 @@ import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.flink.connector.metrics.table.descriptors.MetricsConfigs.METRICS_PREFIX;
 import static org.apache.flink.connector.metrics.table.descriptors.MetricsConfigs.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.connector.metrics.table.descriptors.MetricsConfigs.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 
 /**
@@ -67,16 +71,24 @@ public class MetricsDynamicTableFactory implements DynamicTableSinkFactory {
 		optionalOptions.add(SINK_BUFFER_FLUSH_INTERVAL);
 		optionalOptions.add(SINK_LOG_FAILURES_ONLY);
 		optionalOptions.add(PARALLELISM);
+		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
 
 	private MetricsOptions getMetricsOptions(ReadableConfig readableConfig) {
+		FlinkConnectorRateLimiter rateLimiter = null;
+		Optional<Long> rateLimitNum = readableConfig.getOptional(RATE_LIMIT_NUM);
+		if (rateLimitNum.isPresent()) {
+			rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rateLimitNum.get());
+		}
 		return MetricsOptions.builder()
 			.setMetricsPrefix(readableConfig.get(METRICS_PREFIX))
 			.setBufferMaxRows(readableConfig.get(SINK_BUFFER_FLUSH_MAX_ROWS))
 			.setBufferFlushInterval(readableConfig.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
 			.setLogFailuresOnly(readableConfig.get(SINK_LOG_FAILURES_ONLY))
 			.setParallelism(readableConfig.get(PARALLELISM))
+			.setRateLimiter(rateLimiter)
 			.build();
 	}
 }

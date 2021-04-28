@@ -19,6 +19,8 @@
 
 package org.apache.flink.connector.redis.table;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
@@ -76,6 +78,7 @@ import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_LAT
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_LATER_JOIN_RETRY_TIMES;
 import static org.apache.flink.table.factories.FactoryUtil.LOOKUP_MAX_RETRIES;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
@@ -196,6 +199,7 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
 		optionalOptions.add(PSM);
 		optionalOptions.add(LOOKUP_SPECIFY_HASH_KEYS);
+		optionalOptions.add(RATE_LIMIT_NUM);
 		return optionalOptions;
 	}
 
@@ -231,6 +235,11 @@ public class RedisDynamicTableSourceSinkFactory implements DynamicTableSourceFac
 			.setGetResourceMaxRetries(config.get(CONNECTION_MAX_RETRIES))
 			.setRedisValueType(config.get(VALUE_TYPE));
 		keyIndex.ifPresent(builder::setKeyIndex);
+		config.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
+			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rate);
+			builder.setRateLimiter(rateLimiter);
+		});
 		return builder.build();
 	}
 

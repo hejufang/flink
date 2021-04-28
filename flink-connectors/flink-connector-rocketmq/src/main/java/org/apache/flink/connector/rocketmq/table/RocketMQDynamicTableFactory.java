@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.rocketmq.table;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 import org.apache.flink.configuration.ConfigOption;
@@ -76,6 +78,7 @@ import static org.apache.flink.connector.rocketmq.RocketMQOptions.SINK_TOPIC_SEL
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TAG;
 import static org.apache.flink.connector.rocketmq.RocketMQOptions.TOPIC;
 import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SOURCE_METADATA_COLUMNS;
 
 /**
@@ -151,6 +154,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_BATCH_FLUSH_ENABLE);
 		options.add(SINK_ASYNC_MODE_ENABLED);
 		options.add(FactoryUtil.PARALLELISM);
+		options.add(FactoryUtil.RATE_LIMIT_NUM);
 		return options;
 	}
 
@@ -160,6 +164,11 @@ public class RocketMQDynamicTableFactory implements
 		rocketMQConfig.setGroup(config.get(GROUP));
 		rocketMQConfig.setCluster(config.get(CLUSTER));
 		rocketMQConfig.setParallelism(config.get(FactoryUtil.PARALLELISM));
+		config.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
+			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rate);
+			rocketMQConfig.setRateLimiter(rateLimiter);
+		});
 		if (isSink) {
 			Optional<String> delayFieldOption = config.getOptional(SINK_DELAY_LEVEL_FIELD);
 			if (delayFieldOption.isPresent()) {

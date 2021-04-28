@@ -19,6 +19,7 @@ package org.apache.flink.connector.bytesql.table;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.RichOutputFormat;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.bytesql.table.descriptors.ByteSQLInsertOptions;
@@ -69,6 +70,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 	private final boolean isAppendOnly;
 	private final String[] fieldNames;
 	private final FieldGetter[] fieldGetters;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient ByteSQLDB byteSQLDB;
 	private transient List<RowData> recordBuffer;
@@ -109,6 +111,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 			.range(0, fieldNames.length)
 			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
 			.toArray(RowData.FieldGetter[]::new);
+		this.rateLimiter = options.getRateLimiter();
 	}
 
 	@Override
@@ -148,12 +151,17 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 		}
 		this.recordBuffer = new ArrayList<>();
 		this.keyToRows = new HashMap<>();
-
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
 	public void writeRecord(RowData record) throws IOException {
 		checkFlushException();
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 		recordBuffer.add(record);
 		batchCount++;
 		if (batchCount >= insertOptions.getBufferFlushMaxRows()) {

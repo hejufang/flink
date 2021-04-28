@@ -17,6 +17,7 @@
 
 package org.apache.flink.connectors.loghouse;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connectors.loghouse.service.Key;
@@ -51,6 +52,8 @@ public class LogHouseSinkFunction extends RichSinkFunction<RowData>
 	private static final String NULL_KEY = "null";
 
 	private final LogHouseOptions options;
+	private final FlinkConnectorRateLimiter rateLimiter;
+
 	private transient LogHouseClient logHouseClient;
 	private transient PutRequest reusablePutRequest;
 	private transient List<Record> batchedRecords;
@@ -65,6 +68,7 @@ public class LogHouseSinkFunction extends RichSinkFunction<RowData>
 
 	public LogHouseSinkFunction(LogHouseOptions options) {
 		this.options = options;
+		this.rateLimiter = options.getRateLimiter();
 	}
 
 	@Override
@@ -112,6 +116,9 @@ public class LogHouseSinkFunction extends RichSinkFunction<RowData>
 		compressor.open();
 		options.getSerializationSchema().open(
 			() -> getRuntimeContext().getMetricGroup().addGroup("serializer"));
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
@@ -139,6 +146,10 @@ public class LogHouseSinkFunction extends RichSinkFunction<RowData>
 	@Override
 	public synchronized void invoke(RowData value, Context context) throws Exception {
 		checkFlushException();
+
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 
 		if (value.getRowKind() == RowKind.UPDATE_BEFORE) {
 			return; // ignore retract message.

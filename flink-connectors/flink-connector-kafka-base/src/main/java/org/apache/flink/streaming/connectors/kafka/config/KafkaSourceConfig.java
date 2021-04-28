@@ -17,7 +17,6 @@
 
 package org.apache.flink.streaming.connectors.kafka.config;
 
-import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.DataType;
 
@@ -28,9 +27,8 @@ import java.util.Objects;
 /**
  * KafkaSourceConf.
  */
-public class KafkaSourceConfig implements Serializable  {
+public class KafkaSourceConfig implements Serializable {
 	private long rateLimitNumber = -1;
-	private RateLimitingUnit rateLimitingUnit;
 	private Long scanSampleInterval;
 	private Long scanSampleNum;
 	private String partitionTopicList;
@@ -49,14 +47,6 @@ public class KafkaSourceConfig implements Serializable  {
 
 	public void setRateLimitNumber(long rateLimitNumber) {
 		this.rateLimitNumber = rateLimitNumber;
-	}
-
-	public RateLimitingUnit getRateLimitingUnit() {
-		return rateLimitingUnit;
-	}
-
-	public void setRateLimitingUnit(RateLimitingUnit rateLimitingUnit) {
-		this.rateLimitingUnit = rateLimitingUnit;
 	}
 
 	public Long getScanSampleInterval() {
@@ -157,7 +147,6 @@ public class KafkaSourceConfig implements Serializable  {
 		}
 		KafkaSourceConfig that = (KafkaSourceConfig) o;
 		return rateLimitNumber == that.rateLimitNumber &&
-			rateLimitingUnit == that.rateLimitingUnit &&
 			Objects.equals(scanSampleInterval, that.scanSampleInterval) &&
 			Objects.equals(scanSampleNum, that.scanSampleNum) &&
 			Objects.equals(partitionTopicList, that.partitionTopicList) &&
@@ -173,7 +162,7 @@ public class KafkaSourceConfig implements Serializable  {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(rateLimitNumber, rateLimitingUnit, scanSampleInterval, scanSampleNum, partitionTopicList,
+		return Objects.hash(rateLimitNumber, scanSampleInterval, scanSampleNum, partitionTopicList,
 			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset,
 			parallelism, startIgnoreStateOffsets, forceManuallyCommitOffsets);
 	}

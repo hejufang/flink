@@ -18,6 +18,7 @@
 
 package org.apache.flink.connector.doris;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -58,6 +59,7 @@ public class DorisOptions implements Serializable {
 	private final long feUpdateIntervalMs;
 	private final int parallelism;
 	private final String sequenceColumn;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private DorisOptions(
 			List<Pair<String, Integer>> dorisFEList,
@@ -81,7 +83,8 @@ public class DorisOptions implements Serializable {
 			int maxRetryNum,
 			long feUpdateIntervalMs,
 			int parallelism,
-			String sequenceColumn) {
+			String sequenceColumn,
+			FlinkConnectorRateLimiter rateLimiter) {
 		this.dorisFEList = dorisFEList;
 		this.cluster = cluster;
 		this.dataCenter = dataCenter;
@@ -104,6 +107,7 @@ public class DorisOptions implements Serializable {
 		this.feUpdateIntervalMs = feUpdateIntervalMs;
 		this.parallelism = parallelism;
 		this.sequenceColumn = sequenceColumn;
+		this.rateLimiter = rateLimiter;
 	}
 
 	public List<Pair<String, Integer>> getDorisFEList() {
@@ -194,6 +198,10 @@ public class DorisOptions implements Serializable {
 		return sequenceColumn;
 	}
 
+	public FlinkConnectorRateLimiter getRateLimiter() {
+		return rateLimiter;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -225,6 +233,7 @@ public class DorisOptions implements Serializable {
 		private long feUpdateIntervalMs;
 		private int parallelism;
 		private String sequenceColumn;
+		private FlinkConnectorRateLimiter rateLimiter;
 
 		private Builder() {
 		}
@@ -339,6 +348,11 @@ public class DorisOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setRateLimiter(FlinkConnectorRateLimiter rateLimiter) {
+			this.rateLimiter = rateLimiter;
+			return this;
+		}
+
 		public DorisOptions build() {
 			// There are two ways to get connection, through DORIS_FE_LIST or DORIS_FE_PSM + DATA_CENTER,
 			// and the second way has higher priority if they are both set.
@@ -384,7 +398,8 @@ public class DorisOptions implements Serializable {
 				maxRetryNum,
 				feUpdateIntervalMs,
 				parallelism,
-				sequenceColumn);
+				sequenceColumn,
+				rateLimiter);
 		}
 	}
 }

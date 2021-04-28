@@ -129,7 +129,8 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 		);
 		return SinkFunctionProvider.of(new RedisRowDataSinkFunction(
 			outputFormat,
-			insertOptions.getParallelism()
+			insertOptions.getParallelism(),
+			options.getRateLimiter()
 		));
 	}
 

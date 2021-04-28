@@ -18,6 +18,7 @@
 package org.apache.flink.connector.redis.table;
 
 import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -33,10 +34,15 @@ public class RedisRowDataSinkFunction extends RichSinkFunction<RowData>
 		implements CheckpointedFunction, SpecificParallelism {
 	private final RedisRowDataOutputFormat outputFormat;
 	private final int parallelism;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
-	public RedisRowDataSinkFunction(RedisRowDataOutputFormat outputFormat, int parallelism) {
+	public RedisRowDataSinkFunction(
+			RedisRowDataOutputFormat outputFormat,
+			int parallelism,
+			FlinkConnectorRateLimiter rateLimiter) {
 		this.outputFormat = outputFormat;
 		this.parallelism = parallelism;
+		this.rateLimiter = rateLimiter;
 	}
 
 	@Override
@@ -45,6 +51,9 @@ public class RedisRowDataSinkFunction extends RichSinkFunction<RowData>
 		RuntimeContext ctx = getRuntimeContext();
 		outputFormat.setRuntimeContext(ctx);
 		outputFormat.open(ctx.getIndexOfThisSubtask(), ctx.getNumberOfParallelSubtasks());
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
@@ -55,6 +64,9 @@ public class RedisRowDataSinkFunction extends RichSinkFunction<RowData>
 
 	@Override
 	public void invoke(RowData value, Context context) throws Exception {
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 		outputFormat.writeRecord(value);
 	}
 

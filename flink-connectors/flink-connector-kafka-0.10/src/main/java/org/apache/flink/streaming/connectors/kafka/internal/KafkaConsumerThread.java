@@ -29,7 +29,6 @@ import org.apache.flink.streaming.connectors.kafka.internals.KafkaCommitCallback
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionState;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartitionStateSentinel;
 import org.apache.flink.streaming.connectors.kafka.internals.metrics.KafkaMetricWrapper;
-import org.apache.flink.util.FlinkRuntimeException;
 
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -556,28 +555,6 @@ public class KafkaConsumerThread<T> extends Thread {
 		return rateLimiter;
 	}
 
-	// -----------------------------------------------------------------------
-	// Rate limiting methods
-	// -----------------------------------------------------------------------
-
-	/**
-	 *
-	 * @param records List of ConsumerRecords.
-	 * @return Total batch size in bytes, including key and value.
-	 */
-	private int getRecordBatchSize(ConsumerRecords<byte[], byte[]> records) {
-		int recordBatchSizeBytes = 0;
-		for (ConsumerRecord<byte[], byte[]> record: records) {
-			// Null is an allowed value for the key
-			if (record.key() != null) {
-				recordBatchSizeBytes += record.key().length;
-			}
-			recordBatchSizeBytes += record.value().length;
-
-		}
-		return recordBatchSizeBytes;
-	}
-
 	/** Wait for subscribed partitions ready to be fetched. If all partitions are not ready, sleep the thread.
 	 * In the case that last call has got enough sampled records, ready state means unprocessed records amount
 	 * to {{@link #sampleSegmentLen}}.
@@ -688,19 +665,7 @@ public class KafkaConsumerThread<T> extends Thread {
 	protected ConsumerRecords<byte[], byte[]> getRecordsFromKafka() {
 		ConsumerRecords<byte[], byte[]> records = consumer.poll(pollTimeout);
 		if (rateLimiter != null) {
-			int requiredNum;
-			switch (bytedKafkaConfig.getRateLimitingUnit()) {
-				case BYTE:
-					requiredNum = getRecordBatchSize(records);
-					break;
-				case RECORD:
-					requiredNum = records.count();
-					break;
-				default:
-					throw new FlinkRuntimeException(
-						String.format("Unsupported RateLimitingUnit: %s.", bytedKafkaConfig.getRateLimitingUnit()));
-			}
-			rateLimiter.acquire(requiredNum);
+			rateLimiter.acquire(records.count());
 		}
 		return records;
 	}

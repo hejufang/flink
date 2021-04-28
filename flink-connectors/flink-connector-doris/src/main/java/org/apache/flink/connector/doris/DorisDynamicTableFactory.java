@@ -18,6 +18,8 @@
 
 package org.apache.flink.connector.doris;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
+import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
+import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.createTableFactoryHelper;
 
 /**
@@ -217,6 +220,7 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		set.add(FE_UPDATE_INTERVAL_DURATION);
 		set.add(PARALLELISM);
 		set.add(SEQUENCE_COLUMN);
+		set.add(RATE_LIMIT_NUM);
 		return set;
 	}
 
@@ -250,6 +254,11 @@ public class DorisDynamicTableFactory implements DynamicTableSinkFactory {
 		dorisOptions.setFeUpdateIntervalMs(readableConfig.get(FE_UPDATE_INTERVAL_DURATION).toMillis());
 		dorisOptions.setParallelism(readableConfig.get(PARALLELISM));
 		readableConfig.getOptional(SEQUENCE_COLUMN).ifPresent(dorisOptions::setSequenceColumn);
+		readableConfig.getOptional(RATE_LIMIT_NUM).ifPresent(rate -> {
+			FlinkConnectorRateLimiter rateLimiter = new GuavaFlinkConnectorRateLimiter();
+			rateLimiter.setRate(rate);
+			dorisOptions.setRateLimiter(rateLimiter);
+		});
 
 		return dorisOptions.build();
 	}

@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.rocketmq;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeHint;
@@ -94,14 +95,16 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 	private static final String FLINK_ROCKETMQ_METRICS = "flink_rocketmq_metrics";
 	private static final String CONSUMER_RECORDS_METRICS_RATE = "consumerRecordsRate";
 	public static final String ROCKET_MQ_CONSUMER_METRICS_GROUP = "RocketMQConsumer";
-	private String cluster;
-	private String topic;
-	private String group;
-	private String tag;
-	private Map<String, String> props;
-	private RocketMQDeserializationSchema<T> schema;
-	private RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
-	private String brokerQueueList;
+
+	private final String cluster;
+	private final String topic;
+	private final String group;
+	private final String tag;
+	private final Map<String, String> props;
+	private final RocketMQDeserializationSchema<T> schema;
+	private final RocketMQOptions.AssignQueueStrategy assignQueueStrategy;
+	private final String brokerQueueList;
+	private final FlinkConnectorRateLimiter rateLimiter;
 	private int parallelism;
 
 	private transient MeterView recordsNumMeterView;
@@ -132,6 +135,7 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		this.assignQueueStrategy = config.getAssignQueueStrategy();
 		this.parallelism = config.getParallelism();
 		this.brokerQueueList = config.getRocketMqBrokerQueueList();
+		this.rateLimiter = config.getRateLimiter();
 		saveConfigurationToSystemProperties(config);
 	}
 
@@ -158,6 +162,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 		schema.open(() -> getRuntimeContext().getMetricGroup());
 		this.skipDirtyCounter = getRuntimeContext().getMetricGroup().counter(FactoryUtil.SOURCE_SKIP_DIRTY);
 		specificMessageQueueSet = parseMessageQueueSet();
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
@@ -250,6 +257,9 @@ public class RocketMQConsumer<T> extends RichParallelSourceFunction<T> implement
 			}
 			List<MessageExt> messageExts = messageExtsList.get(0);
 			for (MessageExt messageExt: messageExts) {
+				if (rateLimiter != null) {
+					rateLimiter.acquire(1);
+				}
 				MessageQueue messageQueue = createMessageQueue(messageExt.getMessageQueue());
 				T rowData = schema.deserialize(messageQueue, messageExt);
 				if (rowData == null) {

@@ -22,7 +22,6 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
-import org.apache.flink.api.common.io.ratelimiting.RateLimitingUnit;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.OperatorStateStore;
@@ -236,9 +235,6 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 	 * {@link #setRateLimiter(FlinkConnectorRateLimiter)}.
 	 */
 	protected FlinkConnectorRateLimiter rateLimiter;
-
-	/** Rate limiter unit, supported unit: BYTE, RECORD. */
-	protected RateLimitingUnit rateLimitingUnit;
 
 	/** Sample interval, the unit is record. */
 	protected long sampleInterval = 0;
@@ -852,7 +848,7 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 				offsetCommitMode,
 				getRuntimeContext().getMetricGroup().addGroup(KAFKA_CONSUMER_METRICS_GROUP),
 				useMetrics,
-				new BytedKafkaConfig(rateLimitingUnit, sampleInterval, sampleNum, manualCommitInterval, forceManuallyCommitOffsets));
+				new BytedKafkaConfig(sampleInterval, sampleNum, manualCommitInterval, forceManuallyCommitOffsets));
 
 		if (restoredState != null) {
 			LOG.info("Consumer subtask {} has already recovered from a successful checkpoint.",
@@ -1348,17 +1344,6 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 
 	public FlinkConnectorRateLimiter getRateLimiter() {
 		return rateLimiter;
-	}
-
-	/**
-	 * Set rate limiting unit.
-	 * */
-	public RateLimitingUnit getRateLimitingUnit() {
-		return rateLimitingUnit;
-	}
-
-	public void setRateLimitingUnit(RateLimitingUnit rateLimitingUnit) {
-		this.rateLimitingUnit = rateLimitingUnit;
 	}
 
 	private List<KafkaTopicPartition> filterPartitions(List<KafkaTopicPartition> topicPartitionList) {

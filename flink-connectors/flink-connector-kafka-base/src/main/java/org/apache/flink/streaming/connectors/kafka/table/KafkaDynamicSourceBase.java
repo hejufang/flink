@@ -155,10 +155,6 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 			kafkaConsumer.setRateLimiter(rateLimiter);
 		}
 
-		if (kafkaSourceConfig.getRateLimitingUnit() != null) {
-			kafkaConsumer.setRateLimitingUnit(kafkaSourceConfig.getRateLimitingUnit());
-		}
-
 		// Set sampling strategy.
 		if (kafkaSourceConfig.getScanSampleInterval() != null) {
 			kafkaConsumer.setSampleInterval(kafkaSourceConfig.getScanSampleInterval());

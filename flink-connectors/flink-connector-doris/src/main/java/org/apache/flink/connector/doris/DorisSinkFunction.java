@@ -18,6 +18,7 @@
 
 package org.apache.flink.connector.doris;
 
+import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
@@ -44,6 +45,7 @@ public class DorisSinkFunction
 
 	private final DorisOptions dorisOptions;
 	private final DataType[] fieldTypes;
+	private final FlinkConnectorRateLimiter rateLimiter;
 
 	private transient DorisClient dorisClient;
 	private transient DataFormatConverters.RowConverter rowConverter;
@@ -51,6 +53,7 @@ public class DorisSinkFunction
 	public DorisSinkFunction(DataType[] fieldTypes, DorisOptions dorisOptions) {
 		this.dorisOptions = dorisOptions;
 		this.fieldTypes = fieldTypes;
+		this.rateLimiter = dorisOptions.getRateLimiter();
 	}
 
 	@Override
@@ -86,10 +89,16 @@ public class DorisSinkFunction
 			.setUpdateInterval(dorisOptions.getFeUpdateIntervalMs());
 		dorisClient = new DorisClient(clientConfig);
 		dorisClient.open();
+		if (rateLimiter != null) {
+			rateLimiter.open(getRuntimeContext());
+		}
 	}
 
 	@Override
 	public void invoke(RowData element, Context context) throws Exception {
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 		dorisClient.asyncLoad(convertRowDataToDorisRow(element));
 	}
 
