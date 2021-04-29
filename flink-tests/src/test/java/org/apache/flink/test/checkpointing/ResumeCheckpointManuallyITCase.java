@@ -54,11 +54,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertNotNull;
@@ -342,8 +340,6 @@ public class ResumeCheckpointManuallyITCase extends TestLogger {
 		// wait until all sources have been started
 		NotifyingInfiniteTupleSource.countDownLatch.await();
 
-		clearPastCheckpoint(checkpointDir);
-
 		waitUntilExternalizedCheckpointCreated(checkpointDir, initialJobGraph.getJobID());
 		client.cancel(initialJobGraph.getJobID()).get();
 		waitUntilCanceled(initialJobGraph.getJobID(), client);
@@ -357,18 +353,6 @@ public class ResumeCheckpointManuallyITCase extends TestLogger {
 			throw new AssertionError("No complete checkpoint could be found.");
 		} else {
 			return checkpoint.get().toString();
-		}
-	}
-
-	private static void clearPastCheckpoint(File checkpointDir) throws IOException {
-		try (Stream<Path> checkpoints = Files.list(checkpointDir.toPath().resolve("Test").resolve("default"))) {
-			List<Path> toDeleteChkPaths = checkpoints
-				.filter(path -> path.getFileName().toString().startsWith("chk-"))
-				.collect(Collectors.toList());
-			for (Path p : toDeleteChkPaths) {
-				Files.walk(p).map(Path::toFile).forEach(File::delete);
-				Files.delete(p);
-			}
 		}
 	}
 
