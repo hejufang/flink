@@ -74,7 +74,13 @@ public class RPCConfigs {
 		.key("connection.timeout")
 		.durationType()
 		.defaultValue(Duration.of(2, ChronoUnit.SECONDS))
-		.withDescription("Optional. Timeout of a RPC service access operation.");
+		.withDescription("Optional. Connect timeout of a RPC service access operation.");
+
+	public static final ConfigOption<Duration> SOCKET_TIMEOUT = ConfigOptions
+		.key("socket.timeout")
+		.durationType()
+		.defaultValue(Duration.of(2, ChronoUnit.SECONDS))
+		.withDescription("Optional. Socket timeout of a RPC service access operation.");
 
 	public static final ConfigOption<Integer> CONNECTION_POOL_SIZE = ConfigOptions
 		.key("connection.pool-size")

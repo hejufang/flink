@@ -63,6 +63,9 @@ public class RPCServiceClient implements Serializable {
 		if (options.getConnectTimeoutMs() > 0) {
 			clientOptions.setConnectTimeout(options.getConnectTimeoutMs());
 		}
+		if (options.getSocketTimeoutMs() > 0) {
+			clientOptions.setSocketTimeout(options.getSocketTimeoutMs());
+		}
 		this.socketPool = new ServiceClient<>(
 			serviceMeta,
 			options.getPsm(),

@@ -50,6 +50,7 @@ import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_FAILURE_HANDLE_STRATEGY;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.LOOKUP_INFER_SCHEMA;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.PSM;
+import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.SOCKET_TIMEOUT;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.THRIFT_METHOD;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.THRIFT_SERVICE_CLASS;
 import static org.apache.flink.connector.rpc.table.descriptors.RPCConfigs.THRIFT_TRANSPORT;
@@ -97,6 +98,7 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionalOptions.add(CLUSTER);
 		optionalOptions.add(PSM);
 		optionalOptions.add(CONNECTION_TIMEOUT);
+		optionalOptions.add(SOCKET_TIMEOUT);
 		optionalOptions.add(CONNECTION_POOL_SIZE);
 		optionalOptions.add(CONSUL_UPDATE_INTERVAL);
 		optionalOptions.add(LOOKUP_CACHE_MAX_ROWS);
@@ -117,6 +119,7 @@ public class RPCDynamicTableFactory implements DynamicTableSourceFactory, TableS
 		optionsBuilder.setThriftMethod(configs.get(THRIFT_METHOD));
 		optionsBuilder.setTransportType(configs.get(THRIFT_TRANSPORT));
 		optionsBuilder.setConnectTimeoutMs((int) configs.get(CONNECTION_TIMEOUT).toMillis());
+		optionsBuilder.setSocketTimeoutMs((int) configs.get(SOCKET_TIMEOUT).toMillis());
 		optionsBuilder.setConnectionPoolSize(configs.get(CONNECTION_POOL_SIZE));
 		configs.getOptional(PSM).ifPresent(optionsBuilder::setPsm);
 		configs.getOptional(CLUSTER).ifPresent(optionsBuilder::setCluster);

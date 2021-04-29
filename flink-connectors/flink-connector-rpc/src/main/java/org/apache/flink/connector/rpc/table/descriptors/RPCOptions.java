@@ -41,6 +41,7 @@ public class RPCOptions implements Serializable {
 	private final TransportType transportType;
 	// connect
 	private final int connectTimeoutMs;
+	private final int socketTimeoutMs;
 	private final int connectionPoolSize;
 
 	private RPCOptions(
@@ -52,6 +53,7 @@ public class RPCOptions implements Serializable {
 			String thriftMethod,
 			TransportType transportType,
 			int connectTimeoutMs,
+			int socketTimeoutMs,
 			int connectionPoolSize) {
 		this.consul = consul;
 		this.cluster = cluster;
@@ -61,6 +63,7 @@ public class RPCOptions implements Serializable {
 		this.thriftMethod = thriftMethod;
 		this.transportType = transportType;
 		this.connectTimeoutMs = connectTimeoutMs;
+		this.socketTimeoutMs = socketTimeoutMs;
 		this.connectionPoolSize = connectionPoolSize;
 	}
 
@@ -96,6 +99,10 @@ public class RPCOptions implements Serializable {
 		return connectTimeoutMs;
 	}
 
+	public int getSocketTimeoutMs() {
+		return socketTimeoutMs;
+	}
+
 	public int getConnectionPoolSize() {
 		return connectionPoolSize;
 	}
@@ -119,6 +126,7 @@ public class RPCOptions implements Serializable {
 		private TransportType transportType = TransportType.Framed;
 		// connect
 		private int connectTimeoutMs;
+		private int socketTimeoutMs;
 		private int connectionPoolSize;
 
 		private Builder() {
@@ -164,6 +172,11 @@ public class RPCOptions implements Serializable {
 			return this;
 		}
 
+		public Builder setSocketTimeoutMs(int socketTimeoutMs) {
+			this.socketTimeoutMs = socketTimeoutMs;
+			return this;
+		}
+
 		public Builder setConnectionPoolSize(int connectionPoolSize) {
 			this.connectionPoolSize = connectionPoolSize;
 			return this;
@@ -182,6 +195,7 @@ public class RPCOptions implements Serializable {
 				thriftMethod,
 				transportType,
 				connectTimeoutMs,
+				socketTimeoutMs,
 				connectionPoolSize
 			);
 		}
