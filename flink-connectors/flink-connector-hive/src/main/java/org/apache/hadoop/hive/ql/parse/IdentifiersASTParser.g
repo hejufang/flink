@@ -816,4 +816,6 @@ sql11ReservedKeywordsUsedAsCastFunctionName
 sql11ReservedKeywordsUsedAsIdentifier
     :
     KW_DATE | KW_LIKE | KW_TIMESTAMP | KW_ALL | KW_USER | KW_TABLE | KW_GRANT | KW_LEFT | KW_RIGHT
+    | KW_TO | KW_ARRAY | KW_RANGE | KW_UNION | KW_ORDER | KW_GROUP | KW_TRIGGER | KW_PRECISION
+    | KW_LOCAL | KW_CREATE | KW_READS | KW_PERCENT | KW_VALUES | KW_IS | KW_FULL
     ;

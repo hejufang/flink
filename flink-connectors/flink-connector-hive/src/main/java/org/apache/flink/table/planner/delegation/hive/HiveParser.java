@@ -236,10 +236,12 @@ public class HiveParser extends ParserImpl {
 			return false;
 		}
 		String commandArgs = cmd.substring(tokens[0].length()).trim();
-		String[] split = commandArgs.split("=");
+		// The value of set command may contains '=', but the key of it can not contain '='.
+		// So we could limit the splits to '2'.
+		String[] split = commandArgs.split("=", 2);
 		if (split.length == 2) {
-			String key = split[0];
-			String value = split[1];
+			String key = split[0].trim();
+			String value = split[1].trim();
 			LOG.info("Execute set statement '{}'. Set {} = {} in hiveConf.", cmd, key, value);
 			hiveConf.set(key, value);
 			return true;
@@ -368,7 +370,7 @@ public class HiveParser extends ParserImpl {
 					"Flink parser. SQL: '{}'.", cmd, e);
 				return super.parse(cmd);
 			} catch (SqlParserException parserException) {
-				LOG.error("Faield to parse SQL '{}' using `super.parse()`.", cmd, parserException);
+				LOG.error("Failed to parse SQL '{}' using `super.parse()`.", cmd, parserException);
 				throw new SqlParserException("SQL parse failed", e);
 			}
 		} catch (SemanticException | IOException e) {

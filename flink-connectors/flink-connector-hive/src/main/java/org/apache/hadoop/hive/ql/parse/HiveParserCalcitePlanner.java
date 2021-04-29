@@ -2316,7 +2316,12 @@ public class HiveParserCalcitePlanner {
 								expr, exprNodeDescs, excludedColumns, inputRR, starRR, pos,
 								outRR, qb.getAliases(), false /* don't require uniqueness */);
 					} else if (HiveASTParseUtils.containsTokenOfType(expr, HiveASTParser.TOK_FUNCTIONDI)
-							&& !(srcRel instanceof Aggregate)) {
+							&& !(srcRel instanceof Aggregate ||
+							(srcRel.getInputs().size() == 1 && srcRel.getInput(0) instanceof Aggregate))) {
+						// If expr is a distinct function, the srcRel must be Aggregate or the input of
+						// srcRel is Aggregate(handle 'having count(distinct col) > n' clause),
+						// otherwise we will throw an SemanticException here.
+
 						// Likely a malformed query eg, select hash(distinct c1) from t1;
 						throw new SemanticException("Distinct without an aggregation.");
 					} else {

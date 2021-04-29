@@ -63,6 +63,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -401,6 +402,25 @@ public class HiveTableUtil {
 						e.getKey().equals(CatalogConfig.IS_GENERIC) ? e.getKey() : FLINK_PROPERTY_PREFIX + e.getKey(),
 						e.getValue()))
 				.collect(Collectors.toMap(t -> t.f0, t -> t.f1));
+	}
+
+	public static Map<String, String> deduplicateKVIgnoreCase (Map<String, String> properties) {
+		if (properties == null) {
+			return null;
+		}
+		HashMap<String, String> newProperties = new HashMap<>();
+		Set<String> keys = new HashSet<>();
+		for (Map.Entry<String, String> entry : properties.entrySet()) {
+			String key = entry.getKey();
+			String value = entry.getValue();
+			if (keys.contains(key.toLowerCase())) {
+				// Ignore this k-v if the same key (ignore case) is already exist in newProperties.
+				continue;
+			}
+			keys.add(key.toLowerCase());
+			newProperties.put(key, value);
+		}
+		return newProperties;
 	}
 
 	private static class ExpressionExtractor implements ExpressionVisitor<String> {

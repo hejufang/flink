@@ -636,6 +636,11 @@ public class HiveCatalog extends AbstractCatalog {
 			if (!hiveTable.getPartitionKeys().isEmpty()) {
 				partitionKeys = getFieldNames(hiveTable.getPartitionKeys());
 			}
+
+			// Hive could handle the two keys in properties only differ in case, such as
+			// 'BDIndex.data.location' and 'bdindex.data.location'. But flink could not handle it,
+			// so we have to deduplicate the k-v in hive parameters.
+			properties = HiveTableUtil.deduplicateKVIgnoreCase(properties);
 		}
 
 		String comment = properties.remove(HiveCatalogConfig.COMMENT);
