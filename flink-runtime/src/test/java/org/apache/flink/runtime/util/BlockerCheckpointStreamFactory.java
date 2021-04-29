@@ -20,14 +20,17 @@ package org.apache.flink.runtime.util;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.CheckpointedStateScope;
 import org.apache.flink.runtime.state.memory.MemCheckpointStreamFactory;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * {@link CheckpointStreamFactory} for tests that allows for testing cancellation in async IO.
@@ -40,6 +43,10 @@ public class BlockerCheckpointStreamFactory implements CheckpointStreamFactory {
 	protected volatile int afterNumberInvocations;
 	protected volatile OneShotLatch blocker;
 	protected volatile OneShotLatch waiter;
+
+	public AtomicBoolean manualExceptionFlag;
+	@Nullable
+	public CheckpointStreamFactory checkpointFsFactory;
 
 	protected final Set<BlockingCheckpointOutputStream> allCreatedStreams;
 
@@ -72,15 +79,41 @@ public class BlockerCheckpointStreamFactory implements CheckpointStreamFactory {
 		return waiter;
 	}
 
+	public AtomicBoolean getManualExceptionFlag() {
+		return manualExceptionFlag;
+	}
+
+	public void setManualExceptionFlag(AtomicBoolean manualExceptionFlag) {
+		this.manualExceptionFlag = manualExceptionFlag;
+	}
+
+	public void setCheckpointFsFactory(@Nullable CheckpointStreamFactory checkpointFsFactory) {
+		this.checkpointFsFactory = checkpointFsFactory;
+	}
+
 	@Override
 	public CheckpointStateOutputStream createCheckpointStateOutputStream(
 		CheckpointedStateScope scope) throws IOException {
 
-		BlockingCheckpointOutputStream blockingStream = new BlockingCheckpointOutputStream(
-			new MemCheckpointStreamFactory.MemoryCheckpointOutputStream(maxSize),
-			waiter,
-			blocker,
-			afterNumberInvocations);
+		BlockingCheckpointOutputStream blockingStream;
+		if (checkpointFsFactory == null) {
+			blockingStream = new BlockingCheckpointOutputStream(
+				new MemCheckpointStreamFactory.MemoryCheckpointOutputStream(maxSize),
+				waiter,
+				blocker,
+				null,
+				afterNumberInvocations);
+		} else {
+			// Do NOT forced to fail exclusive files upload
+			FSDataOutputStream outputStream = checkpointFsFactory.createCheckpointStateOutputStream(scope);
+			outputStream.flush();
+			blockingStream = new BlockingCheckpointOutputStream(
+				outputStream,
+				waiter,
+				blocker,
+				scope == CheckpointedStateScope.EXCLUSIVE ? null : manualExceptionFlag,
+				afterNumberInvocations);
+		}
 
 		allCreatedStreams.add(blockingStream);
 

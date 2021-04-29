@@ -24,6 +24,7 @@ import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeutils.base.IntSerializer;
 import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.testutils.OneShotLatch;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
@@ -36,6 +37,7 @@ import org.apache.flink.runtime.state.StateHandleID;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
+import org.apache.flink.runtime.state.filesystem.FsCheckpointStreamFactory;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.runtime.util.BlockerCheckpointStreamFactory;
 import org.apache.flink.runtime.util.BlockingCheckpointOutputStream;
@@ -63,16 +65,20 @@ import org.rocksdb.Snapshot;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static junit.framework.TestCase.assertNotNull;
 import static org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackendBuilder.DB_INSTANCE_DIR_STRING;
@@ -94,23 +100,33 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 	private OneShotLatch blocker;
 	private OneShotLatch waiter;
+	private AtomicBoolean checkpointOutputStreamExceptionFlag;
 	private BlockerCheckpointStreamFactory testStreamFactory;
 	private RocksDBKeyedStateBackend<Integer> keyedStateBackend;
 	private List<RocksObject> allCreatedCloseables;
 	private ValueState<Integer> testState1;
 	private ValueState<String> testState2;
 
-	@Parameterized.Parameters(name = "Incremental checkpointing: {0}")
-	public static Collection<Boolean> parameters() {
-		return Arrays.asList(false, true);
+	@Parameterized.Parameters(name = "RocksDB snapshot type ={0}")
+	public static Collection<RocksDBStateBackendEnum> parameters() {
+		return Arrays.asList(
+			RocksDBStateBackendEnum.FULL,
+			RocksDBStateBackendEnum.INCREMENTAL,
+			RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ);
 	}
 
 	@Parameterized.Parameter
-	public boolean enableIncrementalCheckpointing;
+	public RocksDBStateBackendEnum rocksDBStateBackendEnum;
+
+	enum RocksDBStateBackendEnum {
+		FULL, INCREMENTAL, INCREMENTAL_BATCH_FIX_SIZE_SEQ
+	}
 
 	@Rule
 	public final TemporaryFolder tempFolder = new TemporaryFolder();
 
+	public boolean enableIncrementalCheckpointing;
+	public RocksDBStateBatchConfig batchConfig;
 	// Store it because we need it for the cleanup test.
 	private String dbPath;
 	private RocksDB db = null;
@@ -127,11 +143,17 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		defaultCFHandle = columnFamilyHandles.remove(0);
 	}
 
+	public RocksDBStateBackendEnum getRocksDBStateBackendEnum() {
+		return rocksDBStateBackendEnum;
+	}
+
 	@Override
 	protected RocksDBStateBackend getStateBackend() throws IOException {
+		getConfiguration();
 		dbPath = tempFolder.newFolder().getAbsolutePath();
 		String checkpointPath = tempFolder.newFolder().toURI().toString();
 		RocksDBStateBackend backend = new RocksDBStateBackend(new FsStateBackend(checkpointPath), enableIncrementalCheckpointing);
+		backend.setBatchConfig(batchConfig);
 		Configuration configuration = new Configuration();
 		configuration.set(RocksDBOptions.TIMER_SERVICE_FACTORY, RocksDBStateBackend.PriorityQueueStateType.ROCKSDB);
 		backend = backend.configure(configuration, Thread.currentThread().getContextClassLoader());
@@ -163,14 +185,36 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		}
 	}
 
+	private void getConfiguration() {
+		switch (getRocksDBStateBackendEnum()) {
+			case FULL:
+				enableIncrementalCheckpointing = false;
+				batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
+				break;
+			case INCREMENTAL:
+				enableIncrementalCheckpointing = true;
+				batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
+				break;
+			case INCREMENTAL_BATCH_FIX_SIZE_SEQ:
+				enableIncrementalCheckpointing = true;
+				batchConfig = new RocksDBStateBatchConfig(RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER, 128 * 1024 * 1024L);
+				break;
+			default:
+				throw new IllegalStateException("No RocksDB state backend selected.");
+		}
+	}
+
 	public void setupRocksKeyedStateBackend() throws Exception {
+		getConfiguration();
 
 		blocker = new OneShotLatch();
 		waiter = new OneShotLatch();
+		checkpointOutputStreamExceptionFlag = new AtomicBoolean(false);
 		testStreamFactory = new BlockerCheckpointStreamFactory(1024 * 1024);
 		testStreamFactory.setBlockerLatch(blocker);
 		testStreamFactory.setWaiterLatch(waiter);
 		testStreamFactory.setAfterNumberInvocations(10);
+		testStreamFactory.setManualExceptionFlag(checkpointOutputStreamExceptionFlag);
 
 		prepareRocksDB();
 
@@ -181,6 +225,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				defaultCFHandle,
 				optionsContainer.getColumnOptions())
 			.setEnableIncrementalCheckpointing(enableIncrementalCheckpointing)
+			.setSstBatchConfig(batchConfig)
 			.build();
 
 		testState1 = keyedStateBackend.getPartitionedState(
@@ -405,6 +450,95 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 			this.keyedStateBackend.dispose();
 			this.keyedStateBackend = null;
 		}
+	}
+
+	@Test
+	public void testFailureRunningSnapshot() throws Exception {
+		setupRocksKeyedStateBackend();
+		if (!enableIncrementalCheckpointing) {
+			return;
+		}
+
+		// Different from other tests, this CI test need to use local fs as checkpoint fs system.
+		File checkpointPrivateFolder = tempFolder.newFolder("private");
+		org.apache.flink.core.fs.Path checkpointPrivateDirectory = org.apache.flink.core.fs.Path.fromLocalFile(checkpointPrivateFolder);
+
+		File checkpointSharedFolder = tempFolder.newFolder("shared");
+		org.apache.flink.core.fs.Path checkpointSharedDirectory = org.apache.flink.core.fs.Path.fromLocalFile(checkpointSharedFolder);
+
+		FileSystem fileSystem = checkpointPrivateDirectory.getFileSystem();
+		int writeBufferSize = 4096;
+		FsCheckpointStreamFactory checkpointStreamFactory =
+			new FsCheckpointStreamFactory(
+				fileSystem, checkpointPrivateDirectory, checkpointSharedDirectory, 0, writeBufferSize);
+		testStreamFactory.setCheckpointFsFactory(checkpointStreamFactory);
+
+		// (1) run a completed checkpoint
+		try {
+			runStateUpdates();
+			RunnableFuture<SnapshotResult<KeyedStateHandle>> snapshot =
+				keyedStateBackend.snapshot(0L, 0L, testStreamFactory, CheckpointOptions.forCheckpointWithDefaultLocation());
+			Thread asyncSnapshotThread = new Thread(snapshot);
+			asyncSnapshotThread.start();
+			waiter.await(); // wait for snapshot to run
+			waiter.reset();
+			blocker.trigger(); // allow checkpointing to start writing
+			waiter.await(); // wait for snapshot stream writing to run
+
+			SnapshotResult<KeyedStateHandle> snapshotResult = snapshot.get();
+			KeyedStateHandle keyedStateHandle = snapshotResult.getJobManagerOwnedSnapshot();
+			assertNotNull(keyedStateHandle);
+			assertTrue(keyedStateHandle.getStateSize() > 0);
+			assertEquals(2, keyedStateHandle.getKeyGroupRange().getNumberOfKeyGroups());
+
+			for (BlockingCheckpointOutputStream stream : testStreamFactory.getAllCreatedStreams()) {
+				assertTrue(stream.isClosed());
+			}
+
+			asyncSnapshotThread.join();
+		} finally {
+
+		}
+
+		Set<Path> filesInCheckpointDirFirst = new HashSet<>(
+			Arrays.asList(org.apache.flink.util.FileUtils.listDirectory(checkpointSharedFolder.toPath())));
+
+		keyedStateBackend.notifyCheckpointComplete(0L);
+
+		// (2) run a consecutive checkpoint
+		try {
+			runStateUpdates();
+			RunnableFuture<SnapshotResult<KeyedStateHandle>> snapshot =
+				keyedStateBackend.snapshot(1L, 4L, testStreamFactory, CheckpointOptions.forCheckpointWithDefaultLocation());
+			Thread asyncSnapshotThread = new Thread(snapshot);
+			asyncSnapshotThread.start();
+			waiter.await(); // wait for snapshot to run
+			waiter.reset();
+			checkpointOutputStreamExceptionFlag.set(true); // open the exception flag
+
+			blocker.trigger(); // allow checkpointing to start writing
+			waiter.await(); // wait for snapshot stream writing to run
+
+			try {
+				snapshot.get();
+				fail();
+			} catch (Exception ignored) {
+			}
+
+			asyncSnapshotThread.join();
+			verifyRocksObjectsReleased();
+		} finally {
+			this.keyedStateBackend.dispose();
+			this.keyedStateBackend = null;
+		}
+
+		Set<Path> filesInCheckpointDirSecond = new HashSet<>(
+			Arrays.asList(org.apache.flink.util.FileUtils.listDirectory(checkpointSharedFolder.toPath())));
+
+		log.info("shared dir after first chk: {}", filesInCheckpointDirFirst);
+		log.info("shared dir after second chk: {}", filesInCheckpointDirSecond);
+
+		assertEquals(filesInCheckpointDirFirst, filesInCheckpointDirSecond);
 	}
 
 	@Test

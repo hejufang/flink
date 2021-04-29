@@ -55,6 +55,9 @@ public class BlockingCheckpointOutputStream extends CheckpointStreamFactory.Chec
 	/** The current read position. */
 	private long position;
 
+	/** Trigger exception just after exiting triggerUnblock in write(). */
+	private final AtomicBoolean writeExceptionFlag;
+
 	public BlockingCheckpointOutputStream(
 		@Nullable OneShotLatch waitForBlocking,
 		@Nullable OneShotLatch triggerUnblock) {
@@ -74,6 +77,16 @@ public class BlockingCheckpointOutputStream extends CheckpointStreamFactory.Chec
 		@Nullable OneShotLatch triggerUnblock,
 		long blockAtPosition) {
 
+		this(delegate, waitForBlocking, triggerUnblock, null, blockAtPosition);
+	}
+
+	public BlockingCheckpointOutputStream(
+		@Nullable FSDataOutputStream delegate,
+		@Nullable OneShotLatch waitForBlocking,
+		@Nullable OneShotLatch triggerUnblock,
+		@Nullable AtomicBoolean writeExceptionFlag,
+		long blockAtPosition) {
+
 		this.delegate = delegate;
 		this.triggerUnblock = triggerUnblock;
 		this.waitForBlocking = waitForBlocking;
@@ -88,6 +101,7 @@ public class BlockingCheckpointOutputStream extends CheckpointStreamFactory.Chec
 			this.position = 0;
 		}
 		this.closed = new AtomicBoolean(false);
+		this.writeExceptionFlag = writeExceptionFlag;
 	}
 
 	@Override
@@ -96,6 +110,9 @@ public class BlockingCheckpointOutputStream extends CheckpointStreamFactory.Chec
 		if (position == blockAtPosition) {
 			unblockWaiter();
 			awaitUnblocker();
+			if (writeExceptionFlag != null && writeExceptionFlag.get()) {
+				int devidedByZeroException = 1 / 0;
+			}
 		}
 
 		if (delegate != null) {

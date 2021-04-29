@@ -190,7 +190,7 @@ public class EventTimeWindowCheckpointingITCase extends TestLogger {
 				break;
 			}
 			case ROCKSDB_INCREMENTAL_BATCHING_BYTE: {
-				setupRocksDB(config, 65 * 1024 * 1024, true, true);
+				setupRocksDB(config, 1024 * 1024, true, true);
 				break;
 			}
 			default:

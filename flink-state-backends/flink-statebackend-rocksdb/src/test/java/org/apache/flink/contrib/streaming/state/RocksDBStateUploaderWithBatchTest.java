@@ -131,8 +131,9 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 			}
 
 			// (4) test transfer miscFiles, only one batch
-			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle =
-				RocksIncrementalSnapshotStrategy.transferStateFilesToBatch(Collections.emptyMap(), miscFiles, null);
+			RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping mapping =
+				new RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping(Collections.emptyMap(), Collections.emptyMap(), miscFiles);
+			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle = mapping.getMiscBatchIdToBatchHandles();
 			assertEquals(batchFileIdToStateHandle, batches);
 		}
 	}
@@ -203,9 +204,11 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 				batches.put(batchFileId, new PlaceholderStreamStateHandle());
 			}
 
-			Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
-			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle =
-				RocksIncrementalSnapshotStrategy.transferStateFilesToBatch(baseSstFiles, sstFiles, usedSstFiles);
+			RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping mapping =
+				new RocksIncrementalSnapshotStrategy.FilesMappingToBatchesMapping(baseSstFiles, sstFiles, Collections.emptyMap());
+			Map<StateHandleID, StreamStateHandle> batchFileIdToStateHandle = mapping.getSstBatchIdToBatchHandles();
+			Map<StateHandleID, List<StateHandleID>> usedSstFiles = mapping.getUsedSstFiles();
+			Map<StateHandleID, StreamStateHandle> sstFilesToRealHandles = mapping.getSstFilesToBatchHandles();
 			assertEquals(batches.size(), batchFileIdToStateHandle.size());
 			for (Map.Entry<StateHandleID, StreamStateHandle> entry: batches.entrySet()) {
 				assertTrue(batchFileIdToStateHandle.containsKey(entry.getKey()));
@@ -217,8 +220,8 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 				}
 			}
 
-			// all state handles in sstFiles should be batch state handle, rather than placeholders.
-			for (Map.Entry<StateHandleID, StreamStateHandle> entry : sstFiles.entrySet()) {
+			// all state handles in sstFilesToRealHandles should be batch state handle, rather than placeholders.
+			for (Map.Entry<StateHandleID, StreamStateHandle> entry : sstFilesToRealHandles.entrySet()) {
 				assertTrue(entry.getValue() instanceof BatchStateHandle);
 				BatchStateHandle batchStateHandle = (BatchStateHandle) entry.getValue();
 				if (baseSstFiles.containsKey(entry.getKey())) {
@@ -230,7 +233,7 @@ public class RocksDBStateUploaderWithBatchTest extends TestLogger {
 			for (List<StateHandleID> sstFilesInBatch : usedSstFiles.values()) {
 				allUsedSstFiles.addAll(sstFilesInBatch);
 			}
-			assertEquals(allUsedSstFiles, sstFiles.keySet());
+			assertEquals(allUsedSstFiles, sstFilesToRealHandles.keySet());
 		}
 
 	}

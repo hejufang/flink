@@ -73,7 +73,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -113,7 +112,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	 * <p>The keys of map always the set of sst files in the last checkpoint, while the values depend.
 	 *
 	 * <p>If batching is enabled, values are ALL {@link BatchStateHandle}, which are used to construct the
-	 * mapping from sst files to batches, refer to {@link #transferStateFilesToBatch} for more details.
+	 * mapping from sst files to batches, refer to FilesMappingToBatchesMapping for more details.
 	 *
 	 * <p>If batching is disabled, values have NO use. Anyway, they may be FileStateHandle, ByteStreamStateHandle,
 	 * or Placeholder.
@@ -411,66 +410,68 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 					preUploadFileNum += 1;
 				}
 
-				// Note: we must replace all placeholders in sstFiles before putting it to
-				// materializedSstFiles. The sstFiles will be used to find batch state handle
-				// in the future. Placeholder has no info of the corresponding batch.
-				Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
-				Map<StateHandleID, StreamStateHandle> sstBatchIdToBatchHandle = isEnableStateFileBatching ?
-					transferStateFilesToBatch(baseSstFilesToHandles, sstFilesToHandles, usedSstFiles) : null;
-				Map<StateHandleID, StreamStateHandle> miscBatchIdToBatchHandle = isEnableStateFileBatching ?
-					transferStateFilesToBatch(Collections.emptyMap(), miscFilesToHandles, null) : null;
-
-				synchronized (materializedSstFilesToHandles) {
-					materializedSstFilesToHandles.put(checkpointId, sstFilesToHandles);
-				}
-
-				final IncrementalRemoteKeyedStateHandle jmIncrementalKeyedStateHandle = isEnableStateFileBatching ?
-					new IncrementalRemoteBatchKeyedStateHandle(
-						backendUID,
-						keyGroupRange,
-						checkpointId,
-						sstBatchIdToBatchHandle,
-						miscBatchIdToBatchHandle,
-						metaStateHandle.getJobManagerOwnedSnapshot(),
-						usedSstFiles,
-						totalStateSize) :
-					new IncrementalRemoteKeyedStateHandle(
-						backendUID,
-						keyGroupRange,
-						checkpointId,
-						sstFilesToHandles,
-						miscFilesToHandles,
-						metaStateHandle.getJobManagerOwnedSnapshot());
-
-				// ByteStreamStateHandle do NOT upload files to HDFS. If batching enabled, count real batch files;
-				// otherwise, count real solo sst/misc files.
+				IncrementalRemoteKeyedStateHandle jmIncrementalKeyedStateHandle;
+				Map<StateHandleID, StreamStateHandle> sstFilesToRealHandles;
 				if (isEnableStateFileBatching) {
-					uploadFileNum.getAndAdd((int) Stream.concat(sstBatchIdToBatchHandle.values().stream(), miscBatchIdToBatchHandle.values().stream())
-						.filter(StateUtil::isPersistInFile).count());
-					if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
-						uploadFileNum.getAndAdd(1);
+					// Note: we must replace all placeholders in sstFiles before putting it to
+					// materializedSstFiles. The sstFiles will be used to find batch state handle
+					// in the future. Placeholder has no info of the corresponding batch.
+					FilesMappingToBatchesMapping mappingTransfer = new FilesMappingToBatchesMapping(
+						baseSstFilesToHandles, sstFilesToHandles, miscFilesToHandles);
+
+					Map<StateHandleID, List<StateHandleID>> usedSstFiles = mappingTransfer.getUsedSstFiles();
+					Map<StateHandleID, StreamStateHandle> sstBatchIdToBatchHandle = mappingTransfer.getSstBatchIdToBatchHandles();
+					Map<StateHandleID, StreamStateHandle> miscBatchIdToBatchHandle = mappingTransfer.getMiscBatchIdToBatchHandles();
+					sstFilesToRealHandles = mappingTransfer.getSstFilesToBatchHandles();
+
+					synchronized (materializedSstFilesToHandles) {
+						materializedSstFilesToHandles.put(checkpointId, sstFilesToRealHandles);
 					}
-				} else {
-					uploadFileNum.getAndAdd((int) preUploadFileNum);
-				}
-				uploadSizeInBytes.getAndAdd(jmIncrementalKeyedStateHandle.getStateSize());
 
-				// dump state file batching metrics
-				if (isEnableStateFileBatching) {
-					Set<StateHandleID> containedBatch = new HashSet<>();
-					// calculate all state batches' size, sst + misc
-					extractSizeAndFileNumFromBatch(sstFilesToHandles, containedBatch);
-					extractSizeAndFileNumFromBatch(miscFilesToHandles, containedBatch);
-					// remove misc files, CURRENT, OPTION, MANIFEST
-					postSstFileNum -= 3;
+					jmIncrementalKeyedStateHandle =
+						new IncrementalRemoteBatchKeyedStateHandle(
+							backendUID,
+							keyGroupRange,
+							checkpointId,
+							sstBatchIdToBatchHandle,
+							miscBatchIdToBatchHandle,
+							metaStateHandle.getJobManagerOwnedSnapshot(),
+							usedSstFiles,
+							totalStateSize);
 
-					statsTracker.updateIncrementalBatchingStatistics(new WarehouseStateFileBatchingMessage(
-						totalStateSize,
-						postRawTotalStateSize,
-						sstFilesToHandles.size(),
-						postSstFileNum,
+					// --------------------------------------
+					// dump metrics
+					// --------------------------------------
+					long postUploadFileNum = Stream.concat(sstBatchIdToBatchHandle.values().stream(), miscBatchIdToBatchHandle.values().stream())
+						.filter(StateUtil::isPersistInFile).count();
+					if (StateUtil.isPersistInFile(metaStateHandle.getJobManagerOwnedSnapshot())) {
+						postUploadFileNum += 1;
+					}
+					dumpMetricsBatchEnable(
+						sstFilesToRealHandles,
+						miscFilesToHandles,
+						jmIncrementalKeyedStateHandle.getStateSize(),
 						preUploadFileNum,
-						uploadFileNum.get()));
+						postUploadFileNum);
+				} else {
+					// no need to replace placeholders in values
+					sstFilesToRealHandles = sstFilesToHandles;
+
+					synchronized (materializedSstFilesToHandles) {
+						materializedSstFilesToHandles.put(checkpointId, sstFilesToHandles);
+					}
+
+					jmIncrementalKeyedStateHandle =
+						new IncrementalRemoteKeyedStateHandle(
+							backendUID,
+							keyGroupRange,
+							checkpointId,
+							sstFilesToHandles,
+							miscFilesToHandles,
+							metaStateHandle.getJobManagerOwnedSnapshot());
+
+					uploadFileNum.getAndAdd((int) preUploadFileNum);
+					uploadSizeInBytes.getAndAdd(jmIncrementalKeyedStateHandle.getStateSize());
 				}
 
 				final DirectoryStateHandle directoryStateHandle = localBackupDirectory.completeSnapshotAndGetHandle();
@@ -484,7 +485,7 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 							directoryStateHandle,
 							keyGroupRange,
 							metaStateHandle.getTaskLocalSnapshot(),
-							sstFilesToHandles);
+							sstFilesToRealHandles);
 
 					snapshotResult = SnapshotResult.withLocalState(jmIncrementalKeyedStateHandle, localDirKeyedStateHandle);
 				} else {
@@ -496,14 +497,46 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 				return snapshotResult;
 			} finally {
 				if (!completed) {
+					LOG.warn("Checkpoint {}, failure incremental RocksDB snapshot!", checkpointId);
 					final List<StateObject> statesToDiscard =
 						new ArrayList<>(1 + miscFilesToHandles.size() + sstFilesToHandles.size());
 					statesToDiscard.add(metaStateHandle);
 					statesToDiscard.addAll(miscFilesToHandles.values());
+					// we have deep-copied sstFilesToHandles, which ensures that reused sst files is protected
+					// by placeholder state handles, and do NOT deleted due to current snapshot failure.
 					statesToDiscard.addAll(sstFilesToHandles.values());
 					cleanupIncompleteSnapshot(statesToDiscard);
 				}
 			}
+		}
+
+		/**
+		 * Dump metrics for RocksDB batching enabled.
+		 */
+		private void dumpMetricsBatchEnable(
+				Map<StateHandleID, StreamStateHandle> copySstFilesToHandles,
+				Map<StateHandleID, StreamStateHandle> miscFilesToHandles,
+				long uploadSize,
+				long preUploadFileNum,
+				long postUploadFileNum) {
+
+			uploadFileNum.getAndAdd((int) postUploadFileNum);
+			uploadSizeInBytes.getAndAdd(uploadSize);
+
+			Set<StateHandleID> containedBatch = new HashSet<>();
+			// calculate all state batches' size, sst + misc
+			extractSizeAndFileNumFromBatch(copySstFilesToHandles, containedBatch);
+			extractSizeAndFileNumFromBatch(miscFilesToHandles, containedBatch);
+			// remove misc files, CURRENT, OPTION, MANIFEST
+			postSstFileNum -= 3;
+
+			statsTracker.updateIncrementalBatchingStatistics(new WarehouseStateFileBatchingMessage(
+				totalStateSize,
+				postRawTotalStateSize,
+				copySstFilesToHandles.size(),
+				postSstFileNum,
+				preUploadFileNum,
+				uploadFileNum.get()));
 		}
 
 		private void extractSizeAndFileNumFromBatch(Map<StateHandleID, StreamStateHandle> fileToBatch, Set<StateHandleID> containedBatch) {
@@ -666,47 +699,117 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 	 * We will not use place holder if the batch is already existed previous, and just get it real
 	 * value from materializedSstFiles.
 	 *
-	 * <p>This function will also replace placeholder in stateFiles with its corresponding batch
+	 * <p>This function will also replace placeholder in sstFilesToHandles with its corresponding batch
 	 * state handle.
-	 *
-	 * @param baseSstFilesToHandles (sst -> BatchStateHandle) mappings in the last checkpoint.
-	 * @param sstFilesToBatchHandleOrPlaceholder state files (sst / misc) resides in the current
-	 *                   checkpoint, (sst -> BatchStateHandle/placeholder) or (misc -> BatchStateHandle).
-	 * @return mapping (batch -> BatchStateHandle), where batch set contains all batch files required
-	 * in the current checkpoint.
 	 */
 	@VisibleForTesting
-	public static Map<StateHandleID, StreamStateHandle> transferStateFilesToBatch(
-		Map<StateHandleID, StreamStateHandle> baseSstFilesToHandles,
-		Map<StateHandleID, StreamStateHandle> sstFilesToBatchHandleOrPlaceholder,
-		Map<StateHandleID, List<StateHandleID>> usedSstFiles) {
+	public static class FilesMappingToBatchesMapping {
+		// -----------------------
+		// In arguments
+		// -----------------------
+		/** (sst -> BatchStateHandle) mappings in the last checkpoint. */
+		private final Map<StateHandleID, StreamStateHandle> baseSstFilesToHandles;
 
-		Map<StateHandleID, StreamStateHandle> batchIdToBatchHandle = new HashMap<>();
-		for (Map.Entry<StateHandleID, StreamStateHandle> entry : sstFilesToBatchHandleOrPlaceholder.entrySet()) {
-			StreamStateHandle stateHandle = entry.getValue();
-			Preconditions.checkState(stateHandle instanceof BatchStateHandle || stateHandle instanceof PlaceholderStreamStateHandle);
-			StateHandleID batchFileId;
+		/**
+		 * sst files resides in the current checkpoint, (sst -> BatchStateHandle/placeholder).
+		 */
+		private final Map<StateHandleID, StreamStateHandle> sstFilesToBatchHandlesOrPlaceholder;
 
-			if (stateHandle instanceof BatchStateHandle) {
-				batchFileId = ((BatchStateHandle) stateHandle).getBatchFileID();
-			} else {
-				// reuse previous batch, just use placeholder
-				StreamStateHandle batchHandleInBaseSstFiles = baseSstFilesToHandles.get(entry.getKey());
-				Preconditions.checkState(batchHandleInBaseSstFiles instanceof BatchStateHandle);
-				batchFileId = ((BatchStateHandle) batchHandleInBaseSstFiles).getBatchFileID();
+		/**
+		 * misc files resides in the current checkpoint, (misc -> BatchStateHandle).
+		 */
+		private final Map<StateHandleID, StreamStateHandle> miscFilesToBatchHandles;
 
-				// replace placeholder in sstFiles
-				entry.setValue(batchHandleInBaseSstFiles);
-			}
+		// -----------------------
+		// Out results
+		// -----------------------
+		/**
+		 * Used sst files in the current snapshot. Organized in batch level.
+		 */
+		private final Map<StateHandleID, List<StateHandleID>> usedSstFiles = new HashMap<>();
 
-			// gather all batch files
-			batchIdToBatchHandle.putIfAbsent(batchFileId, stateHandle);
+		/**
+		 * Used batch files in the current snapshot, will be used as sharedState. The key is batchId.
+		 * The value is either BatchStateHandle or Placeholder.
+		 */
+		private final Map<StateHandleID, StreamStateHandle> sstBatchIdToBatchHandles = new HashMap<>();
 
-			if (usedSstFiles != null) {
+		/**
+		 * Similar to sstBatchIdToBatchHandles.
+		 */
+		private final Map<StateHandleID, StreamStateHandle> miscBatchIdToBatchHandles = new HashMap<>();
+
+		/**
+		 * Transfer from currentSstFilesToBatchHandlesOrPlaceholder, replace all placeholders in previous map's values.
+		 */
+		private final Map<StateHandleID, StreamStateHandle> sstFilesToBatchHandles = new HashMap<>();
+
+		public FilesMappingToBatchesMapping(
+				Map<StateHandleID, StreamStateHandle> baseSstFilesToHandles,
+				Map<StateHandleID, StreamStateHandle> sstFilesToBatchHandlesOrPlaceholder,
+				Map<StateHandleID, StreamStateHandle> miscFilesToBatchHandles) {
+			this.baseSstFilesToHandles = baseSstFilesToHandles;
+			this.sstFilesToBatchHandlesOrPlaceholder = sstFilesToBatchHandlesOrPlaceholder;
+			this.miscFilesToBatchHandles = miscFilesToBatchHandles;
+
+			transfer();
+		}
+
+		public Map<StateHandleID, List<StateHandleID>> getUsedSstFiles() {
+			return usedSstFiles;
+		}
+
+		public Map<StateHandleID, StreamStateHandle> getSstBatchIdToBatchHandles() {
+			return sstBatchIdToBatchHandles;
+		}
+
+		public Map<StateHandleID, StreamStateHandle> getSstFilesToBatchHandles() {
+			return sstFilesToBatchHandles;
+		}
+
+		public Map<StateHandleID, StreamStateHandle> getMiscBatchIdToBatchHandles() {
+			return miscBatchIdToBatchHandles;
+		}
+
+		private void transfer() {
+			// transfer sstFiles
+			for (Map.Entry<StateHandleID, StreamStateHandle> entry : sstFilesToBatchHandlesOrPlaceholder.entrySet()) {
+				StreamStateHandle stateHandle = entry.getValue();
+				Preconditions.checkState(stateHandle instanceof BatchStateHandle || stateHandle instanceof PlaceholderStreamStateHandle);
+				StateHandleID batchFileId;
+
+				if (stateHandle instanceof BatchStateHandle) {
+					batchFileId = ((BatchStateHandle) stateHandle).getBatchFileID();
+					sstFilesToBatchHandles.put(entry.getKey(), stateHandle);
+				} else {
+					// reuse previous batch, just use placeholder
+					StreamStateHandle batchHandleInBaseSstFiles = baseSstFilesToHandles.get(entry.getKey());
+					Preconditions.checkState(batchHandleInBaseSstFiles instanceof BatchStateHandle);
+					batchFileId = ((BatchStateHandle) batchHandleInBaseSstFiles).getBatchFileID();
+
+					// replace placeholder in sstFiles
+					sstFilesToBatchHandles.put(entry.getKey(), batchHandleInBaseSstFiles);
+				}
+
+				// gather all batch files, value is either BatchStateHandle or Placeholder
+				sstBatchIdToBatchHandles.putIfAbsent(batchFileId, stateHandle);
+
 				usedSstFiles.putIfAbsent(batchFileId, new ArrayList<>());
 				usedSstFiles.get(batchFileId).add(entry.getKey());
 			}
+
+			// post check for sstFilesToBatchHandles, must not have placeholder in values
+			Preconditions.checkState(sstFilesToBatchHandles.values().stream()
+				.noneMatch(stateHandle -> stateHandle instanceof PlaceholderStreamStateHandle));
+
+			// transfer miscFiles
+			for (Map.Entry<StateHandleID, StreamStateHandle> entry : miscFilesToBatchHandles.entrySet()) {
+				StreamStateHandle stateHandle = entry.getValue();
+				Preconditions.checkArgument(stateHandle instanceof BatchStateHandle);
+				StateHandleID batchFileId = ((BatchStateHandle) stateHandle).getBatchFileID();
+
+				miscBatchIdToBatchHandles.putIfAbsent(batchFileId, stateHandle);
+			}
 		}
-		return batchIdToBatchHandle;
 	}
 }
