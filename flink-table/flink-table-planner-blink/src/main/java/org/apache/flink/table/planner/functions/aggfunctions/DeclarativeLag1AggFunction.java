@@ -119,7 +119,7 @@ public abstract class DeclarativeLag1AggFunction extends DeclarativeAggregateFun
 	public static class LongDeclarativeLag1AggFunction extends DeclarativeLag1AggFunction {
 		@Override
 		public DataType getResultType() {
-			return DataTypes.INT();
+			return DataTypes.BIGINT();
 		}
 	}
 
