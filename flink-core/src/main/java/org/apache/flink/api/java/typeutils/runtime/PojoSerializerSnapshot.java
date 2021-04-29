@@ -159,7 +159,8 @@ public class PojoSerializerSnapshot<T> implements TypeSerializerSnapshot<T> {
 	@Override
 	public TypeSerializerSchemaCompatibility<T> resolveSchemaCompatibility(TypeSerializer<T> newSerializer) {
 		if (newSerializer.getClass() != PojoSerializer.class) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new serializer %s is not a PojoSerializer.", newSerializer.getClass().getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 
 		final PojoSerializer<T> newPojoSerializer = (PojoSerializer<T>) newSerializer;
@@ -170,29 +171,32 @@ public class PojoSerializerSnapshot<T> implements TypeSerializerSnapshot<T> {
 		final LinkedOptionalMap<Class<?>, TypeSerializerSnapshot<?>> nonRegisteredSubclassSerializerSnapshots = snapshotData.getNonRegisteredSubclassSerializerSnapshots();
 
 		if (previousPojoClass != newPojoSerializer.getPojoClass()) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new class is %s, previous class is %s.", newPojoSerializer.getPojoClass().getName(), previousPojoClass.getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 
 		if (registeredSubclassSerializerSnapshots.hasAbsentKeysOrValues()) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("Registered subclasses of %s has absent key or values.", previousPojoClass.getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 
 		if (nonRegisteredSubclassSerializerSnapshots.hasAbsentKeysOrValues()) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("Non-Registered subclasses of %s has absent key or values.", previousPojoClass.getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 
 		final IntermediateCompatibilityResult<T> preExistingFieldSerializersCompatibility =
 			getCompatibilityOfPreExistingFields(newPojoSerializer, fieldSerializerSnapshots);
 
 		if (preExistingFieldSerializersCompatibility.isIncompatible()) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible(preExistingFieldSerializersCompatibility.getFinalResult().getMessage());
 		}
 
 		final IntermediateCompatibilityResult<T> preExistingRegistrationsCompatibility =
 			getCompatibilityOfPreExistingRegisteredSubclasses(newPojoSerializer, registeredSubclassSerializerSnapshots);
 
 		if (preExistingRegistrationsCompatibility.isIncompatible()) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible(preExistingRegistrationsCompatibility.getFinalResult().getMessage());
 		}
 
 		if (newPojoSerializerIsCompatibleAfterMigration(

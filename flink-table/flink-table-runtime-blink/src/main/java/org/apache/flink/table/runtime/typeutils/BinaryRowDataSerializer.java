@@ -383,12 +383,14 @@ public class BinaryRowDataSerializer extends AbstractRowDataSerializer<BinaryRow
 		public TypeSerializerSchemaCompatibility<BinaryRowData> resolveSchemaCompatibility(
 			TypeSerializer<BinaryRowData> newSerializer) {
 			if (!(newSerializer instanceof BinaryRowDataSerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer %s is not a BinaryRowDataSerializer.", newSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			BinaryRowDataSerializer newBinaryRowSerializer = (BinaryRowDataSerializer) newSerializer;
 			if (previousNumFields != newBinaryRowSerializer.numFields) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer has %s fields, previous has %s fields.", newBinaryRowSerializer.numFields, previousNumFields);
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			} else {
 				return TypeSerializerSchemaCompatibility.compatibleAsIs();
 			}

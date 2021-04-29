@@ -563,7 +563,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 		TypeSerializerSchemaCompatibility<N> s = restoredKvStateMetaInfo.updateNamespaceSerializer(namespaceSerializer);
 		if (s.isCompatibleAfterMigration() || s.isIncompatible()) {
-			throw new StateMigrationException("The new namespace serializer must be compatible.");
+			throw new StateMigrationException("The new namespace serializer must be compatible, details: " + s.getMessage());
 		}
 
 		restoredKvStateMetaInfo.checkStateMetaInfo(stateDesc);
@@ -573,7 +573,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		if (newStateSerializerCompatibility.isCompatibleAfterMigration()) {
 			migrateStateValues(stateDesc, oldStateInfo);
 		} else if (newStateSerializerCompatibility.isIncompatible()) {
-			throw new StateMigrationException("The new state serializer cannot be incompatible.");
+			throw new StateMigrationException("The new state serializer cannot be incompatible, details: " + newStateSerializerCompatibility.getMessage());
 		}
 
 		return restoredKvStateMetaInfo;

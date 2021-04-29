@@ -89,11 +89,13 @@ public class KryoSerializerSnapshot<T> implements TypeSerializerSnapshot<T> {
 	@Override
 	public TypeSerializerSchemaCompatibility<T> resolveSchemaCompatibility(TypeSerializer<T> newSerializer) {
 		if (!(newSerializer instanceof KryoSerializer)) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new serializer %s is not a KryoSerializer.", newSerializer.getClass().getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 		KryoSerializer<T> kryoSerializer = (KryoSerializer<T>) newSerializer;
 		if (kryoSerializer.getType() != snapshotData.getTypeClass()) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new type is %s, previous type is %s.", snapshotData.getTypeClass().getName(), kryoSerializer.getType().getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 		return resolveSchemaCompatibility(kryoSerializer);
 	}
@@ -106,7 +108,7 @@ public class KryoSerializerSnapshot<T> implements TypeSerializerSnapshot<T> {
 
 		if (reconfiguredDefaultKryoSerializers.hasMissingKeys()) {
 			logMissingKeys(reconfiguredDefaultKryoSerializers);
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible("Missing keys, please check the taskmanager log.");
 		}
 
 		// merge default serializer classes
@@ -116,7 +118,7 @@ public class KryoSerializerSnapshot<T> implements TypeSerializerSnapshot<T> {
 
 		if (reconfiguredDefaultKryoSerializerClasses.hasMissingKeys()) {
 			logMissingKeys(reconfiguredDefaultKryoSerializerClasses);
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible("Missing keys, please check the taskmanager log.");
 		}
 
 		// merge registration
@@ -126,7 +128,7 @@ public class KryoSerializerSnapshot<T> implements TypeSerializerSnapshot<T> {
 
 		if (reconfiguredRegistrations.hasMissingKeys()) {
 			logMissingKeys(reconfiguredRegistrations);
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible("Missing keys, please check the taskmanager log.");
 		}
 
 		// there are no missing keys, now we have to decide whether we are compatible as-is or we require reconfiguration.

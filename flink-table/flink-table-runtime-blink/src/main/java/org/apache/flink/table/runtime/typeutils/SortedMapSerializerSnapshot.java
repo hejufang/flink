@@ -98,11 +98,12 @@ public class SortedMapSerializerSnapshot<K, V> implements TypeSerializerSnapshot
 	public TypeSerializerSchemaCompatibility<SortedMap<K, V>> resolveSchemaCompatibility(
 			TypeSerializer<SortedMap<K, V>> newSerializer) {
 		if (!(newSerializer instanceof SortedMapSerializer)) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new serializer %s is not a SortedMapSerializer.", newSerializer.getClass().getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 		SortedMapSerializer newSortedMapSerializer = (SortedMapSerializer) newSerializer;
 		if (!comparator.equals(newSortedMapSerializer.getComparator())) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible("The comparator is not equal.");
 		} else {
 			return TypeSerializerSchemaCompatibility.compatibleAsIs();
 		}

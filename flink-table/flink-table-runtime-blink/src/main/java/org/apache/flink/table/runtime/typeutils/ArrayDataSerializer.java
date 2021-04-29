@@ -311,13 +311,18 @@ public class ArrayDataSerializer extends TypeSerializer<ArrayData> {
 		@Override
 		public TypeSerializerSchemaCompatibility<ArrayData> resolveSchemaCompatibility(TypeSerializer<ArrayData> newSerializer) {
 			if (!(newSerializer instanceof ArrayDataSerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer %s is not a ArrayDataSerializer.", newSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			ArrayDataSerializer newArrayDataSerializer = (ArrayDataSerializer) newSerializer;
 			if (!previousType.equals(newArrayDataSerializer.eleType) ||
 				!previousEleSer.equals(newArrayDataSerializer.eleSer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new type is %s, previous type is %s," +
+						"new serializer is %s, previous serializer is %s.",
+					newArrayDataSerializer.eleType.asSummaryString(), previousType.asSummaryString(),
+					newArrayDataSerializer.eleSer.getClass().getName(), previousEleSer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			} else {
 				return TypeSerializerSchemaCompatibility.compatibleAsIs();
 			}
