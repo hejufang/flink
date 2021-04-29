@@ -397,10 +397,16 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 		@Override
 		public TypeSerializerSchemaCompatibility<BaseRow> resolveSchemaCompatibility(TypeSerializer<BaseRow> newSerializer) {
 			if (!(newSerializer instanceof BaseRowSerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer %s is not a BaseRowSerializer.", newSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			BaseRowSerializer newRowSerializer = (BaseRowSerializer) newSerializer;
+
+			// generate types string
+			final String newTypesString = RowType.of(newRowSerializer.types).asSummaryString();
+			final String previousTypesString = RowType.of(previousTypes).asSummaryString();
+
 			if (!Arrays.equals(previousTypes, newRowSerializer.types)) {
 				if (newRowSerializer.types.length > previousTypes.length) {
 					List<LogicalType> priorNonDistinctTypes = new ArrayList<>();
@@ -413,7 +419,9 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 
 					for (int i = 0; i < priorNonDistinctTypes.size(); i++) {
 						if (!previousTypes[i].equals(newRowSerializer.types[i])) {
-							return TypeSerializerSchemaCompatibility.incompatible();
+							String message = String.format("new type[%s] is %s, but previous type[%s] is %s, new types are %s, but previous types are %s.",
+								i, newRowSerializer.types[i].asSummaryString(), i, previousTypes[i].asSummaryString(), newTypesString, previousTypesString);
+							return TypeSerializerSchemaCompatibility.incompatible(message);
 						}
 					}
 
@@ -421,14 +429,17 @@ public class BaseRowSerializer extends AbstractRowSerializer<BaseRow> {
 						int priorIndex = priorNonDistinctTypes.size() + i;
 						int newIndex = newNonDistinctTypes.size() + i;
 						if (!previousTypes[priorIndex].equals(newRowSerializer.types[newIndex])) {
-							return TypeSerializerSchemaCompatibility.incompatible();
+							String message = String.format("new type[%s] is %s, but previous type[%s] is %s, new types are %s, but previous types are %s.",
+								newIndex, newRowSerializer.types[newIndex].asSummaryString(), priorIndex, previousTypes[priorIndex].asSummaryString(), newTypesString, previousTypesString);
+							return TypeSerializerSchemaCompatibility.incompatible(message);
 						}
 					}
 
 					return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
 				}
 
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new types are %s, but previous types are %s.", newTypesString, previousTypesString);
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			CompositeTypeSerializerUtil.IntermediateCompatibilityResult<BaseRow> intermediateResult =

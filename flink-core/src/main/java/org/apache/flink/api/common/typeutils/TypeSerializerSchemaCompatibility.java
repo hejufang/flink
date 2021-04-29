@@ -77,6 +77,8 @@ public class TypeSerializerSchemaCompatibility<T> {
 
 	private final TypeSerializer<T> reconfiguredNewSerializer;
 
+	private final String message;
+
 	/**
 	 * Returns a result that indicates that the new serializer is compatible and no migration is required.
 	 * The new serializer can continued to be used as is.
@@ -84,7 +86,7 @@ public class TypeSerializerSchemaCompatibility<T> {
 	 * @return a result that indicates migration is not required for the new serializer.
 	 */
 	public static <T> TypeSerializerSchemaCompatibility<T> compatibleAsIs() {
-		return new TypeSerializerSchemaCompatibility<>(Type.COMPATIBLE_AS_IS, null);
+		return new TypeSerializerSchemaCompatibility<>(Type.COMPATIBLE_AS_IS, null, null);
 	}
 
 	/**
@@ -94,7 +96,7 @@ public class TypeSerializerSchemaCompatibility<T> {
 	 * @return a result that indicates that the new serializer can be used after migrating the written bytes.
 	 */
 	public static <T> TypeSerializerSchemaCompatibility<T> compatibleAfterMigration() {
-		return new TypeSerializerSchemaCompatibility<>(Type.COMPATIBLE_AFTER_MIGRATION, null);
+		return new TypeSerializerSchemaCompatibility<>(Type.COMPATIBLE_AFTER_MIGRATION, null, null);
 	}
 
 	/**
@@ -108,7 +110,8 @@ public class TypeSerializerSchemaCompatibility<T> {
 	public static <T> TypeSerializerSchemaCompatibility<T> compatibleWithReconfiguredSerializer(TypeSerializer<T> reconfiguredSerializer) {
 		return new TypeSerializerSchemaCompatibility<>(
 			Type.COMPATIBLE_WITH_RECONFIGURED_SERIALIZER,
-			Preconditions.checkNotNull(reconfiguredSerializer));
+			Preconditions.checkNotNull(reconfiguredSerializer),
+			null);
 	}
 
 	/**
@@ -122,12 +125,17 @@ public class TypeSerializerSchemaCompatibility<T> {
 	 * @return a result that indicates incompatibility between the new and previous serializer.
 	 */
 	public static <T> TypeSerializerSchemaCompatibility<T> incompatible() {
-		return new TypeSerializerSchemaCompatibility<>(Type.INCOMPATIBLE, null);
+		return new TypeSerializerSchemaCompatibility<>(Type.INCOMPATIBLE, null, null);
 	}
 
-	private TypeSerializerSchemaCompatibility(Type resultType, @Nullable TypeSerializer<T> reconfiguredNewSerializer) {
+	public static <T> TypeSerializerSchemaCompatibility<T> incompatible(String message) {
+		return new TypeSerializerSchemaCompatibility<>(Type.INCOMPATIBLE, null, message);
+	}
+
+	private TypeSerializerSchemaCompatibility(Type resultType, @Nullable TypeSerializer<T> reconfiguredNewSerializer, @Nullable String message) {
 		this.resultType = Preconditions.checkNotNull(resultType);
 		this.reconfiguredNewSerializer = reconfiguredNewSerializer;
+		this.message = message;
 	}
 
 	/**
@@ -178,11 +186,16 @@ public class TypeSerializerSchemaCompatibility<T> {
 		return resultType == Type.INCOMPATIBLE;
 	}
 
+	public String getMessage() {
+		return this.message;
+	}
+
 	@Override
 	public String toString() {
 		return "TypeSerializerSchemaCompatibility{" +
 				"resultType=" + resultType +
 				", reconfiguredNewSerializer=" + reconfiguredNewSerializer +
+				", message=" + message +
 				'}';
 	}
 }

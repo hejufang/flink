@@ -186,13 +186,19 @@ public final class DecimalSerializer extends TypeSerializer<Decimal> {
 		@Override
 		public TypeSerializerSchemaCompatibility<Decimal> resolveSchemaCompatibility(TypeSerializer<Decimal> newSerializer) {
 			if (!(newSerializer instanceof DecimalSerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer %s is not a DecimalSerializer.", newSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			DecimalSerializer newDecimalSerializer = (DecimalSerializer) newSerializer;
 			if (previousPrecision != newDecimalSerializer.precision ||
 					previousScale != newDecimalSerializer.scale) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format(
+					"new precision is %s, previous precision is %s," +
+					"new scale is %s, previous scale is %s.",
+					newDecimalSerializer.precision, previousPrecision,
+					newDecimalSerializer.scale, previousScale);
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			} else {
 				return TypeSerializerSchemaCompatibility.compatibleAsIs();
 			}

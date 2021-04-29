@@ -221,7 +221,7 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			TypeSerializerSchemaCompatibility<N> namespaceCompatibility =
 				restoredKvMetaInfo.updateNamespaceSerializer(namespaceSerializer);
 			if (namespaceCompatibility.isCompatibleAfterMigration() || namespaceCompatibility.isIncompatible()) {
-				throw new StateMigrationException("For heap backends, the new namespace serializer must be compatible.");
+				throw new StateMigrationException("For heap backends, the new namespace serializer must be compatible, details: " + namespaceCompatibility.getMessage());
 			}
 
 			restoredKvMetaInfo.checkStateMetaInfo(stateDesc);
@@ -236,7 +236,7 @@ public class HeapKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 					throw new StateMigrationException(String.format("Fail to migrate the values for %s.", stateDesc));
 				}
 			} else if (stateCompatibility.isIncompatible()) {
-				throw new StateMigrationException("For heap backends, the new state serializer must not be incompatible.");
+				throw new StateMigrationException("For heap backends, the new state serializer must not be incompatible, details: " + stateCompatibility.getMessage());
 			}
 
 			stateTable.setMetaInfo(restoredKvMetaInfo);

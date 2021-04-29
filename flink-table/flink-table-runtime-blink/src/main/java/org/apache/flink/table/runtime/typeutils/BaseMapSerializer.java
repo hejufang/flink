@@ -304,7 +304,8 @@ public class BaseMapSerializer extends TypeSerializer<BaseMap> {
 		@Override
 		public TypeSerializerSchemaCompatibility<BaseMap> resolveSchemaCompatibility(TypeSerializer<BaseMap> newSerializer) {
 			if (!(newSerializer instanceof BaseMapSerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer %s is not a BaseMapSerializer.", newSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			BaseMapSerializer newBaseMapSerializer = (BaseMapSerializer) newSerializer;
@@ -312,7 +313,15 @@ public class BaseMapSerializer extends TypeSerializer<BaseMap> {
 				!previousValueType.equals(newBaseMapSerializer.valueType) ||
 				!previousKeySerializer.equals(newBaseMapSerializer.keySerializer) ||
 				!previousValueSerializer.equals(newBaseMapSerializer.valueSerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("previous key type is %s, new key type is %s," +
+					"previous value type is %s, new value type is %s," +
+					"previous key serializer is %s, new key serializer is %s," +
+					"previous value serializer is %s, new value serializer is %s",
+					previousKeyType.asSummaryString(), newBaseMapSerializer.keyType.asSummaryString(),
+					previousValueType.asSummaryString(), newBaseMapSerializer.valueType.asSummaryString(),
+					previousKeySerializer.getClass().getName(), newBaseMapSerializer.keySerializer.getClass().getName(),
+					previousValueSerializer.getClass().getName(), newBaseMapSerializer.valueSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			} else {
 				return TypeSerializerSchemaCompatibility.compatibleAsIs();
 			}

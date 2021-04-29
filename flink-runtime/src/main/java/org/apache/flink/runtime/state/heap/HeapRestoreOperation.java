@@ -139,7 +139,7 @@ public class HeapRestoreOperation<K> implements RestoreOperation<Void> {
 					TypeSerializerSchemaCompatibility<K> keySerializerSchemaCompat =
 						keySerializerProvider.setPreviousSerializerSnapshotForRestoredState(serializationProxy.getKeySerializerSnapshot());
 					if (keySerializerSchemaCompat.isCompatibleAfterMigration() || keySerializerSchemaCompat.isIncompatible()) {
-						throw new StateMigrationException("The new key serializer must be compatible.");
+						throw new StateMigrationException("The new key serializer must be compatible, details: " + keySerializerSchemaCompat.getMessage());
 					}
 
 					keySerializerRestored = true;

@@ -163,7 +163,8 @@ public abstract class CompositeTypeSerializerSnapshot<T, S extends TypeSerialize
 			TypeSerializer<T> newSerializer,
 			TypeSerializerSnapshot<?>[] snapshots) {
 		if (newSerializer.getClass() != correspondingSerializerClass) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new serializer is %s, but the old is %s", newSerializer.getClass().getName(), correspondingSerializerClass.getName());
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 
 		S castedNewSerializer = correspondingSerializerClass.cast(newSerializer);

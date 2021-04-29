@@ -278,13 +278,18 @@ public class BaseArraySerializer extends TypeSerializer<BaseArray> {
 		@Override
 		public TypeSerializerSchemaCompatibility<BaseArray> resolveSchemaCompatibility(TypeSerializer<BaseArray> newSerializer) {
 			if (!(newSerializer instanceof BaseArraySerializer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new serializer %s is not a BaseArraySerializer.", newSerializer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			}
 
 			BaseArraySerializer newBaseArraySerializer = (BaseArraySerializer) newSerializer;
 			if (!previousType.equals(newBaseArraySerializer.eleType) ||
 				!previousEleSer.equals(newBaseArraySerializer.eleSer)) {
-				return TypeSerializerSchemaCompatibility.incompatible();
+				String message = String.format("new type is %s, previous type is %s," +
+					"new serializer is %s, previous serializer is %s.",
+					newBaseArraySerializer.eleType.asSummaryString(), previousType.asSummaryString(),
+					newBaseArraySerializer.eleSer.getClass().getName(), previousEleSer.getClass().getName());
+				return TypeSerializerSchemaCompatibility.incompatible(message);
 			} else {
 				return TypeSerializerSchemaCompatibility.compatibleAsIs();
 			}
