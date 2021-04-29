@@ -63,6 +63,7 @@ import static org.junit.Assert.assertEquals;
  * Tests recovery from a snapshot created in different UC mode (i.e. unaligned checkpoints enabled/disabled).
  */
 @RunWith(Parameterized.class)
+@Ignore
 public class UnalignedCheckpointCompatibilityITCase {
 
 	@Rule

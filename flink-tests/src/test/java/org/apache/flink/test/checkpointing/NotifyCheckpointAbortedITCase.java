@@ -59,8 +59,8 @@ import org.apache.flink.runtime.state.OperatorStateBackend;
 import org.apache.flink.runtime.state.OperatorStateHandle;
 import org.apache.flink.runtime.state.SnapshotResult;
 import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
+import org.apache.flink.runtime.state.tracker.StateStatsTracker;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
@@ -99,7 +99,7 @@ import static org.junit.Assert.assertEquals;
 @RunWith(Parameterized.class)
 public class NotifyCheckpointAbortedITCase extends TestLogger {
 	private static final long DECLINE_CHECKPOINT_ID = 2L;
-	private static final long TEST_TIMEOUT = 60000;
+	private static final long TEST_TIMEOUT = 100000;
 	private static final String DECLINE_SINK_NAME = "DeclineSink";
 	private static MiniClusterWithClientResource cluster;
 
@@ -130,6 +130,7 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 				.setNumberSlotsPerTaskManager(1).build());
 		cluster.before();
 
+		NormalSource.reset();
 		NormalMap.reset();
 		DeclineSink.reset();
 		TestingCompletedCheckpointStore.reset();
@@ -183,7 +184,7 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 		resetAllOperatorsNotifyAbortedLatches();
 		verifyAllOperatorsNotifyAbortedTimes(1);
 
-		DeclineSink.waitLatch.trigger();
+		NormalSource.waitLatch.trigger();
 		verifyAllOperatorsNotifyAborted();
 		verifyAllOperatorsNotifyAbortedTimes(2);
 
@@ -208,9 +209,10 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 	/**
 	 * Normal source function.
 	 */
-	private static class NormalSource implements SourceFunction<Tuple2<Integer, Integer>> {
+	private static class NormalSource implements SourceFunction<Tuple2<Integer, Integer>>, CheckpointedFunction {
 		private static final long serialVersionUID = 1L;
 		protected volatile boolean running;
+		private static final OneShotLatch waitLatch = new OneShotLatch();
 
 		NormalSource() {
 			this.running = true;
@@ -229,6 +231,20 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 		@Override
 		public void cancel() {
 			this.running = false;
+		}
+
+		@Override
+		public void snapshotState(FunctionSnapshotContext context) throws Exception {
+			if (context.getCheckpointId() == DECLINE_CHECKPOINT_ID) {
+				waitLatch.await();
+			}
+		}
+
+		@Override
+		public void initializeState(FunctionInitializationContext context) throws Exception {}
+
+		static void reset() {
+			waitLatch.reset();
 		}
 	}
 
@@ -282,21 +298,12 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 	private static class DeclineSink extends StreamSink<Integer> {
 		private static final long serialVersionUID = 1L;
 		private static final OneShotLatch notifiedAbortedLatch = new OneShotLatch();
-		private static final OneShotLatch waitLatch = new OneShotLatch();
 		private static final AtomicInteger notifiedAbortedTimes = new AtomicInteger(0);
 
 		public DeclineSink() {
 			super(new SinkFunction<Integer>() {
 				private static final long serialVersionUID = 1L;
 			});
-		}
-
-		@Override
-		public void snapshotState(StateSnapshotContext context) throws Exception {
-			if (context.getCheckpointId() == DECLINE_CHECKPOINT_ID) {
-				DeclineSink.waitLatch.await();
-			}
-			super.snapshotState(context);
 		}
 
 		@Override
@@ -307,7 +314,6 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 
 		static void reset() {
 			notifiedAbortedLatch.reset();
-			waitLatch.reset();
 			notifiedAbortedTimes.set(0);
 		}
 
@@ -372,7 +378,8 @@ public class NotifyCheckpointAbortedITCase extends TestLogger {
 			Environment env,
 			String operatorIdentifier,
 			@Nonnull Collection<OperatorStateHandle> stateHandles,
-			CloseableRegistry cancelStreamRegistry) throws BackendBuildingException {
+			CloseableRegistry cancelStreamRegistry,
+			StateStatsTracker statsTracker) throws BackendBuildingException {
 			if (operatorIdentifier.contains(DECLINE_SINK_NAME)) {
 				return new DeclineSinkFailingOperatorStateBackend(
 					env.getExecutionConfig(),
