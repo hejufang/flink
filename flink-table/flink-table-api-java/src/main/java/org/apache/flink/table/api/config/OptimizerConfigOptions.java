@@ -101,7 +101,7 @@ public class OptimizerConfigOptions {
 	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
 	public static final ConfigOption<Boolean> TABLE_OPTIMIZER_FORCE_NULL_MONOTONICITY_FOR_INTERMEDIATE_TABLE =
 		key("table.optimizer.force-null-monotonicity-for-intermediate-table")
-			.defaultValue(true)
+			.defaultValue(false)
 			.withDescription("This is for a very special case.\n" +
 				"In multi-sink scenario, we will use subgraph optimization, which will " +
 				"break the DAG into multiple subgraphs, and optimize them one by one. " +
