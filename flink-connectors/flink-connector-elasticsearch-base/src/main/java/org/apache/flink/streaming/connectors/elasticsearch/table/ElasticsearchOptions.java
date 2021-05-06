@@ -188,6 +188,14 @@ public class ElasticsearchOptions {
 			.withDescription("This is a very special config. It's not used for connector, it will be passed to " +
 				"user defined failure handler instead.");
 
+	public static final ConfigOption<String> KEY_FIELDS =
+		ConfigOptions.key("key-field-indices")
+			.stringType()
+			.noDefaultValue()
+			.withDeprecatedKeys("connector.key-field-indices")
+			.withDescription("This is a legacy config, which is only used to be compatible " +
+				"with 1.9. For 1.11+, we use primary key to do this.");
+
 	private ElasticsearchOptions() {
 	}
 }

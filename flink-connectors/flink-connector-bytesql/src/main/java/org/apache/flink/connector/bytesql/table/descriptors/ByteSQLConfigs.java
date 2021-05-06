@@ -92,4 +92,11 @@ public class ByteSQLConfigs {
 		.booleanType()
 		.defaultValue(false)
 		.withDescription("Optional whether to insert a null column or not.");
+	public static final ConfigOption<String> PRIMARY_KEY_FIELDS =
+		ConfigOptions.key("primary-key-indices")
+			.stringType()
+			.noDefaultValue()
+			.withDeprecatedKeys("connector.sink.primary-key-indices")
+			.withDescription("This is a legacy config, which is only used to be compatible " +
+				"with 1.9. For 1.11+, we use primary key to do this.");
 }

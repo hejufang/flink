@@ -53,8 +53,10 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.HOSTS_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.INDEX_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_DELIMITER_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_FIELDS;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USERNAME_OPTION;
+import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 
 /**
  * A {@link DynamicTableSinkFactory} for discovering {@link Elasticsearch6DynamicSink}.
@@ -80,14 +82,18 @@ public class Elasticsearch6DynamicSinkFactory implements DynamicTableSinkFactory
 		CONNECTION_PATH_PREFIX,
 		FORMAT_OPTION,
 		PASSWORD_OPTION,
-		USERNAME_OPTION
+		USERNAME_OPTION,
+		KEY_FIELDS
 	).collect(Collectors.toSet());
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
-		TableSchema tableSchema = context.getCatalogTable().getSchema();
-		ElasticsearchValidationUtils.validatePrimaryKey(tableSchema);
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
+
+		String keyIndices = helper.getOptions().get(KEY_FIELDS);
+		TableSchema tableSchema = context.getCatalogTable().getSchema();
+		TableSchema newSchema = replacePrimaryKeyIfNotSpecified(tableSchema, keyIndices);
+		ElasticsearchValidationUtils.validatePrimaryKey(newSchema);
 
 		final EncodingFormat<SerializationSchema<RowData>> format = helper.discoverEncodingFormat(
 			SerializationFormatFactory.class,
@@ -105,7 +111,7 @@ public class Elasticsearch6DynamicSinkFactory implements DynamicTableSinkFactory
 		return new Elasticsearch6DynamicSink(
 			format,
 			config,
-			TableSchemaUtils.getPhysicalSchema(tableSchema));
+			TableSchemaUtils.getPhysicalSchema(newSchema));
 	}
 
 	private void validate(Elasticsearch6Configuration config, Configuration originalConfiguration) {

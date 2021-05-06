@@ -41,6 +41,7 @@ import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfig
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.LOOKUP_ASYNC_CONCURRENCY;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.LOOKUP_ASYNC_ENABLED;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.PASSWORD;
+import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.PRIMARY_KEY_FIELDS;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.SINK_IGNORE_NULL_COLUMNS;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.TABLE;
 import static org.apache.flink.connector.bytesql.table.descriptors.ByteSQLConfigs.USERNAME;
@@ -55,6 +56,7 @@ import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INT
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_MAX_RETRIES;
+import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -71,7 +73,9 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		helper.validate();
 		TableSchema physicalSchema = TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
 		ByteSQLOptions options = getByteSQLOptions(config);
-		ByteSQLInsertOptions insertOptions = getByteSQLInsertOptions(config, physicalSchema);
+		String primaryKeyFields = config.get(PRIMARY_KEY_FIELDS);
+		TableSchema newSchema = replacePrimaryKeyIfNotSpecified(physicalSchema, primaryKeyFields);
+		ByteSQLInsertOptions insertOptions = getByteSQLInsertOptions(config, newSchema);
 		return new ByteSQLDynamicTableSink(
 			options,
 			insertOptions,
@@ -130,6 +134,8 @@ public class ByteSQLDynamicTableFactory implements DynamicTableSourceFactory, Dy
 		optionalOptions.add(LOOKUP_LATER_JOIN_RETRY_TIMES);
 		optionalOptions.add(LOOKUP_LATER_JOIN_LATENCY);
 		optionalOptions.add(LOOKUP_ENABLE_INPUT_KEYBY);
+
+		optionalOptions.add(PRIMARY_KEY_FIELDS);
 		return optionalOptions;
 	}
 

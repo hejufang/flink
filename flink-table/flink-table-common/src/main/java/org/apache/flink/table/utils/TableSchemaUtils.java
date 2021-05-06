@@ -26,11 +26,16 @@ import org.apache.flink.table.api.WatermarkSpec;
 import org.apache.flink.table.api.constraints.UniqueConstraint;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.Preconditions;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -62,6 +67,42 @@ public class TableSchemaUtils {
 				uniqueConstraint.getName(),
 				uniqueConstraint.getColumns().toArray(new String[0]))
 		);
+		return builder.build();
+	}
+
+	/**
+	 * If user did not specify the primary keys in DDL, we allow them to
+	 * specify them using a property, like 'key-fields' = '1,2,4'.
+	 * This is mainly for being compatible with v1.9
+	 */
+	public static TableSchema replacePrimaryKeyIfNotSpecified(
+			TableSchema tableSchema,
+			String keyIndices) {
+		Preconditions.checkNotNull(tableSchema);
+		if (tableSchema.getPrimaryKey().isPresent() || keyIndices == null) {
+			return tableSchema;
+		}
+
+		TableSchema.Builder builder = new TableSchema.Builder();
+
+		String[] keyFieldNames = Stream.of(keyIndices.split(","))
+			.map(String::trim)
+			.map(Integer::valueOf)
+			.map(tableSchema::getFieldName)
+			.map(Optional::get)
+			.toArray(String[]::new);
+		builder.primaryKey(keyFieldNames);
+
+		Set<String> keyFieldNameSet = new HashSet<>(Arrays.asList(keyFieldNames));
+
+		for (String columnName : tableSchema.getFieldNames()) {
+			DataType columnType = tableSchema.getFieldDataType(columnName).get();
+			if (keyFieldNameSet.contains(columnName)) {
+				columnType = columnType.notNull();
+			}
+			builder.field(columnName, columnType);
+		}
+
 		return builder.build();
 	}
 

@@ -56,6 +56,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.IGNORE_INVALID_DATA;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.INDEX_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_DELIMITER_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_FIELDS;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.SOCKET_TIMEOUT;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
@@ -63,6 +64,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USER_DEFINED_PARAMS;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
+import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 
 /**
  * A {@link DynamicTableSinkFactory} for discovering {@link Elasticsearch7DynamicSink}.
@@ -96,15 +98,18 @@ public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory
 		BYTE_ES_GDPR_ENABLED,
 		URI,
 		IGNORE_INVALID_DATA,
-		USER_DEFINED_PARAMS
+		USER_DEFINED_PARAMS,
+		KEY_FIELDS
 	).collect(Collectors.toSet());
 
 	@Override
 	public DynamicTableSink createDynamicTableSink(Context context) {
-		TableSchema tableSchema = context.getCatalogTable().getSchema();
-		ElasticsearchValidationUtils.validatePrimaryKey(tableSchema);
-
 		final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
+
+		String keyIndices = helper.getOptions().get(KEY_FIELDS);
+		TableSchema tableSchema = context.getCatalogTable().getSchema();
+		TableSchema newSchema = replacePrimaryKeyIfNotSpecified(tableSchema, keyIndices);
+		ElasticsearchValidationUtils.validatePrimaryKey(newSchema);
 
 		final EncodingFormat<SerializationSchema<RowData>> format = helper.discoverEncodingFormat(
 			SerializationFormatFactory.class,
@@ -122,7 +127,7 @@ public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory
 		return new Elasticsearch7DynamicSink(
 			format,
 			config,
-			TableSchemaUtils.getPhysicalSchema(tableSchema));
+			TableSchemaUtils.getPhysicalSchema(newSchema));
 	}
 
 	private void validate(Elasticsearch7Configuration config, Configuration originalConfiguration) {
