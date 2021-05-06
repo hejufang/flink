@@ -136,7 +136,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			StateDescriptor<S, SV> stateDesc,
 			Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) throws Exception;
+			AtomicReference<KVStateInfo> metricReference) throws Exception;
 	}
 
 	/** Factory function to create column family options from state name. */
@@ -218,7 +218,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	private final RocksDbTtlCompactFiltersManager ttlCompactFiltersManager;
 
-	private final PeriodKVSizeStatisticView kvSizeStatisticView;
+	private final PeriodKVStatisticView kvStatisticView;
 
 	public RocksDBKeyedStateBackend(
 		ClassLoader userCodeClassLoader,
@@ -282,7 +282,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.nativeMetricMonitor = nativeMetricMonitor;
 		this.sharedRocksKeyBuilder = sharedRocksKeyBuilder;
 		this.priorityQueueFactory = priorityQueueFactory;
-		this.kvSizeStatisticView = new PeriodKVSizeStatisticView();
+		this.kvStatisticView = new PeriodKVStatisticView();
 
 		registerMetrics(metricGroup);
 	}
@@ -622,7 +622,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			stateDesc,
 			stateMetaInfo,
 			RocksDBKeyedStateBackend.this,
-			new AtomicReference<>(new KVStateSizeInfo()));
+			new AtomicReference<>(new KVStateInfo()));
 		if (!(state instanceof AbstractRocksDBState)) {
 			throw new FlinkRuntimeException(
 				"State should be an AbstractRocksDBState but is " + state);
@@ -689,8 +689,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		}
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult = tryRegisterKvStateInformation(
 			stateDesc, namespaceSerializer, snapshotTransformFactory);
-		AtomicReference<KVStateSizeInfo> metricReference = new AtomicReference<>(new KVStateSizeInfo());
-		kvSizeStatisticView.addMetricReference(stateDesc.getName(), metricReference);
+		AtomicReference<KVStateInfo> metricReference = new AtomicReference<>(new KVStateInfo());
+		kvStatisticView.addMetricReference(stateDesc.getName(), metricReference);
 		return stateFactory.createState(stateDesc, registerResult, RocksDBKeyedStateBackend.this, metricReference);
 	}
 
@@ -762,10 +762,13 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	}
 
 	private void registerMetrics(MetricGroup metricGroup) {
-		metricGroup.gauge(STATE_AVERAGE_KEY_SIZE, kvSizeStatisticView);
-		metricGroup.gauge(STATE_MAX_KEY_SIZE, kvSizeStatisticView::getMaxKeySizeStore);
-		metricGroup.gauge(STATE_AVERAGE_VALUE_SIZE, kvSizeStatisticView::getAverageValueSizeStore);
-		metricGroup.gauge(STATE_MAX_VALUE_SIZE, kvSizeStatisticView::getMaxValueSizeStore);
+		metricGroup.gauge(STATE_AVERAGE_KEY_SIZE, kvStatisticView);
+		metricGroup.gauge(STATE_MAX_KEY_SIZE, kvStatisticView::getMaxKeySizeStore);
+		metricGroup.gauge(STATE_AVERAGE_VALUE_SIZE, kvStatisticView::getAverageValueSizeStore);
+		metricGroup.gauge(STATE_MAX_VALUE_SIZE, kvStatisticView::getMaxValueSizeStore);
+		metricGroup.gauge(STATE_AVERAGE_OP_LATENCY, kvStatisticView::getAverageLatencyStore);
+		metricGroup.gauge(STATE_MAX_OP_LATENCY, kvStatisticView::getMaxLatencyStore);
+		metricGroup.gauge(STATE_AVERAGE_OP_RATE, kvStatisticView::getAverageRateStore);
 	}
 
 	/**
@@ -773,20 +776,27 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	 * Periodically update the current average and max kv size through {@link View},
 	 * and put it into {@link TagGaugeStore}.
 	 */
-	private static class PeriodKVSizeStatisticView implements GrafanaGauge<TagGaugeStore>, View {
+	private static class PeriodKVStatisticView implements GrafanaGauge<TagGaugeStore>, View {
 		private static final String STATE_NAME_TAG = "stateName";
+		private static final String STATE_OP_TAG = "stateOpName";
 
 		private final TagGaugeStoreImpl averageKeySizeStore;
 		private final TagGaugeStoreImpl averageValueSizeStore;
 		private final TagGaugeStoreImpl maxKeySizeStore;
 		private final TagGaugeStoreImpl maxValueSizeStore;
-		private final Map<String, AtomicReference<KVStateSizeInfo>> metricReferences;
+		private final TagGaugeStoreImpl averageLatencyStore;
+		private final TagGaugeStoreImpl maxLatencyStore;
+		private final TagGaugeStoreImpl averageRateStore;
+		private final Map<String, AtomicReference<KVStateInfo>> metricReferences;
 
-		public PeriodKVSizeStatisticView() {
+		public PeriodKVStatisticView() {
 			this.averageKeySizeStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
 			this.averageValueSizeStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
 			this.maxKeySizeStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
 			this.maxValueSizeStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
+			this.averageLatencyStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
+			this.maxLatencyStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
+			this.averageRateStore = new TagGaugeStoreImpl(1024, true, false, TagGauge.MetricsReduceType.MAX);
 			this.metricReferences = new ConcurrentHashMap<>(16);
 		}
 
@@ -797,9 +807,12 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 		@Override
 		public void update() {
-			for (Map.Entry<String, AtomicReference<KVStateSizeInfo>> referenceEntry : metricReferences.entrySet()) {
+			for (Map.Entry<String, AtomicReference<KVStateInfo>> referenceEntry : metricReferences.entrySet()) {
 				try {
-					KVStateSizeInfo kvSizeInfo = referenceEntry.getValue().getAndUpdate(oldValue -> new KVStateSizeInfo());
+					KVStateInfo kvStateInfo = referenceEntry.getValue().getAndUpdate(oldValue -> new KVStateInfo());
+
+					// update states in KVStateSizeInfo
+					KVStateSizeInfo kvSizeInfo = kvStateInfo.getSizeInfo();
 					TagGaugeStore.TagValues tag = new TagGaugeStore.TagValuesBuilder()
 						.addTagValue(STATE_NAME_TAG, referenceEntry.getKey())
 						.build();
@@ -807,6 +820,26 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 					averageValueSizeStore.addMetric(kvSizeInfo.getAvgValueSize(), tag);
 					maxKeySizeStore.addMetric(kvSizeInfo.getMaxKeySize(), tag);
 					maxValueSizeStore.addMetric(kvSizeInfo.getMaxValueSize(), tag);
+
+					// update states in KVStateOperationInfo
+					KVStateOperationInfo kvOperationInfo = kvStateInfo.getOperationInfo();
+					long[] opLatency = kvOperationInfo.getOpLatency(); // ns
+					long[] opMaxLatency = kvOperationInfo.getOpMaxLatency(); // ns
+					long[] opCount = kvOperationInfo.getOpCount();
+
+					for (KVStateOperationType type : KVStateOperationType.values()) {
+						TagGaugeStore.TagValues typeTag = new TagGaugeStore.TagValuesBuilder()
+							.addTagValue(STATE_NAME_TAG, referenceEntry.getKey())
+							.addTagValue(STATE_OP_TAG, type.getName())
+							.build();
+
+						long typeOpCount = opCount[type.getVal()];
+						if (typeOpCount != 0) {
+							averageLatencyStore.addMetric(opLatency[type.getVal()] / (double) opCount[type.getVal()], typeTag);
+							maxLatencyStore.addMetric(opMaxLatency[type.getVal()], typeTag);
+							averageRateStore.addMetric(opCount[type.getVal()] / (double) UPDATE_INTERVAL_SECONDS, typeTag);
+						}
+					}
 				} catch (Throwable t) {
 					LOG.warn("Failed to update metric. Ignore it...", t);
 				}
@@ -829,7 +862,19 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			return maxValueSizeStore;
 		}
 
-		public void addMetricReference(String stateName, AtomicReference<KVStateSizeInfo> metricReference) {
+		public TagGaugeStoreImpl getAverageLatencyStore() {
+			return averageLatencyStore;
+		}
+
+		public TagGaugeStoreImpl getMaxLatencyStore() {
+			return maxLatencyStore;
+		}
+
+		public TagGaugeStoreImpl getAverageRateStore() {
+			return averageRateStore;
+		}
+
+		public void addMetricReference(String stateName, AtomicReference<KVStateInfo> metricReference) {
 			metricReferences.put(stateName, metricReference);
 		}
 	}

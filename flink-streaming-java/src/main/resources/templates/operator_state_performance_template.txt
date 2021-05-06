@@ -158,6 +158,148 @@
         "show": true
       }
     ]
+  },
+  {
+    "aliasColors": {},
+    "bars": false,
+    "dashLength": 10,
+    "dashes": false,
+    "datasource": "${datasource}",
+    "fill": 1,
+    "id": 114,
+    "legend": {
+      "alignAsTable": true,
+      "avg": true,
+      "current": true,
+      "max": true,
+      "min": false,
+      "rightSide": false,
+      "show": true,
+      "total": false,
+      "values": true
+    },
+    "lines": true,
+    "linewidth": 1,
+    "links": [],
+    "nullPointMode": "null",
+    "percentage": false,
+    "pointradius": 5,
+    "points": false,
+    "renderer": "flot",
+    "seriesOverrides": [],
+    "spaceLength": 10,
+    "span": 6,
+    "stack": false,
+    "steppedLine": false,
+    "targets": [
+      ${targets3}
+    ],
+    "thresholds": [],
+    "timeFrom": null,
+    "timeShift": null,
+    "title": "State Operation Latency",
+    "tooltip": {
+      "shared": true,
+      "sort": 0,
+      "value_type": "individual"
+    },
+    "type": "graph",
+    "xaxis": {
+      "buckets": null,
+      "mode": "time",
+      "name": null,
+      "show": true,
+      "values": []
+    },
+    "yaxes": [
+      {
+        "format": "ns",
+        "label": null,
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true
+      },
+      {
+        "format": "short",
+        "label": null,
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true
+      }
+    ]
+  },
+  {
+    "aliasColors": {},
+    "bars": false,
+    "dashLength": 10,
+    "dashes": false,
+    "datasource": "${datasource}",
+    "fill": 1,
+    "id": 115,
+    "legend": {
+      "alignAsTable": true,
+      "avg": true,
+      "current": true,
+      "max": true,
+      "min": false,
+      "rightSide": false,
+      "show": true,
+      "total": false,
+      "values": true
+    },
+    "lines": true,
+    "linewidth": 1,
+    "links": [],
+    "nullPointMode": "null",
+    "percentage": false,
+    "pointradius": 5,
+    "points": false,
+    "renderer": "flot",
+    "seriesOverrides": [],
+    "spaceLength": 10,
+    "span": 6,
+    "stack": false,
+    "steppedLine": false,
+    "targets": [
+      ${targets4}
+    ],
+    "thresholds": [],
+    "timeFrom": null,
+    "timeShift": null,
+    "title": "State Operation Rate",
+    "tooltip": {
+      "shared": true,
+      "sort": 0,
+      "value_type": "individual"
+    },
+    "type": "graph",
+    "xaxis": {
+      "buckets": null,
+      "mode": "time",
+      "name": null,
+      "show": true,
+      "values": []
+    },
+    "yaxes": [
+      {
+        "format": "short",
+        "label": null,
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true
+      },
+      {
+        "format": "short",
+        "label": null,
+        "logBase": 1,
+        "max": null,
+        "min": null,
+        "show": true
+      }
+    ]
   }],
   "repeat": null,
   "repeatIteration": null,

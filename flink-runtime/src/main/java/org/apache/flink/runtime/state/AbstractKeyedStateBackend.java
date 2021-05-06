@@ -58,6 +58,9 @@ public abstract class AbstractKeyedStateBackend<K> implements
 	protected final String STATE_AVERAGE_VALUE_SIZE = "stateAverageValueSize";
 	protected final String STATE_MAX_KEY_SIZE = "stateMaxKeySize";
 	protected final String STATE_MAX_VALUE_SIZE = "stateMaxValueSize";
+	protected final String STATE_AVERAGE_OP_LATENCY = "stateAverageOpLatency";
+	protected final String STATE_MAX_OP_LATENCY = "stateMaxOpLatency";
+	protected final String STATE_AVERAGE_OP_RATE = "stateAverageOpRate";
 
 	/** The key serializer. */
 	protected final TypeSerializer<K> keySerializer;

@@ -85,7 +85,7 @@ class RocksDBListState<K, N, V>
 			TypeSerializer<List<V>> valueSerializer,
 			List<V> defaultValue,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) {
+			AtomicReference<KVStateInfo> metricReference) {
 
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 
@@ -110,7 +110,12 @@ class RocksDBListState<K, N, V>
 
 	@Override
 	public Iterable<V> get() {
-		return getInternal();
+		long startTs = System.nanoTime();
+		try {
+			return getInternal();
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.GET);
+		}
 	}
 
 	@Override
@@ -160,6 +165,7 @@ class RocksDBListState<K, N, V>
 	public void add(V value) {
 		Preconditions.checkNotNull(value, "You cannot add null to a ListState.");
 
+		long startTs = System.nanoTime();
 		try {
 			backend.db.merge(
 				columnFamily,
@@ -169,6 +175,8 @@ class RocksDBListState<K, N, V>
 			);
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Error while adding data to RocksDB", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.ADD);
 		}
 	}
 
@@ -178,6 +186,7 @@ class RocksDBListState<K, N, V>
 			return;
 		}
 
+		long startTs = System.nanoTime();
 		try {
 			// create the target full-binary-key
 			setCurrentNamespace(target);
@@ -200,12 +209,19 @@ class RocksDBListState<K, N, V>
 		}
 		catch (Exception e) {
 			throw new FlinkRuntimeException("Error while merging state in RocksDB", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.MERGE_NS);
 		}
 	}
 
 	@Override
 	public void update(List<V> valueToStore) {
-		updateInternal(valueToStore);
+		long startTs = System.nanoTime();
+		try {
+			updateInternal(valueToStore);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.UPDATE);
+		}
 	}
 
 	@Override
@@ -235,6 +251,7 @@ class RocksDBListState<K, N, V>
 		Preconditions.checkNotNull(values, "List of values to add cannot be null.");
 
 		if (!values.isEmpty()) {
+			long startTs = System.nanoTime();
 			try {
 				backend.db.merge(
 					columnFamily,
@@ -243,6 +260,8 @@ class RocksDBListState<K, N, V>
 					serializeValueList(values, elementSerializer, DELIMITER));
 			} catch (IOException | RocksDBException e) {
 				throw new FlinkRuntimeException("Error while updating data to RocksDB", e);
+			} finally {
+				updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.ADD_ALL);
 			}
 		}
 	}
@@ -281,7 +300,7 @@ class RocksDBListState<K, N, V>
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		return (IS) new RocksDBListState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),

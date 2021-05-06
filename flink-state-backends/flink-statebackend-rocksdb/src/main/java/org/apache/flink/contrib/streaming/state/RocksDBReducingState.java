@@ -64,7 +64,7 @@ class RocksDBReducingState<K, N, V>
 			V defaultValue,
 			ReduceFunction<V> reduceFunction,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) {
+			AtomicReference<KVStateInfo> metricReference) {
 
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 		this.reduceFunction = reduceFunction;
@@ -87,15 +87,25 @@ class RocksDBReducingState<K, N, V>
 
 	@Override
 	public V get() {
-		return getInternal();
+		long startTs = System.nanoTime();
+		try {
+			return getInternal();
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.GET);
+		}
 	}
 
 	@Override
 	public void add(V value) throws Exception {
-		byte[] key = getKeyBytes();
-		V oldValue = getInternal(key);
-		V newValue = oldValue == null ? value : reduceFunction.reduce(oldValue, value);
-		updateInternal(key, newValue);
+		long startTs = System.nanoTime();
+		try {
+			byte[] key = getKeyBytes();
+			V oldValue = getInternal(key);
+			V newValue = oldValue == null ? value : reduceFunction.reduce(oldValue, value);
+			updateInternal(key, newValue);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.ADD);
+		}
 	}
 
 	@Override
@@ -104,6 +114,7 @@ class RocksDBReducingState<K, N, V>
 			return;
 		}
 
+		long startTs = System.nanoTime();
 		try {
 			V current = null;
 
@@ -154,6 +165,8 @@ class RocksDBReducingState<K, N, V>
 		}
 		catch (Exception e) {
 			throw new FlinkRuntimeException("Error while merging state in RocksDB", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.MERGE_NS);
 		}
 	}
 
@@ -162,7 +175,7 @@ class RocksDBReducingState<K, N, V>
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		return (IS) new RocksDBReducingState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),

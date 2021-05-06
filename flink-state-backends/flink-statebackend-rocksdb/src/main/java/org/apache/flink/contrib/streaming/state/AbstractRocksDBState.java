@@ -74,8 +74,8 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
 	private final RocksDBSerializedCompositeKeyBuilder<K> sharedKeyNamespaceSerializer;
 
-	/** Use {@link AtomicReference} to perform kv size statistics in this cycle. */
-	private final AtomicReference<KVStateSizeInfo> metricReference;
+	/** Use {@link AtomicReference} to perform kv state statistics, i.e., size and operation, in this cycle. */
+	private final AtomicReference<KVStateInfo> metricReference;
 
 	/**
 	 * Creates a new RocksDB backed state.
@@ -92,7 +92,7 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 			TypeSerializer<V> valueSerializer,
 			V defaultValue,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) {
+			AtomicReference<KVStateInfo> metricReference) {
 
 		this.namespaceSerializer = namespaceSerializer;
 		this.backend = backend;
@@ -249,8 +249,15 @@ public abstract class AbstractRocksDBState<K, N, V> implements InternalKvState<K
 
 	void updateKVSizeMetric(byte[] keyBytes, byte[] valueBytes) {
 		if (keyBytes != null && valueBytes != null) {
-			KVStateSizeInfo kvSizeInfo = metricReference.get();
+			KVStateSizeInfo kvSizeInfo = metricReference.get().getSizeInfo();
 			kvSizeInfo.updateKVSize(keyBytes.length, valueBytes.length);
+		}
+	}
+
+	void updateKVOperationMetrics(long latency, KVStateOperationType type) {
+		if (latency >= 0) {
+			KVStateOperationInfo kvOperationInfo = metricReference.get().getOperationInfo();
+			kvOperationInfo.update(latency, type);
 		}
 	}
 }

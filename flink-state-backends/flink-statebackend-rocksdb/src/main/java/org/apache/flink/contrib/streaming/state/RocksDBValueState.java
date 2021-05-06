@@ -59,7 +59,7 @@ class RocksDBValueState<K, N, V>
 			TypeSerializer<V> valueSerializer,
 			V defaultValue,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) {
+			AtomicReference<KVStateInfo> metricReference) {
 
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 	}
@@ -81,6 +81,7 @@ class RocksDBValueState<K, N, V>
 
 	@Override
 	public V value() {
+		long startTs = System.nanoTime();
 		try {
 			byte[] keyBytes = serializeCurrentKeyWithGroupAndNamespace();
 			byte[] valueBytes = backend.db.get(columnFamily, keyBytes);
@@ -93,6 +94,8 @@ class RocksDBValueState<K, N, V>
 			return valueSerializer.deserialize(dataInputView);
 		} catch (IOException | RocksDBException e) {
 			throw new FlinkRuntimeException("Error while retrieving data from RocksDB.", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.VALUE);
 		}
 	}
 
@@ -103,6 +106,7 @@ class RocksDBValueState<K, N, V>
 			return;
 		}
 
+		long startTs = System.nanoTime();
 		try {
 			byte[] keyBytes = serializeCurrentKeyWithGroupAndNamespace();
 			byte[] valueBytes = serializeValue(value);
@@ -110,6 +114,8 @@ class RocksDBValueState<K, N, V>
 			updateKVSizeMetric(keyBytes, valueBytes);
 		} catch (Exception e) {
 			throw new FlinkRuntimeException("Error while adding data to RocksDB", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.UPDATE);
 		}
 	}
 
@@ -118,7 +124,7 @@ class RocksDBValueState<K, N, V>
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		return (IS) new RocksDBValueState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),

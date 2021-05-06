@@ -67,7 +67,7 @@ class RocksDBFoldingState<K, N, T, ACC>
 		ACC defaultValue,
 		FoldFunction<T, ACC> foldFunction,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 
@@ -91,16 +91,26 @@ class RocksDBFoldingState<K, N, T, ACC>
 
 	@Override
 	public ACC get() {
-		return getInternal();
+		long startTs = System.nanoTime();
+		try {
+			return getInternal();
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.GET);
+		}
 	}
 
 	@Override
 	public void add(T value) throws Exception {
-		byte[] key = getKeyBytes();
-		ACC accumulator = getInternal(key);
-		accumulator = accumulator == null ? getDefaultValue() : accumulator;
-		accumulator = foldFunction.fold(accumulator, value);
-		updateInternal(key, accumulator);
+		long startTs = System.nanoTime();
+		try {
+			byte[] key = getKeyBytes();
+			ACC accumulator = getInternal(key);
+			accumulator = accumulator == null ? getDefaultValue() : accumulator;
+			accumulator = foldFunction.fold(accumulator, value);
+			updateInternal(key, accumulator);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.ADD);
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -108,7 +118,7 @@ class RocksDBFoldingState<K, N, T, ACC>
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		return (IS) new RocksDBFoldingState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),

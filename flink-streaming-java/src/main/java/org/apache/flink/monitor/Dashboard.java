@@ -62,6 +62,8 @@ public class Dashboard {
 
 	/** Templates for state performance metrics. */
 	private static final String STATE_KEY_VALUE_SIZE_TEMPLATE = "state_key_value_size_template.txt";
+	private static final String STATE_OP_LATENCY_TEMPLATE = "state_operation_latency_template.txt";
+	private static final String STATE_OP_RATE_TEMPLATE = "state_operation_rate_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -260,9 +262,13 @@ public class Dashboard {
 	private String renderOperatorStatePerformanceRow(List<String> operators) {
 		String operatorStateTemplate = null;
 		String keyValueSizeTemplate = null;
+		String stateOpLatencyTemplate = null;
+		String stateOpRateTemplate = null;
 		try {
 			operatorStateTemplate = renderFromResource(OPERATOR_STATE_PERFORMANCE_TEMPLATE);
 			keyValueSizeTemplate = renderFromResource(STATE_KEY_VALUE_SIZE_TEMPLATE);
+			stateOpLatencyTemplate = renderFromResource(STATE_OP_LATENCY_TEMPLATE);
+			stateOpRateTemplate = renderFromResource(STATE_OP_RATE_TEMPLATE);
 		} catch (IOException e) {
 			LOG.error("Fail to render checkpoint metrics.", e);
 			return "";
@@ -273,6 +279,8 @@ public class Dashboard {
 		checkpointValues.put("datasource", dataSource);
 		List<String> targets1 = new ArrayList<>();
 		List<String> targets2 = new ArrayList<>();
+		List<String> targets3 = new ArrayList<>();
+		List<String> targets4 = new ArrayList<>();
 
 		for (String operator : operators) {
 			checkpointValues.put("operator", operator);
@@ -280,9 +288,13 @@ public class Dashboard {
 			targets1.add(renderString(keyValueSizeTemplate, checkpointValues));
 			checkpointValues.put("type", "Value");
 			targets2.add(renderString(keyValueSizeTemplate, checkpointValues));
+			targets3.add(renderString(stateOpLatencyTemplate, checkpointValues));
+			targets4.add(renderString(stateOpRateTemplate, checkpointValues));
 		}
 		checkpointValues.put("targets1", String.join(",", targets1));
 		checkpointValues.put("targets2", String.join(",", targets2));
+		checkpointValues.put("targets3", String.join(",", targets3));
+		checkpointValues.put("targets4", String.join(",", targets4));
 		return renderString(operatorStateTemplate, checkpointValues);
 	}
 

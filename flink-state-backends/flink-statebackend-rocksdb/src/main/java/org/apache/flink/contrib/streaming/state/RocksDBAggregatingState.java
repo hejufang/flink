@@ -67,7 +67,7 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 			ACC defaultValue,
 			AggregateFunction<T, ACC, R> aggFunction,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) {
+			AtomicReference<KVStateInfo> metricReference) {
 
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 		this.aggFunction = aggFunction;
@@ -90,19 +90,29 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 
 	@Override
 	public R get() {
-		ACC accumulator = getInternal();
-		if (accumulator == null) {
-			return null;
+		long startTs = System.nanoTime();
+		try {
+			ACC accumulator = getInternal();
+			if (accumulator == null) {
+				return null;
+			}
+			return aggFunction.getResult(accumulator);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.GET);
 		}
-		return aggFunction.getResult(accumulator);
 	}
 
 	@Override
 	public void add(T value) {
-		byte[] key = getKeyBytes();
-		ACC accumulator = getInternal(key);
-		accumulator = accumulator == null ? aggFunction.createAccumulator() : accumulator;
-		updateInternal(key, aggFunction.add(value, accumulator));
+		long startTs = System.nanoTime();
+		try {
+			byte[] key = getKeyBytes();
+			ACC accumulator = getInternal(key);
+			accumulator = accumulator == null ? aggFunction.createAccumulator() : accumulator;
+			updateInternal(key, aggFunction.add(value, accumulator));
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.ADD);
+		}
 	}
 
 	@Override
@@ -111,6 +121,7 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 			return;
 		}
 
+		long startTs = System.nanoTime();
 		try {
 			ACC current = null;
 
@@ -161,6 +172,8 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 		}
 		catch (Exception e) {
 			throw new FlinkRuntimeException("Error while merging state in RocksDB", e);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.MERGE_NS);
 		}
 	}
 
@@ -169,7 +182,7 @@ class RocksDBAggregatingState<K, N, T, ACC, R>
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		return (IS) new RocksDBAggregatingState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),

@@ -87,7 +87,7 @@ class RocksDBMapState<K, N, UK, UV>
 			TypeSerializer<Map<UK, UV>> valueSerializer,
 			Map<UK, UV> defaultValue,
 			RocksDBKeyedStateBackend<K> backend,
-			AtomicReference<KVStateSizeInfo> metricReference) {
+			AtomicReference<KVStateInfo> metricReference) {
 
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 
@@ -119,21 +119,30 @@ class RocksDBMapState<K, N, UK, UV>
 
 	@Override
 	public UV get(UK userKey) throws IOException, RocksDBException {
-		byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
-		byte[] rawValueBytes = backend.db.get(columnFamily, rawKeyBytes);
-		updateKVSizeMetric(rawKeyBytes, rawValueBytes);
-
-		return (rawValueBytes == null ? null : deserializeUserValue(dataInputView, rawValueBytes, userValueSerializer));
+		long startTs = System.nanoTime();
+		try {
+			byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
+			byte[] rawValueBytes = backend.db.get(columnFamily, rawKeyBytes);
+			updateKVSizeMetric(rawKeyBytes, rawValueBytes);
+			return (rawValueBytes == null ? null : deserializeUserValue(dataInputView, rawValueBytes, userValueSerializer));
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.GET);
+		}
 	}
 
 	@Override
 	public void put(UK userKey, UV userValue) throws IOException, RocksDBException {
+		long startTs = System.nanoTime();
 
-		byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
-		byte[] rawValueBytes = serializeValueNullSensitive(userValue, userValueSerializer);
-		updateKVSizeMetric(rawKeyBytes, rawValueBytes);
+		try {
+			byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
+			byte[] rawValueBytes = serializeValueNullSensitive(userValue, userValueSerializer);
+			updateKVSizeMetric(rawKeyBytes, rawValueBytes);
 
-		backend.db.put(columnFamily, writeOptions, rawKeyBytes, rawValueBytes);
+			backend.db.put(columnFamily, writeOptions, rawKeyBytes, rawValueBytes);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.PUT);
+		}
 	}
 
 	@Override
@@ -142,6 +151,7 @@ class RocksDBMapState<K, N, UK, UV>
 			return;
 		}
 
+		long startTs = System.nanoTime();
 		try (RocksDBWriteBatchWrapper writeBatchWrapper = new RocksDBWriteBatchWrapper(backend.db, writeOptions, backend.getWriteBatchSize())) {
 			for (Map.Entry<UK, UV> entry : map.entrySet()) {
 				byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(entry.getKey(), userKeySerializer);
@@ -149,22 +159,34 @@ class RocksDBMapState<K, N, UK, UV>
 				writeBatchWrapper.put(columnFamily, rawKeyBytes, rawValueBytes);
 				updateKVSizeMetric(rawKeyBytes, rawValueBytes);
 			}
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.PUT_ALL);
 		}
 	}
 
 	@Override
 	public void remove(UK userKey) throws IOException, RocksDBException {
-		byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
+		long startTs = System.nanoTime();
+		try {
+			byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
 
-		backend.db.delete(columnFamily, writeOptions, rawKeyBytes);
+			backend.db.delete(columnFamily, writeOptions, rawKeyBytes);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.REMOVE);
+		}
 	}
 
 	@Override
 	public boolean contains(UK userKey) throws IOException, RocksDBException {
-		byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
-		byte[] rawValueBytes = backend.db.get(columnFamily, rawKeyBytes);
+		long startTs = System.nanoTime();
+		try {
+			byte[] rawKeyBytes = serializeCurrentKeyWithGroupAndNamespacePlusUserKey(userKey, userKeySerializer);
+			byte[] rawValueBytes = backend.db.get(columnFamily, rawKeyBytes);
 
-		return (rawValueBytes != null);
+			return (rawValueBytes != null);
+		} finally {
+			updateKVOperationMetrics(System.nanoTime() - startTs, KVStateOperationType.CONTAINS);
+		}
 	}
 
 	@Override
@@ -631,7 +653,7 @@ class RocksDBMapState<K, N, UK, UV>
 		StateDescriptor<S, SV> stateDesc,
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		return (IS) new RocksDBMapState<>(
 			registerResult.f0,
 			registerResult.f1.getNamespaceSerializer(),

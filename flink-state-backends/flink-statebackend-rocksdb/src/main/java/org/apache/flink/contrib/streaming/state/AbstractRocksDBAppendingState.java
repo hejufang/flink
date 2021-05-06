@@ -47,7 +47,7 @@ abstract class AbstractRocksDBAppendingState <K, N, IN, SV, OUT>
 		TypeSerializer<SV> valueSerializer,
 		SV defaultValue,
 		RocksDBKeyedStateBackend<K> backend,
-		AtomicReference<KVStateSizeInfo> metricReference) {
+		AtomicReference<KVStateInfo> metricReference) {
 		super(columnFamily, namespaceSerializer, valueSerializer, defaultValue, backend, metricReference);
 	}
 
