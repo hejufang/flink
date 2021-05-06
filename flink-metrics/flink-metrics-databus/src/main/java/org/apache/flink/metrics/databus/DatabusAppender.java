@@ -269,6 +269,7 @@ public final class DatabusAppender extends AbstractAppender {
 				AbstractLifeCycle.LOGGER.error("No layout provided for DatabusAppender");
 				return null;
 			}
+			System.out.println("DatabusAppender start with : channel " + channel + ", metricsChannel : " + metricsChannel);
 			return new DatabusAppender(channel, metricsChannel, metricsUpdateInterval, port, permitsPerSecond, getName(), Level.getLevel(databusLevel), Level.getLevel(streamlogLevel), layout, getFilter(), isIgnoreExceptions(), getPropertyArray());
 		}
 	}

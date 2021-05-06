@@ -29,6 +29,7 @@ import com.bytedance.logging.agent.AgentProperties;
 import com.bytedance.logging.agent.AgentUnixSocketProperties;
 import com.bytedance.logging.agent.Message;
 import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.util.Throwables;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,6 +39,7 @@ import java.util.Map;
  */
 public class LogAgentClientWrapper {
 
+	private static final String LINE_SEP = System.getProperty("line.separator");
 
 	private static final String VERSION = "v1(6)";
 
@@ -128,8 +130,15 @@ public class LogAgentClientWrapper {
 		tags.put(LEVEL_KEY, event.getLevel().name());
 		tags.put(TIMESTAMP_KEY, String.valueOf(event.getTimeMillis()));
 		tags.put(LOGGER_NAME_KEY, String.valueOf(event.getLoggerName()));
-		Message message = new Message(tags, event.getMessage().getFormattedMessage());
-		agentCollector.collectMessage(this.psm, message);
 
+		StringBuilder sb = new StringBuilder(event.getMessage().getFormattedMessage());
+		String[] s = Throwables.toStringList(event.getThrown()).toArray(new String[0]);
+		if (s.length != 0) {
+			for (String l : s) {
+				sb.append(LINE_SEP).append(l);
+			}
+		}
+		Message message = new Message(tags, sb.toString());
+		agentCollector.collectMessage(this.psm, message);
 	}
 }
