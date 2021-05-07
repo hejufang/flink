@@ -20,6 +20,8 @@ package org.apache.flink.table.planner.plan.optimize.program
 
 import org.apache.flink.table.api.TableException
 import org.apache.flink.table.planner.plan.metadata.FlinkRelMdNonCumulativeCost
+import org.apache.flink.table.planner.plan.utils.RuleStatisticsListener
+import org.apache.flink.table.planner.utils.Logging
 import org.apache.flink.util.Preconditions
 
 import org.apache.calcite.plan.RelTrait
@@ -35,7 +37,7 @@ import org.apache.calcite.rel.RelNode
   *
   * @tparam OC OptimizeContext
   */
-class FlinkHepProgram[OC <: FlinkOptimizeContext] extends FlinkOptimizeProgram[OC] {
+class FlinkHepProgram[OC <: FlinkOptimizeContext] extends FlinkOptimizeProgram[OC] with Logging {
 
   /**
     * [[HepProgram]] instance for [[HepPlanner]],
@@ -55,6 +57,9 @@ class FlinkHepProgram[OC <: FlinkOptimizeContext] extends FlinkOptimizeProgram[O
 
     try {
       val planner = new HepPlanner(hepProgram.get, context)
+      if (LOG.isDebugEnabled) {
+        planner.addListener(context.getRuleStatisticsListener)
+      }
       FlinkRelMdNonCumulativeCost.THREAD_PLANNER.set(planner)
 
       planner.setRoot(root)
@@ -67,7 +72,7 @@ class FlinkHepProgram[OC <: FlinkOptimizeContext] extends FlinkOptimizeProgram[O
       }
 
       planner.findBestExp
-    }  finally {
+    } finally {
       FlinkRelMdNonCumulativeCost.THREAD_PLANNER.remove()
     }
   }

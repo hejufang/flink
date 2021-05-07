@@ -30,7 +30,7 @@ import org.apache.flink.table.planner.plan.nodes.physical.stream.{StreamExecData
 import org.apache.flink.table.planner.plan.optimize.program.{FlinkStreamProgram, StreamOptimizeContext}
 import org.apache.flink.table.planner.plan.schema.IntermediateRelTable
 import org.apache.flink.table.planner.plan.stats.FlinkStatistic
-import org.apache.flink.table.planner.plan.utils.FlinkRelOptUtil
+import org.apache.flink.table.planner.plan.utils.{FlinkRelOptUtil, RuleStatisticsListener}
 import org.apache.flink.table.planner.utils.TableConfigUtils
 import org.apache.flink.table.planner.utils.TableConfigUtils.getMillisecondFromConfigDuration
 import org.apache.flink.util.Preconditions
@@ -180,6 +180,9 @@ class StreamCommonSubGraphBasedOptimizer(planner: StreamPlanner)
 
       // see FLINK-18070
       override def needFinalTimeIndicatorConversion: Boolean = isSinkBlock
+
+      override def getRuleStatisticsListener: RuleStatisticsListener =
+        planner.plannerContext.getRuleStatisticsListener
     })
   }
 

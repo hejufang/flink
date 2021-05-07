@@ -25,7 +25,8 @@ import org.apache.flink.table.planner.delegation.BatchPlanner
 import org.apache.flink.table.planner.plan.nodes.physical.batch.BatchExecLegacySink
 import org.apache.flink.table.planner.plan.optimize.program.{BatchOptimizeContext, FlinkBatchProgram}
 import org.apache.flink.table.planner.plan.schema.IntermediateRelTable
-import org.apache.flink.table.planner.utils.TableConfigUtils
+import org.apache.flink.table.planner.plan.utils.RuleStatisticsListener
+import org.apache.flink.table.planner.utils.{Logging, TableConfigUtils}
 import org.apache.flink.util.Preconditions
 
 import org.apache.calcite.rel.RelNode
@@ -36,13 +37,16 @@ import java.util.Collections
   * A [[CommonSubGraphBasedOptimizer]] for Batch.
   */
 class BatchCommonSubGraphBasedOptimizer(planner: BatchPlanner)
-  extends CommonSubGraphBasedOptimizer {
+  extends CommonSubGraphBasedOptimizer with Logging {
 
   override protected def doOptimize(roots: Seq[RelNode]): Seq[RelNodeBlock] = {
     // build RelNodeBlock plan
     val rootBlocks = RelNodeBlockPlanBuilder.buildRelNodeBlockPlan(roots, planner.getTableConfig)
     // optimize recursively RelNodeBlock
     rootBlocks.foreach(optimizeBlock)
+    if (LOG.isDebugEnabled) {
+      LOG.debug(planner.plannerContext.getRuleStatisticsListener.dumpStatistic())
+    }
     rootBlocks
   }
 
@@ -92,6 +96,9 @@ class BatchCommonSubGraphBasedOptimizer(planner: BatchPlanner)
 
       override def getSqlExprToRexConverterFactory: SqlExprToRexConverterFactory =
         context.getSqlExprToRexConverterFactory
+
+      override def getRuleStatisticsListener: RuleStatisticsListener =
+        planner.plannerContext.getRuleStatisticsListener
     })
   }
 

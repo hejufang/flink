@@ -19,10 +19,16 @@
 package org.apache.flink.table.planner.plan.optimize.program
 
 import org.apache.flink.table.planner.calcite.FlinkContext
+import org.apache.flink.table.planner.plan.utils.RuleStatisticsListener
 
 /**
   * A FlinkOptimizeContext allows to obtain table environment information when optimizing.
   */
 trait FlinkOptimizeContext extends FlinkContext {
+
+  /**
+   * Gets the [[RuleStatisticsListener]].
+   */
+  def getRuleStatisticsListener: RuleStatisticsListener
 
 }

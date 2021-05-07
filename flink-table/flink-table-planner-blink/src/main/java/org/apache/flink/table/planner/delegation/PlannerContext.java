@@ -44,6 +44,7 @@ import org.apache.flink.table.planner.functions.sql.FlinkSqlOperatorTable;
 import org.apache.flink.table.planner.hint.FlinkHintStrategies;
 import org.apache.flink.table.planner.plan.FlinkCalciteCatalogReader;
 import org.apache.flink.table.planner.plan.cost.FlinkCostFactory;
+import org.apache.flink.table.planner.plan.utils.RuleStatisticsListener;
 import org.apache.flink.table.planner.utils.JavaScalaConversionUtil;
 import org.apache.flink.table.planner.utils.TableConfigUtils;
 
@@ -66,6 +67,8 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -82,6 +85,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 @Internal
 public class PlannerContext {
 
+	private static final Logger LOG = LoggerFactory.getLogger(PlannerContext.class);
+
 	private final RelDataTypeSystem typeSystem = new FlinkTypeSystem();
 	private final FlinkTypeFactory typeFactory = new FlinkTypeFactory(typeSystem);
 	private final TableConfig tableConfig;
@@ -90,6 +95,7 @@ public class PlannerContext {
 	private final CalciteSchema rootSchema;
 	private final List<RelTraitDef> traitDefs;
 	private final FrameworkConfig frameworkConfig;
+	private final RuleStatisticsListener ruleStatisticsListener = new RuleStatisticsListener();
 
 	public PlannerContext(
 			TableConfig tableConfig,
@@ -113,6 +119,9 @@ public class PlannerContext {
 		this.frameworkConfig = createFrameworkConfig();
 
 		RelOptPlanner planner = new VolcanoPlanner(frameworkConfig.getCostFactory(), frameworkConfig.getContext());
+		if (LOG.isDebugEnabled()) {
+			planner.addListener(ruleStatisticsListener);
+		}
 		planner.setExecutor(frameworkConfig.getExecutor());
 		for (RelTraitDef traitDef : frameworkConfig.getTraitDefs()) {
 			planner.addRelTraitDef(traitDef);
@@ -146,6 +155,11 @@ public class PlannerContext {
 	/** Returns the {@link FlinkTypeFactory} that will be used. */
 	public FlinkTypeFactory getTypeFactory() {
 		return typeFactory;
+	}
+
+	/** Returns the {@link RuleStatisticsListener} that will be used in optimizer. */
+	public RuleStatisticsListener getRuleStatisticsListener() {
+		return ruleStatisticsListener;
 	}
 
 	/**
