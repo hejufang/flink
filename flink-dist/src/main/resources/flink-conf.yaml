@@ -651,8 +651,7 @@ boei18n:
   dashboard.data_source: bytetsd_boei18n
   kafka_server_url: http://kafka-config.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_boei18n
-  # TODO(zhangguanghui): Waiting for Yaop to replace it with a domain url
-  yaop_url: http://10.231.17.57:8092
+  yaop_url: http://yaop-boei18n.bytedance.net
   yaop_token: 0ed7ea2fce8d4801a9d79adde7a91211
   docker.hub: aliyun-va-hub.byted.org
   docker.namespace: yarn
