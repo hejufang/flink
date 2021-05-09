@@ -246,6 +246,16 @@ public class StreamOperatorSnapshotRestoreTest extends TestLogger {
 
 						return null;
 					}
+
+					@Override
+					protected <K> InternalTimeServiceManager<K> internalTimeServiceManager(
+						AbstractKeyedStateBackend<K> keyedStatedBackend,
+						KeyContext keyContext, //the operator
+						ProcessingTimeService processingTimeService,
+						Iterable<KeyGroupStatePartitionStreamProvider> rawKeyedStates,
+						boolean filterOutdatedTimer) {
+						return null;
+					}
 				};
 			}
 		};

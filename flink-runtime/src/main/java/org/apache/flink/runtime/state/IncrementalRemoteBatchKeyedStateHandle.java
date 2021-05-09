@@ -28,6 +28,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class IncrementalRemoteBatchKeyedStateHandle extends IncrementalRemoteKeyedStateHandle {
+
+	private static final long serialVersionUID = -8328812345677388231L;
+
 	/** Map from batch file ID to files in that batch, e.g., for RocksDB, files refer to sst files.*/
 	private final Map<StateHandleID, List<StateHandleID>> usedFiles;
 

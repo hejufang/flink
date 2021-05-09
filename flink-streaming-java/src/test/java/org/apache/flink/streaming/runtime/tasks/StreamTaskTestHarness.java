@@ -468,6 +468,7 @@ public class StreamTaskTestHarness<OUT> {
 			}
 			catch (Throwable t) {
 				this.error = t;
+				throw new IllegalStateException(t);
 			}
 		}
 

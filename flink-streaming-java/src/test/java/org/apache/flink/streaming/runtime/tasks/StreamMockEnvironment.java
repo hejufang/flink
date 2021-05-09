@@ -368,6 +368,11 @@ public class StreamMockEnvironment implements Environment {
 	}
 
 	@Override
+	public String getJobName() {
+		return "mock test";
+	}
+
+	@Override
 	public TaskMetricGroup getMetricGroup() {
 		return this.taskMetricGroup;
 	}

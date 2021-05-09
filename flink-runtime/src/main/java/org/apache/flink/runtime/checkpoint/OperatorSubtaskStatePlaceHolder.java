@@ -30,6 +30,8 @@ import java.io.DataInputStream;
  */
 public class OperatorSubtaskStatePlaceHolder extends OperatorSubtaskState {
 
+	private static final long serialVersionUID = -2391234597971923995L;
+
 	public OperatorSubtaskStatePlaceHolder(OperatorSubtaskState subtaskState) {
 		super(subtaskState.getManagedOperatorState(),
 			subtaskState.getRawOperatorState(),
