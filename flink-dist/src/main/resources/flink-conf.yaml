@@ -53,6 +53,9 @@ common:
   taskmanager.memory.network.fraction: 0.3
   taskmanager.memory.network.max: 2147483648
 
+  ## StreamPipelineOptions
+  pipeline.time-characteristic: EventTime
+
   # Security
   ## Auth with External Systems
   zookeeper.sasl.disable: true
