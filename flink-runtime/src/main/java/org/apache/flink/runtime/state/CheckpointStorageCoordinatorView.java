@@ -64,6 +64,11 @@ public interface CheckpointStorageCoordinatorView {
 		return Collections.emptyList();
 	}
 
+	// remove in the future
+	default List<String> findCompletedCheckpointPointerForCrossVersion() throws IOException {
+		return Collections.emptyList();
+	}
+
 	default void clearAllCheckpointPointers() throws IOException { }
 
 	default void clearCheckpointPointers(int checkpointID) throws IOException { }

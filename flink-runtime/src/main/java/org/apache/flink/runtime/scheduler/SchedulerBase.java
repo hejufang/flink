@@ -266,6 +266,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 			if (!checkpointCoordinator.restoreLatestCheckpointedStateToAll(
 				new HashSet<>(newExecutionGraph.getAllVertices().values()),
 					allowNonRestoredState,
+					jobMasterConfiguration.getBoolean(CheckpointingOptions.CROSS_VERSION),
 					userCodeLoader)) {
 
 				// check whether we can restore from a savepoint

@@ -282,4 +282,10 @@ public class CheckpointingOptions {
 		.key("state.backend.state-file-batch.max-size")
 		.defaultValue(512 * 1024 * 1024L)
 		.withDeprecatedKeys("Max capacity of one state file batch.");
+
+	// Flink cross version hard code
+
+	public static final ConfigOption<Boolean> CROSS_VERSION = ConfigOptions
+		.key("state.checkpoint.cross-version")
+		.defaultValue(false);
 }
