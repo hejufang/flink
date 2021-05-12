@@ -103,6 +103,7 @@ public class Checkpoints {
 
 		if (magicNumber == HEADER_MAGIC_NUMBER) {
 			final int version = in.readInt();
+			LOG.debug("Using version {} serializer to deserialize checkpoint.", version);
 			final SavepointSerializer<?> serializer = SavepointSerializers.getSerializer(version);
 
 			if (serializer != null) {
@@ -118,6 +119,19 @@ public class Checkpoints {
 					"version of Flink. (2) The file you were pointing to is not a savepoint at all. " +
 					"(3) The savepoint file has been corrupted.");
 		}
+	}
+
+	private static void printMetadata(Savepoint metadata) {
+		if (LOG.isDebugEnabled()) {
+			LOG.debug("================= Start  ==============");
+			for (OperatorState operatorState : metadata.getOperatorStates()) {
+				for (OperatorSubtaskState subtaskState : operatorState.getStates()) {
+					LOG.debug(subtaskState.toString());
+				}
+			}
+			LOG.debug("================= End ==============");
+		}
+
 	}
 
 	@SuppressWarnings("deprecation")
@@ -141,6 +155,7 @@ public class Checkpoints {
 		try (InputStream in = metadataHandle.openInputStream()) {
 			DataInputStream dis = new DataInputStream(in);
 			rawCheckpointMetadata = loadCheckpointMetadata(dis, classLoader);
+			printMetadata(rawCheckpointMetadata);
 		}
 
 		final Savepoint checkpointMetadata = rawCheckpointMetadata.getTaskStates() == null ?

@@ -3824,6 +3824,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 				false,
 				false,
 				true,
+				false,
 				CheckpointCoordinatorTest.class.getClassLoader());
 		Assert.assertArrayEquals(expectCheckpointIds.toArray(), store.getAllCheckpoints().stream()
 				.map(CompletedCheckpoint::getCheckpointID).toArray());
@@ -4241,6 +4242,7 @@ public class CheckpointCoordinatorTest extends TestLogger {
 				Map<JobVertexID, ExecutionJobVertex> tasks,
 				boolean allowNonRestoredState,
 				boolean findCheckpointInCheckpointStore,
+				boolean crossVersion,
 				@Nullable ClassLoader userClassLoader) {
 			return checkpointsOnStorage;
 		}

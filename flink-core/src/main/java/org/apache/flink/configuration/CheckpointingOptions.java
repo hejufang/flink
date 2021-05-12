@@ -263,4 +263,9 @@ public class CheckpointingOptions {
 		.key("checkpoint.client-checkpoint-verification-enable")
 		.defaultValue(false)
 		.withDescription("Verify the validation of latest checkpoint at client.");
+
+	// Flink cross version hard code
+	public static final ConfigOption<Boolean> CROSS_VERSION = ConfigOptions
+			.key("state.checkpoint.cross-version")
+			.defaultValue(false);
 }

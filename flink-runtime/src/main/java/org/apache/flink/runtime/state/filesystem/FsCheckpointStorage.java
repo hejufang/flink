@@ -434,6 +434,47 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	}
 
 	@Override
+	public List<String> findCompletedCheckpointPointerForCrossVersion() throws IOException {
+		FileStatus[] currVersionStatuses = fileSystem.listStatus(checkpointsDirectory);
+
+		final Path newCheckpointPath = new Path(checkpointsDirectory.getPath()
+				.replaceFirst("1.9", "1.11")
+				.replaceFirst("byte_flink_checkpoint/", "byte_flink_checkpoint_20210220/"));
+
+		if (!fileSystem.exists(newCheckpointPath)) {
+			fileSystem.mkdirs(newCheckpointPath);
+		}
+		FileStatus[] newStatuses = fileSystem.listStatus(newCheckpointPath);
+
+		FileStatus[] statuses = new FileStatus[newStatuses.length + currVersionStatuses.length];
+		System.arraycopy(currVersionStatuses, 0, statuses, 0, currVersionStatuses.length);
+		System.arraycopy(newStatuses, 0, statuses, currVersionStatuses.length, newStatuses.length);
+
+		return Arrays.stream(statuses)
+				.filter(fileStatus -> {
+					try {
+						return fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX)
+								&& fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+					} catch (IOException e) {
+						LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
+						return false;
+					}
+				})
+				.sorted(Comparator.comparingInt(
+						(FileStatus fileStatus) -> {
+							try {
+								return Integer.parseInt(
+										fileStatus.getPath().getName().substring(CHECKPOINT_DIR_PREFIX.length()));
+							} catch (Exception e) {
+								LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+								return Integer.MIN_VALUE;
+							}
+						}).reversed())
+				.map(fileStatus -> fileStatus.getPath().toString())
+				.collect(Collectors.toList());
+	}
+
+	@Override
 	public long getCheckpointIDFromExternalPointer(String externalPointer) {
 		Path externalPath = new Path(externalPointer);
 		if (externalPath.getName().startsWith(CHECKPOINT_DIR_PREFIX)) {

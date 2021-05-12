@@ -1175,6 +1175,7 @@ public class CheckpointCoordinator {
 			errorIfNoCheckpoint,
 			allowNonRestoredState,
 			false,
+			false,
 			null);
 	}
 
@@ -1207,6 +1208,7 @@ public class CheckpointCoordinator {
 			boolean errorIfNoCheckpoint,
 			boolean allowNonRestoredState,
 			boolean findCheckpointInCheckpointStorage,
+			boolean crossVersion,
 			@Nullable ClassLoader userClassLoader) throws Exception {
 
 		synchronized (lock) {
@@ -1225,11 +1227,16 @@ public class CheckpointCoordinator {
 			// if findCheckpointInCheckpointStorage equals to true, it means the job just starts and needs to load
 			// checkpoint from HDFS
 			if (findCheckpointInCheckpointStorage) {
-				completedCheckpointStore.recover();
+				if (!crossVersion) {
+					completedCheckpointStore.recover();
+				} else {
+					// clear all checkpoints and restore from hdfs
+					completedCheckpointStore.clearAllCheckpoints();
+				}
 			}
 
 			final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
-					tasks, allowNonRestoredState, findCheckpointInCheckpointStorage, userClassLoader);
+					tasks, allowNonRestoredState, findCheckpointInCheckpointStorage, crossVersion, userClassLoader);
 			LOG.info("Find {} checkpoints on HDFS.", checkpointsOnStorage.size());
 			final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
 					.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
@@ -1320,12 +1327,20 @@ public class CheckpointCoordinator {
 			Map<JobVertexID, ExecutionJobVertex> tasks,
 			boolean allowNonRestoredState,
 			boolean findCheckpointInCheckpointStore,
+			boolean crossVersion,
 			@Nullable ClassLoader userClassLoader) throws IOException {
 		final Set<CompletedCheckpoint> result = new HashSet<>();
 
+		LOG.info("Looking for completed checkpoints on HDFS (cross-version: {})", crossVersion);
 		int onRetrievingCheckpointsIdx = 0;
 		if (findCheckpointInCheckpointStore && userClassLoader != null) {
-			List<String> completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointer();
+			List<String> completedCheckpointPointersOnStorage;
+			if (!crossVersion) {
+				completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointer();
+			} else {
+				completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointerForCrossVersion();
+			}
+
 			for (String completedCheckpointPointer : completedCheckpointPointersOnStorage) {
 				try {
 					if (result.size() >= completedCheckpointStore.getMaxNumberOfRetainedCheckpoints()) {

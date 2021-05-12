@@ -203,6 +203,7 @@ public class LegacyScheduler implements SchedulerNG {
 				false,
 				allowNonRestoredState,
 				true,
+				jobMasterConfiguration.getBoolean(CheckpointingOptions.CROSS_VERSION),
 				userCodeLoader)) {
 
 				// check whether we can restore from a savepoint
