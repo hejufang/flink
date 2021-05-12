@@ -17,7 +17,6 @@
  */
 package org.apache.flink.table.planner.plan.utils
 
-import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.operators.StreamOperatorFactory
 import org.apache.flink.streaming.api.transformations.{AbstractMultipleInputTransformation, LegacySourceTransformation, OneInputTransformation, SourceTransformation, TwoInputTransformation, UnionTransformation}
@@ -28,10 +27,8 @@ import org.apache.flink.table.data.conversion.DataStructureConverters
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.utils.DataTypeDebugLoggingConverter
 import org.apache.flink.table.types.utils.LogicalTypeDataTypeConverter
-import org.apache.flink.util.FlinkRuntimeException
 
-import scala.collection.JavaConversions._
-
+import org.apache.calcite.rel.`type`.RelDataType
 /**
   * Utilities for physical plans.
   *
@@ -66,6 +63,13 @@ object PhysicalPlanUtil {
       tableConfig: TableConfig,
       relDataType: RelDataType,
       transformation: Transformation[RowData]): Unit = {
+    val enabled = tableConfig.getConfiguration.getBoolean(
+      TableConfigOptions.OPERATOR_DEBUG_LOGGING_ENABLED)
+
+    if (!enabled) {
+      return
+    }
+
     val operatorFactory: StreamOperatorFactory[_] = transformation match {
       case sourceTransformation: SourceTransformation[_] =>
         sourceTransformation.getOperatorFactory
@@ -77,13 +81,8 @@ object PhysicalPlanUtil {
         multipleInputTransformation.getOperatorFactory
       case legacySourceTransformation: LegacySourceTransformation[_] =>
         legacySourceTransformation.getOperatorFactory
-      case unionTransformation: UnionTransformation[RowData] =>
-        for (child <- unionTransformation.getInputs) {
-          setDebugLoggingConverter(tableConfig, relDataType, child)
-        }
-        return
-      case _ => throw new FlinkRuntimeException("Unexpected transformation: " + transformation
-        + ", this is bug, please raise an Oncall for this.")
+      case _ =>
+        return // any unknown transformation will be ignored.
     }
     if (operatorFactory != null) {
       setDebugLoggingConverter(tableConfig, relDataType, operatorFactory)
