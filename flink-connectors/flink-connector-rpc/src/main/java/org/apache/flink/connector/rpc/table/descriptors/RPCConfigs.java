@@ -101,7 +101,7 @@ public class RPCConfigs {
 	public static final ConfigOption<Integer> LOOKUP_ASYNC_CONCURRENCY = ConfigOptions
 		.key("lookup.async.concurrency")
 		.intType()
-		.defaultValue(5)
+		.defaultValue(1)
 		.withDescription("Optional. The number of concurrent threads for async lookup.");
 
 	public static final ConfigOption<FailureHandleStrategy> LOOKUP_FAILURE_HANDLE_STRATEGY = ConfigOptions
