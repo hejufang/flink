@@ -116,6 +116,12 @@ public class RocksDBConfigurableOptions implements Serializable {
 			.defaultValue(true)
 			.withDescription("Whether rocksdb uses fsync mode.");
 
+	public static final ConfigOption<Integer> STATS_DUMP_PERIOD_SECONDS =
+		key("state.backend.rocksdb.stats.dump.period.seconds")
+			.intType()
+			.noDefaultValue()
+			.withDescription("Period of rocksdb dump status statistics.");
+
 	//--------------------------------------------------------------------------
 	// Provided configurable ColumnFamilyOptions within Flink
 	//--------------------------------------------------------------------------

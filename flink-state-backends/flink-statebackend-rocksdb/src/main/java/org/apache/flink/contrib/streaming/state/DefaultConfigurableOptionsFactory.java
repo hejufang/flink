@@ -52,6 +52,7 @@ import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOption
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_SIZE_LEVEL_BASE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MAX_WRITE_BUFFER_NUMBER;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.MIN_WRITE_BUFFER_NUMBER_TO_MERGE;
+import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.STATS_DUMP_PERIOD_SECONDS;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.TARGET_FILE_SIZE_BASE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.USE_DYNAMIC_LEVEL_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.USE_FSYNC;
@@ -91,6 +92,10 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 
 		if (isOptionConfigured(USE_FSYNC)) {
 			currentOptions.setUseFsync(isUseFsync());
+		}
+
+		if (isOptionConfigured(STATS_DUMP_PERIOD_SECONDS)) {
+			currentOptions.setStatsDumpPeriodSec(getStatsDumpPeriodSec());
 		}
 
 		return currentOptions;
@@ -383,6 +388,19 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		return this;
 	}
 
+	// --------------------------------------------------------------------------
+	// Period of Rocksdb dump status.
+	// --------------------------------------------------------------------------
+
+	private int getStatsDumpPeriodSec() {
+		return Math.max(Integer.parseInt(getInternal(STATS_DUMP_PERIOD_SECONDS.key())), 0);
+	}
+
+	public DefaultConfigurableOptionsFactory setStatsDumpPeriodSec(int statsDumpPeriodSec) {
+		setInternal(STATS_DUMP_PERIOD_SECONDS.key(), Integer.toString(Math.max(statsDumpPeriodSec, 0)));
+		return this;
+	}
+
 	private static final ConfigOption<?>[] CANDIDATE_CONFIGS = new ConfigOption<?>[] {
 		// configurable DBOptions
 		MAX_BACKGROUND_THREADS,
@@ -391,6 +409,7 @@ public class DefaultConfigurableOptionsFactory implements ConfigurableRocksDBOpt
 		MAX_BACKGROUND_FLUSH_THREADS,
 		MAX_BACKGROUND_COMPACTION_THREADS,
 		USE_FSYNC,
+		STATS_DUMP_PERIOD_SECONDS,
 
 		// configurable ColumnFamilyOptions
 		COMPACTION_STYLE,

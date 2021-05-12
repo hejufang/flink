@@ -451,6 +451,7 @@ public class RocksDBStateBackendConfigTest {
 			.setMaxBackgroundThreads(4)
 			.setMaxOpenFiles(-1)
 			.setLogLevel(InfoLogLevel.DEBUG_LEVEL)
+			.setStatsDumpPeriodSec(300)
 			.setCompactionStyle(CompactionStyle.LEVEL)
 			.setUseDynamicLevelSize(true)
 			.setTargetFileSizeBase("4MB")
@@ -467,6 +468,7 @@ public class RocksDBStateBackendConfigTest {
 			DBOptions dbOptions = optionsContainer.getDbOptions();
 			assertEquals(-1, dbOptions.maxOpenFiles());
 			assertEquals(InfoLogLevel.DEBUG_LEVEL, dbOptions.infoLogLevel());
+			assertEquals(300, dbOptions.statsDumpPeriodSec());
 
 			ColumnFamilyOptions columnOptions = optionsContainer.getColumnOptions();
 			assertEquals(CompactionStyle.LEVEL, columnOptions.compactionStyle());
@@ -509,6 +511,7 @@ public class RocksDBStateBackendConfigTest {
 		// verify legal configuration
 		{
 			configuration.setString(RocksDBConfigurableOptions.LOG_LEVEL.key(), "DEBUG_LEVEL");
+			configuration.setString(RocksDBConfigurableOptions.STATS_DUMP_PERIOD_SECONDS.key(), "300");
 			configuration.setString(RocksDBConfigurableOptions.COMPACTION_STYLE.key(), "level");
 			configuration.setString(RocksDBConfigurableOptions.USE_DYNAMIC_LEVEL_SIZE.key(), "TRUE");
 			configuration.setString(RocksDBConfigurableOptions.TARGET_FILE_SIZE_BASE.key(), "8 mb");
@@ -529,6 +532,7 @@ public class RocksDBStateBackendConfigTest {
 				DBOptions dbOptions = optionsContainer.getDbOptions();
 				assertEquals(-1, dbOptions.maxOpenFiles());
 				assertEquals(InfoLogLevel.DEBUG_LEVEL, dbOptions.infoLogLevel());
+				assertEquals(300, dbOptions.statsDumpPeriodSec());
 
 				ColumnFamilyOptions columnOptions = optionsContainer.getColumnOptions();
 				assertEquals(CompactionStyle.LEVEL, columnOptions.compactionStyle());
