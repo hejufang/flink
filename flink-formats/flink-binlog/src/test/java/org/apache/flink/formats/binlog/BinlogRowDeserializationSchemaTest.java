@@ -49,6 +49,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -63,7 +64,7 @@ public class BinlogRowDeserializationSchemaTest {
 		RowType rowType = createRowType();
 		BinlogRowDeserializationSchema schema =
 			new BinlogRowDeserializationSchema(rowType, null, "flink_type_test",
-				false, BinlogOptions.BINLOG_HEADER, BinlogOptions.BINLOG_BODY);
+				false, BinlogOptions.BINLOG_HEADER, BinlogOptions.BINLOG_BODY, new HashSet<>());
 		schema.open(null);
 		RowData rowData = schema.deserialize(TEST_MESSAGE);
 		int fieldNum = 2;

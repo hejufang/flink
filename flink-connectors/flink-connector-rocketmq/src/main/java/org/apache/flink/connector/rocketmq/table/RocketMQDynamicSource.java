@@ -30,6 +30,7 @@ import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Collector;
@@ -121,7 +122,7 @@ public class RocketMQDynamicSource implements ScanTableSource {
 		private RowData addMetadata(MessageExt record, RowData rowData) {
 			GenericRowData oldRowData = (GenericRowData) rowData;
 			GenericRowData newRowData = new GenericRowData(outFieldNum);
-			for (int i = 0, j = 0; i < rowData.getArity(); i++) {
+			for (int i = 0, j = 0; i < outFieldNum; i++) {
 				RocketMQMetadata metadata = (RocketMQMetadata) this.metadataMap.get(i);
 				if (metadata != null) {
 					newRowData.setField(i, getMetadata(record, metadata));
@@ -129,7 +130,7 @@ public class RocketMQDynamicSource implements ScanTableSource {
 					newRowData.setField(i, oldRowData.getField(j++));
 				}
 			}
-			return rowData;
+			return newRowData;
 		}
 
 		private Object getMetadata(MessageExt record, RocketMQMetadata metadata) {
@@ -141,9 +142,9 @@ public class RocketMQDynamicSource implements ScanTableSource {
 				case QUEUE_ID:
 					return (long) record.getMessageQueue().getQueueId();
 				case BROKER_NAME:
-					return record.getMessageQueue().getBrokerName();
+					return StringData.fromString(record.getMessageQueue().getBrokerName());
 				case MESSAGE_ID:
-					return record.getMsgId();
+					return StringData.fromString(record.getMsgId());
 				default:
 					throw new FlinkRuntimeException("Unsupported metadata: " + metadata.getMetadata());
 			}

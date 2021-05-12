@@ -31,12 +31,15 @@ import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.factories.DeserializationFormatFactory;
 import org.apache.flink.table.factories.DynamicTableFactory;
+import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 
 import com.bytedance.binlog.DRCEntry;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -71,6 +74,7 @@ public class BinlogRowFormatFactory implements
 			ReadableConfig formatOptions) {
 		final String tableName = getTargetTable(formatOptions);
 		final boolean ignoreErrors = formatOptions.get(IGNORE_PARSER_ERROR);
+		final Optional<String> metaColumns = formatOptions.getOptional(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
 			public DeserializationSchema<RowData> createRuntimeDecoder(
@@ -83,6 +87,7 @@ public class BinlogRowFormatFactory implements
 						.setResultTypeInfo((TypeInformation<RowData>) context.createTypeInformation(producedDataType))
 						.setBinlogBodyName(getBinlogBodyName())
 						.setBinlogHeaderName(getBinlogHeaderName())
+						.setIgnoreColumns(parseMetadataColumn(metaColumns))
 						.build();
 			}
 
@@ -118,5 +123,21 @@ public class BinlogRowFormatFactory implements
 
 	protected String getTargetTable(ReadableConfig formatOptions) {
 		return formatOptions.get(TARGET_TABLE);
+	}
+
+	private Set<String> parseMetadataColumn(Optional<String> columnsOption) {
+		Set<String> metaSet = new HashSet<>();
+		columnsOption.ifPresent(
+			metadataColumns -> Arrays.stream(metadataColumns.split(",")).forEach(
+				metadata -> {
+					String[] metaAndColumn = metadata.split("=");
+					if (metaAndColumn.length != 2) {
+						return;
+					}
+					metaSet.add(metaAndColumn[1]);
+				}
+			)
+		);
+		return metaSet;
 	}
 }

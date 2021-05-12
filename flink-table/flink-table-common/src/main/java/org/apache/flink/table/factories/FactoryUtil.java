@@ -588,7 +588,11 @@ public final class FactoryUtil {
 				.map(formatFactory -> {
 					String formatPrefix = formatPrefix(formatFactory, formatOption);
 					try {
-						return formatFactory.createDecodingFormat(context, projectOptions(formatPrefix));
+						Configuration configuration = projectOptions(formatPrefix).clone();
+						if (allOptions.contains(SOURCE_METADATA_COLUMNS)) {
+							configuration.set(SOURCE_METADATA_COLUMNS, allOptions.get(SOURCE_METADATA_COLUMNS));
+						}
+						return formatFactory.createDecodingFormat(context, configuration);
 					} catch (Throwable t) {
 						throw new ValidationException(
 							String.format(
@@ -736,7 +740,7 @@ public final class FactoryUtil {
 			}
 		}
 
-		private ReadableConfig projectOptions(String formatPrefix) {
+		private DelegatingConfiguration projectOptions(String formatPrefix) {
 			return new DelegatingConfiguration(
 				allOptions,
 				formatPrefix);

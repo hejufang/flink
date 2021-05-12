@@ -43,7 +43,9 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.formats.binlog.BinlogOptions.AFTER_PREFIX;
 import static org.apache.flink.formats.binlog.BinlogOptions.BEFORE_PREFIX;
@@ -93,8 +95,9 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 			String targetTable,
 			boolean ignoreParseErrors,
 			String binlogHeaderName,
-			String binlogBodyName) {
-		this.rowType = rowType;
+			String binlogBodyName,
+			Set<String> ignoreColumns) {
+		this.rowType = createRowType(rowType, ignoreColumns);
 		this.resultTypeInfo = resultTypeInfo;
 		this.ignoreParseErrors = ignoreParseErrors;
 		if (targetTable != null) {
@@ -269,6 +272,12 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 		}
 	}
 
+	private RowType createRowType(RowType rowType, Set<String> ignoreColumnSet) {
+		List<RowType.RowField> fields = rowType.getFields().stream()
+			.filter(field -> !ignoreColumnSet.contains(field.getName())).collect(Collectors.toList());
+		return new RowType(rowType.isNullable(), fields);
+	}
+
 	/**
 	 * BinlogRowDeserializationSchema builder.
 	 */
@@ -279,6 +288,7 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 		private boolean ignoreParseErrors;
 		private String binlogHeaderName;
 		private String binlogBodyName;
+		private Set<String> ignoreColumns;
 
 		private Builder() {
 		}
@@ -313,9 +323,14 @@ public class BinlogRowDeserializationSchema implements DeserializationSchema<Row
 			return this;
 		}
 
+		public Builder setIgnoreColumns(Set<String> ignoreColumns) {
+			this.ignoreColumns = ignoreColumns;
+			return this;
+		}
+
 		public BinlogRowDeserializationSchema build() {
-			return new BinlogRowDeserializationSchema(rowType,
-				resultTypeInfo, targetTable, ignoreParseErrors, binlogHeaderName, binlogBodyName);
+			return new BinlogRowDeserializationSchema(rowType, resultTypeInfo,
+				targetTable, ignoreParseErrors, binlogHeaderName, binlogBodyName, ignoreColumns);
 		}
 	}
 }
