@@ -131,7 +131,6 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	@Rule
 	public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-	public boolean enableIncrementalCheckpointing;
 	public RocksDBStateBatchConfig batchConfig;
 	// Store it because we need it for the cleanup test.
 	private String dbPath;
@@ -156,12 +155,16 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		return rocksDBStateBackendEnum;
 	}
 
+	public boolean isEnableIncrementalCheckpointing() {
+		return rocksDBStateBackendEnum != RocksDBStateBackendEnum.FULL;
+	}
+
 	@Override
 	protected RocksDBStateBackend getStateBackend() throws IOException {
 		getConfiguration();
 		dbPath = tempFolder.newFolder().getAbsolutePath();
 		String checkpointPath = tempFolder.newFolder().toURI().toString();
-		RocksDBStateBackend backend = new RocksDBStateBackend(new FsStateBackend(checkpointPath), enableIncrementalCheckpointing);
+		RocksDBStateBackend backend = new RocksDBStateBackend(new FsStateBackend(checkpointPath), isEnableIncrementalCheckpointing());
 		backend.setBatchConfig(batchConfig);
 		Configuration configuration = new Configuration();
 		configuration.set(RocksDBOptions.TIMER_SERVICE_FACTORY, RocksDBStateBackend.PriorityQueueStateType.ROCKSDB);
@@ -198,15 +201,12 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	private void getConfiguration() {
 		switch (getRocksDBStateBackendEnum()) {
 			case FULL:
-				enableIncrementalCheckpointing = false;
 				batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
 				break;
 			case INCREMENTAL:
-				enableIncrementalCheckpointing = true;
 				batchConfig = RocksDBStateBatchConfig.createNoBatchingConfig();
 				break;
 			case INCREMENTAL_BATCH_FIX_SIZE_SEQ:
-				enableIncrementalCheckpointing = true;
 				batchConfig = new RocksDBStateBatchConfig(RocksDBStateBatchMode.FIX_SIZE_WITH_SEQUENTIAL_FILE_NUMBER, 128 * 1024 * 1024L);
 				break;
 			default:
@@ -234,7 +234,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				spy(db),
 				defaultCFHandle,
 				optionsContainer.getColumnOptions())
-			.setEnableIncrementalCheckpointing(enableIncrementalCheckpointing)
+			.setEnableIncrementalCheckpointing(isEnableIncrementalCheckpointing())
 			.setSstBatchConfig(batchConfig)
 			.build();
 
@@ -300,7 +300,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 				db,
 				defaultCFHandle,
 				columnFamilyOptions)
-				.setEnableIncrementalCheckpointing(enableIncrementalCheckpointing)
+				.setEnableIncrementalCheckpointing(isEnableIncrementalCheckpointing())
 				.build();
 
 			ValueStateDescriptor<String> stubState1 =
@@ -332,7 +332,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 			RocksDB spyDB = keyedStateBackend.db;
 
-			if (!enableIncrementalCheckpointing) {
+			if (!isEnableIncrementalCheckpointing()) {
 				verify(spyDB, times(1)).getSnapshot();
 				verify(spyDB, times(0)).releaseSnapshot(any(Snapshot.class));
 			}
@@ -465,7 +465,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	@Test
 	public void testFailureRunningSnapshot() throws Exception {
 		setupRocksKeyedStateBackend();
-		if (!enableIncrementalCheckpointing) {
+		if (!isEnableIncrementalCheckpointing()) {
 			return;
 		}
 
@@ -583,7 +583,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 
 	@Test
 	public void testSharedIncrementalStateDeRegistration() throws Exception {
-		if (enableIncrementalCheckpointing) {
+		if (isEnableIncrementalCheckpointing()) {
 			AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE);
 			try {
 				ValueStateDescriptor<String> kvId =
@@ -769,7 +769,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		assertNotNull(null, keyedStateBackend.db);
 		RocksDB spyDB = keyedStateBackend.db;
 
-		if (!enableIncrementalCheckpointing) {
+		if (!isEnableIncrementalCheckpointing()) {
 			verify(spyDB, times(1)).getSnapshot();
 			verify(spyDB, times(1)).releaseSnapshot(any(Snapshot.class));
 		}
