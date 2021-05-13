@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -143,6 +144,7 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 	}
 
 	private void doLookup(String sql, Row keyRow) {
+		List<Row> rows = Collections.emptyList();
 		for (int retry = 1; retry <= lookupOptions.getMaxRetryTimes(); retry++) {
 			lookupRequestPerSecond.markEvent();
 
@@ -151,11 +153,11 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 				QueryResponse response = byteSQLDB.rawQuery(sql);
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
-				List<Row> rows = ByteSQLUtils.convertResponseToRows(response, rowConverter);
-				rows.forEach(this::collect);
+				rows = ByteSQLUtils.convertResponseToRows(response, rowConverter);
 				if (cache != null) {
 					cache.put(keyRow, rows);
 				}
+				// break instead of return to make sure the result is collected outside this loop
 				break;
 			} catch (ByteSQLException e) {
 				lookupFailurePerSecond.markEvent();
@@ -167,6 +169,12 @@ public class ByteSQLLookupFunction extends TableFunction<Row> {
 			} catch (SQLException e) {
 				throw new RuntimeException("Type in Flink query is not compatible with type in ByteSQL.", e);
 			}
+		}
+
+		for (Row row : rows) {
+			// should be outside of retry loop.
+			// else the chained downstream exception will be caught.
+			collect(row);
 		}
 	}
 

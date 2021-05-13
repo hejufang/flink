@@ -182,6 +182,7 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 
 	private void doLookup(PreparedStatement statement, Object... keys) {
 		Row keyRow = Row.of(keys);
+		ArrayList<Row> rows = new ArrayList<>();
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			lookupRequestPerSecond.markEvent();
 
@@ -195,24 +196,19 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 					long requestDelay = System.currentTimeMillis() - startRequest;
 					requestDelayMs.update(requestDelay);
 
-					if (cache == null) {
-						while (resultSet.next()) {
-							collect(convertToRowFromResultSet(resultSet));
+					while (resultSet.next()) {
+						Row row = convertToRowFromResultSet(resultSet);
+						rows.add(row);
+					}
+					rows.trimToSize();
+
+					if (cache != null) {
+						if (!rows.isEmpty() || cacheNullValue) {
+							cache.put(keyRow, rows);
 						}
-					} else {
-						ArrayList<Row> rows = new ArrayList<>();
-						while (resultSet.next()) {
-							Row row = convertToRowFromResultSet(resultSet);
-							rows.add(row);
-							collect(row);
-						}
-						rows.trimToSize();
-						if (!cacheNullValue && rows.isEmpty()) {
-							continue;
-						}
-						cache.put(keyRow, rows);
 					}
 				}
+				// break instead of return to make sure the result is collected outside this loop
 				break;
 			} catch (SQLException e) {
 				lookupFailurePerSecond.markEvent();
@@ -241,6 +237,12 @@ public class JDBCLookupFunction extends TableFunction<Row> {
 					throw new RuntimeException(e1);
 				}
 			}
+		}
+
+		for (Row row : rows) {
+			// should be outside of retry loop.
+			// else the chained downstream exception will be caught.
+			collect(row);
 		}
 	}
 

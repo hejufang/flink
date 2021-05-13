@@ -74,7 +74,7 @@ public class RPCLookupFunction extends AbstractRPCLookupFunction {
 				return;
 			}
 		}
-
+		Row result = null;
 		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {
 			try {
 				updateLookupRequestPerSecondMetric();
@@ -89,11 +89,11 @@ public class RPCLookupFunction extends AbstractRPCLookupFunction {
 				updateRequestDelayMetric(requestDelay);
 
 				Row responseValue = (Row) deserializationRuntimeConverter.convert(responseObject);
-				Row result = assembleRow(lookupFieldValue, responseValue);
-				collect(result);
+				result = assembleRow(lookupFieldValue, responseValue);
 				if (cache != null) {
 					cache.put(requestValue, result);
 				}
+				// break instead of return to make sure the result is collected outside this loop
 				break;
 			} catch (Exception e) {
 				updateLookupFailurePerSecondMetric();
@@ -123,6 +123,11 @@ public class RPCLookupFunction extends AbstractRPCLookupFunction {
 					throw new FlinkRuntimeException(e1);
 				}
 			}
+		}
+		if (result != null) {
+			// should be outside of retry loop.
+			// else the chained downstream exception will be caught.
+			collect(result);
 		}
 	}
 }

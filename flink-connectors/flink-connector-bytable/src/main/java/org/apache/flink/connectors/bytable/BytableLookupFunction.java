@@ -104,20 +104,20 @@ public class BytableLookupFunction extends TableFunction<Row> {
 				return;
 			}
 		}
-
+		Row row = null;
 		for (int retry = 1; retry <= bytableLookupOptions.getMaxRetryTimes(); retry++) {
 			lookupRequestPerSecond.markEvent();
 
 			try {
 				long startRequest = System.currentTimeMillis();
-				Row row = readHelper.getReadResult(table, keys[0]);
+				row = readHelper.getReadResult(table, keys[0]);
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
 
-				collect(row);
 				if (cache != null) {
 					cache.put(keyRow, row);
 				}
+				// break instead of return to make sure the result is collected outside this loop
 				break;
 			} catch (Exception e) {
 				lookupFailurePerSecond.markEvent();
@@ -132,6 +132,11 @@ public class BytableLookupFunction extends TableFunction<Row> {
 					throw new RuntimeException(e1);
 				}
 			}
+		}
+		if (row != null) {
+			// should be outside of retry loop.
+			// else the chained downstream exception will be caught.
+			collect(row);
 		}
 	}
 

@@ -224,11 +224,11 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			rateLimiter.acquire(1);
 		}
 
+		Row row = null;
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
 			try {
 				lookupRequestPerSecond.markEvent();
 
-				Row row;
 				String key = String.valueOf(keys[0]);
 
 				long startRequest = System.currentTimeMillis();
@@ -261,9 +261,6 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				long requestDelay = System.currentTimeMillis() - startRequest;
 				requestDelayMs.update(requestDelay);
 
-				if (row != null) {
-					collect(row);
-				}
 				if (cache != null) {
 					if (row != null) {
 						cache.put(keyRow, row);
@@ -271,7 +268,8 @@ public class RedisLookupFunction extends TableFunction<Row> {
 						cache.put(keyRow, EMPTY_ROW);
 					}
 				}
-				return;
+				// break instead of return to make sure the result is collected outside this loop
+				break;
 			} catch (Exception e) {
 				lookupFailurePerSecond.markEvent();
 
@@ -293,6 +291,12 @@ public class RedisLookupFunction extends TableFunction<Row> {
 					throw new RuntimeException(e1);
 				}
 			}
+		}
+
+		if (row != null) {
+			// should be outside of retry loop.
+			// else the chained downstream exception will be caught.
+			collect(row);
 		}
 	}
 
