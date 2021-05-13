@@ -50,7 +50,10 @@ import org.apache.flink.runtime.state.StateSerializerProvider;
 import org.apache.flink.runtime.state.StateStatsTracker;
 import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.metainfo.StateMetaInfoSnapshot;
+import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
+import org.apache.flink.util.Preconditions;
 
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -69,7 +72,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -99,6 +104,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 	private long writeKeyDurationInMs = 0;
 	private long downloadSizeInBytes = 0;
 	private final StateStatsTracker statsTracker;
+	private final boolean discardStatesIfRocksdbRecoverFail;
 
 	public RocksDBIncrementalRestoreOperation(
 		String operatorIdentifier,
@@ -117,7 +123,8 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		MetricGroup metricGroup,
 		@Nonnull Collection<KeyedStateHandle> restoreStateHandles,
 		@Nonnull RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
-		StateStatsTracker statsTracker) {
+		StateStatsTracker statsTracker,
+		boolean discardStatesIfRocksdbRecoverFail) {
 		super(keyGroupRange,
 			keyGroupPrefixBytes,
 			numberOfTransferringThreads,
@@ -138,6 +145,7 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 		this.lastCompletedCheckpointId = -1L;
 		this.backendUID = UUID.randomUUID();
 		this.statsTracker = statsTracker;
+		this.discardStatesIfRocksdbRecoverFail = discardStatesIfRocksdbRecoverFail;
 	}
 
 	/**
@@ -146,33 +154,58 @@ public class RocksDBIncrementalRestoreOperation<K> extends AbstractRocksDBRestor
 	@Override
 	public RocksDBRestoreResult restore() throws Exception {
 
-		if (restoreStateHandles == null || restoreStateHandles.isEmpty()) {
-			return null;
+		try {
+			if (restoreStateHandles == null || restoreStateHandles.isEmpty()) {
+				return null;
+			}
+
+			final KeyedStateHandle theFirstStateHandle = restoreStateHandles.iterator().next();
+
+			boolean isRescaling = (restoreStateHandles.size() > 1 ||
+				!Objects.equals(theFirstStateHandle.getKeyGroupRange(), keyGroupRange));
+
+			if (isRescaling) {
+				restoreWithRescaling(restoreStateHandles);
+			} else {
+				restoreWithoutRescaling(theFirstStateHandle);
+			}
+
+			statsTracker.reportRocksDBCompletedRestore(new WarehouseRocksDBRestoreMessage(
+				lastCompletedCheckpointId,
+				numberOfTransferringThreads,
+				isRescaling ? 1 : 0,
+				downloadFileNum,
+				writeKeyNum,
+				downloadDurationInMs,
+				writeKeyDurationInMs,
+				downloadSizeInBytes));
+
+			return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
+				nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles);
+		} catch (Exception e) {
+			if (discardStatesIfRocksdbRecoverFail && ExceptionUtils.findThrowable(e, RocksDBException.class).isPresent()) {
+				LOG.warn("Rocksdb is abnormal when recovering, try to discard all the states and recover.", e);
+				// clean up all the data before
+				List<ColumnFamilyOptions> columnFamilyOptions = new ArrayList<>(columnFamilyDescriptors.size() + 1);
+				columnFamilyDescriptors.forEach((cfd) -> columnFamilyOptions.add(cfd.getOptions()));
+				RocksDBOperationUtils.addColumnFamilyOptionsToCloseLater(columnFamilyOptions, defaultColumnFamilyHandle);
+				IOUtils.closeAll(columnFamilyOptions);
+				IOUtils.closeAll(columnFamilyHandles);
+				IOUtils.closeAll(Arrays.asList(nativeMetricMonitor, db));
+				kvStateInformation.clear();
+				ttlCompactFiltersManager.disposeAndClearRegisteredCompactionFactories();
+				FileUtils.deleteDirectory(instanceRocksDBPath);
+				Preconditions.checkArgument(!instanceRocksDBPath.exists(), "instanceRocksDBPath exist");
+				columnFamilyDescriptors = Collections.emptyList();
+				restoredSstFiles.clear();
+				backendUID = UUID.randomUUID();
+
+				openDB();
+				return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
+					nativeMetricMonitor, -1, backendUID, restoredSstFiles);
+			}
+			throw e;
 		}
-
-		final KeyedStateHandle theFirstStateHandle = restoreStateHandles.iterator().next();
-
-		boolean isRescaling = (restoreStateHandles.size() > 1 ||
-			!Objects.equals(theFirstStateHandle.getKeyGroupRange(), keyGroupRange));
-
-		if (isRescaling) {
-			restoreWithRescaling(restoreStateHandles);
-		} else {
-			restoreWithoutRescaling(theFirstStateHandle);
-		}
-
-		statsTracker.reportRocksDBCompletedRestore(new WarehouseRocksDBRestoreMessage(
-			lastCompletedCheckpointId,
-			numberOfTransferringThreads,
-			isRescaling ? 1 : 0,
-			downloadFileNum,
-			writeKeyNum,
-			downloadDurationInMs,
-			writeKeyDurationInMs,
-			downloadSizeInBytes));
-
-		return new RocksDBRestoreResult(this.db, defaultColumnFamilyHandle,
-			nativeMetricMonitor, lastCompletedCheckpointId, backendUID, restoredSstFiles);
 	}
 
 	/**

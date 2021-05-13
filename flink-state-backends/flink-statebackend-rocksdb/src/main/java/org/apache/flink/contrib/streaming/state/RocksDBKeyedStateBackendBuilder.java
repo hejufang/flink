@@ -112,6 +112,10 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	private boolean enableIncrementalCheckpointing;
 	/** True if ttl compaction filter is enabled. */
 	private boolean enableTtlCompactionFilter;
+
+	/** True if the discard state is allowed when rocksdb fails to recover. */
+	private boolean discardStatesIfRocksdbRecoverFail;
+
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
 	private int maxRetryTimes;
@@ -245,6 +249,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setMaxCacheSize(int maxCacheSize) {
 		this.maxCacheSize = maxCacheSize;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setDiscardStatesIfRocksdbRecoverFail(boolean discardStatesIfRocksdbRecoverFail) {
+		this.discardStatesIfRocksdbRecoverFail = discardStatesIfRocksdbRecoverFail;
 		return this;
 	}
 
@@ -425,7 +434,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				metricGroup,
 				restoreStateHandles,
 				ttlCompactFiltersManager,
-				statsTracker);
+				statsTracker,
+				discardStatesIfRocksdbRecoverFail);
 		} else {
 			return new RocksDBFullRestoreOperation<>(
 				keyGroupRange,

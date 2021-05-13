@@ -91,4 +91,10 @@ public class RocksDBOptions {
 				"The default options factory is %s, and it would read the configured options which provided in 'RocksDBConfigurableOptions'.",
 				DefaultConfigurableOptionsFactory.class.getName()));
 
+	public static final ConfigOption<Boolean> DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL = ConfigOptions
+		.key("state.backend.rocksdb.restore.discard-states-if-rocksdb-recover-fail")
+		.defaultValue(false)
+		.withDescription(String.format(
+				"If this value is set to true, all corresponding states will be automatically discarded when " +
+				"rocksdb recovery fails."));
 }

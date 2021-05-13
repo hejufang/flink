@@ -33,6 +33,7 @@ import org.apache.flink.runtime.operators.testutils.DummyEnvironment;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.AbstractKeyedStateBackend;
 import org.apache.flink.runtime.state.AbstractStateBackend;
+import org.apache.flink.runtime.state.CheckpointStreamFactory;
 import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyedStateHandle;
@@ -45,9 +46,11 @@ import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
+import org.apache.flink.runtime.state.memory.ByteStreamStateHandle;
 import org.apache.flink.runtime.state.ttl.TtlTimeProvider;
 import org.apache.flink.runtime.util.BlockerCheckpointStreamFactory;
 import org.apache.flink.runtime.util.BlockingCheckpointOutputStream;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
 import org.apache.commons.io.FileUtils;
@@ -67,6 +70,7 @@ import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.RocksObject;
 import org.rocksdb.Snapshot;
@@ -87,6 +91,7 @@ import java.util.concurrent.RunnableFuture;
 import static junit.framework.TestCase.assertNotNull;
 import static org.apache.flink.contrib.streaming.state.RocksDBKeyedStateBackendBuilder.DB_INSTANCE_DIR_STRING;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -130,6 +135,9 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 	private ColumnFamilyOptions columnOptions = null;
 	private DBOptions dbOptions = null;
 
+	// Config added to configuration
+	private boolean discardStatesIfRocksdbRecoverFail;
+
 	public void prepareRocksDB() throws Exception {
 		instanceBasePath = tempFolder.newFolder();
 		instanceBasePath.mkdirs();
@@ -151,6 +159,7 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		configuration.setString(
 			RocksDBOptions.TIMER_SERVICE_FACTORY,
 			RocksDBStateBackend.PriorityQueueStateType.ROCKSDB.toString());
+		configuration.setBoolean(RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL, discardStatesIfRocksdbRecoverFail);
 		backend = backend.configure(configuration, Thread.currentThread().getContextClassLoader());
 		backend.setDbStoragePath(dbPath);
 		return backend;
@@ -553,6 +562,81 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 			} finally {
 				IOUtils.closeQuietly(backend);
 				backend.dispose();
+			}
+		}
+	}
+
+	@Test
+	public void testDiscardStatesIfIncrementalRecoverError() throws Exception {
+		if (enableIncrementalCheckpointing) {
+			try {
+				CheckpointStreamFactory streamFactory = createStreamFactory();
+
+				SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+
+				// use an IntSerializer at first
+				AbstractKeyedStateBackend<Integer> backend = createKeyedBackend(IntSerializer.INSTANCE);
+
+				ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+				ValueState<String> state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				// write some state
+				backend.setCurrentKey(1);
+				state.update("1");
+				backend.setCurrentKey(2);
+				state.update("2");
+
+				// draw a snapshot
+				IncrementalRemoteKeyedStateHandle snapshot1 = (IncrementalRemoteKeyedStateHandle) runSnapshot(
+					backend.snapshot(682375462378L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+
+				backend.dispose();
+
+				assertEquals(1, snapshot1.getSharedState().size());
+				Map.Entry<StateHandleID, StreamStateHandle> entry = snapshot1.getSharedState().entrySet().stream().findFirst().orElse(null);
+				assertTrue(entry != null && entry.getValue() instanceof ByteStreamStateHandle);
+
+				//verify recover success.
+				backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
+				state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				backend.setCurrentKey(1);
+				assertEquals("1", state.value());
+				backend.setCurrentKey(2);
+				assertEquals("2", state.value());
+				assertEquals(2, backend.numKeyValueStateEntries());
+				backend.dispose();
+
+				// prepare abnormal data.
+				ByteStreamStateHandle byteStreamStateHandle = (ByteStreamStateHandle) entry.getValue();
+				byte[] wrongData = Arrays.copyOfRange(byteStreamStateHandle.getData(), 0, byteStreamStateHandle.getData().length - 2);
+				ByteStreamStateHandle errorStateHandle = new ByteStreamStateHandle(byteStreamStateHandle.getHandleName(), wrongData);
+				entry.setValue(errorStateHandle);
+
+				//verify recover failed.
+				try {
+					discardStatesIfRocksdbRecoverFail = false;
+					backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
+					fail("backend should failed to recover");
+				} catch (Exception e) {
+					assertTrue(ExceptionUtils.findThrowable(e, RocksDBException.class).isPresent());
+				}
+
+				//verify that all states are discarded for recovery
+				discardStatesIfRocksdbRecoverFail = true;
+				backend = restoreKeyedBackend(IntSerializer.INSTANCE, snapshot1);
+				state = backend.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				backend.setCurrentKey(1);
+				assertNull(state.value());
+				backend.setCurrentKey(2);
+				assertNull(state.value());
+				assertEquals(0, backend.numKeyValueStateEntries());
+				backend.dispose();
+			} finally {
+				discardStatesIfRocksdbRecoverFail = false;
 			}
 		}
 	}
