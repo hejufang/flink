@@ -112,6 +112,9 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	/** Configuration for state file batching. */
 	private RocksDBStateBatchConfig batchConfig;
 
+	/** True if the discard state is allowed when rocksdb fails to recover. */
+	private boolean discardStatesIfRocksdbRecoverFail;
+
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
@@ -243,6 +246,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	RocksDBKeyedStateBackendBuilder<K> setDataTransferMaxRetryTimes(int maxRetryTimes) {
 		this.maxRetryTimes = maxRetryTimes;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setDiscardStatesIfRocksdbRecoverFail(boolean discardStatesIfRocksdbRecoverFail) {
+		this.discardStatesIfRocksdbRecoverFail = discardStatesIfRocksdbRecoverFail;
 		return this;
 	}
 
@@ -433,7 +441,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 				metricGroup,
 				restoreStateHandles,
 				ttlCompactFiltersManager,
-				writeBatchSize);
+				writeBatchSize,
+				discardStatesIfRocksdbRecoverFail);
 		} else {
 			return new RocksDBFullRestoreOperation<>(
 				keyGroupRange,

@@ -79,6 +79,7 @@ import java.util.UUID;
 import static org.apache.flink.contrib.streaming.state.RocksDBConfigurableOptions.WRITE_BATCH_SIZE;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.CHECKPOINT_TRANSFER_THREAD_NUM;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DATA_TRANSFER_MAX_RETRY_TIMES;
+import static org.apache.flink.contrib.streaming.state.RocksDBOptions.DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL;
 import static org.apache.flink.contrib.streaming.state.RocksDBOptions.TIMER_SERVICE_FACTORY;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -183,6 +184,9 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 	private long writeBatchSize;
 
 	private int nThreadOfOperatorStateBackend;
+
+	/** True if the discard state is allowed when rocksdb fails to recover. */
+	private TernaryBoolean discardStatesIfRocksdbRecoverFail = TernaryBoolean.UNDEFINED;
 
 	// ------------------------------------------------------------------------
 
@@ -346,6 +350,12 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			this.writeBatchSize = config.get(WRITE_BATCH_SIZE).getBytes();
 		} else {
 			this.writeBatchSize = original.writeBatchSize;
+		}
+
+		if (original.discardStatesIfRocksdbRecoverFail == TernaryBoolean.UNDEFINED) {
+			this.discardStatesIfRocksdbRecoverFail = TernaryBoolean.fromBoolean(config.get(DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL));
+		} else {
+			this.discardStatesIfRocksdbRecoverFail = original.discardStatesIfRocksdbRecoverFail;
 		}
 
 		this.maxRetryTimes = config.get(DATA_TRANSFER_MAX_RETRY_TIMES);
@@ -656,6 +666,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setDataTransferMaxRetryTimes(getDataTransferMaxRetryTimes())
 			.setNativeMetricOptions(resourceContainer.getMemoryWatcherOptions(defaultMetricOptions))
 			.setWriteBatchSize(getWriteBatchSize())
+			.setDiscardStatesIfRocksdbRecoverFail(getDiscardStatesIfRocksdbRecoverFail())
 			.setStatsTracker(statsTracker);
 		return builder.build();
 	}
@@ -1012,6 +1023,14 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 				"state file batching requires enabling incremental checkpointing");
 		}
 		this.batchConfig = batchConfig;
+	}
+
+	public boolean getDiscardStatesIfRocksdbRecoverFail() {
+		return discardStatesIfRocksdbRecoverFail.getOrDefault(false);
+	}
+
+	public void setDiscardStatesIfRocksdbRecoverFail(boolean discardStatesIfRocksdbRecoverFail) {
+		this.discardStatesIfRocksdbRecoverFail = TernaryBoolean.fromBoolean(discardStatesIfRocksdbRecoverFail);
 	}
 
 	// ------------------------------------------------------------------------

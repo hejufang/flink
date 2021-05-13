@@ -139,4 +139,12 @@ public class RocksDBOptions {
 				"compression dictionary blocks. This option only has an effect when '%s' or '%s' are configured.",
 				USE_MANAGED_MEMORY.key(),
 				FIX_PER_SLOT_MEMORY_SIZE.key()));
+
+	public static final ConfigOption<Boolean> DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL = ConfigOptions
+		.key("state.backend.rocksdb.restore.discard-states-if-rocksdb-recover-fail")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription(String.format(
+				"If this value is set to true, all corresponding states will be automatically discarded when " +
+				"rocksdb recovery fails."));
 }
