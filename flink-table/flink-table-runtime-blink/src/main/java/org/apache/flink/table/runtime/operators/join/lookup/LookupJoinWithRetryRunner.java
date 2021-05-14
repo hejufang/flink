@@ -69,7 +69,7 @@ public class LookupJoinWithRetryRunner extends LookupJoinRunner {
 	public void open(Configuration parameters) throws Exception {
 		super.open(parameters);
 		TupleTypeInfo<Tuple3<RowData, Long, Integer>> tupleTypeInfo =
-			new TupleTypeInfo<>(leftTypeInfo, BasicTypeInfo.LONG_TYPE_INFO);
+			new TupleTypeInfo<>(leftTypeInfo, BasicTypeInfo.LONG_TYPE_INFO, BasicTypeInfo.INT_TYPE_INFO);
 		if (getRuntimeContext() instanceof StreamingRuntimeContext) {
 			listState = ((StreamingRuntimeContext) getRuntimeContext())
 				.getOperatorListState(new ListStateDescriptor<>("LookUpJoinList", tupleTypeInfo));
