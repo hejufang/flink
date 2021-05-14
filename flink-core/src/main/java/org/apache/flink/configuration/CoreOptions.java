@@ -244,6 +244,11 @@ public class CoreOptions {
 		.defaultValue(50)
 		.withDescription("The max GCPauseMillis in G1, just effective while enbale G1 GC.");
 
+	public static final ConfigOption<Boolean> FLINK_GC_THREAD_NUM_USE_CORES = ConfigOptions
+		.key("flink.parallel.gc.thread.use.cores")
+		.defaultValue(false)
+		.withDescription("The gc thread num set to the core num of JM or TM.");
+
 	public static final ConfigOption<Boolean> FLINK_DUMP_OOM_ENABLED = ConfigOptions
 		.key("env.jvm.dump.oom")
 		.defaultValue(false)

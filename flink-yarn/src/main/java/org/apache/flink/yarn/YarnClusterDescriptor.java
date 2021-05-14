@@ -1611,6 +1611,13 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			javaOpts += " -XX:MaxGCPauseMillis=" + flinkConfiguration.getInteger(CoreOptions.FLINK_MAX_GC_PAUSE_MILLIS);
 		}
 
+		// use cores as gc.thread.num
+		if (flinkConfiguration.getBoolean(CoreOptions.FLINK_GC_THREAD_NUM_USE_CORES)) {
+			if (!javaOpts.contains("-XX:ParallelGCThreads=")) {
+				javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+			}
+		}
+
 		//applicable only for YarnMiniCluster secure test run
 		//krb5.conf file will be available as local resource in JM/TM container
 		if (hasKrb5) {

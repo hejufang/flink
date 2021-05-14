@@ -2159,6 +2159,11 @@ public final class ConfigConstants {
 	public static final String FLINK_LOG_STREAMLOG_PSM_DEFAULT = "default";
 
 	/**
+	 * The default gc thread num, see {@link CoreOptions#FLINK_GC_THREAD_NUM_USE_CORES}.
+	 */
+	public static final int FLINK_GC_THREAD_NUM_DEFAULT = 8;
+
+	/**
 	 * Not instantiable.
 	 */
 	private ConfigConstants() {}
