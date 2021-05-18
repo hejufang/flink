@@ -142,7 +142,7 @@ public abstract class AbstractRocksDBRestoreOperation<K> extends RestoreOperatio
 		// remove the default column family which is located at the first index
 		defaultColumnFamilyHandle = columnFamilyHandles.remove(0);
 		// init native metrics monitor if configured
-		nativeMetricMonitor = nativeMetricOptions.isEnabled() ?
+		nativeMetricMonitor = nativeMetricOptions.isEnabled() || nativeMetricOptions.isAnalyzeRocksdbMetrics() ?
 			new RocksDBNativeMetricMonitor(nativeMetricOptions, metricGroup, db) : null;
 	}
 

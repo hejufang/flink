@@ -289,12 +289,14 @@ public class RocksDBNativeMetricOptions implements Serializable {
 		}
 
 		options.setColumnFamilyAsVariable(config.get(COLUMN_FAMILY_AS_VARIABLE));
+		options.setAnalyzeRocksdbMetrics(config.get(RocksDBOptions.MONIT_ROCKSDB_RUNNING_STATUS));
 
 		return options;
 	}
 
 	private Set<String> properties;
 	private boolean columnFamilyAsVariable = COLUMN_FAMILY_AS_VARIABLE.defaultValue();
+	private boolean analyzeRocksdbMetrics;
 
 	public RocksDBNativeMetricOptions() {
 		this.properties = new HashSet<>();
@@ -511,5 +513,19 @@ public class RocksDBNativeMetricOptions implements Serializable {
 	 */
 	public boolean isColumnFamilyAsVariable() {
 		return this.columnFamilyAsVariable;
+	}
+
+	/**
+	 * Return whether it is necessary to convert the property information of rocksdb into more
+	 * friendly metrics.
+	 *
+	 * @return true if conversion is required, otherwise false
+	 */
+	public boolean isAnalyzeRocksdbMetrics() {
+		return analyzeRocksdbMetrics;
+	}
+
+	public void setAnalyzeRocksdbMetrics(boolean analyzeRocksdbMetrics) {
+		this.analyzeRocksdbMetrics = analyzeRocksdbMetrics;
 	}
 }

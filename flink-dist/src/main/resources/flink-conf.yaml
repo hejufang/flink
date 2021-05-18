@@ -35,6 +35,7 @@ common:
   state.backend.rocksdb.use-fsync: true
   state.backend.rocksdb.log.level: info_level
   state.backend.rocksdb.stats.dump.period.seconds: 600
+  state.backend.rocksdb.monit.running.status: true
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
 

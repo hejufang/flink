@@ -64,6 +64,8 @@ public class Dashboard {
 	private static final String STATE_KEY_VALUE_SIZE_TEMPLATE = "state_key_value_size_template.txt";
 	private static final String STATE_OP_LATENCY_TEMPLATE = "state_operation_latency_template.txt";
 	private static final String STATE_OP_RATE_TEMPLATE = "state_operation_rate_template.txt";
+	private static final String STATE_MEMORY_SIZE_TEMPLATE = "state_memory_size_template.txt";
+	private static final String STATE_TOTAL_SIZE_TEMPLATE = "state_total_size_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -264,11 +266,15 @@ public class Dashboard {
 		String keyValueSizeTemplate = null;
 		String stateOpLatencyTemplate = null;
 		String stateOpRateTemplate = null;
+		String stateMemorySizeTemplate = null;
+		String stateTotalSizeTemplate = null;
 		try {
 			operatorStateTemplate = renderFromResource(OPERATOR_STATE_PERFORMANCE_TEMPLATE);
 			keyValueSizeTemplate = renderFromResource(STATE_KEY_VALUE_SIZE_TEMPLATE);
 			stateOpLatencyTemplate = renderFromResource(STATE_OP_LATENCY_TEMPLATE);
 			stateOpRateTemplate = renderFromResource(STATE_OP_RATE_TEMPLATE);
+			stateMemorySizeTemplate = renderFromResource(STATE_MEMORY_SIZE_TEMPLATE);
+			stateTotalSizeTemplate = renderFromResource(STATE_TOTAL_SIZE_TEMPLATE);
 		} catch (IOException e) {
 			LOG.error("Fail to render checkpoint metrics.", e);
 			return "";
@@ -281,6 +287,8 @@ public class Dashboard {
 		List<String> targets2 = new ArrayList<>();
 		List<String> targets3 = new ArrayList<>();
 		List<String> targets4 = new ArrayList<>();
+		List<String> targets5 = new ArrayList<>();
+		List<String> targets6 = new ArrayList<>();
 
 		for (String operator : operators) {
 			checkpointValues.put("operator", operator);
@@ -290,11 +298,15 @@ public class Dashboard {
 			targets2.add(renderString(keyValueSizeTemplate, checkpointValues));
 			targets3.add(renderString(stateOpLatencyTemplate, checkpointValues));
 			targets4.add(renderString(stateOpRateTemplate, checkpointValues));
+			targets5.add(renderString(stateMemorySizeTemplate, checkpointValues));
+			targets6.add(renderString(stateTotalSizeTemplate, checkpointValues));
 		}
 		checkpointValues.put("targets1", String.join(",", targets1));
 		checkpointValues.put("targets2", String.join(",", targets2));
 		checkpointValues.put("targets3", String.join(",", targets3));
 		checkpointValues.put("targets4", String.join(",", targets4));
+		checkpointValues.put("targets5", String.join(",", targets5));
+		checkpointValues.put("targets6", String.join(",", targets6));
 		return renderString(operatorStateTemplate, checkpointValues);
 	}
 

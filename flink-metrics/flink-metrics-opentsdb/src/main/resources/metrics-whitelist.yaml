@@ -202,5 +202,6 @@ non-global:
         stateMaxValueSize,
         stateAverageOpLatency,
         stateMaxOpLatency,
-        stateAverageOpRate
+        stateAverageOpRate,
+        stateTotalSize
     ]

@@ -147,4 +147,12 @@ public class RocksDBOptions {
 		.withDescription(String.format(
 				"If this value is set to true, all corresponding states will be automatically discarded when " +
 				"rocksdb recovery fails."));
+
+	public static final ConfigOption<Boolean> MONIT_ROCKSDB_RUNNING_STATUS = ConfigOptions
+		.key("state.backend.rocksdb.monit.running.status")
+		.booleanType()
+		.defaultValue(false)
+		.withDescription(String.format(
+			"If this value is set to true, statistics information of rocksdb will be collected periodically and " +
+				"reported as metric."));
 }
