@@ -17,42 +17,23 @@
 ################################################################################
 
 {
-  "datasource": "${datasource}",
-  "height": "350px",
-  "editable": true,
   "collapse": true,
-  "collapsable": true,
-  "id": 80,
-  "title": "Checkpoint Timer",
+  "height": 250,
   "panels": [
-    {
+  {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
+      "datasource": "${datasource}",
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 8,
-        "x": 0,
-        "y": 17
-      },
-      "hiddenSeries": false,
       "id": 81,
       "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "max": true,
         "min": false,
-        "rightSide": true,
         "show": true,
         "total": false,
         "values": false
@@ -61,12 +42,12 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -74,7 +55,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Processing Timer Lag",
       "tooltip": {
@@ -107,55 +87,37 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
       "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": null,
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
+      "datasource": "${datasource}",
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 8,
-        "x": 8,
-        "y": 17
-      },
-      "hiddenSeries": false,
       "id": 82,
       "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "max": true,
         "min": false,
-        "rightSide": true,
         "show": true,
-        "sideWidth": 200,
         "total": false,
         "values": false
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -163,7 +125,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Processing Timer Rate",
       "tooltip": {
@@ -196,11 +157,12 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ]
+      ]
+    }],
+    "repeat": null,
+    "repeatIteration": null,
+    "repeatRowId": null,
+    "showTitle": false,
+    "title": "Checkpoint Timer",
+    "titleSize": "h6"
 }

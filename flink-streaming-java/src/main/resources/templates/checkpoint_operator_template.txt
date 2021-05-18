@@ -17,12 +17,8 @@
 ################################################################################
 
 {
-  "datasource": "${datasource}",
-  "editable": true,
   "collapse": true,
-  "collapsable": true,
-  "id": 70,
-  "title": "Checkpoint Operator Performance",
+  "height": 250,
   "panels": [
     {
       "aliasColors": {},
@@ -30,23 +26,10 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 0,
-        "y": 18
-      },
-      "hiddenSeries": false,
       "id": 75,
       "legend": {
+        "alignAsTable": true,
         "avg": false,
         "current": false,
         "max": false,
@@ -57,14 +40,15 @@
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -72,7 +56,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Lock Contention Duration",
       "tooltip": {
@@ -105,11 +88,7 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
@@ -117,23 +96,10 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 6,
-        "y": 18
-      },
-      "hiddenSeries": false,
       "id": 76,
       "legend": {
+        "alignAsTable": true,
         "avg": false,
         "current": false,
         "max": false,
@@ -144,14 +110,15 @@
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -159,7 +126,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Barrier Align Duration",
       "tooltip": {
@@ -192,11 +158,7 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
@@ -204,23 +166,10 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 12,
-        "y": 18
-      },
-      "hiddenSeries": false,
       "id": 77,
       "legend": {
+        "alignAsTable": true,
         "avg": false,
         "current": false,
         "max": false,
@@ -231,14 +180,15 @@
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -246,7 +196,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Sync Duration",
       "tooltip": {
@@ -279,11 +228,7 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
@@ -291,41 +236,30 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 18,
-        "y": 18
-      },
-      "hiddenSeries": false,
       "id": 78,
       "legend": {
+        "alignAsTable": true,
         "avg": false,
         "current": false,
         "max": false,
         "min": false,
+        "rightSide": false,
         "show": true,
         "total": false,
         "values": false
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -333,7 +267,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Async Duration",
       "tooltip": {
@@ -366,11 +299,12 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ]
+      ]
+  }],
+  "repeat": null,
+  "repeatIteration": null,
+  "repeatRowId": null,
+  "showTitle": false,
+  "title": "Checkpoint Operator Performance",
+  "titleSize": "h6"
 }

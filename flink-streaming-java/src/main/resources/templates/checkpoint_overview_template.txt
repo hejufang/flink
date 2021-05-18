@@ -17,12 +17,8 @@
 ################################################################################
 
 {
-  "datasource": "${datasource}",
-  "editable": true,
-  "collapsed": true,
-  "collapsable": true,
-  "id": 53,
-  "title": "Checkpoint Overview",
+  "collapse": true,
+  "height": 250,
   "panels": [
     {
       "aliasColors": {},
@@ -30,21 +26,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 0,
-        "y": 29
-      },
-      "hiddenSeries": false,
       "id": 54,
       "legend": {
         "avg": false,
@@ -57,14 +39,15 @@
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -74,12 +57,11 @@
           "downsampleAggregator": "avg",
           "downsampleFillPolicy": "none",
           "metric": "flink.jobmanager.${jobname}.numberOfFailedCheckpoints",
-          "refId": "C"
+          "refId": "A"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Checkpoint Failures",
       "tooltip": {
@@ -95,8 +77,7 @@
         "show": true,
         "values": []
       },
-      "yaxes": [
-        {
+      "yaxes": [{
           "format": "short",
           "label": null,
           "logBase": 1,
@@ -112,11 +93,7 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
@@ -124,41 +101,28 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 6,
-        "y": 29
-      },
-      "hiddenSeries": false,
       "id": 55,
       "legend": {
-        "avg": true,
-        "current": false,
-        "max": true,
-        "min": true,
-        "show": true,
-        "total": false,
-        "values": true
+              "avg": true,
+              "current": false,
+              "max": true,
+              "min": true,
+              "show": true,
+              "total": false,
+              "values": true
       },
       "lines": true,
       "linewidth": 1,
+      "links": [],
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -168,12 +132,11 @@
           "downsampleAggregator": "avg",
           "downsampleFillPolicy": "none",
           "metric": "flink.jobmanager.${jobname}.lastCheckpointDuration",
-          "refId": "C"
+          "refId": "B"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Checkpoint Duration",
       "tooltip": {
@@ -206,11 +169,7 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
@@ -218,21 +177,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 12,
-        "y": 29
-      },
-      "hiddenSeries": false,
       "id": 56,
       "legend": {
         "avg": true,
@@ -247,12 +192,12 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -270,12 +215,11 @@
           "downsampleAggregator": "avg",
           "downsampleFillPolicy": "none",
           "metric": "flink.jobmanager.${jobname}.lastCheckpointSize",
-          "refId": "A"
+          "refId": "D"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Checkpoint State Size",
       "tooltip": {
@@ -308,11 +252,7 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      ]
     },
     {
       "aliasColors": {},
@@ -320,21 +260,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${datasource}",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {}
-        },
-        "overrides": []
-      },
       "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 18,
-        "y": 29
-      },
-      "hiddenSeries": false,
       "id": 57,
       "legend": {
         "avg": true,
@@ -349,12 +275,12 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "percentage": false,
-      "pluginVersion": "7.1.0-beta2",
-      "pointradius": 2,
+      "pointradius": 5,
       "points": false,
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
+      "span": 6,
       "stack": false,
       "steppedLine": false,
       "targets": [
@@ -366,7 +292,7 @@
           "downsampleAggregator": "avg",
           "downsampleFillPolicy": "none",
           "metric": "flink.job.checkpointWriteFileLatency",
-          "refId": "C",
+          "refId": "E",
           "tags": {
             "jobname": "${jobname}"
           }
@@ -379,7 +305,7 @@
           "downsampleAggregator": "avg",
           "downsampleFillPolicy": "none",
           "metric": "flink.job.checkpointCloseFileLatency",
-          "refId": "A",
+          "refId": "F",
           "tags": {
             "jobname": "${jobname}"
           }
@@ -387,7 +313,6 @@
       ],
       "thresholds": [],
       "timeFrom": null,
-      "timeRegions": [],
       "timeShift": null,
       "title": "Hdfs Operation Latency",
       "tooltip": {
@@ -420,11 +345,12 @@
           "min": null,
           "show": true
         }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    }
-  ]
+      ]
+    }],
+    "repeat": null,
+    "repeatIteration": null,
+    "repeatRowId": null,
+    "showTitle": false,
+    "title": "Checkpoint Overview",
+    "titleSize": "h6"
 }

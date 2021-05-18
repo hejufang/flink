@@ -518,9 +518,9 @@ public class Dashboard {
 		}
 		rows.add(renderMemoryRow());
 		rows.add(renderRecordNumRow(operators));
+		rows.add(renderCheckpointOverviewRow());
 		rows.add(renderCheckpointTimerRow(tasks));
 		rows.add(renderCheckpointOperatorRow(tasks, operators));
-		rows.add(renderCheckpointOverviewRow());
 		rows.add(renderOperatorStatePerformanceRow(operators));
 		rows.add(renderLateRecordsDropped(operators));
 		rows.add(renderDirtyRecordsSourceSkippedRow(sources));
