@@ -46,6 +46,11 @@ public class NFAState {
 	 */
 	private boolean stateChanged;
 
+	/**
+	 * Flag indicating whether the current matching status is new partial matched.
+	 */
+	private boolean isNewStartPartiailMatch;
+
 	public static final Comparator<ComputationState> COMPUTATION_STATE_COMPARATOR =
 		Comparator.<ComputationState>comparingLong(c ->
 				c.getStartEventID() != null ? c.getStartEventID().getTimestamp() : Long.MAX_VALUE)
@@ -99,6 +104,18 @@ public class NFAState {
 	 */
 	public void setStateChanged() {
 		this.stateChanged = true;
+	}
+
+	public boolean isNewStartPartiailMatch() {
+		return isNewStartPartiailMatch;
+	}
+
+	public void resetNewStartPartiailMatch() {
+		this.isNewStartPartiailMatch = false;
+	}
+
+	public void setNewStartPartiailMatch() {
+		this.isNewStartPartiailMatch = true;
 	}
 
 	public Queue<ComputationState> getPartialMatches() {

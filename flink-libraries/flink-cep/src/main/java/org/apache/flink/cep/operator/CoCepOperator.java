@@ -106,6 +106,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final String WATERMARK_LATENCY_METRIC_NAME = "watermarkLatency";
 
 	private static final byte[] STATE_CLEANER_TIMER_PAYLOAD = "stateCleanerTimerPayload".getBytes();
+	private static final byte[] TIME_ADVANCER_TIMER_PAYLOAD = "timeAdvancerTimerPayload".getBytes();
+
 
 	private final boolean isProcessingTime;
 
@@ -117,7 +119,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final String NFA_STATE_NAME = "nfaStateName";
 	private static final String EVENT_QUEUE_STATE_NAME = "eventQueuesStateName";
 	private static final String KEYED_WATERMARK_STATE_NAME = "keyedWatermarkStateName";
-	private static final String KEYED_UPDATE_TIME_STATE_NAME = "keyedUpdateTimeStateName";
+	private static final String STATE_CLEANER_TIMER_LAST_UPDATE_TIME_STATE_NAME = "stateCleanerTimerLastUpdateTimeStateName";
+	private static final String TIME_ADVANCER_TIMER_LAST_UPDATE_TIME_STATE_NAME = "timeAdvancerTimerLastUpdateTimeStateName";
 
 	private transient MapState<Long, List<IN>> elementQueueState;
 	private transient MapState<String, NFAState> computationStates;
@@ -127,8 +130,8 @@ public class CoCepOperator<IN, KEY, OUT>
 	 *  The scope of keyedWatermark in only inside CepOperator.
 	 */
 	private transient ValueState<Long> keyedWatermark;
-	private transient ValueState<Long> keyedUpdateTime;
 
+	private transient ValueState<Long> stateCleanerTimerLastUpdateTime;
 
 	private transient InternalTimerService<VoidNamespace> timerService;
 
@@ -249,9 +252,9 @@ public class CoCepOperator<IN, KEY, OUT>
 				LongSerializer.INSTANCE
 				));
 
-		keyedUpdateTime = context.getKeyedStateStore().getState(
+		stateCleanerTimerLastUpdateTime = context.getKeyedStateStore().getState(
 			new ValueStateDescriptor<>(
-				KEYED_UPDATE_TIME_STATE_NAME,
+				STATE_CLEANER_TIMER_LAST_UPDATE_TIME_STATE_NAME,
 				LongSerializer.INSTANCE
 			));
 	}
@@ -438,13 +441,13 @@ public class CoCepOperator<IN, KEY, OUT>
 
 	private void updateStateCleanerTimer() throws IOException {
 
-		Long lastUpdateTime = keyedUpdateTime.value();
+		Long lastUpdateTime = stateCleanerTimerLastUpdateTime.value();
 		Long newUpdateTime = timerService.currentProcessingTime();
 		if (lastUpdateTime != null){
 			timerService.deleteProcessingTimeTimer(VoidNamespace.INSTANCE, lastUpdateTime + ttlMilliSeconds, STATE_CLEANER_TIMER_PAYLOAD);
 		}
 		timerService.registerProcessingTimeTimer(VoidNamespace.INSTANCE, newUpdateTime + ttlMilliSeconds, STATE_CLEANER_TIMER_PAYLOAD);
-		keyedUpdateTime.update(newUpdateTime);
+		stateCleanerTimerLastUpdateTime.update(newUpdateTime);
 	}
 
 	@Override
@@ -483,6 +486,11 @@ public class CoCepOperator<IN, KEY, OUT>
 	@Override
 	public void onEventTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
 
+		if (timer.getPayload() != null && timer.getPayload().equals(TIME_ADVANCER_TIMER_PAYLOAD)){
+			processTimeAdvancerTimer(timer.getTimestamp());
+			return;
+		}
+
 		PriorityQueue<Long> sortedTimestamps = getSortedTimestamps();
 
 		triggerComputeWithWatermark(sortedTimestamps, timerService.currentWatermark());
@@ -495,15 +503,31 @@ public class CoCepOperator<IN, KEY, OUT>
 	}
 
 	/**
-	 * there are two kind of ProcessingTimer. We can distinguish them according whether the timer has
-	 * the payload equals STATE_CLEANER_TIMER_PAYLOAD.
+	 * there are different kind of ProcessingTimer. We can distinguish them according whether the timer has
+	 * the payload equals STATE_CLEANER_TIMER_PAYLOAD or TIME_ADVANCER_TIMER_PAYLOAD.
 	 */
 	@Override
 	public void onProcessingTime(InternalTimer<KEY, VoidNamespace> timer) throws Exception {
-		triggerComputeWithWatermark(getSortedTimestamps(), Long.MAX_VALUE);
+
 		byte[] timerPayload = timer.getPayload();
+		if (timer.getPayload() != null && timer.getPayload().equals(TIME_ADVANCER_TIMER_PAYLOAD)){
+			processTimeAdvancerTimer(timer.getTimestamp());
+			return;
+		}
+		triggerComputeWithWatermark(getSortedTimestamps(), Long.MAX_VALUE);
 		if (timerPayload != null && timerPayload.equals(STATE_CLEANER_TIMER_PAYLOAD)){
 			clearAllStates();
+		}
+	}
+
+	private void processTimeAdvancerTimer(long timestamp) throws Exception {
+
+		Iterator<Map.Entry<String, Pattern>> iter = this.patternStates.iterator();
+		while (iter.hasNext()) {
+			NFAState nfaState = getNFAState(iter.next().getKey());
+			//if using processingTime , No need to advanceTime
+			advanceTime(nfaState, timestamp);
+			updateNFA(nfaState);
 		}
 	}
 
@@ -581,7 +605,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		if (timestampExtractor != null){
 			keyedWatermark.clear();
 		}
-		keyedUpdateTime.clear();
+		stateCleanerTimerLastUpdateTime.clear();
 		elementQueueState.clear();
 		computationStates.clear();
 		partialMatches.forEach((patternId, sharedBuffer) -> {
@@ -607,12 +631,26 @@ public class CoCepOperator<IN, KEY, OUT>
 	 */
 	private void processEvent(NFAState nfaState, IN event, long timestamp) throws Exception {
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
+			NFA nfa = usingNFAs.get(nfaState.getPatternId());
 			Collection<Map<String, List<IN>>> patterns =
-					usingNFAs.get(nfaState.getPatternId()).process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
+				nfa.process(sharedBufferAccessor, nfaState, event, timestamp, afterMatchSkipStrategy, cepTimerService);
+			if (nfa.isEndWithNoPattern() && nfaState.isNewStartPartiailMatch()){
+				registerTimeAdvancerTimer(timestamp, nfa.getWindowTime());
+			}
+			nfaState.resetNewStartPartiailMatch();
 			processMatchedSequences(nfaState.getPatternId(), patterns, timestamp);
 			if (patterns.isEmpty()) {
 				getUserFunction().processUnMatch(event, context, getCurrentKey(), collector);
 			}
+		}
+	}
+
+	private void registerTimeAdvancerTimer(long timestamp, long windowTime) {
+
+		if (isProcessingTime){
+			timerService.registerProcessingTimeTimer(VoidNamespace.INSTANCE, timestamp + windowTime + 1L, TIME_ADVANCER_TIMER_PAYLOAD);
+		} else {
+			timerService.registerEventTimeTimer(VoidNamespace.INSTANCE, timestamp + windowTime + 1L, TIME_ADVANCER_TIMER_PAYLOAD);
 		}
 	}
 

@@ -113,19 +113,27 @@ public class NFA<T> {
 
 	private final boolean allowSinglePartialMatchPerKey;
 
+	private final boolean endWithNoPattern;
+
 	public NFA(
 			final String patternId,
 			final int hash,
 			final Collection<State<T>> validStates,
 			final long windowTime,
 			final boolean handleTimeout,
-			final boolean allowSinglePartialMatchPerKey) {
+			final boolean allowSinglePartialMatchPerKey,
+			final boolean endWithNoPattern) {
 		this.patternId = patternId;
 		this.hash = hash;
 		this.windowTime = windowTime;
 		this.handleTimeout = handleTimeout;
 		this.states = loadStates(validStates);
 		this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
+		this.endWithNoPattern = endWithNoPattern;
+	}
+
+	public NFA(String patternId, int hash, Collection<State<T>> validStates, long windowTime, boolean timeoutHandling, boolean allowSinglePartialMatchPerKey) {
+		this(patternId, hash, validStates, windowTime, timeoutHandling, allowSinglePartialMatchPerKey, false);
 	}
 
 	public String getPatternId() {
@@ -134,6 +142,14 @@ public class NFA<T> {
 
 	public int getHash() {
 		return hash;
+	}
+
+	public boolean isEndWithNoPattern() {
+		return endWithNoPattern;
+	}
+
+	public long getWindowTime(){
+		return windowTime;
 	}
 
 	private Map<String, State<T>> loadStates(final Collection<State<T>> validStates) {
@@ -384,6 +400,10 @@ public class NFA<T> {
 			//if stop state reached in this path
 			boolean shouldDiscardPath = false;
 			for (final ComputationState newComputationState : newComputationStates) {
+
+				if (isStartState(computationState) && newComputationState.getStartTimestamp() > 0) {
+					nfaState.setNewStartPartiailMatch();
+				}
 
 				if (isFinalState(newComputationState)) {
 					potentialMatches.add(newComputationState);

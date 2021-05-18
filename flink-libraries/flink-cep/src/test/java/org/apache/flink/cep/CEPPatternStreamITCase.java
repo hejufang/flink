@@ -39,6 +39,7 @@ import org.apache.flink.util.Collector;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -479,13 +480,118 @@ public class CEPPatternStreamITCase {
 		assertEquals(Arrays.asList("pattern_followedby,1", "test_count,1"), resultList);
 	}
 
+	@Test
+	public void testNoFollowByWithWindow() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).notFollowedBy("end").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("end");
+			}
+		}).within(Time.milliseconds(5));
+
+		pattern.setPatternMeta("notFollowByPattern", 1);
+
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
+
+		DataStream<Event> input = env.addSource(new EventStream(
+			Tuple2.of(new Event(1, "start", 1.0), 5L),
+			Tuple2.of(new Event(1, "end", 2.0), 6L),
+			Tuple2.of(new Event(1, "start", 3.0), 7L),
+			// last element for high final watermark
+			Tuple2.of(new Event(7, "middle", 5.0), 100L)
+		))
+			.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
+				@Override
+				public long extractTimestamp(Tuple2<Event, Long> element, long currentTimestamp) {
+					return element.f1;
+				}
+
+				@Override
+				public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+					return new Watermark(lastElement.f1 - 5);
+				}
+			})
+			.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+			.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		DataStream<String> result = CEP.pattern(input, patternDataStream)
+			.withInitialPatterns(Collections.singletonList(pattern))
+			.select(
+				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+					pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getPrice());
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("notFollowByPattern,3.0"), resultList);
+	}
+
+	@Test
+	public void testNoFollowByWithInPatternInProcessingTime() throws Exception {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setParallelism(1);
+
+		Pattern<Event, Event> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).notFollowedBy("end").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("end");
+			}
+		}).within(Time.seconds(2));
+
+		pattern.setPatternMeta("notFollowByPattern", 1);
+
+		DataStream<Pattern<Event, Event>> patternDataStream = env.addSource(new PatternDataStream());
+
+		DataStream<Event> input = env.addSource(new EventStream(
+			Tuple2.of(new Event(1, "start", 1.0), 5L),
+			new Barrier(),
+			Tuple2.of(new Event(1, "end", 2.0), 6L),
+			Tuple2.of(new Event(1, "start", 3.0), 7L),
+			new BigBarrier(
+		))).map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+			.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		DataStream<String> result = CEP.pattern(input, patternDataStream)
+			.withInitialPatterns(Collections.singletonList(pattern))
+			.select(
+				(MultiplePatternSelectFunction<Event, String>) pattern1 ->
+					pattern1.f0 + "," +
+						pattern1.f1.get("start").get(0).getPrice());
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("notFollowByPattern,3.0"), resultList);
+	}
+
 	private static class EventStream implements SourceFunction<Tuple2<Event, Long>> {
 
 		static boolean sendFlag = false;
 
-		private List<Tuple2<Event, Long>> data = new ArrayList<>();
+		private List<Object> data = new ArrayList<>();
 
-		EventStream(Tuple2<Event, Long>... elements) {
+		EventStream(Object... elements) {
 			sendFlag = false;
 			data.addAll(Arrays.asList(elements));
 		}
@@ -495,8 +601,14 @@ public class CEPPatternStreamITCase {
 			while (!sendFlag) {
 				Thread.sleep(100);
 			}
-			for (Tuple2<Event, Long> event : data) {
-				ctx.collect(event);
+			for (Object o : data) {
+				if (o instanceof Tuple2){
+					ctx.collect((Tuple2<Event, Long>) o);
+				} else if (o instanceof Barrier){
+					Thread.sleep(1000);
+				} else if (o instanceof BigBarrier){
+					Thread.sleep(5000);
+				}
 			}
 		}
 
@@ -548,4 +660,14 @@ public class CEPPatternStreamITCase {
 		@Override
 		public void cancel() {}
 	}
+
+	/**
+	 * Just for sleep 1s.
+	 */
+	private static class Barrier implements Serializable {}
+
+	/**
+	 * Just for sleep 5s.
+	 */
+	private static class BigBarrier implements Serializable {}
 }

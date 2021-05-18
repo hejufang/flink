@@ -82,7 +82,7 @@ public class NFACompiler {
 		} else {
 			final NFAFactoryCompiler<T> nfaFactoryCompiler = new NFAFactoryCompiler<>(pattern);
 			nfaFactoryCompiler.compileFactory();
-			return new NFAFactoryImpl<>(pattern.getPatternId(), pattern.getHash(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSinglePartialMatchPerKey);
+			return new NFAFactoryImpl<>(pattern.getPatternId(), pattern.getHash(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSinglePartialMatchPerKey, nfaFactoryCompiler.getEndWithNoPattern());
 		}
 	}
 
@@ -143,6 +143,7 @@ public class NFACompiler {
 		private Pattern<T, ?> followingPattern;
 		private final AfterMatchSkipStrategy afterMatchSkipStrategy;
 		private Map<String, State<T>> originalStateMap = new HashMap<>();
+		private boolean endWithNoPattern = false;
 
 		NFAFactoryCompiler(final Pattern<T, ?> pattern) {
 			this.currentPattern = pattern;
@@ -154,8 +155,12 @@ public class NFACompiler {
 		 * multiple NFAs.
 		 */
 		void compileFactory() {
-			if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW && currentPattern.getWindowTime().toMilliseconds() == 0) {
-				throw new MalformedPatternException("NotFollowedBy is not supported without windowTime as a last part of a Pattern!");
+			if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW) {
+				if (currentPattern.getWindowTime().toMilliseconds() == 0){
+					throw new MalformedPatternException("NotFollowedBy is not supported without windowTime as a last part of a Pattern!");
+				} else {
+					endWithNoPattern = true;
+				}
 			}
 
 			checkPatternNameUniqueness();
@@ -180,6 +185,10 @@ public class NFACompiler {
 
 		long getWindowTime() {
 			return windowTime;
+		}
+
+		boolean getEndWithNoPattern(){
+			return endWithNoPattern;
 		}
 
 		/**
@@ -944,6 +953,7 @@ public class NFACompiler {
 		private final Collection<State<T>> states;
 		private final boolean timeoutHandling;
 		private final boolean allowSinglePartialMatchPerKey;
+		private final boolean endWithNotPattern;
 
 		private NFAFactoryImpl(
 				String patternId,
@@ -951,7 +961,8 @@ public class NFACompiler {
 				long windowTime,
 				Collection<State<T>> states,
 				boolean timeoutHandling,
-				boolean allowSinglePartialMatchPerKey) {
+				boolean allowSinglePartialMatchPerKey,
+				boolean endWithNotPattern) {
 
 			this.patternId = patternId;
 			this.hash = hash;
@@ -959,11 +970,12 @@ public class NFACompiler {
 			this.states = states;
 			this.timeoutHandling = timeoutHandling;
 			this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
+			this.endWithNotPattern = endWithNotPattern;
 		}
 
 		@Override
 		public NFA<T> createNFA() {
-			return new NFA<>(patternId, hash, states, windowTime, timeoutHandling, allowSinglePartialMatchPerKey);
+			return new NFA<>(patternId, hash, states, windowTime, timeoutHandling, allowSinglePartialMatchPerKey, endWithNotPattern);
 		}
 	}
 }
