@@ -130,6 +130,39 @@ class WindowAggregateITCase(mode: StateBackendMode)
   }
 
   @Test
+  def testWindowAllowRetract(): Unit = {
+    tEnv.getConfig.getConfiguration.setString("table.exec.emit.early-fire.enabled", "true")
+    tEnv.getConfig.getConfiguration.setString("table.exec.emit.early-fire.delay", "10s")
+    tEnv.getConfig.getConfiguration.setString("table.exec.window.allow-retract-input", "true")
+
+    val stream = failingDataSource(data)
+      .assignTimestampsAndWatermarks(
+        new TimestampAndWatermarkWithOffset
+          [(Long, Int, Double, Float, BigDecimal, String, String)](10L))
+    val table = stream.toTable(tEnv,
+      'rowtime.rowtime, 'int, 'double, 'float, 'bigdec, 'string, 'name)
+    tEnv.registerTable("T1", table)
+
+    val sql =
+      """
+        |SELECT SUM(cnt)
+        |FROM (
+        |  SELECT COUNT(1) AS cnt, TUMBLE_ROWTIME(rowtime, INTERVAL '10' SECOND) AS ts
+        |  FROM T1
+        |  GROUP BY `int`, `string`, TUMBLE(rowtime, INTERVAL '10' SECOND)
+        |)
+        |GROUP BY TUMBLE(ts, INTERVAL '10' SECOND)
+        |""".stripMargin
+
+    val sink = new TestingRetractSink()
+    tEnv.sqlQuery(sql).toRetractStream[Row].addSink(sink)
+    env.execute()
+
+    val expected = Seq("9")
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  @Test
   def testTumbleWindowOffset(): Unit = {
     val stream = failingDataSource(data)
       .assignTimestampsAndWatermarks(

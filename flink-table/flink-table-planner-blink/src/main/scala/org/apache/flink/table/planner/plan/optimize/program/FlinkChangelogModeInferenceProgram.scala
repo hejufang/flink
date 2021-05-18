@@ -19,7 +19,9 @@
 package org.apache.flink.table.planner.plan.optimize.program
 
 import org.apache.flink.table.api.TableException
+import org.apache.flink.table.api.config.TableConfigOptions
 import org.apache.flink.table.connector.ChangelogMode
+import org.apache.flink.table.planner.calcite.FlinkContext
 import org.apache.flink.table.planner.plan.`trait`.UpdateKindTrait.{BEFORE_AND_AFTER, ONLY_UPDATE_AFTER, beforeAfterOrNone, onlyAfterOrNone}
 import org.apache.flink.table.planner.plan.`trait`._
 import org.apache.flink.table.planner.plan.nodes.physical.stream._
@@ -181,8 +183,16 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
           tagg, children, ModifyKindSetTrait.ALL_CHANGES, requiredTrait, requester)
 
       case window: StreamExecGroupWindowAggregateBase =>
-        // WindowAggregate and WindowTableAggregate support insert-only in input
-        val children = visitChildren(window, ModifyKindSetTrait.INSERT_ONLY)
+        val config = rel.getCluster.getPlanner.getContext.
+          asInstanceOf[FlinkContext].getTableConfig
+        val allowRetract = config.getConfiguration.getBoolean(
+          TableConfigOptions.WINDOW_ALLOW_RETRACT)
+        val requiredModifyKindTrait = if (allowRetract) {
+          ModifyKindSetTrait.ALL_CHANGES
+        } else {
+          ModifyKindSetTrait.INSERT_ONLY
+        }
+        val children = visitChildren(window, requiredModifyKindTrait)
         val builder = ModifyKindSet.newBuilder()
           .addContainedKind(ModifyKind.INSERT)
         if (window.emitStrategy.produceUpdates) {
@@ -442,12 +452,25 @@ class FlinkChangelogModeInferenceProgram extends FlinkOptimizeProgram[StreamOpti
         // use requiredTrait as providedTrait, because they should support all kinds of UpdateKind
         createNewNode(rel, children, requiredTrait)
 
-      case _: StreamExecGroupWindowAggregate | _: StreamExecGroupWindowTableAggregate |
+      case _: StreamExecGroupWindowTableAggregate |
            _: StreamExecDeduplicate | _: StreamExecTemporalSort | _: StreamExecMatch |
            _: StreamExecOverAggregate | _: StreamExecIntervalJoin =>
-        // WindowAggregate, WindowTableAggregate, Deduplicate, TemporalSort, CEP, OverAggregate
+        // WindowTableAggregate, Deduplicate, TemporalSort, CEP, OverAggregate
         // and IntervalJoin require nothing about UpdateKind.
         val children = visitChildren(rel, UpdateKindTrait.NONE)
+        createNewNode(rel, children, requiredTrait)
+
+      case _: StreamExecGroupWindowAggregate =>
+        val config = rel.getCluster.getPlanner.getContext.
+          asInstanceOf[FlinkContext].getTableConfig
+        val allowRetract = config.getConfiguration.getBoolean(
+          TableConfigOptions.WINDOW_ALLOW_RETRACT)
+        val requiredUpdateKindTrait = if (allowRetract) {
+          beforeAfterOrNone(getModifyKindSet(rel.getInput(0)))
+        } else {
+          UpdateKindTrait.NONE
+        }
+        val children = visitChildren(rel, requiredUpdateKindTrait)
         createNewNode(rel, children, requiredTrait)
 
       case rank: StreamExecRank =>

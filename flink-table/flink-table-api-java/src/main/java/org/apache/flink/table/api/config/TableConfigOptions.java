@@ -106,4 +106,18 @@ public class TableConfigOptions {
 			.defaultValue(DebugLoggingLocation.STDOUT)
 			.withDescription("");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> WINDOW_ALLOW_RETRACT =
+		key("table.exec.window.allow-retract-input")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("This option controls whether window operator allows\n" +
+				"retract input. Default is false, which means window operator only allows append\n" +
+				"input. If you enable this option, the window operator will allow retract input,\n" +
+				"which has no guarantee about correctness, e.t. session window only has merge,\n" +
+				"but has no split, then append maybe trigger merge, and retract won't trigger\n" +
+				"split. Whatever, enabling this has some scenarios such as multiple tumble window\n" +
+				"with fast emit.");
+
+
 }
