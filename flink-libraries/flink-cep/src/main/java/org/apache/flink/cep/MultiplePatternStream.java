@@ -20,6 +20,7 @@ package org.apache.flink.cep;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.TypeExtractor;
+import org.apache.flink.cep.functions.EmptyPatternStreamFactory;
 import org.apache.flink.cep.functions.MultiplePatternProcessFunction;
 import org.apache.flink.cep.functions.timestamps.CepTimestampExtractor;
 import org.apache.flink.cep.pattern.Pattern;
@@ -59,6 +60,10 @@ public class MultiplePatternStream<T> {
 		this(MultiplePatternStreamBuilder.forStreamAndPattern(inputStream, pattern));
 	}
 
+	MultiplePatternStream(final DataStream<T> inputStream, final List<Pattern<T, T>> patternList) {
+		this(MultiplePatternStreamBuilder.forStreamAndPatternList(inputStream, patternList));
+	}
+
 	public MultiplePatternStream<T> withComparator(final EventComparator<T> comparator) {
 		return new MultiplePatternStream<>(builder.withComparator(comparator));
 	}
@@ -81,6 +86,10 @@ public class MultiplePatternStream<T> {
 
 	public MultiplePatternStream<T> withProperties(Map<String, String> properties) {
 		return new MultiplePatternStream<>(builder.withProperties(properties));
+	}
+
+	public MultiplePatternStream<T> withEmptyPatternStreamFactory(EmptyPatternStreamFactory emptyPatternStreamFactory) {
+		return new MultiplePatternStream<>(builder.withEmptyPatternStreamFactory(emptyPatternStreamFactory));
 	}
 
 	public <R> SingleOutputStreamOperator<R> process(final MultiplePatternProcessFunction<T, R> patternProcessFunction) {

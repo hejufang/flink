@@ -22,6 +22,8 @@ import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.parser.CepEventParserFactory;
 import org.apache.flink.streaming.api.datastream.DataStream;
 
+import java.util.List;
+
 /**
  * Utility class for complex event processing.
  *
@@ -38,6 +40,10 @@ public class CEP {
 	 */
 	public static <T> PatternStream<T> pattern(DataStream<T> input, Pattern<T, ?> pattern) {
 		return new PatternStream<>(input, pattern);
+	}
+
+	public static <T> MultiplePatternStream<T> pattern(DataStream<T> input, List<Pattern<T, T>> patternList) {
+		return new MultiplePatternStream<>(input, patternList);
 	}
 
 	public static <T> MultiplePatternStream<T> pattern(DataStream<T> input, DataStream<Pattern<T, T>> patternDataStream) {

@@ -27,6 +27,7 @@ import org.apache.flink.cep.pattern.conditions.SimpleCondition;
 import org.apache.flink.cep.pattern.parser.TestCepEventParser;
 import org.apache.flink.cep.test.TestData;
 import org.apache.flink.cep.time.Time;
+import org.apache.flink.cep.utils.TestEmptyPatternStreamFactory;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamUtils;
@@ -614,6 +615,139 @@ public class CEPPatternStreamITCase {
 
 		@Override
 		public void cancel() {}
+	}
+
+		@Test
+	public void testSinglePattern() throws IOException {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		DataStream<Event> input = env.addSource(new EventStream(
+			Tuple2.of(new Event(1, "start", 1.0), 5L),
+			Tuple2.of(new Event(2, "end", 1.0), 6L),
+			Tuple2.of(new Event(1, "buy", 3.0), 7L),
+			Tuple2.of(new Event(1, "buy", 5.0), 8L),
+			Tuple2.of(new Event(1, "middle", 2.0), 9L),
+			// last element for high final watermark
+			Tuple2.of(new Event(7, "middle", 5.0), 100L)))
+			.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
+
+				@Override
+				public long extractTimestamp(Tuple2<Event, Long> element, long currentTimestamp) {
+					return element.f1;
+				}
+
+				@Override
+				public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+					return new Watermark(lastElement.f1 - 5);
+				}
+			})
+			.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+			.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		EventStream.sendFlag = true;
+
+		Pattern<Event, Event> singlePattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).followedByAny("middle").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("middle");
+			}
+		});
+		singlePattern.setPatternMeta("pattern1", 1);
+
+		DataStream<String> result = CEP.pattern(input, Collections.singletonList(singlePattern))
+			.withEmptyPatternStreamFactory(new TestEmptyPatternStreamFactory())
+			.select(
+			(MultiplePatternSelectFunction<Event, String>) pattern -> {
+				return pattern.f0 + "," + pattern.f1.get("start").get(0).getId();
+			});
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("pattern1,1"), resultList);
+	}
+
+	@Test
+	public void testPatternList() throws IOException {
+		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
+		env.setParallelism(1);
+
+		DataStream<Event> input = env.addSource(new EventStream(
+			Tuple2.of(new Event(1, "start", 1.0), 5L),
+			Tuple2.of(new Event(2, "end", 2.0), 6L),
+			Tuple2.of(new Event(1, "buy", 3.0), 7L),
+			Tuple2.of(new Event(1, "buy", 4.0), 8L),
+			Tuple2.of(new Event(1, "middle", 5.0), 9L),
+			// last element for high final watermark
+			Tuple2.of(new Event(7, "middle", 6.0), 100L)))
+			.assignTimestampsAndWatermarks(new AssignerWithPunctuatedWatermarks<Tuple2<Event, Long>>() {
+
+				@Override
+				public long extractTimestamp(Tuple2<Event, Long> element, long currentTimestamp) {
+					return element.f1;
+				}
+
+				@Override
+				public Watermark checkAndGetNextWatermark(Tuple2<Event, Long> lastElement, long extractedTimestamp) {
+					return new Watermark(lastElement.f1 - 5);
+				}
+			})
+			.map((MapFunction<Tuple2<Event, Long>, Event>) value -> value.f0)
+			.keyBy((KeySelector<Event, Integer>) Event::getId);
+
+		EventStream.sendFlag = true;
+
+		Pattern<Event, Event> singlePattern1 = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).followedByAny("middle").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("middle");
+			}
+		});
+
+		Pattern<Event, Event> singlePattern2 = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("start");
+			}
+		}).followedByAny("middle").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("buy");
+			}
+		});
+		singlePattern1.setPatternMeta("pattern1", 1);
+		singlePattern2.setPatternMeta("pattern2", 2);
+
+		DataStream<String> result = CEP.pattern(input, Arrays.asList(singlePattern1, singlePattern2))
+			.withEmptyPatternStreamFactory(new TestEmptyPatternStreamFactory())
+			.select(
+			(MultiplePatternSelectFunction<Event, String>) pattern -> {
+				return pattern.f0 + "," + pattern.f1.get("start").get(0).getPrice() + "," + pattern.f1.get("middle").get(0).getPrice();
+			});
+
+		List<String> resultList = new ArrayList<>();
+
+		DataStreamUtils.collect(result).forEachRemaining(resultList::add);
+
+		resultList.sort(String::compareTo);
+
+		assertEquals(Arrays.asList("pattern1,1.0,5.0", "pattern2,1.0,3.0"), resultList);
 	}
 
 	private static class PatternJsonStream implements SourceFunction<String> {
