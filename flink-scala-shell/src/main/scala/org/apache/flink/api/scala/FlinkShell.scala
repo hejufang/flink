@@ -38,6 +38,9 @@ object FlinkShell {
     val UNDEFINED, LOCAL, REMOTE, YARN = Value
   }
 
+  val defaultConfig = Map(
+    "high-availability" -> "none", "rest.bind-port" -> "8081-9000")
+
   /** Configuration object */
   case class Config(
     host: Option[String] = None,
@@ -46,8 +49,7 @@ object FlinkShell {
     executionMode: ExecutionMode.Value = ExecutionMode.UNDEFINED,
     yarnConfig: Option[YarnConfig] = None,
     configDir: Option[String] = None,
-    kwargs: Map[String, String] = Map(
-      "high-availability" -> "none", "rest.bind-port" -> "8081-9000")
+    kwargs: Map[String, String] = Map() ++ defaultConfig
   )
 
   /** YARN configuration object */
@@ -84,7 +86,7 @@ object FlinkShell {
 
         opt[Map[String, String]]("kwargs")
           .valueName("k1=v1,k2=v2...")
-          .action((x, c) => c.copy(kwargs = x))
+          .action((x, c) => c.copy(kwargs = defaultConfig ++ x))
           .text("other dynamic arguments")
 
       cmd("remote") action { (_, c) =>

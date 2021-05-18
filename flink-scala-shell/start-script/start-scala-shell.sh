@@ -52,7 +52,37 @@ echo "FLINK_CONNECTOR_LIBS = $FLINK_CONNECTOR_LIBS"
 bin=`cd "$bin"; pwd`
 . "$bin"/config.sh
 
-FLINK_CLASSPATH=`constructFlinkClassPath`
+constructFlinkClassPathLib() {
+    local FLINK_DIST
+    local FLINK_CLASSPATH
+
+    while read -d '' -r jarfile ; do
+        if [[ "$jarfile" =~ .*/flink-dist[^/]*.jar$ ]]; then
+            FLINK_DIST="$FLINK_DIST":"$jarfile"
+        elif [[ "$FLINK_CLASSPATH" == "" ]]; then
+            FLINK_CLASSPATH="$jarfile";
+        else
+            FLINK_CLASSPATH="$FLINK_CLASSPATH":"$jarfile"
+        fi
+    done < <(find "$FLINK_LIB_DIR" ! -type d -name '*.jar' -print0 | sort -z)
+
+    if [[ "$FLINK_DIST" == "" ]]; then
+        # write error message to stderr since stdout is stored as the classpath
+        (>&2 echo "[ERROR] Flink distribution jar not found in $FLINK_LIB_DIR.")
+
+        # exit function with empty classpath to force process failure
+        exit 1
+    fi
+
+    jar_dependencies_classpath=`getJarDependencies $*`
+    if [ "$jar_dependencies_classpath" != "" ]; then
+        FLINK_CLASSPATH="$jar_dependencies_classpath:$FLINK_CLASSPATH"
+    fi
+
+    echo "$FLINK_DIST":"$FLINK_CLASSPATH"
+}
+
+FLINK_CLASSPATH=`constructFlinkClassPathLib`
 
 # https://issues.scala-lang.org/browse/SI-6502, cant load external jars interactively
 # in scala shell since 2.10, has to be done at startup
@@ -63,8 +93,7 @@ for ((i=1;i<=$#;i++))
 do
     if [[  ${!i} = "-a" || ${!i} = "--addclasspath" ]]
     then
-	EXTERNAL_LIB_FOUND=true
-	
+        EXTERNAL_LIB_FOUND=true
         #adding to classpath
         k=$((i+1))
         j=$((k+1))
@@ -99,7 +128,7 @@ log_setting=("-Dlog.file=$LOG" "-Dlog4j.configuration=file:$FLINK_CONF_DIR/$LOG4
 # sort the hadoop dependencies
 INTERNAL_HADOOP_CLASSPATHS=`sortHadoopClasspath`
 
-CC_CLASSPATH=`constructFlinkClassPath $*`:$FLINK_CONNECTOR_LIBS
+CC_CLASSPATH=`constructFlinkClassPathLib $*`:$FLINK_CONNECTOR_LIBS
 DYNAMIC_FILES=`getDynamicFiles $*`
 if [ "$DYNAMIC_FILES" != "" ]; then
         DYNAMIC_FILES=${DYNAMIC_FILES//;/:}
