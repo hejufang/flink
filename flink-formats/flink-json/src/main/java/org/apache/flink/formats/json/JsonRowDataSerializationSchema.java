@@ -87,8 +87,12 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 	/** Flag indicating whether to encode a varbinary to json node. */
 	private final boolean byteAsJsonNode;
 
+	private final boolean encodeAsChangelog;
+
+	private final String changelogColumnName;
+
 	public JsonRowDataSerializationSchema(RowType rowType, TimestampFormat timestampFormat) {
-		this(rowType, timestampFormat, false, false, false);
+		this(rowType, timestampFormat, false, false, false, false,  "");
 	}
 
 	public JsonRowDataSerializationSchema(
@@ -96,13 +100,17 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 			TimestampFormat timestampFormat,
 			boolean enforceUTF8Encoding,
 			boolean ignoreNullValues,
-			boolean byteAsJsonNode) {
+			boolean byteAsJsonNode,
+			boolean encodeAsChangelog,
+			String changelogColumnName) {
 		this.rowType = rowType;
 		this.timestampFormat = timestampFormat;
 		this.enforceUTF8Encoding = enforceUTF8Encoding;
 		this.ignoreNullValues = ignoreNullValues;
 		this.byteAsJsonNode = byteAsJsonNode;
 		this.runtimeConverter = createConverter(rowType);
+		this.encodeAsChangelog = encodeAsChangelog;
+		this.changelogColumnName = changelogColumnName;
 	}
 
 	@Override
@@ -112,6 +120,9 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 		}
 
 		try {
+			if (encodeAsChangelog) {
+				node.put(changelogColumnName, row.getRowKind().shortString());
+			}
 			runtimeConverter.convert(mapper, node, row);
 			if (enforceUTF8Encoding) {
 				return mapper.writeValueAsString(node).getBytes();

@@ -105,6 +105,8 @@ public class FileSystemTableFactory implements
 		options.add(FileSystemOptions.SINK_PARTITION_COMMIT_POLICY_CLASS);
 		options.add(FileSystemOptions.SINK_PARTITION_COMMIT_SUCCESS_FILE_NAME);
 		options.add(COMPRESS_CODEC);
+		options.add(FileSystemOptions.ENCODE_AS_CHANGELOG);
+		options.add(FileSystemOptions.CHANGELOG_COLUMN_NAME);
 		return options;
 	}
 }

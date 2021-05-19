@@ -129,7 +129,9 @@ public class JsonFormatFactory implements
 					timestampOption,
 					enforceUTF8Encoding,
 					ignoreNullValues,
-					byteAsJsonNode);
+					byteAsJsonNode,
+					false,
+					"");
 			}
 
 			@Override

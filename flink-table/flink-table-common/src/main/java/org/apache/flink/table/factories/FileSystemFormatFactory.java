@@ -58,6 +58,13 @@ public interface FileSystemFormatFactory extends Factory {
 	Optional<BulkWriter.Factory<RowData>> createBulkWriterFactory(WriterContext context);
 
 	/**
+	 * Whether supports encoding changelog data, not only insert data.
+	 */
+	default boolean supportsEncodeChangelog() {
+		return false;
+	}
+
+	/**
 	 * Context of {@link #createReader}.
 	 */
 	interface ReaderContext {
@@ -168,6 +175,16 @@ public interface FileSystemFormatFactory extends Factory {
 		 * Partition keys of the table.
 		 */
 		List<String> getPartitionKeys();
+
+		/**
+		 * Whether encode data as changelog.
+		 */
+		boolean encodeAsChangelog();
+
+		/**
+		 * The changelog column name.
+		 */
+		String changelogColumnName();
 
 		/**
 		 * Get field names without partition keys.

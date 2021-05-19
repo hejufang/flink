@@ -193,4 +193,16 @@ public class FileSystemOptions {
 					.withDescription("The codec for decoding the file before deserialize it using the format." +
 							"This configuration only works for new line delimited encoded files.(New line is not " +
 							"encoded by the codec");
+
+	public static final ConfigOption<Boolean> ENCODE_AS_CHANGELOG =
+			key("sink.encode-as-changelog")
+					.booleanType()
+					.defaultValue(false)
+					.withDescription("Specify whether to encode data as changelog format.");
+
+	public static final ConfigOption<String> CHANGELOG_COLUMN_NAME =
+			key("sink.changelog-column-name")
+					.stringType()
+					.defaultValue("__rowkind")
+					.withDescription("Specify the changelog column name.");
 }

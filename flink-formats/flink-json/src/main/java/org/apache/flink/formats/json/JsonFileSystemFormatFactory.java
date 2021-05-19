@@ -121,13 +121,26 @@ public class JsonFileSystemFormatFactory implements FileSystemFormatFactory {
 
 	@Override
 	public Optional<Encoder<RowData>> createEncoder(WriterContext context) {
-		return Optional.of(new JsonRowDataEncoder(new JsonRowDataSerializationSchema(context.getFormatRowType(),
-			JsonOptions.getTimestampFormat(context.getFormatOptions()))));
+		final JsonRowDataSerializationSchema jsonRowDataSerializationSchema =
+			new JsonRowDataSerializationSchema(
+				context.getFormatRowType(),
+				JsonOptions.getTimestampFormat(context.getFormatOptions()),
+				false,
+				false,
+				false,
+				context.encodeAsChangelog(),
+				context.changelogColumnName());
+		return Optional.of(new JsonRowDataEncoder(jsonRowDataSerializationSchema));
 	}
 
 	@Override
 	public Optional<BulkWriter.Factory<RowData>> createBulkWriterFactory(WriterContext context) {
 		return Optional.empty();
+	}
+
+	@Override
+	public boolean supportsEncodeChangelog() {
+		return true;
 	}
 
 	/**

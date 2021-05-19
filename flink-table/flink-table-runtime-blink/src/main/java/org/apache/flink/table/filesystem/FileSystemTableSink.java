@@ -55,6 +55,8 @@ import org.apache.flink.table.factories.FileSystemFormatFactory;
 import org.apache.flink.table.filesystem.stream.StreamingFileCommitter;
 import org.apache.flink.table.filesystem.stream.StreamingFileWriter;
 import org.apache.flink.table.utils.PartitionPathUtils;
+import org.apache.flink.types.RowKind;
+import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
@@ -81,9 +83,13 @@ public class FileSystemTableSink extends AbstractFileSystemTable implements
 	private boolean overwrite = false;
 	private boolean dynamicGrouping = false;
 	private LinkedHashMap<String, String> staticPartitions = new LinkedHashMap<>();
+	private final boolean encodeAsChangelog;
+	private final String changelogColumnName;
 
 	FileSystemTableSink(DynamicTableFactory.Context context) {
 		super(context);
+		this.encodeAsChangelog = tableOptions.get(FileSystemOptions.ENCODE_AS_CHANGELOG);
+		this.changelogColumnName = tableOptions.get(FileSystemOptions.CHANGELOG_COLUMN_NAME);
 	}
 
 	private FileSystemTableSink(
@@ -228,6 +234,11 @@ public class FileSystemTableSink extends AbstractFileSystemTable implements
 	private Object createWriter() {
 		FileSystemFormatFactory formatFactory = createFormatFactory(tableOptions);
 
+		if (encodeAsChangelog && !formatFactory.supportsEncodeChangelog()) {
+			throw new FlinkRuntimeException(String.format("Foramt '%s' does not " +
+				"support to encode as changelog.", formatFactory.factoryIdentifier()));
+		}
+
 		FileSystemFormatFactory.WriterContext context = new FileSystemFormatFactory.WriterContext() {
 
 			@Override
@@ -243,6 +254,16 @@ public class FileSystemTableSink extends AbstractFileSystemTable implements
 			@Override
 			public List<String> getPartitionKeys() {
 				return partitionKeys;
+			}
+
+			@Override
+			public boolean encodeAsChangelog() {
+				return encodeAsChangelog;
+			}
+
+			@Override
+			public String changelogColumnName() {
+				return changelogColumnName;
 			}
 		};
 
@@ -341,7 +362,16 @@ public class FileSystemTableSink extends AbstractFileSystemTable implements
 
 	@Override
 	public ChangelogMode getChangelogMode(ChangelogMode requestedMode) {
-		return ChangelogMode.insertOnly();
+		if (encodeAsChangelog) {
+			return ChangelogMode.newBuilder()
+				.addContainedKind(RowKind.INSERT)
+				.addContainedKind(RowKind.UPDATE_BEFORE)
+				.addContainedKind(RowKind.UPDATE_AFTER)
+				.addContainedKind(RowKind.DELETE)
+				.build();
+		} else {
+			return ChangelogMode.insertOnly();
+		}
 	}
 
 	@Override
