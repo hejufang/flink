@@ -115,6 +115,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -187,6 +188,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	private final boolean allowNonRestoredState;
 
+	private final String manualSavepointLocationPrefix;
+
 	public SchedulerBase(
 			final Logger log,
 			final JobGraph jobGraph,
@@ -250,6 +253,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 		this.coordinatorMap = createCoordinatorMap();
 		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
+		this.manualSavepointLocationPrefix = jobMasterConfiguration.getString(CheckpointingOptions.MANUAL_SAVEPOINT_LOCATION_PREFIX);
 	}
 
 	private ExecutionGraph createAndRestoreExecutionGraph(
@@ -841,6 +845,61 @@ public abstract class SchedulerBase implements SchedulerNG {
 				}
 				return path;
 			}, mainThreadExecutor);
+	}
+
+	@Override
+	public CompletableFuture<String> triggerDetachSavepoint(String savepointId, boolean cancelJob) {
+		mainThreadExecutor.assertRunningInMainThread();
+
+		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+		if (checkpointCoordinator == null) {
+			throw new IllegalStateException(
+				String.format("Job %s is not a streaming job.", jobGraph.getJobID()));
+		}
+
+		log.info("Triggering {}detach-savepoint for job {}, with savepoint_id {}.",
+			cancelJob ? "cancel-with-" : "", jobGraph.getJobID(), savepointId);
+
+		if (cancelJob) {
+			checkpointCoordinator.stopCheckpointScheduler();
+		}
+
+		checkNotNull(manualSavepointLocationPrefix, "savepoint directory prefix for detach savepoint is not set, " +
+			"set this value in config state.savepoint.manual-savepoint.location-prefix.");
+
+		LocalDate currentDate = LocalDate.now();
+		String dateSubDir = String.format("%04d%02d%02d", currentDate.getYear(), currentDate.getMonthValue(), currentDate.getDayOfMonth());
+		String manualSavepointPath = String.format("%s/%s/%s/%s", manualSavepointLocationPrefix, dateSubDir, jobGraph.getName(), savepointId);
+		log.info("On triggering manual savepoint at {}", manualSavepointPath);
+
+		return checkpointCoordinator
+			.triggerDetachSavepoint(manualSavepointPath, savepointId)
+			.thenApply(CompletedCheckpoint::getExternalPointer)
+			.handleAsync((path, throwable) -> {
+				if (throwable != null) {
+					if (cancelJob) {
+						startCheckpointScheduler(checkpointCoordinator);
+					}
+					throw new CompletionException(throwable);
+				} else if (cancelJob) {
+					log.info("Savepoint stored in {}. Now cancelling {}.", path, jobGraph.getJobID());
+					cancel();
+				}
+				return path;
+			}, mainThreadExecutor);
+	}
+
+	@Override
+	public CompletableFuture<List<String>> dumpPendingSavepoints() {
+		mainThreadExecutor.assertRunningInMainThread();
+
+		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
+		if (checkpointCoordinator == null) {
+			throw new IllegalStateException(
+				String.format("Job %s is not a streaming job.", jobGraph.getJobID()));
+		}
+
+		return checkpointCoordinator.getPendingSavepointsUnsafe();
 	}
 
 	private void startCheckpointScheduler(final CheckpointCoordinator checkpointCoordinator) {

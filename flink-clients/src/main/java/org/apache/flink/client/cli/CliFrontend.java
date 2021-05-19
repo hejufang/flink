@@ -84,6 +84,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -732,6 +733,30 @@ public class CliFrontend {
 				activeCommandLine,
 				commandLine,
 				clusterClient -> disposeSavepoint(clusterClient, savepointOptions.getSavepointPath()));
+		} else if (savepointOptions.isDetached()) {
+			// (1) generate a UUID for the detached savepoint
+			UUID savepointId = UUID.randomUUID();
+
+			String[] cleanedArgs = savepointOptions.getArgs();
+
+			final JobID jobId;
+
+			System.out.println("Args num: " + cleanedArgs.length);
+			if (cleanedArgs.length != 1) {
+				throw new CliArgsException("Missing JobID. " +
+					"Specify a Job ID to trigger a savepoint.");
+			} else {
+				String jobIdString = cleanedArgs[0];
+
+				jobId = parseJobId(jobIdString);
+			}
+
+			// (2) trigger savepoint in detached mode and return immediately
+			runClusterAction(
+				activeCommandLine,
+				commandLine,
+				clusterClient -> triggerDetachSavepoint(clusterClient, jobId, savepointId));
+
 		} else {
 			String[] cleanedArgs = savepointOptions.getArgs();
 
@@ -784,6 +809,24 @@ public class CliFrontend {
 		} catch (Exception e) {
 			Throwable cause = ExceptionUtils.stripExecutionException(e);
 			throw new FlinkException("Triggering a savepoint for the job " + jobId + " failed.", cause);
+		}
+	}
+
+	/**
+	 * Send a SavepointTriggerMessage to JM, trigger savepoint in detach mode.
+	 */
+	private void triggerDetachSavepoint(ClusterClient<?> clusterClient, JobID jobId, UUID savepointId) throws FlinkException {
+		logAndSysout("On triggering detached savepoint for job " + jobId + '.');
+
+		try {
+			final String triggerId = clusterClient.triggerDetachSavepoint(jobId, savepointId.toString())
+										.get(clientTimeout.toMillis(), TimeUnit.MILLISECONDS);
+
+			logAndSysout("Successfully trigger manual savepoint, triggerId: " + triggerId);
+			logAndSysout("Savepoint UUID: " + savepointId);
+		} catch (Exception e) {
+			Throwable cause = ExceptionUtils.stripExecutionException(e);
+			throw new FlinkException("Triggering a detach savepoint for the job " + jobId + " failed.", cause);
 		}
 	}
 

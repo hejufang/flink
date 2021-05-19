@@ -43,6 +43,7 @@ import org.apache.flink.runtime.rpc.RpcTimeout;
 import org.apache.flink.util.SerializedValue;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -166,6 +167,24 @@ public interface RestfulGateway extends RpcGateway {
 			String targetDirectory,
 			boolean cancelJob,
 			@RpcTimeout Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Detached Mode savepoint.
+	 */
+	default CompletableFuture<String> triggerDetachSavepoint(
+		JobID jobId,
+		String savepointId,
+		boolean cancelJob,
+		@RpcTimeout Time timeout) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
+	 * Dump all pending savepoints.
+	 */
+	default CompletableFuture<List<String>> dumpPendingSavepoints(JobID jobId) {
 		throw new UnsupportedOperationException();
 	}
 

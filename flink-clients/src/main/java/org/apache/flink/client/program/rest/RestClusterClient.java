@@ -446,6 +446,11 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 	}
 
 	@Override
+	public CompletableFuture<String> triggerDetachSavepoint(JobID jobId, String savepointId) {
+		return triggerDetachSavepoint(jobId, savepointId, false);
+	}
+
+	@Override
 	public CompletableFuture<CoordinationResponse> sendCoordinationRequest(
 			JobID jobId,
 			OperatorID operatorId,
@@ -487,7 +492,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		final CompletableFuture<TriggerResponse> responseFuture = sendRequest(
 			savepointTriggerHeaders,
 			savepointTriggerMessageParameters,
-			new SavepointTriggerRequestBody(savepointDirectory, cancelJob));
+			new SavepointTriggerRequestBody(savepointDirectory, cancelJob, null));
 
 		return responseFuture.thenCompose(savepointTriggerResponseBody -> {
 			final TriggerId savepointTriggerId = savepointTriggerResponseBody.getTriggerId();
@@ -498,6 +503,20 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 			}
 			return savepointInfo.getLocation();
 		});
+	}
+
+	private CompletableFuture<String> triggerDetachSavepoint(final JobID jobId, final String savepointId, final boolean cancelJob) {
+		final SavepointTriggerHeaders savepointTriggerHeaders = SavepointTriggerHeaders.getInstance();
+		final SavepointTriggerMessageParameters savepointTriggerMessageParameters =
+			savepointTriggerHeaders.getUnresolvedMessageParameters();
+		savepointTriggerMessageParameters.jobID.resolve(jobId);
+
+		final CompletableFuture<TriggerResponse> responseFuture = sendRequest(
+			savepointTriggerHeaders,
+			savepointTriggerMessageParameters,
+			new SavepointTriggerRequestBody(null, cancelJob, savepointId));
+
+		return responseFuture.thenApply((TriggerResponse tr) -> tr.getTriggerId().toString());
 	}
 
 	@Override

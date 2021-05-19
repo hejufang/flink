@@ -173,18 +173,24 @@ public class SavepointHandlers extends AbstractAsynchronousOperationHandlers<Asy
 		protected CompletableFuture<String> triggerOperation(HandlerRequest<SavepointTriggerRequestBody, SavepointTriggerMessageParameters> request, RestfulGateway gateway) throws RestHandlerException {
 			final JobID jobId = request.getPathParameter(JobIDPathParameter.class);
 			final String requestedTargetDirectory = request.getRequestBody().getTargetDirectory();
+			final String savepointId = request.getRequestBody().getSavepointId();
 
-			if (requestedTargetDirectory == null && defaultSavepointDir == null) {
-				throw new RestHandlerException(
+			if (savepointId != null) {
+				final boolean cancelJob = request.getRequestBody().isCancelJob();
+				return gateway.triggerDetachSavepoint(jobId, savepointId, cancelJob, RpcUtils.INF_TIMEOUT);
+			} else {
+				if (requestedTargetDirectory == null && defaultSavepointDir == null) {
+					throw new RestHandlerException(
 						String.format("Config key [%s] is not set. Property [%s] must be provided.",
 							CheckpointingOptions.SAVEPOINT_DIRECTORY.key(),
 							SavepointTriggerRequestBody.FIELD_NAME_TARGET_DIRECTORY),
 						HttpResponseStatus.BAD_REQUEST);
-			}
+				}
 
-			final boolean cancelJob = request.getRequestBody().isCancelJob();
-			final String targetDirectory = requestedTargetDirectory != null ? requestedTargetDirectory : defaultSavepointDir;
-			return gateway.triggerSavepoint(jobId, targetDirectory, cancelJob, RpcUtils.INF_TIMEOUT);
+				final boolean cancelJob = request.getRequestBody().isCancelJob();
+				final String targetDirectory = requestedTargetDirectory != null ? requestedTargetDirectory : defaultSavepointDir;
+				return gateway.triggerSavepoint(jobId, targetDirectory, cancelJob, RpcUtils.INF_TIMEOUT);
+			}
 		}
 	}
 

@@ -56,6 +56,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -120,6 +121,10 @@ public interface SchedulerNG {
 	// ------------------------------------------------------------------------
 
 	CompletableFuture<String> triggerSavepoint(@Nullable String targetDirectory, boolean cancelJob);
+
+	CompletableFuture<String> triggerDetachSavepoint(String savepointId, boolean cancelJob);
+
+	CompletableFuture<List<String>> dumpPendingSavepoints();
 
 	void acknowledgeCheckpoint(JobID jobID, ExecutionAttemptID executionAttemptID, long checkpointId, CheckpointMetrics checkpointMetrics, TaskStateSnapshot checkpointState);
 

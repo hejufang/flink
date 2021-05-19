@@ -174,6 +174,10 @@ public interface ClusterClient<T> extends AutoCloseable {
 	 */
 	CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory);
 
+	default CompletableFuture<String> triggerDetachSavepoint(JobID jobId, String savepointId) {
+		throw new UnsupportedOperationException("Do not support triggerDetachSavepoint except for RestClusterClient");
+	}
+
 	/**
 	 * Sends out a request to a specified coordinator and return the response.
 	 *

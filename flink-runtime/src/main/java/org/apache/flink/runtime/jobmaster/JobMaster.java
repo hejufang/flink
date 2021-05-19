@@ -113,6 +113,7 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -713,6 +714,20 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 			final Time timeout) {
 
 		return schedulerNG.triggerSavepoint(targetDirectory, cancelJob);
+	}
+
+	@Override
+	public CompletableFuture<String> triggerDetachSavepoint(
+		final String savepointId,
+		final boolean cancelJob,
+		final Time timeout) {
+
+		return schedulerNG.triggerDetachSavepoint(savepointId, cancelJob);
+	}
+
+	@Override
+	public CompletableFuture<List<String>> dumpPendingSavepoints() {
+		return schedulerNG.dumpPendingSavepoints();
 	}
 
 	@Override

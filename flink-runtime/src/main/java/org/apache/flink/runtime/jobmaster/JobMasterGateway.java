@@ -52,6 +52,7 @@ import org.apache.flink.util.SerializedValue;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -233,6 +234,19 @@ public interface JobMasterGateway extends
 		@Nullable final String targetDirectory,
 		final boolean cancelJob,
 		@RpcTimeout final Time timeout);
+
+	/**
+	 * Savepoint in detached mode.
+	 */
+	CompletableFuture<String> triggerDetachSavepoint(
+		String savepointId,
+		final boolean cancelJob,
+		@RpcTimeout final Time timeout);
+
+	/**
+	 * Dump all pending savepoints.
+	 */
+	CompletableFuture<List<String>> dumpPendingSavepoints();
 
 	/**
 	 * Stops the job with a savepoint.

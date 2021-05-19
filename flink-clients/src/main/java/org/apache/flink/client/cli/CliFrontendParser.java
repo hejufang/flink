@@ -96,6 +96,10 @@ public class CliFrontendParser {
 	public static final Option SAVEPOINT_PATH_OPTION = new Option("s", "fromSavepoint", true,
 			"Path to a savepoint to restore the job from (for example hdfs:///flink/savepoint-1537).");
 
+	public static final Option SAVEPOINT_DETACH_OPTION = new Option("dcp", "detachSavepoint", false,
+		"Savepoint trigger in detach mode, client and JM are decoupled, return UUID as the unique identification of savepoint." +
+			" If -dcp is set, no need to set <target directory>.");
+
 	public static final Option SAVEPOINT_ALLOW_NON_RESTORED_OPTION = new Option("n", "allowNonRestoredState", false,
 			"Allow to skip savepoint state that cannot be restored. " +
 					"You need to allow this if you removed an operator from your " +
@@ -331,6 +335,7 @@ public class CliFrontendParser {
 		Options options = buildGeneralOptions(new Options());
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(CLUSTER_NAME_OPTION);
+		options.addOption(SAVEPOINT_DETACH_OPTION);
 		return options.addOption(JAR_OPTION);
 	}
 
@@ -386,6 +391,7 @@ public class CliFrontendParser {
 	private static Options getSavepointOptionsWithoutDeprecatedOptions(Options options) {
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(JAR_OPTION);
+		options.addOption(SAVEPOINT_DETACH_OPTION);
 		return options;
 	}
 

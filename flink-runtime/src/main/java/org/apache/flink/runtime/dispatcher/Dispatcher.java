@@ -637,6 +637,25 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
 	}
 
 	@Override
+	public CompletableFuture<String> triggerDetachSavepoint(
+		final JobID jobId,
+		final String savepointId,
+		final boolean cancelJob,
+		final Time timeout) {
+		final CompletableFuture<JobMasterGateway> jobMasterGatewayFuture = getJobMasterGatewayFuture(jobId);
+
+		return jobMasterGatewayFuture.thenCompose((JobMasterGateway jobMasterGateway) ->
+			jobMasterGateway.triggerDetachSavepoint(savepointId, cancelJob, timeout));
+	}
+
+	@Override
+	public CompletableFuture<List<String>> dumpPendingSavepoints(JobID jobId) {
+		final CompletableFuture<JobMasterGateway> jobMasterGatewayFuture = getJobMasterGatewayFuture(jobId);
+
+		return jobMasterGatewayFuture.thenCompose(JobMasterGateway::dumpPendingSavepoints);
+	}
+
+	@Override
 	public CompletableFuture<String> stopWithSavepoint(
 			final JobID jobId,
 			final String targetDirectory,

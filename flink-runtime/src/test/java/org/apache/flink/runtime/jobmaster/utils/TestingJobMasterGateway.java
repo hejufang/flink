@@ -62,7 +62,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -301,6 +303,16 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 	@Override
 	public CompletableFuture<String> triggerSavepoint(@Nullable final String targetDirectory, final boolean cancelJob, final Time timeout) {
 		return triggerSavepointFunction.apply(targetDirectory, cancelJob);
+	}
+
+	@Override
+	public CompletableFuture<String> triggerDetachSavepoint(@Nullable final String savepointId, final boolean cancelJob, final Time timeout) {
+		return CompletableFuture.completedFuture(savepointId);
+	}
+
+	@Override
+	public CompletableFuture<List<String>> dumpPendingSavepoints() {
+		return CompletableFuture.completedFuture(new ArrayList<>());
 	}
 
 	@Override

@@ -118,4 +118,11 @@ public interface CheckpointStorageCoordinatorView {
 	CheckpointStorageLocation initializeLocationForSavepoint(
 		long checkpointId,
 		@Nullable String externalLocationPointer) throws IOException;
+
+	default CheckpointStorageLocation initializeLocationForDetachSavepoint(
+		long checkpointId,
+		String externalLocationPointer) throws IOException {
+
+		return initializeLocationForSavepoint(checkpointId, externalLocationPointer);
+	}
 }

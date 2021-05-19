@@ -21,6 +21,7 @@ package org.apache.flink.client.cli;
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import static org.apache.flink.client.cli.CliFrontendParser.JAR_OPTION;
+import static org.apache.flink.client.cli.CliFrontendParser.SAVEPOINT_DETACH_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.SAVEPOINT_DISPOSE_OPTION;
 
 /**
@@ -32,6 +33,7 @@ public class SavepointOptions extends CommandLineOptions {
 	private boolean dispose;
 	private String disposeSavepointPath;
 	private String jarFile;
+	private boolean isDetached;
 
 	public SavepointOptions(CommandLine line) {
 		super(line);
@@ -39,6 +41,7 @@ public class SavepointOptions extends CommandLineOptions {
 		dispose = line.hasOption(SAVEPOINT_DISPOSE_OPTION.getOpt());
 		disposeSavepointPath = line.getOptionValue(SAVEPOINT_DISPOSE_OPTION.getOpt());
 		jarFile = line.getOptionValue(JAR_OPTION.getOpt());
+		isDetached = line.hasOption(SAVEPOINT_DETACH_OPTION.getOpt());
 	}
 
 	public String[] getArgs() {
@@ -55,5 +58,9 @@ public class SavepointOptions extends CommandLineOptions {
 
 	public String getJarFilePath() {
 		return jarFile;
+	}
+
+	public boolean isDetached() {
+		return isDetached;
 	}
 }

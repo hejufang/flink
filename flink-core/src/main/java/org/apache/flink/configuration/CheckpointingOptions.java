@@ -276,12 +276,17 @@ public class CheckpointingOptions {
 	public static final ConfigOption<String> STATE_FILE_BATCH_STRATEGY = ConfigOptions
 		.key("state.backend.state-file-batch.strategy")
 		.defaultValue("fix-size-seq")
-		.withDeprecatedKeys("Currently only support fix-size-seq");
+		.withDescription("Currently only support fix-size-seq");
 
 	public static final ConfigOption<Long> STATE_FILE_BATCH_SIZE = ConfigOptions
 		.key("state.backend.state-file-batch.max-size")
 		.defaultValue(512 * 1024 * 1024L)
-		.withDeprecatedKeys("Max capacity of one state file batch.");
+		.withDescription("Max capacity of one state file batch.");
+
+	public static final ConfigOption<String> MANUAL_SAVEPOINT_LOCATION_PREFIX = ConfigOptions
+		.key("state.savepoint.manual-savepoint.location-prefix")
+		.noDefaultValue()
+		.withDescription("HDFS path prefix for manually-triggered detach savepoint");
 
 	// Flink cross version hard code
 

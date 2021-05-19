@@ -38,6 +38,7 @@ common:
   state.backend.rocksdb.monit.running.status: true
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
+  state.savepoint.manual-savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
 
   ## High Availability
   high-availability: zookeeper
