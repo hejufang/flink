@@ -21,6 +21,7 @@ package org.apache.flink.yarn.executors;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.client.deployment.executors.AbstractJobClusterExecutor;
 import org.apache.flink.core.execution.PipelineExecutor;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.yarn.YarnClusterClientFactory;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
 
@@ -38,5 +39,9 @@ public class YarnJobClusterExecutor extends AbstractJobClusterExecutor<Applicati
 
 	public YarnJobClusterExecutor() {
 		super(new YarnClusterClientFactory());
+	}
+
+	public YarnJobClusterExecutor(WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+		super(new YarnClusterClientFactory(), warehouseJobStartEventMessageRecorder);
 	}
 }

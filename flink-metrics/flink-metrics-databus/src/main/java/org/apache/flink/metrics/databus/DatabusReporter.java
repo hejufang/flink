@@ -87,6 +87,8 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 
 	private String commitDate;
 
+	private String version;
+
 	private ObjectMapper objectMapper = new ObjectMapper();
 
 	@Override
@@ -121,6 +123,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		this.tmId = System.getenv(YarnConfigKeys.ENV_FLINK_CONTAINER_ID);
 		this.commitId = EnvironmentInformation.getRevisionInformation().commitId;
 		this.commitDate = EnvironmentInformation.getRevisionInformation().commitDate;
+		this.version = EnvironmentInformation.getVersion();
 		this.jobName = getJobName();
 
 		if (this.host == null) {
@@ -212,6 +215,7 @@ public class DatabusReporter extends AbstractReporter implements Scheduled {
 		message.getMeta().setTmId(tmId);
 		message.getMeta().setCommitId(commitId);
 		message.getMeta().setCommitDate(commitDate);
+		message.getMeta().setVersion(version);
 	}
 
 	private void sendToDatabusClient(Message message) {

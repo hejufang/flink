@@ -265,6 +265,7 @@ public class MetricRegistryImplTest extends TestLogger {
 		config.setString(MetricOptions.SCOPE_NAMING_TM_JOB, "B");
 		config.setString(MetricOptions.SCOPE_NAMING_TASK, "C");
 		config.setString(MetricOptions.SCOPE_NAMING_OPERATOR, "D");
+		config.setString(MetricOptions.SCOPE_NAMING_CLI, "E");
 
 		ScopeFormats scopeConfig = ScopeFormats.fromConfig(config);
 
@@ -272,6 +273,7 @@ public class MetricRegistryImplTest extends TestLogger {
 		assertEquals("B", scopeConfig.getTaskManagerJobFormat().format());
 		assertEquals("C", scopeConfig.getTaskFormat().format());
 		assertEquals("D", scopeConfig.getOperatorFormat().format());
+		assertEquals("E", scopeConfig.getClientScopeFormat().format());
 	}
 
 	@Test

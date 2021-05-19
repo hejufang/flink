@@ -34,6 +34,7 @@ public final class ScopeFormats {
 	private final OperatorScopeFormat operatorFormat;
 	private final SqlGatewayScopeFormat sqlGatewayFormat;
 	private final SqlGatewaySessionScopeFormat sqlGatewaySessionFormat;
+	private final ClientScopeFormat clientScopeFormat;
 
 	// ------------------------------------------------------------------------
 
@@ -48,7 +49,8 @@ public final class ScopeFormats {
 			String taskFormat,
 			String operatorFormat,
 			String sqlGatewayFormat,
-			String sqlGatewaySessionFormat) {
+			String sqlGatewaySessionFormat,
+			String clientScopeFormat) {
 		this.jobManagerFormat = new JobManagerScopeFormat(jobManagerFormat);
 		this.jobManagerJobFormat = new JobManagerJobScopeFormat(
 				jobManagerJobFormat,
@@ -63,6 +65,7 @@ public final class ScopeFormats {
 		this.sqlGatewaySessionFormat = new SqlGatewaySessionScopeFormat(
 				sqlGatewaySessionFormat,
 				this.sqlGatewayFormat);
+		this.clientScopeFormat = new ClientScopeFormat(clientScopeFormat);
 	}
 
 	// ------------------------------------------------------------------------
@@ -101,6 +104,10 @@ public final class ScopeFormats {
 		return this.sqlGatewaySessionFormat;
 	}
 
+	public ClientScopeFormat getClientScopeFormat() {
+		return clientScopeFormat;
+	}
+
 	// ------------------------------------------------------------------------
 	//  Parsing from Config
 	// ------------------------------------------------------------------------
@@ -120,6 +127,7 @@ public final class ScopeFormats {
 		String operatorFormat = config.getString(MetricOptions.SCOPE_NAMING_OPERATOR);
 		String sqlGatewayFormat = config.getString(MetricOptions.SCOPE_NAMING_SQL_GATEWAY);
 		String sqlGatewaySessionFormat = config.getString(MetricOptions.SCOPE_NAMING_SQL_GATEWAY_SESSION);
+		String cliFormat = config.getString(MetricOptions.SCOPE_NAMING_CLI);
 
 		return new ScopeFormats(
 				jmFormat,
@@ -129,6 +137,7 @@ public final class ScopeFormats {
 				taskFormat,
 				operatorFormat,
 				sqlGatewayFormat,
-				sqlGatewaySessionFormat);
+				sqlGatewaySessionFormat,
+				cliFormat);
 	}
 }

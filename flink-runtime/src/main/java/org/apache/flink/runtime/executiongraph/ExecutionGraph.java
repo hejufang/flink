@@ -88,7 +88,6 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
 import org.apache.flink.types.Either;
-import org.apache.flink.util.clock.SystemClock;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.OptionalFailure;
@@ -96,6 +95,8 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.SerializedThrowable;
 import org.apache.flink.util.SerializedValue;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.clock.SystemClock;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -998,6 +999,10 @@ public class ExecutionGraph implements AccessExecutionGraph {
 	// --------------------------------------------------------------------------------------------
 
 	public void attachJobGraph(List<JobVertex> topologiallySorted) throws JobException {
+		attachJobGraph(topologiallySorted, null);
+	}
+
+	public void attachJobGraph(List<JobVertex> topologiallySorted, final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws JobException {
 
 		assertRunningInJobMasterMainThread();
 
@@ -1047,8 +1052,16 @@ public class ExecutionGraph implements AccessExecutionGraph {
 			newExecJobVertices.add(ejv);
 		}
 
+		if (warehouseJobStartEventMessageRecorder != null) {
+			warehouseJobStartEventMessageRecorder.buildExecutionGraphAttachJobVertex();
+		}
+
 		// the topology assigning should happen before notifying new vertices to failoverStrategy
 		executionTopology = new DefaultExecutionTopology(this);
+
+		if (warehouseJobStartEventMessageRecorder != null) {
+			warehouseJobStartEventMessageRecorder.buildExecutionGraphExecutionTopology();
+		}
 
 		failoverStrategy.notifyNewVertices(newExecJobVertices);
 

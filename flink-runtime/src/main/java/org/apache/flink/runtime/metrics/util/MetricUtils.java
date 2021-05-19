@@ -30,6 +30,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.AbstractMetricGroup;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.metrics.groups.ProcessMetricGroup;
 import org.apache.flink.runtime.metrics.groups.SqlGatewayMetricGroup;
@@ -134,6 +135,15 @@ public class MetricUtils {
 
 		instantiateStatusMetrics(statusGroup);
 		return statusGroup;
+	}
+
+	public static ClientMetricGroup instantiateClientMetricGroup(
+			final MetricRegistry metricRegistry,
+			final String hostname) {
+
+		return new ClientMetricGroup(
+			metricRegistry,
+			hostname);
 	}
 
 	public static void instantiateStatusMetrics(

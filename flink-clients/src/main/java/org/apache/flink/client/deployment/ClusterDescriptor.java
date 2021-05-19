@@ -22,6 +22,7 @@ import org.apache.flink.client.deployment.application.ApplicationConfiguration;
 import org.apache.flink.client.program.ClusterClientProvider;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 /**
  * A descriptor to deploy a cluster (e.g. Yarn or Mesos) and return a Client for Cluster communication.
@@ -88,6 +89,8 @@ public interface ClusterDescriptor<T> extends AutoCloseable {
 	 * @throws FlinkException if the cluster could not be terminated
 	 */
 	void killCluster(T clusterId) throws FlinkException;
+
+	default void setWarehouseJobStartEventMessageRecorder(WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) { }
 
 	@Override
 	void close();

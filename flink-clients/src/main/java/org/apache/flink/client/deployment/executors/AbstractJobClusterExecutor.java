@@ -31,16 +31,19 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.execution.PipelineExecutor;
 import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.configuration.DeploymentOptions.RUN_WITH_CHECKPOINT_VERIFY;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder.recordWarehouseEvent;
 
 /**
  * An abstract {@link PipelineExecutor} used to execute {@link Pipeline pipelines} on dedicated (per-job) clusters.
@@ -55,13 +58,27 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 
 	private final ClientFactory clusterClientFactory;
 
+	@Nullable
+	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
 	public AbstractJobClusterExecutor(@Nonnull final ClientFactory clusterClientFactory) {
+		this(clusterClientFactory, null);
+	}
+
+	public AbstractJobClusterExecutor(@Nonnull final ClientFactory clusterClientFactory, @Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
 		this.clusterClientFactory = checkNotNull(clusterClientFactory);
+		this.warehouseJobStartEventMessageRecorder = warehouseJobStartEventMessageRecorder;
 	}
 
 	@Override
 	public CompletableFuture<JobClient> execute(@Nonnull final Pipeline pipeline, @Nonnull final Configuration configuration) throws Exception {
+		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::buildJobGraphStart);
 		final JobGraph jobGraph = PipelineExecutorUtils.getJobGraph(pipeline, configuration);
+
+		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::buildJobGraphFinish);
+		if (warehouseJobStartEventMessageRecorder != null) {
+			warehouseJobStartEventMessageRecorder.setJobId(jobGraph.getJobID().toString());
+		}
 
 		CheckpointVerifier.verify(jobGraph, ClassLoader.getSystemClassLoader(), configuration);
 
@@ -72,13 +89,16 @@ public class AbstractJobClusterExecutor<ClusterID, ClientFactory extends Cluster
 		}
 
 		try (final ClusterDescriptor<ClusterID> clusterDescriptor = clusterClientFactory.createClusterDescriptor(configuration)) {
+			clusterDescriptor.setWarehouseJobStartEventMessageRecorder(warehouseJobStartEventMessageRecorder);
 			final ExecutionConfigAccessor configAccessor = ExecutionConfigAccessor.fromConfiguration(configuration);
 
 			final ClusterSpecification clusterSpecification = clusterClientFactory.getClusterSpecification(configuration);
 
+			recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::submitJobStart);
 			final ClusterClientProvider<ClusterID> clusterClientProvider = clusterDescriptor
 					.deployJobCluster(clusterSpecification, jobGraph, configAccessor.getDetachedMode());
 			LOG.info("Job has been submitted with JobID " + jobGraph.getJobID());
+			recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::submitJobFinish);
 
 			return CompletableFuture.completedFuture(
 					new ClusterClientJobClientAdapter<>(clusterClientProvider, jobGraph.getJobID()));

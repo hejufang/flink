@@ -71,6 +71,7 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
 import org.apache.flink.util.DynamicCodeLoadingException;
 import org.apache.flink.util.SerializedValue;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,7 +141,8 @@ public class ExecutionGraphBuilder {
 			partitionTracker,
 			failoverStrategy,
 			new NoOpSpeculationStrategy(),
-			BlacklistUtil.createNoOpRemoteBlacklistReporter());
+			BlacklistUtil.createNoOpRemoteBlacklistReporter(),
+			null);
 	}
 
 	public static ExecutionGraph buildGraph(
@@ -162,7 +164,12 @@ public class ExecutionGraphBuilder {
 		JobMasterPartitionTracker partitionTracker,
 		FailoverStrategy.Factory failoverStrategyFactory,
 		SpeculationStrategy speculationStrategy,
-		final RemoteBlacklistReporter remoteBlacklistReporter) throws JobExecutionException, JobException {
+		final RemoteBlacklistReporter remoteBlacklistReporter,
+		final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws JobExecutionException, JobException {
+
+		if (warehouseJobStartEventMessageRecorder != null) {
+			warehouseJobStartEventMessageRecorder.buildExecutionGraphStart();
+		}
 
 		checkNotNull(jobGraph, "job graph cannot be null");
 
@@ -231,6 +238,9 @@ public class ExecutionGraphBuilder {
 
 		final long initMasterStart = System.nanoTime();
 		log.info("Running initialization on master for job {} ({}).", jobName, jobId);
+		if (warehouseJobStartEventMessageRecorder != null) {
+			warehouseJobStartEventMessageRecorder.buildExecutionGraphInitialization();
+		}
 
 		for (JobVertex vertex : jobGraph.getVertices()) {
 			String executableClass = vertex.getInvokableClassName();
@@ -256,7 +266,7 @@ public class ExecutionGraphBuilder {
 		if (log.isDebugEnabled()) {
 			log.debug("Adding {} vertices from job graph {} ({}).", sortedTopology.size(), jobName, jobId);
 		}
-		executionGraph.attachJobGraph(sortedTopology);
+		executionGraph.attachJobGraph(sortedTopology, warehouseJobStartEventMessageRecorder);
 
 		if (log.isDebugEnabled()) {
 			log.debug("Successfully created execution graph from job graph {} ({}).", jobName, jobId);
@@ -457,6 +467,9 @@ public class ExecutionGraphBuilder {
 		log.info("Successfully ran buildExecutionGraph on master in {} ms.",
 				(System.nanoTime() - initMasterStart) / 1_000_000);
 
+		if (warehouseJobStartEventMessageRecorder != null) {
+			warehouseJobStartEventMessageRecorder.buildExecutionGraphFinish();
+		}
 		return executionGraph;
 	}
 

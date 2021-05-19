@@ -55,6 +55,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.configuration.YarnDeploymentTarget;
@@ -126,6 +127,7 @@ import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
 import static org.apache.flink.runtime.entrypoint.component.FileJobGraphRetriever.JOB_GRAPH_FILE_PATH;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder.recordWarehouseEvent;
 import static org.apache.flink.yarn.YarnConfigKeys.LOCAL_RESOURCE_DESCRIPTOR_SEPARATOR;
 
 /**
@@ -162,6 +164,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 	private YarnConfigOptions.UserJarInclusion userJarInclusion;
 
+	private WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
 	public YarnClusterDescriptor(
 			Configuration flinkConfiguration,
 			YarnConfiguration yarnConfiguration,
@@ -187,6 +191,11 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// we want to ignore the default value at this point.
 		this.zookeeperNamespace = flinkConfiguration.getString(HighAvailabilityOptions.HA_CLUSTER_ID, null);
+	}
+
+	@Override
+	public void setWarehouseJobStartEventMessageRecorder(WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+		this.warehouseJobStartEventMessageRecorder = warehouseJobStartEventMessageRecorder;
 	}
 
 	private Optional<List<File>> decodeDirsToShipToCluster(final Configuration configuration) {
@@ -680,6 +689,8 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			YarnClientApplication yarnApplication,
 			ClusterSpecification clusterSpecification) throws Exception {
 
+		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::prepareAMContextStart);
+
 		// ------------------ Initialize the file systems -------------------------
 
 		org.apache.flink.core.fs.FileSystem.initialize(
@@ -1119,9 +1130,12 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		setApplicationTags(appContext);
 
+		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::prepareAMContextFinish);
+
 		// add a hook to clean up in case deployment fails
 		Thread deploymentFailureHook = new DeploymentFailureHook(yarnApplication, fileUploader.getApplicationDir());
 		Runtime.getRuntime().addShutdownHook(deploymentFailureHook);
+		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::deployYarnClusterStart);
 		LOG.info("Submitting application master " + appId);
 		yarnClient.submitApplication(appContext);
 
@@ -1169,6 +1183,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 
 		// since deployment was successful, remove the hook
 		ShutdownHookUtil.removeShutdownHook(deploymentFailureHook, getClass().getSimpleName(), LOG);
+		recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::deployYarnClusterFinish);
 		return report;
 	}
 

@@ -169,7 +169,8 @@ public class OpentsdbReporter extends AbstractReporter implements Scheduled {
 
 	@Override
 	public void close() {
-
+		report();
+		log.info("OpentsdbReporter closed.");
 	}
 
 	private void reportGlobalMetrics(String type, String name, String metricName,

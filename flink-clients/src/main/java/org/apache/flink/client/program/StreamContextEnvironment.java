@@ -32,9 +32,12 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.monitor.utils.Utils.registerDashboard;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder.recordWarehouseEvent;
 
 /**
  * Special {@link StreamExecutionEnvironment} that will be used in cases where the CLI client or
@@ -64,8 +68,9 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			final Configuration configuration,
 			final ClassLoader userCodeClassLoader,
 			final boolean enforceSingleJobExecution,
-			final boolean suppressSysout) {
-		super(executorServiceLoader, configuration, userCodeClassLoader);
+			final boolean suppressSysout,
+			@Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
+		super(executorServiceLoader, configuration, userCodeClassLoader, warehouseJobStartEventMessageRecorder);
 		this.suppressSysout = suppressSysout;
 		this.enforceSingleJobExecution = enforceSingleJobExecution;
 
@@ -123,8 +128,10 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			jobExecutionResult = jobExecutionResultFuture.get();
 			System.out.println(jobExecutionResult);
 		} else if (getConfiguration().getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
+			recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughStart);
 			jobClient.waitAllTaskRunningOrClusterFailed().get();
 			jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
+			recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughFinish);
 		}  else {
 			jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
 		}
@@ -159,13 +166,15 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 			final Configuration configuration,
 			final ClassLoader userCodeClassLoader,
 			final boolean enforceSingleJobExecution,
-			final boolean suppressSysout) {
+			final boolean suppressSysout,
+			@Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) {
 		StreamExecutionEnvironmentFactory factory = () -> new StreamContextEnvironment(
 			executorServiceLoader,
 			configuration,
 			userCodeClassLoader,
 			enforceSingleJobExecution,
-			suppressSysout);
+			suppressSysout,
+			warehouseJobStartEventMessageRecorder);
 		initializeContextEnvironment(factory);
 	}
 

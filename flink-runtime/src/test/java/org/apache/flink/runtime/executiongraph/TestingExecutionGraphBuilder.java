@@ -177,7 +177,8 @@ public class TestingExecutionGraphBuilder {
 			partitionTracker,
 			failoverStrategyFactory,
 			new NoOpSpeculationStrategy(),
-			BlacklistUtil.createNoOpRemoteBlacklistReporter());
+			BlacklistUtil.createNoOpRemoteBlacklistReporter(),
+			null);
 	}
 
 }

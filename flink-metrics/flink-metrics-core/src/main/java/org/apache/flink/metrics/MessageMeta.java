@@ -51,6 +51,8 @@ public class MessageMeta {
 
 	private String commitDate;
 
+	private String version;
+
 	public MessageMeta() {}
 
 	public void setTimestamp(long timestamp) {
@@ -157,6 +159,14 @@ public class MessageMeta {
 		this.commitDate = commitDate;
 	}
 
+	public String getVersion() {
+		return version;
+	}
+
+	public void setVersion(String version) {
+		this.version = version;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -178,12 +188,13 @@ public class MessageMeta {
 			Objects.equals(applicationId, that.applicationId) &&
 			Objects.equals(tmId, that.tmId) &&
 			Objects.equals(commitId, that.commitId) &&
-			Objects.equals(commitDate, that.commitDate);
+			Objects.equals(commitDate, that.commitDate) &&
+			Objects.equals(version, that.version);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, host, applicationId, tmId, commitId, commitDate);
+		return Objects.hash(timestamp, jobName, messageType, region, cluster, queue, metricName, user, host, applicationId, tmId, commitId, commitDate, version);
 	}
 
 	@Override
@@ -202,6 +213,7 @@ public class MessageMeta {
 			", tmId='" + tmId + '\'' +
 			", commitId='" + commitId + '\'' +
 			", commitDate='" + commitDate + '\'' +
+			", version='" + version + '\'' +
 			'}';
 	}
 }

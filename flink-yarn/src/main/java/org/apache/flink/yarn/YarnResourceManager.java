@@ -59,6 +59,7 @@ import org.apache.flink.runtime.webmonitor.history.HistoryServerUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
 import org.apache.flink.yarn.configuration.YarnConfigOptionsInternal;
 import org.apache.flink.yarn.exceptions.ContainerCompletedException;
@@ -135,6 +136,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	private static final Priority RM_REQUEST_PRIORITY = Priority.newInstance(1);
 
+	static final String ENV_YARN_CONTAINER_ID = "CONTAINER_ID";
+
 	private static final int YARN_MEM_MIN_MB = 1024;
 
 	/** YARN container map. Package private for unit test purposes. */
@@ -189,6 +192,10 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private Thread containerResourcesUpdater;
 
 	private final Set<String> yarnBlackedHosts;
+
+	private static final String EVENT_METRIC_NAME = "resourceManagerEvent";
+
+	private final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
 
 	/**
 	 * Fatal on GangScheduler failed allocate containers.
@@ -333,6 +340,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		this.cleanupRunningContainersOnStop = flinkConfig.getBoolean(YarnConfigOptions.CLEANUP_RUNNING_CONTAINERS_ON_STOP);
 		this.yarnBlackedHosts = new HashSet<>();
+
+		String currentContainerId = System.getenv(ENV_YARN_CONTAINER_ID);
+		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(currentContainerId, false);
 	}
 
 	@VisibleForTesting
@@ -548,7 +558,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		containerStartDurationMaxMs = Math.max(
 				containerStartDurationMaxMs,
 				slowContainerManager.getContainerStartDuration(resourceID));
-		return workerNodeMap.get(resourceID);
+		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
+		if (workerNode != null) {
+			warehouseJobStartEventMessageRecorder.startContainerFinish(workerNode.getContainer().getId().toString());
+		}
+		return workerNode;
 	}
 
 	@Override
@@ -756,12 +770,15 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		workerNodeMap.put(resourceId, new YarnWorkerNode(container));
 
 		try {
+			warehouseJobStartEventMessageRecorder.createTaskManagerContextStart(container.getId().toString());
 			// Context information used to start a TaskExecutor Java process
 			ContainerLaunchContext taskExecutorLaunchContext = createTaskExecutorLaunchContext(
 				resourceId.toString(),
 				container.getNodeId().getHost(),
 				TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec));
 
+			warehouseJobStartEventMessageRecorder.createTaskManagerContextFinish(container.getId().toString());
+			warehouseJobStartEventMessageRecorder.startContainerStart(container.getId().toString());
 			nodeManagerClient.startContainerAsync(container, taskExecutorLaunchContext);
 		} catch (Throwable t) {
 			releaseFailedContainerAndRequestNewContainerIfRequired(container.getId(), t);
@@ -1187,7 +1204,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		resourceManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
 		resourceManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		resourceManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
-
+		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 	}
 
 

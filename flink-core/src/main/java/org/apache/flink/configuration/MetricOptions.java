@@ -126,6 +126,12 @@ public class MetricOptions {
 			.defaultValue("<host>.sqlgateway.<session_name>")
 			.withDescription("Defines the scope format string that is applied to all metrics scoped to a session on a SqlGateway.");
 
+	/** The scope format string that is applied to all metrics scoped to a Client. */
+	public static final ConfigOption<String> SCOPE_NAMING_CLI =
+		key("metrics.scope.cli")
+			.defaultValue("<host>.client")
+			.withDescription("Defines the scope format string that is applied to all metrics scoped to a Client.");
+
 	public static final ConfigOption<Long> LATENCY_INTERVAL =
 		key("metrics.latency.interval")
 			.defaultValue(0L)

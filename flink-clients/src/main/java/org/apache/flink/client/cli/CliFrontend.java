@@ -51,6 +51,11 @@ import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.messages.Acknowledge;
+import org.apache.flink.runtime.metrics.MetricRegistryConfiguration;
+import org.apache.flink.runtime.metrics.MetricRegistryImpl;
+import org.apache.flink.runtime.metrics.ReporterSetup;
+import org.apache.flink.runtime.metrics.groups.ClientMetricGroup;
+import org.apache.flink.runtime.metrics.util.MetricUtils;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
 import org.apache.flink.runtime.state.CheckpointStorage;
@@ -59,6 +64,8 @@ import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
+import org.apache.flink.util.ShutdownHookUtil;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Options;
@@ -70,9 +77,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.UndeclaredThrowableException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -114,6 +123,9 @@ public class CliFrontend {
 	private static final String CONFIG_DIRECTORY_FALLBACK_1 = "../conf";
 	private static final String CONFIG_DIRECTORY_FALLBACK_2 = "conf";
 
+	// warehouse messages
+	private static final String EVENT_METRIC_NAME = "clientEvent";
+
 	// --------------------------------------------------------------------------------------------
 
 	private final Configuration configuration;
@@ -127,6 +139,10 @@ public class CliFrontend {
 	private final int defaultParallelism;
 
 	private final ClusterClientServiceLoader clusterClientServiceLoader;
+
+	private MetricRegistryImpl metricRegistry = null;
+	private ClientMetricGroup clientMetricGroup = null;
+	private WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(true);
 
 	public CliFrontend(
 			Configuration configuration,
@@ -251,12 +267,19 @@ public class CliFrontend {
 
 		LOG.debug("Effective executor configuration: {}", effectiveConfiguration);
 
+		metricRegistry = createMetricRegistry(effectiveConfiguration);
+		clientMetricGroup = createClientMetricGroup(metricRegistry);
+		registerMetrics();
+
+		warehouseJobStartEventMessageRecorder.buildProgramStart();
 		final PackagedProgram program = getPackagedProgram(programOptions, effectiveConfiguration);
+		warehouseJobStartEventMessageRecorder.buildProgramFinish();
 
 		try {
 			executeProgram(effectiveConfiguration, program);
 		} finally {
 			program.deleteExtractedLibraries();
+			metricRegistry.shutdown();
 		}
 	}
 
@@ -286,6 +309,38 @@ public class CliFrontend {
 			throw new CliArgsException("Could not build the program from JAR file: " + e.getMessage(), e);
 		}
 		return program;
+	}
+
+	/**
+	 * Factory method to create the metric registry for the mini cluster.
+	 *
+	 * @param config The configuration of the mini cluster
+	 */
+	private MetricRegistryImpl createMetricRegistry(Configuration config) {
+		MetricRegistryImpl metricRegistry = new MetricRegistryImpl(
+			MetricRegistryConfiguration.fromConfiguration(config),
+			ReporterSetup.fromConfiguration(config, null));
+
+		ShutdownHookUtil.addShutdownHook(metricRegistry::shutdown, "Metrics shutdown hook.", LOG);
+		return metricRegistry;
+	}
+
+	private ClientMetricGroup createClientMetricGroup(MetricRegistryImpl metricRegistry) {
+		String hostname = "Unknown";
+		try {
+			hostname = InetAddress.getLocalHost().getCanonicalHostName();
+		} catch (UnknownHostException e) {
+			LOG.error("Get hostname failed, ", e);
+		}
+		return MetricUtils.instantiateClientMetricGroup(
+				metricRegistry,
+				hostname);
+	}
+
+	private void registerMetrics() {
+		if (clientMetricGroup != null) {
+			clientMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
+		}
 	}
 
 	/**
@@ -957,7 +1012,7 @@ public class CliFrontend {
 	// --------------------------------------------------------------------------------------------
 
 	protected void executeProgram(final Configuration configuration, final PackagedProgram program) throws ProgramInvocationException {
-		ClientUtils.executeProgram(new DefaultExecutorServiceLoader(), configuration, program, false, false);
+		ClientUtils.executeProgram(new DefaultExecutorServiceLoader(), configuration, program, false, false, warehouseJobStartEventMessageRecorder);
 	}
 
 	/**

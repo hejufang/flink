@@ -143,6 +143,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			speculationStrategyFactory,
 			remoteBlacklistReporter);
 
+		warehouseJobStartEventMessageRecorder.createSchedulerStart();
+
 		this.log = log;
 
 		this.delayExecutor = checkNotNull(delayExecutor);
@@ -162,6 +164,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 		this.executionSlotAllocator = checkNotNull(executionSlotAllocatorFactory).createInstance(getInputsLocationsRetriever());
 
 		this.verticesWaitingForRestart = new HashSet<>();
+		warehouseJobStartEventMessageRecorder.createSchedulerFinish();
 	}
 
 	// ------------------------------------------------------------------------
@@ -177,6 +180,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 	protected void startSchedulingInternal() {
 		log.info("Starting scheduling with scheduling strategy [{}]", schedulingStrategy.getClass().getName());
 		prepareExecutionGraphForNgScheduling();
+		warehouseJobStartEventMessageRecorder.scheduleTaskStart(executionGraph.getGlobalModVersion());
 		schedulingStrategy.startScheduling();
 	}
 
@@ -329,6 +333,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			deploymentOptionsByVertex,
 			slotExecutionVertexAssignments);
 
+		warehouseJobStartEventMessageRecorder.scheduleTaskAllocateResource(executionGraph.getGlobalModVersion());
 		waitForAllSlotsAndDeploy(deploymentHandles);
 	}
 
@@ -398,6 +403,8 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 			propagateIfNonNull(throwable);
 			long startDeployTaskTime = System.currentTimeMillis();
 			log.info("start to deploy tasks.");
+			warehouseJobStartEventMessageRecorder.scheduleTaskFinish(executionGraph.getGlobalModVersion());
+			warehouseJobStartEventMessageRecorder.deployTaskStart(executionGraph.getGlobalModVersion());
 			for (final DeploymentHandle deploymentHandle : deploymentHandles) {
 				final SlotExecutionVertexAssignment slotExecutionVertexAssignment = deploymentHandle.getSlotExecutionVertexAssignment();
 				final CompletableFuture<LogicalSlot> slotAssigned = slotExecutionVertexAssignment.getLogicalSlotFuture();
@@ -407,6 +414,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
 					slotAssigned.handle(deployOrHandleError(deploymentHandle)));
 			}
 			log.info("Deploy Task take {} ms.", System.currentTimeMillis() - startDeployTaskTime);
+			warehouseJobStartEventMessageRecorder.deployTaskFinish(executionGraph.getGlobalModVersion());
 			return null;
 		};
 	}

@@ -108,6 +108,7 @@ import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.InstantiationUtil;
 import org.apache.flink.util.IterableUtils;
 import org.apache.flink.util.function.FunctionUtils;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 
@@ -141,7 +142,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	private final JobGraph jobGraph;
 
-	private final ExecutionGraph executionGraph;
+	protected final ExecutionGraph executionGraph;
 
 	private final SchedulingTopology schedulingTopology;
 
@@ -188,6 +189,11 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 	private final boolean allowNonRestoredState;
 
+	protected final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder;
+
+	// warehouse messages
+	public static final String EVENT_METRIC_NAME = "executionGraphEvent";
+
 	private final String manualSavepointLocationPrefix;
 
 	public SchedulerBase(
@@ -222,6 +228,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		this.userCodeLoader = checkNotNull(userCodeLoader);
 		this.checkpointRecoveryFactory = checkNotNull(checkpointRecoveryFactory);
 		this.rpcTimeout = checkNotNull(rpcTimeout);
+		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(false);
 
 		final RestartStrategies.RestartStrategyConfiguration restartStrategyConfiguration =
 			jobGraph.getSerializedExecutionConfig()
@@ -313,7 +320,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 			partitionTracker,
 			failoverStrategy,
 			speculationStrategy,
-			remoteBlacklistReporter);
+			remoteBlacklistReporter,
+			warehouseJobStartEventMessageRecorder);
 	}
 
 	/**
@@ -504,6 +512,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 	private void registerJobMetrics() {
 		jobManagerJobMetricGroup.gauge(MetricNames.NUM_RESTARTS, this::getNumberOfRestarts);
 		jobManagerJobMetricGroup.gauge(MetricNames.FULL_RESTARTS, this::getNumberOfRestarts);
+		jobManagerJobMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
 	}
 
 	protected abstract void startSchedulingInternal();

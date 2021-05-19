@@ -34,9 +34,12 @@ import org.apache.flink.runtime.execution.librarycache.FlinkUserCodeClassLoaders
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobmaster.JobResult;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.net.URL;
@@ -123,6 +126,16 @@ public enum ClientUtils {
 			PackagedProgram program,
 			boolean enforceSingleJobExecution,
 			boolean suppressSysout) throws ProgramInvocationException {
+		executeProgram(executorServiceLoader, configuration, program, enforceSingleJobExecution, suppressSysout, null);
+	}
+
+	public static void executeProgram(
+			PipelineExecutorServiceLoader executorServiceLoader,
+			Configuration configuration,
+			PackagedProgram program,
+			boolean enforceSingleJobExecution,
+			boolean suppressSysout,
+			@Nullable final WarehouseJobStartEventMessageRecorder warehouseJobStartEventMessageRecorder) throws ProgramInvocationException {
 		checkNotNull(executorServiceLoader);
 		final ClassLoader userCodeClassLoader = program.getUserCodeClassLoader();
 		final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
@@ -143,7 +156,8 @@ public enum ClientUtils {
 				configuration,
 				userCodeClassLoader,
 				enforceSingleJobExecution,
-				suppressSysout);
+				suppressSysout,
+				warehouseJobStartEventMessageRecorder);
 
 			try {
 				program.invokeInteractiveModeForExecution();
