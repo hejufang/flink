@@ -41,6 +41,7 @@ import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
+import org.apache.hadoop.security.token.btdsec.SecTokenIdentifier;
 import org.apache.hadoop.util.StringInterner;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
@@ -533,7 +534,9 @@ public final class Utils {
 		// using Kerberos keytabs, there is no HDFS delegation token in the UGI context.
 		final String fileLocation = System.getenv(UserGroupInformation.HADOOP_TOKEN_FILE_LOCATION);
 
-		if (fileLocation != null) {
+		boolean setTaskManagerToken = flinkConfig.getBoolean(YarnConfigOptions.SET_TASK_MANAGER_TOKEN);
+
+		if (setTaskManagerToken && fileLocation != null) {
 			log.debug("Adding security tokens to TaskExecutor's container launch context.");
 
 			try (DataOutputBuffer dob = new DataOutputBuffer()) {
@@ -551,8 +554,13 @@ public final class Utils {
 				Collection<Token<? extends TokenIdentifier>> userTokens = cred.getAllTokens();
 				for (Token<? extends TokenIdentifier> token : userTokens) {
 					if (!token.getKind().equals(AMRMTokenIdentifier.KIND_NAME)) {
-						final Text id = new Text(token.getIdentifier());
-						taskManagerCred.addToken(id, token);
+						if (token.getKind().equals(SecTokenIdentifier.KIND_NAME)) {
+							// SecToken should use service as key, otherwise it can't be updated.
+							taskManagerCred.addToken(token.getService(), token);
+						} else {
+							final Text id = new Text(token.getIdentifier());
+							taskManagerCred.addToken(id, token);
+						}
 					}
 				}
 
@@ -562,6 +570,8 @@ public final class Utils {
 			} catch (Throwable t) {
 				log.error("Failed to add Hadoop's security tokens.", t);
 			}
+		} else if (!setTaskManagerToken){
+			log.info("No need to set token for TaskManager.");
 		} else {
 			log.info("Could not set security tokens because Hadoop's token file location is unknown.");
 		}

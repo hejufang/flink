@@ -507,6 +507,12 @@ public class YarnConfigOptions {
 			.stringType()
 			.defaultValue("http://%s/api/v1/images/self-make/latest_tag/?psm=%s&region_list=%s");
 
+	public static final ConfigOption<Boolean> SET_TASK_MANAGER_TOKEN =
+		key("yarn.taskmanager.set_token")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Whether set security tokens to  TaskManager YARN container context.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 
