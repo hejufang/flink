@@ -23,6 +23,7 @@ import org.apache.flink.table.data.GenericArrayData;
 import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.binary.BinaryStringData;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.FloatType;
@@ -89,6 +90,8 @@ public class PbSchemaTestUtil {
 			.addIntArrayTest(INT_VALUE)
 			.addIntArrayTest(INT_VALUE)
 			.setUnderlineNameTest(STRING_VALUE)
+			.addStringArrayTest(STRING_VALUE)
+			.addStringArrayTest(STRING_VALUE)
 			.build();
 
 		return container.toByteArray();
@@ -102,6 +105,7 @@ public class PbSchemaTestUtil {
 		expectedMapValue.put(BinaryStringData.fromString("a"), 1);
 		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
 		byte[] bytesValue = STRING_VALUE.getBytes();
+		StringData stringData = StringData.fromString(STRING_VALUE);
 
 		return GenericRowData.of(
 			INT_VALUE,
@@ -119,7 +123,8 @@ public class PbSchemaTestUtil {
 			INT_VALUE,
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
 			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
-			binaryStringData
+			binaryStringData,
+			new GenericArrayData(new StringData[]{stringData, stringData})
 		);
 	}
 
@@ -132,6 +137,7 @@ public class PbSchemaTestUtil {
 		expectedMapValue.put(BinaryStringData.fromString("b"), 2);
 		byte[] bytesValue = STRING_VALUE.getBytes();
 
+		StringData stringData = StringData.fromString(STRING_VALUE);
 		return GenericRowData.of(
 			BinaryStringData.fromString(""),
 			INT_VALUE,
@@ -148,7 +154,8 @@ public class PbSchemaTestUtil {
 			bytesValue,
 			GenericRowData.of(LONG_VALUE, BOOL_VALUE),
 			new GenericArrayData(new Integer[]{INT_VALUE, INT_VALUE}),
-			binaryStringData
+			binaryStringData,
+			new GenericArrayData(new StringData[]{stringData, stringData})
 		);
 	}
 

@@ -85,9 +85,7 @@ public class SerializationRuntimeConverterFactory {
 
 	private static SerializationRuntimeConverter createEnumOrStringConverter(
 			Descriptors.FieldDescriptor fieldDescriptor) {
-		Descriptors.FieldDescriptor.JavaType javaType = fieldDescriptor.getJavaType();
-		if (javaType.equals(Descriptors.FieldDescriptor.JavaType.ENUM)) {
-
+		if (fieldDescriptor != null && Descriptors.FieldDescriptor.JavaType.ENUM.equals(fieldDescriptor.getJavaType())) {
 			Descriptors.EnumDescriptor enumDescriptor = fieldDescriptor.getEnumType();
 
 			return (value) -> {
