@@ -366,6 +366,29 @@ public class JsonRowDataSerDeSchemaTest {
 	}
 
 	@Test
+	public void testDeserLongTimestampInput() throws Exception{
+		RowType rowType = (RowType) ROW(
+			FIELD("timestamp3", TIMESTAMP(3))
+		).getLogicalType();
+
+		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
+			rowType, new RowDataTypeInfo(rowType), false, false, TimestampFormat.SQL);
+		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.SQL);
+
+		ObjectMapper objectMapper = new ObjectMapper();
+
+		ObjectNode root = objectMapper.createObjectNode();
+		root.put("timestamp3", 1620284422213L);
+		ObjectNode rootActual = objectMapper.createObjectNode();
+		rootActual.put("timestamp3", "2021-05-06 07:00:22.213");
+		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+		byte[] actualSerializedJson = objectMapper.writeValueAsBytes(rootActual);
+		RowData rowData = deserializationSchema.deserialize(serializedJson);
+		byte[] actual = serializationSchema.serialize(rowData);
+		assertEquals(new String(actualSerializedJson), new String(actual));
+	}
+
+	@Test
 	public void testJsonParse() throws Exception {
 		for (TestSpec spec : testData) {
 			testIgnoreParseErrors(spec);

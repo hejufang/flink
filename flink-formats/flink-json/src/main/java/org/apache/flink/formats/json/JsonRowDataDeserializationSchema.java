@@ -340,6 +340,9 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 
 	private TimestampData convertToTimestamp(JsonNode jsonNode) {
 		TemporalAccessor parsedTimestamp;
+		if (jsonNode.canConvertToLong()) {
+			return TimestampData.fromEpochMillis(jsonNode.asLong());
+		}
 		switch (timestampFormat){
 			case SQL:
 				parsedTimestamp = SQL_TIMESTAMP_FORMAT.parse(jsonNode.asText());
