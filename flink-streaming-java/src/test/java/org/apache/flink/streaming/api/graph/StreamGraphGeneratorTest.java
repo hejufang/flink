@@ -27,6 +27,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
 import org.apache.flink.streaming.api.datastream.ConnectedStreams;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.IterativeStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
@@ -66,6 +67,7 @@ import org.hamcrest.TypeSafeMatcher;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -447,6 +449,7 @@ public class StreamGraphGeneratorTest extends TestLogger {
 		int source2Parallelism = 5;
 		int globalParallelism = 1;
 		int mapParallelism = 3;
+		int sink2Parallelism = 4;
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(globalParallelism);
 		env.getConfig().setUseMaxSourceParallelismAsDefaultParallelism(true);
@@ -469,6 +472,8 @@ public class StreamGraphGeneratorTest extends TestLogger {
 		DataStream<Integer> result = dataStream.map(i -> i + 1).setParallelism(mapParallelism);
 
 		result.addSink(new DiscardingSink<>());
+		DataStreamSink sink2 =
+			result.addSink(new DiscardingSink<>()).setParallelism(sink2Parallelism);
 
 		StreamGraph graph = env.getStreamGraph();
 
@@ -478,15 +483,19 @@ public class StreamGraphGeneratorTest extends TestLogger {
 		StreamNode source1Node = graph.getStreamNode(source1.getId());
 		StreamNode source2Node = graph.getStreamNode(source2.getId());
 		StreamNode resultNode = graph.getStreamNode(result.getId());
+		StreamNode sink2Node = graph.getStreamNode(sink2.getTransformation().getId());
 
 		assertEquals(source1Node.getParallelism(), source1Parallelism);
 		assertEquals(source2Node.getParallelism(), source2Parallelism);
 		assertEquals(resultNode.getParallelism(), mapParallelism);
+		assertEquals(sink2Node.getParallelism(), sink2Parallelism);
 
 		Collection<Integer> sourceIDs = graph.getSourceIDs();
+		Collection<Integer> nodeIDsWithSpecificParallelism =
+			Arrays.asList(result.getId(), sink2.getTransformation().getId());
 		for (StreamNode node : graph.getStreamNodes()) {
 			int nodeId = node.getId();
-			if (!sourceIDs.contains(nodeId) && nodeId != result.getId()) {
+			if (!sourceIDs.contains(nodeId) && !nodeIDsWithSpecificParallelism.contains(nodeId)) {
 				assertEquals(node.getParallelism(), source2Parallelism);
 			}
 		}

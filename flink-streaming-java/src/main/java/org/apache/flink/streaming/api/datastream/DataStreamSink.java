@@ -110,6 +110,7 @@ public class DataStreamSink<T> {
 	 */
 	public DataStreamSink<T> setParallelism(int parallelism) {
 		transformation.setParallelism(parallelism);
+		transformation.setUseDefaultParallelism(false);
 		return this;
 	}
 
