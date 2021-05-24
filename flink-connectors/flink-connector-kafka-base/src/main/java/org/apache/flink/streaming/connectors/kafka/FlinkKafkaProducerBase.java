@@ -314,10 +314,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 			return;
 		}
 
-		if (rateLimiter != null) {
-			rateLimiter.acquire(1);
-		}
-
+		acquireRateLimit();
 		byte[] serializedKey = schema.serializeKey(next);
 		byte[] serializedValue = schema.serializeValue(next);
 		String targetTopic = schema.getTargetTopic(next);
@@ -476,5 +473,11 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 	@Override
 	public int getParallelism() {
 		return parallelism;
+	}
+
+	protected void acquireRateLimit() {
+		if (rateLimiter != null) {
+			rateLimiter.acquire(1);
+		}
 	}
 }

@@ -294,6 +294,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 		if (!filter(value)) {
 			return;
 		}
+		acquireRateLimit();
 		byte[] serializedKey = schema.serializeKey(value);
 		byte[] serializedValue = schema.serializeValue(value);
 		String targetTopic = schema.getTargetTopic(value);
