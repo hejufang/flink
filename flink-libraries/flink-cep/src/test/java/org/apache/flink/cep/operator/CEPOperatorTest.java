@@ -37,13 +37,13 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.mock.Whitebox;
 import org.apache.flink.runtime.checkpoint.OperatorSubtaskState;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.streaming.api.watermark.Watermark;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.util.KeyedOneInputStreamOperatorTestHarness;
 import org.apache.flink.streaming.util.OneInputStreamOperatorTestHarness;
@@ -786,31 +786,6 @@ public class CEPOperatorTest extends TestLogger {
 
 			List<Event> expected = Lists.newArrayList(middle1Event1, middle1Event2);
 			Assert.assertArrayEquals(expected.toArray(), late.toArray());
-		}
-	}
-
-	@Test
-	public void testCEPOperatorLateRecordsMetric() throws Exception {
-		Event startEvent = new Event(41, "c", 1.0);
-		Event middle1Event1 = new Event(41, "a", 2.0);
-		Event middle1Event2 = new Event(41, "a", 3.0);
-		Event middle1Event3 = new Event(41, "a", 4.0);
-
-		CepOperator<Event, Integer, Map<String, List<Event>>> operator = getKeyedCepOperator(false);
-		OneInputStreamOperatorTestHarness<Event, Map<String, List<Event>>> harness = CepOperatorTestUtilities.getCepTestHarness(operator);
-		try {
-			harness.open();
-			harness.processWatermark(0);
-			harness.processElement(startEvent, 1L);
-			harness.processWatermark(2L);
-			harness.processElement(middle1Event1, 1L);
-			harness.processElement(middle1Event2, 3L);
-			harness.processWatermark(4L);
-			harness.processElement(middle1Event3, 3L);
-
-			assertEquals(2L, operator.getLateRecordsNumber());
-		} finally {
-			harness.close();
 		}
 	}
 

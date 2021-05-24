@@ -180,7 +180,7 @@ class CepRuntimeContext implements RuntimeContext {
 
 	@Override
 	public <T> ValueState<T> getState(final ValueStateDescriptor<T> stateProperties) {
-		throw new UnsupportedOperationException("State is not supported.");
+		return runtimeContext.getState(stateProperties);
 	}
 
 	@Override

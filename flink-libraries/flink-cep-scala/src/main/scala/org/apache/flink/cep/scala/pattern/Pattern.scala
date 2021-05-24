@@ -63,7 +63,7 @@ class Pattern[T , F <: T](jPattern: JPattern[T, F]) {
     * @return Window length in which the pattern match has to occur
     */
   def getWindowTime: Option[Time] = {
-    Option(jPattern.getWindowTime)
+    Option(Time.of(jPattern.getWindowTime.getSize, jPattern.getWindowTime.getUnit))
   }
 
   /**
@@ -257,7 +257,7 @@ class Pattern[T , F <: T](jPattern: JPattern[T, F]) {
     * @return The same pattern operator with the new window length
     */
   def within(windowTime: Time): Pattern[T, F] = {
-    jPattern.within(windowTime)
+    jPattern.within(org.apache.flink.cep.time.Time.of(windowTime.getSize, windowTime.getUnit))
     this
   }
 

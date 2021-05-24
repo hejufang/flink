@@ -26,10 +26,10 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.cep.utils.TestSharedBuffer;
 import org.apache.flink.cep.utils.TestTimerService;
-import org.apache.flink.streaming.api.windowing.time.Time;
 
 import org.junit.After;
 import org.junit.Before;

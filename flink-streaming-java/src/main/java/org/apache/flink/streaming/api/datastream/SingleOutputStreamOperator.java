@@ -59,7 +59,7 @@ public class SingleOutputStreamOperator<T> extends DataStream<T> {
 
 	private boolean wasSplitApplied = false;
 
-	protected SingleOutputStreamOperator(StreamExecutionEnvironment environment, Transformation<T> transformation) {
+	public SingleOutputStreamOperator(StreamExecutionEnvironment environment, Transformation<T> transformation) {
 		super(environment, transformation);
 	}
 

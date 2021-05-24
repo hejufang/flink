@@ -333,4 +333,3 @@ public class SavepointEnvironment implements Environment {
 		public void sendOperatorEventToCoordinator(OperatorID operator, SerializedValue<OperatorEvent> event) {}
 	}
 }
-

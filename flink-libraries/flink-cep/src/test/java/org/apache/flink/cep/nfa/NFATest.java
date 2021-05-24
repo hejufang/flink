@@ -29,11 +29,13 @@ import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.TestLogger;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,6 +49,31 @@ import static org.junit.Assert.assertEquals;
  * Tests for {@link NFA}.
  */
 public class NFATest extends TestLogger {
+
+	@Test
+	public void testAllowSinglePartialMatchPerKey() throws Exception {
+		List<StreamRecord<Event>> streamEvents = new ArrayList<>();
+		streamEvents.add(new StreamRecord<>(new Event(1, "start", 1.0), 1L));
+
+		State<Event> startState = new State<>("start", State.StateType.Start);
+		State<Event> endState = new State<>("end", State.StateType.Normal);
+
+		startState.addTake(
+				endState,
+				new SimpleCondition<Event>() {
+					@Override
+					public boolean filter(Event value) throws Exception {
+						return value.getName().equals("start");
+					}
+				});
+
+		NFA<Event> nfa = new NFA<>("default", -1, Arrays.asList(startState, endState), 0, false, true);
+		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).build();
+		nfaTestHarness.consumeRecords(streamEvents);
+
+		Assert.assertEquals(1, nfaTestHarness.getNFAState().getPartialMatches().size());
+	}
+
 	@Test
 	public void testSimpleNFA() throws Exception {
 		List<StreamRecord<Event>> streamEvents = new ArrayList<>();
@@ -100,7 +127,7 @@ public class NFATest extends TestLogger {
 		expectedPatterns.add(firstPattern);
 		expectedPatterns.add(secondPattern);
 
-		NFA<Event> nfa = new NFA<>(states, 0, false);
+		NFA<Event> nfa = new NFA<>("default", -1, states, 0, false, false);
 		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).build();
 
 		Collection<Map<String, List<Event>>> actualPatterns = nfaTestHarness.consumeRecords(streamEvents);
@@ -350,7 +377,7 @@ public class NFATest extends TestLogger {
 		states.add(endState);
 		states.add(endingState);
 
-		return new NFA<>(states, 2L, false);
+		return new NFA<>("default", -1, states, 2L, false, false);
 	}
 
 }

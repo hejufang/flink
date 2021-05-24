@@ -56,6 +56,14 @@ public class PatternStream<T> {
 		this.builder = checkNotNull(builder);
 	}
 
+/*	PatternStream(final DataStream<T> inputStream, final DataStream<Pattern<T, T>> patternDataStream) {
+		this(PatternStreamBuilder.forStreamAndPatternDataStream(inputStream, patternDataStream));
+	}
+
+	PatternStream(final DataStream<T> inputStream, final DataStream<String> patternJsonStream, final CepEventParserFactory factory) {
+		this(PatternStreamBuilder.forStreamAndPatternJsonStream(inputStream, patternJsonStream, factory));
+	}*/
+
 	PatternStream(final DataStream<T> inputStream, final Pattern<T, ?> pattern) {
 		this(PatternStreamBuilder.forStreamAndPattern(inputStream, pattern));
 	}
@@ -93,6 +101,20 @@ public class PatternStream<T> {
 		return process(patternProcessFunction, returnType);
 	}
 
+/*	public <R> SingleOutputStreamOperator<R> process(final MultiplePatternProcessFunction<T, R> patternProcessFunction) {
+		final TypeInformation<R> returnType = TypeExtractor.getUnaryOperatorReturnType(
+				patternProcessFunction,
+				PatternProcessFunction.class,
+				0,
+				1,
+				TypeExtractor.NO_INDEX,
+				builder.getInputType(),
+				null,
+				false);
+
+		return process(patternProcessFunction, returnType);
+	}*/
+
 	/**
 	 * Applies a process function to the detected pattern sequence. For each pattern sequence the
 	 * provided {@link PatternProcessFunction} is called. In order to process timed out partial matches as well one can
@@ -113,6 +135,15 @@ public class PatternStream<T> {
 			outTypeInfo,
 			builder.clean(patternProcessFunction));
 	}
+
+/*	public <R> SingleOutputStreamOperator<R> process(
+			final MultiplePatternProcessFunction<T, R> patternProcessFunction,
+			final TypeInformation<R> outTypeInfo) {
+
+		return builder.build(
+				outTypeInfo,
+				builder.clean(patternProcessFunction));
+	}*/
 
 	/**
 	 * Applies a select function to the detected pattern sequence. For each pattern sequence the
@@ -142,6 +173,25 @@ public class PatternStream<T> {
 		return select(patternSelectFunction, returnType);
 	}
 
+/*
+	public <R> SingleOutputStreamOperator<R> select(final MultiplePatternSelectFunction<T, R> patternSelectFunction) {
+		// we have to extract the output type from the provided pattern selection function manually
+		// because the TypeExtractor cannot do that if the method is wrapped in a MapFunction
+
+		final TypeInformation<R> returnType = TypeExtractor.getUnaryOperatorReturnType(
+				patternSelectFunction,
+				PatternSelectFunction.class,
+				0,
+				1,
+				TypeExtractor.NO_INDEX,
+				builder.getInputType(),
+				null,
+				false);
+
+		return select(patternSelectFunction, returnType);
+	}
+*/
+
 
 	/**
 	 * Applies a select function to the detected pattern sequence. For each pattern sequence the
@@ -164,6 +214,18 @@ public class PatternStream<T> {
 
 		return process(processFunction, outTypeInfo);
 	}
+
+/*
+	public <R> SingleOutputStreamOperator<R> select(
+			final MultiplePatternSelectFunction<T, R> patternSelectFunction,
+			final TypeInformation<R> outTypeInfo) {
+
+		final MultiplePatternProcessFunction<T, R> processFunction =
+				fromSelect(builder.clean(patternSelectFunction)).build();
+
+		return process(processFunction, outTypeInfo);
+	}
+*/
 
 	/**
 	 * Applies a select function to the detected pattern sequence. For each pattern sequence the
@@ -211,6 +273,28 @@ public class PatternStream<T> {
 			patternSelectFunction);
 	}
 
+/*	public <L, R> SingleOutputStreamOperator<R> select(
+			final OutputTag<L> timedOutPartialMatchesTag,
+			final MultiplePatternTimeoutFunction<T, L> patternTimeoutFunction,
+			final MultiplePatternSelectFunction<T, R> patternSelectFunction) {
+
+		final TypeInformation<R> rightTypeInfo = TypeExtractor.getUnaryOperatorReturnType(
+				patternSelectFunction,
+				PatternSelectFunction.class,
+				0,
+				1,
+				TypeExtractor.NO_INDEX,
+				builder.getInputType(),
+				null,
+				false);
+
+		return select(
+				timedOutPartialMatchesTag,
+				patternTimeoutFunction,
+				rightTypeInfo,
+				patternSelectFunction);
+	}*/
+
 	/**
 	 * Applies a select function to the detected pattern sequence. For each pattern sequence the
 	 * provided {@link PatternSelectFunction} is called. The pattern select function can produce
@@ -249,6 +333,22 @@ public class PatternStream<T> {
 
 		return process(processFunction, outTypeInfo);
 	}
+
+/*
+	public <L, R> SingleOutputStreamOperator<R> select(
+			final OutputTag<L> timedOutPartialMatchesTag,
+			final MultiplePatternTimeoutFunction<T, L> patternTimeoutFunction,
+			final TypeInformation<R> outTypeInfo,
+			final MultiplePatternSelectFunction<T, R> patternSelectFunction) {
+
+		final MultiplePatternProcessFunction<T, R> processFunction =
+				fromSelect(builder.clean(patternSelectFunction))
+						.withTimeoutHandler(timedOutPartialMatchesTag, builder.clean(patternTimeoutFunction))
+						.build();
+
+		return process(processFunction, outTypeInfo);
+	}
+*/
 
 	/**
 	 * Applies a select function to the detected pattern sequence. For each pattern sequence the
@@ -343,6 +443,23 @@ public class PatternStream<T> {
 		return flatSelect(patternFlatSelectFunction, outTypeInfo);
 	}
 
+/*	public <R> SingleOutputStreamOperator<R> flatSelect(final MultiplePatternFlatSelectFunction<T, R> patternFlatSelectFunction) {
+		// we have to extract the output type from the provided pattern selection function manually
+		// because the TypeExtractor cannot do that if the method is wrapped in a MapFunction
+
+		final TypeInformation<R> outTypeInfo = TypeExtractor.getUnaryOperatorReturnType(
+				patternFlatSelectFunction,
+				PatternFlatSelectFunction.class,
+				0,
+				1,
+				new int[]{1, 0},
+				builder.getInputType(),
+				null,
+				false);
+
+		return flatSelect(patternFlatSelectFunction, outTypeInfo);
+	}*/
+
 	/**
 	 * Applies a flat select function to the detected pattern sequence. For each pattern sequence
 	 * the provided {@link PatternFlatSelectFunction} is called. The pattern flat select function
@@ -365,6 +482,19 @@ public class PatternStream<T> {
 
 		return process(processFunction, outTypeInfo);
 	}
+
+/*
+	public <R> SingleOutputStreamOperator<R> flatSelect(
+			final MultiplePatternFlatSelectFunction<T, R> patternFlatSelectFunction,
+			final TypeInformation<R> outTypeInfo) {
+
+		final MultiplePatternProcessFunction<T, R> processFunction =
+				fromFlatSelect(builder.clean(patternFlatSelectFunction))
+						.build();
+
+		return process(processFunction, outTypeInfo);
+	}
+*/
 
 	/**
 	 * Applies a flat select function to the detected pattern sequence. For each pattern sequence the
@@ -412,6 +542,28 @@ public class PatternStream<T> {
 			patternFlatSelectFunction);
 	}
 
+/*	public <L, R> SingleOutputStreamOperator<R> flatSelect(
+			final OutputTag<L> timedOutPartialMatchesTag,
+			final MultiplePatternFlatTimeoutFunction<T, L> patternFlatTimeoutFunction,
+			final MultiplePatternFlatSelectFunction<T, R> patternFlatSelectFunction) {
+
+		final TypeInformation<R> rightTypeInfo = TypeExtractor.getUnaryOperatorReturnType(
+				patternFlatSelectFunction,
+				PatternFlatSelectFunction.class,
+				0,
+				1,
+				new int[]{1, 0},
+				builder.getInputType(),
+				null,
+				false);
+
+		return flatSelect(
+				timedOutPartialMatchesTag,
+				patternFlatTimeoutFunction,
+				rightTypeInfo,
+				patternFlatSelectFunction);
+	}*/
+
 	/**
 	 * Applies a flat select function to the detected pattern sequence. For each pattern sequence the
 	 * provided {@link PatternFlatSelectFunction} is called. The pattern select function can produce
@@ -450,6 +602,20 @@ public class PatternStream<T> {
 
 		return process(processFunction, outTypeInfo);
 	}
+
+/*	public <L, R> SingleOutputStreamOperator<R> flatSelect(
+			final OutputTag<L> timedOutPartialMatchesTag,
+			final MultiplePatternFlatTimeoutFunction<T, L> patternFlatTimeoutFunction,
+			final TypeInformation<R> outTypeInfo,
+			final MultiplePatternFlatSelectFunction<T, R> patternFlatSelectFunction) {
+
+		final MultiplePatternProcessFunction<T, R> processFunction =
+				fromFlatSelect(builder.clean(patternFlatSelectFunction))
+						.withTimeoutHandler(timedOutPartialMatchesTag, builder.clean(patternFlatTimeoutFunction))
+						.build();
+
+		return process(processFunction, outTypeInfo);
+	}*/
 
 	/**
 	 * Applies a flat select function to the detected pattern sequence. For each pattern sequence

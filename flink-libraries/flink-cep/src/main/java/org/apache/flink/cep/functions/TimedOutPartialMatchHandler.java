@@ -19,7 +19,7 @@
 package org.apache.flink.cep.functions;
 
 import org.apache.flink.annotation.PublicEvolving;
-import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.cep.time.Time;
 
 import java.util.List;
 import java.util.Map;

@@ -35,12 +35,14 @@ import org.apache.flink.cep.nfa.sharedbuffer.EventId;
 import org.apache.flink.cep.nfa.sharedbuffer.NodeId;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBuffer;
 import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
+import org.apache.flink.cep.pattern.conditions.EventParserCondition;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
+import org.apache.flink.cep.pattern.conditions.v2.EventParserConditionV2;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 
@@ -53,6 +55,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Stack;
@@ -84,6 +87,10 @@ import static org.apache.flink.cep.nfa.MigrationUtils.deserializeComputationStat
  */
 public class NFA<T> {
 
+	private final String patternId;
+
+	private final int hash;
+
 	/**
 	 * A set of all the valid NFA states, as returned by the
 	 * {@link NFACompiler NFACompiler}.
@@ -104,13 +111,45 @@ public class NFA<T> {
 	 */
 	private final boolean handleTimeout;
 
+	private final boolean allowSinglePartialMatchPerKey;
+
+	private final boolean endWithNoPattern;
+
 	public NFA(
+			final String patternId,
+			final int hash,
 			final Collection<State<T>> validStates,
 			final long windowTime,
-			final boolean handleTimeout) {
+			final boolean handleTimeout,
+			final boolean allowSinglePartialMatchPerKey,
+			final boolean endWithNoPattern) {
+		this.patternId = patternId;
+		this.hash = hash;
 		this.windowTime = windowTime;
 		this.handleTimeout = handleTimeout;
 		this.states = loadStates(validStates);
+		this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
+		this.endWithNoPattern = endWithNoPattern;
+	}
+
+	public NFA(String patternId, int hash, Collection<State<T>> validStates, long windowTime, boolean timeoutHandling, boolean allowSinglePartialMatchPerKey) {
+		this(patternId, hash, validStates, windowTime, timeoutHandling, allowSinglePartialMatchPerKey, false);
+	}
+
+	public String getPatternId() {
+		return patternId;
+	}
+
+	public int getHash() {
+		return hash;
+	}
+
+	public boolean isEndWithNoPattern() {
+		return endWithNoPattern;
+	}
+
+	public long getWindowTime(){
+		return windowTime;
 	}
 
 	private Map<String, State<T>> loadStates(final Collection<State<T>> validStates) {
@@ -133,11 +172,21 @@ public class NFA<T> {
 				startingStates.add(ComputationState.createStartState(state.getName()));
 			}
 		}
-		return new NFAState(startingStates);
+		return new NFAState(patternId, hash, startingStates);
 	}
 
 	private State<T> getState(ComputationState state) {
 		return states.get(state.getCurrentStateName());
+	}
+
+	private State<T> getStartState() {
+		for (State<T> state : states.values()) {
+			if (state.isStart()) {
+				return state;
+			}
+		}
+
+		return null;
 	}
 
 	private boolean isStartState(ComputationState state) {
@@ -186,6 +235,19 @@ public class NFA<T> {
 		}
 	}
 
+	public void clearStateWhenOutput() {
+		for (State<T> state : getStates()) {
+			for (StateTransition<T> transition : state.getStateTransitions()) {
+				IterativeCondition condition = transition.getCondition();
+				if (condition instanceof EventParserCondition) {
+					((EventParserCondition<?>) condition).clearStateWhenOutput();
+				} else if (condition instanceof EventParserConditionV2) {
+					((EventParserConditionV2<?>) condition).clearStateWhenOutput();
+				}
+			}
+		}
+	}
+
 	/**
 	 * Tear-down method for the NFA.
 	 */
@@ -229,6 +291,39 @@ public class NFA<T> {
 		}
 	}
 
+	public Collection<Map<String, List<T>>> pendingStateMatches(
+			final SharedBufferAccessor<T> sharedBufferAccessor,
+			final NFAState nfaState,
+			final long timestamp) throws Exception {
+		final Collection<Map<String, List<T>>> pendingMatches = new ArrayList<>();
+		final PriorityQueue<ComputationState> newPartialMatches = new PriorityQueue<>(NFAState.COMPUTATION_STATE_COMPARATOR);
+
+		for (ComputationState computationState : nfaState.getPartialMatches()) {
+			if (isStateTimedOut(computationState, timestamp) && getState(computationState).isPending()) {
+				Map<String, List<T>> pendingPattern = sharedBufferAccessor.materializeMatch(extractCurrentMatches(
+						sharedBufferAccessor,
+						computationState));
+				pendingMatches.add(pendingPattern);
+
+				sharedBufferAccessor.releaseNode(computationState.getPreviousBufferEntry());
+
+				nfaState.setStateChanged();
+			} else {
+				newPartialMatches.add(computationState);
+			}
+		}
+
+		if (allowSinglePartialMatchPerKey && newPartialMatches.isEmpty()) {
+			newPartialMatches.add(ComputationState.createStartState(Objects.requireNonNull(getStartState()).getName()));
+		}
+
+		nfaState.setNewPartialMatches(newPartialMatches);
+
+		sharedBufferAccessor.advanceTime(timestamp);
+
+		return pendingMatches;
+	}
+
 	/**
 	 * Prunes states assuming there will be no events with timestamp <b>lower</b> than the given one.
 	 * It clears the sharedBuffer and also emits all timed out partial matches.
@@ -249,7 +344,6 @@ public class NFA<T> {
 
 		for (ComputationState computationState : nfaState.getPartialMatches()) {
 			if (isStateTimedOut(computationState, timestamp)) {
-
 				if (handleTimeout) {
 					// extract the timed out event pattern
 					Map<String, List<T>> timedOutPattern = sharedBufferAccessor.materializeMatch(extractCurrentMatches(
@@ -307,6 +401,10 @@ public class NFA<T> {
 			boolean shouldDiscardPath = false;
 			for (final ComputationState newComputationState : newComputationStates) {
 
+				if (isStartState(computationState) && newComputationState.getStartTimestamp() > 0) {
+					nfaState.setNewStartPartiailMatch();
+				}
+
 				if (isFinalState(newComputationState)) {
 					potentialMatches.add(newComputationState);
 				} else if (isStopState(newComputationState)) {
@@ -356,8 +454,11 @@ public class NFA<T> {
 			}
 		}
 
-		nfaState.setNewPartialMatches(newPartialMatches);
+		if (allowSinglePartialMatchPerKey && newPartialMatches.isEmpty()) {
+			newPartialMatches.add(ComputationState.createStartState(Objects.requireNonNull(getStartState()).getName()));
+		}
 
+		nfaState.setNewPartialMatches(newPartialMatches);
 		return result;
 	}
 
@@ -641,7 +742,7 @@ public class NFA<T> {
 			}
 		}
 
-		if (isStartState(computationState)) {
+		if (isStartState(computationState) && !allowSinglePartialMatchPerKey) {
 			int totalBranches = calculateIncreasingSelfState(
 					outgoingEdges.getTotalIgnoreBranches(),
 					outgoingEdges.getTotalTakeBranches());

@@ -20,6 +20,8 @@ package org.apache.flink.cep.nfa;
 
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
+import org.apache.flink.api.common.typeutils.base.IntSerializer;
+import org.apache.flink.api.common.typeutils.base.StringSerializer;
 import org.apache.flink.api.common.typeutils.base.TypeSerializerSingleton;
 import org.apache.flink.cep.nfa.sharedbuffer.EventId;
 import org.apache.flink.cep.nfa.sharedbuffer.NodeId;
@@ -109,15 +111,19 @@ public class NFAStateSerializer extends TypeSerializerSingleton<NFAState> {
 
 	@Override
 	public void serialize(NFAState record, DataOutputView target) throws IOException {
+		StringSerializer.INSTANCE.serialize(record.getPatternId(), target);
+		IntSerializer.INSTANCE.serialize(record.getHash(), target);
 		serializeComputationStates(record.getPartialMatches(), target);
 		serializeComputationStates(record.getCompletedMatches(), target);
 	}
 
 	@Override
 	public NFAState deserialize(DataInputView source) throws IOException {
+		String patternId = StringSerializer.INSTANCE.deserialize(source);
+		int hash = IntSerializer.INSTANCE.deserialize(source);
 		PriorityQueue<ComputationState> partialMatches = deserializeComputationStates(source);
 		PriorityQueue<ComputationState> completedMatches = deserializeComputationStates(source);
-		return new NFAState(partialMatches, completedMatches);
+		return new NFAState(patternId, hash, partialMatches, completedMatches);
 	}
 
 	@Override
@@ -127,6 +133,11 @@ public class NFAStateSerializer extends TypeSerializerSingleton<NFAState> {
 
 	@Override
 	public void copy(DataInputView source, DataOutputView target) throws IOException {
+		// copy patternId
+		String patternId = StringSerializer.INSTANCE.deserialize(source);
+		StringSerializer.INSTANCE.serialize(patternId, target);
+		int hash = IntSerializer.INSTANCE.deserialize(source);
+		IntSerializer.INSTANCE.serialize(hash, target);
 		copyStates(source, target); // copy partial matches
 		copyStates(source, target); // copy completed matches
 	}

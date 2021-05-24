@@ -27,10 +27,10 @@ import org.apache.flink.cep.nfa.sharedbuffer.SharedBufferAccessor;
 import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.pattern.Quantifier;
 import org.apache.flink.cep.pattern.conditions.SimpleCondition;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.cep.utils.NFATestHarness;
 import org.apache.flink.cep.utils.TestSharedBuffer;
 import org.apache.flink.cep.utils.TestTimerService;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.TestLogger;
 
@@ -51,10 +51,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.apache.flink.cep.utils.NFATestUtilities.comparePatterns;
+import static org.apache.flink.cep.utils.NFATestUtilities.compareMaps;
 import static org.apache.flink.cep.utils.NFATestUtilities.feedNFA;
 import static org.apache.flink.cep.utils.NFAUtils.compile;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyLong;
 
 /**
@@ -79,6 +80,35 @@ public class NFAITCase extends TestLogger {
 	}
 
 	@Test
+	public void testPendingStateMatches() throws Exception {
+		Pattern<Event, ?> pattern = Pattern.<Event>begin("start").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("a");
+			}
+		}).notFollowedBy("end").where(new SimpleCondition<Event>() {
+			@Override
+			public boolean filter(Event value) throws Exception {
+				return value.getName().equals("b");
+			}
+		}).within(Time.milliseconds(10));
+
+		NFA<Event> nfa = compile(pattern, false, true);
+
+		NFAState nfaState = nfa.createInitialNFAState();
+		NFATestHarness nfaTestHarness = NFATestHarness.forNFA(nfa).withNFAState(nfaState).withSharedBuffer(sharedBuffer).build();
+
+		nfaTestHarness.feedRecord(new StreamRecord<>(new Event(1, "a", 1.0), 1));
+		Collection<Map<String, List<Event>>> output = nfa.pendingStateMatches(sharedBufferAccessor, nfaState, 12);
+
+		assertEquals(1, nfaState.getPartialMatches().size());
+		assertEquals("start", nfaState.getPartialMatches().poll().getCurrentStateName());
+		assertEquals(1, output.size());
+		assertEquals(1, output.iterator().next().get("start").size());
+		assertTrue(sharedBuffer.isEmpty());
+	}
+
+	@Test
 	public void testNoConditionNFA() throws Exception {
 		List<StreamRecord<Event>> inputEvents = new ArrayList<>();
 
@@ -100,7 +130,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(a, b),
 				Lists.newArrayList(b, c),
 				Lists.newArrayList(c, d),
@@ -130,7 +160,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(a, b, c, d, e),
 			Lists.newArrayList(a, b, c, d),
 			Lists.newArrayList(a, b, c),
@@ -166,7 +196,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(a, b),
 				Lists.newArrayList(a, c),
 				Lists.newArrayList(a, d),
@@ -222,7 +252,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent, endEvent)
 		));
 	}
@@ -257,7 +287,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(middleEvent1, end)
 		));
 	}
@@ -294,7 +324,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList());
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList());
 	}
 
 	/**
@@ -343,7 +373,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(events, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent, endEvent)
 		));
 	}
@@ -488,7 +518,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, nextOne1, endEvent),
 				Lists.newArrayList(startEvent, middleEvent2, nextOne1, endEvent),
 				Lists.newArrayList(startEvent, middleEvent3, nextOne1, endEvent),
@@ -561,7 +591,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3, end1, end2, end4),
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end1, end2, end4),
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent3, end1, end2, end4),
@@ -622,7 +652,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end1),
 			Lists.newArrayList(startEvent, middleEvent1, end1),
 			Lists.newArrayList(startEvent, middleEvent2, end1),
@@ -674,7 +704,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3, end1),
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end1),
 				Lists.newArrayList(startEvent, middleEvent1, end1),
@@ -716,7 +746,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(middleEvent1, middleEvent2, middleEvent3, end),
 				Lists.newArrayList(middleEvent1, middleEvent2, end),
 				Lists.newArrayList(middleEvent2, middleEvent3, end),
@@ -779,7 +809,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3, end),
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end),
 				Lists.newArrayList(startEvent, middleEvent2, middleEvent3, end),
@@ -850,7 +880,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, merging, end),
 				Lists.newArrayList(startEvent, middleEvent1, merging, kleene1, end),
 				Lists.newArrayList(startEvent, middleEvent1, merging, kleene2, end),
@@ -906,7 +936,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList());
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList());
 	}
 
 	@Test
@@ -950,7 +980,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(start, middleEvent1, middleEvent2, end),
 			Lists.newArrayList(start, middleEvent2, end)
 		));
@@ -997,7 +1027,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end1),
 				Lists.newArrayList(startEvent, middleEvent1, end1),
 				Lists.newArrayList(startEvent, middleEvent2, end1)
@@ -1038,7 +1068,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent1, startEvent2, startEvent3, end1),
 				Lists.newArrayList(startEvent1, startEvent2, end1),
 				Lists.newArrayList(startEvent1, startEvent3, end1),
@@ -1093,7 +1123,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, endEvent)
 		));
 	}
@@ -1141,7 +1171,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3, end1),
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end1),
 			Lists.newArrayList(startEvent, middleEvent2, middleEvent3, end1),
@@ -1190,7 +1220,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent, end1),
 				Lists.newArrayList(startEvent, end1)
 		));
@@ -1239,7 +1269,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, end1),
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent3, end1)
 		));
@@ -1279,7 +1309,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(middleEvent1, middleEvent2, end1),
 			Lists.newArrayList(middleEvent2, middleEvent3, end1)
 		));
@@ -1325,7 +1355,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent3, ConsecutiveData.end)
 		));
@@ -1368,7 +1398,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end)
 		));
 	}
@@ -1410,7 +1440,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent1, ConsecutiveData.end)
@@ -1455,7 +1485,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList());
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList());
 	}
 
 	@Test
@@ -1488,7 +1518,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, end1),
 				Lists.newArrayList(end1)
 		));
@@ -1528,7 +1558,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3),
 				Lists.newArrayList(startEvent, middleEvent1, middleEvent2),
 				Lists.newArrayList(startEvent, middleEvent1),
@@ -1569,7 +1599,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(middleEvent1, middleEvent2, middleEvent3),
 			Lists.newArrayList(middleEvent1, middleEvent2),
 			Lists.newArrayList(middleEvent1),
@@ -1609,7 +1639,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(startEvent, middleEvent1),
 				Lists.newArrayList(startEvent)
 		));
@@ -1649,7 +1679,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3),
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2),
 			Lists.newArrayList(startEvent, middleEvent1)
@@ -1693,7 +1723,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.end)
 		));
 	}
@@ -1737,7 +1767,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
@@ -1784,7 +1814,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end), // this exists because of the optional()
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.end)
@@ -1830,7 +1860,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.end)
 		));
@@ -1875,7 +1905,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.end),
@@ -1921,7 +1951,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.end)
 		));
@@ -1966,7 +1996,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 				Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.end)
@@ -1990,7 +2020,7 @@ public class NFAITCase extends TestLogger {
 	public void testStrictOneOrMore() throws Exception {
 		List<List<Event>> resultingPatterns = testOneOrMore(Quantifier.ConsumingStrategy.STRICT);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.end)
@@ -2001,7 +2031,7 @@ public class NFAITCase extends TestLogger {
 	public void testSkipTillNextOneOrMore() throws Exception {
 		List<List<Event>> resultingPatterns = testOneOrMore(Quantifier.ConsumingStrategy.SKIP_TILL_NEXT);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent4, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
@@ -2013,7 +2043,7 @@ public class NFAITCase extends TestLogger {
 	public void testSkipTillAnyOneOrMore() throws Exception {
 		List<List<Event>> resultingPatterns = testOneOrMore(Quantifier.ConsumingStrategy.SKIP_TILL_ANY);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent4, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent4, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
@@ -2082,7 +2112,7 @@ public class NFAITCase extends TestLogger {
 	public void testStrictEagerZeroOrMore() throws Exception {
 		List<List<Event>> resultingPatterns = testZeroOrMore(Quantifier.ConsumingStrategy.STRICT);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.end),
@@ -2094,7 +2124,7 @@ public class NFAITCase extends TestLogger {
 	public void testSkipTillAnyZeroOrMore() throws Exception {
 		List<List<Event>> resultingPatterns = testZeroOrMore(Quantifier.ConsumingStrategy.SKIP_TILL_ANY);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent4, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent4, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent4, ConsecutiveData.end),
@@ -2111,7 +2141,7 @@ public class NFAITCase extends TestLogger {
 	public void testSkipTillNextZeroOrMore() throws Exception {
 		List<List<Event>> resultingPatterns = testZeroOrMore(Quantifier.ConsumingStrategy.SKIP_TILL_NEXT);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.middleEvent4, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
@@ -2212,7 +2242,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end)
 		));
 	}
@@ -2256,7 +2286,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent2, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent1, ConsecutiveData.middleEvent3, ConsecutiveData.end),
 			Lists.newArrayList(ConsecutiveData.startEvent, ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3, ConsecutiveData.end)
@@ -2305,7 +2335,7 @@ public class NFAITCase extends TestLogger {
 
 		List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(ConsecutiveData.middleEvent1),
 			Lists.newArrayList(ConsecutiveData.middleEvent2, ConsecutiveData.middleEvent3),
 			Lists.newArrayList(ConsecutiveData.middleEvent2),
@@ -2560,7 +2590,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> patterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(patterns, Lists.<List<Event>>newArrayList(
+		compareMaps(patterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(startEvent, middleEvent1, nextOne1, endEvent)
 		));
 	}
@@ -2619,7 +2649,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> patterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(patterns, Lists.<List<Event>>newArrayList(
+		compareMaps(patterns, Lists.<List<Event>>newArrayList(
 			Lists.newArrayList(startEvent, middleEvent1, nextOne1, endEvent),
 			Lists.newArrayList(startEvent, middleEvent2, nextOne1, endEvent),
 			Lists.newArrayList(startEvent, middleEvent3, nextOne1, endEvent)
@@ -2680,7 +2710,7 @@ public class NFAITCase extends TestLogger {
 
 		final List<List<Event>> resultingPatterns = feedNFA(inputEvents, nfa);
 
-		comparePatterns(resultingPatterns, Lists.<List<Event>>newArrayList(
+		compareMaps(resultingPatterns, Lists.<List<Event>>newArrayList(
 
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3, middleEvent4, middleEvent5, end),
 			Lists.newArrayList(startEvent, middleEvent1, middleEvent2, middleEvent3, middleEvent4, middleEvent5, end),

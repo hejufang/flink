@@ -33,17 +33,15 @@ import org.apache.flink.cep.pattern.conditions.BooleanConditions;
 import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.RichAndCondition;
 import org.apache.flink.cep.pattern.conditions.RichNotCondition;
-import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.cep.time.Time;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 
@@ -66,17 +64,25 @@ public class NFACompiler {
 	 * @param <T> Type of the input events
 	 * @return Factory for NFAs corresponding to the given pattern
 	 */
+	public static <T> NFAFactory<T> compileFactory(
+			final Pattern<T, ?> pattern,
+			boolean timeoutHandling) {
+		return compileFactory(pattern, timeoutHandling, false);
+	}
+
 	@SuppressWarnings("unchecked")
 	public static <T> NFAFactory<T> compileFactory(
 		final Pattern<T, ?> pattern,
-		boolean timeoutHandling) {
+		boolean timeoutHandling,
+		boolean allowSinglePartialMatchPerKey) {
 		if (pattern == null) {
+			throw new UnsupportedOperationException();
 			// return a factory for empty NFAs
-			return new NFAFactoryImpl<>(0, Collections.<State<T>>emptyList(), timeoutHandling);
+//			return new NFAFactoryImpl<>(pattern.getPatternId(), pattern0, Collections.<State<T>>emptyList(), timeoutHandling, allowSinglePartialMatchPerKey);
 		} else {
 			final NFAFactoryCompiler<T> nfaFactoryCompiler = new NFAFactoryCompiler<>(pattern);
 			nfaFactoryCompiler.compileFactory();
-			return new NFAFactoryImpl<>(nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling);
+			return new NFAFactoryImpl<>(pattern.getPatternId(), pattern.getHash(), nfaFactoryCompiler.getWindowTime(), nfaFactoryCompiler.getStates(), timeoutHandling, allowSinglePartialMatchPerKey, nfaFactoryCompiler.getEndWithNoPattern());
 		}
 	}
 
@@ -130,18 +136,18 @@ public class NFACompiler {
 		private final Map<String, State<T>> stopStates = new HashMap<>();
 		private final List<State<T>> states = new ArrayList<>();
 
-		private Optional<Long> windowTime;
+		private long windowTime = 0;
 		private GroupPattern<T, ?> currentGroupPattern;
 		private Map<GroupPattern<T, ?>, Boolean> firstOfLoopMap = new HashMap<>();
 		private Pattern<T, ?> currentPattern;
 		private Pattern<T, ?> followingPattern;
 		private final AfterMatchSkipStrategy afterMatchSkipStrategy;
 		private Map<String, State<T>> originalStateMap = new HashMap<>();
+		private boolean endWithNoPattern = false;
 
 		NFAFactoryCompiler(final Pattern<T, ?> pattern) {
 			this.currentPattern = pattern;
 			afterMatchSkipStrategy = pattern.getAfterMatchSkipStrategy();
-			windowTime = Optional.empty();
 		}
 
 		/**
@@ -150,7 +156,11 @@ public class NFACompiler {
 		 */
 		void compileFactory() {
 			if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW) {
-				throw new MalformedPatternException("NotFollowedBy is not supported as a last part of a Pattern!");
+				if (currentPattern.getWindowTime().toMilliseconds() == 0){
+					throw new MalformedPatternException("NotFollowedBy is not supported without windowTime as a last part of a Pattern!");
+				} else {
+					endWithNoPattern = true;
+				}
 			}
 
 			checkPatternNameUniqueness();
@@ -174,7 +184,11 @@ public class NFACompiler {
 		}
 
 		long getWindowTime() {
-			return windowTime.orElse(0L);
+			return windowTime;
+		}
+
+		boolean getEndWithNoPattern(){
+			return endWithNoPattern;
 		}
 
 		/**
@@ -267,7 +281,7 @@ public class NFACompiler {
 		 */
 		private State<T> createEndingState() {
 			State<T> endState = createState(ENDING_STATE_NAME, State.StateType.Final);
-			windowTime = Optional.ofNullable(currentPattern.getWindowTime()).map(Time::toMilliseconds);
+			windowTime = currentPattern.getWindowTime() != null ? currentPattern.getWindowTime().toMilliseconds() : 0L;
 			return endState;
 		}
 
@@ -281,7 +295,16 @@ public class NFACompiler {
 			State<T> lastSink = sinkState;
 			while (currentPattern.getPrevious() != null) {
 
-				if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW) {
+				if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW
+						&& currentPattern.getWindowTime() != null
+						&& currentPattern.getWindowTime().toMilliseconds() > 0
+						&& sinkState.isFinal()) {
+					final State<T> notFollow = createState(currentPattern.getName(), State.StateType.Pending);
+					final IterativeCondition<T> notCondition = (IterativeCondition<T>) currentPattern.getCondition();
+					final State<T> stopState = createStopState(notCondition, currentPattern.getName());
+					notFollow.addTake(stopState, notCondition);
+					lastSink = notFollow;
+				} else if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW) {
 					//skip notFollow patterns, they are converted into edge conditions
 				} else if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_NEXT) {
 					final State<T> notNext = createState(currentPattern.getName(), State.StateType.Normal);
@@ -305,9 +328,9 @@ public class NFACompiler {
 				currentPattern = currentPattern.getPrevious();
 
 				final Time currentWindowTime = currentPattern.getWindowTime();
-				if (currentWindowTime != null && currentWindowTime.toMilliseconds() < windowTime.orElse(Long.MAX_VALUE)) {
+				if (currentWindowTime != null && currentWindowTime.toMilliseconds() < windowTime) {
 					// the window time is the global minimum of all window times of each state
-					windowTime = Optional.of(currentWindowTime.toMilliseconds());
+					windowTime = currentWindowTime.toMilliseconds();
 				}
 			}
 			return lastSink;
@@ -924,23 +947,35 @@ public class NFACompiler {
 
 		private static final long serialVersionUID = 8939783698296714379L;
 
+		private final String patternId;
+		private final int hash;
 		private final long windowTime;
 		private final Collection<State<T>> states;
 		private final boolean timeoutHandling;
+		private final boolean allowSinglePartialMatchPerKey;
+		private final boolean endWithNotPattern;
 
 		private NFAFactoryImpl(
+				String patternId,
+				int hash,
 				long windowTime,
 				Collection<State<T>> states,
-				boolean timeoutHandling) {
+				boolean timeoutHandling,
+				boolean allowSinglePartialMatchPerKey,
+				boolean endWithNotPattern) {
 
+			this.patternId = patternId;
+			this.hash = hash;
 			this.windowTime = windowTime;
 			this.states = states;
 			this.timeoutHandling = timeoutHandling;
+			this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
+			this.endWithNotPattern = endWithNotPattern;
 		}
 
 		@Override
 		public NFA<T> createNFA() {
-			return new NFA<>(states, windowTime, timeoutHandling);
+			return new NFA<>(patternId, hash, states, windowTime, timeoutHandling, allowSinglePartialMatchPerKey, endWithNotPattern);
 		}
 	}
 }

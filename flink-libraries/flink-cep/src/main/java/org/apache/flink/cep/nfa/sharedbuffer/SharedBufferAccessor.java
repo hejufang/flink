@@ -298,6 +298,14 @@ public class SharedBufferAccessor<V> implements AutoCloseable {
 		}
 	}
 
+	public void clearKeyedState() {
+		sharedBuffer.clearKeyedState();
+	}
+
+	public void clearMemoryCache() {
+		sharedBuffer.clearMemoryCache();
+	}
+
 	/**
 	 * Persists the entry in the cache to the underlay state.
 	 *

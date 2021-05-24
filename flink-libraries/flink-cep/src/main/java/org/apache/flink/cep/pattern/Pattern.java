@@ -29,8 +29,10 @@ import org.apache.flink.cep.pattern.conditions.IterativeCondition;
 import org.apache.flink.cep.pattern.conditions.RichAndCondition;
 import org.apache.flink.cep.pattern.conditions.RichOrCondition;
 import org.apache.flink.cep.pattern.conditions.SubtypeCondition;
-import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.cep.time.Time;
 import org.apache.flink.util.Preconditions;
+
+import java.io.Serializable;
 
 /**
  * Base class for a pattern definition.
@@ -47,7 +49,11 @@ import org.apache.flink.util.Preconditions;
  * @param <T> Base type of the elements appearing in the pattern
  * @param <F> Subtype of T to which the current pattern operator is constrained
  */
-public class Pattern<T, F extends T> {
+public class Pattern<T, F extends T> implements Serializable {
+
+	private String patternId;
+
+	private int hash;
 
 	/** Name of the pattern. */
 	private final String name;
@@ -75,6 +81,10 @@ public class Pattern<T, F extends T> {
 
 	private final AfterMatchSkipStrategy afterMatchSkipStrategy;
 
+	private boolean allowSinglePartialMatchPerKey = false;
+
+	private boolean disabled = false;
+
 	protected Pattern(
 		final String name,
 		final Pattern<T, ? extends T> previous,
@@ -84,6 +94,23 @@ public class Pattern<T, F extends T> {
 		this.previous = previous;
 		this.quantifier = Quantifier.one(consumingStrategy);
 		this.afterMatchSkipStrategy = afterMatchSkipStrategy;
+		this.patternId = "unknown";
+	}
+
+	public boolean isAllowSinglePartialMatchPerKey() {
+		return allowSinglePartialMatchPerKey;
+	}
+
+	public void setAllowSinglePartialMatchPerKey(boolean allowSinglePartialMatchPerKey) {
+		this.allowSinglePartialMatchPerKey = allowSinglePartialMatchPerKey;
+	}
+
+	public boolean isDisabled() {
+		return disabled;
+	}
+
+	public void setDisabled(boolean disabled) {
+		this.disabled = disabled;
 	}
 
 	public Pattern<T, ? extends T> getPrevious() {
@@ -245,6 +272,14 @@ public class Pattern<T, F extends T> {
 	public Pattern<T, F> within(Time windowTime) {
 		if (windowTime != null) {
 			this.windowTime = windowTime;
+		}
+
+		return this;
+	}
+
+	public Pattern<T, F> within(org.apache.flink.streaming.api.windowing.time.Time windowTime) {
+		if (windowTime != null) {
+			this.windowTime = Time.of(windowTime.getSize(), windowTime.getUnit());
 		}
 
 		return this;
@@ -555,6 +590,19 @@ public class Pattern<T, F extends T> {
 			throw new MalformedPatternException("Already applied quantifier to this Pattern. " +
 					"Current quantifier is: " + quantifier);
 		}
+	}
+
+	public String getPatternId() {
+		return patternId;
+	}
+
+	public int getHash() {
+		return hash;
+	}
+
+	public void setPatternMeta(String patternId, int hash) {
+		this.patternId = patternId;
+		this.hash = hash;
 	}
 
 	/**

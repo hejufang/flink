@@ -57,6 +57,10 @@ public final class NFATestHarness {
 		this.timerService = timerService;
 	}
 
+	public NFAState getNFAState() {
+		return nfaState;
+	}
+
 	/**
 	 * Constructs a test harness starting from a given {@link Pattern}.
 	 */

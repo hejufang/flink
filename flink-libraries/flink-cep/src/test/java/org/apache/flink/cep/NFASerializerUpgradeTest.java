@@ -329,7 +329,7 @@ public class NFASerializerUpgradeTest extends TypeSerializerUpgradeTestBase<Obje
 
 		@Override
 		public NFAState createTestData() {
-			return new NFAState(Collections.emptyList());
+			return new NFAState("pattern", 1, Collections.emptyList());
 		}
 	}
 
@@ -345,7 +345,7 @@ public class NFASerializerUpgradeTest extends TypeSerializerUpgradeTestBase<Obje
 
 		@Override
 		public Matcher<NFAState> testDataMatcher() {
-			return is(new NFAState(Collections.emptyList()));
+			return is(new NFAState("pattern", 1, Collections.emptyList()));
 		}
 
 		@Override
