@@ -20,11 +20,8 @@ package org.apache.flink.connector.rpc.thrift.conversion;
 
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericArrayData;
-import org.apache.flink.table.data.binary.BinaryArrayData;
 import org.apache.flink.table.data.conversion.DataStructureConverter;
 import org.apache.flink.table.data.conversion.IdentityConverter;
-import org.apache.flink.table.data.writer.BinaryArrayWriter;
-import org.apache.flink.table.data.writer.BinaryWriter;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 
@@ -42,17 +39,7 @@ import java.util.List;
 public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData, List<E>> {
 	private static final long serialVersionUID = 1L;
 
-	private final int elementSize;
-
-	private final BinaryArrayWriter.NullSetter  writerNullSetter;
-
-	private final BinaryWriter.ValueSetter writerValueSetter;
-
 	private final GenericToJavaArrayConverter<E> genericToJavaArrayConverter;
-
-	private transient BinaryArrayData reuseArray;
-
-	private transient BinaryArrayWriter reuseWriter;
 
 	final boolean hasInternalElements;
 
@@ -61,15 +48,9 @@ public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData,
 	final DataStructureConverter<Object, E> elementConverter;
 
 	private ArrayArrayConverter(
-			int elementSize,
-			BinaryArrayWriter.NullSetter writerNullSetter,
-			BinaryWriter.ValueSetter writerValueSetter,
 			GenericToJavaArrayConverter<E> genericToJavaArrayConverter,
 			ArrayData.ElementGetter elementGetter,
 			DataStructureConverter<Object, E> elementConverter) {
-		this.elementSize = elementSize;
-		this.writerNullSetter = writerNullSetter;
-		this.writerValueSetter = writerValueSetter;
 		this.genericToJavaArrayConverter = genericToJavaArrayConverter;
 		this.hasInternalElements = elementConverter instanceof IdentityConverter;
 		this.elementGetter = elementGetter;
@@ -78,14 +59,12 @@ public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData,
 
 	@Override
 	public void open(ClassLoader classLoader) {
-		reuseArray = new BinaryArrayData();
-		reuseWriter = new BinaryArrayWriter(reuseArray, 0, elementSize);
 		elementConverter.open(classLoader);
 	}
 
 	@Override
 	public ArrayData toInternal(List<E> external) {
-		return hasInternalElements ? new GenericArrayData(external.toArray()) : toBinaryArrayData(external);
+		return hasInternalElements ? new GenericArrayData(external.toArray()) : toGenericArrayData(external);
 	}
 
 	@Override
@@ -101,13 +80,18 @@ public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData,
 		return toJavaList(internal);
 	}
 
-	private ArrayData toBinaryArrayData(List<E> external) {
+	/**
+	 * This implementation is for thread safety. Therefore the BinaryArrayWriter and BinaryArrayData
+	 * cannot be member variables and reused.
+	 */
+	private ArrayData toGenericArrayData(List<E> external) {
 		final int length = external.size();
-		allocateWriter(length);
+		Object[] newArray = new Object[length];
 		for (int pos = 0; pos < length; pos++) {
-			writeElement(pos, external.get(pos));
+			E element =  external.get(pos);
+			newArray[pos] = elementConverter.toInternalOrNull(element);
 		}
-		return completeWriter().copy();
+		return new GenericArrayData(newArray);
 	}
 
 	private List<E> toJavaList(ArrayData internal) {
@@ -125,49 +109,12 @@ public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData,
 	}
 
 	// --------------------------------------------------------------------------------------------
-	// Shared code
-	// --------------------------------------------------------------------------------------------
-
-	void allocateWriter(int length) {
-		if (reuseWriter.getNumElements() != length) {
-			reuseWriter = new BinaryArrayWriter(reuseArray, length, elementSize);
-		} else {
-			reuseWriter.reset();
-		}
-	}
-
-	void writeElement(int pos, E element) {
-		if (element == null) {
-			writerNullSetter.setNull(reuseWriter, pos);
-		} else {
-			writerValueSetter.setValue(reuseWriter, pos, elementConverter.toInternalOrNull(element));
-		}
-	}
-
-	BinaryArrayData completeWriter() {
-		reuseWriter.complete();
-		return reuseArray;
-	}
-
-	// --------------------------------------------------------------------------------------------
 	// Factory method
 	// --------------------------------------------------------------------------------------------
 	public static ArrayArrayConverter<?> create(Type elementType, DataType dataType) {
 		DataType element = dataType.getChildren().get(0);
 		return createForElement(elementType, element);
 	}
-//	public static ArrayArrayConverter<?> create(Field field, DataType dataType) {
-//		DataType element = dataType.getChildren().get(0);
-//		if (field == null) {
-//			if (isPrimitivePackageClass(getClassForDataType(element))) {
-//				return createForElement(null, element);
-//			}
-//			throw new IllegalStateException("Nested list cannot contains non-primitive element.");
-//		}
-//		ParameterizedType genericType = (ParameterizedType) field.getGenericType();
-//		Class<?> innerClass = (Class<?>) genericType.getActualTypeArguments()[0];
-//		return createForElement(innerClass, element);
-//	}
 
 	@SuppressWarnings("unchecked")
 	public static <E> ArrayArrayConverter<E> createForElement(
@@ -175,9 +122,6 @@ public class ArrayArrayConverter<E> implements DataStructureConverter<ArrayData,
 			DataType elementDataType) {
 		final LogicalType elementLogicalType = elementDataType.getLogicalType();
 		return new ArrayArrayConverter<>(
-			BinaryArrayData.calculateFixLengthPartSize(elementLogicalType),
-			BinaryArrayWriter.createNullSetter(elementLogicalType),
-			BinaryWriter.createValueSetter(elementLogicalType),
 			createGenericToJavaArrayConverter(elementLogicalType),
 			ArrayData.createElementGetter(elementLogicalType),
 			(DataStructureConverter<Object, E>) JavaBeanConverters.getConverter(elementType, elementDataType)

@@ -169,78 +169,92 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 	}
 
 	public void eval(CompletableFuture<Collection<RowData>> resultFuture, Object... inputs) {
-		CompletableFuture.runAsync(() -> {
-			try {
-				resultFuture.complete(doLookup(inputs));
-			}
-			catch (Throwable e) {
-				resultFuture.completeExceptionally(e);
-			}}, executor);
-	}
-
-	private List<RowData> doLookup(Object[] lookupKeys) {
-		GenericRowData requestValue = GenericRowData.of(lookupKeys);
+		GenericRowData requestValue = GenericRowData.of(inputs);
 		if (cache != null) {
 			RowData cachedRow = cache.getIfPresent(requestValue);
 			if (cachedRow != null) {
-				return Collections.singletonList(cachedRow);
+				resultFuture.complete(Collections.singletonList(cachedRow));
+				return;
 			}
 		}
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
 		}
+		Object requestObject = requestConverter.toExternal(requestValue);
+		doAsyncCall(resultFuture, requestObject, requestValue, 1);
 
-		String logID = "unknown";
-		boolean exceptionRetryable = true;
-		for (int retry = 1; retry <= rpcLookupOptions.getMaxRetryTimes(); retry++) {
+	}
+
+	public void doAsyncCall(
+			CompletableFuture<Collection<RowData>> resultFuture,
+			Object requestObject,
+			GenericRowData lookupKeys,
+			int retry) {
+		CompletableFuture.runAsync(() -> {
+			String logID = "unknown";
 			try {
 				lookupRequestPerSecond.markEvent();
-
-				Object requestObject = requestConverter.toExternal(requestValue);
 				logID = RequestIDUtil.generateRequestID();
 				addBaseInfoToRequest(requestObject, logID);
-
-				long startRequest = System.currentTimeMillis();
-				Object responseObject = serviceClient.sendRequest(requestObject);
-				long requestDelay = System.currentTimeMillis() - startRequest;
-				requestDelayMs.update(requestDelay);
-				// A null response will be returned by service client when request is illegal.
-				// It happens before sending out the request.
-				if (responseObject == null) {
-					exceptionRetryable = false;
-					throw new RuntimeException("The response object is null, please find more information from" +
-						"the tm log. Or you can change the failure handle strategy to ignore the error.");
-				}
-				RowData responseValue = responseConverter.toInternal(responseObject);
-				RowData result = assembleRow(lookupKeys, responseValue);
-				if (cache != null) {
-					cache.put(requestValue, result);
-				}
-				return Collections.singletonList(result);
-			} catch (Exception e) {
+				resultFuture.complete(doLookup(requestObject, lookupKeys));
+			} catch (Throwable e) {
 				lookupFailurePerSecond.markEvent();
-				if (!exceptionRetryable || retry >= rpcLookupOptions.getMaxRetryTimes()) {
+				if (retry >= rpcLookupOptions.getMaxRetryTimes()) {
 					FailureHandleStrategy strategy = rpcLookupOptions.getFailureHandleStrategy();
 					switch (strategy){
 						case TASK_FAILURE:
-							throw new FlinkRuntimeException(
-								String.format("Execution of RPC get response failed. The logId is : %s", logID), e);
+							resultFuture.completeExceptionally(
+								new FlinkRuntimeException(
+									String.format("Execution of RPC get response failed. The logId is : %s", logID), e)
+							);
+							break;
 						case EMIT_EMPTY:
 							//failure strategy is emit-empty
 							//do not collect anything so join result will be null
-							return Collections.emptyList();
+							resultFuture.complete(Collections.emptyList());
 					}
+				} else {
+					LOG.error(String.format("RPC get response error, the logId is : %s, retry times = %d",
+						logID, retry), e);
+					retryAsyncCall(resultFuture, requestObject, lookupKeys, retry);
 				}
-				LOG.error(String.format("RPC get response error, the logId is : %s, retry times = %d",
-					logID, retry), e);
-				try {
-					Thread.sleep(1000 * retry);
-				} catch (InterruptedException e1) {
-					throw new FlinkRuntimeException(e1);
-				}
-			}
+			}}, executor);
+	}
+
+	private void retryAsyncCall(
+			CompletableFuture<Collection<RowData>> resultFuture,
+			Object requestObject,
+			GenericRowData lookupKeys,
+			int retry) {
+		try {
+			Thread.sleep(1000 * retry);
+		} catch (InterruptedException e1) {
+			resultFuture.completeExceptionally(new FlinkRuntimeException(e1));
+			return;
 		}
-		return Collections.emptyList();
+		doAsyncCall(resultFuture, requestObject, lookupKeys, ++retry);
+	}
+
+	private List<RowData> doLookup(
+			Object requestObject,
+			GenericRowData lookupKeys) {
+		long startRequest = System.currentTimeMillis();
+		Object responseObject = serviceClient.sendRequest(requestObject);
+		long requestDelay = System.currentTimeMillis() - startRequest;
+		requestDelayMs.update(requestDelay);
+		// A null response will be returned by service client when request is failed.
+		// This includes the all kinds of exceptions before getting the response.
+		// todo: make exceptions marked with flag indicates if they are retryable or not and treat them differently.
+		if (responseObject == null) {
+			throw new RuntimeException("The response object is null, please find more information from" +
+				" the tm log. Or you can change the failure handle strategy to ignore the error.");
+		}
+		RowData responseValue = responseConverter.toInternal(responseObject);
+		RowData result = assembleRow(lookupKeys, responseValue);
+		if (cache != null) {
+			cache.put(lookupKeys, result);
+		}
+		return Collections.singletonList(result);
 	}
 
 	protected void addBaseInfoToRequest(Object thriftRequestObj, String logID) {
@@ -258,11 +272,13 @@ public class RPCRowDataLookupFunction extends AsyncTableFunction<RowData> {
 	 * Assemble the dimension RPC table which consists of a breakup request and a row type response.
 	 * @return breakup request value add response value.
 	 */
-	protected RowData assembleRow(Object[] lookupFieldValue, RowData responseRow) {
+	protected RowData assembleRow(GenericRowData lookupFieldValue, RowData responseRow) {
 		GenericRowData result = new GenericRowData(fieldNames.length);
 		for (int i = 0, j = 0; i < fieldNames.length; i++) {
+			// There exists some logic which would guarantee that the fields in input lookup
+			// rows follow the order stated in table schema.
 			if (fieldNames[i].equals(fieldNames[keyIndices[j]])) {
-				result.setField(i, lookupFieldValue[j++]);
+				result.setField(i, lookupFieldValue.getField(j++));
 				if (j == keyIndices.length) {
 					break;
 				}

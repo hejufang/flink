@@ -21,7 +21,6 @@ package org.apache.flink.connector.rpc.thrift.conversion;
 import org.apache.flink.table.data.ArrayData;
 import org.apache.flink.table.data.GenericMapData;
 import org.apache.flink.table.data.MapData;
-import org.apache.flink.table.data.binary.BinaryMapData;
 import org.apache.flink.table.data.conversion.DataStructureConverter;
 import org.apache.flink.table.types.DataType;
 
@@ -41,14 +40,11 @@ public class MapMapConverter<K, V> implements DataStructureConverter<MapData, Ma
 
 	private final ArrayArrayConverter<V> valueConverter;
 
-	private final boolean hasInternalEntries;
-
 	private MapMapConverter(
 			ArrayArrayConverter<K> keyConverter,
 			ArrayArrayConverter<V> valueConverter) {
 		this.keyConverter = keyConverter;
 		this.valueConverter = valueConverter;
-		this.hasInternalEntries = keyConverter.hasInternalElements && valueConverter.hasInternalElements;
 	}
 
 	@Override
@@ -59,46 +55,33 @@ public class MapMapConverter<K, V> implements DataStructureConverter<MapData, Ma
 
 	@Override
 	public MapData toInternal(Map<K, V> external) {
-		if (hasInternalEntries) {
-			return new GenericMapData(external);
+		Map<Object, Object> newMap = new HashMap<>();
+		for (Map.Entry<K, V> item: external.entrySet()) {
+			newMap.put(keyConverter.elementConverter.toInternal(item.getKey()),
+				valueConverter.elementConverter.toInternal(item.getValue()));
 		}
-		return toBinaryMapData(external);
+		return new GenericMapData(newMap);
 	}
 
 	@Override
 	public Map<K, V> toExternal(MapData internal) {
 		final ArrayData keyArray = internal.keyArray();
 		final ArrayData valueArray = internal.valueArray();
-
 		final int length = internal.size();
 		final Map<K, V> map = new HashMap<>();
 		for (int pos = 0; pos < length; pos++) {
 			final Object keyValue = keyConverter.elementGetter.getElementOrNull(keyArray, pos);
 			final Object valueValue = valueConverter.elementGetter.getElementOrNull(valueArray, pos);
+			if (keyValue == null || valueValue == null) {
+				throw new RuntimeException(String.format("Both key and value of the map should not be null. " +
+					"The key is %s, the value is %s.", keyValue, valueValue));
+			}
 			map.put(
-				keyConverter.elementConverter.toExternalOrNull(keyValue),
-				valueConverter.elementConverter.toExternalOrNull(valueValue));
+				keyConverter.elementConverter.toExternal(keyValue),
+				valueConverter.elementConverter.toExternal(valueValue));
 		}
 		return map;
 	}
-
-	// --------------------------------------------------------------------------------------------
-	// Runtime helper methods
-	// --------------------------------------------------------------------------------------------
-
-	private MapData toBinaryMapData(Map<K, V> external) {
-		final int length = external.size();
-		keyConverter.allocateWriter(length);
-		valueConverter.allocateWriter(length);
-		int pos = 0;
-		for (Map.Entry<K, V> entry : external.entrySet()) {
-			keyConverter.writeElement(pos, entry.getKey());
-			valueConverter.writeElement(pos, entry.getValue());
-			pos++;
-		}
-		return BinaryMapData.valueOf(keyConverter.completeWriter(), valueConverter.completeWriter());
-	}
-
 	// --------------------------------------------------------------------------------------------
 	// Factory method
 	// --------------------------------------------------------------------------------------------
