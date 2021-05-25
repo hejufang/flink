@@ -238,6 +238,7 @@ public class SequenceFilePbValueFormatFactory implements FileSystemFormatFactory
 			hadoopInputFormat.close();
 		}
 
+		@Override
 		public boolean takeNullAsEndOfStream() {
 			return false;
 		}

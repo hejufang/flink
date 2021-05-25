@@ -262,6 +262,11 @@ public class JsonFileSystemFormatFactory implements FileSystemFormatFactory {
 				}
 			}
 		}
+
+		@Override
+		public boolean takeNullAsEndOfStream() {
+			return false;
+		}
 	}
 
 	/**
