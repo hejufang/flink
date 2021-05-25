@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -91,7 +92,7 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 		this.options = options;
 		this.insertOptions = insertOptions;
 		List<String> nameList = Arrays.asList(fieldNames);
-		if (!isAppendOnly) {
+		if (keyFieldIndices != null && keyFieldIndices.length > 0) {
 			this.pkFields = keyFieldIndices;
 			String[] pkFieldNames = Arrays.stream(keyFieldIndices).mapToObj(nameList::get).toArray(String[]::new);
 			this.deleteSQL = ByteSQLUtils.getDeleteStatement(options.getTableName(), pkFieldNames);
@@ -138,7 +139,12 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 				TimeUnit.MILLISECONDS);
 		}
 		this.recordBuffer = new ArrayList<>();
-		this.keyToRows = new HashMap<>();
+		if (this.isAppendOnly) {
+			// Temporary fix, in 1.11, the buffer will be a list in append mode.
+			this.keyToRows = new LinkedHashMap<>();
+		} else {
+			this.keyToRows = new HashMap<>();
+		}
 	}
 
 	private void checkFlushException() {
@@ -158,14 +164,15 @@ public class ByteSQLUpsertOutputFormat extends RichOutputFormat<Tuple2<Boolean, 
 	}
 
 	private Row getPrimaryKey(Row row) {
-		if (isAppendOnly) {
+		if (pkFields != null && pkFields.length > 0) {
+			Row pks = new Row(pkFields.length);
+			for (int i = 0; i < pkFields.length; i++) {
+				pks.setField(i, row.getField(pkFields[i]));
+			}
+			return pks;
+		} else {
 			return row;
 		}
-		Row pks = new Row(pkFields.length);
-		for (int i = 0; i < pkFields.length; i++) {
-			pks.setField(i, row.getField(pkFields[i]));
-		}
-		return pks;
 	}
 
 	public synchronized void flush() {
