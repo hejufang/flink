@@ -351,14 +351,14 @@ public class JsonRowDataSerDeSchemaTest {
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
-			rowType, new RowDataTypeInfo(rowType), false, false, TimestampFormat.SQL);
-		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.SQL);
+			rowType, new RowDataTypeInfo(rowType), false, false, TimestampFormat.RFC_3339);
+		JsonRowDataSerializationSchema serializationSchema = new JsonRowDataSerializationSchema(rowType, TimestampFormat.RFC_3339);
 
 		ObjectMapper objectMapper = new ObjectMapper();
 
 		ObjectNode root = objectMapper.createObjectNode();
-		root.put("timestamp3", "1990-10-14 12:12:43.123");
-		root.put("timestamp9", "1990-10-14 12:12:43.123456789");
+		root.put("timestamp3", "1990-10-14T12:12:43.123Z");
+		root.put("timestamp9", "1990-10-14T12:12:43.123456789Z");
 		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 		RowData rowData = deserializationSchema.deserialize(serializedJson);
 		byte[] actual = serializationSchema.serialize(rowData);

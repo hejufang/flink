@@ -51,7 +51,7 @@ public class CanalJsonFormatFactory implements DeserializationFormatFactory, Ser
 
 	public static final ConfigOption<Boolean> IGNORE_PARSE_ERRORS = JsonOptions.IGNORE_PARSE_ERRORS;
 
-	public static final ConfigOption<String> TIMESTAMP_FORMAT = JsonOptions.TIMESTAMP_FORMAT;
+	public static final ConfigOption<TimestampFormat> TIMESTAMP_FORMAT = JsonOptions.TIMESTAMP_FORMAT;
 
 	@SuppressWarnings("unchecked")
 	@Override
@@ -60,7 +60,6 @@ public class CanalJsonFormatFactory implements DeserializationFormatFactory, Ser
 			ReadableConfig formatOptions) {
 		FactoryUtil.validateFactoryOptions(this, formatOptions);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
-		TimestampFormat timestampFormatOption = JsonOptions.getTimestampFormat(formatOptions);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
@@ -73,7 +72,7 @@ public class CanalJsonFormatFactory implements DeserializationFormatFactory, Ser
 					rowType,
 					rowDataTypeInfo,
 					ignoreParseErrors,
-					timestampFormatOption);
+					formatOptions.get(TIMESTAMP_FORMAT));
 			}
 
 			@Override

@@ -52,7 +52,6 @@ import static org.apache.flink.formats.json.JsonOptions.FAIL_ON_MISSING_FIELD;
 import static org.apache.flink.formats.json.JsonOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT;
-import static org.apache.flink.formats.json.JsonOptions.TIMESTAMP_FORMAT_ENUM;
 
 /**
  * Table format factory for providing configured instances of JSON to RowData
@@ -78,7 +77,7 @@ public class JsonFormatFactory implements
 		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
 		final long logParseErrorsInterval = formatOptions.get(LOG_ERROR_RECORDS_INTERVAL).toMillis();
 		Map<Feature, Boolean> parserFeature = getParserFeatureMap(context.getCatalogTable().getOptions());
-		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
+		TimestampFormat timestampOption = formatOptions.get(TIMESTAMP_FORMAT);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
@@ -113,7 +112,7 @@ public class JsonFormatFactory implements
 			ReadableConfig formatOptions) {
 		FactoryUtil.validateFactoryOptions(this, formatOptions);
 
-		TimestampFormat timestampOption = JsonOptions.getTimestampFormat(formatOptions);
+		TimestampFormat timestampOption = formatOptions.get(TIMESTAMP_FORMAT);
 		final boolean enforceUTF8Encoding = formatOptions.get(ENFORCE_UTF8_ENCODING);
 		final boolean ignoreNullValues = formatOptions.get(ENCODE_IGNORE_NULL_VALUES);
 		final boolean byteAsJsonNode = formatOptions.get(BYTES_AS_JSON_NODE);
@@ -178,16 +177,11 @@ public class JsonFormatFactory implements
 	static void validateFormatOptions(ReadableConfig tableOptions) {
 		boolean failOnMissingField = tableOptions.get(FAIL_ON_MISSING_FIELD);
 		boolean ignoreParseErrors = tableOptions.get(IGNORE_PARSE_ERRORS);
-		String timestampFormat = tableOptions.get(TIMESTAMP_FORMAT);
 		if (ignoreParseErrors && failOnMissingField) {
 			throw new ValidationException(FAIL_ON_MISSING_FIELD.key()
 					+ " and "
 					+ IGNORE_PARSE_ERRORS.key()
 					+ " shouldn't both be true.");
-		}
-		if (!TIMESTAMP_FORMAT_ENUM.contains(timestampFormat)){
-			throw new ValidationException(String.format("Unsupported value '%s' for %s. Supported values are [SQL, ISO-8601].",
-				timestampFormat, TIMESTAMP_FORMAT.key()));
 		}
 	}
 

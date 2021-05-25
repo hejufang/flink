@@ -67,6 +67,7 @@ import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static org.apache.flink.formats.json.JsonOptions.LOG_ERROR_RECORDS_INTERVAL;
 import static org.apache.flink.formats.json.TimeFormats.ISO8601_TIMESTAMP_FORMAT;
+import static org.apache.flink.formats.json.TimeFormats.RFC3339_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIME_FORMAT;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -349,6 +350,9 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 				break;
 			case ISO_8601:
 				parsedTimestamp = ISO8601_TIMESTAMP_FORMAT.parse(jsonNode.asText());
+				break;
+			case RFC_3339:
+				parsedTimestamp = RFC3339_TIMESTAMP_FORMAT.parse(jsonNode.asText());
 				break;
 			default:
 				throw new TableException(String.format("Unsupported timestamp format '%s'. Validator should have checked that.", timestampFormat));

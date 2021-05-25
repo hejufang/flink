@@ -31,5 +31,9 @@ public enum TimestampFormat {
 
 	/** Options to specify timestamp format. It will parse timestamp in "yyyy-MM-ddTHH:mm:ss.s{precision}" format
 	 * and output timestamp in the same format*/
-	ISO_8601
+	ISO_8601,
+
+	/** Options to specify timestamp format. It will parse timestamp in "yyyy-MM-ddTHH:mm:ss.s{precision}Z" format
+	 * and output timestamp in the same format*/
+	RFC_3339
 }

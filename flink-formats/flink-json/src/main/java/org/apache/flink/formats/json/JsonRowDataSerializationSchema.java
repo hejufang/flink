@@ -48,6 +48,7 @@ import java.util.Objects;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static org.apache.flink.formats.json.TimeFormats.ISO8601_TIMESTAMP_FORMAT;
+import static org.apache.flink.formats.json.TimeFormats.RFC3339_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIMESTAMP_FORMAT;
 import static org.apache.flink.formats.json.TimeFormats.SQL_TIME_FORMAT;
 
@@ -275,6 +276,12 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 					TimestampData timestamp = (TimestampData) value;
 					return mapper.getNodeFactory()
 						.textNode(SQL_TIMESTAMP_FORMAT.format(timestamp.toLocalDateTime()));
+				};
+			case RFC_3339:
+				return (mapper, reuse, value) -> {
+					TimestampData timestamp = (TimestampData) value;
+					return mapper.getNodeFactory()
+						.textNode(RFC3339_TIMESTAMP_FORMAT.format(timestamp.toLocalDateTime()));
 				};
 			default:
 				throw new TableException("Unsupported timestamp format. Validator should have checked that.");

@@ -61,7 +61,7 @@ public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, 
 
 	public static final ConfigOption<Boolean> IGNORE_PARSE_ERRORS = JsonOptions.IGNORE_PARSE_ERRORS;
 
-	public static final ConfigOption<String> TIMESTAMP_FORMAT = JsonOptions.TIMESTAMP_FORMAT;
+	public static final ConfigOption<TimestampFormat> TIMESTAMP_FORMAT = JsonOptions.TIMESTAMP_FORMAT;
 
 	@SuppressWarnings("unchecked")
 	@Override
@@ -71,7 +71,6 @@ public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, 
 		FactoryUtil.validateFactoryOptions(this, formatOptions);
 		final boolean schemaInclude = formatOptions.get(SCHEMA_INCLUDE);
 		final boolean ignoreParseErrors = formatOptions.get(IGNORE_PARSE_ERRORS);
-		TimestampFormat timestampFormatOption = JsonOptions.getTimestampFormat(formatOptions);
 
 		return new DecodingFormat<DeserializationSchema<RowData>>() {
 			@Override
@@ -85,7 +84,7 @@ public class DebeziumJsonFormatFactory implements DeserializationFormatFactory, 
 					rowDataTypeInfo,
 					schemaInclude,
 					ignoreParseErrors,
-					timestampFormatOption);
+					formatOptions.get(TIMESTAMP_FORMAT));
 			}
 
 			@Override

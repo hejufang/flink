@@ -20,14 +20,9 @@ package org.apache.flink.formats.json;
 
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
-import org.apache.flink.configuration.ReadableConfig;
-import org.apache.flink.table.api.TableException;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * This class holds configuration constants used by json format.
@@ -54,12 +49,13 @@ public class JsonOptions {
 			.withDescription("When ignore-parse-errors is true, this configs controls the frequency of logging the" +
 				"records that cannot be parsed correctly.");
 
-	public static final ConfigOption<String> TIMESTAMP_FORMAT = ConfigOptions
+	public static final ConfigOption<TimestampFormat> TIMESTAMP_FORMAT = ConfigOptions
 			.key("timestamp-format.standard")
-			.stringType()
-			.defaultValue("SQL")
+			.enumType(TimestampFormat.class)
+			.defaultValue(TimestampFormat.RFC_3339)
 			.withDescription("Optional flag to specify timestamp format, SQL by default." +
-				" Option ISO-8601 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}\" format and output timestamp in the same format." +
+				" Option RFC_3339 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}Z\" format and output timestamp in the same format." +
+				" Option ISO_8601 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}\" format and output timestamp in the same format." +
 				" Option SQL will parse input timestamp in \"yyyy-MM-dd HH:mm:ss.s{precision}\" format and output timestamp in the same format.");
 
 	public static final ConfigOption<Boolean> BYTES_AS_JSON_NODE = ConfigOptions
@@ -80,32 +76,4 @@ public class JsonOptions {
 			.defaultValue(false)
 			.withDescription("Optional flag to ignore null values during encoding.");
 
-	// --------------------------------------------------------------------------------------------
-	// Option enumerations
-	// --------------------------------------------------------------------------------------------
-
-	public static final String SQL = "SQL";
-	public static final String ISO_8601 = "ISO-8601";
-
-	public static final Set<String> TIMESTAMP_FORMAT_ENUM = new HashSet<>(Arrays.asList(
-		SQL,
-		ISO_8601
-	));
-
-	// --------------------------------------------------------------------------------------------
-	// Utilities
-	// --------------------------------------------------------------------------------------------
-
-	public static TimestampFormat getTimestampFormat(ReadableConfig config){
-		String timestampFormat = config.get(TIMESTAMP_FORMAT);
-		switch (timestampFormat){
-			case SQL:
-				return TimestampFormat.SQL;
-			case ISO_8601:
-				return TimestampFormat.ISO_8601;
-			default:
-				throw new TableException(
-					String.format("Unsupported timestamp format '%s'. Validator should have checked that.", timestampFormat));
-		}
-	}
 }
