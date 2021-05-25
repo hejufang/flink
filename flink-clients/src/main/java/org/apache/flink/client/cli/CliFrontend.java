@@ -912,7 +912,7 @@ public class CliFrontend {
 	 *
 	 * @param args Command line arguments for the savepoint action.
 	 */
-	protected void checkpoint(String[] args) throws Exception {
+	protected int checkpoint(String[] args) throws Exception {
 		LOG.info("Running 'checkpoint' command.");
 		args = setJobName(args);
 		final Options commandOptions = CliFrontendParser.getCheckpointCommandOptions();
@@ -926,7 +926,7 @@ public class CliFrontend {
 		// evaluate help flag
 		if (checkpointOptions.isPrintHelp()) {
 			CliFrontendParser.printHelpForCheckpoint(customCommandLines);
-			return;
+			return 0;
 		}
 
 		final CustomCommandLine activeCommandLine = validateAndGetActiveCommandLine(commandLine);
@@ -936,7 +936,7 @@ public class CliFrontend {
 			List<String> infos = CheckpointMetadataAnalyzer.analyze(path);
 			infos.forEach(System.out::println);
 		} else if (checkpointOptions.isVerification()) {
-			verifyCheckpoint(commandLine, checkpointOptions, activeCommandLine);
+			return verifyCheckpoint(commandLine, checkpointOptions, activeCommandLine);
 		} else {
 			String[] cleanedArgs = checkpointOptions.getArgs();
 			final JobID jobId = cleanedArgs.length >= 1 ? parseJobId(cleanedArgs[0]) : null;
@@ -948,9 +948,10 @@ public class CliFrontend {
 
 			clearCheckpoints(activeCommandLine, commandLine, jobId, jobName, checkpointOptions.getCheckpointID());
 		}
+		return 0;
 	}
 
-	private void verifyCheckpoint(CommandLine commandLine, CheckpointOptions checkpointOptions, CustomCommandLine activeCommandLine) {
+	private int verifyCheckpoint(CommandLine commandLine, CheckpointOptions checkpointOptions, CustomCommandLine activeCommandLine) {
 		PackagedProgram program = null;
 		try {
 			LOG.info("Building ghost program from JAR file");
@@ -963,9 +964,10 @@ public class CliFrontend {
 
 			if (CheckpointVerifier.beforeVerify(effectiveConfiguration)) {
 				executeProgram(effectiveConfiguration, program);
+				return CheckpointVerifier.verifyExitCode;
 			} else {
 				// No checkpoint on HDFS, exit directly
-				CheckpointVerifier.verifyExitCode = 0;
+				return 0;
 			}
 		} catch (Exception e) {
 			// Note: we compulsively capture exception here, in case that the user's code may rethrow the
@@ -975,6 +977,7 @@ public class CliFrontend {
 				CheckpointVerifier.verifyExitCode = 1;
 			}
 			LOG.error("Checkpoint verification error: " + e);
+			return CheckpointVerifier.verifyExitCode;
 		} finally {
 			if (program != null) {
 				program.deleteExtractedLibraries();
@@ -1283,8 +1286,7 @@ public class CliFrontend {
 					savepoint(params);
 					return 0;
 				case ACTION_CHECKPOINT:
-					checkpoint(params);
-					return CheckpointVerifier.verifyExitCode;
+					return checkpoint(params);
 				case "-h":
 				case "--help":
 					CliFrontendParser.printHelp(customCommandLines);
