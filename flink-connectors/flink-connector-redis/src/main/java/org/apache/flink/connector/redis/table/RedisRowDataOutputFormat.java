@@ -42,7 +42,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
-import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Nullable;
 
@@ -75,7 +74,6 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 	private RedisBatchExecutor batchExecutor;
 	private transient Counter writeFailed;
 	private transient ClientPool clientPool;
-	private transient Jedis jedis;
 	private transient int batchCount = 0;
 	private transient ScheduledExecutorService scheduler;
 	private transient ScheduledFuture<?> scheduledFuture;
@@ -115,7 +113,6 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 			}
 		}
 		clientPool = clientPipelineProvider.createClientPool(options);
-		jedis = RedisUtils.getJedisFromClientPool(clientPool, options.getMaxRetries());
 		if (insertOptions.isLogFailuresOnly()) {
 			writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED_METRIC_NAME);
 		}
@@ -191,9 +188,9 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 
 	public synchronized void flush() {
 		checkFlushException();
-		Pipeline pipeline = clientPipelineProvider.createPipeline(clientPool, jedis);
 		for (int retryTimes = 1; retryTimes <= insertOptions.getFlushMaxRetries(); retryTimes++) {
-			try {
+			try (Jedis jedis = RedisUtils.getJedisFromClientPool(clientPool, options.getMaxRetries());
+				Pipeline pipeline = clientPipelineProvider.createPipeline(clientPool, jedis)) {
 				for (Object o : batchExecutor.executeBatch(pipeline)) {
 					// In some cases, the commands are not idempotent, like incrby, zadd, etc.
 					// if partial of pipelined commands failed, all commands will be retried.
@@ -225,13 +222,6 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 					} else {
 						throw new RuntimeException(e);
 					}
-				}
-				if (e instanceof JedisException) {
-					LOG.warn("Reset jedis client in case of broken connections.", e);
-					if (jedis != null) {
-						jedis.close();
-					}
-					jedis = RedisUtils.getJedisFromClientPool(clientPool, insertOptions.getFlushMaxRetries());
 				}
 			}
 		}
@@ -401,11 +391,8 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		}
 		closed = true;
 		checkFlushException();
-		if (jedis != null) {
-			if (!batchExecutor.isBufferEmpty()) {
-				flush();
-			}
-			jedis.close();
+		if (!batchExecutor.isBufferEmpty()) {
+			flush();
 		}
 		if (clientPool != null) {
 			clientPool.close();

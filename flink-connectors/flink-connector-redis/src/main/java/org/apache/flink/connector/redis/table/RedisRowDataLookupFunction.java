@@ -48,7 +48,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisDataException;
-import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Nullable;
 
@@ -68,7 +67,6 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 
 	private static final RowData EMPTY_ROW = new GenericRowData(0);
 	private transient ClientPool clientPool;
-	private transient Jedis jedis;
 	private final ClientPoolProvider clientPoolProvider;
 	private final String[] fieldNames;
 	private final String[] hashKeys;
@@ -134,7 +132,6 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
 		clientPool = clientPoolProvider.createClientPool(options);
-		jedis = RedisUtils.getJedisFromClientPool(clientPool, options.getMaxRetries());
 		if (converter != null) {
 			converter.open(RuntimeConverter.Context.create(RedisRowDataLookupFunction.class.getClassLoader()));
 		}
@@ -164,7 +161,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		}
 
 		for (int retry = 1; retry <= lookupOptions.getMaxRetryTimes(); retry++) {
-			try {
+			try (Jedis jedis = RedisUtils.getJedisFromClientPool(clientPool, lookupOptions.getMaxRetryTimes())) {
 				if (rateLimiter != null) {
 					rateLimiter.acquire(1);
 				}
@@ -173,11 +170,11 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 				RowData row = null;
 				Object key = keys[0];
 				if (deserializationSchema != null) {
-					row = lookupWithSchema(key.toString());
+					row = lookupWithSchema(key.toString(), jedis);
 				} else if (lookupOptions.isSpecifyHashKeys()) {
-					row = getHashValueForKeysSpecified(key.toString());
+					row = getHashValueForKeysSpecified(key.toString(), jedis);
 				} else {
-					Object value = getValueFromExternal(key.toString());
+					Object value = getValueFromExternal(key.toString(), jedis);
 					if (value != null) {
 						row = convertToRow(key, value);
 					}
@@ -198,13 +195,6 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 				if (retry >= lookupOptions.getMaxRetryTimes()) {
 					throw new RuntimeException("Execution of Redis statement failed.", e);
 				}
-				if (e instanceof JedisException) {
-					LOG.warn("Reset jedis client in case of broken connections.", e);
-					if (jedis != null) {
-						jedis.close();
-					}
-					jedis = RedisUtils.getJedisFromClientPool(clientPool, lookupOptions.getMaxRetryTimes());
-				}
 				try {
 					Thread.sleep(1000 * retry);
 				} catch (InterruptedException e1) {
@@ -216,15 +206,12 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 
 	@Override
 	public void close() throws IOException {
-		if (jedis != null) {
-			jedis.close();
-		}
 		if (clientPool != null) {
 			clientPool.close();
 		}
 	}
 
-	private RowData lookupWithSchema(String key) throws IOException {
+	private RowData lookupWithSchema(String key, Jedis jedis) throws IOException {
 		byte[] value;
 		try {
 			value = jedis.get(key.getBytes());
@@ -247,7 +234,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		return row;
 	}
 
-	private Object getValueFromExternal(String key) {
+	private Object getValueFromExternal(String key, Jedis jedis) {
 		try {
 			switch (options.getRedisValueType()) {
 				case GENERAL:
@@ -271,7 +258,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		}
 	}
 
-	private RowData getHashValueForKeysSpecified(String key) {
+	private RowData getHashValueForKeysSpecified(String key, Jedis jedis) {
 		List<String> values = jedis.hmget(key, hashKeys);
 		Object[] internalValues = new Object[fieldNames.length];
 		internalValues[0] = stringValueConverters[0].toInternal(key);
