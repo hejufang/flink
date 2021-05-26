@@ -72,6 +72,7 @@ under the License.
 		<module>flink-connector-htap</module>
 		<module>flink-connector-doris</module>
 		<module>flink-connector-rocketmq</module>
+		<module>flink-connector-rocketmq-legacy</module>
 		<module>flink-connector-databus</module>
 		<module>flink-connector-metrics</module>
 		<module>flink-connector-loghouse</module>
