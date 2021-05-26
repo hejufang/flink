@@ -40,6 +40,9 @@ public class RateLimitedMetricsClient {
 	public static final String METRICS_REPORTER_INTERVAL_SUFFIX = "interval";
 	public static final String METRICS_REPORTER_INTERVAL_DEFAULT = "20 SECONDS";
 
+	public static final String METRICS_REPORTER_USE_DOMAIN_SOCK_SUFFIX = "useDomainSock";
+	public static final boolean METRICS_REPORTER_USE_DOMAIN_SOCK_DEFAULT = false;
+
 	private static final String METRICS_REPORTER_QUANTILE_SUFFIX = "quantile";
 	private static final Double METRICS_REPORTER_QUANTILE_DEFAULT = 0.4;
 
@@ -61,6 +64,10 @@ public class RateLimitedMetricsClient {
 		this.quantile = config.getDouble(METRICS_REPORTER_QUANTILE_SUFFIX, METRICS_REPORTER_QUANTILE_DEFAULT);
 		this.metricCount = 0;
 		this.countInRateLimiter = 0;
+
+		boolean useDomainSock = config.getBoolean(METRICS_REPORTER_USE_DOMAIN_SOCK_SUFFIX, METRICS_REPORTER_USE_DOMAIN_SOCK_DEFAULT);
+		this.udpMetricsClient.setUseDomainSock(useDomainSock);
+		LOG.info("MetricsClient use Domain socket: {}", useDomainSock);
 	}
 
 	/**

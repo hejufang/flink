@@ -36,6 +36,7 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
+import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.runtime.util.LeaderConnectionInfo;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
@@ -608,6 +609,9 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 				effectiveConfiguration.setString(YarnConfigOptions.YARN_CONFIG_KEY_PREFIX + YarnConfiguration.APP_QUEUE_NAME, queueName);
 			}
 		}
+
+		// reload config for ipv6.
+		IPv6Util.updateConfigIfIpv6Enabled(effectiveConfiguration);
 
 		if (isYarnPropertiesFileMode(commandLine)) {
 			return applyYarnProperties(effectiveConfiguration);
