@@ -36,7 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
-import redis.clients.jedis.exceptions.JedisException;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -47,6 +46,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.connectors.util.Constant.INCR_MODE;
@@ -87,7 +87,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	private int batchSize;
 	private long bufferFlushInterval;
 	private int ttlSeconds;
-	private Jedis jedis;
 	private String cluster;
 	private String table;
 	private String storage;
@@ -134,8 +133,6 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
 				maxTotalConnections, maxIdleConnections, minIdleConnections);
 		}
-		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
-
 		if (logFailuresOnly) {
 			this.writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED);
 		}
@@ -195,9 +192,8 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 	public synchronized void flush() {
 		int flushRetryIndex = 0;
 		Pipeline pipeline;
-
 		while (flushRetryIndex <= flushMaxRetries) {
-			try {
+			try (Jedis jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries)) {
 				if (STORAGE_ABASE.equalsIgnoreCase(storage)) {
 					pipeline = springDbPool.pipelined(jedis);
 				} else {
@@ -231,13 +227,10 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 					LOG.warn("Exception occurred while writing records with pipeline." +
 							" Automatically retry, retry times: {}, max retry times: {}",
 						flushRetryIndex, flushMaxRetries);
-					if (e instanceof JedisException) {
-						LOG.warn("Reset jedis client in case of broken connections.", e);
-						if (jedis != null) {
-							// jedis.close() will return the connection and check whether it is valid.
-							jedis.close();
-						}
-						jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
+					try {
+						Thread.sleep(ThreadLocalRandom.current().nextInt(10) * 100L);
+					} catch (InterruptedException e2) {
+						throw new RuntimeException(e2);
 					}
 					flushRetryIndex++;
 				} else {
@@ -496,11 +489,8 @@ public class RedisOutputFormat extends RichOutputFormat<Tuple2<Boolean, Row>> {
 			return;
 		}
 		closed = true;
-		if (jedis != null) {
-			if (recordDeque != null && !recordDeque.isEmpty()) {
-				flush();
-			}
-			jedis.close();
+		if (recordDeque != null && !recordDeque.isEmpty()) {
+			flush();
 		}
 		if (clientPool != null) {
 			clientPool.close();

@@ -43,7 +43,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisDataException;
-import redis.clients.jedis.exceptions.JedisException;
 
 import javax.annotation.Nullable;
 
@@ -80,7 +79,6 @@ public class RedisLookupFunction extends TableFunction<Row> {
 	private static final Logger LOG = LoggerFactory.getLogger(RedisLookupFunction.class);
 	private static final Row EMPTY_ROW = new Row(0);
 	private transient ClientPool clientPool;
-	private transient Jedis jedis;
 
 	private final TypeInformation[] keyTypes;
 	private final String[] fieldNames;
@@ -190,9 +188,6 @@ public class RedisLookupFunction extends TableFunction<Row> {
 			clientPool = RedisUtils.getRedisClientPool(cluster, psm, serverUpdatePeriod, timeout, forceConnectionsSetting,
 				maxTotalConnections, maxIdleConnections, minIdleConnections);
 		}
-
-		jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
-
 		if (rateLimit > 0) {
 			rateLimiter = new GuavaFlinkConnectorRateLimiter();
 			rateLimiter.setRate(rateLimit);
@@ -226,30 +221,30 @@ public class RedisLookupFunction extends TableFunction<Row> {
 
 		Row row = null;
 		for (int retry = 1; retry <= maxRetryTimes; retry++) {
-			try {
+			try (Jedis jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries)) {
 				lookupRequestPerSecond.markEvent();
 
 				String key = String.valueOf(keys[0]);
 
 				long startRequest = System.currentTimeMillis();
 				if (deserializationSchema != null) {
-					row = lookupWithSchema(key);
+					row = lookupWithSchema(key, jedis);
 				} else {
 					switch (redisDataType.getType()) {
 						case REDIS_DATATYPE_STRING:
-							row = readString(key);
+							row = readString(key, jedis);
 							break;
 						case REDIS_DATATYPE_HASH:
-							row = readHash(key);
+							row = readHash(key, jedis);
 							break;
 						case REDIS_DATATYPE_LIST:
-							row = readList(key);
+							row = readList(key, jedis);
 							break;
 						case REDIS_DATATYPE_SET:
-							row = readSet(key);
+							row = readSet(key, jedis);
 							break;
 						case REDIS_DATATYPE_ZSET:
-							row = readZSet(key);
+							row = readZSet(key, jedis);
 							break;
 
 						default:
@@ -277,14 +272,6 @@ public class RedisLookupFunction extends TableFunction<Row> {
 				if (retry >= maxRetryTimes) {
 					throw new RuntimeException("Execution of Redis statement failed.", e);
 				}
-				if (e instanceof JedisException) {
-					LOG.warn("Reset jedis client in case of broken connections.", e);
-					if (jedis != null) {
-						// jedis.close() will return the connection and check whether it is valid.
-						jedis.close();
-					}
-					jedis = RedisUtils.getJedisFromClientPool(clientPool, getResourceMaxRetries);
-				}
 				try {
 					Thread.sleep(1000 * retry);
 				} catch (InterruptedException e1) {
@@ -300,7 +287,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		}
 	}
 
-	private Row lookupWithSchema(String keyTmp) throws IOException {
+	private Row lookupWithSchema(String keyTmp, Jedis jedis) throws IOException {
 		byte[] key = keyTmp.getBytes();
 		byte[] value;
 		try {
@@ -324,7 +311,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		return row;
 	}
 
-	private Row readString(String keyTmp) {
+	private Row readString(String keyTmp, Jedis jedis) {
 		Row row = null;
 		try {
 			byte[] value = jedis.get(keyTmp.getBytes());
@@ -338,7 +325,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		return row;
 	}
 
-	private Row readHash(String key) {
+	private Row readHash(String key, Jedis jedis) {
 		Row row = null;
 		try {
 			Map<String, String> value = jedis.hgetAll(key);
@@ -352,7 +339,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		return row;
 	}
 
-	private Row readList(String key) {
+	private Row readList(String key, Jedis jedis) {
 		Row row = null;
 		try {
 			long length = jedis.llen(key);
@@ -368,7 +355,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		return row;
 	}
 
-	private Row readSet(String key) {
+	private Row readSet(String key, Jedis jedis) {
 		Row row = null;
 		try {
 			Set<String> resultTmp = jedis.smembers(key);
@@ -383,7 +370,7 @@ public class RedisLookupFunction extends TableFunction<Row> {
 		return row;
 	}
 
-	private Row readZSet(String key) {
+	private Row readZSet(String key, Jedis jedis) {
 		Row row = null;
 		try {
 			long length = jedis.zcard(key);
@@ -411,9 +398,6 @@ public class RedisLookupFunction extends TableFunction<Row> {
 
 	@Override
 	public void close() throws IOException {
-		if (jedis != null) {
-			jedis.close();
-		}
 		if (clientPool != null) {
 			clientPool.close();
 		}
