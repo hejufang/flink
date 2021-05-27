@@ -34,7 +34,9 @@ import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DataStreamScanProvider;
+import org.apache.flink.table.connector.source.LookupTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
+import org.apache.flink.table.connector.source.TableFunctionProvider;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.expressions.ResolvedExpression;
@@ -43,7 +45,9 @@ import org.apache.flink.table.factories.FileSystemFormatFactory;
 import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.utils.PartitionPathUtils;
+import org.apache.flink.util.FlinkRuntimeException;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -61,6 +65,7 @@ import static org.apache.flink.table.filesystem.FileSystemOptions.COMPRESS_CODEC
  */
 public class FileSystemTableSource extends AbstractFileSystemTable implements
 		ScanTableSource,
+		LookupTableSource,
 		SupportsProjectionPushDown {
 
 	private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
@@ -111,7 +116,7 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 		};
 	}
 
-	private InputFormat<RowData, ?> getInputFormat(ScanContext runtimeProviderContext) {
+	private InputFormat<RowData, ?> getInputFormat(Context runtimeProviderContext) {
 		// When this table has no partition, just return a empty source.
 		if (!partitionKeys.isEmpty() && getOrFetchPartitions().isEmpty()) {
 			return new CollectionInputFormat<>(new ArrayList<>(), null);
@@ -254,5 +259,29 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 			.mapToObj(i -> DataTypes.FIELD(schemaFieldNames[i], schemaTypes[i]))
 			.toArray(DataTypes.Field[]::new))
 			.bridgedTo(RowData.class);
+	}
+
+	@Override
+	public LookupRuntimeProvider getLookupRuntimeProvider(LookupContext context) {
+		String[] lookupKeys = new String[context.getKeys().length];
+		for (int i = 0; i < context.getKeys().length; ++i) {
+			if (context.getKeys()[i].length != 1) {
+				throw new FlinkRuntimeException("Currently filesystem lookup does not " +
+					"support nested lookup join keys.");
+			}
+			lookupKeys[i] = schema.getFieldName(context.getKeys()[i][0]).get();
+		}
+		context.getKeys();
+
+		// Here we use the lookup function impl used by Hive, which is in
+		// legacy connector interfaces.
+		//noinspection unchecked
+		return TableFunctionProvider.of(new FileSystemLookupFunction(
+			getInputFormat(context),
+			lookupKeys,
+			schema.getFieldNames(),
+			schema.getFieldDataTypes(),
+			Duration.ofDays(365)
+		));
 	}
 }

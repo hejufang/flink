@@ -159,6 +159,9 @@ public class FileSystemLookupFunction<T extends InputSplit> extends TableFunctio
 					inputFormat.open(split);
 					while (!inputFormat.reachedEnd()) {
 						RowData row = inputFormat.nextRecord(reuse);
+						if (row == null) {
+							continue;
+						}
 						count++;
 						Row key = extractKey(row);
 						List<RowData> rows = cache.computeIfAbsent(key, k -> new ArrayList<>());
