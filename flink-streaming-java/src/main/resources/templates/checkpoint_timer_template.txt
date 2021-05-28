@@ -56,7 +56,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Processing Timer Lag",
+      "title": "Processing Timer Lag(关注反压，正常在秒级以下)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -126,7 +126,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Processing Timer Rate",
+      "title": "Processing Timer Rate(关注Timer注册数量)",
       "tooltip": {
         "shared": true,
         "sort": 0,

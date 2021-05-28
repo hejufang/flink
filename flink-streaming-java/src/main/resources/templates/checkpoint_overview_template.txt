@@ -63,7 +63,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Checkpoint Failures",
+      "title": "Checkpoint Failures(关注连续失败次数)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -138,7 +138,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Checkpoint Duration",
+      "title": "Checkpoint Duration(关注Checkpoint耗时，正常在10分钟内)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -221,7 +221,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Checkpoint State Size",
+      "title": "Checkpoint State Size(关注状态大小和变化趋势)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -314,7 +314,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Hdfs Operation Latency",
+      "title": "Hdfs Operation Latency(关注HDFS服务,延迟通常在秒级以下）",
       "tooltip": {
         "shared": true,
         "sort": 0,

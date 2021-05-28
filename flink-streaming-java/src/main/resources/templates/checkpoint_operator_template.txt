@@ -57,7 +57,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Lock Contention Duration",
+      "title": "Lock Contention Duration(关注CPU和反压，正常在秒级以下)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -127,7 +127,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Barrier Align Duration",
+      "title": "Barrier Align Duration(关注反压，正常在秒级)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -197,7 +197,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Sync Duration",
+      "title": "Sync Duration(关注自定义的snapshot，正常分钟级以下)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -268,7 +268,7 @@
       "thresholds": [],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Async Duration",
+      "title": "Async Duration(关注HDFS慢节点，正常为分钟级）",
       "tooltip": {
         "shared": true,
         "sort": 0,

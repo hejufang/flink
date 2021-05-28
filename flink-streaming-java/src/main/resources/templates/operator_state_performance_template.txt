@@ -57,7 +57,7 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
-    "title": "State Avg/Max Key Size",
+    "title": "State Avg/Max Key Size(对比Max和Avg大小，查看是否有异常Key)",
     "tooltip": {
       "shared": true,
       "sort": 0,
@@ -127,7 +127,7 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
-    "title": "State Avg/Max Value Size",
+    "title": "State Avg/Max Value Size(对比Max和Avg大小，查看是否有异常Value)",
     "tooltip": {
       "shared": true,
       "sort": 0,
@@ -197,7 +197,7 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
-    "title": "State Operation Latency",
+    "title": "State Operation Latency(关注GC和磁盘IO，正常为微秒或毫秒级）",
     "tooltip": {
       "shared": true,
       "sort": 0,
@@ -268,7 +268,7 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
-    "title": "State Operation Rate",
+    "title": "State Operation Rate(关注业务State处理逻辑)",
     "tooltip": {
       "shared": true,
       "sort": 0,
@@ -339,7 +339,7 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
-    "title": "State Memory Size",
+    "title": "State Memory Size(关注内存和GC，反映state在内存中的大小)",
     "tooltip": {
       "shared": true,
       "sort": 0,
@@ -410,7 +410,7 @@
     "thresholds": [],
     "timeFrom": null,
     "timeShift": null,
-    "title": "State Total Size",
+    "title": "State Total Size(关注数据倾斜和热点数据，同一个算子的状态大小应基本一致)",
     "tooltip": {
       "shared": true,
       "sort": 0,
