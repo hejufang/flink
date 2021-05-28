@@ -157,7 +157,7 @@ public class ByteSQLOutputFormat extends RichOutputFormat<RowData> {
 	}
 
 	@Override
-	public void writeRecord(RowData record) throws IOException {
+	public synchronized void writeRecord(RowData record) throws IOException {
 		checkFlushException();
 		if (rateLimiter != null) {
 			rateLimiter.acquire(1);
