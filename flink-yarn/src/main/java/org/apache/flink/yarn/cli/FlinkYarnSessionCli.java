@@ -40,7 +40,6 @@ import org.apache.flink.runtime.clusterframework.ApplicationStatus;
 import org.apache.flink.runtime.concurrent.ScheduledExecutorServiceAdapter;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
-import org.apache.flink.runtime.util.IPv6Util;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.ExecutorUtils;
 import org.apache.flink.util.FlinkException;
@@ -404,9 +403,6 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 					JobManagerOptions.JOB_MANAGER_FUTURE_EXECUTOR_THREADS_NUM,
 					effectiveConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
 		}
-
-		// reload config for ipv6.
-		IPv6Util.updateConfigIfIpv6Enabled(effectiveConfiguration);
 
 		if (isYarnPropertiesFileMode(commandLine)) {
 			return applyYarnProperties(effectiveConfiguration);
