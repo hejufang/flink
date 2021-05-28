@@ -48,11 +48,4 @@ public class IPv6Util {
 		return flinkConfiguration.getBoolean(ConfigConstants.IPV6_ENABLED_KEY, ConfigConstants.IPV6_ENABLED_VALUE)
 				&& ipv6SupportedClusters.contains(cluster);
 	}
-
-	public static void updateConfigIfIpv6Enabled(org.apache.flink.configuration.Configuration flinkConfiguration) {
-		if (ipv6Enabled(flinkConfiguration)) {
-			// metric server does not listen on ipv6 address, need to report metric by domain socket.
-			flinkConfiguration.setBoolean("metrics.reporter.opentsdb_reporter.useDomainSock", true);
-		}
-	}
 }
