@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Keep all LogHouse Client logic in {@link LogHouseClient}, which can be easily changed.
@@ -142,6 +143,6 @@ public class LogHouseClient {
 		}
 
 		hostPorts = discovered;
-		currentIndex = 0;
+		currentIndex = ThreadLocalRandom.current().nextInt(0, hostPorts.size());
 	}
 }
