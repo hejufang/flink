@@ -52,7 +52,7 @@ public class JsonOptions {
 	public static final ConfigOption<TimestampFormat> TIMESTAMP_FORMAT = ConfigOptions
 			.key("timestamp-format.standard")
 			.enumType(TimestampFormat.class)
-			.defaultValue(TimestampFormat.RFC_3339)
+			.defaultValue(TimestampFormat.SQL)
 			.withDescription("Optional flag to specify timestamp format, SQL by default." +
 				" Option RFC_3339 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}Z\" format and output timestamp in the same format." +
 				" Option ISO_8601 will parse input timestamp in \"yyyy-MM-ddTHH:mm:ss.s{precision}\" format and output timestamp in the same format." +
