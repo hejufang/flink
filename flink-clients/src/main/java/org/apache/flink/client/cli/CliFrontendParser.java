@@ -100,6 +100,12 @@ public class CliFrontendParser {
 		"Savepoint trigger in detach mode, client and JM are decoupled, return UUID as the unique identification of savepoint." +
 			" If -dcp is set, no need to set <target directory>.");
 
+	public static final Option SAVEPOINT_DETACH_BLOCK_SOURCE_OPTION = new Option("bs", "blockSource", false,
+		"Detach savepoint with blocked source.");
+
+	public static final Option SAVEPOINT_DETACH_TIMEOUT_OPTION = new Option("st", "savepointTimeout", true,
+		"Detach savepoint timeout.");
+
 	public static final Option SAVEPOINT_ALLOW_NON_RESTORED_OPTION = new Option("n", "allowNonRestoredState", false,
 			"Allow to skip savepoint state that cannot be restored. " +
 					"You need to allow this if you removed an operator from your " +
@@ -336,6 +342,8 @@ public class CliFrontendParser {
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(CLUSTER_NAME_OPTION);
 		options.addOption(SAVEPOINT_DETACH_OPTION);
+		options.addOption(SAVEPOINT_DETACH_BLOCK_SOURCE_OPTION);
+		options.addOption(SAVEPOINT_DETACH_TIMEOUT_OPTION);
 		return options.addOption(JAR_OPTION);
 	}
 
@@ -392,6 +400,8 @@ public class CliFrontendParser {
 		options.addOption(SAVEPOINT_DISPOSE_OPTION);
 		options.addOption(JAR_OPTION);
 		options.addOption(SAVEPOINT_DETACH_OPTION);
+		options.addOption(SAVEPOINT_DETACH_BLOCK_SOURCE_OPTION);
+		options.addOption(SAVEPOINT_DETACH_TIMEOUT_OPTION);
 		return options;
 	}
 

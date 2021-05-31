@@ -719,10 +719,11 @@ public class JobMaster extends FencedRpcEndpoint<JobMasterId> implements JobMast
 	@Override
 	public CompletableFuture<String> triggerDetachSavepoint(
 		final String savepointId,
-		final boolean cancelJob,
+		final boolean blockSource,
+		final long savepointTimeout,
 		final Time timeout) {
 
-		return schedulerNG.triggerDetachSavepoint(savepointId, cancelJob);
+		return schedulerNG.triggerDetachSavepoint(savepointId, blockSource, savepointTimeout);
 	}
 
 	@Override

@@ -810,7 +810,7 @@ public class CliFrontend {
 			runClusterAction(
 				activeCommandLine,
 				commandLine,
-				clusterClient -> triggerDetachSavepoint(clusterClient, jobId, savepointId));
+				clusterClient -> triggerDetachSavepoint(clusterClient, jobId, savepointId, savepointOptions.isBlockSource(), savepointOptions.getSavepointTimeout()));
 
 		} else {
 			String[] cleanedArgs = savepointOptions.getArgs();
@@ -870,11 +870,12 @@ public class CliFrontend {
 	/**
 	 * Send a SavepointTriggerMessage to JM, trigger savepoint in detach mode.
 	 */
-	private void triggerDetachSavepoint(ClusterClient<?> clusterClient, JobID jobId, UUID savepointId) throws FlinkException {
-		logAndSysout("On triggering detached savepoint for job " + jobId + '.');
+	private void triggerDetachSavepoint(ClusterClient<?> clusterClient, JobID jobId, UUID savepointId, boolean isBlockSource, long timeout) throws FlinkException {
+		logAndSysout("On triggering detached savepoint for job " + jobId + ", isBlockSource " + isBlockSource +
+			", timeout: " + timeout);
 
 		try {
-			final String triggerId = clusterClient.triggerDetachSavepoint(jobId, savepointId.toString())
+			final String triggerId = clusterClient.triggerDetachSavepoint(jobId, savepointId.toString(), isBlockSource, timeout)
 										.get(clientTimeout.toMillis(), TimeUnit.MILLISECONDS);
 
 			logAndSysout("Successfully trigger manual savepoint, triggerId: " + triggerId);

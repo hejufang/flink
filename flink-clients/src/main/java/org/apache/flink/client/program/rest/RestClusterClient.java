@@ -446,8 +446,8 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 	}
 
 	@Override
-	public CompletableFuture<String> triggerDetachSavepoint(JobID jobId, String savepointId) {
-		return triggerDetachSavepoint(jobId, savepointId, false);
+	public CompletableFuture<String> triggerDetachSavepoint(JobID jobId, String savepointId, boolean isBlockSource, long timeout) {
+		return triggerDetachSavepoint(jobId, savepointId, false, isBlockSource, timeout);
 	}
 
 	@Override
@@ -505,7 +505,12 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		});
 	}
 
-	private CompletableFuture<String> triggerDetachSavepoint(final JobID jobId, final String savepointId, final boolean cancelJob) {
+	private CompletableFuture<String> triggerDetachSavepoint(
+			final JobID jobId,
+			final String savepointId,
+			final boolean cancelJob,
+			final boolean isBlockSource,
+			final long timeout) {
 		final SavepointTriggerHeaders savepointTriggerHeaders = SavepointTriggerHeaders.getInstance();
 		final SavepointTriggerMessageParameters savepointTriggerMessageParameters =
 			savepointTriggerHeaders.getUnresolvedMessageParameters();
@@ -514,7 +519,7 @@ public class RestClusterClient<T> implements ClusterClient<T> {
 		final CompletableFuture<TriggerResponse> responseFuture = sendRequest(
 			savepointTriggerHeaders,
 			savepointTriggerMessageParameters,
-			new SavepointTriggerRequestBody(null, cancelJob, savepointId));
+			new SavepointTriggerRequestBody(null, cancelJob, savepointId, isBlockSource, timeout));
 
 		return responseFuture.thenApply((TriggerResponse tr) -> tr.getTriggerId().toString());
 	}

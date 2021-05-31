@@ -36,6 +36,10 @@ public class SavepointTriggerRequestBody implements RequestBody {
 
 	private static final String FIELD_NAME_SAVEPOINT_ID = "savepoint-id";
 
+	private static final String FIELD_NAME_BLOCKED_SOURCE = "block-source";
+
+	private static final String FIELD_NAME_TIMEOUT = "timeout";
+
 	@JsonProperty(FIELD_NAME_TARGET_DIRECTORY)
 	@Nullable
 	private final String targetDirectory;
@@ -47,18 +51,28 @@ public class SavepointTriggerRequestBody implements RequestBody {
 	@JsonProperty(FIELD_NAME_CANCEL_JOB)
 	private final boolean cancelJob;
 
-	public SavepointTriggerRequestBody(@Nullable final String targetDirectory, final boolean cancelJob) {
-		this(targetDirectory, cancelJob, null);
+	@JsonProperty(FIELD_NAME_BLOCKED_SOURCE)
+	private final boolean blockSource;
+
+	@JsonProperty(FIELD_NAME_TIMEOUT)
+	private final long timeout;
+
+	public SavepointTriggerRequestBody(@Nullable final String targetDirectory, final boolean cancelJob, final String savepointId) {
+		this(targetDirectory, cancelJob, savepointId, false, -1);
 	}
 
 	@JsonCreator
 	public SavepointTriggerRequestBody(
 			@Nullable @JsonProperty(FIELD_NAME_TARGET_DIRECTORY) final String targetDirectory,
 			@JsonProperty(value = FIELD_NAME_CANCEL_JOB, defaultValue = "false") final boolean cancelJob,
-			@Nullable @JsonProperty(FIELD_NAME_SAVEPOINT_ID) final String savepointId) {
+			@Nullable @JsonProperty(FIELD_NAME_SAVEPOINT_ID) String savepointId,
+			@JsonProperty(value = FIELD_NAME_BLOCKED_SOURCE, defaultValue = "false") final boolean blockSource,
+			@JsonProperty(value = FIELD_NAME_TIMEOUT) final long timeout) {
 		this.targetDirectory = targetDirectory;
-		this.cancelJob = cancelJob;
 		this.savepointId = savepointId;
+		this.cancelJob = cancelJob;
+		this.blockSource = blockSource;
+		this.timeout = timeout;
 	}
 
 	@Nullable
@@ -73,5 +87,13 @@ public class SavepointTriggerRequestBody implements RequestBody {
 	@Nullable
 	public String getSavepointId() {
 		return savepointId;
+	}
+
+	public boolean isBlockSource() {
+		return blockSource;
+	}
+
+	public long getTimeout() {
+		return timeout;
 	}
 }

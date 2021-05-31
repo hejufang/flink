@@ -176,7 +176,8 @@ public interface RestfulGateway extends RpcGateway {
 	default CompletableFuture<String> triggerDetachSavepoint(
 		JobID jobId,
 		String savepointId,
-		boolean cancelJob,
+		boolean blockSource,
+		long savepointTimeout,
 		@RpcTimeout Time timeout) {
 		throw new UnsupportedOperationException();
 	}

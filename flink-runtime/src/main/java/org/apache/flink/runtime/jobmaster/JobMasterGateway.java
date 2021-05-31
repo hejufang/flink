@@ -240,7 +240,8 @@ public interface JobMasterGateway extends
 	 */
 	CompletableFuture<String> triggerDetachSavepoint(
 		String savepointId,
-		final boolean cancelJob,
+		final boolean blockSource,
+		final long savepointTimeout,
 		@RpcTimeout final Time timeout);
 
 	/**

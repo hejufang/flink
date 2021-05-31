@@ -21,7 +21,9 @@ package org.apache.flink.client.cli;
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import static org.apache.flink.client.cli.CliFrontendParser.JAR_OPTION;
+import static org.apache.flink.client.cli.CliFrontendParser.SAVEPOINT_DETACH_BLOCK_SOURCE_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.SAVEPOINT_DETACH_OPTION;
+import static org.apache.flink.client.cli.CliFrontendParser.SAVEPOINT_DETACH_TIMEOUT_OPTION;
 import static org.apache.flink.client.cli.CliFrontendParser.SAVEPOINT_DISPOSE_OPTION;
 
 /**
@@ -34,6 +36,8 @@ public class SavepointOptions extends CommandLineOptions {
 	private String disposeSavepointPath;
 	private String jarFile;
 	private boolean isDetached;
+	private boolean isBlockSource;
+	private long savepointTimeout;
 
 	public SavepointOptions(CommandLine line) {
 		super(line);
@@ -42,6 +46,13 @@ public class SavepointOptions extends CommandLineOptions {
 		disposeSavepointPath = line.getOptionValue(SAVEPOINT_DISPOSE_OPTION.getOpt());
 		jarFile = line.getOptionValue(JAR_OPTION.getOpt());
 		isDetached = line.hasOption(SAVEPOINT_DETACH_OPTION.getOpt());
+		isBlockSource = line.hasOption(SAVEPOINT_DETACH_BLOCK_SOURCE_OPTION.getOpt());
+
+		if (line.hasOption(SAVEPOINT_DETACH_TIMEOUT_OPTION.getOpt())) {
+			savepointTimeout = Long.parseLong(line.getOptionValue(SAVEPOINT_DETACH_TIMEOUT_OPTION.getOpt()));
+		} else {
+			savepointTimeout = -1;
+		}
 	}
 
 	public String[] getArgs() {
@@ -62,5 +73,13 @@ public class SavepointOptions extends CommandLineOptions {
 
 	public boolean isDetached() {
 		return isDetached;
+	}
+
+	public boolean isBlockSource() {
+		return isBlockSource;
+	}
+
+	public long getSavepointTimeout() {
+		return savepointTimeout;
 	}
 }

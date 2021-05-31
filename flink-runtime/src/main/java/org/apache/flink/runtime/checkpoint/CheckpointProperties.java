@@ -188,6 +188,10 @@ public class CheckpointProperties implements Serializable {
 		return checkpointType.isSynchronous();
 	}
 
+	public boolean isResumeSourceIfFail() {
+		return checkpointType.isResumeSourceIfFail();
+	}
+
 	// ------------------------------------------------------------------------
 
 	@Override
@@ -248,6 +252,15 @@ public class CheckpointProperties implements Serializable {
 			false,
 			false);
 
+	private static final  CheckpointProperties SYNC_DETACH_SAVEPOINT = new CheckpointProperties(
+			true,
+			CheckpointType.SYNC_DETACH_SAVEPOINT,
+			false,
+			false,
+			false,
+			false,
+			false);
+
 	private static final CheckpointProperties SYNC_SAVEPOINT_NOT_FORCED = new CheckpointProperties(
 			false,
 			CheckpointType.SYNC_SAVEPOINT,
@@ -256,6 +269,15 @@ public class CheckpointProperties implements Serializable {
 			false,
 			false,
 			false);
+
+	private static final CheckpointProperties SYNC_DETACH_SAVEPOINT_NOT_FORCED = new CheckpointProperties(
+		false,
+		CheckpointType.SYNC_DETACH_SAVEPOINT,
+		false,
+		false,
+		false,
+		false,
+		false);
 
 	private static final CheckpointProperties SAVEPOINT = new CheckpointProperties(
 			true,
@@ -343,6 +365,10 @@ public class CheckpointProperties implements Serializable {
 
 	public static CheckpointProperties forSyncSavepoint(boolean forced) {
 		return forced ? SYNC_SAVEPOINT : SYNC_SAVEPOINT_NOT_FORCED;
+	}
+
+	public static CheckpointProperties forSyncDetachSavepoint(boolean forced) {
+		return forced ? SYNC_DETACH_SAVEPOINT : SYNC_DETACH_SAVEPOINT_NOT_FORCED;
 	}
 
 	/**

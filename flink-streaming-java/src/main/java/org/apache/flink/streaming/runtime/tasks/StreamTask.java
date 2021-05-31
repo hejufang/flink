@@ -86,8 +86,11 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -219,6 +222,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	private final ExecutorService channelIOExecutor;
 
 	private Long syncSavepointId = null;
+
+	private Long syncSavepointIdWithResumeFlag = null;
+
+	/**
+	 * For case: first receive abort notification, then receive cp barrier.
+	 * Resume consuming directly.
+	 */
+	Set<Long> abortedCheckpointIds = new HashSet<>();
 
 	private long latestAsyncCheckpointStartDelayNanos;
 
@@ -381,10 +392,24 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		syncSavepointId = null;
 	}
 
+	private void resetSynchronousSavepointIdWithResume() {
+		syncSavepointId = null;
+		syncSavepointIdWithResumeFlag = null;
+	}
+
 	private void setSynchronousSavepointId(long checkpointId) {
 		Preconditions.checkState(
 			syncSavepointId == null, "at most one stop-with-savepoint checkpoint at a time is allowed");
 		syncSavepointId = checkpointId;
+	}
+
+	private void setSynchronousSavepointIdWithResume(long checkpointId) {
+		Preconditions.checkState(
+			syncSavepointId == null, "at most one stop-with-savepoint checkpoint at a time is allowed");
+		syncSavepointId = checkpointId;
+		Preconditions.checkState(
+			syncSavepointIdWithResumeFlag == null, "at most one detach-savepoint with blocked source checkpoint at a time is allowed");
+		syncSavepointIdWithResumeFlag = checkpointId;
 	}
 
 	@VisibleForTesting
@@ -394,6 +419,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	private boolean isSynchronousSavepointId(long checkpointId) {
 		return syncSavepointId != null && syncSavepointId == checkpointId;
+	}
+
+	private boolean isSynchronousSavepointIdWithResume(long checkpointId) {
+		return syncSavepointIdWithResumeFlag != null && syncSavepointIdWithResumeFlag == checkpointId;
 	}
 
 	private void runSynchronousSavepointMailboxLoop() throws Exception {
@@ -880,7 +909,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		try {
 			if (performCheckpoint(checkpointMetaData, checkpointOptions, checkpointMetrics, false)) {
 				if (isSynchronousSavepointId(checkpointMetaData.getCheckpointId())) {
-					runSynchronousSavepointMailboxLoop();
+					if (checkAndClearAbortedStatus(checkpointMetaData.getCheckpointId()) && isSynchronousSavepointIdWithResume(checkpointMetaData.getCheckpointId())) {
+						LOG.info("Sync detach checkpoint {} has been aborted before task receives barrier, resume consuming directly", checkpointMetaData.getCheckpointId());
+						// we have receive the barrier of current checkpointId, we can remove all aborted checkpointId before it.
+						clearAbortedBeforeCurrentCheckpointId(checkpointMetaData.getCheckpointId());
+						resetSynchronousSavepointIdWithResume();
+					} else {
+						runSynchronousSavepointMailboxLoop();
+					}
 				}
 			}
 		}
@@ -913,7 +949,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			actionExecutor.runThrowing(() -> {
 
 				if (checkpointOptions.getCheckpointType().isSynchronous()) {
-					setSynchronousSavepointId(checkpointMetaData.getCheckpointId());
+					if (checkpointOptions.getCheckpointType().isResumeSourceIfFail()) {
+						setSynchronousSavepointIdWithResume(checkpointMetaData.getCheckpointId());
+					} else {
+						setSynchronousSavepointId(checkpointMetaData.getCheckpointId());
+					}
 
 					if (advanceToEndOfTime) {
 						advanceToEndOfEventTime();
@@ -966,7 +1006,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	@Override
 	public Future<Void> notifyCheckpointAbortAsync(long checkpointId) {
 		return notifyCheckpointOperation(
-			() -> subtaskCheckpointCoordinator.notifyCheckpointAborted(checkpointId, operatorChain, this::isRunning),
+			() -> notifyCheckpointAbort(checkpointId),
 			String.format("checkpoint %d aborted", checkpointId));
 	}
 
@@ -990,9 +1030,38 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	private void notifyCheckpointComplete(long checkpointId) throws Exception {
 		subtaskCheckpointCoordinator.notifyCheckpointComplete(checkpointId, operatorChain, this::isRunning);
 		if (isRunning && isSynchronousSavepointId(checkpointId)) {
-			finishTask();
-			// Reset to "notify" the internal synchronous savepoint mailbox loop.
-			resetSynchronousSavepointId();
+			if (isSynchronousSavepointIdWithResume(checkpointId)) {
+				LOG.info("Notified sync detach savepoint {} completed at Task {}, keeping blocking!", checkpointId, getName());
+			} else {
+				finishTask();
+				// Reset to "notify" the internal synchronous savepoint mailbox loop.
+				resetSynchronousSavepointId();
+			}
+		}
+	}
+
+	private void notifyCheckpointAbort(long checkpointId) throws Exception{
+		abortedCheckpointIds.add(checkpointId);
+		subtaskCheckpointCoordinator.notifyCheckpointAborted(checkpointId, operatorChain, this::isRunning);
+		if (isRunning && isSynchronousSavepointIdWithResume(checkpointId)) {
+			LOG.info("Notified sync detach savepoint {} aborted at Task {}, resume consuming.", checkpointId, getName());
+			resetSynchronousSavepointIdWithResume();
+		}
+	}
+
+	private boolean checkAndClearAbortedStatus(long checkpointId) {
+		return abortedCheckpointIds.remove(checkpointId);
+	}
+
+	private void clearAbortedBeforeCurrentCheckpointId(long currentBarrierCheckpointId) {
+		Iterator<Long> iterator = abortedCheckpointIds.iterator();
+		while (iterator.hasNext()) {
+			long next = iterator.next();
+			if (next < currentBarrierCheckpointId) {
+				iterator.remove();
+			} else {
+				break;
+			}
 		}
 	}
 

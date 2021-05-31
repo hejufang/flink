@@ -857,7 +857,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 	}
 
 	@Override
-	public CompletableFuture<String> triggerDetachSavepoint(String savepointId, boolean cancelJob) {
+	public CompletableFuture<String> triggerDetachSavepoint(String savepointId, boolean blockSource, long savepointTimeout) {
 		mainThreadExecutor.assertRunningInMainThread();
 
 		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
@@ -867,11 +867,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 		}
 
 		log.info("Triggering {}detach-savepoint for job {}, with savepoint_id {}.",
-			cancelJob ? "cancel-with-" : "", jobGraph.getJobID(), savepointId);
-
-		if (cancelJob) {
-			checkpointCoordinator.stopCheckpointScheduler();
-		}
+			blockSource ? "block-source-with-" : "", jobGraph.getJobID(), savepointId);
 
 		checkNotNull(manualSavepointLocationPrefix, "savepoint directory prefix for detach savepoint is not set, " +
 			"set this value in config state.savepoint.manual-savepoint.location-prefix.");
@@ -881,21 +877,34 @@ public abstract class SchedulerBase implements SchedulerNG {
 		String manualSavepointPath = String.format("%s/%s/%s/%s", manualSavepointLocationPrefix, dateSubDir, jobGraph.getName(), savepointId);
 		log.info("On triggering manual savepoint at {}", manualSavepointPath);
 
-		return checkpointCoordinator
-			.triggerDetachSavepoint(manualSavepointPath, savepointId)
-			.thenApply(CompletedCheckpoint::getExternalPointer)
-			.handleAsync((path, throwable) -> {
+		if (blockSource) {
+			checkpointCoordinator.stopCheckpointScheduler();
+
+			return checkpointCoordinator
+				.triggerDetachSyncSavepoint(manualSavepointPath, savepointId, savepointTimeout)
+				.thenApply(CompletedCheckpoint::getExternalPointer)
+				.handleAsync((path, throwable) -> {
 				if (throwable != null) {
-					if (cancelJob) {
-						startCheckpointScheduler(checkpointCoordinator);
-					}
+					startCheckpointScheduler(checkpointCoordinator);
+					log.info("Detach savepoint {} with source block fails, resume blocked sources", savepointId);
 					throw new CompletionException(throwable);
-				} else if (cancelJob) {
-					log.info("Savepoint stored in {}. Now cancelling {}.", path, jobGraph.getJobID());
-					cancel();
+				} else {
+					log.info("Detach savepoint {} stored in {} succeed. Now keep blocking source.", savepointId, path);
 				}
 				return path;
 			}, mainThreadExecutor);
+		} else {
+			return checkpointCoordinator
+				.triggerDetachSavepoint(manualSavepointPath, savepointId)
+				.thenApply(CompletedCheckpoint::getExternalPointer)
+				.handleAsync((path, throwable) -> {
+					if (throwable != null) {
+						log.info("Detach savepoint {} without source block fails", savepointId);
+						throw new CompletionException(throwable);
+					}
+					return path;
+				}, mainThreadExecutor);
+		}
 	}
 
 	@Override

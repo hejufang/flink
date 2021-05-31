@@ -68,6 +68,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -531,6 +532,12 @@ public class CheckpointCoordinator {
 		Preconditions.checkNotNull(targetLocation);
 		final CheckpointProperties properties = CheckpointProperties.forSavepoint(!unalignedCheckpointsEnabled);
 		return triggerSavepointInternal(properties, false, targetLocation, -1L, new DetachSavepointProperties(savepointId));
+	}
+
+	public CompletableFuture<CompletedCheckpoint> triggerDetachSyncSavepoint(final String targetLocation, String savepointId, long savepointTimeout) {
+		final CheckpointProperties properties = CheckpointProperties.forSyncDetachSavepoint(!unalignedCheckpointsEnabled);
+
+		return triggerSavepointInternal(properties, false, targetLocation, savepointTimeout, new DetachSavepointProperties(savepointId));
 	}
 
 	public CompletableFuture<List<String>> getPendingSavepointsUnsafe() {
@@ -1949,7 +1956,12 @@ public class CheckpointCoordinator {
 
 				if (pendingCheckpoint.getProps().isSavepoint() &&
 					pendingCheckpoint.getProps().isSynchronous()) {
-					failureManager.handleSynchronousSavepointFailure(exception);
+					if (pendingCheckpoint.getProps().isResumeSourceIfFail()) {
+						LOG.warn("Detach sync savepoint (savepoint with blocked source) {} which was triggered at {}, resume source",
+							pendingCheckpoint.getCheckpointId(), new Date(pendingCheckpoint.getCheckpointTimestamp()), exception);
+					} else {
+						failureManager.handleSynchronousSavepointFailure(exception);
+					}
 				} else if (executionAttemptID != null) {
 					failureManager.handleTaskLevelCheckpointException(
 						exception, pendingCheckpoint.getCheckpointId(), executionAttemptID);

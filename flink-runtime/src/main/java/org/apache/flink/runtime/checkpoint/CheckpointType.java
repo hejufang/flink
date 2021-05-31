@@ -32,6 +32,9 @@ public enum CheckpointType {
 	/** A savepoint taken while suspending/terminating the job. */
 	SYNC_SAVEPOINT(true, true, true),
 
+	/** A savepoint take while suspending the job, but resume job if savepoint fails. */
+	SYNC_DETACH_SAVEPOINT(true, true, true, true),
+
 	/** A fast checkpoint, which may discard some data. */
 	FAST_CHECKPOINT(false, false, false);
 
@@ -41,10 +44,17 @@ public enum CheckpointType {
 
 	private final boolean broadcastBarrier;
 
+	private final boolean resumeSourceIfFail;
+
 	CheckpointType(boolean isSavepoint, boolean isSynchronous, boolean broadcastBarrier) {
+		this(isSavepoint, isSynchronous, broadcastBarrier, false);
+	}
+
+	CheckpointType(boolean isSavepoint, boolean isSynchronous, boolean broadcastBarrier, boolean resumeSourceIfFail) {
 		this.isSavepoint = isSavepoint;
 		this.isSynchronous = isSynchronous;
 		this.broadcastBarrier = broadcastBarrier;
+		this.resumeSourceIfFail = resumeSourceIfFail;
 	}
 
 	public boolean isSavepoint() {
@@ -57,5 +67,9 @@ public enum CheckpointType {
 
 	public boolean isBroadcastBarrier() {
 		return broadcastBarrier;
+	}
+
+	public boolean isResumeSourceIfFail() {
+		return resumeSourceIfFail;
 	}
 }
