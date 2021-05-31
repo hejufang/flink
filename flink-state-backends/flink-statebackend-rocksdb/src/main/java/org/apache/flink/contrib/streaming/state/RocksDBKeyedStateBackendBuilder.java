@@ -115,6 +115,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	/** True if the discard state is allowed when rocksdb fails to recover. */
 	private boolean discardStatesIfRocksdbRecoverFail;
 
+	private boolean isDiskValid = true;
+
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
 	private long writeBatchSize = RocksDBConfigurableOptions.WRITE_BATCH_SIZE.defaultValue().getBytes();
@@ -251,6 +253,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 
 	public RocksDBKeyedStateBackendBuilder<K> setDiscardStatesIfRocksdbRecoverFail(boolean discardStatesIfRocksdbRecoverFail) {
 		this.discardStatesIfRocksdbRecoverFail = discardStatesIfRocksdbRecoverFail;
+		return this;
+	}
+
+	public RocksDBKeyedStateBackendBuilder<K> setIsDiskValid(boolean isDiskValid) {
+		this.isDiskValid = isDiskValid;
 		return this;
 	}
 
@@ -395,7 +402,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			ttlCompactFiltersManager,
 			keyContext,
 			writeBatchSize,
-			metricGroup);
+			metricGroup,
+			isDiskValid);
 	}
 
 	private AbstractRocksDBRestoreOperation<K> getRocksDBRestoreOperation(

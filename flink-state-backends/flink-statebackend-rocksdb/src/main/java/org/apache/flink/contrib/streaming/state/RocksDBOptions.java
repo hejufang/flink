@@ -140,6 +140,14 @@ public class RocksDBOptions {
 				USE_MANAGED_MEMORY.key(),
 				FIX_PER_SLOT_MEMORY_SIZE.key()));
 
+	@Documentation.Section(Documentation.Sections.STATE_BACKEND_ROCKSDB)
+	public static final ConfigOption<Boolean> FORCE_SSD = ConfigOptions
+		.key("state.backend.rocksdb.force-ssd")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription(String.format(
+			"If this value is set to true, rocksdb could only run on ssd disks"));
+
 	public static final ConfigOption<Boolean> DISCARD_STATES_IF_ROCKSDB_RECOVER_FAIL = ConfigOptions
 		.key("state.backend.rocksdb.restore.discard-states-if-rocksdb-recover-fail")
 		.booleanType()
