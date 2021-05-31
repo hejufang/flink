@@ -177,6 +177,7 @@ public class NettyShuffleEnvironmentOptions {
 	 * Number of max buffers can be used for each output subparition.
 	 */
 	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+	@Deprecated
 	public static final ConfigOption<Integer> NETWORK_MAX_BUFFERS_PER_CHANNEL =
 		key("taskmanager.network.memory.max-buffers-per-channel")
 			.defaultValue(10)
@@ -186,6 +187,15 @@ public class NettyShuffleEnvironmentOptions {
 				" case of data skew and high number of configured floating buffers. This limit is not strictly guaranteed," +
 				" and can be ignored by things like flatMap operators, records spanning multiple buffers or single timer" +
 				" producing large amount of data.");
+
+	/**
+	 * Number of max buffers can be used for each output subparition.
+	 */
+	@Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+	public static final ConfigOption<Double> NETWORK_MAX_BUFFERS_PERCENTAGE_PER_CHANNEL =
+		key("taskmanager.network.memory.max-buffers-percentage-per-channel")
+			.defaultValue(0.5)
+			.withDescription("The percentage of max buffers for each channel.");
 
 	/**
 	 * The timeout for requesting exclusive buffers for each channel.

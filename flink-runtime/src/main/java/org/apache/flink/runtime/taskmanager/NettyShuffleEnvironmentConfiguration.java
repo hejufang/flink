@@ -232,7 +232,9 @@ public class NettyShuffleEnvironmentConfiguration {
 		int buffersPerChannel = configuration.getInteger(NettyShuffleEnvironmentOptions.NETWORK_BUFFERS_PER_CHANNEL);
 		int extraBuffersPerGate = configuration.getInteger(NettyShuffleEnvironmentOptions.NETWORK_EXTRA_BUFFERS_PER_GATE);
 
-		int maxBuffersPerChannel = configuration.getInteger(NettyShuffleEnvironmentOptions.NETWORK_MAX_BUFFERS_PER_CHANNEL);
+		// calculate maxBuffersPerChannel
+		double maxBuffersPctPerChannel = configuration.getDouble(NettyShuffleEnvironmentOptions.NETWORK_MAX_BUFFERS_PERCENTAGE_PER_CHANNEL);
+		int maxBuffersPerChannel = (int) ((buffersPerChannel + extraBuffersPerGate) * maxBuffersPctPerChannel);
 
 		boolean isNetworkDetailedMetrics = configuration.getBoolean(NettyShuffleEnvironmentOptions.NETWORK_DETAILED_METRICS);
 
