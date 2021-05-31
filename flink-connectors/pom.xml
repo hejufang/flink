@@ -49,7 +49,7 @@ under the License.
 		<kafka.base.byted.version>0.10.1.2-bd1.7.1</kafka.base.byted.version>
 		<metrics4j.version>1.0.27</metrics4j.version>
 		<redis.version>2.2.2-SNAPSHOT</redis.version>
-		<rocketmq.version>4.6.10-BYTEDANCE</rocketmq.version>
+		<rocketmq.version>4.6.12-BYTEDANCE</rocketmq.version>
 		<mysql.version>1.2.6-RELEASE</mysql.version>
 	</properties>
 

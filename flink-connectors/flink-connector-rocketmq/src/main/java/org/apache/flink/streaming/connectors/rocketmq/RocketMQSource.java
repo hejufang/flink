@@ -545,7 +545,8 @@ public class RocketMQSource<OUT> extends RichParallelSourceFunction<OUT>
 	private void fetchAssignMessageQueue(boolean restored) {
 		DefaultMQPullConsumer consumer = new DefaultMQPullConsumer(RocketMQConfig.buildAclRPCHook(props));
 		consumer.setConsumerGroup(group);
-		System.setProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN, props.getProperty(RocketMQConfig.ROCKETMQ_NAMESRV_DOMAIN));
+		consumer.setCluster(cluster);
+		consumer.setInstanceName(getRuntimeContext().getIndexOfThisSubtask() + "_" + UUID.randomUUID());
 		try {
 			consumer.start();
 			List<Set<MessageQueue>> queueSetList = new ArrayList<>();

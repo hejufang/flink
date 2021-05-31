@@ -116,6 +116,10 @@ under the License.
 											<pattern>org.json.simple</pattern>
 											<shadedPattern>org.apache.flink.rocketmq.shaded.org.json.simple</shadedPattern>
 										</relocation>
+										<relocation>
+											<pattern>com.bytedance.commons</pattern>
+											<shadedPattern>org.apache.flink.rocketmq.shaded.com.bytedance.commons</shadedPattern>
+										</relocation>
 									</relocations>
 								</configuration>
 							</execution>
