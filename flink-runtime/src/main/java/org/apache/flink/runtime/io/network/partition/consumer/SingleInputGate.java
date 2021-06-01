@@ -421,9 +421,34 @@ public class SingleInputGate extends InputGate {
 
 				// ignore pending events because upstream tasks have already been reinitialized
 			} else {
-				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
-				if (channelProvider != null) {
-					channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
+				if (channelProvider != null && current.isChannelAvailable()) {
+					// this may happend in two cases below:
+					// (1) the network is too slow that channel cannot sense the failure on upstream side
+					// (2) the upstream fails but the container and its TCP connection is still alive
+					LOG.info("{}: channel {} is still available, transform it immediately.", owningTaskName, current);
+
+					boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
+					InputChannel newChannel;
+					if (isLocal) {
+						newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
+					} else {
+						RemoteInputChannel remoteInputChannel = channelProvider.transformToRemoteInputChannel(
+								this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
+						if (isCreditBased) {
+							remoteInputChannel.assignExclusiveSegments();
+						}
+						newChannel = remoteInputChannel;
+					}
+
+					LOG.info("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
+
+					inputChannels.put(partitionId, newChannel);
+					newChannel.requestSubpartition(consumedSubpartitionIndex);
+				} else {
+					LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
+					if (channelProvider != null) {
+						channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
+					}
 				}
 			}
 		}
