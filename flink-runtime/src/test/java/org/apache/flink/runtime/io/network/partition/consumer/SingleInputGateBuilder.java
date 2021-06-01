@@ -59,6 +59,8 @@ public class SingleInputGateBuilder {
 
 	private MemorySegmentProvider segmentProvider = InputChannelTestUtils.StubMemorySegmentProvider.getInstance();
 
+	private ChannelProvider channelProvider = new TestChannelProvider();
+
 	@Nullable
 	private BiFunction<InputChannelBuilder, SingleInputGate, InputChannel> channelFactory = null;
 
@@ -129,6 +131,11 @@ public class SingleInputGateBuilder {
 		return this;
 	}
 
+	public SingleInputGateBuilder setChannelProvider(ChannelProvider channelProvider) {
+		this.channelProvider = channelProvider;
+		return this;
+	}
+
 	public SingleInputGate build() {
 		SingleInputGate gate = new SingleInputGate(
 			"Single Input Gate",
@@ -141,7 +148,7 @@ public class SingleInputGateBuilder {
 			bufferPoolFactory,
 			bufferDecompressor,
 			segmentProvider,
-			new TestChannelProvider(),
+			channelProvider,
 			null);
 		if (channelFactory != null) {
 			gate.setInputChannels(IntStream.range(0, numberOfChannels)

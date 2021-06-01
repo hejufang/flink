@@ -539,7 +539,7 @@ public class SingleInputGate extends IndexedInputGate {
 
 	public void tryUpdateInputChannelFromChannelProviderCache(InputChannel current) throws IOException, InterruptedException {
 		synchronized (requestLock) {
-			checkState(current.isReadyToUpdate());
+			current.setReadyToUpdate();
 			if (channelProvider != null) {
 				final ChannelProvider.PartitionInfo partitionInfo = channelProvider.getPartitionInfoAndRemove(current.channelIndex);
 				if (partitionInfo == null) {

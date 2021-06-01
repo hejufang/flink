@@ -54,7 +54,7 @@ public interface ChannelProvider {
 		final NettyShuffleDescriptor shuffleDescriptor;
 		final long timestamp;
 
-		PartitionInfo(ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
+		public PartitionInfo(ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
 			this.localLocation = localLocation;
 			this.shuffleDescriptor = shuffleDescriptor;
 			this.timestamp = System.currentTimeMillis();

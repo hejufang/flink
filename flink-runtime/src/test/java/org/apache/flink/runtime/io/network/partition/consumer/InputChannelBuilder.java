@@ -31,6 +31,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.Executors;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateTest.TestingResultPartitionManager;
 
@@ -115,7 +116,7 @@ public class InputChannelBuilder {
 			maxBackoff,
 			metrics,
 			5,
-			null,
+			Executors.newSingleThreadScheduledExecutor(),
 			false);
 	}
 
@@ -131,7 +132,7 @@ public class InputChannelBuilder {
 			metrics.getNumBytesInLocalCounter(),
 			metrics.getNumBuffersInLocalCounter(),
 			5,
-			null,
+			Executors.newSingleThreadScheduledExecutor(),
 			false);
 	}
 
@@ -147,7 +148,7 @@ public class InputChannelBuilder {
 			metrics.getNumBytesInRemoteCounter(),
 			metrics.getNumBuffersInRemoteCounter(),
 			5,
-			null,
+			Executors.newSingleThreadScheduledExecutor(),
 			false);
 	}
 
@@ -178,7 +179,7 @@ public class InputChannelBuilder {
 				metrics.getNumBytesInRemoteCounter(),
 				metrics.getNumBuffersInRemoteCounter(),
 				5,
-				null,
+			Executors.newSingleThreadScheduledExecutor(),
 				isRecoverable);
 	}
 
@@ -193,7 +194,7 @@ public class InputChannelBuilder {
 			maxBackoff,
 			metrics,
 			5,
-			null,
+			Executors.newSingleThreadScheduledExecutor(),
 			false);
 	}
 }

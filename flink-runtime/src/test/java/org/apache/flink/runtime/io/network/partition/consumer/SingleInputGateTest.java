@@ -37,6 +37,7 @@ import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.TestingConnectionManager;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.UnavailableChannelEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilderAndConsumerTest;
@@ -59,6 +60,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionTest;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.TestChannelProvider;
 import org.apache.flink.runtime.io.network.util.TestTaskEvent;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -66,6 +68,7 @@ import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.UnknownShuffleDescriptor;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
+import org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -82,9 +85,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -877,6 +882,61 @@ public class SingleInputGateTest extends InputGateTestBase {
 			new BufferOrEvent(new CheckpointBarrier(1, 0, options), remoteInputChannel1.getChannelInfo()),
 			new BufferOrEvent(createBuffer(22), remoteInputChannel2.getChannelInfo())
 		)), getIds(notifications));
+	}
+
+	@Test
+	public void testUpdateChannelFromChannelProvider() throws IOException, InterruptedException, TimeoutException, ExecutionException {
+		final NettyShuffleEnvironment network = createNettyShuffleEnvironment();
+
+		// Setup
+		final SingleInputGate inputGate =
+			new SingleInputGateBuilder()
+				.setNumberOfChannels(1)
+				.setSingleInputGateIndex(gateIndex++)
+				.setResultPartitionType(ResultPartitionType.PIPELINED)
+				.setupBufferPoolFactory(network)
+				.setChannelProvider(new TestChannelProvider())
+				.build();
+
+		final RemoteInputChannel remoteInputChannel = InputChannelBuilder.newBuilder()
+			.setChannelIndex(0)
+			.setupFromNettyShuffleEnvironment(network)
+			.setConnectionManager(new TestingConnectionManager())
+			.buildRemoteChannel(inputGate);
+		inputGate.setInputChannels(remoteInputChannel);
+		remoteInputChannel.requestSubpartition(0);
+		remoteInputChannel.onBuffer(EventSerializer.toBuffer(new UnavailableChannelEvent()), 0, 0);
+
+		final RemoteInputChannel newChannel = InputChannelBuilder.newBuilder()
+			.setChannelIndex(0)
+			.setPartitionId(remoteInputChannel.getPartitionId())
+			.setupFromNettyShuffleEnvironment(network)
+			.setConnectionManager(new TestingConnectionManager())
+			.buildRemoteChannel(inputGate);
+
+		// build a concurrent situation here
+		CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> {
+			remoteInputChannel.setChannelUnavailable(new RuntimeException());
+			try {
+				remoteInputChannel.getNextBuffer();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		});
+		CompletableFuture<Void> future2 = CompletableFuture.runAsync(() -> {
+			try {
+				inputGate.updateInputChannel(ResourceID.generate(),
+					new NettyShuffleDescriptorBuilder()
+						.setConnectionIndex(0)
+						.setId(newChannel.getPartitionId())
+						.buildRemote());
+			} catch (Throwable t) {
+				throw new RuntimeException(t);
+			}
+		});
+
+		future1.get(10, TimeUnit.SECONDS);
+		future2.get(10, TimeUnit.SECONDS);
 	}
 
 	private List<Object> getIds(Collection<BufferOrEvent> buffers) {

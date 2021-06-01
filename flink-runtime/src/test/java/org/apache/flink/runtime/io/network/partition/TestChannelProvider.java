@@ -22,24 +22,35 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.partition.consumer.ChannelProvider;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * ChannelProvider instance for testing.
  */
 public class TestChannelProvider implements ChannelProvider {
+
+	private final Map<Integer, PartitionInfo> cachedPartitionInfos;
+
+	public TestChannelProvider() {
+		this.cachedPartitionInfos = new HashMap<>();
+	}
+
 	@Override
 	public RemoteInputChannel transformToRemoteInputChannel(
 			SingleInputGate inputGate,
 			InputChannel current,
 			ConnectionID newConnectionID,
 			ResultPartitionID newPartitionID) throws IOException {
-		throw new UnsupportedOperationException();
+		return InputChannelBuilder.newBuilder()
+			.buildRemoteChannel(inputGate);
 	}
 
 	@Override
@@ -47,16 +58,17 @@ public class TestChannelProvider implements ChannelProvider {
 			SingleInputGate inputGate,
 			InputChannel current,
 			ResultPartitionID newPartitionID) throws IOException {
-		throw new UnsupportedOperationException();
+		return InputChannelBuilder.newBuilder()
+			.buildLocalChannel(inputGate);
 	}
 
 	@Override
 	public PartitionInfo getPartitionInfoAndRemove(int channelIndex) {
-		throw new UnsupportedOperationException();
+		return cachedPartitionInfos.remove(channelIndex);
 	}
 
 	@Override
 	public void cachePartitionInfo(int channelIndex, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
-		throw new UnsupportedOperationException();
+		cachedPartitionInfos.put(channelIndex, new PartitionInfo(localLocation, shuffleDescriptor));
 	}
 }
