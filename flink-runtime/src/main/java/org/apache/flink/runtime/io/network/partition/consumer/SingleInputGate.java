@@ -513,21 +513,7 @@ public class SingleInputGate extends IndexedInputGate {
 				}
 			} else if (channelProvider != null && !current.isChannelAvailable() && current.isReadyToUpdate()) {
 				// create a new channel if it's not available
-				boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
-				InputChannel newChannel;
-				if (isLocal) {
-					newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
-				} else {
-					newChannel = channelProvider.transformToRemoteInputChannel(
-							this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
-				}
-
-				LOG.info("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
-
-				inputChannels.put(partitionId, newChannel);
-				newChannel.requestSubpartition(consumedSubpartitionIndex);
-
-				// ignore pending events because upstream tasks have already been reinitialized
+				transformChannel(current, shuffleDescriptor, localLocation);
 			} else {
 				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
 				if (channelProvider != null) {
@@ -549,24 +535,29 @@ public class SingleInputGate extends IndexedInputGate {
 
 				LOG.info("Find PartitionInfo from cache. (index={}, timestamp={})", current.channelIndex, partitionInfo.timestamp);
 
-				final NettyShuffleDescriptor shuffleDescriptor = partitionInfo.shuffleDescriptor;
-				final ResourceID resourceID = partitionInfo.localLocation;
-				// create a new channel if it's not available
-				boolean isLocal = shuffleDescriptor.isLocalTo(resourceID);
-				InputChannel newChannel;
-				if (isLocal) {
-					newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
-				} else {
-					newChannel = channelProvider.transformToRemoteInputChannel(
-							this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
-				}
-
-				LOG.info("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
-
-				inputChannels.put(shuffleDescriptor.getResultPartitionID().getPartitionId(), newChannel);
-				newChannel.requestSubpartition(consumedSubpartitionIndex);
+				transformChannel(current, partitionInfo.shuffleDescriptor, partitionInfo.localLocation);
 			}
 		}
+	}
+
+	private void transformChannel(InputChannel current, NettyShuffleDescriptor shuffleDescriptor, ResourceID localLocation) throws IOException, InterruptedException {
+		IntermediateResultPartitionID partitionId = shuffleDescriptor.getResultPartitionID().getPartitionId();
+		boolean isLocal = shuffleDescriptor.isLocalTo(localLocation);
+		InputChannel newChannel;
+		if (isLocal) {
+			newChannel = channelProvider.transformToLocalInputChannel(this, current, shuffleDescriptor.getResultPartitionID());
+		} else {
+			RemoteInputChannel remoteInputChannel = channelProvider.transformToRemoteInputChannel(
+				this, current, shuffleDescriptor.getConnectionId(), shuffleDescriptor.getResultPartitionID());
+			remoteInputChannel.assignExclusiveSegments();
+			newChannel = remoteInputChannel;
+		}
+
+		LOG.info("{}: Updated unavailable input channel to {}.", owningTaskName, newChannel);
+
+		inputChannels.put(partitionId, newChannel);
+		channels[current.getChannelIndex()] = newChannel;
+		newChannel.requestSubpartition(consumedSubpartitionIndex);
 	}
 
 	/**
