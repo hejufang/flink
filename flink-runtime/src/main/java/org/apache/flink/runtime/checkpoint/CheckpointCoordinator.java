@@ -88,6 +88,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
+import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.setupSavepointScheduler;
 import static org.apache.flink.util.ExceptionUtils.findThrowable;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -386,6 +387,7 @@ public class CheckpointCoordinator {
 
 		this.timer = timer;
 		this.checkpointScheduler = createCheckpointScheduler(job, this, chkConfig);
+		setupSavepointScheduler(checkpointScheduler, jobName, this, chkConfig);
 		this.checkpointScheduler.setTimer(timer);
 
 		this.checkpointHandler = checkpointHandler;
@@ -528,6 +530,15 @@ public class CheckpointCoordinator {
 		return triggerSavepointInternal(properties, false, targetLocation, -1L, DetachSavepointProperties.nonDetachSavepointProperties());
 	}
 
+	/**
+	 * Trigger a detach savepoint with the given savepoint directory as a target. Different from
+	 * {@link #triggerSavepoint(String)}, this targetLocation will not create a random subdir to
+	 * hold the new savepoint, while directly accommodating all savepoint data and meta files.
+	 *
+	 * @param targetLocation format %detach_savepoint_prefix%/%date%/%jobName%/%UUID%.
+	 * @param savepointId a redundant uuid in targetLocation, just to serve {@link #pendingSavepointsUnsafe}.
+	 * @return A future to the completed checkpoint
+	 */
 	public CompletableFuture<CompletedCheckpoint> triggerDetachSavepoint(final String targetLocation, String savepointId) {
 		Preconditions.checkNotNull(targetLocation);
 		final CheckpointProperties properties = CheckpointProperties.forSavepoint(!unalignedCheckpointsEnabled);

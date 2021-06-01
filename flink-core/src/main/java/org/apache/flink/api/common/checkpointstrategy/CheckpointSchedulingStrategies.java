@@ -88,6 +88,22 @@ public final class CheckpointSchedulingStrategies {
 		}
 	}
 
+	// Generate configuration from CLI configurations
+	public static SavepointSchedulerConfiguration resolveSavepointCliConfig(String savepointSchedulingStrategy, Configuration cliConfig) {
+		switch (savepointSchedulingStrategy) {
+			case "default":
+				final int defaultInterval = cliConfig.getInteger(CheckpointingOptions.SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL);
+
+				if (defaultInterval == -1) {
+					return defaultSavepointStrategy();
+				}
+				return defaultSavepointStrategy(defaultInterval);
+			default:
+				final String message = "Undefined value for argument: " + CheckpointingOptions.SAVEPOINT_SCHEDULING_STRATEGY.key() + ".";
+				throw new IllegalArgumentException(message);
+		}
+	}
+
 	/**
 	 * Possible strategies.
 	 */
@@ -101,6 +117,28 @@ public final class CheckpointSchedulingStrategies {
 		 * will be triggered at whole hours.
 		 */
 		HOURLY
+	}
+
+	/**
+	 * Possible savepoint strategies.
+	 */
+	public enum SavepointStrategy {
+		/**
+		 * The default scheduler, trigger savepoints at fixed rate.
+		 */
+		DEFAULT
+	}
+
+	// ------------------------------------------------------------------------
+	//  checkpoint scheduling configuration factories
+	// ------------------------------------------------------------------------
+
+	public static SavepointSchedulerConfiguration defaultSavepointStrategy() {
+		return new DefaultSavepointSchedulerConfiguration(SavepointStrategy.DEFAULT);
+	}
+
+	public static SavepointSchedulerConfiguration defaultSavepointStrategy(long interval) {
+		return new DefaultSavepointSchedulerConfiguration(SavepointStrategy.DEFAULT, interval);
 	}
 
 	// ------------------------------------------------------------------------
@@ -189,6 +227,65 @@ public final class CheckpointSchedulingStrategies {
 			super(strategy);
 			this.interval = interval;
 			this.offsetMillis = offsetMillis;
+		}
+
+		public boolean isIntervalSet() {
+			return interval != Long.MAX_VALUE;
+		}
+	}
+
+	// ------------------------------------------------------------------------
+	//  savepoint scheduling configurations
+	// ------------------------------------------------------------------------
+
+	/**
+	 * Abstract configuration for savepoint scheduling strategies.
+	 */
+	public abstract static class SavepointSchedulerConfiguration implements Serializable {
+		public final SavepointStrategy strategy;
+
+		protected SavepointSchedulerConfiguration(SavepointStrategy strategy) {
+			this.strategy = strategy;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			SavepointSchedulerConfiguration that = (SavepointSchedulerConfiguration) o;
+			return strategy == that.strategy;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(strategy);
+		}
+	}
+
+	/**
+	 * Configuration representing a fixed rate scheduling strategy, which is also the default strategy.
+	 */
+	public static class DefaultSavepointSchedulerConfiguration extends SavepointSchedulerConfiguration {
+		/**
+		 * The savepoint interval. Might be left as . Overrides the legacy "checkpointInterval"
+		 * if set.
+		 */
+		public final long interval;
+
+		// Use the global interval
+		private DefaultSavepointSchedulerConfiguration(SavepointStrategy strategy) {
+			super(strategy);
+			this.interval = Long.MAX_VALUE;
+		}
+
+		// Do all configuration here, recommended.
+		private DefaultSavepointSchedulerConfiguration(SavepointStrategy strategy, long interval) {
+			super(strategy);
+			this.interval = interval;
 		}
 
 		public boolean isIntervalSet() {

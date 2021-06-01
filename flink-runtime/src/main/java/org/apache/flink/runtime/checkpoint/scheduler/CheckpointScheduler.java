@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.checkpoint.scheduler;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
+import org.apache.flink.runtime.checkpoint.scheduler.savepoint.PeriodicSavepointScheduler;
 import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 
 import java.util.concurrent.ScheduledFuture;
@@ -85,4 +86,6 @@ public interface CheckpointScheduler {
 	boolean inPeriodicallyScheduling();
 
 	void setTimer(ScheduledExecutor timer);
+
+	void setPeriodSavepointScheduler(PeriodicSavepointScheduler savepointScheduler);
 }

@@ -407,7 +407,8 @@ public class ExecutionGraphBuilder {
 
 			// Override configuration if CLI specified otherwise.
 			final String checkpointSchedulingStrategy = jobManagerConfig.getString(CheckpointingOptions.CHECKPOINT_SCHEDULING_STRATEGY);
-			final CheckpointCoordinatorConfiguration chkConfig;
+			final String savepointSchedulingStrategy = jobManagerConfig.getString(CheckpointingOptions.SAVEPOINT_SCHEDULING_STRATEGY);
+			CheckpointCoordinatorConfiguration chkConfig;
 
 			if (checkpointSchedulingStrategy == null) {
 				chkConfig = snapshotSettings.getCheckpointCoordinatorConfiguration();
@@ -430,6 +431,30 @@ public class ExecutionGraphBuilder {
 					origin.getTolerableCheckpointFailureNumber(),
 					origin.isUnalignedCheckpointsEnabled());
 			}
+
+			if (savepointSchedulingStrategy != null) {
+				log.info("Savepoint-scheduler-related options found. CLI configuration will take priority.");
+				final CheckpointSchedulingStrategies.SavepointSchedulerConfiguration overrideSavepointSchedulingConfig;
+				overrideSavepointSchedulingConfig = CheckpointSchedulingStrategies.resolveSavepointCliConfig(savepointSchedulingStrategy, jobManagerConfig);
+
+				final CheckpointCoordinatorConfiguration origin = chkConfig;
+
+				chkConfig = new CheckpointCoordinatorConfiguration(
+					origin.getCheckpointInterval(),
+					origin.getCheckpointTimeout(),
+					origin.getMinPauseBetweenCheckpoints(),
+					origin.getMaxConcurrentCheckpoints(),
+					origin.getCheckpointRetentionPolicy(),
+					origin.isExactlyOnce(),
+					origin.isPreferCheckpointForRecovery(),
+					origin.getCheckpointSchedulerConfiguration(),
+					overrideSavepointSchedulingConfig,
+					origin.getTolerableCheckpointFailureNumber(),
+					origin.isUnalignedCheckpointsEnabled());
+			}
+
+			String savepointLocationPrefix = jobManagerConfig.getString(CheckpointingOptions.SAVEPOINT_LOCATION_PREFIX);
+			chkConfig.setSavepointLocationPrefix(savepointLocationPrefix);
 
 			final boolean aggregateUnionState = jobManagerConfig.getBoolean(CheckpointingOptions.UNION_STATE_AGGREGATION_ENABLED);
 			chkConfig.setAggregateUnionState(aggregateUnionState);

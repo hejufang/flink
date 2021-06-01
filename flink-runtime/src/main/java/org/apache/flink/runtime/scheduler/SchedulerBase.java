@@ -194,7 +194,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 	// warehouse messages
 	public static final String EVENT_METRIC_NAME = "executionGraphEvent";
 
-	private final String manualSavepointLocationPrefix;
+	private final String savepointLocationPrefix;
 
 	public SchedulerBase(
 			final Logger log,
@@ -260,7 +260,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 
 		this.coordinatorMap = createCoordinatorMap();
 		this.allowNonRestoredState = jobMasterConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE);
-		this.manualSavepointLocationPrefix = jobMasterConfiguration.getString(CheckpointingOptions.MANUAL_SAVEPOINT_LOCATION_PREFIX);
+		this.savepointLocationPrefix = jobMasterConfiguration.getString(CheckpointingOptions.SAVEPOINT_LOCATION_PREFIX);
 	}
 
 	private ExecutionGraph createAndRestoreExecutionGraph(
@@ -869,12 +869,11 @@ public abstract class SchedulerBase implements SchedulerNG {
 		log.info("Triggering {}detach-savepoint for job {}, with savepoint_id {}.",
 			blockSource ? "block-source-with-" : "", jobGraph.getJobID(), savepointId);
 
-		checkNotNull(manualSavepointLocationPrefix, "savepoint directory prefix for detach savepoint is not set, " +
-			"set this value in config state.savepoint.manual-savepoint.location-prefix.");
-
+		checkNotNull(savepointLocationPrefix, "savepoint directory prefix for detach savepoint is not set, " +
+			"set this value in config state.savepoint.location-prefix.");
 		LocalDate currentDate = LocalDate.now();
 		String dateSubDir = String.format("%04d%02d%02d", currentDate.getYear(), currentDate.getMonthValue(), currentDate.getDayOfMonth());
-		String manualSavepointPath = String.format("%s/%s/%s/%s", manualSavepointLocationPrefix, dateSubDir, jobGraph.getName(), savepointId);
+		String manualSavepointPath = String.format("%s/%s/%s/%s", savepointLocationPrefix, dateSubDir, jobGraph.getName(), savepointId);
 		log.info("On triggering manual savepoint at {}", manualSavepointPath);
 
 		if (blockSource) {

@@ -25,6 +25,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.trigger.CheckpointTriggerConfiguration;
 import org.apache.flink.util.Preconditions;
 
+import javax.annotation.Nullable;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -55,6 +56,9 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 	/** Scheduling strategy for checkpoints. */
 	private final CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration;
 
+	/** Scheduling strategy for savepoints. */
+	private final CheckpointSchedulingStrategies.SavepointSchedulerConfiguration savepointSchedulerConfiguration;
+
 	/**
 	 * Flag indicating whether exactly once checkpoint mode has been configured.
 	 * If <code>false</code>, at least once mode has been configured. This is
@@ -71,6 +75,9 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 	private boolean aggregateUnionState;
 
 	private CheckpointTriggerConfiguration checkpointTriggerConfiguration;
+
+	@Nullable
+	private String savepointLocationPrefix;
 
 	/**
 	 * @deprecated use {@link #builder()}.
@@ -96,6 +103,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isExactlyOnce,
 			isPreferCheckpointForRecovery,
 			CheckpointSchedulingStrategies.defaultStrategy(),
+			CheckpointSchedulingStrategies.defaultSavepointStrategy(),
 			tolerableCpFailureNumber,
 			isUnalignedCheckpoint);
 	}
@@ -111,6 +119,33 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration,
 			int tolerableCpFailureNumber,
 			boolean isUnalignedCheckpointsEnabled) {
+
+		this(
+			checkpointInterval,
+			checkpointTimeout,
+			minPauseBetweenCheckpoints,
+			maxConcurrentCheckpoints,
+			checkpointRetentionPolicy,
+			isExactlyOnce,
+			isPreferCheckpointForRecovery,
+			checkpointSchedulerConfiguration,
+			CheckpointSchedulingStrategies.defaultSavepointStrategy(),
+			tolerableCpFailureNumber,
+			isUnalignedCheckpointsEnabled);
+	}
+
+	public CheckpointCoordinatorConfiguration(
+		long checkpointInterval,
+		long checkpointTimeout,
+		long minPauseBetweenCheckpoints,
+		int maxConcurrentCheckpoints,
+		CheckpointRetentionPolicy checkpointRetentionPolicy,
+		boolean isExactlyOnce,
+		boolean isPreferCheckpointForRecovery,
+		CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration,
+		CheckpointSchedulingStrategies.SavepointSchedulerConfiguration savepointSchedulerConfiguration,
+		int tolerableCpFailureNumber,
+		boolean isUnalignedCheckpointsEnabled) {
 
 		// sanity checks
 		if (checkpointInterval < MINIMAL_CHECKPOINT_TIME || checkpointTimeout < MINIMAL_CHECKPOINT_TIME ||
@@ -129,6 +164,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.isExactlyOnce = isExactlyOnce;
 		this.isPreferCheckpointForRecovery = isPreferCheckpointForRecovery;
 		this.checkpointSchedulerConfiguration = Preconditions.checkNotNull(checkpointSchedulerConfiguration);
+		this.savepointSchedulerConfiguration = Preconditions.checkNotNull(savepointSchedulerConfiguration);
 		this.tolerableCheckpointFailureNumber = tolerableCpFailureNumber;
 		this.isUnalignedCheckpointsEnabled = isUnalignedCheckpointsEnabled;
 	}
@@ -173,6 +209,19 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		return checkpointSchedulerConfiguration;
 	}
 
+	public CheckpointSchedulingStrategies.SavepointSchedulerConfiguration getSavepointSchedulerConfiguration() {
+		return savepointSchedulerConfiguration;
+	}
+
+	@Nullable
+	public String getSavepointLocationPrefix() {
+		return savepointLocationPrefix;
+	}
+
+	public void setSavepointLocationPrefix(@Nullable String savepointLocationPrefix) {
+		this.savepointLocationPrefix = savepointLocationPrefix;
+	}
+
 	public boolean isAggregateUnionState() {
 		return aggregateUnionState;
 	}
@@ -206,6 +255,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isUnalignedCheckpointsEnabled == that.isUnalignedCheckpointsEnabled &&
 			checkpointRetentionPolicy == that.checkpointRetentionPolicy &&
 			Objects.equals(checkpointSchedulerConfiguration, that.checkpointSchedulerConfiguration) &&
+			Objects.equals(savepointSchedulerConfiguration, that.savepointSchedulerConfiguration) &&
 			isPreferCheckpointForRecovery == that.isPreferCheckpointForRecovery &&
 			tolerableCheckpointFailureNumber == that.tolerableCheckpointFailureNumber &&
 			aggregateUnionState == that.aggregateUnionState &&
@@ -224,6 +274,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isUnalignedCheckpointsEnabled,
 				isPreferCheckpointForRecovery,
 				checkpointSchedulerConfiguration,
+				savepointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber,
 				aggregateUnionState,
 				checkpointTriggerConfiguration);
@@ -262,6 +313,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		private boolean isExactlyOnce = true;
 		private boolean isPreferCheckpointForRecovery = true;
 		private CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration = CheckpointSchedulingStrategies.defaultStrategy();
+		private CheckpointSchedulingStrategies.SavepointSchedulerConfiguration savepointSchedulerConfiguration = CheckpointSchedulingStrategies.defaultSavepointStrategy();
 		private int tolerableCheckpointFailureNumber;
 		private boolean isUnalignedCheckpointsEnabled;
 
@@ -275,6 +327,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isExactlyOnce,
 				isPreferCheckpointForRecovery,
 				checkpointSchedulerConfiguration,
+				savepointSchedulerConfiguration,
 				tolerableCheckpointFailureNumber,
 				isUnalignedCheckpointsEnabled
 			);
@@ -317,6 +370,11 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 		public CheckpointCoordinatorConfigurationBuilder setCheckpointSchedulerConfiguration(CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration) {
 			this.checkpointSchedulerConfiguration = checkpointSchedulerConfiguration;
+			return this;
+		}
+
+		public CheckpointCoordinatorConfigurationBuilder setSavepointSchedulerConfiguration(CheckpointSchedulingStrategies.SavepointSchedulerConfiguration savepointSchedulerConfiguration) {
+			this.savepointSchedulerConfiguration = savepointSchedulerConfiguration;
 			return this;
 		}
 

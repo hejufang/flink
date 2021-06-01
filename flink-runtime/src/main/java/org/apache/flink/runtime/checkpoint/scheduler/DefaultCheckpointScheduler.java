@@ -22,7 +22,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
-import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  * strategy. For some job, checkpoint decides when to commit writing, and a late checkpoint
  * will block the writing process so long that the downstream might considered the job abnormal.
  */
-public class DefaultCheckpointScheduler implements CheckpointScheduler {
+public class DefaultCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultCheckpointScheduler.class);
 
@@ -61,11 +60,6 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 	 * The max time (in ms) that a checkpoint may take.
 	 */
 	private final long checkpointTimeout;
-
-	/**
-	 * The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
-	 */
-	private ScheduledExecutor timer;
 
 	/**
 	 * The Runnable object to do regular checkpoint.
@@ -104,11 +98,13 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void startScheduling() {
+		super.startScheduling();
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, getRandomInitDelay(), baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
 	public void stopScheduling() {
+		super.stopScheduling();
 		if (currentPeriodicTrigger != null) {
 			currentPeriodicTrigger.cancel(false);
 			currentPeriodicTrigger = null;
@@ -151,11 +147,6 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 	@Override
 	public boolean inPeriodicallyScheduling() {
 		return currentPeriodicTrigger != null;
-	}
-
-	@Override
-	public void setTimer(ScheduledExecutor timer) {
-		this.timer = timer;
 	}
 
 	@Override

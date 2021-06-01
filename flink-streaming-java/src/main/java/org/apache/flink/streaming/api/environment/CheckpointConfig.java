@@ -51,6 +51,10 @@ public class CheckpointConfig implements java.io.Serializable {
 	public static final CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration DEFAULT_SCHEDULER =
 		CheckpointSchedulingStrategies.defaultStrategy();
 
+	/** The default checkpoint scheduler. */
+	public static final CheckpointSchedulingStrategies.SavepointSchedulerConfiguration DEFAULT_SAVEPOINT_SCHEDULER =
+		CheckpointSchedulingStrategies.defaultSavepointStrategy();
+
 	/** The default timeout of a checkpoint attempt: 10 minutes. */
 	public static final long DEFAULT_TIMEOUT = 10 * 60 * 1000;
 
@@ -72,6 +76,9 @@ public class CheckpointConfig implements java.io.Serializable {
 
 	/** Checkpointing scheduling strategy. */
 	private CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration checkpointSchedulerConfiguration = DEFAULT_SCHEDULER;
+
+	/** Savepoint scheduling strategy. */
+	private CheckpointSchedulingStrategies.SavepointSchedulerConfiguration savepointSchedulerConfiguration = DEFAULT_SAVEPOINT_SCHEDULER;
 
 	/** Periodic checkpoint triggering interval. */
 	private long checkpointInterval = -1; // disabled
@@ -167,6 +174,24 @@ public class CheckpointConfig implements java.io.Serializable {
 	@PublicEvolving
 	public CheckpointSchedulingStrategies.CheckpointSchedulerConfiguration getCheckpointSchedulerConfiguration() {
 		return checkpointSchedulerConfiguration;
+	}
+
+	/**
+	 * Sets the scheduling strategy to be used for savepoint.
+	 */
+	@PublicEvolving
+	public void setSavepointSchedulerConfiguration(CheckpointSchedulingStrategies.SavepointSchedulerConfiguration savepointSchedulerConfiguration) {
+		this.savepointSchedulerConfiguration = Preconditions.checkNotNull(savepointSchedulerConfiguration);
+	}
+
+	/**
+	 * Returns the savepoint scheduling strategy which has been set for the current job.
+	 *
+	 * @return The specified savepoint scheduling configuration
+	 */
+	@PublicEvolving
+	public CheckpointSchedulingStrategies.SavepointSchedulerConfiguration getSavepointSchedulerConfiguration() {
+		return savepointSchedulerConfiguration;
 	}
 
 	/**

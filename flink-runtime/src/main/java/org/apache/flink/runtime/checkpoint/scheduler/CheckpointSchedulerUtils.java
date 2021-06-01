@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint.scheduler;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrategies;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
+import org.apache.flink.runtime.checkpoint.scheduler.savepoint.SimplePeriodicSavepointScheduler;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
 
 import org.slf4j.Logger;
@@ -109,6 +110,49 @@ public final class CheckpointSchedulerUtils {
 			default:
 				LOG.warn("Invalid checkpoint scheduling strategy: {}", chkConfig.getCheckpointSchedulerConfiguration());
 				throw new IllegalArgumentException("Unsupported checkpoint scheduling strategy.");
+		}
+	}
+
+	public static void setupSavepointScheduler(
+			CheckpointScheduler scheduler,
+			String jobName,
+			CheckpointCoordinator coordinator,
+			CheckpointCoordinatorConfiguration chkConfig) {
+
+		// time between savepoints
+		long baseInterval;
+
+		// max "in between duration" can be one year - this is to prevent numeric overflows
+		long minPauseBetweenCheckpoints = chkConfig.getMinPauseBetweenCheckpoints();
+		if (minPauseBetweenCheckpoints > 365L * 24 * 60 * 60 * 1_000) {
+			minPauseBetweenCheckpoints = 365L * 24 * 60 * 60 * 1_000;
+		}
+
+		// setup periodic savepoint scheduler
+		switch (chkConfig.getSavepointSchedulerConfiguration().strategy) {
+			case DEFAULT:
+				if (chkConfig.getSavepointSchedulerConfiguration() instanceof CheckpointSchedulingStrategies.DefaultSavepointSchedulerConfiguration) {
+
+					final CheckpointSchedulingStrategies.DefaultSavepointSchedulerConfiguration savepointSchedulerConfiguration;
+					savepointSchedulerConfiguration = (CheckpointSchedulingStrategies.DefaultSavepointSchedulerConfiguration) chkConfig.getSavepointSchedulerConfiguration();
+
+					baseInterval = savepointSchedulerConfiguration.interval;
+
+					if (baseInterval < minPauseBetweenCheckpoints) {
+						baseInterval = minPauseBetweenCheckpoints;
+					}
+
+					scheduler.setPeriodSavepointScheduler(new SimplePeriodicSavepointScheduler(jobName, chkConfig.getSavepointLocationPrefix(), baseInterval, minPauseBetweenCheckpoints, coordinator));
+					LOG.info("Setup savepoint scheduler with interval {}, minPause {}, prefix {}", baseInterval, minPauseBetweenCheckpoints, chkConfig.getSavepointLocationPrefix());
+				} else {
+					LOG.warn("Inconsistent savepoint scheduler configuration. A configuration with class {} has been recognized as Default strategy.",
+						chkConfig.getSavepointSchedulerConfiguration().getClass());
+					throw new IllegalArgumentException("Inconsistent savepoint scheduler configuration.");
+				}
+				break;
+			default:
+				LOG.warn("Invalid savepoint scheduling strategy: {}", chkConfig.getSavepointSchedulerConfiguration());
+				throw new IllegalArgumentException("Unsupported savepoint scheduling strategy.");
 		}
 	}
 }

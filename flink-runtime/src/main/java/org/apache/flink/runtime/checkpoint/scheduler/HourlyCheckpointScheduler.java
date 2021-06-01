@@ -23,7 +23,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
-import org.apache.flink.runtime.concurrent.ScheduledExecutor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  * The checkpoint scheduler which aligns the checkpoint starting time to whole hours.
  * To align to whole hours, the checkpoint interval must divides an hour.
  */
-public class HourlyCheckpointScheduler implements CheckpointScheduler {
+public class HourlyCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HourlyCheckpointScheduler.class);
 
@@ -70,11 +69,6 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	 * The max time (in ms) that a checkpoint may take.
 	 */
 	private final long checkpointTimeout;
-
-	/**
-	 * The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
-	 */
-	private ScheduledExecutor timer;
 
 	/**
 	 * The Runnable object to do regular checkpoint.
@@ -120,12 +114,14 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void startScheduling() {
+		super.startScheduling();
 		final long alignedDelay = calcNecessaryDelay(System.currentTimeMillis(), minPauseMillis);
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, alignedDelay, baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
 	public void stopScheduling() {
+		super.stopScheduling();
 		if (currentPeriodicTrigger != null) {
 			currentPeriodicTrigger.cancel(false);
 			currentPeriodicTrigger = null;
@@ -170,11 +166,6 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	@Override
 	public boolean inPeriodicallyScheduling() {
 		return currentPeriodicTrigger != null;
-	}
-
-	@Override
-	public void setTimer(ScheduledExecutor timer) {
-		this.timer = timer;
 	}
 
 	@Override

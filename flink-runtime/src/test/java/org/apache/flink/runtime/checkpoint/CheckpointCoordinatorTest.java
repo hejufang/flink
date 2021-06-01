@@ -1442,7 +1442,8 @@ public class CheckpointCoordinatorTest extends TestLogger {
 
 			final Collection<ScheduledFuture<?>> periodicScheduledTasks =
 				manuallyTriggeredScheduledExecutor.getPeriodicScheduledTask();
-			assertEquals(1, periodicScheduledTasks.size());
+			// one for savepoint , one for checkpoint
+			assertEquals(2, periodicScheduledTasks.size());
 			final ScheduledFuture scheduledFuture = periodicScheduledTasks.iterator().next();
 
 			manuallyTriggeredScheduledExecutor.triggerPeriodicScheduledTasks();
