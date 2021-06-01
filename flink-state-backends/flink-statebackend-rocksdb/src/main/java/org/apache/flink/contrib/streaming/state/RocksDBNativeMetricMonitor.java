@@ -40,10 +40,7 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.flink.contrib.streaming.state.RocksDBProperty.BlockCachePinnedUsage;
-import static org.apache.flink.contrib.streaming.state.RocksDBProperty.BlockCacheUsage;
 import static org.apache.flink.contrib.streaming.state.RocksDBProperty.CurSizeAllMemTables;
-import static org.apache.flink.contrib.streaming.state.RocksDBProperty.EstimateTableReadersMem;
 import static org.apache.flink.contrib.streaming.state.RocksDBProperty.TotalSstFilesSize;
 
 /**
@@ -157,15 +154,11 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 			try {
 				// memory usage
 				BigInteger memTableUsage = getPropertyValue(state.getValue(), CurSizeAllMemTables.getRocksDBProperty());
-				BigInteger readerUsage = getPropertyValue(state.getValue(), EstimateTableReadersMem.getRocksDBProperty());
-				BigInteger blockCacheUsage = getPropertyValue(state.getValue(), BlockCacheUsage.getRocksDBProperty());
-				BigInteger blockCachePinnedUsage = getPropertyValue(state.getValue(), BlockCachePinnedUsage.getRocksDBProperty());
-				BigInteger memTotalSize = memTableUsage.add(readerUsage).add(blockCacheUsage).add(blockCachePinnedUsage);
 				TagGaugeStore.TagValues tagValues = new TagGaugeStore.TagValuesBuilder()
 					.addTagValue(STATE_NAME_KEY, state.getKey())
 					.addTagValue(STATE_SIZE_TYPE_KEY, STATE_MEMORY_SIZE_TYPE)
 					.build();
-				stateSizeTagGauge.addMetric(memTotalSize, tagValues);
+				stateSizeTagGauge.addMetric(memTableUsage, tagValues);
 
 				// disk usage
 				BigInteger sstTotalSize = getPropertyValue(state.getValue(), TotalSstFilesSize.getRocksDBProperty());
@@ -176,7 +169,7 @@ public class RocksDBNativeMetricMonitor implements Closeable {
 				stateSizeTagGauge.addMetric(sstTotalSize, tagValues);
 
 				// state total size
-				BigInteger totalSize = memTotalSize.add(sstTotalSize);
+				BigInteger totalSize = memTableUsage.add(sstTotalSize);
 				tagValues = new TagGaugeStore.TagValuesBuilder()
 					.addTagValue(STATE_NAME_KEY, state.getKey())
 					.addTagValue(STATE_SIZE_TYPE_KEY, STATE_TOTAL_SIZE_TYPE)
