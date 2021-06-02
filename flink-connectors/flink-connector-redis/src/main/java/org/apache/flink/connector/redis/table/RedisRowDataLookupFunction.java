@@ -108,6 +108,9 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			|| options.getRedisValueType().equals(RedisValueType.GENERAL))) {
 			this.stringValueConverters = Arrays.stream(fieldTypes)
 				.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
+		} else if (deserializationSchema != null && keyFieldIndex >= 0) {
+			this.stringValueConverters = new StringValueConverters.StringValueConverter[]
+				{StringValueConverters.getConverter(fieldTypes[keyFieldIndex])};
 		} else {
 			this.stringValueConverters = null;
 		}
@@ -223,12 +226,12 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		if (value != null) {
 			row = deserializationSchema.deserialize(value);
 		}
-		if (row != null && keyFieldIndex >= 0) {
+		if (keyFieldIndex >= 0 && row != null) {
 			List<Object> valueList = new ArrayList<>();
 			for (int i = 0; i < row.getArity(); i++) {
 				valueList.add(fieldGetters[i].getFieldOrNull(row));
 			}
-			valueList.add(keyFieldIndex, stringValueConverters[keyFieldIndex].toInternal(key));
+			valueList.add(keyFieldIndex, stringValueConverters[0].toInternal(key));
 			return GenericRowData.of(valueList.toArray(new Object[0]));
 		}
 		return row;
