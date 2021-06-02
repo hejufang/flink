@@ -246,6 +246,15 @@ common:
   flink.checkpoint.hdfs.dfs.pipeline.fast-failover.bytes.threshold: 5242880
   flink.checkpoint.hdfs.dfs.pipeline.fast-failover.max.failover.times: 10
 
+  # hdfs conf for slow node
+  flink.hdfs.dfs.datanode.socket.write.timeout: 30000
+  flink.hdfs.dfs.client.socket-timeout: 30000
+  flink.hdfs.ipc.client.ping: false
+  flink.hdfs.ipc.ping.interval: 10000
+  flink.hdfs.ipc.client.connect.max.retries.on.timeouts: 5
+  flink.hdfs.ipc.client.connect.timeout: 2000
+  flink.hdfs.ipc.client.connect.retry.interval: 500
+
 flink:
   dc: cn
   clusterName: flink
