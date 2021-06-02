@@ -24,12 +24,16 @@ import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.binary.BinaryStringData;
+import org.apache.flink.table.data.conversion.DataStructureConverter;
+import org.apache.flink.table.data.conversion.DataStructureConverters;
 import org.apache.flink.table.functions.AggregateFunction;
+import org.apache.flink.table.functions.FunctionContext;
 import org.apache.flink.table.runtime.typeutils.DecimalDataTypeInfo;
 import org.apache.flink.table.runtime.typeutils.RowDataTypeInfo;
 import org.apache.flink.table.runtime.typeutils.StringDataTypeInfo;
 import org.apache.flink.table.types.logical.BigIntType;
 import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.utils.LegacyTypeInfoDataTypeConverter;
 
 import static org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter.fromTypeInfoToLogicalType;
 
@@ -37,6 +41,15 @@ import static org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter.
  * built-in FirstValue aggregate function.
  */
 public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, GenericRowData> {
+
+	protected DataStructureConverter<Object, Object> converter = null;
+
+	@Override
+	public void open(FunctionContext context) {
+		if (converter != null) {
+			converter.open(Thread.currentThread().getContextClassLoader());
+		}
+	}
 
 	@Override
 	public boolean isDeterministic() {
@@ -56,6 +69,9 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 
 	public void accumulate(GenericRowData acc, Object value) {
 		if (value != null && acc.getLong(1) == Long.MAX_VALUE) {
+			if (converter != null) {
+				value = converter.toInternal(value);
+			}
 			acc.setField(0, value);
 			acc.setField(1, System.nanoTime());
 		}
@@ -63,6 +79,9 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 
 	public void accumulate(GenericRowData acc, Object value, Long order) {
 		if (value != null && acc.getLong(1) > order) {
+			if (converter != null) {
+				value = converter.toInternal(value);
+			}
 			acc.setField(0, value);
 			acc.setField(1, order);
 		}
@@ -95,13 +114,20 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 
 	@Override
 	public T getValue(GenericRowData acc) {
-		return (T) acc.getField(0);
+		T result = (T) acc.getField(0);
+		if (result == null) {
+			return null;
+		} else if (converter != null) {
+			return (T) converter.toExternal(result);
+		} else {
+			return result;
+		}
 	}
 
 	@Override
 	public TypeInformation<GenericRowData> getAccumulatorType() {
 		LogicalType[] fieldTypes = new LogicalType[] {
-				fromTypeInfoToLogicalType(getResultType()),
+				fromTypeInfoToLogicalType(getDynamicResultType()),
 				new BigIntType()
 		};
 
@@ -121,6 +147,22 @@ public abstract class FirstValueAggFunction<T> extends AggregateFunction<T, Gene
 		@Override
 		public TypeInformation<Byte> getResultType() {
 			return Types.BYTE;
+		}
+	}
+
+	public static class ObjectFirstValueAggFunction extends FirstValueAggFunction<Object> {
+
+		private final TypeInformation<?> typeInformation;
+
+		public ObjectFirstValueAggFunction(TypeInformation<?> typeInformation) {
+			this.typeInformation = typeInformation;
+			this.converter = DataStructureConverters.getConverter(
+				LegacyTypeInfoDataTypeConverter.toDataType(typeInformation));
+		}
+
+		@Override
+		public TypeInformation<?> getDynamicResultType() {
+			return typeInformation;
 		}
 	}
 
