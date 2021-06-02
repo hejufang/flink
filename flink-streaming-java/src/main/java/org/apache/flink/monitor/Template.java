@@ -1764,7 +1764,10 @@ public class Template {
 			"			\"titleSize\": \"h6\"\n" +
 			"		}";
 
-	public static final String KAFKA_LATENCY = "{\n" +
+	/**
+	 * Kafka latency template, replace the ID, title in it.
+	 */
+	public static final String KAFKA_LATENCY_TEMPLATE = "{\n" +
 		"			\"collapse\": false,\n" +
 		"			\"height\": 250,\n" +
 		"			\"panels\": [\n" +
@@ -1775,7 +1778,7 @@ public class Template {
 		"					\"dashes\": false,\n" +
 		"					\"datasource\": \"${datasource}\",\n" +
 		"					\"fill\": 1,\n" +
-		"					\"id\": 11,\n" +
+		"					\"id\": %s,\n" +
 		"					\"legend\": {\n" +
 		"						\"alignAsTable\": true,\n" +
 		"						\"avg\": true,\n" +
@@ -1805,7 +1808,7 @@ public class Template {
 		"					\"thresholds\": [],\n" +
 		"					\"timeFrom\": null,\n" +
 		"					\"timeShift\": null,\n" +
-		"					\"title\": \"Kafka Latency\",\n" +
+		"					\"title\": \"%s\",\n" +
 		"					\"tooltip\": {\n" +
 		"						\"shared\": true,\n" +
 		"						\"sort\": 0,\n" +
@@ -1847,6 +1850,12 @@ public class Template {
 		"			\"titleSize\": \"h6\"\n" +
 		"		}";
 
+	public static final String KAFKA_LATENCY = String.format(KAFKA_LATENCY_TEMPLATE, 11, "Kafka Latency");
+
+	public static final String KAFKA_FETCH_LATENCY = String.format(KAFKA_LATENCY_TEMPLATE, 25, "Kafka Fetch Latency");
+
+	public static final String KAFKA_PRODUCE_LATENCY = String.format(KAFKA_LATENCY_TEMPLATE, 26, "Kafka Process Latency");
+
 	public static final String KAFKA_OFFSET_TARGET = "{\n" +
 			"							\"aggregator\": \"sum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
@@ -1877,6 +1886,36 @@ public class Template {
 		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${kafka_source}.fetch_latency_max\",\n" +
+		"							\"refId\": \"R\"\n" +
+		"						}";
+
+	public static final String KAFKA_PRODUCE_LATENCY_TARGET = "{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"${kafka_topic_prefix}.${topic}.produce.latency.max\",\n" +
+		"							\"refId\": \"P\"\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"${kafka_topic_prefix}.${topic}.produce.latency.avg\",\n" +
+		"							\"refId\": \"R\"\n" +
+		"						}";
+
+	public static final String KAFKA_FETCH_LATENCY_TARGET = "{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"${kafka_topic_prefix}.${consumer}.fetch.latency.max\",\n" +
+		"							\"refId\": \"P\"\n" +
+		"						},\n" +
+		"						{\n" +
+		"							\"aggregator\": \"max\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
+		"							\"downsampleFillPolicy\": \"none\",\n" +
+		"							\"metric\": \"${kafka_topic_prefix}.${consumer}.fetch.latency.avg\",\n" +
 		"							\"refId\": \"R\"\n" +
 		"						}";
 

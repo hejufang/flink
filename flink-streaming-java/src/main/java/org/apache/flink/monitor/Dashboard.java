@@ -19,6 +19,7 @@ package org.apache.flink.monitor;
 
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.monitor.utils.HttpUtil;
+import org.apache.flink.monitor.utils.KafkaUtil;
 import org.apache.flink.monitor.utils.Utils;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.streaming.api.graph.StreamGraph;
@@ -81,12 +82,18 @@ public class Dashboard {
 		return jobInfoRow;
 	}
 
-	private String renderKafkaLagSizeRow(List<String> lags) {
+	private String renderKafkaLagSizeRow(JSONArray jsonArray, String kafkaServerUrl) {
 		String lagSizeTargetTemplate = Template.KAFKA_LAG_SIZE_TARGET;
 		List<String> lagsList = new ArrayList<>();
-		for (String l : lags) {
+		for (Object object : jsonArray) {
+			JSONObject jsonObject = (JSONObject) object;
+			String kafkaCluster = (String) jsonObject.get("cluster");
+			String kafkaTopicPrefix = KafkaUtil.getKafkaPrefix(kafkaCluster, kafkaServerUrl).getTopicMetricPrefix();
+			String topic = (String) jsonObject.get("topic");
+			String consumer = (String) jsonObject.get("consumer");
+			String lagMetric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, consumer);
 			Map<String, String> lagSizeTargetValues = new HashMap<>();
-			lagSizeTargetValues.put("lag", l);
+			lagSizeTargetValues.put("lag", lagMetric);
 			lagsList.add(renderString(lagSizeTargetTemplate, lagSizeTargetValues));
 		}
 		String targets = String.join(",", lagsList);
@@ -96,6 +103,52 @@ public class Dashboard {
 		String lagSizeTemplate = Template.KAFKA_LAG_SIZE;
 		String lagSizeRow = renderString(lagSizeTemplate, lagSizeValues);
 		return lagSizeRow;
+	}
+
+	private String renderKafkaProduceLatencyRow(JSONArray jsonArray, String kafkaServerUrl) {
+		String kafkaLatencyTargetTemplate = Template.KAFKA_PRODUCE_LATENCY_TARGET;
+		List<String> kafkaLatencyList = new ArrayList<>();
+		for (Object object : jsonArray) {
+			JSONObject jsonObject = (JSONObject) object;
+			String kafkaCluster = (String) jsonObject.get("cluster");
+			String clientRelatedMetricPrefixNew =
+				KafkaUtil.getKafkaPrefix(kafkaCluster, kafkaServerUrl).getClientRelatedMetricPrefixNew();
+			String topic = (String) jsonObject.get("topic");
+			Map<String, String> kafkaLatencyTargetValues = new HashMap<>();
+			kafkaLatencyTargetValues.put("kafka_topic_prefix", clientRelatedMetricPrefixNew);
+			kafkaLatencyTargetValues.put("topic", topic);
+			kafkaLatencyList.add(renderString(kafkaLatencyTargetTemplate, kafkaLatencyTargetValues));
+		}
+		String targets = String.join(",", kafkaLatencyList);
+		Map<String, String> kafkaProduceValues = new HashMap<>();
+		kafkaProduceValues.put("targets", targets);
+		kafkaProduceValues.put("datasource", dataSource);
+		String kafkaLatencyTemplate = Template.KAFKA_PRODUCE_LATENCY;
+		String kafkaLatencyRow = renderString(kafkaLatencyTemplate, kafkaProduceValues);
+		return kafkaLatencyRow;
+	}
+
+	private String renderKafkaFetchLatencyRow(JSONArray jsonArray, String kafkaServerUrl) {
+		String kafkaLatencyTargetTemplate = Template.KAFKA_FETCH_LATENCY_TARGET;
+		List<String> kafkaLatencyList = new ArrayList<>();
+		for (Object object : jsonArray) {
+			JSONObject jsonObject = (JSONObject) object;
+			String kafkaCluster = (String) jsonObject.get("cluster");
+			String clientRelatedMetricPrefixNew =
+				KafkaUtil.getKafkaPrefix(kafkaCluster, kafkaServerUrl).getClientRelatedMetricPrefixNew();
+			String consumer = (String) jsonObject.get("consumer");
+			Map<String, String> kafkaLatencyTargetValues = new HashMap<>();
+			kafkaLatencyTargetValues.put("kafka_topic_prefix", clientRelatedMetricPrefixNew);
+			kafkaLatencyTargetValues.put("consumer", consumer);
+			kafkaLatencyList.add(renderString(kafkaLatencyTargetTemplate, kafkaLatencyTargetValues));
+		}
+		String targets = String.join(",", kafkaLatencyList);
+		Map<String, String> kafkaProduceValues = new HashMap<>();
+		kafkaProduceValues.put("targets", targets);
+		kafkaProduceValues.put("datasource", dataSource);
+		String kafkaLatencyTemplate = Template.KAFKA_FETCH_LATENCY;
+		String kafkaLatencyRow = renderString(kafkaLatencyTemplate, kafkaProduceValues);
+		return kafkaLatencyRow;
 	}
 
 	private String renderRocketMQLagSizeRow(JSONArray rocketMQConfArray) {
@@ -393,11 +446,16 @@ public class Dashboard {
 		String kafkaServerUrl = System.getProperty(ConfigConstants.KAFKA_SERVER_URL_KEY,
 			ConfigConstants.KAFKA_SERVER_URL_DEFAUL);
 		JSONArray rocketmqConfigArray = Utils.getRocketMQConfigurations();
-		List<String> kafkaMetricsList = Utils.getKafkaLagSizeMetrics(kafkaServerUrl);
-		if (!kafkaMetricsList.isEmpty()) {
-			rows.add(renderKafkaLagSizeRow(kafkaMetricsList));
+		JSONArray kafkaTopics = Utils.getKafkaSourceTopics();
+		if (!kafkaTopics.isEmpty()) {
+			rows.add(renderKafkaLagSizeRow(kafkaTopics, kafkaServerUrl));
+			rows.add(renderKafkaFetchLatencyRow(kafkaTopics, kafkaServerUrl));
 			rows.add(renderKafkaOffsetRow(sources));
 			rows.add(renderKafkaLatencyRow(sources));
+		}
+		JSONArray kafkaProduceTopics = Utils.getKafkaSinkTopics();
+		if (!kafkaProduceTopics.isEmpty()) {
+			rows.add(renderKafkaProduceLatencyRow(kafkaProduceTopics, kafkaServerUrl));
 		}
 		if (!rocketmqConfigArray.isEmpty()) {
 			rows.add(renderRocketMQLagSizeRow(rocketmqConfigArray));

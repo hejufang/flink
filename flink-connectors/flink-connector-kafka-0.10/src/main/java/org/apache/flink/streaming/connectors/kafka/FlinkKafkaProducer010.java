@@ -31,8 +31,15 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartiti
 import org.apache.flink.streaming.connectors.kafka.partitioner.KafkaPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.RoundRobinPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
+import org.apache.flink.util.StringUtils;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -45,6 +52,8 @@ import java.util.Properties;
 public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 
 	private static final long serialVersionUID = 1L;
+
+	private static final Logger LOG = LoggerFactory.getLogger(FlinkKafkaProducer010.class);
 
 	/**
 	 * Flag controlling whether we are writing the Flink record's timestamp into Kafka.
@@ -204,8 +213,22 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 			KeyedSerializationSchema<T> serializationSchema,
 			Properties producerConfig,
 			@Nullable FlinkKafkaPartitioner<T> customPartitioner) {
-
 		super(topicId, serializationSchema, producerConfig, customPartitioner);
+		String kafkaClusterName = producerConfig.getProperty("cluster");
+		if (!StringUtils.isNullOrWhitespaceOnly(kafkaClusterName)) {
+			String kafkaMetricsStr = System.getProperty("flink_kafka_produce_metrics", "[]");
+			JSONParser parser = new JSONParser();
+			try {
+				JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
+				JSONObject jsonObject = new JSONObject();
+				jsonObject.put("cluster", kafkaClusterName);
+				jsonObject.put("topic", topicId);
+				jsonArray.add(jsonObject);
+				System.setProperty("flink_kafka_produce_metrics", jsonArray.toJSONString());
+			} catch (ParseException e) {
+				LOG.error("Parse kafka metrics failed", e);
+			}
+		}
 	}
 
 	// ------------------- User configuration ----------------------
