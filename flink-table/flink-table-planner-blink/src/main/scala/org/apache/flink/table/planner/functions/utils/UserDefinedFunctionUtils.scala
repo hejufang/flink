@@ -554,7 +554,7 @@ object UserDefinedFunctionUtils {
       userDefinedAggregateFunction: UserDefinedAggregateFunction[_, _],
       extractedType: DataType = null): DataType = {
 
-    val resultType = userDefinedAggregateFunction.getDynamicResultType
+    val resultType = userDefinedAggregateFunction.getResultType
     if (resultType != null) {
       fromLegacyInfoToDataType(resultType)
     } else if (extractedType != null) {

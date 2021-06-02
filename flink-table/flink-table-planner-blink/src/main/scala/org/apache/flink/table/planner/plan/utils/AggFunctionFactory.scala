@@ -40,7 +40,6 @@ import org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter
 import org.apache.flink.table.runtime.typeutils.DecimalDataTypeInfo
 import org.apache.flink.table.types.logical.LogicalTypeRoot._
 import org.apache.flink.table.types.logical._
-import org.apache.flink.table.types.utils.{LegacyTypeInfoDataTypeConverter, LogicalTypeDataTypeConverter}
 import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.sql.fun._
@@ -131,10 +130,6 @@ class AggFunctionFactory(
       case _: SqlSingleValueAggFunction =>
         createSingleValueAggFunction(argTypes)
 
-      // Currently, First/Last Value builtin functions are implemented with old type
-      // inference. Hence we can only get outside data type for accumulate method.
-      // It's hard to use for First/Last Value with retract version, because
-      // we cannot guarantee all types can be key in MapView, e.t. array.
       case a: SqlFirstLastValueAggFunction if a.getKind == SqlKind.FIRST_VALUE =>
         createFirstValueAggFunction(argTypes, index, ignoreRetract = false)
 
@@ -647,10 +642,9 @@ class AggFunctionFactory(
             val d = argTypes(0).asInstanceOf[DecimalType]
             new DecimalFirstValueIgnoreRetractAggFunction(
               DecimalDataTypeInfo.of(d.getPrecision, d.getScale))
-          case _ =>
-            val dataType = LogicalTypeDataTypeConverter.toDataType(argTypes(0))
-            val typeInfo = LegacyTypeInfoDataTypeConverter.toLegacyTypeInfo(dataType)
-            new ObjectFirstValueIgnoreRetractAggFunction(typeInfo)
+          case t =>
+            throw new TableException(s"FIRST_VALUE ignoring retract aggregate function does not " +
+              s"support type: ''$t''.\nPlease re-check the data type.")
         }
       } else {
         argTypes(0).getTypeRoot match {
@@ -700,10 +694,9 @@ class AggFunctionFactory(
         case DECIMAL =>
           val d = argTypes(0).asInstanceOf[DecimalType]
           new DecimalFirstValueAggFunction(DecimalDataTypeInfo.of(d.getPrecision, d.getScale))
-        case _ =>
-          val dataType = LogicalTypeDataTypeConverter.toDataType(argTypes(0))
-          val typeInfo = LegacyTypeInfoDataTypeConverter.toLegacyTypeInfo(dataType)
-          new ObjectFirstValueAggFunction(typeInfo)
+        case t =>
+          throw new TableException(s"FIRST_VALUE aggregate function does not support " +
+            s"type: ''$t''.\nPlease re-check the data type.")
       }
     }
   }
@@ -713,6 +706,7 @@ class AggFunctionFactory(
       index: Int,
       ignoreRetract: Boolean): UserDefinedFunction = {
     if (needRetraction(index)) {
+      print("need retract")
       if (ignoreRetract) {
         argTypes(0).getTypeRoot match {
           case TINYINT =>
@@ -735,10 +729,9 @@ class AggFunctionFactory(
             val d = argTypes(0).asInstanceOf[DecimalType]
             new DecimalLastValueIgnoreRetractAggFunction(
               DecimalDataTypeInfo.of(d.getPrecision, d.getScale))
-          case _ =>
-            val dataType = LogicalTypeDataTypeConverter.toDataType(argTypes(0))
-            val typeInfo = LegacyTypeInfoDataTypeConverter.toLegacyTypeInfo(dataType)
-            new ObjectLastValueIgnoreRetractAggFunction(typeInfo)
+          case t =>
+            throw new TableException(s"LAST_VALUE with retract aggregate function does not " +
+              s"support type: ''$t''.\nPlease re-check the data type.")
         }
       } else {
         argTypes(0).getTypeRoot match {
@@ -788,10 +781,9 @@ class AggFunctionFactory(
         case DECIMAL =>
           val d = argTypes(0).asInstanceOf[DecimalType]
           new DecimalLastValueAggFunction(DecimalDataTypeInfo.of(d.getPrecision, d.getScale))
-        case _ =>
-          val dataType = LogicalTypeDataTypeConverter.toDataType(argTypes(0))
-          val typeInfo = LegacyTypeInfoDataTypeConverter.toLegacyTypeInfo(dataType)
-          new ObjectLastValueAggFunction(typeInfo)
+        case t =>
+          throw new TableException(s"LAST_VALUE aggregate function does not support " +
+            s"type: ''$t''.\nPlease re-check the data type.")
       }
     }
   }

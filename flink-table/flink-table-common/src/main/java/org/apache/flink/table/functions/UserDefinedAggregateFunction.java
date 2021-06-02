@@ -47,17 +47,6 @@ public abstract class UserDefinedAggregateFunction<T, ACC> extends UserDefinedFu
 	}
 
 	/**
-	 * Returns the {@link TypeInformation} of the {@link UserDefinedAggregateFunction}'s result.
-	 * Compared with {@link #getResultType()}, this method can return any type.
-	 * CAUTION: This is added for implementing complex operand types for some internal aggregate
-	 * functions, e.t. `LAST_VALUE`, `FIRST_VALUE`.
-	 * Users should not use this method, we may change this anytime.
-	 */
-	public TypeInformation<?> getDynamicResultType() {
-		return getResultType();
-	}
-
-	/**
 	 * Returns the {@link TypeInformation} of the {@link UserDefinedAggregateFunction}'s accumulator.
 	 *
 	 * @return The {@link TypeInformation} of the {@link UserDefinedAggregateFunction}'s accumulator
