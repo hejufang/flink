@@ -104,13 +104,10 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		this.converter = converter;
 		this.keyFieldIndex = options.getKeyIndex();
 		this.fieldGetters = fieldGetters;
-		if (deserializationSchema == null && (lookupOptions.isSpecifyHashKeys()
-			|| options.getRedisValueType().equals(RedisValueType.GENERAL))) {
+		if ((options.getRedisValueType().equals(RedisValueType.HASH) && lookupOptions.isSpecifyHashKeys())
+			|| options.getRedisValueType().equals(RedisValueType.GENERAL)) {
 			this.stringValueConverters = Arrays.stream(fieldTypes)
 				.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
-		} else if (deserializationSchema != null && keyFieldIndex >= 0) {
-			this.stringValueConverters = new StringValueConverters.StringValueConverter[]
-				{StringValueConverters.getConverter(fieldTypes[keyFieldIndex])};
 		} else {
 			this.stringValueConverters = null;
 		}
@@ -173,7 +170,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 				RowData row = null;
 				Object key = keys[0];
 				if (deserializationSchema != null) {
-					row = lookupWithSchema(key.toString(), jedis);
+					row = lookupWithSchema(key, jedis);
 				} else if (lookupOptions.isSpecifyHashKeys()) {
 					row = getHashValueForKeysSpecified(key.toString(), jedis);
 				} else {
@@ -214,10 +211,10 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		}
 	}
 
-	private RowData lookupWithSchema(String key, Jedis jedis) throws IOException {
+	private RowData lookupWithSchema(Object key, Jedis jedis) throws IOException {
 		byte[] value;
 		try {
-			value = jedis.get(key.getBytes());
+			value = jedis.get(key.toString().getBytes());
 		} catch (JedisDataException e) {
 			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
 				"Related command: 'get key'.", key), e);
@@ -231,7 +228,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			for (int i = 0; i < row.getArity(); i++) {
 				valueList.add(fieldGetters[i].getFieldOrNull(row));
 			}
-			valueList.add(keyFieldIndex, stringValueConverters[0].toInternal(key));
+			valueList.add(keyFieldIndex, key);
 			return GenericRowData.of(valueList.toArray(new Object[0]));
 		}
 		return row;
