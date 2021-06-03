@@ -146,6 +146,8 @@ public class SlotPoolImpl implements SlotPool {
 
 	private boolean batchSlotRequestTimeoutCheckEnabled;
 
+	private boolean isRunning = false;
+
 	// ------------------------------------------------------------------------
 
 	@VisibleForTesting
@@ -244,6 +246,7 @@ public class SlotPoolImpl implements SlotPool {
 		this.jobMasterId = jobMasterId;
 		this.jobManagerAddress = newJobManagerAddress;
 		this.componentMainThreadExecutor = componentMainThreadExecutor;
+		this.isRunning = true;
 
 		scheduleRunAsync(this::checkIdleSlot, idleSlotTimeout);
 		scheduleRunAsync(this::checkBatchSlotTimeout, batchSlotTimeout);
@@ -262,6 +265,7 @@ public class SlotPoolImpl implements SlotPool {
 		componentMainThreadExecutor.assertRunningInMainThread();
 
 		log.info("Suspending SlotPool for job {}.", jobId);
+		this.isRunning = false;
 
 		cancelPendingSlotRequests();
 
@@ -289,6 +293,7 @@ public class SlotPoolImpl implements SlotPool {
 	@Override
 	public void close() {
 		log.info("Stopping SlotPool for job {}.", jobId);
+		this.isRunning = false;
 
 		cancelPendingSlotRequests();
 
@@ -990,6 +995,9 @@ public class SlotPoolImpl implements SlotPool {
 	 * Check the available slots, release the slot that is idle for a long time.
 	 */
 	protected void checkIdleSlot() {
+		if (!this.isRunning) {
+			return;
+		}
 
 		// The timestamp in SlotAndTimestamp is relative
 		final long currentRelativeTimeMillis = clock.relativeTimeMillis();
@@ -1042,6 +1050,10 @@ public class SlotPoolImpl implements SlotPool {
 
 	protected void checkBatchSlotTimeout() {
 		if (!batchSlotRequestTimeoutCheckEnabled) {
+			return;
+		}
+
+		if (!this.isRunning) {
 			return;
 		}
 
