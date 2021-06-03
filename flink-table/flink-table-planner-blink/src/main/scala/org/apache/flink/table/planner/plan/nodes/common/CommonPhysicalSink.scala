@@ -90,6 +90,9 @@ class CommonPhysicalSink (
           dataStream.disableChaining()
         }
         provider.consumeDataStream(dataStream).getTransformation.asInstanceOf[Transformation[Any]]
+          // set useDefaultParallelism to true, so that we can overwrite parallelism for it
+          // when pipeline.use-max-source-parallelism-as-default-parallelism is true.
+          .setUseDefaultParallelism(true)
       case _ =>
         val sinkFunction = runtimeProvider match {
           case provider: SinkFunctionProvider => {
