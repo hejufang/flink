@@ -1238,7 +1238,7 @@ public class Template {
 		"					},\n" +
 		"					\"yaxes\": [\n" +
 		"						{\n" +
-		"							\"format\": \"ms\",\n" +
+		"							\"format\": \"µs\",\n" +
 		"							\"label\": null,\n" +
 		"							\"logBase\": 1,\n" +
 		"							\"max\": null,\n" +
