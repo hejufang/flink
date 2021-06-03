@@ -179,7 +179,8 @@ object AggregateUtil extends Enumeration {
     val input = aggNode.getInput(0)
     // need to call `retract()` if input contains update or delete
     val modifyKindSetTrait = input.getTraitSet.getTrait(ModifyKindSetTraitDef.INSTANCE)
-    val needRetraction = if (modifyKindSetTrait == null) {
+    val needRetraction = if (modifyKindSetTrait == null ||
+        modifyKindSetTrait.modifyKindSet.isEmpty) {
       // FlinkChangelogModeInferenceProgram is not applied yet, false as default
       false
     } else {

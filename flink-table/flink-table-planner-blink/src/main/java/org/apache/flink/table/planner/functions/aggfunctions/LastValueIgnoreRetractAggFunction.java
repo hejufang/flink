@@ -24,13 +24,15 @@ import org.apache.flink.table.data.DecimalData;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.binary.BinaryStringData;
+import org.apache.flink.table.data.conversion.DataStructureConverters;
 import org.apache.flink.table.runtime.typeutils.DecimalDataTypeInfo;
 import org.apache.flink.table.runtime.typeutils.StringDataTypeInfo;
+import org.apache.flink.table.types.utils.LegacyTypeInfoDataTypeConverter;
 
 /**
  * built-in LastValue aggregate function ignoring retraction.
  */
-public class LastValueIgnoreRetractAggFunction<T> extends LastValueAggFunction {
+public class LastValueIgnoreRetractAggFunction<T> extends LastValueAggFunction<T> {
 
 	public void retract(GenericRowData acc, Object value) {
 	}
@@ -46,6 +48,25 @@ public class LastValueIgnoreRetractAggFunction<T> extends LastValueAggFunction {
 		@Override
 		public TypeInformation<Byte> getResultType() {
 			return Types.BYTE;
+		}
+	}
+
+	/**
+	 * Built-in Object LastValue aggregate function ignoring retraction.
+	 */
+	public static class ObjectLastValueIgnoreRetractAggFunction extends LastValueIgnoreRetractAggFunction<Object> {
+
+		private final TypeInformation<?> typeInformation;
+
+		public ObjectLastValueIgnoreRetractAggFunction(TypeInformation<?> typeInformation) {
+			this.typeInformation = typeInformation;
+			this.converter = DataStructureConverters.getConverter(
+				LegacyTypeInfoDataTypeConverter.toDataType(typeInformation));
+		}
+
+		@Override
+		public TypeInformation<?> getDynamicResultType() {
+			return typeInformation;
 		}
 	}
 

@@ -1311,4 +1311,92 @@ class AggregateITCase(
 
     assertEquals(expected.sorted, sink.getRetractResults.sorted)
   }
+
+  @Test
+  def testFirstLastValueWithComplexDataType(): Unit = {
+    env.setParallelism(1)
+    val dataId = TestValuesTableFactory.registerData(TestData.fullDataTypesData)
+    tEnv.executeSql(
+      s"""
+         |CREATE TABLE T (
+         |  `a` BOOLEAN,
+         |  `b` TINYINT,
+         |  `c` SMALLINT,
+         |  `d` INT,
+         |  `e` BIGINT,
+         |  `f` FLOAT,
+         |  `g` DOUBLE,
+         |  `h` DECIMAL(5, 2),
+         |  `i` VARCHAR(5),
+         |  `j` CHAR(5),
+         |  `k` DATE,
+         |  `l` TIME(0),
+         |  `m` TIMESTAMP(3),
+         |  `n` TIMESTAMP(3) WITH LOCAL TIME ZONE,
+         |  `o` ARRAY<BIGINT>,
+         |  `p` ROW<f1 BIGINT, f2 STRING, f3 DOUBLE>,
+         |  `q` MAP<STRING, INT>
+         |) WITH (
+         |  'connector' = 'values',
+         |  'data-id' = '$dataId'
+         |)
+         |""".stripMargin
+    )
+
+    val sqlQuery =
+      """
+        |SELECT
+        |  LAST_VALUE(`a`),
+        |  LAST_VALUE(`b`),
+        |  LAST_VALUE(`c`),
+        |  LAST_VALUE(`d`),
+        |  LAST_VALUE(`e`),
+        |  LAST_VALUE(`f`),
+        |  LAST_VALUE(`g`),
+        |  LAST_VALUE(`h`),
+        |  LAST_VALUE(`i`),
+        |  LAST_VALUE(`j`),
+        |  LAST_VALUE(`k`),
+        |  LAST_VALUE(`l`),
+        |  LAST_VALUE(`m`),
+        |  LAST_VALUE(`n`),
+        |  LAST_VALUE(`o`),
+        |  LAST_VALUE(`p`),
+        |  LAST_VALUE(`q`),
+        |  FIRST_VALUE(`a`),
+        |  FIRST_VALUE(`b`),
+        |  FIRST_VALUE(`c`),
+        |  FIRST_VALUE(`d`),
+        |  FIRST_VALUE(`e`),
+        |  FIRST_VALUE(`f`),
+        |  FIRST_VALUE(`g`),
+        |  FIRST_VALUE(`h`),
+        |  FIRST_VALUE(`i`),
+        |  FIRST_VALUE(`j`),
+        |  FIRST_VALUE(`k`),
+        |  FIRST_VALUE(`l`),
+        |  FIRST_VALUE(`m`),
+        |  FIRST_VALUE(`n`),
+        |  FIRST_VALUE(`o`),
+        |  FIRST_VALUE(`p`),
+        |  FIRST_VALUE(`q`)
+        |FROM T
+        """.stripMargin
+
+    val result = tEnv.sqlQuery(sqlQuery).toRetractStream[Row]
+
+    val sink = new TestingRetractSink()
+    result.addSink(sink)
+    env.execute()
+
+    val expected = Seq(
+      "false,5,4,123,1234,1.2345,1.2345,8.12,1234,1234,2020-05-01,23:23:23," +
+        "2020-05-01T23:23:23,2020-05-01T23:23:23Z,[8],4,c,null,{null=3},true," +
+        "127,32767,2147483647,9223372036854775807,-1.123,-1.123,5.10,1,1,1969-01-01," +
+        "00:00:00.123,1969-01-01T00:00:00.123,1969-01-01T00:00:00.123Z,[1, 2, 3]," +
+        "1,a,2.3,{k1=1}"
+    )
+    assertEquals(expected.sorted.mkString("\n"), sink.getRetractResults.sorted.mkString("\n"))
+
+  }
 }
