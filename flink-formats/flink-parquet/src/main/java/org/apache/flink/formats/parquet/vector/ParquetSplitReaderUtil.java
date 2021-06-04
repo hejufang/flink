@@ -79,6 +79,13 @@ import static org.apache.parquet.Preconditions.checkArgument;
  */
 public class ParquetSplitReaderUtil {
 
+	private static final String TYPE_MISMATCH_ERROR_TEMPLATE_1 =
+		"Expected type for column '%s' is: '%s', but get '%s' in parquet file.";
+
+	private static final String TYPE_MISMATCH_ERROR_TEMPLATE_2 =
+		"Expected type for column '%s' is: '%s' or '%s' and expected originalType is %s, " +
+			"but the real type is '%s' and originalType is '%s' in parquet file.";
+
 	/**
 	 * Util for generating partitioned {@link ParquetColumnarRowSplitReader}.
 	 */
@@ -321,57 +328,40 @@ public class ParquetSplitReaderUtil {
 			LogicalType fieldType,
 			PrimitiveType primitiveType) {
 		PrimitiveType.PrimitiveTypeName typeName = primitiveType.getPrimitiveTypeName();
+		String columnName = primitiveType.getName();
 		switch (fieldType.getTypeRoot()) {
 			case BOOLEAN:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.BOOLEAN,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.BOOLEAN);
 				return new HeapBooleanVector(batchSize);
 			case TINYINT:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.INT32,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.INT32);
 				return new HeapByteVector(batchSize);
 			case DOUBLE:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.DOUBLE,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.DOUBLE);
 				return new HeapDoubleVector(batchSize);
 			case FLOAT:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.FLOAT,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.FLOAT);
 				return new HeapFloatVector(batchSize);
 			case INTEGER:
 			case DATE:
 			case TIME_WITHOUT_TIME_ZONE:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.INT32,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.INT32);
 				return new HeapIntVector(batchSize);
 			case BIGINT:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.INT64,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.INT64);
 				return new HeapLongVector(batchSize);
 			case SMALLINT:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.INT32,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.INT32);
 				return new HeapShortVector(batchSize);
 			case CHAR:
 			case VARCHAR:
 			case BINARY:
 			case VARBINARY:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.BINARY,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.BINARY);
 				return new HeapBytesVector(batchSize);
 			case TIMESTAMP_WITHOUT_TIME_ZONE:
 			case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-				checkArgument(
-						typeName == PrimitiveType.PrimitiveTypeName.INT96,
-						"Unexpected type: %s", typeName);
+				typeCheck(columnName, typeName, PrimitiveType.PrimitiveTypeName.INT96);
 				return new HeapTimestampVector(batchSize);
 			case DECIMAL:
 				DecimalType decimalType = (DecimalType) fieldType;
@@ -380,25 +370,51 @@ public class ParquetSplitReaderUtil {
 							(typeName == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY ||
 									typeName == PrimitiveType.PrimitiveTypeName.INT32) &&
 									primitiveType.getOriginalType() == OriginalType.DECIMAL,
-							"Unexpected type: %s", typeName);
+						TYPE_MISMATCH_ERROR_TEMPLATE_2,
+						columnName,
+						PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY,
+						PrimitiveType.PrimitiveTypeName.INT32,
+						OriginalType.DECIMAL,
+						typeName,
+						primitiveType.getOriginalType());
 					return new HeapIntVector(batchSize);
 				} else if (DecimalDataUtils.is64BitDecimal(decimalType.getPrecision())) {
 					checkArgument(
-							(typeName == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY ||
-									typeName == PrimitiveType.PrimitiveTypeName.INT64) &&
-									primitiveType.getOriginalType() == OriginalType.DECIMAL,
-							"Unexpected type: %s", typeName);
+						(typeName == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY ||
+							typeName == PrimitiveType.PrimitiveTypeName.INT64) &&
+							primitiveType.getOriginalType() == OriginalType.DECIMAL,
+						TYPE_MISMATCH_ERROR_TEMPLATE_2,
+						columnName,
+						PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY,
+						PrimitiveType.PrimitiveTypeName.INT64,
+						OriginalType.DECIMAL,
+						typeName,
+						primitiveType.getOriginalType());
 					return new HeapLongVector(batchSize);
 				} else {
 					checkArgument(
-							(typeName == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY ||
-									typeName == PrimitiveType.PrimitiveTypeName.BINARY) &&
-									primitiveType.getOriginalType() == OriginalType.DECIMAL,
-							"Unexpected type: %s", typeName);
+						(typeName == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY ||
+							typeName == PrimitiveType.PrimitiveTypeName.BINARY) &&
+							primitiveType.getOriginalType() == OriginalType.DECIMAL,
+						TYPE_MISMATCH_ERROR_TEMPLATE_2,
+						columnName,
+						PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY,
+						PrimitiveType.PrimitiveTypeName.BINARY,
+						OriginalType.DECIMAL,
+						typeName,
+						primitiveType.getOriginalType());
 					return new HeapBytesVector(batchSize);
 				}
 			default:
 				throw new UnsupportedOperationException(fieldType + " is not supported now.");
 		}
+	}
+
+	private static void typeCheck(
+			String columnName,
+			PrimitiveType.PrimitiveTypeName typeName,
+			PrimitiveType.PrimitiveTypeName expectedTypeName) {
+		checkArgument(typeName == expectedTypeName, TYPE_MISMATCH_ERROR_TEMPLATE_1,
+			columnName, expectedTypeName, typeName);
 	}
 }
