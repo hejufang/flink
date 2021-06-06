@@ -37,6 +37,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -71,6 +72,8 @@ public class SystemProcessingTimeService implements TimerService {
 
 	private final com.codahale.metrics.Histogram dropwizardHistogram;
 
+	private final AtomicLong numberOfTriggerTimers;
+
 	@VisibleForTesting
 	SystemProcessingTimeService(ExceptionHandler exceptionHandler) {
 		this(exceptionHandler, null, UnregisteredMetricGroups.createUnregisteredTaskMetricGroup());
@@ -96,11 +99,12 @@ public class SystemProcessingTimeService implements TimerService {
 		this.timerService.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
 
 		this.dropwizardHistogram = new com.codahale.metrics.Histogram(new com.codahale.metrics.SlidingWindowReservoir(128));
+		numberOfTriggerTimers = new AtomicLong(0L);
 
 		this.metricGroup = metricGroup;
 		this.metricGroup.gauge(PROCESSING_TIMER_LATENCY_MAX, (GrafanaGauge<Long>) () -> dropwizardHistogram.getSnapshot().getMax());
 		this.metricGroup.gauge(PROCESSING_TIMER_LATENCY_MIN, (GrafanaGauge<Long>) () -> dropwizardHistogram.getSnapshot().getMin());
-		this.metricGroup.gauge(PROCESSING_TIMER_TRIGGER_COUNT, (GrafanaGauge<Long>) dropwizardHistogram::getCount);
+		this.metricGroup.gauge(PROCESSING_TIMER_TRIGGER_COUNT, (GrafanaGauge<Long>) numberOfTriggerTimers::get);
 	}
 
 	@Override
@@ -292,11 +296,11 @@ public class SystemProcessingTimeService implements TimerService {
 	}
 
 	private Runnable wrapOnTimerCallback(ProcessingTimeCallback callback, long timestamp) {
-		return new ScheduledTask(status, exceptionHandler, callback, timestamp, 0, dropwizardHistogram);
+		return new ScheduledTask(status, exceptionHandler, callback, timestamp, 0, dropwizardHistogram, numberOfTriggerTimers);
 	}
 
 	private Runnable wrapOnTimerCallback(ProcessingTimeCallback callback, long nextTimestamp, long period) {
-		return new ScheduledTask(status, exceptionHandler, callback, nextTimestamp, period, dropwizardHistogram);
+		return new ScheduledTask(status, exceptionHandler, callback, nextTimestamp, period, dropwizardHistogram, numberOfTriggerTimers);
 	}
 
 	private static final class ScheduledTask implements Runnable {
@@ -308,6 +312,7 @@ public class SystemProcessingTimeService implements TimerService {
 		private final long period;
 
 		private final com.codahale.metrics.Histogram dropwizardHistogram;
+		private final AtomicLong numberOfTriggerTimers;
 
 		ScheduledTask(
 				AtomicInteger serviceStatus,
@@ -315,13 +320,15 @@ public class SystemProcessingTimeService implements TimerService {
 				ProcessingTimeCallback callback,
 				long timestamp,
 				long period,
-				com.codahale.metrics.Histogram dropwizardHistogram) {
+				com.codahale.metrics.Histogram dropwizardHistogram,
+				AtomicLong numberOfTriggerTimers) {
 			this.serviceStatus = serviceStatus;
 			this.exceptionHandler = exceptionHandler;
 			this.callback = callback;
 			this.nextTimestamp = timestamp;
 			this.period = period;
 			this.dropwizardHistogram = dropwizardHistogram;
+			this.numberOfTriggerTimers = numberOfTriggerTimers;
 		}
 
 		@Override
@@ -330,6 +337,7 @@ public class SystemProcessingTimeService implements TimerService {
 				return;
 			}
 			try {
+				callback.setNumberOfTriggeredTimersCounter(numberOfTriggerTimers);
 				callback.onProcessingTime(nextTimestamp);
 
 				long latency = System.currentTimeMillis() - nextTimestamp;

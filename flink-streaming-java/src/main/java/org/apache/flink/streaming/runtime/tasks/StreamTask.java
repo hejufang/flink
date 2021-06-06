@@ -98,6 +98,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base class for all streaming tasks. A task is the unit of local processing that is deployed
@@ -1268,12 +1269,20 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 
 	@VisibleForTesting
 	ProcessingTimeCallback deferCallbackToMailbox(MailboxExecutor mailboxExecutor, ProcessingTimeCallback callback) {
-		return timestamp -> {
-			mailboxExecutor.execute(
-				() -> invokeProcessingTimeCallback(callback, timestamp),
-				"Timer callback for %s @ %d",
-				callback,
-				timestamp);
+		return new ProcessingTimeCallback() {
+			@Override
+			public void onProcessingTime(long timestamp) throws Exception {
+				mailboxExecutor.execute(
+					() -> invokeProcessingTimeCallback(callback, timestamp),
+					"Timer callback for %s @ %d",
+					callback,
+					timestamp);
+			}
+
+			@Override
+			public void setNumberOfTriggeredTimersCounter(AtomicLong counter) {
+				callback.setNumberOfTriggeredTimersCounter(counter);
+			}
 		};
 	}
 

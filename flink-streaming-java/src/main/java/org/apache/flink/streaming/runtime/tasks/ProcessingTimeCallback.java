@@ -19,6 +19,9 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.streaming.api.operators.InternalTimerServiceImpl;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Interface for processing-time callbacks that can be registered at a
@@ -38,4 +41,11 @@ public interface ProcessingTimeCallback {
 	 * @param timestamp The timestamp for which the trigger event was scheduled.
 	 */
 	void onProcessingTime(long timestamp) throws Exception;
+
+	/**
+	 * Only to track the continuously triggered timers in
+	 * {@link InternalTimerServiceImpl.ContinuousProcessingTimerEmitter}.
+	 */
+	default void setNumberOfTriggeredTimersCounter(AtomicLong counter) {
+	}
 }

@@ -24,6 +24,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.runtime.state.InternalPriorityQueue;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupedInternalPriorityQueue;
+import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -35,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -199,7 +201,7 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 			// re-register the restored timers (if any)
 			final InternalTimer<K, N> headTimer = processingTimeTimersQueue.peek();
 			if (headTimer != null) {
-				nextTimer = processingTimeService.registerTimer(headTimer.getTimestamp(), this::onProcessingTime);
+				nextTimer = processingTimeService.registerTimer(headTimer.getTimestamp(), new ContinuousProcessingTimerEmitter());
 			}
 			this.isInitialized = true;
 		} else {
@@ -230,7 +232,7 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 				if (nextTimer != null) {
 					nextTimer.cancel(false);
 				}
-				nextTimer = processingTimeService.registerTimer(time, this::onProcessingTime);
+				nextTimer = processingTimeService.registerTimer(time, new ContinuousProcessingTimerEmitter());
 			}
 		}
 	}
@@ -280,7 +282,7 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 				if (nextTimer != null) {
 					nextTimer.cancel(false);
 				}
-				nextTimer = processingTimeService.registerTimer(time, this::onProcessingTime);
+				nextTimer = processingTimeService.registerTimer(time, new ContinuousProcessingTimerEmitter());
 			}
 		}
 	}
@@ -300,10 +302,11 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 		eventTimeTimersQueue.remove(new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace, payload));
 	}
 
-	private void onProcessingTime(long time) throws Exception {
+	private long onProcessingTime(long time) throws Exception {
 		// null out the timer in case the Triggerable calls registerProcessingTimeTimer()
 		// inside the callback.
 		nextTimer = null;
+		long numberOfTriggerTimers = 0;
 
 		InternalTimer<K, N> timer;
 
@@ -312,12 +315,14 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 			if (!filterOutdatedTimer || timer.getTimestamp() >= serviceInitTime) {
 				keyContext.setCurrentKey(timer.getKey());
 				triggerTarget.onProcessingTime(timer);
+				numberOfTriggerTimers++;
 			}
 		}
 
 		if (timer != null && nextTimer == null) {
-			nextTimer = processingTimeService.registerTimer(timer.getTimestamp(), this::onProcessingTime);
+			nextTimer = processingTimeService.registerTimer(timer.getTimestamp(), new ContinuousProcessingTimerEmitter());
 		}
+		return numberOfTriggerTimers;
 	}
 
 	public void advanceWatermark(long time) throws Exception {
@@ -443,5 +448,26 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 			result.add(Collections.unmodifiableSet(keyGroupedQueue.getSubsetForKeyGroup(keyGroup)));
 		}
 		return result;
+	}
+
+	/**
+	 * Wrapper for onProcessingTime().
+	 */
+	public class ContinuousProcessingTimerEmitter implements ProcessingTimeCallback {
+		private AtomicLong numberOfContinuousTriggeredTimers;
+
+		@Override
+		public void onProcessingTime(long timestamp) throws Exception {
+			if (numberOfContinuousTriggeredTimers != null) {
+				numberOfContinuousTriggeredTimers.addAndGet(InternalTimerServiceImpl.this.onProcessingTime(timestamp));
+			} else {
+				InternalTimerServiceImpl.this.onProcessingTime(timestamp);
+			}
+		}
+
+		@Override
+		public void setNumberOfTriggeredTimersCounter(AtomicLong counter) {
+			this.numberOfContinuousTriggeredTimers = counter;
+		}
 	}
 }

@@ -24,6 +24,7 @@ import org.apache.flink.util.concurrent.NeverCompleteFuture;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 @Internal
@@ -105,24 +106,32 @@ class ProcessingTimeServiceImpl implements ProcessingTimeService {
 
 	private ProcessingTimeCallback addQuiesceProcessingToCallback(ProcessingTimeCallback callback) {
 
-		return timestamp -> {
-			if (isQuiesced()) {
-				return;
+		return new ProcessingTimeCallback() {
+			@Override
+			public void onProcessingTime(long timestamp) throws Exception {
+				if (isQuiesced()) {
+					return;
+				}
+
+				numRunningTimers.incrementAndGet();
+				try {
+					// double check to deal with the race condition:
+					// before executing the previous line to increase the number of running timers,
+					// the quiesce-completed future is already completed as the number of running
+					// timers is 0 and "quiesced" is true
+					if (!isQuiesced()) {
+						callback.onProcessingTime(timestamp);
+					}
+				} finally {
+					if (numRunningTimers.decrementAndGet() == 0 && isQuiesced()) {
+						quiesceCompletedFuture.complete(null);
+					}
+				}
 			}
 
-			numRunningTimers.incrementAndGet();
-			try {
-				// double check to deal with the race condition:
-				// before executing the previous line to increase the number of running timers,
-				// the quiesce-completed future is already completed as the number of running
-				// timers is 0 and "quiesced" is true
-				if (!isQuiesced()) {
-					callback.onProcessingTime(timestamp);
-				}
-			} finally {
-				if (numRunningTimers.decrementAndGet() == 0 && isQuiesced()) {
-					quiesceCompletedFuture.complete(null);
-				}
+			@Override
+			public void setNumberOfTriggeredTimersCounter(AtomicLong counter) {
+				callback.setNumberOfTriggeredTimersCounter(counter);
 			}
 		};
 	}
