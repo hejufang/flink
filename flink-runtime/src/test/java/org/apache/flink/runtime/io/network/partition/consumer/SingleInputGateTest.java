@@ -72,6 +72,7 @@ import org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder;
 import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.ExceptionUtils;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -906,6 +907,7 @@ public class SingleInputGateTest extends InputGateTestBase {
 		inputGate.setInputChannels(remoteInputChannel);
 		remoteInputChannel.requestSubpartition(0);
 		remoteInputChannel.onBuffer(EventSerializer.toBuffer(new UnavailableChannelEvent()), 0, 0);
+		remoteInputChannel.setChannelUnavailable(new RuntimeException());
 
 		final RemoteInputChannel newChannel = InputChannelBuilder.newBuilder()
 			.setChannelIndex(0)
@@ -916,7 +918,6 @@ public class SingleInputGateTest extends InputGateTestBase {
 
 		// build a concurrent situation here
 		CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> {
-			remoteInputChannel.setChannelUnavailable(new RuntimeException());
 			try {
 				remoteInputChannel.getNextBuffer();
 			} catch (IOException e) {
@@ -937,6 +938,55 @@ public class SingleInputGateTest extends InputGateTestBase {
 
 		future1.get(10, TimeUnit.SECONDS);
 		future2.get(10, TimeUnit.SECONDS);
+		Assert.assertNotEquals(remoteInputChannel.getInputChannelId(), ((RemoteInputChannel) inputGate.getChannel(0)).getInputChannelId());
+	}
+
+	@Test
+	public void testUpdateNonEmptyChannel() throws IOException, InterruptedException, TimeoutException, ExecutionException {
+		final NettyShuffleEnvironment network = createNettyShuffleEnvironment();
+
+		// Setup
+		final SingleInputGate inputGate =
+			new SingleInputGateBuilder()
+				.setNumberOfChannels(1)
+				.setSingleInputGateIndex(gateIndex++)
+				.setResultPartitionType(ResultPartitionType.PIPELINED)
+				.setupBufferPoolFactory(network)
+				.setChannelProvider(new TestChannelProvider())
+				.build();
+
+		final RemoteInputChannel remoteInputChannel = InputChannelBuilder.newBuilder()
+			.setChannelIndex(0)
+			.setupFromNettyShuffleEnvironment(network)
+			.setConnectionManager(new TestingConnectionManager())
+			.buildRemoteChannel(inputGate);
+		inputGate.setInputChannels(remoteInputChannel);
+		remoteInputChannel.requestSubpartition(0);
+
+		remoteInputChannel.onBuffer(createBuffer(1024), 0, 0);
+		remoteInputChannel.onBuffer(createBuffer(10), 0, 0);
+
+		final RemoteInputChannel newChannel = InputChannelBuilder.newBuilder()
+			.setChannelIndex(0)
+			.setPartitionId(remoteInputChannel.getPartitionId())
+			.setupFromNettyShuffleEnvironment(network)
+			.setConnectionManager(new TestingConnectionManager())
+			.buildRemoteChannel(inputGate);
+
+		CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+			try {
+				inputGate.updateInputChannel(ResourceID.generate(),
+					new NettyShuffleDescriptorBuilder()
+						.setConnectionIndex(0)
+						.setId(newChannel.getPartitionId())
+						.buildRemote());
+			} catch (Throwable t) {
+				throw new RuntimeException(t);
+			}
+		});
+
+		future.get(10, TimeUnit.SECONDS);
+		Assert.assertNotEquals(remoteInputChannel.getInputChannelId(), ((RemoteInputChannel) inputGate.getChannel(0)).getInputChannelId());
 	}
 
 	private List<Object> getIds(Collection<BufferOrEvent> buffers) {

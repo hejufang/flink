@@ -515,9 +515,17 @@ public class SingleInputGate extends IndexedInputGate {
 				// create a new channel if it's not available
 				transformChannel(current, shuffleDescriptor, localLocation);
 			} else {
-				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
-				if (channelProvider != null) {
-					channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
+				if (channelProvider != null && current.isChannelAvailable()) {
+					// this may happend in two cases below:
+					// (1) the network is too slow that channel cannot sense the failure on upstream side
+					// (2) the upstream fails but the container and its TCP connection is still alive
+					LOG.info("{}: channel {} is still available, transform it immediately.", owningTaskName, current);
+					transformChannel(current, shuffleDescriptor, localLocation);
+				} else {
+					LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
+					if (channelProvider != null) {
+						channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
+					}
 				}
 			}
 		}
