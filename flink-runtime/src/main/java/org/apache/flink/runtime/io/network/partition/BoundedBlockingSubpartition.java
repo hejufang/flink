@@ -147,6 +147,11 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
 		}
 	}
 
+	@Override
+	public int getApproximateBacklog() {
+		return 0;
+	}
+
 	private void flushCurrentBuffer() throws IOException {
 		if (currentBuffer != null) {
 			writeAndCloseBufferConsumer(currentBuffer);

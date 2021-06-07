@@ -59,6 +59,7 @@ import org.apache.flink.streaming.api.operators.StreamTaskStateInitializer;
 import org.apache.flink.streaming.api.operators.StreamTaskStateInitializerImpl;
 import org.apache.flink.streaming.runtime.io.RecordWriterOutput;
 import org.apache.flink.streaming.runtime.io.StreamInputProcessor;
+import org.apache.flink.streaming.runtime.partitioner.ConfigurableBacklogPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.ConfigurableStreamPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
@@ -1419,6 +1420,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 			if (0 < numKeyGroups) {
 				((ConfigurableStreamPartitioner) outputPartitioner).configure(numKeyGroups);
 			}
+		}
+
+		if (outputPartitioner instanceof ConfigurableBacklogPartitioner) {
+			int partitionerMaxBacklogPerChannel = environment.getJobConfiguration().getInteger(
+					ConfigConstants.PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL, Integer.MAX_VALUE);
+			((ConfigurableBacklogPartitioner) outputPartitioner).configure(partitionerMaxBacklogPerChannel);
 		}
 
 		RecordWriter<SerializationDelegate<StreamRecord<OUT>>> output = new RecordWriterBuilder()

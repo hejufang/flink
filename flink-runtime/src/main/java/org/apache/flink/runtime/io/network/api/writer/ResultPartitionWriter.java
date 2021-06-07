@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.api.writer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 
 import javax.annotation.Nullable;
 
@@ -84,6 +85,15 @@ public interface ResultPartitionWriter extends AutoCloseable {
 	}
 
 	default void markBufferBuilderCleaned(int subpartitionIndex) {}
+
+	/**
+	 * Return all subpartitions that the writer uses.
+	 *
+	 * @return subpartitions.
+	 */
+	default ResultSubpartition[] getSubpartitions() {
+		return new ResultSubpartition[]{};
+	}
 
 	/**
 	 * Fail the production of the partition.

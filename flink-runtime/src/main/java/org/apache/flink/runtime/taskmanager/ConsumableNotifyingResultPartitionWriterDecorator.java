@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionConsumableNotifier;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -105,6 +106,11 @@ public class ConsumableNotifyingResultPartitionWriterDecorator implements Result
 	@Override
 	public void flush(int subpartitionIndex) {
 		partitionWriter.flush(subpartitionIndex);
+	}
+
+	@Override
+	public ResultSubpartition[] getSubpartitions() {
+		return partitionWriter.getSubpartitions();
 	}
 
 	@Override

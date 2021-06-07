@@ -225,6 +225,11 @@ public class ResultPartition implements ResultPartitionWriter, BufferPoolOwner {
 		subpartitions[subpartitionIndex].markBufferBuilderCleaned();
 	}
 
+	@Override
+	public ResultSubpartition[] getSubpartitions() {
+		return getAllPartitions();
+	}
+
 	/**
 	 * Finishes the result partition.
 	 *

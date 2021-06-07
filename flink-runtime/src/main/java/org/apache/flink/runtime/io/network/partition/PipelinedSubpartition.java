@@ -100,6 +100,11 @@ class PipelinedSubpartition extends ResultSubpartition {
 		LOG.debug("{}: Finished subpartition {} {}.", parent.getOwningTaskName(), index, this);
 	}
 
+	@Override
+	public int getApproximateBacklog() {
+		return getBuffersInBacklog();
+	}
+
 	protected boolean add(BufferConsumer bufferConsumer, boolean finish) {
 		checkNotNull(bufferConsumer);
 

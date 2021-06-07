@@ -93,7 +93,7 @@ public class RecordWriter<T extends IOReadableWritable> {
 		this.targetPartition = writer;
 		this.channelSelector = channelSelector;
 		this.numberOfChannels = writer.getNumberOfSubpartitions();
-		this.channelSelector.setup(numberOfChannels);
+		this.channelSelector.setup(numberOfChannels, targetPartition.getSubpartitions());
 
 		this.serializer = new SpanningRecordSerializer<T>();
 		this.bufferBuilders = new Optional[numberOfChannels];

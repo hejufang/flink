@@ -2238,6 +2238,9 @@ public final class ConfigConstants {
 	public static final boolean IPV6_ENABLED_VALUE = false;
 	public static final String IPV6_SUPPORTED_CLUSTER_KEY = "ipv6.supported.cluster";
 
+	// ---------------------------- Config For Credit Partitioner ---------------------------
+	public static final String PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL = "partitioner.max-backlog-per-channel";
+
 	/**
 	 * Not instantiable.
 	 */

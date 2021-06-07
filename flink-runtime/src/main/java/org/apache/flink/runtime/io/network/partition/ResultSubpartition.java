@@ -89,6 +89,14 @@ public abstract class ResultSubpartition {
 	 */
 	public abstract boolean add(BufferConsumer bufferConsumer) throws IOException;
 
+	/**
+	 * Get backlog. The backlog can be modified concurrently by task threads and netty threads, to avoid
+	 * the potential performance regression here, the method does acquire the lock.
+	 *
+	 * @return number of backlog.
+	 */
+	public abstract int getApproximateBacklog();
+
 	public abstract void flush();
 
 	public abstract void finish() throws IOException;
