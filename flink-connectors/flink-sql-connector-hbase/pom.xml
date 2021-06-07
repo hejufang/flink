@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>org.apache.flink</groupId>
+		<artifactId>flink-connectors</artifactId>
+		<version>1.11-byted-SNAPSHOT</version>
+		<relativePath>..</relativePath>
+	</parent>
+
+	<properties>
+		<shading.prefix>org.apache.flink.hbase.shaded</shading.prefix>
+	</properties>
+
+	<artifactId>flink-sql-connector-hbase_${scala.binary.version}</artifactId>
+	<name>flink-sql-connector-hbase</name>
+
+	<packaging>jar</packaging>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-connector-hbase_${scala.binary.version}</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>shade-flink</id>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<artifactSet>
+								<includes>
+									<include>*:*</include>
+								</includes>
+							</artifactSet>
+							<relocations>
+								<relocation>
+									<pattern>com.google</pattern>
+									<shadedPattern>${shading.prefix}.com.google</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.yammer</pattern>
+									<shadedPattern>${shading.prefix}.com.yammer</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.thoughtworks</pattern>
+									<shadedPattern>${shading.prefix}.com.thoughtworks</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.avro</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.avro</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.commons</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.commons</shadedPattern>
+								</relocation>
+								<!-- org.apache.hadoop.hbase is not shaded -->
+								<relocation>
+									<pattern>org.apache.hadoop.metrics2</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.hadoop.metrics2</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.htrace</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.htrace</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.http</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.http</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.jute</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.jute</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.zookeeper</pattern>
+									<shadedPattern>${shading.prefix}.org.apache.zookeeper</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.codehaus</pattern>
+									<shadedPattern>${shading.prefix}.org.codehaus</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.tukaani</pattern>
+									<shadedPattern>${shading.prefix}.org.tukaani</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>io.netty</pattern>
+									<shadedPattern>${shading.prefix}.io.netty</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>hbase-webapps</pattern>
+									<shadedPattern>${shading.prefix}.hbase-webapps</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>avro</pattern>
+									<shadedPattern>${shading.prefix}.avro</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>edu.umd.cs</pattern>
+									<shadedPattern>${shading.prefix}.edu.umd.cs</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.codahale.metrics</pattern>
+									<shadedPattern>${shading.prefix}.com.codahale.metrics</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.lmax.disruptor</pattern>
+									<shadedPattern>${shading.prefix}.com.lmax.disruptor</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>com.sun</pattern>
+									<shadedPattern>${shading.prefix}.com.sun</shadedPattern>
+								</relocation>
+							</relocations>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
