@@ -116,7 +116,7 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 
 	@Override
 	public byte[] serialize(RowData row) {
-		if (node == null) {
+		if (node == null || ignoreNullValues) {
 			node = mapper.createObjectNode();
 		}
 

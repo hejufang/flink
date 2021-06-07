@@ -302,6 +302,43 @@ public class JsonRowDataSerDeSchemaTest {
 	}
 
 	@Test
+	public void testSerDeMultiRowsWithNullValuesIgnored() throws Exception {
+		String[] jsons = new String[] {
+			"{\"ops\":null,\"ids\":null,\"metrics\":{\"k1\":10.01,\"k2\":null}}",
+			"{\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\", \"svt\":\"2020-02-24T12:58:09.209+0800\"}, " +
+				"\"ids\":[1, 2, 3]}",
+			"{\"ops\":{\"id\":null, \"svt\":\"2020-02-24T12:58:09.209+0800\"}, " +
+				"\"ids\":[1, 2, null]}",
+			"{\"ops\":{},\"ids\":[],\"metrics\":{}}",
+		};
+
+		String[] expected = new String[] {
+			"{\"metrics\":{\"k1\":10.01,\"k2\":null}}",
+			"{\"ops\":{\"id\":\"281708d0-4092-4c21-9233-931950b6eccf\",\"svt\":\"2020-02-24T12:58:09.209+0800\"}," +
+				"\"ids\":[1,2,3]}",
+			"{\"ops\":{\"svt\":\"2020-02-24T12:58:09.209+0800\"},\"ids\":[1,2,null]}",
+			"{\"ops\":{},\"ids\":[],\"metrics\":{}}",
+		};
+
+		RowType rowType = (RowType) ROW(
+			FIELD("ops", ROW(FIELD("id", STRING()), FIELD("svt", STRING()))),
+			FIELD("ids", ARRAY(INT())),
+			FIELD("metrics", MAP(STRING(), DOUBLE()))
+		).getLogicalType();
+
+		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
+			rowType, new RowDataTypeInfo(rowType), false, true, TimestampFormat.ISO_8601);
+		JsonRowDataSerializationSchema serializationSchema =
+			new JsonRowDataSerializationSchema(rowType, TimestampFormat.ISO_8601, false, true, false, false, "");
+		for (int i = 0; i < jsons.length; i++) {
+			String json = jsons[i];
+			RowData row = deserializationSchema.deserialize(json.getBytes());
+			String result = new String(serializationSchema.serialize(row));
+			assertEquals(expected[i], result);
+		}
+	}
+
+	@Test
 	public void testDeserializationMissingNode() throws Exception {
 		ObjectMapper objectMapper = new ObjectMapper();
 
