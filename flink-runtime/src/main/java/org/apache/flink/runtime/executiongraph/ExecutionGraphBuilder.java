@@ -453,7 +453,9 @@ public class ExecutionGraphBuilder {
 
 			// Override configuration if CLI specified otherwise.
 			final String checkpointSchedulingStrategy = jobManagerConfig.getString(CheckpointingOptions.CHECKPOINT_SCHEDULING_STRATEGY);
-			final CheckpointCoordinatorConfiguration chkConfig;
+			final String savepointSchedulingStrategy = jobManagerConfig.getString(CheckpointingOptions.SAVEPOINT_SCHEDULING_STRATEGY);
+
+			CheckpointCoordinatorConfiguration chkConfig;
 
 			if (checkpointSchedulingStrategy == null) {
 				chkConfig = snapshotSettings.getCheckpointCoordinatorConfiguration();
@@ -475,6 +477,31 @@ public class ExecutionGraphBuilder {
 					overrideSchedulingConfig,
 					origin.getTolerableCheckpointFailureNumber());
 			}
+
+			if (savepointSchedulingStrategy != null) {
+				final CheckpointSchedulingStrategies.SavepointSchedulerConfiguration overrideSavepointSchedulingConfig =
+					CheckpointSchedulingStrategies.resolveSavepointCliConfig(savepointSchedulingStrategy, jobManagerConfig);
+				log.info("Savepoint-scheduler-related options found. CLI configuration will take priority, " +
+					"savepoint scheduler strategy {}", overrideSavepointSchedulingConfig);
+
+
+				final CheckpointCoordinatorConfiguration origin = chkConfig;
+
+				chkConfig = new CheckpointCoordinatorConfiguration(
+					origin.getCheckpointInterval(),
+					origin.getCheckpointTimeout(),
+					origin.getMinPauseBetweenCheckpoints(),
+					origin.getMaxConcurrentCheckpoints(),
+					origin.getCheckpointRetentionPolicy(),
+					origin.isExactlyOnce(),
+					origin.isPreferCheckpointForRecovery(),
+					origin.getCheckpointSchedulerConfiguration(),
+					overrideSavepointSchedulingConfig,
+					origin.getTolerableCheckpointFailureNumber());
+			}
+
+			String savepointLocationPrefix = jobManagerConfig.getString(CheckpointingOptions.SAVEPOINT_LOCATION_PREFIX);
+			chkConfig.setSavepointLocationPrefix(savepointLocationPrefix);
 
 			final boolean failOnInvalidTokens = jobManagerConfig.getBoolean(CheckpointingOptions.CHECKPOINT_FAIL_ON_INVALID_TOKENS);
 			chkConfig.setFailOnInvalidTokens(failOnInvalidTokens);

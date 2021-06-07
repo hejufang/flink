@@ -24,13 +24,11 @@ import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrate
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
-import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * It also supports early checkpoint, and early checkpoints do not subject to alignment.
  * To align to whole hours, the checkpoint interval must divides an hour.
  */
-public class HourlyCheckpointScheduler implements CheckpointScheduler {
+public class HourlyCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HourlyCheckpointScheduler.class);
 
@@ -78,11 +76,6 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 	 * Flag whether this scheduler applies early checkpoint strategy.
 	 */
 	private final boolean earlyCheckpointEnabled;
-
-	/**
-	 * The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
-	 */
-	private final ScheduledThreadPoolExecutor timer;
 
 	/**
 	 * The Runnable object to do early checkpoint.
@@ -152,15 +145,6 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 		if (hourInMillis % baseInterval != 0) {
 			throw new IllegalArgumentException("Checkpoint interval does not divides an hour");
 		}
-
-		// initialize the thread pool of parallelism one to trigger checkpoint
-		this.timer = new ScheduledThreadPoolExecutor(1,
-			new DispatcherThreadFactory(Thread.currentThread().getThreadGroup(), "Checkpoint Timer"));
-
-		// make sure the timer internally cleans up and does not hold onto stale scheduled tasks
-		this.timer.setRemoveOnCancelPolicy(true);
-		this.timer.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
-		this.timer.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
 	}
 
 	@Override
@@ -175,6 +159,7 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void startScheduling() {
+		super.startScheduling();
 		// early start
 		if (earlyCheckpointEnabled) {
 			earlyCheckpointTrigger = timer.schedule(earlyCheckpointTask, 0, TimeUnit.MILLISECONDS);
@@ -185,12 +170,14 @@ public class HourlyCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void resumeScheduling() {
+		super.startScheduling();
 		final long alignedDelay = calcNecessaryDelay(System.currentTimeMillis(), 0L);
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, alignedDelay, baseInterval, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
 	public void pauseScheduling() {
+		super.stopScheduling();
 		if (earlyCheckpointTrigger != null) {
 			earlyCheckpointTrigger.cancel(false);
 			// We do not reset it to null! Because this could free us from synchronization.

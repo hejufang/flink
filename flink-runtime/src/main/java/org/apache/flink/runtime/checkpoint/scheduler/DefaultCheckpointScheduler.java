@@ -23,13 +23,11 @@ import org.apache.flink.api.common.checkpointstrategy.CheckpointSchedulingStrate
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
-import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -40,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  * will block the writing process so long that the downstream might considered the job abnormal.
  * Therefore early checkpoint is triggered when the checkpoint interval is too large.
  */
-public class DefaultCheckpointScheduler implements CheckpointScheduler {
+public class DefaultCheckpointScheduler extends AbstractCheckpointScheduler {
 
 	private static final Logger LOG = LoggerFactory.getLogger(DefaultCheckpointScheduler.class);
 
@@ -70,11 +68,6 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 	 * Flag whether this scheduler applies early checkpoint strategy.
 	 */
 	private final boolean earlyCheckpointEnabled;
-
-	/**
-	 * The timer that handles the checkpoint timeouts and triggers periodic checkpoints.
-	 */
-	private final ScheduledThreadPoolExecutor timer;
 
 	/**
 	 * The Runnable object to do early checkpoint.
@@ -123,15 +116,6 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 		this.regularCheckpointTask = new TriggerPeriodicCheckpoint();
 		this.earlyCheckpointTrigger = null;
 		this.currentPeriodicTrigger = null;
-
-		// initialize the thread pool of parallelism one to trigger checkpoint
-		this.timer = new ScheduledThreadPoolExecutor(1,
-			new DispatcherThreadFactory(Thread.currentThread().getThreadGroup(), "Checkpoint Timer"));
-
-		// make sure the timer internally cleans up and does not hold onto stale scheduled tasks
-		this.timer.setRemoveOnCancelPolicy(true);
-		this.timer.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
-		this.timer.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
 	}
 
 	@Override
@@ -146,6 +130,7 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void startScheduling() {
+		super.startScheduling();
 		if (earlyCheckpointEnabled) {
 			earlyCheckpointTrigger = timer.schedule(earlyCheckpointTask, 0, TimeUnit.MILLISECONDS);
 		}
@@ -154,6 +139,7 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void resumeScheduling() {
+		super.startScheduling();
 		// here we do not have to consider minimum checkpoint pause (because we are resuming
 		// from a pause, which indicates that this trigger has waited long enough before that pause)
 		currentPeriodicTrigger = timer.scheduleAtFixedRate(regularCheckpointTask, 0L, baseInterval, TimeUnit.MILLISECONDS);
@@ -161,6 +147,7 @@ public class DefaultCheckpointScheduler implements CheckpointScheduler {
 
 	@Override
 	public void pauseScheduling() {
+		super.stopScheduling();
 		if (earlyCheckpointTrigger != null) {
 			earlyCheckpointTrigger.cancel(false);
 			// We do not reset it to null! Because this could free us from synchronization.

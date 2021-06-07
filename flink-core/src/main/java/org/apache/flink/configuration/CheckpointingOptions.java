@@ -250,6 +250,18 @@ public class CheckpointingOptions {
 		.defaultValue(0)
 		.withDescription("The offset of whole hour alignment. E. g. 4 means align with 00:04 hourly.");
 
+	/** The scheduling strategy to be used to trigger checkpoint. */
+	public static final ConfigOption<String> SAVEPOINT_SCHEDULING_STRATEGY = ConfigOptions
+		.key("savepoint.scheduler.strategy")
+		.defaultValue("default")
+		.withDescription("The scheduling strategy to be used to trigger savepoint.");
+
+	/** The interval between two consecutive savepoints under the default fixed rate strategy. */
+	public static final ConfigOption<Integer> SAVEPOINT_SCHEDULING_DEFAULT_INTERVAL = ConfigOptions
+		.key("savepoint.scheduler.default.interval")
+		.defaultValue(-1)
+		.withDescription("The interval between two consecutive checkpoints under the default fixed rate strategy.");
+
 	// ------------------------------------------------------------------------
 	//  Others
 	// ------------------------------------------------------------------------
@@ -268,4 +280,9 @@ public class CheckpointingOptions {
 	public static final ConfigOption<Boolean> CROSS_VERSION = ConfigOptions
 			.key("state.checkpoint.cross-version")
 			.defaultValue(false);
+
+	public static final ConfigOption<String> SAVEPOINT_LOCATION_PREFIX = ConfigOptions
+		.key("state.savepoint.location-prefix")
+		.noDefaultValue()
+		.withDescription("HDFS path prefix for detach savepoint and periodic savepoint");
 }

@@ -80,6 +80,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.createCheckpointScheduler;
+import static org.apache.flink.runtime.checkpoint.scheduler.CheckpointSchedulerUtils.setupSavepointScheduler;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -312,6 +313,7 @@ public class CheckpointCoordinator {
 		this.masterHooks = new HashMap<>();
 
 		this.checkpointScheduler = createCheckpointScheduler(job, this, chkConfig);
+		setupSavepointScheduler(checkpointScheduler, jobName, this, chkConfig);
 
 		this.checkpointHandler = checkpointHandler;
 		checkpointHandler.loadPendingCheckpoints(pendingCheckpoints);

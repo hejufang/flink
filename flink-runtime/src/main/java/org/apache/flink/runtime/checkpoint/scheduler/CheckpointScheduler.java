@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.checkpoint.scheduler;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
+import org.apache.flink.runtime.checkpoint.scheduler.savepoint.PeriodicSavepointScheduler;
 
 import java.util.concurrent.ScheduledFuture;
 
@@ -97,4 +98,6 @@ public interface CheckpointScheduler {
 	 * Only called in unit test. kept for historical reason
 	 */
 	int getNumberOfScheduledTasks();
+
+	void setPeriodSavepointScheduler(PeriodicSavepointScheduler savepointScheduler);
 }
