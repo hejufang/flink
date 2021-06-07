@@ -257,7 +257,7 @@ public class CheckpointingOptions {
 	/** The scheduling strategy to be used to trigger checkpoint. */
 	public static final ConfigOption<String> SAVEPOINT_SCHEDULING_STRATEGY = ConfigOptions
 		.key("savepoint.scheduler.strategy")
-		.noDefaultValue()
+		.defaultValue("default")
 		.withDescription("The scheduling strategy to be used to trigger savepoint.");
 
 	/** The interval between two consecutive savepoints under the default fixed rate strategy. */
