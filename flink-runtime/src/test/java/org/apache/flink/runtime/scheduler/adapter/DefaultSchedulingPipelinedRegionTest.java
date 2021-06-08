@@ -124,4 +124,40 @@ public class DefaultSchedulingPipelinedRegionTest extends TestLogger {
 		assertThat(firstPipelinedRegion.getGroupedConsumedResults().iterator().hasNext(), is(false));
 		assertThat(secondPipelinedRegionConsumedResults, contains(b0ConsumedResultPartition));
 	}
+
+	/**
+	 * Tests if the consumed inputs of the pipelined regions are computed
+	 * correctly using the Job graph below.
+	 * <pre>
+	 * a -+- b -- c
+	 * </pre>
+	 * Pipelined regions: {a}, {b, c}
+	 */
+	@Test
+	public void returnsIncidentBlockingAllToALLPartitions() throws Exception {
+		final JobVertex a = ExecutionGraphTestUtils.createNoOpVertex(2);
+		final JobVertex b = ExecutionGraphTestUtils.createNoOpVertex(2);
+		final JobVertex c = ExecutionGraphTestUtils.createNoOpVertex(2);
+
+		b.connectNewDataSetAsInput(a, DistributionPattern.ALL_TO_ALL, ResultPartitionType.BLOCKING);
+		c.connectNewDataSetAsInput(b, DistributionPattern.ALL_TO_ALL, ResultPartitionType.PIPELINED);
+
+		final ExecutionGraph simpleTestGraph = ExecutionGraphTestUtils.createSimpleTestGraph(a, b, c);
+		final DefaultExecutionTopology topology = new DefaultExecutionTopology(simpleTestGraph);
+
+		final DefaultSchedulingPipelinedRegion firstPipelinedRegion = topology.getPipelinedRegionOfVertex(new ExecutionVertexID(a.getID(), 0));
+		final DefaultSchedulingPipelinedRegion secondPipelinedRegion = topology.getPipelinedRegionOfVertex(new ExecutionVertexID(b.getID(), 0));
+
+		final DefaultExecutionVertex vertexB0 = topology.getVertex(new ExecutionVertexID(b.getID(), 0));
+		final Set<IntermediateResultPartitionID> b0ConsumedResultPartitions = vertexB0.getGroupedConsumedResults().stream()
+				.flatMap(consumedPartitionGroup -> consumedPartitionGroup.getResultPartitions().stream())
+				.collect(Collectors.toSet());
+
+		final Set<IntermediateResultPartitionID> secondPipelinedRegionConsumedResults = IterableUtils.toStream(secondPipelinedRegion.getGroupedConsumedResults())
+				.flatMap(group -> group.getResultPartitions().stream())
+				.collect(Collectors.toSet());
+
+		assertThat(firstPipelinedRegion.getGroupedConsumedResults().iterator().hasNext(), is(false));
+		assertThat(secondPipelinedRegionConsumedResults, contains(b0ConsumedResultPartitions.toArray()));
+	}
 }

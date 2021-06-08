@@ -109,6 +109,7 @@ public final class DefaultSchedulingPipelinedRegionComputeUtil {
 				if (logicalRegionToExecutionRegion.containsKey(ejvRegion)) {
 					currentRegion = logicalRegionToExecutionRegion.get(ejvRegion);
 					currentRegion.add(vertex);
+					vertexToRegion.put(vertex, currentRegion);
 				} else {
 					logicalRegionToExecutionRegion.put(ejvRegion, currentRegion);
 					currentRegion.add(vertex);
