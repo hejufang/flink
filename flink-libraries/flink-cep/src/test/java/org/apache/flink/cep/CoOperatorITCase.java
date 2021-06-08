@@ -132,6 +132,22 @@ public class CoOperatorITCase {
 	}
 
 	@Test
+	public void testNoFollowedByWithWindowPattern() throws IOException {
+		Object[] data = {
+				TestData.NOTFOLLOWEDBY_PATTERN,
+				new Barrier(),
+				Tuple2.of(new Event(1, "buy", 2.0), 1L),
+				Tuple2.of(new Event(1, "middle1", 2.0), 2L),
+				Tuple2.of(new Event(1, "middle", 2.0), 3L),
+				Tuple2.of(new Event(2, "buy", 2.0), 1L),
+				Tuple2.of(new Event(2, "middle1", 2.0), 2L),
+				Tuple2.of(new Event(3, "buy", 2.0), 1L)
+		};
+		queue.addAll(Arrays.asList(data));
+		assertEquals(Arrays.asList("pattern_notfollowedby,2", "pattern_notfollowedby,3"), runTest());
+	}
+
+	@Test
 	public void testMultiplePattern() throws IOException {
 		Object[] data = {
 				TestData.SUM_PATTERN_1,

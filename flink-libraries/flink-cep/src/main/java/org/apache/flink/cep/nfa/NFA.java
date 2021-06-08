@@ -260,6 +260,17 @@ public class NFA<T> {
 		}
 	}
 
+	public String format() throws Exception {
+		StringBuilder sb = new StringBuilder();
+		for (State<T> state : getStates()) {
+			sb.append(state.toString());
+			sb.append("\n");
+			sb.append("---------------------");
+			sb.append("\n");
+		}
+		return sb.toString();
+	}
+
 	/**
 	 * Processes the next input event. If some of the computations reach a final state then the
 	 * resulting event sequences are returned. If computations time out and timeout handling is

@@ -269,6 +269,40 @@ public class TestData {
 			"        }\n" +
 			"}\n";
 
+	public static final String NOTFOLLOWEDBY_PATTERN = "{\n" +
+			"    \"id\": \"pattern_notfollowedby\",\n" +
+			"    \"pattern\": {\n" +
+			"        \"events\": [\n" +
+			"            {\n" +
+			"                \"id\": \"start\",\n" +
+			"                \"conditions\": [\n" +
+			"                    {\n" +
+			"                        \"key\": \"name\",\n" +
+			"                        \"op\": \"=\",\n" +
+			"                        \"value\": \"buy\"\n" +
+			"                    }\n" +
+			"                ]\n" +
+			"            },\n" +
+			"            {\n" +
+			"                \"id\": \"middle\",\n" +
+			"                \"connection\": \"NOT_FOLLOWED_BY\",\n" +
+			"                \"after\": \"start\",\n" +
+			"                \"conditions\": [\n" +
+			"                    {\n" +
+			"                        \"key\": \"name\",\n" +
+			"                        \"op\": \"=\",\n" +
+			"                        \"value\": \"middle\"\n" +
+			"                    }\n" +
+			"                ]\n" +
+			"            }\n" +
+			"        ],\n" +
+			"        \"attributes\": {\n" +
+			"                \"allowSinglePartialMatchPerKey\": true,\n" +
+			"				 \"window\": 5\n" +
+			"    }\n" +
+			"    }\n" +
+			"}";
+
 	public static String disablePattern(String patternId) {
 		return "{\n" +
 				"        \"id\": \"" + patternId + "\",\n" +

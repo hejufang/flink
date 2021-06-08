@@ -298,10 +298,11 @@ public class NFACompiler {
 				if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW
 						&& currentPattern.getWindowTime() != null
 						&& currentPattern.getWindowTime().toMilliseconds() > 0
-						&& sinkState.isFinal()) {
+						&& lastSink.isFinal()) {
 					final State<T> notFollow = createState(currentPattern.getName(), State.StateType.Pending);
 					final IterativeCondition<T> notCondition = (IterativeCondition<T>) currentPattern.getCondition();
 					final State<T> stopState = createStopState(notCondition, currentPattern.getName());
+					notFollow.addIgnore(new RichNotCondition<>(notCondition));
 					notFollow.addTake(stopState, notCondition);
 					lastSink = notFollow;
 				} else if (currentPattern.getQuantifier().getConsumingStrategy() == Quantifier.ConsumingStrategy.NOT_FOLLOW) {
