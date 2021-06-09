@@ -280,9 +280,12 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 			return row;
 		} else {
 			Row row = new Row(2);
-			row.setField(0, key);
+			row.setField(0, null);
 			row.setField(1, value);
-			return (RowData) converter.toInternal(row);
+			GenericRowData internal = (GenericRowData) converter.toInternal(row);
+			// The key is internal. No conversion should be done for it.
+			internal.setField(0, key);
+			return internal;
 		}
 	}
 
