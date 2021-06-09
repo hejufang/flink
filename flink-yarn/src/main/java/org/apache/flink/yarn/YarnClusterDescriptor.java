@@ -1106,6 +1106,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		} else {
 			priority = Priority.newInstance(YarnConfigOptions.APPLICATION_PRIORITY.defaultValue());
 		}
+		appContext.setPriority(priority);
 
 		ResourceRequest resourceRequest = appContext.getAMContainerResourceRequest();
 		if (resourceRequest == null) {
