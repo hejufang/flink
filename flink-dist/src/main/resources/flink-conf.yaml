@@ -262,7 +262,6 @@ flink:
   hdfs.prefix: hdfs://haruna/flink_lf
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
-  savepoint.scheduler.default.interval: 3600000
 
 dw:
   dc: cn
