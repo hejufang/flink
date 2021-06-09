@@ -196,5 +196,5 @@ public abstract class TypeSerializer<T> implements Serializable {
 	 */
 	public abstract TypeSerializerSnapshot<T> snapshotConfiguration();
 
-	public void setPriorSerializer(TypeSerializer priorSerializer) {};
+	public void setPriorSerializer(TypeSerializer priorSerializer) {}
 }

@@ -298,6 +298,16 @@ public class TtlStateFactory<K, N, SV, TTLSV, S extends State, IS extends S> {
 		}
 
 		@Override
+		public void setPriorSerializer(TypeSerializer priorSerializer) {
+			if (priorSerializer instanceof TtlSerializer) {
+				TtlSerializer other = (TtlSerializer) priorSerializer;
+				for (int i = 0; i < fieldSerializers.length; ++i) {
+					fieldSerializers[i].setPriorSerializer(other.fieldSerializers[i]);
+				}
+			}
+		}
+
+		@Override
 		public TypeSerializerSchemaCompatibility<TtlValue<T>> resolveSchemaCompatibilityViaRedirectingToNewSnapshotClass(
 				TypeSerializerConfigSnapshot<TtlValue<T>> deprecatedConfigSnapshot) {
 

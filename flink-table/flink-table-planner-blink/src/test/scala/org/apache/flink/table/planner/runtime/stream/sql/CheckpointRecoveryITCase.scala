@@ -24,6 +24,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import org.apache.flink.api.common.functions.RichMapFunction
 import org.apache.flink.api.common.restartstrategy.RestartStrategies.NoRestartStrategyConfiguration
+import org.apache.flink.api.common.time.Time
 import org.apache.flink.configuration.{CheckpointingOptions, Configuration}
 import org.apache.flink.runtime.jobgraph.{JobGraph, SavepointRestoreSettings}
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration
@@ -178,6 +179,7 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
 
     val setting = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build()
     val tEnv = StreamTableEnvironment.create(env, setting)
+    tEnv.getConfig.setIdleStateRetentionTime(Time.minutes(5), Time.minutes(15))
 
     val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(false)).rebalance.map(mapper)
@@ -203,6 +205,7 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
 
     val setting = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build()
     val tEnv = StreamTableEnvironment.create(env, setting)
+    tEnv.getConfig.setIdleStateRetentionTime(Time.minutes(5), Time.minutes(15))
 
     val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(true)).rebalance.map(mapper)
