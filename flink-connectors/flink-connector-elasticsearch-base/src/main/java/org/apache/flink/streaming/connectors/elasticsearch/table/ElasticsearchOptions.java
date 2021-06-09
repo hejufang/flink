@@ -121,6 +121,11 @@ public class ElasticsearchOptions {
 			.durationType()
 			.noDefaultValue()
 			.withDescription("Delay between each backoff attempt.");
+	public static final ConfigOption<Integer> FAILURE_REQUEST_MAX_RETRIES_OPTION =
+		ConfigOptions.key("failure-request.max-retries")
+			.intType()
+			.defaultValue(-1)
+			.withDescription("Maximum number of failure request retries.");
 	public static final ConfigOption<Duration> CONNECTION_MAX_RETRY_TIMEOUT_OPTION =
 		ConfigOptions.key("connection.max-retry-timeout")
 			.durationType()

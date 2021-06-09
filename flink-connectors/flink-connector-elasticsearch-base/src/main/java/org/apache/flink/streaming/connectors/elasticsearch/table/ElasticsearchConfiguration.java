@@ -46,6 +46,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_BACKOFF_TYPE_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.BULK_FLUSH_INTERVAL_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_HANDLER_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_REQUEST_MAX_RETRIES_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USERNAME_OPTION;
@@ -192,6 +193,10 @@ class ElasticsearchConfiguration {
 
 	public Optional<String> getPathPrefix() {
 		return config.getOptional(ElasticsearchOptions.CONNECTION_PATH_PREFIX);
+	}
+
+	public int getFailureRequestMaxRetries() {
+		return config.get(FAILURE_REQUEST_MAX_RETRIES_OPTION);
 	}
 
 	@Override

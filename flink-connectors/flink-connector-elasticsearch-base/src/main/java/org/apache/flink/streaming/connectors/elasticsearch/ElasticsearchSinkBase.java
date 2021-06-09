@@ -93,6 +93,8 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 	public static final String CONFIG_CONNECT_TIMEOUT = "connect.timeout";
 	public static final String CONFIG_SOCKET_TIMEOUT = "socket.timeout";
 
+	public static final String CONFIG_FAILURE_REQUEST_MAX_RETRIES = "failure-request.max-retries";
+
 	/**
 	 * Used to control whether the retry delay should increase exponentially or remain constant.
 	 */
@@ -310,7 +312,7 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 		callBridge.verifyClientConnection(client);
 		bulkProcessor = buildBulkProcessor(new BulkProcessorListener());
 		requestIndexer = callBridge.createBulkProcessorIndexer(bulkProcessor, flushOnCheckpoint, numPendingRequests);
-		failureRequestIndexer = new BufferingNoOpRequestIndexer();
+		failureRequestIndexer = new BufferingNoOpRequestIndexer(Integer.parseInt(userConfig.getOrDefault(CONFIG_FAILURE_REQUEST_MAX_RETRIES, "8")));
 		elasticsearchSinkFunction.open();
 		if (rateLimiter != null) {
 			rateLimiter.open(getRuntimeContext());
@@ -432,11 +434,11 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 					for (int i = 0; i < response.getItems().length; i++) {
 						itemResponse = response.getItems()[i];
 						failure = callBridge.extractFailureCauseFromBulkItemResponse(itemResponse);
+						actionRequest = request.requests().get(i);
 						if (failure != null) {
 							LOG.error("Failed Elasticsearch item request: {}", itemResponse.getFailureMessage(), failure);
 
 							restStatus = itemResponse.getFailure().getStatus();
-							actionRequest = request.requests().get(i);
 							if (restStatus == null) {
 								if (actionRequest instanceof ActionRequest) {
 									failureHandler.onFailure((ActionRequest) actionRequest, failure, -1, failureRequestIndexer);
@@ -450,6 +452,9 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 									throw new UnsupportedOperationException("The sink currently only supports ActionRequests");
 								}
 							}
+						} else {
+							// check successful request and remove it from failureRequestIndexer.retryRequestMap
+							failureRequestIndexer.removeSuccessfulRequest((ActionRequest) actionRequest);
 						}
 					}
 				} catch (Throwable t) {
@@ -458,7 +463,6 @@ public abstract class ElasticsearchSinkBase<T, C extends AutoCloseable> extends 
 					failureThrowable.compareAndSet(null, t);
 				}
 			}
-
 			if (flushOnCheckpoint) {
 				numPendingRequests.getAndAdd(-request.numberOfActions());
 			}

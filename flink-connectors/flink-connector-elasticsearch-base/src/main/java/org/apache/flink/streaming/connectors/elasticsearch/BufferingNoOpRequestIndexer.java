@@ -24,10 +24,12 @@ import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
-import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -38,25 +40,45 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @NotThreadSafe
 class BufferingNoOpRequestIndexer implements RequestIndexer {
 
-	private ConcurrentLinkedQueue<ActionRequest> bufferedRequests;
+	private static final Logger LOG = LoggerFactory.getLogger(BufferingNoOpRequestIndexer.class);
 
-	BufferingNoOpRequestIndexer() {
+	private ConcurrentLinkedQueue<ActionRequest> bufferedRequests;
+	//ActionRequest Object is created when the request comes, and it uses Object.hashcode method to get its hashcode.
+	//One ActionRequest for one action, and it will not be copied anywhere.
+	private ConcurrentHashMap<ActionRequest, Integer> retryRequestMap;
+
+	private final int maxRetries;
+
+	BufferingNoOpRequestIndexer(int maxRetries) {
 		this.bufferedRequests = new ConcurrentLinkedQueue<ActionRequest>();
+		this.retryRequestMap = new ConcurrentHashMap<>();
+		this.maxRetries = maxRetries;
 	}
 
 	@Override
 	public void add(DeleteRequest... deleteRequests) {
-		Collections.addAll(bufferedRequests, deleteRequests);
+		checkAndAdd(deleteRequests);
 	}
 
 	@Override
 	public void add(IndexRequest... indexRequests) {
-		Collections.addAll(bufferedRequests, indexRequests);
+		checkAndAdd(indexRequests);
 	}
 
 	@Override
 	public void add(UpdateRequest... updateRequests) {
-		Collections.addAll(bufferedRequests, updateRequests);
+		checkAndAdd(updateRequests);
+	}
+
+	public void checkAndAdd(ActionRequest... actionRequests) {
+		for (ActionRequest request : actionRequests) {
+			//"maxRetries == -1(default value)" means unlimited retries;
+			if (maxRetries == -1 || checkFailureRequestMap(request)) {
+				bufferedRequests.add(request);
+			} else {
+				throw new RuntimeException(String.format("Request: %s reached max-retries: %d", request, maxRetries));
+			}
+		}
 	}
 
 	void processBufferedRequests(RequestIndexer actualIndexer) {
@@ -69,7 +91,20 @@ class BufferingNoOpRequestIndexer implements RequestIndexer {
 				actualIndexer.add((UpdateRequest) request);
 			}
 		}
-
 		bufferedRequests.clear();
+	}
+
+	boolean checkFailureRequestMap(ActionRequest actionRequest) {
+		int retries = retryRequestMap.getOrDefault(actionRequest, 0) + 1;
+		if (retries > maxRetries) {
+			return false;
+		} else {
+			retryRequestMap.put(actionRequest, retries);
+			return true;
+		}
+	}
+
+	void removeSuccessfulRequest(ActionRequest actionRequest) {
+		retryRequestMap.remove(actionRequest);
 	}
 }

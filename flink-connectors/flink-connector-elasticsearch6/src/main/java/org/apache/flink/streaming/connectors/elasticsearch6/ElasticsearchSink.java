@@ -171,6 +171,18 @@ public class ElasticsearchSink<T> extends ElasticsearchSinkBase<T, RestHighLevel
 		}
 
 		/**
+		 * Sets the maximum number of retries for failure-request when re-add to indexer.
+		 * @param maxRetries the failure-requests' max retries.
+		 */
+		public void setFailureRequestMaxRetries(int maxRetries) {
+			Preconditions.checkArgument(
+				maxRetries >= -1,
+				"Max number of failure retry attempts must be at least 0.(-1 means retrying infinitely)"
+			);
+			this.bulkRequestsConfig.put(CONFIG_FAILURE_REQUEST_MAX_RETRIES, String.valueOf(maxRetries));
+		}
+
+		/**
 		 * Sets a failure handler for action requests.
 		 *
 		 * @param failureHandler This is used to handle failed {@link ActionRequest}.

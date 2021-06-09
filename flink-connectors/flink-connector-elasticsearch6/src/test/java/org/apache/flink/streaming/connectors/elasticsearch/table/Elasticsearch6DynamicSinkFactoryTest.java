@@ -137,6 +137,26 @@ public class Elasticsearch6DynamicSinkFactoryTest {
 	}
 
 	@Test
+	public void validateWrongFailureRetries() {
+		Elasticsearch6DynamicSinkFactory sinkFactory = new Elasticsearch6DynamicSinkFactory();
+
+		thrown.expect(ValidationException.class);
+		thrown.expectMessage(
+			"'failure-request.max-retries' must be at least 1. Got: 0");
+		sinkFactory.createDynamicTableSink(
+			context()
+				.withSchema(TableSchema.builder()
+					.field("a", DataTypes.TIME())
+					.build())
+				.withOption(ElasticsearchOptions.INDEX_OPTION.key(), "MyIndex")
+				.withOption(ElasticsearchOptions.DOCUMENT_TYPE_OPTION.key(), "MyType")
+				.withOption(ElasticsearchOptions.HOSTS_OPTION.key(), "http://localhost:1234")
+				.withOption(ElasticsearchOptions.FAILURE_REQUEST_MAX_RETRIES_OPTION.key(), "0")
+				.build()
+		);
+	}
+
+	@Test
 	public void validateWrongMaxActions() {
 		Elasticsearch6DynamicSinkFactory sinkFactory = new Elasticsearch6DynamicSinkFactory();
 

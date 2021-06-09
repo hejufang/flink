@@ -221,6 +221,7 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 			builder.setBulkFlushInterval(config.getBulkFlushInterval());
 			builder.setBulkFlushBackoff(config.isBulkFlushBackoffEnabled());
 			builder.setParallelism(config.getParallelism());
+			builder.setFailureRequestMaxRetries(config.getFailureRequestMaxRetries());
 			config.getBulkFlushBackoffType().ifPresent(builder::setBulkFlushBackoffType);
 			config.getBulkFlushBackoffRetries().ifPresent(builder::setBulkFlushBackoffRetries);
 			config.getBulkFlushBackoffDelay().ifPresent(builder::setBulkFlushBackoffDelay);

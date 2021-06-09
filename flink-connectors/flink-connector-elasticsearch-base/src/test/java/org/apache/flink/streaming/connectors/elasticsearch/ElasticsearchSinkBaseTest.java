@@ -335,9 +335,9 @@ public class ElasticsearchSinkBaseTest {
 	@Test(timeout = 5000)
 	public void testAtLeastOnceSink() throws Throwable {
 		final DummyElasticsearchSink<String> sink = new DummyElasticsearchSink<>(
-				new HashMap<String, String>(),
-				new SimpleSinkFunction<String>(),
-				new DummyRetryFailureHandler()); // use a failure handler that simply re-adds requests
+			new HashMap<String, String>(),
+			new SimpleSinkFunction<String>(),
+			new DummyRetryFailureHandler()); // use a failure handler that simply re-adds requests
 
 		final OneInputStreamOperatorTestHarness<String, Object> testHarness =
 			new OneInputStreamOperatorTestHarness<>(new StreamSink<>(sink));
@@ -424,9 +424,9 @@ public class ElasticsearchSinkBaseTest {
 		private Throwable nextBulkFailure;
 
 		public DummyElasticsearchSink(
-				Map<String, String> userConfig,
-				ElasticsearchSinkFunction<T> sinkFunction,
-				ActionRequestFailureHandler failureHandler) {
+			Map<String, String> userConfig,
+			ElasticsearchSinkFunction<T> sinkFunction,
+			ActionRequestFailureHandler failureHandler) {
 			super(new DummyElasticsearchApiCallBridge(), userConfig, sinkFunction, failureHandler);
 		}
 

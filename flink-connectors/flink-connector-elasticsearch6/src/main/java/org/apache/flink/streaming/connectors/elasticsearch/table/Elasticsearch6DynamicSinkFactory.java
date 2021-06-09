@@ -48,6 +48,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_PATH_PREFIX;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.DOCUMENT_TYPE_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_HANDLER_OPTION;
+import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FAILURE_REQUEST_MAX_RETRIES_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FLUSH_ON_CHECKPOINT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.FORMAT_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.HOSTS_OPTION;
@@ -78,6 +79,7 @@ public class Elasticsearch6DynamicSinkFactory implements DynamicTableSinkFactory
 		BULK_FLUSH_BACKOFF_TYPE_OPTION,
 		BULK_FLUSH_BACKOFF_MAX_RETRIES_OPTION,
 		BULK_FLUSH_BACKOFF_DELAY_OPTION,
+		FAILURE_REQUEST_MAX_RETRIES_OPTION,
 		CONNECTION_MAX_RETRY_TIMEOUT_OPTION,
 		CONNECTION_PATH_PREFIX,
 		FORMAT_OPTION,
@@ -143,6 +145,14 @@ public class Elasticsearch6DynamicSinkFactory implements DynamicTableSinkFactory
 				"'%s' must be at least 1. Got: %s",
 				BULK_FLUSH_BACKOFF_MAX_RETRIES_OPTION.key(),
 				config.getBulkFlushBackoffRetries().get())
+		);
+		int failureMaxRetry = config.getFailureRequestMaxRetries();
+		validate(
+			failureMaxRetry >= -1,
+			() -> String.format(
+				"'%s' must be at least 0(-1 means retrying infinitely). Got: %s",
+				FAILURE_REQUEST_MAX_RETRIES_OPTION.key(),
+				config.getFailureRequestMaxRetries())
 		);
 		if (config.getUsername().isPresent() && !StringUtils.isNullOrWhitespaceOnly(config.getUsername().get())) {
 			validate(
