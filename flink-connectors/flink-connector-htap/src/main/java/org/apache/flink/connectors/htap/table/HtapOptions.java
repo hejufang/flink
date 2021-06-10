@@ -34,9 +34,35 @@ public class HtapOptions {
 				"If is false, parallelism of source are set by config.\n" +
 					"If is true, source parallelism is inferred according to splits number.\n");
 
+	public static final ConfigOption<Integer> TABLE_EXEC_HTAP_PARTITION_NUMBER_PER_SUBTASK =
+		key("table.exec.htap.partition-number-per-subtask")
+			.intType()
+			.defaultValue(1)
+			.withDescription(
+				"This configs the partition number for each subtask when infer table source " +
+					"parallelism with partition number. This is effective only when " +
+					"'table.exec.htap.infer-source-parallelism-strategy' = 'partition-number'.");
+
+	public static final ConfigOption<Integer> TABLE_EXEC_HTAP_ROW_NUMBER_PER_SUBTASK =
+		key("table.exec.htap.row-number-per-subtask")
+			.intType()
+			.defaultValue(1000000)
+			.withDescription(
+				"This configs the partition number for each subtask when infer table source " +
+					"parallelism with partition number. This is effective only when " +
+					"'table.exec.htap.infer-source-parallelism-strategy' = 'row-number'");
+
 	public static final ConfigOption<Integer> TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX =
 		key("table.exec.htap.infer-source-parallelism.max")
 			.intType()
 			.defaultValue(1000)
 			.withDescription("Sets max infer parallelism for source operator.");
+
+	public static final ConfigOption<String> TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_STRATEGY =
+		key("table.exec.htap.infer-source-parallelism-strategy")
+			.stringType()
+			.defaultValue("partition-number")
+			.withDescription(
+				"Strategy for inferring parallelism for source operator. " +
+					"Supported strategies: partition-number, row-number");
 }

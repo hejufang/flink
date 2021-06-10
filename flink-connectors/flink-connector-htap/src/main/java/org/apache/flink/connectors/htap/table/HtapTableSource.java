@@ -54,6 +54,8 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 import com.bytedance.bytehtap.Commons.AggregateType;
 import com.bytedance.htap.client.HtapMetaClient;
 import com.bytedance.htap.meta.HtapTable;
+import com.bytedance.htap.meta.HtapTableStatistics;
+import com.bytedance.htap.metaclient.exceptions.MetadataServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,6 +83,8 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 		PartitionableTableSource {
 
 	private static final Logger LOG = LoggerFactory.getLogger(HtapTableSource.class);
+	private static final String PARTITION_NUMBER_STRATEGY = "partition-number";
+	private static final String ROW_NUMBER_STRATEGY = "row-number";
 
 	private final HtapReaderConfig readerConfig;
 	private final HtapTableInfo tableInfo;
@@ -187,23 +191,77 @@ public class HtapTableSource implements StreamTableSource<Row>, LimitableTableSo
 			Preconditions.checkState(max > 0, String.format("%s must be greater than 0.",
 				HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_MAX.key()));
 
-			int splitNum;
-			try {
-				long startMs = System.currentTimeMillis();
-				splitNum = inputFormat.createInputSplits(0).length;
-				long endMs = System.currentTimeMillis();
-				LOG.info("Htap source({}) createInputSplits use time: {} ms, splitNum = {}",
-					tablePath, (endMs - startMs), splitNum);
-			} catch (IOException e) {
-				throw new FlinkRuntimeException(e);
+			String inferParallelismStrategy =
+				flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_INFER_SOURCE_PARALLELISM_STRATEGY);
+
+			switch (inferParallelismStrategy) {
+				case ROW_NUMBER_STRATEGY:
+					parallelism = inferParallelismWithRowNumber(metaClient, tableInfo, flinkConf);
+					if (parallelism > 0) {
+						break;
+					}
+					// if parallelism <= 0, it means we cannot get row count for whatever reason,
+					// we use partition number to infer source parallelism.
+					LOG.info("Failed to get row count of table '{}', use partition number to " +
+						"infer source parallelism.", table.getName());
+					parallelism = inferParallelismWithPartitionNumber(inputFormat, flinkConf);
+					break;
+				case PARTITION_NUMBER_STRATEGY:
+					parallelism = inferParallelismWithPartitionNumber(inputFormat, flinkConf);
+					break;
+				default:
+					throw new IllegalArgumentException(String.format("Unsupported strategy: %s, " +
+						"supported strategies: '%s', '%s'.",
+						inferParallelismStrategy, ROW_NUMBER_STRATEGY, PARTITION_NUMBER_STRATEGY));
 			}
-			parallelism = Math.min(splitNum, max);
+
+			parallelism = Math.min(parallelism, max);
 			parallelism = limit > 0 ? Math.min(parallelism, (int) limit / 1000) : parallelism;
 			parallelism = Math.max(1, parallelism);
 		}
 		return env.createInput(inputFormat,
 			(TypeInformation<Row>) TypeConversions.fromDataTypeToLegacyInfo(getProducedDataType()))
 			.name(explainSource()).setParallelism(parallelism);
+	}
+
+	private int inferParallelismWithPartitionNumber(
+			HtapRowInputFormat inputFormat,
+			ReadableConfig flinkConf) {
+		try {
+			long startMs = System.currentTimeMillis();
+			int partitionNumber = inputFormat.createInputSplits(0).length;
+			long endMs = System.currentTimeMillis();
+			LOG.debug("Htap source({}) createInputSplits use time: {} ms, splitNum = {}",
+				tablePath, (endMs - startMs), partitionNumber);
+			int partitionNumberPerSubtask =
+				flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_PARTITION_NUMBER_PER_SUBTASK);
+			return (int) Math.ceil(((double) partitionNumber) / partitionNumberPerSubtask);
+		} catch (IOException e) {
+			throw new FlinkRuntimeException(e);
+		}
+	}
+
+	private int inferParallelismWithRowNumber(
+			HtapMetaClient metaClient,
+			HtapTableInfo tableInfo,
+			ReadableConfig flinkConf) {
+		String tableName = tableInfo.getName();
+		try {
+			HtapTableStatistics tableStats = metaClient.getTableStatistics(tableName);
+
+			if (tableStats == null || tableStats.getRowCount() <= 0) {
+				// -1 means we cannot get row count of the table.
+				return -1;
+			}
+			Long rowNumber = tableStats.getRowCount();
+			int rowCountPerSubtask =
+				flinkConf.get(HtapOptions.TABLE_EXEC_HTAP_ROW_NUMBER_PER_SUBTASK);
+			return (int) Math.ceil(((double) rowNumber) / rowCountPerSubtask);
+		} catch (MetadataServiceException e) {
+			LOG.warn("Failed to get row number for table '{}', will not infer " +
+				"parallelism by row number", tableName, e);
+			return -1;
+		}
 	}
 
 	@Override
