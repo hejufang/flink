@@ -85,6 +85,9 @@ public class BinaryRowDataSerializer extends AbstractRowDataSerializer<BinaryRow
 
 	@Override
 	public void serialize(BinaryRowData record, DataOutputView target) throws IOException {
+		checkArgument(record.getArity() == numFields,
+			"record's arity(%d) is not equal to serializer's arity(%d).",
+			record.getArity(), numFields);
 		target.writeInt(record.getSizeInBytes());
 		if (target instanceof MemorySegmentWritable) {
 			serializeWithoutLength(record, (MemorySegmentWritable) target);

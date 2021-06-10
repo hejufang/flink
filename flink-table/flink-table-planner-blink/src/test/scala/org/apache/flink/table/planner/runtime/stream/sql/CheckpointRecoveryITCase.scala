@@ -262,6 +262,7 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
 
     val setting = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build()
     val tEnv = StreamTableEnvironment.create(env, setting)
+    tEnv.getConfig.getConfiguration.setString("table.exec.state.ttl", "10min")
 
     val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(false)).map(mapper)
@@ -290,6 +291,7 @@ class CheckpointRecoveryITCase(stateBackend: String) extends TestLogger with Ser
 
     val setting = EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build()
     val tEnv = StreamTableEnvironment.create(env, setting)
+    tEnv.getConfig.getConfiguration.setString("table.exec.state.ttl", "10min")
 
     val mapper = new LatchMapper[(Long, Int, Double, Float, BigDecimal, String, String)]()
     val stream = env.addSource(new TestSource(true)).map(mapper)

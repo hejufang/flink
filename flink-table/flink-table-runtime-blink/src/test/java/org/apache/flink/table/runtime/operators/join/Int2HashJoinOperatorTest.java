@@ -251,8 +251,13 @@ public class Int2HashJoinOperatorTest implements Serializable {
 			int expectOutVal,
 			boolean semiJoin) throws Exception {
 		RowDataTypeInfo typeInfo = new RowDataTypeInfo(new IntType(), new IntType());
-		RowDataTypeInfo rowDataTypeInfo = new RowDataTypeInfo(
+		RowDataTypeInfo rowDataTypeInfo;
+		if (semiJoin) {
+			rowDataTypeInfo = new RowDataTypeInfo(new IntType(), new IntType());
+		} else {
+			rowDataTypeInfo = new RowDataTypeInfo(
 				new IntType(), new IntType(), new IntType(), new IntType());
+		}
 		TwoInputStreamTaskTestHarness<BinaryRowData, BinaryRowData, JoinedRowData> testHarness =
 			new TwoInputStreamTaskTestHarness<>(
 				TwoInputStreamTask::new,
