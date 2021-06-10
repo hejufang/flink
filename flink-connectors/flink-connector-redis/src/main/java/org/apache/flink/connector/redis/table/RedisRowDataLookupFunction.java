@@ -105,7 +105,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		this.keyFieldIndex = options.getKeyIndex();
 		this.fieldGetters = fieldGetters;
 		if ((options.getRedisValueType().equals(RedisValueType.HASH) && lookupOptions.isSpecifyHashKeys())
-			|| options.getRedisValueType().equals(RedisValueType.GENERAL)) {
+			|| (options.getRedisValueType().equals(RedisValueType.GENERAL) && deserializationSchema == null)) {
 			this.stringValueConverters = Arrays.stream(fieldTypes)
 				.map(StringValueConverters::getConverter).toArray(StringValueConverters.StringValueConverter[]::new);
 		} else {
