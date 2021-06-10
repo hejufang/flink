@@ -57,6 +57,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.KEY_FIELDS;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.PASSWORD_OPTION;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USERNAME_OPTION;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 
 /**
@@ -85,7 +86,8 @@ public class Elasticsearch6DynamicSinkFactory implements DynamicTableSinkFactory
 		FORMAT_OPTION,
 		PASSWORD_OPTION,
 		USERNAME_OPTION,
-		KEY_FIELDS
+		KEY_FIELDS,
+		SINK_IGNORE_DELETE
 	).collect(Collectors.toSet());
 
 	@Override

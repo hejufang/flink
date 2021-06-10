@@ -55,24 +55,7 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 	private final RequestFactory requestFactory;
 	private final Function<RowData, String> createKey;
 	private final ByteESHandler byteESHandler;
-
-	public RowElasticsearchSinkFunction(
-			IndexGenerator indexGenerator,
-			@Nullable String docType, // this is deprecated in es 7+
-			SerializationSchema<RowData> serializationSchema,
-			XContentType contentType,
-			RequestFactory requestFactory,
-			Function<RowData, String> createKey) {
-		this(
-			indexGenerator,
-			docType,
-			serializationSchema,
-			contentType,
-			requestFactory,
-			createKey,
-			null
-		);
-	}
+	private final boolean ignoreDelete;
 
 	public RowElasticsearchSinkFunction(
 			IndexGenerator indexGenerator,
@@ -81,7 +64,8 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 			XContentType contentType,
 			RequestFactory requestFactory,
 			Function<RowData, String> createKey,
-			ByteESHandler byteESHandler) {
+			@Nullable ByteESHandler byteESHandler,
+			boolean ignoreDelete) {
 		this.indexGenerator = Preconditions.checkNotNull(indexGenerator);
 		this.docType = docType;
 		this.serializationSchema = Preconditions.checkNotNull(serializationSchema);
@@ -89,6 +73,7 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 		this.requestFactory = Preconditions.checkNotNull(requestFactory);
 		this.createKey = Preconditions.checkNotNull(createKey);
 		this.byteESHandler = byteESHandler;
+		this.ignoreDelete = ignoreDelete;
 	}
 
 	@Override
@@ -117,8 +102,13 @@ class RowElasticsearchSinkFunction implements ElasticsearchSinkFunction<RowData>
 				processUpsert(element, indexer);
 				break;
 			case UPDATE_BEFORE:
+				// we don't need to process update_before message,
+				// and in partial upsert scenario, it will delete the whole line.
+				break;
 			case DELETE:
-				processDelete(element, indexer);
+				if (!ignoreDelete) {
+					processDelete(element, indexer);
+				}
 				break;
 			default:
 				throw new TableException("Unsupported message kind: " + element.getRowKind());

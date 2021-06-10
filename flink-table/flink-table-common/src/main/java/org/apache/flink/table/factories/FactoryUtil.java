@@ -226,6 +226,12 @@ public final class FactoryUtil {
 		.withDescription(
 			"Initial delay time before retrying.");
 
+	public static final ConfigOption<Boolean> SINK_IGNORE_DELETE = ConfigOptions
+		.key("sink.ignore-delete")
+		.booleanType()
+		.defaultValue(true)
+		.withDescription("Optional. The flag decides if delete messages should be ignored or not.");
+
 	private static final String FORMAT_KEY = "format";
 
 	private static final String FORMAT_SUFFIX = ".format";

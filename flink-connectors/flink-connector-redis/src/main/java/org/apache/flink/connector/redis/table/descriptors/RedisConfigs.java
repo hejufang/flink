@@ -107,10 +107,5 @@ public class RedisConfigs {
 		.defaultValue(true)
 		.withDescription("Optional. The flag decides if the key will be involved in the value or not when format " +
 			"are set. The default value is true.");
-	public static final ConfigOption<Boolean> SINK_IGNORE_DELETE = ConfigOptions
-		.key("sink.ignore-delete")
-		.booleanType()
-		.defaultValue(true)
-		.withDescription("Optional. The flag decides if delete messages should be ignored or not.");
 
 }

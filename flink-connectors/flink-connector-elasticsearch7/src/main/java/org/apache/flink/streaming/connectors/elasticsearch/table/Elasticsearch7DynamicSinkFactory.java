@@ -65,6 +65,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.USER_DEFINED_PARAMS;
 import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.utils.TableSchemaUtils.replacePrimaryKeyIfNotSpecified;
 
 /**
@@ -101,7 +102,8 @@ public class Elasticsearch7DynamicSinkFactory implements DynamicTableSinkFactory
 		URI,
 		IGNORE_INVALID_DATA,
 		USER_DEFINED_PARAMS,
-		KEY_FIELDS
+		KEY_FIELDS,
+		SINK_IGNORE_DELETE
 	).collect(Collectors.toSet());
 
 	@Override

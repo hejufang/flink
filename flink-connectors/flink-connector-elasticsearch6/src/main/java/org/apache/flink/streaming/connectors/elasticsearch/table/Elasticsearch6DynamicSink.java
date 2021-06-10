@@ -48,6 +48,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
+
 /**
  * A {@link DynamicTableSink} that describes how to create a {@link ElasticsearchSink} from a logical
  * description.
@@ -125,7 +127,9 @@ final class Elasticsearch6DynamicSink implements DynamicTableSink {
 					format,
 					XContentType.JSON,
 					REQUEST_FACTORY,
-					KeyExtractor.createKeyExtractor(schema, config.getKeyDelimiter())
+					KeyExtractor.createKeyExtractor(schema, config.getKeyDelimiter()),
+					null,
+					config.config.get(SINK_IGNORE_DELETE)
 				);
 
 			final ElasticsearchSink.Builder<RowData> builder = builderProvider.createBuilder(

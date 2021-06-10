@@ -61,7 +61,6 @@ import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CO
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.CONNECTION_TIMEOUT;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.LOOKUP_SPECIFY_HASH_KEYS;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.PSM;
-import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_IGNORE_DELETE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MAX_RETRIES;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_MODE;
 import static org.apache.flink.connector.redis.table.descriptors.RedisConfigs.SINK_RECORD_TTL;
@@ -81,6 +80,7 @@ import static org.apache.flink.table.factories.FactoryUtil.PARALLELISM;
 import static org.apache.flink.table.factories.FactoryUtil.RATE_LIMIT_NUM;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_INTERVAL;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_BUFFER_FLUSH_MAX_ROWS;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.factories.FactoryUtil.SINK_LOG_FAILURES_ONLY;
 import static org.apache.flink.util.Preconditions.checkState;
 

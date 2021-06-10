@@ -64,6 +64,7 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.CONNECTION_PATH_PREFIX;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.IGNORE_INVALID_DATA;
 import static org.apache.flink.streaming.connectors.elasticsearch.table.ElasticsearchOptions.URI;
+import static org.apache.flink.table.factories.FactoryUtil.SINK_IGNORE_DELETE;
 import static org.apache.flink.table.types.logical.LogicalTypeRoot.DECIMAL;
 
 /**
@@ -201,7 +202,8 @@ final class Elasticsearch7DynamicSink implements DynamicTableSink {
 					XContentType.JSON,
 					REQUEST_FACTORY,
 					KeyExtractor.createKeyExtractor(schema, config.getKeyDelimiter()),
-					handler
+					handler,
+					config.config.get(SINK_IGNORE_DELETE)
 				);
 
 			final ElasticsearchSink.Builder<RowData> builder = builderProvider.createBuilder(
