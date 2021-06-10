@@ -1423,8 +1423,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		}
 
 		if (outputPartitioner instanceof ConfigurableBacklogPartitioner) {
-			int partitionerMaxBacklogPerChannel = environment.getJobConfiguration().getInteger(
-					ConfigConstants.PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL, Integer.MAX_VALUE);
+			int partitionerMaxBacklogPerChannel = environment.getTaskManagerInfo().getConfiguration().getInteger(
+					ConfigConstants.PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL,
+					ConfigConstants.PARTITIONER_MAXIMUM_BACKLOG_PER_CHANNEL_DEFAULT);
 			((ConfigurableBacklogPartitioner) outputPartitioner).configure(partitionerMaxBacklogPerChannel);
 		}
 
