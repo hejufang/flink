@@ -982,6 +982,7 @@ under the License.
 							<shadeTestJar>false</shadeTestJar>
 							<artifactSet>
 								<includes combine.children="append">
+									<include>org.apache.flink:flink-hadoop-fs</include>
 									<include>org.apache.flink:flink-orc_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-orc-nohive_${scala.binary.version}</include>
 									<include>org.apache.flink:flink-hadoop-compatibility_${scala.binary.version}</include>
