@@ -263,7 +263,7 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 		Object[] internalValues = new Object[fieldNames.length];
 		internalValues[0] = stringValueConverters[0].toInternal(key);
 		for (int i = 1; i < fieldNames.length; i++) {
-			internalValues[i] = stringValueConverters[i].toInternal(values.get(i));
+			internalValues[i] = stringValueConverters[i].toInternal(values.get(i - 1));
 		}
 		return GenericRowData.of(internalValues);
 	}
