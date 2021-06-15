@@ -31,9 +31,12 @@ import org.apache.flink.connector.redis.utils.RedisUtils;
 import org.apache.flink.connector.redis.utils.RedisValueType;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
+import org.apache.flink.table.connector.RuntimeConverter;
+import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 import org.apache.flink.util.FlinkRuntimeException;
 
@@ -69,8 +72,10 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 	private final RedisOptions options;
 	private final RedisInsertOptions insertOptions;
 	private final ClientPipelineProvider clientPipelineProvider;
+	@Nullable
 	private final SerializationSchema<RowData> serializationSchema;
 	private final RowData.FieldGetter[] fieldGetters;
+	private final DynamicTableSink.DataStructureConverter converter;
 	private RedisBatchExecutor batchExecutor;
 	private transient Counter writeFailed;
 	private transient ClientPool clientPool;
@@ -88,7 +93,8 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 			RedisInsertOptions insertOptions,
 			RowType rowType,
 			ClientPipelineProvider clientPipelineProvider,
-			@Nullable SerializationSchema<RowData> serializationSchema) {
+			@Nullable SerializationSchema<RowData> serializationSchema,
+			DynamicTableSink.DataStructureConverter converter) {
 		this.options = options;
 		this.insertOptions = insertOptions;
 		this.clientPipelineProvider = clientPipelineProvider;
@@ -97,6 +103,7 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 			.range(0, rowType.getFieldCount())
 			.mapToObj(pos -> RowData.createFieldGetter(rowType.getTypeAt(pos), pos))
 			.toArray(RowData.FieldGetter[]::new);
+		this.converter = converter;
 	}
 
 	@Override
@@ -116,6 +123,7 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		if (insertOptions.isLogFailuresOnly()) {
 			writeFailed = getRuntimeContext().getMetricGroup().counter(WRITE_FAILED_METRIC_NAME);
 		}
+		converter.open(RuntimeConverter.Context.create(RedisRowDataOutputFormat.class.getClassLoader()));
 		scheduler = Executors.newScheduledThreadPool(
 			1, new ExecutorThreadFactory(THREAD_POOL_NAME));
 		if (insertOptions.getBufferFlushInterval() > 0) {
@@ -176,7 +184,8 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 		if (key == null) {
 			throw new RuntimeException("The primary key of Abase/Redis should not be null");
 		}
-		if (record.getRowKind() == RowKind.DELETE && insertOptions.isIgnoreDelete()) {
+		if ((record.getRowKind() == RowKind.DELETE && insertOptions.isIgnoreDelete())
+			|| record.getRowKind() == RowKind.UPDATE_BEFORE) {
 			return;
 		}
 		batchExecutor.addToBatch(record);
@@ -335,9 +344,10 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 	}
 
 	private void writeHash(Pipeline pipeline, RowData record) {
-		Object key = fieldGetters[0].getFieldOrNull(record);
 		if (record.getArity() == 2) {
-			Object hashMap = fieldGetters[1].getFieldOrNull(record);
+			Row res = (Row) converter.toExternal(record);
+			Object key = res.getField(0);
+			Object hashMap = res.getField(1);
 			if (hashMap == null) {
 				throw new FlinkRuntimeException(String.format("The hashmap of %s should not be null.", key));
 			}
@@ -346,7 +356,9 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 				return;
 			}
 			pipeline.hmset(key.toString(), (Map<String, String>) hashMap);
+			setExpire(pipeline, key);
 		} else {
+			Object key = fieldGetters[0].getFieldOrNull(record);
 			Object hashKey = fieldGetters[1].getFieldOrNull(record);
 			Object hashValue = fieldGetters[2].getFieldOrNull(record);
 			if (hashKey == null || hashValue == null) {
@@ -358,8 +370,8 @@ public class RedisRowDataOutputFormat extends RichOutputFormat<RowData> {
 				return;
 			}
 			pipeline.hset(key.toString(), hashKey.toString(), hashValue.toString());
+			setExpire(pipeline, key);
 		}
-		setExpire(pipeline, key);
 	}
 
 	private void writeZSet(Pipeline pipeline, RowData record) {

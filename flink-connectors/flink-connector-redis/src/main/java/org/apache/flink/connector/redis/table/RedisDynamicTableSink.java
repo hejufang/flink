@@ -30,6 +30,7 @@ import org.apache.flink.table.connector.format.EncodingFormat;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
 import org.apache.flink.table.connector.sink.SinkFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.types.RowKind;
 
@@ -119,13 +120,16 @@ public class RedisDynamicTableSink implements DynamicTableSink {
 			columns.forEach(column -> builder.field(column.getName(), column.getType()));
 			realSchema = builder.build();
 		}
-		final RowType rowType = (RowType) schema.toRowDataType().getLogicalType();
+		DataType originalDataType = schema.toRowDataType();
+		final RowType rowType = (RowType) originalDataType.getLogicalType();
+		DataStructureConverter converter = context.createDataStructureConverter(originalDataType);
 		RedisRowDataOutputFormat outputFormat = new RedisRowDataOutputFormat(
 			options,
 			insertOptions,
 			rowType,
 			clientPipelineProvider,
-			encodingFormat == null ? null : encodingFormat.createRuntimeEncoder(context, realSchema.toRowDataType())
+			encodingFormat == null ? null : encodingFormat.createRuntimeEncoder(context, realSchema.toRowDataType()),
+			converter
 		);
 		return SinkFunctionProvider.of(new RedisRowDataSinkFunction(
 			outputFormat,
