@@ -33,7 +33,6 @@ public class KafkaUtil {
 		"/queryClusterMetricsPrefix.do?cluster=%s";
 	private static final String CLUSTER_METRICS_PREFIX_KEY = "clusterMetricsPrefix";
 	private static final String TOPIC_RELATED_METRIC_PREFIX = "topic_related_metric_prefix";
-	private static final String CLIENT_RELATED_METRIC_PREFIX_NEW = "client_related_metric_prefix_new";
 	private static final Logger LOG = LoggerFactory.getLogger(KafkaUtil.class);
 	private static final int MAX_RETRY_TIMES = 3;
 	private static final String METRICS_SEPARATOR = ",";
@@ -41,7 +40,7 @@ public class KafkaUtil {
 	/**
 	 * @return Kafka topic prefix. Return null if there is something wrong.
 	 */
-	public static KafkaMetricPrefix getKafkaPrefix(String cluster, String kafkaServerUrl) {
+	public static String getKafkaTopicPrefix(String cluster, String kafkaServerUrl) {
 		String url = String.format(kafkaServerUrl + METRICS_PREFIX_QUERY_URL, cluster);
 		LOG.info("kafka metrics query url = {}", url);
 		int retryTimes = 0;
@@ -64,45 +63,12 @@ public class KafkaUtil {
 				if (topicMetricPrefix != null && topicMetricPrefix.contains(METRICS_SEPARATOR)) {
 					topicMetricPrefix = topicMetricPrefix.split(METRICS_SEPARATOR)[0];
 				}
-				String clientRelatedMetricPrefixNew =
-					(String) kafkaMetricPrefix.get(CLIENT_RELATED_METRIC_PREFIX_NEW);
-				if (clientRelatedMetricPrefixNew != null && clientRelatedMetricPrefixNew.contains(METRICS_SEPARATOR)) {
-					clientRelatedMetricPrefixNew = clientRelatedMetricPrefixNew.split(METRICS_SEPARATOR)[0];
-				}
-
-				return new KafkaMetricPrefix().setTopicMetricPrefix(topicMetricPrefix)
-					.setClientRelatedMetricPrefixNew(clientRelatedMetricPrefixNew);
+				return topicMetricPrefix;
 			} catch (IOException | ParseException e) {
 				LOG.warn("Failed to get kafka topic prefix. kafka cluster = {}, " +
 					"kafkaServerUrl = {}", cluster, kafkaServerUrl, e);
 			}
 		}
 		return null;
-	}
-
-	/**
-	 * Kafka metric prefix.
-	 */
-	public static class KafkaMetricPrefix {
-		private String topicMetricPrefix;
-		private String clientRelatedMetricPrefixNew;
-
-		public String getTopicMetricPrefix() {
-			return topicMetricPrefix;
-		}
-
-		public KafkaMetricPrefix setTopicMetricPrefix(String topicMetricPrefix) {
-			this.topicMetricPrefix = topicMetricPrefix;
-			return this;
-		}
-
-		public String getClientRelatedMetricPrefixNew() {
-			return clientRelatedMetricPrefixNew;
-		}
-
-		public KafkaMetricPrefix setClientRelatedMetricPrefixNew(String clientRelatedMetricPrefixNew) {
-			this.clientRelatedMetricPrefixNew = clientRelatedMetricPrefixNew;
-			return this;
-		}
 	}
 }

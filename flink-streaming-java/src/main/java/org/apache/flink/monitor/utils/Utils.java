@@ -23,6 +23,7 @@ import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.streaming.api.graph.StreamNode;
 
 import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
@@ -131,26 +132,29 @@ public class Utils {
 		return Utils.replaceSpecialCharacter(name);
 	}
 
-	public static JSONArray getKafkaSourceTopics() {
+	public static List<String> getKafkaLagSizeMetrics(String kafkaServerUrl) {
+		List<String> kafkaMetricsList = new ArrayList<>();
+		JSONArray jsonArray = getKafkaTopics();
+		for (Object object : jsonArray) {
+			JSONObject jsonObject = (JSONObject) object;
+			String kafkaCluster = (String) jsonObject.get("cluster");
+			String kafkaTopicPrefix = KafkaUtil.getKafkaTopicPrefix(kafkaCluster, kafkaServerUrl);
+			String topic = (String) jsonObject.get("topic");
+			String consumer = (String) jsonObject.get("consumer");
+			String metric = String.format("%s.%s.%s.lag.size", kafkaTopicPrefix, topic, consumer);
+			kafkaMetricsList.add(metric);
+		}
+		return kafkaMetricsList;
+	}
+
+	public static JSONArray getKafkaTopics() {
 		String kafkaMetricsStr = System.getProperty("flink_kafka_metrics", "[]");
 		JSONParser parser = new JSONParser();
 		try {
 			JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
 			return jsonArray;
 		} catch (ParseException e) {
-			LOG.error("Failed to parse system property flink_kafka_metrics", e);
-		}
-		return new JSONArray();
-	}
-
-	public static JSONArray getKafkaSinkTopics() {
-		String kafkaMetricsStr = System.getProperty("flink_kafka_produce_metrics", "[]");
-		JSONParser parser = new JSONParser();
-		try {
-			JSONArray jsonArray = (JSONArray) parser.parse(kafkaMetricsStr);
-			return jsonArray;
-		} catch (ParseException e) {
-			LOG.error("Failed to parse system property flink_kafka_produce_metrics", e);
+			LOG.error("Failed to render lag size metrics", e);
 		}
 		return new JSONArray();
 	}

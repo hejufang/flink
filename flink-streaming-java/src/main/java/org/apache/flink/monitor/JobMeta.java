@@ -95,7 +95,7 @@ public class JobMeta {
 			preState.setString(5, jobName);
 			preState.setString(6, tasks);
 			preState.setString(7, operators);
-			preState.setString(8, Utils.getKafkaSourceTopics().toJSONString());
+			preState.setString(8, Utils.getKafkaTopics().toJSONString());
 			preState.setString(9, modifyTime);
 			preState.setString(10, applicationName);
 			preState.setString(11, user);
