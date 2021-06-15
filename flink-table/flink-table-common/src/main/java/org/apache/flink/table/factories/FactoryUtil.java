@@ -63,6 +63,8 @@ public final class FactoryUtil {
 
 	private static final Logger LOG = LoggerFactory.getLogger(FactoryUtil.class);
 
+	private static final String SOURCE_SINK_KEY_BY_FLINK_1_9 = "flink_1_9.key-by-fields";
+
 	public static final String SOURCE_SKIP_DIRTY = "skipDirty";
 
 	public static final ConfigOption<Integer> PROPERTY_VERSION = ConfigOptions.key("property-version")
@@ -139,6 +141,15 @@ public final class FactoryUtil {
 		.defaultValue(3)
 		.withDescription("Optional. The max retry times if lookup database failed.");
 
+	// It will be replaced by `distribute by`
+	@Deprecated
+	public static final ConfigOption<String> SOURCE_KEY_BY_FIELD = ConfigOptions
+		.key("scan.partition-fields")
+		.stringType()
+		.noDefaultValue()
+		.withDeprecatedKeys(SOURCE_SINK_KEY_BY_FLINK_1_9)
+		.withDescription("Optional specific source key fields.");
+
 	public static final ConfigOption<Integer> LOOKUP_LATER_JOIN_RETRY_TIMES = ConfigOptions
 		.key("lookup.later-join-retry-times")
 		.intType()
@@ -178,6 +189,7 @@ public final class FactoryUtil {
 		.key("sink.partition-fields")
 		.stringType()
 		.noDefaultValue()
+		.withDeprecatedKeys(SOURCE_SINK_KEY_BY_FLINK_1_9)
 		.withDescription("Optional specific key fields.");
 
 	public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS = ConfigOptions

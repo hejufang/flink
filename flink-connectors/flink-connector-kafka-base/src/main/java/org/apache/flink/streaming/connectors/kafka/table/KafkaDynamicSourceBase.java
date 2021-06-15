@@ -22,15 +22,20 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.common.io.ratelimiting.FlinkConnectorRateLimiter;
 import org.apache.flink.api.common.io.ratelimiting.GuavaFlinkConnectorRateLimiter;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumerBase;
 import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
 import org.apache.flink.table.sources.StreamTableSource;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Preconditions;
@@ -177,6 +182,21 @@ public abstract class KafkaDynamicSourceBase implements ScanTableSource {
 		}
 
 		kafkaConsumer.setStartIgnoreStateOffsets(kafkaSourceConfig.isStartIgnoreStateOffsets());
+		if (kafkaSourceConfig.getKeyedList() != null) {
+			return new DataStreamScanProvider() {
+				@Override
+				public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
+					TypeInformation<RowData> typeInfo = (TypeInformation<RowData>) TypeInfoDataTypeConverter
+						.fromDataTypeToTypeInfo(outputDataType);
+					return execEnv.addSource(kafkaConsumer, typeInfo).keyBy(kafkaSourceConfig.getKeyedList());
+				}
+
+				@Override
+				public boolean isBounded() {
+					return false;
+				}
+			};
+		}
 
 		return SourceFunctionProvider.of(kafkaConsumer, false);
 	}

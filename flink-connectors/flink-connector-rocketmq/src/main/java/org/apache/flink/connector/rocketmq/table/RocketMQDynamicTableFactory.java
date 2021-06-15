@@ -155,6 +155,7 @@ public class RocketMQDynamicTableFactory implements
 		options.add(SINK_ASYNC_MODE_ENABLED);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.RATE_LIMIT_NUM);
+		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
 		return options;
 	}
 
@@ -231,9 +232,13 @@ public class RocketMQDynamicTableFactory implements
 			if (config.getOptional(FactoryUtil.SINK_PARTITIONER_FIELD).isPresent()) {
 				throw new FlinkRuntimeException("Source don't support partition-fields.");
 			}
+
 			config.getOptional(SOURCE_METADATA_COLUMNS).ifPresent(
 				metadataInfo ->
-					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema)
+					validateAndSetMetadata(metadataInfo, rocketMQConfig, tableSchema));
+			config.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
+				keyByFields ->
+					rocketMQConfig.setKeyByFields(tableSchema.getIndexListFromFieldNames(keyByFields))
 			);
 		}
 

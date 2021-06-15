@@ -358,10 +358,13 @@ public class KafkaOptions {
 					case SINK_PARTITIONER_VALUE_ROUND_ROBIN:
 						return Optional.empty();
 					case SINK_PARTITIONER_ROW_FIELD_HASH:
-						String keybyFieldNames = tableOptions.getOptional(SINK_PARTITIONER_FIELD)
-							.orElseThrow(
-								() -> new IllegalArgumentException(
-									String.format("Use '%s' must specific field '%s'", SINK_PARTITIONER_ROW_FIELD_HASH, SINK_PARTITIONER_FIELD.key())));
+						String keybyFieldNames =
+							tableOptions.getOptional(SINK_PARTITIONER_FIELD)
+										.orElseThrow(
+											() -> new IllegalArgumentException(
+												String.format("Use '%s' must specific field '%s'",
+													SINK_PARTITIONER_ROW_FIELD_HASH, SINK_PARTITIONER_FIELD.key())));
+
 						int[] fieldIndexList = schema.getIndexListFromFieldNames(keybyFieldNames);
 						DataType[] dataTypes = new DataType[fieldIndexList.length];
 						for (int i = 0; i < dataTypes.length; i++) {

@@ -202,6 +202,7 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(SINK_PARTITIONER_FIELD);
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		options.add(FactoryUtil.PARALLELISM);
+		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
 		return options;
 	}
 
@@ -232,6 +233,10 @@ public abstract class KafkaDynamicTableFactoryBase implements
 			throw new FlinkRuntimeException("Source don't support partition-fields.");
 		}
 
+		readableConfig.getOptional(FactoryUtil.SOURCE_KEY_BY_FIELD).ifPresent(
+			keybyFields ->
+				sourceConfig.setKeyedList(tableSchema.getIndexListFromFieldNames(keybyFields))
+		);
 		return sourceConfig;
 	}
 

@@ -18,13 +18,17 @@
 package org.apache.flink.connector.rocketmq.table;
 
 import org.apache.flink.api.common.serialization.DeserializationSchema;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.connector.rocketmq.RocketMQConfig;
 import org.apache.flink.connector.rocketmq.RocketMQConsumer;
 import org.apache.flink.connector.rocketmq.RocketMQMetadata;
 import org.apache.flink.connector.rocketmq.RocketMQOptions;
 import org.apache.flink.connector.rocketmq.serialization.RocketMQDeserializationSchemaWrapper;
+import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
+import org.apache.flink.table.connector.source.DataStreamScanProvider;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceFunctionProvider;
@@ -32,6 +36,7 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
+import org.apache.flink.table.runtime.types.TypeInfoDataTypeConverter;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -71,6 +76,22 @@ public class RocketMQDynamicSource implements ScanTableSource {
 		DeserializationSchema<RowData> schema = decodingFormat.createRuntimeDecoder(runtimeProviderContext, outputDataType);
 		RocketMQConsumer<RowData> consumer =
 			new RocketMQConsumer<>(createDeserializationSchema(schema), props, rocketMQConfig);
+		if (rocketMQConfig.getKeyByFields() != null) {
+			DataStreamScanProvider dataStreamScanProvider = new DataStreamScanProvider() {
+				@Override
+				public DataStream<RowData> produceDataStream(StreamExecutionEnvironment execEnv) {
+					TypeInformation<RowData> typeInfo = (TypeInformation<RowData>) TypeInfoDataTypeConverter
+						.fromDataTypeToTypeInfo(outputDataType);
+					return execEnv.addSource(consumer, typeInfo).keyBy(rocketMQConfig.getKeyByFields());
+				}
+
+				@Override
+				public boolean isBounded() {
+					return false;
+				}
+			};
+			return dataStreamScanProvider;
+		}
 		return SourceFunctionProvider.of(consumer, false);
 	}
 

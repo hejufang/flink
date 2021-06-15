@@ -21,6 +21,7 @@ import org.apache.flink.table.factories.DynamicSourceMetadataFactory;
 import org.apache.flink.table.types.DataType;
 
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 
@@ -40,6 +41,7 @@ public class KafkaSourceConfig implements Serializable {
 	private Integer parallelism;
 	private boolean startIgnoreStateOffsets;
 	private boolean forceManuallyCommitOffsets;
+	private int[] keyedList;
 
 	public long getRateLimitNumber() {
 		return rateLimitNumber;
@@ -137,6 +139,14 @@ public class KafkaSourceConfig implements Serializable {
 		this.forceManuallyCommitOffsets = forceManuallyCommitOffsets;
 	}
 
+	public int[] getKeyedList() {
+		return keyedList;
+	}
+
+	public void setKeyedList(int[] keyedList) {
+		this.keyedList = keyedList;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {
@@ -157,13 +167,14 @@ public class KafkaSourceConfig implements Serializable {
 			Objects.equals(relativeOffset, that.relativeOffset) &&
 			Objects.equals(parallelism, that.parallelism) &&
 			Objects.equals(startIgnoreStateOffsets, that.startIgnoreStateOffsets) &&
-			Objects.equals(forceManuallyCommitOffsets, that.forceManuallyCommitOffsets);
+			Objects.equals(forceManuallyCommitOffsets, that.forceManuallyCommitOffsets) &&
+			Arrays.equals(keyedList, that.keyedList);
 	}
 
 	@Override
 	public int hashCode() {
 		return Objects.hash(rateLimitNumber, scanSampleInterval, scanSampleNum, partitionTopicList,
 			kafkaResetNewPartition, withoutMetaDataType, metadataMap, manualCommitInterval, relativeOffset,
-			parallelism, startIgnoreStateOffsets, forceManuallyCommitOffsets);
+			parallelism, keyedList, startIgnoreStateOffsets, forceManuallyCommitOffsets);
 	}
 }
