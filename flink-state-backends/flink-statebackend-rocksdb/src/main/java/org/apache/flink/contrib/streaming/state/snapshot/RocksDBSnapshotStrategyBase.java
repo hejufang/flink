@@ -138,4 +138,7 @@ public abstract class RocksDBSnapshotStrategyBase<K>
 		long timestamp,
 		CheckpointStreamFactory streamFactory,
 		CheckpointOptions checkpointOptions) throws Exception;
+
+	public void cleanUp() {}
+
 }

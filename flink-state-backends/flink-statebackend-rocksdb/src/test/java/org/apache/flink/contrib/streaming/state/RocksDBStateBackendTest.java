@@ -735,6 +735,67 @@ public class RocksDBStateBackendTest extends StateBackendTestBase<RocksDBStateBa
 		}
 	}
 
+	@Test
+	public void testDisposeCleanUpRocksDBStateDataTransferThread() throws Exception {
+
+		if (rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL ||
+			rocksDBStateBackendEnum == RocksDBStateBackendEnum.INCREMENTAL_BATCH_FIX_SIZE_SEQ) {
+			RocksDBKeyedStateBackend<Integer> test = null;
+			final ColumnFamilyOptions columnFamilyOptions = spy(new ColumnFamilyOptions());
+
+			try {
+				prepareRocksDB();
+				CheckpointStreamFactory streamFactory = createStreamFactory();
+				SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+				test = RocksDBTestUtils.builderForTestDB(
+					tempFolder.newFolder(),
+					IntSerializer.INSTANCE,
+					db,
+					defaultCFHandle,
+					columnFamilyOptions)
+					.setNumberOfTransferingThreads(2)
+					.setEnableIncrementalCheckpointing(isEnableIncrementalCheckpointing())
+					.build();
+
+				ValueStateDescriptor<String> stubState1 =
+					new ValueStateDescriptor<>("StubState-1", StringSerializer.INSTANCE);
+				test.createInternalState(StringSerializer.INSTANCE, stubState1);
+				ValueStateDescriptor<String> stubState2 =
+					new ValueStateDescriptor<>("StubState-2", StringSerializer.INSTANCE);
+				test.createInternalState(StringSerializer.INSTANCE, stubState2);
+
+				ValueStateDescriptor<String> kvId = new ValueStateDescriptor<>("id", String.class);
+
+				ValueState<String> state = test.getPartitionedState(VoidNamespace.INSTANCE, VoidNamespaceSerializer.INSTANCE, kvId);
+
+				// write some state
+				test.setCurrentKey(1);
+				state.update("1");
+				test.setCurrentKey(2);
+				state.update("2");
+
+				// draw a snapshot
+				runSnapshot(
+					test.snapshot(682375462378L, 2, streamFactory, CheckpointOptions.forCheckpointWithDefaultLocation()),
+					sharedStateRegistry);
+
+				test.dispose();
+
+				for (Thread t : Thread.getAllStackTraces().keySet()) {
+					if (t.getName().contains("Flink-RocksDBStateDataTransfer") && t.getState() != Thread.State.TERMINATED) {
+						fail("Detected rocksDBStateDataTransfer thread leak. Thread name: " + t.getName());
+					}
+				}
+			} finally {
+				if (test != null) {
+					IOUtils.closeQuietly(test);
+					test.dispose();
+				}
+				columnFamilyOptions.close();
+			}
+		}
+	}
+
 	private void checkRemove(IncrementalRemoteKeyedStateHandle remove, SharedStateRegistry registry) throws Exception {
 		for (StateHandleID id : remove.getSharedState().keySet()) {
 			verify(registry, times(0)).unregisterReference(

@@ -299,6 +299,11 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		}
 	}
 
+	@Override
+	public void cleanUp(){
+		this.stateUploader.close();
+	}
+
 	/**
 	 * Encapsulates the process to perform an incremental snapshot of a RocksDBKeyedStateBackend.
 	 */
