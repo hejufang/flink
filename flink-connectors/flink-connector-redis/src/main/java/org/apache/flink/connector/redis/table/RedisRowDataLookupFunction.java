@@ -260,6 +260,11 @@ public class RedisRowDataLookupFunction extends TableFunction<RowData> {
 
 	private RowData getHashValueForKeysSpecified(String key, Jedis jedis) {
 		List<String> values = jedis.hmget(key, hashKeys);
+		// For key which not exists, an empty list will be returned.
+		// And in case other unexpected return value, check if it is null, too.
+		if (values == null || values.isEmpty()) {
+			return null;
+		}
 		Object[] internalValues = new Object[fieldNames.length];
 		internalValues[0] = stringValueConverters[0].toInternal(key);
 		for (int i = 1; i < fieldNames.length; i++) {
