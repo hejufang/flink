@@ -98,6 +98,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -126,6 +127,7 @@ public class HiveTableSource implements
 
 	private static final Logger LOG = LoggerFactory.getLogger(HiveTableSource.class);
 	private static final String KEY_VALUE_DELIMITER = ":";
+	private static final int MAX_DISPLAY_PARTITION_SIZE = 10;
 
 	private final JobConf jobConf;
 	private final ReadableConfig flinkConf;
@@ -557,8 +559,24 @@ public class HiveTableSource implements
 
 	@Override
 	public String explainSource() {
-		String explain = String.format(" TablePath: %s, PartitionPruned: %s, PartitionNums: %d",
-				tablePath.getFullName(), partitionPruned, null == remainingPartitions ? null : remainingPartitions.size());
+		String explain = String.format(" TablePath: %s, PartitionPruned: %s",
+				tablePath.getFullName(), partitionPruned);
+
+		if (remainingPartitions != null) {
+			String partitionDesc;
+			if (remainingPartitions.size() > MAX_DISPLAY_PARTITION_SIZE) {
+				partitionDesc =
+					remainingPartitions.subList(0, MAX_DISPLAY_PARTITION_SIZE).stream()
+						.map(Objects::toString)
+						.collect(Collectors.joining(", "));
+				partitionDesc = "[" + partitionDesc + " ...]";
+			} else {
+				partitionDesc = remainingPartitions.toString();
+			}
+
+			explain += String.format(", PartitionNums: %d, remainingPartitions: %s",
+				remainingPartitions.size(), partitionDesc);
+		}
 		if (projectedFields != null) {
 			explain += ", ProjectedFields: " + Arrays.toString(projectedFields);
 		}
