@@ -311,7 +311,16 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		if (this.disposed) {
 			return;
 		}
+
 		super.dispose();
+
+		if (checkpointSnapshotStrategy != null) {
+			checkpointSnapshotStrategy.cleanUp();
+		}
+
+		if (savepointSnapshotStrategy != null) {
+			savepointSnapshotStrategy.cleanUp();
+		}
 
 		// This call will block until all clients that still acquire access to the RocksDB instance have released it,
 		// so that we cannot release the native resources while clients are still working with it in parallel.

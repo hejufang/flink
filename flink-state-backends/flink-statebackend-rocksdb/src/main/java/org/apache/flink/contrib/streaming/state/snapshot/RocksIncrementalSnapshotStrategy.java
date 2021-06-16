@@ -230,6 +230,11 @@ public class RocksIncrementalSnapshotStrategy<K> extends RocksDBSnapshotStrategy
 		}
 	}
 
+	@Override
+	public void cleanUp(){
+		this.stateUploader.close();
+	}
+
 	private Set<StateHandleID> snapshotMetaData(
 		long checkpointId,
 		@Nonnull List<StateMetaInfoSnapshot> stateMetaInfoSnapshots) {
