@@ -29,6 +29,8 @@ import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureManager.UNLIMITED_TOLERABLE_FAILURE_NUMBER;
 import static org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration.MINIMAL_CHECKPOINT_TIME;
@@ -551,6 +553,12 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * Sets all relevant options contained in the {@link ReadableConfig} such as e.g.
 	 * {@link ExecutionCheckpointingOptions#CHECKPOINTING_MODE}.
 	 *
+	 * <p>For consistency with the use of Flink 1.9 SQL DTS table option "job.table.enable_checkpoint":
+	 * if user explicitly sets {@link ExecutionCheckpointingOptions#CHECKPOINTING_ENABLE} to false,
+	 * it will directly return, leaving all fields' values untouched, effectively disabling checkpointing;
+	 * if user explicitly sets it to true, it will set recommended default values for common options and
+	 * continue execution; if user does not set it, it has no effect.
+	 *
 	 * <p>It will change the value of a setting only if a corresponding option was set in the
 	 * {@code configuration}. If a key is not present, the current value of a field will remain
 	 * untouched.
@@ -558,19 +566,23 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * @param configuration a configuration to read the values from
 	 */
 	public void configure(ReadableConfig configuration) {
-		configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_ENABLE)
-			.ifPresent(e -> {
-				if (e) {
-					setCheckpointInterval(DEFAULT_INTERVAL_CHECKPOINT_ENABLED);
-					setCheckpointingMode(DEFAULT_MODE);
-					setCheckpointTimeout(DEFAULT_TIMEOUT);
-					setMinPauseBetweenCheckpoints(DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS);
-					setMaxConcurrentCheckpoints(DEFAULT_MAX_CONCURRENT_CHECKPOINTS);
-					setTolerableCheckpointFailureNumber(UNLIMITED_TOLERABLE_FAILURE_NUMBER);
-					setCheckpointSchedulingStrategy(DEFAULT_SCHEDULER);
-					setPreferCheckpointForRecovery(false);
-				}
-			});
+		Optional<Boolean> optionalCheckpointingEnabled =
+			configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_ENABLE);
+		if (optionalCheckpointingEnabled.isPresent()) {
+			if (optionalCheckpointingEnabled.get()) {
+				setCheckpointInterval(DEFAULT_INTERVAL_CHECKPOINT_ENABLED);
+				setCheckpointingMode(DEFAULT_MODE);
+				setCheckpointTimeout(DEFAULT_TIMEOUT);
+				setMinPauseBetweenCheckpoints(DEFAULT_MIN_PAUSE_BETWEEN_CHECKPOINTS);
+				setMaxConcurrentCheckpoints(DEFAULT_MAX_CONCURRENT_CHECKPOINTS);
+				setTolerableCheckpointFailureNumber(UNLIMITED_TOLERABLE_FAILURE_NUMBER);
+				setCheckpointSchedulingStrategy(DEFAULT_SCHEDULER);
+				setPreferCheckpointForRecovery(false);
+			} else {
+				// user explicitly disables checkpointing
+				return;
+			}
+		}
 		configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_MODE)
 			.ifPresent(this::setCheckpointingMode);
 		configuration.getOptional(ExecutionCheckpointingOptions.CHECKPOINTING_INTERVAL)

@@ -117,11 +117,38 @@ public class CheckpointConfigFromConfigurationTest {
 	}
 
 	@Test
+	public void testLoadingFromConfigurationIfCheckpointingEnabled() {
+		CheckpointConfig configFromSetters = new CheckpointConfig();
+		CheckpointConfig configFromFile = new CheckpointConfig();
+
+		Configuration configuration = new Configuration();
+		configuration.setString("execution.checkpointing.enable", "true");
+		configuration.setString(spec.key, spec.value);
+		configFromFile.configure(configuration);
+
+		spec.setValue(configFromSetters);
+		spec.assertEqual(configFromFile, configFromSetters);
+	}
+
+	@Test
 	public void testNotOverridingIfNotSet() {
 		CheckpointConfig config = new CheckpointConfig();
 
 		spec.setNonDefaultValue(config);
 		Configuration configuration = new Configuration();
+		config.configure(configuration);
+
+		spec.assertEqualNonDefault(config);
+	}
+
+	@Test
+	public void testNotOverridingIfNotCheckpointingEnabled() {
+		CheckpointConfig config = new CheckpointConfig();
+
+		spec.setNonDefaultValue(config);
+		Configuration configuration = new Configuration();
+		configuration.setString("execution.checkpointing.enable", "false");
+		configuration.setString(spec.key, spec.value);
 		config.configure(configuration);
 
 		spec.assertEqualNonDefault(config);
