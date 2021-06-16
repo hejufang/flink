@@ -96,11 +96,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.table.catalog.hive.util.HivePermissionUtils.PermissionType.SELECT;
@@ -670,9 +672,14 @@ public class HiveTableSource implements
 		if (projectedFieldNames.isEmpty()) {
 			projectedFieldNames = Arrays.asList(getTableSchema().getFieldNames());
 		}
-		// columns for row permission check, format: '{column_name}:{column_value}'
-		List<String> columnValues = getColumnValueListFromPredicates();
-		List<String> allColumnsNeedToCheckPermission = new ArrayList<>(columnValues);
+
+		// partition values for row permission check, format: '{partition_name}:{partition_value}'
+		Set<String> partitionColumnValues = getColumnValueSetFromRemainingPartitions();
+		// common columns values for row permission check, format: '{column_name}:{column_value}'
+		Set<String> predicatesColumnValues = getColumnValueSetFromPredicates();
+		Set<String> allColumnsNeedToCheckPermission = new HashSet<>();
+		allColumnsNeedToCheckPermission.addAll(partitionColumnValues);
+		allColumnsNeedToCheckPermission.addAll(predicatesColumnValues);
 		allColumnsNeedToCheckPermission.addAll(projectedFieldNames);
 		String geminiServerUrl = flinkConf.getOptional(HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL)
 			.orElseThrow(() -> new FlinkRuntimeException(
@@ -680,50 +687,60 @@ public class HiveTableSource implements
 					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_GEMINI_SERVER_URL.key(),
 					HiveOptions.TABLE_EXEC_HIVE_PERMISSION_CHECK_ENABLED.key())));
 		HivePermissionUtils.checkPermission(user, psm, database, table,
-			allColumnsNeedToCheckPermission, SELECT, true, geminiServerUrl);
+			new ArrayList<>(allColumnsNeedToCheckPermission), SELECT, true, geminiServerUrl);
 	}
 
-	/**
-	 * Get column value list from equal expressions.
-	 * */
-	private List<String> getColumnValueListFromPredicates() {
-		if (predicates == null) {
-			return Collections.emptyList();
+	private Set<String> getColumnValueSetFromRemainingPartitions() {
+		if (remainingPartitions == null) {
+			return Collections.emptySet();
 		}
 
-		List<String> columnValueListFromEqualExpressions = parseEqualExpressionColumnValues();
-		List<String> columnValueListFromOrExpressions = parseOrExpressionColumnValues();
-		List<String> columnValueListFromInExpressions = parseInExpressionColumnValues();
-		List<String> allColumnValueList = new ArrayList<>();
-		allColumnValueList.addAll(columnValueListFromEqualExpressions);
-		allColumnValueList.addAll(columnValueListFromOrExpressions);
-		allColumnValueList.addAll(columnValueListFromInExpressions);
-
-		return allColumnValueList;
+		return remainingPartitions.stream()
+			.flatMap(m -> m.entrySet().stream())
+			.map(entry -> entry.getKey() + KEY_VALUE_DELIMITER + entry.getValue())
+			.collect(Collectors.toSet());
 	}
 
 	/**
-	 * Parse column value list of 'EQUALS' expressions. (e.g. where a = 1 and b = 2)
-	 *
-	 * @return return the list of column value list in form '{column_name}:{column_value}'.
+	 * Get column value set from equal expressions.
 	 * */
-	private List<String> parseEqualExpressionColumnValues() {
-		List<String> columnValueList = predicates.stream()
+	private Set<String> getColumnValueSetFromPredicates() {
+		if (predicates == null) {
+			return Collections.emptySet();
+		}
+
+		Set<String> columnValueSetFromEqualExpressions = parseEqualExpressionColumnValues();
+		Set<String> columnValueSetFromOrExpressions = parseOrExpressionColumnValues();
+		Set<String> columnValueSetFromInExpressions = parseInExpressionColumnValues();
+		Set<String> allColumnValues = new HashSet<>();
+		allColumnValues.addAll(columnValueSetFromEqualExpressions);
+		allColumnValues.addAll(columnValueSetFromOrExpressions);
+		allColumnValues.addAll(columnValueSetFromInExpressions);
+
+		return allColumnValues;
+	}
+
+	/**
+	 * Parse column value set of 'EQUALS' expressions. (e.g. where a = 1 and b = 2)
+	 *
+	 * @return return the set of column value in form '{column_name}:{column_value}'.
+	 * */
+	private Set<String> parseEqualExpressionColumnValues() {
+		return predicates.stream()
 			.map(HiveTableSource::parseColumnValueFromEqualsExpression)
 			.filter(Optional::isPresent)
 			.map(Optional::get)
-			.collect(Collectors.toList());
-		return columnValueList;
+			.collect(Collectors.toSet());
 	}
 
 
 	/**
-	 * Parse column value list of 'IN' expressions. (e.g. where id in (1,2,3,4))
+	 * Parse column value set of 'IN' expressions. (e.g. where id in (1,2,3,4))
 	 *
-	 * @return return the list of column value list in form '{column_name}:{column_value}'.
+	 * @return return the set of column value in form '{column_name}:{column_value}'.
 	 * */
-	private List<String> parseInExpressionColumnValues() {
-		List<String> columnValueList = new ArrayList<>();
+	private Set<String> parseInExpressionColumnValues() {
+		Set<String> columnValues = new HashSet<>();
 		for (Expression expression : predicates) {
 			if (expression instanceof CallExpression) {
 				CallExpression callExpression = (CallExpression) expression;
@@ -741,24 +758,24 @@ public class HiveTableSource implements
 
 				if (isInExpression(expression) && !fieldName.isEmpty()) {
 					final String finalFieldName = fieldName;
-					List<String> columnValueTempList = valueLiteralList.stream()
+					Set<String> columnValueTempSet = valueLiteralList.stream()
 						.map(value -> finalFieldName + KEY_VALUE_DELIMITER + value)
-						.collect(Collectors.toList());
-					columnValueList.addAll(columnValueTempList);
+						.collect(Collectors.toSet());
+					columnValues.addAll(columnValueTempSet);
 				}
 			}
 		}
-		return columnValueList;
+		return columnValues;
 	}
 
 	/**
-	 * Parse column value list of 'OR' expressions. As 'IN' expression of 2
+	 * Parse column value set of 'OR' expressions. As 'IN' expression of 2
 	 * values (e.g. "id in (1,2)") will be transferred to 'OR' expressions.
 	 *
-	 * @return return the list of column value list in form '{column_name}:{column_value}'.
+	 * @return return the set of column value in form '{column_name}:{column_value}'.
 	 * */
-	private List<String> parseOrExpressionColumnValues() {
-		List<String> columnValueList = new ArrayList<>();
+	private Set<String> parseOrExpressionColumnValues() {
+		Set<String> columnValues = new HashSet<>();
 		for (Expression expression : predicates) {
 			if (isOrExpression(expression)) {
 				CallExpression callExpression = (CallExpression) expression;
@@ -766,12 +783,12 @@ public class HiveTableSource implements
 				Optional<String> leftEquals = parseColumnValueFromEqualsExpression(args.get(0));
 				Optional<String> rightEquals = parseColumnValueFromEqualsExpression(args.get(1));
 				if (leftEquals.isPresent() && rightEquals.isPresent()) {
-					columnValueList.add(leftEquals.get());
-					columnValueList.add(rightEquals.get());
+					columnValues.add(leftEquals.get());
+					columnValues.add(rightEquals.get());
 				}
 			}
 		}
-		return columnValueList;
+		return columnValues;
 	}
 
 	private static Optional<String> parseColumnValueFromEqualsExpression(Expression expression) {

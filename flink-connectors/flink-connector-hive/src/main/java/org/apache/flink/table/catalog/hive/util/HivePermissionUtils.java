@@ -113,6 +113,8 @@ public class HivePermissionUtils {
 			String geminiServerUrl) {
 		String postData = buildPostData(user, psm, database, table, columns, permissionType);
 		try {
+			LOG.debug("Hive permission check geminiServerUrl = {}, postData = {}.",
+				geminiServerUrl, postData);
 			HttpUtil.HttpResponse response = HttpUtil.sendPost(geminiServerUrl, postData, HTTP_HEADER);
 			if (response.getStatusCode() >= 300) {
 				throw new FlinkRuntimeException(String.format("Error response from hive catalog " +
