@@ -67,7 +67,8 @@ public class TagGauge implements Gauge<TagGaugeStore> {
 		NO_REDUCE,
 		SUM,
 		MAX,
-		MIN
+		MIN,
+		AVG
 	}
 
 	/**

@@ -23,9 +23,10 @@
 
 package org.apache.flink.metrics;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 /**
@@ -45,7 +46,7 @@ public class TagGaugeStoreImpl implements TagGaugeStore {
 
 	public TagGaugeStoreImpl(int maxSize, boolean clearAfterReport, boolean clearWhenFull, TagGauge.MetricsReduceType metricsReduceType) {
 		this.maxSize = maxSize;
-		this.metricValuesList = new ArrayList<>();
+		this.metricValuesList = new LinkedList<>();
 		this.clearAfterReport = clearAfterReport;
 		this.clearWhenFull = clearWhenFull;
 		this.metricsReduceType = metricsReduceType;
@@ -106,6 +107,15 @@ public class TagGaugeStoreImpl implements TagGaugeStore {
 							Math.min(metric1.getMetricValue(), metric2.getMetricValue()),
 							metric1.getTagValues())))
 					.map(Optional::get)
+					.collect(Collectors.toList());
+			case AVG:
+				return metricValuesList.stream()
+					.collect(Collectors.groupingBy(metrics -> metrics.getTagValues().getTagValues()))
+					.values().stream().map(tagGaugeMetrics -> {
+						OptionalDouble average = tagGaugeMetrics.stream().mapToDouble(TagGaugeMetric::getMetricValue).average();
+						Optional<TagGaugeMetric> optionalTagGaugeMetric = tagGaugeMetrics.stream().findAny();
+						return new TagGaugeMetric(average.getAsDouble(), optionalTagGaugeMetric.get().getTagValues());
+					})
 					.collect(Collectors.toList());
 			case NO_REDUCE:
 				return metricValuesList;
