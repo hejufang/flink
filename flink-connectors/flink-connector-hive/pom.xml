@@ -1003,6 +1003,14 @@ under the License.
 									<shadedPattern>org.apache.flink.hive.shaded.fs.hdfs</shadedPattern>
 								</relocation>
 								<relocation>
+									<pattern>org.apache.flink.runtime.util</pattern>
+									<shadedPattern>org.apache.flink.hive.shaded.util</shadedPattern>
+								</relocation>
+								<relocation>
+									<pattern>org.apache.flink.runtime.configuration</pattern>
+									<shadedPattern>org.apache.flink.hive.shaded.configuration</shadedPattern>
+								</relocation>
+								<relocation>
 									<pattern>org.apache.flink.formats.parquet</pattern>
 									<shadedPattern>org.apache.flink.hive.shaded.formats.parquet</shadedPattern>
 								</relocation>
