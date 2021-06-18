@@ -216,10 +216,6 @@ public class KafkaConsumerThread<T> extends Thread {
 			return;
 		}
 
-		if (bytedKafkaConfig.getSampleInterval() > 0) {
-			initProcessedMap();
-		}
-
 		// from here on, the consumer is guaranteed to be closed properly
 		try {
 			// register Kafka's very own metrics in Flink's metric reporters
@@ -286,6 +282,9 @@ public class KafkaConsumerThread<T> extends Thread {
 					}
 					if (newPartitions != null) {
 						reassignPartitions(newPartitions);
+						if (bytedKafkaConfig.getSampleInterval() > 0) {
+							initProcessedMap();
+						}
 					}
 				} catch (AbortedReassignmentException e) {
 					continue;
