@@ -20,9 +20,9 @@ package org.apache.flink.table.planner.codegen
 
 import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.data.binary.BinaryRowData
-import org.apache.flink.table.data.{GenericRowData, RowData}
+import org.apache.flink.table.data.{GenericRowData, RowData, StringData}
 import org.apache.flink.table.runtime.generated.Projection
-import org.apache.flink.table.types.logical.{BigIntType, IntType, RowType}
+import org.apache.flink.table.types.logical.{BigIntType, IntType, RowType, VarCharType}
 import org.junit.{Assert, Test}
 
 import scala.util.Random
@@ -46,6 +46,60 @@ class ProjectionCodeGeneratorTest {
     val row: BinaryRowData = projection.apply(GenericRowData.of(ji(5), jl(8)))
     Assert.assertEquals(5, row.getInt(1))
     Assert.assertEquals(8, row.getLong(0))
+  }
+
+  @Test
+  def testProjectionDeterminacy(): Unit = {
+    val projection = ProjectionCodeGenerator.generateProjection(
+      new CodeGeneratorContext(new TableConfig),
+        "name",
+        RowType.of(
+          new IntType(),
+          new BigIntType(),
+          new VarCharType(false, Integer.MAX_VALUE),
+          new VarCharType(true, Integer.MAX_VALUE),
+          new IntType(false),
+          new BigIntType(false),
+          RowType.of(new IntType())
+        ),
+        RowType.of(
+          new IntType(),
+          new BigIntType(),
+          new VarCharType(true, Integer.MAX_VALUE),
+          new IntType(false),
+          new VarCharType(false, Integer.MAX_VALUE),
+          new BigIntType(false),
+          RowType.of(new IntType())
+        ),
+        Array(0, 1, 3, 4, 2, 5, 6)
+    ).newInstance(classLoader).asInstanceOf[Projection[RowData, BinaryRowData]]
+
+    val row: BinaryRowData = projection.apply(
+      GenericRowData.of(
+        ji(5),
+        jl(8),
+        StringData.fromString("varchar nullable"),
+        StringData.fromString("varchar not null"),
+        ji(6),
+        jl(9),
+        GenericRowData.of(ji(7))
+      ))
+    val bytes = row.getSegments.head.getArray
+    val bytesString = bytes.mkString(",")
+    val expected =
+      "0,0,0,0,0,0,0,0," +
+        "5,0,0,0,0,0,0,0," +
+        "8,0,0,0,0,0,0,0," +
+        "16,0,0,0,64,0,0,0," +
+        "6,0,0,0,0,0,0,0," +
+        "16,0,0,0,80,0,0,0," +
+        "9,0,0,0,0,0,0,0," +
+        "16,0,0,0,96,0,0,0," +
+        "118,97,114,99,104,97,114,32,110,111,116,32,110,117,108,108," +
+        "118,97,114,99,104,97,114,32,110,117,108,108,97,98,108,101," +
+        "0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0," +
+        "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+    Assert.assertEquals(expected, bytesString)
   }
 
   @Test

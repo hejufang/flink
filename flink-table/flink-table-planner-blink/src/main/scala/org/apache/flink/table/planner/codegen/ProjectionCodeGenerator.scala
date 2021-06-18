@@ -90,7 +90,11 @@ object ProjectionCodeGenerator {
     }
 
     val outFieldTypes = outType.getChildren
-    val typeIdxs = new mutable.HashMap[
+    // using LinkedHashMap will give us a deterministic order for inputMapping fields,
+    // it matters for writing BinaryRowWriter in case of variable length types,
+    // especially when there are multiple variable length types, e.t. `string not null`,
+    // `string nullable`
+    val typeIdxs = new mutable.LinkedHashMap[
       LogicalType,
       (mutable.ArrayBuffer[Int], mutable.ArrayBuffer[Int])]()
 
