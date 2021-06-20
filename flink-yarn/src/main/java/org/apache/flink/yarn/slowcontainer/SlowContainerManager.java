@@ -40,6 +40,8 @@ public interface SlowContainerManager {
 
 	void notifyWorkerStopped(ResourceID resourceID);
 
+	void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID);
+
 	// ------------------------------------------------------------------------
 	//	internal check
 	// ------------------------------------------------------------------------

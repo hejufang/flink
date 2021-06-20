@@ -94,6 +94,15 @@ public interface ResourceManagerGateway extends FencedRpcGateway<ResourceManager
 	void cancelSlotRequest(AllocationID allocationID);
 
 	/**
+	 * Cancel the slot allocation requests and pending slot from the resource manager.
+	 *
+	 * @param allocationID The slot to request
+	 */
+	default void cancelSlotRequestAndPendingSlot(AllocationID allocationID){
+		cancelSlotRequest(allocationID);
+	}
+
+	/**
 	 * Register a {@link TaskExecutor} at the resource manager.
 	 *
 	 * @param taskExecutorRegistration the task executor registration.

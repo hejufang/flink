@@ -134,6 +134,11 @@ public class TestingSlotManager implements SlotManager {
 	}
 
 	@Override
+	public boolean unregisterSlotRequestAndPendingSlot(AllocationID allocationId) {
+		return false;
+	}
+
+	@Override
 	public boolean registerTaskManager(TaskExecutorConnection taskExecutorConnection, SlotReport initialSlotReport) {
 		return true;
 	}

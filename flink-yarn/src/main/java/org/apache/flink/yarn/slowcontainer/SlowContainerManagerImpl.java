@@ -142,6 +142,12 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 		}
 	}
 
+	@Override
+	public void notifyRecoveredWorkerAllocated(WorkerResourceSpec workerResourceSpec, ResourceID resourceID) {
+		long ts = System.currentTimeMillis();
+		containers.put(resourceID, new StartingResource(resourceID, workerResourceSpec, ts));
+	}
+
 	private long getContainerStartQuantile(double quantile) {
 		int quantileIndex = (int) Math.ceil(containers.size() * quantile) - 1;
 		List<Long> startedContainerDuration = containers.values().stream()

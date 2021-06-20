@@ -71,6 +71,7 @@ import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableList;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -241,6 +242,10 @@ public class YarnResourceManagerTest extends TestLogger {
 		@Override
 		protected NMClientAsync createAndStartNodeManagerClient(YarnConfiguration yarnConfiguration) {
 			return testingYarnNMClientAsync;
+		}
+
+		int getNumRequestedNotRegisteredWorkersForTesting() {
+			return getNumRequestedNotRegisteredWorkers();
 		}
 	}
 
@@ -1321,6 +1326,128 @@ public class YarnResourceManagerTest extends TestLogger {
 				assertEquals(1, slowContainerManager.getRedundantContainerTotalNum());
 				assertEquals(1, slowContainerManager.getStartingContainerTotalNum());
 				assertNotEquals(defaultSlowContainerTimeout, slowContainerManager.getSpeculativeSlowContainerTimeoutMs());
+			});
+		}};
+	}
+
+	@Test
+	public void testGetContainersFromPreviousAttempts() throws Exception {
+		long defaultSlowContainerTimeout = 120000;
+		flinkConfig.setBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED, true);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS, defaultSlowContainerTimeout);
+		flinkConfig.setLong(YarnConfigOptions.SLOW_CONTAINER_CHECK_INTERVAL_MS, 500);
+		new Context() {{
+			List<AMRMClient.ContainerRequest> pendingRequests = new ArrayList<>();
+			final List<CompletableFuture<Resource>> addContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				addContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger addContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			final List<CompletableFuture<Acknowledge>> removeContainerRequestFutures = new ArrayList<>();
+			for (int i = 0; i < 20; i++) {
+				removeContainerRequestFutures.add(new CompletableFuture<>());
+			}
+			final AtomicInteger removeContainerRequestFuturesNumCompleted = new AtomicInteger(0);
+
+			testingYarnAMRMClientAsync.setAddContainerRequestConsumer(
+				(request, ignore) -> {
+					pendingRequests.add(request);
+					addContainerRequestFutures.get(addContainerRequestFuturesNumCompleted.getAndIncrement()).complete(request.getCapability());
+				});
+
+			testingYarnAMRMClientAsync.setRemoveContainerRequestConsumer(
+				(r, ignore) -> {
+					pendingRequests.remove(r);
+					removeContainerRequestFutures.get(removeContainerRequestFuturesNumCompleted.getAndIncrement()).complete(Acknowledge.get());
+				});
+
+			testingYarnAMRMClientAsync.setGetMatchingRequestsFunction(
+				tuple -> Collections.singletonList(
+					pendingRequests.stream()
+						.filter(r -> r.getCapability().equals(tuple.f2))
+						.collect(Collectors.toList())));
+
+			List<Container> previousContainers = new ArrayList<>();
+			for (int i = 0; i < 10; i++) {
+				previousContainers.add(createTestingContainer());
+			}
+
+			RegisterApplicationMasterResponse registerApplicationMasterResponse = RegisterApplicationMasterResponse.newInstance(
+				Resource.newInstance(0, 0),
+				Resource.newInstance(Integer.MAX_VALUE, Integer.MAX_VALUE),
+				Collections.emptyMap(),
+				null,
+				previousContainers,
+				null,
+				Collections.emptyList());
+			testingYarnAMRMClientAsync.setRegisterApplicationMasterFunction(
+				(ignored1, ignored2, ignored3) -> registerApplicationMasterResponse);
+
+			runTest(() -> {
+				// get 10 previous containers
+				resourceManager.getContainersFromPreviousAttempts(registerApplicationMasterResponse);
+
+				// register 3 container, 000000~000002.
+				final ResourceManagerGateway rmGateway = resourceManager.getSelfGateway(ResourceManagerGateway.class);
+				for (int i = 0; i < 3; i++) {
+					Container container = previousContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				assertEquals(3, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(3, rmServices.slotManager.getNumberFreeSlots());
+
+				// request 20 containers.
+				for (int i = 0; i < 20; i++) {
+					registerSlotRequest(resourceManager, rmServices, resourceProfile1, taskHost);
+				}
+
+				// verify actually 10 requests been sent
+				for (int i = 0; i < 10; i++) {
+					verifyFutureCompleted(addContainerRequestFutures.get(i));
+				}
+
+				assertEquals(10, pendingRequests.size());
+				assertEquals(17, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(17, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// register 7 previous container, 000003~000009.
+				for (int i = 3; i < 10; i++) {
+					Container container = previousContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+
+				Thread.sleep(1000);
+				assertEquals(10, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(10, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(10, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
+				// allocated 10 container.
+				List<Container> testContainers = new ArrayList<>();
+				for (int i = 0; i < 10; i++) {
+					testContainers.add(createTestingContainer());
+				}
+				// Mock that containers is allocated
+				resourceManager.onContainersAllocated(testContainers.subList(0, 10));
+
+				// Verify 10 pending requests has removed.
+				for (int i = 0; i < 10; i++) {
+					verifyFutureCompleted(removeContainerRequestFutures.get(i));
+				}
+				assertEquals(0, pendingRequests.size());
+
+				// 10 new TaskExecutor start
+				for (int i = 0; i < 10; i++) {
+					Container container = testContainers.get(i);
+					registerTaskExecutor(container, rmGateway, rpcService, hardwareDescription, rmServices.slotManager.getDefaultResource());
+				}
+				Thread.sleep(1000);
+				assertEquals(0, rmServices.slotManager.getNumberFreeSlots());
+				assertEquals(0, rmServices.slotManager.getNumberPendingSlotRequests());
+				assertEquals(20, rmServices.slotManager.getNumberRegisteredSlots());
+				assertEquals(0, resourceManager.getNumRequestedNotRegisteredWorkersForTesting());
+
 			});
 		}};
 	}
