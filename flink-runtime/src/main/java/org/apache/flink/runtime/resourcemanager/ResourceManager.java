@@ -625,6 +625,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 					slotManager.getRegisteredResourceOf(taskExecutor.getInstanceID()),
 					slotManager.getFreeResourceOf(taskExecutor.getInstanceID()),
 					taskExecutor.getHardwareDescription(),
+					taskExecutor.getMemoryConfiguration(),
 					webShell,
 					tmLog));
 		}
@@ -663,6 +664,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				slotManager.getRegisteredResourceOf(instanceId),
 				slotManager.getFreeResourceOf(instanceId),
 				taskExecutor.getHardwareDescription(),
+				taskExecutor.getMemoryConfiguration(),
 				webShell,
 				tmLog);
 
@@ -945,7 +947,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 				taskExecutorGateway,
 				newWorker,
 				taskExecutorRegistration.getDataPort(),
-				taskExecutorRegistration.getHardwareDescription());
+				taskExecutorRegistration.getHardwareDescription(),
+				taskExecutorRegistration.getMemoryConfiguration());
 
 			log.info("Registering TaskManager with ResourceID {} ({}) at ResourceManager", taskExecutorResourceId, taskExecutorAddress);
 			taskExecutors.put(taskExecutorResourceId, registration);

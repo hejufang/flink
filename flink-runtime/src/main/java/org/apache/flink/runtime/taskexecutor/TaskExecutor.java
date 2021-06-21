@@ -229,6 +229,8 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 
 	private final HardwareDescription hardwareDescription;
 
+	private final TaskExecutorMemoryConfiguration memoryConfiguration;
+
 	private FileCache fileCache;
 
 	/** The heartbeat manager for job manager in the task manager. */
@@ -298,6 +300,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 		this.resourceManagerLeaderRetriever = haServices.getResourceManagerLeaderRetriever();
 
 		this.hardwareDescription = HardwareDescription.extractFromSystem(taskExecutorServices.getManagedMemorySize());
+		this.memoryConfiguration = TaskExecutorMemoryConfiguration.create(taskManagerConfiguration.getConfiguration());
 
 		this.resourceManagerAddress = null;
 		this.resourceManagerConnection = null;
@@ -1128,6 +1131,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
 			getResourceID(),
 			unresolvedTaskManagerLocation.getDataPort(),
 			hardwareDescription,
+			memoryConfiguration,
 			taskManagerConfiguration.getDefaultSlotResourceProfile(),
 			taskManagerConfiguration.getTotalResourceProfile()
 		);

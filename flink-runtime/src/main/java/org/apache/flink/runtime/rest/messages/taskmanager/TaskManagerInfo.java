@@ -26,6 +26,7 @@ import org.apache.flink.runtime.rest.messages.ResponseBody;
 import org.apache.flink.runtime.rest.messages.json.ResourceIDDeserializer;
 import org.apache.flink.runtime.rest.messages.json.ResourceIDSerializer;
 import org.apache.flink.runtime.taskexecutor.TaskExecutor;
+import org.apache.flink.runtime.taskexecutor.TaskExecutorMemoryConfiguration;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
@@ -58,6 +59,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 	public static final String FIELD_NAME_AVAILABLE_RESOURCE = "freeResource";
 
 	public static final String FIELD_NAME_HARDWARE = "hardware";
+
+	public static final String FIELD_NAME_MEMORY = "memoryConfiguration";
 
 	public static final String FIELD_NAME_WEB_SHELL = "webShell";
 
@@ -93,6 +96,9 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 	@JsonProperty(FIELD_NAME_HARDWARE)
 	private final HardwareDescription hardwareDescription;
 
+	@JsonProperty(FIELD_NAME_MEMORY)
+	private final TaskExecutorMemoryConfiguration memoryConfiguration;
+
 	@JsonProperty(FIELD_NAME_WEB_SHELL)
 	private final String webShell;
 
@@ -110,6 +116,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			@JsonProperty(FIELD_NAME_TOTAL_RESOURCE) ResourceProfileInfo totalResource,
 			@JsonProperty(FIELD_NAME_AVAILABLE_RESOURCE) ResourceProfileInfo freeResource,
 			@JsonProperty(FIELD_NAME_HARDWARE) HardwareDescription hardwareDescription,
+			@JsonProperty(FIELD_NAME_MEMORY) TaskExecutorMemoryConfiguration memoryConfiguration,
 			@JsonProperty(FIELD_NAME_WEB_SHELL) String webShell,
 			@JsonProperty(FIELD_NAME_TM_LOG) String tmLog) {
 		this.resourceId = Preconditions.checkNotNull(resourceId);
@@ -121,6 +128,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		this.totalResource = totalResource;
 		this.freeResource = freeResource;
 		this.hardwareDescription = Preconditions.checkNotNull(hardwareDescription);
+		this.memoryConfiguration = Preconditions.checkNotNull(memoryConfiguration);
 		this.webShell = (webShell == null) ? "NoWebShell" : webShell;
 		this.tmLog = (tmLog == null) ? "TmLog" : tmLog;
 	}
@@ -135,6 +143,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			ResourceProfile totalResource,
 			ResourceProfile freeResource,
 			HardwareDescription hardwareDescription,
+			TaskExecutorMemoryConfiguration memoryConfiguration,
 			String webShell,
 			String tmLog) {
 		this(resourceId,
@@ -146,6 +155,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 				ResourceProfileInfo.fromResrouceProfile(totalResource),
 				ResourceProfileInfo.fromResrouceProfile(freeResource),
 				hardwareDescription,
+				memoryConfiguration,
 				webShell,
 				tmLog);
 	}
@@ -159,7 +169,8 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			int numberAvailableSlots,
 			ResourceProfile totalResource,
 			ResourceProfile freeResource,
-			HardwareDescription hardwareDescription) {
+			HardwareDescription hardwareDescription,
+			TaskExecutorMemoryConfiguration memoryConfiguration) {
 		this(resourceId,
 			address,
 			dataPort,
@@ -169,6 +180,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			ResourceProfileInfo.fromResrouceProfile(totalResource),
 			ResourceProfileInfo.fromResrouceProfile(freeResource),
 			hardwareDescription,
+			memoryConfiguration,
 			null,
 			null);
 	}
@@ -209,6 +221,10 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 		return hardwareDescription;
 	}
 
+	public TaskExecutorMemoryConfiguration getMemoryConfiguration() {
+		return memoryConfiguration;
+	}
+
 	public String getWebShell() {
 		return webShell;
 	}
@@ -235,6 +251,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			Objects.equals(resourceId, that.resourceId) &&
 			Objects.equals(address, that.address) &&
 			Objects.equals(hardwareDescription, that.hardwareDescription) &&
+			Objects.equals(memoryConfiguration, that.memoryConfiguration) &&
 			Objects.equals(webShell, that.webShell) &&
 			Objects.equals(tmLog, that.tmLog);
 	}
@@ -251,6 +268,7 @@ public class TaskManagerInfo implements ResponseBody, Serializable {
 			totalResource,
 			freeResource,
 			hardwareDescription,
+			memoryConfiguration,
 			webShell,
 			tmLog);
 	}

@@ -2723,6 +2723,42 @@
                     "type" : "integer"
                   }
                 }
+              },
+              "memoryConfiguration" : {
+                "type" : "object",
+                "id" : "urn:jsonschema:org:apache:flink:runtime:taskexecutor:TaskExecutorMemoryConfiguration",
+                "properties" : {
+                  "frameworkHeap" : {
+                    "type" : "integer"
+                  },
+                  "taskHeap" : {
+                    "type" : "integer"
+                  },
+                  "frameworkOffHeap" : {
+                    "type" : "integer"
+                  },
+                  "taskOffHeap" : {
+                    "type" : "integer"
+                  },
+                  "networkMemory" : {
+                    "type" : "integer"
+                  },
+                  "managedMemory" : {
+                    "type" : "integer"
+                  },
+                  "jvmMetaspace" : {
+                    "type" : "integer"
+                  },
+                  "jvmOverhead" : {
+                    "type" : "integer"
+                  },
+                  "totalFlinkMemory" : {
+                    "type" : "integer"
+                  },
+                  "totalProcessMemory" : {
+                    "type" : "integer"
+                  }
+                }
               }
             }
           }
@@ -2838,6 +2874,42 @@
               "type" : "integer"
             },
             "managedMemory" : {
+              "type" : "integer"
+            }
+          }
+        },
+        "memoryConfiguration" : {
+          "type" : "object",
+          "id" : "urn:jsonschema:org:apache:flink:runtime:taskexecutor:TaskExecutorMemoryConfiguration",
+          "properties" : {
+            "frameworkHeap" : {
+              "type" : "integer"
+            },
+            "taskHeap" : {
+              "type" : "integer"
+            },
+            "frameworkOffHeap" : {
+              "type" : "integer"
+            },
+            "taskOffHeap" : {
+              "type" : "integer"
+            },
+            "networkMemory" : {
+              "type" : "integer"
+            },
+            "managedMemory" : {
+              "type" : "integer"
+            },
+            "jvmMetaspace" : {
+              "type" : "integer"
+            },
+            "jvmOverhead" : {
+              "type" : "integer"
+            },
+            "totalFlinkMemory" : {
+              "type" : "integer"
+            },
+            "totalProcessMemory" : {
               "type" : "integer"
             }
           }
