@@ -30,7 +30,7 @@ under the License.
 	<artifactId>flink-connector-redis</artifactId>
 
 	<properties>
-		<redis.version>2.2.2</redis.version>
+		<redis.version>2.3.2-release</redis.version>
 	</properties>
 
 	<dependencies>
