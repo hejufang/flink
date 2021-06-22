@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentProvider;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
@@ -116,6 +117,8 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 	@Nonnull
 	private final MemorySegmentProvider memorySegmentProvider;
 
+	private final Counter numBuffersInDropped;
+
 	public RemoteInputChannel(
 		SingleInputGate inputGate,
 		int channelIndex,
@@ -133,6 +136,7 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 		super(inputGate, channelIndex, partitionId, initialBackOff, maxBackoff,
 			metrics.getNumBytesInRemoteCounter(), metrics.getNumBuffersInRemoteCounter(), maxDelayTimeMs, executor, isRecoverable);
 
+		this.numBuffersInDropped = metrics.getNumBuffersInDropped();
 		this.connectionId = checkNotNull(connectionId);
 		this.connectionManager = checkNotNull(connectionManager);
 		this.memorySegmentProvider = memorySegmentProvider;
@@ -537,6 +541,7 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 
 			if (!isChannelAvailable()) {
 				LOG.info("Channel {} is unavailable, buffer is ignored.", this);
+				numBuffersInDropped.inc();
 				return;
 			}
 
@@ -546,6 +551,7 @@ public class RemoteInputChannel extends InputChannel implements BufferRecycler, 
 				// after releaseAllResources() released all buffers from receivedBuffers
 				// (see above for details).
 				if (isReleased.get() || !isChannelAvailable()) {
+					numBuffersInDropped.inc();
 					return;
 				}
 

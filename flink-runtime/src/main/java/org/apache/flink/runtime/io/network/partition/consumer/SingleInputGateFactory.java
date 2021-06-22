@@ -147,6 +147,7 @@ public class SingleInputGateFactory {
 			partitionProducerStateProvider,
 			isCreditBased,
 			bufferPoolFactory,
+			metrics,
 			channelProvider,
 			executor);
 

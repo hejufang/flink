@@ -41,11 +41,19 @@ public class InputChannelMetrics {
 	private final Counter numBuffersInLocal;
 	private final Counter numBuffersInRemote;
 
+	private final Counter numBuffersInDropped;
+	private final Counter numChannelsUpdatedByJM;
+	private final Counter numChannelsUpdatedByTask;
+
 	public InputChannelMetrics(MetricGroup ... parents) {
 		this.numBytesInLocal = createCounter(IO_NUM_BYTES_IN_LOCAL, parents);
 		this.numBytesInRemote = createCounter(IO_NUM_BYTES_IN_REMOTE, parents);
 		this.numBuffersInLocal = createCounter(IO_NUM_BUFFERS_IN_LOCAL, parents);
 		this.numBuffersInRemote = createCounter(IO_NUM_BUFFERS_IN_REMOTE, parents);
+
+		this.numBuffersInDropped = createCounter(MetricNames.IO_NUM_BUFFERS_DROPPED, parents);
+		this.numChannelsUpdatedByJM = createCounter(MetricNames.NUM_CHANNELS_UPDATED_BY_JM, parents);
+		this.numChannelsUpdatedByTask = createCounter(MetricNames.NUM_CHANNELS_UPDATED_BY_TASK, parents);
 	}
 
 	private static Counter createCounter(String name, MetricGroup ... parents) {
@@ -71,6 +79,18 @@ public class InputChannelMetrics {
 
 	public Counter getNumBuffersInRemoteCounter() {
 		return numBuffersInRemote;
+	}
+
+	public Counter getNumBuffersInDropped() {
+		return numBuffersInDropped;
+	}
+
+	public Counter getNumChannelsUpdatedByJM() {
+		return numChannelsUpdatedByJM;
+	}
+
+	public Counter getNumChannelsUpdatedByTask() {
+		return numChannelsUpdatedByTask;
 	}
 
 	private static class MultiCounterWrapper implements Counter {

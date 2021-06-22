@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.event.TaskEvent;
@@ -27,6 +28,7 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
+import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -177,6 +179,10 @@ public class SingleInputGate extends InputGate {
 	@Nullable
 	private final ScheduledExecutorService executor;
 
+	private final Counter numChannelsUpdatedByJM;
+	private final Counter numChannelsUpdatedByTask;
+
+	@VisibleForTesting
 	public SingleInputGate(
 		String owningTaskName,
 		IntermediateDataSetID consumedResultId,
@@ -187,7 +193,7 @@ public class SingleInputGate extends InputGate {
 		boolean isCreditBased,
 		SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
 		this(owningTaskName, consumedResultId, consumedPartitionType, consumedSubpartitionIndex, numberOfInputChannels,
-				partitionProducerStateProvider, isCreditBased, bufferPoolFactory, null, null);
+				partitionProducerStateProvider, isCreditBased, bufferPoolFactory, new InputChannelMetrics(), null, null);
 	}
 
 	public SingleInputGate(
@@ -199,6 +205,7 @@ public class SingleInputGate extends InputGate {
 			PartitionProducerStateProvider partitionProducerStateProvider,
 			boolean isCreditBased,
 			SupplierWithException<BufferPool, IOException> bufferPoolFactory,
+			InputChannelMetrics metrics,
 			@Nullable ChannelProvider channelProvider,
 			@Nullable ScheduledExecutorService executor) {
 
@@ -226,6 +233,9 @@ public class SingleInputGate extends InputGate {
 
 		this.channelProvider = channelProvider;
 		this.executor = executor;
+
+		this.numChannelsUpdatedByJM = metrics.getNumChannelsUpdatedByJM();
+		this.numChannelsUpdatedByTask = metrics.getNumChannelsUpdatedByTask();
 	}
 
 	@Override
@@ -419,7 +429,7 @@ public class SingleInputGate extends InputGate {
 				inputChannels.put(partitionId, newChannel);
 				newChannel.requestSubpartition(consumedSubpartitionIndex);
 
-				// ignore pending events because upstream tasks have already been reinitialized
+				numChannelsUpdatedByJM.inc();
 			} else {
 				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
 				if (channelProvider != null) {
@@ -461,6 +471,8 @@ public class SingleInputGate extends InputGate {
 
 				inputChannels.put(shuffleDescriptor.getResultPartitionID().getPartitionId(), newChannel);
 				newChannel.requestSubpartition(consumedSubpartitionIndex);
+
+				numChannelsUpdatedByTask.inc();
 			}
 		}
 	}

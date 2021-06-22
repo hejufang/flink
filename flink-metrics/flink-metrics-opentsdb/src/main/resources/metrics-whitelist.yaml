@@ -46,7 +46,9 @@ global:
         numberOfContinuousCheckpointFailure,
         jobStartupCheckpointRestoreDelay,
         numberOfActualDeletedStateFiles,
-        numberOfTotalDeletedStateFiles
+        numberOfTotalDeletedStateFiles,
+        numChannelsUpdatedByJM,
+        numChannelsUpdatedByTask
     ]
 
 non-global:
@@ -87,6 +89,9 @@ non-global:
         numRecordsInPerSecond,
         numRecordsOutPerSecond,
         numRecordsDropped,
+        numBuffersInDropped,
+        numChannelsUpdatedByJM,
+        numChannelsUpdatedByTask,
       # late Records Dropped
         numLateRecordsDropped,
       # Lookup Table Metrics
