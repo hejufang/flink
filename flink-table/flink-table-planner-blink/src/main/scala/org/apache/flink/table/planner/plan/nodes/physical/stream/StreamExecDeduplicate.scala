@@ -152,7 +152,7 @@ class StreamExecDeduplicate(
       ret.setMaxParallelism(1)
     }
 
-    val selector = KeySelectorUtil.getBaseRowSelector(uniqueKeys, rowTypeInfo)
+    val selector = KeySelectorUtil.getBaseRowSelector(uniqueKeys, rowTypeInfo, tableConfig)
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
     ret

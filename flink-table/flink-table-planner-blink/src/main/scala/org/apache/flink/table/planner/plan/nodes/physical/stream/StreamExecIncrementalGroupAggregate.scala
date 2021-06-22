@@ -167,10 +167,12 @@ class StreamExecIncrementalGroupAggregate(
 
     val partialKeySelector = KeySelectorUtil.getBaseRowSelector(
       partialAggGrouping,
-      BaseRowTypeInfo.of(inRowType))
+      BaseRowTypeInfo.of(inRowType),
+      config)
     val finalKeySelector = KeySelectorUtil.getBaseRowSelector(
       finalAggGrouping,
-      partialKeySelector.getProducedType)
+      partialKeySelector.getProducedType,
+      config)
 
     val isMiniBatchStateTtlEnabled = config.getConfiguration.getBoolean(
       ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_STATE_TTL_ENABLED)

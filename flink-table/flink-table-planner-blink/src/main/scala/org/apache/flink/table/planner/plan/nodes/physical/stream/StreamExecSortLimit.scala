@@ -135,14 +135,15 @@ class StreamExecSortLimit(
         "FETCH is missed, which on streaming table is not supported currently")
     }
 
+    val tableConfig = planner.getTableConfig
     val inputTransform = getInputNodes.get(0).translateToPlan(planner)
       .asInstanceOf[Transformation[BaseRow]]
     val inputRowTypeInfo = inputTransform.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val fieldCollations = sortCollation.getFieldCollations
     val (sortFields, sortDirections, nullsIsLast) = SortUtil.getKeysAndOrders(fieldCollations)
-    val sortKeySelector = KeySelectorUtil.getBaseRowSelector(sortFields, inputRowTypeInfo)
+    val sortKeySelector = KeySelectorUtil.getBaseRowSelector(
+      sortFields, inputRowTypeInfo, tableConfig)
     val sortKeyType = sortKeySelector.getProducedType
-    val tableConfig = planner.getTableConfig
     val sortKeyComparator = ComparatorCodeGenerator.gen(
       tableConfig,
       "StreamExecSortComparator",
@@ -176,7 +177,8 @@ class StreamExecSortLimit(
           cacheSize)
 
       case UpdateFastStrategy(primaryKeys) =>
-        val rowKeySelector = KeySelectorUtil.getBaseRowSelector(primaryKeys, inputRowTypeInfo)
+        val rowKeySelector = KeySelectorUtil.getBaseRowSelector(
+          primaryKeys, inputRowTypeInfo, tableConfig)
         new UpdatableTopNFunction(
           minIdleStateRetentionTime,
           maxIdleStateRetentionTime,

@@ -272,7 +272,7 @@ class StreamExecOverAggregate(
     val partitionKeys: Array[Int] = overWindow.keys.toArray
     val inputTypeInfo = BaseRowTypeInfo.of(inRowType)
 
-    val selector = KeySelectorUtil.getBaseRowSelector(partitionKeys, inputTypeInfo)
+    val selector = KeySelectorUtil.getBaseRowSelector(partitionKeys, inputTypeInfo, tableConfig)
 
     val returnTypeInfo = BaseRowTypeInfo.of(outRowType)
       .asInstanceOf[BaseRowTypeInfo]

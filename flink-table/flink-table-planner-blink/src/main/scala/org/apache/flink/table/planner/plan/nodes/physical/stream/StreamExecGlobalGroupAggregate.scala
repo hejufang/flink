@@ -185,7 +185,7 @@ class StreamExecGlobalGroupAggregate(
     }
 
     val inputTypeInfo = inputTransformation.getOutputType.asInstanceOf[BaseRowTypeInfo]
-    val selector = KeySelectorUtil.getBaseRowSelector(grouping, inputTypeInfo)
+    val selector = KeySelectorUtil.getBaseRowSelector(grouping, inputTypeInfo, tableConfig)
 
     // partitioned aggregation
     val ret = new OneInputTransformation(

@@ -86,6 +86,7 @@ class StreamExecExchange(
     val inputTypeInfo = inputTransform.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val outputTypeInfo = BaseRowTypeInfo.of(
       FlinkTypeFactory.toLogicalRowType(getRowType))
+    val config = planner.getTableConfig
     relDistribution.getType match {
       case RelDistribution.Type.SINGLETON =>
         val partitioner = new GlobalPartitioner[BaseRow]
@@ -99,7 +100,7 @@ class StreamExecExchange(
         // TODO Eliminate duplicate keys
 
         val selector = KeySelectorUtil.getBaseRowSelector(
-          relDistribution.getKeys.map(_.toInt).toArray, inputTypeInfo)
+          relDistribution.getKeys.map(_.toInt).toArray, inputTypeInfo, config)
         val partitioner = new KeyGroupStreamPartitioner(selector,
           DEFAULT_LOWER_BOUND_MAX_PARALLELISM)
         val transformation = new PartitionTransformation(

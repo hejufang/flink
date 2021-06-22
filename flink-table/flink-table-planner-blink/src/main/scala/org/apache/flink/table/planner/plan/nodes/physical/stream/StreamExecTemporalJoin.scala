@@ -215,14 +215,16 @@ class StreamExecTemporalJoinToCoProcessTranslator private (
   def getLeftKeySelector: BaseRowKeySelector = {
     KeySelectorUtil.getBaseRowSelector(
       joinInfo.leftKeys.toIntArray,
-      BaseRowTypeInfo.of(leftInputType)
+      BaseRowTypeInfo.of(leftInputType),
+      config
     )
   }
 
   def getRightKeySelector: BaseRowKeySelector = {
     KeySelectorUtil.getBaseRowSelector(
       joinInfo.rightKeys.toIntArray,
-      BaseRowTypeInfo.of(rightInputType)
+      BaseRowTypeInfo.of(rightInputType),
+      config
     )
   }
 

@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.planner.codegen
 
+import org.apache.flink.table.api.config.OptimizerConfigOptions
 import org.apache.flink.table.dataformat._
 import org.apache.flink.table.planner.codegen.CodeGenUtils._
 import org.apache.flink.table.planner.codegen.GenerateUtils.generateRecordStatement
@@ -89,13 +90,21 @@ object ProjectionCodeGenerator {
     }
 
     val outFieldTypes = outType.getChildren
-    // using LinkedHashMap will give us a deterministic order for inputMapping fields,
-    // it matters for writing BinaryRowWriter in case of variable length types,
-    // especially when there are multiple variable length types, e.t. `string not null`,
-    // `string nullable`
-    val typeIdxs = new mutable.LinkedHashMap[
-      LogicalType,
-      (mutable.ArrayBuffer[Int], mutable.ArrayBuffer[Int])]()
+
+    val typeIdxs = if (ctx.tableConfig.getConfiguration.getBoolean(
+        OptimizerConfigOptions.DETERMINISTIC_PROJECTION)) {
+      // using LinkedHashMap will give us a deterministic order for inputMapping fields,
+      // it matters for writing BinaryRowWriter in case of variable length types,
+      // especially when there are multiple variable length types, e.t. `string not null`,
+      // `string nullable`
+      new mutable.LinkedHashMap[
+        LogicalType,
+        (mutable.ArrayBuffer[Int], mutable.ArrayBuffer[Int])]()
+    } else {
+      new mutable.HashMap[
+        LogicalType,
+        (mutable.ArrayBuffer[Int], mutable.ArrayBuffer[Int])]()
+    }
 
     for (i <- 0 until outFieldTypes.size()) {
       val (inIdxs, outIdxs) = typeIdxs.getOrElseUpdate(

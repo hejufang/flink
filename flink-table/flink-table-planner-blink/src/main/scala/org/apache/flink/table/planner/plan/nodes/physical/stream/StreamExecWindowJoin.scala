@@ -24,7 +24,7 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable
 import org.apache.flink.streaming.api.operators.co.LegacyKeyedCoProcessOperator
 import org.apache.flink.streaming.api.operators.{StreamFlatMap, StreamMap, TwoInputStreamOperator}
 import org.apache.flink.streaming.api.transformations.{OneInputTransformation, TwoInputTransformation, UnionTransformation}
-import org.apache.flink.table.api.TableException
+import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.dataformat.BaseRow
 import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.delegation.StreamPlanner
@@ -185,7 +185,8 @@ class StreamExecWindowJoin(
               joinFunction,
               leftKeys,
               rightKeys,
-              eagerCleanup)
+              eagerCleanup,
+              config)
           } else {
             createProcTimeJoin(
               leftPlan,
@@ -194,7 +195,8 @@ class StreamExecWindowJoin(
               joinFunction,
               leftKeys,
               rightKeys,
-              eagerCleanup)
+              eagerCleanup,
+              config)
           }
         }
       case FlinkJoinType.ANTI =>
@@ -288,7 +290,8 @@ class StreamExecWindowJoin(
       joinFunction: GeneratedFunction[FlatJoinFunction[BaseRow, BaseRow, BaseRow]],
       leftKeys: Array[Int],
       rightKeys: Array[Int],
-      eagerCleanup: java.lang.Boolean): Transformation[BaseRow] = {
+      eagerCleanup: java.lang.Boolean,
+      tableConfig: TableConfig): Transformation[BaseRow] = {
     val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val procJoinFunc = new ProcTimeBoundedStreamJoin(
@@ -316,8 +319,8 @@ class StreamExecWindowJoin(
     }
 
     // set KeyType and Selector for state
-    val leftSelect = KeySelectorUtil.getBaseRowSelector(leftKeys, leftTypeInfo)
-    val rightSelect = KeySelectorUtil.getBaseRowSelector(rightKeys, rightTypeInfo)
+    val leftSelect = KeySelectorUtil.getBaseRowSelector(leftKeys, leftTypeInfo, tableConfig)
+    val rightSelect = KeySelectorUtil.getBaseRowSelector(rightKeys, rightTypeInfo, tableConfig)
     ret.setStateKeySelectors(leftSelect, rightSelect)
     ret.setStateKeyType(leftSelect.getProducedType)
     ret
@@ -330,7 +333,8 @@ class StreamExecWindowJoin(
       joinFunction: GeneratedFunction[FlatJoinFunction[BaseRow, BaseRow, BaseRow]],
       leftKeys: Array[Int],
       rightKeys: Array[Int],
-      eagerCleanup: java.lang.Boolean
+      eagerCleanup: java.lang.Boolean,
+      tableConfig: TableConfig
   ): Transformation[BaseRow] = {
     val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
     val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[BaseRowTypeInfo]
@@ -362,8 +366,8 @@ class StreamExecWindowJoin(
     }
 
     // set KeyType and Selector for state
-    val leftSelector = KeySelectorUtil.getBaseRowSelector(leftKeys, leftTypeInfo)
-    val rightSelector = KeySelectorUtil.getBaseRowSelector(rightKeys, rightTypeInfo)
+    val leftSelector = KeySelectorUtil.getBaseRowSelector(leftKeys, leftTypeInfo, tableConfig)
+    val rightSelector = KeySelectorUtil.getBaseRowSelector(rightKeys, rightTypeInfo, tableConfig)
     ret.setStateKeySelectors(leftSelector, rightSelector)
     ret.setStateKeyType(leftSelector.getProducedType)
     ret

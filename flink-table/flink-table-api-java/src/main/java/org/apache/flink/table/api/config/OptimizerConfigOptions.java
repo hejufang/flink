@@ -109,4 +109,11 @@ public class OptimizerConfigOptions {
 				"will influence the monotonicity deduction. Forcing null monotonicity will " +
 				"prevent such case. \n" +
 				"BE CAUTION: This may result in non-optimal plan.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> DETERMINISTIC_PROJECTION =
+		key("table.exec.deterministic-projection.enabled")
+		.defaultValue(false)
+		.withDescription("This option controls whether ProjectionCodeGenerator will produce\n" +
+			"a deterministic order between different generation for same fields.");
 }

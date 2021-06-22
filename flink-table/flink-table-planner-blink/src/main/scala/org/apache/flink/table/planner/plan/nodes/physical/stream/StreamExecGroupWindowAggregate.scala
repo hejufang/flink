@@ -235,7 +235,7 @@ class StreamExecGroupWindowAggregate(
       transformation.setMaxParallelism(1)
     }
 
-    val selector = KeySelectorUtil.getBaseRowSelector(grouping, inputRowTypeInfo)
+    val selector = KeySelectorUtil.getBaseRowSelector(grouping, inputRowTypeInfo, config)
 
     // set KeyType and Selector for state
     transformation.setStateKeySelector(selector)

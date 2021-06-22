@@ -115,6 +115,7 @@ class StreamExecLocalGroupAggregate(
       .asInstanceOf[Transformation[BaseRow]]
     val inRowType = FlinkTypeFactory.toLogicalRowType(getInput.getRowType)
     val outRowType = FlinkTypeFactory.toLogicalRowType(outputRowType)
+    val tableConfig = planner.getTableConfig
 
     val needRetraction = StreamExecRetractionRules.isAccRetract(getInput)
 
@@ -137,7 +138,7 @@ class StreamExecLocalGroupAggregate(
     val aggFunction = new MiniBatchLocalGroupAggFunction(aggsHandler)
 
     val inputTypeInfo = inputTransformation.getOutputType.asInstanceOf[BaseRowTypeInfo]
-    val selector = KeySelectorUtil.getBaseRowSelector(grouping, inputTypeInfo)
+    val selector = KeySelectorUtil.getBaseRowSelector(grouping, inputTypeInfo, tableConfig)
 
     val operator = new MapBundleOperator(
       aggFunction,
