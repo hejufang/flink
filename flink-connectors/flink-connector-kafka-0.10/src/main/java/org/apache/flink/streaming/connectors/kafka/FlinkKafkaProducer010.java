@@ -442,11 +442,12 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 
 	@Override
 	protected Map<String, Object> getProducerDefaultConfig() {
-		return ImmutableMap.of(
-			ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000L,
-			ProducerConfig.RETRIES_CONFIG, 10,
-			ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000,
-			ProducerConfig.LINGER_MS_CONFIG, 5000L,
-			ProducerConfig.PARTITIONER_CLASS_CONFIG, BatchRandomPartitioner.class.getName());
+		return ImmutableMap.<String, Object>builder()
+				.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000L)
+				.put(ProducerConfig.RETRIES_CONFIG, 10)
+				.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000)
+				.put(ProducerConfig.LINGER_MS_CONFIG, 5000L)
+				.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, BatchRandomPartitioner.class.getName())
+				.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000).build();
 	}
 }
