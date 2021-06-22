@@ -86,9 +86,8 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		ReadableConfig tableOptions = helper.getOptions();
 
 		String topic = tableOptions.get(TOPIC);
-		DecodingFormat<DeserializationSchema<RowData>> decodingFormat = helper.discoverDecodingFormat(
-				DeserializationFormatFactory.class,
-				FactoryUtil.FORMAT);
+		Properties kafkaProperties = getKafkaProperties(context.getCatalogTable().getOptions());
+		DecodingFormat<DeserializationSchema<RowData>> decodingFormat = getKafkaDecodingFormat(helper, kafkaProperties);
 		// Validate the option data type.
 		helper.validateExcept(KafkaOptions.PROPERTIES_PREFIX);
 		// Validate the option values.
@@ -174,7 +173,6 @@ public abstract class KafkaDynamicTableFactoryBase implements
 	public Set<ConfigOption<?>> requiredOptions() {
 		final Set<ConfigOption<?>> options = new HashSet<>();
 		options.add(TOPIC);
-		options.add(FactoryUtil.FORMAT);
 		options.add(PROPS_CLUSTER);
 		return options;
 	}
@@ -203,7 +201,15 @@ public abstract class KafkaDynamicTableFactoryBase implements
 		options.add(FactoryUtil.SOURCE_METADATA_COLUMNS);
 		options.add(FactoryUtil.PARALLELISM);
 		options.add(FactoryUtil.SOURCE_KEY_BY_FIELD);
+		options.add(FactoryUtil.FORMAT);
 		return options;
+	}
+
+	protected DecodingFormat<DeserializationSchema<RowData>> getKafkaDecodingFormat(
+			FactoryUtil.TableFactoryHelper helper,
+			Properties kafkaProperties) {
+		return helper.discoverDecodingFormat(
+			DeserializationFormatFactory.class, FactoryUtil.FORMAT);
 	}
 
 	private KafkaSourceConfig getKafkaSourceConfig(TableSchema tableSchema, ReadableConfig readableConfig) {
