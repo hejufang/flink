@@ -147,7 +147,8 @@ class StreamExecGroupTableAggregate(
 
     val selector = KeySelectorUtil.getRowDataSelector(
       grouping,
-      RowDataTypeInfo.of(inputRowType))
+      RowDataTypeInfo.of(inputRowType),
+      tableConfig)
 
     // partitioned aggregation
     val ret = new OneInputTransformation(

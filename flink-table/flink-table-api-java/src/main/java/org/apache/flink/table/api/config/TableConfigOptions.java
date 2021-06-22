@@ -119,5 +119,12 @@ public class TableConfigOptions {
 				"split. Whatever, enabling this has some scenarios such as multiple tumble window\n" +
 				"with fast emit.");
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> DETERMINISTIC_PROJECTION =
+		key("table.exec.deterministic-projection.enabled")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("This option controls whether ProjectionCodeGenerator will produce\n" +
+				"a deterministic order between different generation for same fields.");
 
 }

@@ -102,6 +102,7 @@ class StreamExecLocalGroupAggregate(
 
   override protected def translateToPlanInternal(
       planner: StreamPlanner): Transformation[RowData] = {
+    val tableConfig = planner.getTableConfig
     val inputTransformation = getInputNodes.get(0).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
     val inRowType = FlinkTypeFactory.toLogicalRowType(getInput.getRowType)
@@ -128,7 +129,7 @@ class StreamExecLocalGroupAggregate(
     val aggFunction = new MiniBatchLocalGroupAggFunction(aggsHandler)
 
     val inputTypeInfo = inputTransformation.getOutputType.asInstanceOf[RowDataTypeInfo]
-    val selector = KeySelectorUtil.getRowDataSelector(grouping, inputTypeInfo)
+    val selector = KeySelectorUtil.getRowDataSelector(grouping, inputTypeInfo, tableConfig)
 
     val operator = new MapBundleOperator(
       aggFunction,

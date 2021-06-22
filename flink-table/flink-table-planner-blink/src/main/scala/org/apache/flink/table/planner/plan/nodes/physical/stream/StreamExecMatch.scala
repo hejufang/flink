@@ -230,7 +230,7 @@ class StreamExecMatch(
         transformation.setParallelism(1)
         transformation.setMaxParallelism(1)
       }
-      setKeySelector(transformation, inputTypeInfo)
+      setKeySelector(transformation, inputTypeInfo, config)
       transformation
     }
   }
@@ -300,10 +300,12 @@ class StreamExecMatch(
 
   private def setKeySelector(
       transform: OneInputTransformation[RowData, _],
-      inputTypeInfo: RowDataTypeInfo): Unit = {
+      inputTypeInfo: RowDataTypeInfo,
+      tableConfig: TableConfig): Unit = {
     val selector = KeySelectorUtil.getRowDataSelector(
       logicalMatch.partitionKeys.toArray,
-      inputTypeInfo)
+      inputTypeInfo,
+      tableConfig)
     transform.setStateKeySelector(selector)
     transform.setStateKeyType(selector.getProducedType)
   }

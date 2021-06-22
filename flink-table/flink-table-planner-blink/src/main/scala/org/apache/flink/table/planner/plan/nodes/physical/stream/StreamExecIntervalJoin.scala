@@ -24,7 +24,7 @@ import org.apache.flink.api.java.typeutils.ResultTypeQueryable
 import org.apache.flink.streaming.api.operators.co.KeyedCoProcessOperator
 import org.apache.flink.streaming.api.operators.{StreamFlatMap, StreamMap, TwoInputStreamOperator}
 import org.apache.flink.streaming.api.transformations.{OneInputTransformation, TwoInputTransformation, UnionTransformation}
-import org.apache.flink.table.api.TableException
+import org.apache.flink.table.api.{TableConfig, TableException}
 import org.apache.flink.table.data.RowData
 import org.apache.flink.table.planner.calcite.FlinkTypeFactory
 import org.apache.flink.table.planner.delegation.StreamPlanner
@@ -124,6 +124,7 @@ class StreamExecIntervalJoin(
 
   override protected def translateToPlanInternal(
       planner: StreamPlanner): Transformation[RowData] = {
+    val tableConfig = planner.getTableConfig
     val leftPlan = getInputNodes.get(0).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
     val rightPlan = getInputNodes.get(1).translateToPlan(planner)
@@ -172,7 +173,8 @@ class StreamExecIntervalJoin(
               returnType,
               joinFunction,
               leftKeys,
-              rightKeys)
+              rightKeys,
+              tableConfig)
           } else {
             createProcTimeJoin(
               leftPlan,
@@ -180,7 +182,8 @@ class StreamExecIntervalJoin(
               returnType,
               joinFunction,
               leftKeys,
-              rightKeys)
+              rightKeys,
+              tableConfig)
           }
         }
       case FlinkJoinType.ANTI =>
@@ -276,7 +279,8 @@ class StreamExecIntervalJoin(
       returnTypeInfo: RowDataTypeInfo,
       joinFunction: GeneratedFunction[FlatJoinFunction[RowData, RowData, RowData]],
       leftKeys: Array[Int],
-      rightKeys: Array[Int]): Transformation[RowData] = {
+      rightKeys: Array[Int],
+      tableConfig: TableConfig): Transformation[RowData] = {
     val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
     val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
     val procJoinFunc = new ProcTimeIntervalJoin(
@@ -303,8 +307,8 @@ class StreamExecIntervalJoin(
     }
 
     // set KeyType and Selector for state
-    val leftSelect = KeySelectorUtil.getRowDataSelector(leftKeys, leftTypeInfo)
-    val rightSelect = KeySelectorUtil.getRowDataSelector(rightKeys, rightTypeInfo)
+    val leftSelect = KeySelectorUtil.getRowDataSelector(leftKeys, leftTypeInfo, tableConfig)
+    val rightSelect = KeySelectorUtil.getRowDataSelector(rightKeys, rightTypeInfo, tableConfig)
     ret.setStateKeySelectors(leftSelect, rightSelect)
     ret.setStateKeyType(leftSelect.getProducedType)
     ret
@@ -316,7 +320,8 @@ class StreamExecIntervalJoin(
       returnTypeInfo: RowDataTypeInfo,
       joinFunction: GeneratedFunction[FlatJoinFunction[RowData, RowData, RowData]],
       leftKeys: Array[Int],
-      rightKeys: Array[Int]
+      rightKeys: Array[Int],
+      tableConfig: TableConfig
   ): Transformation[RowData] = {
     val leftTypeInfo = leftPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
     val rightTypeInfo = rightPlan.getOutputType.asInstanceOf[RowDataTypeInfo]
@@ -347,8 +352,8 @@ class StreamExecIntervalJoin(
     }
 
     // set KeyType and Selector for state
-    val leftSelector = KeySelectorUtil.getRowDataSelector(leftKeys, leftTypeInfo)
-    val rightSelector = KeySelectorUtil.getRowDataSelector(rightKeys, rightTypeInfo)
+    val leftSelector = KeySelectorUtil.getRowDataSelector(leftKeys, leftTypeInfo, tableConfig)
+    val rightSelector = KeySelectorUtil.getRowDataSelector(rightKeys, rightTypeInfo, tableConfig)
     ret.setStateKeySelectors(leftSelector, rightSelector)
     ret.setStateKeyType(leftSelector.getProducedType)
     ret

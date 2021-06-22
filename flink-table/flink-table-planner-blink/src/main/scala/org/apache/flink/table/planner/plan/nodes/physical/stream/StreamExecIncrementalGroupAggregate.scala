@@ -158,10 +158,12 @@ class StreamExecIncrementalGroupAggregate(
 
     val partialKeySelector = KeySelectorUtil.getRowDataSelector(
       partialAggGrouping,
-      RowDataTypeInfo.of(inRowType))
+      RowDataTypeInfo.of(inRowType),
+      config)
     val finalKeySelector = KeySelectorUtil.getRowDataSelector(
       finalAggGrouping,
-      partialKeySelector.getProducedType)
+      partialKeySelector.getProducedType,
+      config)
 
     val aggFunction = new MiniBatchIncrementalGroupAggFunction(
       partialAggsHandler,

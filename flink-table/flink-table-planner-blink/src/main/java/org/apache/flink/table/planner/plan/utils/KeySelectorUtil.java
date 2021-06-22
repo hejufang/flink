@@ -41,7 +41,10 @@ public class KeySelectorUtil {
 	 * @param rowType type of DataStream to extract keys
 	 * @return the RowDataKeySelector to extract keys from DataStream which type is RowDataTypeInfo.
 	 */
-	public static RowDataKeySelector getRowDataSelector(int[] keyFields, RowDataTypeInfo rowType) {
+	public static RowDataKeySelector getRowDataSelector(
+			int[] keyFields,
+			RowDataTypeInfo rowType,
+			TableConfig tableConfig) {
 		if (keyFields.length > 0) {
 			LogicalType[] inputFieldTypes = rowType.getLogicalTypes();
 			LogicalType[] keyFieldTypes = new LogicalType[keyFields.length];
@@ -53,7 +56,7 @@ public class KeySelectorUtil {
 			RowType returnType = RowType.of(keyFieldTypes);
 			RowType inputType = rowType.toRowType();
 			GeneratedProjection generatedProjection = ProjectionCodeGenerator.generateProjection(
-				CodeGeneratorContext.apply(new TableConfig()),
+				CodeGeneratorContext.apply(tableConfig),
 				"KeyProjection",
 				inputType,
 				returnType,

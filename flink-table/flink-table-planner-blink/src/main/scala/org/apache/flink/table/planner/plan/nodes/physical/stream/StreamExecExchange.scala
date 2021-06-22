@@ -73,6 +73,7 @@ class StreamExecExchange(
 
   override protected def translateToPlanInternal(
       planner: StreamPlanner): Transformation[RowData] = {
+    val tableConfig = planner.getTableConfig
     val inputTransform = getInputNodes.get(0).translateToPlan(planner)
       .asInstanceOf[Transformation[RowData]]
     val inputTypeInfo = inputTransform.getOutputType.asInstanceOf[RowDataTypeInfo]
@@ -91,7 +92,7 @@ class StreamExecExchange(
         // TODO Eliminate duplicate keys
 
         val selector = KeySelectorUtil.getRowDataSelector(
-          relDistribution.getKeys.map(_.toInt).toArray, inputTypeInfo)
+          relDistribution.getKeys.map(_.toInt).toArray, inputTypeInfo, tableConfig)
         val partitioner = new KeyGroupStreamPartitioner(selector,
           DEFAULT_LOWER_BOUND_MAX_PARALLELISM)
         val transformation = new PartitionTransformation(

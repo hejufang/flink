@@ -143,7 +143,8 @@ class StreamExecRank(
       FlinkTypeFactory.toLogicalRowType(getInput.getRowType))
     val fieldCollations = orderKey.getFieldCollations
     val (sortFields, sortDirections, nullsIsLast) = SortUtil.getKeysAndOrders(fieldCollations)
-    val sortKeySelector = KeySelectorUtil.getRowDataSelector(sortFields, inputRowTypeInfo)
+    val sortKeySelector = KeySelectorUtil.getRowDataSelector(
+      sortFields, inputRowTypeInfo, tableConfig)
     val sortKeyType = sortKeySelector.getProducedType
     val sortKeyComparator = ComparatorCodeGenerator.gen(tableConfig, "StreamExecSortComparator",
       sortFields.indices.toArray, sortKeyType.getLogicalTypes, sortDirections, nullsIsLast)
@@ -167,7 +168,8 @@ class StreamExecRank(
           cacheSize)
 
       case UpdateFastStrategy(primaryKeys) =>
-        val rowKeySelector = KeySelectorUtil.getRowDataSelector(primaryKeys, inputRowTypeInfo)
+        val rowKeySelector = KeySelectorUtil.getRowDataSelector(
+          primaryKeys, inputRowTypeInfo, tableConfig)
         new UpdatableTopNFunction(
           minIdleStateRetentionTime,
           maxIdleStateRetentionTime,
@@ -218,7 +220,8 @@ class StreamExecRank(
     }
 
     // set KeyType and Selector for state
-    val selector = KeySelectorUtil.getRowDataSelector(partitionKey.toArray, inputRowTypeInfo)
+    val selector = KeySelectorUtil.getRowDataSelector(
+      partitionKey.toArray, inputRowTypeInfo, tableConfig)
     ret.setStateKeySelector(selector)
     ret.setStateKeyType(selector.getProducedType)
     ret

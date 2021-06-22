@@ -50,8 +50,11 @@ class ProjectionCodeGeneratorTest {
 
   @Test
   def testProjectionDeterminacy(): Unit = {
+    val tableConfig: TableConfig = new TableConfig
+    tableConfig.getConfiguration.setString(
+      "table.exec.deterministic-projection.enabled", "true")
     val projection = ProjectionCodeGenerator.generateProjection(
-      new CodeGeneratorContext(new TableConfig),
+      new CodeGeneratorContext(tableConfig),
         "name",
         RowType.of(
           new IntType(),

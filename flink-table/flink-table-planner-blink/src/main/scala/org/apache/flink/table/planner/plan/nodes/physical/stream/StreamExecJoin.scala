@@ -20,8 +20,9 @@ package org.apache.flink.table.planner.plan.nodes.physical.stream
 
 import org.apache.flink.api.dag.Transformation
 import org.apache.flink.streaming.api.transformations.TwoInputTransformation
+import org.apache.flink.table.api.TableConfig
 import org.apache.flink.table.data.RowData
-import org.apache.flink.table.planner.calcite.FlinkTypeFactory
+import org.apache.flink.table.planner.calcite.{FlinkContext, FlinkTypeFactory}
 import org.apache.flink.table.planner.delegation.StreamPlanner
 import org.apache.flink.table.planner.plan.nodes.common.CommonPhysicalJoin
 import org.apache.flink.table.planner.plan.nodes.exec.{ExecNode, StreamExecNode}
@@ -89,10 +90,12 @@ class StreamExecJoin(
   }
 
   override def explainTerms(pw: RelWriter): RelWriter = {
+    val tableConfig = getCluster.getPlanner.getContext.
+      asInstanceOf[FlinkContext].getTableConfig
     super
       .explainTerms(pw)
-      .item("leftInputSpec", analyzeJoinInput(left))
-      .item("rightInputSpec", analyzeJoinInput(right))
+      .item("leftInputSpec", analyzeJoinInput(left, tableConfig))
+      .item("rightInputSpec", analyzeJoinInput(right, tableConfig))
   }
 
   override def computeSelfCost(planner: RelOptPlanner, metadata: RelMetadataQuery): RelOptCost = {
@@ -129,11 +132,11 @@ class StreamExecJoin(
     val (leftJoinKey, rightJoinKey) =
       JoinUtil.checkAndGetJoinKeys(keyPairs, getLeft, getRight, allowEmptyKey = true)
 
-    val leftSelect = KeySelectorUtil.getRowDataSelector(leftJoinKey, leftType)
-    val rightSelect = KeySelectorUtil.getRowDataSelector(rightJoinKey, rightType)
+    val leftSelect = KeySelectorUtil.getRowDataSelector(leftJoinKey, leftType, tableConfig)
+    val rightSelect = KeySelectorUtil.getRowDataSelector(rightJoinKey, rightType, tableConfig)
 
-    val leftInputSpec = analyzeJoinInput(left)
-    val rightInputSpec = analyzeJoinInput(right)
+    val leftInputSpec = analyzeJoinInput(left, tableConfig)
+    val rightInputSpec = analyzeJoinInput(right, tableConfig)
 
     val generatedCondition = JoinUtil.generateConditionFunction(
       tableConfig,
@@ -189,7 +192,7 @@ class StreamExecJoin(
     ret
   }
 
-  private def analyzeJoinInput(input: RelNode): JoinInputSideSpec = {
+  private def analyzeJoinInput(input: RelNode, tableConfig: TableConfig): JoinInputSideSpec = {
     val uniqueKeys = cluster.getMetadataQuery.getUniqueKeys(input)
     if (uniqueKeys == null || uniqueKeys.isEmpty) {
       JoinInputSideSpec.withoutUniqueKey()
@@ -207,12 +210,14 @@ class StreamExecJoin(
       if (uniqueKeysContainedByJoinKey.nonEmpty) {
         // join key contains unique key
         val smallestUniqueKey = getSmallestKey(uniqueKeysContainedByJoinKey)
-        val uniqueKeySelector = KeySelectorUtil.getRowDataSelector(smallestUniqueKey, inRowType)
+        val uniqueKeySelector = KeySelectorUtil.getRowDataSelector(
+          smallestUniqueKey, inRowType, tableConfig)
         val uniqueKeyTypeInfo = uniqueKeySelector.getProducedType
         JoinInputSideSpec.withUniqueKeyContainedByJoinKey(uniqueKeyTypeInfo, uniqueKeySelector)
       } else {
         val smallestUniqueKey = getSmallestKey(uniqueKeys.map(_.toArray).toArray)
-        val uniqueKeySelector = KeySelectorUtil.getRowDataSelector(smallestUniqueKey, inRowType)
+        val uniqueKeySelector = KeySelectorUtil.getRowDataSelector(
+          smallestUniqueKey, inRowType, tableConfig)
         val uniqueKeyTypeInfo = uniqueKeySelector.getProducedType
         JoinInputSideSpec.withUniqueKey(uniqueKeyTypeInfo, uniqueKeySelector)
       }
