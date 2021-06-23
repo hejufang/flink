@@ -271,6 +271,7 @@ DEFAULT_ENV_JAVA_OPTS_JM=""                         # Optional JVM args (JobMana
 DEFAULT_ENV_JAVA_OPTS_TM=""                         # Optional JVM args (TaskManager)
 DEFAULT_ENV_JAVA_OPTS_HS=""                         # Optional JVM args (HistoryServer)
 DEFAULT_ENV_JAVA_OPTS_CLI=""                        # Optional JVM args (Client)
+DEFAULT_ENV_GC_LOG_OPTS=""                          # Optional GC log args
 DEFAULT_ENV_SSH_OPTS=""                             # Optional SSH parameters running in cluster mode
 DEFAULT_YARN_CONF_DIR="/opt/tiger/yarn_deploy/hadoop/conf"             # YARN Configuration Directory, if necessary
 DEFAULT_HADOOP_HOME="/opt/tiger/yarn_deploy/hadoop"                    # Hadoop Home Directory, if necessary
@@ -290,6 +291,7 @@ KEY_ENV_HADOOP_HOME="env.hadoop.home"
 KEY_ENV_HADOOP_CONF_DIR="env.hadoop.conf.dir"
 KEY_ENV_JAVA_HOME="env.java.home"
 KEY_ENV_JAVA_OPTS="env.java.opts"
+KEY_ENV_GC_LOG_OPTS="env.gc.log.opts"
 KEY_ENV_JAVA_OPTS_JM="env.java.opts.jobmanager"
 KEY_ENV_JAVA_OPTS_TM="env.java.opts.taskmanager"
 KEY_ENV_JAVA_OPTS_HS="env.java.opts.historyserver"
@@ -436,6 +438,13 @@ if [ -z "${FLINK_ENV_JAVA_OPTS}" ]; then
 
     # Remove leading and ending double quotes (if present) of value
     FLINK_ENV_JAVA_OPTS="$( echo "${FLINK_ENV_JAVA_OPTS}" | sed -e 's/^"//'  -e 's/"$//' )"
+fi
+
+if [ -z "${FLINK_ENV_GC_LOG_OPTS}" ]; then
+    FLINK_ENV_GC_LOG_OPTS=$(readFromConfig ${KEY_ENV_GC_LOG_OPTS} "${DEFAULT_ENV_GC_LOG_OPTS}" "${YAML_CONF}")
+
+    # Remove leading and ending double quotes (if present) of value
+    FLINK_ENV_GC_LOG_OPTS="$( echo "${FLINK_ENV_GC_LOG_OPTS}" | sed -e 's/^"//'  -e 's/"$//' )"
 fi
 
 if [ -z "${FLINK_ENV_JAVA_OPTS_JM}" ]; then
