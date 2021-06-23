@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.core.memory.MemorySegmentProvider;
+import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.ConnectionManager;
@@ -33,9 +34,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * This is used to provide channel transformation.
@@ -57,9 +61,13 @@ public class ChannelProvider {
 
 	private final ScheduledExecutorService executor;
 
-	private final Map<Integer, PartitionInfo> cachedPartitionInfos;
+	private final ConcurrentMap<Integer, PartitionInfo> cachedPartitionInfos;
 
 	private long maxDelayTimeMs;
+
+	private Counter numChannelsCached;
+	private Counter numChannelsInjectedError;
+	private AtomicLong injectErrorCount;
 
 	public ChannelProvider(ConnectionManager connectionManager, InputChannelMetrics metrics, NetworkBufferPool networkBufferPool,
 			ResultPartitionManager partitionManager, TaskEventPublisher taskEventPublisher, long maxDelayTimeMs, ScheduledExecutorService executor, boolean isRecoverable) {
@@ -72,7 +80,11 @@ public class ChannelProvider {
 		this.executor = executor;
 		this.maxDelayTimeMs = maxDelayTimeMs;
 
-		this.cachedPartitionInfos = new HashMap<>();
+		this.cachedPartitionInfos = new ConcurrentHashMap<>();
+
+		this.injectErrorCount = new AtomicLong(0);
+		this.numChannelsInjectedError = metrics.getNumChannelsInjectedError();
+		this.numChannelsCached = metrics.getNumChannelsCached();
 	}
 
 	public RemoteInputChannel transformToRemoteInputChannel(SingleInputGate inputGate, InputChannel current,
@@ -95,12 +107,47 @@ public class ChannelProvider {
 		return cachedPartitionInfos.remove(channelIndex);
 	}
 
-	public void cachePartitionInfo(int channelIndex, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
+	public void cachePartitionInfo(InputChannel inputChannel, ResourceID localLocation, NettyShuffleDescriptor shuffleDescriptor) {
+		final int channelIndex = inputChannel.channelIndex;
 		if (cachedPartitionInfos.containsKey(channelIndex)) {
 			LOG.warn("ChannelProvider has already cached this partitionInfo.(index={}, timestamp={})", channelIndex, cachedPartitionInfos.get(channelIndex).timestamp);
 		}
 
-		cachedPartitionInfos.put(channelIndex, new PartitionInfo(localLocation, shuffleDescriptor));
+		final PartitionInfo partitionInfo = new PartitionInfo(localLocation, shuffleDescriptor);
+		cachedPartitionInfos.put(channelIndex, partitionInfo);
+
+		// the cached partitionInfo should be used very soon except for cases that yarn container becomes wild
+		executor.schedule(new DisableChannelRunnable(inputChannel, partitionInfo), 3 * maxDelayTimeMs, TimeUnit.MILLISECONDS);
+		this.numChannelsCached.inc();
+		this.numChannelsInjectedError.inc(injectErrorCount.get() - this.numChannelsInjectedError.getCount());
+	}
+
+	private class DisableChannelRunnable implements Runnable {
+
+		private final int channelIndex;
+		private final PartitionInfo partitionInfo;
+		private final InputChannel inputChannel;
+
+		DisableChannelRunnable(InputChannel inputChannel, PartitionInfo partitionInfo) {
+			this.inputChannel = inputChannel;
+			this.channelIndex = inputChannel.channelIndex;
+			this.partitionInfo = partitionInfo;
+		}
+
+		@Override
+		public void run() {
+			if (cachedPartitionInfos.containsKey(channelIndex)
+					&& cachedPartitionInfos.get(channelIndex).equals(partitionInfo)
+					&& inputChannel.isChannelAvailable()) {
+				// usually this means the channel cannot sense the upstream failure
+				LOG.info("The channel {} is still available, inject error.", inputChannel);
+				if (inputChannel instanceof RemoteInputChannel) {
+					RemoteInputChannel remoteInputChannel = (RemoteInputChannel) inputChannel;
+					remoteInputChannel.onError(new IllegalStateException("There may be a wild yarn container, fail this channel."));
+					injectErrorCount.incrementAndGet();
+				}
+			}
+		}
 	}
 
 	static class PartitionInfo {
@@ -113,6 +160,23 @@ public class ChannelProvider {
 			this.localLocation = localLocation;
 			this.shuffleDescriptor = shuffleDescriptor;
 			this.timestamp = System.currentTimeMillis();
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			PartitionInfo that = (PartitionInfo) o;
+			return timestamp == that.timestamp && Objects.equals(localLocation, that.localLocation) && Objects.equals(shuffleDescriptor, that.shuffleDescriptor);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(localLocation, shuffleDescriptor, timestamp);
 		}
 	}
 }

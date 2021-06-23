@@ -74,4 +74,6 @@ public class MetricNames {
 
 	public static final String NUM_CHANNELS_UPDATED_BY_JM = "numChannelsUpdatedByJM";
 	public static final String NUM_CHANNELS_UPDATED_BY_TASK = "numChannelsUpdatedByTask";
+	public static final String NUM_CHANNELS_INJECTED_ERROR = "numChannelsInjectedError";
+	public static final String NUM_CHANNELS_CACHED = "numChannelsCached";
 }

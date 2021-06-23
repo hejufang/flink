@@ -315,10 +315,10 @@ public abstract class InputChannel {
 
 		executor.schedule(() -> {
 			if (!isReleased() && isReadyToUpdate()) {
-				LOG.warn("Channel {} is still not updated after {} ms, fail this task.", this, maxDelayTimeMs);
+				LOG.warn("Channel {} is still not updated after {} ms, fail this task.", this, maxDelayTimeMs * 2);
 				this.setError(cause);
 			}
-		}, maxDelayTimeMs, TimeUnit.MILLISECONDS);
+		}, maxDelayTimeMs * 2, TimeUnit.MILLISECONDS);
 	}
 
 	// ------------------------------------------------------------------------

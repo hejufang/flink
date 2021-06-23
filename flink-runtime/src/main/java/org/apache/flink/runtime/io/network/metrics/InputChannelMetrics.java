@@ -45,6 +45,9 @@ public class InputChannelMetrics {
 	private final Counter numChannelsUpdatedByJM;
 	private final Counter numChannelsUpdatedByTask;
 
+	private final Counter numChannelsInjectedError;
+	private final Counter numChannelsCached;
+
 	public InputChannelMetrics(MetricGroup ... parents) {
 		this.numBytesInLocal = createCounter(IO_NUM_BYTES_IN_LOCAL, parents);
 		this.numBytesInRemote = createCounter(IO_NUM_BYTES_IN_REMOTE, parents);
@@ -54,6 +57,9 @@ public class InputChannelMetrics {
 		this.numBuffersInDropped = createCounter(MetricNames.IO_NUM_BUFFERS_DROPPED, parents);
 		this.numChannelsUpdatedByJM = createCounter(MetricNames.NUM_CHANNELS_UPDATED_BY_JM, parents);
 		this.numChannelsUpdatedByTask = createCounter(MetricNames.NUM_CHANNELS_UPDATED_BY_TASK, parents);
+
+		this.numChannelsInjectedError = createCounter(MetricNames.NUM_CHANNELS_INJECTED_ERROR, parents);
+		this.numChannelsCached = createCounter(MetricNames.NUM_CHANNELS_CACHED, parents);
 	}
 
 	private static Counter createCounter(String name, MetricGroup ... parents) {
@@ -91,6 +97,14 @@ public class InputChannelMetrics {
 
 	public Counter getNumChannelsUpdatedByTask() {
 		return numChannelsUpdatedByTask;
+	}
+
+	public Counter getNumChannelsCached() {
+		return numChannelsCached;
+	}
+
+	public Counter getNumChannelsInjectedError() {
+		return numChannelsInjectedError;
 	}
 
 	private static class MultiCounterWrapper implements Counter {

@@ -433,7 +433,7 @@ public class SingleInputGate extends InputGate {
 			} else {
 				LOG.info("{}: Ignore incoming updateInputChannel({}) rpc request.", owningTaskName, shuffleDescriptor.getResultPartitionID());
 				if (channelProvider != null) {
-					channelProvider.cachePartitionInfo(current.channelIndex, localLocation, shuffleDescriptor);
+					channelProvider.cachePartitionInfo(current, localLocation, shuffleDescriptor);
 				}
 			}
 		}

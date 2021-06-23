@@ -48,7 +48,8 @@ global:
         numberOfActualDeletedStateFiles,
         numberOfTotalDeletedStateFiles,
         numChannelsUpdatedByJM,
-        numChannelsUpdatedByTask
+        numChannelsUpdatedByTask,
+        numChannelsInjectedError
     ]
 
 non-global:
@@ -92,6 +93,8 @@ non-global:
         numBuffersInDropped,
         numChannelsUpdatedByJM,
         numChannelsUpdatedByTask,
+        numChannelsInjectedError,
+        numChannelsCached,
       # late Records Dropped
         numLateRecordsDropped,
       # Lookup Table Metrics
