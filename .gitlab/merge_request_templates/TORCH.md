@@ -8,7 +8,7 @@ This template aims:
 **Please be serious about this.**
 
 
-## Why do you make this change
+## Why make this change
 
 
 ## Gists on the implementation
@@ -19,11 +19,11 @@ This template aims:
 
 ## Verifying this change
 
-* Including testing? (yes/no) why not if the answer is no?
+* Including code testing? (yes/no)
 (list the tests and its scope)
 
 
-* Including manual testing on the devbox? (yes/no) why not if the answer is no?
+* Including manual testing on the devbox? (yes/no)
 (list the tests and its scope)
 
 
