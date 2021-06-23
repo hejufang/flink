@@ -105,6 +105,14 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 		ROCKSDB
 	}
 
+	/**
+	 * The disk info which rocksdb use.
+	 */
+	public enum DiskType {
+		SSD,
+		HDD
+	}
+
 	private static final long serialVersionUID = 1L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(RocksDBStateBackend.class);
@@ -179,6 +187,10 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 
 	/** True if the discard state is allowed when rocksdb fails to recover. */
 	private TernaryBoolean discardStatesIfRocksdbRecoverFail = TernaryBoolean.UNDEFINED;
+
+	private DiskType diskType = DiskType.HDD;
+
+	private boolean isDiskValid = true;
 
 	// ------------------------------------------------------------------------
 
@@ -374,6 +386,7 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 								// a bit hardcode here
 								if (localDir.startsWith(mount) || localDir.startsWith(DiskUtils.REMOTE_SSD_PREFIX)) {
 									rocksdbLocalPaths = localDir + "/" + containerId;
+									this.diskType = DiskType.SSD;
 									break;
 								}
 							}
@@ -381,6 +394,11 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 					}
 				}
 			}
+
+			if (config.getBoolean(RocksDBOptions.FORCE_SSD) && diskType.equals(DiskType.HDD)) {
+					LOG.warn("there's no ssd mounts for rocksdb local directory");
+					isDiskValid = false;
+				}
 
 			if (rocksdbLocalPaths == null) {
 				rocksdbLocalPaths = config.getString(RocksDBOptions.LOCAL_DIRECTORIES);
@@ -599,7 +617,8 @@ public class RocksDBStateBackend extends AbstractStateBackend implements Configu
 			.setNativeMetricOptions(getMemoryWatcherOptions())
 			.setUseMemoryCache(useMemoryCache)
 			.setMaxCacheSize(maxCacheSize)
-			.setDiscardStatesIfRocksdbRecoverFail(getDiscardStatesIfRocksdbRecoverFail());
+			.setDiscardStatesIfRocksdbRecoverFail(getDiscardStatesIfRocksdbRecoverFail())
+			.setIsDiskValid(isDiskValid);
 		return builder.build();
 	}
 

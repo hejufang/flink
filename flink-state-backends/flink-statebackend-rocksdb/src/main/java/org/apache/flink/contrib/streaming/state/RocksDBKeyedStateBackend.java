@@ -33,6 +33,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.base.MapSerializer;
 import org.apache.flink.api.common.typeutils.base.MapSerializerSnapshot;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.contrib.streaming.state.iterator.RocksStateKeysIterator;
 import org.apache.flink.contrib.streaming.state.snapshot.RocksDBSnapshotStrategyBase;
 import org.apache.flink.contrib.streaming.state.ttl.RocksDbTtlCompactFiltersManager;
@@ -196,6 +197,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 
 	private final RocksDbTtlCompactFiltersManager ttlCompactFiltersManager;
 
+	private final boolean isDiskValid;
+
 	public RocksDBKeyedStateBackend(
 		ClassLoader userCodeClassLoader,
 		File instanceBasePath,
@@ -219,7 +222,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		RocksDBSerializedCompositeKeyBuilder<K> sharedRocksKeyBuilder,
 		PriorityQueueSetFactory priorityQueueFactory,
 		RocksDbTtlCompactFiltersManager ttlCompactFiltersManager,
-		InternalKeyContext<K> keyContext) {
+		InternalKeyContext<K> keyContext,
+		boolean isDiskValid) {
 
 		super(
 			kvStateRegistry,
@@ -253,6 +257,7 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 		this.nativeMetricMonitor = nativeMetricMonitor;
 		this.sharedRocksKeyBuilder = sharedRocksKeyBuilder;
 		this.priorityQueueFactory = priorityQueueFactory;
+		this.isDiskValid = isDiskValid;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -653,6 +658,11 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 				stateDesc.getClass(), this.getClass());
 			throw new FlinkRuntimeException(message);
 		}
+		if (!isDiskValid) {
+			String message = String.format("Rocksdb could not work on hdd Mounts when 'state.backend.rocksdb.force-ssd' is set to true");
+			throw new IllegalConfigurationException(message);
+		}
+
 		Tuple2<ColumnFamilyHandle, RegisteredKeyValueStateBackendMetaInfo<N, SV>> registerResult = tryRegisterKvStateInformation(
 			stateDesc, namespaceSerializer, snapshotTransformFactory);
 		return stateFactory.createState(stateDesc, registerResult, RocksDBKeyedStateBackend.this);

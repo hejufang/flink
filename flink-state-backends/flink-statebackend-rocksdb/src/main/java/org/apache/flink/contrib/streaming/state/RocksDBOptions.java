@@ -97,4 +97,10 @@ public class RocksDBOptions {
 		.withDescription(String.format(
 				"If this value is set to true, all corresponding states will be automatically discarded when " +
 				"rocksdb recovery fails."));
+
+	public static final ConfigOption<Boolean> FORCE_SSD = ConfigOptions
+		.key("state.backend.rocksdb.force-ssd")
+		.defaultValue(false)
+		.withDescription(String.format(
+				"If this value is set to true, rocksdb could only run on ssd disks"));
 }

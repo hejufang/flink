@@ -116,6 +116,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 	/** True if the discard state is allowed when rocksdb fails to recover. */
 	private boolean discardStatesIfRocksdbRecoverFail;
 
+	private boolean isDiskValid = true;
+
 	private RocksDBNativeMetricOptions nativeMetricOptions;
 	private int numberOfTransferingThreads;
 	private int maxRetryTimes;
@@ -257,6 +259,11 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 		return this;
 	}
 
+	public RocksDBKeyedStateBackendBuilder<K> setIsDiskValid(boolean isDiskValid) {
+		this.isDiskValid = isDiskValid;
+		return this;
+	}
+
 	private static void checkAndCreateDirectory(File directory) throws IOException {
 		if (directory.exists()) {
 			if (!directory.isDirectory()) {
@@ -389,7 +396,8 @@ public class RocksDBKeyedStateBackendBuilder<K> extends AbstractKeyedStateBacken
 			sharedRocksKeyBuilder,
 			priorityQueueFactory,
 			ttlCompactFiltersManager,
-			keyContext);
+			keyContext,
+			isDiskValid);
 	}
 
 	private AbstractRocksDBRestoreOperation<K> getRocksDBRestoreOperation(
