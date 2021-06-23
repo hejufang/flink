@@ -32,10 +32,15 @@ import org.apache.flink.streaming.connectors.kafka.partitioner.KafkaPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.RoundRobinPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import javax.annotation.Nullable;
 
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -394,6 +399,17 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducer09<T> {
 			}
 		}
 		producer.send(record, callback);
+	}
+
+	@Override
+	protected Map<String, Object> getDefaultConfig() {
+		return ImmutableMap.<String, Object>builder()
+				.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000)
+				.put(ProducerConfig.RETRIES_CONFIG, 10)
+				.put(ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000)
+				.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000)
+				.put(ProducerConfig.LINGER_MS_CONFIG, 5000)
+				.put(CommonClientConfigs.START_TIMEOUT_MS, 300000).build();
 	}
 
 	/**

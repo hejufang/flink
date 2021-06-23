@@ -67,6 +67,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -1440,7 +1441,19 @@ public abstract class FlinkKafkaConsumerBase<T> extends RichParallelSourceFuncti
 			LOG.info("Add default configuration: {} = {}", IGNORE_DC_CHECK_CONFIG, true);
 			properties.put(IGNORE_DC_CHECK_CONFIG, true);
 		}
-		return properties;
+
+		final Properties props = properties;
+		getDefaultConfig().forEach((key, value) -> {
+			if (!props.containsKey(key)) {
+				LOG.info("Add default configuration: {} = {}", key, value);
+				props.put(key, value);
+			}
+		});
+		return props;
+	}
+
+	protected Map<String, Object> getDefaultConfig() {
+		return Collections.emptyMap();
 	}
 
 	/**

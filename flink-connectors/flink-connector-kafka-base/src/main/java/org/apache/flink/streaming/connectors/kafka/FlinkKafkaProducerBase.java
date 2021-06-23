@@ -37,8 +37,6 @@ import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 import org.apache.flink.util.NetUtils;
 import org.apache.flink.util.SerializableObject;
 
-import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
-
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -181,14 +179,7 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 //			throw new IllegalArgumentException(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG + " must be supplied in the producer config properties.");
 //		}
 
-		Map<String, Integer> defaultValueMap = ImmutableMap.of(
-			ProducerConfig.MAX_BLOCK_MS_CONFIG, 60000,
-			ProducerConfig.RETRIES_CONFIG, 10,
-			ProducerConfig.RETRY_BACKOFF_MS_CONFIG, 1000,
-			ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 30000,
-			ProducerConfig.LINGER_MS_CONFIG, 5000);
-
-		defaultValueMap.forEach((key, value) -> {
+		getDefaultConfig().forEach((key, value) -> {
 			if (!producerConfig.containsKey(key)) {
 				LOG.info("Add default configuration: {} = {}", key, value);
 				producerConfig.put(key, value);
@@ -439,5 +430,9 @@ public abstract class FlinkKafkaProducerBase<IN> extends RichSinkFunction<IN> im
 		synchronized (pendingRecordsLock) {
 			return pendingRecords;
 		}
+	}
+
+	protected Map<String, Object> getDefaultConfig() {
+		return Collections.emptyMap();
 	}
 }

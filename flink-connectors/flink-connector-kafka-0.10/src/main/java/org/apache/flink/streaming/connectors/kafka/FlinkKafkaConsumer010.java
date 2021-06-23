@@ -38,6 +38,9 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.PropertiesUtil;
 import org.apache.flink.util.SerializedValue;
 
+import org.apache.flink.shaded.guava18.com.google.common.collect.ImmutableMap;
+
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
@@ -337,6 +340,12 @@ public class FlinkKafkaConsumer010<T> extends FlinkKafkaConsumer09<T> {
 		}
 
 		return result;
+	}
+
+	@Override
+	protected Map<String, Object> getDefaultConfig() {
+		return ImmutableMap.of(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG, 60000,
+			CommonClientConfigs.START_TIMEOUT_MS, 30000);
 	}
 
 	private static KafkaDeserializationSchemaWrapper getDeserializationSchema(DeserializationSchema valueDeserializer, Properties props) {
