@@ -1616,19 +1616,19 @@ public class Template {
 
 	public static final String LOOKUP_JOIN_REQUEST_PER_SECOND_TARGET = "{\n" +
 		"							\"aggregator\": \"max\",\n" +
-		"							\"downsampleAggregator\": \"sum\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
-		"lookupRequestPerSecond\",\n" +
+		"lookupRequestPerSecond.rate\",\n" +
 		"							\"refId\": \"K\"\n" +
 		"						}";
 
 	public static final String LOOKUP_JOIN_FAILURE_PER_SECOND_TARGET = "{\n" +
 		"							\"aggregator\": \"max\",\n" +
-		"							\"downsampleAggregator\": \"sum\",\n" +
+		"							\"downsampleAggregator\": \"avg\",\n" +
 		"							\"downsampleFillPolicy\": \"none\",\n" +
 		"							\"metric\": \"flink.taskmanager.${jobname}.${operator}." +
-		"lookupFailurePerSecond\",\n" +
+		"lookupFailurePerSecond.rate\",\n" +
 		"							\"refId\": \"K\"\n" +
 		"						}";
 
