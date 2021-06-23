@@ -24,6 +24,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadata;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
@@ -31,8 +33,12 @@ import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
+import java.io.DataInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +50,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An implementation of durable checkpoint storage to file systems.
  */
 public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractFsCheckpointStorage.class);
 
 	// ------------------------------------------------------------------------
 	//  Constants
@@ -51,6 +58,9 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 
 	/** The prefix of the directory containing the data exclusive to a checkpoint. */
 	public static final String CHECKPOINT_DIR_PREFIX = "chk-";
+
+	/** The prefix of the directory containing the data exclusive to a savepoint. */
+	public static final String SAVEPOINT_DIR_PREFIX = "sp-";
 
 	/** The name of the directory for shared checkpoint state. */
 	public static final String CHECKPOINT_SHARED_STATE_DIR = "shared";
@@ -112,6 +122,13 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 
 	@Override
 	public CompletedCheckpointStorageLocation resolveCheckpoint(String checkpointPointer) throws IOException {
+		return resolveCheckpointPointer(checkpointPointer);
+	}
+
+	@Override
+	public CompletedCheckpointStorageLocation resolveSavepoint(String savepointSimpleMetadataPointer) throws IOException {
+		String checkpointPointer = resolveSavepointPointer(savepointSimpleMetadataPointer);
+
 		return resolveCheckpointPointer(checkpointPointer);
 	}
 
@@ -317,6 +334,75 @@ public abstract class AbstractFsCheckpointStorage implements CheckpointStorage {
 				checkpointDir,
 				metaDataFileHandle,
 				pointer);
+	}
+
+	public String resolveSavepointPointer(String savepointSimpleMetadataPointer) throws IOException {
+		checkNotNull(savepointSimpleMetadataPointer, "simple savepoint metadata Pointer");
+		checkArgument(!savepointSimpleMetadataPointer.isEmpty(), "empty simple savepoint metadata pointer");
+
+		// check if the pointer is in fact a valid file path
+		final Path path;
+		try {
+			path = new Path(savepointSimpleMetadataPointer);
+		}
+		catch (Exception e) {
+			throw new IOException("Simple savepoint meta path '" + savepointSimpleMetadataPointer + "' is not a valid file URI. " +
+				"Either the pointer path is invalid, or the checkpoint was created by a different state backend.");
+		}
+
+		// check if the file system can be accessed
+		final FileSystem fs;
+		try {
+			fs = path.getFileSystem();
+		}
+		catch (IOException e) {
+			throw new IOException("Cannot access file system for simple savepoint meta path '" +
+				savepointSimpleMetadataPointer + "'.", e);
+		}
+
+		final FileStatus status;
+		try {
+			status = fs.getFileStatus(path);
+		}
+		catch (FileNotFoundException e) {
+			throw new FileNotFoundException("Cannot find simple savepoint meta " +
+				"file/directory '" + savepointSimpleMetadataPointer + "' on file system '" + fs.getUri().getScheme() + "'.");
+		}
+
+		// if we are here, the file / directory exists
+		final FileStatus metadataFileStatus;
+
+		// If this is a directory, we need to find the meta data file
+		if (status.isDir()) {
+			final Path metadataFilePath = new Path(path, METADATA_FILE_NAME);
+			try {
+				metadataFileStatus = fs.getFileStatus(metadataFilePath);
+			}
+			catch (FileNotFoundException e) {
+				throw new FileNotFoundException("Cannot find meta data file '" + METADATA_FILE_NAME +
+					"' in directory '" + path + "'. Please try to load the checkpoint/savepoint " +
+					"directly from the metadata file instead of the directory.");
+			}
+		}
+		else {
+			// this points to a file and we either do no name validation, or
+			// the name is actually correct, so we can return the path
+			metadataFileStatus = status;
+		}
+
+		final FileStateHandle metaDataFileHandle = new FileStateHandle(
+			metadataFileStatus.getPath(), metadataFileStatus.getLen());
+
+		SavepointSimpleMetadata savepointSimpleMetadata;
+		try (DataInputStream stream = new DataInputStream(metaDataFileHandle.openInputStream())) {
+			savepointSimpleMetadata = Checkpoints.loadSavepointSimpleMetadata(stream, Thread.currentThread().getContextClassLoader());
+		} catch (Throwable t) {
+			throw new RuntimeException("Metadata file cannot be loaded.", t);
+		}
+
+		LOG.info("resolve savepoint simple metadata at {}: {}",  metadataFileStatus.getPath(), savepointSimpleMetadata);
+
+		return savepointSimpleMetadata.getActualSavepointPath();
 	}
 
 	// ------------------------------------------------------------------------

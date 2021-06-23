@@ -20,6 +20,7 @@ package org.apache.flink.runtime.state.filesystem;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -207,6 +208,44 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 				writeBufferSize,
 				currentPeriodStatistic,
 				forceAbsolutePath);
+	}
+
+	@Override
+	public CheckpointStorageLocation initializeLocationForSavepointMetaInCheckpointDir(long checkpointId) throws IOException {
+		checkArgument(checkpointId >= 0, "Illegal negative checkpoint id: %d.", checkpointId);
+		checkArgument(baseLocationsInitialized, "The base checkpoint location has not been initialized.");
+
+		// prepare all the paths needed for the checkpoints
+		final Path savepointDir = new Path(checkpointsDirectory, SAVEPOINT_DIR_PREFIX + checkpointId);
+
+		// create the checkpoint exclusive directory
+		fileSystem.mkdirs(savepointDir);
+
+		return new FsCheckpointStorageLocation(
+			fileSystem,
+			savepointDir,
+			savepointDir,
+			savepointDir,
+			CheckpointStorageLocationReference.getDefault(),
+			fileSizeThreshold,
+			writeBufferSize,
+			currentPeriodStatistic,
+			forceAbsolutePath);
+	}
+
+	@Override
+	public void removeSavepointSimpleMetadataPathInCheckpointDir(long checkpointId) throws IOException {
+		checkArgument(checkpointId >= 0, "Illegal negative checkpoint id: %d.", checkpointId);
+		checkArgument(baseLocationsInitialized, "The base checkpoint location has not been initialized.");
+
+		// prepare all the paths needed for the checkpoints
+		final Path savepointDir = new Path(checkpointsDirectory, SAVEPOINT_DIR_PREFIX + checkpointId);
+		if (fileSystem.exists(savepointDir)) {
+			fileSystem.delete(savepointDir, true);
+			LOG.info("Expired savepoint {}'s savepoint simple metadata in {}", checkpointId, savepointDir);
+		} else {
+			LOG.warn("Cannot find savepoint simple metadata path {}", savepointDir);
+		}
 	}
 
 	@Override
@@ -446,7 +485,55 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 	}
 
 	@Override
-	public List<String> findCompletedCheckpointPointerForCrossVersion() throws IOException {
+	public List<Tuple2<String, Boolean>> findCompletedCheckpointPointerV2() throws IOException {
+		FileStatus[] statuses = fileSystem.listStatus(checkpointsDirectory);
+		if (statuses == null) {
+			return Collections.emptyList();
+		}
+
+		return Arrays.stream(statuses)
+			.filter(fileStatus -> {
+				try {
+					String dirName = fileStatus.getPath().getName();
+					if (dirName.startsWith(CHECKPOINT_DIR_PREFIX) || dirName.startsWith(SAVEPOINT_DIR_PREFIX)) {
+						return fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
+					} else {
+						return false;
+					}
+				} catch (IOException e) {
+					LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
+					return false;
+				}
+			})
+			.sorted(Comparator.comparingInt(
+				(FileStatus fileStatus) -> {
+					try {
+						int checkpointId;
+						String dirName = fileStatus.getPath().getName();
+						if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+							checkpointId = Integer.parseInt(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
+						} else {
+							checkpointId = Integer.parseInt(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
+						}
+						return checkpointId;
+					} catch (Exception e) {
+						LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
+						return Integer.MIN_VALUE;
+					}
+				}).reversed())
+			.map(fileStatus -> {
+				String dirName = fileStatus.getPath().getName();
+				if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+					return new Tuple2<>(fileStatus.getPath().toString(), false);
+				} else {
+					return new Tuple2<>(fileStatus.getPath().toString(), true);
+				}
+			})
+			.collect(Collectors.toList());
+	}
+
+	@Override
+	public List<Tuple2<String, Boolean>> findCompletedCheckpointPointerForCrossVersion() throws IOException {
 		FileStatus[] currVersionStatuses = fileSystem.listStatus(checkpointsDirectory);
 
 		final Path newCheckpointPath = new Path(checkpointsDirectory.getPath()
@@ -465,7 +552,7 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 		return Arrays.stream(statuses)
 			.filter(fileStatus -> {
 				try {
-					return fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX)
+					return (fileStatus.getPath().getName().startsWith(CHECKPOINT_DIR_PREFIX) || fileStatus.getPath().getName().startsWith(SAVEPOINT_DIR_PREFIX))
 						&& fileSystem.exists(new Path(fileStatus.getPath(), METADATA_FILE_NAME));
 				} catch (IOException e) {
 					LOG.info("Exception when checking {} is completed checkpoint.", fileStatus.getPath(), e);
@@ -475,14 +562,27 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			.sorted(Comparator.comparingInt(
 				(FileStatus fileStatus) -> {
 					try {
-						return Integer.parseInt(
-							fileStatus.getPath().getName().substring(CHECKPOINT_DIR_PREFIX.length()));
+						int checkpointId;
+						String dirName = fileStatus.getPath().getName();
+						if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+							checkpointId = Integer.parseInt(dirName.substring(CHECKPOINT_DIR_PREFIX.length()));
+						} else {
+							checkpointId = Integer.parseInt(dirName.substring(SAVEPOINT_DIR_PREFIX.length()));
+						}
+						return checkpointId;
 					} catch (Exception e) {
 						LOG.info("Exception when parsing checkpoint {} id.", fileStatus.getPath(), e);
 						return Integer.MIN_VALUE;
 					}
 				}).reversed())
-			.map(fileStatus -> fileStatus.getPath().toString())
+			.map(fileStatus -> {
+				String dirName = fileStatus.getPath().getName();
+				if (dirName.startsWith(CHECKPOINT_DIR_PREFIX)) {
+					return new Tuple2<>(fileStatus.getPath().toString(), false);
+				} else {
+					return new Tuple2<>(fileStatus.getPath().toString(), true);
+				}
+			})
 			.collect(Collectors.toList());
 	}
 

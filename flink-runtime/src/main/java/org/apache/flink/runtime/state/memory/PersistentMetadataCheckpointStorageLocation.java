@@ -81,4 +81,9 @@ public class PersistentMetadataCheckpointStorageLocation
 	public CheckpointStorageLocationReference getLocationReference() {
 		return CheckpointStorageLocationReference.getDefault();
 	}
+
+	@Override
+	public Path getMetadataFilePath() {
+		return metadataFilePath;
+	}
 }

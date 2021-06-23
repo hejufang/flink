@@ -25,6 +25,9 @@ import org.apache.flink.runtime.checkpoint.metadata.CheckpointMetadata;
 import org.apache.flink.runtime.checkpoint.metadata.MetadataSerializer;
 import org.apache.flink.runtime.checkpoint.metadata.MetadataSerializers;
 import org.apache.flink.runtime.checkpoint.metadata.MetadataV3Serializer;
+import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadata;
+import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadataSerializer;
+import org.apache.flink.runtime.checkpoint.metadata.savepoint.SavepointSimpleMetadataV1Serializer;
 import org.apache.flink.runtime.executiongraph.ExecutionJobVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -223,6 +226,45 @@ public class Checkpoints {
 
 		throw new IllegalStateException(msg);
 	}
+
+	// ------------------------------------------------------------------------
+	//  Writing out savepoint simple metadata in checkpoint dir
+	// ------------------------------------------------------------------------
+	public static void storeSavepointSimpleMetadata(
+		SavepointSimpleMetadata savepointSimpleMetadata,
+		OutputStream out) throws IOException {
+
+		DataOutputStream dos = new DataOutputStream(out);
+		// write generic header
+		dos.writeInt(HEADER_MAGIC_NUMBER);
+
+		dos.writeInt(SavepointSimpleMetadataV1Serializer.VERSION);
+		SavepointSimpleMetadataV1Serializer.serialize(savepointSimpleMetadata, dos);
+	}
+
+	// ------------------------------------------------------------------------
+	//  Reading and validating savepoint simple metadata in checkpoint dir
+	// ------------------------------------------------------------------------
+	public static SavepointSimpleMetadata loadSavepointSimpleMetadata(DataInputStream in, ClassLoader classLoader) throws IOException {
+		checkNotNull(in, "input stream");
+		checkNotNull(classLoader, "classLoader");
+
+		final int magicNumber = in.readInt();
+
+		if (magicNumber == HEADER_MAGIC_NUMBER) {
+			final int version = in.readInt();
+			LOG.info("Using version {} serializer to deserialize savepoint simple metadata.", version);
+			final SavepointSimpleMetadataSerializer serializer = SavepointSimpleMetadataV1Serializer.INSTANCE;
+			return serializer.deserialize(in, classLoader);
+		}
+		else {
+			throw new IOException("Unexpected magic number. This can have multiple reasons: " +
+				"(1) You are trying to load a Flink 1.0 savepoint, which is not supported by this " +
+				"version of Flink. (2) The file you were pointing to is not a savepoint at all. " +
+				"(3) The savepoint file has been corrupted.");
+		}
+	}
+
 
 	// ------------------------------------------------------------------------
 	//  Savepoint Disposal Hooks

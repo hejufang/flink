@@ -21,6 +21,7 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.checkpoint.handler.CheckpointHandler;
 import org.apache.flink.runtime.checkpoint.handler.GlobalCheckpointHandler;
@@ -828,7 +829,8 @@ public class CheckpointCoordinator {
 			checkpointStorageLocation,
 			executor,
 			onCompletionPromise,
-			pendingTrigger);
+			pendingTrigger,
+			checkpointStorage);
 
 		if (statsTracker != null) {
 			PendingCheckpointStats callback = statsTracker.reportPendingCheckpoint(
@@ -1520,7 +1522,8 @@ public class CheckpointCoordinator {
 
 				final Set<CompletedCheckpoint> checkpointsOnStorage = findAllCompletedCheckpointsOnStorage(
 					tasks, allowNonRestoredState, fromStorage, crossVersion, userClassLoader);
-				LOG.info("Find {} checkpoints on HDFS.", checkpointsOnStorage.size());
+				LOG.info("Find {} checkpoints {} on HDFS.", checkpointsOnStorage.size(),
+					checkpointsOnStorage.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
 				final Set<Long> checkpointsOnStore = completedCheckpointStore.getAllCheckpoints()
 					.stream().map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet());
 				final Set<CompletedCheckpoint> extraCheckpoints = new HashSet<>();
@@ -1548,7 +1551,12 @@ public class CheckpointCoordinator {
 				// Now, we re-register all (shared) states from the checkpoint store with the new registry
 				for (CompletedCheckpoint completedCheckpoint : completedCheckpointStore.getAllCheckpoints()) {
 					completedCheckpoint.registerSharedStatesAfterRestored(sharedStateRegistry);
+					// inject Checkpoint Storage to expire savepoint simple metadata
+					completedCheckpoint.setCheckpointStorage(checkpointStorage);
 				}
+				LOG.info("After restoring CompletedCheckpointStore, checkpoints {}, savepoints {}.",
+					completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isCheckpoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()),
+					completedCheckpointStore.getAllCheckpoints().stream().filter(CompletedCheckpoint::isSavepoint).map(CompletedCheckpoint::getCheckpointID).collect(Collectors.toSet()));
 
 				LOG.debug("Status of the shared state registry of job {} after restore: {}.", job, sharedStateRegistry);
 
@@ -1630,13 +1638,14 @@ public class CheckpointCoordinator {
 		LOG.info("Looking for completed checkpoints on HDFS (cross-version: {})", crossVersion);
 		int onRetrievingCheckpointsIdx = 0;
 		if (findCheckpointInCheckpointStore && userClassLoader != null) {
-			List<String> completedCheckpointPointersOnStorage;
+			// tuple.f0: external pointer, tuple.f1: if completeCheckpoint is savepoint?
+			List<Tuple2<String, Boolean>> completedCheckpointPointersOnStorage;
 			if (!crossVersion) {
-				completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointer();
+				completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointerV2();
 			} else {
 				completedCheckpointPointersOnStorage = checkpointStorage.findCompletedCheckpointPointerForCrossVersion();
 			}
-			for (String completedCheckpointPointer : completedCheckpointPointersOnStorage) {
+			for (Tuple2<String, Boolean> completedCheckpointPointer : completedCheckpointPointersOnStorage) {
 				try {
 					if (result.size() >= completedCheckpointStore.getMaxNumberOfRetainedCheckpoints()) {
 						int numCheckpointsOnStorage = completedCheckpointPointersOnStorage.size();
@@ -1646,7 +1655,12 @@ public class CheckpointCoordinator {
 					} else {
 						onRetrievingCheckpointsIdx++;
 					}
-					final CompletedCheckpointStorageLocation checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer);
+					final CompletedCheckpointStorageLocation checkpointStorageLocation;
+					if (completedCheckpointPointer.f1) {
+						checkpointStorageLocation = checkpointStorage.resolveSavepoint(completedCheckpointPointer.f0);
+					} else {
+						checkpointStorageLocation = checkpointStorage.resolveCheckpoint(completedCheckpointPointer.f0);
+					}
 					final CompletedCheckpoint completedCheckpoint = Checkpoints.loadAndValidateCheckpoint(
 							job, mappings, checkpointStorageLocation, userClassLoader, allowNonRestoredState);
 					result.add(completedCheckpoint);
