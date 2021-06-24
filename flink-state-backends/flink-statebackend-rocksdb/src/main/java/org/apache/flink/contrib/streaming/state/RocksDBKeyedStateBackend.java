@@ -538,6 +538,8 @@ public class RocksDBKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 			throw new StateMigrationException("The new namespace serializer must be compatible, details: " + s.getMessage());
 		}
 
+		LOG.info("Before: {}, new serializer: {}.", restoredKvStateMetaInfo, stateSerializer.getClass().getName());
+
 		restoredKvStateMetaInfo.checkStateMetaInfo(stateDesc);
 
 		TypeSerializerSchemaCompatibility<SV> newStateSerializerCompatibility =

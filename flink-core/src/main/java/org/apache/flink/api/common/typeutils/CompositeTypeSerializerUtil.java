@@ -102,7 +102,7 @@ public class CompositeTypeSerializerUtil {
 
 			// if any one of the new nested serializers is incompatible, we can just short circuit the result
 			if (compatibility.isIncompatible()) {
-				return IntermediateCompatibilityResult.definedIncompatibleResult();
+				return IntermediateCompatibilityResult.definedIncompatibleResult(compatibility.getMessage());
 			}
 
 			if (compatibility.isCompatibleAfterMigration()) {
@@ -133,7 +133,8 @@ public class CompositeTypeSerializerUtil {
 
 		private final TypeSerializerSchemaCompatibility.Type compatibilityType;
 		private final TypeSerializer<?>[] nestedSerializers;
-
+		private final String message;
+		
 		static <T> IntermediateCompatibilityResult<T> definedCompatibleAsIsResult(TypeSerializer<?>[] originalSerializers) {
 			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AS_IS, originalSerializers);
 		}
@@ -141,7 +142,11 @@ public class CompositeTypeSerializerUtil {
 		static <T> IntermediateCompatibilityResult<T> definedIncompatibleResult() {
 			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE, null);
 		}
-
+		
+		static <T> IntermediateCompatibilityResult<T> definedIncompatibleResult(String message) {
+			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.INCOMPATIBLE, null, message);
+		}
+		
 		static <T> IntermediateCompatibilityResult<T> definedCompatibleAfterMigrationResult() {
 			return new IntermediateCompatibilityResult<>(TypeSerializerSchemaCompatibility.Type.COMPATIBLE_AFTER_MIGRATION, null);
 		}
@@ -153,8 +158,16 @@ public class CompositeTypeSerializerUtil {
 		private IntermediateCompatibilityResult(
 				TypeSerializerSchemaCompatibility.Type compatibilityType,
 				TypeSerializer<?>[] nestedSerializers) {
+			this(compatibilityType, nestedSerializers, "empty");
+		}
+		
+		private IntermediateCompatibilityResult(
+				TypeSerializerSchemaCompatibility.Type compatibilityType,
+				TypeSerializer<?>[] nestedSerializers,
+				String message) {
 			this.compatibilityType = checkNotNull(compatibilityType);
 			this.nestedSerializers = nestedSerializers;
+			this.message = message;
 		}
 
 		public boolean isCompatibleWithReconfiguredSerializer() {
@@ -183,7 +196,7 @@ public class CompositeTypeSerializerUtil {
 				case COMPATIBLE_AFTER_MIGRATION:
 					return TypeSerializerSchemaCompatibility.compatibleAfterMigration();
 				case INCOMPATIBLE:
-					return TypeSerializerSchemaCompatibility.incompatible();
+					return TypeSerializerSchemaCompatibility.incompatible(message);
 				default:
 					throw new IllegalStateException("unrecognized compatibility type.");
 			}

@@ -171,13 +171,14 @@ public abstract class CompositeTypeSerializerSnapshot<T, S extends TypeSerialize
 
 		// check that outer configuration is compatible; if not, short circuit result
 		if (!isOuterSnapshotCompatible(castedNewSerializer)) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			return TypeSerializerSchemaCompatibility.incompatible("outer serializer is not compatible, old: " + this.getClass().getName() + " new: " + castedNewSerializer.getClass().getName());
 		}
 
 		final TypeSerializer<?>[] newNestedSerializers = getNestedSerializers(castedNewSerializer);
 		// check that nested serializer arity remains identical; if not, short circuit result
 		if (newNestedSerializers.length != snapshots.length) {
-			return TypeSerializerSchemaCompatibility.incompatible();
+			String message = String.format("new nested serailizer length is %s, but snapshot length is %s", newNestedSerializers.length, snapshots.length);
+			return TypeSerializerSchemaCompatibility.incompatible(message);
 		}
 
 		return constructFinalSchemaCompatibilityResult(newNestedSerializers, snapshots);

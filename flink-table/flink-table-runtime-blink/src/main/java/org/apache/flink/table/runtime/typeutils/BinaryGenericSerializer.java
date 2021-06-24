@@ -195,7 +195,8 @@ public final class BinaryGenericSerializer<T> extends TypeSerializer<BinaryGener
 			BinaryGenericSerializer newBinaryGenericSerializer = (BinaryGenericSerializer) newSerializer;
 			if (!previousSerializer.equals(newBinaryGenericSerializer.serializer)) {
 				String message = String.format("new serializer is %s, previous serializer is %s.",
-					newBinaryGenericSerializer.serializer.getClass().getName(), previousSerializer.getClass().getName());
+						newBinaryGenericSerializer.serializer.getClass().getName() + "-" + newBinaryGenericSerializer.serializer.toString(),
+						previousSerializer.getClass().getName() + "-" + previousSerializer.toString());
 				return TypeSerializerSchemaCompatibility.incompatible(message);
 			} else {
 				return TypeSerializerSchemaCompatibility.compatibleAsIs();
