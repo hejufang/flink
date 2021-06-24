@@ -79,6 +79,7 @@ under the License.
 		<module>flink-connector-bytesql</module>
 		<module>flink-connector-rpc</module>
 		<module>flink-catalog-common</module>
+		<module>flink-connector-abase</module>
 	</modules>
 
 	<!-- override these root dependencies as 'provided', so they don't end up
