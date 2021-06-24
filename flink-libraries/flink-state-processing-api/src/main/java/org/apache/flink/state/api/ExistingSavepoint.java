@@ -41,6 +41,8 @@ import org.apache.flink.state.api.runtime.metadata.SavepointMetadata;
 import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * An existing savepoint. This class provides the entry points for reading previous
@@ -280,5 +282,58 @@ public class ExistingSavepoint extends WritableSavepoint<ExistingSavepoint> {
 			function);
 
 		return env.createInput(inputFormat, outTypeInfo);
+	}
+
+	/**
+	 * Read keyed state from an operator in a {@code Savepoint}.
+	 * @param operatorID The operatorID of the operator.
+	 * @param function The {@link KeyedStateReaderFunction} that is called for each key in state.
+	 * @param keyTypeInfo The type information of the key in state.
+	 * @param outTypeInfo The type information of the output of the transform reader function.
+	 * @param <K> The type of the key in state.
+	 * @param <OUT> The output type of the transform function.
+	 * @return A {@code DataSet} of objects read from keyed state.
+	 */
+	public <K, OUT> DataSet<OUT> readKeyedStateWithOperatorID(
+			String operatorID,
+			KeyedStateReaderFunction<K, OUT> function,
+			TypeInformation<K> keyTypeInfo,
+			TypeInformation<OUT> outTypeInfo) throws IOException {
+
+		List<OperatorState> operatorStates = metadata.getExistingOperators();
+		OperatorState targetOperatorState = null;
+		for (OperatorState operatorState : operatorStates) {
+			if (operatorState.getOperatorID().toString().equals(operatorID)) {
+				targetOperatorState = operatorState;
+				break;
+			}
+		}
+
+		if (targetOperatorState == null) {
+			throw new IllegalStateException("Fail to find target operator state for " + operatorID);
+		}
+
+		OperatorState operatorState = targetOperatorState;
+		KeyedStateInputFormat<K, OUT> inputFormat = new KeyedStateInputFormat<>(
+				operatorState,
+				stateBackend,
+				keyTypeInfo,
+				function);
+
+		return env.createInput(inputFormat, outTypeInfo);
+	}
+
+	/**
+	 * Print all stateful operator ids of the savepoint for debug usage.
+	 * @return ids splitted by comma.
+	 */
+	public String printAllOperatorIDs() {
+		List<String> ops = metadata.getExistingOperators().stream().map(op -> op.getOperatorID().toString()).collect(Collectors.toList());
+		StringBuilder sb = new StringBuilder();
+		for (String op : ops) {
+			sb.append(op);
+			sb.append(",");
+		}
+		return sb.toString();
 	}
 }
