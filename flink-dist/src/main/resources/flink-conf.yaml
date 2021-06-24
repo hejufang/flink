@@ -41,7 +41,6 @@ common:
   execution.checkpointing.mode: EXACTLY_ONCE
   execution.checkpointing.timeout: 10 min
   state.savepoint.location-prefix: ${checkpoint.hdfs.prefix}/savepoints
-  savepoint.scheduler.default.interval: 3600000 # 60 min
 
   ## High Availability
   high-availability: zookeeper
