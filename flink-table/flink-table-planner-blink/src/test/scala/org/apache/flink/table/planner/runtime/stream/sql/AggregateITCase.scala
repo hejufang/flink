@@ -1067,6 +1067,47 @@ class AggregateITCase(
   }
 
   @Test
+  def testListAggWithRetraction(): Unit = {
+    // use parallelism=1 to make sure the result is deterministic
+    env.setParallelism(1)
+    val data = List(
+      (1,2,1),
+      (1,2,2),
+      (1,3,1)
+    )
+    val t: DataStream[(Int, Int, Int)] = failingDataSource(data)
+    val streamTable = t.toTable(tEnv, 'x, 'y, 'val)
+    tEnv.registerTable("T", streamTable)
+    tEnv.executeSql(
+      """
+        |CREATE VIEW view1 AS
+        |SELECT
+        |    x,
+        |    y,
+        |    max(val) AS z
+        |FROM T
+        |GROUP BY
+        |    x, y
+        |""".stripMargin)
+
+    val sqlQuery =
+      s"""
+         |select
+         |      x,
+         |      LISTAGG(CONCAT_WS('#', CAST(y AS VARCHAR), CAST(z AS VARCHAR)), ';') AS list1,
+         |      LISTAGG(CONCAT_WS('#', CAST(y AS VARCHAR), CAST(z AS VARCHAR))) AS list2
+         |FROM view1
+         |GROUP BY x
+         """.stripMargin
+
+    val sink = new TestingRetractSink
+    tEnv.sqlQuery(sqlQuery).toRetractStream[Row].addSink(sink)
+    env.execute()
+    val expected = List("1,2#2;3#1,2#2,3#1")
+    assertEquals(expected.sorted, sink.getRetractResults.sorted)
+  }
+
+  @Test
   def testSTDDEV(): Unit = {
     val sqlQuery = "SELECT STDDEV_SAMP(a), STDDEV_POP(a) FROM MyTable GROUP BY c"
 
