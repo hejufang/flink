@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.function.FunctionUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -90,7 +91,9 @@ public class CompressedBlockChannelWriter
 				}
 			}
 		} else {
-			compressBuffer(block.wrap(0, block.size()), block.size());
+			block.processAsByteBuffer(
+				FunctionUtils.uncheckedConsumer(
+					(buffer) -> compressBuffer(buffer, block.size())));
 		}
 
 		boolean add = blockQueue.add(block);
@@ -109,9 +112,11 @@ public class CompressedBlockChannelWriter
 		} catch (InterruptedException e) {
 			throw new IOException(e);
 		}
-		int compressedLen = compressor.compress(
-				buffer, 0, len,
-				compressedBuffer.wrap(0, compressedBuffer.size()), 0);
+		int compressedLen =
+			compressedBuffer.processAsByteBuffer(
+				(dstBuffer) -> {
+					return compressor.compress(buffer, 0, len, dstBuffer, 0);
+				});
 		NetworkBuffer networkBuffer = new NetworkBuffer(compressedBuffer, this);
 		networkBuffer.setSize(compressedLen);
 		writer.writeBlock(networkBuffer);
