@@ -33,6 +33,7 @@ import org.apache.flink.client.program.PackagedProgramUtils;
 import org.apache.flink.client.program.ProgramInvocationException;
 import org.apache.flink.client.program.ProgramMissingJobException;
 import org.apache.flink.client.program.ProgramParametrizationException;
+import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationMapping;
@@ -1033,6 +1034,23 @@ public class CliFrontend {
 			checkpointStorage.clearCheckpointPointers(checkpointID);
 		} else {
 			checkpointStorage.clearAllCheckpointPointers();
+		}
+
+		// also clear 1.11 checkpoints on storage
+		final String currentPath = effectiveConfiguration.getString(CheckpointingOptions.CHECKPOINTS_DIRECTORY);
+		if (currentPath != null) {
+			LOG.info("Checkpoints on 1.9(path={}) are cleared, clear 1.11 checkpoints now.", currentPath);
+			final String oldPath = currentPath
+					.replaceFirst("1.9", "1.11")
+					.replaceFirst("byte_flink_checkpoint/", "byte_flink_checkpoint_20210220/");
+			effectiveConfiguration.setString(CheckpointingOptions.CHECKPOINTS_DIRECTORY, oldPath);
+			StateBackend oldStateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
+			CheckpointStorage oldCheckpointStorage = oldStateBackend.createCheckpointStorage(jobID, jobName);
+			if (checkpointID > 0) {
+				oldCheckpointStorage.clearCheckpointPointers(checkpointID);
+			} else {
+				oldCheckpointStorage.clearAllCheckpointPointers();
+			}
 		}
 	}
 
