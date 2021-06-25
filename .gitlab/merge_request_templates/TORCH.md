@@ -30,8 +30,10 @@ This template aims:
 ## Documentation
 
 
-## Reviewers(need to assign one more person)
+## Reviewers and Due (need to assign one more person)
+(make sure everyone below approves before merging, so usually don't write everyone here)
 
-@liaojiayi,@?
+Reviewers: @liaojiayi,@?
+Due(date): 
 
 
