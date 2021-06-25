@@ -73,6 +73,7 @@ non-global:
         Used,
         Committed,
         Max,
+        Total,
       # GC
         Count,
         Time,
