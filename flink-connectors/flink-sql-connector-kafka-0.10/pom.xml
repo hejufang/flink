@@ -92,11 +92,6 @@ under the License.
 								<relocation>
 									<pattern>org.apache.kafka</pattern>
 									<shadedPattern>org.apache.flink.kafka010.shaded.org.apache.kafka</shadedPattern>
-									<excludes>
-										<exclude>
-											org.apache.kafka.clients.consumer.internals.jni.*
-										</exclude>
-									</excludes>
 								</relocation>
 								<relocation>
 									<pattern>com.google.common</pattern>

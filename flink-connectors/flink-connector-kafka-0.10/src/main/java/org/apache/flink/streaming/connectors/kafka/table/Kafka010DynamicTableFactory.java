@@ -24,23 +24,14 @@ import org.apache.flink.streaming.connectors.kafka.config.KafkaSourceConfig;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
-import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.format.EncodingFormat;
-import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.RowData;
-import org.apache.flink.table.factories.DeserializationFormatFactory;
-import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.util.FlinkRuntimeException;
-
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-
-import static org.apache.flink.table.factories.FactoryUtil.FORMAT;
 
 /**
  * Factory for creating configured instances of {@link Kafka010DynamicSource}.
@@ -86,35 +77,6 @@ public class Kafka010DynamicTableFactory extends KafkaDynamicTableFactoryBase {
 			partitioner,
 			encodingFormat,
 			otherProperties);
-	}
-
-	@Override
-	protected DecodingFormat<DeserializationSchema<RowData>> getKafkaDecodingFormat(
-			FactoryUtil.TableFactoryHelper helper,
-			Properties kafkaProperties) {
-		if (helper.getOptions().getOptional(FORMAT).isPresent()) {
-			return helper.discoverDecodingFormat(
-				DeserializationFormatFactory.class, FactoryUtil.FORMAT);
-		} else {
-			if (kafkaProperties.containsKey(ConsumerConfig.PARQUET_SELECT_COLUMNS_CONIFG)) {
-				return new DecodingFormat<DeserializationSchema<RowData>>() {
-					@Override
-					public DeserializationSchema<RowData> createRuntimeDecoder(
-							DynamicTableSource.Context context,
-							DataType producedDataType) {
-						return null;
-					}
-
-					@Override
-					public ChangelogMode getChangelogMode() {
-						return ChangelogMode.insertOnly();
-					}
-				};
-			}
-			throw new FlinkRuntimeException(
-				String.format("Must contains `format` property if you not use `%s`.",
-					ConsumerConfig.PARQUET_SELECT_COLUMNS_CONIFG));
-		}
 	}
 
 	@Override

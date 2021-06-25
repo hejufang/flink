@@ -29,7 +29,6 @@ import org.apache.flink.streaming.connectors.kafka.config.Metadata;
 import org.apache.flink.streaming.connectors.kafka.config.StartupMode;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaDeserializationSchemaWithMetadataWrapper;
 import org.apache.flink.streaming.connectors.kafka.internals.KafkaTopicPartition;
-import org.apache.flink.streaming.connectors.kafka.utils.serialization.ArrowRowDataDeserializationSchema;
 import org.apache.flink.table.connector.format.DecodingFormat;
 import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.data.GenericRowData;
@@ -40,7 +39,6 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.utils.TypeConversions;
 import org.apache.flink.util.FlinkRuntimeException;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Map;
@@ -91,32 +89,16 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 			Properties properties,
 			DeserializationSchema<RowData> deserializationSchema) {
 		FlinkKafkaConsumerBase<RowData> consumerBase;
-		KafkaDeserializationSchema<RowData> simpleKafkaDeserializationSchema = null;
-		if (properties.containsKey(ConsumerConfig.PARQUET_SELECT_COLUMNS_CONIFG)) {
-			simpleKafkaDeserializationSchema = new ArrowRowDataDeserializationSchema();
-		}
 		if (kafkaSourceConfig.getWithoutMetaDataType() == null) {
-			if (simpleKafkaDeserializationSchema != null) {
-				consumerBase = new FlinkKafkaConsumer010<>(topic, simpleKafkaDeserializationSchema, properties);
-			} else {
-				consumerBase = new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
-			}
+			consumerBase = new FlinkKafkaConsumer010<>(topic, deserializationSchema, properties);
 		} else {
 			TypeInformation<RowData> typeInformation = (TypeInformation<RowData>) TypeConversions.fromDataTypeToLegacyInfo(outputDataType);
 			final Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap = kafkaSourceConfig.getMetadataMap();
-			KafkaDeserializationSchema<RowData> kafkaDeserializationSchema = null;
-			if (simpleKafkaDeserializationSchema == null) {
-				kafkaDeserializationSchema = new KafkaDeserializationSchemaRowDataWithMetadata(
-					deserializationSchema,
-					typeInformation,
-					metadataMap);
-			} else {
-				kafkaDeserializationSchema = new DeserializationSchemaWithMetaDataWithKafkaSchema(
-					simpleKafkaDeserializationSchema,
-					typeInformation,
-					metadataMap
-				);
-			}
+			KafkaDeserializationSchema<RowData> kafkaDeserializationSchema =
+				new KafkaDeserializationSchemaRowDataWithMetadata(
+						deserializationSchema,
+						typeInformation,
+						metadataMap);
 			consumerBase = new FlinkKafkaConsumer010<>(topic, kafkaDeserializationSchema, properties);
 		}
 		if (kafkaSourceConfig.getKafkaResetNewPartition() != null) {
@@ -166,32 +148,6 @@ public class Kafka010DynamicSource extends KafkaDynamicSourceBase {
 				default:
 					throw new FlinkRuntimeException("Unsupported metadata.");
 			}
-		}
-	}
-
-	private static class DeserializationSchemaWithMetaDataWithKafkaSchema extends KafkaDeserializationSchemaRowDataWithMetadata {
-		private final KafkaDeserializationSchema<RowData> kafkaDeserializationSchema;
-
-		public DeserializationSchemaWithMetaDataWithKafkaSchema(
-				KafkaDeserializationSchema<RowData> deserializationSchema,
-				TypeInformation<RowData> typeInformation,
-				Map<Integer, DynamicSourceMetadataFactory.DynamicSourceMetadata> metadataMap) {
-			super(null, typeInformation, metadataMap);
-			this.kafkaDeserializationSchema = deserializationSchema;
-		}
-
-		@Override
-		public RowData deserialize(ConsumerRecord<byte[], byte[]> record) throws Exception {
-			RowData rowData = kafkaDeserializationSchema.deserialize(record);
-			if (rowData != null) {
-				return addMetadata(rowData, record);
-			}
-			return null;
-		}
-
-		@Override
-		public boolean isEndOfStream(RowData nextElement) {
-			return kafkaDeserializationSchema.isEndOfStream(nextElement);
 		}
 	}
 
