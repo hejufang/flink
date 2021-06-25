@@ -242,6 +242,13 @@ public class ExecutionConfigOptions {
 				"NOTE: If " + TABLE_EXEC_MINIBATCH_ENABLED.key() + " is set true, its value must be greater than zero.");
 
 	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
+	public static final ConfigOption<Boolean> TABLE_EXEC_MINIBATCH_ENABLE_EXEC_TABLE_SCAN =
+		key("table.exec.mini-batch.enable-StreamExecTableSourceScan")
+			.defaultValue(true)
+			.withDescription("When this option is true, " + TABLE_EXEC_MINIBATCH_ALLOW_LATENCY.key() + " option is" +
+				"not working for the compatibility with checkpoint.");
+
+	@Documentation.TableOption(execMode = Documentation.ExecMode.STREAMING)
 	public static final ConfigOption<Long> TABLE_EXEC_MINIBATCH_SIZE =
 		key("table.exec.mini-batch.size")
 			.defaultValue(-1L)
