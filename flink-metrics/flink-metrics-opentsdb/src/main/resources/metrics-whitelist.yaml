@@ -49,7 +49,11 @@ global:
         numberOfTotalDeletedStateFiles,
         numChannelsUpdatedByJM,
         numChannelsUpdatedByTask,
-        numChannelsInjectedError
+        numChannelsInjectedError,
+        numChannelsUpdatedByTask,
+        numPatternsAdded,
+        numPatternsDropped,
+        numPatternsUsed
     ]
 
 non-global:
@@ -181,5 +185,17 @@ non-global:
         ioThreadPoolUsage,
         numPendingFutureTask,
         numRunningFutureTask,
-        futureThreadPoolUsage
+        futureThreadPoolUsage,
+      # cep
+        numLateRecordsDropped,
+        numLateRecordsOutput,
+        numStateCleanerTriggered,
+        numMatchedSequences,
+        numUnMatchedSequences,
+        numTimeOutSequences,
+        advanceTimeDuration,
+        processEventDuration,
+        processMatchedDuration,
+        processUnMatchDuration,
+        processTimeoutDuration
     ]

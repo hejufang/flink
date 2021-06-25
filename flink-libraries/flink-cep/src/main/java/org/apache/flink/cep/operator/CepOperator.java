@@ -149,6 +149,7 @@ public class CepOperator<IN, KEY, OUT>
 	private transient Counter numLateRecordsDropped;
 	private transient Meter lateRecordsDroppedRate;
 	private transient Gauge<Long> watermarkLatency;
+	private transient Counter numPatternsAdded;
 
 	public CepOperator(
 			final TypeSerializer<IN> inputSerializer,
@@ -239,6 +240,8 @@ public class CepOperator<IN, KEY, OUT>
 		cepTimerService = new TimerServiceImpl();
 
 		// metrics
+		this.numPatternsAdded = metrics.counter(CepMetricConstants.PATTERNS_ADDED_METRIC_NAME);
+		numPatternsAdded.inc();
 		this.numLateRecordsDropped = metrics.counter(LATE_ELEMENTS_DROPPED_METRIC_NAME);
 		this.lateRecordsDroppedRate = metrics.meter(
 			LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME,
