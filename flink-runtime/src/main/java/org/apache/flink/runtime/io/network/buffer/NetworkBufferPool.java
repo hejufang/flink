@@ -150,6 +150,7 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 			for (int i = 0; i < totalNumberOfMemorySegments; i++) {
 				availableMemorySegments.add(MemorySegmentFactory.allocateUnpooledOffHeapMemory(memorySegmentSize, null));
 			}
+			numberOfAllocatedMemorySegments.set(totalNumberOfMemorySegments);
 		}
 		catch (OutOfMemoryError err) {
 			int allocated = availableMemorySegments.size();
@@ -350,13 +351,29 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 	}
 
 	public int getTotalNumberOfMemorySegments() {
-		return totalNumberOfMemorySegments;
+		return isDestroyed() ? 0 : totalNumberOfMemorySegments;
+	}
+
+	public long getTotalMemory() {
+		return (long) getTotalNumberOfMemorySegments() * memorySegmentSize;
 	}
 
 	public int getNumberOfAvailableMemorySegments() {
 		synchronized (availableMemorySegments) {
 			return availableMemorySegments.size();
 		}
+	}
+
+	public long getAvailableMemory() {
+		return (long) getNumberOfAvailableMemorySegments() * memorySegmentSize;
+	}
+
+	public int getNumberOfUsedMemorySegments() {
+		return getNumberOfAllocatedMemorySegments() - getNumberOfAvailableMemorySegments();
+	}
+
+	public long getUsedMemory() {
+		return (long) getNumberOfUsedMemorySegments() * memorySegmentSize;
 	}
 
 	public int getNumberOfRegisteredBufferPools() {
@@ -367,6 +384,10 @@ public class NetworkBufferPool implements BufferPoolFactory, MemorySegmentProvid
 
 	public int getNumberOfAllocatedMemorySegments() {
 		return numberOfAllocatedMemorySegments.get();
+	}
+
+	public long getAllocatedMemory() {
+		return (long) getNumberOfAllocatedMemorySegments() * memorySegmentSize;
 	}
 
 	public int countBuffers() {

@@ -43,10 +43,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.core.IsCollectionContaining.hasItem;
 import static org.hamcrest.core.IsNot.not;
+import static org.hamcrest.core.IsNull.notNullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -107,6 +109,136 @@ public class NetworkBufferPoolTest extends TestLogger {
 			fail(e.getMessage());
 		}
 
+	}
+
+	@Test
+	public void testMemoryUsageInTheContextOfMemoryPoolCreation() {
+		final int bufferSize = 128;
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 1;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(numBuffers, bufferSize, numberOfSegmentsToRequest);
+
+		assertThat(globalPool.getTotalNumberOfMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfAllocatedMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfAvailableMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfUsedMemorySegments(), is(0));
+
+		assertThat(globalPool.getTotalMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getAllocatedMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getAvailableMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getUsedMemory(), is(0L));
+	}
+
+	@Test
+	public void testMemoryUsageInTheContextOfMemorySegmentAllocation() {
+		final int bufferSize = 128;
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 1;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(numBuffers, bufferSize, numberOfSegmentsToRequest);
+
+		MemorySegment segment = globalPool.requestMemorySegment();
+		assertThat(segment, is(notNullValue()));
+
+		assertThat(globalPool.getTotalNumberOfMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfAllocatedMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfAvailableMemorySegments(), is(numBuffers - numberOfSegmentsToRequest));
+		assertThat(globalPool.getNumberOfUsedMemorySegments(), is(numberOfSegmentsToRequest));
+
+		assertThat(globalPool.getTotalMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getAllocatedMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getAvailableMemory(), is((long) (numBuffers - numberOfSegmentsToRequest) * bufferSize));
+		assertThat(globalPool.getUsedMemory(), is((long) bufferSize));
+	}
+
+	@Test
+	public void testMemoryUsageInTheContextOfMemoryPoolDestruction() {
+		final int bufferSize = 128;
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 1;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(numBuffers, bufferSize, numberOfSegmentsToRequest);
+
+		globalPool.destroy();
+
+		assertThat(globalPool.getTotalNumberOfMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfAllocatedMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfAvailableMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfUsedMemorySegments(), is(0));
+
+		assertThat(globalPool.getTotalMemory(), is(0L));
+		assertThat(globalPool.getAllocatedMemory(), is(0L));
+		assertThat(globalPool.getAvailableMemory(), is(0L));
+		assertThat(globalPool.getUsedMemory(), is(0L));
+	}
+
+	@Test
+	public void testMemoryUsageInTheContextOfMemoryPoolCreationInLazyAllocateMode() {
+		final int bufferSize = 128;
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 1;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+		final boolean lazyAllocate = true;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(numBuffers, bufferSize, numberOfSegmentsToRequest, requestSegmentsTimeout, lazyAllocate);
+
+		assertThat(globalPool.getTotalNumberOfMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfAllocatedMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfAvailableMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfUsedMemorySegments(), is(0));
+
+		assertThat(globalPool.getTotalMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getAllocatedMemory(), is(0L));
+		assertThat(globalPool.getAvailableMemory(), is(0L));
+		assertThat(globalPool.getUsedMemory(), is(0L));
+	}
+
+	@Test
+	public void testMemoryUsageInTheContextOfMemorySegmentAllocationInLazyAllocateMode() {
+		final int bufferSize = 128;
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 1;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+		final boolean lazyAllocate = true;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(numBuffers, bufferSize, numberOfSegmentsToRequest, requestSegmentsTimeout, lazyAllocate);
+
+		MemorySegment segment = globalPool.requestMemorySegment();
+		assertThat(segment, is(notNullValue()));
+
+		assertThat(globalPool.getTotalNumberOfMemorySegments(), is(numBuffers));
+		assertThat(globalPool.getNumberOfAllocatedMemorySegments(), is(numberOfSegmentsToRequest));
+		assertThat(globalPool.getNumberOfAvailableMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfUsedMemorySegments(), is(numberOfSegmentsToRequest));
+
+		assertThat(globalPool.getTotalMemory(), is((long) numBuffers * bufferSize));
+		assertThat(globalPool.getAllocatedMemory(), is((long) numberOfSegmentsToRequest * bufferSize));
+		assertThat(globalPool.getAvailableMemory(), is(0L));
+		assertThat(globalPool.getUsedMemory(), is((long) bufferSize));
+	}
+
+	@Test
+	public void testMemoryUsageInTheContextOfMemoryPoolDestructionInLazyAllocateMode() {
+		final int bufferSize = 128;
+		final int numBuffers = 10;
+		final int numberOfSegmentsToRequest = 1;
+		final Duration requestSegmentsTimeout = Duration.ofMillis(50L);
+		final boolean lazyAllocate = true;
+
+		NetworkBufferPool globalPool = new NetworkBufferPool(numBuffers, bufferSize, numberOfSegmentsToRequest, requestSegmentsTimeout, lazyAllocate);
+
+		globalPool.destroy();
+
+		assertThat(globalPool.getTotalNumberOfMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfAllocatedMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfAvailableMemorySegments(), is(0));
+		assertThat(globalPool.getNumberOfUsedMemorySegments(), is(0));
+
+		assertThat(globalPool.getTotalMemory(), is(0L));
+		assertThat(globalPool.getAllocatedMemory(), is(0L));
+		assertThat(globalPool.getAvailableMemory(), is(0L));
+		assertThat(globalPool.getUsedMemory(), is(0L));
 	}
 
 	@Test

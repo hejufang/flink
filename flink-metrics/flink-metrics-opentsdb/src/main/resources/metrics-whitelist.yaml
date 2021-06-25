@@ -103,8 +103,13 @@ non-global:
         fetch-latency-max,
       # Network Memory
         TotalMemorySegments,
-        AvailableMemorySegments,
         AllocatedMemorySegments,
+        UsedMemorySegments,
+        AvailableMemorySegments,
+        TotalMemory,
+        AllocatedMemory,
+        UsedMemory,
+        AvailableMemory,
       # speuclation
         numberOfSpeculation,
         numberOfSuccessfulSpeculation,
