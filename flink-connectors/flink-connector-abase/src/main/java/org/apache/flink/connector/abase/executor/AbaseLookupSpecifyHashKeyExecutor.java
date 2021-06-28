@@ -23,6 +23,9 @@ import org.apache.flink.connector.abase.utils.StringValueConverters;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.DataType;
+import org.apache.flink.util.FlinkRuntimeException;
+
+import redis.clients.jedis.exceptions.JedisDataException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -62,7 +65,13 @@ public class AbaseLookupSpecifyHashKeyExecutor extends AbaseLookupExecutor {
 	 * @return
 	 */
 	private RowData getHashValueForKeysSpecified(String key) {
-		List<String> values = abaseTable.hmget(key, hashKeys);
+		List<String> values;
+		try {
+			values = abaseTable.hmget(key, hashKeys);
+		} catch (JedisDataException e) {
+			throw new FlinkRuntimeException(String.format("Specify-Hash-Key Get value failed. Key : %s, " +
+				"Related command: 'hmget key'.", key), e);
+		}
 		// For key which not exists, an empty list will be returned.
 		// And in case other unexpected return value, check if it is null, too.
 		if (values == null || values.isEmpty()) {

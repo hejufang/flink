@@ -78,8 +78,24 @@ public class AbaseLookupCollectionExecutor extends AbaseLookupExecutor {
 							AbaseValueType.getCollectionStr()));
 			}
 		} catch (JedisDataException e) {
-			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
-				"Related command: 'get key'.", key), e);
+			switch (normalOptions.getAbaseValueType()) {
+				case LIST:
+					throw new FlinkRuntimeException(String.format("Collection Get value failed. Key : %s, " +
+						"Related command: 'lrange key'.", key), e);
+				case SET:
+					throw new FlinkRuntimeException(String.format("Collection Get value failed. Key : %s, " +
+						"Related command: 'smembers key'.", key), e);
+				case ZSET:
+					throw new FlinkRuntimeException(String.format("Collection Get value failed. Key : %s, " +
+						"Related command: 'zrange key'.", key), e);
+				case HASH:
+					throw new FlinkRuntimeException(String.format("Collection Get value failed. Key : %s, " +
+						"Related command: 'hgetAll key'.", key), e);
+				default:
+					throw new FlinkRuntimeException(
+						String.format("Unsupported data type, currently supported type: %s",
+							AbaseValueType.getCollectionStr()));
+			}
 		}
 	}
 

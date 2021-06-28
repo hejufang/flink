@@ -62,7 +62,7 @@ public class AbaseLookupSchemaExecutor extends AbaseLookupExecutor {
 		try {
 			value = abaseTable.get(key.toString().getBytes());
 		} catch (JedisDataException e) {
-			throw new FlinkRuntimeException(String.format("Get value failed. Key : %s, " +
+			throw new FlinkRuntimeException(String.format("Schema Get value failed. Key : %s, " +
 				"Related command: 'get key'.", key), e);
 		}
 		RowData row = null;
