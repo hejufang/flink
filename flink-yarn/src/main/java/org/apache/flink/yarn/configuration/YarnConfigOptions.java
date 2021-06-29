@@ -513,6 +513,14 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Whether set security tokens to  TaskManager YARN container context.");
 
+	public static final ConfigOption<RtQoSLevelEnum> YARN_RUNTIME_CONF_QOS_LEVEL =
+		key("yarn.runtime-conf.qos-level")
+			.enumType(RtQoSLevelEnum.class)
+			.defaultValue(RtQoSLevelEnum.SHARE)
+			.withDescription("The mode of yarn binding cpu core level." +
+				" Default is (\"share\") mode, and also (\"share\") mode," +
+				" (\"reserved\") mode, or \"any\") mode.");
+
 	/** This class is not meant to be instantiated. */
 	private YarnConfigOptions() {}
 
@@ -522,5 +530,12 @@ public class YarnConfigOptions {
 		FIRST,
 		LAST,
 		ORDER
+	}
+
+	/** @see YarnConfigOptions#YARN_RUNTIME_CONF_QOS_LEVEL */
+	public enum RtQoSLevelEnum {
+		RESERVED,
+		SHARE,
+		ANY;
 	}
 }

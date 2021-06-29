@@ -762,6 +762,17 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			LOG.info("flinkExternalJarFiles: {}", flinkExternalJarFiles.toString());
 		}
 
+		// check The current yarn does not support the 1/1000 of the core
+		// after turning on the CPU to bind the core
+		YarnConfigOptions.RtQoSLevelEnum qosLevelEnum = configuration.getOptional(YarnConfigOptions.YARN_RUNTIME_CONF_QOS_LEVEL).orElse(YarnConfigOptions.RtQoSLevelEnum.SHARE);
+		if (YarnConfigOptions.RtQoSLevelEnum.SHARE != qosLevelEnum){
+			double vCores = flinkConfiguration.getInteger(YarnConfigOptions.VCORES);
+			if ((int) vCores != vCores) {
+				throw new IllegalArgumentException(String.format("%s must be Integer when set cpu binding the core level is not share",
+					YarnConfigOptions.VCORES.key()));
+			}
+		}
+
 		// Set-up ApplicationSubmissionContext for the application
 
 		final ApplicationId appId = appContext.getApplicationId();

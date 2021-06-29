@@ -45,10 +45,12 @@ import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMap
 import com.bytedance.sr.estimater.client.EstimateException;
 import com.bytedance.sr.estimater.client.EstimaterClient;
 import com.bytedance.sr.estimater.client.ResourcesUsage;
+import org.apache.hadoop.yarn.api.protocolrecords.RuntimeConfiguration;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerUpdateType;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.RtQoSLevel;
 import org.apache.hadoop.yarn.api.records.UpdateContainerError;
 import org.apache.hadoop.yarn.api.records.UpdateContainerRequest;
 import org.apache.hadoop.yarn.api.records.UpdatedContainer;
@@ -117,11 +119,16 @@ public class SmartResourceManager {
 	/**
 	 * Init the config of smart-resource.
 	 */
-	public SmartResourceManager(Configuration flinkConfig, Map<String, String> env) {
+	public SmartResourceManager(Configuration flinkConfig, RuntimeConfiguration yarnRuntimeConf, Map<String, String> env) {
 		smartResourcesStats = new SmartResourcesStats();
 		smartResourcesEnable = flinkConfig.getBoolean(SmartResourceOptions.SMART_RESOURCES_ENABLE);
 		if (!smartResourcesEnable) {
 			smartResourcesEnable = flinkConfig.getBoolean(SmartResourceOptions.SMART_RESOURCES_ENABLE_OLD);
+		}
+
+		// The current yarn does not support the smart resources after turning on the CPU to bind the core
+		if (yarnRuntimeConf.getQoSLevel() != RtQoSLevel.QOS_SHARE) {
+			smartResourcesEnable = false;
 		}
 
 		Map<String, Object> smartResourcesConfig = new HashMap<>();

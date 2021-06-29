@@ -76,6 +76,7 @@ common:
   yarn.conf.cluster_queue_name.enable: true
   yarn.check.application.name.unique: false
   yarn.check.application.name.unique.region: false
+  yarn.runtime-conf.qos-level: share
   flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.max-wait.ms: -1

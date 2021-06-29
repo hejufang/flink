@@ -79,6 +79,7 @@ import org.apache.hadoop.yarn.api.protocolrecords.GlobalConstraints;
 import org.apache.hadoop.yarn.api.protocolrecords.NodeSatisfyAttributesContent;
 import org.apache.hadoop.yarn.api.protocolrecords.NodeSkipHighLoadContent;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.RuntimeConfiguration;
 import org.apache.hadoop.yarn.api.records.ConstraintType;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -93,6 +94,7 @@ import org.apache.hadoop.yarn.api.records.NotifyMsgType;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.RtQoSLevel;
 import org.apache.hadoop.yarn.api.records.SchedulerType;
 import org.apache.hadoop.yarn.api.records.UpdateContainerError;
 import org.apache.hadoop.yarn.api.records.UpdateContainerRequest;
@@ -191,6 +193,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private final int defaultTaskManagerMemoryMB;
 
 	private final double defaultCpus;
+
+	/** The conf that yarn container bind cpu core. */
+	private final RuntimeConfiguration yarnRuntimeConf;
 
 	private SmartResourceManager smartResourceManager;
 	private Thread containerResourcesUpdater;
@@ -292,8 +297,11 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.gangDowngradeCounter = new SimpleCounter();
 		this.fatalOnGangFailed = true;
 
+		this.yarnRuntimeConf = createRuntimeConfigurationWithQosLevel(
+			flinkConfig.getOptional(YarnConfigOptions.YARN_RUNTIME_CONF_QOS_LEVEL).orElse(YarnConfigOptions.RtQoSLevelEnum.SHARE));
+
 		// init the SmartResource
-		this.smartResourceManager = new SmartResourceManager(flinkConfig, env);
+		this.smartResourceManager = new SmartResourceManager(flinkConfig, yarnRuntimeConf, env);
 		this.smartResourceManager.setYarnResourceManager(this);
 		if (smartResourceManager.getSmartResourcesEnable()) {
 			this.containerResourcesUpdater = new Thread(this::containerResourcesUpdaterProc);
@@ -349,6 +357,25 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 		String currentContainerId = System.getenv(ENV_YARN_CONTAINER_ID);
 		this.warehouseJobStartEventMessageRecorder = new WarehouseJobStartEventMessageRecorder(currentContainerId, false);
+	}
+
+	private RuntimeConfiguration createRuntimeConfigurationWithQosLevel(YarnConfigOptions.RtQoSLevelEnum rtQoSLevel) {
+		RuntimeConfiguration runtimeConfiguration = RuntimeConfiguration.newInstance();
+		switch (rtQoSLevel) {
+			case RESERVED:
+				runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_RESERVED);
+				break;
+			case SHARE:
+				runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_SHARE);
+				break;
+			case ANY:
+				runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_ANY);
+				break;
+			default:
+				log.warn("QosLevel is {} which not match any mode, therefore QosLevel use default share mode", yarnRuntimeConf);
+				runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_SHARE);
+		}
+		return runtimeConfiguration;
 	}
 
 	@VisibleForTesting
@@ -1133,18 +1160,13 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			}
 
 			GlobalConstraints globalConstraints = GlobalConstraints.newInstance(hardConstraints, softConstraints);
-			containerRequest = new AMRMClient.ContainerRequest(containerResource, null, null,
-				RM_REQUEST_PRIORITY, 0, true, null, null,
-				ExecutionTypeRequest.newInstance(), SchedulerType.GANG_SCHEDULER, false, globalConstraints);
+			containerRequest = new AMRMClient.ContainerRequest(containerResource, null, null, RM_REQUEST_PRIORITY,
+				0, true, null, null, ExecutionTypeRequest.newInstance(),
+				SchedulerType.GANG_SCHEDULER, false, globalConstraints, null, yarnRuntimeConf);
 		} else {
-			containerRequest = new AMRMClient.ContainerRequest(
-				containerResource,
-				null,
-				null,
-				RM_REQUEST_PRIORITY,
-				true,
-				null,
-				nodeAttributesExpression);
+			containerRequest = new AMRMClient.ContainerRequest(containerResource, null, null, RM_REQUEST_PRIORITY,
+				0, true, null, nodeAttributesExpression, ExecutionTypeRequest.newInstance(),
+				SchedulerType.FAIR_SCHEDULER, true, null, null, yarnRuntimeConf);
 		}
 		return containerRequest;
 	}
