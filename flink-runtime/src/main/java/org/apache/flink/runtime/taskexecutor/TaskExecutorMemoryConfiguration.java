@@ -114,7 +114,7 @@ public class TaskExecutorMemoryConfiguration implements Serializable {
 				getConfigurationValue(config, NETWORK_MEMORY_MAX),
 				getConfigurationValue(config, MANAGED_MEMORY_SIZE),
 				getConfigurationValue(config, JVM_METASPACE),
-			getConfigurationValue(config, JVM_OVERHEAD_MAX),
+				getConfigurationValue(config, JVM_OVERHEAD_MAX),
 				getConfigurationValue(config, TOTAL_FLINK_MEMORY),
 				getConfigurationValue(config, TOTAL_PROCESS_MEMORY)
 		);

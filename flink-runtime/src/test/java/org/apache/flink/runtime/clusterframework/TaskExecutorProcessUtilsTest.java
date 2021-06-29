@@ -82,6 +82,9 @@ public class TaskExecutorProcessUtilsTest extends ProcessMemoryUtilsTestBase<Tas
 		assertThat(MemorySize.parse(configs.get(TaskManagerOptions.NETWORK_MEMORY_MAX.key())), is(TM_RESOURCE_SPEC.getNetworkMemSize()));
 		assertThat(MemorySize.parse(configs.get(TaskManagerOptions.NETWORK_MEMORY_MIN.key())), is(TM_RESOURCE_SPEC.getNetworkMemSize()));
 		assertThat(MemorySize.parse(configs.get(TaskManagerOptions.MANAGED_MEMORY_SIZE.key())), is(TM_RESOURCE_SPEC.getManagedMemorySize()));
+		assertThat(MemorySize.parse(configs.get(TaskManagerOptions.JVM_METASPACE.key())), is(TM_RESOURCE_SPEC.getJvmMetaspaceAndOverhead().getMetaspace()));
+		assertThat(MemorySize.parse(configs.get(TaskManagerOptions.JVM_OVERHEAD_MIN.key())), is(TM_RESOURCE_SPEC.getJvmMetaspaceAndOverhead().getOverhead()));
+		assertThat(MemorySize.parse(configs.get(TaskManagerOptions.JVM_OVERHEAD_MAX.key())), is(TM_RESOURCE_SPEC.getJvmMetaspaceAndOverhead().getOverhead()));
 	}
 
 	@Test
