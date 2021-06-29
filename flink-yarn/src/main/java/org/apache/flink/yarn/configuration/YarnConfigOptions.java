@@ -422,6 +422,12 @@ public class YarnConfigOptions {
 			.defaultValue(false)
 			.withDescription("Environment include flink config to avoid uploading to hdfs while starting each container.");
 
+	public static final ConfigOption<String> YARN_RUNTIME_CONF_QOS_LEVEL =
+		key("yarn.runtime-conf.qos-level")
+			.defaultValue("share")
+			.withDescription("The mode of yarn binding cpu core level." +
+					" Default is (\"share\") mode, and also (\"share\") mode," +
+					" (\"reserved\") mode, or \"any\") mode.");
 
 	/**
 	 * Yarn configuration key prefix.

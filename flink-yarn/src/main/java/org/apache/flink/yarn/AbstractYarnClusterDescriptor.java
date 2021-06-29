@@ -898,6 +898,15 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			systemClassPaths.addAll(userClassPaths);
 		}
 
+		// check The current yarn does not support the millesimal of the core
+		// after turning on the CPU to bind the core
+		if (!"share".equals(flinkConfiguration.getString(YarnConfigOptions.YARN_RUNTIME_CONF_QOS_LEVEL))){
+			double vCores = flinkConfiguration.getDouble(YarnConfigOptions.VCORES);
+			if ((int) vCores != vCores) {
+				throw new IllegalArgumentException(String.format("%s must be Integer when set cpu binding the core level is not share",
+					YarnConfigOptions.VCORES.key()));
+			}
+		}
 		// normalize classpath by sorting
 
 		// Remove sorting for class path. Ensure that user jar appear before lib jar.

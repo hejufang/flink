@@ -44,6 +44,7 @@ common:
   yarn.application-attempt-failures-validity-interval: 3600000
   yarn.conf.cluster_queue_name.enable: true
   yarn.env-include-flink-conf: true
+  yarn.runtime-conf.qos-level: share
   flink.jobmanager.yarn.config.yarn.client.failover-max-attempts: -1
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.retry-interval.ms: 1000
   flink.jobmanager.yarn.config.yarn.resourcemanager.connect.max-wait.ms: -1

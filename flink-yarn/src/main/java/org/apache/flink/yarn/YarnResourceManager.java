@@ -98,6 +98,7 @@ import org.apache.hadoop.yarn.api.protocolrecords.GlobalConstraints;
 import org.apache.hadoop.yarn.api.protocolrecords.NodeSatisfyAttributesContent;
 import org.apache.hadoop.yarn.api.protocolrecords.NodeSkipHighLoadContent;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.protocolrecords.RuntimeConfiguration;
 import org.apache.hadoop.yarn.api.records.ConstraintType;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
@@ -116,6 +117,7 @@ import org.apache.hadoop.yarn.api.records.NotifyMsgType;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
+import org.apache.hadoop.yarn.api.records.RtQoSLevel;
 import org.apache.hadoop.yarn.api.records.SchedulerType;
 import org.apache.hadoop.yarn.api.records.UpdateContainerError;
 import org.apache.hadoop.yarn.api.records.UpdateContainerRequest;
@@ -298,6 +300,9 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 	private final String currentContainerId;
 
+	/** The conf that yarn container bind cpu core. */
+	private final RuntimeConfiguration yarnRuntimeConf;
+
 	/** Enable yarn container descheduler. */
 	private final boolean deschedulerEnable;
 	/** Enable yarn container descheduler for load Type. */
@@ -469,6 +474,14 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			smartResourcesEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_ENABLE_OLD_KEY,
 				ConfigConstants.SMART_RESOURCES_ENABLE_DEFAULT);
 		}
+
+		this.yarnRuntimeConf = createRuntimeConfigurationWithQosLevel(flinkConfig.getString(YarnConfigOptions.YARN_RUNTIME_CONF_QOS_LEVEL));
+		// The current yarn does not support the smart resources and the millesimal of the core
+		// after turning on the CPU to bind the core
+		if (this.yarnRuntimeConf.getQoSLevel() != RtQoSLevel.QOS_SHARE) {
+			smartResourcesEnable = false;
+		}
+
 		srCpuAdjustDoubleEnable = flinkConfig.getBoolean(ConfigConstants.SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_KEY,
 			ConfigConstants.SMART_RESOURCES_CPU_ADJUST_DOUBLE_ENABLE_DEFAULT);
 		Map<String, Object> smartResourcesConfig = new HashMap<>();
@@ -1466,20 +1479,34 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 			}
 
 			GlobalConstraints globalConstraints = GlobalConstraints.newInstance(hardConstraints, softConstraints);
-			containerRequest = new AMRMClient.ContainerRequest(getContainerResource(), null, null,
-				RM_REQUEST_PRIORITY, 0, true, null, null,
-				ExecutionTypeRequest.newInstance(), SchedulerType.GANG_SCHEDULER, false, globalConstraints);
+			containerRequest = new AMRMClient.ContainerRequest(getContainerResource(), null, null, RM_REQUEST_PRIORITY,
+				0, true, null, null, ExecutionTypeRequest.newInstance(),
+				SchedulerType.GANG_SCHEDULER, false, globalConstraints, null, yarnRuntimeConf);
 		} else {
-			containerRequest = new AMRMClient.ContainerRequest(
-				getContainerResource(),
-				null,
-				null,
-				RM_REQUEST_PRIORITY,
-				true,
-				null,
-				nodeAttributesExpression);
+			containerRequest = new AMRMClient.ContainerRequest(getContainerResource(), null, null, RM_REQUEST_PRIORITY,
+				0, true, null, nodeAttributesExpression, ExecutionTypeRequest.newInstance(),
+				SchedulerType.FAIR_SCHEDULER, true, null, null, yarnRuntimeConf);
 		}
 		return containerRequest;
+	}
+
+	private RuntimeConfiguration createRuntimeConfigurationWithQosLevel(String yarnRuntimeConfQosLevel) {
+		RuntimeConfiguration runtimeConfiguration = RuntimeConfiguration.newInstance();
+			switch (yarnRuntimeConfQosLevel.toLowerCase()) {
+				case "reserved":
+					runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_RESERVED);
+					break;
+				case "share":
+					runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_SHARE);
+					break;
+				case "any":
+					runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_ANY);
+					break;
+				default:
+					log.warn("QosLevel is {} which not match any mode, therefore QosLevel use default share mode", yarnRuntimeConf);
+					runtimeConfiguration.setQosLevel(RtQoSLevel.QOS_SHARE);
+			}
+		return runtimeConfiguration;
 	}
 
 	private ContainerLaunchContext createTaskExecutorLaunchContext(Resource resource, String containerId, String host)
