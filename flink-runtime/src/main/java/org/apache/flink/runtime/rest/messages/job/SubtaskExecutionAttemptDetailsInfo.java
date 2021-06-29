@@ -21,6 +21,7 @@ package org.apache.flink.runtime.rest.messages.job;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.AccessExecution;
+import org.apache.flink.runtime.executiongraph.AccessExecutionVertex;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher;
 import org.apache.flink.runtime.rest.handler.util.MutableIOMetrics;
@@ -33,14 +34,31 @@ import org.apache.flink.util.Preconditions;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonCreator;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.annotation.JsonProperty;
 
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The sub task execution attempt response.
  */
 public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
+
+
+	private static final Logger LOG = LoggerFactory.getLogger(SubtaskExecutionAttemptDetailsInfo.class);
+
+	private static final int SIMPLE_NAME_SIZE = 20;
+	private static final String INPUT_OUTPUT_ALL_DESCRIBE = "all";
 
 	public static final String FIELD_NAME_SUBTASK_INDEX = "subtask";
 
@@ -63,6 +81,10 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 	public static final String FIELD_NAME_TASKMANAGER_ID = "taskmanager-id";
 
 	public static final String FIELD_NAME_SOURCE_PARTITIONS = "partitions";
+
+	public static final String FIELD_NAME_INPUT_SUBTASKS = "input_subtasks";
+
+	public static final String FIELD_NAME_OUTPUT_SUBTASKS = "output_subtasks";
 
 	@JsonProperty(FIELD_NAME_SUBTASK_INDEX)
 	private final int subtaskIndex;
@@ -97,6 +119,12 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 	@JsonProperty(FIELD_NAME_SOURCE_PARTITIONS)
 	private final String partitions;
 
+	@JsonProperty(FIELD_NAME_INPUT_SUBTASKS)
+	private final String sourceSubtasks;
+
+	@JsonProperty(FIELD_NAME_OUTPUT_SUBTASKS)
+	private final String targetSubtasks;
+
 	@JsonCreator
 	public SubtaskExecutionAttemptDetailsInfo(
 			@JsonProperty(FIELD_NAME_SUBTASK_INDEX) int subtaskIndex,
@@ -108,7 +136,9 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			@JsonProperty(FIELD_NAME_DURATION) long duration,
 			@JsonProperty(FIELD_NAME_METRICS) IOMetricsInfo ioMetricsInfo,
 			@JsonProperty(FIELD_NAME_TASKMANAGER_ID) String taskmanagerId,
-			@JsonProperty(FIELD_NAME_SOURCE_PARTITIONS) String partitions) {
+			@JsonProperty(FIELD_NAME_SOURCE_PARTITIONS) String partitions,
+			@JsonProperty(FIELD_NAME_INPUT_SUBTASKS) String inputSubtasks,
+			@JsonProperty(FIELD_NAME_OUTPUT_SUBTASKS) String outputSubtasks) {
 
 		this.subtaskIndex = subtaskIndex;
 		this.status = Preconditions.checkNotNull(status);
@@ -121,6 +151,8 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 		this.ioMetricsInfo = Preconditions.checkNotNull(ioMetricsInfo);
 		this.taskmanagerId = Preconditions.checkNotNull(taskmanagerId);
 		this.partitions = partitions;
+		this.sourceSubtasks = inputSubtasks;
+		this.targetSubtasks = outputSubtasks;
 	}
 
 	public int getSubtaskIndex() {
@@ -184,15 +216,20 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			duration == that.duration &&
 			Objects.equals(ioMetricsInfo, that.ioMetricsInfo) &&
 			Objects.equals(taskmanagerId, that.taskmanagerId) &&
-			Objects.equals(partitions, that.partitions);
+			Objects.equals(partitions, that.partitions) &&
+			Objects.equals(sourceSubtasks, that.sourceSubtasks) &&
+			Objects.equals(targetSubtasks, that.targetSubtasks);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(subtaskIndex, status, attempt, host, startTime, startTimeCompatible, endTime, duration, ioMetricsInfo, taskmanagerId, partitions);
+		return Objects.hash(subtaskIndex, status, attempt, host, startTime, startTimeCompatible, endTime, duration, ioMetricsInfo, taskmanagerId, partitions, sourceSubtasks, targetSubtasks);
 	}
 
-	public static SubtaskExecutionAttemptDetailsInfo create(AccessExecution execution, @Nullable MetricFetcher metricFetcher, JobID jobID, JobVertexID jobVertexID) {
+	/**
+	 * Create execution info with lineage.
+	 */
+	public static SubtaskExecutionAttemptDetailsInfo create(AccessExecution execution, @Nullable MetricFetcher metricFetcher, JobID jobID, JobVertexID jobVertexID, AccessExecutionVertex accessExecutionVertex){
 		final ExecutionState status = execution.getState();
 		final long now = System.currentTimeMillis();
 
@@ -239,7 +276,59 @@ public class SubtaskExecutionAttemptDetailsInfo implements ResponseBody {
 			duration,
 			ioMetricsInfo,
 			taskmanagerId,
-			partitions
+			partitions,
+			Optional.ofNullable(accessExecutionVertex).map(AccessExecutionVertex::getInputSubTasks).map(subTasks -> getSubTaskStr(subTasks)).orElse(null),
+			Optional.ofNullable(accessExecutionVertex).map(AccessExecutionVertex::getOutputSubTasks).map(subTasks -> getSubTaskStr(subTasks)).orElse(null)
 		);
+	}
+
+	public static SubtaskExecutionAttemptDetailsInfo create(AccessExecution execution, @Nullable MetricFetcher metricFetcher, JobID jobID, JobVertexID jobVertexID) {
+		return create(execution, metricFetcher, jobID, jobVertexID, null);
+	}
+
+	private static String getSubTaskStr(Map<String, List<Integer>> subTasks) {
+		try {
+			if (MapUtils.isEmpty(subTasks)) {
+				return StringUtils.EMPTY;
+			}
+
+			Set<Map.Entry<String, List<Integer>>> entries = subTasks.entrySet();
+			boolean keyNameVisible = entries.size() != 1;
+
+			return entries.stream().map(entry -> {
+				String subTaskIds;
+				List<Integer> value = entry.getValue();
+				if (CollectionUtils.isEmpty(value)) {
+					subTaskIds = INPUT_OUTPUT_ALL_DESCRIBE;
+				} else {
+					//Match with Web-UI ID
+					subTaskIds = value.stream().map(i -> String.valueOf(i + 1)).collect(Collectors.joining("-"));
+				}
+				return (keyNameVisible ? getTaskSimpleName(entry.getKey()) + ":" : StringUtils.EMPTY) + subTaskIds;
+			}).collect(Collectors.joining(";"));
+		} catch (Exception e) {
+			LOG.error("get subtask resource fail", e);
+		}
+		return StringUtils.EMPTY;
+	}
+
+	private static String getTaskSimpleName(String name) {
+		String[] nameSplit = StringUtils.split(name, "->");
+		StringBuilder nameBuilder = new StringBuilder();
+		for (int i = 0; i < nameSplit.length; i++) {
+			String subName = nameSplit[i].trim();
+			if (StringUtils.isBlank(subName)) {
+				continue;
+			}
+			if (i != nameSplit.length - 1) {
+				nameBuilder.append(subName.charAt(0)).append("_");
+			} else {
+				nameBuilder.append(subName);
+			}
+		}
+		if (nameBuilder.length() > SIMPLE_NAME_SIZE) {
+			return nameBuilder.substring(0, SIMPLE_NAME_SIZE);
+		}
+		return nameBuilder.toString();
 	}
 }

@@ -59,7 +59,9 @@ public class JobVertexDetailsInfoTest extends RestResponseMarshallingTestBase<Jo
 			1L,
 			jobVertexMetrics,
 			"taskmanagerId1",
-			""));
+			"",
+			null,
+			null));
 		vertexTaskDetailList.add(new SubtaskExecutionAttemptDetailsInfo(
 			1,
 			ExecutionState.FAILED,
@@ -70,7 +72,9 @@ public class JobVertexDetailsInfoTest extends RestResponseMarshallingTestBase<Jo
 			1L,
 			jobVertexMetrics,
 			"taskmanagerId2",
-			""));
+			"",
+			null,
+			null));
 		vertexTaskDetailList.add(new SubtaskExecutionAttemptDetailsInfo(
 			2,
 			ExecutionState.FINISHED,
@@ -81,7 +85,9 @@ public class JobVertexDetailsInfoTest extends RestResponseMarshallingTestBase<Jo
 			1L,
 			jobVertexMetrics,
 			"taskmanagerId3",
-			""));
+			"",
+			null,
+			null));
 
 		return new JobVertexDetailsInfo(
 			new JobVertexID(),

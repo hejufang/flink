@@ -40,9 +40,11 @@ import org.apache.flink.runtime.jobmanager.scheduler.CoLocationGroup;
 import org.apache.flink.runtime.jobmanager.scheduler.LocationPreferenceConstraint;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
+import org.apache.flink.runtime.scheduler.strategy.ConsumerVertexGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
 import org.apache.flink.runtime.util.EvictingBoundedList;
+import org.apache.flink.util.CollectionUtil;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -53,6 +55,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -980,5 +983,53 @@ public class ExecutionVertex implements AccessExecutionVertex, Archiveable<Archi
 		getExecutionGraph().registerExecution(copyExecution);
 
 		LOG.info("Create copy execution {} attempt = {}", taskNameWithSubtask, attempt);
+	}
+
+	public Map<String, List<Integer>> getInputSubTasks() {
+
+		Map<String, List<Integer>> result = new HashMap<>();
+		List<ConsumedPartitionGroup> allConsumedPartitions = getAllConsumedPartitions();
+		for (ConsumedPartitionGroup consumedPartitionGroup : allConsumedPartitions) {
+			List<IntermediateResultPartitionID> resultPartitions = consumedPartitionGroup.getResultPartitions();
+			//sourceIds contains two elements, sourceStartSubtaskIndex and sourceEndSubtaskIndex.
+			List<Integer> sourceIds = new ArrayList<>(2);
+			IntermediateResultPartitionID intermediateResultPartitionID = resultPartitions.get(0);
+			ExecutionVertex startVertex = getExecutionGraph().getResultPartition(intermediateResultPartitionID).getProducer();
+			sourceIds.add(startVertex.getParallelSubtaskIndex());
+			if (resultPartitions.size() > 1) {
+				ExecutionVertex endVertex = getExecutionGraph().getResultPartition(resultPartitions.get(resultPartitions.size() - 1)).getProducer();
+				sourceIds.add(endVertex.getParallelSubtaskIndex());
+			}
+			result.put(startVertex.getTaskName(), sourceIds);
+		}
+
+		return result;
+	}
+
+	public Map<String, List<Integer>> getOutputSubTasks() {
+
+		Map<String, List<Integer>> result = new HashMap<>();
+		for (IntermediateResultPartition intermediateResultPartition : this.resultPartitions.values()) {
+			if (CollectionUtil.isNullOrEmpty(intermediateResultPartition.getConsumers())) {
+				continue;
+			}
+
+			// NOTE: currently we support only one consumer per result.
+			ConsumerVertexGroup consumerVertexGroup = intermediateResultPartition.getConsumers().get(0);
+			List<ExecutionVertexID> vertices = consumerVertexGroup.getVertices();
+			ExecutionVertexID executionVertexID = vertices.get(0);
+			ExecutionVertex startVertex = getExecutionGraph().getVertex(executionVertexID);
+
+			//targetIds contains two elements, targetStartSubtaskIndex and targetEndSubtaskIndex.
+			List<Integer> targetIds = new ArrayList<>(2);
+			result.put(startVertex.getTaskName(), targetIds);
+
+			targetIds.add(executionVertexID.getSubtaskIndex());
+			if (vertices.size() > 1) {
+				targetIds.add(vertices.get(vertices.size() - 1).getSubtaskIndex());
+			}
+		}
+
+		return result;
 	}
 }

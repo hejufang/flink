@@ -42,6 +42,9 @@ import org.apache.flink.runtime.webmonitor.history.ArchivedJson;
 import org.apache.flink.runtime.webmonitor.history.JsonArchivist;
 import org.apache.flink.runtime.webmonitor.retriever.GatewayRetriever;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -56,6 +59,11 @@ import java.util.concurrent.Executor;
  */
 public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVertexDetailsInfo, JobVertexMessageParameters> implements JsonArchivist {
 	private final MetricFetcher metricFetcher;
+
+	private static final Logger LOG = LoggerFactory.getLogger(JobVertexDetailsHandler.class);
+
+	private static final int SIMPLE_NAME_SIZE = 20;
+	private static final String INPUT_OUTPUT_ALL_DESCRIBE = "all";
 
 	public JobVertexDetailsHandler(
 			GatewayRetriever<? extends RestfulGateway> leaderRetriever,
@@ -110,11 +118,11 @@ public class JobVertexDetailsHandler extends AbstractExecutionGraphHandler<JobVe
 		for (AccessExecutionVertex vertex : jobVertex.getTaskVertices()) {
 			final AccessExecution execution = vertex.getCurrentExecutionAttempt();
 			final JobVertexID jobVertexID = jobVertex.getJobVertexId();
-			subtasks.add(SubtaskExecutionAttemptDetailsInfo.create(execution, metricFetcher, jobID, jobVertexID));
+			subtasks.add(SubtaskExecutionAttemptDetailsInfo.create(execution, metricFetcher, jobID, jobVertexID, vertex));
 
 			// add copy executions
 			for (AccessExecution exec : vertex.getCopyExecutions()) {
-				subtasks.add(SubtaskExecutionAttemptDetailsInfo.create(exec, metricFetcher, jobID, jobVertex.getJobVertexId()));
+				subtasks.add(SubtaskExecutionAttemptDetailsInfo.create(exec, metricFetcher, jobID, jobVertex.getJobVertexId(), vertex));
 			}
 		}
 

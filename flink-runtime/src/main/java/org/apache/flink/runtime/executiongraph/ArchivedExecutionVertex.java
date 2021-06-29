@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializable {
 
@@ -42,6 +43,10 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 
 	private final List<ArchivedExecution> copyExecutions;
 
+	private final Map<String, List<Integer>> inputSubTasks;
+
+	private final Map<String, List<Integer>> outputSubTasks;
+
 	// ------------------------------------------------------------------------
 
 	public ArchivedExecutionVertex(ExecutionVertex vertex) {
@@ -54,6 +59,9 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		for (Execution exec : vertex.getCopyExecutions()) {
 			copyExecutions.add(exec.archive());
 		}
+
+		this.inputSubTasks = vertex.getInputSubTasks();
+		this.outputSubTasks = vertex.getOutputSubTasks();
 	}
 
 	public ArchivedExecutionVertex(
@@ -72,6 +80,8 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		this.currentExecution = currentExecution;
 		this.priorExecutions = priorExecutions;
 		this.copyExecutions = copyExecutions;
+		this.inputSubTasks = null;
+		this.outputSubTasks = null;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -126,5 +136,15 @@ public class ArchivedExecutionVertex implements AccessExecutionVertex, Serializa
 		} else {
 			throw new IllegalArgumentException("attempt does not exist");
 		}
+	}
+
+	@Override
+	public Map<String, List<Integer>> getInputSubTasks(){
+		return inputSubTasks;
+	}
+
+	@Override
+	public Map<String, List<Integer>> getOutputSubTasks(){
+		return outputSubTasks;
 	}
 }
