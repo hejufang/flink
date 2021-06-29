@@ -33,7 +33,6 @@ import java.util.List;
  * <p>Methods of this interface act as an administration role in checkpoint coordinator.
  */
 public interface CheckpointStorageCoordinatorView {
-
 	/**
 	 * Checks whether this backend supports highly available storage of data.
 	 *

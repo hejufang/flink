@@ -189,6 +189,10 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	@Override
 	public CheckpointStorageLocation initializeLocationForCheckpoint(long checkpointId) throws IOException {
+		if (!baseLocationsInitialized) {
+			initializeBaseLocations();
+		}
+
 		checkArgument(checkpointId >= 0, "Illegal negative checkpoint id: %d.", checkpointId);
 		checkArgument(baseLocationsInitialized, "The base checkpoint location has not been initialized.");
 
@@ -212,6 +216,10 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 
 	@Override
 	public CheckpointStorageLocation initializeLocationForSavepointMetaInCheckpointDir(long checkpointId) throws IOException {
+		if (!baseLocationsInitialized) {
+			initializeBaseLocations();
+		}
+
 		checkArgument(checkpointId >= 0, "Illegal negative checkpoint id: %d.", checkpointId);
 		checkArgument(baseLocationsInitialized, "The base checkpoint location has not been initialized.");
 
