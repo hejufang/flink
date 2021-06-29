@@ -97,6 +97,13 @@ if [[ ${JAVA_VERSION} =~ ${IS_NUMBER} ]]; then
     fi
 fi
 
+stopSystemdService() {
+    systemctl stop --user flink-${DAEMON}.service
+    systemctl disable --user flink-${DAEMON}.service
+    rm ${FLINK_BIN_DIR}/flink-${DAEMON}.service
+    rm ${FLINK_BIN_DIR}/${DAEMON}-entrypoint.sh
+}
+
 case $STARTSTOP in
 
     (start)
@@ -122,23 +129,37 @@ case $STARTSTOP in
 
         # Evaluate user options for local variable expansion
         FLINK_ENV_JAVA_OPTS=$(eval echo ${FLINK_ENV_JAVA_OPTS})
+        CLASSPATH=$(manglePathList "$FLINK_TM_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS")
+        # > "$out" 200<&- 2>&1 < /dev/null &
+        ENTRYPOINT="${JAVA_RUN} ${JVM_ARGS} ${FLINK_ENV_JAVA_OPTS} ${log_setting[@]} -classpath ${CLASSPATH} ${CLASS_TO_RUN} ${ARGS[@]}"
+        echo "Starting $DAEMON daemon on host $HOSTNAME, systemd enabled: $FLINK_SYSTEMD_ENABLED"
 
-        echo "Starting $DAEMON daemon on host $HOSTNAME."
-        $JAVA_RUN $JVM_ARGS ${FLINK_ENV_JAVA_OPTS} "${log_setting[@]}" -classpath "`manglePathList "$FLINK_TM_CLASSPATH:$INTERNAL_HADOOP_CLASSPATHS"`" ${CLASS_TO_RUN} "${ARGS[@]}" > "$out" 200<&- 2>&1 < /dev/null &
-
-        mypid=$!
-
-        # Add to pid file if successful start
-        if [[ ${mypid} =~ ${IS_NUMBER} ]] && kill -0 $mypid > /dev/null 2>&1 ; then
-            echo $mypid >> "$pid"
+        if [[ $FLINK_SYSTEMD_ENABLED == "true" ]] && [[ $DAEMON == "standalonesession" ]]; then
+          # systemd unit file options longer than 2048 characters maybe truncated, so we choose to use one script here
+          # Reference: https://bugs.freedesktop.org/show_bug.cgi?id=85308
+          echo -e "#!/bin/sh\n${ENTRYPOINT}" > ${FLINK_BIN_DIR}/${DAEMON}-entrypoint.sh
+          chmod +x ${FLINK_BIN_DIR}/${DAEMON}-entrypoint.sh
+          sed "s#@@DAEMON@@#${DAEMON}#g; s#@@ENTRYPOINT_FILE@@#${FLINK_BIN_DIR}/${DAEMON}-entrypoint.sh#g" ${FLINK_BIN_DIR}/flink.service > ${FLINK_BIN_DIR}/flink-${DAEMON}.service
+          systemctl enable --user ${FLINK_BIN_DIR}/flink-${DAEMON}.service
+          systemctl start --user flink-${DAEMON}.service
+          systemctl status --user --no-pager flink-${DAEMON}.service
         else
-            echo "Error starting $DAEMON daemon."
-            exit 1
+          $ENTRYPOINT > "$out" 200<&- 2>&1 < /dev/null &
+          mypid=$!
+          # Add to pid file if successful start
+          if [[ ${mypid} =~ ${IS_NUMBER} ]] && kill -0 $mypid > /dev/null 2>&1 ; then
+              echo $mypid >> "$pid"
+          else
+              echo "Error starting $DAEMON daemon."
+              exit 1
+          fi
         fi
     ;;
 
     (stop)
-        if [ -f "$pid" ]; then
+        if [[ $FLINK_SYSTEMD_ENABLED == "true" ]] && [[ $DAEMON == "standalonesession" ]]; then
+            stopSystemdService
+        elif [ -f "$pid" ]; then
             # Remove last in pid file
             to_stop=$(tail -n 1 "$pid")
 
@@ -164,7 +185,9 @@ case $STARTSTOP in
     ;;
 
     (stop-all)
-        if [ -f "$pid" ]; then
+        if [[ $FLINK_SYSTEMD_ENABLED == "true" ]] && [[ $DAEMON == "standalonesession" ]]; then
+            stopSystemdService
+        elif [ -f "$pid" ]; then
             mv "$pid" "${pid}.tmp"
 
             while read to_stop; do

@@ -391,6 +391,12 @@ else
     fi
 fi
 
+# Define FLINK_SYSTEMD_ENABLED if it is not already set, and default is false
+# This ENV only controls whether the Job Manager uses systemd to control its life cycle
+if [ -z "${FLINK_SYSTEMD_ENABLED}" ]; then
+    FLINK_SYSTEMD_ENABLED="false"
+fi
+
 # Define HOSTNAME if it is not already set
 if [ -z "${HOSTNAME}" ]; then
     HOSTNAME=`hostname`

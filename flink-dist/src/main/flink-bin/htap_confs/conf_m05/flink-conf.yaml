@@ -34,7 +34,7 @@ common:
   taskmanager.memory.network.max: 2 gb
 
   # The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
-  taskmanager.numberOfTaskSlots: 4
+  taskmanager.numberOfTaskSlots: 8
 
   #metrics
   metrics.reporters: opentsdb_reporter
@@ -60,7 +60,7 @@ common:
   # Rest & web frontend
   #==============================================================================
 
-  rest.port: 8081
+  rest.port: 8089
   rest.address: 10.196.82.139
 
   #==============================================================================
@@ -68,6 +68,8 @@ common:
   #==============================================================================
 
   io.tmp.dirs: /data01/flink_data
+  web.tmpdir: /data01/flink_data
+  env.pid.dir: /data01/flink_data
 
   #==============================================================================
   # HistoryServer
