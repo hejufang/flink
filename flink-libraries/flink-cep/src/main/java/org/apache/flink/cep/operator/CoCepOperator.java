@@ -50,10 +50,11 @@ import org.apache.flink.cep.pattern.Pattern;
 import org.apache.flink.cep.time.TimerService;
 import org.apache.flink.cep.utils.CEPUtils;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.dropwizard.metrics.DropwizardHistogramWrapper;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.Gauge;
-import org.apache.flink.metrics.Meter;
-import org.apache.flink.metrics.MeterView;
+import org.apache.flink.metrics.Histogram;
+import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.VoidNamespace;
 import org.apache.flink.runtime.state.VoidNamespaceSerializer;
@@ -71,6 +72,7 @@ import org.apache.flink.streaming.runtime.tasks.StreamTask;
 import org.apache.flink.util.OutputTag;
 import org.apache.flink.util.Preconditions;
 
+import com.codahale.metrics.SlidingWindowReservoir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,10 +102,6 @@ public class CoCepOperator<IN, KEY, OUT>
 	private static final long serialVersionUID = -1243854353417L;
 
 	private static final Logger LOG = LoggerFactory.getLogger(CoCepOperator.class);
-
-	private static final String LATE_ELEMENTS_DROPPED_METRIC_NAME = "numLateRecordsDropped";
-	private static final String LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME = "lateRecordsDroppedRate";
-	private static final String WATERMARK_LATENCY_METRIC_NAME = "watermarkLatency";
 
 	private static final byte[] STATE_CLEANER_TIMER_PAYLOAD = "stateCleanerTimerPayload".getBytes();
 	private static final byte[] TIME_ADVANCER_TIMER_PAYLOAD = "timeAdvancerTimerPayload".getBytes();
@@ -182,7 +180,21 @@ public class CoCepOperator<IN, KEY, OUT>
 	// ------------------------------------------------------------------------
 
 	private transient Counter numLateRecordsDropped;
-	private transient Meter lateRecordsDroppedRate;
+	private transient Counter numLateRecordsOutput;
+	private transient Counter numPatternsAdded;
+	private transient Counter numPatternsDropped;
+	private transient Counter numPatternsUsed;
+	private transient Counter numStateCleanerTriggered;
+	private transient Counter numMatchedSequences;
+	private transient Counter numUnMatchedSequences;
+	private transient Counter numTimeOutSequences;
+
+	private transient Histogram advanceTimeMs;
+	private transient Histogram processEventMs;
+	private transient Histogram processMatchedMs;
+	private transient Histogram processUnMatchMs;
+	private transient Histogram processTimeoutMs;
+
 	private transient Gauge<Long> watermarkLatency;
 
 	public CoCepOperator(
@@ -270,19 +282,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		collector = new TimestampedCollector<>(output);
 		cepTimerService = new CoCepOperator.TimerServiceImpl();
 
-		// metrics
-		this.numLateRecordsDropped = metrics.counter(LATE_ELEMENTS_DROPPED_METRIC_NAME);
-		this.lateRecordsDroppedRate = metrics.meter(
-				LATE_ELEMENTS_DROPPED_RATE_METRIC_NAME,
-				new MeterView(numLateRecordsDropped, 60));
-		this.watermarkLatency = metrics.gauge(WATERMARK_LATENCY_METRIC_NAME, () -> {
-			long watermark = timerService.currentWatermark();
-			if (watermark < 0) {
-				return 0L;
-			} else {
-				return timerService.currentProcessingTime() - watermark;
-			}
-		});
+		registerMetrics(metrics);
 
 		Iterator<Map.Entry<String, Pattern>> iter = patternStates.iterator();
 		while (iter.hasNext()) {
@@ -307,9 +307,12 @@ public class CoCepOperator<IN, KEY, OUT>
 	public void processElement2(StreamRecord<Pattern<IN, IN>> element) throws Exception {
 		final Pattern<IN, IN> pattern = element.getValue();
 		final String patternId = pattern.getPatternId();
+		numPatternsAdded.inc();
 
 		if (pattern.isDisabled()) {
 			// disable this pattern
+			numPatternsDropped.inc();
+			numPatternsUsed.dec();
 			disableOldPattern(patternId);
 			return;
 		}
@@ -348,6 +351,7 @@ public class CoCepOperator<IN, KEY, OUT>
 		} else {
 			this.partialMatches.get(patternId).getAccessor().clearMemoryCache();
 		}
+		numPatternsUsed.inc();
 		this.userFunction.processNewPattern(pattern);
 	}
 
@@ -388,9 +392,10 @@ public class CoCepOperator<IN, KEY, OUT>
 					bufferEvent(element.getValue(), eventTime);
 					triggerComputeWithWatermark(getSortedTimestamps(), newKeyedWatermark);
 				} else if (lateDataOutputTag != null) {
+					numLateRecordsOutput.inc();
 					output.collect(lateDataOutputTag, element);
 				} else {
-					numLateRecordsDropped.inc();
+					numLateRecordsOutput.inc();
 				}
 				keyedWatermark.update(newKeyedWatermark);
 			} else if (comparator == null) {
@@ -432,7 +437,7 @@ public class CoCepOperator<IN, KEY, OUT>
 			} else if (lateDataOutputTag != null) {
 				output.collect(lateDataOutputTag, element);
 			} else {
-				lateRecordsDroppedRate.markEvent();
+				numLateRecordsDropped.inc();
 			}
 		}
 
@@ -604,6 +609,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	}
 
 	private void clearAllStates() {
+		numStateCleanerTriggered.inc();
 		if (timestampExtractor != null){
 			keyedWatermark.clear();
 		}
@@ -632,6 +638,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	 * @param timestamp The timestamp of the event
 	 */
 	private void processEvent(NFAState nfaState, IN event, long timestamp) throws Exception {
+		long processEventStartTime = System.currentTimeMillis();
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
 			NFA nfa = usingNFAs.get(nfaState.getPatternId());
 			Collection<Map<String, List<IN>>> patterns =
@@ -642,9 +649,15 @@ public class CoCepOperator<IN, KEY, OUT>
 			nfaState.resetNewStartPartiailMatch();
 			processMatchedSequences(nfaState.getPatternId(), patterns, timestamp);
 			if (patterns.isEmpty()) {
+				this.numUnMatchedSequences.inc();
+				long processUnmatchStartTime = System.currentTimeMillis();
 				getUserFunction().processUnMatch(event, context, getCurrentKey(), collector);
+				long processUnmatchEndTime = System.currentTimeMillis();
+				processUnMatchMs.update(processUnmatchEndTime - processUnmatchStartTime);
 			}
 		}
+		long processEventEndTime = System.currentTimeMillis();
+		processEventMs.update(processEventEndTime - processEventStartTime);
 	}
 
 	private void registerTimeAdvancerTimer(long timestamp, long windowTime) {
@@ -661,6 +674,7 @@ public class CoCepOperator<IN, KEY, OUT>
 	 * <b>lower</b> than the given timestamp should be passed to the nfa, This can lead to pruning and timeouts.
 	 */
 	private void advanceTime(NFAState nfaState, long timestamp) throws Exception {
+		long advanceTimeStartMillis = System.currentTimeMillis();
 		try (SharedBufferAccessor<IN> sharedBufferAccessor = partialMatches.get(nfaState.getPatternId()).getAccessor()) {
 			// output pending states matches
 			Collection<Map<String, List<IN>>> pendingMatches = usingNFAs.get(nfaState.getPatternId()).pendingStateMatches(sharedBufferAccessor, nfaState, timestamp);
@@ -672,21 +686,29 @@ public class CoCepOperator<IN, KEY, OUT>
 			Collection<Tuple2<Map<String, List<IN>>, Long>> timedOut =
 					usingNFAs.get(nfaState.getPatternId()).advanceTime(sharedBufferAccessor, nfaState, timestamp);
 			if (!timedOut.isEmpty()) {
+				this.numTimeOutSequences.inc();
 				processTimedOutSequences(nfaState.getPatternId(), timedOut);
 			}
 		}
+		long advanceTimeEndMillis = System.currentTimeMillis();
+		advanceTimeMs.update(advanceTimeEndMillis - advanceTimeStartMillis);
 	}
 
 	private void processMatchedSequences(String patternId, Iterable<Map<String, List<IN>>> matchingSequences, long timestamp) throws Exception {
+		long processMatchedSequencesStartTime = System.currentTimeMillis();
 		MultiplePatternProcessFunction<IN, OUT> function = getUserFunction();
 		setContext(timestamp, patternStates.get(patternId));
 		for (Map<String, List<IN>> matchingSequence : matchingSequences) {
 			usingNFAs.get(patternId).clearStateWhenOutput();
+			this.numMatchedSequences.inc();
 			function.processMatch(Tuple2.of(patternId, matchingSequence), context, getCurrentKey(), collector);
 		}
+		long processMatchedSequencesEndTime = System.currentTimeMillis();
+		processMatchedMs.update(processMatchedSequencesEndTime - processMatchedSequencesStartTime);
 	}
 
 	private void processTimedOutSequences(String patternId, Collection<Tuple2<Map<String, List<IN>>, Long>> timedOutSequences) throws Exception {
+		long processTimeOutStartTime = System.currentTimeMillis();
 		MultiplePatternProcessFunction<IN, OUT> function = getUserFunction();
 		if (function instanceof MultiplePatternTimedOutPartialMatchHandler) {
 
@@ -699,6 +721,8 @@ public class CoCepOperator<IN, KEY, OUT>
 				timeoutHandler.processTimedOutMatch(Tuple2.of(patternId, matchingSequence.f0), getCurrentKey(), context);
 			}
 		}
+		long processTimeOutEndTime = System.currentTimeMillis();
+		processTimeoutMs.update(processTimeOutEndTime - processTimeOutStartTime);
 	}
 
 	private void setContext(long timestamp, Pattern<IN, IN> pattern) {
@@ -806,6 +830,39 @@ public class CoCepOperator<IN, KEY, OUT>
 			counter += elements.size();
 		}
 		return counter;
+	}
+
+	private void registerMetrics(MetricGroup metrics){
+				// metrics
+		this.numPatternsAdded = metrics.counter(CepMetricConstants.PATTERNS_ADDED_METRIC_NAME);
+		this.numPatternsDropped = metrics.counter(CepMetricConstants.PATTERNS_DROPPED_METRIC_NAME);
+		this.numPatternsUsed = metrics.counter(CepMetricConstants.PATTERNS_USED_METRIC_NAME);
+		this.numLateRecordsDropped = metrics.counter(CepMetricConstants.LATE_ELEMENTS_DROPPED_METRIC_NAME);
+		this.numLateRecordsOutput = metrics.counter(CepMetricConstants.LATE_ELEMENTS_OUTPUT_METRIC_NAME);
+		this.numStateCleanerTriggered = metrics.counter(CepMetricConstants.STATE_CLEANER_TRIGGERD_METRIC_NAME);
+		this.numMatchedSequences = metrics.counter(CepMetricConstants.MATCHED_SEQUENCES_METRIC_NAME);
+		this.numUnMatchedSequences = metrics.counter(CepMetricConstants.UNMATCHED_SEQUENCES_METRIC_NAME);
+		this.numTimeOutSequences = metrics.counter(CepMetricConstants.TIME_OUT_MATCHED_SEQUENCES_METRIC_NAME);
+
+		this.watermarkLatency = metrics.gauge(CepMetricConstants.WATERMARK_LATENCY_METRIC_NAME, () -> {
+			long watermark = timerService.currentWatermark();
+			if (watermark < 0) {
+				return 0L;
+			} else {
+				return timerService.currentProcessingTime() - watermark;
+			}
+		});
+
+		advanceTimeMs = this.getMetricGroup().histogram(CepMetricConstants.ADVANCE_TIME_METRIC_NAME,
+			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+		processEventMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_EVENT_METRIC_NAME,
+			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+		processMatchedMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_MATCHED_METRIC_NAME,
+			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+		processUnMatchMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_UNMATCHED_METRIC_NAME,
+			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
+		processTimeoutMs = this.getMetricGroup().histogram(CepMetricConstants.PROCESS_TIMEOUT_METRIC_NAME,
+			new DropwizardHistogramWrapper(new com.codahale.metrics.Histogram(new SlidingWindowReservoir(500))));
 	}
 
 	protected Counter getNumLateRecordsDropped() {

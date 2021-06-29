@@ -48,7 +48,10 @@ global:
         checkpointWriteFileLatency,
         checkpointCloseFileLatency,
         preJobRawTotalStateSize,
-        postJobRawTotalStateSize
+        postJobRawTotalStateSize,
+        numPatternsAdded,
+        numPatternsDropped,
+        numPatternsUsed
     ]
 
 non-global:
@@ -209,5 +212,17 @@ non-global:
         stateAverageOpLatency,
         stateMaxOpLatency,
         stateAverageOpRate,
-        stateTotalSize
+        stateTotalSize,
+      # cep
+        numLateRecordsDropped,
+        numLateRecordsOutput,
+        numStateCleanerTriggered,
+        numMatchedSequences,
+        numUnMatchedSequences,
+        numTimeOutSequences,
+        advanceTimeDuration,
+        processEventDuration,
+        processMatchedDuration,
+        processUnMatchDuration,
+        processTimeoutDuration
     ]
