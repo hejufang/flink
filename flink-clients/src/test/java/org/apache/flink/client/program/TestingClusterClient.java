@@ -131,7 +131,7 @@ public class TestingClusterClient<T> implements ClusterClient<T> {
 	}
 
 	@Override
-	public CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory) {
+	public CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory, long savepointTimeout) {
 		return triggerSavepointFunction.apply(jobId, savepointDirectory);
 	}
 

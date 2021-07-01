@@ -817,7 +817,10 @@ public abstract class SchedulerBase implements SchedulerNG {
 	}
 
 	@Override
-	public CompletableFuture<String> triggerSavepoint(final String targetDirectory, final boolean cancelJob) {
+	public CompletableFuture<String> triggerSavepoint(
+		final String targetDirectory,
+		final boolean cancelJob,
+		final long savepointTimeout) {
 		mainThreadExecutor.assertRunningInMainThread();
 
 		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
@@ -833,14 +836,14 @@ public abstract class SchedulerBase implements SchedulerNG {
 					"default via key '" + CheckpointingOptions.SAVEPOINT_DIRECTORY.key() + "'.");
 		}
 
-		log.info("Triggering {}savepoint for job {}.", cancelJob ? "cancel-with-" : "", jobGraph.getJobID());
+		log.info("Triggering {}savepoint(timeout={}) for job {}.", cancelJob ? "cancel-with-" : "", savepointTimeout, jobGraph.getJobID());
 
 		if (cancelJob) {
 			checkpointCoordinator.stopCheckpointScheduler();
 		}
 
 		return checkpointCoordinator
-			.triggerSavepoint(targetDirectory)
+			.triggerSavepoint(targetDirectory, savepointTimeout)
 			.thenApply(CompletedCheckpoint::getExternalPointer)
 			.handleAsync((path, throwable) -> {
 				if (throwable != null) {
@@ -866,8 +869,8 @@ public abstract class SchedulerBase implements SchedulerNG {
 				String.format("Job %s is not a streaming job.", jobGraph.getJobID()));
 		}
 
-		log.info("Triggering {}detach-savepoint for job {}, with savepoint_id {}.",
-			blockSource ? "block-source-with-" : "", jobGraph.getJobID(), savepointId);
+		log.info("Triggering {}detach-savepoint for job {}, with savepoint_id={},timeout={}.",
+			blockSource ? "block-source-with-" : "", jobGraph.getJobID(), savepointId, savepointTimeout);
 
 		checkNotNull(savepointLocationPrefix, "savepoint directory prefix for detach savepoint is not set, " +
 			"set this value in config state.savepoint.location-prefix.");
@@ -894,7 +897,7 @@ public abstract class SchedulerBase implements SchedulerNG {
 			}, mainThreadExecutor);
 		} else {
 			return checkpointCoordinator
-				.triggerDetachSavepoint(manualSavepointPath, savepointId)
+				.triggerDetachSavepoint(manualSavepointPath, savepointId, savepointTimeout)
 				.thenApply(CompletedCheckpoint::getExternalPointer)
 				.handleAsync((path, throwable) -> {
 					if (throwable != null) {

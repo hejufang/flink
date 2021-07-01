@@ -57,8 +57,12 @@ public class SavepointTriggerRequestBody implements RequestBody {
 	@JsonProperty(FIELD_NAME_TIMEOUT)
 	private final long timeout;
 
-	public SavepointTriggerRequestBody(@Nullable final String targetDirectory, final boolean cancelJob, final String savepointId) {
-		this(targetDirectory, cancelJob, savepointId, false, -1);
+	public SavepointTriggerRequestBody(
+		@Nullable final String targetDirectory,
+		final boolean cancelJob,
+		final String savepointId,
+		final long savepointTimeout) {
+		this(targetDirectory, cancelJob, savepointId, false, savepointTimeout);
 	}
 
 	@JsonCreator

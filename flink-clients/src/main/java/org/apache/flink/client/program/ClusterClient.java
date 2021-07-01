@@ -172,7 +172,11 @@ public interface ClusterClient<T> extends AutoCloseable {
 	 * @param savepointDirectory directory the savepoint should be written to
 	 * @return path future where the savepoint is located
 	 */
-	CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory);
+	default	CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory) {
+		return triggerSavepoint(jobId, savepointDirectory, -1L);
+	}
+
+	CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory, long savepointTimeout);
 
 	default CompletableFuture<String> triggerDetachSavepoint(JobID jobId, String savepointId, boolean isBlockSource, long timeout) {
 		throw new UnsupportedOperationException("Do not support triggerDetachSavepoint except for RestClusterClient");

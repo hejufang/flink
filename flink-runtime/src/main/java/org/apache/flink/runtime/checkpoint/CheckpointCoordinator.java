@@ -534,6 +534,11 @@ public class CheckpointCoordinator {
 		return triggerSavepointInternal(properties, false, targetLocation, -1L, DetachSavepointProperties.nonDetachSavepointProperties());
 	}
 
+	public CompletableFuture<CompletedCheckpoint> triggerSavepoint(@Nullable final String targetLocation, long savepointTimeout) {
+		final CheckpointProperties properties = CheckpointProperties.forSavepoint(!unalignedCheckpointsEnabled);
+		return triggerSavepointInternal(properties, false, targetLocation, savepointTimeout, DetachSavepointProperties.nonDetachSavepointProperties());
+	}
+
 	/**
 	 * Trigger a detach savepoint with the given savepoint directory as a target. Different from
 	 * {@link #triggerSavepoint(String)}, this targetLocation will not create a random subdir to
@@ -543,10 +548,10 @@ public class CheckpointCoordinator {
 	 * @param savepointId a redundant uuid in targetLocation, just to serve {@link #pendingSavepointsUnsafe}.
 	 * @return A future to the completed checkpoint
 	 */
-	public CompletableFuture<CompletedCheckpoint> triggerDetachSavepoint(final String targetLocation, String savepointId) {
+	public CompletableFuture<CompletedCheckpoint> triggerDetachSavepoint(final String targetLocation, String savepointId, long savepointTimeout) {
 		Preconditions.checkNotNull(targetLocation);
 		final CheckpointProperties properties = CheckpointProperties.forSavepoint(!unalignedCheckpointsEnabled);
-		return triggerSavepointInternal(properties, false, targetLocation, -1L, new DetachSavepointProperties(savepointId));
+		return triggerSavepointInternal(properties, false, targetLocation, savepointTimeout, new DetachSavepointProperties(savepointId));
 	}
 
 	public CompletableFuture<CompletedCheckpoint> triggerDetachSyncSavepoint(final String targetLocation, String savepointId, long savepointTimeout) {

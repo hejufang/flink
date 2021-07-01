@@ -89,7 +89,7 @@ public class CliFrontendSavepointTest extends CliFrontendTestBase {
 			frontend.savepoint(parameters);
 
 			verify(clusterClient, times(1))
-				.triggerSavepoint(eq(jobId), isNull(String.class));
+				.triggerSavepoint(eq(jobId), isNull(String.class), eq(-1L));
 
 			assertTrue(buffer.toString().contains(savepointPath));
 		}
@@ -170,7 +170,7 @@ public class CliFrontendSavepointTest extends CliFrontendTestBase {
 			frontend.savepoint(parameters);
 
 			verify(clusterClient, times(1))
-				.triggerSavepoint(eq(jobId), eq(savepointDirectory));
+				.triggerSavepoint(eq(jobId), eq(savepointDirectory), eq(-1L));
 
 			assertTrue(buffer.toString().contains(savepointDirectory));
 		}
@@ -316,6 +316,8 @@ public class CliFrontendSavepointTest extends CliFrontendTestBase {
 
 		when(clusterClient.triggerSavepoint(any(JobID.class), nullable(String.class)))
 			.thenReturn(CompletableFuture.completedFuture(expectedResponse));
+		when(clusterClient.triggerSavepoint(any(JobID.class), nullable(String.class), any(Long.class)))
+			.thenReturn(CompletableFuture.completedFuture(expectedResponse));
 
 		return clusterClient;
 	}
@@ -324,6 +326,8 @@ public class CliFrontendSavepointTest extends CliFrontendTestBase {
 		final ClusterClient<String> clusterClient = mock(ClusterClient.class);
 
 		when(clusterClient.triggerSavepoint(any(JobID.class), nullable(String.class)))
+			.thenReturn(FutureUtils.completedExceptionally(expectedException));
+		when(clusterClient.triggerSavepoint(any(JobID.class), nullable(String.class), any(Long.class)))
 			.thenReturn(FutureUtils.completedExceptionally(expectedException));
 
 		return clusterClient;

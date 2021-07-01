@@ -301,7 +301,11 @@ public class TestingJobMasterGateway implements JobMasterGateway {
 	}
 
 	@Override
-	public CompletableFuture<String> triggerSavepoint(@Nullable final String targetDirectory, final boolean cancelJob, final Time timeout) {
+	public CompletableFuture<String> triggerSavepoint(
+		@Nullable final String targetDirectory,
+		final boolean cancelJob,
+		final long savepointTimeout,
+		final Time timeout) {
 		return triggerSavepointFunction.apply(targetDirectory, cancelJob);
 	}
 

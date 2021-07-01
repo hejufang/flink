@@ -120,7 +120,7 @@ public interface SchedulerNG {
 
 	// ------------------------------------------------------------------------
 
-	CompletableFuture<String> triggerSavepoint(@Nullable String targetDirectory, boolean cancelJob);
+	CompletableFuture<String> triggerSavepoint(@Nullable String targetDirectory, boolean cancelJob, long savepointTimeout);
 
 	CompletableFuture<String> triggerDetachSavepoint(String savepointId, boolean blockSource, long savepointTimeout);
 

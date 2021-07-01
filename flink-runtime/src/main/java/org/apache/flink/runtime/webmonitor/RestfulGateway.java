@@ -166,6 +166,7 @@ public interface RestfulGateway extends RpcGateway {
 			JobID jobId,
 			String targetDirectory,
 			boolean cancelJob,
+			final long savepointTimeout,
 			@RpcTimeout Time timeout) {
 		throw new UnsupportedOperationException();
 	}

@@ -95,7 +95,7 @@ public class MiniClusterClient implements ClusterClient<MiniClusterClient.MiniCl
 	}
 
 	@Override
-	public CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory) {
+	public CompletableFuture<String> triggerSavepoint(JobID jobId, @Nullable String savepointDirectory, long savepointTimeout) {
 		return miniCluster.triggerSavepoint(jobId, savepointDirectory, false);
 	}
 

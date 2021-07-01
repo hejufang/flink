@@ -44,8 +44,8 @@ public class SavepointTriggerRequestBodyTest
 	@Parameterized.Parameters
 	public static Collection<Object[]> data() {
 		return Arrays.asList(new Object[][]{
-			{new SavepointTriggerRequestBody("/tmp", true, null)},
-			{new SavepointTriggerRequestBody("/tmp", false, null)}
+			{new SavepointTriggerRequestBody("/tmp", true, null, -1L)},
+			{new SavepointTriggerRequestBody("/tmp", false, null, -1L)}
 		});
 	}
 

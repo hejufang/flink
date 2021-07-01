@@ -174,10 +174,10 @@ public class SavepointHandlers extends AbstractAsynchronousOperationHandlers<Asy
 			final JobID jobId = request.getPathParameter(JobIDPathParameter.class);
 			final String requestedTargetDirectory = request.getRequestBody().getTargetDirectory();
 			final String savepointId = request.getRequestBody().getSavepointId();
+			final long timeout = request.getRequestBody().getTimeout();
 
 			if (savepointId != null) {
 				final boolean blockSource = request.getRequestBody().isBlockSource();
-				final long timeout = request.getRequestBody().getTimeout();
 				return gateway.triggerDetachSavepoint(jobId, savepointId, blockSource, timeout, RpcUtils.INF_TIMEOUT);
 			} else {
 				if (requestedTargetDirectory == null && defaultSavepointDir == null) {
@@ -190,7 +190,7 @@ public class SavepointHandlers extends AbstractAsynchronousOperationHandlers<Asy
 
 				final boolean cancelJob = request.getRequestBody().isCancelJob();
 				final String targetDirectory = requestedTargetDirectory != null ? requestedTargetDirectory : defaultSavepointDir;
-				return gateway.triggerSavepoint(jobId, targetDirectory, cancelJob, RpcUtils.INF_TIMEOUT);
+				return gateway.triggerSavepoint(jobId, targetDirectory, cancelJob, timeout, RpcUtils.INF_TIMEOUT);
 			}
 		}
 	}
