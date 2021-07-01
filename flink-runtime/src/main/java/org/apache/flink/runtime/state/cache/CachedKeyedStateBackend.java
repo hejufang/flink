@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
@@ -98,6 +99,11 @@ public class CachedKeyedStateBackend<K> extends AbstractKeyedStateBackend<K> {
 	@Override
 	public <N> Stream<K> getKeys(String state, N namespace) {
 		return keyedStateBackend.getKeys(state, namespace);
+	}
+
+	@Override
+	public <N> Stream<Tuple2<K, N>> getKeysAndNamespaces(String state) {
+		throw new UnsupportedOperationException("CachedKeyedStateBackend does not support getKeysAndNamespaces");
 	}
 
 	@Override
