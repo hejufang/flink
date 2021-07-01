@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -62,12 +64,26 @@ public interface CheckpointStorageCoordinatorView {
 	 */
 	CompletedCheckpointStorageLocation resolveCheckpoint(String externalPointer) throws IOException;
 
+	default CompletedCheckpointStorageLocation resolveSavepoint(String savepointSimpleMetadataPointer) throws IOException {
+		throw new UnsupportedOperationException("Only support in FsCheckpointStorage");
+	}
+
 	default List<String> findCompletedCheckpointPointer() throws IOException {
 		return Collections.emptyList();
 	}
 
+	/**
+	 * Similar to findCompletedCheckpointPointer, but not with more check for savepoint.
+	 *
+	 * @return list of tuple, each tuple represents (external pointer to CompletedCheckpoint,
+	 * isSavepoint).
+	 */
+	default List<Tuple2<String, Boolean>> findCompletedCheckpointPointerV2() throws IOException {
+		return Collections.emptyList();
+	}
+
 	// remove in the future
-	default List<String> findCompletedCheckpointPointerForCrossVersion() throws IOException {
+	default List<Tuple2<String, Boolean>> findCompletedCheckpointPointerForCrossVersion() throws IOException {
 		return Collections.emptyList();
 	}
 
@@ -113,4 +129,11 @@ public interface CheckpointStorageCoordinatorView {
 	CheckpointStorageLocation initializeLocationForSavepoint(
 		long checkpointId,
 		@Nullable String externalLocationPointer) throws IOException;
+
+
+	default CheckpointStorageLocation initializeLocationForSavepointMetaInCheckpointDir(long checkpointId) throws IOException {
+		return initializeLocationForCheckpoint(checkpointId);
+	}
+
+	default void removeSavepointSimpleMetadataPathInCheckpointDir(long checkpointId) throws IOException {}
 }

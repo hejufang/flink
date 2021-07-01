@@ -78,6 +78,7 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -89,6 +90,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.flink.configuration.CheckpointingOptions.MAX_RETAINED_CHECKPOINTS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
@@ -102,6 +104,7 @@ import static org.junit.Assert.fail;
 public class SavepointITCase extends TestLogger {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SavepointITCase.class);
+	private static final String JOB_NAME = "savepoint-job";
 
 	@Rule
 	public final TemporaryFolder folder = new TemporaryFolder();
@@ -149,8 +152,84 @@ public class SavepointITCase extends TestLogger {
 
 		final String savepointPath = submitJobAndTakeSavepoint(clusterFactory, parallelism);
 		verifySavepoint(parallelism, savepointPath);
+		verifySavepointSimpleMetadata(1L);
 
 		restoreJobAndVerifyState(savepointPath, clusterFactory, parallelism);
+	}
+
+	/**
+	 * In this IT case, the job restart without from-savepoint setup, and the job will recover
+	 * from checkpoint by default. A savepoint simple metadata is planted at checkpointDir, which
+	 * will lead CheckpointCoordinator to find the savepoint in savepointDir.
+	 */
+	@Test
+	public void testTriggerSavepointAndRecoverFromSavepointSimpleMetadata() throws Exception {
+		final int numTaskManagers = 2;
+		final int numSlotsPerTaskManager = 2;
+		final int parallelism = numTaskManagers * numSlotsPerTaskManager;
+
+		final MiniClusterResourceFactory clusterFactory = new MiniClusterResourceFactory(
+			numTaskManagers,
+			numSlotsPerTaskManager,
+			getFileBasedCheckpointsConfig());
+
+		final String savepointPath = submitJobAndTakeSavepoint(clusterFactory, parallelism);
+		verifySavepoint(parallelism, savepointPath);
+		verifySavepointSimpleMetadata(1L);
+
+		restoreJobFromSavepointSimpleMetadataAndVerifyState(clusterFactory, parallelism);
+	}
+
+	@Test
+	public void testTriggerSavepointAndRecoverLostSavepointSimpleMetadata() throws Exception {
+		final int numTaskManagers = 2;
+		final int numSlotsPerTaskManager = 2;
+		final int parallelism = numTaskManagers * numSlotsPerTaskManager;
+
+		final MiniClusterResourceFactory clusterFactory = new MiniClusterResourceFactory(
+			numTaskManagers,
+			numSlotsPerTaskManager,
+			getFileBasedCheckpointsConfig());
+
+		final String savepointPath = submitJobAndTakeSavepoint(clusterFactory, parallelism);
+		verifySavepoint(parallelism, savepointPath);
+		verifySavepointSimpleMetadata(1L);
+		removeSavepointSimpleMetadata();
+
+		String errMsg = "Job cannot recovery from savepoint (as CompletedCheckpoint) if savepoint simple metadata is lost.";
+		assertFalse(errMsg, checkIfRestoreJobFromSavepoint(clusterFactory, parallelism));
+	}
+
+	@Test
+	public void testExpiredSavepointSimpleMetadata() throws Exception {
+		final int numTaskManagers = 2;
+		final int numSlotsPerTaskManager = 2;
+		final int parallelism = numTaskManagers * numSlotsPerTaskManager;
+
+		final MiniClusterResourceFactory clusterFactory = new MiniClusterResourceFactory(
+			numTaskManagers,
+			numSlotsPerTaskManager,
+			getFileBasedCheckpointsConfig());
+
+		List<String> savepointPaths1 = submitJobAndTaskTwoSavepointsWithOneExpired(clusterFactory, parallelism);
+
+		verifySavepoint(parallelism, savepointPaths1.get(0));
+		verifySavepoint(parallelism, savepointPaths1.get(1));
+		verifySavepointSimpleMetadataNotExist(1L);
+		verifySavepointSimpleMetadata(2L);
+		verifySavepointSimpleMetadataNotExist(3L);
+		verifySavepointSimpleMetadataNotExist(4L);
+
+		List<String> savepointPaths2 = submitJobAndTaskTwoSavepointsWithOneExpired(clusterFactory, parallelism);
+		verifySavepointSimpleMetadataNotExist(1L);
+		verifySavepointSimpleMetadataNotExist(2L);
+		verifySavepointSimpleMetadataNotExist(3L);
+		verifySavepointSimpleMetadata(4L);
+
+		verifySavepoint(parallelism, savepointPaths1.get(0));
+		verifySavepoint(parallelism, savepointPaths1.get(1));
+		verifySavepoint(parallelism, savepointPaths2.get(0));
+		verifySavepoint(parallelism, savepointPaths2.get(1));
 	}
 
 	@Test
@@ -178,7 +257,7 @@ public class SavepointITCase extends TestLogger {
 	}
 
 	private String submitJobAndTakeSavepoint(MiniClusterResourceFactory clusterFactory, int parallelism) throws Exception {
-		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000);
+		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000, 10);
 		final JobID jobId = jobGraph.getJobID();
 		StatefulCounter.resetForTest(parallelism);
 
@@ -193,6 +272,33 @@ public class SavepointITCase extends TestLogger {
 			StatefulCounter.getProgressLatch().await();
 
 			return client.cancelWithSavepoint(jobId, null);
+		} finally {
+			cluster.after();
+			StatefulCounter.resetForTest(parallelism);
+		}
+	}
+
+	private List<String> submitJobAndTaskTwoSavepointsWithOneExpired(MiniClusterResourceFactory clusterFactory, int parallelism) throws Exception {
+		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000, 1);
+		final JobID jobId = jobGraph.getJobID();
+		StatefulCounter.resetForTest(parallelism);
+
+		MiniClusterWithClientResource cluster = clusterFactory.get();
+		cluster.before();
+		ClusterClient<?> client = cluster.getClusterClient();
+
+		List<String> savepointPaths = new ArrayList<>();
+
+		try {
+			client.setDetached(true);
+			client.submitJob(jobGraph, SavepointITCase.class.getClassLoader());
+
+			StatefulCounter.getProgressLatch().await();
+
+			// first savepoint, will be expired soon
+			savepointPaths.add(client.triggerSavepoint(jobId, null).get());
+			savepointPaths.add(client.cancelWithSavepoint(jobId, null));
+			return savepointPaths;
 		} finally {
 			cluster.after();
 			StatefulCounter.resetForTest(parallelism);
@@ -218,8 +324,32 @@ public class SavepointITCase extends TestLogger {
 		}
 	}
 
+	private void verifySavepointSimpleMetadata(long checkpointId) throws IOException {
+		String savepointSimpleMetadataPath = String.format("%s/%s/default/sp-%d/_metadata", checkpointDir.getPath(), JOB_NAME, checkpointId);
+		File savepointSimpleMetadataFile = new File(savepointSimpleMetadataPath);
+		if (!savepointSimpleMetadataFile.exists()) {
+			fail(String.format("Savepoint without simple savepoint metadata at (%s)", savepointSimpleMetadataPath));
+		}
+	}
+
+	private void verifySavepointSimpleMetadataNotExist(long checkpointId) {
+		String savepointSimpleMetadataPath = String.format("%s/%s/default/sp-%d/_metadata", checkpointDir.getPath(), JOB_NAME, checkpointId);
+		File savepointSimpleMetadataFile = new File(savepointSimpleMetadataPath);
+		if (savepointSimpleMetadataFile.exists()) {
+			fail(String.format("Savepoint without simple savepoint metadata at (%s)", savepointSimpleMetadataPath));
+		}
+	}
+
+	private void removeSavepointSimpleMetadata() throws IOException {
+		String savepointSimpleMetadataPath = String.format("%s/%s/default/sp-1/_metadata", checkpointDir.getPath(), JOB_NAME);
+		File savepointSimpleMetadataFile = new File(savepointSimpleMetadataPath);
+		if (savepointSimpleMetadataFile.exists()) {
+			Files.delete(savepointSimpleMetadataFile.toPath());
+		}
+	}
+
 	private void restoreJobAndVerifyState(String savepointPath, MiniClusterResourceFactory clusterFactory, int parallelism) throws Exception {
-		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000);
+		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000, 10);
 		jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.forPath(savepointPath));
 		final JobID jobId = jobGraph.getJobID();
 		StatefulCounter.resetForTest(parallelism);
@@ -252,6 +382,80 @@ public class SavepointITCase extends TestLogger {
 				.get();
 
 			assertFalse("Savepoint not properly cleaned up.", new File(savepointPath).exists());
+		} finally {
+			cluster.after();
+			StatefulCounter.resetForTest(parallelism);
+		}
+	}
+
+	private void restoreJobFromSavepointSimpleMetadataAndVerifyState(
+		MiniClusterResourceFactory clusterFactory,
+		int parallelism) throws Exception {
+
+		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000, 10);
+		final JobID jobId = jobGraph.getJobID();
+		StatefulCounter.resetForTest(parallelism);
+
+		MiniClusterWithClientResource cluster = clusterFactory.get();
+		cluster.before();
+		ClusterClient<?> client = cluster.getClusterClient();
+
+		try {
+			client.setDetached(true);
+			client.submitJob(jobGraph, SavepointITCase.class.getClassLoader());
+
+			// Await state is restored
+			StatefulCounter.getRestoreLatch().await();
+
+			// Await some progress after restore
+			StatefulCounter.getProgressLatch().await();
+
+			client.cancel(jobId);
+
+			FutureUtils.retrySuccessfulWithDelay(
+				() -> client.getJobStatus(jobId),
+				Time.milliseconds(50),
+				Deadline.now().plus(Duration.ofSeconds(30)),
+				status -> status == JobStatus.CANCELED,
+				TestingUtils.defaultScheduledExecutor()
+			);
+
+		} finally {
+			cluster.after();
+			StatefulCounter.resetForTest(parallelism);
+		}
+	}
+
+	private boolean checkIfRestoreJobFromSavepoint(
+		MiniClusterResourceFactory clusterFactory,
+		int parallelism) throws Exception {
+		final JobGraph jobGraph = createJobGraph(parallelism, 0, 1000, 10);
+		final JobID jobId = jobGraph.getJobID();
+		StatefulCounter.resetForTest(parallelism);
+
+		MiniClusterWithClientResource cluster = clusterFactory.get();
+		cluster.before();
+		ClusterClient<?> client = cluster.getClusterClient();
+
+		try {
+			client.setDetached(true);
+			client.submitJob(jobGraph, SavepointITCase.class.getClassLoader());
+
+			// Await some progress after restore
+			StatefulCounter.getProgressLatch().await();
+
+			client.cancel(jobId);
+
+			FutureUtils.retrySuccessfulWithDelay(
+				() -> client.getJobStatus(jobId),
+				Time.milliseconds(50),
+				Deadline.now().plus(Duration.ofSeconds(30)),
+				status -> status == JobStatus.CANCELED,
+				TestingUtils.defaultScheduledExecutor()
+			);
+
+			// If job has been recovered from savepoint, this latch will return immediately
+			return StatefulCounter.getRestoreLatch().await(0, TimeUnit.MILLISECONDS);
 		} finally {
 			cluster.after();
 			StatefulCounter.resetForTest(parallelism);
@@ -355,7 +559,7 @@ public class SavepointITCase extends TestLogger {
 			// Submit the job
 			// Long delay to ensure that the test times out if the job
 			// manager tries to restart the job.
-			final JobGraph jobGraph = createJobGraph(parallelism, numberOfRetries, 3600000);
+			final JobGraph jobGraph = createJobGraph(parallelism, numberOfRetries, 3600000, 10);
 
 			// Set non-existing savepoint path
 			jobGraph.setSavepointRestoreSettings(SavepointRestoreSettings.forPath("unknown path"));
@@ -504,13 +708,16 @@ public class SavepointITCase extends TestLogger {
 	private JobGraph createJobGraph(
 		int parallelism,
 		int numberOfRetries,
-		long restartDelay) {
+		long restartDelay,
+		int maxRetainedCheckpoints) {
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setParallelism(parallelism);
 		env.disableOperatorChaining();
 		env.getConfig().setRestartStrategy(RestartStrategies.fixedDelayRestart(numberOfRetries, restartDelay));
 		env.getConfig().disableSysoutLogging();
+		env.enableCheckpointing(60 * 1000 * 1000);
+		env.getConfiguration().setInteger(MAX_RETAINED_CHECKPOINTS, maxRetainedCheckpoints);
 
 		DataStream<Integer> stream = env
 			.addSource(new InfiniteTestSource())
@@ -519,7 +726,7 @@ public class SavepointITCase extends TestLogger {
 
 		stream.addSink(new DiscardingSink<>());
 
-		return env.getStreamGraph().getJobGraph();
+		return env.getStreamGraph(JOB_NAME).getJobGraph();
 	}
 
 	private static class InfiniteTestSource implements SourceFunction<Integer> {

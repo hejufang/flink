@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.jobgraph.OperatorID;
+import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.SharedStateRegistry;
 import org.apache.flink.runtime.state.StateUtil;
@@ -106,6 +107,10 @@ public class CompletedCheckpoint implements Serializable {
 	/** Optional stats tracker callback for discard. */
 	@Nullable
 	private transient volatile CompletedCheckpointStats.DiscardCallback discardCallback;
+
+	/** Target storage location to persist the savepoint simple metadata in checkpoint dir to. */
+	@Nullable
+	private transient CheckpointStorageCoordinatorView checkpointStorage;
 
 	// ------------------------------------------------------------------------
 
@@ -205,6 +210,9 @@ public class CompletedCheckpoint implements Serializable {
 		return storageLocation;
 	}
 
+	public void setCheckpointStorage(@Nullable CheckpointStorageCoordinatorView checkpointStorage) {
+		this.checkpointStorage = checkpointStorage;
+	}
 	// ------------------------------------------------------------------------
 	//  Shared State
 	// ------------------------------------------------------------------------
@@ -231,6 +239,10 @@ public class CompletedCheckpoint implements Serializable {
 		if (props.discardOnSubsumed()) {
 			doDiscard();
 			return true;
+		}
+
+		if (props.isSavepoint() && checkpointStorage != null) {
+			checkpointStorage.removeSavepointSimpleMetadataPathInCheckpointDir(checkpointID);
 		}
 
 		return false;
@@ -314,5 +326,14 @@ public class CompletedCheckpoint implements Serializable {
 	@Override
 	public String toString() {
 		return String.format("Checkpoint %d @ %d for %s", checkpointID, timestamp, job);
+	}
+
+
+	public boolean isSavepoint() {
+		return props.isSavepoint();
+	}
+
+	public boolean isCheckpoint() {
+		return !props.isSavepoint();
 	}
 }

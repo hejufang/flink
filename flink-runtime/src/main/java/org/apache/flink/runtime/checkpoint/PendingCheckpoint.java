@@ -21,11 +21,13 @@ package org.apache.flink.runtime.checkpoint;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.checkpoint.savepoint.Savepoint;
 import org.apache.flink.runtime.checkpoint.savepoint.SavepointV2;
+import org.apache.flink.runtime.checkpoint.savepoint.simple_savepoint.SavepointSimpleMetadata;
 import org.apache.flink.runtime.checkpoint.trigger.PendingTriggerFactory;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
+import org.apache.flink.runtime.state.CheckpointStorageCoordinatorView;
 import org.apache.flink.runtime.state.CheckpointStorageLocation;
 import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.IncrementalKeyedStateHandle;
@@ -107,6 +109,10 @@ public class PendingCheckpoint {
 	/** Target storage location to persist the checkpoint metadata to. */
 	private final CheckpointStorageLocation targetLocation;
 
+	/** Target storage location to persist the savepoint simple metadata in checkpoint dir to. */
+	@Nullable
+	private final CheckpointStorageCoordinatorView checkpointStorage;
+
 	/** The promise to fulfill once the checkpoint has been completed. */
 	private final CompletableFuture<CompletedCheckpoint> onCompletionPromise;
 
@@ -162,6 +168,28 @@ public class PendingCheckpoint {
 		Executor executor,
 		PendingTriggerFactory.PendingTrigger pendingTrigger) {
 
+		this(jobId,
+			checkpointId,
+			checkpointTimestamp,
+			verticesToConfirm,
+			props,
+			targetLocation,
+			executor,
+			pendingTrigger,
+			null);
+	}
+
+	public PendingCheckpoint(
+		JobID jobId,
+		long checkpointId,
+		long checkpointTimestamp,
+		Map<ExecutionAttemptID, ExecutionVertex> verticesToConfirm,
+		CheckpointProperties props,
+		CheckpointStorageLocation targetLocation,
+		Executor executor,
+		PendingTriggerFactory.PendingTrigger pendingTrigger,
+		@Nullable CheckpointStorageCoordinatorView checkpointStorage) {
+
 		checkArgument(verticesToConfirm.size() > 0,
 				"Checkpoint needs at least one vertex that commits the checkpoint");
 
@@ -181,6 +209,7 @@ public class PendingCheckpoint {
 		this.metadataOutputStream = new AtomicReference<>(null);
 		this.pendingTrigger = pendingTrigger;
 		this.numNeedAcknowledgedSubtasks = verticesToConfirm.size();
+		this.checkpointStorage = checkpointStorage;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -307,6 +336,20 @@ public class PendingCheckpoint {
 
 			// make sure we fulfill the promise with an exception if something fails
 			try {
+				// happen-before, write savepoint simple meta to checkpoint dir
+				if (props.isSavepoint() && checkpointStorage != null) {
+					String savepointMetadataLocation = targetLocation.getMetadataFilePath().toString();
+					final SavepointSimpleMetadata savepointSimpleMetadata = new SavepointSimpleMetadata(checkpointId, savepointMetadataLocation);
+					LOG.info("Savepoint {} completed successfully, store savepoint simple metadata: {}", checkpointId, savepointSimpleMetadata);
+
+					CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(checkpointId);
+
+					try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
+						Checkpoints.storeSavepointSimpleMetadata(savepointSimpleMetadata, out);
+						out.closeAndFinalizeCheckpoint();
+					}
+				}
+
 				// write out the metadata
 				final Savepoint savepoint = new SavepointV2(checkpointId, operatorStates.values(), masterState);
 				final CompletedCheckpointStorageLocation finalizedLocation;
@@ -337,6 +380,7 @@ public class PendingCheckpoint {
 						masterState,
 						props,
 						finalizedLocation);
+				completed.setCheckpointStorage(checkpointStorage);
 
 				onCompletionPromise.complete(completed);
 

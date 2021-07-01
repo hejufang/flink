@@ -97,6 +97,7 @@ public class FsCheckpointStorageLocation extends FsCheckpointStreamFactory imple
 		return taskOwnedStateDirectory;
 	}
 
+	@Override
 	public Path getMetadataFilePath() {
 		return metadataFilePath;
 	}

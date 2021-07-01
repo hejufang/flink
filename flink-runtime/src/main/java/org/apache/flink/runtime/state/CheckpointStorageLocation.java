@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.state;
 
+import org.apache.flink.core.fs.Path;
+
 import java.io.IOException;
 
 /**
@@ -54,4 +56,8 @@ public interface CheckpointStorageLocation extends CheckpointStreamFactory {
 	 * this method can simply return {@link CheckpointStorageLocationReference#getDefault()}.
 	 */
 	CheckpointStorageLocationReference getLocationReference();
+
+	default Path getMetadataFilePath() {
+		throw new UnsupportedOperationException("Only support in FsCheckpointStorage and PersistentMetadataCheckpointStorageLocation.");
+	}
 }
