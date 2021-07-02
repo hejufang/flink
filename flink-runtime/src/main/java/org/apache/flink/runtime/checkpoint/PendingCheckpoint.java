@@ -497,11 +497,12 @@ public class PendingCheckpoint {
 		if (needRewrite) {
 			StateObjectCollection<KeyedStateHandle> managedKeyedState = overrideIncrementalStateHandle(operatorSubtaskState.getManagedKeyedState());
 			StateObjectCollection<KeyedStateHandle> rawKeyedState = overrideIncrementalStateHandle(operatorSubtaskState.getRawKeyedState());
-			return new OperatorSubtaskState(
+			OperatorSubtaskState replacedState = new OperatorSubtaskState(
 				operatorSubtaskState.getManagedOperatorState(),
 				operatorSubtaskState.getRawOperatorState(),
 				managedKeyedState,
 				rawKeyedState);
+			return new OperatorSubtaskStatePlaceHolder(replacedState);
 		} else {
 			return new OperatorSubtaskStatePlaceHolder(operatorSubtaskState);
 		}
