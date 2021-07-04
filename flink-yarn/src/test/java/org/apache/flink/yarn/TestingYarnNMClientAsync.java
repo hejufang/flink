@@ -47,7 +47,7 @@ class TestingYarnNMClientAsync extends NMClientAsyncImpl {
 	}
 
 	@Override
-	public void stopContainerAsync(ContainerId containerId, NodeId nodeId) {
+	public void stopContainerAsync(ContainerId containerId, NodeId nodeId, int exitCode) {
 		this.stopContainerAsyncConsumer.accept(containerId, nodeId, callbackHandler);
 	}
 

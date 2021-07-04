@@ -32,6 +32,7 @@ import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.metrics.groups.SlotManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
@@ -336,6 +337,12 @@ public class SlotManagerImpl implements SlotManager {
 		slotManagerMetricGroup.gauge(
 			MetricNames.TASK_SLOTS_TOTAL,
 			() -> (long) getNumberRegisteredSlots());
+		slotManagerMetricGroup.gauge(
+			MetricNames.NUM_PENDING_TASK_MANAGER_SLOTS,
+			() -> (long) getNumberPendingTaskManagerSlots());
+		slotManagerMetricGroup.gauge(
+			MetricNames.NUM_PENDING_SLOT_REQUESTS,
+			() -> (long) getNumberPendingSlotRequests());
 	}
 
 	/**
@@ -506,7 +513,7 @@ public class SlotManagerImpl implements SlotManager {
 		} else {
 			if (isMaxSlotNumExceededAfterRegistration(initialSlotReport)) {
 				LOG.info("The total number of slots exceeds the max limitation {}, release the excess resource.", maxSlotNum);
-				resourceActions.releaseResource(taskExecutorConnection.getInstanceID(), new FlinkException("The total number of slots exceeds the max limitation."));
+				resourceActions.releaseResource(taskExecutorConnection.getInstanceID(), new FlinkException("The total number of slots exceeds the max limitation."), WorkerExitCode.MAX_SLOT_EXCEED);
 				return false;
 			}
 
@@ -1110,7 +1117,7 @@ public class SlotManagerImpl implements SlotManager {
 	private void returnPendingTaskManagerSlotIfAssigned(PendingSlotRequest pendingSlotRequest) {
 		returnPendingTaskManagerSlotIfAssigned(pendingSlotRequest, false);
 	}
-	
+
 	private void returnPendingTaskManagerSlotIfAssigned(PendingSlotRequest pendingSlotRequest, boolean isRemovePendingSlot) {
 		final PendingTaskManagerSlot pendingTaskManagerSlot = pendingSlotRequest.getAssignedPendingTaskManagerSlot();
 		if (pendingTaskManagerSlot != null) {
@@ -1279,7 +1286,7 @@ public class SlotManagerImpl implements SlotManager {
 	}
 
 	/**
-	 * Cancels the given slot request and Removes the pending slot
+	 * Cancels the given slot request and Removes the pending slot.
 	 *
 	 * @param pendingSlotRequest to cancel
 	 */
@@ -1355,7 +1362,7 @@ public class SlotManagerImpl implements SlotManager {
 	private void releaseTaskExecutor(InstanceID timedOutTaskManagerId) {
 		final FlinkException cause = new FlinkException("TaskExecutor exceeded the idle timeout.");
 		LOG.debug("Release TaskExecutor {} because it exceeded the idle timeout.", timedOutTaskManagerId);
-		resourceActions.releaseResource(timedOutTaskManagerId, cause);
+		resourceActions.releaseResource(timedOutTaskManagerId, cause, WorkerExitCode.IDLE_TIMEOUT);
 	}
 
 	private void checkSlotRequestTimeouts() {
@@ -1440,7 +1447,7 @@ public class SlotManagerImpl implements SlotManager {
 
 			final FlinkException cause = new FlinkException("Triggering of SlotManager#unregisterTaskManagersAndReleaseResources.");
 			internalUnregisterTaskManager(taskManagerRegistration, cause);
-			resourceActions.releaseResource(taskManagerRegistration.getInstanceId(), cause);
+			resourceActions.releaseResource(taskManagerRegistration.getInstanceId(), cause, WorkerExitCode.UNKNOWN);
 		}
 	}
 }

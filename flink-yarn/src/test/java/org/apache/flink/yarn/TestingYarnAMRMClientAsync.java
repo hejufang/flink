@@ -87,6 +87,11 @@ public class TestingYarnAMRMClientAsync extends AMRMClientAsyncImpl<AMRMClient.C
 	}
 
 	@Override
+	public void releaseAssignedContainer(ContainerId containerId, int exitCode) {
+		releaseAssignedContainerConsumer.accept(containerId, handler);
+	}
+
+	@Override
 	public void setHeartbeatInterval(int interval) {
 		setHeartbeatIntervalConsumer.accept(interval);
 	}

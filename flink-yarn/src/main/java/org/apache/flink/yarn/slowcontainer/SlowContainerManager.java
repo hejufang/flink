@@ -21,6 +21,8 @@ package org.apache.flink.yarn.slowcontainer;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 
+import java.util.Map;
+
 /**
  * Interface of SlowContainerManager.
  */
@@ -71,6 +73,8 @@ public interface SlowContainerManager {
 	int getSlowContainerNum(WorkerResourceSpec workerResourceSpec);
 
 	int getStartingContainerTotalNum();
+
+	Map<ResourceID, Long> getStartingContainerWithTimestamp();
 
 	int getStartingContainerNum(WorkerResourceSpec workerResourceSpec);
 }

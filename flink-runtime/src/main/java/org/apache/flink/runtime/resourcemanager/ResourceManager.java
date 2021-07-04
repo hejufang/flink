@@ -489,7 +489,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public void disconnectTaskManager(final ResourceID resourceId, final Exception cause) {
-		closeTaskManagerConnection(resourceId, cause);
+		closeTaskManagerConnection(resourceId, cause, WorkerExitCode.EXIT_BY_TASK_MANAGER);
 	}
 
 	@Override
@@ -1070,13 +1070,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 * @param resourceID Id of the TaskManager that has failed.
 	 * @param cause The exception which cause the TaskManager failed.
 	 */
-	protected void closeTaskManagerConnection(final ResourceID resourceID, final Exception cause) {
+	protected void closeTaskManagerConnection(final ResourceID resourceID, final Exception cause, final int exitCode) {
 		taskManagerHeartbeatManager.unmonitorTarget(resourceID);
 
 		WorkerRegistration<WorkerType> workerRegistration = taskExecutors.remove(resourceID);
 
 		if (workerRegistration != null) {
-			log.info("Closing TaskExecutor connection {} because: {}", resourceID, cause.getMessage());
+			log.info("Closing TaskExecutor connection {} with exit code {} because: {}", resourceID, exitCode, cause.getMessage());
 
 			// TODO :: suggest failed task executor to stop itself
 			slotManager.unregisterTaskManager(workerRegistration.getInstanceID(), cause);
@@ -1085,8 +1085,9 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			workerRegistration.getTaskExecutorGateway().disconnectResourceManager(cause);
 		} else {
 			log.debug(
-				"No open TaskExecutor connection {}. Ignoring close TaskExecutor connection. Closing reason was: {}",
+				"No open TaskExecutor connection {}. Ignoring close TaskExecutor connection. Closing exit code was: {} reason was: {}",
 				resourceID,
+				exitCode,
 				cause.getMessage());
 		}
 	}
@@ -1117,7 +1118,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 	}
 
-	protected void releaseResource(InstanceID instanceId, Exception cause) {
+	protected void releaseResource(InstanceID instanceId, Exception cause, int exitCode) {
 		WorkerType worker = null;
 
 		// TODO: Improve performance by having an index on the instanceId
@@ -1129,8 +1130,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 		}
 
 		if (worker != null) {
-			if (stopWorker(worker)) {
-				closeTaskManagerConnection(worker.getResourceID(), cause);
+			if (stopWorker(worker, exitCode)) {
+				closeTaskManagerConnection(worker.getResourceID(), cause, exitCode);
 			} else {
 				log.debug("Worker {} could not be stopped.", worker.getResourceID());
 			}
@@ -1349,8 +1350,13 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 * Stops the given worker.
 	 *
 	 * @param worker The worker.
+	 * @param exitCode The Container exitCode.
 	 * @return True if the worker was stopped, otherwise false
 	 */
+	public boolean stopWorker(WorkerType worker, int exitCode) {
+		return stopWorker(worker);
+	}
+
 	public abstract boolean stopWorker(WorkerType worker);
 
 	/**
@@ -1372,10 +1378,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private class ResourceActionsImpl implements ResourceActions {
 
 		@Override
-		public void releaseResource(InstanceID instanceId, Exception cause) {
+		public void releaseResource(InstanceID instanceId, Exception cause, int exitCode) {
 			validateRunsInMainThread();
 
-			ResourceManager.this.releaseResource(instanceId, cause);
+			ResourceManager.this.releaseResource(instanceId, cause, exitCode);
 		}
 
 		@Override
@@ -1448,7 +1454,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			closeTaskManagerConnection(
 				resourceID,
-				new TimeoutException("The heartbeat of TaskManager with id " + resourceID + "  timed out."));
+				new TimeoutException("The heartbeat of TaskManager with id " + resourceID + "  timed out."),
+				WorkerExitCode.HEARTBEAT_TIMEOUT);
 		}
 
 		@Override

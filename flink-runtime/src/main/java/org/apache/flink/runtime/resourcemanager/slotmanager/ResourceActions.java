@@ -34,7 +34,7 @@ public interface ResourceActions {
 	 * @param instanceId identifying which resource to release
 	 * @param cause why the resource is released
 	 */
-	void releaseResource(InstanceID instanceId, Exception cause);
+	void releaseResource(InstanceID instanceId, Exception cause, int exitCode);
 
 	/**
 	 * Requests to allocate a resource with the given {@link WorkerResourceSpec}.

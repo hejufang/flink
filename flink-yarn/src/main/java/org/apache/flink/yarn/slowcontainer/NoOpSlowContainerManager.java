@@ -118,6 +118,11 @@ public class NoOpSlowContainerManager implements SlowContainerManager {
 	}
 
 	@Override
+	public Map<ResourceID, Long> getStartingContainerWithTimestamp() {
+		return startingContainers;
+	}
+
+	@Override
 	public int getSlowContainerNum(WorkerResourceSpec workerResourceSpec) {
 		return 0;
 	}

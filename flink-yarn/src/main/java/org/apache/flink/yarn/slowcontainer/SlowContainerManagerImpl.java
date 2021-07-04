@@ -19,6 +19,7 @@
 package org.apache.flink.yarn.slowcontainer;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpecCounter;
 
@@ -269,6 +270,13 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	}
 
 	@Override
+	public Map<ResourceID, Long> getStartingContainerWithTimestamp() {
+		return containers.values().stream()
+				.filter(startingResource -> !startingResource.isRegistered())
+				.collect(Collectors.toMap(StartingResource::getResourceID, StartingResource::getStartTimestamp));
+	}
+
+	@Override
 	public int getStartingContainerNum(WorkerResourceSpec workerResourceSpec) {
 		return (int) containers.values().stream()
 				.filter(startingResource -> !startingResource.isRegistered() && startingResource.getWorkerResourceSpec().equals(workerResourceSpec))
@@ -288,7 +296,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private void releaseContainer(ResourceID resourceID) {
 		if (slowContainerActions != null) {
 			log.info("try to release container {} because of slow container.", resourceID);
-			slowContainerActions.stopWorker(resourceID);
+			slowContainerActions.stopWorker(resourceID, WorkerExitCode.SLOW_CONTAINER);
 		}
 	}
 

@@ -356,8 +356,34 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"downsampleInterval\": \"\",\n" +
+			"							\"metric\": \"flink.jobmanager.numPendingSlotRequests\",\n" +
+			"							\"refId\": \"C\",\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"currentTagKey\": \"\",\n" +
+			"							\"currentTagValue\": \"\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"downsampleInterval\": \"\",\n" +
+			"							\"metric\": \"flink.jobmanager.numPendingTaskManagerSlots\",\n" +
+			"							\"refId\": \"D\",\n" +
+			"							\"tags\": {\n" +
+			"								\"jobname\": \"${jobname}\"\n" +
+			"							}\n" +
+			"						},\n" +
+			"						{\n" +
+			"							\"aggregator\": \"sum\",\n" +
+			"							\"currentTagKey\": \"\",\n" +
+			"							\"currentTagValue\": \"\",\n" +
+			"							\"downsampleAggregator\": \"avg\",\n" +
+			"							\"downsampleFillPolicy\": \"none\",\n" +
+			"							\"downsampleInterval\": \"\",\n" +
 			"							\"metric\": \"flink.jobmanager.taskSlotsTotal\",\n" +
-			"							\"refId\": \"B\",\n" +
+			"							\"refId\": \"E\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							}\n" +
@@ -369,7 +395,7 @@ public class Template {
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
 			"							\"metric\": \"flink.jobmanager.taskSlotsAvailable\",\n" +
-			"							\"refId\": \"C\",\n" +
+			"							\"refId\": \"F\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
 			"							}\n" +
@@ -2170,7 +2196,7 @@ public class Template {
 			"							\"alias\": \"startingContainerTime\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.startingContainerNum\",\n" +
+			"							\"metric\": \"flink.jobmanager.startingContainers\",\n" +
 			"							\"refId\": \"A\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2206,7 +2232,7 @@ public class Template {
 			"							\"alias\": \"startingContainerNum\",\n" +
 			"							\"downsampleAggregator\": \"avg\",\n" +
 			"							\"downsampleFillPolicy\": \"none\",\n" +
-			"							\"metric\": \"flink.jobmanager.startingContainerNum\",\n" +
+			"							\"metric\": \"flink.jobmanager.startingContainers\",\n" +
 			"							\"refId\": \"D\",\n" +
 			"							\"tags\": {\n" +
 			"								\"jobname\": \"${jobname}\"\n" +
@@ -2288,8 +2314,6 @@ public class Template {
 			"			\"title\": \"Yarn Containers\",\n" +
 			"			\"titleSize\": \"h6\"\n" +
 			"		}";
-
-
 
 	public static final String SLOW_CONTAINER = "{\n" +
 			"			\"collapse\": false,\n" +

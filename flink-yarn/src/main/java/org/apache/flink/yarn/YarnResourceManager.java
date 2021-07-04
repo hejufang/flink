@@ -28,6 +28,7 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.metrics.TagGauge;
+import org.apache.flink.metrics.TagGaugeStore;
 import org.apache.flink.metrics.TagGaugeStoreImpl;
 import org.apache.flink.runtime.blacklist.BlacklistUtil;
 import org.apache.flink.runtime.blacklist.HostFailure;
@@ -48,6 +49,7 @@ import org.apache.flink.runtime.messages.webmonitor.SmartResourcesStats;
 import org.apache.flink.runtime.metrics.groups.ResourceManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.ActiveResourceManager;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
@@ -182,7 +184,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private WorkerSpecContainerResourceAdapter.MatchingStrategy matchingStrategy;
 
 	private final SlowContainerManager slowContainerManager;
-	private long containerStartDurationMaxMs;
 	/** Interval in milliseconds of check if the container is slow. */
 	private final long slowContainerCheckIntervalMs;
 
@@ -197,7 +198,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	/** The conf that yarn container bind cpu core. */
 	private final RuntimeConfiguration yarnRuntimeConf;
 
-	private SmartResourceManager smartResourceManager;
+	private final SmartResourceManager smartResourceManager;
 	private Thread containerResourcesUpdater;
 
 	private final Set<String> yarnBlackedHosts;
@@ -213,8 +214,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 	private boolean fatalOnGangFailed;
 	private final int gangMaxRetryTimes;
 	private int gangCurrentRetryTimes;
-	private final Counter gangFailedCounter;
-	private final Counter gangDowngradeCounter;
+	private final Counter gangFailedCounter = new SimpleCounter();
+	private final Counter gangDowngradeCounter = new SimpleCounter();
 	private long gangLastDowngradeTimestamp;
 	private final int gangDowngradeTimeoutMilli;
 	private final boolean gangDowngradeOnFailed;
@@ -293,8 +294,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		this.gangDowngradeTimeoutMilli = flinkConfig.getInteger(YarnConfigOptions.GANG_DOWNGRADE_TIMEOUT_MS);
 		this.gangDowngradeOnFailed = flinkConfig.getBoolean(YarnConfigOptions.GANG_DOWNGRADE_ON_FAILED);
 		this.nodeAttributesExpression = flinkConfig.getString(YarnConfigOptions.NODE_SATISFY_ATTRIBUTES_EXPRESSION);
-		this.gangFailedCounter = new SimpleCounter();
-		this.gangDowngradeCounter = new SimpleCounter();
 		this.fatalOnGangFailed = true;
 
 		this.yarnRuntimeConf = createRuntimeConfigurationWithQosLevel(
@@ -308,8 +307,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 			this.containerResourcesUpdater.start();
 			log.info("SmartResource started.");
 		}
-
-		containerStartDurationMaxMs = -1;
 
 		if (flinkConfig.getBoolean(YarnConfigOptions.SLOW_CONTAINER_ENABLED)) {
 			long slowContainerTimeoutMs = flinkConfig.getLong(YarnConfigOptions.SLOW_CONTAINER_TIMEOUT_MS);
@@ -566,19 +563,31 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	public boolean stopWorker(final YarnWorkerNode workerNode) {
+		return stopWorker(workerNode, WorkerExitCode.UNKNOWN);
+	}
+
+	@Override
+	public boolean stopWorker(final YarnWorkerNode workerNode, int exitCode) {
 		final Container container = workerNode.getContainer();
-		log.info("Stopping container {}.", container.getId());
-		nodeManagerClient.stopContainerAsync(container.getId(), container.getNodeId());
-		resourceManagerClient.releaseAssignedContainer(container.getId());
+		log.info("Stopping container {}, exitCode {}.", container.getId(), exitCode);
+		nodeManagerClient.stopContainerAsync(container.getId(), container.getNodeId(), exitCode);
+		resourceManagerClient.releaseAssignedContainer(container.getId(), exitCode);
 		workerNodeMap.remove(workerNode.getResourceID());
 		notifyAllocatedWorkerStopped(workerNode.getResourceID());
+		completedContainerGauge.addMetric(
+				1,
+				new TagGaugeStoreImpl.TagValuesBuilder()
+						.addTagValue("container_host", workerNode.getContainer().getNodeId().getHost())
+						.addTagValue("container_id", pruneContainerId(workerNode.getResourceID().getResourceIdString()))
+						.addTagValue("exit_code", String.valueOf(exitCode))
+						.build());
 		return true;
 	}
 
-	public boolean stopWorker(ResourceID resourceID) {
+	public boolean stopWorker(ResourceID resourceID, int exitCode) {
 		YarnWorkerNode yarnWorkerNode = workerNodeMap.get(resourceID);
 		if (yarnWorkerNode != null) {
-			return stopWorker(yarnWorkerNode);
+			return stopWorker(yarnWorkerNode, exitCode);
 		} else {
 			return true;
 		}
@@ -586,9 +595,6 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	@Override
 	protected YarnWorkerNode workerStarted(ResourceID resourceID) {
-		containerStartDurationMaxMs = Math.max(
-				containerStartDurationMaxMs,
-				slowContainerManager.getContainerStartDuration(resourceID));
 		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
 		if (workerNode != null) {
 			warehouseJobStartEventMessageRecorder.startContainerFinish(workerNode.getContainer().getId().toString());
@@ -621,7 +627,8 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					if (registration != null) {
 						releaseResource(
 								registration.getInstanceID(),
-								new Exception("worker " + resourceID + " in blacklist."));
+								new Exception("worker " + resourceID + " in blacklist."),
+								WorkerExitCode.IN_BLACKLIST);
 					}
 				}
 			});
@@ -643,6 +650,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		if (msg.getNotifyMsgType() == NotifyMsgType.MSG_TYPE_GANG_SCHEDULE_FAILED) {
 			log.info("Received MSG_TYPE_GANG_SCHEDULE_FAILED message, {}", msg);
 			GangSchedulerNotifyContent gangSchedulerNotifyContent = msg.getNotifyContent().getGangSchedulerNotifyContent();
+			gangFailedCounter.inc();
 			if (!fatalOnGangFailed) {
 				// todo gang does not support different resource Type.
 				if (getNumRequestedNotAllocatedWorkers() >= gangSchedulerNotifyContent.getRequestedContainerNum()) {
@@ -713,7 +721,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 										.build());
 					}
 					// Eagerly close the connection with task manager.
-					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
+					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()), containerStatus.getExitStatus());
 				}
 			}
 		);
@@ -826,6 +834,13 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		YarnWorkerNode yarnWorkerNode = workerNodeMap.remove(resourceId);
 		if (yarnWorkerNode != null) {
 			recordWorkerFailure(yarnWorkerNode.getContainer().getNodeId().getHost(), resourceId, throwable);
+			completedContainerGauge.addMetric(
+					1,
+					new TagGaugeStoreImpl.TagValuesBuilder()
+							.addTagValue("container_host", yarnWorkerNode.getContainer().getNodeId().getHost())
+							.addTagValue("container_id", pruneContainerId(resourceId.getResourceIdString()))
+							.addTagValue("exit_code", String.valueOf(WorkerExitCode.START_CONTAINER_ERROR))
+							.build());
 		}
 		resourceManagerClient.releaseAssignedContainer(containerId);
 		notifyAllocatedWorkerStopped(resourceId);
@@ -835,12 +850,12 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 
 	private void returnExcessContainer(Container excessContainer) {
 		log.info("Returning excess container {}.", excessContainer.getId());
-		resourceManagerClient.releaseAssignedContainer(excessContainer.getId());
+		resourceManagerClient.releaseAssignedContainer(excessContainer.getId(), WorkerExitCode.EXCESS_CONTAINER);
 	}
 
 	private void returnBlackedContainer(Container container) {
 		log.info("Returning blacked container {}.", container.getId());
-		resourceManagerClient.releaseAssignedContainer(container.getId());
+		resourceManagerClient.releaseAssignedContainer(container.getId(), WorkerExitCode.IN_BLACKLIST);
 		requestYarnContainerIfRequired();
 	}
 
@@ -1089,7 +1104,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 					if (yarnBlackedHosts.contains(container.getNodeId().getHost())){
 						workerNodeMap.remove(resourceID);
 						resourceIDIterator.remove();
-						resourceManagerClient.releaseAssignedContainer(container.getId());
+						resourceManagerClient.releaseAssignedContainer(container.getId(), WorkerExitCode.IN_BLACKLIST);
 						notifyAllocatedWorkerStopped(resourceID);
 						continue;
 					}
@@ -1266,16 +1281,32 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 	}
 
+	@Override
+	protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause, int exitCode) {
+		YarnWorkerNode workerNode = workerNodeMap.get(resourceID);
+		if (workerNode != null) {
+			stopWorker(workerNode, exitCode);
+		}
+		super.closeTaskManagerConnection(resourceID, cause, exitCode);
+	}
+
 	private void registerMetrics() {
 		resourceManagerMetricGroup.gauge("allocatedContainerNum", workerNodeMap::size);
 		resourceManagerMetricGroup.gauge("pendingRequestedContainerNum", this::getNumRequestedNotAllocatedWorkers);
-		resourceManagerMetricGroup.gauge("startingContainerNum", slowContainerManager::getStartingContainerTotalNum);
+		resourceManagerMetricGroup.gauge("startingContainers", () -> (TagGaugeStore) () -> {
+			long ts = System.currentTimeMillis();
+			return getSlowContainerManager().getStartingContainerWithTimestamp().entrySet().stream()
+					.map(resourceIDLongEntry -> new TagGaugeStore.TagGaugeMetric(
+							ts - resourceIDLongEntry.getValue(),
+							new TagGaugeStore.TagValuesBuilder()
+									.addTagValue("container_id", pruneContainerId(resourceIDLongEntry.getKey().getResourceIdString()))
+									.build()))
+					.collect(Collectors.toList()); });
 		resourceManagerMetricGroup.gauge("slowContainerNum", slowContainerManager::getSlowContainerTotalNum);
 		resourceManagerMetricGroup.gauge("totalRedundantContainerNum", slowContainerManager::getRedundantContainerTotalNum);
 		resourceManagerMetricGroup.gauge("pendingRedundantContainerNum", slowContainerManager::getPendingRedundantContainersTotalNum);
 		resourceManagerMetricGroup.gauge("startingRedundantContainerNum", slowContainerManager::getStartingRedundantContainerTotalNum);
 		resourceManagerMetricGroup.gauge("speculativeSlowContainerTimeoutMs", slowContainerManager::getSpeculativeSlowContainerTimeoutMs);
-		resourceManagerMetricGroup.gauge("containerStartDurationMaxMs", () -> containerStartDurationMaxMs);
 		resourceManagerMetricGroup.counter("gangFailedNum", gangFailedCounter);
 		resourceManagerMetricGroup.counter("gangDowngradeNum", gangDowngradeCounter);
 		resourceManagerMetricGroup.gauge(EVENT_METRIC_NAME, warehouseJobStartEventMessageRecorder.getJobStartEventMessageSet());
@@ -1443,9 +1474,9 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		}
 
 		@Override
-		public boolean stopWorker(ResourceID resourceID) {
+		public boolean stopWorker(ResourceID resourceID, int exitCode) {
 			validateRunsInMainThread();
-			return YarnResourceManager.this.stopWorker(resourceID);
+			return YarnResourceManager.this.stopWorker(resourceID, exitCode);
 		}
 
 		@Override

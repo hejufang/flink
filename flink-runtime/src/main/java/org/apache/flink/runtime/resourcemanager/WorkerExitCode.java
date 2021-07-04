@@ -16,21 +16,20 @@
  * limitations under the License.
  */
 
-package org.apache.flink.yarn.slowcontainer;
-
-import org.apache.flink.runtime.clusterframework.types.ResourceID;
-import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
+package org.apache.flink.runtime.resourcemanager;
 
 /**
- *
+ * Exit code of worker.
  */
-public interface SlowContainerActions {
-
-	boolean startNewWorker(WorkerResourceSpec workerResourceSpec);
-
-	boolean stopWorker(ResourceID resourceID, int exitCode);
-
-	void releasePendingRequests(WorkerResourceSpec workerResourceSpec, int num);
-
-	int getNumRequestedNotAllocatedWorkersFor(WorkerResourceSpec workerResourceSpec);
+public class WorkerExitCode {
+	// Flink on YARN exit code should like -8xxxx
+	public static final int UNKNOWN = -80000;
+	public static final int SLOW_CONTAINER = -80001;
+	public static final int START_CONTAINER_ERROR = -80002;
+	public static final int HEARTBEAT_TIMEOUT = -80003;
+	public static final int IN_BLACKLIST = -80004;
+	public static final int IDLE_TIMEOUT = -80005;
+	public static final int EXIT_BY_TASK_MANAGER = -80006;
+	public static final int MAX_SLOT_EXCEED = -80007;
+	public static final int EXCESS_CONTAINER = -80008;
 }
