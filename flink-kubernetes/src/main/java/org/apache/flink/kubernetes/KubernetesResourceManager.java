@@ -28,6 +28,7 @@ import org.apache.flink.kubernetes.kubeclient.FlinkKubeClient;
 import org.apache.flink.kubernetes.kubeclient.factory.KubernetesTaskManagerFactory;
 import org.apache.flink.kubernetes.kubeclient.parameters.KubernetesTaskManagerParameters;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.flink.kubernetes.kubeclient.resources.KubernetesTooOldResourceVersionException;
 import org.apache.flink.kubernetes.kubeclient.resources.KubernetesWatch;
 import org.apache.flink.kubernetes.utils.KubernetesUtils;
 import org.apache.flink.runtime.clusterframework.ApplicationStatus;
@@ -36,6 +37,7 @@ import org.apache.flink.runtime.clusterframework.ContaineredTaskManagerParameter
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessSpec;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.entrypoint.ClusterInformation;
 import org.apache.flink.runtime.externalresource.ExternalResourceUtils;
 import org.apache.flink.runtime.failurerate.FailureRater;
@@ -62,6 +64,7 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -99,7 +102,9 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 
 	private final int minimalNodesNum;
 
-	private KubernetesWatch podsWatch;
+	private Optional<KubernetesWatch> podsWatchOpt;
+
+	private volatile boolean running;
 
 	public KubernetesResourceManager(
 			RpcService rpcService,
@@ -135,6 +140,7 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 		this.kubeClient = kubeClient;
 		this.configuration = configuration;
 		this.podWorkerResources = new HashMap<>();
+		this.running = false;
 	}
 
 	@Override
@@ -146,18 +152,22 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	protected void initialize() throws ResourceManagerException {
 		recoverWorkerNodesFromPreviousAttempts();
 
-		podsWatch = kubeClient.watchPodsAndDoCallback(
-			KubernetesUtils.getTaskManagerLabels(clusterId),
-			this);
+		podsWatchOpt = watchTaskManagerPods();
+		this.running = true;
 	}
 
 	@Override
 	public CompletableFuture<Void> onStop() {
+		if (!running) {
+			return FutureUtils.completedVoidFuture();
+		}
+		running = false;
+
 		// shut down all components
 		Throwable throwable = null;
 
 		try {
-			podsWatch.close();
+			podsWatchOpt.ifPresent(KubernetesWatch::close);
 		} catch (Throwable t) {
 			throwable = t;
 		}
@@ -259,8 +269,20 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 	}
 
 	@Override
-	public void handleFatalError(Throwable throwable) {
-		onFatalError(throwable);
+	public void handleError(Throwable throwable) {
+		if (throwable instanceof KubernetesTooOldResourceVersionException) {
+			getMainThreadExecutor()
+				.execute(
+					() -> {
+						if (running) {
+							podsWatchOpt.ifPresent(KubernetesWatch::close);
+							log.info("Creating a new watch on TaskManager pods.");
+							podsWatchOpt = watchTaskManagerPods();
+						}
+					});
+		} else {
+			onFatalError(throwable);
+		}
 	}
 
 	@VisibleForTesting
@@ -342,6 +364,13 @@ public class KubernetesResourceManager extends ActiveResourceManager<KubernetesW
 			dynamicProperties,
 			taskManagerParameters,
 			ExternalResourceUtils.getExternalResources(flinkConfig, KubernetesConfigOptions.EXTERNAL_RESOURCE_KUBERNETES_CONFIG_KEY_SUFFIX));
+	}
+
+	private Optional<KubernetesWatch> watchTaskManagerPods() {
+		return Optional.of(
+			kubeClient.watchPodsAndDoCallback(
+				KubernetesUtils.getTaskManagerLabels(clusterId),
+				this));
 	}
 
 	/**

@@ -115,7 +115,7 @@ public interface FlinkKubeClient extends AutoCloseable {
 
 		void onError(List<KubernetesPod> pods);
 
-		void handleFatalError(Throwable throwable);
+		void handleError(Throwable throwable);
 	}
 
 }

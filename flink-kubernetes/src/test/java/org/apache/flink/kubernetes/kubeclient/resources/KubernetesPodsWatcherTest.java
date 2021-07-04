@@ -105,7 +105,7 @@ public class KubernetesPodsWatcherTest extends TestLogger {
 		}
 
 		@Override
-		public void handleFatalError(Throwable throwable) {
+		public void handleError(Throwable throwable) {
 			consumer.accept(throwable);
 		}
 	}
