@@ -41,9 +41,10 @@ public class YarnConfigOptions {
 	/**
 	 * The vcores used by YARN application master.
 	 */
-	public static final ConfigOption<Integer> APP_MASTER_VCORES =
+	public static final ConfigOption<Double> APP_MASTER_VCORES =
 		key("yarn.appmaster.vcores")
-		.defaultValue(1)
+		.doubleType()
+		.defaultValue(1.0)
 		.withDescription("The number of virtual cores (vcores) used by YARN application master.");
 
 	/**
@@ -62,9 +63,10 @@ public class YarnConfigOptions {
 	/**
 	 * The vcores exposed by YARN.
 	 */
-	public static final ConfigOption<Integer> VCORES =
+	public static final ConfigOption<Double> VCORES =
 		key("yarn.containers.vcores")
-			.defaultValue(-1)
+			.doubleType()
+			.defaultValue(-1.0)
 			.withDescription(Description.builder().text(
 					"The number of virtual cores (vcores) per YARN container. By default, the number of vcores" +
 					" is set to the number of slots per TaskManager, if set, or to 1, otherwise. In order for this" +

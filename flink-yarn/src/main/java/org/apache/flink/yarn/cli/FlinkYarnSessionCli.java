@@ -401,7 +401,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine {
 				&& effectiveConfiguration.getOptional(YarnConfigOptions.APP_MASTER_VCORES).isPresent()) {
 			effectiveConfiguration.setInteger(
 					JobManagerOptions.JOB_MANAGER_FUTURE_EXECUTOR_THREADS_NUM,
-					effectiveConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+					(int) Math.ceil(effectiveConfiguration.getDouble(YarnConfigOptions.APP_MASTER_VCORES)));
 		}
 
 		if (isYarnPropertiesFileMode(commandLine)) {

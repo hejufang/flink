@@ -93,7 +93,7 @@ public class WorkerSpecContainerResourceAdapterTest extends TestLogger {
 
 		final Resource containerResource1 = Resource.newInstance(100, 10);
 		final Resource containerResource2 = Resource.newInstance(200, 10);
-		final Resource containerResource3 = Resource.newInstance(100, 20);
+		final Resource containerResource3 = Resource.newInstance(100, 15);
 
 		assertThat(adapter.getWorkerSpecs(containerResource1, strategy), empty());
 		assertThat(adapter.getWorkerSpecs(containerResource2, strategy), empty());
@@ -252,9 +252,9 @@ public class WorkerSpecContainerResourceAdapterTest extends TestLogger {
 		externalResources2.put("bar", 1L);
 
 		final WorkerSpecContainerResourceAdapter.InternalContainerResource internalContainerResource1 =
-			new WorkerSpecContainerResourceAdapter.InternalContainerResource(1024, 1, externalResources1);
+			new WorkerSpecContainerResourceAdapter.InternalContainerResource(1024, 1, 1000, externalResources1);
 		final WorkerSpecContainerResourceAdapter.InternalContainerResource internalContainerResource2 =
-			new WorkerSpecContainerResourceAdapter.InternalContainerResource(1024, 1, externalResources2);
+			new WorkerSpecContainerResourceAdapter.InternalContainerResource(1024, 1, 1000, externalResources2);
 
 		assertEquals(internalContainerResource1, internalContainerResource2);
 	}

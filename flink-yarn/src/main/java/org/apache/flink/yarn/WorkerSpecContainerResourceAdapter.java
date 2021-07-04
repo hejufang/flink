@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -121,9 +122,23 @@ class WorkerSpecContainerResourceAdapter {
 	private InternalContainerResource createAndMapContainerResource(final WorkerResourceSpec workerResourceSpec) {
 		final TaskExecutorProcessSpec taskExecutorProcessSpec =
 			TaskExecutorProcessUtils.processSpecFromWorkerResourceSpec(flinkConfig, workerResourceSpec);
+
+		BigDecimal vcores = taskExecutorProcessSpec.getCpuCores().getValue();
+		int vcoresInt;
+		long vcoresMilli;
+		if (vcores.intValue() >= minVcore) {
+			vcoresInt = vcores.intValue();
+			vcoresMilli = Utils.vCoresToMilliVcores(vcores.doubleValue());
+		} else {
+			LOG.warn("Vcores of WorkerResourceSpec {} is less than minVcores {}, transfrom to min Vcores.", vcores, minVcore);
+			vcoresInt = minVcore;
+			vcoresMilli = Utils.vCoresToMilliVcores(vcoresInt);
+		}
+
 		final InternalContainerResource internalContainerResource = new InternalContainerResource(
 			normalize(taskExecutorProcessSpec.getTotalProcessMemorySize().getMebiBytes(), minMemMB),
-			normalize(taskExecutorProcessSpec.getCpuCores().getValue().intValue(), minVcore),
+			vcoresInt,
+			vcoresMilli,
 			externalResourceConfigs);
 
 		if (resourceWithinMaxAllocation(internalContainerResource)) {
@@ -135,7 +150,7 @@ class WorkerSpecContainerResourceAdapter {
 		} else {
 			LOG.warn("Requested container resource {} exceeds yarn max allocation {}. Will not allocate resource.",
 				internalContainerResource,
-				new InternalContainerResource(maxMemMB, maxVcore, Collections.emptyMap()));
+				new InternalContainerResource(maxMemMB, maxVcore, Utils.vCoresToMilliVcores(maxVcore), Collections.emptyMap()));
 			return null;
 		}
 	}
@@ -174,12 +189,14 @@ class WorkerSpecContainerResourceAdapter {
 	static final class InternalContainerResource {
 		private final int memory;
 		private final int vcores;
+		private final long vcoresMilli;
 		private final Map<String, Long> externalResources;
 
 		@VisibleForTesting
-		InternalContainerResource(final int memory, final int vcores, final Map<String, Long> externalResources) {
+		InternalContainerResource(final int memory, final int vcores, final long vcoresMilli, final Map<String, Long> externalResources) {
 			this.memory = memory;
 			this.vcores = vcores;
+			this.vcoresMilli = vcoresMilli;
 			this.externalResources = externalResources.entrySet()
 						.stream()
 						.filter(entry -> !entry.getValue().equals(0L))
@@ -190,11 +207,12 @@ class WorkerSpecContainerResourceAdapter {
 			this(
 				Preconditions.checkNotNull(resource).getMemory(),
 				Preconditions.checkNotNull(resource).getVirtualCores(),
+				Preconditions.checkNotNull(resource).getVirtualCoresMilli(),
 				ResourceInformationReflector.INSTANCE.getExternalResources(resource));
 		}
 
 		private Resource toResource() {
-			final Resource resource = Resource.newInstance(memory, vcores);
+			final Resource resource = Resource.newInstance(memory, vcores, vcoresMilli);
 			trySetExternalResources(externalResources, resource);
 			return resource;
 		}
@@ -207,7 +225,7 @@ class WorkerSpecContainerResourceAdapter {
 				final InternalContainerResource other = (InternalContainerResource) obj;
 				// remove this before supporting vcore-millis
 //				return this.memory == other.memory && this.vcores == other.vcores && this.externalResources.equals(other.externalResources);
-				return this.memory == other.memory && this.vcores == other.vcores;
+				return this.memory == other.memory && this.vcores == other.vcores && this.vcoresMilli == other.vcoresMilli;
 			}
 			return false;
 		}
@@ -217,6 +235,7 @@ class WorkerSpecContainerResourceAdapter {
 			final int prime = 31;
 			int result = Integer.hashCode(memory);
 			result = prime * result + Integer.hashCode(vcores);
+			result = prime * result + Long.hashCode(vcoresMilli);
 //			result = prime * result + externalResources.hashCode();
 			return result;
 		}
@@ -228,6 +247,8 @@ class WorkerSpecContainerResourceAdapter {
 			sb.append("<memory:")
 				.append(memory)
 				.append(", vCores:")
+				.append(vcores)
+				.append(", vCoresMilli:")
 				.append(vcores);
 
 			final Set<String> externalResourceNames = new TreeSet<>(externalResources.keySet());

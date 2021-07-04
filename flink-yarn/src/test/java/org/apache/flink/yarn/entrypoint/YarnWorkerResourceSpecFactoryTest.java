@@ -20,7 +20,6 @@ package org.apache.flink.yarn.entrypoint;
 
 import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.util.TestLogger;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
@@ -39,7 +38,7 @@ public class YarnWorkerResourceSpecFactoryTest extends TestLogger {
 	public void testGetCpuCoresCommonOption() {
 		final Configuration configuration = new Configuration();
 		configuration.setDouble(TaskManagerOptions.CPU_CORES, 1.0);
-		configuration.setInteger(YarnConfigOptions.VCORES, 2);
+		configuration.setDouble(YarnConfigOptions.VCORES, 2.0);
 		configuration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, 3);
 
 		assertThat(YarnWorkerResourceSpecFactory.getDefaultCpus(configuration), is(new CPUResource(1.0)));
@@ -48,7 +47,7 @@ public class YarnWorkerResourceSpecFactoryTest extends TestLogger {
 	@Test
 	public void testGetCpuCoresYarnOption() {
 		final Configuration configuration = new Configuration();
-		configuration.setInteger(YarnConfigOptions.VCORES, 2);
+		configuration.setDouble(YarnConfigOptions.VCORES, 2.0);
 		configuration.setInteger(TaskManagerOptions.NUM_TASK_SLOTS, 3);
 
 		assertThat(YarnWorkerResourceSpecFactory.getDefaultCpus(configuration), is(new CPUResource(2.0)));
@@ -63,18 +62,10 @@ public class YarnWorkerResourceSpecFactoryTest extends TestLogger {
 	}
 
 	@Test
-	public void testGetCpuRoundUp() {
+	public void testGetCpuDouble() {
 		final Configuration configuration = new Configuration();
 		configuration.setDouble(TaskManagerOptions.CPU_CORES, 0.5);
 
-		assertThat(YarnWorkerResourceSpecFactory.getDefaultCpus(configuration), is(new CPUResource(1.0)));
-	}
-
-	@Test(expected = IllegalConfigurationException.class)
-	public void testGetCpuExceedMaxInt() {
-		final Configuration configuration = new Configuration();
-		configuration.setDouble(TaskManagerOptions.CPU_CORES, Double.MAX_VALUE);
-
-		YarnWorkerResourceSpecFactory.getDefaultCpus(configuration);
+		assertThat(YarnWorkerResourceSpecFactory.getDefaultCpus(configuration), is(new CPUResource(0.5)));
 	}
 }

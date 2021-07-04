@@ -141,7 +141,7 @@ public class YarnClusterDescriptorTest extends TestLogger {
 	public void testConfigOverwrite() throws ClusterDeploymentException {
 		Configuration configuration = new Configuration();
 		// overwrite vcores in config
-		configuration.setInteger(YarnConfigOptions.VCORES, Integer.MAX_VALUE);
+		configuration.setDouble(YarnConfigOptions.VCORES, Double.MAX_VALUE);
 
 		YarnClusterDescriptor clusterDescriptor = createYarnClusterDescriptor(configuration);
 

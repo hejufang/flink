@@ -766,7 +766,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// after turning on the CPU to bind the core
 		YarnConfigOptions.RtQoSLevelEnum qosLevelEnum = configuration.getOptional(YarnConfigOptions.YARN_RUNTIME_CONF_QOS_LEVEL).orElse(YarnConfigOptions.RtQoSLevelEnum.SHARE);
 		if (YarnConfigOptions.RtQoSLevelEnum.SHARE != qosLevelEnum){
-			double vCores = flinkConfiguration.getInteger(YarnConfigOptions.VCORES);
+			double vCores = flinkConfiguration.getDouble(YarnConfigOptions.VCORES);
 			if ((int) vCores != vCores) {
 				throw new IllegalArgumentException(String.format("%s must be Integer when set cpu binding the core level is not share",
 					YarnConfigOptions.VCORES.key()));
@@ -1103,7 +1103,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// Set up resource type requirements for ApplicationMaster
 		Resource capability = Records.newRecord(Resource.class);
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
-		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+		capability.setVirtualCoresMilli(Utils.vCoresToMilliVcores(flinkConfiguration.getDouble(YarnConfigOptions.APP_MASTER_VCORES)));
 
 		appContext.setApplicationName(customApplicationName);
 		appContext.setApplicationType(applicationType != null ? applicationType : ConfigConstants.YARN_STREAMING_APPLICATION_TYPE_DEFAULT);
@@ -1641,7 +1641,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 		// use cores as gc.thread.num
 		if (flinkConfiguration.getBoolean(CoreOptions.FLINK_GC_THREAD_NUM_USE_CORES)) {
 			if (!javaOpts.contains("-XX:ParallelGCThreads=")) {
-				javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+				javaOpts += " -XX:ParallelGCThreads=" + (int) Math.ceil(flinkConfiguration.getDouble(YarnConfigOptions.APP_MASTER_VCORES));
 			}
 		}
 

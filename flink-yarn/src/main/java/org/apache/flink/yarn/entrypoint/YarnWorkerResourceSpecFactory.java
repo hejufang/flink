@@ -21,7 +21,6 @@ package org.apache.flink.yarn.entrypoint;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.resources.CPUResource;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.runtime.clusterframework.TaskExecutorProcessUtils;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpec;
 import org.apache.flink.runtime.resourcemanager.WorkerResourceSpecFactory;
@@ -49,24 +48,7 @@ public class YarnWorkerResourceSpecFactory extends WorkerResourceSpecFactory {
 
 	@VisibleForTesting
 	static CPUResource getDefaultCpus(final Configuration configuration) {
-		int fallback = configuration.getInteger(YarnConfigOptions.VCORES);
-		double cpuCoresDouble = TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback).getValue().doubleValue();
-		@SuppressWarnings("NumericCastThatLosesPrecision")
-		long cpuCoresLong = Math.max((long) Math.ceil(cpuCoresDouble), 1L);
-		//noinspection FloatingPointEquality
-		if (cpuCoresLong != cpuCoresDouble) {
-			LOG.info(
-				"The amount of cpu cores must be a positive integer on Yarn. Rounding {} up to the closest positive integer {}.",
-				cpuCoresDouble,
-				cpuCoresLong);
-		}
-		if (cpuCoresLong > Integer.MAX_VALUE) {
-			throw new IllegalConfigurationException(String.format(
-				"The amount of cpu cores %d cannot exceed Integer.MAX_VALUE: %d",
-				cpuCoresLong,
-				Integer.MAX_VALUE));
-		}
-		//noinspection NumericCastThatLosesPrecision
-		return new CPUResource(cpuCoresLong);
+		double fallback = configuration.getDouble(YarnConfigOptions.VCORES);
+		return TaskExecutorProcessUtils.getCpuCoresWithFallback(configuration, fallback);
 	}
 }

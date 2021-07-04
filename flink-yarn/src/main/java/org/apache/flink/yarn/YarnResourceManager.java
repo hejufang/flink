@@ -283,7 +283,7 @@ public class YarnResourceManager extends ActiveResourceManager<YarnWorkerNode>
 		containerRequestHeartbeatIntervalMillis = flinkConfig.getInteger(YarnConfigOptions.CONTAINER_REQUEST_HEARTBEAT_INTERVAL_MILLISECONDS);
 
 		this.defaultTaskManagerMemoryMB = TaskExecutorProcessUtils.processSpecFromConfig(flinkConfig).getFlinkMemory().getTotalFlinkMemorySize().getMebiBytes();
-		this.defaultCpus = flinkConfig.getInteger(YarnConfigOptions.VCORES, flinkConfig.getInteger(
+		this.defaultCpus = flinkConfig.getDouble(YarnConfigOptions.VCORES, flinkConfig.getInteger(
 			TaskManagerOptions.NUM_TASK_SLOTS));
 
 		this.gangSchedulerEnabled = flinkConfig.getBoolean(YarnConfigOptions.GANG_SCHEDULER);
