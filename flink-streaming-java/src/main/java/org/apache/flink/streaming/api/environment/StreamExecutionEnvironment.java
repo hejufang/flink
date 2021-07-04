@@ -1743,11 +1743,6 @@ public class StreamExecutionEnvironment {
 
 			if (configuration.getBoolean(DeploymentOptions.ATTACHED)) {
 				jobExecutionResult = jobClient.getJobExecutionResult(userClassloader).get();
-			} else if (configuration.getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
-				recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughStart);
-				jobClient.waitAllTaskRunningOrClusterFailed().get();
-				jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
-				recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughFinish);
 			} else {
 				jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
 			}
@@ -1847,6 +1842,15 @@ public class StreamExecutionEnvironment {
 		try {
 			JobClient jobClient = jobClientFuture.get();
 			jobListeners.forEach(jobListener -> jobListener.onJobSubmitted(jobClient, null));
+
+			if (!configuration.getBoolean(DeploymentOptions.ATTACHED)
+					&& configuration.getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
+
+				recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughStart);
+				jobClient.waitAllTaskRunningOrClusterFailed().get();
+				recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughFinish);
+			}
+
 			return jobClient;
 		} catch (ExecutionException executionException) {
 			final Throwable strippedException = ExceptionUtils.stripExecutionException(executionException);

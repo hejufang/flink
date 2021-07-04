@@ -45,7 +45,6 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.monitor.utils.Utils.registerDashboard;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.warehouseevent.WarehouseJobStartEventMessageRecorder.recordWarehouseEvent;
 
 /**
  * Special {@link StreamExecutionEnvironment} that will be used in cases where the CLI client or
@@ -127,11 +126,6 @@ public class StreamContextEnvironment extends StreamExecutionEnvironment {
 
 			jobExecutionResult = jobExecutionResultFuture.get();
 			System.out.println(jobExecutionResult);
-		} else if (getConfiguration().getBoolean(DeploymentOptions.WAIT_RUNNING_IF_DETACHED)) {
-			recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughStart);
-			jobClient.waitAllTaskRunningOrClusterFailed().get();
-			jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
-			recordWarehouseEvent(warehouseJobStartEventMessageRecorder, WarehouseJobStartEventMessageRecorder::checkSlotEnoughFinish);
 		}  else {
 			jobExecutionResult = new DetachedJobExecutionResult(jobClient.getJobID());
 		}

@@ -46,7 +46,8 @@ public class DeploymentOptions {
 			key("execution.wait-running-on-detached")
 					.booleanType()
 					.defaultValue(false)
-					.withDescription("Specifies if the pipeline is submitted in attached or detached mode.");
+					.withDescription("If the job is submitted in detached mode, " +
+							"wait for the job vertices status to be running before the client exits.");
 
 	public static final ConfigOption<Boolean> SHUTDOWN_IF_ATTACHED =
 			key("execution.shutdown-on-attached-exit")
