@@ -53,6 +53,7 @@ import org.apache.flink.runtime.metrics.MetricRegistry;
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
 import org.apache.flink.runtime.rpc.FatalErrorHandler;
@@ -672,7 +673,7 @@ public class MesosResourceManager extends ResourceManager<RegisteredMesosWorkerN
 			startNewWorkerIfNeeded(launched.profile(), workersInNew.size() * slotsPerWorker.size());
 		}
 
-		closeTaskManagerConnection(id, new Exception(status.getMessage()));
+		closeTaskManagerConnection(id, new Exception(status.getMessage()), WorkerExitCode.UNKNOWN);
 	}
 
 	// ------------------------------------------------------------------------

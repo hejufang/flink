@@ -30,6 +30,7 @@ import org.apache.flink.runtime.instance.InstanceID;
 import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.exceptions.UnfulfillableSlotRequestException;
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
@@ -1376,7 +1377,7 @@ public class SlotManagerImpl implements SlotManager {
 	private void releaseTaskExecutor(InstanceID timedOutTaskManagerId) {
 		final FlinkException cause = new FlinkException("TaskExecutor exceeded the idle timeout.");
 		LOG.debug("Release TaskExecutor {} because it exceeded the idle timeout.", timedOutTaskManagerId);
-		resourceActions.releaseResource(timedOutTaskManagerId, cause);
+		resourceActions.releaseResource(timedOutTaskManagerId, cause, WorkerExitCode.IDLE_TIMEOUT);
 	}
 
 	private void checkSlotRequestTimeouts() {

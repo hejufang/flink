@@ -57,7 +57,7 @@ public class TestingResourceActions implements ResourceActions {
 	}
 
 	@Override
-	public void releaseResource(InstanceID instanceId, Exception cause) {
+	public void releaseResource(InstanceID instanceId, Exception cause, int exitCode) {
 		releaseResourceConsumer.accept(instanceId, cause);
 	}
 

@@ -63,6 +63,7 @@ import org.apache.flink.runtime.registration.RegistrationResponse;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManagerId;
 import org.apache.flink.runtime.resourcemanager.SlotRequest;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.registration.JobInfo;
 import org.apache.flink.runtime.resourcemanager.slotmanager.ResourceActions;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
@@ -222,8 +223,8 @@ public class MesosResourceManagerTest extends TestLogger {
 		}
 
 		@Override
-		protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause) {
-			super.closeTaskManagerConnection(resourceID, cause);
+		protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause, int exitCode) {
+			super.closeTaskManagerConnection(resourceID, cause, exitCode);
 			closedTaskManagerConnections.add(resourceID);
 		}
 
@@ -737,7 +738,7 @@ public class MesosResourceManagerTest extends TestLogger {
 			resourceManager.launchCoordinator.expectMsgClass(LaunchCoordinator.Assign.class);
 
 			// tell the RM to stop the worker
-			resourceManager.stopWorker(new RegisteredMesosWorkerNode(worker1launched));
+			resourceManager.stopWorker(new RegisteredMesosWorkerNode(worker1launched), WorkerExitCode.UNKNOWN);
 
 			// verify that the instance state was updated
 			MesosWorkerStore.Worker worker1Released = worker1launched.releaseWorker();

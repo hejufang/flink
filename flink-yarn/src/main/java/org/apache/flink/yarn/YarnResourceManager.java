@@ -54,6 +54,7 @@ import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup;
 import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.resourcemanager.JobLeaderIdService;
 import org.apache.flink.runtime.resourcemanager.ResourceManager;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 import org.apache.flink.runtime.resourcemanager.registration.WorkerRegistration;
 import org.apache.flink.runtime.resourcemanager.slotmanager.SlotManager;
@@ -159,7 +160,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.yarn.Utils.pruneContainerId;
-import static org.apache.flink.yarn.YarnConfigKeys.START_CONTAINER_ERROR;
 
 /**
  * The yarn implementation of the resource manager. Used when the system is started
@@ -796,6 +796,13 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 
 		ResourceID resourceID = workerNode.getResourceID();
 		removeContainer(resourceID);
+		completedContainerGauge.addMetric(
+				1,
+				new TagGaugeStoreImpl.TagValuesBuilder()
+						.addTagValue("container_host", workerNode.getContainer().getNodeId().getHost())
+						.addTagValue("container_id", pruneContainerId(resourceID.getResourceIdString()))
+						.addTagValue("exit_code", String.valueOf(exitCode))
+						.build());
 		return true;
 	}
 
@@ -824,7 +831,8 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 					if (registration != null) {
 						releaseResource(
 								registration.getInstanceID(),
-								new Exception("worker " + resourceID + " in blacklist."));
+								new Exception("worker " + resourceID + " in blacklist."),
+								WorkerExitCode.IN_BLACKLIST);
 					}
 				}
 			});
@@ -938,7 +946,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 										.build());
 					}
 					// Eagerly close the connection with task manager.
-					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()));
+					closeTaskManagerConnection(resourceId, new Exception(containerStatus.getDiagnostics()), containerStatus.getExitStatus());
 				}
 			}
 		);
@@ -1576,7 +1584,7 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 								new TagGaugeStoreImpl.TagValuesBuilder()
 										.addTagValue("container_host", yarnWorkerNode.getContainer().getNodeId().getHost())
 										.addTagValue("container_id", pruneContainerId(resourceID.getResourceIdString()))
-										.addTagValue("exit_code", String.valueOf(START_CONTAINER_ERROR))
+										.addTagValue("exit_code", String.valueOf(WorkerExitCode.START_CONTAINER_ERROR))
 										.build());
 				resourceManagerClient.releaseAssignedContainer(containerId);
 				recordFailureAndStartNewWorkerIfNeeded(
@@ -2155,12 +2163,12 @@ public class YarnResourceManager extends ResourceManager<YarnWorkerNode>
 	}
 
 	@Override
-	protected void closeTaskManagerConnection(ResourceID resourceID, Exception cause) {
+	protected void closeTaskManagerConnection(final ResourceID resourceID, final Exception cause, final int exitCode) {
 		YarnWorkerNode workerNode = removeContainer(resourceID);
 		if (workerNode != null) {
-			stopWorker(workerNode);
+			stopWorker(workerNode, exitCode);
 		}
-		super.closeTaskManagerConnection(resourceID, cause);
+		super.closeTaskManagerConnection(resourceID, cause, exitCode);
 	}
 
 	private YarnWorkerNode removeContainer(ResourceID resourceID) {

@@ -81,8 +81,6 @@ import org.apache.flink.runtime.webmonitor.WebMonitorUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 
-import org.apache.hadoop.yarn.api.records.ContainerExitStatus;
-
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -493,7 +491,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 	@Override
 	public void disconnectTaskManager(final ResourceID resourceId, final Exception cause) {
-		closeTaskManagerConnection(resourceId, cause);
+		closeTaskManagerConnection(resourceId, cause, WorkerExitCode.EXIT_BY_TASK_MANAGER);
 	}
 
 	@Override
@@ -994,14 +992,15 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 *
 	 * @param resourceID Id of the TaskManager that has failed.
 	 * @param cause The exception which cause the TaskManager failed.
+	 * @param exitCode exit code of this TaskManager.
 	 */
-	protected void closeTaskManagerConnection(final ResourceID resourceID, final Exception cause) {
+	protected void closeTaskManagerConnection(final ResourceID resourceID, final Exception cause, final int exitCode) {
 		taskManagerHeartbeatManager.unmonitorTarget(resourceID);
 
 		WorkerRegistration<WorkerType> workerRegistration = taskExecutors.remove(resourceID);
 
 		if (workerRegistration != null) {
-			log.info("Closing TaskExecutor connection {} because: {}", resourceID, cause.getMessage());
+			log.info("Closing TaskExecutor connection {} with exit code {} because: {}", resourceID, exitCode, cause.getMessage());
 
 			// TODO :: suggest failed task executor to stop itself
 			slotManager.unregisterTaskManager(workerRegistration.getInstanceID());
@@ -1047,16 +1046,12 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 			WorkerType worker = workerRegistration.getWorker();
 			if (worker != null) {
 				if (stopWorker(worker, exitCode)) {
-					closeTaskManagerConnection(worker.getResourceID(), cause);
+					closeTaskManagerConnection(worker.getResourceID(), cause, exitCode);
 				} else {
 					log.warn("Worker {} could not be stopped, exitCode {}.", worker.getResourceID(), exitCode);
 				}
 			}
 		}
-	}
-
-	protected void releaseResource(InstanceID instanceId, Exception cause) {
-		releaseResource(instanceId, cause, ContainerExitStatus.INVALID);
 	}
 
 	protected void releaseResource(InstanceID instanceId, Exception cause, int exitCode) {
@@ -1072,7 +1067,7 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 		if (worker != null) {
 			if (stopWorker(worker, exitCode)) {
-				closeTaskManagerConnection(worker.getResourceID(), cause);
+				closeTaskManagerConnection(worker.getResourceID(), cause, exitCode);
 			} else {
 				log.warn("Worker {} could not be stopped, exitCode {}.", worker.getResourceID(), exitCode);
 			}
@@ -1437,10 +1432,6 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	 */
 	public abstract boolean stopWorker(WorkerType worker, int exitCode);
 
-	public boolean stopWorker(WorkerType worker) {
-		return stopWorker(worker, ContainerExitStatus.INVALID);
-	}
-
 	/**
 	 * Set {@link SlotManager} whether to fail unfulfillable slot requests.
 	 * @param failUnfulfillableRequest whether to fail unfulfillable requests
@@ -1460,10 +1451,10 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 	private class ResourceActionsImpl implements ResourceActions {
 
 		@Override
-		public void releaseResource(InstanceID instanceId, Exception cause) {
+		public void releaseResource(InstanceID instanceId, Exception cause, int exitCode) {
 			validateRunsInMainThread();
 
-			ResourceManager.this.releaseResource(instanceId, cause);
+			ResourceManager.this.releaseResource(instanceId, cause, exitCode);
 		}
 
 		@Override
@@ -1541,7 +1532,8 @@ public abstract class ResourceManager<WorkerType extends ResourceIDRetrievable>
 
 			closeTaskManagerConnection(
 				resourceID,
-				new TimeoutException("The heartbeat of TaskManager with id " + resourceID + "  timed out."));
+				new TimeoutException("The heartbeat of TaskManager with id " + resourceID + "  timed out."),
+				WorkerExitCode.HEARTBEAT_TIMEOUT);
 		}
 
 		@Override

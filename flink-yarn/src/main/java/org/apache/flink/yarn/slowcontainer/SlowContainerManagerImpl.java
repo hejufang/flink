@@ -19,6 +19,7 @@
 package org.apache.flink.yarn.slowcontainer;
 
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.yarn.YarnResourceManager;
 
 import org.slf4j.Logger;
@@ -30,8 +31,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
-import static org.apache.flink.yarn.YarnConfigKeys.SLOW_CONTAINER;
 
 /**
  * Check and manager slow containers.
@@ -241,7 +240,7 @@ public class SlowContainerManagerImpl implements SlowContainerManager {
 	private void releaseContainer(ResourceID resourceID) {
 		if (yarnResourceManager != null) {
 			log.info("try to release container {} because of slow container.", resourceID);
-			yarnResourceManager.stopWorker(resourceID, SLOW_CONTAINER);
+			yarnResourceManager.stopWorker(resourceID, WorkerExitCode.SLOW_CONTAINER);
 		}
 	}
 }

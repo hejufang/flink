@@ -22,6 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.instance.InstanceID;
+import org.apache.flink.runtime.resourcemanager.WorkerExitCode;
 import org.apache.flink.runtime.resourcemanager.exceptions.ResourceManagerException;
 
 import java.util.Collection;
@@ -37,7 +38,11 @@ public interface ResourceActions {
 	 * @param instanceId identifying which resource to release
 	 * @param cause why the resource is released
 	 */
-	void releaseResource(InstanceID instanceId, Exception cause);
+	default void releaseResource(InstanceID instanceId, Exception cause) {
+		releaseResource(instanceId, cause, WorkerExitCode.UNKNOWN);
+	}
+
+	void releaseResource(InstanceID instanceId, Exception cause, int exitCode);
 
 	/**
 	 * Requests to allocate a resource with the given {@link ResourceProfile} and resource number.
