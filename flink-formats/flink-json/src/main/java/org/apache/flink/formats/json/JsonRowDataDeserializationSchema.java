@@ -31,9 +31,11 @@ import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.logical.ArrayType;
 import org.apache.flink.table.types.logical.DecimalType;
+import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeFamily;
 import org.apache.flink.table.types.logical.MapType;
+import org.apache.flink.table.types.logical.MultisetType;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 import org.apache.flink.table.types.logical.utils.LogicalTypeUtils;
@@ -271,8 +273,13 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 			case ARRAY:
 				return createArrayConverter((ArrayType) type);
 			case MAP:
+				MapType mapType = (MapType) type;
+				return createMapConverter(
+					mapType.asSummaryString(), mapType.getKeyType(), mapType.getValueType());
 			case MULTISET:
-				return createMapConverter((MapType) type);
+				MultisetType multisetType = (MultisetType) type;
+				return createMapConverter
+					(multisetType.asSummaryString(), multisetType.getElementType(), new IntType());
 			case ROW:
 				return createRowConverter((RowType) type);
 			case RAW:
@@ -410,15 +417,14 @@ public class JsonRowDataDeserializationSchema implements DeserializationSchema<R
 		};
 	}
 
-	private DeserializationRuntimeConverter createMapConverter(MapType mapType) {
-		LogicalType keyType = mapType.getKeyType();
+	private DeserializationRuntimeConverter createMapConverter(String typeSummary, LogicalType keyType, LogicalType valueType) {
 		if (!LogicalTypeChecks.hasFamily(keyType, LogicalTypeFamily.CHARACTER_STRING)) {
 			throw new UnsupportedOperationException(
 				"JSON format doesn't support non-string as key type of map. " +
-				"The map type is: " + mapType.asSummaryString());
+					"The type is: " + typeSummary);
 		}
 		final DeserializationRuntimeConverter keyConverter = createConverter(keyType);
-		final DeserializationRuntimeConverter valueConverter = createConverter(mapType.getValueType());
+		final DeserializationRuntimeConverter valueConverter = createConverter(valueType);
 
 		return jsonNode -> {
 			Iterator<Map.Entry<String, JsonNode>> fields = jsonNode.fields();

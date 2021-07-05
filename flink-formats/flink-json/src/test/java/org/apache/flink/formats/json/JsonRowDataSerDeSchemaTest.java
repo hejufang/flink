@@ -56,6 +56,7 @@ import static org.apache.flink.table.api.DataTypes.FIELD;
 import static org.apache.flink.table.api.DataTypes.FLOAT;
 import static org.apache.flink.table.api.DataTypes.INT;
 import static org.apache.flink.table.api.DataTypes.MAP;
+import static org.apache.flink.table.api.DataTypes.MULTISET;
 import static org.apache.flink.table.api.DataTypes.ROW;
 import static org.apache.flink.table.api.DataTypes.SMALLINT;
 import static org.apache.flink.table.api.DataTypes.STRING;
@@ -98,6 +99,9 @@ public class JsonRowDataSerDeSchemaTest {
 		innerMap.put("key", 234);
 		nestedMap.put("inner_map", innerMap);
 
+		Map<String, Integer> multiSet = new HashMap<>();
+		multiSet.put("multiset", 2);
+
 		ObjectMapper objectMapper = new ObjectMapper();
 		ArrayNode doubleNode = objectMapper.createArrayNode().add(1.1D).add(2.2D).add(3.3D);
 
@@ -119,6 +123,7 @@ public class JsonRowDataSerDeSchemaTest {
 		root.put("timestamp9", "1990-10-14T12:12:43.123456789");
 		root.putObject("map").put("flink", 123);
 		root.putObject("map2map").putObject("inner_map").put("key", 234);
+		root.putObject("multiSet").put("multiset", 2);
 
 		byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
@@ -138,14 +143,15 @@ public class JsonRowDataSerDeSchemaTest {
 			FIELD("timestamp3", TIMESTAMP(3)),
 			FIELD("timestamp9", TIMESTAMP(9)),
 			FIELD("map", MAP(STRING(), BIGINT())),
-			FIELD("map2map", MAP(STRING(), MAP(STRING(), INT()))));
+			FIELD("map2map", MAP(STRING(), MAP(STRING(), INT()))),
+			FIELD("multiSet", MULTISET(STRING())));
 		RowType schema = (RowType) dataType.getLogicalType();
 		RowDataTypeInfo resultTypeInfo = new RowDataTypeInfo(schema);
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
 			schema, resultTypeInfo, false, false, TimestampFormat.ISO_8601);
 
-		Row expected = new Row(16);
+		Row expected = new Row(17);
 		expected.setField(0, true);
 		expected.setField(1, tinyint);
 		expected.setField(2, smallint);
@@ -162,6 +168,7 @@ public class JsonRowDataSerDeSchemaTest {
 		expected.setField(13, timestamp9.toLocalDateTime());
 		expected.setField(14, map);
 		expected.setField(15, nestedMap);
+		expected.setField(16, multiSet);
 
 		RowData rowData = deserializationSchema.deserialize(serializedJson);
 		Row actual = convertToExternal(rowData, dataType);
