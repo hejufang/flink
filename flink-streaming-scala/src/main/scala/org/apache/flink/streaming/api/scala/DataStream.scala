@@ -524,6 +524,18 @@ class DataStream[T](stream: JavaStream[T]) {
   def rebalance: DataStream[T] = asScalaStream(stream.rebalance())
 
   /**
+   * Sets the partitioning of the DataStream so that the output tuples
+   * are distributed evenly to the next component from backlog's perspective.
+   */
+  def backlogBasedRebalance: DataStream[T] = asScalaStream(stream.backlogBasedRebalance())
+
+  /**
+   * See `rescale` below. The difference is that the data are distributed evenly
+   * among the channels based on backlogs.
+   */
+  def backlogBasedRescale: DataStream[T] = asScalaStream(stream.backlogBasedRescale())
+
+  /**
    * Sets the partitioning of the [[DataStream]] so that the output tuples
    * are distributed evenly to a subset of instances of the downstream operation.
    *
