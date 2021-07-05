@@ -103,6 +103,7 @@ public class RocksDBOptions {
 		.key("state.backend.rocksdb.memory.managed")
 		.booleanType()
 		.defaultValue(true)
+		// this setting is dangerous, which may cause arena memory leak, and we temporarily turn it off in flink-conf.yaml.
 		.withDescription("If set, the RocksDB state backend will automatically configure itself to use the " +
 			"managed memory budget of the task slot, and divide the memory over write buffers, indexes, " +
 			"block caches, etc. That way, the three major uses of memory of RocksDB will be capped.");
