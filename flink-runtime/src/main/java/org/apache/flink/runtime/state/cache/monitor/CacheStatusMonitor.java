@@ -19,32 +19,61 @@ package org.apache.flink.runtime.state.cache.monitor;
 
 import org.apache.flink.runtime.state.cache.Cache;
 import org.apache.flink.runtime.state.cache.PolicyStats;
+import org.apache.flink.util.Preconditions;
 
-import java.util.Collections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Responsible for monitoring the running status of all caches and providing weight
  * calculation data for {@link org.apache.flink.runtime.state.cache.scale.ScalingManager}.
  */
 public class CacheStatusMonitor {
+	private static final Logger LOG = LoggerFactory.getLogger(CacheStatusMonitor.class);
+
 	private final Map<Cache, PolicyStats> cacheStatus;
 
+	private volatile boolean running;
+
 	public CacheStatusMonitor() {
-		this.cacheStatus = new HashMap<>();
+		this.cacheStatus = new ConcurrentHashMap<>();
+		this.running = true;
 	}
 
 	public PolicyStats registerCache(Cache cache) {
-		//TODO register cache and create policyStats object for cache
-		return new PolicyStats();
+		Preconditions.checkState(running, "Cache status monitor not running");
+		return cacheStatus.computeIfAbsent(cache, reference -> new PolicyStats(reference));
+	}
+
+	public void unRegisterCache(Cache cache) {
+		Preconditions.checkState(running, "Cache status monitor not running");
+		cacheStatus.remove(cache);
 	}
 
 	/**
 	 * Get runtime statistics of all caches.
 	 */
-	public Map<Cache, CacheStatistic> getCacheStatusStatistics() {
-		//TODO try to get all cache statistic
-		return Collections.emptyMap();
+	public Map<Cache, CacheStatistic> getCacheStatusStatistics() throws IOException {
+		Preconditions.checkState(running, "Cache status monitor not running");
+		Map<Cache, CacheStatistic> cacheStatistics = new HashMap<>(cacheStatus.size());
+		for (Map.Entry<Cache, PolicyStats> entry : cacheStatus.entrySet()) {
+			cacheStatistics.put(entry.getKey(), entry.getValue().snapshot());
+		}
+		return cacheStatistics;
+	}
+
+	public CacheStatistic getCacheStatusStatistic(Cache cache) {
+		Preconditions.checkState(running, "Cache status monitor not running");
+		PolicyStats policyStats = cacheStatus.get(cache);
+		return policyStats != null ? policyStats.snapshot() : CacheStatistic.EMPTY_STATISTIC;
+	}
+
+	public void shutdown() {
+		this.running = false;
 	}
 }

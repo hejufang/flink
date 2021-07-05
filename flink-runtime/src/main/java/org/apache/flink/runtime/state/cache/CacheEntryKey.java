@@ -35,6 +35,14 @@ public class CacheEntryKey<K, N> {
 		this.namespace = namespace;
 	}
 
+	public K getKey() {
+		return key;
+	}
+
+	public N getNamespace() {
+		return namespace;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) {

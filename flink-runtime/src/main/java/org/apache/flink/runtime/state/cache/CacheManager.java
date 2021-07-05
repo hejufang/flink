@@ -18,50 +18,20 @@
 
 package org.apache.flink.runtime.state.cache;
 
-import org.apache.flink.runtime.state.cache.memory.MemoryManager;
-import org.apache.flink.runtime.state.cache.monitor.CacheStatusMonitor;
-import org.apache.flink.runtime.state.cache.monitor.HeapStatusMonitor;
-import org.apache.flink.runtime.state.cache.scale.ScalingManager;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.flink.api.common.TaskInfo;
+import org.apache.flink.configuration.MemorySize;
 
 /**
  * Responsible for managing all registered {@link Cache} in {@link org.apache.flink.runtime.taskexecutor.TaskExecutor}.
  */
-public class CacheManager {
-	private static final Logger LOG = LoggerFactory.getLogger(CacheManager.class);
-	/** A manager that manages the memory used by the cache. */
-	private final MemoryManager memoryManager;
-	/** A monitor that monitors the status of the heap. */
-	private final HeapStatusMonitor heapStatusMonitor;
-	/** A monitor that monitors the running status of the cache. */
-	private final CacheStatusMonitor cacheStatusMonitor;
-	/** A manager that manages the cache to scale. */
-	private final ScalingManager scalingManager;
+public interface CacheManager {
 
-	public CacheManager() {
-		//TODO initialize all internal components.
-		this.memoryManager = null;
-		this.cacheStatusMonitor = null;
-		this.scalingManager = null;
-		this.heapStatusMonitor = null;
-	}
+	/** Register a cache and return the corresponding {@link PolicyStats} object. */
+	PolicyStats registerCache(TaskInfo taskInfo, String name, Cache cache, MemorySize initialSize) throws Exception;
 
-	public void startService() {
-		//TODO start all monitoring services.
-	}
+	/** Unregister a cache and release the corresponding resources. */
+	void unregisterCache(TaskInfo taskInfo, String name, Cache cache);
 
-	public Cache registerCache() {
-		//TODO create a new cache and return.
-		return null;
-	}
-
-	public void unRegisterCache(Cache cache) {
-		//TODO release the cache and clear the reference.
-	}
-
-	public void shutDown() {
-		//TODO stop all monitoring services, release all caches, and clean up memory.
-	}
+	/** Stop all cache-related services. */
+	void shutdown() throws Exception;
 }

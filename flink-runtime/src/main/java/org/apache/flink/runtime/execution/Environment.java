@@ -40,6 +40,8 @@ import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.TaskStateManager;
+import org.apache.flink.runtime.state.cache.CacheManager;
+import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.state.internal.InternalKvState;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
@@ -186,6 +188,10 @@ public interface Environment {
 	 * @return KvState registry
 	 */
 	TaskKvStateRegistry getTaskKvStateRegistry();
+
+	default CacheManager getCacheManager() {
+		return new NonCacheManager();
+	}
 
 	/**
 	 * Confirms that the invokable has successfully completed all steps it needed to

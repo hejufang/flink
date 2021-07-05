@@ -19,10 +19,11 @@
 package org.apache.flink.runtime.state.cache.scale;
 
 import org.apache.flink.runtime.state.cache.Cache;
-import org.apache.flink.runtime.state.cache.memory.MemoryManager;
+import org.apache.flink.runtime.state.cache.memory.CacheMemoryManager;
 import org.apache.flink.runtime.state.cache.monitor.CacheStatusMonitor;
 import org.apache.flink.runtime.state.cache.monitor.HeapMonitorResult;
 import org.apache.flink.runtime.state.cache.monitor.HeapStatusListener;
+import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,29 +35,40 @@ public class ScalingManager implements HeapStatusListener {
 	private  static final Logger LOG = LoggerFactory.getLogger(ScalingManager.class);
 
 	/** A manager used to manage cache memory. */
-	private final MemoryManager memoryManager;
+	private final CacheMemoryManager cacheMemoryManager;
 	/** A monitor used to monitor the status of the Cache. */
 	private final CacheStatusMonitor cacheStatusMonitor;
 	/** Weight calculator for scale up. */
 	private final WeightCalculator scaleUpCalculator;
 	/** Weight calculator for scale down. */
 	private final WeightCalculator scaleDownCalculator;
+	/** The gc threshold is used to determine whether to trigger scale down. */
+	private final long gcTimeThreshold;
+	/** The heap threshold is used to determine whether to trigger scale up. */
+	private final double lowHeapThreshold;
 	/** The number of caches that need to be selected for each scale. */
 	private final int numberOfScaleCache;
 	/** Callback after the scale is completed. */
 	private final ScaleCallback scaleCallback;
+	/** Indicates whether the service is still running. */
+	private volatile boolean running;
 
 	public ScalingManager(
-			MemoryManager memoryManager,
+			CacheMemoryManager cacheMemoryManager,
 			CacheStatusMonitor cacheStatusMonitor,
 			WeightCalculator scaleUpCalculator,
 			WeightCalculator scaleDownCalculator,
-		int numberOfScaleCache) {
-		this.numberOfScaleCache = numberOfScaleCache;
-		this.memoryManager = memoryManager;
+			int numberOfScaleCache,
+			long gcTimeThreshold,
+			double lowHeapThreshold) {
+		this.cacheMemoryManager = cacheMemoryManager;
 		this.cacheStatusMonitor = cacheStatusMonitor;
 		this.scaleUpCalculator = scaleUpCalculator;
 		this.scaleDownCalculator = scaleDownCalculator;
+		this.numberOfScaleCache = numberOfScaleCache;
+		this.gcTimeThreshold = gcTimeThreshold;
+		this.lowHeapThreshold = lowHeapThreshold;
+		this.running = true;
 		this.scaleCallback = scaleResult -> {
 			//TODO update memoryManager
 		};
@@ -65,5 +77,10 @@ public class ScalingManager implements HeapStatusListener {
 	@Override
 	public void notifyHeapStatus(HeapMonitorResult result) {
 		// TODO scale the cache according to the monitoring results of the heap state.
+		Preconditions.checkState(running, "Scaling manager not running");
+	}
+
+	public void shutdown() {
+		this.running = false;
 	}
 }

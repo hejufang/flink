@@ -41,6 +41,8 @@ import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.query.TaskKvStateRegistry;
 import org.apache.flink.runtime.state.TaskStateManager;
+import org.apache.flink.runtime.state.cache.CacheManager;
+import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 
 import java.util.Map;
@@ -93,6 +95,8 @@ public class RuntimeEnvironment implements Environment {
 
 	private final Task containingTask;
 
+	private final CacheManager cacheManager;
+
 	// ------------------------------------------------------------------------
 
 	public RuntimeEnvironment(
@@ -124,6 +128,67 @@ public class RuntimeEnvironment implements Environment {
 			Task containingTask,
 			ExternalResourceInfoProvider externalResourceInfoProvider) {
 
+		this(
+			jobId,
+			jobName,
+			jobVertexId,
+			executionId,
+			executionConfig,
+			taskInfo,
+			jobConfiguration,
+			taskConfiguration,
+			userCodeClassLoader,
+			memManager,
+			ioManager,
+			bcVarManager,
+			taskStateManager,
+			aggregateManager,
+			accumulatorRegistry,
+			kvStateRegistry,
+			splitProvider,
+			distCacheEntries,
+			writers,
+			inputGates,
+			taskEventDispatcher,
+			checkpointResponder,
+			operatorEventGateway,
+			taskManagerInfo,
+			metrics,
+			containingTask,
+			externalResourceInfoProvider,
+			new NonCacheManager());
+	}
+
+	public RuntimeEnvironment(
+			JobID jobId,
+			String jobName,
+			JobVertexID jobVertexId,
+			ExecutionAttemptID executionId,
+			ExecutionConfig executionConfig,
+			TaskInfo taskInfo,
+			Configuration jobConfiguration,
+			Configuration taskConfiguration,
+			ClassLoader userCodeClassLoader,
+			MemoryManager memManager,
+			IOManager ioManager,
+			BroadcastVariableManager bcVarManager,
+			TaskStateManager taskStateManager,
+			GlobalAggregateManager aggregateManager,
+			AccumulatorRegistry accumulatorRegistry,
+			TaskKvStateRegistry kvStateRegistry,
+			InputSplitProvider splitProvider,
+			Map<String, Future<Path>> distCacheEntries,
+			ResultPartitionWriter[] writers,
+			IndexedInputGate[] inputGates,
+			TaskEventDispatcher taskEventDispatcher,
+			CheckpointResponder checkpointResponder,
+			TaskOperatorEventGateway operatorEventGateway,
+			TaskManagerRuntimeInfo taskManagerInfo,
+			TaskMetricGroup metrics,
+			Task containingTask,
+			ExternalResourceInfoProvider externalResourceInfoProvider,
+			CacheManager cacheManager) {
+
 		this.jobId = checkNotNull(jobId);
 		this.jobName = jobName;
 		this.jobVertexId = checkNotNull(jobVertexId);
@@ -151,6 +216,7 @@ public class RuntimeEnvironment implements Environment {
 		this.containingTask = containingTask;
 		this.metrics = metrics;
 		this.externalResourceInfoProvider = checkNotNull(externalResourceInfoProvider);
+		this.cacheManager = cacheManager;
 	}
 
 	// ------------------------------------------------------------------------
@@ -283,6 +349,11 @@ public class RuntimeEnvironment implements Environment {
 	@Override
 	public ExternalResourceInfoProvider getExternalResourceInfoProvider() {
 		return externalResourceInfoProvider;
+	}
+
+	@Override
+	public CacheManager getCacheManager() {
+		return cacheManager;
 	}
 
 	@Override

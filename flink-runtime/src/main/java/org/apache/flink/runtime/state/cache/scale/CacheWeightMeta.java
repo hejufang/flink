@@ -16,21 +16,27 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state.cache.memory;
-
-import java.io.IOException;
+package org.apache.flink.runtime.state.cache.scale;
 
 /**
- * Interface to estimate the memory size of state.
+ * Meta information used to calculate the cache weight.
  */
-public interface MemoryEstimator<K, N, S> {
-	/**
-	 * Update estimated memory size.
-	 */
-	void updateEstimatedSize(K key, N namespace, S state) throws IOException;;
+public class CacheWeightMeta {
+	/** The normalized data of cache size. */
+	private final double normalizedSize;
+	/** The normalized data of the number of successful cache load. */
+	private final double normalizedLoadSuccessCount;
 
-	/**
-	 * Return the estimated size.
-	 */
-	long getEstimatedSize();
+	public CacheWeightMeta(double normalizedSize, double normalizedLoadSuccessCount) {
+		this.normalizedSize = normalizedSize;
+		this.normalizedLoadSuccessCount = normalizedLoadSuccessCount;
+	}
+
+	public double getNormalizedLoadSuccessCount() {
+		return normalizedLoadSuccessCount;
+	}
+
+	public double getNormalizedSize() {
+		return normalizedSize;
+	}
 }

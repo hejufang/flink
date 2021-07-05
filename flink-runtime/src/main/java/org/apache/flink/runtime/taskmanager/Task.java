@@ -71,6 +71,8 @@ import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
 import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.TaskStateManager;
+import org.apache.flink.runtime.state.cache.CacheManager;
+import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.taskexecutor.BackPressureSampleableTask;
 import org.apache.flink.runtime.taskexecutor.GlobalAggregateManager;
 import org.apache.flink.runtime.taskexecutor.KvStateService;
@@ -252,6 +254,9 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 	/** Future that is completed once {@link #run()} exits. */
 	private final CompletableFuture<ExecutionState> terminationFuture = new CompletableFuture<>();
 
+	/** The cacheManager responsible for managing all caches. */
+	private final CacheManager cacheManager;
+
 	// ------------------------------------------------------------------------
 	//  Fields that control the task execution. All these fields are volatile
 	//  (which means that they introduce memory barriers), to establish
@@ -315,6 +320,70 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 		ResultPartitionConsumableNotifier resultPartitionConsumableNotifier,
 		PartitionProducerStateChecker partitionProducerStateChecker,
 		Executor executor) {
+		this(
+			jobInformation,
+			taskInformation,
+			executionAttemptID,
+			slotAllocationId,
+			subtaskIndex,
+			attemptNumber,
+			resultPartitionDeploymentDescriptors,
+			inputGateDeploymentDescriptors,
+			targetSlotNumber,
+			memManager,
+			ioManager,
+			shuffleEnvironment,
+			kvStateService,
+			bcVarManager,
+			taskEventDispatcher,
+			externalResourceInfoProvider,
+			taskStateManager,
+			taskManagerActions,
+			inputSplitProvider,
+			checkpointResponder,
+			operatorCoordinatorEventGateway,
+			aggregateManager,
+			classLoaderHandle,
+			fileCache,
+			taskManagerConfig,
+			metricGroup,
+			resultPartitionConsumableNotifier,
+			partitionProducerStateChecker,
+			executor,
+			new NonCacheManager());
+	}
+
+	public Task(
+		JobInformation jobInformation,
+		TaskInformation taskInformation,
+		ExecutionAttemptID executionAttemptID,
+		AllocationID slotAllocationId,
+		int subtaskIndex,
+		int attemptNumber,
+		List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors,
+		List<InputGateDeploymentDescriptor> inputGateDeploymentDescriptors,
+		int targetSlotNumber,
+		MemoryManager memManager,
+		IOManager ioManager,
+		ShuffleEnvironment<?, ?> shuffleEnvironment,
+		KvStateService kvStateService,
+		BroadcastVariableManager bcVarManager,
+		TaskEventDispatcher taskEventDispatcher,
+		ExternalResourceInfoProvider externalResourceInfoProvider,
+		TaskStateManager taskStateManager,
+		TaskManagerActions taskManagerActions,
+		InputSplitProvider inputSplitProvider,
+		CheckpointResponder checkpointResponder,
+		TaskOperatorEventGateway operatorCoordinatorEventGateway,
+		GlobalAggregateManager aggregateManager,
+		LibraryCacheManager.ClassLoaderHandle classLoaderHandle,
+		FileCache fileCache,
+		TaskManagerRuntimeInfo taskManagerConfig,
+		@Nonnull TaskMetricGroup metricGroup,
+		ResultPartitionConsumableNotifier resultPartitionConsumableNotifier,
+		PartitionProducerStateChecker partitionProducerStateChecker,
+		Executor executor,
+		CacheManager cacheManager) {
 
 		Preconditions.checkNotNull(jobInformation);
 		Preconditions.checkNotNull(taskInformation);
@@ -371,6 +440,7 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 
 		this.partitionProducerStateChecker = Preconditions.checkNotNull(partitionProducerStateChecker);
 		this.executor = Preconditions.checkNotNull(executor);
+		this.cacheManager = cacheManager;
 
 		// create the reader and writer structures
 
@@ -692,7 +762,8 @@ public class Task implements Runnable, TaskSlotPayload, TaskActions, PartitionPr
 				taskManagerConfig,
 				metrics,
 				this,
-				externalResourceInfoProvider);
+				externalResourceInfoProvider,
+				cacheManager);
 
 			// Make sure the user code classloader is accessible thread-locally.
 			// We are setting the correct context class loader before instantiating the invokable

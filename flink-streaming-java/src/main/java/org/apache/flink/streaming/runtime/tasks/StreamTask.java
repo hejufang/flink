@@ -51,6 +51,7 @@ import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.state.CheckpointStorageWorkerView;
 import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.StateBackendLoader;
+import org.apache.flink.runtime.state.cache.CacheManager;
 import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.util.ExecutorThreadFactory;
 import org.apache.flink.runtime.util.FatalExitExceptionHandler;
@@ -222,6 +223,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 	 */
 	private final ExecutorService channelIOExecutor;
 
+	private final CacheManager cacheManager;
+
 	private Long syncSavepointId = null;
 
 	private Long syncSavepointIdWithResumeFlag = null;
@@ -300,6 +303,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 		this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
 		this.asyncOperationsThreadPool = Executors.newCachedThreadPool(
 			new ExecutorThreadFactory("AsyncOperations", uncaughtExceptionHandler));
+		this.cacheManager = environment.getCacheManager();
 
 		this.stateBackend = createStateBackend();
 

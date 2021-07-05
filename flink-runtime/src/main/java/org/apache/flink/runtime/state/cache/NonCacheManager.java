@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,21 +16,28 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state.cache.memory;
+package org.apache.flink.runtime.state.cache;
 
-import java.io.IOException;
+import org.apache.flink.api.common.TaskInfo;
+import org.apache.flink.configuration.MemorySize;
 
 /**
- * Interface to estimate the memory size of state.
+ * CacheManager that does not provide any services.
  */
-public interface MemoryEstimator<K, N, S> {
-	/**
-	 * Update estimated memory size.
-	 */
-	void updateEstimatedSize(K key, N namespace, S state) throws IOException;;
+public class NonCacheManager implements CacheManager {
 
-	/**
-	 * Return the estimated size.
-	 */
-	long getEstimatedSize();
+	@Override
+	public PolicyStats registerCache(TaskInfo taskInfo, String name, Cache cache, MemorySize initialSize) {
+		throw new UnsupportedOperationException("Unable register cache");
+	}
+
+	@Override
+	public void unregisterCache(TaskInfo taskInfo, String name, Cache cache) {
+		throw new UnsupportedOperationException("Unable unregister cache");
+	}
+
+	@Override
+	public void shutdown() {
+		//do nothing
+	}
 }

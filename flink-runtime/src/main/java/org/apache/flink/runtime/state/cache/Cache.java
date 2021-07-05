@@ -49,7 +49,7 @@ public interface Cache<K, V> {
 	/**
 	 * Returns the approximate number of entries in this cache.
 	 */
-	long size() throws IOException;
+	long size();
 
 	/**
 	 * Configure the event listener inside the cache.

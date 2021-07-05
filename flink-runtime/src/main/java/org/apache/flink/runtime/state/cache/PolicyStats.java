@@ -18,25 +18,30 @@
 
 package org.apache.flink.runtime.state.cache;
 
+import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.state.cache.monitor.CacheStatistic;
+
 /**
  * Record cache statistics.
  */
 public class PolicyStats {
+	private final Cache cache;
 	private long requestCount;
 	private long hitCount;
 	private long missCount;
 	private long evictionCount;
 	private long loadSuccessCount;
 	private long estimatedKVSize;
-	private long cacheSize;
+	private MemorySize maxMemorySize;
 
-	public PolicyStats() {
+	public PolicyStats(Cache cache) {
+		this.cache = cache;
 		this.requestCount = 0L;
 		this.hitCount = 0L;
 		this.missCount = 0L;
 		this.evictionCount = 0L;
 		this.estimatedKVSize = 0L;
-		this.cacheSize = 0L;
+		this.maxMemorySize = MemorySize.ZERO;
 	}
 
 	public void recordOperation() {
@@ -63,8 +68,8 @@ public class PolicyStats {
 		this.estimatedKVSize = estimatedKVSize;
 	}
 
-	public void recordCacheSize(long cacheSize) {
-		this.cacheSize = cacheSize;
+	public void recordMaxCacheMemorySize(MemorySize memorySize) {
+		this.maxMemorySize = memorySize;
 	}
 
 	public long getRequestCount() {
@@ -92,10 +97,24 @@ public class PolicyStats {
 	}
 
 	public long getCacheSize() {
-		return cacheSize;
+		return cache.size();
 	}
 
 	public long getEstimatedSize() {
-		return estimatedKVSize * cacheSize;
+		return estimatedKVSize * cache.size();
+	}
+
+	public MemorySize getMaxMemorySize() {
+		return maxMemorySize;
+	}
+
+	public CacheStatistic snapshot() {
+		return new CacheStatistic(
+			maxMemorySize,
+			new MemorySize(getEstimatedSize()),
+			requestCount,
+			hitCount,
+			missCount,
+			loadSuccessCount);
 	}
 }

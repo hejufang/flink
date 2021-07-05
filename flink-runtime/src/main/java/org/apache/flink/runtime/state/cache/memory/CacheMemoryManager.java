@@ -19,12 +19,17 @@
 package org.apache.flink.runtime.state.cache.memory;
 
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.util.Preconditions;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Responsible for managing the allocation and release of memory space
  * used by all {@link org.apache.flink.runtime.state.cache.Cache}.
  */
-public class MemoryManager {
+public class CacheMemoryManager {
+	private static final Logger LOG = LoggerFactory.getLogger(CacheMemoryManager.class);
 	/** The default memory block size. Currently set to 16MB. */
 	public static final MemorySize DEFAULT_BLOCK_SIZE = MemorySize.ofMebiBytes(16L);
 	/** The minimal memory block size. Currently set to 4MB. */
@@ -38,12 +43,28 @@ public class MemoryManager {
 	private final double scaleUpRatio;
 	/** The ratio of each scale down. */
 	private final double scaleDownRatio;
+	/** Locks used for memory allocation. */
+	private final Object lock;
+	/** The number of allocated blocks. */
+	private long allocatedBlocks;
+	/** The number of available blocks. */
+	private long availableBlocks;
+    /** Indicates whether the service is still running. */
+	private volatile boolean running;
 
-	public MemoryManager(MemorySize totalSize, MemorySize blockSize, double scaleUpRatio, double scaleDownRatio) {
+	public CacheMemoryManager(MemorySize totalSize, MemorySize blockSize, double scaleUpRatio, double scaleDownRatio) {
+		Preconditions.checkArgument(blockSize.getBytes() > 0);
+		Preconditions.checkArgument(totalSize.getBytes() >= 0);
+		Preconditions.checkArgument(scaleUpRatio >= 0 && scaleUpRatio <= 1); // 0 means no scale up
+		Preconditions.checkArgument(scaleDownRatio >= 0 && scaleDownRatio <= 1); // 0 means no scale down
 		this.totalSize = totalSize;
 		this.blockSize = blockSize;
 		this.scaleUpRatio = scaleUpRatio;
 		this.scaleDownRatio = scaleDownRatio;
+		this.availableBlocks = this.totalSize.getBytes() / this.blockSize.getBytes();
+		this.allocatedBlocks = 0L;
+		this.running = true;
+		this.lock = new Object();
 	}
 
 	/**
@@ -52,8 +73,18 @@ public class MemoryManager {
 	 * @return less than or equal to the requested memory space.
 	 */
 	public MemorySize allocateMemory(MemorySize memorySize) {
-		//TODO allocate memory after aligning according to the block size
-		return memorySize;
+		Preconditions.checkState(running, "Memory manager not running");
+		long requestBlocks = memorySize.getBytes() / blockSize.getBytes();
+		synchronized (lock) {
+			if (this.availableBlocks > 0 && requestBlocks > 0) {
+				long allocateBlocks = Math.min(requestBlocks, availableBlocks);
+				MemorySize allocatedMemorySize = blockSize.multiply(allocateBlocks);
+				availableBlocks -= allocateBlocks;
+				allocatedBlocks += allocateBlocks;
+				return allocatedMemorySize;
+			}
+			return MemorySize.ZERO;
+		}
 	}
 
 	/**
@@ -61,7 +92,14 @@ public class MemoryManager {
 	 * @param memorySize expect the memory space to be released
 	 */
 	public void releaseMemory(MemorySize memorySize) {
-		//TODO release memory
+		Preconditions.checkState(running, "Memory manager not running");
+		long releaseBlocks = memorySize.getBytes() / blockSize.getBytes();
+		synchronized (lock) {
+			if (releaseBlocks > 0) {
+				availableBlocks += releaseBlocks;
+				allocatedBlocks -= releaseBlocks;
+			}
+		}
 	}
 
 	/**
@@ -69,8 +107,11 @@ public class MemoryManager {
 	 * @return need to allocate memory space.
 	 */
 	public MemorySize computeScaleUpSize() {
-		//TODO calculate the scale up size according to a fixed ratio
-		return MemorySize.ZERO;
+		Preconditions.checkState(running, "Memory manager not running");
+		synchronized (lock) {
+			long scaleUpBlocks =  (long) Math.floor(scaleUpRatio * availableBlocks);
+			return blockSize.multiply(scaleUpBlocks);
+		}
 	}
 
 	/**
@@ -78,7 +119,16 @@ public class MemoryManager {
 	 * @return need to release memory space.
 	 */
 	public MemorySize computeScaleDownSize() {
-		//TODO calculate the scale down size according to a fixed ratio
-		return MemorySize.ZERO;
+		Preconditions.checkState(running, "Memory manager not running");
+		synchronized (lock) {
+			long scaleDownBlocks = (long) Math.ceil(scaleDownRatio * allocatedBlocks);
+			return blockSize.multiply(scaleDownBlocks);
+		}
+	}
+
+	public void shutdown() {
+		synchronized (lock) {
+			this.running = false;
+		}
 	}
 }

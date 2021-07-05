@@ -35,6 +35,10 @@ import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
 import org.apache.flink.runtime.shuffle.ShuffleServiceLoader;
 import org.apache.flink.runtime.state.TaskExecutorLocalStateStoresManager;
+import org.apache.flink.runtime.state.cache.CacheConfiguration;
+import org.apache.flink.runtime.state.cache.CacheManager;
+import org.apache.flink.runtime.state.cache.DefaultCacheManager;
+import org.apache.flink.runtime.state.cache.NonCacheManager;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTable;
 import org.apache.flink.runtime.taskexecutor.slot.TaskSlotTableImpl;
 import org.apache.flink.runtime.taskexecutor.slot.TimerService;
@@ -78,6 +82,7 @@ public class TaskManagerServices {
 	private final TaskEventDispatcher taskEventDispatcher;
 	private final ExecutorService ioExecutor;
 	private final LibraryCacheManager libraryCacheManager;
+	private final CacheManager cacheManager;
 
 	TaskManagerServices(
 		UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
@@ -94,6 +99,39 @@ public class TaskManagerServices {
 		ExecutorService ioExecutor,
 		LibraryCacheManager libraryCacheManager) {
 
+		this(
+			unresolvedTaskManagerLocation,
+			managedMemorySize,
+			ioManager,
+			shuffleEnvironment,
+			kvStateService,
+			broadcastVariableManager,
+			taskSlotTable,
+			jobTable,
+			jobLeaderService,
+			taskManagerStateStore,
+			taskEventDispatcher,
+			ioExecutor,
+			libraryCacheManager,
+			new NonCacheManager());
+	}
+
+	TaskManagerServices(
+		UnresolvedTaskManagerLocation unresolvedTaskManagerLocation,
+		long managedMemorySize,
+		IOManager ioManager,
+		ShuffleEnvironment<?, ?> shuffleEnvironment,
+		KvStateService kvStateService,
+		BroadcastVariableManager broadcastVariableManager,
+		TaskSlotTable<Task> taskSlotTable,
+		JobTable jobTable,
+		JobLeaderService jobLeaderService,
+		TaskExecutorLocalStateStoresManager taskManagerStateStore,
+		TaskEventDispatcher taskEventDispatcher,
+		ExecutorService ioExecutor,
+		LibraryCacheManager libraryCacheManager,
+		CacheManager cacheManager) {
+
 		this.unresolvedTaskManagerLocation = Preconditions.checkNotNull(unresolvedTaskManagerLocation);
 		this.managedMemorySize = managedMemorySize;
 		this.ioManager = Preconditions.checkNotNull(ioManager);
@@ -107,6 +145,7 @@ public class TaskManagerServices {
 		this.taskEventDispatcher = Preconditions.checkNotNull(taskEventDispatcher);
 		this.ioExecutor = Preconditions.checkNotNull(ioExecutor);
 		this.libraryCacheManager = Preconditions.checkNotNull(libraryCacheManager);
+		this.cacheManager = cacheManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -163,6 +202,10 @@ public class TaskManagerServices {
 
 	public LibraryCacheManager getLibraryCacheManager() {
 		return libraryCacheManager;
+	}
+
+	public CacheManager getCacheManager() {
+		return cacheManager;
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -231,6 +274,12 @@ public class TaskManagerServices {
 		}
 
 		taskEventDispatcher.clearAll();
+
+		try {
+			cacheManager.shutdown();
+		} catch (Exception e) {
+			exception = ExceptionUtils.firstOrSuppressed(e, exception);
+		}
 
 		if (exception != null) {
 			throw new FlinkException("Could not properly shut down the TaskManager services.", exception);
@@ -321,6 +370,9 @@ public class TaskManagerServices {
 				taskManagerServicesConfiguration.getAlwaysParentFirstLoaderPatterns(),
 				failOnJvmMetaspaceOomError ? fatalErrorHandler : null));
 
+		CacheConfiguration cacheConfiguration = CacheConfiguration.fromConfiguration(taskManagerServicesConfiguration.getConfiguration());
+		CacheManager cacheManager = cacheConfiguration.isEnableCache() ? new DefaultCacheManager(cacheConfiguration) : new NonCacheManager();
+
 		return new TaskManagerServices(
 			unresolvedTaskManagerLocation,
 			taskManagerServicesConfiguration.getManagedMemorySize().getBytes(),
@@ -334,7 +386,8 @@ public class TaskManagerServices {
 			taskStateManager,
 			taskEventDispatcher,
 			ioExecutor,
-			libraryCacheManager);
+			libraryCacheManager,
+			cacheManager);
 	}
 
 	private static TaskSlotTable<Task> createTaskSlotTable(

@@ -16,21 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state.cache.memory;
-
-import java.io.IOException;
+package org.apache.flink.runtime.state.cache;
 
 /**
- * Interface to estimate the memory size of state.
+ * The data structure of the value stored in the cache.
  */
-public interface MemoryEstimator<K, N, S> {
-	/**
-	 * Update estimated memory size.
-	 */
-	void updateEstimatedSize(K key, N namespace, S state) throws IOException;;
+public class CacheEntryValue<V> {
+	private final V value;
+	private boolean isDirty;
 
-	/**
-	 * Return the estimated size.
-	 */
-	long getEstimatedSize();
+	public CacheEntryValue(V value, boolean isDirty) {
+		this.value = value;
+		this.isDirty = isDirty;
+	}
+
+	public V getValue() {
+		return value;
+	}
+
+	public boolean isDirty() {
+		return isDirty;
+	}
+
+	public void setDirty(boolean dirty) {
+		isDirty = dirty;
+	}
 }

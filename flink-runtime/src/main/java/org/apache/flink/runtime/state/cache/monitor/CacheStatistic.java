@@ -23,27 +23,36 @@ import org.apache.flink.configuration.MemorySize;
  * Cache statistics collected during the running of the task, such as request count, hit count, etc.
  */
 public class CacheStatistic {
-	private MemorySize memorySize;
+	public static final CacheStatistic EMPTY_STATISTIC = new CacheStatistic(MemorySize.ZERO, MemorySize.ZERO, 0, 0, 0, 0);
+
+	private MemorySize maxMemorySize;
+	private MemorySize usedMemorySize;
 	private long requestCount;
 	private long hitCount;
 	private long missCount;
 	private long loadSuccessCount;
 
 	public CacheStatistic(
-			MemorySize memorySize,
+			MemorySize maxMemorySize,
+			MemorySize usedMemorySize,
 			long requestCount,
 			long hitCount,
 			long missCount,
 			long loadSuccessCount) {
-		this.memorySize = memorySize;
+		this.maxMemorySize = maxMemorySize;
+		this.usedMemorySize = usedMemorySize;
 		this.requestCount = requestCount;
 		this.hitCount = hitCount;
 		this.missCount = missCount;
 		this.loadSuccessCount = loadSuccessCount;
 	}
 
-	public MemorySize getMemorySize() {
-		return memorySize;
+	public MemorySize getMaxMemorySize() {
+		return maxMemorySize;
+	}
+
+	public MemorySize getUsedMemorySize() {
+		return usedMemorySize;
 	}
 
 	public long getRequestCount() {
