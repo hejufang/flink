@@ -19,6 +19,9 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Deadline;
+import org.apache.flink.metrics.GrafanaGauge;
+import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
@@ -44,6 +47,10 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 
 	private static final Logger LOG = LoggerFactory.getLogger(SystemProcessingTimeService.class);
 
+	private static final String PROCESSING_TIMER_LATENCY_MAX = "processingTimerLatencyMax";
+	private static final String PROCESSING_TIMER_LATENCY_MIN = "processingTimerLatencyMin";
+	private static final String PROCESSING_TIMER_TRIGGER_COUNT = "processingTimerTriggerCount";
+
 	private static final int STATUS_ALIVE = 0;
 	private static final int STATUS_QUIESCED = 1;
 	private static final int STATUS_SHUTDOWN = 2;
@@ -61,18 +68,22 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 
 	private final AtomicInteger status;
 
+	private final MetricGroup metricGroup;
+
+	private final com.codahale.metrics.Histogram dropwizardHistogram;
+
 	public SystemProcessingTimeService(AsyncExceptionHandler failureHandler, Object checkpointLock) {
-		this(failureHandler, checkpointLock, null);
+		this(failureHandler, checkpointLock, null, UnregisteredMetricGroups.createUnregisteredTaskMetricGroup());
 	}
 
 	public SystemProcessingTimeService(
 			AsyncExceptionHandler task,
 			Object checkpointLock,
-			ThreadFactory threadFactory) {
+			ThreadFactory threadFactory,
+			MetricGroup metricGroup) {
 
 		this.task = checkNotNull(task);
 		this.checkpointLock = checkNotNull(checkpointLock);
-
 		this.status = new AtomicInteger(STATUS_ALIVE);
 
 		if (threadFactory == null) {
@@ -87,6 +98,13 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 		// make sure shutdown removes all pending tasks
 		this.timerService.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
 		this.timerService.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
+
+		this.dropwizardHistogram = new com.codahale.metrics.Histogram(new com.codahale.metrics.SlidingWindowReservoir(128));
+
+		this.metricGroup = metricGroup;
+		this.metricGroup.gauge(PROCESSING_TIMER_LATENCY_MAX, (GrafanaGauge<Long>) () -> dropwizardHistogram.getSnapshot().getMax());
+		this.metricGroup.gauge(PROCESSING_TIMER_LATENCY_MIN, (GrafanaGauge<Long>) () -> dropwizardHistogram.getSnapshot().getMin());
+		this.metricGroup.gauge(PROCESSING_TIMER_TRIGGER_COUNT, (GrafanaGauge<Long>) dropwizardHistogram::getCount);
 	}
 
 	@Override
@@ -115,7 +133,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 		// that way we save unnecessary volatile accesses for each timer
 		try {
 			return timerService.schedule(
-					new TriggerTask(status, task, checkpointLock, target, timestamp), delay, TimeUnit.MILLISECONDS);
+					new TriggerTask(status, task, checkpointLock, target, timestamp, dropwizardHistogram), delay, TimeUnit.MILLISECONDS);
 		}
 		catch (RejectedExecutionException e) {
 			final int status = this.status.get();
@@ -140,7 +158,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 		// that way we save unnecessary volatile accesses for each timer
 		try {
 			return timerService.scheduleAtFixedRate(
-				new RepeatedTriggerTask(status, task, checkpointLock, callback, nextTimestamp, period),
+				new RepeatedTriggerTask(status, task, checkpointLock, callback, nextTimestamp, period, dropwizardHistogram),
 				initialDelay,
 				period,
 				TimeUnit.MILLISECONDS);
@@ -258,19 +276,22 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 		private final ProcessingTimeCallback target;
 		private final long timestamp;
 		private final AsyncExceptionHandler exceptionHandler;
+		private final com.codahale.metrics.Histogram dropwizardHistogram;
 
 		private TriggerTask(
 				final AtomicInteger serviceStatus,
 				final AsyncExceptionHandler exceptionHandler,
 				final Object lock,
 				final ProcessingTimeCallback target,
-				final long timestamp) {
+				final long timestamp,
+				com.codahale.metrics.Histogram dropwizardHistogram) {
 
 			this.serviceStatus = Preconditions.checkNotNull(serviceStatus);
 			this.exceptionHandler = Preconditions.checkNotNull(exceptionHandler);
 			this.lock = Preconditions.checkNotNull(lock);
 			this.target = Preconditions.checkNotNull(target);
 			this.timestamp = timestamp;
+			this.dropwizardHistogram = dropwizardHistogram;
 		}
 
 		@Override
@@ -280,6 +301,9 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 					if (serviceStatus.get() == STATUS_ALIVE) {
 						target.onProcessingTime(timestamp);
 					}
+
+					long latency = System.currentTimeMillis() - timestamp;
+					dropwizardHistogram.update(latency);
 				} catch (Throwable t) {
 					TimerException asyncException = new TimerException(t);
 					exceptionHandler.handleAsyncException("Caught exception while processing timer.", asyncException);
@@ -300,6 +324,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 		private final AsyncExceptionHandler exceptionHandler;
 
 		private long nextTimestamp;
+		private final com.codahale.metrics.Histogram dropwizardHistogram;
 
 		private RepeatedTriggerTask(
 				final AtomicInteger serviceStatus,
@@ -307,7 +332,8 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 				final Object lock,
 				final ProcessingTimeCallback target,
 				final long nextTimestamp,
-				final long period) {
+				final long period,
+				com.codahale.metrics.Histogram dropwizardHistogram) {
 
 			this.serviceStatus = Preconditions.checkNotNull(serviceStatus);
 			this.lock = Preconditions.checkNotNull(lock);
@@ -316,6 +342,7 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 			this.exceptionHandler = Preconditions.checkNotNull(exceptionHandler);
 
 			this.nextTimestamp = nextTimestamp;
+			this.dropwizardHistogram = dropwizardHistogram;
 		}
 
 		@Override
@@ -325,6 +352,9 @@ public class SystemProcessingTimeService extends ProcessingTimeService {
 					if (serviceStatus.get() == STATUS_ALIVE) {
 						target.onProcessingTime(nextTimestamp);
 					}
+
+					long latency = System.currentTimeMillis() - nextTimestamp;
+					dropwizardHistogram.update(latency);
 
 					nextTimestamp += period;
 				} catch (Throwable t) {

@@ -404,7 +404,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
 				ThreadFactory timerThreadFactory = new DispatcherThreadFactory(TRIGGER_THREAD_GROUP,
 					"Time Trigger for " + getName(), getUserCodeClassLoader());
 
-				timerService = new SystemProcessingTimeService(this, getCheckpointLock(), timerThreadFactory);
+				timerService = new SystemProcessingTimeService(this, getCheckpointLock(), timerThreadFactory, getEnvironment().getMetricGroup());
 			}
 
 			operatorChain = new OperatorChain<>(this, recordWriters);
