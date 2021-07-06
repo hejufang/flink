@@ -18,7 +18,16 @@
 
 package org.apache.flink.runtime.checkpoint;
 
+import org.apache.flink.runtime.state.IncrementalKeyedStateHandlePlaceHolder;
+import org.apache.flink.runtime.state.StateUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.DataInputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * This class wraps a {@link OperatorSubtaskState} instance from a historical checkpoint. This won't be
@@ -29,6 +38,7 @@ import java.io.DataInputStream;
  * on {@link org.apache.flink.runtime.checkpoint.savepoint.SavepointV2Serializer#deserializeSubtaskState(DataInputStream)}.
  */
 public class OperatorSubtaskStatePlaceHolder extends OperatorSubtaskState {
+	private static final Logger LOG = LoggerFactory.getLogger(OperatorSubtaskStatePlaceHolder.class);
 
 	private static final long serialVersionUID = -2391234597971923995L;
 
@@ -41,6 +51,25 @@ public class OperatorSubtaskStatePlaceHolder extends OperatorSubtaskState {
 
 	@Override
 	public void discardState() {
-		// do nothing
+		try {
+			List<IncrementalKeyedStateHandlePlaceHolder> toDisposedManagedState = getManagedKeyedState()
+				.stream()
+				.filter(keyedStateHandle -> keyedStateHandle instanceof IncrementalKeyedStateHandlePlaceHolder)
+				.map(keyedStateHandle -> (IncrementalKeyedStateHandlePlaceHolder) keyedStateHandle)
+				.collect(Collectors.toList());
+
+			List<IncrementalKeyedStateHandlePlaceHolder> toDisposedRawState = getRawKeyedState()
+				.stream()
+				.filter(keyedStateHandle -> keyedStateHandle instanceof IncrementalKeyedStateHandlePlaceHolder)
+				.map(keyedStateHandle -> (IncrementalKeyedStateHandlePlaceHolder) keyedStateHandle)
+				.collect(Collectors.toList());
+
+			List<IncrementalKeyedStateHandlePlaceHolder> toDispose = new ArrayList<>(toDisposedManagedState);
+			toDispose.addAll(toDisposedRawState);
+
+			StateUtil.bestEffortDiscardAllStateObjects(toDispose);
+		} catch (Exception e) {
+			LOG.warn("Error while discarding operator states.", e);
+		}
 	}
 }

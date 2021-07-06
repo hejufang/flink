@@ -275,7 +275,7 @@ public class IncrementalRemoteKeyedStateHandle implements IncrementalKeyedStateH
 	public IncrementalKeyedStateHandle overrideWithPlaceHolder(long checkpointId) {
 		Map<StateHandleID, StreamStateHandle> sharedState = new HashMap<>(this.sharedState.size());
 		this.sharedState.keySet().forEach(stateHandleID -> sharedState.put(stateHandleID, new PlaceholderStreamStateHandle()));
-		return new IncrementalRemoteKeyedStateHandle(
+		return new IncrementalRemoteKeyedStateHandlePlaceHolder(
 			backendIdentifier,
 			keyGroupRange,
 			checkpointId,

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.checkpoint;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.fs.local.LocalFileSystem;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -34,8 +35,17 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.operators.coordination.OperatorInfo;
 import org.apache.flink.runtime.operators.coordination.TestingOperatorInfo;
+import org.apache.flink.runtime.state.BatchStateHandle;
 import org.apache.flink.runtime.state.CheckpointStorageLocationReference;
+import org.apache.flink.runtime.state.IncrementalRemoteBatchKeyedStateHandle;
+import org.apache.flink.runtime.state.IncrementalRemoteKeyedStateHandle;
+import org.apache.flink.runtime.state.KeyGroupRange;
+import org.apache.flink.runtime.state.KeyedStateHandle;
+import org.apache.flink.runtime.state.OperatorStateHandle;
+import org.apache.flink.runtime.state.OperatorStreamStateHandle;
 import org.apache.flink.runtime.state.SharedStateRegistry;
+import org.apache.flink.runtime.state.StateHandleID;
+import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.TestingStreamStateHandle;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorage;
 import org.apache.flink.runtime.state.filesystem.FsCheckpointStorageLocation;
@@ -61,10 +71,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledFuture;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -494,6 +506,186 @@ public class PendingCheckpointTest {
 		assertTrue(handle2.isDisposed());
 	}
 
+	@Test
+	public void testOverrideTaskStateWithIncrementalRemoteKeyedStateHandle() throws Exception {
+		final SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+		final DiscardStreamStateHandle operatorStateHandle = new DiscardStreamStateHandle("test", new byte[128]);
+		final DiscardStreamStateHandle sharedStateHandle = new DiscardStreamStateHandle("shared-file", new byte[0]);
+		final DiscardStreamStateHandle privateStateHandle = new DiscardStreamStateHandle("private-file", new byte[0]);
+		final OperatorID operatorID = ACK_TASKS.get(ATTEMPT_ID).getJobVertex().getOperatorIDs().get(0).getGeneratedOperatorID();
+
+		Map<String, OperatorStateHandle.StateMetaInfo> offsetsMap = new HashMap<>();
+		offsetsMap.put("A", new OperatorStateHandle.StateMetaInfo(new long[]{0, 10, 20}, OperatorStateHandle.Mode.SPLIT_DISTRIBUTE));
+		offsetsMap.put("B", new OperatorStateHandle.StateMetaInfo(new long[]{30, 40, 50}, OperatorStateHandle.Mode.BROADCAST));
+		offsetsMap.put("C", new OperatorStateHandle.StateMetaInfo(new long[]{60, 70, 80}, OperatorStateHandle.Mode.UNION));
+		StateObjectCollection<OperatorStateHandle> managedOperatorState = StateObjectCollection.singleton(
+			new OperatorStreamStateHandle(offsetsMap, operatorStateHandle));
+
+		Map<StateHandleID, StreamStateHandle> sharedState = new HashMap<>(1);
+		sharedState.put(new StateHandleID("shared-file"), sharedStateHandle);
+		Map<StateHandleID, StreamStateHandle> privateState = new HashMap<>(1);
+		privateState.put(new StateHandleID("private-file"), privateStateHandle);
+		DiscardStreamStateHandle metaStateHandle = new DiscardStreamStateHandle("meta-file", new byte[0]);
+		IncrementalRemoteKeyedStateHandle irks = new IncrementalRemoteKeyedStateHandle(
+			UUID.randomUUID(),
+			KeyGroupRange.of(0, 1),
+			1L,
+			sharedState,
+			privateState,
+			metaStateHandle
+		);
+		StateObjectCollection<KeyedStateHandle> managedKeyedState = StateObjectCollection.singleton(irks);
+		StateObjectCollection<OperatorStateHandle> rawOperatorState = StateObjectCollection.empty();
+		StateObjectCollection<KeyedStateHandle> rawKeyedState = StateObjectCollection.empty();
+
+		OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState(managedOperatorState, rawOperatorState, managedKeyedState, rawKeyedState);
+		Map<OperatorID, OperatorSubtaskState> operatorStates = new HashMap<>(1);
+		operatorStates.put(operatorID, operatorSubtaskState);
+		TaskStateSnapshot stateSnapshot = new TaskStateSnapshot(operatorStates);
+
+		final PendingCheckpoint pendingCheckpoint = createPendingCheckpoint(
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Executors.directExecutor(),
+			2L);
+		pendingCheckpoint.acknowledgeTask(ATTEMPT_ID, stateSnapshot, new CheckpointMetrics());
+		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
+		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
+
+		final PendingCheckpoint failedPendingCheckpoint = createPendingCheckpoint(
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Executors.directExecutor(),
+			3L);
+		failedPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
+		failedPendingCheckpoint.abort(CheckpointFailureReason.JOB_FAILURE);
+
+		checkArgument(!operatorStateHandle.isDiscarded());
+		checkArgument(!sharedStateHandle.isDiscarded());
+		checkArgument(!privateStateHandle.isDiscarded());
+		checkArgument(!metaStateHandle.isDiscarded());
+
+		final PendingCheckpoint successPendingCheckpoint = createPendingCheckpoint(
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Executors.directExecutor(),
+			4L);
+		successPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
+		sharedStateRegistry.registerAll(successPendingCheckpoint.getOperatorStates().values());
+		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint();
+		completedCheckpoint1.discardOnSubsume();
+
+		checkArgument(!operatorStateHandle.isDiscarded());
+		checkArgument(!sharedStateHandle.isDiscarded());
+		checkArgument(!privateStateHandle.isDiscarded());
+		checkArgument(!metaStateHandle.isDiscarded());
+
+		completedCheckpoint.discardOnSubsume();
+		checkArgument(operatorStateHandle.isDiscarded());
+		checkArgument(sharedStateHandle.isDiscarded());
+		checkArgument(privateStateHandle.isDiscarded());
+		// In fact, the discard method of meta-file is not called,
+		// but it is directly deleted along with the 'chk-' directory.
+		checkArgument(!metaStateHandle.isDiscarded());
+	}
+
+	@Test
+	public void testOverrideTaskStateWithIncrementalRemoteBatchKeyedStateHandle() throws Exception {
+		final SharedStateRegistry sharedStateRegistry = new SharedStateRegistry();
+		final DiscardStreamStateHandle operatorStateHandle = new DiscardStreamStateHandle("test", new byte[128]);
+		final DiscardStreamStateHandle delegateBatchStateHandle = new DiscardStreamStateHandle("shared-file", new byte[0]);
+		final BatchStateHandle sharedStateHandle = new BatchStateHandle(
+			delegateBatchStateHandle,
+			new StateHandleID[0],
+			new Tuple2[0],
+			new StateHandleID("shared-file"));
+		final DiscardStreamStateHandle privateStateHandle = new DiscardStreamStateHandle("private-file", new byte[0]);
+		final OperatorID operatorID = ACK_TASKS.get(ATTEMPT_ID).getJobVertex().getOperatorIDs().get(0).getGeneratedOperatorID();
+
+		Map<String, OperatorStateHandle.StateMetaInfo> offsetsMap = new HashMap<>();
+		offsetsMap.put("A", new OperatorStateHandle.StateMetaInfo(new long[]{0, 10, 20}, OperatorStateHandle.Mode.SPLIT_DISTRIBUTE));
+		offsetsMap.put("B", new OperatorStateHandle.StateMetaInfo(new long[]{30, 40, 50}, OperatorStateHandle.Mode.BROADCAST));
+		offsetsMap.put("C", new OperatorStateHandle.StateMetaInfo(new long[]{60, 70, 80}, OperatorStateHandle.Mode.UNION));
+		StateObjectCollection<OperatorStateHandle> managedOperatorState = StateObjectCollection.singleton(
+			new OperatorStreamStateHandle(offsetsMap, operatorStateHandle));
+
+		Map<StateHandleID, StreamStateHandle> sharedState = new HashMap<>(1);
+		sharedState.put(new StateHandleID("shared-file"), sharedStateHandle);
+		Map<StateHandleID, StreamStateHandle> privateState = new HashMap<>(1);
+		privateState.put(new StateHandleID("private-file"), privateStateHandle);
+		DiscardStreamStateHandle metaStateHandle = new DiscardStreamStateHandle("meta-file", new byte[0]);
+		IncrementalRemoteBatchKeyedStateHandle irbks = new IncrementalRemoteBatchKeyedStateHandle(
+			UUID.randomUUID(),
+			KeyGroupRange.of(0, 1),
+			1L,
+			sharedState,
+			privateState,
+			metaStateHandle,
+			Collections.emptyMap(),
+			0L
+		);
+		StateObjectCollection<KeyedStateHandle> managedKeyedState = StateObjectCollection.singleton(irbks);
+
+		StateObjectCollection<OperatorStateHandle> rawOperatorState = StateObjectCollection.empty();
+		StateObjectCollection<KeyedStateHandle> rawKeyedState = StateObjectCollection.empty();
+
+		OperatorSubtaskState operatorSubtaskState = new OperatorSubtaskState(managedOperatorState, rawOperatorState, managedKeyedState, rawKeyedState);
+		Map<OperatorID, OperatorSubtaskState> operatorStates = new HashMap<>(1);
+		operatorStates.put(operatorID, operatorSubtaskState);
+		TaskStateSnapshot stateSnapshot = new TaskStateSnapshot(operatorStates);
+
+		final PendingCheckpoint pendingCheckpoint = createPendingCheckpoint(
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Executors.directExecutor(),
+			2L);
+		pendingCheckpoint.acknowledgeTask(ATTEMPT_ID, stateSnapshot, new CheckpointMetrics());
+		sharedStateRegistry.registerAll(pendingCheckpoint.getOperatorStates().values());
+		CompletedCheckpoint completedCheckpoint = pendingCheckpoint.finalizeCheckpoint();
+
+		final PendingCheckpoint failedPendingCheckpoint = createPendingCheckpoint(
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Executors.directExecutor(),
+			3L);
+		failedPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
+		failedPendingCheckpoint.abort(CheckpointFailureReason.JOB_FAILURE);
+
+		checkArgument(!operatorStateHandle.isDiscarded());
+		checkArgument(!delegateBatchStateHandle.isDiscarded());
+		checkArgument(!privateStateHandle.isDiscarded());
+		checkArgument(!metaStateHandle.isDiscarded());
+
+		final PendingCheckpoint successPendingCheckpoint = createPendingCheckpoint(
+			CheckpointProperties.forCheckpoint(CheckpointRetentionPolicy.NEVER_RETAIN_AFTER_TERMINATION),
+			Collections.emptyList(),
+			Collections.emptyList(),
+			Executors.directExecutor(),
+			4L);
+		successPendingCheckpoint.overrideTaskStates(ATTEMPT_ID, stateSnapshot, 2L, false);
+		sharedStateRegistry.registerAll(successPendingCheckpoint.getOperatorStates().values());
+		CompletedCheckpoint completedCheckpoint1 = successPendingCheckpoint.finalizeCheckpoint();
+		completedCheckpoint1.discardOnSubsume();
+
+		checkArgument(!operatorStateHandle.isDiscarded());
+		checkArgument(!delegateBatchStateHandle.isDiscarded());
+		checkArgument(!privateStateHandle.isDiscarded());
+		checkArgument(!metaStateHandle.isDiscarded());
+
+		completedCheckpoint.discardOnSubsume();
+		checkArgument(operatorStateHandle.isDiscarded());
+		checkArgument(delegateBatchStateHandle.isDiscarded());
+		checkArgument(privateStateHandle.isDiscarded());
+		// In fact, the discard method of meta-file is not called,
+		// but it is directly deleted along with the 'chk-' directory.
+		checkArgument(!metaStateHandle.isDiscarded());
+	}
+
 	// ------------------------------------------------------------------------
 
 	private PendingCheckpoint createPendingCheckpoint(CheckpointProperties props) throws IOException {
@@ -541,21 +733,31 @@ public class PendingCheckpointTest {
 			Collection<String> masterStateIdentifiers,
 			Executor executor) throws IOException {
 
+		return createPendingCheckpoint(props, operatorCoordinators, masterStateIdentifiers, executor, 0L);
+	}
+
+	private PendingCheckpoint createPendingCheckpoint(
+		CheckpointProperties props,
+		Collection<OperatorID> operatorCoordinators,
+		Collection<String> masterStateIdentifiers,
+		Executor executor,
+		long checkpointId) throws IOException {
+
 		final Path checkpointDir = new Path(tmpFolder.newFolder().toURI());
 		final FsCheckpointStorage.CheckpointWriteFileStatistic currentPeriodStatistic = new FsCheckpointStorage.CheckpointWriteFileStatistic();
 		final FsCheckpointStorageLocation location = new FsCheckpointStorageLocation(
-				LocalFileSystem.getSharedInstance(),
-				checkpointDir, checkpointDir, checkpointDir,
-				CheckpointStorageLocationReference.getDefault(),
-				1024,
-				4096,
-				currentPeriodStatistic);
+			LocalFileSystem.getSharedInstance(),
+			checkpointDir, checkpointDir, checkpointDir,
+			CheckpointStorageLocationReference.getDefault(),
+			1024,
+			4096,
+			currentPeriodStatistic);
 
 		final Map<ExecutionAttemptID, ExecutionVertex> ackTasks = new HashMap<>(ACK_TASKS);
 
 		return new PendingCheckpoint(
 			new JobID(),
-			0,
+			checkpointId,
 			1,
 			ackTasks,
 			operatorCoordinators,
@@ -624,6 +826,26 @@ public class PendingCheckpointTest {
 		@Override
 		public SimpleVersionedSerializer<String> createCheckpointDataSerializer() {
 			return new StringSerializer();
+		}
+	}
+
+	private static class DiscardStreamStateHandle extends ByteStreamStateHandle {
+		private static final long serialVersionUID = 1L;
+
+		private boolean discarded = false;
+
+		public DiscardStreamStateHandle(String handleName, byte[] data) {
+			super(handleName, data);
+		}
+
+		@Override
+		public void discardState() {
+			super.discardState();
+			discarded = true;
+		}
+
+		public boolean isDiscarded() {
+			return discarded;
 		}
 	}
 }
