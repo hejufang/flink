@@ -22,7 +22,9 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.runtime.state.internal.InternalListState;
 import org.apache.flink.table.api.dataview.ListView;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -54,7 +56,20 @@ public abstract class StateListView<N, T> extends ListView<T> implements StateDa
 
 	@Override
 	public boolean remove(T value) throws Exception {
-		List<T> list = (List<T>) getListState().get();
+		Iterable<T> iterable = getListState().get();
+		if (iterable == null) {
+			// ListState.get() may return null according to the Javadoc.
+			return false;
+		}
+
+		// the getListState().get() not always returns List object
+		// copy values to ArrayList for removing
+		Iterator<T> iterator = iterable.iterator();
+		List<T> list = new ArrayList<>();
+		while (iterator.hasNext()) {
+			list.add(iterator.next());
+		}
+
 		boolean success = list.remove(value);
 		if (success) {
 			getListState().update(list);
