@@ -357,6 +357,20 @@ public class SystemProcessingTimeServiceTest extends TestLogger {
 		Assert.assertTrue(timerFinished.get());
 	}
 
+	@Test
+	public void testGetProcessingTimeDelay() {
+		long currentTimestamp = System.currentTimeMillis();
+		long processingTimestampWithNoLag = currentTimestamp;
+		long delayTimeWithNoLag = ProcessingTimeServiceUtil.getProcessingTimeDelay(processingTimestampWithNoLag, currentTimestamp);
+
+		Assert.assertEquals(1L, delayTimeWithNoLag);
+
+		long processingTimestampWithLag = currentTimestamp - 10L;
+		long delayTimeWithLag = ProcessingTimeServiceUtil.getProcessingTimeDelay(processingTimestampWithLag, currentTimestamp);
+
+		Assert.assertEquals(0L, delayTimeWithLag);
+	}
+
 	private static SystemProcessingTimeService createSystemProcessingTimeService(CompletableFuture<Throwable> errorFuture) {
 		Preconditions.checkArgument(!errorFuture.isDone());
 

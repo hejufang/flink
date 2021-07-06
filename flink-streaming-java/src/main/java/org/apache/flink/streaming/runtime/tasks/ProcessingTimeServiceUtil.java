@@ -39,6 +39,6 @@ public class ProcessingTimeServiceUtil {
 		// delay the firing of the timer by 1 ms to align the semantics with watermark. A watermark
 		// T says we won't see elements in the future with a timestamp smaller or equal to T.
 		// With processing time, we therefore need to delay firing the timer by one ms.
-		return Math.max(processingTimestamp - currentTimestamp, 0) + 1;
+		return Math.max(processingTimestamp - currentTimestamp, -1) + 1;
 	}
 }
