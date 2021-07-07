@@ -239,6 +239,12 @@ public class PipelineOptions {
 			.withDescription("Operator chaining allows non-shuffle operations to be co-located in the same thread " +
 				"fully avoiding serialization and de-serialization.");
 
+	public static final ConfigOption<Boolean> ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT =
+		key("pipeline.all-vertices-in-same-slot-sharing-group-by-default")
+			.booleanType()
+			.defaultValue(true)
+			.withDescription("Whether to put all vertices into the same slot sharing group by default.");
+
 	public static final ConfigOption<List<String>> CACHED_FILES =
 		key("pipeline.cached-files")
 			.stringType()

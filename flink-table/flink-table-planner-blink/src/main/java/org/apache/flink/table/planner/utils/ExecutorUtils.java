@@ -32,6 +32,9 @@ import org.apache.flink.table.api.TableConfig;
 
 import java.util.List;
 
+import static org.apache.flink.configuration.PipelineOptions.ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT;
+import static org.apache.flink.table.api.config.ExecutionConfigOptions.TABLE_EXEC_USE_OLAP_MODE;
+
 /**
  * Utility class to generate StreamGraph and set properties for batch.
  */
@@ -76,14 +79,25 @@ public class ExecutorUtils {
 	public static void setBatchProperties(StreamGraph streamGraph, TableConfig tableConfig) {
 		streamGraph.getStreamNodes().forEach(
 				sn -> sn.setResources(ResourceSpec.UNKNOWN, ResourceSpec.UNKNOWN));
-		streamGraph.setChaining(true);
-		streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(false);
-		streamGraph.setScheduleMode(ScheduleMode.LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST);
+		boolean useOlapMode = tableConfig.getConfiguration().get(TABLE_EXEC_USE_OLAP_MODE);
+		if (useOlapMode) {
+			// We do not overwrite vertices chaining here, so it will depend on the value of
+			// PipelineOptions.OPERATOR_CHAINING in dynamic configurations.
+			boolean useTheSameSlotSharingGroup =
+				tableConfig.getConfiguration().get(ALL_VERTICES_IN_SAME_SLOT_SHARING_GROUP_BY_DEFAULT);
+			streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(useTheSameSlotSharingGroup);
+			streamGraph.setScheduleMode(ScheduleMode.EAGER);
+			streamGraph.setGlobalDataExchangeMode(GlobalDataExchangeMode.ALL_EDGES_PIPELINED);
+		} else {
+			streamGraph.setChaining(true);
+			streamGraph.setAllVerticesInSameSlotSharingGroupByDefault(false);
+			streamGraph.setScheduleMode(ScheduleMode.LAZY_FROM_SOURCES_WITH_BATCH_SLOT_REQUEST);
+			streamGraph.setGlobalDataExchangeMode(getGlobalDataExchangeMode(tableConfig));
+		}
 		streamGraph.setStateBackend(null);
 		if (streamGraph.getCheckpointConfig().isCheckpointingEnabled()) {
 			throw new IllegalArgumentException("Checkpoint is not supported for batch jobs.");
 		}
-		streamGraph.setGlobalDataExchangeMode(getGlobalDataExchangeMode(tableConfig));
 	}
 
 	private static boolean isShuffleModeAllBlocking(TableConfig tableConfig) {

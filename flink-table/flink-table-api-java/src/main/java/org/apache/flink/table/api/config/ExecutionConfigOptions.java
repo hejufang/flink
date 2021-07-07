@@ -305,6 +305,15 @@ public class ExecutionConfigOptions {
 						"Pipelined shuffle means data will be sent to consumer tasks once produced.")
 					.build());
 
+	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH)
+	public static final ConfigOption<Boolean> TABLE_EXEC_USE_OLAP_MODE =
+		key("table.exec.use-olap-mode")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription("Specifies whether to use OLAP mode, this is an sub-mode in batch" +
+				" mode, we overwrite some configurations like vertices chaining and slot sharing" +
+				" in this mode.");
+
 	@Documentation.TableOption(execMode = Documentation.ExecMode.BATCH_STREAMING)
 	public static final ConfigOption<Boolean> TABLE_EXEC_VALIDATE_BEFORE_EXEC =
 		key("table.exec.validate-before-execute")
