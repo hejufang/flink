@@ -430,6 +430,7 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint_20210220
   cluster.evenly-spread-out-slots: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.enabled: true
 
 quaga:
   dc: cn
