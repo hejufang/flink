@@ -283,10 +283,6 @@ public abstract class SchedulerBase implements SchedulerNG {
 				// check whether we can restore from a savepoint
 				tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings());
 			}
-
-			if (jobMasterConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
-				tryRestoreExecutionGraphFromSavepoint(newExecutionGraph, jobGraph.getSavepointRestoreSettings());
-			}
 		}
 
 		return newExecutionGraph;

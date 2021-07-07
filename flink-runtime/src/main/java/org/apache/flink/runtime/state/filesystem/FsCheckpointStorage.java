@@ -614,4 +614,9 @@ public class FsCheckpointStorage extends AbstractFsCheckpointStorage {
 			LOG.info("Checkpoint path {} not found.", checkpointPath);
 		}
 	}
+
+	@Override
+	public void renameNamespaceDirectory(String targetName) throws IOException {
+		fileSystem.rename(checkpointsDirectory, new Path(checkpointsDirectory.getParent(), targetName));
+	}
 }

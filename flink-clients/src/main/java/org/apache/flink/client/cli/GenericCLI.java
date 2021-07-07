@@ -25,6 +25,7 @@ import org.apache.flink.configuration.DeploymentOptionsInternal;
 import org.apache.flink.configuration.UnmodifiableConfiguration;
 import org.apache.flink.core.execution.DefaultExecutorServiceLoader;
 import org.apache.flink.core.execution.PipelineExecutor;
+import org.apache.flink.util.FlinkException;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 import org.apache.flink.shaded.org.apache.commons.cli.Option;
@@ -107,6 +108,11 @@ public class GenericCLI implements CustomCommandLine {
 		baseOptions.addOption(executorOption);
 		baseOptions.addOption(targetOption);
 		baseOptions.addOption(dynamicProperties);
+	}
+
+	@Override
+	public Configuration getEffectiveConfiguration(CommandLine commandLine) throws FlinkException {
+		return applyCommandLineOptionsToConfiguration(commandLine);
 	}
 
 	@Override

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.util;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
@@ -537,6 +538,14 @@ public class ZooKeeperUtils {
 				completedCheckpointStore.clearAllCheckpoints();
 			}
 		}
+	}
+
+	@VisibleForTesting
+	public static String generateCheckpointsPath(Configuration configuration, String jobName) {
+		Path checkpointsPath = new Path(configuration.getString(HighAvailabilityOptions.HA_ZOOKEEPER_CHECKPOINTS_PATH));
+		String namespace = createNamespace(configuration, jobName);
+		checkpointsPath = new Path(checkpointsPath, jobName);
+		return (new Path(namespace, checkpointsPath)).getPath();
 	}
 
 	/**

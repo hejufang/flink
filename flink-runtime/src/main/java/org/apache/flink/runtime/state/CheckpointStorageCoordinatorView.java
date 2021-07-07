@@ -88,6 +88,8 @@ public interface CheckpointStorageCoordinatorView {
 
 	default void clearCheckpointPointers(int checkpointID) throws IOException { }
 
+	default void renameNamespaceDirectory(String targetName) throws IOException {}
+
 	/**
 	 * Initializes the necessary prerequisites for storage locations of checkpoints/savepoints.
 	 *

@@ -23,12 +23,12 @@ import org.apache.flink.client.deployment.DefaultClusterClientServiceLoader;
 import org.apache.flink.client.program.PackagedProgram;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.jobgraph.SavepointRestoreSettings;
+import org.apache.flink.runtime.metrics.MetricRegistryImpl;
 
 import org.apache.flink.shaded.org.apache.commons.cli.CommandLine;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -53,7 +53,7 @@ public class CliFrontendRunTest extends CliFrontendTestBase {
 		CliFrontendTestUtils.restoreSystemOut();
 	}
 
-	@Ignore
+	@Test
 	public void testRun() throws Exception {
 		final Configuration configuration = getConfiguration();
 
@@ -209,6 +209,16 @@ public class CliFrontendRunTest extends CliFrontendTestBase {
 			final ExecutionConfigAccessor executionConfigAccessor = ExecutionConfigAccessor.fromConfiguration(configuration);
 			assertEquals(isDetached, executionConfigAccessor.getDetachedMode());
 			assertEquals(expectedParallelism, executionConfigAccessor.getParallelism());
+		}
+
+		@Override
+		public String[] setJobName(String[] args) throws CliArgsException {
+			return args;
+		}
+
+		@Override
+		public MetricRegistryImpl createMetricRegistry(Configuration config) {
+			return null;
 		}
 	}
 }
