@@ -421,6 +421,7 @@ quoka:
   checkpoint.hdfs.prefix: hdfs://hdfsvip/home/byte_flink_checkpoint
   bytedance.streaming.yarn.gang-scheduler.container-descheduler.enable: true
   metrics.reporter.databus_reporter.warehouse.channel: flink_dw_metrics
+  ipv6.enabled: true
 
 quaga:
   dc: cn
