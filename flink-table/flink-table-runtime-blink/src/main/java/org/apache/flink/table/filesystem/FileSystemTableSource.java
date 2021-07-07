@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.filesystem;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -69,7 +70,8 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 		SupportsProjectionPushDown {
 
 	private final DecodingFormat<DeserializationSchema<RowData>> decodingFormat;
-	private int[][] projectedFields;
+	// Nested projection push down is not supported yet.
+	private int[] projectedFields;
 	private List<Map<String, String>> remainingPartitions;
 	private List<ResolvedExpression> filters;
 	private Long limit;
@@ -79,11 +81,12 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 			DecodingFormat<DeserializationSchema<RowData>> decodingFormat) {
 		super(context);
 		this.decodingFormat = decodingFormat;
+		this.projectedFields = IntStream.range(0, schema.getFieldCount()).toArray();
 	}
 
 	private FileSystemTableSource(
 			DynamicTableFactory.Context context,
-			int[][] projectedFields,
+			int[] projectedFields,
 			List<Map<String, String>> remainingPartitions,
 			List<ResolvedExpression> filters,
 			Long limit,
@@ -167,7 +170,7 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 
 				@Override
 				public int[] getProjectFields() {
-					return readFields();
+					return projectedFields;
 				}
 
 				@Override
@@ -212,7 +215,8 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 
 	@Override
 	public void applyProjection(int[][] projectedFields) {
-		this.projectedFields = projectedFields;
+		this.projectedFields = Arrays.stream(projectedFields)
+			.mapToInt(array -> this.projectedFields[array[0]]).toArray();
 	}
 
 	@Override
@@ -244,18 +248,12 @@ public class FileSystemTableSource extends AbstractFileSystemTable implements
 		return map;
 	}
 
-	private int[] readFields() {
-		return projectedFields == null ?
-			IntStream.range(0, schema.getFieldCount()).toArray() :
-			Arrays.stream(projectedFields).mapToInt(array -> array[0]).toArray();
-	}
-
-	private DataType getProducedDataType() {
-		int[] fields = readFields();
+	@VisibleForTesting
+	protected DataType getProducedDataType() {
 		String[] schemaFieldNames = schema.getFieldNames();
 		DataType[] schemaTypes = schema.getFieldDataTypes();
 
-		return DataTypes.ROW(Arrays.stream(fields)
+		return DataTypes.ROW(Arrays.stream(projectedFields)
 			.mapToObj(i -> DataTypes.FIELD(schemaFieldNames[i], schemaTypes[i]))
 			.toArray(DataTypes.Field[]::new))
 			.bridgedTo(RowData.class);

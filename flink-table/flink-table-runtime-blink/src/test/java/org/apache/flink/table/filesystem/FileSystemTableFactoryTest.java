@@ -140,7 +140,7 @@ public class FileSystemTableFactoryTest {
 		Assert.fail("Should fail by ValidationException.");
 	}
 
-	private static DynamicTableSource createSource(DescriptorProperties properties) {
+	protected static DynamicTableSource createSource(DescriptorProperties properties) {
 		return FactoryUtil.createTableSource(
 			null,
 			ObjectIdentifier.of("mycatalog", "mydb", "mytable"),
