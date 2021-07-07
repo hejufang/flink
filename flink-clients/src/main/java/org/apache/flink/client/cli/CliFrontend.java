@@ -1020,13 +1020,16 @@ public class CliFrontend {
 		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobName);
 
 		if (checkpointStorage.findCompletedCheckpointPointerV2().size() > 0) {
-			throw new IllegalStateException(String.format("Namespace %s exists! Please switch to a new namespace.", savepointPath));
+			final String namespace = effectiveConfiguration.get(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
+			throw new IllegalStateException(String.format("Namespace %s exists! Please switch to a new namespace.", namespace));
 		}
 
 		CheckpointMetadata savepointMeta = loadSavepointMetadata(savepointPath);
 
 		CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(savepointMeta.getCheckpointId());
 
+		LOG.info("Write savepoint metadata in {} and refer to {}.",
+			savepointMetaInCheckpointDirLocation.getMetadataFilePath().getPath(), savepointPath);
 		try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
 			Checkpoints.storeSavepointSimpleMetadata(new SavepointSimpleMetadata(savepointMeta.getCheckpointId(), savepointPath), out);
 			out.closeAndFinalizeCheckpoint();
