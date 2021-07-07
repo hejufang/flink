@@ -610,7 +610,7 @@ sloth:
   dashboard.data_source: bytetsd_alisg
   dtop.data_source: dtop_alisg
   dtop.database: dtop_alisg
-  smart-resources.service-name: data.inf.sr_estimater.service.alisg
+  smart-resources.service-name: data.inf.sr_estimater.service.sg1
   kafka_server_url: http://kafka-config-sg.byted.org
   log4j.appender.databus.channel: yarn_container_level_log_sg
   docker.server: image-manager.byted.org
