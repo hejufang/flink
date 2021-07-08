@@ -1,0 +1,104 @@
+{
+    "jobVertices":[
+        {
+            "id":"20ba6b65f97481d5570070de90e4e791",
+            "parallelism":4,
+            "name":"WatermarkAssigner_ro -> Calc_select_id_num_ -> LookupJoin_table_def -> Calc_select_id_desc_ -> Sink_Sink_table_defa",
+            "inputs":[
+                {
+                    "id":"bc764cd8ddf7a0cff126f51c16239658",
+                    "shipStrategy":"RESCALE"
+                }
+            ],
+            "containedNodes":[
+                "e834c3c9ea1286ee4e42c32ae9911d36",
+                "73792860d7a3caa2210a7f6479a9da8b",
+                "b8a0447102f8cff5279761acb499c996",
+                "cdf5528fc65ae6b8b6b126cfdfcc40dd",
+                "20ba6b65f97481d5570070de90e4e791"
+            ]
+        },
+        {
+            "id":"bc764cd8ddf7a0cff126f51c16239658",
+            "parallelism":1,
+            "name":"Source_TableSourceSc",
+            "containedNodes":[
+                "bc764cd8ddf7a0cff126f51c16239658"
+            ]
+        }
+    ],
+    "streamNodes":[
+        {
+            "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
+            "name":"Source_TableSourceSc",
+            "uid":"bc764cd8ddf7a0cff126f51c16239658",
+            "description":"Source: TableSourceScan(table=[[default_catalog, default_database, source1]], fields=[id, name, num, eventtime])",
+            "parallelism":1
+        },
+        {
+            "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
+            "name":"WatermarkAssigner_ro",
+            "uid":"20ba6b65f97481d5570070de90e4e791",
+            "description":"WatermarkAssigner(rowtime=[eventtime], watermark=[(eventtime - 5000:INTERVAL SECOND)])",
+            "parallelism":4,
+            "inputs":[
+                {
+                    "nodeDesc":"bc764cd8ddf7a0cff126f51c16239658",
+                    "shipStrategy":"RESCALE"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+            "name":"Calc_select_id_num_",
+            "uid":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+            "description":"Calc(select=[id, num])",
+            "parallelism":4,
+            "inputs":[
+                {
+                    "nodeDesc":"20ba6b65f97481d5570070de90e4e791",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"b8a0447102f8cff5279761acb499c996",
+            "name":"LookupJoin_table_def",
+            "uid":"b8a0447102f8cff5279761acb499c996",
+            "description":"LookupJoin(table=[default_catalog.default_database.dim], joinType=[InnerJoin], async=[false], lookup=[id=id], select=[id, num, id0, desc])",
+            "parallelism":4,
+            "inputs":[
+                {
+                    "nodeDesc":"cdf5528fc65ae6b8b6b126cfdfcc40dd",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"73792860d7a3caa2210a7f6479a9da8b",
+            "name":"Calc_select_id_desc_",
+            "uid":"73792860d7a3caa2210a7f6479a9da8b",
+            "description":"Calc(select=[id, desc, num])",
+            "parallelism":4,
+            "inputs":[
+                {
+                    "nodeDesc":"b8a0447102f8cff5279761acb499c996",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        },
+        {
+            "nodeDesc":"e834c3c9ea1286ee4e42c32ae9911d36",
+            "name":"Sink_Sink_table_defa",
+            "uid":"e834c3c9ea1286ee4e42c32ae9911d36",
+            "description":"Sink: Sink(table=[default_catalog.default_database.sink], fields=[id, name, num])",
+            "parallelism":4,
+            "inputs":[
+                {
+                    "nodeDesc":"73792860d7a3caa2210a7f6479a9da8b",
+                    "shipStrategy":"FORWARD"
+                }
+            ]
+        }
+    ]
+}
