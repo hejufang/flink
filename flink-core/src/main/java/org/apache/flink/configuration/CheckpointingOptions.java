@@ -285,4 +285,9 @@ public class CheckpointingOptions {
 		.key("state.savepoint.location-prefix")
 		.noDefaultValue()
 		.withDescription("HDFS path prefix for detach savepoint and periodic savepoint");
+
+	public static final ConfigOption<String> RESTORE_SAVEPOINT_PATH = ConfigOptions
+			.key("checkpoint.restore-savepoint-path")
+			.noDefaultValue()
+			.withDescription("The path of savepoint.");
 }

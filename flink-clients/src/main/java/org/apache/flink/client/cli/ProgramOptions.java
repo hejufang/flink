@@ -63,7 +63,7 @@ public abstract class ProgramOptions extends CommandLineOptions {
 
 	private final boolean shutdownOnAttachedExit;
 
-	private final SavepointRestoreSettings savepointSettings;
+	private SavepointRestoreSettings savepointSettings;
 
 	/**
 	 * Flag indicating whether the job is a Python job.
@@ -212,6 +212,10 @@ public abstract class ProgramOptions extends CommandLineOptions {
 
 	public SavepointRestoreSettings getSavepointRestoreSettings() {
 		return savepointSettings;
+	}
+
+	public void setSavepointSettings(String path, boolean allowNonRestoredState) {
+		this.savepointSettings = CliFrontendParser.createSavepointRestoreSettings(path, allowNonRestoredState);
 	}
 
 	/**

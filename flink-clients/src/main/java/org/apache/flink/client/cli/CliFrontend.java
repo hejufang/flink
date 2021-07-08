@@ -57,6 +57,8 @@ import org.apache.flink.optimizer.plan.StreamingPlan;
 import org.apache.flink.optimizer.plandump.PlanJSONDumpGenerator;
 import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.checkpoint.Checkpoints;
+import org.apache.flink.runtime.checkpoint.savepoint.SavepointV2;
+import org.apache.flink.runtime.checkpoint.savepoint.simple_savepoint.SavepointSimpleMetadata;
 import org.apache.flink.runtime.client.JobStatusMessage;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobStatus;
@@ -69,8 +71,12 @@ import org.apache.flink.runtime.metrics.messages.WarehouseJobStartEventMessage;
 import org.apache.flink.runtime.metrics.util.MetricUtils;
 import org.apache.flink.runtime.security.SecurityConfiguration;
 import org.apache.flink.runtime.security.SecurityUtils;
+import org.apache.flink.runtime.state.CheckpointMetadataOutputStream;
 import org.apache.flink.runtime.state.CheckpointStorage;
+import org.apache.flink.runtime.state.CheckpointStorageLocation;
+import org.apache.flink.runtime.state.CompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.ZooKeeperUtils;
 import org.apache.flink.util.ExceptionUtils;
@@ -83,8 +89,10 @@ import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
@@ -229,6 +237,19 @@ public class CliFrontend {
 
 		final CustomCommandLine<?> customCommandLine = getActiveCustomCommandLine(commandLine);
 		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
+
+		final String jobName = System.getProperty(ConfigConstants.JOB_NAME_KEY);
+		if (effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH) != null) {
+			runOptions.setSavepointSettings(
+					effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH),
+					effectiveConfiguration.getBoolean(CheckpointingOptions.ALLOW_NON_RESTORED_STATE)
+			);
+			// remove this config in case of JM failover
+			final String savepointPath = effectiveConfiguration.getString(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			effectiveConfiguration.removeConfig(CheckpointingOptions.RESTORE_SAVEPOINT_PATH);
+			initializeCheckpointNamespaceDirectory(customCommandLine, commandLine, jobName, savepointPath);
+		}
+
 		metricRegistry = createMetricRegistry(effectiveConfiguration);
 		clientMetricGroup = createClientMetricGroup(metricRegistry, effectiveConfiguration);
 		registerMetrics();
@@ -259,11 +280,50 @@ public class CliFrontend {
 		System.exit(exitCode);
 	}
 
-	/**
-	 * Factory method to create the metric registry for the mini cluster.
-	 *
-	 * @param config The configuration of the mini cluster
-	 */
+	private void initializeCheckpointNamespaceDirectory(
+			CustomCommandLine customCommandLine,
+			CommandLine commandLine,
+			String jobName,
+			String savepointPath) throws Exception {
+
+		JobID jobID = JobID.generate();
+		Configuration effectiveConfiguration = customCommandLine.getEffectiveConfiguration(commandLine);
+
+		final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+		StateBackend stateBackend = Checkpoints.loadStateBackend(effectiveConfiguration, classLoader, LOG);
+		CheckpointStorage checkpointStorage = stateBackend.createCheckpointStorage(jobID, jobName);
+
+		if (checkpointStorage.findCompletedCheckpointPointerV2().size() > 0) {
+			final String namespace = effectiveConfiguration.getString(CheckpointingOptions.CHECKPOINTS_NAMESPACE);
+			throw new IllegalStateException(String.format("Namespace %s exists! Please switch to a new namespace.", namespace));
+		}
+
+		SavepointV2 savepointMeta = loadSavepointMetadata(savepointPath);
+
+		CheckpointStorageLocation savepointMetaInCheckpointDirLocation = checkpointStorage.initializeLocationForSavepointMetaInCheckpointDir(savepointMeta.getCheckpointId());
+
+		LOG.info("Write savepoint metadata in {} and refer to {}.",
+				savepointMetaInCheckpointDirLocation.getMetadataFilePath().getPath(), savepointPath);
+		try (CheckpointMetadataOutputStream out = savepointMetaInCheckpointDirLocation.createMetadataOutputStream()) {
+			Checkpoints.storeSavepointSimpleMetadata(new SavepointSimpleMetadata(savepointMeta.getCheckpointId(), savepointPath), out);
+			out.closeAndFinalizeCheckpoint();
+		}
+	}
+
+	private SavepointV2 loadSavepointMetadata(String savepointPath) throws IOException {
+		CompletedCheckpointStorageLocation location = AbstractFsCheckpointStorage
+				.resolveCheckpointPointer(savepointPath);
+
+		try (DataInputStream stream = new DataInputStream(location.getMetadataHandle().openInputStream())) {
+			return (SavepointV2) Checkpoints.loadCheckpointMetadata(stream, Thread.currentThread().getContextClassLoader());
+		}
+	}
+
+		/**
+		 * Factory method to create the metric registry for the mini cluster.
+		 *
+		 * @param config The configuration of the mini cluster
+		 */
 	protected MetricRegistryImpl createMetricRegistry(Configuration config) {
 		MetricRegistryImpl metricRegistry = new MetricRegistryImpl(
 			MetricRegistryConfiguration.fromConfiguration(config),

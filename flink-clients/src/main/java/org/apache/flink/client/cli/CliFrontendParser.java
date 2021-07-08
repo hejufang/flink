@@ -494,6 +494,10 @@ public class CliFrontendParser {
 		}
 	}
 
+	public static SavepointRestoreSettings createSavepointRestoreSettings(String path, boolean allowNonRestoredState) {
+		return SavepointRestoreSettings.forPath(path, allowNonRestoredState);
+	}
+
 	// --------------------------------------------------------------------------------------------
 	//  Line Parsing
 	// --------------------------------------------------------------------------------------------
