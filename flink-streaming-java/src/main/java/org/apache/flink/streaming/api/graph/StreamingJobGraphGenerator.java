@@ -173,6 +173,16 @@ public class StreamingJobGraphGenerator {
 		for (StreamGraphHasher hasher : legacyStreamGraphHashers) {
 			legacyHashes.add(hasher.traverseStreamGraphAndGenerateHashes(streamGraph));
 		}
+		Map<Integer, OperatorIDPair> operatorIDMap = new HashMap<>();
+		for (Map.Entry<Integer, byte[]> entry : hashes.entrySet()) {
+			for (Map<Integer, byte[]> legecyHash : legacyHashes) {
+				OperatorID userDefinedOperatorID =
+					legecyHash.containsKey(entry.getKey()) ? new OperatorID(legecyHash.get(entry.getKey())) : null;
+				operatorIDMap.put(entry.getKey(),
+					OperatorIDPair.of(new OperatorID(entry.getValue()), userDefinedOperatorID));
+			}
+		}
+		jobGraph.setOperatorIDMap(operatorIDMap);
 
 		setChaining(hashes, legacyHashes);
 

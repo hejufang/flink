@@ -962,6 +962,17 @@ public interface TableEnvironment {
 	}
 
 	/**
+	 * Generate a JSON representation of JobGraph with more information from StreamGraph, for
+	 * example, operators in jobVertices. For more detail, please refer to
+	 * https://bytedance.feishu.cn/docs/doccniwrzlgmstZcP7dEneVkpNh#GzmzLo.
+	 * @param stmt The multiple SQL statements to evaluate.
+	 * @return The JSON representation of JobGraph which also contains information from StreamGraph.
+	 */
+	default String generatePlanGraphJson(String stmt) {
+		throw new UnsupportedOperationException();
+	}
+
+	/**
 	 * Evaluates a SQL query on registered tables and retrieves the result as a {@link Table}.
 	 *
 	 * <p>All tables referenced by the query must be registered in the TableEnvironment.

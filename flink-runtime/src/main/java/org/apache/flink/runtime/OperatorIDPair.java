@@ -23,6 +23,7 @@ import org.apache.flink.runtime.jobgraph.OperatorID;
 import javax.annotation.Nullable;
 
 import java.io.Serializable;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -54,5 +55,23 @@ public class OperatorIDPair implements Serializable {
 
 	public Optional<OperatorID> getUserDefinedOperatorID() {
 		return Optional.ofNullable(userDefinedOperatorID);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (obj == this) {
+			return true;
+		} else if (obj != null && obj.getClass() == getClass()) {
+			OperatorIDPair that = (OperatorIDPair) obj;
+			return Objects.equals(that.generatedOperatorID, this.generatedOperatorID)
+				&& Objects.equals(that.userDefinedOperatorID, this.userDefinedOperatorID);
+		} else {
+			return false;
+		}
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(generatedOperatorID, userDefinedOperatorID);
 	}
 }

@@ -24,6 +24,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.OperatorIDPair;
 import org.apache.flink.runtime.blob.PermanentBlobKey;
 import org.apache.flink.runtime.jobgraph.tasks.JobCheckpointingSettings;
 import org.apache.flink.runtime.jobmanager.scheduler.SlotSharingGroup;
@@ -65,6 +66,8 @@ public class JobGraph implements Serializable {
 
 	/** List of task vertices included in this job graph. */
 	private final Map<JobVertexID, JobVertex> taskVertices = new LinkedHashMap<JobVertexID, JobVertex>();
+
+	private Map<Integer, OperatorIDPair> operatorIDMap;
 
 	/** The job configuration attached to this job. */
 	private final Configuration jobConfiguration = new Configuration();
@@ -254,6 +257,14 @@ public class JobGraph implements Serializable {
 	public void setExecutionConfig(ExecutionConfig executionConfig) throws IOException {
 		checkNotNull(executionConfig, "ExecutionConfig must not be null.");
 		this.serializedExecutionConfig = new SerializedValue<>(executionConfig);
+	}
+
+	public Map<Integer, OperatorIDPair> getOperatorIDMap() {
+		return operatorIDMap;
+	}
+
+	public void setOperatorIDMap(Map<Integer, OperatorIDPair> operatorIDMap) {
+		this.operatorIDMap = operatorIDMap;
 	}
 
 	/**

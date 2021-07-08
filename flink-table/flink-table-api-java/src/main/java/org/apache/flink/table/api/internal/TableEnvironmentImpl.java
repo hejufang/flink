@@ -26,6 +26,9 @@ import org.apache.flink.api.dag.Pipeline;
 import org.apache.flink.api.dag.Transformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.runtime.jobgraph.JobGraph;
+import org.apache.flink.streaming.api.graph.PlanJSONGenerator;
+import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.ExplainDetail;
@@ -823,6 +826,28 @@ public class TableEnvironmentImpl implements TableEnvironmentInternal {
 	public Optional<StatementSet> getStatementSetBySql(String stmt) {
 		Tuple2<Optional<TableResult>, Optional<StatementSet>> tuple2 = sqlInternal(stmt);
 		return tuple2.f1;
+	}
+
+	@Override
+	public String generatePlanGraphJson(String stmt) {
+		List<SqlNode> sqlNodes = getParser().parseToSqlNodes(stmt);
+		List<ModifyOperation> operations = new ArrayList<>();
+		for (SqlNode sqlNode : sqlNodes) {
+			Operation operation = getParser().convertSqlNodeToOperation(sqlNode);
+			if (operation instanceof ModifyOperation) {
+				operations.add((ModifyOperation) operation);
+			} else if (!(operation instanceof QueryOperation)) {
+				executeOperation(operation);
+			}
+		}
+		if (operations.isEmpty()) {
+			throw new IllegalStateException("No operators defined in streaming topology. Cannot generate Json.");
+		}
+		List<Transformation<?>> transformations = translate(operations);
+		StreamGraph streamGraph = (StreamGraph) execEnv.createPipeline(transformations, tableConfig, null);
+		JobGraph jobGraph = streamGraph.getJobGraph();
+		PlanJSONGenerator planJSONGenerator = new PlanJSONGenerator(streamGraph, jobGraph);
+		return planJSONGenerator.generatePlan();
 	}
 
 	private Tuple2<Optional<TableResult>, Optional<StatementSet>> sqlInternal(String stmt) {
