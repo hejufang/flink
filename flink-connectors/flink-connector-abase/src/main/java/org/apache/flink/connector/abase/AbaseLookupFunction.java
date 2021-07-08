@@ -80,6 +80,9 @@ public class AbaseLookupFunction extends TableFunction<RowData> {
 		if (cache != null) {
 			context.getMetricGroup().gauge("hitRate", (Gauge<Double>) () -> cache.stats().hitRate());
 		}
+		if (rateLimiter != null) {
+			rateLimiter.open(context.getRuntimeContext());
+		}
 		abaseLookupExecutor.open(context);
 		lookupRequestPerSecond = LookupMetricUtils.registerRequestsPerSecond(context.getMetricGroup());
 		lookupFailurePerSecond = LookupMetricUtils.registerFailurePerSecond(context.getMetricGroup());
