@@ -460,6 +460,21 @@ class CalcITCase extends StreamingTestBase {
   }
 
   @Test
+  def testReuseExpressionForNullableExpression(): Unit = {
+    val sqlQuery =
+      """
+        |SELECT CAST(col1 AS BIGINT) AS C1, CAST(col1 AS BIGINT) AS C2
+        |FROM (VALUES ('hello', 'world')) AS T(col1, col2)
+      """.stripMargin
+    val result = tEnv.sqlQuery(sqlQuery).toAppendStream[Row]
+    val sink = new TestingAppendSink
+    result.addSink(sink)
+    env.execute()
+    val expected = List("null,null")
+    assertEquals(expected, sink.getAppendResults)
+  }
+
+  @Test
   def testReuseExpressionThreshold(): Unit = {
     tEnv.createTemporaryFunction("my_func", new JavaUserDefinedScalarFunctions.ReusedScalarFunction)
     tEnv.getConfig.getConfiguration.setInteger(

@@ -37,7 +37,8 @@ case class GeneratedExpression(
   nullTerm: String,
   code: String,
   resultType: LogicalType,
-  literalValue: Option[Any] = None) {
+  literalValue: Option[Any] = None,
+  resultNullable: Boolean = false) {
 
   /**
     * Indicates a constant expression do not reference input and can thus be used
@@ -89,7 +90,8 @@ case class GeneratedExpression(
            |  $newResultTerm = ($typeTerm) ($serTerm.copy($newResultTerm));
            |}
         """.stripMargin
-      GeneratedExpression(newResultTerm, nullTerm, newCode, resultType, literalValue)
+      GeneratedExpression(
+        newResultTerm, nullTerm, newCode, resultType, literalValue, resultNullable)
     } else {
       this
     }

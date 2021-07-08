@@ -120,7 +120,8 @@ object GenerateUtils {
          |""".stripMargin
     }
 
-    GeneratedExpression(resultTerm, nullTerm, resultCode, returnType)
+    GeneratedExpression(
+      resultTerm, nullTerm, resultCode, returnType, resultNullable = resultNullable)
   }
 
   /**
@@ -202,7 +203,8 @@ object GenerateUtils {
     }
 
 
-    GeneratedExpression(resultTerm, nullTerm, resultCode, returnType)
+    GeneratedExpression(
+      resultTerm, nullTerm, resultCode, returnType, resultNullable = resultNullable)
   }
 
   // --------------------------- General Generate Utils ----------------------------------

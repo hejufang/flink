@@ -483,7 +483,11 @@ class ExprCodeGenerator(ctx: CodeGeneratorContext, nullableInput: Boolean)
           newNames("result", "isNull", "initialized")
         ctx.addReusablePerRecordStatement(s"$initializedTerm = false;")
         ctx.addReusableMember(s"private boolean $initializedTerm;")
-        val resultType = primitiveTypeTermForType(expr.resultType)
+        val resultType = if (expr.resultNullable) {
+          boxedTypeTermForType(expr.resultType)
+        } else {
+          primitiveTypeTermForType(expr.resultType)
+        }
         ctx.addReusableMember(s"private $resultType $resultTerm;")
         ctx.addReusableMember(s"private boolean $nullTerm;")
         val code =
