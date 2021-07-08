@@ -334,6 +334,7 @@ public class JsonRowDataSerializationSchema implements SerializationSchema<RowDa
 				node = mapper.createObjectNode();
 			} else {
 				node = (ObjectNode) reuse;
+				node.removeAll();
 			}
 
 			MapData map = (MapData) object;

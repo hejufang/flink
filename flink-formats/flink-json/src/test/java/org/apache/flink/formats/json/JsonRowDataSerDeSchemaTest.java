@@ -239,7 +239,13 @@ public class JsonRowDataSerDeSchemaTest {
 		RowType rowType = (RowType) ROW(
 			FIELD("f1", INT()),
 			FIELD("f2", BOOLEAN()),
-			FIELD("f3", STRING())
+			FIELD("f3", STRING()),
+			FIELD("f4", MAP(STRING(), STRING())),
+			FIELD("f5", ARRAY(STRING())),
+			FIELD("f6", ROW(
+				FIELD("f61", STRING()),
+				FIELD("f62", INT()),
+				FIELD("f63", MAP(STRING(), STRING()))))
 		).getLogicalType();
 
 		JsonRowDataDeserializationSchema deserializationSchema = new JsonRowDataDeserializationSchema(
@@ -254,6 +260,15 @@ public class JsonRowDataSerDeSchemaTest {
 			root.put("f1", 1);
 			root.put("f2", true);
 			root.put("f3", "str");
+			ObjectNode map = root.putObject("f4");
+			map.put("hello1", "flink");
+			ArrayNode array = root.putArray("f5");
+			array.add("element1");
+			array.add("element2");
+			ObjectNode row = root.putObject("f6");
+			row.put("f61", "this is row1");
+			row.put("f62", 12);
+			row.putObject("f63").put("rowmap1", "rowmap1");
 			byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 			RowData rowData = deserializationSchema.deserialize(serializedJson);
 			byte[] actual = serializationSchema.serialize(rowData);
@@ -266,6 +281,15 @@ public class JsonRowDataSerDeSchemaTest {
 			root.put("f1", 10);
 			root.put("f2", false);
 			root.put("f3", "newStr");
+			ObjectNode map = root.putObject("f4");
+			map.put("hello2", "json");
+			ArrayNode array = root.putArray("f5");
+			array.add("element3");
+			array.add("element4");
+			ObjectNode row = root.putObject("f6");
+			row.put("f61", "this is row2");
+			row.putNull("f62");
+			row.putNull("f63");
 			byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 			RowData rowData = deserializationSchema.deserialize(serializedJson);
 			byte[] actual = serializationSchema.serialize(rowData);
