@@ -25,7 +25,6 @@ import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.transformations.SinkTransformation;
 import org.apache.flink.streaming.connectors.kafka.internals.KeyedSerializationSchemaWrapper;
-import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkFixedPartitioner;
 import org.apache.flink.streaming.connectors.kafka.partitioner.FlinkKafkaPartitioner;
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema;
 
@@ -53,13 +52,23 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	 */
 	private boolean writeTimestampToKafka = false;
 
+	/**
+	 * Time interval for updating partitions for kafka topic.
+	 * */
+	private static final long TIME_INTERVAL = 60 * 1000;
+
+	/**
+	 * Last timestamp for updating partitions for kafka topic.
+	 * */
+	private long lastUpdateTimestamp = -1;
+
 	// ---------------------- Regular constructors------------------
 
 	/**
 	 * Creates a FlinkKafkaProducer for a given topic. The sink produces a DataStream to
 	 * the topic.
 	 *
-	 * <p>Using this constructor, the default {@link FlinkFixedPartitioner} will be used as
+	 * <p>Using this constructor, the default {@link BatchRandomPartitioner} will be used as
 	 * the partitioner. This default partitioner maps each sink subtask to a single Kafka
 	 * partition (i.e. all records received by a sink subtask will end up in the same
 	 * Kafka partition).
@@ -75,14 +84,14 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	 * 			User defined key-less serialization schema.
 	 */
 	public FlinkKafkaProducer010(String brokerList, String topicId, SerializationSchema<T> serializationSchema) {
-		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), getPropertiesFromBrokerList(brokerList), new FlinkFixedPartitioner<T>());
+		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), getPropertiesFromBrokerList(brokerList), null);
 	}
 
 	/**
 	 * Creates a FlinkKafkaProducer for a given topic. the sink produces a DataStream to
 	 * the topic.
 	 *
-	 * <p>Using this constructor, the default {@link FlinkFixedPartitioner} will be used as
+	 * <p>Using this constructor, the default {@link BatchRandomPartitioner} will be used as
 	 * the partitioner. This default partitioner maps each sink subtask to a single Kafka
 	 * partition (i.e. all records received by a sink subtask will end up in the same
 	 * Kafka partition).
@@ -98,7 +107,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	 * 			Properties with the producer configuration.
 	 */
 	public FlinkKafkaProducer010(String topicId, SerializationSchema<T> serializationSchema, Properties producerConfig) {
-		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, new FlinkFixedPartitioner<T>());
+		this(topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, null);
 	}
 
 	/**
@@ -131,7 +140,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	 * Creates a FlinkKafkaProducer for a given topic. The sink produces a DataStream to
 	 * the topic.
 	 *
-	 * <p>Using this constructor, the default {@link FlinkFixedPartitioner} will be used as
+	 * <p>Using this constructor, the default {@link BatchRandomPartitioner} will be used as
 	 * the partitioner. This default partitioner maps each sink subtask to a single Kafka
 	 * partition (i.e. all records received by a sink subtask will end up in the same
 	 * Kafka partition).
@@ -147,14 +156,14 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	 * 			User defined serialization schema supporting key/value messages
 	 */
 	public FlinkKafkaProducer010(String brokerList, String topicId, KeyedSerializationSchema<T> serializationSchema) {
-		this(topicId, serializationSchema, getPropertiesFromBrokerList(brokerList), new FlinkFixedPartitioner<T>());
+		this(topicId, serializationSchema, getPropertiesFromBrokerList(brokerList), null);
 	}
 
 	/**
 	 * Creates a FlinkKafkaProducer for a given topic. The sink produces a DataStream to
 	 * the topic.
 	 *
-	 * <p>Using this constructor, the default {@link FlinkFixedPartitioner} will be used as
+	 * <p>Using this constructor, the default {@link BatchRandomPartitioner} will be used as
 	 * the partitioner. This default partitioner maps each sink subtask to a single Kafka
 	 * partition (i.e. all records received by a sink subtask will end up in the same
 	 * Kafka partition).
@@ -170,7 +179,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 	 * 			Properties with the producer configuration.
 	 */
 	public FlinkKafkaProducer010(String topicId, KeyedSerializationSchema<T> serializationSchema, Properties producerConfig) {
-		this(topicId, serializationSchema, producerConfig, new FlinkFixedPartitioner<T>());
+		this(topicId, serializationSchema, producerConfig, null);
 	}
 
 	/**
@@ -233,7 +242,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 																					String topicId,
 																					KeyedSerializationSchema<T> serializationSchema,
 																					Properties producerConfig) {
-		return writeToKafkaWithTimestamps(inStream, topicId, serializationSchema, producerConfig, new FlinkFixedPartitioner<T>());
+		return writeToKafkaWithTimestamps(inStream, topicId, serializationSchema, producerConfig, null);
 	}
 
 	/**
@@ -255,7 +264,7 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 																					String topicId,
 																					SerializationSchema<T> serializationSchema,
 																					Properties producerConfig) {
-		return writeToKafkaWithTimestamps(inStream, topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, new FlinkFixedPartitioner<T>());
+		return writeToKafkaWithTimestamps(inStream, topicId, new KeyedSerializationSchemaWrapper<>(serializationSchema), producerConfig, null);
 	}
 
 	/**
@@ -309,7 +318,9 @@ public class FlinkKafkaProducer010<T> extends FlinkKafkaProducerBase<T> {
 
 		ProducerRecord<byte[], byte[]> record;
 		int[] partitions = topicPartitionsMap.get(targetTopic);
-		if (null == partitions) {
+		long currentTime = System.currentTimeMillis();
+		if (null == partitions || currentTime - lastUpdateTimestamp > TIME_INTERVAL) {
+			lastUpdateTimestamp = currentTime;
 			partitions = getPartitionsByTopic(targetTopic, producer);
 			topicPartitionsMap.put(targetTopic, partitions);
 		}
