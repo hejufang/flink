@@ -18,19 +18,31 @@
 
 package org.apache.flink.runtime.state.cache.memory;
 
+import org.apache.flink.runtime.state.cache.CacheEntryKey;
+import org.apache.flink.runtime.state.cache.CacheEntryValue;
+
 import java.io.IOException;
 
 /**
- * Interface to estimate the memory size of state.
+ * An abstract class for estimating the memory size of cache elements.
  */
-public interface MemoryEstimator<K, V> {
-	/**
-	 * Update estimated memory size.
-	 */
-	void updateEstimatedSize(K key, V value) throws IOException;
+public abstract class AbstractMemoryEstimator<K, N, S> implements MemoryEstimator<CacheEntryKey<K, N>, CacheEntryValue<S>> {
 
-	/**
-	 * Return the estimated size.
-	 */
-	long getEstimatedSize();
+	private long keySize;
+	private long valueSize;
+
+	@Override
+	public void updateEstimatedSize(CacheEntryKey<K, N> key, CacheEntryValue<S> value) throws IOException {
+		this.keySize = sizeOfKey(key);
+		this.valueSize = sizeOfValue(value);
+	}
+
+	@Override
+	public long getEstimatedSize() {
+		return keySize + valueSize;
+	}
+
+	protected abstract long sizeOfKey(CacheEntryKey<K, N> key) throws IOException;
+
+	protected abstract long sizeOfValue(CacheEntryValue<S> value) throws IOException;
 }
