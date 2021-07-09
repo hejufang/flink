@@ -24,6 +24,8 @@ STARTSTOP=$1
 
 ARGS=("${@:2}")
 
+export BSERVICE_psm="inf.bytehtap.flink_standalone_cluster"
+
 if [[ $STARTSTOP != "start" ]] && [[ $STARTSTOP != "start-foreground" ]] && [[ $STARTSTOP != "stop" ]] && [[ $STARTSTOP != "stop-all" ]]; then
   echo $USAGE
   exit 1
