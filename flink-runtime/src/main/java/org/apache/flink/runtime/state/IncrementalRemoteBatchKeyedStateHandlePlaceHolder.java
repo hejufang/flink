@@ -32,6 +32,8 @@ import java.util.UUID;
 public class IncrementalRemoteBatchKeyedStateHandlePlaceHolder extends IncrementalRemoteBatchKeyedStateHandle implements IncrementalKeyedStateHandlePlaceHolder {
 	private static final Logger LOG = LoggerFactory.getLogger(IncrementalRemoteBatchKeyedStateHandlePlaceHolder.class);
 
+	private static final long serialVersionUID = -1995167909164353967L;
+
 	public IncrementalRemoteBatchKeyedStateHandlePlaceHolder(
 			UUID backendIdentifier,
 			KeyGroupRange keyGroupRange,
