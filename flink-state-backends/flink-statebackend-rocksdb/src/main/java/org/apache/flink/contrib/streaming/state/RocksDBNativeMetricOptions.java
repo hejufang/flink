@@ -182,6 +182,12 @@ public class RocksDBNativeMetricOptions implements Serializable {
 		.defaultValue(false)
 		.withDescription("Whether to expose the column family as a variable.");
 
+	public static final ConfigOption<Boolean> CFSTATS_NO_FILE_HISTOGRAM = ConfigOptions
+		.key(RocksDBProperty.CfstatsNoFileHistogram.getConfigKey())
+		.booleanType()
+		.defaultValue(false)
+		.withDescription("dump cfstats property from RocksDB");
+
 	/**
 	 * Creates a {@link RocksDBNativeMetricOptions} based on an
 	 * external configuration.
@@ -288,8 +294,13 @@ public class RocksDBNativeMetricOptions implements Serializable {
 			options.enableBlockCachePinnedUsage();
 		}
 
+		if (config.get(CFSTATS_NO_FILE_HISTOGRAM)) {
+			options.enableCfstatsNoFileHistogram();
+		}
+
 		options.setColumnFamilyAsVariable(config.get(COLUMN_FAMILY_AS_VARIABLE));
 		options.setAnalyzeRocksdbMetrics(config.get(RocksDBOptions.MONIT_ROCKSDB_RUNNING_STATUS));
+		options.setCfstatsDumpInterval(config.get(RocksDBOptions.MONIT_ROCKSDB_CFSTATS_DUMP_INTERVAL));
 
 		return options;
 	}
@@ -297,6 +308,7 @@ public class RocksDBNativeMetricOptions implements Serializable {
 	private Set<String> properties;
 	private boolean columnFamilyAsVariable = COLUMN_FAMILY_AS_VARIABLE.defaultValue();
 	private boolean analyzeRocksdbMetrics;
+	private long cfstatsDumpInterval;
 
 	public RocksDBNativeMetricOptions() {
 		this.properties = new HashSet<>();
@@ -483,6 +495,10 @@ public class RocksDBNativeMetricOptions implements Serializable {
 		this.properties.add(RocksDBProperty.BlockCachePinnedUsage.getRocksDBProperty());
 	}
 
+	public void enableCfstatsNoFileHistogram() {
+		this.properties.add(RocksDBProperty.CfstatsNoFileHistogram.getRocksDBProperty());
+	}
+
 	/**
 	 * Returns the column family as variable.
 	 */
@@ -525,7 +541,15 @@ public class RocksDBNativeMetricOptions implements Serializable {
 		return analyzeRocksdbMetrics;
 	}
 
+	public long getCfstatsDumpInterval() {
+		return cfstatsDumpInterval;
+	}
+
 	public void setAnalyzeRocksdbMetrics(boolean analyzeRocksdbMetrics) {
 		this.analyzeRocksdbMetrics = analyzeRocksdbMetrics;
+	}
+
+	public void setCfstatsDumpInterval(long cfstatsDumpInterval) {
+		this.cfstatsDumpInterval = cfstatsDumpInterval;
 	}
 }

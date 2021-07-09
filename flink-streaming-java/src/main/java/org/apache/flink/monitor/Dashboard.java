@@ -66,6 +66,8 @@ public class Dashboard {
 	private static final String STATE_OP_RATE_TEMPLATE = "state_operation_rate_template.txt";
 	private static final String STATE_MEMORY_SIZE_TEMPLATE = "state_memory_size_template.txt";
 	private static final String STATE_TOTAL_SIZE_TEMPLATE = "state_total_size_template.txt";
+	private static final String STATE_COMPACTION_FLUSH_TEMPLATE = "state_compaction_flush_template.txt";
+	private static final String STATE_WRITE_STALL_TEMPLATE = "state_write_stall_template.txt";
 
 	private String clusterName;
 	private String jobName;
@@ -268,6 +270,8 @@ public class Dashboard {
 		String stateOpRateTemplate = null;
 		String stateMemorySizeTemplate = null;
 		String stateTotalSizeTemplate = null;
+		String stateCompactionFlushTemplate = null;
+		String stateWriteStallTemplate = null;
 		try {
 			operatorStateTemplate = renderFromResource(OPERATOR_STATE_PERFORMANCE_TEMPLATE);
 			keyValueSizeTemplate = renderFromResource(STATE_KEY_VALUE_SIZE_TEMPLATE);
@@ -275,6 +279,8 @@ public class Dashboard {
 			stateOpRateTemplate = renderFromResource(STATE_OP_RATE_TEMPLATE);
 			stateMemorySizeTemplate = renderFromResource(STATE_MEMORY_SIZE_TEMPLATE);
 			stateTotalSizeTemplate = renderFromResource(STATE_TOTAL_SIZE_TEMPLATE);
+			stateCompactionFlushTemplate = renderFromResource(STATE_COMPACTION_FLUSH_TEMPLATE);
+			stateWriteStallTemplate = renderFromResource(STATE_WRITE_STALL_TEMPLATE);
 		} catch (IOException e) {
 			LOG.error("Fail to render checkpoint metrics.", e);
 			return "";
@@ -289,6 +295,8 @@ public class Dashboard {
 		List<String> targets4 = new ArrayList<>();
 		List<String> targets5 = new ArrayList<>();
 		List<String> targets6 = new ArrayList<>();
+		List<String> targets7 = new ArrayList<>();
+		List<String> targets8 = new ArrayList<>();
 
 		for (String operator : operators) {
 			checkpointValues.put("operator", operator);
@@ -300,6 +308,8 @@ public class Dashboard {
 			targets4.add(renderString(stateOpRateTemplate, checkpointValues));
 			targets5.add(renderString(stateMemorySizeTemplate, checkpointValues));
 			targets6.add(renderString(stateTotalSizeTemplate, checkpointValues));
+			targets7.add(renderString(stateCompactionFlushTemplate, checkpointValues));
+			targets8.add(renderString(stateWriteStallTemplate, checkpointValues));
 		}
 		checkpointValues.put("targets1", String.join(",", targets1));
 		checkpointValues.put("targets2", String.join(",", targets2));
@@ -307,6 +317,8 @@ public class Dashboard {
 		checkpointValues.put("targets4", String.join(",", targets4));
 		checkpointValues.put("targets5", String.join(",", targets5));
 		checkpointValues.put("targets6", String.join(",", targets6));
+		checkpointValues.put("targets7", String.join(",", targets7));
+		checkpointValues.put("targets8", String.join(",", targets8));
 		return renderString(operatorStateTemplate, checkpointValues);
 	}
 

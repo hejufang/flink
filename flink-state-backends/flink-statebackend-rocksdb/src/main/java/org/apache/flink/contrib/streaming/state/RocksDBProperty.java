@@ -56,7 +56,8 @@ public enum RocksDBProperty {
 	IsWriteStopped("is-write-stopped"),
 	BlockCacheCapacity("block-cache-capacity"),
 	BlockCacheUsage("block-cache-usage"),
-	BlockCachePinnedUsage("block-cache-pinned-usage");
+	BlockCachePinnedUsage("block-cache-pinned-usage"),
+	CfstatsNoFileHistogram("cfstats-no-file-histogram");
 
 	private static final String ROCKS_DB_PROPERTY_FORMAT = "rocksdb.%s";
 

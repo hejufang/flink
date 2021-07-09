@@ -24,6 +24,8 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
+import static org.apache.flink.contrib.streaming.state.RocksDBProperty.CfstatsNoFileHistogram;
+
 
 /**
  * Validate RocksDB properties.
@@ -39,6 +41,10 @@ public class RocksDBPropertyTest {
 		ColumnFamilyHandle handle = rocksDBResource.getDefaultColumnFamily();
 
 		for (RocksDBProperty property : RocksDBProperty.values()) {
+			if (property.equals(CfstatsNoFileHistogram)) {
+				continue;
+			}
+
 			try {
 				db.getLongProperty(handle, property.getRocksDBProperty());
 			} catch (RocksDBException e) {

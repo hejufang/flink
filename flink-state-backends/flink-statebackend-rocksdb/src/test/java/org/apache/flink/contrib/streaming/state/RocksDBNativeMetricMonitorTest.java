@@ -34,6 +34,7 @@ import org.rocksdb.ColumnFamilyHandle;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Map;
 
 /**
  * validate native metric monitor.
@@ -158,6 +159,44 @@ public class RocksDBNativeMetricMonitorTest {
 		view.update();
 
 		Assert.assertEquals("Closed gauge still queried RocksDB", BigInteger.ZERO, view.getValue());
+	}
+
+	@Test
+	public void testParseCfStatsStringProperty() {
+		String cfstats = "** Compaction Stats [default] **\n" +
+			"Level    Files   Size     Score Read(GB)  Rn(GB) Rnp1(GB) Write(GB) Wnew(GB) Moved(GB) W-Amp Rd(MB/s) Wr(MB/s) Comp(sec) Comp(cnt) Avg(sec) KeyIn KeyDrop\n" +
+			"----------------------------------------------------------------------------------------------------------------------------------------------------------\n" +
+			"  L0      2/0   21.87 KB   0.7      0.0     0.0      0.0       0.0      0.0       0.0   1.0      0.0     18.2         0         5    0.001       0      0\n" +
+			"  L1      1/0   30.47 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   1.0     51.8     49.7         0         1    0.001      32      2\n" +
+			" Sum      3/0   52.33 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   1.6      8.9     23.6         0         6    0.001      32      2\n" +
+			" Int      0/0    0.00 KB   0.0      0.0     0.0      0.0       0.0      0.0       0.0   2.4     18.3     30.2         0         3    0.001      32      2\n" +
+			"Stalls(count): 1 level0_slowdown, 2 level0_slowdown_with_compaction, 3 level0_numfiles, 4 level0_numfiles_with_compaction, 5 stop for pending_compaction_bytes, 6 slowdown for pending_compaction_bytes, 7 memtable_compaction, 8 memtable_slowdown, interval 9 total count";
+		Map<String, String> mapCfstat = RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.parseCfstatsProperty(cfstats);
+		Map<String, Long> mapCfstatInt = RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.transferValueInMapProperty(mapCfstat);
+
+		Assert.assertEquals(mapCfstat.get("compaction.L0.CompCount"), "5");
+		Assert.assertEquals(mapCfstat.get("compaction.L1.CompCount"), "1");
+		Assert.assertEquals(mapCfstat.get("compaction.Sum.CompCount"), "6");
+
+		Assert.assertEquals(mapCfstatInt.get("compaction.L0.CompCount").longValue(), 5L);
+		Assert.assertEquals(mapCfstatInt.get("compaction.L1.CompCount").longValue(), 1L);
+		Assert.assertEquals(mapCfstatInt.get("compaction.Sum.CompCount").longValue(), 6L);
+
+		Assert.assertEquals(mapCfstat.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.Level0Slowdown.getLabel())), "1");
+		Assert.assertEquals(mapCfstat.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.Level0Numfiles.getLabel())), "3");
+		Assert.assertEquals(mapCfstat.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.MemtableSlowdown.getLabel())), "8");
+		Assert.assertEquals(mapCfstat.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.MemtableCompaction.getLabel())), "7");
+		Assert.assertEquals(mapCfstat.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.SlowForPendingCompactionBytes.getLabel())), "6");
+		Assert.assertEquals(mapCfstat.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.StopForPendingCompactionBytes.getLabel())), "5");
+
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.Level0Slowdown.getLabel())).longValue(), 1L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.Level0Numfiles.getLabel())).longValue(), 3L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.MemtableSlowdown.getLabel())).longValue(), 8L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.MemtableCompaction.getLabel())).longValue(), 7L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.SlowForPendingCompactionBytes.getLabel())).longValue(), 6L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.StopForPendingCompactionBytes.getLabel())).longValue(), 5L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.TotalSlowdown.getLabel())).longValue(), 15L);
+		Assert.assertEquals(mapCfstatInt.get(String.format("io_stalls.%s", RocksDBNativeMetricMonitor.RocksDBStringPropertyUtils.WriteStallLabelAndIndex.TotalStop.getLabel())).longValue(), 15L);
 	}
 
 	static class SimpleMetricRegistry implements MetricRegistry {

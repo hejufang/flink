@@ -164,4 +164,11 @@ public class RocksDBOptions {
 		.withDescription(String.format(
 			"If this value is set to true, statistics information of rocksdb will be collected periodically and " +
 				"reported as metric."));
+
+	public static final ConfigOption<Long> MONIT_ROCKSDB_CFSTATS_DUMP_INTERVAL = ConfigOptions
+		.key("state.backend.rocksdb.monit.cfstats.dump.interval")
+		.longType()
+		.defaultValue(60000L)
+		.withDescription(String.format(
+			"Interval of calling getProperty(\"cfstat\") to dump some metrics about compaction and flush"));
 }

@@ -215,6 +215,7 @@ non-global:
         stateMaxOpLatency,
         stateAverageOpRate,
         stateTotalSize,
+        stateMetricsOfCompactionFlush,
       # cep
         numLateRecordsDropped,
         numLateRecordsOutput,
