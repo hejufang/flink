@@ -31,6 +31,8 @@ import java.util.UUID;
 public class IncrementalRemoteKeyedStateHandlePlaceHolder extends IncrementalRemoteKeyedStateHandle {
 	private static final Logger LOG = LoggerFactory.getLogger(IncrementalRemoteKeyedStateHandlePlaceHolder.class);
 
+	private static final long serialVersionUID = 4370904381472444555L;
+
 	public IncrementalRemoteKeyedStateHandlePlaceHolder(
 			UUID backendIdentifier,
 			KeyGroupRange keyGroupRange,
