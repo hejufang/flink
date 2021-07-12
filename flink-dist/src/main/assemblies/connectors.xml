@@ -154,12 +154,5 @@ under the License.
 			<destName>flink-connector-abase-${project.version}.jar</destName>
 			<fileMode>0644</fileMode>
 		</file>
-
-		<file>
-			<source>../flink-connectors/flink-sql-connector-bytetable/target/flink-sql-connector-bytetable_${scala.binary.version}-${project.version}.jar</source>
-			<outputDirectory>connectors/</outputDirectory>
-			<destName>flink-sql-connector-bytetable_${scala.binary.version}-${project.version}.jar</destName>
-			<fileMode>0644</fileMode>
-		</file>
 	</files>
 </assembly>
