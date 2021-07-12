@@ -1,0 +1,39 @@
+name: Flink 1.11 CI ATLAS
+trigger:
+  change:
+    branches: [ "flink-1.11" ]
+jobs:
+  build:
+    image: hub.byted.org/yarn/flink_bet_maven:d2a30895a84daad65a4171985fd64440
+    steps:
+      - uses: actions/checkout@v1
+        inputs:
+          depth: 1
+      - name: setup ssh
+        commands:
+          - apt update
+          - DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-client || echo failed to install ssh
+          - command -v ssh
+      - id: checksum
+        uses: actions/checksum@v1
+        inputs:
+          paths:
+            - pom.xml
+      - id: cache
+        uses: actions/cache
+        inputs:
+          key: maven-${{Steps.checksum.Outputs.hash}}
+          paths:
+            - /home/tiger/.m2/repository  # m2 对应的目录
+          restore_keys:
+            - maven-${{Steps.checksum.Outputs.hash}}
+            - maven-
+      # - uses: actions/setup-proxy
+      - name: build
+        commands:
+          - sudo -u tiger mkdir -p /home/tiger/.m2
+          - cp -f /opt/settings.xml /home/tiger/.m2/settings.xml
+          - chmod -R a+w ./*
+          - chown -R tiger ./*
+          - chown -R tiger /home/tiger/
+          - sudo -u tiger /bin/bash ./build_local.sh
