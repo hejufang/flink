@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.state.cache;
 
+import java.util.Objects;
+
 /**
  * The data structure of the value stored in the cache.
  */
@@ -40,5 +42,23 @@ public class CacheEntryValue<V> {
 
 	public void setDirty(boolean dirty) {
 		isDirty = dirty;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		CacheEntryValue<?> that = (CacheEntryValue<?>) o;
+		return isDirty == that.isDirty &&
+			Objects.equals(value, that.value);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(value, isDirty);
 	}
 }

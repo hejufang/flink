@@ -16,31 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.state.cache;
+package org.apache.flink.runtime.state.cache.sync;
 
-import org.apache.flink.runtime.state.internal.InternalKvState;
-
-import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Synchronize data with the underlying state.
  */
-public abstract class DataSynchronizer<K, N, V> {
-	private final InternalKvState<K, N, V> delegateState;
-
-	public DataSynchronizer(InternalKvState<K, N, V> delegateState) {
-		this.delegateState = delegateState;
-	}
+public interface DataSynchronizer<K, V> {
 
 	/** Save the data to the underlying state. */
-	public abstract void saveState(K key, V value) throws IOException;
+	void saveState(K key, V value) throws Exception;
 
 	/** Load the data from the underlying state. */
-	public abstract V loadState(K key) throws IOException;
+	@Nullable
+	V loadState(K key) throws Exception;
 
 	/** Remove the data from the underlying state. */
-	public abstract void removeState(K key) throws IOException;
+	void removeState(K key) throws Exception;
 
 	/** Flush all pending data to the underlying state. */
-	public abstract void flush(boolean force) throws IOException;
+	void flush(boolean force) throws Exception;
 }
