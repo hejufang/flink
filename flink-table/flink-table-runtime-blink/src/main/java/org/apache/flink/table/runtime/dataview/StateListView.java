@@ -56,12 +56,20 @@ public abstract class StateListView<N, T> extends ListView<T> implements StateDa
 
 	@Override
 	public boolean remove(T value) throws Exception {
-		Iterator<T> iterator = getListState().get().iterator();
+		Iterable<T> iterable = getListState().get();
+		if (iterable == null) {
+			// ListState.get() may return null according to the Javadoc.
+			return false;
+		}
+
+		// the getListState().get() not always returns List object
+		// copy values to ArrayList for removing
+		Iterator<T> iterator = iterable.iterator();
 		List<T> list = new ArrayList<>();
 		while (iterator.hasNext()) {
-			T it = iterator.next();
-			list.add(it);
+			list.add(iterator.next());
 		}
+
 		boolean success = list.remove(value);
 		if (success) {
 			getListState().update(list);
